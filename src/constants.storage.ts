@@ -1,16 +1,16 @@
-import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
-import type { AIProviders } from './constants.ai';
-import type { IntegrationIds } from './constants.integrations';
-import type { SubscriptionState } from './constants.subscription';
-import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
-import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views';
-import type { Environment } from './container';
-import type { FeaturePreviews } from './features';
-import type { GitRevisionRangeNotation } from './git/models/revision';
-import type { OrganizationSettings } from './plus/gk/models/organization';
-import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
-import type { IntegrationConnectedKey } from './plus/integrations/models/integration';
-import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
+import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
+import type { AIProviders } from './constants.ai.js';
+import type { IntegrationIds } from './constants.integrations.js';
+import type { SubscriptionState } from './constants.subscription.js';
+import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
+import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views.js';
+import type { Environment } from './container.js';
+import type { FeaturePreviews } from './features.js';
+import type { GitRevisionRangeNotation } from './git/models/revision.js';
+import type { OrganizationSettings } from './plus/gk/models/organization.js';
+import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
+import type { IntegrationConnectedKey } from './plus/integrations/models/integration.js';
+import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
 
 export type SecretKeys =
 	| IntegrationAuthenticationKeys
@@ -28,6 +28,8 @@ export const enum SyncedStorageKeys {
 }
 
 export type DeprecatedGlobalStorage = {
+	/** @deprecated */
+	'confirm:ai:generateRebase': boolean;
 	/** @deprecated use `confirm:ai:tos` */
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
@@ -62,10 +64,9 @@ export type DeprecatedGlobalStorage = {
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 };
 
-export type GlobalStorage = {
+interface GlobalStorageCore {
 	avatars: [string, StoredAvatar][];
 	'confirm:ai:generateCommits': boolean;
-	'confirm:ai:generateRebase': boolean;
 	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	pendingWhatsNewOnFocus: boolean;
@@ -97,27 +98,28 @@ export type GlobalStorage = {
 	'graph:useNaturalLanguageSearch': boolean;
 	'views:scm:grouped:welcome:dismissed': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
-} & { [key in `plus:preview:${FeaturePreviews}:usages`]: StoredFeaturePreviewUsagePeriod[] } & {
-	[key in `plus:organization:${string}:settings`]: Stored<
-		(OrganizationSettings & { lastValidatedAt: number }) | undefined
-	>;
-} & {
-	[key in `provider:authentication:skip:${string}`]: boolean;
-} & {
-	[key in `gk:promo:${string}:ai:allAccess:dismissed`]: boolean;
-} & {
-	[key in `gk:promo:${string}:ai:allAccess:notified`]: boolean;
-} & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
-	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
-} & { [key in `jira:${string}:organizations`]: Stored<StoredJiraOrganization[] | undefined> } & {
-	[key in `jira:${string}:projects`]: Stored<StoredJiraProject[] | undefined>;
-} & { [key in `azure:${string}:account`]: Stored<StoredAzureAccount | undefined> } & {
-	[key in `azure:${string}:organizations`]: Stored<StoredAzureOrganization[] | undefined>;
-} & {
-	[key in `azure:${string}:projects`]: Stored<StoredAzureProject[] | undefined>;
-} & { [key in `bitbucket:${string}:account`]: Stored<StoredBitbucketAccount | undefined> } & {
-	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
-} & { [key in `bitbucket-server:${string}:account`]: Stored<StoredBitbucketAccount | undefined> };
+}
+
+type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &
+	Record<
+		`plus:organization:${string}:settings`,
+		Stored<(OrganizationSettings & { lastValidatedAt: number }) | undefined>
+	> &
+	Record<`provider:authentication:skip:${string}`, boolean> &
+	Record<`gk:promo:${string}:ai:allAccess:dismissed`, boolean> &
+	Record<`gk:promo:${string}:ai:allAccess:notified`, boolean> &
+	Record<`gk:${string}:checkin`, Stored<StoredGKCheckInResponse>> &
+	Record<`gk:${string}:organizations`, Stored<StoredOrganization[]>> &
+	Record<`jira:${string}:organizations`, Stored<StoredJiraOrganization[] | undefined>> &
+	Record<`jira:${string}:projects`, Stored<StoredJiraProject[] | undefined>> &
+	Record<`azure:${string}:account`, Stored<StoredAzureAccount | undefined>> &
+	Record<`azure:${string}:organizations`, Stored<StoredAzureOrganization[] | undefined>> &
+	Record<`azure:${string}:projects`, Stored<StoredAzureProject[] | undefined>> &
+	Record<`bitbucket:${string}:account`, Stored<StoredBitbucketAccount | undefined>> &
+	Record<`bitbucket:${string}:workspaces`, Stored<StoredBitbucketWorkspace[] | undefined>> &
+	Record<`bitbucket-server:${string}:account`, Stored<StoredBitbucketAccount | undefined>>;
+
+export type GlobalStorage = GlobalStorageCore & GlobalStorageDynamic;
 
 export interface StoredGkCLIInstallInfo {
 	status: 'attempted' | 'unsupported' | 'completed';
@@ -165,7 +167,7 @@ export type DeprecatedWorkspaceStorage = {
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 };
 
-export type WorkspaceStorage = {
+interface WorkspaceStorageCore {
 	assumeRepositoriesOnStartup?: boolean;
 	'branch:comparisons': StoredBranchComparisons;
 	'confirm:ai:tos': boolean;
@@ -180,11 +182,13 @@ export type WorkspaceStorage = {
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:scm:grouped:selected': GroupableTreeViewTypes;
-} & {
-	[key in IntegrationConnectedKey]: boolean;
-} & {
-	[key in `views:${TreeViewTypes}:repositoryFilter`]: string[] | undefined;
-};
+}
+
+type WorkspaceStorageDynamic = Record<IntegrationConnectedKey, boolean> &
+	Record<`views:${TreeViewTypes}:repositoryFilter`, string[] | undefined> &
+	Record<`graph:searchHistory:${string}`, StoredGraphSearchHistory[]>;
+
+export type WorkspaceStorage = WorkspaceStorageCore & WorkspaceStorageDynamic;
 
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;
@@ -351,6 +355,17 @@ export interface StoredGraphFilters {
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
+
+export type StoredGraphSearchHistory = {
+	query: string;
+	matchAll: boolean | undefined;
+	matchCase: boolean | undefined;
+	matchRegex: boolean | undefined;
+	matchWholeWord: boolean | undefined;
+	naturalLanguage: boolean | undefined;
+	/** For NL queries, store the last known structured form to show in history */
+	nlStructuredQuery?: string;
+};
 
 export type StoredGraphSearchMode = 'normal' | 'filter';
 

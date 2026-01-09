@@ -1,10 +1,12 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
-import { debounce } from '../../../../../system/function/debounce';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
+import { splitCommitMessage } from '../../../../../git/utils/commit.utils.js';
+import { debounce } from '../../../../../system/function/debounce.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 
 @customElement('gl-commit-message')
 export class CommitMessage extends LitElement {
@@ -14,31 +16,42 @@ export class CommitMessage extends LitElement {
 	};
 
 	static override styles = [
+		scrollableBase,
 		boxSizingBase,
 		focusableBaseStyles,
 		css`
 			:host {
-				display: contents;
+				display: block;
+				position: sticky;
+				top: var(--sticky-top, 0);
+				z-index: 2;
+				background: var(--vscode-editor-background);
 			}
 
 			.commit-message {
 				max-width: 80rem;
 			}
 
-			.commit-message__text {
-				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
-				padding: 1.2rem 1.6rem;
-				font-size: 1.6rem;
-				line-height: 1.4;
-				overflow-wrap: break-word;
-				word-wrap: break-word;
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
-				background: var(--color-background);
+			.commit-message__text,
+			.commit-message__input {
+				border-radius: 0.2rem;
+				font-family: inherit;
+				font-size: 1.3rem;
+				line-height: 2rem;
 				color: var(--vscode-input-foreground);
+				-webkit-font-smoothing: auto;
+			}
+
+			.commit-message__text {
+				border: 1px solid var(--vscode-panel-border);
+				background: var(--color-background);
 				margin-block: 0;
+			}
+
+			.commit-message__text[tabindex='0']:hover {
+				border-color: color-mix(in srgb, transparent 50%, var(--vscode-input-border, #858585));
+				background: color-mix(in srgb, transparent 50%, var(--vscode-input-background, #3c3c3c));
+				cursor: text;
 			}
 
 			.commit-message__text.placeholder {
@@ -46,42 +59,79 @@ export class CommitMessage extends LitElement {
 				font-style: italic;
 			}
 
+			.commit-message__text .scrollable {
+				display: block;
+				overflow-y: auto;
+			}
+
+			.commit-message__text .scrollable,
+			.commit-message__input {
+				padding: 0.8rem 1rem;
+				min-height: 1lh;
+				max-height: 10lh;
+			}
+
+			.commit-message__summary {
+				display: block;
+			}
+
+			p.commit-message__text .scrollable .commit-message__body {
+				display: block;
+				margin-top: 0.5rem;
+				font-size: 1.15rem !important;
+				line-height: 1.8rem !important;
+				color: var(--vscode-descriptionForeground) !important;
+			}
+
 			.commit-message__field {
 				position: relative;
 			}
 
 			.commit-message__input {
-				width: 100%;
-				padding: 0.5rem;
-				font-family: inherit;
-				font-size: 1.3rem;
-				line-height: 2rem;
-				border: 1px solid var(--vscode-input-border);
-				border-radius: 0.2rem;
-				background: var(--vscode-input-background);
-				color: var(--vscode-input-foreground);
+				box-sizing: content-box;
+				width: calc(100% - 2.2rem);
+				border: 1px solid var(--vscode-input-border, #858585);
+				background: var(--vscode-input-background, #3c3c3c);
 				vertical-align: middle;
-				-webkit-font-smoothing: auto;
+				field-sizing: content;
+				resize: none;
+			}
+
+			.commit-message__input::-webkit-scrollbar {
+				width: 10px;
+			}
+
+			.commit-message__input::-webkit-scrollbar-track {
+				background: transparent;
+			}
+
+			.commit-message__input::-webkit-scrollbar-thumb {
+				background-color: transparent;
+				border-color: transparent;
+				border-right-style: inset;
+				border-right-width: calc(100vw + 100vh);
+				border-radius: unset !important;
+			}
+
+			.commit-message__input:hover::-webkit-scrollbar-thumb,
+			.commit-message__input:focus-within::-webkit-scrollbar-thumb {
+				border-color: var(--vscode-scrollbarSlider-background);
+			}
+
+			.commit-message__input::-webkit-scrollbar-thumb:hover {
+				border-color: var(--vscode-scrollbarSlider-hoverBackground);
+			}
+
+			.commit-message__input::-webkit-scrollbar-thumb:active {
+				border-color: var(--vscode-scrollbarSlider-activeBackground);
 			}
 
 			.commit-message__input:has(~ .commit-message__ai-button) {
 				padding-right: 3rem;
+				width: calc(100% - 4.2rem);
 			}
 
-			textarea.commit-message__input {
-				box-sizing: content-box;
-				width: calc(100% - 1rem);
-				resize: vertical;
-				field-sizing: content;
-				min-height: 1lh;
-				max-height: 10lh;
-				resize: none;
-			}
-			textarea.commit-message__input:has(~ .commit-message__ai-button) {
-				width: calc(100% - 3.5rem);
-			}
-
-			.has-explanation {
+			.commit-message__input.has-explanation {
 				border-bottom-left-radius: 0;
 				border-bottom-right-radius: 0;
 			}
@@ -89,6 +139,11 @@ export class CommitMessage extends LitElement {
 			.commit-message__input::placeholder {
 				color: var(--vscode-input-placeholderForeground);
 				-webkit-font-smoothing: auto;
+			}
+
+			.commit-message__input:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
 			}
 
 			.commit-message__input[aria-valid='false'] {
@@ -163,8 +218,8 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__ai-button {
 				position: absolute;
-				top: 0.3rem;
-				right: 0.3rem;
+				top: 0.5rem;
+				right: 0.7rem;
 				z-index: 1;
 			}
 		`,
@@ -178,6 +233,9 @@ export class CommitMessage extends LitElement {
 
 	@property({ type: String })
 	explanation?: string;
+
+	@property({ type: Boolean, attribute: 'ai-generated', reflect: true })
+	aiGenerated: boolean = false;
 
 	@property({ type: String, attribute: 'explanation-label' })
 	explanationLabel?: string = 'Auto-composition Summary:';
@@ -203,6 +261,9 @@ export class CommitMessage extends LitElement {
 	@state()
 	validityMessage?: string;
 
+	@state()
+	private isEditing: boolean = false;
+
 	protected override updated(changedProperties: PropertyValues): void {
 		if (changedProperties.has('message')) {
 			this.checkValidity();
@@ -210,9 +271,13 @@ export class CommitMessage extends LitElement {
 	}
 
 	override render() {
+		const messageContent = this.message ?? '';
+		const hasMessage = messageContent.trim().length > 0;
+		const shouldShowTextarea = this.editable && (!hasMessage || this.isEditing);
+
 		return html`<div class="commit-message">
 			${when(
-				this.editable,
+				shouldShowTextarea,
 				() => this.renderEditable(),
 				() => this.renderReadOnly(),
 			)}
@@ -231,7 +296,9 @@ export class CommitMessage extends LitElement {
 					rows="3"
 					aria-valid=${this.validityMessage ? 'false' : 'true'}
 					?invalid=${this.validityMessage ? 'true' : 'false'}
+					@focus=${() => (this.isEditing = true)}
 					@input=${this.onMessageInput}
+					@blur=${this.exitEditMode}
 				></textarea>
 				${this.renderHelpText()}
 				${when(
@@ -247,7 +314,9 @@ export class CommitMessage extends LitElement {
 							<code-icon
 								.icon=${this.generating ? 'loading' : 'sparkle'}
 								.modifier=${this.generating ? 'spin' : ''}
+								slot="prefix"
 							></code-icon>
+							${this.explanation || this.aiGenerated ? 'Regenerate Message' : 'Generate Message'}
 						</gl-button>`,
 					() =>
 						html`<gl-button
@@ -255,7 +324,8 @@ export class CommitMessage extends LitElement {
 							appearance="toolbar"
 							.tooltip=${this.aiDisabledReason || 'AI features are disabled'}
 						>
-							<code-icon icon="sparkle"></code-icon>
+							<code-icon icon="sparkle" slot="prefix"></code-icon>
+							${this.explanation || this.aiGenerated ? 'Regenerate Message' : 'Generate Message'}
 						</gl-button>`,
 				)}
 			</div>
@@ -267,13 +337,57 @@ export class CommitMessage extends LitElement {
 	}
 
 	private renderReadOnly() {
-		const displayMessage =
-			this.message && this.message.trim().length > 0 ? this.message : 'Draft commit (add a commit message)';
-		const isPlaceholder = !this.message || this.message.trim().length === 0;
+		const messageContent = this.message ?? '';
+		const { summary, body } = splitCommitMessage(messageContent);
+		const summaryHtml = summary.replace(/\n/g, '<br/>');
+		const bodyHtml = body ? body.replace(/\n/g, '<br/>') : '';
 
-		return html`<p id="focusable" class="commit-message__text ${isPlaceholder ? 'placeholder' : ''}">
-			${displayMessage}
-		</p>`;
+		return html`
+			<div class="commit-message__field">
+				<p
+					id="focusable"
+					class="commit-message__text${this.explanation ? ' has-explanation' : ''}"
+					@click=${this.editable ? () => this.enterEditMode() : nothing}
+					tabindex=${this.editable ? '0' : '-1'}
+				>
+					<span class="scrollable">
+						<span class="commit-message__summary">${unsafeHTML(summaryHtml)}</span>
+						${body ? html`<span class="commit-message__body">${unsafeHTML(bodyHtml)}</span>` : nothing}
+					</span>
+				</p>
+				${this.renderHelpText()}
+				${when(
+					this.editable && this.aiEnabled,
+					() =>
+						html`<gl-button
+							class="commit-message__ai-button"
+							appearance="toolbar"
+							?disabled=${this.generating}
+							.tooltip=${this.generating ? 'Generating...' : 'Generate commit message with AI'}
+							@click=${() => this.onGenerateCommitMessageClick()}
+						>
+							<code-icon
+								.icon=${this.generating ? 'loading' : 'sparkle'}
+								.modifier=${this.generating ? 'spin' : ''}
+								slot="prefix"
+							></code-icon>
+							${this.explanation || this.aiGenerated ? 'Regenerate Message' : 'Generate Message'}
+						</gl-button>`,
+					() =>
+						this.editable
+							? html`<gl-button
+									class="commit-message__ai-button"
+									appearance="toolbar"
+									.tooltip=${this.aiDisabledReason || 'AI features are disabled'}
+									disabled
+								>
+									<code-icon icon="sparkle" slot="prefix"></code-icon>
+									${this.explanation || this.aiGenerated ? 'Regenerate Message' : 'Generate Message'}
+								</gl-button>`
+							: nothing,
+				)}
+			</div>
+		`;
 	}
 
 	private renderExplanation() {
@@ -298,6 +412,17 @@ export class CommitMessage extends LitElement {
 				},
 			}),
 		);
+	}
+
+	private enterEditMode() {
+		this.isEditing = true;
+		void this.updateComplete.then(() => {
+			this.focusableElement?.focus();
+		});
+	}
+
+	private exitEditMode() {
+		this.isEditing = false;
 	}
 
 	private onMessageInput(event: InputEvent) {

@@ -1,33 +1,33 @@
 import type { CancellationToken, Uri } from 'vscode';
 import { window } from 'vscode';
-import type { Container } from '../../../../container';
-import type { GitCache } from '../../../../git/cache';
-import { GitErrorHandling } from '../../../../git/commandOptions';
-import { StashApplyError, StashApplyErrorReason } from '../../../../git/errors';
-import type { GitStashSubProvider } from '../../../../git/gitProvider';
-import type { GitStashCommit, GitStashParentInfo } from '../../../../git/models/commit';
-import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
-import { GitFileChange } from '../../../../git/models/fileChange';
-import type { GitFileStatus } from '../../../../git/models/fileStatus';
-import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus';
-import { RepositoryChange } from '../../../../git/models/repository';
-import type { GitStash } from '../../../../git/models/stash';
-import type { ParsedStash } from '../../../../git/parsers/logParser';
+import type { Container } from '../../../../container.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
+import { StashApplyError } from '../../../../git/errors.js';
+import type { GitStashSubProvider } from '../../../../git/gitProvider.js';
+import type { GitStashCommit, GitStashParentInfo } from '../../../../git/models/commit.js';
+import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit.js';
+import { GitFileChange } from '../../../../git/models/fileChange.js';
+import type { GitFileStatus } from '../../../../git/models/fileStatus.js';
+import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus.js';
+import { RepositoryChange } from '../../../../git/models/repository.js';
+import type { GitStash } from '../../../../git/models/stash.js';
+import type { ParsedStash } from '../../../../git/parsers/logParser.js';
 import {
 	getShaAndDatesLogParser,
 	getStashFilesOnlyLogParser,
 	getStashLogParser,
-} from '../../../../git/parsers/logParser';
-import { configuration } from '../../../../system/-webview/configuration';
-import { splitPath } from '../../../../system/-webview/path';
-import { countStringLength } from '../../../../system/array';
-import { gate } from '../../../../system/decorators/gate';
-import { log } from '../../../../system/decorators/log';
-import { min, skip } from '../../../../system/iterable';
-import { getSettledValue } from '../../../../system/promise';
-import type { Git } from '../git';
-import { GitError, maxGitCliLength } from '../git';
-import { createCommitFileset } from './commits';
+} from '../../../../git/parsers/logParser.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { splitPath } from '../../../../system/-webview/path.js';
+import { countStringLength } from '../../../../system/array.js';
+import { gate } from '../../../../system/decorators/gate.js';
+import { log } from '../../../../system/decorators/log.js';
+import { min, skip } from '../../../../system/iterable.js';
+import { getSettledValue } from '../../../../system/promise.js';
+import type { Git } from '../git.js';
+import { getGitCommandError, GitError, maxGitCliLength } from '../git.js';
+import { createCommitFileset } from './commits.js';
 
 export class StashGitSubProvider implements GitStashSubProvider {
 	constructor(
@@ -41,16 +41,14 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	async applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
 		if (!stashName) return;
 
+		const args = ['stash', options?.deleteAfter ? 'pop' : 'apply', stashName];
+
 		try {
-			await this.git.exec({ cwd: repoPath }, 'stash', options?.deleteAfter ? 'pop' : 'apply', stashName);
+			await this.git.exec({ cwd: repoPath }, ...args);
 			this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		} catch (ex) {
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
-				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
-					throw new StashApplyError(StashApplyErrorReason.WorkingChanges, ex);
-				}
-
 				if (
 					(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
 					(ex instanceof GitError &&
@@ -58,14 +56,19 @@ export class StashGitSubProvider implements GitStashSubProvider {
 							ex.stdout?.includes('needs merge')))
 				) {
 					void window.showInformationMessage('Stash applied with conflicts');
-
 					return;
 				}
-
-				throw new StashApplyError(`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`, ex);
 			}
 
-			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, ex);
+			throw getGitCommandError(
+				'stash-apply',
+				ex,
+				reason =>
+					new StashApplyError(
+						{ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
+			);
 		}
 	}
 
@@ -77,7 +80,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		const stashPromise = this.cache.stashes?.getOrCreate(repoPath, async _cancellable => {
+		const stashPromise = this.cache.stashes.getOrCreate(repoPath, async _cancellable => {
 			const parser = getStashLogParser();
 			const args = [...parser.arguments];
 

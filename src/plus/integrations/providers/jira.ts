@@ -1,15 +1,15 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks';
-import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
-import type { Account } from '../../../git/models/author';
-import type { Issue, IssueShape } from '../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
-import type { IssueResourceDescriptor } from '../../../git/models/resourceDescriptor';
-import { filterMap, flatten } from '../../../system/iterable';
-import { Logger } from '../../../system/logger';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import { IssuesIntegration } from '../models/issuesIntegration';
-import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
+import type { Account } from '../../../git/models/author.js';
+import type { Issue, IssueShape } from '../../../git/models/issue.js';
+import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest.js';
+import type { IssueResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
+import { filterMap, flatten } from '../../../system/iterable.js';
+import { Logger } from '../../../system/logger.js';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import { IssuesIntegration } from '../models/issuesIntegration.js';
+import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });

@@ -1,5 +1,5 @@
-import type { GitFileChange, GitFileChangeShape } from './fileChange';
-import type { GitRevisionRangeNotation } from './revision';
+import type { GitFileChange, GitFileChangeShape } from './fileChange.js';
+import type { GitRevisionRangeNotation } from './revision.js';
 
 export interface GitDiff {
 	readonly contents: string;

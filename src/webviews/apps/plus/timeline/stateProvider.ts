@@ -1,12 +1,12 @@
 import { ContextProvider } from '@lit/context';
-import type { State } from '../../../plus/timeline/protocol';
-import { DidChangeNotification } from '../../../plus/timeline/protocol';
-import type { IpcMessage } from '../../../protocol';
-import type { ReactiveElementHost } from '../../shared/appHost';
-import { StateProviderBase } from '../../shared/stateProviderBase';
-import { stateContext } from './context';
+import type { IpcMessage } from '../../../ipc/models/ipc.js';
+import type { State } from '../../../plus/timeline/protocol.js';
+import { DidChangeNotification } from '../../../plus/timeline/protocol.js';
+import type { ReactiveElementHost } from '../../shared/appHost.js';
+import { StateProviderBase } from '../../shared/stateProviderBase.js';
+import { stateContext } from './context.js';
 
-export class TimelineStateProvider extends StateProviderBase<State, typeof stateContext> {
+export class TimelineStateProvider extends StateProviderBase<State['webviewId'], State, typeof stateContext> {
 	protected override createContextProvider(state: State): ContextProvider<typeof stateContext, ReactiveElementHost> {
 		return new ContextProvider(this.host, { context: stateContext, initialValue: state });
 	}

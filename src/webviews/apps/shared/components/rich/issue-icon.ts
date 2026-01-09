@@ -1,9 +1,9 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { issueIconStyles } from './issue.css';
-import '../code-icon';
-import '../overlays/tooltip';
+import { issueIconStyles } from './issue.css.js';
+import '../code-icon.js';
+import '../overlays/tooltip.js';
 
 @customElement('issue-icon')
 export class IssueIcon extends LitElement {

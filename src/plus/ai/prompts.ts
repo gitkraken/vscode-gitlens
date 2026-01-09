@@ -1,4 +1,4 @@
-import type { PromptTemplate } from './models/promptTemplates';
+import type { PromptTemplate } from './models/promptTemplates.js';
 
 export const generateCommitMessage: PromptTemplate<'generate-commitMessage'> = {
 	id: 'generate-commitMessage_v2',
@@ -350,15 +350,19 @@ Available search operators:
 - 'commit:' - Search by a specific commit SHA (e.g. 'commit:4ce3a')
 - 'file:' - Search by file path (e.g. 'file:"package.json"', 'file:"*.ts"'); maps to \`git log -- <value>\`
 - 'change:' - Search by specific code changes using regular expressions (e.g. 'change:"function.*auth"', 'change:"import.*react"'); maps to \`git log -G<value>\`
-- 'type:' - Search by type -- only stash is currently supported (e.g. 'type:stash')
+- 'type:' - Search by type -- supports stash and tip (e.g. 'type:stash', 'type:tip')
+- 'ref:' - Search for commits reachable by a reference (branch, tag, commit) or reference range. Supports single refs (e.g. 'ref:main', 'ref:v1.0'), two-dot ranges (e.g. 'ref:main..feature' for commits in feature but not in main), three-dot ranges (e.g. 'ref:main...feature' for symmetric difference), and relative refs (e.g. 'ref:HEAD~5..HEAD'); maps to \`git log <ref>\`
 - 'after:' - Search for commits after a certain date or range (e.g. 'after:2023-01-01', 'after:"6 months ago"', 'after:"last Tuesday"', 'after:"noon"', 'after:"1 month 2 days ago"'); maps to \`git log --since=<value>\`
 - 'before:' - Search for commits before a certain date or range (e.g. 'before:2023-01-01', 'before:"6 months ago"', 'before:"yesterday"', 'before:"3PM GMT"'); maps to \`git log --until=<value>\`
 
-File and change values should be double-quoted. You can use multiple message, author, file, and change operators at the same time if needed.
+File and change values should be double-quoted. You can use multiple message, author, file, change, and ref operators at the same time if needed.
 
-Temporal queries should be converted to appropriate after and/or before operators, leveraging Git's powerful 'approxidate' parser, which understands a wide array of human-centric relative date expressions, including simple terms ("yesterday", "5 minutes ago"), combinations of time units ("1 month 2 days ago"), days of the week ("last Tuesday"), named times ("noon"), and explicit timezones ("3PM GMT").
-For specific temporal ranges, e.g. commits made last week, or commits in the last month, use the 'after:' and 'before:' operators with appropriate relative values or calculate absolute dates, using the current date provided below.
-For ambiguous time periods like "this week" or "this month", prefer simple relative expressions like "1 week ago" or absolute dates using the current date provided below.
+Use 'ref:' when the query involves exploring commit history within or between specific references. Use temporal operators ('after:', 'before:') for date-based filtering. These operators can be combined when appropriate.
+
+IMPORTANT: When "after" or "since" is used with a reference (branch, tag, commit SHA), it refers to commit ancestry, not time. Use ref ranges (e.g., 'ref:v1.0..HEAD' for "commits after tag v1.0"). Only use 'after:' for actual dates or time expressions.
+
+Temporal queries leverage Git's 'approxidate' parser, which understands relative date expressions like "yesterday", "5 minutes ago", "1 month 2 days ago", "last Tuesday", "noon", and explicit timezones like "3PM GMT".
+
 
 The current date is \${date}
 \${context}
@@ -434,66 +438,5 @@ Remember:
 \${instructions}
 
 Now, proceed with your analysis and organization of the commits. Return only the <output> tag and no other text.
-`,
-};
-
-export const generateRebase: PromptTemplate<'generate-rebase'> = {
-	id: 'generate-rebase',
-	variables: ['diff', 'commits', 'data', 'instructions'],
-	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a new set of commits that are related, grouped logically, atomic, and easy to review. You will be working with code changes provided in a unified diff format.
-
-First, examine the following unified Git diff of code changes:
-
-<unified_diff>
-\${diff}
-</unified_diff>
-
-Next, examine the following JSON array which represents a mapping of index to hunk headers in the unified_diff to be used later when mapping hunks to commits:
-<hunk_map>
-\${data}
-</hunk_map>
-
-
-Your task is to group the hunks in unified_diff into a set of commits, ordered into a commit history as an array. Follow these guidelines:
-
-1. Only organize the hunks themselves, not individual lines within hunks.
-2. Group hunks into logical units that make sense together and can be applied atomically.
-3. Use each hunk only once. Use all hunks.
-4. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
-5. Write meaningful commit messages that accurately describe the changes in each commit.
-6. Provide a detailed explanation of the changes in each commit.
-7. Make sure the new commit history is easy to review and understand.
-
-Output your new commit history as a JSON array. Each commit in the array should be an object representing a grouping of hunks forming that commit, with the following properties:
-- "message": A string containing the commit message.
-- "explanation": A string with a detailed explanation of the changes in the commit. Write the explanation as if you were explaining the changes to a reviewer who is familiar with the codebase but not the specific changes. Walk through the changes and make references to specific changes where needed, explaining how they achieve the objective of the commit.
-- "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
-  - "hunk": The hunk index (number) from the hunk_map, matching the equivalent hunk you chose from the unified_diff.
-
-Once you've completed your analysis, generate the JSON output following the specified format.
-
-Here's an example of the expected JSON structure (note that this is just a structural example and does not reflect the actual content you should produce):
-
-[
-  {
-    "message": "Example commit message",
-    "explanation": "Detailed explanation of the changes in this commit",
-    "hunks": [
-      {
-        "hunk": 2
-      },
-      {
-        "hunk": 7
-      }
-    ]
-  }
-]
-
-Remember to base your organization of commits solely on the provided unified_diff and hunk_map. Do not introduce any new changes or modify the content of the hunks. Your task is to organize the existing hunks in a logical and reviewable manner.
-
-\${instructions}
-
-Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the commits, and nothing else.
-Do not include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
 `,
 };

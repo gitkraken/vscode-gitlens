@@ -1,12 +1,14 @@
 import type { Context, ContextProvider, ContextType } from '@lit/context';
-import { fromBase64ToString } from '@env/base64';
-import { isPromise } from '../../../system/promise';
-import type { IpcMessage, WebviewState } from '../../protocol';
-import { WebviewReadyRequest } from '../../protocol';
-import type { ReactiveElementHost } from './appHost';
-import type { LoggerContext } from './contexts/logger';
-import type { Disposable } from './events';
-import type { HostIpc } from './ipc';
+import { fromBase64ToString } from '@env/base64.js';
+import type { WebviewIds } from '../../../constants.views.js';
+import { isPromise } from '../../../system/promise.js';
+import type { IpcMessage } from '../../ipc/models/ipc.js';
+import type { WebviewState } from '../../protocol.js';
+import { WebviewReadyRequest } from '../../protocol.js';
+import type { ReactiveElementHost } from './appHost.js';
+import type { LoggerContext } from './contexts/logger.js';
+import type { Disposable } from './events.js';
+import type { HostIpc } from './ipc.js';
 
 /**
  * Base class for webview state providers that handles bootstrap initialization.
@@ -16,9 +18,11 @@ import type { HostIpc } from './ipc';
  * - Sync: Uses bootstrap state from HTML
  * - Async: Requests full state from extension after connection
  */
-export abstract class StateProviderBase<State extends WebviewState, TContext extends Context<unknown, State>>
-	implements Disposable
-{
+export abstract class StateProviderBase<
+	ID extends WebviewIds,
+	State extends WebviewState<ID>,
+	TContext extends Context<unknown, State>,
+> implements Disposable {
 	protected readonly disposable: Disposable;
 	protected readonly provider: ContextProvider<TContext, ReactiveElementHost>;
 
@@ -71,13 +75,17 @@ export abstract class StateProviderBase<State extends WebviewState, TContext ext
 			const response = await this.ipc.sendRequest(WebviewReadyRequest, { bootstrap: true });
 			if (response.state != null) {
 				const state: State = (isPromise(response.state) ? await response.state : response.state) as State;
-				this._state = { ...state, timestamp: Date.now() };
-				this.provider.setValue(this._state as ContextType<TContext>, true);
-				this.host.requestUpdate();
+				this.onDeferredBootstrapStateReceived(state);
 			}
 		} else {
 			void this.ipc.sendRequest(WebviewReadyRequest, { bootstrap: false });
 		}
+	}
+
+	protected onDeferredBootstrapStateReceived(state: State): void {
+		this._state = { ...state, timestamp: Date.now() };
+		this.provider.setValue(this._state as ContextType<TContext>, true);
+		this.host.requestUpdate();
 	}
 
 	protected abstract onMessageReceived(msg: IpcMessage): void;

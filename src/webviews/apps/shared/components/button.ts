@@ -2,10 +2,10 @@ import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GlTooltip } from './overlays/tooltip';
-import { focusOutlineButton } from './styles/lit/a11y.css';
-import { elementBase } from './styles/lit/base.css';
-import './overlays/tooltip';
+import type { GlTooltip } from './overlays/tooltip.js';
+import { focusOutlineButton } from './styles/lit/a11y.css.js';
+import { elementBase } from './styles/lit/base.css.js';
+import './overlays/tooltip.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -24,16 +24,19 @@ export class GlButton extends LitElement {
 		elementBase,
 		css`
 			:host {
-				--button-foreground: var(--color-button-foreground);
-				--button-background: var(--color-button-background);
+				/* Base color variables - can be overridden by variant */
+				--button-foreground: var(--vscode-button-foreground);
+				--button-background: var(--vscode-button-background);
 				--button-hover-background: var(--vscode-button-hoverBackground);
+				--button-border: var(--vscode-button-border, transparent);
+
+				/* Layout variables */
 				--button-padding: 0.4rem;
 				--button-gap: 0.6rem;
 				--button-compact-padding: 0.4rem;
 				--button-input-padding: 0.1rem;
 				--button-tight-padding: 0.4rem 0.8rem;
 				--button-line-height: 1.35;
-				--button-border: var(--vscode-button-border, transparent);
 
 				display: inline-block;
 				border: none;
@@ -137,15 +140,81 @@ export class GlButton extends LitElement {
 			:host([appearance='alert']) {
 				--button-background: transparent;
 				--button-border: var(--color-alert-infoBorder);
-				--button-foreground: var(--color-button-foreground);
+				--button-foreground: var(--color-alert-infoForeground);
 				--button-hover-background: var(--color-alert-infoBorder);
 				--button-line-height: 1.64;
 				width: max-content;
 			}
 
-			:host-context(.vscode-light):host([appearance='alert']:not(:hover)),
-			:host-context(.vscode-high-contrast-light):host([appearance='alert']:not(:hover)) {
-				--button-foreground: var(--color-foreground);
+			:host([appearance='alert']:hover) {
+				--button-foreground: var(--vscode-button-foreground);
+			}
+
+			/* Variant property for semantic states - appearance controls structure, variant controls color */
+
+			/* Solid buttons (default and secondary) with variants get full color treatment */
+			:host([variant='danger']) {
+				--button-foreground: var(--vscode-errorForeground, #f48771);
+				--button-background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+				--button-hover-background: color-mix(
+					in srgb,
+					#000 30%,
+					var(--vscode-inputValidation-errorBorder, #be1100)
+				);
+				--button-border: var(--vscode-inputValidation-errorBorder, #be1100);
+			}
+
+			:host([variant='warning']) {
+				--button-foreground: #fff;
+				--button-background: var(
+					--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
+					#cc6600
+				);
+				--button-hover-background: color-mix(
+					in srgb,
+					#000 20%,
+					var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor, #cc6600)
+				);
+				--button-border: var(
+					--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
+					#cc6600
+				);
+			}
+
+			:host([variant='success']) {
+				--button-foreground: #fff;
+				--button-background: color-mix(in srgb, #000 40%, var(--vscode-testing-iconPassed, #73c991));
+				--button-hover-background: color-mix(in srgb, #000 30%, var(--vscode-testing-iconPassed, #73c991));
+				--button-border: color-mix(in srgb, #000 40%, var(--vscode-testing-iconPassed, #73c991));
+			}
+
+			/* Transparent appearances (toolbar, input, alert) with variants only change foreground color */
+			/* These come after the main variant rules to override background/border back to transparent */
+			:host([appearance='toolbar'][variant='danger']),
+			:host([appearance='input'][variant='danger']),
+			:host([appearance='alert'][variant='danger']) {
+				--button-foreground: var(--vscode-errorForeground, #f48771);
+				--button-background: transparent;
+				--button-border: transparent;
+			}
+
+			:host([appearance='toolbar'][variant='warning']),
+			:host([appearance='input'][variant='warning']),
+			:host([appearance='alert'][variant='warning']) {
+				--button-foreground: var(
+					--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
+					#cc6600
+				);
+				--button-background: transparent;
+				--button-border: transparent;
+			}
+
+			:host([appearance='toolbar'][variant='success']),
+			:host([appearance='input'][variant='success']),
+			:host([appearance='alert'][variant='success']) {
+				--button-foreground: var(--vscode-testing-iconPassed, #73c991);
+				--button-background: transparent;
+				--button-border: transparent;
 			}
 
 			:host([appearance='input']) .control {
@@ -214,6 +283,9 @@ export class GlButton extends LitElement {
 
 	@property({ reflect: true })
 	appearance?: 'alert' | 'secondary' | 'toolbar' | 'input';
+
+	@property({ reflect: true })
+	variant?: 'danger' | 'warning' | 'success';
 
 	@property({ type: Boolean, reflect: true })
 	disabled = false;

@@ -1,14 +1,14 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Range, window } from 'vscode';
-import type { FileAnnotationType } from '../config';
-import type { Container } from '../container';
-import { GitUri, isGitUri } from '../git/gitUri';
-import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/-webview/command';
-import { getOrOpenTextEditor } from '../system/-webview/vscode/editors';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
+import type { FileAnnotationType } from '../config.js';
+import type { Container } from '../container.js';
+import { GitUri, isGitUri } from '../git/gitUri.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { getOrOpenTextEditor } from '../system/-webview/vscode/editors.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
 
 export interface OpenWorkingFileCommandArgs {
 	uri?: Uri;

@@ -1,9 +1,9 @@
 import type { CancellationToken } from 'vscode';
-import { filterMap } from '../../../system/iterable';
-import { PageableResult } from '../../../system/paging';
-import type { GitBranch } from '../../models/branch';
-import type { Repository } from '../../models/repository';
-import type { GitWorktree } from '../../models/worktree';
+import { filterMap } from '../../../system/iterable.js';
+import { PageableResult } from '../../../system/paging.js';
+import type { GitBranch } from '../../models/branch.js';
+import type { Repository } from '../../models/repository.js';
+import type { GitWorktree } from '../../models/worktree.js';
 
 export function getOpenedWorktreesByBranch(
 	worktreesByBranch: Map<string, GitWorktree> | undefined,

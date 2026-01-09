@@ -1,16 +1,16 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { Container } from '../container';
-import { openDirectoryCompare } from '../git/actions/commit';
-import { showGenericErrorMessage } from '../messages';
-import { showReferencePicker } from '../quickpicks/referencePicker';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import { CompareResultsNode } from '../views/nodes/compareResultsNode';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasRef } from './commandContext.utils';
+import type { Container } from '../container.js';
+import { openDirectoryCompare } from '../git/actions/commit.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showReferencePicker } from '../quickpicks/referencePicker.js';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import { CompareResultsNode } from '../views/nodes/compareResultsNode.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasRef } from './commandContext.utils.js';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;
@@ -74,7 +74,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 					'Directory Compare Working Tree with',
 					'Choose a branch or tag to compare with',
 					{
-						allowRevisions: true,
+						allowedAdditionalInput: { rev: true },
 					},
 				);
 				if (pick == null) return;

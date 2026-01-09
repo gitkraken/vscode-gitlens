@@ -1,41 +1,51 @@
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GlyphChars } from '../../constants';
-import type { GitUri } from '../../git/gitUri';
-import { GitBranch } from '../../git/models/branch';
-import type { Repository, RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import type { GitStatus } from '../../git/models/status';
-import { getRepositoryStatusIconPath } from '../../git/utils/-webview/icons';
-import { formatLastFetched } from '../../git/utils/-webview/repository.utils';
-import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils';
-import { getHighlanderProviders } from '../../git/utils/remote.utils';
-import type { CloudWorkspace, CloudWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/cloudWorkspace';
-import type { LocalWorkspace, LocalWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/localWorkspace';
-import { findLastIndex } from '../../system/array';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import { weakEvent } from '../../system/event';
-import { disposableInterval } from '../../system/function';
-import { join, map, slice } from '../../system/iterable';
-import { pad } from '../../system/string';
-import type { ViewsWithRepositories } from '../viewBase';
-import { createViewDecorationUri } from '../viewDecorationProvider';
-import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
-import type { AmbientContext, ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { BranchesNode } from './branchesNode';
-import { BranchNode } from './branchNode';
-import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
-import { MessageNode } from './common';
-import { CompareBranchNode } from './compareBranchNode';
-import { ContributorsNode } from './contributorsNode';
-import { PausedOperationStatusNode } from './pausedOperationStatusNode';
-import { ReflogNode } from './reflogNode';
-import { RemotesNode } from './remotesNode';
-import { StashesNode } from './stashesNode';
-import { StatusFilesNode } from './statusFilesNode';
-import { TagsNode } from './tagsNode';
-import { WorktreesNode } from './worktreesNode';
+import { GlyphChars } from '../../constants.js';
+import type { GitUri } from '../../git/gitUri.js';
+import { GitBranch } from '../../git/models/branch.js';
+import type {
+	Repository,
+	RepositoryChangeEvent,
+	RepositoryFileSystemChangeEvent,
+} from '../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
+import type { GitStatus } from '../../git/models/status.js';
+import { getRepositoryStatusIconPath } from '../../git/utils/-webview/icons.js';
+import { formatLastFetched } from '../../git/utils/-webview/repository.utils.js';
+import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils.js';
+import { getHighlanderProviders } from '../../git/utils/remote.utils.js';
+import type {
+	CloudWorkspace,
+	CloudWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models/cloudWorkspace.js';
+import type {
+	LocalWorkspace,
+	LocalWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models/localWorkspace.js';
+import { findLastIndex } from '../../system/array.js';
+import { gate } from '../../system/decorators/gate.js';
+import { debug, log } from '../../system/decorators/log.js';
+import { weakEvent } from '../../system/event.js';
+import { disposableInterval } from '../../system/function.js';
+import { join, map, slice } from '../../system/iterable.js';
+import { pad } from '../../system/string.js';
+import type { ViewsWithRepositories } from '../viewBase.js';
+import { createViewDecorationUri } from '../viewDecorationProvider.js';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
+import type { AmbientContext, ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { BranchesNode } from './branchesNode.js';
+import { BranchNode } from './branchNode.js';
+import { BranchTrackingStatusNode } from './branchTrackingStatusNode.js';
+import { MessageNode } from './common.js';
+import { CompareBranchNode } from './compareBranchNode.js';
+import { ContributorsNode } from './contributorsNode.js';
+import { PausedOperationStatusNode } from './pausedOperationStatusNode.js';
+import { ReflogNode } from './reflogNode.js';
+import { RemotesNode } from './remotesNode.js';
+import { StashesNode } from './stashesNode.js';
+import { StatusFilesNode } from './statusFilesNode.js';
+import { TagsNode } from './tagsNode.js';
+import { WorktreesNode } from './worktreesNode.js';
 
 export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWithRepositories> {
 	private _status: Promise<GitStatus | undefined>;
@@ -49,7 +59,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	) {
 		super('repository', uri, view, parent);
 
-		this.updateContext({ ...context, repository: this.repo });
+		this.updateContext({ ...context, repository: repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		this._status = this.repo.git.status.getStatus();
@@ -89,6 +99,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					`refs/heads/${status.branch}`,
 					true,
 					undefined,
+					undefined,
+					undefined,
 					status.sha,
 					status.upstream,
 					{ path: status.repoPath, isDefault: status.repoPath === defaultWorktreePath },
@@ -96,7 +108,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					status.rebasing,
 				);
 
-				const pausedOpStatus = await this.repo.git.status.getPausedOperationStatus?.();
+				const pausedOpStatus = await this.repo.git.pausedOps?.getPausedOperationStatus?.();
 				if (pausedOpStatus != null) {
 					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, true, status));
 				} else if (this.view.config.showUpstreamStatus) {
@@ -441,6 +453,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				RepositoryChange.Heads,
 				RepositoryChange.Opened,
 				RepositoryChange.PausedOperationStatus,
+				RepositoryChange.Starred,
+				RepositoryChange.Worktrees,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,
 			)

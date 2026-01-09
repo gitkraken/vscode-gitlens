@@ -1,15 +1,15 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import type { State } from '../../../home/protocol';
-import { CollapseSectionCommand } from '../../../home/protocol';
-import { linkBase } from '../../shared/components/styles/lit/base.css';
-import { ipcContext } from '../../shared/contexts/ipc';
-import type { HostIpc } from '../../shared/ipc';
-import { stateContext } from '../context';
-import '../../shared/components/button';
-import '../../shared/components/code-icon';
-import '../../shared/components/card/card';
+import type { State } from '../../../home/protocol.js';
+import { CollapseSectionCommand } from '../../../home/protocol.js';
+import { linkBase } from '../../shared/components/styles/lit/base.css.js';
+import { ipcContext } from '../../shared/contexts/ipc.js';
+import type { HostIpc } from '../../shared/ipc.js';
+import { stateContext } from '../context.js';
+import '../../shared/components/button.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/card/card.js';
 
 @customElement('gl-ama-banner')
 export class GlAmaBanner extends LitElement {

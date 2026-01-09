@@ -1,10 +1,10 @@
 import { css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import type { OverviewRecentThreshold, OverviewStaleThreshold } from '../../../../home/protocol';
-import { GlElement } from '../../../shared/components/element';
-import '../../../shared/components/checkbox/checkbox';
-import '../../../shared/components/code-icon';
+import type { OverviewRecentThreshold, OverviewStaleThreshold } from '../../../../home/protocol.js';
+import { GlElement } from '../../../shared/components/element.js';
+import '../../../shared/components/checkbox/checkbox.js';
+import '../../../shared/components/code-icon.js';
 
 export const selectStyles = css`
 	.select {

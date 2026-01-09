@@ -1,25 +1,27 @@
 import { consume } from '@lit/context';
-import { signal, SignalWatcher } from '@lit-labs/signals';
+import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations';
-import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
-import { createCommandLink } from '../../../../../system/commands';
-import { pluralize } from '../../../../../system/string';
-import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol';
-import { DidChangeLaunchpad, GetLaunchpadSummary } from '../../../../home/protocol';
-import { stateContext } from '../../../home/context';
-import { AsyncComputedState } from '../../../shared/components/signal-utils';
-import { ipcContext } from '../../../shared/contexts/ipc';
-import type { Disposable } from '../../../shared/events';
-import type { HostIpc } from '../../../shared/ipc';
-import { linkStyles } from '../../shared/components/vscode.css';
-import '../../../shared/components/button';
-import '../../../shared/components/button-container';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/skeleton-loader';
-import './branch-section';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
+import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
+import { createCommandLink } from '../../../../../system/commands.js';
+import { pluralize } from '../../../../../system/string.js';
+import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol.js';
+import { DidChangeLaunchpad, GetLaunchpadSummary } from '../../../../home/protocol.js';
+import { stateContext } from '../../../home/context.js';
+import { AsyncComputedState } from '../../../shared/components/signal-utils.js';
+import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
+import type { Disposable } from '../../../shared/events.js';
+import type { HostIpc } from '../../../shared/ipc.js';
+import { linkStyles } from '../../shared/components/vscode.css.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/skeleton-loader.js';
+import './branch-section.js';
 
 type LaunchpadSummary = GetLaunchpadSummaryResponse;
 
@@ -103,9 +105,13 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
+
 	private _disposable: Disposable[] = [];
 
-	private _summary = signal<GetLaunchpadSummaryResponse | undefined>(undefined);
+	// private _summary = signal<GetLaunchpadSummaryResponse | undefined>(undefined);
 
 	private _summaryState = new AsyncComputedState<LaunchpadSummary>(async _abortSignal => {
 		const rsp = await this._ipc.sendRequest(GetLaunchpadSummary, {});
@@ -113,11 +119,11 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	});
 
 	get startWorkCommand(): string {
-		return createCommandLink<undefined>('gitlens.home.startWork', undefined);
+		return this._webview.createCommandLink('gitlens.startWork:');
 	}
 
 	get createBranchCommand(): string {
-		return createCommandLink<undefined>('gitlens.home.createBranch', undefined);
+		return this._webview.createCommandLink('gitlens.createBranch:');
 	}
 
 	override connectedCallback(): void {

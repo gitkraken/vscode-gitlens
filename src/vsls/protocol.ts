@@ -1,4 +1,4 @@
-import type { GitCommandOptions } from '../git/commandOptions';
+import type { GitCommandOptions } from '../git/commandOptions.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class RequestType<Request, Response> {

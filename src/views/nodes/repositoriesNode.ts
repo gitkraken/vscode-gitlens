@@ -1,20 +1,20 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
-import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri, unknownGitUri } from '../../git/gitUri';
-import { gate } from '../../system/decorators/gate';
-import { debug } from '../../system/decorators/log';
-import { weakEvent } from '../../system/event';
-import { szudzikPairing } from '../../system/function';
-import { debounce } from '../../system/function/debounce';
-import { Logger } from '../../system/logger';
-import type { ViewsWithRepositoriesNode } from '../viewBase';
-import { createViewDecorationUri } from '../viewDecorationProvider';
-import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues } from './abstract/viewNode';
-import { MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
+import { GitUri, unknownGitUri } from '../../git/gitUri.js';
+import { gate } from '../../system/decorators/gate.js';
+import { debug } from '../../system/decorators/log.js';
+import { weakEvent } from '../../system/event.js';
+import { debounce } from '../../system/function/debounce.js';
+import { szudzikPairing } from '../../system/function.js';
+import { Logger } from '../../system/logger.js';
+import type { ViewsWithRepositoriesNode } from '../viewBase.js';
+import { createViewDecorationUri } from '../viewDecorationProvider.js';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues } from './abstract/viewNode.js';
+import { MessageNode } from './common.js';
+import { RepositoryNode } from './repositoryNode.js';
 
 export class RepositoriesNode extends SubscribeableViewNode<
 	'repositories',

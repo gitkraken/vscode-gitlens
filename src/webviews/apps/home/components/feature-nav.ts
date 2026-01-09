@@ -5,18 +5,17 @@ import { when } from 'lit/directives/when.js';
 import type {
 	ConnectCloudIntegrationsCommandArgs,
 	ManageCloudIntegrationsCommandArgs,
-} from '../../../../commands/cloudIntegrations';
-import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs';
-import type { Source } from '../../../../constants.telemetry';
-import { createCommandLink } from '../../../../system/commands';
-import type { State } from '../../../home/protocol';
-import { GlElement } from '../../shared/components/element';
-import { linkBase } from '../../shared/components/styles/lit/base.css';
-import { stateContext } from '../context';
-import { homeBaseStyles, navListStyles } from '../home.css';
-import '../../shared/components/code-icon';
-import '../../shared/components/feature-badge';
-import '../../shared/components/overlays/tooltip';
+} from '../../../../commands/cloudIntegrations.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import type { State } from '../../../home/protocol.js';
+import { GlElement } from '../../shared/components/element.js';
+import { linkBase } from '../../shared/components/styles/lit/base.css.js';
+import { stateContext } from '../context.js';
+import { homeBaseStyles, navListStyles } from '../home.css.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/feature-badge.js';
+import '../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-feature-nav')
 export class GlFeatureNav extends GlElement {
@@ -166,6 +165,7 @@ export class GlFeatureNav extends GlElement {
 						.subscription=${this._state.subscription}
 						placement="left"
 						class="nav-list__access"
+						cloud
 					></gl-feature-badge>
 				</div>
 				<div class="nav-list__item">
@@ -196,36 +196,12 @@ export class GlFeatureNav extends GlElement {
 					this.orgAllowsDrafts,
 					() => html`
 						<div class="nav-list__item">
-							${when(
-								this._state.walkthroughSupported,
-								() =>
-									html` <a
-										class="nav-list__link${this.blockRepoFeatures ? ' is-disabled' : ''}"
-										href="${createCommandLink<OpenWalkthroughCommandArgs>(
-											'gitlens.openWalkthrough',
-											{
-												step: 'streamline-collaboration',
-												source: { source: 'home', detail: 'old-home' },
-											},
-										)}"
-										data-requires="repo"
-										data-org-requires="drafts"
-										aria-label="Open Code Suggest walkthrough"
-										><code-icon class="nav-list__icon" icon="gl-code-suggestion"></code-icon
-										><gl-tooltip
-											hoist
-											class="nav-list__group"
-											content="Open Code Suggest walkthrough"
-											><span class="nav-list__label">Code Suggest</span
-											><span class="nav-list__desc">New!</span></gl-tooltip
-										>
-									</a>`,
-							)}
 							<gl-feature-badge
 								.source=${this.badgeSource}
 								.subscription=${this._state.subscription}
 								placement="left"
 								class="nav-list__access"
+								cloud
 								preview
 							></gl-feature-badge>
 						</div>
@@ -243,6 +219,8 @@ export class GlFeatureNav extends GlElement {
 								>
 							</a>
 							<gl-feature-badge
+								.source=${this.badgeSource}
+								.subscription=${this._state.subscription}
 								placement="left"
 								class="nav-list__access"
 								cloud
@@ -316,7 +294,14 @@ export class GlFeatureNav extends GlElement {
 							<span>Cloud Workspaces</span></gl-tooltip
 						>
 					</a>
-					<gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>
+					<gl-feature-badge
+						.source=${this.badgeSource}
+						.subscription=${this._state.subscription}
+						placement="left"
+						class="nav-list__access"
+						cloud
+						preview
+					></gl-feature-badge>
 				</div>
 				<div class="nav-list__item">
 					<a

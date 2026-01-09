@@ -1,9 +1,9 @@
 import type SlPopup from '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { parseDuration, waitForEvent } from '../../dom';
-import { GlElement, observe } from '../element';
-import { scrollableBase } from '../styles/lit/base.css';
+import { parseDuration, waitForEvent } from '../../dom.js';
+import { GlElement, observe } from '../element.js';
+import { scrollableBase } from '../styles/lit/base.css.js';
 import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 
 // Adapted from shoelace tooltip
@@ -174,7 +174,7 @@ export class GlPopover extends GlElement {
 			}
 
 			:host([appearance='menu']) {
-				--sl-tooltip-padding: 0 var(--sl-spacing-2x-small) var(--sl-spacing-2x-small);
+				--sl-tooltip-padding: var(--sl-spacing-2x-small);
 				--sl-tooltip-font-size: var(--vscode-font-size);
 				--sl-tooltip-background-color: var(--vscode-menu-background);
 				--arrow-color: var(--vscode-menu-background);

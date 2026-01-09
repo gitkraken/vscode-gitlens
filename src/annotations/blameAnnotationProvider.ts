@@ -1,18 +1,18 @@
 import type { CancellationToken, Disposable, Position, TextDocument, TextEditor } from 'vscode';
 import { Hover, languages, Range } from 'vscode';
-import type { FileAnnotationType } from '../config';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import type { GitBlame } from '../git/models/blame';
-import type { GitCommit } from '../git/models/commit';
-import { changesMessage, detailsMessage } from '../hovers/hovers';
-import { configuration } from '../system/-webview/configuration';
-import { log } from '../system/decorators/log';
-import type { TrackedGitDocument } from '../trackers/trackedDocument';
-import type { DidChangeStatusCallback } from './annotationProvider';
-import { AnnotationProviderBase } from './annotationProvider';
-import type { ComputedHeatmap } from './annotations';
-import { getHeatmapColors } from './annotations';
+import type { FileAnnotationType } from '../config.js';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitBlame } from '../git/models/blame.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { changesMessage, detailsMessage } from '../hovers/hovers.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { log } from '../system/decorators/log.js';
+import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
+import type { DidChangeStatusCallback } from './annotationProvider.js';
+import { AnnotationProviderBase } from './annotationProvider.js';
+import type { ComputedHeatmap } from './annotations.js';
+import { getHeatmapColors } from './annotations.js';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
@@ -184,6 +184,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 							await GitUri.fromUri(document.uri),
 							position.line,
 							document,
+							'editor:hover',
 						)
 					: undefined,
 			])
@@ -208,6 +209,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			format: cfg.detailsMarkdownFormat,
 			pullRequests: cfg.pullRequests.enabled,
 			timeout: 250,
+			sourceName: 'editor:hover',
 		});
 	}
 }

@@ -1,10 +1,10 @@
 import type { TextEditor, TextEditorEdit } from 'vscode';
 import { commands, Disposable } from 'vscode';
-import type { GlCommands, GlCommandsDeprecated } from '../constants.commands';
-import { registerCommand } from '../system/-webview/command';
-import type { CommandContext } from './commandContext';
-import type { CommandContextParsingOptions } from './commandContext.utils';
-import { parseCommandContext } from './commandContext.utils';
+import type { GlCommands, GlCommandsDeprecated } from '../constants.commands.js';
+import { registerCommand } from '../system/-webview/command.js';
+import type { CommandContext } from './commandContext.js';
+import type { CommandContextParsingOptions } from './commandContext.utils.js';
+import { parseCommandContext } from './commandContext.utils.js';
 
 export abstract class GlCommandBase implements Disposable {
 	protected readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: false };

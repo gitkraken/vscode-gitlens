@@ -1,16 +1,16 @@
 import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
-import type { AnnotationContext } from '../annotations/annotationProvider';
-import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
-import type { Container } from '../container';
-import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/-webview/command';
+import type { AnnotationContext } from '../annotations/annotationProvider.js';
+import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider.js';
+import type { Container } from '../container.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { command } from '../system/-webview/command.js';
 import {
 	getOpenTextEditorIfVisible,
 	getOtherVisibleTextEditors,
 	isTrackableTextEditor,
-} from '../system/-webview/vscode/editors';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand, EditorCommand } from './commandBase';
+} from '../system/-webview/vscode/editors.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand, EditorCommand } from './commandBase.js';
 
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {

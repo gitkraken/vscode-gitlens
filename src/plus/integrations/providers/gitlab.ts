@@ -1,29 +1,29 @@
 import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
 import { window } from 'vscode';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
-import type { Sources } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import type { Account } from '../../../git/models/author';
-import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { Issue, IssueShape } from '../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
-import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
-import type { RepositoryDescriptor } from '../../../git/models/resourceDescriptor';
-import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
-import { log } from '../../../system/decorators/log';
-import { uniqueBy } from '../../../system/iterable';
-import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
-import type { IntegrationConnectionChangeEvent } from '../integrationService';
-import { GitHostIntegration } from '../models/gitHostIntegration';
-import type { GitLabIntegrationIds } from './gitlab/gitlab.utils';
-import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils';
-import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
-import type { ProviderRepository } from './models';
-import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models';
-import type { ProvidersApi } from './providersApi';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
+import type { Sources } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import type { Account } from '../../../git/models/author.js';
+import type { DefaultBranch } from '../../../git/models/defaultBranch.js';
+import type { Issue, IssueShape } from '../../../git/models/issue.js';
+import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest.js';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest.js';
+import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata.js';
+import type { RepositoryDescriptor } from '../../../git/models/resourceDescriptor.js';
+import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils.js';
+import { log } from '../../../system/decorators/log.js';
+import { uniqueBy } from '../../../system/iterable.js';
+import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils.js';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
+import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils.js';
+import { fromGitLabMergeRequestProvidersApi } from './gitlab/models.js';
+import type { ProviderRepository } from './models.js';
+import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models.js';
+import type { ProvidersApi } from './providersApi.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitLab];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
@@ -148,7 +148,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	): Promise<PullRequest | undefined> {
 		const { include, ...opts } = options ?? {};
 
-		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "integrations" */ './gitlab/models'))
+		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "integrations" */ './gitlab/models.js'))
 			.toGitLabMergeRequestState;
 		return (await this.container.gitlab)?.getPullRequestForBranch(
 			this,

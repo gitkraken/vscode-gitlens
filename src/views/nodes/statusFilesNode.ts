@@ -1,19 +1,19 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import type { GitCommit } from '../../git/models/commit';
-import type { GitFileWithCommit } from '../../git/models/file';
-import type { GitLog } from '../../git/models/log';
-import type { GitStatus } from '../../git/models/status';
-import type { GitStatusFile } from '../../git/models/statusFile';
-import { makeHierarchical } from '../../system/array';
-import { filter, flatMap, groupBy, map } from '../../system/iterable';
-import { joinPaths, normalizePath } from '../../system/path';
-import { pluralize, sortCompare } from '../../system/string';
-import type { ViewsWithWorkingTree } from '../viewBase';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import type { FileNode } from './folderNode';
-import { FolderNode } from './folderNode';
-import { StatusFileNode } from './statusFileNode';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { GitFileWithCommit } from '../../git/models/file.js';
+import type { GitLog } from '../../git/models/log.js';
+import type { GitStatus } from '../../git/models/status.js';
+import type { GitStatusFile } from '../../git/models/statusFile.js';
+import { makeHierarchical } from '../../system/array.js';
+import { filter, flatMap, groupBy, map } from '../../system/iterable.js';
+import { joinPaths, normalizePath } from '../../system/path.js';
+import { pluralize, sortCompare } from '../../system/string.js';
+import type { ViewsWithWorkingTree } from '../viewBase.js';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
+import type { FileNode } from './folderNode.js';
+import { FolderNode } from './folderNode.js';
+import { StatusFileNode } from './statusFileNode.js';
 
 export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTree> {
 	constructor(
@@ -60,7 +60,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 			}
 		}
 
-		if ((this.view.type === 'worktrees' || this.view.config.includeWorkingTree) && this.status.files.length !== 0) {
+		if ((this.view.type === 'worktrees' || this.view.config.includeWorkingTree) && this.status.files.length) {
 			files.unshift(
 				...flatMap(this.status.files, f =>
 					map(f.getPseudoCommits(this.view.container, undefined), c => this.getFileWithPseudoCommit(f, c)),

@@ -1,14 +1,14 @@
-import { GlyphChars } from '../../constants';
-import { capitalize } from '../../system/string';
+import { GlyphChars } from '../../constants.js';
+import { capitalize } from '../../system/string.js';
 import type {
 	GitBranchReference,
 	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../models/reference';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
-import { isRevisionRange, isShaWithParentSuffix, shortenRevision } from './revision.utils';
+} from '../models/reference.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils.js';
+import { isRevisionRange, isShaWithParentSuffix, shortenRevision } from './revision.utils.js';
 
 interface GitBranchReferenceOptions {
 	refType: 'branch';
@@ -17,6 +17,7 @@ interface GitBranchReferenceOptions {
 	remote: boolean;
 	sha?: string;
 	upstream?: { name: string; missing: boolean };
+	worktree?: { path: string; isDefault: boolean } | boolean;
 }
 
 interface GitCommitReferenceOptions {
@@ -68,6 +69,7 @@ export function createReference(
 				remote: options.remote,
 				sha: options.sha,
 				upstream: options.upstream,
+				worktree: options.worktree,
 			};
 		case 'stash':
 			return {
@@ -224,9 +226,11 @@ export function getReferenceTypeLabel(ref: GitReference | undefined): 'Branch' |
 	}
 }
 
-export function getReferenceTypeIcon(ref: GitReference | undefined): string {
+export function getReferenceTypeIcon(ref: GitReference | undefined, webview?: boolean): string {
 	switch (ref?.refType) {
 		case 'branch':
+			if (ref.remote) return 'cloud';
+			if (ref.worktree) return webview ? 'gl-worktree' : 'gitlens-worktree';
 			return 'git-branch';
 		case 'tag':
 			return 'tag';

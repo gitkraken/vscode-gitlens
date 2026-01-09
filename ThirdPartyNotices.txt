@@ -4,40 +4,42 @@ THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
 1. @gk-nzaytsev/fast-string-truncated-width version 1.1.0 (https://github.com/nzaytsev/fast-string-truncated-width)
-2. @lit-labs/signals version 0.1.3 (https://github.com/lit/lit)
+2. @lit-labs/signals version 0.2.0 (https://github.com/lit/lit)
 3. @lit-labs/virtualizer version 2.1.1 (https://github.com/lit/lit)
 4. @lit/context version 1.1.6 (https://github.com/lit/lit)
 5. @lit/react version 1.0.8 (https://github.com/lit/lit)
 6. @lit/task version 1.0.3 (https://github.com/lit/lit)
-7. @octokit/graphql version 9.0.2 (https://github.com/octokit/graphql.js)
-8. @octokit/request-error version 7.0.1 (https://github.com/octokit/request-error.js)
-9. @octokit/request version 10.0.5 (https://github.com/octokit/request.js)
-10. @octokit/types version 15.0.0 (https://github.com/octokit/types.ts)
+7. @octokit/graphql version 9.0.3 (https://github.com/octokit/graphql.js)
+8. @octokit/request-error version 7.1.0 (https://github.com/octokit/request-error.js)
+9. @octokit/request version 10.0.7 (https://github.com/octokit/request.js)
+10. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
 11. @opentelemetry/api version 1.9.0 (https://github.com/open-telemetry/opentelemetry-js)
-12. @opentelemetry/exporter-trace-otlp-http version 0.206.0 (https://github.com/open-telemetry/opentelemetry-js)
-13. @opentelemetry/resources version 2.1.0 (https://github.com/open-telemetry/opentelemetry-js)
-14. @opentelemetry/sdk-trace-base version 2.1.0 (https://github.com/open-telemetry/opentelemetry-js)
-15. @opentelemetry/semantic-conventions version 1.37.0 (https://github.com/open-telemetry/opentelemetry-js)
+12. @opentelemetry/exporter-trace-otlp-http version 0.208.0 (https://github.com/open-telemetry/opentelemetry-js)
+13. @opentelemetry/resources version 2.2.0 (https://github.com/open-telemetry/opentelemetry-js)
+14. @opentelemetry/sdk-trace-base version 2.2.0 (https://github.com/open-telemetry/opentelemetry-js)
+15. @opentelemetry/semantic-conventions version 1.38.0 (https://github.com/open-telemetry/opentelemetry-js)
 16. @shoelace-style/shoelace version 2.20.1 (https://github.com/shoelace-style/shoelace)
-17. @vscode/codicons version 0.0.41 (https://github.com/microsoft/vscode-codicons)
-18. billboard.js version 3.17.0 (https://github.com/naver/billboard.js)
-19. diff2html version 3.4.52 (https://github.com/rtfpessoa/diff2html)
-20. driver.js version 1.3.6 (https://github.com/kamranahmedse/driver.js)
-21. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
-22. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-23. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-24. lit version 3.3.1 (https://github.com/lit/lit)
-25. marked version 16.4.0 (https://github.com/markedjs/marked)
-26. microsoft/vscode (https://github.com/microsoft/vscode)
-27. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
-28. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-29. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-30. react-dom version 19.0.0 (https://github.com/facebook/react)
-31. react version 19.0.0 (https://github.com/facebook/react)
-32. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
-33. slug version 11.0.0 (https://github.com/Trott/slug)
-34. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
-35. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+17. @vscode/codicons version 0.0.44 (https://github.com/microsoft/vscode-codicons)
+18. billboard.js version 3.17.2 (https://github.com/naver/billboard.js)
+19. diff2html version 3.4.55 (https://github.com/rtfpessoa/diff2html)
+20. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
+21. driver.js version 1.3.6 (https://github.com/kamranahmedse/driver.js)
+22. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
+23. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+24. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+25. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
+26. lit version 3.3.2 (https://github.com/lit/lit)
+27. marked version 17.0.1 (https://github.com/markedjs/marked)
+28. microsoft/vscode (https://github.com/microsoft/vscode)
+29. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+30. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+31. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+32. react-dom version 19.2.3 (https://github.com/facebook/react)
+33. react version 19.2.3 (https://github.com/facebook/react)
+34. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
+35. slug version 11.0.1 (https://github.com/Trott/slug)
+36. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
+37. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
 
 %% @gk-nzaytsev/fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1773,6 +1775,10 @@ the avoidance of doubt, this paragraph does not form part of the
 public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
+
+---
+
+Git Logo by [Jason Long](https://bsky.app/profile/jasonlong.me) is licensed under the [Creative Commons Attribution 3.0 Unported License](https://creativecommons.org/licenses/by/3.0/).
 =========================================
 END OF  @vscode/codicons NOTICES AND INFORMATION
 
@@ -1822,6 +1828,32 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 
 =========================================
 END OF  diff2html NOTICES AND INFORMATION
+
+%% dragula NOTICES AND INFORMATION BEGIN HERE
+=========================================
+The MIT License (MIT)
+
+Copyright © 2015-2016 Nicolas Bevacqua
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+=========================================
+END OF  dragula NOTICES AND INFORMATION
 
 %% driver.js NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -2044,6 +2076,32 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =========================================
 END OF  iconv-lite NOTICES AND INFORMATION
+
+%% ignore NOTICES AND INFORMATION BEGIN HERE
+=========================================
+Copyright (c) 2013 Kael Zhang <i@kael.me>, contributors
+http://kael.me/
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+=========================================
+END OF  ignore NOTICES AND INFORMATION
 
 %% lit NOTICES AND INFORMATION BEGIN HERE
 =========================================

@@ -1,14 +1,14 @@
 import { Uri } from 'vscode';
-import { isContainer } from '../../container';
-import { isBranch } from '../../git/models/branch';
-import { isCommit } from '../../git/models/commit';
-import { isRemote } from '../../git/models/remote';
-import { isRepository } from '../../git/models/repository';
-import { isTag } from '../../git/models/tag';
-import { isWorktree } from '../../git/models/worktree';
-import { getCancellationTokenId, isCancellationToken } from '../../system/-webview/cancellation';
-import { isViewNode } from '../../views/nodes/utils/-webview/node.utils';
-import { loggingJsonReplacer } from './json';
+import { isContainer } from '../../container.js';
+import { isBranch } from '../../git/models/branch.js';
+import { isCommit } from '../../git/models/commit.js';
+import { isRemote } from '../../git/models/remote.js';
+import { isRepository } from '../../git/models/repository.js';
+import { isTag } from '../../git/models/tag.js';
+import { isWorktree } from '../../git/models/worktree.js';
+import { getCancellationTokenId, isCancellationToken } from '../../system/-webview/cancellation.js';
+import { isViewNode } from '../../views/nodes/utils/-webview/node.utils.js';
+import { loggingJsonReplacer } from './json.js';
 
 export function defaultResolver(...args: unknown[]): string {
 	if (args.length === 0) return '';

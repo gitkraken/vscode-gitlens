@@ -1,16 +1,17 @@
-import { GlyphChars } from '../../constants';
-import type { Container } from '../../container';
-import { isBranch } from '../../git/models/branch';
-import type { GitBranchReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { getReferenceLabel, isBranchReference } from '../../git/utils/reference.utils';
-import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { isStringArray } from '../../system/array';
-import { fromNow } from '../../system/date';
-import { pad, pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { GlyphChars } from '../../constants.js';
+import type { Container } from '../../container.js';
+import { isBranch } from '../../git/models/branch.js';
+import type { GitBranchReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { getReferenceLabel, isBranchReference } from '../../git/utils/reference.utils.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { isStringArray } from '../../system/array.js';
+import { fromNow } from '../../system/date.js';
+import { pad, pluralize } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import { FetchQuickInputButton } from '../quickCommand.buttons.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -18,10 +19,9 @@ import type {
 	StepGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import { FetchQuickInputButton } from '../quickCommand.buttons';
-import { appendReposToTitle, pickRepositoriesStep } from '../quickCommand.steps';
+} from '../quickCommand.js';
+import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { appendReposToTitle, pickRepositoriesStep } from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];

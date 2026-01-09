@@ -1,11 +1,11 @@
 import { ThemeIcon } from 'vscode';
-import type { Container } from '../container';
-import type { GitBranch } from '../git/models/branch';
-import type { Repository } from '../git/models/repository';
-import type { ViewsWithRepositoryFolders } from '../views/viewBase';
-import type { PartialStepState, StepGenerator, StepState } from './quickCommand';
-import { endSteps, QuickCommand, StepResultBreak } from './quickCommand';
-import { pickBranchStep, pickOrResetBranchStep, pickRepositoryStep } from './quickCommand.steps';
+import type { Container } from '../container.js';
+import type { GitBranch } from '../git/models/branch.js';
+import type { Repository } from '../git/models/repository.js';
+import type { ViewsWithRepositoryFolders } from '../views/viewBase.js';
+import type { PartialStepState, StepGenerator, StepState } from './quickCommand.js';
+import { endSteps, QuickCommand, StepResultBreak } from './quickCommand.js';
+import { pickBranchStep, pickOrResetBranchStep, pickRepositoryStep } from './quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];

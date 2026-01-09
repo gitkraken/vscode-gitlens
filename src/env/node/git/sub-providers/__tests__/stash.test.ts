@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import type { GitStashCommit, GitStashParentInfo } from '../../../../../git/models/commit';
-import { findOldestStashTimestamp } from '../stash';
+import type { GitStashCommit, GitStashParentInfo } from '../../../../../git/models/commit.js';
+import { findOldestStashTimestamp } from '../stash.js';
 
 suite('findOldestStashTimestamp Test Suite', () => {
 	function createMockStashCommit(date: Date, parentTimestamps?: GitStashParentInfo[]): Partial<GitStashCommit> {

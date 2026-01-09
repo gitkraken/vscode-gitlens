@@ -1,6 +1,6 @@
 import type { SourceControl, SourceControlResourceGroup, SourceControlResourceState } from 'vscode';
 import { Uri } from 'vscode';
-import { commonBase } from '../path';
+import { commonBase } from '../path.js';
 
 // Since `scm/resourceFolder/context` commands use the URIs of the files, we have to find the common parent
 export function getScmResourceFolderUri(args: unknown[]): Uri | undefined {
@@ -24,6 +24,19 @@ export function getScmResourceFolderUri(args: unknown[]): Uri | undefined {
 		authority: uri.authority,
 		path: common,
 	});
+}
+
+export function getScmResourceUri(args: unknown[]): Uri | undefined {
+	if (!args.length) return undefined;
+
+	const arg = args[0];
+	if (isScmResourceState(arg)) return arg.resourceUri;
+
+	if (Array.isArray(arg) && isScmResourceState(arg[0])) {
+		return arg[0].resourceUri;
+	}
+
+	return undefined;
 }
 
 export function isScm(scm: unknown): scm is SourceControl {

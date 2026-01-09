@@ -1,5 +1,5 @@
 import type { QuickPickItem } from 'vscode';
-import type { QuickPickItemOfT } from './common';
+import type { QuickPickItemOfT } from './common.js';
 
 export type FlagsQuickPickItem<T, Context = void> = QuickPickItemOfT<T[]> & { context: Context };
 

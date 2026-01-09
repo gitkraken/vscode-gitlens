@@ -1,13 +1,13 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../../../container';
-import type { GitStatusSubProvider, GitWorkingChangesState } from '../../../../../git/gitProvider';
-import type { GitConflictFile } from '../../../../../git/models';
-import type { GitFile } from '../../../../../git/models/file';
-import { GitStatus } from '../../../../../git/models/status';
-import { gate } from '../../../../../system/decorators/gate';
-import { log } from '../../../../../system/decorators/log';
-import { HeadType } from '../../../../remotehub';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
+import type { Container } from '../../../../../container.js';
+import type { GitStatusSubProvider, GitWorkingChangesState } from '../../../../../git/gitProvider.js';
+import type { GitFile } from '../../../../../git/models/file.js';
+import type { GitConflictFile } from '../../../../../git/models/index.js';
+import { GitStatus } from '../../../../../git/models/status.js';
+import { gate } from '../../../../../system/decorators/gate.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { HeadType } from '../../../../remotehub.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 export class StatusGitSubProvider implements GitStatusSubProvider {
 	constructor(

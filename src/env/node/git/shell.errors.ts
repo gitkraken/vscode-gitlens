@@ -25,7 +25,7 @@ export class RunError extends Error {
 		this.stderr = stderr?.trim() ?? '';
 
 		this.name = 'RunError';
-		Error.captureStackTrace?.(this, RunError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -38,6 +38,6 @@ export class CancelledRunError extends RunError {
 		);
 
 		this.name = 'CancelledRunError';
-		Error.captureStackTrace?.(this, CancelledRunError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }

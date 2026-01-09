@@ -1,13 +1,13 @@
 import type { Event } from 'vscode';
 import { Disposable, env, EventEmitter } from 'vscode';
-import { SubscriptionState } from '../constants.subscription';
-import type { TrackedUsageKeys } from '../constants.telemetry';
-import type { WalkthroughContextKeys } from '../constants.walkthroughs';
-import type { Container } from '../container';
-import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
-import { setContext } from '../system/-webview/context';
-import { wait } from '../system/promise';
-import type { UsageChangeEvent } from './usageTracker';
+import { SubscriptionState } from '../constants.subscription.js';
+import type { TrackedUsageKeys } from '../constants.telemetry.js';
+import type { WalkthroughContextKeys } from '../constants.walkthroughs.js';
+import type { Container } from '../container.js';
+import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService.js';
+import { setContext } from '../system/-webview/context.js';
+import { wait } from '../system/promise.js';
+import type { UsageChangeEvent } from './usageTracker.js';
 
 type WalkthroughUsage = {
 	subscriptionStates?: SubscriptionState[] | Readonly<SubscriptionState[]>;
@@ -37,16 +37,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		'homeView',
-		{
-			usage: [
-				'homeView:shown',
-				'command:gitlens.showHomeView:executed',
-				'command:gitlens.showAccountView:executed',
-			],
-		},
-	],
-	[
 		'visualizeCodeHistory',
 		{
 			subscriptionStates: triedProStates,
@@ -64,6 +54,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			],
 		},
 	],
+	['gitBlame', { usage: ['command:gitlens.toggleFileBlame:executed'] }],
 	[
 		'prReviews',
 		{
@@ -78,31 +69,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.gitCommands.worktree.create:executed',
 				'command:gitlens.gitCommands.worktree.delete:executed',
 				'command:gitlens.gitCommands.worktree.open:executed',
-			],
-		},
-	],
-	[
-		'streamlineCollaboration',
-		{
-			subscriptionStates: triedProStates,
-			subscriptionCommands: tryProCommands,
-			usage: [
-				'patchDetailsView:shown',
-				'patchDetailsWebview:shown',
-				'draftsView:shown',
-				'command:gitlens.showDraftsView:executed',
-				'command:gitlens.showPatchDetailsPage:executed',
-				'command:gitlens.createCloudPatch:executed',
-				'command:gitlens.createPatch:executed',
-			],
-		},
-	],
-	[
-		'integrations',
-		{
-			usage: [
-				'command:gitlens.plus.cloudIntegrations.connect:executed',
-				'command:gitlens.plus.cloudIntegrations.manage:executed',
 			],
 		},
 	],
@@ -130,8 +96,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.ai.generateCommitMessage:graph:executed',
 				'command:gitlens.ai.generateCommitMessage:scm:executed',
 				'command:gitlens.ai.generateChangelog:views:executed',
-				'command:gitlens.ai.generateRebase:executed',
-				'command:gitlens.ai.rebaseOntoCommit:views:executed',
+				'action:gitlens.ai.generateCommits:happened',
 			],
 		},
 	],

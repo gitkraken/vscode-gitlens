@@ -4,23 +4,23 @@ import { customElement, query, state } from 'lit/decorators.js';
 import type {
 	ConnectCloudIntegrationsCommandArgs,
 	ManageCloudIntegrationsCommandArgs,
-} from '../../../../../commands/cloudIntegrations';
-import type { IntegrationFeatures } from '../../../../../constants.integrations';
-import { SubscriptionState } from '../../../../../constants.subscription';
-import type { Source } from '../../../../../constants.telemetry';
-import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
-import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils';
-import { createCommandLink } from '../../../../../system/commands';
-import type { IntegrationState, State } from '../../../../home/protocol';
-import { stateContext } from '../../../home/context';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
-import { chipStyles } from './chipStyles';
-import '../../../shared/components/button';
-import '../../../shared/components/button-container';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/popover';
-import '../../../shared/components/overlays/tooltip';
-import '../../../shared/components/feature-badge';
+} from '../../../../../commands/cloudIntegrations.js';
+import type { IntegrationFeatures } from '../../../../../constants.integrations.js';
+import { SubscriptionState } from '../../../../../constants.subscription.js';
+import type { Source } from '../../../../../constants.telemetry.js';
+import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
+import { createCommandLink } from '../../../../../system/commands.js';
+import type { IntegrationState, State } from '../../../../home/protocol.js';
+import { stateContext } from '../../../home/context.js';
+import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
+import { chipStyles } from './chipStyles.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/popover.js';
+import '../../../shared/components/overlays/tooltip.js';
+import '../../../shared/components/feature-badge.js';
 
 @customElement('gl-integrations-chip')
 export class GlIntegrationsChip extends LitElement {
@@ -212,7 +212,7 @@ export class GlIntegrationsChip extends LitElement {
 					<span class="header__actions"></span>
 						<gl-button
 							appearance="toolbar"
-							href="${createCommandLink<Source>('gitlens.views.home.account.resync', {
+							href="${createCommandLink<Source>('gitlens.plus.validate', {
 								source: 'home',
 								detail: 'integrations',
 							})}"
@@ -392,7 +392,10 @@ export class GlIntegrationsChip extends LitElement {
 							? html` <span class="integration__actions">
 									<gl-button
 										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.home.enableAi', undefined)}"
+										href="${createCommandLink<Source>('gitlens.ai.enable', {
+											source: 'home',
+											detail: 'integrations',
+										})}"
 										tooltip="Re-enable AI Features"
 										aria-label="Re-enable AI Features"
 										><code-icon icon="unlock"></code-icon

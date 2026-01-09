@@ -1,15 +1,15 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { GitUri } from '../../git/gitUri';
-import type { GitReflog } from '../../git/models/reflog';
-import type { Repository } from '../../git/models/repository';
-import { debug } from '../../system/decorators/log';
-import type { RepositoriesView } from '../repositoriesView';
-import type { WorkspacesView } from '../workspacesView';
-import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
-import type { PageableViewNode, ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { LoadMoreNode, MessageNode } from './common';
-import { ReflogRecordNode } from './reflogRecordNode';
+import type { GitUri } from '../../git/gitUri.js';
+import type { GitReflog } from '../../git/models/reflog.js';
+import type { Repository } from '../../git/models/repository.js';
+import { debug } from '../../system/decorators/log.js';
+import type { RepositoriesView } from '../repositoriesView.js';
+import type { WorkspacesView } from '../workspacesView.js';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
+import type { PageableViewNode, ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { LoadMoreNode, MessageNode } from './common.js';
+import { ReflogRecordNode } from './reflogRecordNode.js';
 
 export class ReflogNode
 	extends CacheableChildrenViewNode<'reflog', RepositoriesView | WorkspacesView>

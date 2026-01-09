@@ -4,57 +4,66 @@ import { accessSync } from 'fs';
 import { join as joinPath } from 'path';
 import * as process from 'process';
 import type { CancellationToken, Disposable, OutputChannel } from 'vscode';
-import { env, Uri, window, workspace } from 'vscode';
-import { hrtime } from '@env/hrtime';
-import { GlyphChars } from '../../../constants';
-import type { Container } from '../../../container';
-import { CancellationError, isCancellationError } from '../../../errors';
-import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features';
-import { gitFeaturesByVersion } from '../../../features';
-import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
-import { GitErrorHandling } from '../../../git/commandOptions';
+import { Uri, window, workspace } from 'vscode';
+import { hrtime } from '@env/hrtime.js';
+import { GlyphChars } from '../../../constants.js';
+import type { Container } from '../../../container.js';
+import { CancellationError, isCancellationError } from '../../../errors.js';
+import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features.js';
+import { gitFeaturesByVersion } from '../../../features.js';
+import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions.js';
+import { GitErrorHandling } from '../../../git/commandOptions.js';
+import type {
+	BranchErrorReason,
+	CheckoutErrorReason,
+	CherryPickErrorReason,
+	FetchErrorReason,
+	GitCommandError,
+	MergeErrorReason,
+	PausedOperationAbortErrorReason,
+	PausedOperationContinueErrorReason,
+	PullErrorReason,
+	PushErrorReason,
+	RebaseErrorReason,
+	ResetErrorReason,
+	RevertErrorReason,
+	StashApplyErrorReason,
+	StashPushErrorReason,
+	TagErrorReason,
+	WorktreeCreateErrorReason,
+	WorktreeDeleteErrorReason,
+} from '../../../git/errors.js';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
-	BranchError,
-	BranchErrorReason,
+	CheckoutError,
 	FetchError,
-	FetchErrorReason,
 	PullError,
-	PullErrorReason,
 	PushError,
-	PushErrorReason,
 	ResetError,
-	ResetErrorReason,
 	StashPushError,
-	StashPushErrorReason,
-	TagError,
-	TagErrorReason,
 	WorkspaceUntrustedError,
-} from '../../../git/errors';
-import type { GitDir } from '../../../git/gitProvider';
-import type { GitDiffFilter } from '../../../git/models/diff';
-import { rootSha } from '../../../git/models/revision';
-import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
-import { getCancellationTokenId } from '../../../system/-webview/cancellation';
-import { configuration } from '../../../system/-webview/configuration';
-import { splitPath } from '../../../system/-webview/path';
-import { getHostEditorCommand } from '../../../system/-webview/vscode';
-import { getScopedCounter } from '../../../system/counter';
-import { log } from '../../../system/decorators/log';
-import { Logger } from '../../../system/logger';
-import { slowCallWarningThreshold } from '../../../system/logger.constants';
-import { getLoggableScopeBlockOverride, getLogScope } from '../../../system/logger.scope';
-import { dirname, isAbsolute, joinPaths, normalizePath } from '../../../system/path';
-import { isPromise } from '../../../system/promise';
-import { getDurationMilliseconds } from '../../../system/string';
-import { compare, fromString } from '../../../system/version';
-import { ensureGitTerminal } from '../../../terminal';
-import type { GitLocation } from './locator';
-import type { RunOptions, RunResult } from './shell';
-import { fsExists, isWindows, runSpawn } from './shell';
-import { CancelledRunError, RunError } from './shell.errors';
+} from '../../../git/errors.js';
+import type { GitDir } from '../../../git/gitProvider.js';
+import type { GitDiffFilter } from '../../../git/models/diff.js';
+import { rootSha } from '../../../git/models/revision.js';
+import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser.js';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils.js';
+import { getCancellationTokenId } from '../../../system/-webview/cancellation.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { splitPath } from '../../../system/-webview/path.js';
+import { getScopedCounter } from '../../../system/counter.js';
+import { slowCallWarningThreshold } from '../../../system/logger.constants.js';
+import { Logger } from '../../../system/logger.js';
+import { getLoggableScopeBlockOverride } from '../../../system/logger.scope.js';
+import { dirname, isAbsolute, joinPaths, normalizePath } from '../../../system/path.js';
+import { isPromise } from '../../../system/promise.js';
+import { getDurationMilliseconds } from '../../../system/string.js';
+import { compare, fromString } from '../../../system/version.js';
+import type { GitLocation } from './locator.js';
+import { CancelledRunError, RunError } from './shell.errors.js';
+import type { RunOptions, RunResult } from './shell.js';
+import { fsExists, runSpawn } from './shell.js';
 
 const emptyArray: readonly any[] = Object.freeze([]);
 const emptyObj = Object.freeze({});
@@ -76,22 +85,26 @@ export const GitErrors = {
 	ambiguousArgument: /fatal:\s*ambiguous argument ['"].+['"]: unknown revision or path not in the working tree/i,
 	badRevision: /bad revision '(.*?)'/i,
 	branchAlreadyExists: /fatal: A branch named '.+?' already exists/i,
-	branchNotFullyMerged: /error: The branch '.+?' is not fully merged/i,
+	notFullyMerged: /error: The branch '.+?' is not fully merged/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten:
-		/Your local changes to the following files would be overwritten|Your local changes would be overwritten/i,
+		/Your local changes to the following files would be overwritten|Your local changes would be overwritten|overwritten by checkout/i,
+	cherryPickAborted: /cherry-pick.*aborted/i,
+	cherryPickEmptyPrevious: /The previous cherry-pick is now empty/i,
+	cherryPickInProgress: /cherry-pick is already in progress|You have not concluded your cherry-pick/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
 	detachedHead: /You are in 'detached HEAD' state/i,
-	emptyPreviousCherryPick: /The previous cherry-pick is now empty/i,
 	entryNotUpToDate: /error:\s*Entry ['"].+['"] not uptodate\. Cannot merge\./i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
-	invalidBranchName: /fatal: '.+?' is not a valid branch name/i,
+	invalidName: /fatal: '.+?' is not a valid branch name/i,
 	invalidLineCount: /file .+? has only (\d+) lines/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
 	invalidTagName: /invalid tag name/i,
 	mainWorkingTree: /is a main working tree/i,
+	mergeAborted: /merge.*aborted/i,
+	mergeInProgress: /^fatal: You have not concluded your merge/i,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
 	noRemoteReference: /unable to delete '.+?': remote ref does not exist/i,
@@ -104,11 +117,20 @@ export const GitErrors = {
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error: failed to push some refs to\b/m,
+	pushRejectedRefDoesNotExists: /error: unable to delete '(.*?)': remote ref does not exist/m,
+	rebaseAborted: /Nothing to do|rebase.*aborted/i,
+	rebaseInProgress: /It seems that there is already a rebase-(?:merge|apply) directory/i,
+	rebaseMissingTodo: /error: could not read file .*\/git-rebase-todo': No such file or directory/,
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
+	revertAborted: /revert.*aborted/i,
+	revertInProgress: /^(error: )?(revert|cherry-pick) is already in progress/i,
 	refLocked: /fatal:\s*cannot lock ref ['"].+['"]: unable to create file/i,
 	remoteAhead: /rejected because the remote contains work/i,
-	remoteConnection: /Could not read from remote repository/i,
+	remoteConnectionFailed: /Could not read from remote repository/i,
 	remoteRejected: /rejected because the remote contains work/i,
+	stashConflictingStagedAndUnstagedLines: /Cannot remove worktree changes/i,
+	stashNothingToSave: /No local changes to save/i,
+	stashSavedWorkingDirAndIndexState: /Saved working directory and index state/i,
 	tagAlreadyExists: /tag .* already exists/i,
 	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
 	tagNotFound: /tag .* not found/i,
@@ -169,34 +191,10 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 }
 
 const uniqueCounterForStdin = getScopedCounter();
+const uniqueCounterForStream = getScopedCounter();
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
-
-const branchErrorsToReasons: [RegExp, BranchErrorReason][] = [
-	[GitErrors.noRemoteReference, BranchErrorReason.NoRemoteReference],
-	[GitErrors.invalidBranchName, BranchErrorReason.InvalidBranchName],
-	[GitErrors.branchAlreadyExists, BranchErrorReason.BranchAlreadyExists],
-	[GitErrors.branchNotFullyMerged, BranchErrorReason.BranchNotFullyMerged],
-];
-
-const resetErrorsToReasons: [RegExp, ResetErrorReason][] = [
-	[GitErrors.ambiguousArgument, ResetErrorReason.AmbiguousArgument],
-	[GitErrors.changesWouldBeOverwritten, ResetErrorReason.ChangesWouldBeOverwritten],
-	[GitErrors.detachedHead, ResetErrorReason.DetachedHead],
-	[GitErrors.entryNotUpToDate, ResetErrorReason.EntryNotUpToDate],
-	[GitErrors.permissionDenied, ResetErrorReason.PermissionDenied],
-	[GitErrors.refLocked, ResetErrorReason.RefLocked],
-	[GitErrors.unmergedChanges, ResetErrorReason.UnmergedChanges],
-];
-
-const tagErrorsToReasons: [RegExp, TagErrorReason][] = [
-	[GitErrors.tagAlreadyExists, TagErrorReason.TagAlreadyExists],
-	[GitErrors.tagNotFound, TagErrorReason.TagNotFound],
-	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
-	[GitErrors.permissionDenied, TagErrorReason.PermissionDenied],
-	[GitErrors.remoteRejected, TagErrorReason.RemoteRejected],
-];
 
 export class GitError extends Error {
 	readonly cmd: string | undefined;
@@ -228,7 +226,7 @@ export class GitError extends Error {
 		this.cmd = cmd;
 		this.exitCode = exitCode;
 
-		Error.captureStackTrace?.(this, GitError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -277,9 +275,10 @@ export class Git implements Disposable {
 		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, local, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
 
+		const defaultTimeout = (configuration.get('advanced.gitTimeout') ?? 60) * 1000;
 		const runOpts: Mutable<RunOptions> = {
-			timeout: 1000 * 60,
 			...opts,
+			timeout: opts.timeout === 0 || defaultTimeout === 0 ? undefined : (opts.timeout ?? defaultTimeout),
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
 			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
 			// Shouldn't *really* be needed but better safe than sorry
@@ -392,7 +391,7 @@ export class Git implements Disposable {
 			exception = undefined;
 			return { stdout: '' as T, stderr: result?.stderr as T | undefined, exitCode: result?.exitCode ?? 0 };
 		} finally {
-			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), waiting);
+			this.logGitCommandComplete(gitCommand, exception, getDurationMilliseconds(start), waiting);
 		}
 	}
 
@@ -400,6 +399,7 @@ export class Git implements Disposable {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
+		const streamId = uniqueCounterForStream.next();
 
 		const { cancellation, configs, stdin, stdinEncoding, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
@@ -457,6 +457,7 @@ export class Git implements Disposable {
 
 		const command = await this.path();
 		const proc = spawn(command, runArgs, spawnOpts);
+
 		if (stdin) {
 			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
 		}
@@ -524,7 +525,23 @@ export class Git implements Disposable {
 			});
 		});
 
+		let cleanedUp = false;
+		const cleanup = () => {
+			if (cleanedUp) return;
+			cleanedUp = true;
+
+			try {
+				disposable?.dispose();
+			} catch {}
+			try {
+				proc.removeAllListeners();
+			} catch {}
+			this.logGitCommandComplete(gitCommand, exception, getDurationMilliseconds(start), false, streamId);
+		};
+
 		try {
+			this.logGitCommandStart(gitCommand, streamId);
+
 			try {
 				if (proc.stdout) {
 					proc.stdout.setEncoding('utf8');
@@ -544,11 +561,14 @@ export class Git implements Disposable {
 			exception = ex;
 			throw ex;
 		} finally {
-			disposable?.dispose();
-			proc.removeAllListeners();
-
-			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false);
+			cleanup();
 		}
+
+		// Ensure cleanup happens immediately when the generator is explicitly closed (e.g., via break or return)
+		// This is called by JavaScript when the generator is abandoned, ensuring logGitCommand is called
+		// synchronously rather than waiting for garbage collection.
+		// eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
+		return void cleanup();
 	}
 
 	private _gitLocation: GitLocation | undefined;
@@ -740,21 +760,6 @@ export class Git implements Disposable {
 		}
 	}
 
-	async branch(repoPath: string, ...args: string[]): Promise<GitResult<string>> {
-		try {
-			const result = await this.exec({ cwd: repoPath }, 'branch', ...args);
-			return result;
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			for (const [error, reason] of branchErrorsToReasons) {
-				if (error.test(msg) || error.test(ex.stderr ?? '')) {
-					throw new BranchError(reason, ex);
-				}
-			}
-			throw new BranchError(BranchErrorReason.Other, ex);
-		}
-	}
-
 	async branchOrTag__containsOrPointsAt(
 		repoPath: string,
 		refs: string[],
@@ -814,8 +819,20 @@ export class Git implements Disposable {
 			}
 		}
 
-		const result = await this.exec({ cwd: repoPath }, ...params);
-		return result;
+		try {
+			const result = await this.exec({ cwd: repoPath }, ...params);
+			return result;
+		} catch (ex) {
+			throw getGitCommandError(
+				'checkout',
+				ex,
+				reason =>
+					new CheckoutError(
+						{ reason: reason ?? 'other', ref: ref, gitCommand: { repoPath: repoPath, args: params } },
+						ex,
+					),
+			);
+		}
 	}
 
 	// TODO: Expand to include options and other params
@@ -1016,20 +1033,20 @@ export class Git implements Disposable {
 		try {
 			void (await this.exec({ cwd: repoPath }, ...params));
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			let reason: FetchErrorReason = FetchErrorReason.Other;
-			if (GitErrors.noFastForward.test(msg) || GitErrors.noFastForward.test(ex.stderr ?? '')) {
-				reason = FetchErrorReason.NoFastForward;
-			} else if (
-				GitErrors.noRemoteRepositorySpecified.test(msg) ||
-				GitErrors.noRemoteRepositorySpecified.test(ex.stderr ?? '')
-			) {
-				reason = FetchErrorReason.NoRemote;
-			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
-				reason = FetchErrorReason.RemoteConnection;
-			}
-
-			throw new FetchError(reason, ex, options?.branch, options?.remote);
+			throw getGitCommandError(
+				'fetch',
+				ex,
+				reason =>
+					new FetchError(
+						{
+							reason: reason ?? 'other',
+							branch: options?.branch,
+							remote: options?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
+						ex,
+					),
+			);
 		}
 	}
 
@@ -1079,45 +1096,61 @@ export class Git implements Disposable {
 		try {
 			void (await this.exec({ cwd: repoPath }, ...params));
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			let reason: PushErrorReason = PushErrorReason.Other;
-			if (GitErrors.remoteAhead.test(msg) || GitErrors.remoteAhead.test(ex.stderr ?? '')) {
-				reason = PushErrorReason.RemoteAhead;
-			} else if (GitWarnings.tipBehind.test(msg) || GitWarnings.tipBehind.test(ex.stderr ?? '')) {
-				reason = PushErrorReason.TipBehind;
-			} else if (GitErrors.pushRejected.test(msg) || GitErrors.pushRejected.test(ex.stderr ?? '')) {
-				if (options?.force?.withLease) {
-					if (/! \[rejected\].*\(stale info\)/m.test(ex.stderr || '')) {
-						reason = PushErrorReason.PushRejectedWithLease;
-					} else if (
-						options.force.ifIncludes &&
-						/! \[rejected\].*\(remote ref updated since checkout\)/m.test(ex.stderr || '')
-					) {
-						reason = PushErrorReason.PushRejectedWithLeaseIfIncludes;
-					} else if (/error: unable to delete '(.*?)': remote ref does not exist/m.test(ex.stderr || '')) {
-						reason = PushErrorReason.PushRejectedRefNotExists;
-					} else {
-						reason = PushErrorReason.PushRejected;
-					}
-				} else {
-					reason = PushErrorReason.PushRejected;
-				}
-			} else if (/error: unable to delete '(.*?)': remote ref does not exist/m.test(ex.stderr || '')) {
-				reason = PushErrorReason.PushRejectedRefNotExists;
-			} else if (GitErrors.permissionDenied.test(msg) || GitErrors.permissionDenied.test(ex.stderr ?? '')) {
-				reason = PushErrorReason.PermissionDenied;
-			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
-				reason = PushErrorReason.RemoteConnection;
-			} else if (GitErrors.noUpstream.test(msg) || GitErrors.noUpstream.test(ex.stderr ?? '')) {
-				reason = PushErrorReason.NoUpstream;
-			}
-
-			throw new PushError(
-				reason,
+			const error = getGitCommandError(
+				'push',
 				ex,
-				options?.branch || options?.delete?.branch,
-				options?.remote || options?.delete?.remote,
+				reason =>
+					new PushError(
+						{
+							reason: reason,
+							branch: options?.branch || options?.delete?.branch,
+							remote: options?.remote || options?.delete?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
+						ex,
+					),
 			);
+
+			if (options?.force?.withLease && error.details.reason === 'rejected') {
+				if (ex.stderr && /! \[rejected\].*\(stale info\)/m.test(ex.stderr)) {
+					throw new PushError(
+						{
+							reason: 'rejectedWithLease',
+							branch: options?.branch || options?.delete?.branch,
+							remote: options?.remote || options?.delete?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
+						ex,
+					);
+				}
+				if (
+					options.force.ifIncludes &&
+					ex.stderr &&
+					/! \[rejected\].*\(remote ref updated since checkout\)/m.test(ex.stderr)
+				) {
+					throw new PushError(
+						{
+							reason: 'rejectedWithLeaseIfIncludes',
+							branch: options?.branch || options?.delete?.branch,
+							remote: options?.remote || options?.delete?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
+						ex,
+					);
+				}
+				if (ex.stderr && GitErrors.pushRejectedRefDoesNotExists.test(ex.stderr)) {
+					throw new PushError(
+						{
+							reason: 'rejectedRefDoesNotExist',
+							branch: options?.branch || options?.delete?.branch,
+							remote: options?.remote || options?.delete?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
+						ex,
+					);
+				}
+			}
+			throw error;
 		}
 	}
 
@@ -1135,69 +1168,38 @@ export class Git implements Disposable {
 		try {
 			void (await this.exec({ cwd: repoPath, configs: gitConfigsPull }, ...params));
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			let reason: PullErrorReason = PullErrorReason.Other;
-			if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
-				reason = PullErrorReason.Conflict;
-			} else if (
-				GitErrors.noUserNameConfigured.test(msg) ||
-				GitErrors.noUserNameConfigured.test(ex.stderr ?? '')
-			) {
-				reason = PullErrorReason.GitIdentity;
-			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
-				reason = PullErrorReason.RemoteConnection;
-			} else if (GitErrors.unstagedChanges.test(msg) || GitErrors.unstagedChanges.test(ex.stderr ?? '')) {
-				reason = PullErrorReason.UnstagedChanges;
-			} else if (GitErrors.unmergedFiles.test(msg) || GitErrors.unmergedFiles.test(ex.stderr ?? '')) {
-				reason = PullErrorReason.UnmergedFiles;
-			} else if (GitErrors.commitChangesFirst.test(msg) || GitErrors.commitChangesFirst.test(ex.stderr ?? '')) {
-				reason = PullErrorReason.UncommittedChanges;
-			} else if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = PullErrorReason.OverwrittenChanges;
-			} else if (GitErrors.cantLockRef.test(msg) || GitErrors.cantLockRef.test(ex.stderr ?? '')) {
-				reason = PullErrorReason.RefLocked;
-			} else if (
-				GitErrors.rebaseMultipleBranches.test(msg) ||
-				GitErrors.rebaseMultipleBranches.test(ex.stderr ?? '')
-			) {
-				reason = PullErrorReason.RebaseMultipleBranches;
-			} else if (GitErrors.tagConflict.test(msg) || GitErrors.tagConflict.test(ex.stderr ?? '')) {
-				reason = PullErrorReason.TagConflict;
-			}
-
-			throw new PullError(reason, ex);
+			throw getGitCommandError(
+				'pull',
+				ex,
+				reason =>
+					new PullError({ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } }, ex),
+			);
 		}
 	}
 
 	async reset(
 		repoPath: string,
 		pathspecs: string[],
-		options?: { hard?: boolean; soft?: never; ref?: string } | { soft?: boolean; hard?: never; ref?: string },
+		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft'; rev?: string },
 	): Promise<void> {
+		const params = ['reset', '-q'];
+		if (options?.mode) {
+			params.push(`--${options.mode}`);
+		}
+		if (options?.rev) {
+			params.push(options.rev);
+		}
+		params.push('--', ...pathspecs);
+
 		try {
-			const flags = [];
-			if (options?.hard) {
-				flags.push('--hard');
-			} else if (options?.soft) {
-				flags.push('--soft');
-			}
-
-			if (options?.ref) {
-				flags.push(options.ref);
-			}
-			await this.exec({ cwd: repoPath }, 'reset', '-q', ...flags, '--', ...pathspecs);
+			await this.exec({ cwd: repoPath }, ...params);
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			for (const [error, reason] of resetErrorsToReasons) {
-				if (error.test(msg) || error.test(ex.stderr ?? '')) {
-					throw new ResetError(reason, ex);
-				}
-			}
-
-			throw new ResetError(ResetErrorReason.Other, ex);
+			throw getGitCommandError(
+				'reset',
+				ex,
+				reason =>
+					new ResetError({ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } }, ex),
+			);
 		}
 	}
 
@@ -1552,18 +1554,21 @@ export class Git implements Disposable {
 
 		try {
 			const result = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
-			if (result.stdout.includes('No local changes to save')) {
-				throw new StashPushError(StashPushErrorReason.NothingToSave);
+			if (GitErrors.stashNothingToSave.test(result.stdout)) {
+				throw new StashPushError({ reason: 'nothingToSave', gitCommand: { repoPath: repoPath, args: params } });
 			}
 		} catch (ex) {
-			if (
-				ex instanceof GitError &&
-				ex.stdout?.includes('Saved working directory and index state') &&
-				ex.stderr?.includes('Cannot remove worktree changes')
-			) {
-				throw new StashPushError(StashPushErrorReason.ConflictingStagedAndUnstagedLines);
-			}
-			throw ex;
+			if (ex instanceof StashPushError) throw ex;
+
+			throw getGitCommandError(
+				'stash-push',
+				ex,
+				reason =>
+					new StashPushError(
+						{ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } },
+						ex,
+					),
+			);
 		}
 	}
 
@@ -1600,21 +1605,6 @@ export class Git implements Disposable {
 		return result;
 	}
 
-	async tag(repoPath: string, ...args: string[]): Promise<GitResult<string>> {
-		try {
-			const result = await this.exec({ cwd: repoPath }, 'tag', ...args);
-			return result;
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			for (const [error, reason] of tagErrorsToReasons) {
-				if (error.test(msg) || error.test(ex.stderr ?? '')) {
-					throw new TagError(reason, ex);
-				}
-			}
-			throw new TagError(TagErrorReason.Other, ex);
-		}
-	}
-
 	async readDotGitFile(
 		gitDir: GitDir,
 		pathParts: string[],
@@ -1647,55 +1637,25 @@ export class Git implements Disposable {
 			return undefined;
 		}
 	}
-	@log()
-	async runGitCommandViaTerminal(
-		cwd: string,
-		command: string,
-		args: string[],
-		options?: { execute?: boolean },
-	): Promise<void> {
-		const scope = getLogScope();
-
-		const location = await this.getLocation();
-		const git = normalizePath(location.path ?? 'git');
-
-		const coreEditorConfig = configuration.get('terminal.overrideGitEditor')
-			? `-c "core.editor=${await getHostEditorCommand()}" `
-			: '';
-
-		const parsedArgs = args.map(arg => (arg.startsWith('#') || /['();$|>&<]/.test(arg) ? `"${arg}"` : arg));
-
-		let text;
-		if (git.includes(' ')) {
-			const shell = env.shell;
-			Logger.debug(scope, `\u2022 git path '${git}' contains spaces, detected shell: '${shell}'`);
-
-			text = `${
-				(isWindows ? /(pwsh|powershell)\.exe/i : /pwsh/i).test(shell) ? '&' : ''
-			} "${git}" -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
-		} else {
-			text = `${git} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
-		}
-
-		Logger.log(scope, `\u2022 '${text}'`);
-		this.logCore(`${getLoggableScopeBlockOverride('TERMINAL')} ${text}`);
-
-		const terminal = ensureGitTerminal();
-		terminal.show(false);
-		// Removing this as this doesn't seem to work on bash
-		// // Sends ansi codes to remove any text on the current input line
-		// terminal.sendText('\x1b[2K\x1b', false);
-		terminal.sendText(text, options?.execute ?? false);
+	private logGitCommandStart(command: string, id: number): void {
+		Logger.log(`${getLoggableScopeBlockOverride(`GIT:→${id}`)} ${command} ${GlyphChars.Dot} starting...`);
+		this.logCore(`${getLoggableScopeBlockOverride(`→${id}`, '')} ${command} ${GlyphChars.Dot} starting...`);
 	}
 
-	private logGitCommand(command: string, ex: Error | undefined, duration: number, waiting: boolean): void {
+	private logGitCommandComplete(
+		command: string,
+		ex: Error | undefined,
+		duration: number,
+		waiting: boolean,
+		id?: number,
+	): void {
 		const slow = duration > slowCallWarningThreshold;
 		const status = slow && waiting ? ' (slow, waiting)' : waiting ? ' (waiting)' : slow ? ' (slow)' : '';
 
 		if (ex != null) {
 			Logger.error(
 				undefined,
-				`${getLoggableScopeBlockOverride('GIT')} ${command} ${GlyphChars.Dot} ${
+				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT')} ${command} ${GlyphChars.Dot} ${
 					isCancellationError(ex)
 						? 'cancelled'
 						: (ex.message || String(ex) || '')
@@ -1706,13 +1666,18 @@ export class Git implements Disposable {
 			);
 		} else if (slow) {
 			Logger.warn(
-				`${getLoggableScopeBlockOverride('GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
+				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
 			);
 		} else {
-			Logger.log(`${getLoggableScopeBlockOverride('GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`);
+			Logger.log(
+				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`,
+			);
 		}
 
-		this.logCore(`${getLoggableScopeBlockOverride(slow ? '*' : '', `${duration}ms`)} ${command}${status}`, ex);
+		this.logCore(
+			`${getLoggableScopeBlockOverride(`${id ? `←${id}` : ''}${slow ? '*' : ''}`, `${duration}ms`)} ${command}${status}`,
+			ex,
+		);
 	}
 
 	private _gitOutput: OutputChannel | undefined;
@@ -1726,4 +1691,216 @@ export class Git implements Disposable {
 			this._gitOutput.appendLine(`\n${String(ex)}\n`);
 		}
 	}
+}
+
+type GitCommand =
+	| 'branch'
+	| 'checkout'
+	| 'cherry-pick'
+	| 'fetch'
+	| 'merge'
+	| 'paused-operation-abort'
+	| 'paused-operation-continue'
+	| 'pull'
+	| 'push'
+	| 'rebase'
+	| 'reset'
+	| 'revert'
+	| 'stash-apply'
+	| 'stash-push'
+	| 'tag'
+	| 'worktree-create'
+	| 'worktree-delete';
+type GitCommandToReasonMap = {
+	branch: BranchErrorReason;
+	checkout: CheckoutErrorReason;
+	'cherry-pick': CherryPickErrorReason;
+	fetch: FetchErrorReason;
+	merge: MergeErrorReason;
+	'paused-operation-abort': PausedOperationAbortErrorReason;
+	'paused-operation-continue': PausedOperationContinueErrorReason;
+	pull: PullErrorReason;
+	push: PushErrorReason;
+	rebase: RebaseErrorReason;
+	reset: ResetErrorReason;
+	revert: RevertErrorReason;
+	'stash-apply': StashApplyErrorReason;
+	'stash-push': StashPushErrorReason;
+	tag: TagErrorReason;
+	'worktree-create': WorktreeCreateErrorReason;
+	'worktree-delete': WorktreeDeleteErrorReason;
+};
+
+const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitCommand]][]>([
+	[
+		'branch',
+		[
+			[GitErrors.branchAlreadyExists, 'alreadyExists'],
+			[GitErrors.invalidName, 'invalidName'],
+			[GitErrors.notFullyMerged, 'notFullyMerged'],
+			[GitErrors.noRemoteReference, 'noRemoteReference'],
+		],
+	],
+	[
+		'checkout',
+		[
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+			[GitErrors.ambiguousArgument, 'pathspecNotFound'],
+			[GitErrors.notAValidObjectName, 'invalidRef'],
+		],
+	],
+	[
+		'cherry-pick',
+		[
+			[GitErrors.cherryPickAborted, 'aborted'],
+			[GitErrors.cherryPickInProgress, 'alreadyInProgress'],
+			[GitErrors.conflict, 'conflicts'],
+			[GitErrors.cherryPickEmptyPrevious, 'emptyCommit'],
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	[
+		'fetch',
+		[
+			[GitErrors.noFastForward, 'noFastForward'],
+			[GitErrors.noRemoteRepositorySpecified, 'noRemote'],
+			[GitErrors.remoteConnectionFailed, 'remoteConnectionFailed'],
+		],
+	],
+	[
+		'merge',
+		[
+			[GitErrors.mergeAborted, 'aborted'],
+			[GitErrors.mergeInProgress, 'alreadyInProgress'],
+			[GitErrors.unresolvedConflicts, 'conflicts'],
+			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	['paused-operation-abort', [[GitErrors.noPausedOperation, 'nothingToAbort']]],
+	[
+		'paused-operation-continue',
+		[
+			[GitErrors.cherryPickEmptyPrevious, 'emptyCommit'],
+			[GitErrors.noPausedOperation, 'nothingToContinue'],
+			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
+			[GitErrors.unmergedFiles, 'unmergedFiles'],
+			[GitErrors.unresolvedConflicts, 'conflicts'],
+			[GitErrors.unstagedChanges, 'unstagedChanges'],
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	[
+		'pull',
+		[
+			[GitErrors.conflict, 'conflict'],
+			[GitErrors.noUserNameConfigured, 'gitIdentity'],
+			[GitErrors.remoteConnectionFailed, 'remoteConnectionFailed'],
+			[GitErrors.unstagedChanges, 'unstagedChanges'],
+			[GitErrors.unmergedFiles, 'unmergedFiles'],
+			[GitErrors.commitChangesFirst, 'uncommittedChanges'],
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+			[GitErrors.cantLockRef, 'refLocked'],
+			[GitErrors.rebaseMultipleBranches, 'rebaseMultipleBranches'],
+			[GitErrors.tagConflict, 'tagConflict'],
+		],
+	],
+	[
+		'push',
+		[
+			[GitErrors.remoteAhead, 'remoteAhead'],
+			[GitWarnings.tipBehind, 'tipBehind'],
+			[GitErrors.pushRejected, 'rejected'],
+			[GitErrors.pushRejectedRefDoesNotExists, 'rejectedRefDoesNotExist'],
+			[GitErrors.permissionDenied, 'permissionDenied'],
+			[GitErrors.remoteConnectionFailed, 'remoteConnectionFailed'],
+			[GitErrors.noUpstream, 'noUpstream'],
+		],
+	],
+	[
+		'rebase',
+		[
+			[GitErrors.rebaseAborted, 'aborted'],
+			[GitErrors.rebaseMissingTodo, 'aborted'],
+			[GitErrors.rebaseInProgress, 'alreadyInProgress'],
+			[GitErrors.unresolvedConflicts, 'conflicts'],
+			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	[
+		'reset',
+		[
+			[GitErrors.ambiguousArgument, 'ambiguousArgument'],
+			[GitErrors.detachedHead, 'detachedHead'],
+			[GitErrors.refLocked, 'refLocked'],
+			[GitErrors.entryNotUpToDate, 'notUpToDate'],
+			[GitErrors.permissionDenied, 'permissionDenied'],
+			[GitErrors.unmergedChanges, 'unmergedChanges'],
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	[
+		'revert',
+		[
+			[GitErrors.revertAborted, 'aborted'],
+			[GitErrors.revertInProgress, 'alreadyInProgress'],
+			[GitErrors.unresolvedConflicts, 'conflicts'],
+			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	['stash-apply', [[GitErrors.changesWouldBeOverwritten, 'uncommittedChanges']]],
+	[
+		'stash-push',
+		[
+			[GitErrors.stashConflictingStagedAndUnstagedLines, 'conflictingStagedAndUnstagedLines'],
+			[GitErrors.stashNothingToSave, 'nothingToSave'],
+			[GitErrors.stashSavedWorkingDirAndIndexState, 'conflictingStagedAndUnstagedLines'],
+		],
+	],
+	[
+		'tag',
+		[
+			[GitErrors.tagAlreadyExists, 'alreadyExists'],
+			[GitErrors.invalidTagName, 'invalidName'],
+			[GitErrors.tagNotFound, 'notFound'],
+			[GitErrors.permissionDenied, 'permissionDenied'],
+			[GitErrors.remoteRejected, 'remoteRejected'],
+		],
+	],
+	[
+		'worktree-create',
+		[
+			[GitErrors.alreadyCheckedOut, 'alreadyCheckedOut'],
+			[GitErrors.alreadyExists, 'alreadyExists'],
+		],
+	],
+	[
+		'worktree-delete',
+		[
+			[GitErrors.mainWorkingTree, 'defaultWorkingTree'],
+			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
+			[GitErrors.failedToDeleteDirectoryNotEmpty, 'directoryNotEmpty'],
+		],
+	],
+]);
+
+export function getGitCommandError<T extends GitCommand, TReturn extends GitCommandError<any>>(
+	command: T,
+	ex: GitError,
+	creator: (reason: GitCommandToReasonMap[T] | undefined) => TReturn,
+): TReturn {
+	const msg: string = ex?.toString() ?? '';
+
+	const errorsToReasons = errorToReasonMap.get(command) as [RegExp, GitCommandToReasonMap[T]][] | undefined;
+	if (errorsToReasons != null) {
+		for (const [error, reason] of errorsToReasons) {
+			if (error.test(msg) || (ex.stderr && error.test(ex.stderr)) || (ex.stdout && error.test(ex.stdout))) {
+				return creator(reason);
+			}
+		}
+	}
+
+	return creator(undefined);
 }

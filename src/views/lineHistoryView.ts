@@ -1,13 +1,13 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import type { LineHistoryViewConfig } from '../config';
-import type { Container } from '../container';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
-import { ViewBase } from './viewBase';
-import type { CopyNodeCommandArgs } from './viewCommands';
-import { registerViewCommand } from './viewCommands';
+import type { LineHistoryViewConfig } from '../config.js';
+import type { Container } from '../container.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode.js';
+import { ViewBase } from './viewBase.js';
+import type { CopyNodeCommandArgs } from './viewCommands.js';
+import { registerViewCommand } from './viewCommands.js';
 
 const pinnedSuffix = ' (pinned)';
 

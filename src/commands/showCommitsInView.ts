@@ -1,15 +1,15 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { Container } from '../container';
-import { executeGitCommand } from '../git/actions';
-import { GitUri } from '../git/gitUri';
-import { createSearchQueryForCommits } from '../git/search';
-import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
-import { command } from '../system/-webview/command';
-import { createMarkdownCommandLink } from '../system/commands';
-import { filterMap } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
+import type { Container } from '../container.js';
+import { executeGitCommand } from '../git/actions.js';
+import { GitUri } from '../git/gitUri.js';
+import { createSearchQueryForCommits } from '../git/search.js';
+import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { filterMap } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
 
 export interface ShowCommitsInViewCommandArgs {
 	refs?: string[];

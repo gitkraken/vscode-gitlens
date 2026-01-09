@@ -1,12 +1,12 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCommand } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command, executeCommand } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote.js';
 
 @command()
 export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorCommand {

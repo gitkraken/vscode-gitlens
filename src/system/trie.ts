@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
-import { isLinux } from '@env/platform';
-import { filterMap } from './iterable';
-import { normalizePath as _normalizePath } from './path';
+import { isLinux } from '@env/platform.js';
+import { filterMap } from './iterable.js';
+import { normalizePath as _normalizePath } from './path.js';
 
 const slash = 47; //CharCode.Slash;
 

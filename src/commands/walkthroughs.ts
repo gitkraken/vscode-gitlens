@@ -1,17 +1,18 @@
-import type { WalkthroughSteps } from '../constants';
-import { urls } from '../constants';
-import type { GlCommands } from '../constants.commands';
-import type { Source, Sources, TelemetryEvents } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription';
-import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
-import { command, executeCommand, executeCoreCommand } from '../system/-webview/command';
-import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
-import { openUrl } from '../system/-webview/vscode/uris';
-import { isWalkthroughSupported } from '../telemetry/walkthroughStateProvider';
-import type { ConnectCloudIntegrationsCommandArgs } from './cloudIntegrations';
-import { GlCommandBase } from './commandBase';
-import type { WorktreeGitCommandArgs } from './git/worktree';
+import type { GlCommands } from '../constants.commands.js';
+import type { WalkthroughSteps } from '../constants.js';
+import { urls } from '../constants.js';
+import type { Source, Sources, TelemetryEvents } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription.js';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
+import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
+import { openUrl } from '../system/-webview/vscode/uris.js';
+import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode.js';
+import { isWalkthroughSupported } from '../telemetry/walkthroughStateProvider.js';
+import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
+import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
+import { GlCommandBase } from './commandBase.js';
+import type { WorktreeGitCommandArgs } from './git/worktree.js';
 
 @command()
 export class GetStartedCommand extends GlCommandBase {
@@ -52,7 +53,6 @@ const helpCenterWalkthroughUrls = new Map<WalkthroughSteps | 'default', string>(
 	['get-started-community', urls.getStarted],
 	['visualize-code-history', urls.interactiveCodeHistory],
 	['accelerate-pr-reviews', urls.acceleratePrReviews],
-	['streamline-collaboration', urls.streamlineCollaboration],
 	['improve-workflows-with-integrations', urls.startIntegrations],
 ]);
 
@@ -200,6 +200,25 @@ export class WalkthroughShowGraphCommand extends GlCommandBase {
 	}
 }
 
+@command()
+export class WalkthroughShowComposerCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.showComposer');
+	}
+
+	execute(): void {
+		const command: GlCommands = 'gitlens.showComposerPage';
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/composer',
+			command: command,
+		});
+		executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(command, undefined, {
+			source: 'walkthrough',
+		});
+	}
+}
+
 // workbench.view.extension.gitlensInspect
 @command()
 export class WalkthroughGitLensInspectCommand extends GlCommandBase {
@@ -321,116 +340,6 @@ export class WalkthroughShowDraftsViewCommand extends GlCommandBase {
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/drafts',
-			command: command,
-		});
-		executeCommand(command);
-	}
-}
-
-// https://help.gitkraken.com/gitlens/gitlens-home/#streamline-collaboration
-@command()
-export class WalkthroughOpenStreamlineCollaboration extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.openStreamlineCollaboration');
-	}
-
-	execute(): void {
-		const url = urls.streamlineCollaboration;
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'url',
-			name: 'open/help-center/streamline-collaboration',
-			url: url,
-		});
-		void openUrl(url);
-	}
-}
-
-// gitlens.plus.cloudIntegrations.connect
-@command()
-export class WalkthroughConnectIntegrationsCommand extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.connectIntegrations');
-	}
-
-	execute(): void {
-		const command: GlCommands = 'gitlens.plus.cloudIntegrations.connect';
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'command',
-			name: 'connect/integrations',
-			command: command,
-		});
-		executeCommand<ConnectCloudIntegrationsCommandArgs>(command, {
-			source: { source: 'walkthrough' },
-		});
-	}
-}
-
-// gitlens.showSettingsPage!autolinks
-@command()
-export class WalkthroughShowAutolinksCommand extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.showAutolinks');
-	}
-
-	execute(): void {
-		const command: GlCommands = 'gitlens.showSettingsPage!autolinks';
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'command',
-			name: 'open/autolinks',
-			command: command,
-		});
-		executeCommand(command);
-	}
-}
-
-// https://help.gitkraken.com/gitlens/gitlens-start-here/#integrations
-@command()
-export class WalkthroughOpenStartIntegrations extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.openStartIntegrations');
-	}
-
-	execute(): void {
-		const url = urls.startIntegrations;
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'url',
-			name: 'open/help-center/start-integrations',
-			url: url,
-		});
-		void openUrl(url);
-	}
-}
-
-// https://help.gitkraken.com/gitlens/home-view
-@command()
-export class WalkthroughOpenHomeViewVideo extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.openHomeViewVideo');
-	}
-
-	execute(): void {
-		const url = urls.homeView;
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'url',
-			name: 'open/help-center/home-view',
-			url: url,
-		});
-		void openUrl(url);
-	}
-}
-
-// gitlens.showHomeView
-@command()
-export class WalkthroughShowHomeViewCommand extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.showHomeView');
-	}
-
-	execute(): void {
-		const command: GlCommands = 'gitlens.showHomeView';
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'command',
-			name: 'open/home',
 			command: command,
 		});
 		executeCommand(command);

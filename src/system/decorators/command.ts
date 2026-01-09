@@ -1,11 +1,5 @@
-import type {
-	GlCommands,
-	WebviewCommands,
-	WebviewCommandsOrCommandsWithSuffix,
-	WebviewViewCommands,
-	WebviewViewCommandsOrCommandsWithSuffix,
-} from '../../constants.commands';
-import type { WebviewTypes, WebviewViewTypes } from '../../constants.views';
+import type { GlCommands, GlWebviewCommands } from '../../constants.commands.js';
+import type { WebviewTypes } from '../../constants.views.js';
 
 interface Command<
 	TCommand extends string | GlCommands = GlCommands,
@@ -76,18 +70,6 @@ export function createCommandDecorator<
 	};
 }
 
-export function getWebviewCommand<T extends WebviewTypes>(
-	command: WebviewCommandsOrCommandsWithSuffix<T>,
-	type: T,
-): WebviewCommands<T> {
-	return command.endsWith(':') ? (`${command}${type}` as WebviewCommands<T>) : (command as WebviewCommands<T>);
-}
-
-export function getWebviewViewCommand<T extends WebviewViewTypes>(
-	command: WebviewViewCommandsOrCommandsWithSuffix<T>,
-	type: T,
-): WebviewViewCommands<T> {
-	return command.endsWith(':')
-		? (`${command}${type}` as WebviewViewCommands<T>)
-		: (command as WebviewViewCommands<T>);
+export function getWebviewCommand(command: string, type: WebviewTypes): GlWebviewCommands {
+	return (command.endsWith(':') ? `${command}${type}` : command) as GlWebviewCommands;
 }

@@ -1,20 +1,20 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import type { Container } from '../container';
-import { copyMessageToClipboard } from '../git/actions/commit';
-import { GitUri } from '../git/gitUri';
-import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/-webview/command';
-import { first } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
+import type { Container } from '../container.js';
+import { copyMessageToClipboard } from '../git/actions/commit.js';
+import { GitUri } from '../git/gitUri.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { first } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
 import {
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
-} from './commandContext.utils';
+} from './commandContext.utils.js';
 
 export interface CopyMessageToClipboardCommandArgs {
 	message?: string;

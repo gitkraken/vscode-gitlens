@@ -1,9 +1,9 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { getAutolinkIcon } from '../rich/utils';
-import './action-chip';
-import '../rich/issue-pull-request';
-import '../overlays/popover';
+import { getAutolinkIcon } from '../rich/utils.js';
+import './action-chip.js';
+import '../rich/issue-pull-request.js';
+import '../overlays/popover.js';
 
 @customElement('gl-autolink-chip')
 export class GlAutolinkChip extends LitElement {

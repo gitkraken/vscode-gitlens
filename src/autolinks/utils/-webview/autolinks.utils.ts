@@ -1,13 +1,13 @@
-import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
-import { escapeMarkdown } from '../../../system/markdown';
-import { encodeHtmlWeak, escapeRegex } from '../../../system/string';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
+import { escapeMarkdown } from '../../../system/markdown.js';
+import { encodeHtmlWeak, escapeRegex } from '../../../system/string.js';
 import type {
 	Autolink,
 	AutolinkReference,
 	CacheableAutolinkReference,
 	DynamicAutolinkReference,
 	RefSet,
-} from '../../models/autolinks';
+} from '../../models/autolinks.js';
 
 export function serializeAutolink(value: Autolink): Autolink {
 	const serialized: Autolink = {

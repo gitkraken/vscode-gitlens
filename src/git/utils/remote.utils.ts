@@ -1,6 +1,6 @@
-import { GlyphChars } from '../../constants';
-import type { GitRemote } from '../models/remote';
-import type { RemoteProvider } from '../remotes/remoteProvider';
+import { GlyphChars } from '../../constants.js';
+import type { GitRemote } from '../models/remote.js';
+import type { RemoteProvider } from '../remotes/remoteProvider.js';
 
 export function getDefaultRemoteOrHighlander<T extends GitRemote>(remotes: T[]): T | undefined {
 	return remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);

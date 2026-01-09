@@ -5,26 +5,30 @@ import type {
 	AutolinkReference,
 	DynamicAutolinkReference,
 	MaybeEnrichedAutolink,
-} from '../../autolinks/models/autolinks';
-import { GlyphChars } from '../../constants';
-import type { Source } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
-import type { Brand, Unbrand } from '../../system/brand';
-import { fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import { encodeUrl } from '../../system/encoding';
-import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
-import { equalsIgnoreCase } from '../../system/string';
-import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
-import type { Repository } from '../models/repository';
-import type { GkProviderId } from '../models/repositoryIdentities';
-import type { GitRevisionRangeNotation } from '../models/revision';
-import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
-import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils';
-import { isSha } from '../utils/revision.utils';
-import type { LocalInfoFromRemoteUriResult, RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
-import { RemoteProvider } from './remoteProvider';
+} from '../../autolinks/models/autolinks.js';
+import { GlyphChars } from '../../constants.js';
+import type { Source } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github.js';
+import type { Brand, Unbrand } from '../../system/brand.js';
+import { fromNow } from '../../system/date.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { encodeUrl } from '../../system/encoding.js';
+import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown.js';
+import { equalsIgnoreCase } from '../../system/string.js';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource.js';
+import type { Repository } from '../models/repository.js';
+import type { GkProviderId } from '../models/repositoryIdentities.js';
+import type { GitRevisionRangeNotation } from '../models/revision.js';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons.js';
+import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils.js';
+import { isSha } from '../utils/revision.utils.js';
+import type {
+	LocalInfoFromRemoteUriResult,
+	RemoteProviderId,
+	RemoteProviderSupportedFeatures,
+} from './remoteProvider.js';
+import { RemoteProvider } from './remoteProvider.js';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;

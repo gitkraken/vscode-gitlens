@@ -1,7 +1,7 @@
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
-import type { GkProviderId } from '../models/repositoryIdentities';
-import { GerritRemote } from './gerrit';
-import type { RemoteProviderId } from './remoteProvider';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks.js';
+import type { GkProviderId } from '../models/repositoryIdentities.js';
+import { GerritRemote } from './gerrit.js';
+import type { RemoteProviderId } from './remoteProvider.js';
 
 export class GoogleSourceRemote extends GerritRemote {
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {

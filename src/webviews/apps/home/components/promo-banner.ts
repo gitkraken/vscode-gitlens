@@ -1,9 +1,9 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import type { PromosContext } from '../../shared/contexts/promos';
-import { promosContext } from '../../shared/contexts/promos';
-import '../../shared/components/promo';
+import type { PromosContext } from '../../shared/contexts/promos.js';
+import { promosContext } from '../../shared/contexts/promos.js';
+import '../../shared/components/promo.js';
 
 @customElement('gl-promo-banner')
 export class GlPromoBanner extends LitElement {

@@ -1,14 +1,14 @@
 import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
 import { Disposable, Hover, languages, Range, window } from 'vscode';
-import type { Container } from '../container';
-import { configuration } from '../system/-webview/configuration';
-import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
-import { debug } from '../system/decorators/log';
-import { once } from '../system/event';
-import { Logger } from '../system/logger';
-import { areUrisEqual } from '../system/uri';
-import type { LinesChangeEvent } from '../trackers/lineTracker';
-import { changesMessage, detailsMessage } from './hovers';
+import type { Container } from '../container.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
+import { debug } from '../system/decorators/log.js';
+import { once } from '../system/event.js';
+import { Logger } from '../system/logger.js';
+import { areUrisEqual } from '../system/uri.js';
+import type { LinesChangeEvent } from '../trackers/lineTracker.js';
+import { changesMessage, detailsMessage } from './hovers.js';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
@@ -134,6 +134,7 @@ export class LineHoverController implements Disposable {
 				format: cfg.detailsMarkdownFormat,
 				pullRequests: cfg.pullRequests.enabled,
 				timeout: 250,
+				sourceName: 'editor:hover',
 			})) ?? 'Cancelled';
 		return new Hover(message, range);
 	}
@@ -189,6 +190,7 @@ export class LineHoverController implements Disposable {
 			trackedDocument.uri,
 			position.line,
 			trackedDocument.document,
+			'editor:hover',
 		);
 		if (message == null) return undefined;
 

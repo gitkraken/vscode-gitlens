@@ -1,12 +1,12 @@
 import { env, lm, version } from 'vscode';
-import { isOffline, isWeb } from '@env/platform';
-import type { Container } from '../../../../container';
-import { configuration } from '../../../../system/-webview/configuration';
-import { satisfies } from '../../../../system/version';
+import { isOffline, isWeb } from '@env/platform.js';
+import type { Container } from '../../../../container.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { satisfies } from '../../../../system/version.js';
 
 export function isMcpBannerEnabled(container: Container, showAutoRegistration = false): boolean {
 	// Check if running on web or automatically registrable
-	if (isWeb || (!showAutoRegistration && mcpExtensionRegistrationAllowed())) {
+	if (isWeb || (!showAutoRegistration && mcpExtensionRegistrationAllowed(container))) {
 		return false;
 	}
 
@@ -22,10 +22,6 @@ export function supportsMcpExtensionRegistration(): boolean {
 	return satisfies(version, '>= 1.101.0') && lm.registerMcpServerDefinitionProvider != null;
 }
 
-export function mcpExtensionRegistrationAllowed(): boolean {
-	return (
-		configuration.get('ai.enabled') &&
-		configuration.get('gitkraken.mcp.autoEnabled') &&
-		supportsMcpExtensionRegistration()
-	);
+export function mcpExtensionRegistrationAllowed(container: Container): boolean {
+	return container.ai.enabled && configuration.get('gitkraken.mcp.autoEnabled') && supportsMcpExtensionRegistration();
 }

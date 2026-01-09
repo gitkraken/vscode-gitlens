@@ -1,7 +1,7 @@
 /*global window document MutationObserver*/
-import { getCssVariable } from '../../../system/color';
-import type { Disposable, Event } from './events';
-import { Emitter } from './events';
+import { getCssVariable } from '../../../system/color.js';
+import type { Disposable, Event } from './events.js';
+import { Emitter } from './events.js';
 
 export interface ThemeChangeEvent {
 	colors: {

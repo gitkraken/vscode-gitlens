@@ -1,14 +1,16 @@
-import type { Container } from '../../container';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitLog } from '../../git/models/log';
-import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { getReferenceLabel } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { Logger } from '../../system/logger';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { window } from 'vscode';
+import type { Container } from '../../container.js';
+import { ResetError } from '../../git/errors.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitLog } from '../../git/models/log.js';
+import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { getReferenceLabel } from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { Logger } from '../../system/logger.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
 	QuickPickStep,
@@ -17,9 +19,9 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
+} from '../quickCommand.js';
+import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];
@@ -29,7 +31,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--hard' | '--soft';
+type Flags = '--hard' | '--keep' | '--soft';
 
 interface State {
 	repo: string | Repository;
@@ -72,18 +74,26 @@ export class ResetGitCommand extends QuickCommand<State> {
 	}
 
 	private async execute(state: ResetStepState) {
+		const mode = state.flags.includes('--soft')
+			? 'soft'
+			: state.flags.includes('--keep')
+				? 'keep'
+				: state.flags.includes('--hard')
+					? 'hard'
+					: undefined;
+
 		try {
-			await state.repo.git.reset(
-				state.reference.ref,
-				state.flags.includes('--hard')
-					? { hard: true }
-					: state.flags.includes('--soft')
-						? { soft: true }
-						: undefined,
-			);
+			await state.repo.git.ops?.reset(state.reference.ref, { mode: mode });
 		} catch (ex) {
 			Logger.error(ex, this.title);
-			void showGenericErrorMessage(ex.message);
+
+			if (mode === 'keep' && (ResetError.is(ex, 'notUpToDate') || ResetError.is(ex, 'wouldOverwriteChanges'))) {
+				void window.showWarningMessage(
+					'Unable to safely reset. Your local changes would be overwritten by the reset. Please commit or stash your changes before trying again.',
+				);
+			} else {
+				void showGitErrorMessage(ex);
+			}
 		}
 	}
 
@@ -182,23 +192,32 @@ export class ResetGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will reset (leaves changes in the working tree) ${getReferenceLabel(
-						context.destination,
-					)} to ${getReferenceLabel(state.reference)}`,
+					description: '--mixed \u2022 unstages your changes and reset changes',
+					detail: `Will unstage your changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
+						state.reference,
+					)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--soft'], {
 					label: `Soft ${this.title}`,
-					description: '--soft',
-					detail: `Will soft reset (leaves changes in the index and working tree) ${getReferenceLabel(
-						context.destination,
-					)} to ${getReferenceLabel(state.reference)}`,
+					description: '--soft \u2022 keeps your changes and stages reset changes',
+					detail: `Will keep your changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
+						state.reference,
+					)}`,
+				}),
+				createFlagsQuickPickItem<Flags>(state.flags, ['--keep'], {
+					label: `Safe Hard ${this.title}`,
+					description:
+						'--keep \u2022 keeps your changes and discards reset changes; aborts if reset changes would overwrite them',
+					detail: `Will safely hard reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
+						state.reference,
+					)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--hard'], {
 					label: `Hard ${this.title}`,
-					description: '--hard',
-					detail: `Will hard reset (discards all changes) ${getReferenceLabel(
-						context.destination,
-					)} to ${getReferenceLabel(state.reference)}`,
+					description: '$(warning) --hard \u2022 discards ALL changes',
+					detail: `Will discard ALL changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
+						state.reference,
+					)}`,
 				}),
 			],
 		);

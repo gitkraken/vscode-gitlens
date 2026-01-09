@@ -1,10 +1,10 @@
 import type { Uri } from 'vscode';
-import type { Container } from '../../container';
-import { memoize } from '../../system/decorators/memoize';
-import { pluralize } from '../../system/string';
-import type { DiffRange } from '../gitProvider';
-import type { GitFileStatus } from './fileStatus';
-import { GitFileConflictStatus } from './fileStatus';
+import type { Container } from '../../container.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { pluralize } from '../../system/string.js';
+import type { DiffRange } from '../gitProvider.js';
+import type { GitFileStatus } from './fileStatus.js';
+import { GitFileConflictStatus } from './fileStatus.js';
 
 export function isGitFileChange(file: unknown): file is GitFileChange {
 	return file instanceof GitFileChange;

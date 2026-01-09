@@ -1,10 +1,10 @@
-import type { TreeViewRefFileNodeTypes, TreeViewRefNodeTypes } from '../../../constants.views';
-import type { GitUri } from '../../../git/gitUri';
-import type { GitReference, GitRevisionReference } from '../../../git/models/reference';
-import { getReferenceLabel } from '../../../git/utils/reference.utils';
-import type { View } from '../../viewBase';
-import { ViewFileNode } from './viewFileNode';
-import { ViewNode } from './viewNode';
+import type { TreeViewRefFileNodeTypes, TreeViewRefNodeTypes } from '../../../constants.views.js';
+import type { GitUri } from '../../../git/gitUri.js';
+import type { GitReference, GitRevisionReference } from '../../../git/models/reference.js';
+import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
+import type { View } from '../../viewBase.js';
+import { ViewFileNode } from './viewFileNode.js';
+import { ViewNode } from './viewNode.js';
 
 export abstract class ViewRefNode<
 	Type extends TreeViewRefNodeTypes = TreeViewRefNodeTypes,

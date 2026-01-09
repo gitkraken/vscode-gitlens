@@ -1,12 +1,17 @@
-import type { Container } from '../../container';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitLog } from '../../git/models/log';
-import type { GitRevisionReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { getReferenceLabel } from '../../git/utils/reference.utils';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { window } from 'vscode';
+import type { Container } from '../../container.js';
+import { RevertError } from '../../git/errors.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitLog } from '../../git/models/log.js';
+import type { GitRevisionReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { getReferenceLabel } from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { Logger } from '../../system/logger.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
 	QuickPickStep,
@@ -15,9 +20,9 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import { appendReposToTitle, pickCommitsStep, pickRepositoryStep } from '../quickCommand.steps';
+} from '../quickCommand.js';
+import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { appendReposToTitle, pickCommitsStep, pickRepositoryStep } from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];
@@ -71,8 +76,52 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	private execute(state: RevertStepState<State<GitRevisionReference[]>>) {
-		state.repo.revert(...state.flags, ...state.references.map(c => c.ref).reverse());
+	private async execute(state: RevertStepState<State<GitRevisionReference[]>>) {
+		const refs = state.references.map(c => c.ref).reverse();
+
+		const options: { editMessage?: boolean } = {};
+		if (state.flags.includes('--edit')) {
+			options.editMessage = true;
+		} else if (state.flags.includes('--no-edit')) {
+			options.editMessage = false;
+		}
+
+		try {
+			await state.repo.git.ops?.revert(refs, options);
+		} catch (ex) {
+			// Don't show an error message if the user intentionally aborted the revert
+			if (RevertError.is(ex, 'aborted')) {
+				Logger.log(ex.message, this.title);
+				return;
+			}
+
+			Logger.error(ex, this.title);
+
+			if (RevertError.is(ex, 'uncommittedChanges') || RevertError.is(ex, 'wouldOverwriteChanges')) {
+				void window.showWarningMessage(
+					'Unable to revert. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+				);
+				return;
+			}
+
+			if (RevertError.is(ex, 'conflicts')) {
+				void window.showWarningMessage(
+					'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (RevertError.is(ex, 'alreadyInProgress')) {
+				void window.showWarningMessage(
+					'Unable to revert. A revert is already in progress. Continue or abort the current revert first.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			void showGitErrorMessage(ex, RevertError.is(ex) ? undefined : 'Unable to revert');
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -160,7 +209,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			endSteps(state);
-			this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
+			void this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;

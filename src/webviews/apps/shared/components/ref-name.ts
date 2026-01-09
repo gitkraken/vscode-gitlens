@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { GitReference } from '../../../../git/models/reference';
-import './code-icon';
+import type { GitReference } from '../../../../git/models/reference.js';
+import './code-icon.js';
 
 @customElement('gl-ref-name')
 export class GlRefName extends LitElement {

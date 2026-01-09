@@ -1,31 +1,32 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import type { GitCommit } from '../git/models/commit';
-import { isCommit } from '../git/models/commit';
-import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
-import type { GitRemote } from '../git/models/remote';
-import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
-import { getReferenceLabel } from '../git/utils/reference.utils';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { gate } from '../system/decorators/gate';
-import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
-import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
-import type { ViewNode } from './nodes/abstract/viewNode';
-import { BranchNode } from './nodes/branchNode';
-import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
-import { RemoteNode } from './nodes/remoteNode';
-import { RemotesNode } from './nodes/remotesNode';
-import { RepositoryNode } from './nodes/repositoryNode';
-import type { GroupedViewContext, RevealOptions } from './viewBase';
-import { ViewBase } from './viewBase';
-import type { CopyNodeCommandArgs } from './viewCommands';
-import { registerViewCommand } from './viewCommands';
+import type { RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { isCommit } from '../git/models/commit.js';
+import type { GitBranchReference, GitRevisionReference } from '../git/models/reference.js';
+import type { GitRemote } from '../git/models/remote.js';
+import type { RepositoryChangeEvent } from '../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository.js';
+import { getRemoteNameFromBranchName } from '../git/utils/branch.utils.js';
+import { getReferenceLabel } from '../git/utils/reference.utils.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { gate } from '../system/decorators/gate.js';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode.js';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode.js';
+import type { ViewNode } from './nodes/abstract/viewNode.js';
+import { BranchNode } from './nodes/branchNode.js';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode.js';
+import { RemoteNode } from './nodes/remoteNode.js';
+import { RemotesNode } from './nodes/remotesNode.js';
+import { RepositoryNode } from './nodes/repositoryNode.js';
+import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils.js';
+import type { GroupedViewContext, RevealOptions } from './viewBase.js';
+import { ViewBase } from './viewBase.js';
+import type { CopyNodeCommandArgs } from './viewCommands.js';
+import { registerViewCommand } from './viewCommands.js';
 
 export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, RemotesNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -129,6 +130,10 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByName'), () => this.setSortByName(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortDescending'), () => this.setSortDescending(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortAscending'), () => this.setSortAscending(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
@@ -353,6 +358,22 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
+	}
+
+	private setSortByDate() {
+		return updateSorting('sortBranchesBy', 'date', 'desc');
+	}
+
+	private setSortByName() {
+		return updateSorting('sortBranchesBy', 'name', 'asc');
+	}
+
+	private setSortDescending() {
+		return updateSortingDirection('sortBranchesBy', 'desc');
+	}
+
+	private setSortAscending() {
+		return updateSortingDirection('sortBranchesBy', 'asc');
 	}
 
 	private setShowAvatars(enabled: boolean) {

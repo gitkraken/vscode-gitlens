@@ -1,19 +1,19 @@
 import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
-import type { Container } from '../container';
-import type { GitCommit } from '../git/models/commit';
-import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
-import { debug } from '../system/decorators/log';
-import type { Deferrable } from '../system/function/debounce';
-import { debounce } from '../system/function/debounce';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope';
+import type { Container } from '../container.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
+import { debug } from '../system/decorators/log.js';
+import type { Deferrable } from '../system/function/debounce.js';
+import { debounce } from '../system/function/debounce.js';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope.js';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
 	GitDocumentTracker,
-} from './documentTracker';
+} from './documentTracker.js';
 
 export interface LinesChangeEvent {
 	readonly editor: TextEditor | undefined;

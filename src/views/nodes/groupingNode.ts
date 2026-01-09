@@ -1,7 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { unknownGitUri } from '../../git/gitUri';
-import type { View } from '../viewBase';
-import { ContextValues, ViewNode } from './abstract/viewNode';
+import { unknownGitUri } from '../../git/gitUri.js';
+import type { View } from '../viewBase.js';
+import { ContextValues, ViewNode } from './abstract/viewNode.js';
 
 export class GroupingNode<TChild extends ViewNode = ViewNode> extends ViewNode<'grouping'> {
 	constructor(

@@ -17,7 +17,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -55,7 +55,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}"
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
@@ -87,7 +87,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -108,13 +108,8 @@
 			"name": "Run Tests",
 			"type": "extensionHost",
 			"request": "launch",
-			"runtimeExecutable": "${execPath}",
-			"args": [
-				"--profile-temp",
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/tests"
-			],
-			"outFiles": ["${workspaceFolder}/out/tests/*.test.js"],
+			"testConfiguration": "${workspaceFolder}/.vscode-test.mjs",
+			"outFiles": ["${workspaceFolder}/out/tests/**/*.test.js"],
 			"preLaunchTask": "npm: build:tests",
 			"presentation": {
 				"group": "2_run_tests",
@@ -140,7 +135,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -179,7 +174,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}"
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
@@ -211,7 +206,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -233,12 +228,8 @@
 			"name": "Watch & Run Tests",
 			"type": "extensionHost",
 			"request": "launch",
-			"args": [
-				"--profile-temp",
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
-			],
-			"outFiles": ["${workspaceFolder}/out/test/**/*.js", "${workspaceFolder}/dist/**/*.js"],
+			"testConfiguration": "${workspaceFolder}/.vscode-test.mjs",
+			"outFiles": ["${workspaceFolder}/out/tests/**/*.test.js"],
 			"preLaunchTask": "npm: watch:tests",
 			"presentation": {
 				"group": "1_watch_tests",

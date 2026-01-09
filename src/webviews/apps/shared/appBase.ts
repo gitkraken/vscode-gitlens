@@ -1,45 +1,48 @@
 /*global window document*/
 import { ContextProvider } from '@lit/context';
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
-import { debounce } from '../../../system/function/debounce';
-import type { LogScope } from '../../../system/logger.scope';
+import type { GlWebviewCommands } from '../../../constants.commands.js';
+import type { CustomEditorIds, WebviewIds, WebviewTypes } from '../../../constants.views.js';
+import { debounce } from '../../../system/function/debounce.js';
+import type { LogScope } from '../../../system/logger.scope.js';
+import { createWebviewCommandLink } from '../../../system/webview.js';
 import type {
 	IpcCallParamsType,
 	IpcCallResponseParamsType,
 	IpcCommand,
 	IpcMessage,
 	IpcRequest,
-	WebviewFocusChangedParams,
-} from '../../protocol';
+} from '../../ipc/models/ipc.js';
+import type { WebviewFocusChangedParams, WebviewState } from '../../protocol.js';
 import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,
 	WebviewFocusChangedCommand,
 	WebviewReadyRequest,
-} from '../../protocol';
-import { ipcContext } from './contexts/ipc';
-import { loggerContext, LoggerContext } from './contexts/logger';
-import { PromosContext, promosContext } from './contexts/promos';
-import { telemetryContext, TelemetryContext } from './contexts/telemetry';
-import { DOM } from './dom';
-import type { Disposable } from './events';
-import type { HostIpcApi } from './ipc';
-import { getHostIpcApi, HostIpc } from './ipc';
-import { telemetryEventName } from './telemetry';
-import type { ThemeChangeEvent } from './theme';
-import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
+} from '../../protocol.js';
+import { ipcContext } from './contexts/ipc.js';
+import { loggerContext, LoggerContext } from './contexts/logger.js';
+import { PromosContext, promosContext } from './contexts/promos.js';
+import { telemetryContext, TelemetryContext } from './contexts/telemetry.js';
+import type { WebviewContext } from './contexts/webview.js';
+import { webviewContext } from './contexts/webview.js';
+import { DOM } from './dom.js';
+import type { Disposable } from './events.js';
+import type { HostIpcApi } from './ipc.js';
+import { getHostIpcApi, HostIpc } from './ipc.js';
+import { telemetryEventName } from './telemetry.js';
+import type { ThemeChangeEvent } from './theme.js';
+import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme.js';
 
+/** @deprecated Use GlAppHost instead */
 export abstract class App<
-	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
-		webviewId: CustomEditorIds | WebviewIds | WebviewViewIds;
-		timestamp: number;
-	},
+	State extends WebviewState<CustomEditorIds | WebviewIds> = WebviewState<CustomEditorIds | WebviewIds>,
 > {
 	private readonly _api: HostIpcApi;
 	private readonly _hostIpc: HostIpc;
 	private readonly _logger: LoggerContext;
 	private readonly _promos: PromosContext;
 	protected readonly _telemetry: TelemetryContext;
+	private readonly _webview: WebviewContext;
 
 	protected state: State;
 	protected readonly placement: 'editor' | 'view';
@@ -71,19 +74,24 @@ export abstract class App<
 		this._telemetry = new TelemetryContext(this._hostIpc);
 		disposables.push(this._telemetry);
 
+		const { webviewId, webviewInstanceId } = this.state;
+		this._webview = {
+			webviewId: webviewId,
+			webviewInstanceId: webviewInstanceId,
+			createCommandLink: (command, args) => {
+				if (command.endsWith(':')) {
+					command = `${command}${webviewId.split('.').at(-1) as WebviewTypes}` as GlWebviewCommands;
+				}
+
+				return createWebviewCommandLink(command as GlWebviewCommands, webviewId, webviewInstanceId, args);
+			},
+		};
+
 		new ContextProvider(document.body, { context: ipcContext, initialValue: this._hostIpc });
-		new ContextProvider(document.body, {
-			context: loggerContext,
-			initialValue: this._logger,
-		});
-		new ContextProvider(document.body, {
-			context: promosContext,
-			initialValue: this._promos,
-		});
-		new ContextProvider(document.body, {
-			context: telemetryContext,
-			initialValue: this._telemetry,
-		});
+		new ContextProvider(document.body, { context: loggerContext, initialValue: this._logger });
+		new ContextProvider(document.body, { context: promosContext, initialValue: this._promos });
+		new ContextProvider(document.body, { context: telemetryContext, initialValue: this._telemetry });
+		new ContextProvider(document.body, { context: webviewContext, initialValue: this._webview });
 
 		if (this.state != null) {
 			const state = this.getState();

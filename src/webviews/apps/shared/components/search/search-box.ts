@@ -1,17 +1,19 @@
 import type { TemplateResult } from 'lit';
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Disposable } from 'vscode';
-import { isMac } from '@env/platform';
-import type { SearchQuery } from '../../../../../constants.search';
-import { pluralize } from '../../../../../system/string';
-import { DOM } from '../../dom';
-import { GlElement } from '../element';
-import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input';
-import '../code-icon';
-import '../overlays/tooltip';
-import '../progress';
-import './search-input';
+import { isMac } from '@env/platform.js';
+import type { SearchQuery } from '../../../../../constants.search.js';
+import { pluralize } from '../../../../../system/string.js';
+import type { AppState } from '../../../plus/graph/context.js';
+import { DOM } from '../../dom.js';
+import { GlElement } from '../element.js';
+import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input.js';
+import '../button.js';
+import '../code-icon.js';
+import '../overlays/tooltip.js';
+import './search-input.js';
 
 export { SearchModeChangeEventDetail, SearchNavigationEventDetail };
 
@@ -22,6 +24,8 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		'gl-search-openinview': CustomEvent<void>;
+		'gl-search-pause': CustomEvent<void>;
+		'gl-search-resume': CustomEvent<void>;
 	}
 }
 
@@ -39,9 +43,6 @@ export class GlSearchBox extends GlElement {
 		}
 		:host(:focus) {
 			outline: 0;
-		}
-		progress-indicator {
-			top: -4px;
 		}
 
 		.search-navigation {
@@ -95,6 +96,34 @@ export class GlSearchBox extends GlElement {
 			transform: translateX(-0.1rem);
 		}
 
+		@keyframes bounce-up {
+			0%,
+			100% {
+				transform: translateY(0) translateX(-0.1rem);
+			}
+			50% {
+				transform: translateY(-0.3rem) translateX(-0.1rem);
+			}
+		}
+
+		@keyframes bounce-down {
+			0%,
+			100% {
+				transform: translateY(0);
+			}
+			50% {
+				transform: translateY(0.3rem);
+			}
+		}
+
+		.button.navigating > code-icon[icon='arrow-up'] {
+			animation: bounce-up 0.6s ease-in-out 0.15s infinite;
+		}
+
+		.button.navigating > code-icon[icon='arrow-down'] {
+			animation: bounce-down 0.6s ease-in-out 0.15s infinite;
+		}
+
 		.sr-hidden {
 			color: var(--vscode-errorForeground);
 		}
@@ -108,6 +137,28 @@ export class GlSearchBox extends GlElement {
 			white-space: nowrap;
 			width: 1px;
 		}
+
+		.search-button {
+			position: relative;
+		}
+
+		.search-button__spinner {
+			display: block;
+		}
+
+		.search-button__stop {
+			display: none;
+		}
+
+		.search-button:hover .search-button__spinner,
+		.search-button:focus-within .search-button__spinner {
+			display: none;
+		}
+
+		.search-button:hover .search-button__stop,
+		.search-button:focus-within .search-button__stop {
+			display: block;
+		}
 	`;
 
 	@query('gl-search-input') searchInput!: GlSearchInput;
@@ -119,9 +170,10 @@ export class GlSearchBox extends GlElement {
 	@property({ type: Boolean }) matchCase = false;
 	@property({ type: Boolean }) matchRegex = true;
 	@property({ type: Boolean }) matchWholeWord = false;
-	@property({ type: Boolean }) more = false;
 	@property({ type: Boolean }) naturalLanguage = false;
-	@property({ type: Boolean }) resultsHidden = false;
+	@property({ type: String }) navigating: AppState['navigating'] = false;
+	@property({ type: Boolean }) resultHidden = false;
+	@property({ type: Boolean }) resultsHasMore = false;
 	@property({ type: String }) resultsLabel = 'result';
 	@property({ type: Boolean }) resultsLoaded = false;
 	@property({ type: Boolean }) searching = false;
@@ -141,6 +193,15 @@ export class GlSearchBox extends GlElement {
 
 	private get hasResults(): boolean {
 		return this.total >= 1;
+	}
+
+	private get isAtFirstResult(): boolean {
+		return this.step <= 1;
+	}
+
+	private get isAtLastResult(): boolean {
+		// At last result if step equals total AND there are no more results to load
+		return this.step >= this.total && !this.resultsHasMore;
 	}
 
 	private _disposable: Disposable | undefined;
@@ -166,11 +227,26 @@ export class GlSearchBox extends GlElement {
 	}
 
 	logSearch(query: SearchQuery): void {
-		this.searchInput?.logSearch(query);
+		void this.searchInput?.logSearch(query);
 	}
 
 	setSearchQuery(query: string): void {
 		this._value = query;
+	}
+
+	/**
+	 * Updates the search query from an external source (e.g., extension host).
+	 * This will update all search properties without triggering a new search.
+	 */
+	setExternalSearchQuery(search: SearchQuery): void {
+		this._value = search.query;
+		this.filter = search.filter ?? true;
+		this.matchAll = search.matchAll ?? false;
+		this.matchCase = search.matchCase ?? false;
+		this.matchRegex = search.matchRegex ?? true;
+		this.matchWholeWord = search.matchWholeWord ?? false;
+		this.naturalLanguage = Boolean(search.naturalLanguage);
+		this.searchInput?.setExternalSearchQuery(search);
 	}
 
 	private handleShortcutKeys(e: KeyboardEvent) {
@@ -208,41 +284,100 @@ export class GlSearchBox extends GlElement {
 		this.emit('gl-search-openinview');
 	}
 
+	private handleCancel(e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+		this.emit('gl-search-cancel', { preserveResults: true });
+	}
+
 	private get resultsHtml() {
-		if (this.searching) {
-			return html`<gl-tooltip hoist placement="top" class="count"
-				><code-icon icon="loading" modifier="spin"></code-icon><span slot="content">Searching...</span>
-			</gl-tooltip>`;
-		}
+		// Determine the display state based on searching and results
+		const hasResults = this.total > 0;
+		const isSearching = this.searching;
+		const isComplete = this.resultsLoaded && !isSearching;
+		const hasNoSearch = !this.resultsLoaded && !isSearching;
 
-		const totalFormatted = pluralize(this.resultsLabel, this.total, {
-			zero: 'No',
-			infix: this.more ? '+ ' : undefined,
-		});
-
+		// Build the count display
+		let countText: TemplateResult;
 		let tooltip: string | TemplateResult = '';
-		let formatted = html`<span>${totalFormatted}</span>`;
-		if (this.total >= 1) {
-			tooltip = this.resultsHidden
-				? html`${totalFormatted} found &mdash; some results are hidden or unable to be shown on the Commit Graph`
-				: `${totalFormatted} found`;
 
-			const total = `${this.total}${this.more ? '+' : ''}`;
-			formatted = html`<span
-				><span aria-current="step">${this.step}</span> of
-				<span class="${this.resultsHidden ? 'sr-hidden' : ''}">${total}</span
+		if (hasResults) {
+			// We have results - show count (whether searching or complete)
+			const totalFormatted = pluralize(this.resultsLabel, this.total, {
+				infix: this.resultsHasMore ? '+ ' : undefined,
+			});
+			const total = `${this.total}${this.resultsHasMore ? '+' : ''}`;
+
+			if (this.resultHidden) {
+				tooltip = html`This result is hidden or unable to be shown on the Commit Graph`;
+			} else {
+				tooltip = `${totalFormatted} found`;
+			}
+
+			countText = html`<span class="${ifDefined(this.resultHidden ? 'sr-hidden' : '')}"
+				><span aria-current="step">${this.step}</span> of <span>${total}</span
 				><span class="sr-only"> ${totalFormatted}</span></span
 			>`;
-		} else if (this.resultsLoaded) {
+		} else if (isComplete) {
+			// Search is complete with 0 results found
+			const totalFormatted = pluralize(this.resultsLabel, 0, { zero: 'No' });
 			tooltip = `${totalFormatted} found`;
+			countText = html`<span>${totalFormatted}</span>`;
+		} else if (hasNoSearch) {
+			// No search initiated yet
+			countText = html`<span>${pluralize(this.resultsLabel, 0, { zero: 'No' })}</span>`;
+		} else {
+			// Searching with no results received yet - show blank
+			countText = html`<span></span>`;
 		}
 
+		// Show combined spinner/stop button when actively searching
+		if (isSearching) {
+			return html`<gl-button
+					class="search-button"
+					appearance="toolbar"
+					tooltip="Stop Searching"
+					@click="${this.handleCancel}"
+				>
+					<code-icon class="search-button__spinner" icon="loading" modifier="spin"></code-icon>
+					<code-icon class="search-button__stop" icon="stop-circle"></code-icon>
+				</gl-button>
+				<gl-tooltip
+					hoist
+					placement="top"
+					?disabled="${!tooltip}"
+					class="count${!hasResults && this.valid && isComplete ? ' error' : ''}"
+					>${countText}<span slot="content">${tooltip}</span></gl-tooltip
+				>`;
+		}
+
+		// Show play button when search is paused with more results
+		const isPaused = !isSearching && this.resultsHasMore;
+		if (isPaused) {
+			return html`<gl-button
+					class="search-button"
+					appearance="toolbar"
+					tooltip="Resume Search"
+					@click="${() => this.emit('gl-search-resume')}"
+				>
+					<code-icon icon="play-circle"></code-icon>
+				</gl-button>
+				<gl-tooltip
+					hoist
+					placement="top"
+					?disabled="${!tooltip}"
+					class="count${!hasResults && this.valid && isComplete ? ' error' : ''}"
+					>${countText}<span slot="content">${tooltip}</span></gl-tooltip
+				>`;
+		}
+
+		// Not searching - just show results
 		return html`<gl-tooltip
 			hoist
 			placement="top"
 			?disabled="${!tooltip}"
-			class="count${this.total < 1 && this.valid && this.resultsLoaded ? ' error' : ''}"
-			>${formatted}<span slot="content">${tooltip}</span></gl-tooltip
+			class="count${!hasResults && this.valid && isComplete ? ' error' : ''}"
+			>${countText}<span slot="content">${tooltip}</span></gl-tooltip
 		>`;
 	}
 
@@ -259,10 +394,19 @@ export class GlSearchBox extends GlElement {
 				?matchWholeWord="${this.matchWholeWord}"
 				?naturalLanguage="${this.naturalLanguage}"
 				?searching="${this.searching}"
+				?hasMoreResults="${this.resultsHasMore}"
 				.value="${this._value ?? ''}"
 				@gl-search-navigate="${(e: CustomEvent<SearchNavigationEventDetail>) => {
 					e.stopImmediatePropagation();
 					this.navigate(e.detail.direction);
+				}}"
+				@gl-search-resume="${(e: Event) => {
+					e.stopImmediatePropagation();
+					this.emit('gl-search-resume');
+				}}"
+				@gl-search-pause="${(e: Event) => {
+					e.stopImmediatePropagation();
+					this.emit('gl-search-pause');
 				}}"
 			></gl-search-input>
 			<div class="search-navigation" aria-label="Search navigation">
@@ -270,8 +414,8 @@ export class GlSearchBox extends GlElement {
 				<gl-tooltip hoist>
 					<button
 						type="button"
-						class="button"
-						?disabled="${!this.hasResults}"
+						class="button ${this.navigating === 'previous' ? 'navigating' : ''}"
+						?disabled="${!this.hasResults || this.isAtFirstResult}"
 						@click="${this.handlePrevious}"
 					>
 						<code-icon
@@ -282,7 +426,12 @@ export class GlSearchBox extends GlElement {
 					<span slot="content">Previous Match (Shift+Enter)<br />First Match (Shift+Click)</span>
 				</gl-tooltip>
 				<gl-tooltip hoist>
-					<button type="button" class="button" ?disabled="${!this.hasResults}" @click="${this.handleNext}">
+					<button
+						type="button"
+						class="button ${this.navigating === 'next' ? 'navigating' : ''}"
+						?disabled="${!this.hasResults || this.isAtLastResult}"
+						@click="${this.handleNext}"
+					>
 						<code-icon
 							icon="arrow-down"
 							aria-label="Next Match (Enter)&#10;Last Match (Shift+Click)"
@@ -300,7 +449,6 @@ export class GlSearchBox extends GlElement {
 						<code-icon icon="link-external" aria-label="Show Results in Side Bar"></code-icon>
 					</button>
 				</gl-tooltip>
-			</div>
-			<progress-indicator ?active="${this.searching}"></progress-indicator>`;
+			</div>`;
 	}
 }

@@ -1,28 +1,28 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { TreeViewNodeTypes } from '../../constants.views';
-import { GitUri } from '../../git/gitUri';
-import { isStash } from '../../git/models/commit';
-import type { GitRevisionRange } from '../../git/models/revision';
-import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
-import { getChangesForChangelog } from '../../git/utils/-webview/log.utils';
-import type { AIGenerateChangelogChanges } from '../../plus/ai/aiProviderService';
-import { configuration } from '../../system/-webview/configuration';
-import { debug } from '../../system/decorators/log';
-import { map } from '../../system/iterable';
-import { getLoggableName, Logger } from '../../system/logger';
-import { getNewLogScope } from '../../system/logger.scope';
-import type { Deferred } from '../../system/promise';
-import { defer, pauseOnCancelOrTimeout } from '../../system/promise';
-import type { ViewsWithCommits } from '../viewBase';
-import type { PageableViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import { AutolinkedItemsNode } from './autolinkedItemsNode';
-import { CommitNode } from './commitNode';
-import { LoadMoreNode, MessageNode } from './common';
-import { ContributorsNode } from './contributorsNode';
-import { ResultsFilesNode } from './resultsFilesNode';
-import { StashNode } from './stashNode';
-import { insertDateMarkers } from './utils/-webview/node.utils';
+import type { TreeViewNodeTypes } from '../../constants.views.js';
+import { GitUri } from '../../git/gitUri.js';
+import { isStash } from '../../git/models/commit.js';
+import type { GitRevisionRange } from '../../git/models/revision.js';
+import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults.js';
+import { getChangesForChangelog } from '../../git/utils/-webview/log.utils.js';
+import type { AIGenerateChangelogChanges } from '../../plus/ai/actions/generateChangelog.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { debug } from '../../system/decorators/log.js';
+import { map } from '../../system/iterable.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { getNewLogScope } from '../../system/logger.scope.js';
+import type { Deferred } from '../../system/promise.js';
+import { defer, pauseOnCancelOrTimeout } from '../../system/promise.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import type { PageableViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
+import { AutolinkedItemsNode } from './autolinkedItemsNode.js';
+import { CommitNode } from './commitNode.js';
+import { LoadMoreNode, MessageNode } from './common.js';
+import { ContributorsNode } from './contributorsNode.js';
+import { ResultsFilesNode } from './resultsFilesNode.js';
+import { StashNode } from './stashNode.js';
+import { insertDateMarkers } from './utils/-webview/node.utils.js';
 
 interface Options {
 	autolinks: boolean;
@@ -56,7 +56,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 		super(type, GitUri.fromRepoPath(repoPath), view, parent);
 
 		if (_results.direction != null) {
-			this.updateContext({ branchStatusUpstreamType: _results.direction });
+			this.updateContext({ branchStatusUpstreamType: _results.direction, repoPath: repoPath });
 		}
 		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);

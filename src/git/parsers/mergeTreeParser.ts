@@ -1,7 +1,7 @@
-import { map } from '../../system/iterable';
-import { maybeStopWatch } from '../../system/stopwatch';
-import { iterateByDelimiter } from '../../system/string';
-import type { MergeConflictFile } from '../models/mergeConflict';
+import { map } from '../../system/iterable.js';
+import { maybeStopWatch } from '../../system/stopwatch.js';
+import { iterateByDelimiter } from '../../system/string.js';
+import type { MergeConflictFile } from '../models/mergeConflicts.js';
 
 export interface GitMergeConflict {
 	treeOid: string;

@@ -1,18 +1,18 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
-import type { Container } from '../container';
-import type { DiffRange } from '../git/gitProvider';
-import { GitUri } from '../git/gitUri';
-import type { GitCommit } from '../git/models/commit';
-import { uncommittedStaged } from '../git/models/revision';
-import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
-import { command, executeCommand } from '../system/-webview/command';
-import { diffRangeToEditorLine, selectionToDiffRange } from '../system/-webview/vscode/editors';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
-import type { DiffWithCommandArgs } from './diffWith';
+import type { Container } from '../container.js';
+import type { DiffRange } from '../git/gitProvider.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { uncommittedStaged } from '../git/models/revision.js';
+import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages.js';
+import { command, executeCommand } from '../system/-webview/command.js';
+import { diffRangeToEditorLine, selectionToDiffRange } from '../system/-webview/vscode/editors.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
+import type { DiffWithCommandArgs } from './diffWith.js';
 
 export interface DiffLineWithWorkingCommandArgs {
 	commit?: GitCommit;

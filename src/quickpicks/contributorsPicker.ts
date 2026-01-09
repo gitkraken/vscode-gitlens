@@ -1,30 +1,32 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
-import { ClearQuickInputButton } from '../commands/quickCommand.buttons';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import type { Container } from '../container';
-import type { GitContributor } from '../git/models/contributor';
-import type { Repository } from '../git/models/repository';
-import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
-import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
-import { sortContributors } from '../git/utils/-webview/sorting';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
-import { debounce } from '../system/function/debounce';
-import { defer } from '../system/promise';
-import { pad, truncate } from '../system/string';
+import { ClearQuickInputButton } from '../commands/quickCommand.buttons.js';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants.js';
+import type { Container } from '../container.js';
+import type { GitContributor } from '../git/models/contributor.js';
+import type { Repository } from '../git/models/repository.js';
+import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick.js';
+import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick.js';
+import { sortContributors } from '../git/utils/-webview/sorting.js';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
+import { debounce } from '../system/function/debounce.js';
+import { defer } from '../system/promise.js';
+import { pad, truncate } from '../system/string.js';
+
+export interface ContributorQuickPickOptions {
+	appendReposToTitle?: boolean;
+	clearButton?: boolean;
+	ignoreFocusOut?: boolean;
+	multiselect?: boolean;
+	picked?: (contributor: GitContributor) => boolean;
+}
 
 export async function showContributorsPicker(
 	container: Container,
 	repository: Repository,
 	title: string,
 	placeholder: string,
-	options?: {
-		appendReposToTitle?: boolean;
-		clearButton?: boolean;
-		ignoreFocusOut?: boolean;
-		multiselect?: boolean;
-		picked?: (contributor: GitContributor) => boolean;
-	},
+	options?: ContributorQuickPickOptions,
 ): Promise<GitContributor[] | undefined> {
 	const deferred = defer<GitContributor[] | undefined>();
 	const disposables: Disposable[] = [];

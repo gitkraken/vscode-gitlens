@@ -1,8 +1,8 @@
-import { fetch } from '@env/fetch';
-import { openRouterProviderDescriptor as provider } from '../../constants.ai';
-import { isCancellationError } from '../../errors';
-import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { fetch } from '@env/fetch.js';
+import { openRouterProviderDescriptor as provider } from '../../constants.ai.js';
+import { isCancellationError } from '../../errors.js';
+import type { AIActionType, AIModel } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type OpenRouterModel = AIModel<typeof provider.id>;
 

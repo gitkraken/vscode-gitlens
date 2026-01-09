@@ -1,27 +1,27 @@
 import type { Uri } from 'vscode';
-import type { Container } from '../../../../container';
-import type { GitCache } from '../../../../git/cache';
-import { GitErrorHandling } from '../../../../git/commandOptions';
-import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../git/gitProvider';
-import type { GitFileStatus } from '../../../../git/models/fileStatus';
-import { deletedOrMissing } from '../../../../git/models/revision';
-import type { GitTreeEntry } from '../../../../git/models/tree';
-import { parseGitLsFilesStaged } from '../../../../git/parsers/indexParser';
-import { getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser';
-import { parseGitTree } from '../../../../git/parsers/treeParser';
+import type { Container } from '../../../../container.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
+import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../git/gitProvider.js';
+import type { GitFileStatus } from '../../../../git/models/fileStatus.js';
+import { deletedOrMissing } from '../../../../git/models/revision.js';
+import type { GitTreeEntry } from '../../../../git/models/tree.js';
+import { parseGitLsFilesStaged } from '../../../../git/parsers/indexParser.js';
+import { getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser.js';
+import { parseGitTree } from '../../../../git/parsers/treeParser.js';
 import {
 	isRevisionWithSuffix,
 	isSha,
 	isUncommitted,
 	isUncommittedStaged,
 	isUncommittedWithParentSuffix,
-} from '../../../../git/utils/revision.utils';
-import { splitPath } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/gate';
-import { log } from '../../../../system/decorators/log';
-import { first } from '../../../../system/iterable';
-import type { Git } from '../git';
-import type { LocalGitProvider } from '../localGitProvider';
+} from '../../../../git/utils/revision.utils.js';
+import { splitPath } from '../../../../system/-webview/path.js';
+import { gate } from '../../../../system/decorators/gate.js';
+import { log } from '../../../../system/decorators/log.js';
+import { first } from '../../../../system/iterable.js';
+import type { Git } from '../git.js';
+import type { LocalGitProvider } from '../localGitProvider.js';
 
 const emptyArray: readonly any[] = Object.freeze([]);
 

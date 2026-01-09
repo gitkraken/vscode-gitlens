@@ -251,3 +251,141 @@ To add new icons to the GL Icons font follow the steps below:
   ```
 
 Once you've finished copy the new `glicons.woff2?<uuid>` URL from `src/webviews/apps/shared/glicons.scss` and search and replace the old references with the new one.
+
+## Testing
+
+GitLens uses VS Code's testing infrastructure for unit and integration tests.
+
+### Running Tests
+
+```bash
+# Run all tests
+pnpm run test
+
+# Run E2E tests
+pnpm run test:e2e
+
+# Build test files (required before running tests)
+pnpm run build:tests
+
+# Watch mode for tests during development
+pnpm run watch:tests
+```
+
+### Writing Tests
+
+Tests are co-located with source files in `__tests__/` directories:
+
+```
+src/
+  └── system/
+      ├── string.ts
+      └── __tests__/
+          └── string.test.ts  ← Test file
+```
+
+Create test files using the naming pattern `*.test.ts`:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { functionToTest } from '../module';
+
+describe('functionToTest', () => {
+	it('should handle basic case', () => {
+		const result = functionToTest('input');
+		expect(result).toBe('expected output');
+	});
+
+	it('should handle edge cases', () => {
+		expect(functionToTest('')).toBe('');
+		expect(functionToTest(null)).toBeUndefined();
+	});
+});
+```
+
+### Test Best Practices
+
+- **Co-locate tests**: Place tests in `__tests__/` directories next to the code they test
+- **Descriptive names**: Use clear test names that describe what is being tested
+- **Test behavior**: Focus on testing behavior and outputs, not implementation details
+- **Edge cases**: Always test edge cases, empty inputs, and error conditions
+- **Mock dependencies**: Use mocks for external dependencies (VS Code API, file system, etc.)
+- **Keep tests fast**: Unit tests should run quickly; use mocks to avoid slow operations
+
+### Debugging Tests
+
+Use VS Code's built-in test runner:
+
+1. Open the Testing view in the sidebar
+2. Click the debug icon next to any test to debug it
+3. Set breakpoints in test files or source code
+4. Use the Debug Console to inspect variables
+
+Alternatively, use the provided launch configurations:
+
+- Open the Run and Debug view
+- Select a test-related launch configuration
+- Press `F5` to start debugging
+
+## Benchmarking
+
+GitLens includes a benchmarking framework for measuring and comparing performance of critical code paths.
+
+### Running Benchmarks
+
+```bash
+# List all available benchmarks
+pnpm run benchmark:list
+
+# Run all benchmarks
+pnpm run benchmark
+
+# Run a specific benchmark by name
+pnpm run benchmark <name>
+```
+
+### Creating New Benchmarks
+
+Benchmarks are automatically discovered when placed in `__tests__/` directories:
+
+1. Create a file named `*.benchmark.ts` in any `__tests__/` directory
+2. Use [tinybench](https://github.com/tinylibs/tinybench) to write your benchmark:
+
+```typescript
+import { Bench } from 'tinybench';
+
+async function runBenchmark() {
+	console.log('MY FEATURE BENCHMARK');
+
+	const bench = new Bench({ time: 100 });
+
+	bench
+		.add('Method A', () => {
+			// Code to benchmark
+		})
+		.add('Method B', () => {
+			// Alternative implementation
+		});
+
+	await bench.run();
+
+	// Display results
+	for (const task of bench.tasks) {
+		console.log(`${task.name}: ${task.result?.hz.toLocaleString()} ops/sec`);
+	}
+}
+
+runBenchmark();
+```
+
+3. Run your benchmark: `pnpm run benchmark <name>`
+
+### Best Practices
+
+- **Use realistic data**: Generate test data matching real-world patterns
+- **Test multiple scenarios**: Benchmark with different data sizes (small, medium, large)
+- **Measure complete operations**: Include all relevant work in benchmarks
+- **Display clear results**: Show ops/sec, average time, and margin of error
+- **Focus on hot paths**: Benchmark performance-critical code
+
+See the full [Benchmarking Guide](docs/benchmarking.md) for detailed information and the `src/system/__tests__/string.benchmark.ts` example.

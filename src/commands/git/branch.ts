@@ -1,29 +1,29 @@
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
-import type { Container } from '../../container';
-import { BranchError, BranchErrorReason } from '../../git/errors';
-import type { IssueShape } from '../../git/models/issue';
-import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { Repository } from '../../git/models/repository';
-import type { GitWorktree } from '../../git/models/worktree';
-import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils';
-import { getWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
-import { getBranchNameAndRemote } from '../../git/utils/branch.utils';
+import type { Container } from '../../container.js';
+import { BranchError } from '../../git/errors.js';
+import type { IssueShape } from '../../git/models/issue.js';
+import type { GitBranchReference, GitReference } from '../../git/models/reference.js';
+import { Repository } from '../../git/models/repository.js';
+import type { GitWorktree } from '../../git/models/worktree.js';
+import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils.js';
+import { getWorktreesByBranch } from '../../git/utils/-webview/worktree.utils.js';
+import { getBranchNameAndRemote } from '../../git/utils/branch.utils.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isBranchReference,
 	isRevisionReference,
-} from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
-import { getIssueOwner } from '../../plus/integrations/providers/utils';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { ensureArray } from '../../system/array';
-import { Logger } from '../../system/logger';
-import { pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+} from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import { getIssueOwner } from '../../plus/integrations/providers/utils.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { ensureArray } from '../../system/array.js';
+import { Logger } from '../../system/logger.js';
+import { pluralize } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -32,7 +32,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canPickStepContinue,
 	createConfirmStep,
@@ -40,7 +40,7 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	inputBranchNameStep,
@@ -49,8 +49,8 @@ import {
 	pickBranchStep,
 	pickOrResetBranchStep,
 	pickRepositoryStep,
-} from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
+} from '../quickCommand.steps.js';
+import { getSteps } from '../quickWizard.utils.js';
 
 interface Context {
 	repos: Repository[];
@@ -108,7 +108,7 @@ interface UpstreamState {
 }
 
 type State = CreateState | DeleteState | PruneState | RenameState | UpstreamState;
-type BranchStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type BranchStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 
 type CreateStepState<T extends CreateState = CreateState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
 function assertStateStepCreate(state: PartialStepState<State>): asserts state is CreateStepState {
@@ -480,8 +480,23 @@ export class BranchGitCommand extends QuickCommand {
 					);
 				} catch (ex) {
 					Logger.error(ex, context.title);
-					// TODO likely need some better error handling here
-					return showGenericErrorMessage('Unable to create branch');
+
+					if (BranchError.is(ex, 'alreadyExists')) {
+						void window.showWarningMessage(
+							`Unable to create branch '${state.name}'. A branch with that name already exists.`,
+						);
+						return;
+					}
+
+					if (BranchError.is(ex, 'invalidName')) {
+						void window.showWarningMessage(
+							`Unable to create branch '${state.name}'. The branch name is invalid.`,
+						);
+						return;
+					}
+
+					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to create branch');
+					return;
 				}
 			}
 
@@ -635,7 +650,7 @@ export class BranchGitCommand extends QuickCommand {
 						}
 					}
 				} catch (ex) {
-					if (BranchError.is(ex, BranchErrorReason.BranchNotFullyMerged)) {
+					if (BranchError.is(ex, 'notFullyMerged')) {
 						const confirm = { title: 'Delete Branch' };
 						const cancel = { title: 'Cancel', isCloseAffordance: true };
 						const result = await window.showWarningMessage(
@@ -650,7 +665,10 @@ export class BranchGitCommand extends QuickCommand {
 								await state.repo.git.branches.deleteLocalBranch?.(name, { force: true });
 							} catch (ex) {
 								Logger.error(ex, context.title);
-								void showGenericErrorMessage(ex);
+								void showGitErrorMessage(
+									ex,
+									BranchError.is(ex) ? undefined : 'Unable to force delete branch',
+								);
 							}
 						}
 
@@ -658,7 +676,7 @@ export class BranchGitCommand extends QuickCommand {
 					}
 
 					Logger.error(ex, context.title);
-					void showGenericErrorMessage(ex);
+					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to delete branch');
 				}
 			}
 		}
@@ -767,8 +785,7 @@ export class BranchGitCommand extends QuickCommand {
 				await state.repo.git.branches.renameBranch?.(state.reference.ref, state.name);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				// TODO likely need some better error handling here
-				return showGenericErrorMessage('Unable to rename branch');
+				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to rename branch');
 			}
 		}
 	}
@@ -833,7 +850,7 @@ export class BranchGitCommand extends QuickCommand {
 				);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGenericErrorMessage('Unable to manage upstream tracking');
+				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to manage upstream tracking');
 			}
 		}
 	}

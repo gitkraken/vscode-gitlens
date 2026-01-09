@@ -1,8 +1,8 @@
 import { createContext } from '@lit/context';
-import { Logger } from '../../../../system/logger';
-import type { LogScope } from '../../../../system/logger.scope';
-import { getNewLogScope } from '../../../../system/logger.scope';
-import { padOrTruncateEnd } from '../../../../system/string';
+import { Logger } from '../../../../system/logger.js';
+import type { LogScope } from '../../../../system/logger.scope.js';
+import { getNewLogScope } from '../../../../system/logger.scope.js';
+import { padOrTruncateEnd } from '../../../../system/string.js';
 
 export class LoggerContext {
 	private readonly scope: LogScope;

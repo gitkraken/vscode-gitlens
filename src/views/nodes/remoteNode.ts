@@ -1,17 +1,17 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
-import type { GitRemote } from '../../git/models/remote';
-import type { Repository } from '../../git/models/repository';
-import { getRemoteUpstreamDescription } from '../../git/utils/remote.utils';
-import { makeHierarchical } from '../../system/array';
-import { log } from '../../system/decorators/log';
-import type { ViewsWithRemotes } from '../viewBase';
-import { createViewDecorationUri } from '../viewDecorationProvider';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import { BranchNode } from './branchNode';
-import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { MessageNode } from './common';
+import { GlyphChars } from '../../constants.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitRemote } from '../../git/models/remote.js';
+import type { Repository } from '../../git/models/repository.js';
+import { getRemoteUpstreamDescription } from '../../git/utils/remote.utils.js';
+import { makeHierarchical } from '../../system/array.js';
+import { log } from '../../system/decorators/log.js';
+import type { ViewsWithRemotes } from '../viewBase.js';
+import { createViewDecorationUri } from '../viewDecorationProvider.js';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
+import { BranchNode } from './branchNode.js';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode.js';
+import { MessageNode } from './common.js';
 
 export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	constructor(

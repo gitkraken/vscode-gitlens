@@ -1,27 +1,27 @@
 import type { QuickInputButton, QuickPickItem, Uri } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
-import { GlyphChars } from '../../constants';
-import type { Container } from '../../container';
-import { revealStash, showStashInDetailsView } from '../../git/actions/stash';
-import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorReason } from '../../git/errors';
-import type { GitStashCommit } from '../../git/models/commit';
-import type { GitStashReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../../git/models/revision';
-import { getReferenceLabel } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
-import type { AIModel } from '../../plus/ai/models/model';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { configuration } from '../../system/-webview/configuration';
-import { getContext } from '../../system/-webview/context';
-import { formatPath } from '../../system/-webview/formatPath';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import { defer } from '../../system/promise';
-import { pad, pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { GlyphChars } from '../../constants.js';
+import type { Container } from '../../container.js';
+import { revealStash, showStashInDetailsView } from '../../git/actions/stash.js';
+import { StashApplyError, StashPushError } from '../../git/errors.js';
+import type { GitStashCommit } from '../../git/models/commit.js';
+import type { GitStashReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
+import { getReferenceLabel } from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { AIModel } from '../../plus/ai/models/model.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { getContext } from '../../system/-webview/context.js';
+import { formatPath } from '../../system/-webview/formatPath.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { startLogScope } from '../../system/logger.scope.js';
+import { defer } from '../../system/promise.js';
+import { pad, pluralize } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../quickCommand.buttons.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -30,7 +30,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canInputStepContinue,
 	canPickStepContinue,
@@ -40,10 +40,9 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
-import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../quickCommand.buttons';
-import { appendReposToTitle, pickRepositoryStep, pickStashesStep, pickStashStep } from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
+} from '../quickCommand.js';
+import { appendReposToTitle, pickRepositoryStep, pickStashesStep, pickStashStep } from '../quickCommand.steps.js';
+import { getSteps } from '../quickWizard.utils.js';
 
 interface Context {
 	repos: Repository[];
@@ -95,7 +94,7 @@ interface RenameState {
 }
 
 type State = ApplyState | DropState | ListState | PopState | PushState | RenameState;
-type StashStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type StashStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 type ApplyStepState<T extends ApplyState = ApplyState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 type DropStepState<T extends DropState = DropState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 type ListStepState<T extends ListState = ListState> = StashStepState<ExcludeSome<T, 'repo', string>>;
@@ -362,12 +361,12 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (StashApplyError.is(ex, StashApplyErrorReason.WorkingChanges)) {
+				if (StashApplyError.is(ex, 'uncommittedChanges')) {
 					void window.showWarningMessage(
-						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
+						'Unable to apply stash. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 					);
 				} else {
-					void showGenericErrorMessage(ex.message);
+					void showGitErrorMessage(ex, StashApplyError.is(ex) ? undefined : 'Unable to apply stash');
 				}
 			}
 		}
@@ -452,7 +451,8 @@ export class StashGitCommand extends QuickCommand<State> {
 				} catch (ex) {
 					Logger.error(ex, context.title);
 
-					void showGenericErrorMessage(
+					void showGitErrorMessage(
+						ex,
 						`Unable to delete stash@{${ref.stashNumber}}${ref.message ? `: ${ref.message}` : ''}`,
 					);
 				}
@@ -554,40 +554,36 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (ex instanceof StashPushError) {
-					if (ex.reason === StashPushErrorReason.NothingToSave) {
-						if (!state.flags.includes('--include-untracked')) {
-							confirmOverride = true;
-							void window.showWarningMessage(
-								'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
-							);
-							continue;
-						}
-
-						void window.showInformationMessage('No changes to stash.');
-						return;
-					}
-					if (
-						ex.reason === StashPushErrorReason.ConflictingStagedAndUnstagedLines &&
-						state.flags.includes('--staged')
-					) {
-						const confirm = { title: 'Stash Everything' };
-						const cancel = { title: 'Cancel', isCloseAffordance: true };
-						const result = await window.showErrorMessage(
-							`Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)\n\nDo you want to try again by stashing both your staged and unstaged changes?`,
-							{ modal: true },
-							confirm,
-							cancel,
+				if (StashPushError.is(ex, 'nothingToSave')) {
+					if (!state.flags.includes('--include-untracked')) {
+						confirmOverride = true;
+						void window.showWarningMessage(
+							'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
 						);
-
-						if (result === confirm) {
-							state.uris ??= state.onlyStagedUris;
-							state.flags.splice(state.flags.indexOf('--staged'), 1);
-							continue;
-						}
-
-						return;
+						continue;
 					}
+
+					void window.showInformationMessage('No changes to stash.');
+					return;
+				}
+
+				if (StashPushError.is(ex, 'conflictingStagedAndUnstagedLines') && state.flags.includes('--staged')) {
+					const confirm = { title: 'Stash Everything' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showErrorMessage(
+						`Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)\n\nDo you want to try again by stashing both your staged and unstaged changes?`,
+						{ modal: true },
+						confirm,
+						cancel,
+					);
+
+					if (result === confirm) {
+						state.uris ??= state.onlyStagedUris;
+						state.flags.splice(state.flags.indexOf('--staged'), 1);
+						continue;
+					}
+
+					return;
 				}
 
 				const msg: string = ex?.message ?? ex?.toString() ?? '';
@@ -597,7 +593,7 @@ export class StashGitCommand extends QuickCommand<State> {
 					return;
 				}
 
-				void showGenericErrorMessage('Unable to stash changes');
+				void showGitErrorMessage(ex, StashPushError.is(ex) ? undefined : 'Unable to stash changes');
 
 				return;
 			}
@@ -632,7 +628,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			value: state.message,
 			prompt: 'Enter stash message',
 			buttons:
-				getContext('gitlens:gk:organization:ai:enabled') && configuration.get('ai.enabled')
+				this.container.ai.enabled && this.container.ai.allowed
 					? [QuickInputButtons.Back, generateMessageButton]
 					: [QuickInputButtons.Back],
 			// Needed to clear any validation errors because of AI generation
@@ -672,7 +668,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							() => (input.validationMessage = undefined),
 						);
 
-						const result = await this.container.ai.generateStashMessage(
+						const result = await this.container.ai.actions.generateStashMessage(
 							diff.contents,
 							{ source: 'quick-wizard' },
 							{ generating: generating },
@@ -683,7 +679,7 @@ export class StashGitCommand extends QuickCommand<State> {
 
 						if (result === 'cancelled') return;
 
-						const message = result?.parsed.summary;
+						const message = result?.result.summary;
 						if (message != null) {
 							state.message = message;
 							input.value = message;
@@ -824,7 +820,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGenericErrorMessage(ex.message);
+				void showGitErrorMessage(ex, 'Unable to rename stash');
 			}
 		}
 	}

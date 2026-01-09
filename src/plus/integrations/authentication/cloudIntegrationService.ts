@@ -1,10 +1,10 @@
-import type { IntegrationIds } from '../../../constants.integrations';
-import type { Container } from '../../../container';
-import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
-import type { ServerConnection } from '../../gk/serverConnection';
-import type { CloudIntegrationAuthenticationSession, CloudIntegrationConnection } from './models';
-import { toCloudIntegrationType } from './models';
+import type { IntegrationIds } from '../../../constants.integrations.js';
+import type { Container } from '../../../container.js';
+import { Logger } from '../../../system/logger.js';
+import { getLogScope } from '../../../system/logger.scope.js';
+import type { ServerConnection } from '../../gk/serverConnection.js';
+import type { CloudIntegrationAuthenticationSession, CloudIntegrationConnection } from './models.js';
+import { toCloudIntegrationType } from './models.js';
 
 export class CloudIntegrationService {
 	constructor(

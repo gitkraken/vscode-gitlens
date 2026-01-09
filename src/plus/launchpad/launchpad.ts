@@ -1,21 +1,6 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
-import { getAvatarUri } from '../../avatars';
-import type {
-	AsyncStepResultGenerator,
-	PartialStepState,
-	StepGenerator,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
-} from '../../commands/quickCommand';
-import {
-	canPickStepContinue,
-	createPickStep,
-	endSteps,
-	QuickCommand,
-	StepResultBreak,
-} from '../../commands/quickCommand';
+import { getAvatarUri } from '../../avatars.js';
 import {
 	ConnectIntegrationButton,
 	FeedbackQuickInputButton,
@@ -33,36 +18,51 @@ import {
 	SnoozeQuickInputButton,
 	UnpinQuickInputButton,
 	UnsnoozeQuickInputButton,
-} from '../../commands/quickCommand.buttons';
-import { ensureAccessStep } from '../../commands/quickCommand.steps';
-import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
-import { proBadge, urls } from '../../constants';
-import type { IntegrationIds } from '../../constants.integrations';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations';
-import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
-import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer';
-import { executeCommand } from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { openUrl } from '../../system/-webview/vscode/uris';
-import { getScopedCounter } from '../../system/counter';
-import { fromNow } from '../../system/date';
-import { some } from '../../system/iterable';
-import { interpolate, pluralize } from '../../system/string';
-import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
-import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider';
+} from '../../commands/quickCommand.buttons.js';
+import type {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../../commands/quickCommand.js';
+import {
+	canPickStepContinue,
+	createPickStep,
+	endSteps,
+	QuickCommand,
+	StepResultBreak,
+} from '../../commands/quickCommand.js';
+import { ensureAccessStep } from '../../commands/quickCommand.steps.js';
+import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
+import type { IntegrationIds } from '../../constants.integrations.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
+import { proBadge, urls } from '../../constants.js';
+import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { getScopedCounter } from '../../system/counter.js';
+import { fromNow } from '../../system/date.js';
+import { some } from '../../system/iterable.js';
+import { interpolate, pluralize } from '../../system/string.js';
+import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
+import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import {
 	countLaunchpadItemGroups,
 	getLaunchpadItemIdHash,
 	groupAndSortLaunchpadItems,
 	supportedLaunchpadIntegrations,
-} from './launchpadProvider';
-import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad';
-import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad';
+} from './launchpadProvider.js';
+import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad.js';
+import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad.js';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';

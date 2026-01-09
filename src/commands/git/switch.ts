@@ -1,27 +1,42 @@
 import { ProgressLocation, window } from 'vscode';
-import type { Container } from '../../container';
-import type { GitReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
+import type { Container } from '../../container.js';
+import { MergeError } from '../../git/errors.js';
+import type { GitReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	getReferenceTypeLabel,
 	isBranchReference,
-} from '../../git/utils/reference.utils';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import { executeCommand } from '../../system/-webview/command';
-import { isStringArray } from '../../system/array';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
-import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand';
+} from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { isStringArray } from '../../system/array.js';
+import { Logger } from '../../system/logger.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import type {
+	PartialStepState,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand.js';
+import {
+	canPickStepContinue,
+	endSteps,
+	isCrossCommandReference,
+	QuickCommand,
+	StepResultBreak,
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	inputBranchNameStep,
 	pickBranchOrTagStepMultiRepo,
 	pickRepositoriesStep,
-} from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
+} from '../quickCommand.steps.js';
+import { getSteps } from '../quickWizard.utils.js';
 
 interface Context {
 	repos: Repository[];
@@ -104,7 +119,24 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		);
 
 		if (state.fastForwardTo != null) {
-			state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
+			try {
+				await state.repos[0].git.ops?.merge(state.fastForwardTo.ref, { fastForward: 'only' });
+			} catch (ex) {
+				// Don't show an error message if the user intentionally aborted the merge
+				if (MergeError.is(ex, 'aborted')) {
+					Logger.log(ex.message, this.title);
+					return;
+				}
+
+				Logger.error(ex, this.title);
+				void showGitErrorMessage(
+					ex,
+					`Unable to fast-forward ${getReferenceLabel(state.reference, {
+						icon: false,
+						label: true,
+					})}`,
+				);
+			}
 		}
 	}
 
@@ -210,7 +242,23 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				const worktree = await svc.worktrees?.getWorktree(w => w.branch?.name === state.reference!.name);
 				if (worktree != null && !worktree.isDefault) {
 					if (state.fastForwardTo != null) {
-						state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
+						try {
+							await state.repos[0].git.ops?.merge(state.fastForwardTo.ref, { fastForward: 'only' });
+						} catch (ex) {
+							// Don't show an error message if the user intentionally aborted the merge
+							if (MergeError.is(ex, 'aborted')) {
+								Logger.log(ex.message, this.title);
+							} else {
+								Logger.error(ex, this.title);
+								void showGitErrorMessage(
+									ex,
+									`Unable to fast-forward ${getReferenceLabel(state.reference, {
+										icon: false,
+										label: true,
+									})}`,
+								);
+							}
+						}
 					}
 
 					const worktreeResult = yield* getSteps(

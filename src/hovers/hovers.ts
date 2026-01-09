@@ -1,23 +1,24 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
-import type { EnrichedAutolink } from '../autolinks/models/autolinks';
-import { DiffWithCommand } from '../commands/diffWith';
-import { ShowQuickCommitCommand } from '../commands/showQuickCommit';
-import { GlyphChars } from '../constants';
-import type { Container } from '../container';
-import { CommitFormatter } from '../git/formatters/commitFormatter';
-import { GitUri } from '../git/gitUri';
-import type { GitCommit } from '../git/models/commit';
-import type { GitLineDiff, ParsedGitDiffHunk } from '../git/models/diff';
-import type { PullRequest } from '../git/models/pullRequest';
-import type { GitRemote } from '../git/models/remote';
-import { deletedOrMissing, uncommittedStaged } from '../git/models/revision';
-import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
-import { configuration } from '../system/-webview/configuration';
-import { editorLineToDiffRange } from '../system/-webview/vscode/editors';
-import { escapeMarkdownCodeBlocks } from '../system/markdown';
-import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise';
+import type { EnrichedAutolink } from '../autolinks/models/autolinks.js';
+import { DiffWithCommand } from '../commands/diffWith.js';
+import { ShowQuickCommitCommand } from '../commands/showQuickCommit.js';
+import { GlyphChars } from '../constants.js';
+import type { Sources } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { CommitFormatter } from '../git/formatters/commitFormatter.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitCommit } from '../git/models/commit.js';
+import type { GitLineDiff, ParsedGitDiffHunk } from '../git/models/diff.js';
+import type { PullRequest } from '../git/models/pullRequest.js';
+import type { GitRemote } from '../git/models/remote.js';
+import { deletedOrMissing, uncommittedStaged } from '../git/models/revision.js';
+import type { RemoteProvider } from '../git/remotes/remoteProvider.js';
+import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { editorLineToDiffRange } from '../system/-webview/vscode/editors.js';
+import { escapeMarkdownCodeBlocks } from '../system/markdown.js';
+import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise.js';
 
 export async function changesMessage(
 	container: Container,
@@ -25,6 +26,7 @@ export async function changesMessage(
 	uri: GitUri,
 	editorLine: number, // 0-based, Git is 1-based
 	document: TextDocument,
+	sourceName: Sources,
 ): Promise<MarkdownString | undefined> {
 	const documentRev = uri.sha;
 
@@ -73,6 +75,7 @@ export async function changesMessage(
 	if (diff == null) return undefined;
 
 	const range = editorLineToDiffRange(editorLine);
+	const telemetrySource = { source: sourceName } as const;
 
 	let message;
 	let previous;
@@ -86,6 +89,7 @@ export async function changesMessage(
 			rhs: { sha: compareUris.current.sha ?? '', uri: compareUris.current.documentUri() },
 			repoPath: commit.repoPath,
 			range: compareUris.range,
+			source: telemetrySource,
 		})} "Open Changes")`;
 
 		previous =
@@ -95,32 +99,30 @@ export async function changesMessage(
 					})}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
 				: `  &nbsp;[$(git-commit) ${shortenRevision(
 						compareUris.previous.sha || '',
-					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(
-						compareUris.previous.sha || '',
-					)} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
+					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(compareUris.previous.sha || '', undefined, telemetrySource)} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
 
 		current =
 			compareUris.current.sha == null || compareUris.current.isUncommitted
 				? `_${shortenRevision(compareUris.current.sha, { strings: { working: 'Working Tree' } })}_`
 				: `[$(git-commit) ${shortenRevision(
 						compareUris.current.sha || '',
-					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(
-						compareUris.current.sha || '',
-					)} "Show Commit")`;
+					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(compareUris.current.sha || '', undefined, telemetrySource)} "Show Commit")`;
 	} else {
-		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(commit, range)} "Open Changes")`;
+		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(commit, range, telemetrySource)} "Open Changes")`;
 
 		previousSha ??= await commit.getPreviousSha();
 		if (previousSha && previousSha !== deletedOrMissing) {
 			previous = `  &nbsp;[$(git-commit) ${shortenRevision(
 				previousSha,
-			)}](${ShowQuickCommitCommand.createMarkdownCommandLink(previousSha)} "Show Commit") &nbsp;${
+			)}](${ShowQuickCommitCommand.createMarkdownCommandLink(previousSha, undefined, telemetrySource)} "Show Commit") &nbsp;${
 				GlyphChars.ArrowLeftRightLong
 			}&nbsp;`;
 		}
 
 		current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 			commit.sha,
+			undefined,
+			telemetrySource,
 		)} "Show Commit")`;
 	}
 
@@ -137,6 +139,7 @@ export async function localChangesMessage(
 	uri: GitUri,
 	editorLine: number, // 0-based, Git is 1-based
 	hunk: ParsedGitDiffHunk,
+	sourceName: Sources,
 ): Promise<MarkdownString | undefined> {
 	const diff = getDiffFromHunk(hunk);
 
@@ -150,6 +153,7 @@ export async function localChangesMessage(
 		const file = await fromCommit.findFile(uri);
 		if (file == null) return undefined;
 
+		const telemetrySource = { source: sourceName } as const;
 		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 			lhs: {
 				sha: fromCommit.sha,
@@ -158,10 +162,13 @@ export async function localChangesMessage(
 			rhs: { sha: '', uri: uri.toFileUri() },
 			repoPath: uri.repoPath!,
 			range: editorLineToDiffRange(editorLine),
+			source: telemetrySource,
 		})} "Open Changes")`;
 
 		previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 			fromCommit.sha,
+			undefined,
+			telemetrySource,
 		)} "Show Commit")`;
 
 		current = '_Working Tree_';
@@ -195,6 +202,7 @@ export async function detailsMessage(
 		pullRequests?: boolean;
 		remotes?: GitRemote<RemoteProvider>[];
 		timeout?: number;
+		sourceName: Sources;
 	}>,
 ): Promise<MarkdownString | undefined> {
 	const remotesResult = await pauseOnCancelOrTimeout(
@@ -268,19 +276,25 @@ export async function detailsMessage(
 	const presence = getSettledValue(presenceResult);
 	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
 
-	const details = await CommitFormatter.fromTemplateAsync(options.format, commit, {
-		aiEnabled: configuration.get('ai.enabled'),
-		enrichedAutolinks: enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
-		dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
-		editor: { line: editorLine, uri: uri },
-		getBranchAndTagTips: options?.getBranchAndTagTips,
-		messageAutolinks: options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled),
-		pullRequest: pr?.value,
-		presence: presence?.value,
-		previousLineComparisonUris: previousLineComparisonUris,
-		outputFormat: 'markdown',
-		remotes: remotes,
-	});
+	const details = await CommitFormatter.fromTemplateAsync(
+		options.format,
+		commit,
+		{ source: options.sourceName },
+		{
+			ai: { allowed: container.ai.allowed, enabled: container.ai.enabled },
+			enrichedAutolinks:
+				enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
+			dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
+			editor: { line: editorLine, uri: uri },
+			getBranchAndTagTips: options?.getBranchAndTagTips,
+			messageAutolinks: options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled),
+			pullRequest: pr?.value,
+			presence: presence?.value,
+			previousLineComparisonUris: previousLineComparisonUris,
+			outputFormat: 'markdown',
+			remotes: remotes,
+		},
+	);
 
 	const markdown = new MarkdownString(details, true);
 	markdown.supportHtml = true;

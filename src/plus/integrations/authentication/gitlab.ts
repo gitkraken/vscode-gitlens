@@ -1,15 +1,15 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
-import type { Container } from '../../../container';
-import type { ConfiguredIntegrationService } from './configuredIntegrationService';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
+import type { Container } from '../../../container.js';
+import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider.js';
 import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
-} from './integrationAuthenticationProvider';
-import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
-import type { ProviderAuthenticationSession } from './models';
+} from './integrationAuthenticationProvider.js';
+import type { IntegrationAuthenticationService } from './integrationAuthenticationService.js';
+import type { ProviderAuthenticationSession } from './models.js';
 
 type GitLabId = GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.GitLabSelfHosted;
 

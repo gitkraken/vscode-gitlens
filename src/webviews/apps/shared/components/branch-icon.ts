@@ -1,8 +1,8 @@
 import { css, html, LitElement, svg } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { GitBranchStatus } from '../../../../git/models/branch';
-import { renderBranchName } from './branch-name';
-import './overlays/tooltip';
+import type { GitBranchStatus } from '../../../../git/models/branch.js';
+import { renderBranchName } from './branch-name.js';
+import './overlays/tooltip.js';
 
 @customElement('gl-branch-icon')
 export class GlBranchIcon extends LitElement {

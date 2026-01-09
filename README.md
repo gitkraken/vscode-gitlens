@@ -289,7 +289,7 @@ Use autolinks to linkify external references, like Jira issues or Zendesk ticket
 
 # Ready for GitLens Pro?
 
-When you're ready to unlock the full potential of GitLens and enjoy all the benefits, consider [upgrading to GitLens Pro](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web). With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately-hosted repos.
+When you're ready to unlock the full potential of GitLens and enjoy all the benefits, consider [upgrading to GitLens Pro](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web). With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately hosted repos.
 
 To learn more about the additional features offered with Pro, visit the [GitLens Community vs GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=readme&utm_term=ready-for-gitlens-pro) page.
 
@@ -447,6 +447,7 @@ A big thanks to the people that have contributed to this project 🙏❤️:
 - Jordon Kashanchi ([@jordonkash](https://github.com/JordonKash)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=jordonkash)
 - JounQin ([@JounQin](https://github.com/JounQin)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=JounQin)
 - Noritaka Kobayashi ([@noritaka1166](https://github.com/noritaka1166)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=noritaka1166)
+- Daniel Asher ([@danielasher115](https://github.com/danielasher115)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=danielasher115)
 
 Also special thanks to the people that have provided support, testing, brainstorming, etc:
 

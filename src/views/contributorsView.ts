@@ -1,26 +1,27 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { onDidFetchAvatar } from '../avatars';
-import type { ContributorsViewConfig, ViewFilesLayout } from '../config';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import type { GitContributor } from '../git/models/contributor';
-import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { gate } from '../system/decorators/gate';
-import { debug } from '../system/decorators/log';
-import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
-import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
-import type { ViewNode } from './nodes/abstract/viewNode';
-import { ContributorNode } from './nodes/contributorNode';
-import { ContributorsNode } from './nodes/contributorsNode';
-import type { GroupedViewContext, RevealOptions } from './viewBase';
-import { ViewBase } from './viewBase';
-import type { CopyNodeCommandArgs } from './viewCommands';
-import { registerViewCommand } from './viewCommands';
+import { onDidFetchAvatar } from '../avatars.js';
+import type { ContributorsViewConfig, ViewFilesLayout } from '../config.js';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitContributor } from '../git/models/contributor.js';
+import type { RepositoryChangeEvent } from '../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { gate } from '../system/decorators/gate.js';
+import { debug } from '../system/decorators/log.js';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode.js';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode.js';
+import type { ViewNode } from './nodes/abstract/viewNode.js';
+import { ContributorNode } from './nodes/contributorNode.js';
+import { ContributorsNode } from './nodes/contributorsNode.js';
+import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils.js';
+import type { GroupedViewContext, RevealOptions } from './viewBase.js';
+import { ViewBase } from './viewBase.js';
+import type { CopyNodeCommandArgs } from './viewCommands.js';
+import { registerViewCommand } from './viewCommands.js';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -170,6 +171,12 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				() => this.setFilesLayout('tree'),
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setSortByCount'), () => this.setSortByCount(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByName'), () => this.setSortByName(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByScore'), () => this.setSortByScore(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortDescending'), () => this.setSortDescending(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortAscending'), () => this.setSortAscending(), this),
 
 			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOn'),
@@ -289,6 +296,30 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
+	}
+
+	private setSortByCount() {
+		return updateSorting('sortContributorsBy', 'count', 'desc');
+	}
+
+	private setSortByDate() {
+		return updateSorting('sortContributorsBy', 'date', 'desc');
+	}
+
+	private setSortByName() {
+		return updateSorting('sortContributorsBy', 'name', 'asc');
+	}
+
+	private setSortByScore() {
+		return updateSorting('sortContributorsBy', 'score', 'desc');
+	}
+
+	private setSortDescending() {
+		return updateSortingDirection('sortContributorsBy', 'desc');
+	}
+
+	private setSortAscending() {
+		return updateSortingDirection('sortContributorsBy', 'asc');
 	}
 
 	private setShowAllBranches(enabled: boolean) {

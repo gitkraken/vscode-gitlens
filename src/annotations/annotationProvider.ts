@@ -1,14 +1,14 @@
 import type { Tab, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, window } from 'vscode';
-import type { FileAnnotationType } from '../config';
-import type { AnnotationStatus } from '../constants';
-import type { Container } from '../container';
-import { getTabUri } from '../system/-webview/vscode/tabs';
-import { Logger } from '../system/logger';
-import type { Deferred } from '../system/promise';
-import { defer } from '../system/promise';
-import type { TrackedGitDocument } from '../trackers/trackedDocument';
-import type { Decoration } from './annotations';
+import type { FileAnnotationType } from '../config.js';
+import type { AnnotationStatus } from '../constants.js';
+import type { Container } from '../container.js';
+import { getTabUri } from '../system/-webview/vscode/tabs.js';
+import { Logger } from '../system/logger.js';
+import type { Deferred } from '../system/promise.js';
+import { defer } from '../system/promise.js';
+import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
+import type { Decoration } from './annotations.js';
 
 export interface AnnotationContext {
 	selection?: { sha?: string; line?: never } | { sha?: never; line?: number } | false;
@@ -31,9 +31,9 @@ export function getEditorCorrelationKeyFromTab(tab: Tab): TextEditorCorrelationK
 
 export type DidChangeStatusCallback = (e: { editor?: TextEditor; status?: AnnotationStatus }) => void;
 
-export abstract class AnnotationProviderBase<TContext extends AnnotationContext = AnnotationContext>
-	implements Disposable
-{
+export abstract class AnnotationProviderBase<
+	TContext extends AnnotationContext = AnnotationContext,
+> implements Disposable {
 	private decorations: Decoration[] | undefined;
 	protected disposable: Disposable;
 	private _computing: Deferred<void> | undefined;

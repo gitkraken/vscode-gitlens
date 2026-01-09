@@ -1,8 +1,8 @@
-import type { TreeViewNodeTypes } from '../../../constants.views';
-import { debug } from '../../../system/decorators/log';
-import type { View } from '../../viewBase';
-import { disposeChildren } from '../../viewBase';
-import { ViewNode } from './viewNode';
+import type { TreeViewNodeTypes } from '../../../constants.views.js';
+import { debug } from '../../../system/decorators/log.js';
+import type { View } from '../../viewBase.js';
+import { disposeChildren } from '../../viewBase.js';
+import { ViewNode } from './viewNode.js';
 
 export abstract class CacheableChildrenViewNode<
 	Type extends TreeViewNodeTypes = TreeViewNodeTypes,

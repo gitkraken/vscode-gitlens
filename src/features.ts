@@ -1,14 +1,15 @@
-import type { StoredFeaturePreviewUsagePeriod } from './constants.storage';
-import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription';
-import type { RepositoryVisibility } from './git/gitProvider';
-import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
-import { capitalize } from './system/string';
+import type { StoredFeaturePreviewUsagePeriod } from './constants.storage.js';
+import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription.js';
+import type { RepositoryVisibility } from './git/gitProvider.js';
+import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
+import { capitalize } from './system/string.js';
 
 // GitFeature's must start with `git:` to be recognized in all usages
 export type GitFeatures =
 	| 'git:for-each-ref:worktreePath'
 	| 'git:ignoreRevsFile'
 	| 'git:merge-tree'
+	| 'git:merge-tree:write-tree'
 	| 'git:push:force-if-includes'
 	| 'git:rev-parse:end-of-options'
 	| 'git:stash:push:pathspecs'
@@ -29,10 +30,12 @@ export type FilteredGitFeatures<T extends GitFeatureOrPrefix> = T extends GitFea
 	? T
 	: Extract<GitFeatures, T | `${T}:${string}`>;
 
+export const gitMinimumVersion = '2.7.2';
 export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:for-each-ref:worktreePath', '2.23'],
 	['git:ignoreRevsFile', '2.23'],
 	['git:merge-tree', '2.33'],
+	['git:merge-tree:write-tree', '2.38'],
 	['git:push:force-if-includes', '2.30.0'],
 	['git:rev-parse:end-of-options', '2.30'],
 	['git:stash:push:pathspecs', '2.13.2'],
@@ -83,17 +86,15 @@ export type ProAIFeatures =
 	| 'explain-changes'
 	| 'generate-create-cloudPatch'
 	| 'generate-create-codeSuggestion'
-	| 'generate-stashMessage';
-
-export type AdvancedFeatures = AdvancedAIFeatures;
-export type AdvancedAIFeatures =
+	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| 'generate-create-pullRequest'
-	| 'generate-rebase'
 	| 'generate-commits'
 	| 'generate-searchQuery';
 
-export type AIFeatures = 'generate-commitMessage' | ProAIFeatures | AdvancedAIFeatures;
+export type AdvancedFeatures = never;
+
+export type AIFeatures = 'generate-commitMessage' | ProAIFeatures;
 
 export function isProFeature(feature: PlusFeatures): feature is ProFeatures {
 	switch (feature) {
@@ -107,19 +108,7 @@ export function isProFeature(feature: PlusFeatures): feature is ProFeatures {
 }
 
 export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFeatures {
-	switch (feature) {
-		case 'explain-changes':
-		case 'generate-changelog':
-		case 'generate-create-cloudPatch':
-		case 'generate-create-codeSuggestion':
-		case 'generate-create-pullRequest':
-		case 'generate-rebase':
-		case 'generate-commits':
-			// case 'generate-searchQuery':
-			return true;
-		default:
-			return false;
-	}
+	return false;
 }
 
 export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFeatures {
@@ -127,7 +116,14 @@ export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFea
 		case 'launchpad':
 		case 'startWork':
 		case 'associateIssueWithBranch':
+		case 'explain-changes':
+		case 'generate-create-cloudPatch':
+		case 'generate-create-codeSuggestion':
 		case 'generate-stashMessage':
+		case 'generate-changelog':
+		case 'generate-create-pullRequest':
+		case 'generate-commits':
+		case 'generate-searchQuery':
 			return true;
 		default:
 			return false;
@@ -159,7 +155,7 @@ export function getFeaturePreviewStatus(preview: FeaturePreview): FeaturePreview
 	const usages = preview?.usages;
 	if (!usages?.length) return 'eligible';
 
-	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - new Date().getTime()) / hoursInMs;
+	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - Date.now()) / hoursInMs;
 
 	if (
 		usages.length <= proFeaturePreviewUsages &&

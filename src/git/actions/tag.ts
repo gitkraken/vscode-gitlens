@@ -1,9 +1,9 @@
-import { Container } from '../../container';
-import type { ViewNode } from '../../views/nodes/abstract/viewNode';
-import type { RevealOptions } from '../../views/viewBase';
-import { executeGitCommand } from '../actions';
-import type { GitReference, GitTagReference } from '../models/reference';
-import type { Repository } from '../models/repository';
+import { Container } from '../../container.js';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
+import type { RevealOptions } from '../../views/viewBase.js';
+import { executeGitCommand } from '../actions.js';
+import type { GitReference, GitTagReference } from '../models/reference.js';
+import type { Repository } from '../models/repository.js';
 
 export function create(repo?: string | Repository, ref?: GitReference, name?: string): Promise<void> {
 	return executeGitCommand({

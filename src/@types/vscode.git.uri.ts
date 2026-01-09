@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import { Schemes } from '../constants';
+import { Schemes } from '../constants.js';
 
 export interface GitUriQuery {
 	path: string;

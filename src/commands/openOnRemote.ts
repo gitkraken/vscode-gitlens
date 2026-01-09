@@ -1,18 +1,18 @@
-import { GlyphChars } from '../constants';
-import type { Container } from '../container';
-import type { GitRemote } from '../git/models/remote';
-import type { RemoteResource } from '../git/models/remoteResource';
-import { RemoteResourceType } from '../git/models/remoteResource';
-import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { getHighlanderProviders } from '../git/utils/remote.utils';
-import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../messages';
-import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
-import { command } from '../system/-webview/command';
-import { ensureArray } from '../system/array';
-import { Logger } from '../system/logger';
-import { pad, splitSingle } from '../system/string';
-import { GlCommandBase } from './commandBase';
+import { GlyphChars } from '../constants.js';
+import type { Container } from '../container.js';
+import type { GitRemote } from '../git/models/remote.js';
+import type { RemoteResource } from '../git/models/remoteResource.js';
+import { RemoteResourceType } from '../git/models/remoteResource.js';
+import type { RemoteProvider } from '../git/remotes/remoteProvider.js';
+import { getHighlanderProviders } from '../git/utils/remote.utils.js';
+import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker.js';
+import { command } from '../system/-webview/command.js';
+import { ensureArray } from '../system/array.js';
+import { Logger } from '../system/logger.js';
+import { pad, splitSingle } from '../system/string.js';
+import { GlCommandBase } from './commandBase.js';
 
 export type OpenOnRemoteCommandArgs =
 	| {

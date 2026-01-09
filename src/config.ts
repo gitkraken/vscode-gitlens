@@ -1,7 +1,7 @@
-import type { AIProviderAndModel, SupportedAIModels } from './constants.ai';
-import type { GroupableTreeViewTypes } from './constants.views';
-import type { DateTimeFormat } from './system/date';
-import type { LogLevel } from './system/logger.constants';
+import type { AIProviderAndModel, SupportedAIModels } from './constants.ai.js';
+import type { GroupableTreeViewTypes } from './constants.views.js';
+import type { DateTimeFormat } from './system/date.js';
+import type { LogLevel } from './system/logger.constants.js';
 
 export interface Config {
 	readonly advanced: AdvancedConfig;
@@ -48,6 +48,7 @@ export interface Config {
 	readonly sortContributorsBy: ContributorSorting;
 	readonly sortTagsBy: TagSorting;
 	readonly sortRepositoriesBy: RepositoriesSorting;
+	readonly sortWorktreesBy: WorktreeSorting;
 	readonly statusBar: StatusBarConfig;
 	readonly strings: StringsConfig;
 	readonly telemetry: TelemetryConfig;
@@ -92,6 +93,7 @@ export type ContributorSorting =
 	| 'score:desc'
 	| 'score:asc';
 export type RepositoriesSorting = 'discovered' | 'lastFetched:desc' | 'lastFetched:asc' | 'name:asc' | 'name:desc';
+export type WorktreeSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
 export type CustomRemoteType =
 	| 'AzureDevOps'
 	| 'Bitbucket'
@@ -163,7 +165,6 @@ export type SuppressedMessages =
 	| 'suppressGitVersionWarning'
 	| 'suppressLineUncommittedWarning'
 	| 'suppressNoRepositoryWarning'
-	| 'suppressRebaseSwitchToTextWarning'
 	| 'suppressGkDisconnectedTooManyFailedRequestsWarningMessage'
 	| 'suppressGkRequestFailed500Warning'
 	| 'suppressGkRequestTimedOutWarning'
@@ -200,14 +201,17 @@ export interface AdvancedConfig {
 	readonly fileHistoryFollowsRenames: boolean;
 	readonly fileHistoryShowAllBranches: boolean;
 	readonly fileHistoryShowMergeCommits: boolean;
+	readonly gitTimeout: number;
 	readonly maxListItems: number;
 	readonly maxSearchItems: number;
 	readonly messages: { [key in SuppressedMessages]: boolean };
 	readonly quickPick: {
 		readonly closeOnFocusOut: boolean;
 	};
+	readonly resolveSymlinks: boolean;
 	readonly repositorySearchDepth: number | null;
 	readonly similarityThreshold: number | null;
+	readonly skipOnboarding: boolean;
 }
 
 interface AIConfig {
@@ -417,6 +421,7 @@ export interface GraphConfig {
 		};
 	};
 	readonly highlightRowsOnRefHover: boolean;
+	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {
 		readonly enabled: boolean;
 	};
@@ -448,6 +453,7 @@ export interface GraphConfig {
 	readonly statusBar: {
 		readonly enabled: boolean;
 	};
+	readonly stickyTimeline: boolean;
 }
 
 interface HeatmapConfig {
@@ -659,8 +665,11 @@ interface ProxyConfig {
 }
 
 interface RebaseEditorConfig {
+	readonly density: 'compact' | 'comfortable';
+	readonly openOnPausedRebase: boolean | 'interactive';
 	readonly ordering: 'asc' | 'desc';
-	readonly showDetailsView: 'open' | 'selection' | false;
+	readonly revealLocation: 'graph' | 'inspect';
+	readonly revealBehavior: 'onDoubleClick' | 'onSelection';
 }
 
 export type RemotesConfig =
@@ -1116,6 +1125,9 @@ export type CoreConfig = {
 	};
 	readonly workbench: {
 		readonly editorAssociations: Record<string, string> | { viewType: string; filenamePattern: string }[];
+		readonly panel: {
+			readonly visible: boolean;
+		};
 		readonly tree: {
 			readonly renderIndentGuides: 'always' | 'none' | 'onHover';
 			readonly indent: number;

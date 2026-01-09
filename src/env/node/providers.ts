@@ -1,22 +1,22 @@
 import type { Disposable, McpServerDefinitionProvider } from 'vscode';
-import type { Container } from '../../container';
-import type { GitCommandOptions } from '../../git/commandOptions';
-import type { GitProvider } from '../../git/gitProvider';
-import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
-import { mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils';
-import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider';
-import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
-import { configuration } from '../../system/-webview/configuration';
+import type { Container } from '../../container.js';
+import type { GitCommandOptions } from '../../git/commandOptions.js';
+import type { GitProvider } from '../../git/gitProvider.js';
+import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
+import { mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
+import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider.js';
+import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider.js';
+import { configuration } from '../../system/-webview/configuration.js';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
-import type { TelemetryService } from '../../telemetry/telemetry';
-import type { GitResult } from './git/git';
-import { Git } from './git/git';
-import { LocalGitProvider } from './git/localGitProvider';
-import { VslsGit, VslsGitProvider } from './git/vslsGitProvider';
-import { GkCliIntegrationProvider } from './gk/cli/integration';
-import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider';
-import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider';
-import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider';
+import type { TelemetryService } from '../../telemetry/telemetry.js';
+import type { GitResult } from './git/git.js';
+import { Git } from './git/git.js';
+import { LocalGitProvider } from './git/localGitProvider.js';
+import { VslsGit, VslsGitProvider } from './git/vslsGitProvider.js';
+import { GkCliIntegrationProvider } from './gk/cli/integration.js';
+import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider.js';
+import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider.js';
+import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider.js';
 
 let gitInstance: Git | undefined;
 function ensureGit(container: Container) {
@@ -44,7 +44,7 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 		providers.push(
 			new (
 				await import(
-					/* webpackChunkName: "integrations" */ '../../plus/integrations/providers/github/githubGitProvider'
+					/* webpackChunkName: "integrations" */ '../../plus/integrations/providers/github/githubGitProvider.js'
 				)
 			).GitHubGitProvider(container),
 		);
@@ -78,10 +78,10 @@ export function getGkCliIntegrationProvider(container: Container): GkCliIntegrat
 export async function getMcpProviders(
 	container: Container,
 ): Promise<(McpServerDefinitionProvider & Disposable)[] | undefined> {
-	if (!mcpExtensionRegistrationAllowed()) return undefined;
+	if (!mcpExtensionRegistrationAllowed(container)) return undefined;
 
 	// Older versions of VS Code do not support the classes used in the MCP integration, so we need to dynamically import
-	const mcpModule = await import(/* webpackChunkName: "mcp" */ './gk/mcp/integration');
+	const mcpModule = await import(/* webpackChunkName: "mcp" */ './gk/mcp/integration.js');
 
 	return [new mcpModule.GkMcpProvider(container)];
 }

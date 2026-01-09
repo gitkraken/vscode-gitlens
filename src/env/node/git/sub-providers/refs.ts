@@ -1,20 +1,20 @@
 import type { CancellationToken, Uri } from 'vscode';
-import type { Container } from '../../../../container';
-import { isCancellationError } from '../../../../errors';
-import type { GitCache } from '../../../../git/cache';
-import { GitErrorHandling } from '../../../../git/commandOptions';
-import type { GitRefsSubProvider } from '../../../../git/gitProvider';
-import type { GitBranch } from '../../../../git/models/branch';
-import type { GitReference } from '../../../../git/models/reference';
-import { deletedOrMissing } from '../../../../git/models/revision';
-import type { GitTag } from '../../../../git/models/tag';
-import { createReference } from '../../../../git/utils/reference.utils';
-import { isShaWithOptionalRevisionSuffix, isUncommitted } from '../../../../git/utils/revision.utils';
-import { debug, log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import type { Git } from '../git';
-import type { LocalGitProvider } from '../localGitProvider';
+import type { Container } from '../../../../container.js';
+import { isCancellationError } from '../../../../errors.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
+import type { GitRefsSubProvider } from '../../../../git/gitProvider.js';
+import type { GitBranch } from '../../../../git/models/branch.js';
+import type { GitReference } from '../../../../git/models/reference.js';
+import { deletedOrMissing } from '../../../../git/models/revision.js';
+import type { GitTag } from '../../../../git/models/tag.js';
+import { createReference } from '../../../../git/utils/reference.utils.js';
+import { isShaWithOptionalRevisionSuffix, isUncommitted } from '../../../../git/utils/revision.utils.js';
+import { debug, log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import type { Git } from '../git.js';
+import type { LocalGitProvider } from '../localGitProvider.js';
 
 export class RefsGitSubProvider implements GitRefsSubProvider {
 	constructor(
@@ -177,5 +177,22 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			relativePath ? `${ref}:./${relativePath}` : `${ref}^{commit}`,
 		);
 		return result.stdout.trim() || undefined;
+	}
+
+	@log()
+	async updateReference(
+		repoPath: string,
+		ref: string,
+		newRef: string,
+		cancellation?: CancellationToken,
+	): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'update-ref', ref, newRef);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
+		}
 	}
 }

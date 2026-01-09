@@ -1,11 +1,11 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { GlElement } from '../element';
-import { checkboxBaseStyles } from '../forms/checkbox.css';
-import type { RadioGroup } from './radio-group';
-import { radioStyles } from './radio.css';
+import { checkboxBaseStyles } from '../checkbox/checkbox.css.js';
+import { GlElement } from '../element.js';
+import type { RadioGroup } from './radio-group.js';
+import { radioStyles } from './radio.css.js';
 
-import '../code-icon';
+import '../code-icon.js';
 
 export const tagName = 'gl-radio';
 

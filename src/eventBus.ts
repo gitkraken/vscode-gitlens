@@ -1,11 +1,12 @@
 import type { Disposable, Uri } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { CustomEditorIds, ViewIds, WebviewIds } from './constants.views';
-import type { CachedGitTypes } from './git/gitProvider';
-import type { GitCommit } from './git/models/commit';
-import type { GitRevisionReference } from './git/models/reference';
-import type { RepositoryChange } from './git/models/repository';
-import type { Draft, LocalDraft } from './plus/drafts/models/drafts';
+import type { CustomEditorIds, ViewIds, WebviewIds } from './constants.views.js';
+import type { CachedGitTypes } from './git/gitProvider.js';
+import type { GitCommit } from './git/models/commit.js';
+import type { GitRevisionReference } from './git/models/reference.js';
+import type { RepositoryChange } from './git/models/repository.js';
+import type { GitCommitSearchContext } from './git/search.js';
+import type { Draft, LocalDraft } from './plus/drafts/models/drafts.js';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {
@@ -13,6 +14,7 @@ interface CommitSelectedEventArgs {
 	readonly interaction: 'active' | 'passive';
 	readonly preserveFocus?: boolean;
 	readonly preserveVisibility?: boolean;
+	readonly searchContext?: GitCommitSearchContext;
 }
 
 export type DraftSelectedEvent = EventBusEvent<'draft:selected'>;
@@ -37,8 +39,8 @@ interface GitCacheResetEventArgs {
 }
 
 /**
- *  Out-of-band event to ensure @type {import('./git/models/repository').Repository} fires its change event
- *  Should only be listened to by @type {import('./git/models/repository').Repository}
+ *  Out-of-band event to ensure @type {import('./git/models/repository.js').Repository} fires its change event
+ *  Should only be listened to by @type {import('./git/models/repository.js').Repository}
  */
 export type GitRepoChangeEvent = EventBusEvent<'git:repo:change'>;
 interface GitRepoChangeEventArgs {
@@ -53,8 +55,8 @@ type EventsMapping = {
 
 	'git:cache:reset': GitCacheResetEventArgs;
 	/**
-	 *  Out-of-band event to ensure @type {import('./git/models/repository').Repository} fires its change event
-	 *  Should only be listened to by @type {import('./git/models/repository').Repository}
+	 *  Out-of-band event to ensure @type {import('./git/models/repository.js').Repository} fires its change event
+	 *  Should only be listened to by @type {import('./git/models/repository.js').Repository}
 	 */
 	'git:repo:change': GitRepoChangeEventArgs;
 };

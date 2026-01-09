@@ -1,13 +1,16 @@
-import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils';
-import { configuration } from '../../../system/-webview/configuration';
-import { formatDate, fromNow } from '../../../system/date';
-import { map } from '../../../system/iterable';
-import type { GitRemote } from '../../models/remote';
-import { RemoteResourceType } from '../../models/remoteResource';
-import type { Repository } from '../../models/repository';
-import type { RepositoryShape } from '../../models/repositoryShape';
-import type { RemoteProvider } from '../../remotes/remoteProvider';
-import { millisecondsPerDay } from '../fetch.utils';
+import type { Uri } from 'vscode';
+import { Schemes } from '../../../constants.js';
+import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { formatDate, fromNow } from '../../../system/date.js';
+import { map } from '../../../system/iterable.js';
+import { normalizePath } from '../../../system/path.js';
+import type { GitRemote } from '../../models/remote.js';
+import { RemoteResourceType } from '../../models/remoteResource.js';
+import type { Repository } from '../../models/repository.js';
+import type { RepositoryShape } from '../../models/repositoryShape.js';
+import type { RemoteProvider } from '../../remotes/remoteProvider.js';
+import { millisecondsPerDay } from '../fetch.utils.js';
 
 export function formatLastFetched(lastFetched: number, short: boolean = true): string {
 	const date = new Date(lastFetched);
@@ -27,6 +30,11 @@ export function formatLastFetched(lastFetched: number, short: boolean = true): s
 	}
 	return formatDate(date, format);
 }
+
+export function getRepositoryOrWorktreePath(uri: Uri): string {
+	return uri.scheme === Schemes.File ? normalizePath(uri.fsPath) : uri.toString();
+}
+
 export async function groupRepositories(
 	repositories: Iterable<Repository>,
 ): Promise<Map<Repository, Map<string, Repository>>> {
@@ -44,8 +52,19 @@ export async function groupRepositories(
 			continue;
 		}
 
+		// If the common repo is the repo itself, it's a main repo
+		if (commonRepo === repo) {
+			// Only add if not already present (could have been added by a worktree)
+			if (!result.has(repo.id)) {
+				result.set(repo.id, { repo: repo, worktrees: new Map() });
+			}
+			continue;
+		}
+
+		// This is a worktree, so find its common repo in the repos map
 		commonRepo = repos.get(commonRepo.id);
 		if (commonRepo == null) {
+			// Common repo not in the list, treat this worktree as standalone
 			if (result.has(repo.id)) {
 				debugger;
 			}
@@ -53,13 +72,13 @@ export async function groupRepositories(
 			continue;
 		}
 
+		// Add the worktree to its common repo's worktrees map
 		let r = result.get(commonRepo.id);
 		if (r == null) {
 			r = { repo: commonRepo, worktrees: new Map() };
 			result.set(commonRepo.id, r);
-		} else {
-			r.worktrees.set(repo.path, repo);
 		}
+		r.worktrees.set(repo.path, repo);
 	}
 
 	return new Map(map(result, ([, r]) => [r.repo, r.worktrees]));
@@ -86,6 +105,7 @@ export async function toRepositoryShapeWithProvider(
 				: undefined,
 			supportedFeatures: remote.provider.supportedFeatures,
 			url: await remote.provider.url({ type: RemoteResourceType.Repo }),
+			bestRemoteName: remote.name,
 		};
 		if (provider.integration?.id == null) {
 			provider.integration = undefined;

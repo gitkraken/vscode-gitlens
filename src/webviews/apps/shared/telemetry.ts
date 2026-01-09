@@ -1,5 +1,5 @@
-import type { TelemetryEvents } from '../../../constants.telemetry';
-import type { TelemetrySendEventParams } from '../../protocol';
+import type { TelemetryEvents } from '../../../constants.telemetry.js';
+import type { TelemetrySendEventParams } from '../../protocol.js';
 
 export const telemetryEventName = 'gl-telemetry-fired';
 

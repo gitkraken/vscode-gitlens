@@ -1,7 +1,7 @@
-import type { GKCheckInResponse, GKLicense, GKLicenseType } from '../models/checkin';
-import type { Organization } from '../models/organization';
-import type { Subscription, SubscriptionPlanIds } from '../models/subscription';
-import { compareSubscriptionPlans, getSubscriptionPlan, getSubscriptionPlanOrder } from './subscription.utils';
+import type { GKCheckInResponse, GKLicense, GKLicenseType } from '../models/checkin.js';
+import type { Organization } from '../models/organization.js';
+import type { Subscription, SubscriptionPlanIds } from '../models/subscription.js';
+import { compareSubscriptionPlans, getSubscriptionPlan, getSubscriptionPlanOrder } from './subscription.utils.js';
 
 export function getSubscriptionFromCheckIn(
 	data: GKCheckInResponse,

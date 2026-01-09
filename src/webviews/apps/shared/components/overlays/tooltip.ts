@@ -1,8 +1,8 @@
 import type SlTooltip from '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import { setDefaultAnimation } from '@shoelace-style/shoelace/dist/utilities/animation-registry.js';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { handleUnsafeOverlayContent } from './overlays.utils';
+import { customElement, property, state } from 'lit/decorators.js';
+import { handleUnsafeOverlayContent } from './overlays.utils.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 setDefaultAnimation('tooltip.show', null);
@@ -14,7 +14,7 @@ export class GlTooltip extends LitElement {
 		sl-tooltip {
 			--max-width: var(--gl-tooltip-max-width, 320px);
 			--hide-delay: 0ms;
-			--show-delay: 500ms;
+			--show-delay: var(--gl-tooltip-show-delay, 500ms);
 		}
 
 		sl-tooltip::part(base__popup) {
@@ -73,10 +73,23 @@ export class GlTooltip extends LitElement {
 	@property({ type: Number })
 	distance?: number;
 
+	@property({ type: Boolean, attribute: 'hide-on-click' })
+	hideOnClick?: boolean;
+
 	@property({ type: Boolean })
 	hoist?: boolean;
 
 	private observer: MutationObserver | undefined;
+	@state() private suppressed: boolean = false;
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		this.addEventListener('mousedown', this.onMouseDown);
+		window.addEventListener('mouseup', this.onMouseUp);
+		window.addEventListener('dragstart', this.onDragStart, { capture: true });
+		window.addEventListener('dragend', this.onDragEnd, { capture: true });
+	}
+
 	override firstUpdated(): void {
 		this.observer = new MutationObserver(mutations => {
 			for (const mutation of mutations) {
@@ -104,13 +117,45 @@ export class GlTooltip extends LitElement {
 
 	override disconnectedCallback(): void {
 		this.observer?.disconnect();
+		this.removeEventListener('mousedown', this.onMouseDown);
+		window.removeEventListener('mouseup', this.onMouseUp);
+		window.removeEventListener('dragstart', this.onDragStart, { capture: true });
+		window.removeEventListener('dragend', this.onDragEnd, { capture: true });
 		super.disconnectedCallback?.();
+	}
+
+	private onMouseDown = (_e: MouseEvent) => {
+		this.suppressed = true;
+		void this.hide();
+	};
+
+	private onMouseUp = (_e: MouseEvent) => {
+		this.suppressed = false;
+	};
+
+	private onDragStart = (_e: DragEvent) => {
+		this.suppressed = true;
+		void this.hide();
+	};
+
+	private onDragEnd = (_e: DragEvent) => {
+		this.suppressed = false;
+	};
+
+	async hide(): Promise<void> {
+		const slTooltip = this.shadowRoot?.querySelector<SlTooltip>('sl-tooltip');
+		return slTooltip?.hide();
+	}
+
+	async show(): Promise<void> {
+		const slTooltip = this.shadowRoot?.querySelector<SlTooltip>('sl-tooltip');
+		return slTooltip?.show();
 	}
 
 	override render(): unknown {
 		return html`<sl-tooltip
 			.placement=${this.placement}
-			?disabled=${this.disabled}
+			?disabled=${this.disabled || this.suppressed}
 			.distance=${this.distance ?? nothing}
 			hoist
 		>

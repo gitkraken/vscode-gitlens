@@ -1,9 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import { focusableBaseStyles } from './styles/lit/a11y.css';
-import './code-icon';
-import './overlays/tooltip';
+import { focusableBaseStyles } from './styles/lit/a11y.css.js';
+import './code-icon.js';
+import './overlays/tooltip.js';
 
 export type CollapsibleState = 'none' | 'collapsed' | 'expanded';
 

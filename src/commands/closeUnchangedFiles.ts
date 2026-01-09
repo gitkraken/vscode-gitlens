@@ -1,12 +1,12 @@
 import type { Uri } from 'vscode';
 import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
-import type { Container } from '../container';
-import { showGenericErrorMessage } from '../messages';
-import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import { areUrisEqual } from '../system/uri';
-import { GlCommandBase } from './commandBase';
+import type { Container } from '../container.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import { areUrisEqual } from '../system/uri.js';
+import { GlCommandBase } from './commandBase.js';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];

@@ -2,17 +2,17 @@ import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
-import type { Source } from '../../../../constants.telemetry';
-import type { RepositoryShape } from '../../../../git/models/repositoryShape';
-import { createCommandLink } from '../../../../system/commands';
-import { linkStyles, ruleStyles } from '../../plus/shared/components/vscode.css';
-import { GlElement } from './element';
-import { pickerIconStyles, refButtonBaseStyles, truncatedButtonStyles } from './ref.css';
-import './button';
-import './code-icon';
-import './overlays/popover';
-import './indicators/indicator';
+import type { ConnectRemoteProviderCommandArgs } from '../../../../commands/remoteProviders.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import { linkStyles, ruleStyles } from '../../plus/shared/components/vscode.css.js';
+import { GlElement } from './element.js';
+import { pickerIconStyles, refButtonBaseStyles, truncatedButtonStyles } from './ref.css.js';
+import './button.js';
+import './code-icon.js';
+import './overlays/popover.js';
+import './indicators/indicator.js';
 
 export interface RepoButtonGroupClickEvent {
 	event: MouseEvent;
@@ -198,9 +198,9 @@ export class GlRepoButtonGroup extends GlElement {
 							return html`
 								<code-icon style="margin-top: -3px" icon="plug" aria-hidden="true"></code-icon>
 								<a
-									href=${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-										'gitlens.plus.cloudIntegrations.connect',
-										{ integrationIds: [provider.integration!.id], source: this.source },
+									href=${createCommandLink<ConnectRemoteProviderCommandArgs>(
+										'gitlens.connectRemoteProvider',
+										{ repoPath: repo.path, remote: provider.bestRemoteName },
 									)}
 								>
 									Connect to ${repo.provider!.name}
@@ -227,10 +227,10 @@ export class GlRepoButtonGroup extends GlElement {
 			<gl-button
 				part="connect-icon"
 				appearance="toolbar"
-				href=${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-					'gitlens.plus.cloudIntegrations.connect',
-					{ integrationIds: [provider.integration.id], source: this.source },
-				)}
+				href=${createCommandLink<ConnectRemoteProviderCommandArgs>('gitlens.connectRemoteProvider', {
+					repoPath: repo.path,
+					remote: provider.bestRemoteName,
+				})}
 			>
 				<code-icon icon="plug" style="color: var(--titlebar-fg)"></code-icon>
 				<span slot="tooltip">

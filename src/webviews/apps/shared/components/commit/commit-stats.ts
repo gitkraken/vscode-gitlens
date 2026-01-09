@@ -1,11 +1,11 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../code-icon';
+import '../code-icon.js';
 
 const statToSymbol: readonly ['added' | 'modified' | 'removed', [string, string]][] = Object.freeze([
 	['added', ['+', 'add']],
 	['modified', ['~', 'edit']],
-	['removed', ['-', 'trash']],
+	['removed', ['-', 'remove']],
 ]);
 
 @customElement('commit-stats')
@@ -22,6 +22,21 @@ export class CommitStats extends LitElement {
 
 		:host([symbol='icons']) {
 			gap: 0.8rem;
+		}
+
+		:host([appearance='pill']) {
+			background-color: color-mix(
+				in srgb,
+				var(--vscode-sideBarSectionHeader-background) 90%,
+				var(--vscode-foreground) 10%
+			);
+			border: 1px solid
+				color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 100%, var(--vscode-foreground) 70%);
+			border-radius: 0.4rem;
+			gap: 0;
+			padding: 0 0.8rem 0 0.6rem;
+			white-space: nowrap;
+			line-height: 1.5rem;
 		}
 
 		.stat {
@@ -48,8 +63,28 @@ export class CommitStats extends LitElement {
 		}
 
 		.icon {
-			--code-icon-size: 0.94017em;
+			--code-icon-size: 0.9rem;
 			margin-inline-end: 0.2rem;
+		}
+
+		/* Pill styles */
+		:host([appearance='pill']) .stat {
+			padding: 0;
+			margin-inline-end: 0.8rem;
+		}
+
+		:host([appearance='pill']) .stat:last-child {
+			margin-inline-end: 0;
+		}
+
+		:host([appearance='pill']) .icon {
+			margin-inline-end: 0.3rem;
+		}
+
+		:host([appearance='pill']) .label {
+			display: flex;
+			align-items: center;
+			gap: 0;
 		}
 	`;
 
@@ -64,6 +99,9 @@ export class CommitStats extends LitElement {
 
 	@property()
 	symbol?: 'icons';
+
+	@property({ reflect: true })
+	appearance?: 'pill';
 
 	override render(): unknown {
 		return statToSymbol.map(([key, value]) => this.renderStat(key, value));

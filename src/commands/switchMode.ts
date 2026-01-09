@@ -1,11 +1,11 @@
 import { ConfigurationTarget } from 'vscode';
-import type { Container } from '../container';
-import { showModePicker } from '../quickpicks/modePicker';
-import { command } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { log } from '../system/decorators/log';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import { GlCommandBase } from './commandBase';
+import type { Container } from '../container.js';
+import { showModePicker } from '../quickpicks/modePicker.js';
+import { command } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { log } from '../system/decorators/log.js';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope.js';
+import { GlCommandBase } from './commandBase.js';
 
 @command()
 export class SwitchModeCommand extends GlCommandBase {

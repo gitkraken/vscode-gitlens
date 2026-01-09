@@ -10,29 +10,29 @@ import type {
 	Uri,
 } from 'vscode';
 import { CodeLens, EventEmitter, Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
-import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
-import type { ShowCommitsInViewCommandArgs } from '../commands/showCommitsInView';
-import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
-import type { ShowQuickCommitFileCommandArgs } from '../commands/showQuickCommitFile';
-import type { ShowQuickFileHistoryCommandArgs } from '../commands/showQuickFileHistory';
-import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
-import type { CodeLensCommands, CodeLensConfig, CodeLensLanguageScope } from '../config';
-import { trackableSchemes } from '../constants';
-import type { GlCommands } from '../constants.commands';
-import type { Container } from '../container';
-import type { GitUri } from '../git/gitUri';
-import type { GitBlame } from '../git/models/blame';
-import type { GitCommit } from '../git/models/commit';
-import { RemoteResourceType } from '../git/models/remoteResource';
-import { createCommand, executeCoreCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { isVirtualUri } from '../system/-webview/vscode/uris';
-import { is, once } from '../system/function';
-import { filterMap, find, first, join, map } from '../system/iterable';
-import { getLoggableName, Logger } from '../system/logger';
-import { startLogScope } from '../system/logger.scope';
-import { pluralize } from '../system/string';
+import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious.js';
+import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote.js';
+import type { ShowCommitsInViewCommandArgs } from '../commands/showCommitsInView.js';
+import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit.js';
+import type { ShowQuickCommitFileCommandArgs } from '../commands/showQuickCommitFile.js';
+import type { ShowQuickFileHistoryCommandArgs } from '../commands/showQuickFileHistory.js';
+import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations.js';
+import type { CodeLensCommands, CodeLensConfig, CodeLensLanguageScope } from '../config.js';
+import type { GlCommands } from '../constants.commands.js';
+import { trackableSchemes } from '../constants.js';
+import type { Container } from '../container.js';
+import type { GitUri } from '../git/gitUri.js';
+import type { GitBlame } from '../git/models/blame.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { RemoteResourceType } from '../git/models/remoteResource.js';
+import { createCommand, executeCoreCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { isVirtualUri } from '../system/-webview/vscode/uris.js';
+import { is, once } from '../system/function.js';
+import { filterMap, find, first, join, map } from '../system/iterable.js';
+import { getLoggableName, Logger } from '../system/logger.js';
+import { startLogScope } from '../system/logger.scope.js';
+import { pluralize } from '../system/string.js';
 
 class GitRecentChangeCodeLens extends CodeLens {
 	constructor(

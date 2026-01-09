@@ -1,24 +1,24 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../../../container';
-import type { GitCache } from '../../../../../git/cache';
+import type { Container } from '../../../../../container.js';
+import type { GitCache } from '../../../../../git/cache.js';
 import type {
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
 	PagedResult,
 	PagingOptions,
-} from '../../../../../git/gitProvider';
-import { GitBranch } from '../../../../../git/models/branch';
-import type { BranchSortOptions } from '../../../../../git/utils/-webview/sorting';
-import { sortBranches, sortContributors } from '../../../../../git/utils/-webview/sorting';
-import { createRevisionRange } from '../../../../../git/utils/revision.utils';
-import { configuration } from '../../../../../system/-webview/configuration';
-import { log } from '../../../../../system/decorators/log';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import { HeadType } from '../../../../remotehub';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { stripOrigin } from '../githubGitProvider';
-import type { GitHubBranch } from '../models';
+} from '../../../../../git/gitProvider.js';
+import { GitBranch } from '../../../../../git/models/branch.js';
+import type { BranchSortOptions } from '../../../../../git/utils/-webview/sorting.js';
+import { sortBranches, sortContributors } from '../../../../../git/utils/-webview/sorting.js';
+import { createRevisionRange } from '../../../../../git/utils/revision.utils.js';
+import { configuration } from '../../../../../system/-webview/configuration.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import { HeadType } from '../../../../remotehub.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
+import { stripOrigin } from '../githubGitProvider.js';
+import type { GitHubBranch } from '../models.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
@@ -38,7 +38,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return branch;
 		}
 
-		let branchPromise = this.cache.branch?.get(repoPath);
+		let branchPromise = this.cache.branch.get(repoPath);
 		if (branchPromise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<GitBranch | undefined> {
 				const {
@@ -59,6 +59,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								`refs/heads/${revision.name}`,
 								true,
 								undefined,
+								undefined,
+								undefined,
 								revision.revision,
 								undefined,
 								false,
@@ -75,7 +77,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 
 			branchPromise = load.call(this);
-			this.cache.branch?.set(repoPath, branchPromise);
+			this.cache.branch.set(repoPath, branchPromise);
 		}
 
 		return branchPromise;
@@ -95,7 +97,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const scope = getLogScope();
 
-		let branchesPromise = options?.paging?.cursor ? undefined : this.cache.branches?.get(repoPath);
+		let branchesPromise = options?.paging?.cursor ? undefined : this.cache.branches.get(repoPath);
 		if (branchesPromise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<PagedResult<GitBranch>> {
 				try {
@@ -118,6 +120,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								`refs/heads/${branch.name}`,
 								current,
 								date,
+								undefined,
+								undefined,
 								ref,
 								{
 									name: `origin/${branch.name}`,
@@ -132,6 +136,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								`refs/remotes/origin/${branch.name}`,
 								false,
 								date,
+								undefined,
+								undefined,
 								ref,
 								undefined,
 								false,
@@ -176,14 +182,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					Logger.error(ex, scope);
 					debugger;
 
-					this.cache.branches?.delete(repoPath!);
+					this.cache.branches.delete(repoPath!);
 					return emptyPagedResult;
 				}
 			}
 
 			branchesPromise = load.call(this);
 			if (options?.paging?.cursor == null) {
-				this.cache.branches?.set(repoPath, branchesPromise);
+				this.cache.branches.set(repoPath, branchesPromise);
 			}
 		}
 

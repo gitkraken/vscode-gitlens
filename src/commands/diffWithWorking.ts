@@ -1,20 +1,20 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
-import type { Container } from '../container';
-import type { DiffRange } from '../git/gitProvider';
-import { GitUri } from '../git/gitUri';
-import { deletedOrMissing, uncommittedStaged } from '../git/models/revision';
-import { createReference } from '../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../messages';
-import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker';
-import { command, executeCommand } from '../system/-webview/command';
-import { getOrOpenTextEditor, selectionToDiffRange } from '../system/-webview/vscode/editors';
-import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs';
-import { Logger } from '../system/logger';
-import { areUrisEqual } from '../system/uri';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { DiffWithCommandArgs } from './diffWith';
+import type { Container } from '../container.js';
+import type { DiffRange } from '../git/gitProvider.js';
+import { GitUri } from '../git/gitUri.js';
+import { deletedOrMissing, uncommittedStaged } from '../git/models/revision.js';
+import { createReference } from '../git/utils/reference.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker.js';
+import { command, executeCommand } from '../system/-webview/command.js';
+import { getOrOpenTextEditor, selectionToDiffRange } from '../system/-webview/vscode/editors.js';
+import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs.js';
+import { Logger } from '../system/logger.js';
+import { areUrisEqual } from '../system/uri.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { DiffWithCommandArgs } from './diffWith.js';
 
 export interface DiffWithWorkingCommandArgs {
 	uri?: Uri;

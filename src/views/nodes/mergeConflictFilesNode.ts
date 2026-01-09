@@ -1,15 +1,15 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import type { GitStatusFile } from '../../git/models/statusFile';
-import { makeHierarchical } from '../../system/array';
-import { joinPaths, normalizePath } from '../../system/path';
-import { pluralize, sortCompare } from '../../system/string';
-import type { ViewsWithCommits } from '../viewBase';
-import { ViewNode } from './abstract/viewNode';
-import type { FileNode } from './folderNode';
-import { FolderNode } from './folderNode';
-import { MergeConflictFileNode } from './mergeConflictFileNode';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import type { GitStatusFile } from '../../git/models/statusFile.js';
+import { makeHierarchical } from '../../system/array.js';
+import { joinPaths, normalizePath } from '../../system/path.js';
+import { pluralize, sortCompare } from '../../system/string.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import { ViewNode } from './abstract/viewNode.js';
+import type { FileNode } from './folderNode.js';
+import { FolderNode } from './folderNode.js';
+import { MergeConflictFileNode } from './mergeConflictFileNode.js';
 
 export class MergeConflictFilesNode extends ViewNode<'conflict-files', ViewsWithCommits> {
 	constructor(

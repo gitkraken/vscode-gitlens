@@ -1,27 +1,28 @@
-import type { IntegrationDescriptor } from '../../constants.integrations';
-import type { Source } from '../../constants.telemetry';
-import type { WalkthroughContextKeys } from '../../constants.walkthroughs';
-import type { GitBranchMergedStatus } from '../../git/gitProvider';
-import type { GitBranchStatus, GitTrackingState, GitTrackingUpstream } from '../../git/models/branch';
-import type { GitDiffFileStats } from '../../git/models/diff';
-import type { Issue } from '../../git/models/issue';
-import type { MergeConflict } from '../../git/models/mergeConflict';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import type { GitBranchReference } from '../../git/models/reference';
-import type { RepositoryShape } from '../../git/models/repositoryShape';
-import type { RemoteProviderSupportedFeatures } from '../../git/remotes/remoteProvider';
-import type { AIModel } from '../../plus/ai/models/model';
-import type { Subscription } from '../../plus/gk/models/subscription';
-import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
-import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
-import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad';
-import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
-import type { IpcScope, WebviewState } from '../protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
+import type { IntegrationDescriptor } from '../../constants.integrations.js';
+import type { Source } from '../../constants.telemetry.js';
+import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
+import type { GitBranchMergedStatus } from '../../git/gitProvider.js';
+import type { GitBranchStatus, GitTrackingState, GitTrackingUpstream } from '../../git/models/branch.js';
+import type { GitDiffFileStats } from '../../git/models/diff.js';
+import type { Issue } from '../../git/models/issue.js';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts.js';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import type { GitBranchReference } from '../../git/models/reference.js';
+import type { RepositoryShape } from '../../git/models/repositoryShape.js';
+import type { RemoteProviderSupportedFeatures } from '../../git/remotes/remoteProvider.js';
+import type { AIModel } from '../../plus/ai/models/model.js';
+import type { Subscription } from '../../plus/gk/models/subscription.js';
+import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
+import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider.js';
+import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad.js';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
+import type { IpcScope } from '../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
+import type { WebviewState } from '../protocol.js';
 
 export const scope: IpcScope = 'home';
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.views.home'> {
 	discovering: boolean;
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
@@ -52,6 +53,14 @@ export interface State extends WebviewState {
 	previewEnabled: boolean;
 	newInstall: boolean;
 	amaBannerCollapsed: boolean;
+	welcomeOverlayCollapsed: boolean;
+	hostAppName: string;
+}
+
+export interface SubscriptionState {
+	subscription: Subscription;
+	avatar: string;
+	organizationsCount: number;
 }
 
 export interface IntegrationState extends IntegrationDescriptor {
@@ -121,7 +130,7 @@ export interface GetOverviewBranch {
 				name: string;
 				status?: GitTrackingState;
 				mergedStatus?: GitBranchMergedStatus;
-				potentialConflicts?: MergeConflict;
+				potentialConflicts?: ConflictDetectionResult;
 
 				targetBranch: string | undefined;
 				baseBranch: string | undefined;

@@ -1,4 +1,4 @@
-import { join } from './iterable';
+import { join } from './iterable.js';
 
 export function areEqual<T>(a: readonly T[] | undefined, b: readonly T[] | undefined): boolean {
 	if (a === b) return true;
@@ -42,7 +42,7 @@ export function ensureArray<T>(source: NonNullable<T> | NonNullable<T>[] | undef
 }
 
 export function filterMap<T, TMapped>(
-	source: T[],
+	source: readonly T[],
 	predicateMapper: (item: T, index: number) => TMapped | null | undefined,
 ): TMapped[] {
 	let index = 0;

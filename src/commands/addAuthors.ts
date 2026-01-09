@@ -1,8 +1,8 @@
 import type { SourceControl } from 'vscode';
-import type { Container } from '../container';
-import { executeGitCommand } from '../git/actions';
-import { command } from '../system/-webview/command';
-import { GlCommandBase } from './commandBase';
+import type { Container } from '../container.js';
+import { executeGitCommand } from '../git/actions.js';
+import { command } from '../system/-webview/command.js';
+import { GlCommandBase } from './commandBase.js';
 
 @command()
 export class AddAuthorsCommand extends GlCommandBase {

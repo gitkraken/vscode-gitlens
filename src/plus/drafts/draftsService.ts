@@ -1,33 +1,33 @@
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { Disposable } from 'vscode';
-import type { HeadersInit } from '@env/fetch';
-import { getAvatarUri } from '../../avatars';
-import type { IntegrationIds } from '../../constants.integrations';
-import type { Container } from '../../container';
-import type { GitCommit } from '../../git/models/commit';
-import type { PullRequest } from '../../git/models/pullRequest';
-import { isRepository, Repository } from '../../git/models/repository';
+import type { HeadersInit } from '@env/fetch.js';
+import { getAvatarUri } from '../../avatars.js';
+import type { IntegrationIds } from '../../constants.integrations.js';
+import type { Container } from '../../container.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { PullRequest } from '../../git/models/pullRequest.js';
+import { isRepository, Repository } from '../../git/models/repository.js';
 import type {
 	GkRepositoryId,
 	RepositoryIdentity,
 	RepositoryIdentityRequest,
 	RepositoryIdentityResponse,
-} from '../../git/models/repositoryIdentities';
-import type { GitUser } from '../../git/models/user';
-import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
-import { isSha, isUncommitted, shortenRevision } from '../../git/utils/revision.utils';
-import { log } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import type { LogScope } from '../../system/logger.scope';
-import { getLogScope } from '../../system/logger.scope';
-import { getSettledValue } from '../../system/promise';
-import type { OrganizationMember } from '../gk/models/organization';
-import type { SubscriptionAccount } from '../gk/models/subscription';
-import type { ServerConnection } from '../gk/serverConnection';
-import { providersMetadata, supportsCodeSuggest } from '../integrations/providers/models';
-import { getEntityIdentifierInput } from '../integrations/providers/utils';
-import type { LaunchpadItem } from '../launchpad/launchpadProvider';
+} from '../../git/models/repositoryIdentities.js';
+import type { GitUser } from '../../git/models/user.js';
+import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders.js';
+import { isSha, isUncommitted, shortenRevision } from '../../git/utils/revision.utils.js';
+import { log } from '../../system/decorators/log.js';
+import { Logger } from '../../system/logger.js';
+import type { LogScope } from '../../system/logger.scope.js';
+import { getLogScope } from '../../system/logger.scope.js';
+import { getSettledValue } from '../../system/promise.js';
+import type { OrganizationMember } from '../gk/models/organization.js';
+import type { SubscriptionAccount } from '../gk/models/subscription.js';
+import type { ServerConnection } from '../gk/serverConnection.js';
+import { providersMetadata, supportsCodeSuggest } from '../integrations/providers/models.js';
+import { getEntityIdentifierInput } from '../integrations/providers/utils.js';
+import type { LaunchpadItem } from '../launchpad/launchpadProvider.js';
 import type {
 	CodeSuggestionCounts,
 	CodeSuggestionCountsResponse,
@@ -49,7 +49,7 @@ import type {
 	DraftType,
 	DraftUser,
 	DraftVisibility,
-} from './models/drafts';
+} from './models/drafts.js';
 
 export interface ProviderAuth {
 	provider: IntegrationIds;

@@ -1,12 +1,12 @@
 import type { CancellationToken, Uri } from 'vscode';
-import type { SearchQuery } from '../../../../../constants.search';
-import type { Container } from '../../../../../container';
-import { emojify } from '../../../../../emojis';
-import type { GitCache } from '../../../../../git/cache';
-import { GitSearchError } from '../../../../../git/errors';
-import type { GitGraphSubProvider } from '../../../../../git/gitProvider';
-import type { GitBranch } from '../../../../../git/models/branch';
-import type { GitStashCommit } from '../../../../../git/models/commit';
+import type { SearchQuery } from '../../../../../constants.search.js';
+import type { Container } from '../../../../../container.js';
+import { emojify } from '../../../../../emojis.js';
+import type { GitCache } from '../../../../../git/cache.js';
+import { GitSearchError } from '../../../../../git/errors.js';
+import type { GitGraphSubProvider } from '../../../../../git/gitProvider.js';
+import type { GitBranch } from '../../../../../git/models/branch.js';
+import type { GitStashCommit } from '../../../../../git/models/commit.js';
 import type {
 	GitGraph,
 	GitGraphRow,
@@ -15,32 +15,38 @@ import type {
 	GitGraphRowRemoteHead,
 	GitGraphRowStats,
 	GitGraphRowTag,
-} from '../../../../../git/models/graph';
-import type { GitLog } from '../../../../../git/models/log';
-import type { GitRemote } from '../../../../../git/models/remote';
-import type { GitUser } from '../../../../../git/models/user';
-import type { GitWorktree } from '../../../../../git/models/worktree';
-import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../../git/search';
-import { isBranchStarred } from '../../../../../git/utils/-webview/branch.utils';
-import { getRemoteIconUri } from '../../../../../git/utils/-webview/icons';
-import { getBranchId, getBranchNameWithoutRemote } from '../../../../../git/utils/branch.utils';
-import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
-import { createReference } from '../../../../../git/utils/reference.utils';
-import { getTagId } from '../../../../../git/utils/tag.utils';
-import { configuration } from '../../../../../system/-webview/configuration';
-import { log } from '../../../../../system/decorators/log';
-import { first, map } from '../../../../../system/iterable';
-import { getSettledValue } from '../../../../../system/promise';
-import { serializeWebviewItemContext } from '../../../../../system/webview';
+} from '../../../../../git/models/graph.js';
+import type { GitLog } from '../../../../../git/models/log.js';
+import type { GitRemote } from '../../../../../git/models/remote.js';
+import type { GitUser } from '../../../../../git/models/user.js';
+import type { GitWorktree } from '../../../../../git/models/worktree.js';
+import type {
+	GitGraphSearch,
+	GitGraphSearchCursor,
+	GitGraphSearchProgress,
+	GitGraphSearchResultData,
+	GitGraphSearchResults,
+} from '../../../../../git/search.js';
+import { getSearchQueryComparisonKey, parseSearchQueryGitHubCommand } from '../../../../../git/search.js';
+import { isBranchStarred } from '../../../../../git/utils/-webview/branch.utils.js';
+import { getRemoteIconUri } from '../../../../../git/utils/-webview/icons.js';
+import { getBranchId, getBranchNameWithoutRemote } from '../../../../../git/utils/branch.utils.js';
+import { getChangedFilesCount } from '../../../../../git/utils/commit.utils.js';
+import { createReference } from '../../../../../git/utils/reference.utils.js';
+import { isUncommitted } from '../../../../../git/utils/revision.utils.js';
+import { getTagId } from '../../../../../git/utils/tag.utils.js';
+import { configuration } from '../../../../../system/-webview/configuration.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { first, map } from '../../../../../system/iterable.js';
+import { getSettledValue } from '../../../../../system/promise.js';
+import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
 	GraphItemRefContext,
 	GraphTagContextValue,
-} from '../../../../../webviews/plus/graph/protocol';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { getQueryArgsFromSearchQuery } from '../utils/-webview/search.utils';
+} from '../../../../../webviews/plus/graph/protocol.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 const doubleQuoteRegex = /"/g;
 
@@ -66,7 +72,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const [logResult, headBranchResult, branchesResult, remotesResult, tagsResult, currentUserResult] =
 			await Promise.allSettled([
-				this.provider.commits.getLog(repoPath, rev, {
+				this.provider.commits.getLog(repoPath, !rev || isUncommitted(rev) ? 'HEAD' : rev, {
 					all: true,
 					ordering: ordering,
 					limit: defaultLimit,
@@ -268,7 +274,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						getRemoteIconUri(this.container, remote, asWebviewUri)
 					)?.toString(true);
 					context = {
-						webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
+						webviewItem: `gitlens:branch+remote${
+							isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''
+						}`,
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(headBranch.name, repoPath, {
@@ -322,7 +330,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							getRemoteIconUri(this.container, remote, asWebviewUri)
 						)?.toString(true);
 						context = {
-							webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
+							webviewItem: `gitlens:branch+remote${
+								isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''
+							}`,
 							webviewItemValue: {
 								type: 'branch',
 								ref: createReference(b, repoPath, {
@@ -413,7 +423,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				author: commit.author.name,
 				email: commit.author.email ?? '',
 				date: commit.committer.date.getTime(),
-				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
+				message: emojify(commit.message?.length ? commit.message : commit.summary),
 				// TODO: review logic for stash, wip, etc
 				type: commit.parents.length > 1 ? 'merge-node' : 'commit-node',
 				heads: refHeads,
@@ -449,7 +459,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			worktrees: worktrees,
 			worktreesByBranch: worktreesByBranch,
 			rows: rows,
-			id: options?.ref,
+			id: options?.ref ?? first(log.commits.values())?.sha,
 
 			paging: {
 				limit: log.limit,
@@ -461,6 +471,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				_sha?: string,
 				_cancellation?: CancellationToken,
 			): Promise<GitGraph | undefined> => {
+				// Note: GitHub provider uses API-based pagination via cursors, not SHA-based searching.
+				// The `_sha` parameter is ignored because the GitHub API handles pagination differently
+				// than the local Git provider. The API returns a cursor for the next page, and we
+				// continue from that cursor rather than searching for specific commits.
 				const moreLog = await log.more?.(limit);
 				return this.getGraphCore(
 					repoPath,
@@ -488,29 +502,63 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	@log<GraphGitSubProvider['searchGraph']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
-					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
-				}`,
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${
+					s.matchWholeWord ? 'W' : ''
+				}]: ${s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query}`,
 			2: o => `limit=${o?.limit}, ordering=${o?.ordering}`,
 		},
 	})
-	async searchGraph(
+	async *searchGraph(
 		repoPath: string,
 		search: SearchQuery,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		cancellation?: CancellationToken,
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
+		return yield* this.searchGraphCore(repoPath, search, undefined, undefined, options, cancellation);
+	}
+
+	@log<GraphGitSubProvider['continueSearchGraph']>({
+		args: {
+			1: c =>
+				`[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${
+					c.search.matchWholeWord ? 'W' : ''
+				}]: ${c.search.query.length > 500 ? `${c.search.query.substring(0, 500)}...` : c.search.query} (continue)`,
+			2: r => `results=${r.size}`,
+			3: o => `limit=${o?.limit}`,
+		},
+	})
+	async *continueSearchGraph(
+		repoPath: string,
+		cursor: GitGraphSearchCursor,
+		existingResults: GitGraphSearchResults,
 		options?: {
 			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo';
 		},
 		cancellation?: CancellationToken,
-	): Promise<GitGraphSearch> {
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
+		return yield* this.searchGraphCore(repoPath, cursor.search, cursor, existingResults, options, cancellation);
+	}
+
+	private async *searchGraphCore(
+		repoPath: string,
+		search: SearchQuery,
+		cursor: GitGraphSearchCursor | undefined,
+		existingResults: GitGraphSearchResults | undefined,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		cancellation?: CancellationToken,
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
 		// const scope = getLogScope();
 		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
 
 		try {
-			const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>();
-			const operations = parseSearchQuery(search);
+			const currentUser = search.query.includes('@me')
+				? await this.provider.config.getCurrentUser(repoPath)
+				: undefined;
+
+			const results: GitGraphSearchResults = existingResults ?? new Map<string, GitGraphSearchResultData>();
+			const { args: queryArgs, filters, operations } = parseSearchQueryGitHubCommand(search, currentUser);
 
 			const values = operations.get('commit:');
 			if (values != null) {
@@ -526,24 +574,28 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					results.set(commit.sha, {
 						i: i++,
 						date: Number(options?.ordering === 'author-date' ? commit.author.date : commit.committer.date),
+						files: commit.fileset?.files,
 					});
 				}
 
 				return {
 					repoPath: repoPath,
 					query: search,
+					queryFilters: filters,
 					comparisonKey: comparisonKey,
 					results: results,
+					hasMore: false,
 				};
 			}
 
-			const queryArgs = await getQueryArgsFromSearchQuery(this.provider, search, operations, repoPath);
-			if (queryArgs.length === 0) {
+			if (!queryArgs.length) {
 				return {
 					repoPath: repoPath,
 					query: search,
+					queryFilters: filters,
 					comparisonKey: comparisonKey,
 					results: results,
+					hasMore: false,
 				};
 			}
 
@@ -551,18 +603,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 			const query = `repo:${metadata.repo.owner}/${metadata.repo.name}+${queryArgs.join('+').trim()}`;
 
-			async function searchGraphCore(
-				this: GraphGitSubProvider,
-				limit: number | undefined,
-				cursor?: string,
-			): Promise<GitGraphSearch> {
-				if (cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
+			const limit = this.provider.getPagingLimit(options?.limit ?? configuration.get('advanced.maxSearchItems'));
+			// Use state from cursor, if provided
+			let apiCursor = cursor?.state != null && typeof cursor.state === 'string' ? cursor.state : undefined;
+			let hasMore = true;
 
-				limit = this.provider.getPagingLimit(limit ?? configuration.get('advanced.maxSearchItems'));
+			while (hasMore && !cancellation?.isCancellationRequested) {
 				const result = await github.searchCommitShas(session.accessToken, query, {
-					cursor: cursor,
+					cursor: apiCursor,
 					limit: limit,
 					sort:
 						options?.ordering === 'date'
@@ -573,34 +621,52 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				});
 
 				if (result == null || cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+					break;
 				}
 
+				// Collect incremental results for this page
+				const incrementalResults = new Map<string, GitGraphSearchResultData>();
 				for (const commit of result.values) {
-					results.set(commit.sha, {
+					const data: GitGraphSearchResultData = {
 						i: results.size,
-						date: Number(options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate),
-					});
+						date: options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate,
+						files: undefined,
+					};
+					results.set(commit.sha, data);
+					incrementalResults.set(commit.sha, data);
 				}
 
-				cursor = result.pageInfo?.endCursor ?? undefined;
+				hasMore = result.pageInfo?.hasNextPage ?? false;
+				apiCursor = result.pageInfo?.endCursor ?? undefined;
 
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-					paging: result.pageInfo?.hasNextPage
-						? {
-								limit: limit,
-								hasMore: true,
-							}
-						: undefined,
-					more: async (limit: number): Promise<GitGraphSearch> => searchGraphCore.call(this, limit, cursor),
-				};
+				// Yield progress with incremental results from this page
+				if (incrementalResults.size) {
+					yield {
+						repoPath: repoPath,
+						query: search,
+						queryFilters: filters,
+						comparisonKey: comparisonKey,
+						results: incrementalResults,
+						runningTotal: results.size,
+						hasMore: hasMore,
+					};
+				}
 			}
 
-			return await searchGraphCore.call(this, options?.limit);
+			return {
+				repoPath: repoPath,
+				query: search,
+				queryFilters: filters,
+				comparisonKey: comparisonKey,
+				results: results,
+				hasMore: hasMore,
+				paging: hasMore
+					? {
+							limit: limit,
+							cursor: apiCursor ? { search: search, state: apiCursor } : undefined,
+						}
+					: undefined,
+			};
 		} catch (ex) {
 			if (ex instanceof GitSearchError) throw ex;
 

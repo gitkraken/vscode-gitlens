@@ -1,18 +1,18 @@
 import type { CancellationToken, Uri } from 'vscode';
-import type { Container } from '../../../../../container';
-import type { GitCache } from '../../../../../git/cache';
-import type { GitRefsSubProvider } from '../../../../../git/gitProvider';
-import type { GitBranch } from '../../../../../git/models/branch';
-import type { GitReference } from '../../../../../git/models/reference';
-import { deletedOrMissing } from '../../../../../git/models/revision';
-import type { GitTag } from '../../../../../git/models/tag';
-import { createReference } from '../../../../../git/utils/reference.utils';
-import { createRevisionRange, isShaWithOptionalRevisionSuffix } from '../../../../../git/utils/revision.utils';
-import { log } from '../../../../../system/decorators/log';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { stripOrigin } from '../githubGitProvider';
+import type { Container } from '../../../../../container.js';
+import type { GitCache } from '../../../../../git/cache.js';
+import type { GitRefsSubProvider } from '../../../../../git/gitProvider.js';
+import type { GitBranch } from '../../../../../git/models/branch.js';
+import type { GitReference } from '../../../../../git/models/reference.js';
+import { deletedOrMissing } from '../../../../../git/models/revision.js';
+import type { GitTag } from '../../../../../git/models/tag.js';
+import { createReference } from '../../../../../git/utils/reference.utils.js';
+import { createRevisionRange, isShaWithOptionalRevisionSuffix } from '../../../../../git/utils/revision.utils.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
+import { stripOrigin } from '../githubGitProvider.js';
 
 // Since negative lookbehind isn't supported in all browsers, this leaves out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
 // eslint-disable-next-line no-control-regex
@@ -132,5 +132,15 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		_cancellation?: CancellationToken,
 	): Promise<boolean> {
 		return Promise.resolve(true);
+	}
+
+	@log()
+	updateReference(
+		_repoPath: string,
+		_ref: string,
+		_newRef: string,
+		_cancellation?: CancellationToken,
+	): Promise<void> {
+		return Promise.resolve();
 	}
 }

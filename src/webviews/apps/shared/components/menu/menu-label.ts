@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { elementBase } from '../styles/lit/base.css';
+import { elementBase } from '../styles/lit/base.css.js';
 
 @customElement('menu-label')
 export class MenuLabel extends LitElement {

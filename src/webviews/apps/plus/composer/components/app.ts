@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
-import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
+import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol.js';
 import {
 	AdvanceOnboardingCommand,
 	AIFeedbackHelpfulCommand,
@@ -26,27 +26,27 @@ import {
 	OnUndoCommand,
 	OpenOnboardingCommand,
 	ReloadComposerCommand,
-} from '../../../../plus/composer/protocol';
-import { updateHunkAssignments } from '../../../../plus/composer/utils';
-import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
-import { ipcContext } from '../../../shared/contexts/ipc';
-import type { HostIpc } from '../../../shared/ipc';
-import type { KeyedDriveStep } from '../../../shared/onboarding';
-import { createOnboarding } from '../../../shared/onboarding';
-import { stateContext } from '../context';
-import type { CommitsPanel } from './commits-panel';
-import type { DetailsPanel } from './details-panel';
-import '../../../shared/components/button';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/dialog';
-import '../../../shared/components/overlays/tooltip';
-import '../../../shared/components/repo-button-group';
-import './commit-item';
-import './commits-panel';
-import './details-panel';
-import './hunk-item';
+} from '../../../../plus/composer/protocol.js';
+import { updateHunkAssignments } from '../../../../plus/composer/utils/composer.utils.js';
+import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
+import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { HostIpc } from '../../../shared/ipc.js';
+import type { KeyedDriveStep } from '../../../shared/onboarding.js';
+import { createOnboarding } from '../../../shared/onboarding.js';
+import { stateContext } from '../context.js';
+import type { CommitsPanel } from './commits-panel.js';
+import type { DetailsPanel } from './details-panel.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/dialog.js';
+import '../../../shared/components/overlays/tooltip.js';
+import '../../../shared/components/repo-button-group.js';
+import './commit-item.js';
+import './commits-panel.js';
+import './details-panel.js';
+import './hunk-item.js';
 
 // Internal history management interfaces
 interface ComposerDataSnapshot {
@@ -54,9 +54,11 @@ interface ComposerDataSnapshot {
 	commits: ComposerCommit[];
 	selectedCommitId: string | null;
 	selectedCommitIds: Set<string>;
-	selectedUnassignedSection: string | null;
+	selectedUnassignedSection: 'staged' | 'unstaged' | 'unassigned' | null;
 	selectedHunkIds: Set<string>;
 	hasUsedAutoCompose: boolean;
+	recompose: { enabled: boolean; branchName?: string; locked: boolean; commitShas?: string[] } | null;
+	compositionSummarySelected: boolean;
 }
 
 interface ComposerHistory {
@@ -119,6 +121,10 @@ export class ComposerApp extends LitElement {
 
 			.header-feedback:not(:hover, :focus) {
 				opacity: 0.8;
+			}
+
+			gl-repo-button-group {
+				transform: translateY(1px);
 			}
 
 			.header-actions {
@@ -375,6 +381,8 @@ export class ComposerApp extends LitElement {
 	@state()
 	private selectedCommitIds: Set<string> = new Set();
 
+	private anchorCommitId: string | null = null;
+
 	@state()
 	private selectedHunkId: string | null = null;
 
@@ -407,14 +415,14 @@ export class ComposerApp extends LitElement {
 	private lastMouseEvent?: MouseEvent;
 
 	override firstUpdated() {
-		this.initializeResetStateIfNeeded();
 		// Delay initialization to ensure DOM is ready
 		setTimeout(() => this.initializeSortable(), 200);
 		this.initializeDragTracking();
 		if (this.state.commits.length > 0) {
 			this.selectCommit(this.state.commits[0].id);
 		}
-		if (!this.state.onboardingDismissed) {
+		this.initializeResetStateIfNeeded();
+		if (!this.state.onboardingDismissed && !this.hasAnyError()) {
 			this.openOnboarding();
 		}
 	}
@@ -427,6 +435,11 @@ export class ComposerApp extends LitElement {
 		// Reinitialize drop zones when commits change
 		if (changedProperties.has('commits')) {
 			setTimeout(() => this.initializeCommitDropZones(), 100);
+		}
+
+		// Dismiss onboarding if any error popover is shown
+		if (this.hasAnyError() && this.onboarding) {
+			this.dismissOnboarding();
 		}
 
 		if (changedProperties.size === 0) {
@@ -611,22 +624,32 @@ export class ComposerApp extends LitElement {
 		return {
 			hunks: JSON.parse(JSON.stringify(this.state?.hunks ?? [])),
 			commits: JSON.parse(JSON.stringify(this.state?.commits ?? [])),
-			selectedCommitId: this.state?.selectedCommitId ?? null,
+			selectedCommitId: this.selectedCommitId,
 			selectedCommitIds: new Set([...this.selectedCommitIds]),
-			selectedUnassignedSection: this.state?.selectedUnassignedSection ?? null,
+			selectedUnassignedSection: this.selectedUnassignedSection,
 			selectedHunkIds: new Set([...this.selectedHunkIds]),
 			hasUsedAutoCompose: this.state?.hasUsedAutoCompose ?? false,
+			recompose: this.state?.recompose ? JSON.parse(JSON.stringify(this.state.recompose)) : null,
+			compositionSummarySelected: this.compositionSummarySelected,
 		};
 	}
 
 	private applyDataSnapshot(snapshot: ComposerDataSnapshot) {
-		this.state.hunks = snapshot.hunks;
-		this.state.commits = snapshot.commits;
-		this.state.selectedCommitId = snapshot.selectedCommitId;
+		const updatedState = {
+			...this.state,
+			hunks: snapshot.hunks,
+			commits: snapshot.commits,
+			hasUsedAutoCompose: snapshot.hasUsedAutoCompose,
+			recompose: snapshot.recompose,
+			timestamp: Date.now(),
+		};
+
+		(this as any).state = updatedState;
+		this.selectedCommitId = snapshot.selectedCommitId;
 		this.selectedCommitIds = snapshot.selectedCommitIds;
-		this.state.selectedUnassignedSection = snapshot.selectedUnassignedSection;
-		this.state.hasUsedAutoCompose = snapshot.hasUsedAutoCompose;
+		this.selectedUnassignedSection = snapshot.selectedUnassignedSection;
 		this.selectedHunkIds = snapshot.selectedHunkIds;
+		this.compositionSummarySelected = snapshot.compositionSummarySelected;
 		this.requestUpdate();
 	}
 
@@ -823,7 +846,7 @@ export class ComposerApp extends LitElement {
 		// Create new commit
 		const newCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: '', // Empty message - user will add their own
+			message: { content: '', isGenerated: false },
 			hunkIndices: hunkIndices,
 		};
 
@@ -951,43 +974,65 @@ export class ComposerApp extends LitElement {
 
 	private selectCommit(commitId: string, shiftKey = false) {
 		if (shiftKey) {
-			// Multi-select with shift key
-			const newSelection = new Set(this.selectedCommitIds);
+			const isRecomposeMode = this.state?.recompose?.enabled === true;
 
-			// If we have a single selection and no multi-selection yet, add the current single selection to multi-selection
-			if (this.selectedCommitId && this.selectedCommitIds.size === 0) {
-				newSelection.add(this.selectedCommitId);
-			}
+			if (isRecomposeMode) {
+				const commits = this.state.commits;
+				const clickedIndex = commits.findIndex(c => c.id === commitId);
+				if (clickedIndex === -1) return;
 
-			// Toggle the clicked commit in multi-selection
-			if (newSelection.has(commitId)) {
-				newSelection.delete(commitId);
-			} else {
-				newSelection.add(commitId);
-			}
+				if (!this.anchorCommitId) {
+					this.anchorCommitId = commitId;
+					this.selectedCommitId = commitId;
+					return;
+				}
 
-			this.selectedCommitIds = newSelection;
+				const anchorIndex = commits.findIndex(c => c.id === this.anchorCommitId);
+				if (anchorIndex === -1) return;
 
-			// If we have multi-selection, clear single selection
-			if (this.selectedCommitIds.size > 1) {
+				const startIndex = Math.min(anchorIndex, clickedIndex);
+				const endIndex = Math.max(anchorIndex, clickedIndex);
+
+				const newSelection = new Set<string>();
+				for (let i = startIndex; i <= endIndex; i++) {
+					newSelection.add(commits[i].id);
+				}
+
+				this.selectedCommitIds = newSelection;
 				this.selectedCommitId = null;
-			} else if (this.selectedCommitIds.size === 1) {
-				this.selectedCommitId = Array.from(this.selectedCommitIds)[0];
-				this.selectedCommitIds = new Set(); // Clear multi-selection when back to single
 			} else {
-				this.selectedCommitId = null;
+				const newSelection = new Set(this.selectedCommitIds);
+
+				if (this.selectedCommitId && this.selectedCommitIds.size === 0) {
+					newSelection.add(this.selectedCommitId);
+				}
+
+				if (newSelection.has(commitId)) {
+					newSelection.delete(commitId);
+				} else {
+					newSelection.add(commitId);
+				}
+
+				this.selectedCommitIds = newSelection;
+
+				if (this.selectedCommitIds.size > 1) {
+					this.selectedCommitId = null;
+				} else if (this.selectedCommitIds.size === 1) {
+					this.selectedCommitId = Array.from(this.selectedCommitIds)[0];
+					this.selectedCommitIds = new Set();
+				} else {
+					this.selectedCommitId = null;
+				}
 			}
 		} else {
-			// Single select (clear multi-selection)
 			this.selectedCommitIds = new Set();
 			this.selectedCommitId = commitId;
+			this.anchorCommitId = commitId;
 		}
 
-		// Clear unassigned changes selection and composition summary
 		this.selectedUnassignedSection = null;
 		this.compositionSummarySelected = false;
 
-		// Reinitialize sortables after the DOM updates
 		void this.updateComplete.then(() => {
 			setTimeout(() => {
 				this.initializeHunksSortable();
@@ -1037,7 +1082,7 @@ export class ComposerApp extends LitElement {
 				this.commitMessageBeingEdited = null;
 			}, 1000);
 
-			commit.message = message;
+			commit.message = { content: message, isGenerated: false };
 			this.requestUpdate();
 		}
 	}
@@ -1175,16 +1220,26 @@ export class ComposerApp extends LitElement {
 		return null;
 	}
 
+	private hasAnyError(): boolean {
+		return (
+			this.state?.safetyError != null || this.state?.loadingError != null || this.state?.aiOperationError != null
+		);
+	}
+
 	private get canFinishAndCommit(): boolean {
-		return this.state.commits.length > 0;
+		return !this.commitsLocked && this.state.commits.length > 0;
 	}
 
 	private get isPreviewMode(): boolean {
 		return this.state?.mode === 'preview';
 	}
 
+	private get commitsLocked(): boolean {
+		return this.state?.recompose?.enabled === true && this.state?.recompose?.locked === true;
+	}
+
 	private get canCombineCommits(): boolean {
-		return !this.isPreviewMode;
+		return !this.isPreviewMode && !this.commitsLocked;
 	}
 
 	private get showHistoryButtons(): boolean {
@@ -1192,11 +1247,22 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canMoveHunks(): boolean {
-		return !this.isPreviewMode;
+		return !this.isPreviewMode && !this.commitsLocked;
+	}
+
+	private get canEditCommitMessages(): boolean {
+		return !this.commitsLocked;
+	}
+
+	private get canReorderCommits(): boolean {
+		return !this.commitsLocked;
 	}
 
 	private get isReadyToFinishAndCommit(): boolean {
-		return this.state.commits.length > 0 && this.state.commits.every(commit => commit.message.trim().length > 0);
+		return (
+			this.state.commits.length > 0 &&
+			this.state.commits.every(commit => commit.message.content.trim().length > 0)
+		);
 	}
 
 	private get canGenerateCommitsWithAI(): boolean {
@@ -1223,10 +1289,6 @@ export class ComposerApp extends LitElement {
 		}
 
 		return availableHunks;
-	}
-
-	private get canEditCommitMessages(): boolean {
-		return true; // Always allowed
 	}
 
 	private get canGenerateCommitMessages(): boolean {
@@ -1293,7 +1355,7 @@ export class ComposerApp extends LitElement {
 
 		// Create Commits loading dialog
 		if (this.state.committing) {
-			const commitCount = this.state.commits.filter(c => c.message.trim() !== '').length;
+			const commitCount = this.state.commits.filter(c => c.message.content.trim() !== '').length;
 			return this.renderLoadingDialog(
 				'Creating Commits',
 				`Committing ${commitCount} commit${commitCount === 1 ? '' : 's'}.`,
@@ -1330,13 +1392,54 @@ export class ComposerApp extends LitElement {
 		// Reset feedback state and create new session ID for new composition
 		this.compositionFeedback = null;
 		this.compositionSessionId = `composer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+		const hasLockedCommits = this.state.commits.some(c => c.locked);
+		let selectedCommitIdsForGenerate: string[] = [];
+		if (hasLockedCommits) {
+			selectedCommitIdsForGenerate = this.state.commits.filter(c => !c.locked).map(c => c.id);
+		}
+
+		if (!selectedCommitIdsForGenerate.length) {
+			selectedCommitIdsForGenerate =
+				this.state.recompose?.enabled && !this.state.hasUsedAutoCompose && !hasLockedCommits
+					? [...this.selectedCommitIds]
+					: [];
+		}
+
+		if (selectedCommitIdsForGenerate.length === 1) {
+			selectedCommitIdsForGenerate = [];
+		}
+
+		if (!selectedCommitIdsForGenerate.length && this.state.recompose?.commitShas?.length) {
+			const recomposeCommits = this.state.commits.filter(
+				c => c.sha && !c.locked && this.state.recompose!.commitShas!.includes(c.sha),
+			);
+			selectedCommitIdsForGenerate = recomposeCommits.map(c => c.id);
+		}
+
+		const commitsToReplace = selectedCommitIdsForGenerate.map(id => {
+			const commit = this.state.commits.find(c => c.id === id);
+			return { id: commit!.id, sha: commit!.sha, hunkIndices: commit!.hunkIndices };
+		});
+
+		let baseShaForNewDiff: string | undefined;
+		// If all commits to replace exist and all commits to replace have a sha, then the base sha for the new diff is the commit before the first commit to replace, or the base commit sha if there is no commit before the first commit to replace
+		if (commitsToReplace.length && commitsToReplace.every(c => c.sha) && this.state.baseCommit?.sha) {
+			const firstCommitToReplaceIndex = this.state.commits.findIndex(c => c.id === commitsToReplace[0].id);
+			baseShaForNewDiff =
+				firstCommitToReplaceIndex > 0
+					? this.state.commits[firstCommitToReplaceIndex - 1].sha!
+					: this.state.baseCommit.sha;
+		}
 
 		// Automatically select the composition summary
 		this.selectedCommitId = null;
 		this.selectedCommitIds = new Set();
 		this.selectedUnassignedSection = null;
 
-		this.generateCommitsWithAI(e.detail?.customInstructions);
+		this.generateCommitsWithAI(
+			e.detail?.customInstructions,
+			commitsToReplace.length ? { commits: commitsToReplace, baseShaForNewDiff: baseShaForNewDiff } : undefined,
+		);
 	}
 
 	private handleAddHunksToCommit(e: CustomEvent) {
@@ -1428,7 +1531,13 @@ export class ComposerApp extends LitElement {
 		}, 100);
 	}
 
-	private generateCommitsWithAI(customInstructions: string = '') {
+	private generateCommitsWithAI(
+		customInstructions: string = '',
+		commitsToReplace?: {
+			commits: { id: string; sha?: string; hunkIndices: number[] }[];
+			baseShaForNewDiff?: string;
+		},
+	) {
 		if (!this.aiEnabled) return;
 
 		// Get eligible hunks using the shared logic
@@ -1446,6 +1555,7 @@ export class ComposerApp extends LitElement {
 			commits: this.isPreviewMode ? [] : this.state.commits,
 			baseCommit: this.state.baseCommit,
 			customInstructions: customInstructions || undefined,
+			commitsToReplace: commitsToReplace,
 		});
 	}
 
@@ -1461,7 +1571,7 @@ export class ComposerApp extends LitElement {
 		this._ipc.sendCommand(GenerateCommitMessageCommand, {
 			commitId: commitId,
 			commitHunkIndices: commit.hunkIndices,
-			overwriteExistingMessage: commit.message.trim() !== '',
+			overwriteExistingMessage: commit.message.content.trim() !== '',
 		});
 	}
 
@@ -1480,7 +1590,7 @@ export class ComposerApp extends LitElement {
 
 		// Combine commit messages from selected commits
 		const combinedMessage = selectedCommits
-			.map(commit => commit.message)
+			.map(commit => commit.message.content)
 			.filter(message => message && message.trim() !== '')
 			.join('\n\n');
 
@@ -1490,10 +1600,13 @@ export class ComposerApp extends LitElement {
 			.filter(explanation => explanation && explanation.trim() !== '')
 			.join('\n\n');
 
+		// Determine if any of the combined commits were AI-generated
+		const isGenerated = selectedCommits.some(commit => commit.message.isGenerated);
+
 		// Create new combined commit
 		const combinedCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: combinedMessage || 'Combined commit',
+			message: { content: combinedMessage || 'Combined commit', isGenerated: isGenerated },
 			hunkIndices: combinedHunkIndices,
 			aiExplanation: combinedExplanation || undefined,
 		};
@@ -1536,6 +1649,8 @@ export class ComposerApp extends LitElement {
 
 		// Get hunks with updated assignments
 		const hunks = this.hunksWithAssignments;
+
+		const hasLockedCommits = this.state.commits.some(c => c.locked);
 
 		return html`
 			<header class="header">
@@ -1580,9 +1695,11 @@ export class ComposerApp extends LitElement {
 					.canCombineCommits=${this.canCombineCommits}
 					.canMoveHunks=${this.canMoveHunks}
 					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
+					.canReorderCommits=${this.canReorderCommits}
+					.hasLockedCommits=${hasLockedCommits}
 					.isPreviewMode=${this.isPreviewMode}
 					.baseCommit=${this.state.baseCommit}
-					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name}
+					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name ?? null}
 					.customInstructions=${this.customInstructions}
 					.hasUsedAutoCompose=${this.state.hasUsedAutoCompose}
 					.hasChanges=${this.state.hasChanges}
@@ -1591,6 +1708,7 @@ export class ComposerApp extends LitElement {
 					.compositionFeedback=${this.compositionFeedback}
 					.compositionSessionId=${this.compositionSessionId}
 					.isReadyToCommit=${this.isReadyToFinishAndCommit}
+					.recompose=${this.state.recompose}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}

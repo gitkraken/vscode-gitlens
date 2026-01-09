@@ -1,14 +1,14 @@
-import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../../../constants.integrations';
+import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../../../constants.integrations';
-import type { RemoteProvider, RemoteProviderId } from '../../../../git/remotes/remoteProvider';
-import type { IntegrationConnectedKey } from '../../models/integration';
-import { isAzureCloudDomain } from '../../providers/azureDevOps';
-import { isBitbucketCloudDomain } from '../../providers/bitbucket';
-import { isGitHubDotCom, isGitLabDotCom } from '../../providers/models';
+} from '../../../../constants.integrations.js';
+import type { RemoteProvider, RemoteProviderId } from '../../../../git/remotes/remoteProvider.js';
+import type { IntegrationConnectedKey } from '../../models/integration.js';
+import { isAzureCloudDomain } from '../../providers/azureDevOps.js';
+import { isBitbucketCloudDomain } from '../../providers/bitbucket.js';
+import { isGitHubDotCom, isGitLabDotCom } from '../../providers/models.js';
 
 const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
 	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,

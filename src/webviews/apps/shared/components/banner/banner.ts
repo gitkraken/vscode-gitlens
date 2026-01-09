@@ -3,8 +3,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { bannerStyles } from './banner.css';
-import '../button';
+import { bannerStyles } from './banner.css.js';
+import '../button.js';
 
 export const bannerTagName = 'gl-banner';
 

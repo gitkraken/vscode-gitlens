@@ -1,9 +1,9 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { GlElement } from '../element';
-import { checkboxBaseStyles } from '../forms/checkbox.css';
+import { GlElement } from '../element.js';
+import { checkboxBaseStyles } from './checkbox.css.js';
 
-import '../code-icon';
+import '../code-icon.js';
 
 export const tagName = 'gl-checkbox';
 

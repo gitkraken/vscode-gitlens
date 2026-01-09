@@ -1,17 +1,17 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
-import { createCommandLink } from '../../../../system/commands';
-import type { State } from '../../../home/protocol';
-import { CollapseSectionCommand } from '../../../home/protocol';
-import type { GlButton } from '../../shared/components/button';
-import { ipcContext } from '../../shared/contexts/ipc';
-import type { HostIpc } from '../../shared/ipc';
-import { stateContext } from '../context';
-import '../../shared/components/button';
-import '../../shared/components/button-container';
-import '../../shared/components/card/card';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import type { State } from '../../../home/protocol.js';
+import { CollapseSectionCommand } from '../../../home/protocol.js';
+import type { GlButton } from '../../shared/components/button.js';
+import { ipcContext } from '../../shared/contexts/ipc.js';
+import type { HostIpc } from '../../shared/ipc.js';
+import { stateContext } from '../context.js';
+import '../../shared/components/button.js';
+import '../../shared/components/button-container.js';
+import '../../shared/components/card/card.js';
 
 export const integrationBannerTagName = 'gl-integration-banner';
 

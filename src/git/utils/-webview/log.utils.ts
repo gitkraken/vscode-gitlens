@@ -1,10 +1,13 @@
-import type { Autolink } from '../../../autolinks/models/autolinks';
-import type { Container } from '../../../container';
-import type { AIGenerateChangelogChange, AIGenerateChangelogChanges } from '../../../plus/ai/aiProviderService';
-import { filterMap, map } from '../../../system/iterable';
-import { getSettledValue } from '../../../system/promise';
-import type { IssueOrPullRequest } from '../../models/issueOrPullRequest';
-import type { GitLog } from '../../models/log';
+import type { Autolink } from '../../../autolinks/models/autolinks.js';
+import type { Container } from '../../../container.js';
+import type {
+	AIGenerateChangelogChange,
+	AIGenerateChangelogChanges,
+} from '../../../plus/ai/actions/generateChangelog.js';
+import { filterMap, map } from '../../../system/iterable.js';
+import { getSettledValue } from '../../../system/promise.js';
+import type { IssueOrPullRequest } from '../../models/issueOrPullRequest.js';
+import type { GitLog } from '../../models/log.js';
 
 export async function getChangesForChangelog(
 	container: Container,
@@ -37,7 +40,7 @@ export async function getChangesForChangelog(
 		const issuesOrPullRequests = await Promise.allSettled(
 			filterMap(enriched, async ([key, [issueOrPullRequest]]) => {
 				const issueOrPR = await issueOrPullRequest;
-				if (issueOrPR == null || issueOrPR.type !== 'issue') return undefined;
+				if (issueOrPR?.type !== 'issue') return undefined;
 
 				return [key, issueOrPR] as const;
 			}),

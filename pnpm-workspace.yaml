@@ -1,5 +1,8 @@
+blockExoticSubdeps: true
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
+    - '@eamodio/*'
     - '@gitkraken/*'
-    - '@typescript-eslint/*'
-    - 'typescript-eslint'
+    - '@koa/router@15.2.0'
+    - '@vscode/*'
+    - 'ovsx@0.10.8'

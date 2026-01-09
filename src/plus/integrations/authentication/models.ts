@@ -1,13 +1,13 @@
 import type { AuthenticationSession } from 'vscode';
-import type { IntegrationIds, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import type { IntegrationIds, SupportedCloudIntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 	supportedOrderedCloudIntegrationIds,
 	supportedOrderedCloudIssuesIntegrationIds,
-} from '../../../constants.integrations';
-import { configuration } from '../../../system/-webview/configuration';
+} from '../../../constants.integrations.js';
+import { configuration } from '../../../system/-webview/configuration.js';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly cloud: boolean;

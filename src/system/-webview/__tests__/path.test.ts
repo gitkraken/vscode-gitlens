@@ -1,6 +1,6 @@
 import * as assert from 'node:assert';
 import { Uri } from 'vscode';
-import { isDescendant, isFolderGlobUri } from '../path';
+import { isDescendant, isFolderGlobUri } from '../path.js';
 
 suite('Path Test Suite', () => {
 	suite('isDescendant Tests', () => {

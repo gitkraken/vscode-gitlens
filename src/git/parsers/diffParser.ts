@@ -1,6 +1,6 @@
-import type { Container } from '../../container';
-import { joinPaths, normalizePath } from '../../system/path';
-import { maybeStopWatch } from '../../system/stopwatch';
+import type { Container } from '../../container.js';
+import { joinPaths, normalizePath } from '../../system/path.js';
+import { maybeStopWatch } from '../../system/stopwatch.js';
 import type {
 	GitDiffShortStat,
 	ParsedGitDiff,
@@ -8,11 +8,11 @@ import type {
 	ParsedGitDiffHunk,
 	ParsedGitDiffHunkLine,
 	ParsedGitDiffHunks,
-} from '../models/diff';
-import type { GitFile } from '../models/file';
-import { GitFileChange } from '../models/fileChange';
-import type { GitFileStatus } from '../models/fileStatus';
-import { GitFileIndexStatus } from '../models/fileStatus';
+} from '../models/diff.js';
+import type { GitFile } from '../models/file.js';
+import { GitFileChange } from '../models/fileChange.js';
+import type { GitFileStatus } from '../models/fileStatus.js';
+import { GitFileIndexStatus } from '../models/fileStatus.js';
 
 export const diffRegex = /^diff --git a\/(.*) b\/(.*)$/;
 export const diffHunkRegex = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;

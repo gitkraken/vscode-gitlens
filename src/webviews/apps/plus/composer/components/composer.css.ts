@@ -82,6 +82,7 @@ export const composerItemStyles = css`
 		--composer-item-background: var(--color-background);
 		--composer-item-icon-color: var(--color-foreground--65);
 		--composer-item-color: var(--color-foreground--65);
+		cursor: default;
 	}
 
 	.composer-item__content {
@@ -170,6 +171,27 @@ export const composerItemCommitStyles = css`
 		border-style: solid;
 	}
 	.composer-item.is-base .composer-item__commit::before {
+		border-left-style: solid;
+	}
+
+	.composer-item.is-recompose-locked .composer-item__commit::after {
+		border-style: solid;
+	}
+	.composer-item.is-recompose-locked .composer-item__commit::before {
+		border-left-style: solid;
+	}
+
+	.composer-item.is-locked {
+		opacity: 0.6;
+		cursor: default;
+	}
+	.composer-item.is-locked .drag-handle {
+		display: none;
+	}
+	.composer-item.is-locked .composer-item__commit::after {
+		border-style: solid;
+	}
+	.composer-item.is-locked .composer-item__commit::before {
 		border-left-style: solid;
 	}
 

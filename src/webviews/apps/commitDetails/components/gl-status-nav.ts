@@ -1,10 +1,10 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { State } from '../../../commitDetails/protocol';
-import { commitActionStyles } from './commit-action.css';
-import '../../shared/components/overlays/popover';
-import '../../shared/components/overlays/tooltip';
+import type { State } from '../../../commitDetails/protocol.js';
+import { commitActionStyles } from './commit-action.css.js';
+import '../../shared/components/overlays/popover.js';
+import '../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-status-nav')
 export class GlStatusNav extends LitElement {

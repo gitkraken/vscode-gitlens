@@ -1,16 +1,17 @@
 import { Uri } from 'vscode';
-import { Schemes } from '../../../constants';
-import { Container } from '../../../container';
-import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
-import type { GitProviderDescriptor } from '../../../git/gitProvider';
-import type { Repository } from '../../../git/models/repository';
-import { isFolderUri } from '../../../system/-webview/path';
-import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls';
-import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
-import type { GitResult } from './git';
-import { Git } from './git';
-import { LocalGitProvider } from './localGitProvider';
+import { Schemes } from '../../../constants.js';
+import { Container } from '../../../container.js';
+import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions.js';
+import type { GitProviderDescriptor } from '../../../git/gitProvider.js';
+import type { Repository } from '../../../git/models/repository.js';
+import { isFolderUri } from '../../../system/-webview/path.js';
+import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls.js';
+import { debug } from '../../../system/decorators/log.js';
+import { Logger } from '../../../system/logger.js';
+import { getLogScope } from '../../../system/logger.scope.js';
+import type { GitResult } from './git.js';
+import { Git } from './git.js';
+import { LocalGitProvider } from './localGitProvider.js';
 
 export class VslsGit extends Git {
 	constructor(
@@ -57,6 +58,7 @@ export class VslsGitProvider extends LocalGitProvider {
 	};
 	override readonly supportedSchemes = new Set<string>([Schemes.Vsls, Schemes.VslsScc]);
 
+	@debug({ exit: true })
 	override async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
@@ -65,11 +67,20 @@ export class VslsGitProvider extends LocalGitProvider {
 		try {
 			const guest = await this.container.vsls.guest();
 			const repositories = await guest?.getRepositoriesForUri(uri);
-			if (repositories == null || repositories.length === 0) return [];
+			if (!repositories?.length) return [];
 
-			return repositories.flatMap(r =>
-				this.openRepository(undefined, Uri.parse(r.folderUri, true), r.root, r.closed),
-			);
+			const result: Repository[] = [];
+			for (const r of repositories) {
+				const repoUri = Uri.parse(r.folderUri, true);
+
+				const gitDir = await this.config.getGitDir(repoUri.fsPath);
+				if (gitDir == null) {
+					Logger.warn(scope, `Unable to get gitDir for '${repoUri.toString(true)}'`);
+				}
+
+				result.push(...this.openRepository(undefined, repoUri, gitDir, r.root, r.closed));
+			}
+			return result;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;

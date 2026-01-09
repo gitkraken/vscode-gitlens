@@ -1,9 +1,9 @@
-import type { Response } from '@env/fetch';
-import { fetch } from '@env/fetch';
-import { githubProviderDescriptor as provider } from '../../constants.ai';
-import { AIError, AIErrorReason } from '../../errors';
-import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import type { Response } from '@env/fetch.js';
+import { fetch } from '@env/fetch.js';
+import { githubProviderDescriptor as provider } from '../../constants.ai.js';
+import { AIError, AIErrorReason } from '../../errors.js';
+import type { AIActionType, AIModel } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type GitHubModelsModel = AIModel<typeof provider.id>;
 

@@ -1,9 +1,9 @@
-import type { PlusCommands, WebviewCommands, WebviewViewCommands } from '../constants.commands';
-import type { WebviewIds, WebviewViewIds } from '../constants.views';
+import type { GlPlusCommands, GlWebviewCommands } from '../constants.commands.js';
+import type { WebviewIds } from '../constants.views.js';
 
 export function createWebviewCommandLink<T>(
-	command: WebviewCommands | WebviewViewCommands | PlusCommands,
-	webviewId: WebviewIds | WebviewViewIds,
+	command: GlWebviewCommands | GlPlusCommands,
+	webviewId: WebviewIds,
 	webviewInstanceId: string | undefined,
 	args?: T,
 ): string {
@@ -13,7 +13,7 @@ export function createWebviewCommandLink<T>(
 }
 
 export interface WebviewContext {
-	webview: WebviewIds | WebviewViewIds;
+	webview: WebviewIds;
 	webviewInstance: string | undefined;
 }
 

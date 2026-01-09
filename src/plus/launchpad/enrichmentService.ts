@@ -1,19 +1,19 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import type { IntegrationIds } from '../../constants.integrations';
+import type { IntegrationIds } from '../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../constants.integrations';
-import type { Container } from '../../container';
-import { AuthenticationRequiredError, CancellationError } from '../../errors';
-import type { RemoteProvider } from '../../git/remotes/remoteProvider';
-import { log } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import type { ServerConnection } from '../gk/serverConnection';
-import { ensureAccount } from '../gk/utils/-webview/acount.utils';
-import type { EnrichableItem, EnrichedItem, EnrichedItemResponse } from './models/enrichedItem';
+} from '../../constants.integrations.js';
+import type { Container } from '../../container.js';
+import { AuthenticationRequiredError, CancellationError } from '../../errors.js';
+import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
+import { log } from '../../system/decorators/log.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
+import type { ServerConnection } from '../gk/serverConnection.js';
+import { ensureAccount } from '../gk/utils/-webview/acount.utils.js';
+import type { EnrichableItem, EnrichedItem, EnrichedItemResponse } from './models/enrichedItem.js';
 
 type EnrichedItemRequest = {
 	provider: EnrichedItemResponse['provider'];

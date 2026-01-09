@@ -1,8 +1,8 @@
-import type { SupportedCloudIntegrationIds } from '../constants.integrations';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import { command } from '../system/-webview/command';
-import { GlCommandBase } from './commandBase';
+import type { SupportedCloudIntegrationIds } from '../constants.integrations.js';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { command } from '../system/-webview/command.js';
+import { GlCommandBase } from './commandBase.js';
 
 export interface ManageCloudIntegrationsCommandArgs {
 	source?: Source;

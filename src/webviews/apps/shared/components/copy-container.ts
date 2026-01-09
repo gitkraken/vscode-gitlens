@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GlTooltip } from './overlays/tooltip';
-import './overlays/tooltip';
+import type { GlTooltip } from './overlays/tooltip.js';
+import './overlays/tooltip.js';
 
 const tagName = 'gl-copy-container';
 
@@ -17,6 +17,11 @@ export class GlCopyContainer extends LitElement {
 
 		gl-tooltip {
 			cursor: pointer;
+		}
+
+		/* Hide focus outline on slotted copy icon - we show it on the host instead */
+		::slotted(.copy-icon) {
+			outline: none !important;
 		}
 
 		:host([appearance='toolbar']) {
@@ -35,6 +40,11 @@ export class GlCopyContainer extends LitElement {
 
 		:host([appearance='toolbar']:hover) {
 			background: var(--copy-hover-background);
+		}
+
+		:host([appearance='toolbar']:focus-within) {
+			outline: 1px solid var(--color-focus-border);
+			outline-offset: -1px;
 		}
 
 		:host([appearance='toolbar']) gl-tooltip {
@@ -96,6 +106,7 @@ export class GlCopyContainer extends LitElement {
 			.content="${this.label}"
 			placement="${ifDefined(this.placement)}"
 			@click=${this.onClick}
+			@keydown=${this.onKeydown}
 		>
 			<slot></slot>
 		</gl-tooltip>`;
@@ -115,6 +126,13 @@ export class GlCopyContainer extends LitElement {
 			this.label = 'Nothing to Copy';
 		}
 		this.createResetTimer();
+	}
+
+	private onKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			void this.onClick(e as unknown as MouseEvent);
+		}
 	}
 
 	private cancelResetTimer() {

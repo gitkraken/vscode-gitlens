@@ -1,12 +1,12 @@
-import type { Container } from '../../../../../container';
-import type { GitCache } from '../../../../../git/cache';
-import type { GitConfigSubProvider } from '../../../../../git/gitProvider';
-import type { GitUser } from '../../../../../git/models/user';
-import { gate } from '../../../../../system/decorators/gate';
-import { log } from '../../../../../system/decorators/log';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
+import type { Container } from '../../../../../container.js';
+import type { GitCache } from '../../../../../git/cache.js';
+import type { GitConfigSubProvider } from '../../../../../git/gitProvider.js';
+import type { GitUser } from '../../../../../git/models/user.js';
+import { gate } from '../../../../../system/decorators/gate.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 export class ConfigGitSubProvider implements GitConfigSubProvider {
 	constructor(

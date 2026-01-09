@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { Color, formatRGB, formatRGBA, mix, opacity } from '../color';
+import { Color, formatRGB, formatRGBA, mix, opacity } from '../color.js';
 
 suite('Color Test Suite', () => {
 	test('hex to rgb', () => {

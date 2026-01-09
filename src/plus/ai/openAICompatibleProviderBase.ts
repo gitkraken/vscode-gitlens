@@ -1,22 +1,22 @@
 import type { CancellationToken } from 'vscode';
-import { uuid } from '@env/crypto';
-import type { Response } from '@env/fetch';
-import { fetch } from '@env/fetch';
-import type { Role } from '../../@types/vsls';
-import type { AIProviders } from '../../constants.ai';
-import type { Container } from '../../container';
-import { AIError, AIErrorReason, CancellationError, isCancellationError } from '../../errors';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import type { ServerConnection } from '../gk/serverConnection';
-import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
-import type { AIChatMessage, AIChatMessageRole, AIProvider, AIRequestResult } from './models/provider';
+import { uuid } from '@env/crypto.js';
+import type { Response } from '@env/fetch.js';
+import { fetch } from '@env/fetch.js';
+import type { Role } from '../../@types/vsls.d.js';
+import type { AIProviders } from '../../constants.ai.js';
+import type { Container } from '../../container.js';
+import { AIError, AIErrorReason, CancellationError, isCancellationError } from '../../errors.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { startLogScope } from '../../system/logger.scope.js';
+import type { ServerConnection } from '../gk/serverConnection.js';
+import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model.js';
+import type { AIChatMessage, AIChatMessageRole, AIProvider, AIProviderResponse } from './models/provider.js';
 import {
 	getActionName,
 	getOrgAIProviderOfType,
 	getOrPromptApiKey,
 	getValidatedTemperature,
-} from './utils/-webview/ai.utils';
+} from './utils/-webview/ai.utils.js';
 
 export interface AIProviderConfig {
 	url: string;
@@ -91,7 +91,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		apiKey: string,
 		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
-	): Promise<AIRequestResult | undefined> {
+	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
 		try {
@@ -125,7 +125,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		modelOptions?: { outputTokens?: number; temperature?: number },
 		cancellation?: CancellationToken,
-	): Promise<AIRequestResult> {
+	): Promise<AIProviderResponse<void>> {
 		let retries = 0;
 		let maxInputTokens = model.maxTokens.input;
 
@@ -151,7 +151,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			}
 
 			const data: ChatCompletionResponse = await rsp.json();
-			const result: AIRequestResult = {
+			const result: AIProviderResponse<void> = {
 				id: data.id ?? uuid(),
 				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
 				model: model,
@@ -168,6 +168,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 								}
 							: undefined,
 				},
+				result: undefined,
 			};
 			return result;
 		}
@@ -200,6 +201,9 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
 		} catch {}
 
+		if (Array.isArray(json)) {
+			json = json[0];
+		}
 		if (json?.error?.code === 'context_length_exceeded') {
 			if (retries < 2) {
 				return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };

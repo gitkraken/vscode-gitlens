@@ -1,17 +1,17 @@
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import type { Uri } from 'vscode';
-import type { Container } from '../../../../container';
-import type { DisposableTemporaryGitIndex, GitStagingSubProvider } from '../../../../git/gitProvider';
-import { splitPath } from '../../../../system/-webview/path';
-import { chunk, countStringLength } from '../../../../system/array';
-import { log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { joinPaths } from '../../../../system/path';
-import { mixinAsyncDisposable } from '../../../../system/unifiedDisposable';
-import { scope } from '../../../../webviews/commitDetails/protocol';
-import type { Git } from '../git';
-import { maxGitCliLength } from '../git';
+import type { Container } from '../../../../container.js';
+import type { DisposableTemporaryGitIndex, GitStagingSubProvider } from '../../../../git/gitProvider.js';
+import { splitPath } from '../../../../system/-webview/path.js';
+import { chunk, countStringLength } from '../../../../system/array.js';
+import { log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { joinPaths } from '../../../../system/path.js';
+import { mixinAsyncDisposable } from '../../../../system/unifiedDisposable.js';
+import { scope } from '../../../../webviews/commitDetails/protocol.js';
+import type { Git } from '../git.js';
+import { maxGitCliLength } from '../git.js';
 
 export class StagingGitSubProvider implements GitStagingSubProvider {
 	constructor(

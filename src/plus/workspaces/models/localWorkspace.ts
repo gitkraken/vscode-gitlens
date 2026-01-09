@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
-import type { Container } from '../../../container';
-import type { WorkspaceRepositoriesByName, WorkspaceType } from './workspaces';
+import type { Container } from '../../../container.js';
+import type { WorkspaceRepositoriesByName, WorkspaceType } from './workspaces.js';
 
 export class LocalWorkspace {
 	readonly type = 'local' satisfies WorkspaceType;

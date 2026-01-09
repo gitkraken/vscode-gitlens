@@ -1,9 +1,9 @@
-import type { Container } from '../../container';
-import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import { getLoggableName } from '../../system/logger';
-import { getTagId, parseRefName } from '../utils/tag.utils';
-import type { GitTagReference } from './reference';
+import type { Container } from '../../container.js';
+import { formatDate, fromNow } from '../../system/date.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { getLoggableName } from '../../system/logger.js';
+import { getTagId, parseRefName } from '../utils/tag.utils.js';
+import type { GitTagReference } from './reference.js';
 
 export function isTag(tag: unknown): tag is GitTag {
 	return tag instanceof GitTag;

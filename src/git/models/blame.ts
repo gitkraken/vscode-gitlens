@@ -1,4 +1,4 @@
-import type { GitCommit, GitCommitLine } from './commit';
+import type { GitCommit, GitCommitLine } from './commit.js';
 
 export interface GitBlame {
 	readonly repoPath: string;

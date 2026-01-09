@@ -1,48 +1,41 @@
 import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window, workspace } from 'vscode';
-import type { Config } from '../../config';
-import { proBadge, proBadgeSuperscript } from '../../constants';
-import type { Container } from '../../container';
-import { CancellationError } from '../../errors';
-import { executeGitCommand } from '../../git/actions';
-import { convertLocationToOpenFlags, convertOpenFlagsToLocation, revealWorktree } from '../../git/actions/worktree';
-import {
-	ApplyPatchCommitError,
-	ApplyPatchCommitErrorReason,
-	WorktreeCreateError,
-	WorktreeCreateErrorReason,
-	WorktreeDeleteError,
-	WorktreeDeleteErrorReason,
-} from '../../git/errors';
-import type { GitDiff } from '../../git/models/diff';
-import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../../git/models/revision';
-import type { GitWorktree } from '../../git/models/worktree';
-import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
-import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils';
+import type { Config } from '../../config.js';
+import { proBadge, proBadgeSuperscript } from '../../constants.js';
+import type { Container } from '../../container.js';
+import { CancellationError } from '../../errors.js';
+import { convertLocationToOpenFlags, convertOpenFlagsToLocation, revealWorktree } from '../../git/actions/worktree.js';
+import { executeGitCommand } from '../../git/actions.js';
+import { ApplyPatchCommitError, WorktreeCreateError, WorktreeDeleteError } from '../../git/errors.js';
+import type { GitDiff } from '../../git/models/diff.js';
+import type { GitBranchReference, GitReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
+import type { GitWorktree } from '../../git/models/worktree.js';
+import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils.js';
+import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isBranchReference,
 	isRevisionReference,
-} from '../../git/utils/reference.utils';
-import { isSha } from '../../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../../messages';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import { Directive } from '../../quickpicks/items/directive';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { configuration } from '../../system/-webview/configuration';
-import { isDescendant } from '../../system/-webview/path';
-import { revealInFileExplorer } from '../../system/-webview/vscode';
-import { getWorkspaceFriendlyPath, openWorkspace } from '../../system/-webview/vscode/workspaces';
-import { Logger } from '../../system/logger';
-import { basename } from '../../system/path';
-import type { Deferred } from '../../system/promise';
-import { pluralize, truncateLeft } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+} from '../../git/utils/reference.utils.js';
+import { isSha } from '../../git/utils/revision.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import { Directive } from '../../quickpicks/items/directive.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { isDescendant } from '../../system/-webview/path.js';
+import { getWorkspaceFriendlyPath, openWorkspace } from '../../system/-webview/vscode/workspaces.js';
+import { revealInFileExplorer } from '../../system/-webview/vscode.js';
+import { Logger } from '../../system/logger.js';
+import { basename } from '../../system/path.js';
+import type { Deferred } from '../../system/promise.js';
+import { pluralize, truncateLeft } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
 	CustomStep,
@@ -52,7 +45,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canPickStepContinue,
 	canStepContinue,
@@ -62,7 +55,7 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	ensureAccessStep,
@@ -71,7 +64,7 @@ import {
 	pickRepositoryStep,
 	pickWorktreesStep,
 	pickWorktreeStep,
-} from '../quickCommand.steps';
+} from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];
@@ -162,7 +155,7 @@ interface CopyChangesState {
 }
 
 type State = CreateState | DeleteState | OpenState | CopyChangesState;
-type WorktreeStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type WorktreeStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 type CreateStepState<T extends CreateState = CreateState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 type DeleteStepState<T extends DeleteState = DeleteState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 type OpenStepState<T extends OpenState = OpenState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
@@ -384,13 +377,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
-		if (context.defaultUri == null) {
-			context.defaultUri = await state.repo.git.worktrees?.getWorktreesDefaultUri();
-		}
-
-		if (state.flags == null) {
-			state.flags = [];
-		}
+		context.defaultUri ??= state.repo.git.worktrees?.getWorktreesDefaultUri();
+		state.flags ??= [];
 
 		context.pickedRootFolder = undefined;
 		context.pickedSpecificFolder = undefined;
@@ -539,10 +527,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				});
 				state.result?.fulfill(worktree);
 			} catch (ex) {
-				if (
-					WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyCheckedOut) &&
-					!state.flags.includes('--force')
-				) {
+				if (WorktreeCreateError.is(ex, 'alreadyCheckedOut') && !state.flags.includes('--force')) {
 					const createBranch: MessageItem = { title: 'Create New Branch' };
 					const force: MessageItem = { title: 'Create Anyway' };
 					const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
@@ -570,7 +555,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						state.confirm = false;
 						continue;
 					}
-				} else if (WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyExists)) {
+				} else if (WorktreeCreateError.is(ex, 'alreadyExists')) {
 					const confirm: MessageItem = { title: 'OK' };
 					const openFolder: MessageItem = { title: 'Open Folder' };
 					void window
@@ -587,7 +572,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							}
 						});
 				} else {
-					void showGenericErrorMessage(
+					void showGitErrorMessage(
+						ex,
 						`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}.`,
 					);
 				}
@@ -673,10 +659,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		return value;
 	}
 
-	private async *createCommandConfirmStep(
+	private *createCommandConfirmStep(
 		state: CreateStepState,
 		context: Context,
-	): AsyncStepResultGenerator<[CreateConfirmationChoice, CreateFlags[]]> {
+	): StepResultGenerator<[CreateConfirmationChoice, CreateFlags[]]> {
 		/**
 		 * Here are the rules for creating the recommended path for the new worktree:
 		 *
@@ -694,7 +680,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		let recommendedRootUri;
 
-		const repoUri = (await state.repo.getCommonRepositoryUri()) ?? state.repo.uri;
+		const repoUri = state.repo.commonUri ?? state.repo.uri;
 		const trailer = `${basename(repoUri.path)}.worktrees`;
 
 		if (context.pickedRootFolder != null) {
@@ -887,12 +873,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 					try {
 						if (force) {
-							let status;
+							let hasChanges;
 							try {
-								status = await worktree?.getStatus();
+								hasChanges = await worktree?.hasWorkingChanges();
 							} catch {}
 
-							if ((status?.hasChanges ?? false) && !skipHasChangesPrompt) {
+							if ((hasChanges ?? false) && !skipHasChangesPrompt) {
 								const confirm: MessageItem = { title: 'Force Delete' };
 								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 								const result = await window.showWarningMessage(
@@ -912,12 +898,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						skipHasChangesPrompt = false;
 
 						if (WorktreeDeleteError.is(ex)) {
-							if (ex.reason === WorktreeDeleteErrorReason.DefaultWorkingTree) {
+							if (ex.details.reason === 'defaultWorkingTree') {
 								void window.showErrorMessage('Cannot delete the default worktree.');
 								break;
 							}
 
-							if (ex.reason === WorktreeDeleteErrorReason.DirectoryNotEmpty) {
+							if (ex.details.reason === 'directoryNotEmpty') {
 								const openFolder: MessageItem = { title: 'Open Folder' };
 								const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 								const result = await window.showErrorMessage(
@@ -939,7 +925,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								const confirm: MessageItem = { title: 'Force Delete' };
 								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 								const result = await window.showErrorMessage(
-									ex.reason === WorktreeDeleteErrorReason.HasChanges
+									ex.details.reason === 'uncommittedChanges'
 										? `Unable to delete worktree because there are UNCOMMITTED changes in '${uri.fsPath}'.\n\nForcibly deleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nWould you like to forcibly delete it?`
 										: `Unable to delete worktree in '${uri.fsPath}'.\n\nWould you like to try to forcibly delete it?`,
 									{ modal: true },
@@ -949,7 +935,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 								if (result === confirm) {
 									force = true;
-									skipHasChangesPrompt = ex.reason === WorktreeDeleteErrorReason.HasChanges;
+									skipHasChangesPrompt = ex.details.reason === 'uncommittedChanges';
 									continue;
 								}
 
@@ -957,7 +943,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							}
 						}
 
-						void showGenericErrorMessage(`Unable to delete worktree in '${uri.fsPath}. ex=${String(ex)}`);
+						void showGitErrorMessage(ex, `Unable to delete worktree in '${uri.fsPath}. ex=${String(ex)}`);
 					}
 
 					break;
@@ -1270,19 +1256,16 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				if (ex instanceof CancellationError) return;
 
-				if (ex instanceof ApplyPatchCommitError) {
-					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
-						void window.showWarningMessage('Changes copied with conflicts');
-					} else if (ex.reason === ApplyPatchCommitErrorReason.ApplyAbortedWouldOverwrite) {
+				if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
+					void window.showWarningMessage('Changes copied with conflicts');
+				} else {
+					if (ApplyPatchCommitError.is(ex, 'wouldOverwriteChanges')) {
 						void window.showErrorMessage(
 							'Unable to copy changes as some local changes would be overwritten',
 						);
 						return;
-					} else {
-						void window.showErrorMessage(`Unable to copy changes: ${ex.message}`);
-						return;
 					}
-				} else {
+
 					void window.showErrorMessage(`Unable to copy changes: ${ex.message}`);
 					return;
 				}

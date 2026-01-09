@@ -1,20 +1,27 @@
-import { ThemeIcon } from 'vscode';
-import type { Container } from '../../container';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitLog } from '../../git/models/log';
-import type { GitReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
-import { createRevisionRange } from '../../git/utils/revision.utils';
-import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { getHostEditorCommand } from '../../system/-webview/vscode';
-import { pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { ThemeIcon, window } from 'vscode';
+import type { Container } from '../../container.js';
+import { RebaseError } from '../../git/errors.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitLog } from '../../git/models/log.js';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts.js';
+import type { GitReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { isRebaseTodoEditorEnabled, reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
+import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils.js';
+import { createRevisionRange } from '../../git/utils/revision.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { Logger } from '../../system/logger.js';
+import { pluralize } from '../../system/string.js';
+import { createDisposable } from '../../system/unifiedDisposable.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import { PickCommitToggleQuickInputButton } from '../quickCommand.buttons.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -23,10 +30,9 @@ import type {
 	StepResult,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import { PickCommitToggleQuickInputButton } from '../quickCommand.buttons';
-import { appendReposToTitle, pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
+} from '../quickCommand.js';
+import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { appendReposToTitle, pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];
@@ -40,7 +46,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--interactive';
+type Flags = '--interactive' | '--update-refs';
 
 interface State {
 	repo: string | Repository;
@@ -83,15 +89,63 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async execute(state: RebaseStepState) {
-		let configs: string[] | undefined;
-		if (state.flags.includes('--interactive')) {
-			await this.container.rebaseEditor.enableForNextUse();
+		const interactive = state.flags.includes('--interactive');
+		const updateRefs = state.flags.includes('--update-refs');
 
-			const editor = await getHostEditorCommand();
-			configs = ['-c', `"sequence.editor=${editor}"`];
+		// If the editor is not enabled, listen for the rebase todo file to be opened and then reopen it with our editor
+		const disposable =
+			interactive && !isRebaseTodoEditorEnabled()
+				? window.onDidChangeActiveTextEditor(async e => {
+						if (e?.document.uri.path.endsWith('git-rebase-todo')) {
+							await reopenRebaseTodoEditor('gitlens.rebase');
+							disposable?.dispose();
+						}
+					})
+				: undefined;
+
+		using _ = createDisposable(() => void disposable?.dispose());
+
+		try {
+			await state.repo.git.ops?.rebase?.(state.destination.ref, {
+				interactive: interactive,
+				updateRefs: updateRefs,
+			});
+		} catch (ex) {
+			// Don't show an error message if the user intentionally aborted the rebase
+			if (RebaseError.is(ex, 'aborted')) {
+				Logger.log(ex.message, this.title);
+				return;
+			}
+
+			Logger.error(ex, this.title);
+
+			if (RebaseError.is(ex, 'uncommittedChanges') || RebaseError.is(ex, 'wouldOverwriteChanges')) {
+				void window.showWarningMessage(
+					'Unable to rebase. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+				);
+				return;
+			}
+
+			if (RebaseError.is(ex, 'conflicts')) {
+				void window.showWarningMessage(
+					'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
+				);
+				// TODO: open the rebase editor, if its not already open?
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (RebaseError.is(ex, 'alreadyInProgress')) {
+				void window.showWarningMessage(
+					'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
+				);
+				// TODO: open the rebase editor, if its not already open?
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			void showGitErrorMessage(ex, RebaseError.is(ex) ? undefined : 'Unable to rebase');
 		}
-
-		state.repo.rebase(configs, ...state.flags, state.destination.ref);
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -223,14 +277,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const counts = await state.repo.git.commits.getLeftRightCommitCount(
 			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
-			{
-				excludeMerges: true,
-			},
+			{ excludeMerges: true },
 		);
 
 		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
-		const ahead = counts != null ? counts.right : 0;
-		const behind = counts != null ? counts.left : 0;
+		const ahead = counts?.right ?? 0;
+		const behind = counts?.left ?? 0;
 		if (behind === 0 && ahead === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(title, state, context),
@@ -264,6 +316,13 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				})}`,
 				picked: behind === 0,
 			}),
+			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive', '--update-refs'], {
+				label: `Interactive ${this.title} & Update Branches`,
+				description: '--interactive --update-refs',
+				detail: `Will interactively update ${getReferenceLabel(context.branch, {
+					label: false,
+				})} and any branches pointing to rebased commits`,
+			}),
 		];
 
 		if (behind > 0) {
@@ -277,44 +336,75 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					})}`,
 					picked: true,
 				}),
+				createFlagsQuickPickItem<Flags>(state.flags, ['--update-refs'], {
+					label: `${this.title} & Update Branches`,
+					description: '--update-refs',
+					detail: `Will update ${getReferenceLabel(context.branch, {
+						label: false,
+					})} and any branches pointing to rebased commits`,
+				}),
 			);
 		}
 
-		let potentialConflict;
+		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
 		const subscription = await this.container.subscription.getSubscription();
 		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
-			potentialConflict = state.repo.git.branches.getPotentialMergeOrRebaseConflict?.(
-				context.branch.name,
-				state.destination.ref,
-			);
+			potentialConflict = state.repo.git.commits
+				.getLogShas(`${state.destination.ref}..${context.branch.name}`, { merges: false, reverse: true })
+				.then(shas =>
+					state.repo.git.branches.getPotentialApplyConflicts?.(state.destination.ref, [...shas], {
+						stopOnFirstConflict: true,
+					}),
+				);
 		}
 
 		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;
 
 		const notices: DirectiveQuickPickItem[] = [];
 		if (potentialConflict) {
-			void potentialConflict?.then(conflict => {
-				notices.splice(
-					0,
-					1,
-					conflict == null
-						? createDirectiveQuickPickItem(Directive.Noop, false, {
-								label: 'No Conflicts Detected',
-								iconPath: new ThemeIcon('check'),
-							})
-						: createDirectiveQuickPickItem(Directive.Noop, false, {
-								label: 'Conflicts Detected',
-								detail: `Will result in ${pluralize(
-									'conflicting file',
-									conflict.files.length,
-								)} that will need to be resolved`,
-								iconPath: new ThemeIcon('warning'),
-							}),
-				);
+			void potentialConflict?.then(result => {
+				if (result == null || result.status === 'clean') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'No Conflicts Detected',
+							iconPath: new ThemeIcon('check'),
+						}),
+					);
+				} else if (result.status === 'error') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Unable to Detect Conflicts',
+							detail: result.message,
+							iconPath: new ThemeIcon('error'),
+						}),
+					);
+				} else {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Conflicts Detected',
+							detail: `Will result in ${result.stoppedOnFirstConflict ? 'at least ' : ''}${pluralize(
+								'conflicting file',
+								result.conflict.files.length,
+							)} that will need to be resolved`,
+							iconPath: new ThemeIcon('warning'),
+						}),
+					);
+				}
 
 				if (step.quickpick != null) {
 					const active = step.quickpick.activeItems;
-					step.quickpick.items = [...notices, ...items];
+					step.quickpick.items = [
+						...notices,
+						...items,
+						createQuickPickSeparator(),
+						createDirectiveQuickPickItem(Directive.Cancel),
+					];
 					step.quickpick.activeItems = active;
 				}
 			});

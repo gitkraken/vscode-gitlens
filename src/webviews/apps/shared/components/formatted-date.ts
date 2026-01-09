@@ -1,8 +1,8 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { formatDate, fromNow } from '../../../../system/date';
-import { dateConverter } from './converters/date-converter';
-import './overlays/tooltip';
+import { formatDate, fromNow } from '../../../../system/date.js';
+import { dateConverter } from './converters/date-converter.js';
+import './overlays/tooltip.js';
 
 @customElement('formatted-date')
 export class FormattedDate extends LitElement {

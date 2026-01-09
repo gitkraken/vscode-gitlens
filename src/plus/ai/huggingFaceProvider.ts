@@ -1,7 +1,7 @@
-import { fetch } from '@env/fetch';
-import { huggingFaceProviderDescriptor as provider } from '../../constants.ai';
-import type { AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { fetch } from '@env/fetch.js';
+import { huggingFaceProviderDescriptor as provider } from '../../constants.ai.js';
+import type { AIModel } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type HuggingFaceModel = AIModel<typeof provider.id>;
 

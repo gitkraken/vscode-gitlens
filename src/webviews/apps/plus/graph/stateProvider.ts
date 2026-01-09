@@ -1,13 +1,13 @@
-import { ContextProvider, createContext } from '@lit/context';
-import type { SearchQuery } from '../../../../constants.search';
-import { debounce } from '../../../../system/function/debounce';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
+import { ContextProvider } from '@lit/context';
+import { debounce } from '../../../../system/function/debounce.js';
+import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
+	DidSearchParams,
 	GraphSearchResults,
 	GraphSearchResultsError,
-	GraphSelectedRows,
 	State,
-} from '../../../plus/graph/protocol';
+} from '../../../plus/graph/protocol.js';
 import {
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
@@ -28,25 +28,27 @@ import {
 	DidFetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
-} from '../../../plus/graph/protocol';
-import type { IpcMessage, WebviewState } from '../../../protocol';
-import { DidChangeHostWindowFocusNotification } from '../../../protocol';
-import type { ReactiveElementHost } from '../../shared/appHost';
-import { signalObjectState, signalState } from '../../shared/components/signal-utils';
-import type { LoggerContext } from '../../shared/contexts/logger';
-import type { HostIpc } from '../../shared/ipc';
-import { StateProviderBase } from '../../shared/stateProviderBase';
+} from '../../../plus/graph/protocol.js';
+import type { WebviewState } from '../../../protocol.js';
+import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
+import type { ReactiveElementHost } from '../../shared/appHost.js';
+import { signalObjectState, signalState } from '../../shared/components/signal-utils.js';
+import type { LoggerContext } from '../../shared/contexts/logger.js';
+import type { HostIpc } from '../../shared/ipc.js';
+import { StateProviderBase } from '../../shared/stateProviderBase.js';
+import type { AppState } from './context.js';
+import { graphStateContext } from './context.js';
 
 const BaseWebviewStateKeys = [
 	'timestamp',
 	'webviewId',
 	'webviewInstanceId',
-] as const satisfies readonly (keyof WebviewState)[] as readonly string[];
+] as const satisfies readonly (keyof WebviewState<any>)[] as readonly string[];
 
-interface AppState {
-	activeDay?: number;
-	activeRow?: string;
-	visibleDays?: { top: number; bottom: number };
+export function isGraphSearchResultsError(
+	results: GraphSearchResults | GraphSearchResultsError,
+): results is GraphSearchResultsError {
+	return 'error' in results;
 }
 
 function getSearchResultModel(searchResults: State['searchResults']): {
@@ -56,7 +58,7 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 	let results: undefined | GraphSearchResults;
 	let resultsError: undefined | GraphSearchResultsError;
 	if (searchResults != null) {
-		if ('error' in searchResults) {
+		if (isGraphSearchResultsError(searchResults)) {
 			resultsError = searchResults;
 		} else {
 			results = searchResults;
@@ -65,37 +67,32 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 	return { results: results, resultsError: resultsError };
 }
 
-export const graphStateContext = createContext<GraphStateProvider>('graph-state-context');
+export class GraphStateProvider extends StateProviderBase<State['webviewId'], AppState, typeof graphStateContext> {
+	// Track current search ID to ignore stale updates
+	private _currentSearchId: number | undefined;
 
-export class GraphStateProvider extends StateProviderBase<State, typeof graphStateContext> {
 	// App state members moved from GraphAppState
 	@signalState()
-	accessor activeDay: number | undefined;
+	accessor activeDay: AppState['activeDay'];
 
 	@signalState()
-	accessor activeRow: string | undefined = undefined;
+	accessor activeRow: AppState['activeRow'];
+
+	get isBusy(): AppState['isBusy'] {
+		return this.loading || this.searching || /*this.rowsStatsLoading ||*/ false;
+	}
 
 	@signalState(false)
-	accessor loading = false;
+	accessor loading: AppState['loading'] = false;
+
+	@signalState<AppState['navigating']>(false)
+	accessor navigating: AppState['navigating'] = false;
 
 	@signalState(false)
-	accessor searching = false;
+	accessor searching: AppState['searching'] = false;
 
-	@signalObjectState()
-	accessor visibleDays: AppState['visibleDays'];
-
-	@signalObjectState(
-		{ query: '' },
-		{
-			afterChange: target => {
-				target.searchResultsHidden = false;
-			},
-		},
-	)
-	accessor filter!: SearchQuery;
-
-	@signalState(false)
-	accessor searchResultsHidden = false;
+	@signalState()
+	accessor searchMode: AppState['searchMode'] = 'normal';
 
 	@signalState<GraphSearchResults | GraphSearchResultsError | undefined>(undefined, {
 		afterChange: (target, value) => {
@@ -104,16 +101,19 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 			target.searchResultsError = resultsError;
 		},
 	})
-	accessor searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
+	accessor searchResultsResponse: AppState['searchResultsResponse'];
 
 	@signalState()
-	accessor searchResults: GraphSearchResults | undefined;
+	accessor searchResults: AppState['searchResults'];
 
 	@signalState()
-	accessor searchResultsError: GraphSearchResultsError | undefined;
+	accessor searchResultsError: AppState['searchResultsError'];
 
 	@signalState()
-	accessor selectedRows: undefined | GraphSelectedRows;
+	accessor selectedRows: AppState['selectedRows'];
+
+	@signalObjectState()
+	accessor visibleDays: AppState['visibleDays'];
 
 	// State accessors for all top-level State properties
 	@signalState()
@@ -126,7 +126,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor repositories: State['repositories'];
 
 	@signalState()
-	accessor selectedRepository: string | undefined;
+	accessor selectedRepository: State['selectedRepository'];
 
 	@signalState()
 	accessor selectedRepositoryVisibility: State['selectedRepositoryVisibility'];
@@ -141,13 +141,13 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor branchState: State['branchState'];
 
 	@signalState()
-	accessor lastFetched: Date | undefined;
+	accessor lastFetched: State['lastFetched'];
 
 	@signalState()
 	accessor subscription: State['subscription'];
 
 	@signalState()
-	accessor allowed: boolean = false;
+	accessor allowed: State['allowed'] = false;
 
 	@signalState()
 	accessor avatars: State['avatars'];
@@ -162,7 +162,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor rowsStats: State['rowsStats'];
 
 	@signalState()
-	accessor rowsStatsLoading: boolean | undefined;
+	accessor rowsStatsLoading: State['rowsStatsLoading'] | undefined;
 
 	@signalState()
 	accessor downstreams: State['downstreams'];
@@ -180,16 +180,16 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor context: State['context'];
 
 	@signalState()
-	accessor nonce: string | undefined;
+	accessor nonce: State['nonce'];
 
 	@signalState()
 	accessor workingTreeStats: State['workingTreeStats'];
 
 	@signalState()
-	accessor defaultSearchMode: State['defaultSearchMode'];
+	accessor useNaturalLanguageSearch: State['useNaturalLanguageSearch'] | undefined;
 
 	@signalState()
-	accessor useNaturalLanguageSearch: boolean | undefined;
+	accessor searchRequest: State['searchRequest'];
 
 	@signalState()
 	accessor excludeRefs: State['excludeRefs'];
@@ -206,9 +206,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	@signalState()
 	accessor orgSettings: State['orgSettings'];
 
-	get isBusy() {
-		return this.loading || this.searching || this.rowsStatsLoading || false;
-	}
+	mcpBannerCollapsed?: boolean | undefined;
 
 	constructor(
 		host: ReactiveElementHost,
@@ -220,6 +218,12 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 		super(host, bootstrap, ipc, logger);
 	}
 
+	override dispose(): void {
+		// Cancel any pending debounced provider update to prevent post-dispose updates
+		this.fireProviderUpdate.cancel?.();
+		super.dispose();
+	}
+
 	protected override createContextProvider(
 		_state: State,
 	): ContextProvider<typeof graphStateContext, ReactiveElementHost> {
@@ -228,6 +232,10 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 
 	protected override async initializeState(): Promise<void> {
 		await super.initializeState();
+
+		if (this._state.searchMode != null) {
+			this.searchMode = this._state.searchMode;
+		}
 
 		this.updateState(this._state, true);
 	}
@@ -309,9 +317,8 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 						`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${msg.params.paging.startingCursor} (last existing row: ${lastId})`,
 					);
 
-					rows = [];
 					// Preallocate the array to avoid reallocations
-					rows.length = previousRowsLength + newRowsLength;
+					rows = new Array(previousRowsLength + newRowsLength);
 
 					if (msg.params.paging.startingCursor !== lastId) {
 						this.logger.log(scope, `searching for ${msg.params.paging.startingCursor} in existing rows`);
@@ -363,13 +370,15 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 					updates.rowsStats = { ...this._state.rowsStats, ...msg.params.rowsStats };
 				}
 				updates.rowsStatsLoading = msg.params.rowsStatsLoading;
-				if (msg.params.searchResults != null) {
-					updates.searchResults = msg.params.searchResults;
-				}
 				if (msg.params.selectedRows != null) {
 					updates.selectedRows = msg.params.selectedRows;
 				}
 				updates.loading = false;
+
+				if (msg.params.search != null) {
+					this.handleSearchNotification(msg.params.search, updates);
+				}
+
 				this.updateState(updates);
 				setLogScopeExit(scope, ` \u2022 rows=${this._state.rows?.length ?? 0}`);
 				break;
@@ -386,13 +395,9 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 				break;
 
 			case DidSearchNotification.is(msg):
-				if (msg.params.selectedRows != null) {
-					updates.selectedRows = msg.params.selectedRows;
-				}
-				updates.searchResults = msg.params.results;
+				this.handleSearchNotification(msg.params, updates);
 				this.updateState(updates);
 				break;
-
 			case DidChangeSelectionNotification.is(msg):
 				this.updateState({ selectedRows: msg.params.selection });
 				break;
@@ -426,10 +431,81 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 		}
 	}
 
+	private handleSearchNotification(params: DidSearchParams, updates: Partial<State>): void {
+		const { searchId } = params;
+
+		// Ignore stale notifications from old searches
+		if (this._currentSearchId != null && searchId < this._currentSearchId) {
+			return;
+		}
+
+		// Check if this is a cancellation/clear notification
+		const cancelled = params.results == null && params.search == null;
+
+		// Starting a new search - clear previous results
+		if (searchId !== this._currentSearchId) {
+			this._currentSearchId = searchId;
+			// Only set searching=true if this is an actual new search (not a cancellation)
+			if (!cancelled) {
+				this.searching = true;
+			}
+			updates.searchResults = undefined;
+
+			// Only update search mode when starting a NEW search
+			// Don't update on progressive updates (user may have toggled mode during search)
+			if (params.search != null) {
+				this.searchMode = params.search.filter ? 'filter' : 'normal';
+			}
+		}
+
+		// Early exit for cancellation - just clear state
+		if (cancelled) {
+			updates.searchResults = params.results;
+			this.searching = false;
+			return;
+		}
+
+		if (params.selectedRows != null) {
+			updates.selectedRows = params.selectedRows;
+		}
+
+		// Process search results
+		if (params.results != null) {
+			if (isGraphSearchResultsError(params.results)) {
+				updates.searchResults = params.results;
+				this.searching = false;
+			} else {
+				// For progressive updates, accumulate the incremental batches
+				// Backend sends only new results in each batch to save IPC bandwidth
+				if (params.partial && this.searchResults != null && !isGraphSearchResultsError(this.searchResults)) {
+					const { ids, count, hasMore, commitsLoaded } = params.results;
+					// Merge new IDs with existing ones
+					updates.searchResults = {
+						ids: { ...this.searchResults.ids, ...ids },
+						count: this.searchResults.count + count,
+						hasMore: hasMore,
+						commitsLoaded: {
+							count: this.searchResults.commitsLoaded.count + commitsLoaded.count,
+						},
+					};
+				} else {
+					// For final results or first partial update, replace
+					updates.searchResults = params.results;
+				}
+
+				// Set searching state based on whether this is partial or final
+				this.searching = params.partial === true;
+			}
+		}
+	}
+
 	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
 
 	protected updateState(partial: Partial<State>, silent?: boolean) {
+		let hasChanges = false;
 		for (const key in partial) {
+			hasChanges = true;
+
 			const value = partial[key as keyof State];
 			// @ts-expect-error key is a key of State
 			this._state[key] = value;
@@ -444,6 +520,10 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 				case 'loading':
 					this.loading = partial.loading ?? false;
 					break;
+				case 'searchResults':
+					// searchResults is managed via searchResultsResponse, so update it specially
+					this.searchResultsResponse = value as GraphSearchResults | GraphSearchResultsError | undefined;
+					break;
 				default:
 					// @ts-expect-error key is a key of State
 					this[key as keyof Omit<State, 'timestamp' | 'webviewId' | 'webviewInstanceId'>] = value;
@@ -451,7 +531,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 			}
 		}
 
-		if (silent) return;
+		if (silent || !hasChanges) return;
 
 		this.options.onStateUpdate?.(partial);
 		this.fireProviderUpdate();

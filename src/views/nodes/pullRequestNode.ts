@@ -1,34 +1,34 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { Colors } from '../../constants.colors';
-import { GitUri } from '../../git/gitUri';
-import { GitBranch } from '../../git/models/branch';
-import type { GitCommit } from '../../git/models/commit';
-import type { PullRequest } from '../../git/models/pullRequest';
-import type { GitBranchReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults';
-import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons';
+import type { Colors } from '../../constants.colors.js';
+import { GitUri } from '../../git/gitUri.js';
+import { GitBranch } from '../../git/models/branch.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { PullRequest } from '../../git/models/pullRequest.js';
+import type { GitBranchReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults.js';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons.js';
 import {
 	ensurePullRequestRefs,
 	ensurePullRequestRemote,
 	getOrOpenPullRequestRepository,
-} from '../../git/utils/-webview/pullRequest.utils';
+} from '../../git/utils/-webview/pullRequest.utils.js';
 import {
 	getComparisonRefsForPullRequest,
 	getRepositoryIdentityForPullRequest,
-} from '../../git/utils/pullRequest.utils';
-import { createRevisionRange } from '../../git/utils/revision.utils';
-import { createCommand } from '../../system/-webview/command';
-import { pluralize } from '../../system/string';
-import type { ViewsWithCommits } from '../viewBase';
-import { createViewDecorationUri } from '../viewDecorationProvider';
-import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
-import type { ClipboardType, ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { CodeSuggestionsNode } from './codeSuggestionsNode';
-import { CommandMessageNode, MessageNode } from './common';
-import { ResultsCommitsNode } from './resultsCommitsNode';
-import { ResultsFilesNode } from './resultsFilesNode';
+} from '../../git/utils/pullRequest.utils.js';
+import { createRevisionRange } from '../../git/utils/revision.utils.js';
+import { createCommand } from '../../system/-webview/command.js';
+import { pluralize } from '../../system/string.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import { createViewDecorationUri } from '../viewDecorationProvider.js';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
+import type { ClipboardType, ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { CodeSuggestionsNode } from './codeSuggestionsNode.js';
+import { CommandMessageNode, MessageNode } from './common.js';
+import { ResultsCommitsNode } from './resultsCommitsNode.js';
+import { ResultsFilesNode } from './resultsFilesNode.js';
 
 export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', ViewsWithCommits> {
 	readonly repoPath: string;

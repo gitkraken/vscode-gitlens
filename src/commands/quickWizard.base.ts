@@ -1,25 +1,25 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
-import type { GlCommands } from '../constants.commands';
-import { Container } from '../container';
-import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
-import { configuration } from '../system/-webview/configuration';
-import type { KeyMapping } from '../system/-webview/keyboard';
-import { log } from '../system/decorators/log';
-import type { Deferred } from '../system/promise';
-import { isPromise } from '../system/promise';
-import { GlCommandBase } from './commandBase';
-import type { GitWizardCommandArgs } from './gitWizard';
-import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
-import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
+import type { GlCommands } from '../constants.commands.js';
+import { Container } from '../container.js';
+import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive.js';
+import { configuration } from '../system/-webview/configuration.js';
+import type { KeyMapping } from '../system/-webview/keyboard.js';
+import { log } from '../system/decorators/log.js';
+import type { Deferred } from '../system/promise.js';
+import { isPromise } from '../system/promise.js';
+import { GlCommandBase } from './commandBase.js';
+import type { GitWizardCommandArgs } from './gitWizard.js';
 import {
 	LoadMoreQuickInputButton,
 	ToggleQuickInputButton,
 	WillConfirmForcedQuickInputButton,
 	WillConfirmToggleQuickInputButton,
-} from './quickCommand.buttons';
-import type { QuickWizardCommandArgs } from './quickWizard';
-import { QuickWizardRootStep } from './quickWizard.utils';
+} from './quickCommand.buttons.js';
+import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand.js';
+import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand.js';
+import type { QuickWizardCommandArgs } from './quickWizard.js';
+import { QuickWizardRootStep } from './quickWizard.utils.js';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');

@@ -1,17 +1,17 @@
 import type { ConfigurationChangeEvent, Extension, Uri } from 'vscode';
 import { Disposable, extensions, workspace } from 'vscode';
-import type { Contact, LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
-import { Schemes } from '../constants';
-import type { Container } from '../container';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { debug } from '../system/decorators/log';
-import { once } from '../system/event';
-import { Logger } from '../system/logger';
-import type { Deferred } from '../system/promise';
-import { defer } from '../system/promise';
-import { VslsGuestService } from './guest';
-import { VslsHostService } from './host';
+import type { Contact, LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls.d.js';
+import { Schemes } from '../constants.js';
+import type { Container } from '../container.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { debug } from '../system/decorators/log.js';
+import { once } from '../system/event.js';
+import { Logger } from '../system/logger.js';
+import type { Deferred } from '../system/promise.js';
+import { defer } from '../system/promise.js';
+import { VslsGuestService } from './guest.js';
+import { VslsHostService } from './host.js';
 
 export interface ContactPresence {
 	status: ContactPresenceStatus;

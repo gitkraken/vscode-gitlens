@@ -1,42 +1,41 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
-import { md5, sha256 } from '@env/crypto';
-import type { ContextKeys } from '../../../constants.context';
-import type { ComposerTelemetryContext, Source, Sources } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
+import { md5, sha256 } from '@env/crypto.js';
+import type { ContextKeys } from '../../../constants.context.js';
+import type {
+	ComposerTelemetryContext,
+	Source,
+	Sources,
+	WebviewTelemetryEvents,
+} from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
 import type {
 	Repository,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { rootSha } from '../../../git/models/revision';
-import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
-import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
-import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import { configuration } from '../../../system/-webview/configuration';
-import { getContext, onDidChangeContext } from '../../../system/-webview/context';
-import { getSettledValue } from '../../../system/promise';
-import { PromiseCache } from '../../../system/promiseCache';
-import type { IpcMessage } from '../../protocol';
-import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
+} from '../../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { rootSha } from '../../../git/models/revision.js';
+import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
+import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils.js';
+import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService.js';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
+import { executeCoreCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { onDidChangeContext } from '../../../system/-webview/context.js';
+import { getSettledValue } from '../../../system/promise.js';
+import { PromiseCache } from '../../../system/promiseCache.js';
+import type { IpcParams } from '../../ipc/handlerRegistry.js';
+import { ipcCommand } from '../../ipc/handlerRegistry.js';
+import type { WebviewHost, WebviewProvider } from '../../webviewProvider.js';
 import type {
-	AIFeedbackParams,
-	ComposerActionEventFailureData,
+	ComposerBaseCommit,
+	ComposerCommit,
 	ComposerContext,
-	ComposerGenerateCommitMessageEventData,
-	ComposerGenerateCommitsEventData,
 	ComposerHunk,
-	ComposerLoadedErrorData,
 	ComposerSafetyState,
-	ComposerTelemetryEvent,
-	FinishAndCommitParams,
-	GenerateCommitMessageParams,
-	GenerateCommitsParams,
-	OnAddHunksToCommitParams,
-	ReloadComposerParams,
 	State,
-} from './protocol';
+} from './protocol.js';
 import {
 	AdvanceOnboardingCommand,
 	AIFeedbackHelpfulCommand,
@@ -77,18 +76,22 @@ import {
 	OnUndoCommand,
 	OpenOnboardingCommand,
 	ReloadComposerCommand,
-} from './protocol';
-import type { ComposerWebviewShowingArgs } from './registration';
-import type { WorkingTreeDiffs } from './utils';
+} from './protocol.js';
+import type { ComposerWebviewShowingArgs } from './registration.js';
+import type { ComposerDiffs } from './utils/composer.utils.js';
 import {
+	calculateCombinedDiffBetweenCommits,
 	convertToComposerDiffInfo,
 	createCombinedDiffForCommit,
+	createComposerCommitsFromGitCommits,
 	createHunksFromDiffs,
 	createSafetyState,
-	getWorkingTreeDiffs,
+	getAuthorAndCoAuthorsForCombinedDiffHunk,
+	getBranchCommits,
+	getComposerDiffs,
 	validateResultingDiff,
 	validateSafetyState,
-} from './utils';
+} from './utils/composer.utils.js';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -106,6 +109,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	// Hunk map and safety state
 	private _hunks: ComposerHunk[] = [];
 	private _safetyState: ComposerSafetyState;
+
+	// Branch mode state
+	private _recompose: {
+		enabled: boolean;
+		branchName?: string;
+		locked: boolean;
+		commitShas?: string[];
+		range?: { base: string; head: string };
+	} | null = null;
 
 	// Telemetry context - tracks composer-specific data for getTelemetryContext
 	private _context: ComposerContext;
@@ -125,7 +137,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._context = { ...baseContext };
 		this._safetyState = {
 			repoPath: '',
-			headSha: '',
+			headSha: null,
+			baseSha: null,
 			hashes: {
 				staged: null,
 				unstaged: null,
@@ -141,68 +154,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._generateCommitMessageCancellation?.dispose();
 		this._repositorySubscription?.dispose();
 		this._disposable.dispose();
-	}
-
-	onMessageReceived(e: IpcMessage): void {
-		switch (true) {
-			case GenerateCommitsCommand.is(e):
-				void this.onGenerateCommits(e.params);
-				break;
-			case GenerateCommitMessageCommand.is(e):
-				void this.onGenerateCommitMessage(e.params);
-				break;
-			case FinishAndCommitCommand.is(e):
-				void this.onFinishAndCommit(e.params);
-				break;
-			case CloseComposerCommand.is(e):
-				void this.close();
-				break;
-			case ReloadComposerCommand.is(e):
-				void this.onReloadComposer(e.params);
-				break;
-			case OnSelectAIModelCommand.is(e):
-				void this.onSelectAIModel();
-				break;
-			case AIFeedbackHelpfulCommand.is(e):
-				void this.onAIFeedbackHelpful(e.params);
-				break;
-			case AIFeedbackUnhelpfulCommand.is(e):
-				void this.onAIFeedbackUnhelpful(e.params);
-				break;
-			case CancelGenerateCommitsCommand.is(e):
-				void this.onCancelGenerateCommits();
-				break;
-			case CancelGenerateCommitMessageCommand.is(e):
-				void this.onCancelGenerateCommitMessage();
-				break;
-			case ClearAIOperationErrorCommand.is(e):
-				void this.onClearAIOperationError();
-				break;
-			case OpenOnboardingCommand.is(e):
-				this.onOpenOnboarding();
-				break;
-			case AdvanceOnboardingCommand.is(e):
-				this.onAdvanceOnboarding(e.params);
-				break;
-			case DismissOnboardingCommand.is(e):
-				this.onDismissOnboarding();
-				break;
-			case OnAddHunksToCommitCommand.is(e):
-				void this.onAddHunksToCommit(e.params);
-				break;
-			case OnUndoCommand.is(e):
-				this.onUndo();
-				break;
-			case OnRedoCommand.is(e):
-				this.onRedo();
-				break;
-			case OnResetCommand.is(e):
-				this.onReset();
-				break;
-			case ChooseRepositoryCommand.is(e):
-				void this.onChooseRepository();
-				break;
-		}
 	}
 
 	getTelemetryContext(): ComposerTelemetryContext {
@@ -259,7 +210,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	includeBootstrap(_deferrable?: boolean): Promise<State> {
-		return this._cache.get('bootstrap', () => this.getBootstrapState());
+		return this._cache.getOrCreate('bootstrap', () => this.getBootstrapState());
 	}
 
 	private async getBootstrapState(): Promise<State> {
@@ -287,7 +238,36 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			};
 		}
 
-		return this.createInitialStateFromRepo(repo, args?.includedUnstagedChanges, args?.mode, args?.source);
+		// If range is explicitly provided, use it directly (skips merge target resolution)
+		if (args?.range) {
+			return this.initializeStateAndContextFromExplicitRange(
+				repo,
+				args.branchName,
+				args.range,
+				args.mode,
+				args.source,
+				args.commitShas,
+			);
+		}
+
+		// Check if this is branch mode (requires merge target resolution)
+		if (args?.branchName) {
+			return this.initializeStateAndContextFromBranch(
+				repo,
+				args.branchName,
+				args.mode,
+				args.source,
+				args.commitShas,
+			);
+		}
+
+		// Default to working directory mode
+		return this.initializeStateAndContextFromWorkingDirectory(
+			repo,
+			args?.includedUnstagedChanges,
+			args?.mode,
+			args?.source,
+		);
 	}
 
 	private get initialState(): State {
@@ -297,7 +277,88 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 	}
 
-	private async createInitialStateFromRepo(
+	private async initializeStateAndContext(
+		repo: Repository,
+		hunks: ComposerHunk[],
+		commits: ComposerCommit[],
+		diffs: ComposerDiffs,
+		baseCommit?: ComposerBaseCommit,
+		headCommitSha?: string,
+		branchName?: string,
+		mode: 'experimental' | 'preview' = 'preview',
+		source?: Sources,
+		commitShas?: string[],
+		isReload?: boolean,
+	): Promise<State> {
+		this._currentRepository = repo;
+		this._hunks = hunks;
+
+		const safetyState = await createSafetyState(repo, diffs, baseCommit?.sha, headCommitSha, branchName);
+		this._safetyState = safetyState;
+		if (branchName || (baseCommit && headCommitSha)) {
+			this._recompose = {
+				enabled: true,
+				branchName: branchName,
+				locked: true,
+				commitShas: commitShas,
+			};
+		}
+
+		if (commitShas && commitShas.length > 0) {
+			const recomposeSet = new Set(commitShas);
+			for (const commit of commits) {
+				if (commit.sha && !recomposeSet.has(commit.sha)) {
+					commit.locked = true;
+				}
+			}
+		}
+
+		const aiEnabled = this.getAiEnabled();
+		const aiModel = await this.container.ai.getModel(
+			{ silent: true },
+			{ source: 'composer', correlationId: this.host.instanceId },
+		);
+
+		const onboardingDismissed = this.isOnboardingDismissed();
+		const onboardingStepReached = this.getOnboardingStepReached();
+
+		// Update context
+		this._context.diff.files = new Set(hunks.map(h => h.fileName)).size;
+		this._context.diff.hunks = hunks.length;
+		this._context.diff.lines = hunks.reduce((total, hunk) => total + hunk.content.split('\n').length - 1, 0);
+		this._context.commits.initialCount = 0;
+		this._context.ai.enabled.org = aiEnabled.org;
+		this._context.ai.enabled.config = aiEnabled.config;
+		this._context.ai.model = aiModel;
+		this._context.onboarding.dismissed = onboardingDismissed;
+		this._context.onboarding.stepReached = onboardingStepReached;
+		this._context.source = source;
+		this._context.mode = mode;
+		this._context.warnings.workingDirectoryChanged = false;
+		this._context.warnings.indexChanged = false;
+		this._context.sessionStart = new Date().toISOString();
+		this.host.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded', {});
+
+		return {
+			...this.initialState,
+			hunks: hunks,
+			baseCommit: baseCommit ?? null,
+			commits: commits,
+			aiEnabled: aiEnabled,
+			ai: {
+				model: aiModel,
+			},
+			hasChanges: commits.length > 0,
+			mode: mode,
+			onboardingDismissed: onboardingDismissed,
+			workingDirectoryHasChanged: false,
+			indexHasChanged: false,
+			repositoryState: this.getRepositoryState(),
+			recompose: this._recompose ?? null,
+		};
+	}
+
+	private async initializeStateAndContextFromWorkingDirectory(
 		repo: Repository,
 		includedUnstagedChanges?: boolean,
 		mode: 'experimental' | 'preview' = 'preview',
@@ -316,7 +377,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const [diffsResult, commitResult, branchResult] = await Promise.allSettled([
 			// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
-			getWorkingTreeDiffs(repo),
+			getComposerDiffs(repo),
 			repo.git.commits.getCommit('HEAD'),
 			repo.git.branches.getBranch(),
 		]);
@@ -342,10 +403,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		// Allow composer to open with no changes - we'll handle this in the UI
 		const hasChanges = Boolean(staged?.contents || unstaged?.contents);
-
 		const hunks = createHunksFromDiffs(staged?.contents, unstaged?.contents);
-		this._hunks = hunks;
-
 		const baseCommit = getSettledValue(commitResult);
 		const currentBranch = getSettledValue(branchResult);
 
@@ -354,7 +412,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const hasUnstagedChanges = Boolean(unstaged?.contents);
 
 		let initialHunkIndices: number[];
-
 		if (hasStagedChanges && hasUnstagedChanges) {
 			// Both staged and unstaged - assign only staged to initial commit
 			initialHunkIndices = hunks.filter(h => h.source === 'staged').map(h => h.index);
@@ -365,70 +422,284 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const initialCommit = {
 			id: 'draft-commit-1',
-			message: '', // Empty message - user will add their own
+			message: { content: '', isGenerated: false },
 			aiExplanation: '',
 			hunkIndices: initialHunkIndices,
 		};
 
-		// Create safety state snapshot for validation
-		const safetyState = await createSafetyState(repo, diffs, baseCommit?.sha);
-		this._safetyState = safetyState;
-
-		const aiEnabled = this.getAiEnabled();
-		const aiModel = await this.container.ai.getModel(
-			{ silent: true },
-			{ source: 'composer', correlationId: this.host.instanceId },
-		);
-
-		const onboardingDismissed = this.isOnboardingDismissed();
-		const onboardingStepReached = this.getOnboardingStepReached();
 		const commits = hasChanges ? [initialCommit] : [];
 
 		// Update context
-		this._context.diff.files = new Set(hunks.map(h => h.fileName)).size;
-		this._context.diff.hunks = hunks.length;
-		this._context.diff.lines = hunks.reduce((total, hunk) => total + hunk.content.split('\n').length - 1, 0);
 		this._context.diff.staged = hasStagedChanges;
 		this._context.diff.unstaged = hasUnstagedChanges;
-		this._context.commits.initialCount = 0;
-		this._context.ai.enabled.org = aiEnabled.org;
-		this._context.ai.enabled.config = aiEnabled.config;
-		this._context.ai.model = aiModel;
-		this._context.onboarding.dismissed = onboardingDismissed;
-		this._context.onboarding.stepReached = onboardingStepReached;
-		this._context.source = source;
-		this._context.mode = mode;
-		this._context.warnings.workingDirectoryChanged = false;
-		this._context.warnings.indexChanged = false;
-		this._context.sessionStart = new Date().toISOString();
-		this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded');
+		this._context.diff.commits = false;
 
 		// Subscribe to repository changes for working directory monitoring
 		this.subscribeToRepository(repo);
 
-		return {
-			...this.initialState,
-			hunks: hunks,
-			baseCommit: baseCommit
+		return this.initializeStateAndContext(
+			repo,
+			hunks,
+			commits,
+			diffs,
+			baseCommit
 				? {
 						sha: baseCommit.sha,
 						message: baseCommit.message ?? '',
 						repoName: repo.name,
 						branchName: currentBranch?.name ?? 'main',
 					}
-				: null,
-			commits: commits,
-			aiEnabled: aiEnabled,
-			ai: {
-				model: aiModel,
-			},
-			hasChanges: hasChanges,
-			mode: mode,
-			onboardingDismissed: onboardingDismissed,
-			workingDirectoryHasChanged: false,
-			indexHasChanged: false,
-			repositoryState: this.getRepositoryState(),
+				: undefined,
+			undefined,
+			undefined,
+			mode,
+			source,
+			undefined,
+			isReload,
+		);
+	}
+
+	private async initializeStateAndContextFromBranch(
+		repo: Repository,
+		branchName: string,
+		mode: 'experimental' | 'preview' = 'preview',
+		source?: Sources,
+		commitShas?: string[],
+		isReload?: boolean,
+	): Promise<State> {
+		// Get the branch
+		const branch = await repo.git.branches.getBranch(branchName);
+		if (!branch) {
+			return {
+				...this.initialState,
+				loadingError: `Branch '${branchName}' not found.`,
+			};
+		}
+
+		// Get the merge target for the branch with recursive resolution
+		let mergeTargetName: string | undefined;
+		let currentMergeTargetBranchName = branchName;
+		let currentMergeTargetBranch = branch;
+		const visitedBranches = new Set<string>();
+		let attempts = 0;
+		const maxAttempts = 10;
+
+		while (attempts < maxAttempts) {
+			attempts++;
+
+			// Prevent infinite loops by tracking visited branches
+			if (visitedBranches.has(currentMergeTargetBranchName)) {
+				break;
+			}
+			visitedBranches.add(currentMergeTargetBranchName);
+
+			const mergeTargetNameResult = await getBranchMergeTargetName(this.container, currentMergeTargetBranch);
+			if (!mergeTargetNameResult.paused && mergeTargetNameResult.value) {
+				mergeTargetName = mergeTargetNameResult.value;
+
+				// Get branch commits to check if we have unique commits
+				const branchData = await getBranchCommits(this.container, repo, branchName, mergeTargetName);
+				if (branchData && branchData.commits.length > 0) {
+					// Found unique commits, use this merge target
+					const { commits: branchCommits, baseCommit, headCommitSha } = branchData;
+
+					// Create composer commits and hunks from branch commits
+					const composerData = await createComposerCommitsFromGitCommits(repo, branchCommits);
+					if (!composerData) {
+						return {
+							...this.initialState,
+							loadingError: `Failed to process commits for branch '${branchName}'.`,
+						};
+					}
+
+					const { commits, hunks } = composerData;
+
+					// Ensure that if commitShas is provided, error out if any of the commit shas are not found in the commits
+					if (commitShas) {
+						const commitShasSet = new Set(commitShas);
+						const missingShas = [...commitShasSet].filter(sha => !commits.find(c => c.sha === sha));
+						if (missingShas.length > 0) {
+							return {
+								...this.initialState,
+								loadingError: `The following commit shas were not found in the commits for branch '${branchName}': ${missingShas.join(
+									', ',
+								)}`,
+							};
+						}
+					}
+
+					const diffs = (await getComposerDiffs(repo, { baseSha: baseCommit.sha, headSha: headCommitSha }))!;
+
+					// Return successful state with found commits
+					return this.initializeStateAndContext(
+						repo,
+						hunks,
+						commits,
+						diffs,
+						{
+							sha: baseCommit.sha,
+							message: baseCommit.message,
+							repoName: repo.name,
+							branchName: branchName,
+						},
+						headCommitSha,
+						currentMergeTargetBranchName,
+						mode,
+						source,
+						commitShas,
+						isReload,
+					);
+				}
+
+				// No unique commits found, try to resolve the merge target recursively
+				// Get the branch that the current merge target points to
+				const targetBranch = await repo.git.branches.getBranch(mergeTargetName);
+				if (!targetBranch) {
+					// Can't find the target branch, stop here
+					break;
+				}
+
+				// Check if the target branch name is the same as current branch (circular reference)
+				if (targetBranch.name === currentMergeTargetBranchName) {
+					break;
+				}
+
+				// Move to the target branch and try again
+				currentMergeTargetBranchName = targetBranch.name;
+				currentMergeTargetBranch = targetBranch;
+			} else {
+				// No merge target found or paused, stop here
+				break;
+			}
+		}
+
+		// If we cannot find commits using merge target, try a range to the tip of the branch
+		if (commitShas?.length) {
+			// Set the head commit as the tip of the branch
+			const headCommitSha = branch.sha;
+			// Set the base commit as the parent commit of the last commit in the range
+			const baseCommitSha = (await repo.git.commits.getCommit(commitShas[0]))?.parents[0];
+			if (headCommitSha && baseCommitSha) {
+				return this.initializeStateAndContextFromExplicitRange(
+					repo,
+					branchName,
+					{ base: baseCommitSha, head: headCommitSha },
+					mode,
+					source,
+					commitShas,
+					isReload,
+				);
+			}
+		}
+
+		// If we get here, we couldn't find unique commits to recompose with
+		return {
+			...this.initialState,
+			loadingError: `Could not identify unique commits for branch '${branchName}'`,
 		};
+	}
+
+	/**
+	 * Initializes state when an explicit range is provided.
+	 * This bypasses merge target resolution and uses the provided range directly.
+	 */
+	private async initializeStateAndContextFromExplicitRange(
+		repo: Repository,
+		branchName: string | undefined,
+		range: { base: string; head: string },
+		mode: 'experimental' | 'preview' = 'preview',
+		source?: Sources,
+		commitShas?: string[],
+		isReload?: boolean,
+	): Promise<State> {
+		const { base: baseCommitSha, head: headCommitSha } = range;
+
+		// Get the base commit
+		const baseCommitResult = await repo.git.commits.getCommit(baseCommitSha);
+		if (!baseCommitResult) {
+			return {
+				...this.initialState,
+				loadingError: `Base commit '${baseCommitSha}' not found.`,
+			};
+		}
+
+		// Validate head commit exists
+		const headCommitResult = await repo.git.commits.getCommit(headCommitSha);
+		if (!headCommitResult) {
+			return {
+				...this.initialState,
+				loadingError: `Head commit '${headCommitSha}' not found.`,
+			};
+		}
+
+		const log = await repo.git.commits.getLog(`${baseCommitSha}..${headCommitSha}`, { limit: 0 });
+		if (!log?.commits?.size) {
+			return {
+				...this.initialState,
+				loadingError: `No commits found between base commit and head commit.`,
+			};
+		}
+
+		// Convert Map to Array and reverse to oldest first for processing
+		const branchCommits = Array.from(log.commits.values()).reverse();
+
+		// Create composer commits and hunks from branch commits
+		const composerData = await createComposerCommitsFromGitCommits(repo, branchCommits);
+		if (!composerData) {
+			return {
+				...this.initialState,
+				loadingError: branchName
+					? `Failed to process commits for branch '${branchName}'.`
+					: 'Failed to process commits in range.',
+			};
+		}
+
+		const { commits, hunks } = composerData;
+
+		// Validate that all provided commitShas are found in the commits (if provided)
+		if (commitShas && commitShas.length > 0) {
+			const commitShasSet = new Set(commitShas);
+			const missingShas = [...commitShasSet].filter(sha => !commits.find(c => c.sha === sha));
+			if (missingShas.length > 0) {
+				return {
+					...this.initialState,
+					loadingError: branchName
+						? `The following commit shas were not found in the commits for branch '${branchName}': ${missingShas.join(', ')}`
+						: `The following commit shas were not found in the commits: ${missingShas.join(', ')}`,
+				};
+			}
+		}
+
+		const diffs = (await getComposerDiffs(repo, { baseSha: baseCommitSha, headSha: headCommitSha }))!;
+
+		const baseCommit: ComposerBaseCommit = {
+			sha: baseCommitSha,
+			message: baseCommitResult.message ?? '',
+			repoName: repo.name,
+			branchName: branchName,
+		};
+
+		// Initialize state and context, then store range in _recompose
+		const state = await this.initializeStateAndContext(
+			repo,
+			hunks,
+			commits,
+			diffs,
+			baseCommit,
+			headCommitSha,
+			branchName,
+			mode,
+			source,
+			commitShas,
+			isReload,
+		);
+
+		// Store range in _recompose for reload scenarios
+		if (this._recompose) {
+			this._recompose.range = range;
+		}
+
+		return state;
 	}
 
 	private getRepositoryState() {
@@ -447,11 +718,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 	}
 
-	private async onAddHunksToCommit(params: OnAddHunksToCommitParams) {
+	@ipcCommand(OnAddHunksToCommitCommand)
+	private async onAddHunksToCommit(params: IpcParams<typeof OnAddHunksToCommitCommand>) {
 		if (params.source === 'unstaged') {
 			// Update context to indicate unstaged changes were included
 			this._context.diff.unstagedIncluded = true;
-			this.sendTelemetryEvent('composer/action/includedUnstagedChanges');
+			this.host.sendTelemetryEvent('composer/action/includedUnstagedChanges');
 
 			await this.onReloadComposer({
 				repoPath: this._currentRepository!.path,
@@ -460,22 +732,26 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(OnUndoCommand)
 	private onUndo(): void {
 		this._context.operations.undo.count++;
-		this.sendTelemetryEvent('composer/action/undo');
+		this.host.sendTelemetryEvent('composer/action/undo');
 	}
 
+	@ipcCommand(OnRedoCommand)
 	private onRedo(): void {
 		this._context.operations.redo.count++;
 	}
 
+	@ipcCommand(OnResetCommand)
 	private onReset(): void {
 		this._context.operations.reset.count++;
-		this.sendTelemetryEvent('composer/action/reset');
+		this.host.sendTelemetryEvent('composer/action/reset');
 	}
 
+	@ipcCommand(ChooseRepositoryCommand)
 	private async onChooseRepository(): Promise<void> {
-		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+		const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
 			this.container.git.openRepositories,
 			'Switch',
 			this._currentRepository?.name,
@@ -496,7 +772,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		});
 	}
 
-	private async onReloadComposer(params: ReloadComposerParams): Promise<void> {
+	@ipcCommand(ReloadComposerCommand)
+	private async onReloadComposer(params: IpcParams<typeof ReloadComposerCommand>): Promise<void> {
 		try {
 			// Clear cache to force fresh data on reload
 			this._cache.clear();
@@ -514,7 +791,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					// Show error in the safety error overlay
 					this._context.errors.safety.count++;
 					const errorMessage = 'Repository is no longer available';
-					this.sendTelemetryEvent('composer/reloaded', {
+					this.host.sendTelemetryEvent('composer/reloaded', {
 						'failure.reason': 'error',
 						'failure.error.message': errorMessage,
 					});
@@ -526,13 +803,36 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Initialize composer data from the repository
-			const composerData = await this.createInitialStateFromRepo(
-				repo,
-				this._context.diff.unstagedIncluded,
-				params.mode,
-				params.source,
-				true,
-			);
+			let composerData: State;
+			// If range is stored, use explicit range initialization
+			if (this._recompose?.range) {
+				composerData = await this.initializeStateAndContextFromExplicitRange(
+					repo,
+					this._recompose.branchName,
+					this._recompose.range,
+					params.mode,
+					this._context.source,
+					this._recompose.commitShas,
+					true,
+				);
+			} else if (this._recompose?.branchName) {
+				composerData = await this.initializeStateAndContextFromBranch(
+					repo,
+					this._recompose.branchName,
+					params.mode,
+					this._context.source,
+					this._recompose.commitShas,
+					true,
+				);
+			} else {
+				composerData = await this.initializeStateAndContextFromWorkingDirectory(
+					repo,
+					this._context.diff.unstagedIncluded,
+					params.mode,
+					this._context.source,
+					true,
+				);
+			}
 
 			// Check if there was a loading error
 			if (composerData.loadingError) {
@@ -554,7 +854,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			});
 		} catch (error) {
 			// Show error in the safety error overlay
-			this.sendTelemetryEvent('composer/reloaded', {
+			this.host.sendTelemetryEvent('composer/reloaded', {
 				'failure.reason': 'error',
 				'failure.error.message': error instanceof Error ? error.message : 'unknown error',
 			});
@@ -564,6 +864,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(CancelGenerateCommitsCommand)
 	private async onCancelGenerateCommits(): Promise<void> {
 		if (this._generateCommitsCancellation) {
 			this._generateCommitsCancellation.cancel();
@@ -571,6 +872,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(CancelGenerateCommitMessageCommand)
 	private async onCancelGenerateCommitMessage(): Promise<void> {
 		if (this._generateCommitMessageCancellation) {
 			this._generateCommitMessageCancellation.cancel();
@@ -578,16 +880,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(ClearAIOperationErrorCommand)
 	private async onClearAIOperationError(): Promise<void> {
 		// Send notification to clear the AI operation error
 		await this.host.notify(DidClearAIOperationErrorNotification, undefined);
 	}
 
+	@ipcCommand(OpenOnboardingCommand)
 	private onOpenOnboarding(): void {
 		this.advanceOnboardingStep(1);
 	}
 
-	private onAdvanceOnboarding(params: { stepNumber: number }): void {
+	@ipcCommand(AdvanceOnboardingCommand)
+	private onAdvanceOnboarding(params: IpcParams<typeof AdvanceOnboardingCommand>): void {
 		this.advanceOnboardingStep(params.stepNumber);
 	}
 
@@ -602,6 +907,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		void this.container.storage.store('composer:onboarding:stepReached', highestStep).catch();
 	}
 
+	@ipcCommand(DismissOnboardingCommand)
 	private onDismissOnboarding(): void {
 		if (this.isOnboardingDismissed()) {
 			return;
@@ -649,7 +955,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private async close(): Promise<void> {
+	@ipcCommand(CloseComposerCommand)
+	private async onClose(): Promise<void> {
 		this._context.sessionDuration = Date.now() - new Date(this._context.sessionStart).getTime();
 		await commands.executeCommand('workbench.action.closeActiveEditor');
 	}
@@ -661,13 +968,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				{ source: 'composer', correlationId: this.host.instanceId },
 			);
 			this._context.ai.model = model;
-			this.sendTelemetryEvent('composer/action/changeAiModel');
+			this.host.sendTelemetryEvent('composer/action/changeAiModel');
 			await this.host.notify(DidChangeAiModelNotification, { model: model });
 		} catch {
 			// Ignore errors when getting AI model
 		}
 	}
 
+	@ipcCommand(OnSelectAIModelCommand)
 	private async onSelectAIModel(): Promise<void> {
 		// Trigger the AI provider/model switch command
 		await commands.executeCommand<Source>('gitlens.ai.switchProvider', {
@@ -677,13 +985,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		});
 	}
 
-	private async onAIFeedbackHelpful(params: AIFeedbackParams): Promise<void> {
+	@ipcCommand(AIFeedbackHelpfulCommand)
+	private async onAIFeedbackHelpful(params: IpcParams<typeof AIFeedbackHelpfulCommand>): Promise<void> {
 		// Send AI feedback for composer auto-composition
 		this._context.operations.generateCommits.feedback.upvoteCount++;
 		await this.sendComposerAIFeedback('helpful', params.sessionId);
 	}
 
-	private async onAIFeedbackUnhelpful(params: AIFeedbackParams): Promise<void> {
+	@ipcCommand(AIFeedbackUnhelpfulCommand)
+	private async onAIFeedbackUnhelpful(params: IpcParams<typeof AIFeedbackUnhelpfulCommand>): Promise<void> {
 		// Send AI feedback for composer auto-composition
 		this._context.operations.generateCommits.feedback.downvoteCount++;
 		await this.sendComposerAIFeedback('unhelpful', params.sessionId);
@@ -741,7 +1051,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private subscribeToRepository(repository: Repository): void {
 		// Dispose existing subscription
 		this._repositorySubscription?.dispose();
-		this._currentRepository = repository;
 
 		// Subscribe to repository changes
 		this._repositorySubscription = Disposable.from(
@@ -775,8 +1084,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		await this.host.notify(DidWorkingDirectoryChangeNotification, undefined);
 	}
 
-	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
-		const eventData: ComposerGenerateCommitsEventData = {
+	@ipcCommand(GenerateCommitsCommand)
+	private async onGenerateCommits(params: IpcParams<typeof GenerateCommitsCommand>): Promise<void> {
+		const eventData: WebviewTelemetryEvents[`composer/action/${'compose' | 'recompose'}`] = {
 			'customInstructions.used': false,
 			'customInstructions.length': 0,
 			'customInstructions.hash': '',
@@ -805,22 +1115,81 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Transform the data for the AI service
 			const hunks = [];
-			for (const index of params.hunkIndices) {
-				hunks.push({ ...this._hunks.find(m => m.index === index)!, assigned: true });
+
+			if (this._recompose?.enabled && this._safetyState?.hashes.commits) {
+				// In recompose mode, we need to break down the commit history and use the combined diff to generate new hunks
+				// before sending them off to the AI service to compose new commits
+				const baseSha = params.commitsToReplace?.baseShaForNewDiff ?? this._safetyState.baseSha!;
+				let headSha = this._safetyState.headSha!;
+				if (params.commitsToReplace?.commits?.length) {
+					headSha =
+						params.commitsToReplace.commits[params.commitsToReplace.commits.length - 1].sha ??
+						this._safetyState.headSha!;
+				}
+
+				const shouldSkipDiffCalculation =
+					params.commitsToReplace?.commits?.length && params.commitsToReplace.commits.every(c => !c.sha);
+				if (shouldSkipDiffCalculation) {
+					// just set hunks to the existing hunks and move on
+					const hunkIndices = new Set(params.commitsToReplace!.commits.flatMap(c => c.hunkIndices));
+					for (const index of hunkIndices) {
+						hunks.push({ ...this._hunks.find(m => m.index === index)!, assigned: true });
+					}
+				} else {
+					const combinedDiff = await calculateCombinedDiffBetweenCommits(
+						this._currentRepository!,
+						baseSha,
+						headSha,
+					);
+
+					const combinedHunks = createHunksFromDiffs(combinedDiff!.contents);
+					for (const hunk of combinedHunks) {
+						const { author, coAuthors } = getAuthorAndCoAuthorsForCombinedDiffHunk(this._hunks, hunk);
+						hunk.author = author;
+						hunk.coAuthors = coAuthors.length ? coAuthors : undefined;
+						hunks.push({ ...hunk, assigned: true });
+					}
+
+					// Update the hunks. Note that if params.commitsToReplace is defined, then we need to remove all the hunks with indices that match the hunkIndices of the commits to replace, then add in the new hunks and
+					// reinder all of the hunks. Otherwise, we just replace the existing hunks with the new ones
+					if (params.commitsToReplace) {
+						const hunkIndicesToRemove = new Set(
+							params.commitsToReplace.commits.flatMap(c => c.hunkIndices),
+						);
+						this._hunks = this._hunks.filter(h => !hunkIndicesToRemove.has(h.index));
+						// Reindex the hunks
+						let newIndexCounter = 1;
+						this._hunks.forEach(hunk => {
+							hunk.index = newIndexCounter++;
+						});
+						hunks.forEach(hunk => {
+							hunk.index = newIndexCounter++;
+						});
+						this._hunks.push(...hunks);
+					} else {
+						this._hunks = hunks;
+					}
+				}
+			} else {
+				// Working directory mode: use existing hunks
+				for (const index of params.hunkIndices) {
+					hunks.push({ ...this._hunks.find(m => m.index === index)!, assigned: true });
+				}
 			}
 
 			const existingCommits = params.commits.map(commit => ({
 				id: commit.id,
-				message: commit.message,
+				message: commit.message.content,
 				aiExplanation: commit.aiExplanation,
 				hunkIndices: commit.hunkIndices,
 			}));
 
 			// Call the AI service
-			const result = await this.container.ai.generateCommits(
+			void this.container.usage.track(`action:gitlens.ai.generateCommits:happened`).catch();
+			const result = await this.container.ai.actions.generateCommits(
 				hunks,
 				existingCommits,
-				this._hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
+				hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
 				{ source: 'composer', correlationId: this.host.instanceId },
 				{
 					cancellation: this._generateCommitsCancellation.token,
@@ -830,7 +1199,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommits.cancelledCount++;
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 					{
 						...eventData,
@@ -845,7 +1214,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				if (result.commits.length === 0) {
 					this._context.operations.generateCommits.errorCount++;
 					this._context.errors.operation.count++;
-					this.sendTelemetryEvent(
+					this.host.sendTelemetryEvent(
 						params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 						{
 							...eventData,
@@ -863,18 +1232,29 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				// Transform AI result back to ComposerCommit format
 				const newCommits = result.commits.map((commit, index) => ({
 					id: `ai-commit-${index}`,
-					message: commit.message,
+					message: { content: commit.message, isGenerated: true },
 					aiExplanation: commit.explanation,
 					hunkIndices: commit.hunks.map(h => h.hunk),
 				}));
 
 				// Notify the webview with the generated commits (this will also clear loading state)
 				this._context.commits.autoComposedCount = newCommits.length;
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose' : 'composer/action/compose',
 					eventData,
 				);
-				await this.host.notify(DidGenerateCommitsNotification, { commits: newCommits });
+
+				// Unlock the commits in recompose mode after a successful auto-compose since they are now draft commits
+				if (this._recompose?.enabled) {
+					this._recompose.locked = false;
+				}
+
+				await this.host.notify(DidGenerateCommitsNotification, {
+					commits: newCommits,
+					// In recompose mode, we generated a new combined diff and hunks, so we need to pass the hunks back to state
+					hunks: this._recompose?.enabled ? this._hunks : undefined,
+					replacedCommitIds: params.commitsToReplace?.commits.map(c => c.id),
+				});
 			} else if (result === 'cancelled') {
 				this._context.operations.generateCommits.cancelledCount++;
 				// Send cancellation notification instead of success notification
@@ -883,7 +1263,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.operations.generateCommits.errorCount++;
 				this._context.errors.operation.count++;
 				// Send error notification for failure (not cancellation)
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 					{
 						...eventData,
@@ -901,7 +1281,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommits.cancelledCount++;
 				// Send cancellation notification
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 					{
 						...eventData,
@@ -912,7 +1292,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			} else {
 				this._context.operations.generateCommits.errorCount++;
 				this._context.errors.operation.count++;
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 					{
 						...eventData,
@@ -933,8 +1313,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private async onGenerateCommitMessage(params: GenerateCommitMessageParams): Promise<void> {
-		const eventData: ComposerGenerateCommitMessageEventData = {
+	@ipcCommand(GenerateCommitMessageCommand)
+	private async onGenerateCommitMessage(params: IpcParams<typeof GenerateCommitMessageCommand>): Promise<void> {
+		const eventData: WebviewTelemetryEvents['composer/action/generateCommitMessage'] = {
 			'customInstructions.setting.used': false,
 			'customInstructions.setting.length': 0,
 			overwriteExistingMessage: params.overwriteExistingMessage ?? false,
@@ -962,7 +1343,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.operations.generateCommitMessage.errorCount++;
 				this._context.errors.operation.count++;
 				// Send error notification for failure (not cancellation)
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'error',
 					'failure.error.message': 'Failed to create diff for commit',
@@ -974,7 +1355,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Call the AI service to generate commit message
-			const result = await this.container.ai.generateCommitMessage(
+			const result = await this.container.ai.actions.generateCommitMessage(
 				patch,
 				{ source: 'composer', correlationId: this.host.instanceId },
 				{
@@ -984,7 +1365,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			if (this._generateCommitMessageCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommitMessage.cancelledCount++;
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'cancelled',
 				});
@@ -994,12 +1375,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			if (result && result !== 'cancelled') {
 				// Combine summary and body into a single message
-				const message = result.parsed.body
-					? `${result.parsed.summary}\n\n${result.parsed.body}`
-					: result.parsed.summary;
+				const message = result.result.body
+					? `${result.result.summary}\n\n${result.result.body}`
+					: result.result.summary;
 
 				// Notify the webview with the generated commit message
-				this.sendTelemetryEvent('composer/action/generateCommitMessage', eventData);
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage', eventData);
 				await this.host.notify(DidGenerateCommitMessageNotification, {
 					commitId: params.commitId,
 					message: message,
@@ -1007,7 +1388,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			} else if (result === 'cancelled') {
 				this._context.operations.generateCommitMessage.cancelledCount++;
 				// Send cancellation notification instead of success notification
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'cancelled',
 				});
@@ -1016,7 +1397,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.operations.generateCommitMessage.errorCount++;
 				this._context.errors.operation.count++;
 				// Send error notification for failure (not cancellation)
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'error',
 					'failure.error.message': 'unknown error',
@@ -1031,7 +1412,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (this._generateCommitMessageCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommitMessage.cancelledCount++;
 				// Send cancellation notification
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'cancelled',
 				});
@@ -1040,7 +1421,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.operations.generateCommitMessage.errorCount++;
 				this._context.errors.operation.count++;
 				// Send error notification for exception
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'error',
 					'failure.error.message': error instanceof Error ? error.message : 'unknown error',
@@ -1057,7 +1438,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private async onFinishAndCommit(params: FinishAndCommitParams): Promise<void> {
+	@ipcCommand(FinishAndCommitCommand)
+	private async onFinishAndCommit(params: IpcParams<typeof FinishAndCommitCommand>): Promise<void> {
 		try {
 			// Notify webview that committing is starting
 			await this.host.notify(DidStartCommittingNotification, undefined);
@@ -1070,7 +1452,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.safety.count++;
 				this._context.errors.operation.count++;
 				const errorMessage = 'Repository is no longer available';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1092,13 +1474,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Validate repository safety state before proceeding
 			// Stop repo change subscription so we can deal with untracked files
-			let workingTreeDiffs: WorkingTreeDiffs | undefined;
+			let diffsWithUntracked: ComposerDiffs | undefined;
 			if (this._context.diff.unstagedIncluded) {
 				this._repositorySubscription?.dispose();
 				const untrackedPaths = (await repo.git.status?.getUntrackedFiles())?.map(f => f.path);
 				if (untrackedPaths?.length) {
 					try {
-						workingTreeDiffs = await getWorkingTreeDiffs(repo);
+						diffsWithUntracked = await getComposerDiffs(repo);
 						await repo.git.staging?.stageFiles(untrackedPaths);
 					} catch {}
 				}
@@ -1108,7 +1490,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				repo,
 				this._safetyState,
 				hunksBeingCommitted,
-				workingTreeDiffs,
+				diffsWithUntracked,
 			);
 			if (!validation.isValid) {
 				// Clear loading state and show safety error
@@ -1117,7 +1499,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = validation.errors.join('\n');
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1133,7 +1515,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'No repository service found';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1147,7 +1529,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					this._context.errors.operation.count++;
 					this._context.operations.finishAndCommit.errorCount++;
 					const errorMessage = 'Could not create base commit';
-					this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+					this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 						'failure.reason': 'error',
 						'failure.error.message': errorMessage,
 					});
@@ -1162,7 +1544,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'Failed to create commits from patches';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1180,7 +1562,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'Failed to get combined diff';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1200,7 +1582,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'Output diff does not match input';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1212,35 +1594,46 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Capture previous stash state
 			let previousStashCommit;
-			let stash = await svc.stash?.getStash();
-			if (stash?.stashes.size) {
-				const latestStash = stash.stashes.values().next().value;
-				if (latestStash) {
-					previousStashCommit = latestStash;
-				}
-			}
-
-			// Stash the working changes
-			const stashMessage = `Commit composer: ${new Date().toLocaleString()}`;
-			await svc.stash?.saveStash(stashMessage, undefined, { includeUntracked: true });
-
-			// Get the new stash reference
-			stash = await svc.stash?.getStash();
+			let stash;
 			let stashCommit;
 			let stashedSuccessfully = false;
-			if (stash?.stashes.size) {
-				stashCommit = stash.stashes.values().next().value;
-				if (
-					stashCommit &&
-					stashCommit.ref !== previousStashCommit?.ref &&
-					stashCommit.message?.includes(stashMessage)
-				) {
-					stashedSuccessfully = true;
+			const hasWorkingChanges = await repo.git.status.hasWorkingChanges({ throwOnError: true });
+			if (hasWorkingChanges) {
+				stash = await svc.stash?.getStash();
+				if (stash?.stashes.size) {
+					const latestStash = stash.stashes.values().next().value;
+					if (latestStash) {
+						previousStashCommit = latestStash;
+					}
+				}
+
+				// Stash the working changes
+				const stashMessage = `Commit composer: ${new Date().toLocaleString()}`;
+				await svc.stash?.saveStash(stashMessage, undefined, { includeUntracked: true });
+
+				// Get the new stash reference
+				stash = await svc.stash?.getStash();
+				if (stash?.stashes.size) {
+					stashCommit = stash.stashes.values().next().value;
+					if (
+						stashCommit &&
+						stashCommit.ref !== previousStashCommit?.ref &&
+						stashCommit.message?.includes(stashMessage)
+					) {
+						stashedSuccessfully = true;
+					}
 				}
 			}
 
-			// Reset the current branch to the new shas
-			await svc.reset(shas[shas.length - 1], { hard: true });
+			// Check if we're in branch mode
+			if (this._recompose?.enabled && this._recompose.branchName) {
+				// Branch mode: update the specific branch to point to the new commits
+				// Use git update-ref to update the branch reference directly
+				await repo.git.refs.updateReference(`refs/heads/${this._recompose.branchName}`, shas[shas.length - 1]);
+			} else {
+				// Working directory mode: reset the current branch to the new shas
+				await svc.ops?.reset(shas[shas.length - 1], { mode: 'hard' });
+			}
 
 			// Pop the stash we created to restore what is left in the working tree
 			if (stashCommit && stashedSuccessfully) {
@@ -1249,7 +1642,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Clear the committing state and close the composer webview first
 			this._context.commits.finalCount = shas.length;
-			this.sendTelemetryEvent('composer/action/finishAndCommit');
+			this.host.sendTelemetryEvent('composer/action/finishAndCommit');
 			await this.host.notify(DidFinishCommittingNotification, undefined);
 			void commands.executeCommand('workbench.action.closeActiveEditor');
 		} catch (error) {
@@ -1257,7 +1650,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			this._context.errors.operation.count++;
 			this._context.operations.finishAndCommit.errorCount++;
 			const errorMessage = error instanceof Error ? error.message : 'unknown error';
-			this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+			this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 				'failure.reason': 'error',
 				'failure.error.message': errorMessage,
 			});
@@ -1268,23 +1661,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'ai.enabled')) {
-			const newSetting = configuration.get('ai.enabled', undefined, true);
+			const newSetting = this.container.ai.enabled;
 			this._context.ai.enabled.config = newSetting;
 			// Update AI config setting in state
-			void this.host.notify(DidChangeAiEnabledNotification, {
-				config: newSetting,
-			});
+			void this.host.notify(DidChangeAiEnabledNotification, { config: newSetting });
 		}
 	}
 
 	private onContextChanged(key: keyof ContextKeys) {
 		if (key === 'gitlens:gk:organization:ai:enabled') {
-			const newSetting = getContext('gitlens:gk:organization:ai:enabled', true);
+			const newSetting = this.container.ai.allowed;
 			this._context.ai.enabled.org = newSetting;
 			// Update AI org setting in state
-			void this.host.notify(DidChangeAiEnabledNotification, {
-				org: newSetting,
-			});
+			void this.host.notify(DidChangeAiEnabledNotification, { org: newSetting });
 		}
 	}
 
@@ -1293,49 +1682,35 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private getAiEnabled() {
-		return {
-			org: getContext('gitlens:gk:organization:ai:enabled', true),
-			config: configuration.get('ai.enabled', undefined, true),
-		};
+		return { org: this.container.ai.allowed, config: this.container.ai.enabled };
 	}
 
-	private sendTelemetryEvent(
-		event: 'composer/action/compose' | 'composer/action/recompose',
-		data: ComposerGenerateCommitsEventData,
-	): void;
-	private sendTelemetryEvent(
-		event: 'composer/action/compose/failed' | 'composer/action/recompose/failed',
-		data: ComposerGenerateCommitsEventData & ComposerActionEventFailureData,
-	): void;
-	private sendTelemetryEvent(
-		event: 'composer/action/generateCommitMessage',
-		data: ComposerGenerateCommitMessageEventData,
-	): void;
-	private sendTelemetryEvent(
-		event: 'composer/action/generateCommitMessage/failed',
-		data: ComposerGenerateCommitMessageEventData & ComposerActionEventFailureData,
-	): void;
-	private sendTelemetryEvent(
-		event: 'composer/action/finishAndCommit/failed',
-		data: ComposerActionEventFailureData,
-	): void;
-	private sendTelemetryEvent(event: 'composer/loaded' | 'composer/reloaded', data?: ComposerLoadedErrorData): void;
-	private sendTelemetryEvent(
-		event:
-			| 'composer/action/includedUnstagedChanges'
-			| 'composer/action/changeAiModel'
-			| 'composer/action/finishAndCommit'
-			| 'composer/action/undo'
-			| 'composer/action/reset'
-			| 'composer/warning/workingDirectoryChanged'
-			| 'composer/warning/indexChanged',
-	): void;
-	private sendTelemetryEvent(event: ComposerTelemetryEvent, data?: any): void {
-		if (!this.container.telemetry.enabled) return;
+	private _panelWasVisible: boolean | undefined;
+	private _isMaximized = false;
 
-		this.container.telemetry.sendEvent(event, {
-			...this.getTelemetryContext(),
-			...data,
-		});
+	async maximize(): Promise<void> {
+		if (this._isMaximized) {
+			// Restore panel if it was previously visible
+			if (this._panelWasVisible) {
+				await executeCoreCommand('workbench.action.togglePanel');
+			}
+			this._isMaximized = false;
+			this._panelWasVisible = undefined;
+		} else {
+			// Check panel visibility by querying the workbench state
+			// We'll use a workaround: check if the panel is focused
+			try {
+				// Try to focus the panel - if it succeeds, panel was visible
+				await executeCoreCommand('workbench.action.focusPanel');
+				this._panelWasVisible = true;
+				// Now hide it
+				await executeCoreCommand('workbench.action.togglePanel');
+			} catch {
+				// If focusing failed, panel wasn't visible
+				this._panelWasVisible = false;
+			}
+
+			this._isMaximized = true;
+		}
 	}
 }

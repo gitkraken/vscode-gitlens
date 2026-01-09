@@ -1,25 +1,27 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- disabling until we can migrate to the new Lit-based base */
 /*global document IntersectionObserver*/
 import './settings.scss';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
-import type { AutolinkConfig } from '../../../config';
-import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
-import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
-import { createCommandLink } from '../../../system/commands';
-import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
-import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
-import type { State } from '../../settings/protocol';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations.js';
+import type { AutolinkConfig } from '../../../config.js';
+import type { SupportedCloudIntegrationIds } from '../../../constants.integrations.js';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
+import { createCommandLink } from '../../../system/commands.js';
+import type { IpcMessage } from '../../ipc/models/ipc.js';
+import type { UpdateConfigurationParams } from '../../protocol.js';
+import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol.js';
+import type { State } from '../../settings/protocol.js';
 import {
 	DidChangeAccountNotification,
 	DidChangeIssueIntegrationConnectedNotification,
 	DidOpenAnchorNotification,
 	GenerateConfigurationPreviewRequest,
-} from '../../settings/protocol';
-import { App } from '../shared/appBase';
-import { formatDate, setDefaultDateLocales } from '../shared/date';
-import { DOM } from '../shared/dom';
-import type { Disposable } from '../shared/events';
-import '../shared/components/feature-badge';
-import '../shared/components/gitlens-logo';
+} from '../../settings/protocol.js';
+import { App } from '../shared/appBase.js';
+import { formatDate, setDefaultDateLocales } from '../shared/date.js';
+import { DOM } from '../shared/dom.js';
+import type { Disposable } from '../shared/events.js';
+import '../shared/components/feature-badge.js';
+import '../shared/components/gitlens-logo.js';
 
 const topOffset = 83;
 const offset = (new Date().getTimezoneOffset() / 60) * 100;

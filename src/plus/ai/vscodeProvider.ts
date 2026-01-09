@@ -1,16 +1,16 @@
 import type { CancellationToken, Event, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
 import { Disposable, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
-import { uuid } from '@env/crypto';
-import { vscodeProviderDescriptor } from '../../constants.ai';
-import type { Container } from '../../container';
-import { AIError, AIErrorReason, CancellationError } from '../../errors';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import { capitalize } from '../../system/string';
-import type { ServerConnection } from '../gk/serverConnection';
-import type { AIActionType, AIModel } from './models/model';
-import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
-import { getActionName, getValidatedTemperature } from './utils/-webview/ai.utils';
+import { uuid } from '@env/crypto.js';
+import { vscodeProviderDescriptor } from '../../constants.ai.js';
+import type { Container } from '../../container.js';
+import { AIError, AIErrorReason, CancellationError } from '../../errors.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { startLogScope } from '../../system/logger.scope.js';
+import { capitalize } from '../../system/string.js';
+import type { ServerConnection } from '../gk/serverConnection.js';
+import type { AIActionType, AIModel } from './models/model.js';
+import type { AIChatMessage, AIProvider, AIProviderResponse } from './models/provider.js';
+import { getActionName, getValidatedTemperature } from './utils/-webview/ai.utils.js';
 
 const provider = vscodeProviderDescriptor;
 
@@ -72,7 +72,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		_apiKey: string,
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
-	): Promise<AIRequestResult | undefined> {
+	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
 		const chatModel = await this.getChatModel(model);
@@ -119,7 +119,12 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					message += fragment;
 				}
 
-				return { content: message.trim(), model: model, id: uuid() } satisfies AIRequestResult;
+				return {
+					content: message.trim(),
+					model: model,
+					id: uuid(),
+					result: undefined,
+				} satisfies AIProviderResponse<void>;
 			} catch (ex) {
 				if (ex instanceof CancellationError) {
 					Logger.error(ex, scope, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);

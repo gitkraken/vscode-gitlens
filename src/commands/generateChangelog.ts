@@ -1,20 +1,20 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
 import { ProgressLocation, window, workspace } from 'vscode';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { GitReference } from '../git/models/reference';
-import { getChangesForChangelog } from '../git/utils/-webview/log.utils';
-import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../messages';
-import type { AIGenerateChangelogChanges } from '../plus/ai/aiProviderService';
-import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
-import { showComparisonPicker } from '../quickpicks/comparisonPicker';
-import { command } from '../system/-webview/command';
-import type { Lazy } from '../system/lazy';
-import { lazy } from '../system/lazy';
-import { Logger } from '../system/logger';
-import { pluralize } from '../system/string';
-import { GlCommandBase } from './commandBase';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { GitReference } from '../git/models/reference.js';
+import { getChangesForChangelog } from '../git/utils/-webview/log.utils.js';
+import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import type { AIGenerateChangelogChanges } from '../plus/ai/actions/generateChangelog.js';
+import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils.js';
+import { showComparisonPicker } from '../quickpicks/comparisonPicker.js';
+import { command } from '../system/-webview/command.js';
+import type { Lazy } from '../system/lazy.js';
+import { lazy } from '../system/lazy.js';
+import { Logger } from '../system/logger.js';
+import { pluralize } from '../system/string.js';
+import { GlCommandBase } from './commandBase.js';
 
 export interface GenerateChangelogCommandArgs {
 	repoPath?: string;
@@ -94,11 +94,13 @@ export async function generateChangelogAndOpenMarkdownDocument(
 	source: Source,
 	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 ): Promise<void> {
-	const result = await container.ai.generateChangelog(changes, source, options);
-
+	const result = await container.ai.actions.generateChangelog(changes, source, options);
 	if (result === 'cancelled') return;
 
-	const { range, changes: { length: count } = [] } = await changes.value;
+	const {
+		range,
+		changes: { length: count },
+	} = await changes.value;
 	const feedbackContext = result && getAIResultContext(result);
 
 	let content = `# Changelog for ${range.head.label ?? range.head.ref}\n`;
@@ -114,7 +116,7 @@ export async function generateChangelogAndOpenMarkdownDocument(
 			content += '*Your feedback helps us improve our AI features.*';
 		}
 
-		content += `\n\n----\n\n${result.content}\n`;
+		content += `\n\n----\n\n${result.result}\n`;
 	} else {
 		content += `> No changes found between ${range.head.label ?? range.head.ref} and ${
 			range.base.label ?? range.base.ref

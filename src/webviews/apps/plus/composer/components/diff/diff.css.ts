@@ -98,23 +98,27 @@ export const hljsStyles = css`
 
 export const diff2htmlStyles = css`
 	:host {
-		--d2h-intrinsic-base-height: 3.5rem;
+		--d2h-intrinsic-base-height: 3.5rem; /* header height */
+		--d2h-intrinsic-container-offset-height: 12px; /* 10px scrollbar height + 2px vertical borders */
 		--d2h-intrinsic-line-count: 50;
-		--d2h-intrinsic-line-height: 1.8rem;
+		--d2h-intrinsic-line-height: calc(
+			var(--editor-font-size) * 1.5
+		); /* 1.2rem (font) to 1.8rem (line height) ratio, but still fixed */
 		--d2h-intrinsic-height: calc(
-			var(--d2h-intrinsic-base-height) + (var(--d2h-intrinsic-line-height) * var(--d2h-intrinsic-line-count))
+			var(--d2h-intrinsic-base-height) + (var(--d2h-intrinsic-line-height) * var(--d2h-intrinsic-line-count)) +
+				var(--d2h-intrinsic-container-offset-height)
 		);
 
 		display: block;
 		position: relative;
 	}
 
-	.d2h-file-wrapper {
+	.diff-container {
 		content-visibility: auto;
 		contain-intrinsic-size: auto var(--d2h-intrinsic-base-height);
 	}
 
-	.d2h-file-wrapper[open] {
+	.diff-container:has(.d2h-file-wrapper[open]) {
 		contain-intrinsic-height: var(--d2h-intrinsic-height);
 	}
 
@@ -132,7 +136,7 @@ export const diff2htmlStyles = css`
 	}
 	.d2h-file-header.d2h-sticky-header {
 		position: sticky;
-		top: 0;
+		top: var(--file-header-sticky-top, 0);
 		z-index: 1;
 	}
 	.d2h-file-stats {
@@ -755,6 +759,16 @@ export const diffStyles = css`
 	td {
 		padding-block: 0;
 		line-height: var(--d2h-intrinsic-line-height);
+	}
+	.d2h-code-line,
+	.d2h-code-side-line {
+		height: var(--d2h-intrinsic-line-height);
+		overflow: hidden;
+		vertical-align: top;
+	}
+	.d2h-file-diff {
+		overflow-x: scroll;
+		overflow-y: hidden;
 	}
 	.d2h-file-wrapper {
 		margin-block-end: 0;

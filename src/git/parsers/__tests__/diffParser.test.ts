@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseGitDiff } from '../diffParser';
+import { parseGitDiff } from '../diffParser.js';
 
 suite('Diff Parser Test Suite', () => {
 	test('parses renamed file without changes', () => {

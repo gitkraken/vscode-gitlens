@@ -1,19 +1,20 @@
 import type { Range, Uri } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
-import type { Source } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
-import { isVsts, parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models';
-import { convertRemoteProviderIdToIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils';
-import type { Brand, Unbrand } from '../../system/brand';
-import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
-import type { Repository } from '../models/repository';
-import type { GkProviderId } from '../models/repositoryIdentities';
-import type { GitRevisionRangeNotation } from '../models/revision';
-import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
-import { RemoteProvider } from './remoteProvider';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks.js';
+import type { Source } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration.js';
+import { isVsts, parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models.js';
+import { convertRemoteProviderIdToIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils.js';
+import type { Brand, Unbrand } from '../../system/brand.js';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource.js';
+import type { Repository } from '../models/repository.js';
+import type { GkProviderId } from '../models/repositoryIdentities.js';
+import type { GitRevisionRangeNotation } from '../models/revision.js';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider.js';
+import { RemoteProvider } from './remoteProvider.js';
 
 const gitRegex = /\/_git\/?/i;
+const gitTailRegex = /\/_git(?:\/.*)?$/i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
 const orgAndProjectRegex = /^(.*?)\/(.*?)\/(.*)/;
 const sshDomainRegex = /^(ssh|vs-ssh)\./i;
@@ -70,8 +71,9 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	protected override get issueLinkPattern(): string {
-		const workUrl = this.baseUrl.replace(gitRegex, '/');
-		return `${workUrl}/_workitems/edit/<num>`;
+		const projectUrl = this.baseUrl.replace(gitTailRegex, '');
+		const orgUrl = projectUrl.substring(0, projectUrl.lastIndexOf('/'));
+		return `${orgUrl}/_workitems/edit/<num>`;
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;

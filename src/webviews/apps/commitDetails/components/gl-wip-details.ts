@@ -4,28 +4,23 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import { uncommitted } from '../../../../git/models/revision';
-import { createCommandLink } from '../../../../system/commands';
-import { equalsIgnoreCase } from '../../../../system/string';
-import { serializeWebviewItemContext } from '../../../../system/webview';
-import type {
-	DetailsFileContextValue,
-	DetailsItemTypedContext,
-	DraftState,
-	Wip,
-} from '../../../commitDetails/protocol';
-import type { ComposerCommandArgs } from '../../../plus/composer/registration';
-import type { Change } from '../../../plus/patchDetails/protocol';
-import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
-import type { File } from './gl-details-base';
-import { GlDetailsBase } from './gl-details-base';
-import type { CreatePatchState, GenerateState } from './gl-inspect-patch';
-import '../../shared/components/button';
-import '../../shared/components/button-container';
-import '../../shared/components/code-icon';
-import '../../shared/components/panes/pane-group';
-import '../../shared/components/pills/tracking';
-import './gl-inspect-patch';
+import { uncommitted } from '../../../../git/models/revision.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import { equalsIgnoreCase } from '../../../../system/string.js';
+import { serializeWebviewItemContext } from '../../../../system/webview.js';
+import type { DetailsItemTypedContext, DraftState, Wip } from '../../../commitDetails/protocol.js';
+import type { ComposerCommandArgs } from '../../../plus/composer/registration.js';
+import type { Change } from '../../../plus/patchDetails/protocol.js';
+import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
+import type { File } from './gl-details-base.js';
+import { GlDetailsBase } from './gl-details-base.js';
+import type { CreatePatchState, GenerateState } from './gl-inspect-patch.js';
+import '../../shared/components/button.js';
+import '../../shared/components/button-container.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/panes/pane-group.js';
+import '../../shared/components/pills/tracking.js';
+import './gl-inspect-patch.js';
 
 @customElement('gl-wip-details')
 export class GlWipDetails extends GlDetailsBase {
@@ -165,7 +160,7 @@ export class GlWipDetails extends GlDetailsBase {
 		let label = 'Share as Cloud Patch';
 		let action = 'create-patch';
 		const pr = this.wip?.pullRequest;
-		if (pr != null && pr.state === 'opened' && equalsIgnoreCase(pr.provider.domain, 'github.com')) {
+		if (pr?.state === 'opened' && equalsIgnoreCase(pr.provider.domain, 'github.com')) {
 			// const isMe = pr.author.name.endsWith('(you)');
 			// if (isMe) {
 			// 	label = 'Share with PR Participants';
@@ -427,7 +422,7 @@ export class GlWipDetails extends GlDetailsBase {
 	override getFileContextData(file: File): string | undefined {
 		if (!this.wip?.repo?.path) return undefined;
 
-		const context: DetailsItemTypedContext<DetailsFileContextValue> = {
+		const context: DetailsItemTypedContext = {
 			webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
 			webviewItemValue: {
 				type: 'file',

@@ -1,7 +1,7 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import { cardStyles } from './card.css';
+import { cardStyles } from './card.css.js';
 
 export const cardTagName = 'gl-card';
 

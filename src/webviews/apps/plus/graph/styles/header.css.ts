@@ -11,61 +11,6 @@ export const repoHeaderStyles = css`
 	}
 `;
 
-export const progressStyles = css`
-	.progress-container {
-		position: absolute;
-		left: 0;
-		bottom: 0;
-		z-index: 5;
-		height: 2px;
-		width: 100%;
-		overflow: hidden;
-	}
-	.progress-container .progress-bar {
-		background-color: var(--vscode-progressBar-background);
-		display: none;
-		position: absolute;
-		left: 0;
-		width: 2%;
-		height: 2px;
-	}
-
-	.progress-container.active .progress-bar {
-		display: inherit;
-	}
-
-	.progress-container.discrete .progress-bar {
-		left: 0;
-		transition: width 0.1s linear;
-	}
-
-	.progress-container.discrete.done .progress-bar {
-		width: 100%;
-	}
-
-	.progress-container.infinite .progress-bar {
-		animation-name: progress;
-		animation-duration: 4s;
-		animation-iteration-count: infinite;
-		animation-timing-function: steps(100);
-		transform: translateZ(0);
-	}
-
-	@keyframes progress {
-		0% {
-			transform: translateX(0) scaleX(1);
-		}
-
-		50% {
-			transform: translateX(2500%) scaleX(3);
-		}
-
-		to {
-			transform: translateX(4900%) scaleX(1);
-		}
-	}
-`;
-
 export const titlebarStyles = css`
 	.titlebar {
 		background: var(--titlebar-bg);
@@ -246,10 +191,13 @@ export const graphHeaderControlStyles = css`
 		padding: 0.2rem 0.4rem;
 	}
 
-	sl-option[aria-selected='true']::part(base),
-	sl-option:not([aria-selected='true']):hover::part(base),
-	sl-option:not([aria-selected='true']):focus::part(base) {
+	sl-option:focus::part(base) {
 		background-color: var(--vscode-list-activeSelectionBackground);
+		color: var(--vscode-list-activeSelectionForeground);
+	}
+
+	sl-option:not(:focus):hover::part(base) {
+		background-color: var(--vscode-list-inactiveSelectionBackground);
 		color: var(--vscode-list-activeSelectionForeground);
 	}
 
@@ -258,6 +206,9 @@ export const graphHeaderControlStyles = css`
 	}
 
 	sl-select::part(listbox) {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
 		padding-block: 0.2rem 0;
 		width: max-content;
 	}

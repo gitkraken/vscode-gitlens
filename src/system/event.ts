@@ -1,6 +1,6 @@
 import type { Disposable, Event } from 'vscode';
-import { Logger } from './logger';
-import type { Deferred } from './promise';
+import { Logger } from './logger.js';
+import type { Deferred } from './promise.js';
 
 export function once<T>(event: Event<T>): Event<T> {
 	return take<T>(event, 1);

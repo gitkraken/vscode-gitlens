@@ -1,14 +1,14 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, languages } from 'vscode';
-import type { Container } from '../container';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { log } from '../system/decorators/log';
-import { once } from '../system/event';
-import { getLoggableName, Logger } from '../system/logger';
-import { getLogScope, setLogScopeExit, startLogScope } from '../system/logger.scope';
-import type { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent } from '../trackers/documentTracker';
-import type { GitCodeLensProvider } from './codeLensProvider';
+import type { Container } from '../container.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { log } from '../system/decorators/log.js';
+import { once } from '../system/event.js';
+import { getLoggableName, Logger } from '../system/logger.js';
+import { getLogScope, setLogScopeExit, startLogScope } from '../system/logger.scope.js';
+import type { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent } from '../trackers/documentTracker.js';
+import type { GitCodeLensProvider } from './codeLensProvider.js';
 
 export class GitCodeLensController implements Disposable {
 	private _canToggle: boolean = false;
@@ -105,7 +105,7 @@ export class GitCodeLensController implements Disposable {
 
 		this._providerDisposable?.dispose();
 
-		const { GitCodeLensProvider } = await import(/* webpackChunkName: "codelens" */ './codeLensProvider');
+		const { GitCodeLensProvider } = await import(/* webpackChunkName: "codelens" */ './codeLensProvider.js');
 
 		this._provider = new GitCodeLensProvider(this.container);
 		this._providerDisposable = Disposable.from(

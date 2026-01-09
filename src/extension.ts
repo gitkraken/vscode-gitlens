@@ -1,46 +1,52 @@
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
-import { hrtime } from '@env/hrtime';
-import { loggingJsonReplacer } from '@env/json';
-import { isWeb } from '@env/platform';
-import { Api } from './api/api';
-import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
-import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
-import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote';
-import { fromOutputLevel } from './config';
-import { trackableSchemes } from './constants';
-import { SyncedStorageKeys } from './constants.storage';
-import { Container } from './container';
-import { isGitUri } from './git/gitUri';
-import { isBranch } from './git/models/branch';
-import { isCommit } from './git/models/commit';
-import { isRepository } from './git/models/repository';
-import { isTag } from './git/models/tag';
-import { getBranchNameWithoutRemote } from './git/utils/branch.utils';
-import { setAbbreviatedShaLength } from './git/utils/revision.utils';
+import { hrtime } from '@env/hrtime.js';
+import { loggingJsonReplacer } from '@env/json.js';
+import { isWeb } from '@env/platform.js';
+import { Api } from './api/api.js';
+import type {
+	CreatePullRequestActionContext,
+	GitLensApi,
+	OpenIssueActionContext,
+	OpenPullRequestActionContext,
+} from './api/gitlens.d.js';
+import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote.js';
+import type { OpenIssueOnRemoteCommandArgs } from './commands/openIssueOnRemote.js';
+import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote.js';
+import { fromOutputLevel } from './config.js';
+import { trackableSchemes } from './constants.js';
+import { SyncedStorageKeys } from './constants.storage.js';
+import { Container } from './container.js';
+import { isGitUri } from './git/gitUri.js';
+import { isBranch } from './git/models/branch.js';
+import { isCommit } from './git/models/commit.js';
+import { isRepository } from './git/models/repository.js';
+import { isTag } from './git/models/tag.js';
+import { getBranchNameWithoutRemote } from './git/utils/branch.utils.js';
+import { setAbbreviatedShaLength } from './git/utils/revision.utils.js';
 import {
 	showDebugLoggingWarningMessage,
 	showMcpMessage,
 	showPreReleaseExpiredErrorMessage,
 	showWhatsNewMessage,
-} from './messages';
-import { registerPartnerActionRunners } from './partners';
-import { executeCommand, registerCommands } from './system/-webview/command';
-import { configuration, Configuration } from './system/-webview/configuration';
-import { setContext } from './system/-webview/context';
-import { Storage } from './system/-webview/storage';
-import { deviceCohortGroup } from './system/-webview/vscode';
-import { isTextDocument } from './system/-webview/vscode/documents';
-import { isTextEditor } from './system/-webview/vscode/editors';
-import { isWorkspaceFolder } from './system/-webview/vscode/workspaces';
-import { setDefaultDateLocales } from './system/date';
-import { once } from './system/event';
-import { BufferedLogChannel, getLoggableName, Logger } from './system/logger';
-import { flatten } from './system/object';
-import { Stopwatch } from './system/stopwatch';
-import { compare, fromString, satisfies } from './system/version';
-import { isViewNode } from './views/nodes/utils/-webview/node.utils';
-import './commands';
+} from './messages.js';
+import { registerPartnerActionRunners } from './partners.js';
+import { executeCommand, registerCommands } from './system/-webview/command.js';
+import { configuration, Configuration } from './system/-webview/configuration.js';
+import { setContext } from './system/-webview/context.js';
+import { Storage } from './system/-webview/storage.js';
+import { isTextDocument } from './system/-webview/vscode/documents.js';
+import { isTextEditor } from './system/-webview/vscode/editors.js';
+import { isWorkspaceFolder } from './system/-webview/vscode/workspaces.js';
+import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode.js';
+import { setDefaultDateLocales } from './system/date.js';
+import { once } from './system/event.js';
+import { BufferedLogChannel, getLoggableName, Logger } from './system/logger.js';
+import { flatten } from './system/object.js';
+import { Stopwatch } from './system/stopwatch.js';
+import { compare, fromString, satisfies } from './system/version.js';
+import { isViewNode } from './views/nodes/utils/-webview/node.utils.js';
+import './commands.js';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const gitlensVersion: string = context.extension.packageJSON.version;
@@ -59,7 +65,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 					channel.appendLine(
 						`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion} activating in ${
 							env.appName
-						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
+						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
+							context.extensionMode,
+						)}, language='${
 							env.language
 						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 							env.sessionId
@@ -113,12 +121,13 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
 		log: {
-			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
+			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
+				context.extensionMode,
+			)},language='${
 				env.language
 			}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 				env.sessionId
 			})`,
-			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
 		},
 	});
 
@@ -205,7 +214,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}
 
 		void showWhatsNew(container, gitlensVersion, prerelease, previousVersion);
-		showMcp(gitlensVersion, previousVersion);
+		showMcp(container, gitlensVersion, previousVersion);
 
 		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion).catch();
 
@@ -335,6 +344,16 @@ function registerBuiltInActionRunners(container: Container): void {
 				}));
 			},
 		}),
+		container.actionRunners.registerBuiltIn<OpenIssueActionContext>('openIssue', {
+			label: ctx => `Open Issue on ${ctx.provider?.name ?? 'Remote'}`,
+			run: async ctx => {
+				if (ctx.type !== 'openIssue') return;
+
+				void (await executeCommand<OpenIssueOnRemoteCommandArgs>('gitlens.openIssueOnRemote', {
+					issue: { url: ctx.issue.url },
+				}));
+			},
+		}),
 	);
 }
 
@@ -393,7 +412,7 @@ async function showWhatsNew(
 	}
 }
 
-function showMcp(version: string, previousVersion: string | undefined): void {
+function showMcp(container: Container, version: string, previousVersion: string | undefined): void {
 	if (
 		isWeb ||
 		previousVersion == null ||
@@ -404,5 +423,5 @@ function showMcp(version: string, previousVersion: string | undefined): void {
 		return;
 	}
 
-	void showMcpMessage(version);
+	void showMcpMessage(container, version);
 }

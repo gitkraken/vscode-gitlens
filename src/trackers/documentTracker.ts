@@ -10,22 +10,22 @@ import type {
 	TextLine,
 } from 'vscode';
 import { Disposable, EndOfLine, env, EventEmitter, Uri, window, workspace } from 'vscode';
-import type { Container } from '../container';
-import type { RepositoriesChangeEvent } from '../git/gitProviderService';
-import type { GitUri } from '../git/gitUri';
-import { isGitUri } from '../git/gitUri';
-import type { RepositoryChangeEvent } from '../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { UriSet } from '../system/-webview/uriMap';
-import { getOpenTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents';
-import { debug } from '../system/decorators/log';
-import { once } from '../system/event';
-import type { Deferrable } from '../system/function/debounce';
-import { debounce } from '../system/function/debounce';
-import type { TrackedGitDocument } from './trackedDocument';
-import { createTrackedGitDocument } from './trackedDocument';
+import type { Container } from '../container.js';
+import type { RepositoriesChangeEvent } from '../git/gitProviderService.js';
+import type { GitUri } from '../git/gitUri.js';
+import { isGitUri } from '../git/gitUri.js';
+import type { RepositoryChangeEvent } from '../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { UriSet } from '../system/-webview/uriMap.js';
+import { getOpenTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents.js';
+import { debug } from '../system/decorators/log.js';
+import { once } from '../system/event.js';
+import type { Deferrable } from '../system/function/debounce.js';
+import { debounce } from '../system/function/debounce.js';
+import type { TrackedGitDocument } from './trackedDocument.js';
+import { createTrackedGitDocument } from './trackedDocument.js';
 
 export interface DocumentContentChangeEvent {
 	readonly editor: TextEditor;
@@ -140,10 +140,7 @@ export class GitDocumentTracker implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		// Only rest the cached state if we aren't initializing
-		if (
-			e != null &&
-			(configuration.changed(e, 'blame.ignoreWhitespace') || configuration.changed(e, 'advanced.caching.enabled'))
-		) {
+		if (e != null && configuration.changed(e, 'blame.ignoreWhitespace')) {
 			void this.refreshDocuments();
 		}
 

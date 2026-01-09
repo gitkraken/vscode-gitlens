@@ -1,13 +1,13 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { ViewFilesLayout, ViewsFilesConfig } from '../../config';
-import { GitUri } from '../../git/gitUri';
-import type { HierarchicalItem } from '../../system/array';
-import { first } from '../../system/iterable';
-import { sortCompare } from '../../system/string';
-import type { StashesView } from '../stashesView';
-import type { ViewsWithCommits } from '../viewBase';
-import type { ViewFileNode } from './abstract/viewFileNode';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
+import type { ViewFilesLayout, ViewsFilesConfig } from '../../config.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { HierarchicalItem } from '../../system/array.js';
+import { first } from '../../system/iterable.js';
+import { sortCompare } from '../../system/string.js';
+import type { StashesView } from '../stashesView.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import type { ViewFileNode } from './abstract/viewFileNode.js';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
 
 export interface FileNode extends ViewFileNode {
 	folderName: string;

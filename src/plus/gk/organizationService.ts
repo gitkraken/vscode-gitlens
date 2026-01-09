@@ -1,20 +1,20 @@
 import { Disposable, window } from 'vscode';
-import type { Container } from '../../container';
-import { setContext } from '../../system/-webview/context';
-import { gate } from '../../system/decorators/gate';
-import { log } from '../../system/decorators/log';
-import { once } from '../../system/function';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import type { Container } from '../../container.js';
+import { setContext } from '../../system/-webview/context.js';
+import { gate } from '../../system/decorators/gate.js';
+import { log } from '../../system/decorators/log.js';
+import { once } from '../../system/function.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
 import type {
 	Organization,
 	OrganizationMember,
 	OrganizationSettings,
 	OrganizationsResponse,
-} from './models/organization';
-import { fromGKDevAIProviders } from './models/organization';
-import type { ServerConnection } from './serverConnection';
-import type { SubscriptionChangeEvent } from './subscriptionService';
+} from './models/organization.js';
+import { fromGKDevAIProviders } from './models/organization.js';
+import type { ServerConnection } from './serverConnection.js';
+import type { SubscriptionChangeEvent } from './subscriptionService.js';
 
 const organizationsCacheExpiration = 24 * 60 * 60 * 1000; // 1 day
 

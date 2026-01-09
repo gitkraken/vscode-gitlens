@@ -1,19 +1,25 @@
-import { ThemeIcon } from 'vscode';
-import type { Container } from '../../container';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitLog } from '../../git/models/log';
-import type { GitReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
-import { createRevisionRange } from '../../git/utils/revision.utils';
-import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { ThemeIcon, window } from 'vscode';
+import type { Container } from '../../container.js';
+import { MergeError } from '../../git/errors.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitLog } from '../../git/models/log.js';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts.js';
+import type { GitReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils.js';
+import { createRevisionRange } from '../../git/utils/revision.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { Logger } from '../../system/logger.js';
+import { pluralize } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import { PickCommitToggleQuickInputButton } from '../quickCommand.buttons.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -22,10 +28,9 @@ import type {
 	StepResult,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import { PickCommitToggleQuickInputButton } from '../quickCommand.buttons';
-import { appendReposToTitle, pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
+} from '../quickCommand.js';
+import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { appendReposToTitle, pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];
@@ -80,8 +85,57 @@ export class MergeGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	private execute(state: MergeStepState) {
-		state.repo.merge(...state.flags, state.reference.ref);
+	private async execute(state: MergeStepState) {
+		const options: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean } = {};
+
+		if (state.flags.includes('--ff-only')) {
+			options.fastForward = 'only';
+		} else if (state.flags.includes('--no-ff')) {
+			options.fastForward = false;
+		}
+		if (state.flags.includes('--squash')) {
+			options.squash = true;
+		}
+		if (state.flags.includes('--no-commit')) {
+			options.noCommit = true;
+		}
+
+		try {
+			await state.repo.git.ops?.merge(state.reference.ref, options);
+		} catch (ex) {
+			// Don't show an error message if the user intentionally aborted the merge
+			if (MergeError.is(ex, 'aborted')) {
+				Logger.log(ex.message, this.title);
+				return;
+			}
+
+			Logger.error(ex, this.title);
+
+			if (MergeError.is(ex, 'uncommittedChanges') || MergeError.is(ex, 'wouldOverwriteChanges')) {
+				void window.showWarningMessage(
+					'Unable to merge. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+				);
+				return;
+			}
+
+			if (MergeError.is(ex, 'conflicts')) {
+				void window.showWarningMessage(
+					'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (MergeError.is(ex, 'alreadyInProgress')) {
+				void window.showWarningMessage(
+					'Unable to merge. A merge is already in progress. Continue or abort the current merge first.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			void showGitErrorMessage(ex, MergeError.is(ex) ? undefined : 'Unable to merge');
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -204,7 +258,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			endSteps(state);
-			this.execute(state as MergeStepState);
+			void this.execute(state as MergeStepState);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
@@ -286,12 +340,12 @@ export class MergeGitCommand extends QuickCommand<State> {
 			}),
 		];
 
-		let potentialConflict;
+		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
 		const subscription = await this.container.subscription.getSubscription();
 		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
-			potentialConflict = state.repo.git.branches.getPotentialMergeOrRebaseConflict?.(
+			potentialConflict = state.repo.git.branches.getPotentialMergeConflicts?.(
+				state.reference.name,
 				context.destination.name,
-				state.reference.ref,
 			);
 		}
 
@@ -299,28 +353,49 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 		const notices: DirectiveQuickPickItem[] = [];
 		if (potentialConflict) {
-			void potentialConflict?.then(conflict => {
-				notices.splice(
-					0,
-					1,
-					conflict == null
-						? createDirectiveQuickPickItem(Directive.Noop, false, {
-								label: 'No Conflicts Detected',
-								iconPath: new ThemeIcon('check'),
-							})
-						: createDirectiveQuickPickItem(Directive.Noop, false, {
-								label: 'Conflicts Detected',
-								detail: `Will result in ${pluralize(
-									'conflicting file',
-									conflict.files.length,
-								)} that will need to be resolved`,
-								iconPath: new ThemeIcon('warning'),
-							}),
-				);
+			void potentialConflict?.then(result => {
+				if (result == null || result.status === 'clean') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'No Conflicts Detected',
+							iconPath: new ThemeIcon('check'),
+						}),
+					);
+				} else if (result.status === 'error') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Unable to Detect Conflicts',
+							detail: result.message,
+							iconPath: new ThemeIcon('error'),
+						}),
+					);
+				} else {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Conflicts Detected',
+							detail: `Will result in ${pluralize(
+								'conflicting file',
+								result.conflict.files.length,
+							)} that will need to be resolved`,
+							iconPath: new ThemeIcon('warning'),
+						}),
+					);
+				}
 
 				if (step.quickpick != null) {
 					const active = step.quickpick.activeItems;
-					step.quickpick.items = [...notices, ...items];
+					step.quickpick.items = [
+						...notices,
+						...items,
+						createQuickPickSeparator(),
+						createDirectiveQuickPickItem(Directive.Cancel),
+					];
 					step.quickpick.activeItems = active;
 				}
 			});

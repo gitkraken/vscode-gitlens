@@ -1,8 +1,8 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
-import { urls } from '../../../../constants';
-import type { Container } from '../../../../container';
-import { openUrl } from '../../../../system/-webview/vscode/uris';
+import { urls } from '../../../../constants.js';
+import type { Container } from '../../../../container.js';
+import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 
 export async function confirmDraftStorage(container: Container): Promise<boolean> {
 	if (container.storage.get('confirm:draft:storage', false)) return true;

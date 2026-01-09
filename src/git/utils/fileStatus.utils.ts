@@ -1,4 +1,4 @@
-import type { GitFileStatus } from '../models/fileStatus';
+import type { GitFileStatus } from '../models/fileStatus.js';
 
 const statusIconsMap = {
 	'.': undefined,

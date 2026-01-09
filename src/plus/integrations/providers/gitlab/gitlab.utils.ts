@@ -1,5 +1,5 @@
-import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../../constants.integrations';
-import type { PullRequestUrlIdentity } from '../../../../git/utils/pullRequest.utils';
+import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../../constants.integrations.js';
+import type { PullRequestUrlIdentity } from '../../../../git/utils/pullRequest.utils.js';
 
 export type GitLabIntegrationIds =
 	| GitCloudHostIntegrationId.GitLab

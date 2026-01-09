@@ -1,8 +1,8 @@
 import * as process from 'process';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import fetch from 'node-fetch';
-import { configuration } from '../../system/-webview/configuration';
-import { Logger } from '../../system/logger';
+import { configuration } from '../../system/-webview/configuration.js';
+import { Logger } from '../../system/logger.js';
 
 export { fetch };
 export type { BodyInit, HeadersInit, RequestInfo, RequestInit, Response } from 'node-fetch';

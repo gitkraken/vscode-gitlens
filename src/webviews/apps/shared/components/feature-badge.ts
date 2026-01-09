@@ -2,25 +2,25 @@ import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription';
-import type { Source } from '../../../../constants.telemetry';
-import type { Subscription, SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription';
+import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { Subscription, SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import {
 	getSubscriptionProductPlanName,
 	getSubscriptionTimeRemaining,
 	isSubscriptionPaid,
 	isSubscriptionTrial,
-} from '../../../../plus/gk/utils/subscription.utils';
-import { createCommandLink } from '../../../../system/commands';
-import { pluralize } from '../../../../system/string';
-import type { PromosContext } from '../contexts/promos';
-import { promosContext } from '../contexts/promos';
-import type { GlPopover } from './overlays/popover';
-import { focusOutline } from './styles/lit/a11y.css';
-import { elementBase, linkBase } from './styles/lit/base.css';
-import './overlays/popover';
-import './overlays/tooltip';
-import './promo';
+} from '../../../../plus/gk/utils/subscription.utils.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import { pluralize } from '../../../../system/string.js';
+import type { PromosContext } from '../contexts/promos.js';
+import { promosContext } from '../contexts/promos.js';
+import type { GlPopover } from './overlays/popover.js';
+import { focusOutline } from './styles/lit/a11y.css.js';
+import { elementBase, linkBase } from './styles/lit/base.css.js';
+import './overlays/popover.js';
+import './overlays/tooltip.js';
+import './promo.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -194,13 +194,13 @@ export class GlFeatureBadge extends LitElement {
 			if (this.preview) {
 				return html`<div class="popup-header">
 					${text}<span class="popup-subtitle"
-						>Requires an account and may require GitLens Pro in the future</span
+						>Unlock this feature with an account and may require GitLens Pro in the future</span
 					>
 				</div>`;
 			}
 
 			return html`<div class="popup-header">
-				${text}<span class="popup-subtitle"> Requires GitLens Pro</span>
+				${text}<span class="popup-subtitle"> Unlock this feature with GitLens Pro</span>
 			</div>`;
 		}
 
@@ -211,7 +211,7 @@ export class GlFeatureBadge extends LitElement {
 		}
 
 		return html`<div class="popup-header">
-			${text}<span class="popup-subtitle"> Requires GitLens Pro for use on privately-hosted repos</span>
+			${text}<span class="popup-subtitle"> Unlock this feature for privately hosted repos with GitLens Pro</span>
 		</div>`;
 	}
 

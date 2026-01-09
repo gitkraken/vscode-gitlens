@@ -1,51 +1,51 @@
 import type { ConfigurationChangeEvent, MessageItem } from 'vscode';
-import { Disposable, env, window } from 'vscode';
-import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views';
-import type { Container } from '../container';
-import type { GitContributor } from '../git/models/contributor';
+import { Disposable, env, ExtensionMode, window } from 'vscode';
+import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views.js';
+import type { Container } from '../container.js';
+import type { GitContributor } from '../git/models/contributor.js';
 import type {
 	GitBranchReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../git/models/reference';
-import type { GitRemote } from '../git/models/remote';
-import type { GitWorktree } from '../git/models/worktree';
-import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { getContext, setContext } from '../system/-webview/context';
-import { getViewFocusCommand } from '../system/-webview/vscode/views';
-import { once } from '../system/function';
-import { first } from '../system/iterable';
-import { compare } from '../system/version';
+} from '../git/models/reference.js';
+import type { GitRemote } from '../git/models/remote.js';
+import type { GitWorktree } from '../git/models/worktree.js';
+import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { getContext, setContext } from '../system/-webview/context.js';
+import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
+import { once } from '../system/function.js';
+import { first } from '../system/iterable.js';
+import { compare } from '../system/version.js';
 import {
 	registerCommitDetailsWebviewView,
 	registerGraphDetailsWebviewView,
-} from '../webviews/commitDetails/registration';
-import { registerHomeWebviewView } from '../webviews/home/registration';
-import { registerGraphWebviewView } from '../webviews/plus/graph/registration';
-import { registerPatchDetailsWebviewView } from '../webviews/plus/patchDetails/registration';
-import { registerTimelineWebviewView } from '../webviews/plus/timeline/registration';
-import type { WebviewsController } from '../webviews/webviewsController';
-import { BranchesView } from './branchesView';
-import { CommitsView } from './commitsView';
-import { ContributorsView } from './contributorsView';
-import { DraftsView } from './draftsView';
-import { FileHistoryView } from './fileHistoryView';
-import { LaunchpadView } from './launchpadView';
-import { LineHistoryView } from './lineHistoryView';
-import type { ViewNode } from './nodes/abstract/viewNode';
-import { PullRequestView } from './pullRequestView';
-import { RemotesView } from './remotesView';
-import { RepositoriesView } from './repositoriesView';
-import { ScmGroupedView } from './scmGroupedView';
-import { SearchAndCompareView } from './searchAndCompareView';
-import { StashesView } from './stashesView';
-import { TagsView } from './tagsView';
-import type { RevealOptions, TreeViewByType, ViewsWithRepositoryFolders } from './viewBase';
-import { ViewCommands } from './viewCommands';
-import { WorkspacesView } from './workspacesView';
-import { WorktreesView } from './worktreesView';
+} from '../webviews/commitDetails/registration.js';
+import { registerHomeWebviewView } from '../webviews/home/registration.js';
+import { registerGraphWebviewView } from '../webviews/plus/graph/registration.js';
+import { registerPatchDetailsWebviewView } from '../webviews/plus/patchDetails/registration.js';
+import { registerTimelineWebviewView } from '../webviews/plus/timeline/registration.js';
+import type { WebviewsController } from '../webviews/webviewsController.js';
+import { BranchesView } from './branchesView.js';
+import { CommitsView } from './commitsView.js';
+import { ContributorsView } from './contributorsView.js';
+import { DraftsView } from './draftsView.js';
+import { FileHistoryView } from './fileHistoryView.js';
+import { LaunchpadView } from './launchpadView.js';
+import { LineHistoryView } from './lineHistoryView.js';
+import type { ViewNode } from './nodes/abstract/viewNode.js';
+import { PullRequestView } from './pullRequestView.js';
+import { RemotesView } from './remotesView.js';
+import { RepositoriesView } from './repositoriesView.js';
+import { ScmGroupedView } from './scmGroupedView.js';
+import { SearchAndCompareView } from './searchAndCompareView.js';
+import { StashesView } from './stashesView.js';
+import { TagsView } from './tagsView.js';
+import type { RevealOptions, TreeViewByType, ViewsWithRepositoryFolders } from './viewBase.js';
+import { ViewCommands } from './viewCommands.js';
+import { WorkspacesView } from './workspacesView.js';
+import { WorktreesView } from './worktreesView.js';
 
 const defaultScmGroupedViews = {
 	commits: true,
@@ -116,23 +116,35 @@ export class Views implements Disposable {
 
 		this._welcomeDismissed = container.storage.get('views:scm:grouped:welcome:dismissed', false);
 
+		let newInstall = false;
+		let showGitLensView = false;
+		if (!configuration.get('advanced.skipOnboarding')) {
+			// If this is a new install, expand the GitLens view and show the home view by default, unless we are skipping onboarding
+			newInstall = getContext('gitlens:install:new', false);
+			showGitLensView = newInstall;
+			if (!showGitLensView) {
+				const upgradedFrom = getContext('gitlens:install:upgradedFrom');
+				if (upgradedFrom && compare(upgradedFrom, '16.0.2') === -1) {
+					showGitLensView = !this._welcomeDismissed;
+				}
+			}
+		} else if (!this._welcomeDismissed) {
+			void container.storage.store('views:scm:grouped:welcome:dismissed', true).catch();
+			this._welcomeDismissed = true;
+		}
+
 		this._lastSelectedScmGroupedView = this.container.storage.getWorkspace(
 			'views:scm:grouped:selected',
 			configuration.get('views.scm.grouped.default'),
 		);
 		this.updateScmGroupedViewsRegistration();
 
-		// If this is a new install, expand the GitLens view and show the home view by default
-		const newInstall = getContext('gitlens:install:new', false);
-		let showGitLensView = newInstall;
-		if (!showGitLensView) {
-			const upgradedFrom = getContext('gitlens:install:upgradedFrom');
-			if (upgradedFrom && compare(upgradedFrom, '16.0.2') === -1) {
-				showGitLensView = !container.storage.get('views:scm:grouped:welcome:dismissed', false);
-			}
-		}
-
-		if (showGitLensView && !env.remoteName && env.appHost === 'desktop') {
+		if (
+			showGitLensView &&
+			!env.remoteName &&
+			env.appHost === 'desktop' &&
+			container.extensionMode === ExtensionMode.Production
+		) {
 			const disposable = once(container.onReady)(() => {
 				disposable?.dispose();
 				setTimeout(() => {
@@ -519,7 +531,7 @@ export class Views implements Disposable {
 	private async showWelcomeNotification() {
 		this._welcomeDismissed = true;
 
-		const newInstall = getContext('gitlens:install:new', false);
+		const newInstall = !configuration.get('advanced.skipOnboarding') && getContext('gitlens:install:new', false);
 
 		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 		const Restore: MessageItem = { title: 'Restore Previous Locations' };
@@ -579,7 +591,7 @@ export class Views implements Disposable {
 		if (this._scmGroupedViews.size) {
 			if (this._welcomeDismissed || bypassWelcomeView) {
 				// If we are bypassing the welcome view, show it as a notification -- since we can't block the view from loading
-				if (!this._welcomeDismissed && bypassWelcomeView) {
+				if (!this._welcomeDismissed && bypassWelcomeView && !configuration.get('advanced.skipOnboarding')) {
 					void this.showWelcomeNotification();
 				}
 

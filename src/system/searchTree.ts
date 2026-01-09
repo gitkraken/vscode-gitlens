@@ -1,6 +1,6 @@
-import { CharCode } from '../constants';
-import { count, map, some } from './iterable';
-import { compareSubstring, compareSubstringIgnoreCase } from './string';
+import { CharCode } from '../constants.js';
+import { count, map, some } from './iterable.js';
+import { compareSubstring, compareSubstringIgnoreCase } from './string.js';
 
 const FIN = { done: true, value: undefined };
 

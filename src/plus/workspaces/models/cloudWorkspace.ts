@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import type { Container } from '../../../container';
+import type { Container } from '../../../container.js';
 import type {
 	GKOrgVelocitySettings,
 	ProjectGoalsSettings,
@@ -8,7 +8,7 @@ import type {
 	WorkspaceRepositoriesByName,
 	WorkspaceRepositoryRelation,
 	WorkspaceType,
-} from './workspaces';
+} from './workspaces.js';
 
 export class CloudWorkspace {
 	readonly type = 'cloud' satisfies WorkspaceType;

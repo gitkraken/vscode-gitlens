@@ -4,7 +4,7 @@ import type {
 	GetActiveOverviewResponse,
 	GetInactiveOverviewResponse,
 	OverviewFilters,
-} from '../../../../home/protocol';
+} from '../../../../home/protocol.js';
 import {
 	ChangeOverviewRepositoryCommand,
 	DidChangeIntegrationsConnections,
@@ -15,10 +15,10 @@ import {
 	GetActiveOverview,
 	GetInactiveOverview,
 	GetOverviewFilterState,
-} from '../../../../home/protocol';
-import { AsyncComputedState } from '../../../shared/components/signal-utils';
-import type { Disposable } from '../../../shared/events';
-import type { HostIpc } from '../../../shared/ipc';
+} from '../../../../home/protocol.js';
+import { AsyncComputedState } from '../../../shared/components/signal-utils.js';
+import type { Disposable } from '../../../shared/events.js';
+import type { HostIpc } from '../../../shared/ipc.js';
 
 export type ActiveOverview = GetActiveOverviewResponse;
 export type InactiveOverview = GetInactiveOverviewResponse;

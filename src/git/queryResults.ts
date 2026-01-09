@@ -1,11 +1,11 @@
-import type { Container } from '../container';
-import { getSettledValue } from '../system/promise';
-import { pluralize } from '../system/string';
-import type { FilesQueryFilter } from '../views/nodes/resultsFilesNode';
-import type { GitDiffShortStat } from './models/diff';
-import type { GitFile } from './models/file';
-import type { GitLog } from './models/log';
-import type { GitUser } from './models/user';
+import type { Container } from '../container.js';
+import { getSettledValue } from '../system/promise.js';
+import { pluralize } from '../system/string.js';
+import type { FilesQueryFilter } from '../views/nodes/resultsFilesNode.js';
+import type { GitDiffShortStat } from './models/diff.js';
+import type { GitFile } from './models/file.js';
+import type { GitLog } from './models/log.js';
+import type { GitUser } from './models/user.js';
 
 export interface CommitsQueryResults {
 	readonly label?: string;

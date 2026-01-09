@@ -1,4 +1,4 @@
-import type { GitReference, GitTagReference } from '../models/reference';
+import type { GitReference, GitTagReference } from '../models/reference.js';
 
 export function getTagId(repoPath: string, name: string): string {
 	return `${repoPath}|tags/${name}`;

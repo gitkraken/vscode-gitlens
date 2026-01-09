@@ -1,36 +1,39 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import { RemoteResourceType } from '../git/models/remoteResource';
-import { deletedOrMissing } from '../git/models/revision';
-import { isUncommitted } from '../git/utils/revision.utils';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import { RemoteResourceType } from '../git/models/remoteResource.js';
+import { deletedOrMissing } from '../git/models/revision.js';
+import { isUncommitted } from '../git/utils/revision.utils.js';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
-} from '../messages';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCommand } from '../system/-webview/command';
-import { createMarkdownCommandLink } from '../system/commands';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
-import { isCommandContextGitTimelineItem, isCommandContextViewNodeHasCommit } from './commandContext.utils';
-import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+} from '../messages.js';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command, executeCommand } from '../system/-webview/command.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextGitTimelineItem, isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote.js';
 
 export interface OpenCommitOnRemoteCommandArgs {
 	clipboard?: boolean;
 	line?: number;
 	sha?: string;
+	source?: Source;
 }
 
 @command()
 export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
-	static createMarkdownCommandLink(sha: string): string;
+	static createMarkdownCommandLink(sha: string, source: Source): string;
 	static createMarkdownCommandLink(args: OpenCommitOnRemoteCommandArgs): string;
-	static createMarkdownCommandLink(argsOrSha: OpenCommitOnRemoteCommandArgs | string): string {
-		const args: OpenCommitOnRemoteCommandArgs = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
+	static createMarkdownCommandLink(argsOrSha: OpenCommitOnRemoteCommandArgs | string, source?: Source): string {
+		const args: OpenCommitOnRemoteCommandArgs =
+			typeof argsOrSha === 'string' ? { sha: argsOrSha, source: source } : argsOrSha;
 		return createMarkdownCommandLink<OpenCommitOnRemoteCommandArgs>('gitlens.openCommitOnRemote', args);
 	}
 

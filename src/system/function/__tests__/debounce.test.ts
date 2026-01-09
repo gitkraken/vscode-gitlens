@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { debounce } from '../debounce';
+import { debounce } from '../debounce.js';
 
 suite('Debounce Test Suite', () => {
 	test('should debounce function calls', () => {

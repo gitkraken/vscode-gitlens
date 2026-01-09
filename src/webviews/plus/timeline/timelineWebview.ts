@@ -1,68 +1,66 @@
 import type { TabChangeEvent, TabGroupChangeEvent } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import { proBadge } from '../../../constants';
-import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import type { FileSelectedEvent } from '../../../eventBus';
-import type { FeatureAccess, RepoFeatureAccess } from '../../../features';
+import { proBadge } from '../../../constants.js';
+import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import type { FileSelectedEvent } from '../../../eventBus.js';
+import type { FeatureAccess, RepoFeatureAccess } from '../../../features.js';
 import {
 	openChanges,
 	openChangesWithWorking,
 	openCommitChanges,
 	openCommitChangesWithWorking,
-} from '../../../git/actions/commit';
-import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
-import { ensureWorkingUri } from '../../../git/gitUri.utils';
-import type { GitCommit } from '../../../git/models/commit';
-import type { GitFileChange } from '../../../git/models/fileChange';
+} from '../../../git/actions/commit.js';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
+import { ensureWorkingUri } from '../../../git/gitUri.utils.js';
+import type { GitCommit } from '../../../git/models/commit.js';
+import type { GitFileChange } from '../../../git/models/fileChange.js';
 import type {
 	Repository,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { uncommitted } from '../../../git/models/revision';
-import { getReference } from '../../../git/utils/-webview/reference.utils';
-import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils';
-import { getPseudoCommitsWithStats } from '../../../git/utils/-webview/statusFile.utils';
-import { getChangedFilesCount } from '../../../git/utils/commit.utils';
-import { createReference } from '../../../git/utils/reference.utils';
+} from '../../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { uncommitted } from '../../../git/models/revision.js';
+import { getReference } from '../../../git/utils/-webview/reference.utils.js';
+import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils.js';
+import { getPseudoCommitsWithStats } from '../../../git/utils/-webview/statusFile.utils.js';
+import { getChangedFilesCount } from '../../../git/utils/commit.utils.js';
+import { createReference } from '../../../git/utils/reference.utils.js';
 import {
 	createRevisionRange,
 	isUncommitted,
 	isUncommittedStaged,
 	shortenRevision,
-} from '../../../git/utils/revision.utils';
-import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
-import { Directive } from '../../../quickpicks/items/directive';
-import { ReferencesQuickPickIncludes, showReferencePicker2 } from '../../../quickpicks/referencePicker';
-import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker';
-import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker';
-import { executeCommand, registerCommand } from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { isDescendant } from '../../../system/-webview/path';
-import { openTextEditor } from '../../../system/-webview/vscode/editors';
-import { getTabUri } from '../../../system/-webview/vscode/tabs';
-import { createFromDateDelta } from '../../../system/date';
-import { debug } from '../../../system/decorators/log';
-import type { Deferrable } from '../../../system/function/debounce';
-import { debounce } from '../../../system/function/debounce';
-import { map, some } from '../../../system/iterable';
-import { flatten } from '../../../system/object';
-import { basename } from '../../../system/path';
-import { batch, getSettledValue } from '../../../system/promise';
-import { PromiseCache } from '../../../system/promiseCache';
-import { SubscriptionManager } from '../../../system/subscriptionManager';
-import { createDisposable } from '../../../system/unifiedDisposable';
-import { areUrisEqual } from '../../../system/uri';
-import type { IpcMessage } from '../../protocol';
-import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
-import type { WebviewShowOptions } from '../../webviewsController';
-import { isSerializedState } from '../../webviewsController';
+} from '../../../git/utils/revision.utils.js';
+import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
+import { Directive } from '../../../quickpicks/items/directive.js';
+import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker.js';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker.js';
+import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker.js';
+import { executeCommand, registerCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { isDescendant } from '../../../system/-webview/path.js';
+import { openTextEditor } from '../../../system/-webview/vscode/editors.js';
+import { getTabUri } from '../../../system/-webview/vscode/tabs.js';
+import { createFromDateDelta } from '../../../system/date.js';
+import { debug } from '../../../system/decorators/log.js';
+import type { Deferrable } from '../../../system/function/debounce.js';
+import { debounce } from '../../../system/function/debounce.js';
+import { map, some } from '../../../system/iterable.js';
+import { flatten } from '../../../system/object.js';
+import { basename } from '../../../system/path.js';
+import { batch, getSettledValue } from '../../../system/promise.js';
+import { PromiseCache } from '../../../system/promiseCache.js';
+import { SubscriptionManager } from '../../../system/subscriptionManager.js';
+import { areUrisEqual } from '../../../system/uri.js';
+import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
+import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
+import type { WebviewShowOptions } from '../../webviewsController.js';
+import { isSerializedState } from '../../webviewsController.js';
 import type {
-	ChoosePathParams,
-	ChooseRefParams,
-	DidChooseRefParams,
 	SelectDataPointParams,
 	State,
 	TimelineDatum,
@@ -70,9 +68,7 @@ import type {
 	TimelineScope,
 	TimelineScopeType,
 	TimelineSliceBy,
-	UpdateConfigParams,
-	UpdateScopeParams,
-} from './protocol';
+} from './protocol.js';
 import {
 	ChoosePathRequest,
 	ChooseRefRequest,
@@ -80,15 +76,15 @@ import {
 	SelectDataPointCommand,
 	UpdateConfigCommand,
 	UpdateScopeCommand,
-} from './protocol';
-import type { TimelineWebviewShowingArgs } from './registration';
+} from './protocol.js';
+import type { TimelineWebviewShowingArgs } from './registration.js';
 import {
 	areTimelineScopesEqual,
 	areTimelineScopesEquivalent,
 	deserializeTimelineScope,
 	isTimelineScope,
 	serializeTimelineScope,
-} from './utils/-webview/timeline.utils';
+} from './utils/-webview/timeline.utils.js';
 
 interface Context {
 	config: {
@@ -224,7 +220,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	}
 
 	includeBootstrap(_deferrable?: boolean): Promise<State> {
-		return this._cache.get('bootstrap', () => this.getState(this._context, false));
+		return this._cache.getOrCreate('bootstrap', () => this.getState(this._context, false));
 	}
 
 	registerCommands(): Disposable[] {
@@ -240,8 +236,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						if (this._context.scope?.type !== 'file') return;
 
 						void executeCommand<TimelineScope>('gitlens.visualizeHistory', this._context.scope);
-						this.container.telemetry.sendEvent('timeline/action/openInEditor', {
-							...this.getTelemetryContext(),
+						this.host.sendTelemetryEvent('timeline/action/openInEditor', {
 							'scope.type': this._context.scope.type,
 							'scope.hasHead': this._context.scope.head != null,
 							'scope.hasBase': this._context.scope.base != null,
@@ -301,36 +296,14 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	private _openingDataPoint: SelectDataPointParams | undefined;
 	private _pendingOpenDataPoint: SelectDataPointParams | undefined;
 
-	onMessageReceived(e: IpcMessage): void {
-		switch (true) {
-			case ChoosePathRequest.is(e):
-				void this.onMessageChoosePath(e);
-				break;
-
-			case ChooseRefRequest.is(e):
-				void this.onMessageChooseRef(e);
-				break;
-
-			case SelectDataPointCommand.is(e):
-				void this.onMessageSelectDataPoint(e);
-				break;
-
-			case UpdateConfigCommand.is(e):
-				this.onMessageUpdateConfig(e);
-				break;
-
-			case UpdateScopeCommand.is(e):
-				void this.onMessageUpdateScope(e);
-				break;
-		}
-	}
-
-	private async onMessageChoosePath(e: IpcMessage<ChoosePathParams>) {
-		const { repoUri: repoPath, ref, title, initialPath } = e.params;
+	@ipcRequest(ChoosePathRequest)
+	private async onChoosePath(
+		params: IpcParams<typeof ChoosePathRequest>,
+	): Promise<IpcResponse<typeof ChoosePathRequest>> {
+		const { repoUri: repoPath, ref, title, initialPath } = params;
 		const repo = this.container.git.getRepository(repoPath);
 		if (repo == null) {
-			void this.host.respond(ChoosePathRequest, e, { picked: undefined });
-			return;
+			return { picked: undefined };
 		}
 
 		const picked = await showRevisionFilesPicker(this.container, createReference(ref?.ref ?? 'HEAD', repo.path), {
@@ -339,7 +312,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			title: title,
 		});
 
-		void this.host.respond(ChoosePathRequest, e, {
+		return {
 			picked:
 				picked != null
 					? {
@@ -347,104 +320,96 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 							relativePath: this.container.git.getRelativePath(picked.uri, repo.uri),
 						}
 					: undefined,
-		});
+		};
 	}
 
-	private async onMessageChooseRef(e: IpcMessage<ChooseRefParams>) {
-		let response: DidChooseRefParams | undefined;
-		using respond = createDisposable(() => void this.host.respond(ChooseRefRequest, e, response));
-
+	@ipcRequest(ChooseRefRequest)
+	private async onChooseRef(
+		params: IpcParams<typeof ChooseRefRequest>,
+	): Promise<IpcResponse<typeof ChooseRefRequest>> {
 		const { scope } = this._context;
-		if (scope == null || e.params.scope == null) return;
+		if (scope == null || params.scope == null) return undefined;
 
-		const repo = this.container.git.getRepository(e.params.scope.uri);
-		if (repo == null) return;
+		const repo = this.container.git.getRepository(params.scope.uri);
+		if (repo == null) return undefined;
 
-		if (!areTimelineScopesEqual(e.params.scope, scope)) {
+		if (!areTimelineScopesEqual(params.scope, scope)) {
 			debugger;
-			await this.updateScope(deserializeTimelineScope(e.params.scope));
+			await this.updateScope(deserializeTimelineScope(params.scope));
 		}
 
-		let ref = e.params.type === 'base' ? scope.base : scope.head;
+		let ref = params.type === 'base' ? scope.base : scope.head;
+
+		const include: ReferencesQuickPickIncludes[] = ['branches', 'tags', 'HEAD'];
+		if (!repo.virtual && !this._context.config.showAllBranches && params.type !== 'base') {
+			include.push('allBranches');
+		}
 
 		const pick = await showReferencePicker2(
 			repo.path,
-			e.params.type === 'base' ? 'Choose a Base Reference' : 'Choose a Head Reference',
-			e.params.type === 'base'
+			params.type === 'base' ? 'Choose a Base Reference' : 'Choose a Head Reference',
+			params.type === 'base'
 				? 'Choose a reference (branch, tag, etc) as the base to view history from'
 				: 'Choose a reference (branch, tag, etc) as the head to view history for',
 			{
-				// allowRevisions: { ranges: true },
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true /*, range: true */ },
 				picked: ref?.ref,
-				include:
-					ReferencesQuickPickIncludes.BranchesAndTags |
-					ReferencesQuickPickIncludes.HEAD |
-					(!repo.virtual && !this._context.config.showAllBranches && e.params.type !== 'base'
-						? ReferencesQuickPickIncludes.AllBranches
-						: 0),
+				include: include,
 				sort: true,
 			},
 		);
 
 		// All branches case
 		if (pick.directive === Directive.RefsAllBranches) {
-			response = { type: e.params.type, ref: null };
-			respond.dispose();
-			return;
+			return { type: params.type, ref: null };
 		}
-		if (pick.value == null) return;
+		if (pick.value == null) return undefined;
 
 		if (pick.value.ref === 'HEAD') {
 			ref = getReference(pick.value);
-
-			// const branch = await repo.git2.branches.getBranch();
-			// ref = getReference(branch ?? pick.value);
-
-			// const resolved = await repo.git2.revision.resolveRevision('HEAD');
-			// ref = resolved != null ? createReference(resolved.sha, repo.path) : ref;
 		} else {
 			ref = getReference(pick.value);
 		}
-		response = { type: e.params.type, ref: ref };
-		respond.dispose();
+		return { type: params.type, ref: ref };
 	}
 
-	private async onMessageSelectDataPoint(e: IpcMessage<SelectDataPointParams>) {
-		if (e.params.scope == null || e.params.id == null) return;
+	@ipcCommand(SelectDataPointCommand)
+	private async onSelectDataPoint(params: IpcParams<typeof SelectDataPointCommand>) {
+		if (params.scope == null || params.id == null) return;
 
 		// If already processing a change, store this request and return
 		if (this._openingDataPoint) {
-			this._pendingOpenDataPoint = e.params;
+			this._pendingOpenDataPoint = params;
 			return;
 		}
 
-		this._openingDataPoint = e.params;
+		this._openingDataPoint = params;
 
 		try {
-			await this.openDataPoint(e.params);
+			await this.openDataPoint(params);
 		} finally {
 			const current = this._openingDataPoint;
 			this._openingDataPoint = undefined;
 
 			// Process the most recent pending request if any
 			if (this._pendingOpenDataPoint) {
-				const params = this._pendingOpenDataPoint;
+				const pending = this._pendingOpenDataPoint;
 				this._pendingOpenDataPoint = undefined;
 
-				if (params.id !== current?.id || params.shift !== current?.shift) {
-					void this.openDataPoint(params);
+				if (pending.id !== current?.id || pending.shift !== current?.shift) {
+					void this.openDataPoint(pending);
 				}
 			}
 		}
 	}
 
-	private onMessageUpdateConfig(e: IpcMessage<UpdateConfigParams>) {
+	@ipcCommand(UpdateConfigCommand)
+	private onUpdateConfig(params: IpcParams<typeof UpdateConfigCommand>) {
 		const { config } = this._context;
 
 		let changed = false;
 
-		const { changes } = e.params;
+		const { changes } = params;
 		if (changes.period != null && changes.period !== config.period) {
 			changed = true;
 			config.period = changes.period;
@@ -469,8 +434,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		if (changed) {
-			this.container.telemetry.sendEvent('timeline/config/changed', {
-				...this.getTelemetryContext(),
+			this.host.sendTelemetryEvent('timeline/config/changed', {
 				period: config.period,
 				showAllBranches: config.showAllBranches,
 				sliceBy: config.sliceBy,
@@ -481,17 +445,18 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	private async onMessageUpdateScope(e: IpcMessage<UpdateScopeParams>) {
-		if (e.params.scope == null) return;
+	@ipcCommand(UpdateScopeCommand)
+	private async onUpdateScopeHandler(params: IpcParams<typeof UpdateScopeCommand>) {
+		if (params.scope == null) return;
 
-		let repo = this.container.git.getRepository(e.params.scope.uri);
+		let repo = this.container.git.getRepository(params.scope.uri);
 		if (repo == null) return;
 
-		const scope = deserializeTimelineScope(e.params.scope);
+		const scope = deserializeTimelineScope(params.scope);
 
 		const {
 			changes: { type, head, base, relativePath },
-		} = e.params;
+		} = params;
 
 		let changed = false;
 		if (type != null && type !== scope.type) {
@@ -501,7 +466,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				scope.uri = repo.uri;
 			}
 		} else if (type === 'repo' && scope.type === 'repo') {
-			const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+			const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
 				this.container.git.openRepositories,
 				'Switch',
 				repo?.name,
@@ -538,10 +503,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		// If we are changing the type, and in the view, open it in the editor
-		if (this.host.is('view') || e.params.altOrShift) {
+		if (this.host.is('view') || params.altOrShift) {
 			void executeCommand<TimelineScope>('gitlens.visualizeHistory', scope);
-			this.container.telemetry.sendEvent('timeline/action/openInEditor', {
-				...this.getTelemetryContext(),
+			this.host.sendTelemetryEvent('timeline/action/openInEditor', {
 				'scope.type': scope.type,
 				'scope.hasHead': scope.head != null,
 				'scope.hasBase': scope.base != null,
@@ -569,7 +533,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				this._tabCloseDebounceTimer = undefined;
 				const changed = await this.updateScope(uri, undefined, true);
 				if (changed) {
-					this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
+					this.host.sendTelemetryEvent('timeline/editor/changed');
 				}
 			}, 1000);
 
@@ -578,7 +542,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined, undefined, true);
 		if (changed) {
-			this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
+			this.host.sendTelemetryEvent('timeline/editor/changed');
 		}
 	}
 
@@ -594,7 +558,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		uri = await ensureWorkingUri(this.container, uri ?? this.activeTabUri);
 		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined, undefined, true);
 		if (changed) {
-			this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
+			this.host.sendTelemetryEvent('timeline/editor/changed');
 		}
 	}
 
@@ -829,7 +793,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		const repo = this.container.git.getRepository(params.scope.uri);
 		if (repo == null) return;
 
-		this.container.telemetry.sendEvent('timeline/commit/selected', this.getTelemetryContext());
+		this.host.sendTelemetryEvent('timeline/commit/selected');
 
 		const commit = await repo.git.commits.getCommit(params.id || uncommitted);
 		if (commit == null) return;
@@ -1027,7 +991,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		this.fireFileSelected();
-		this.container.telemetry.sendEvent('timeline/scope/changed', this.getTelemetryContext());
+		this.host.sendTelemetryEvent('timeline/scope/changed');
 
 		if (!silent) {
 			this.updateState();
@@ -1061,7 +1025,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	private async notifyDidChangeState() {
 		this._notifyDidChangeStateDebounced?.cancel();
 
-		const state = await this._cache.get('state', () => this.getState(this._context, true));
+		const state = await this._cache.getOrCreate('state', () => this.getState(this._context, true));
 		return this.host.notify(DidChangeNotification, { state: state });
 	}
 }
@@ -1139,7 +1103,7 @@ function generateRandomTimelineDataset(itemType: TimelineScopeType): TimelineDat
 	const count = 10;
 	for (let i = 0; i < count; i++) {
 		// Generate a random date between now and 3 months ago
-		const date = new Date(new Date().getTime() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
+		const date = new Date(Date.now() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
 		const author = authors[Math.floor(Math.random() * authors.length)];
 
 		// Generate random additions/deletions between 1 and 20, but ensure we have a tiny and large commit

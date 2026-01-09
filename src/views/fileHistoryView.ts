@@ -1,16 +1,16 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import type { FileHistoryViewConfig } from '../config';
-import type { Container } from '../container';
-import type { GitUri } from '../git/gitUri';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
-import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
-import type { GroupedViewContext } from './viewBase';
-import { ViewBase } from './viewBase';
-import type { CopyNodeCommandArgs } from './viewCommands';
-import { registerViewCommand } from './viewCommands';
+import type { FileHistoryViewConfig } from '../config.js';
+import type { Container } from '../container.js';
+import type { GitUri } from '../git/gitUri.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode.js';
+import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode.js';
+import type { GroupedViewContext } from './viewBase.js';
+import { ViewBase } from './viewBase.js';
+import type { CopyNodeCommandArgs } from './viewCommands.js';
+import { registerViewCommand } from './viewCommands.js';
 
 const pinnedSuffix = ' (pinned)';
 

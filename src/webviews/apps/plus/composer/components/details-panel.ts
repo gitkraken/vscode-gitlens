@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import Sortable from 'sortablejs';
-import type { ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol';
+import type { ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol.js';
 import {
 	generateComposerMarkdown,
 	getFileCountForCommit,
@@ -10,16 +10,16 @@ import {
 	getUnassignedHunks,
 	getUniqueFileNames,
 	groupHunksByFile,
-} from '../../../../plus/composer/utils';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
-import type { CommitMessage } from './commit-message';
-import '../../../shared/components/button';
-import '../../../shared/components/markdown/markdown';
-import './hunk-item';
-// import './diff/diff';
-import './diff/diff-file';
-import './commit-message';
+} from '../../../../plus/composer/utils/composer.utils.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { CommitMessage } from './commit-message.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/markdown/markdown.js';
+import './hunk-item.js';
+// import './diff/diff.js';
+import './diff/diff-file.js';
+import './commit-message.js';
 
 @customElement('gl-details-panel')
 export class DetailsPanel extends LitElement {
@@ -56,6 +56,11 @@ export class DetailsPanel extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 3.2rem;
+				--commit-message-sticky-top: 0;
+			}
+
+			.change-details gl-commit-message {
+				--sticky-top: var(--commit-message-sticky-top);
 			}
 
 			.change-details {
@@ -162,6 +167,13 @@ export class DetailsPanel extends LitElement {
 				color: var(--color-foreground--85);
 			}
 
+			.change-details.composition-summary {
+				border: 0.1rem solid var(--vscode-panel-border);
+				border-radius: 0.3rem;
+				padding: 1.6rem;
+				gap: 0;
+			}
+
 			.empty-state {
 				margin-block: 0;
 				font-weight: bold;
@@ -243,6 +255,12 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Boolean })
 	hasChanges: boolean = true;
 
+	@property({ type: Boolean })
+	canEditCommitMessages: boolean = true;
+
+	@property({ type: Boolean })
+	canMoveHunks: boolean = true;
+
 	@state()
 	private defaultFilesExpanded: boolean = true;
 
@@ -251,9 +269,13 @@ export class DetailsPanel extends LitElement {
 	private draggedHunkIds: string[] = [];
 	private autoScrollInterval?: number;
 	private dragOverCleanupTimeout?: number;
+	private commitMessageResizeObserver?: ResizeObserver;
 
 	@query('.details-panel')
 	private detailsPanel!: HTMLDivElement;
+
+	@query('.changes-list')
+	private changesList?: HTMLDivElement;
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
@@ -262,10 +284,38 @@ export class DetailsPanel extends LitElement {
 		if (
 			changedProperties.has('selectedCommits') ||
 			changedProperties.has('hunks') ||
-			changedProperties.has('isPreviewMode')
+			changedProperties.has('isPreviewMode') ||
+			changedProperties.has('canMoveHunks')
 		) {
 			this.initializeHunksSortable();
 			this.setupAutoScroll();
+		}
+
+		if (changedProperties.has('selectedCommits')) {
+			this.updateCommitMessageStickyOffset();
+		}
+	}
+
+	private updateCommitMessageStickyOffset() {
+		if (!this.commitMessageResizeObserver) {
+			this.commitMessageResizeObserver = new ResizeObserver(() => {
+				const commitMessage = this.shadowRoot?.querySelector('gl-commit-message');
+				if (commitMessage && this.changesList) {
+					const height = commitMessage.getBoundingClientRect().height;
+					this.changesList.style.setProperty('--file-header-sticky-top', `${height}px`);
+				}
+			});
+		}
+
+		this.commitMessageResizeObserver.disconnect();
+
+		const commitMessage = this.shadowRoot?.querySelector('gl-commit-message');
+		if (commitMessage) {
+			this.commitMessageResizeObserver.observe(commitMessage);
+			if (this.changesList) {
+				const height = commitMessage.getBoundingClientRect().height;
+				this.changesList.style.setProperty('--file-header-sticky-top', `${height}px`);
+			}
 		}
 	}
 
@@ -277,6 +327,10 @@ export class DetailsPanel extends LitElement {
 			clearTimeout(this.dragOverCleanupTimeout);
 			this.dragOverCleanupTimeout = undefined;
 		}
+		if (this.commitMessageResizeObserver) {
+			this.commitMessageResizeObserver.disconnect();
+			this.commitMessageResizeObserver = undefined;
+		}
 	}
 
 	private destroyHunksSortables() {
@@ -287,35 +341,39 @@ export class DetailsPanel extends LitElement {
 	private initializeHunksSortable() {
 		this.destroyHunksSortables();
 
-		// Don't initialize sortable in AI preview mode
-		if (this.isPreviewMode) {
+		// Don't initialize sortable in AI preview mode or when hunk moving is disabled
+		if (this.isPreviewMode || !this.canMoveHunks) {
 			return;
 		}
 
 		// Find all file hunks containers (could be multiple in split view)
 		const fileHunksContainers = this.shadowRoot?.querySelectorAll('.file-hunks');
 		fileHunksContainers?.forEach(hunksContainer => {
+			const commitId = (hunksContainer as HTMLElement)
+				.closest('[data-commit-id]')
+				?.getAttribute('data-commit-id');
+			const commit = this.selectedCommits.find(c => c.id === commitId);
+			const isLocked = commit?.locked === true;
+
 			const sortable = Sortable.create(hunksContainer as HTMLElement, {
 				group: {
 					name: 'hunks',
-					pull: true, // Allow pulling hunks out
-					put: false, // Allow dropping hunks between commits
+					pull: !isLocked,
+					put: false,
 				},
 				animation: 0,
 				dragClass: 'sortable-drag',
 				selectedClass: 'sortable-selected',
-				sort: false, // Don't allow reordering within the same container
+				sort: false,
+				filter: isLocked ? () => true : undefined,
 				onStart: evt => {
 					const draggedHunkId = evt.item.dataset.hunkId;
 					if (draggedHunkId && this.selectedHunkIds.has(draggedHunkId) && this.selectedHunkIds.size > 1) {
-						// Multi-hunk drag - collect all selected hunks
 						this.dispatchHunkDragStart(Array.from(this.selectedHunkIds));
 					} else {
-						// Single hunk drag
 						this.dispatchHunkDragStart(draggedHunkId ? [draggedHunkId] : []);
 					}
 
-					// Store original element for restoration if needed
 					evt.item.setAttribute('data-original-parent', evt.from.id || 'unknown');
 				},
 				onEnd: () => {
@@ -659,13 +717,14 @@ export class DetailsPanel extends LitElement {
 		return html`
 			<article class="change-details" data-commit-id=${commit.id}>
 				<gl-commit-message
-					.message=${commit.message}
+					.message=${commit.message.content}
 					.commitId=${commit.id}
 					.explanation=${commit.aiExplanation}
+					?ai-generated=${commit.message.isGenerated}
 					?generating=${this.generatingCommitMessage === commit.id}
 					?ai-enabled=${this.aiEnabled}
 					.aiDisabledReason=${this.aiDisabledReason}
-					editable
+					?editable=${this.canEditCommitMessages && commit.locked !== true}
 					@message-change=${(e: CustomEvent) => this.handleCommitMessageChange(commit.id, e.detail.message)}
 					@generate-commit-message=${(e: CustomEvent) => this.handleGenerateCommitMessage(commit.id, e)}
 				></gl-commit-message>
@@ -713,7 +772,7 @@ export class DetailsPanel extends LitElement {
 		const summaryMarkdown = generateComposerMarkdown(this.commits, this.hunks);
 
 		return html`
-			<article class="change-details">
+			<article class="change-details composition-summary">
 				<gl-markdown density="document" .markdown=${summaryMarkdown}></gl-markdown>
 			</article>
 		`;
@@ -723,7 +782,7 @@ export class DetailsPanel extends LitElement {
 		// Handle no changes state
 		if (!this.hasChanges) {
 			return html`
-				<div class="details-panel">
+				<div class="details-panel" @click=${this.handlePanelClick}>
 					<div class="changes-list scrollable">${this.renderNoChangesState()}</div>
 				</div>
 			`;
@@ -732,10 +791,27 @@ export class DetailsPanel extends LitElement {
 		const isMultiSelect = this.selectedCommits.length > 1;
 
 		return html`
-			<div class="details-panel ${isMultiSelect ? 'split-view' : ''}">
+			<div class="details-panel ${isMultiSelect ? 'split-view' : ''}" @click=${this.handlePanelClick}>
 				<div class="changes-list scrollable">${this.renderDetails()}</div>
 			</div>
 		`;
+	}
+
+	private handlePanelClick(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		const tagName = target.tagName.toLowerCase();
+
+		const interactiveTags = ['input', 'textarea', 'button', 'a', 'select', 'gl-button', 'gl-commit-message'];
+		const isInteractive =
+			interactiveTags.includes(tagName) ||
+			target.closest('gl-commit-message, gl-button, button, a, input, textarea, select');
+
+		if (!isInteractive) {
+			const activeElement = this.shadowRoot?.activeElement;
+			if (activeElement && 'blur' in activeElement && typeof activeElement.blur === 'function') {
+				activeElement.blur();
+			}
+		}
 	}
 
 	private renderNoChangesState() {

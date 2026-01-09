@@ -1,8 +1,8 @@
 import { createContext } from '@lit/context';
-import type { TelemetrySendEventParams } from '../../../protocol';
-import { TelemetrySendEventCommand } from '../../../protocol';
-import type { Disposable } from '../events';
-import type { HostIpc } from '../ipc';
+import type { TelemetrySendEventParams } from '../../../protocol.js';
+import { TelemetrySendEventCommand } from '../../../protocol.js';
+import type { Disposable } from '../events.js';
+import type { HostIpc } from '../ipc.js';
 
 export class TelemetryContext implements Disposable {
 	private readonly ipc: HostIpc;

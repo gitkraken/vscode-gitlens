@@ -1,5 +1,5 @@
-import type { GitFileStatus } from '../../../../../git/models/fileStatus';
-import type { DraftPatchFileChange } from '../../../../../plus/drafts/models/drafts';
+import type { GitFileStatus } from '../../../../../git/models/fileStatus.js';
+import type { DraftPatchFileChange } from '../../../../../plus/drafts/models/drafts.js';
 
 export interface TreeItemBase {
 	// node properties
@@ -57,6 +57,7 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	actions?: TreeItemAction[];
 	decorations?: TreeItemDecoration[];
 	contextData?: unknown;
+	matched?: boolean;
 }
 
 export interface TreeModel<Context = any[]> extends TreeModelBase<Context> {

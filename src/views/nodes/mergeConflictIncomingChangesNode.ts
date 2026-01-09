@@ -1,20 +1,20 @@
 import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { DiffWithCommandArgs } from '../../commands/diffWith';
-import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
-import type { GitCommit } from '../../git/models/commit';
-import type { GitFile } from '../../git/models/file';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import { getReferenceLabel } from '../../git/utils/reference.utils';
-import { createCommand, createCoreCommand } from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
-import type { FileHistoryView } from '../fileHistoryView';
-import type { LineHistoryView } from '../lineHistoryView';
-import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, ViewNode } from './abstract/viewNode';
-import { getFileRevisionAsCommitTooltip } from './fileRevisionAsCommitNode';
+import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
+import { GlyphChars } from '../../constants.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { GitFile } from '../../git/models/file.js';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import { getReferenceLabel } from '../../git/utils/reference.utils.js';
+import { createCommand, createCoreCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors.js';
+import type { FileHistoryView } from '../fileHistoryView.js';
+import type { LineHistoryView } from '../lineHistoryView.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import { ContextValues, ViewNode } from './abstract/viewNode.js';
+import { getFileRevisionAsCommitTooltip } from './fileRevisionAsCommitNode.js';
 
 export class MergeConflictIncomingChangesNode extends ViewNode<
 	'conflict-incoming-changes',

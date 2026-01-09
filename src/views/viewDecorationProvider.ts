@@ -1,11 +1,11 @@
 import type { CancellationToken, Event, FileDecoration, FileDecorationProvider } from 'vscode';
 import { Disposable, EventEmitter, ThemeColor, Uri, window } from 'vscode';
-import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
-import { GlyphChars, Schemes } from '../constants';
-import type { Colors } from '../constants.colors';
-import type { GitBranchStatus } from '../git/models/branch';
-import type { GitFileStatus } from '../git/models/fileStatus';
-import type { GitPausedOperation } from '../git/models/pausedOperationStatus';
+import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri.js';
+import type { Colors } from '../constants.colors.js';
+import { GlyphChars, Schemes } from '../constants.js';
+import type { GitBranchStatus } from '../git/models/branch.js';
+import type { GitFileStatus } from '../git/models/fileStatus.js';
+import type { GitPausedOperation } from '../git/models/pausedOperationStatus.js';
 
 export class ViewFileDecorationProvider implements FileDecorationProvider, Disposable {
 	private readonly _onDidChange = new EventEmitter<undefined | Uri | Uri[]>();

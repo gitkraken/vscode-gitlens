@@ -1,26 +1,26 @@
 import type { Disposable, Selection } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { GitCommitish } from '../../git/gitUri';
-import { GitUri, unknownGitUri } from '../../git/gitUri';
-import { deletedOrMissing } from '../../git/models/revision';
-import { isBranchReference } from '../../git/utils/reference.utils';
-import { isSha } from '../../git/utils/revision.utils';
-import { showReferencePicker } from '../../quickpicks/referencePicker';
-import { setContext } from '../../system/-webview/context';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import { weakEvent } from '../../system/event';
-import { debounce } from '../../system/function/debounce';
-import { Logger } from '../../system/logger';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { areUrisEqual } from '../../system/uri';
-import type { LinesChangeEvent } from '../../trackers/lineTracker';
-import type { FileHistoryView } from '../fileHistoryView';
-import type { LineHistoryView } from '../lineHistoryView';
-import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues } from './abstract/viewNode';
-import { LineHistoryNode } from './lineHistoryNode';
+import type { GitCommitish } from '../../git/gitUri.js';
+import { GitUri, unknownGitUri } from '../../git/gitUri.js';
+import { deletedOrMissing } from '../../git/models/revision.js';
+import { isBranchReference } from '../../git/utils/reference.utils.js';
+import { isSha } from '../../git/utils/revision.utils.js';
+import { showReferencePicker } from '../../quickpicks/referencePicker.js';
+import { setContext } from '../../system/-webview/context.js';
+import { gate } from '../../system/decorators/gate.js';
+import { debug, log } from '../../system/decorators/log.js';
+import { weakEvent } from '../../system/event.js';
+import { debounce } from '../../system/function/debounce.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope.js';
+import { areUrisEqual } from '../../system/uri.js';
+import type { LinesChangeEvent } from '../../trackers/lineTracker.js';
+import type { FileHistoryView } from '../fileHistoryView.js';
+import type { LineHistoryView } from '../lineHistoryView.js';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues } from './abstract/viewNode.js';
+import { LineHistoryNode } from './lineHistoryNode.js';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	'line-history-tracker',
@@ -181,7 +181,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 			'Change Line History Base',
 			'Choose a reference to set as the new base',
 			{
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true },
 				picked: this._base,
 				sort: { branches: { current: true }, tags: {} },
 			},

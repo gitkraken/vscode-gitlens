@@ -5,15 +5,15 @@ import type {
 	Event,
 } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
-import { uuid } from '@env/crypto';
-import type { TrackingContext } from '../../constants.telemetry';
-import type { Container, Environment } from '../../container';
-import { CancellationError } from '../../errors';
-import { debug } from '../../system/decorators/log';
-import { getLoggableName, Logger } from '../../system/logger';
-import { getLogScope, setLogScopeExit, startLogScope } from '../../system/logger.scope';
-import { AuthenticationConnection } from './authenticationConnection';
-import type { ServerConnection } from './serverConnection';
+import { uuid } from '@env/crypto.js';
+import type { TrackingContext } from '../../constants.telemetry.js';
+import type { Container, Environment } from '../../container.js';
+import { CancellationError } from '../../errors.js';
+import { debug } from '../../system/decorators/log.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { getLogScope, setLogScopeExit, startLogScope } from '../../system/logger.scope.js';
+import { AuthenticationConnection } from './authenticationConnection.js';
+import type { ServerConnection } from './serverConnection.js';
 
 interface StoredSession {
 	id: string;

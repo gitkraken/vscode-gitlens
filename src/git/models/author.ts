@@ -1,4 +1,4 @@
-import type { ProviderReference } from './remoteProvider';
+import type { ProviderReference } from './remoteProvider.js';
 
 export interface CommitAuthor {
 	provider: ProviderReference;

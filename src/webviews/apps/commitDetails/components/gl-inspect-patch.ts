@@ -1,11 +1,11 @@
 import { css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { DraftVisibility } from '../../../../plus/drafts/models/drafts';
-import type { Preferences, State } from '../../../commitDetails/protocol';
-import type { Change, DraftUserSelection } from '../../../plus/patchDetails/protocol';
-import { GlElement } from '../../shared/components/element';
-import { buttonStyles } from './button.css';
-import '../../plus/patchDetails/components/gl-patch-create';
+import type { DraftVisibility } from '../../../../plus/drafts/models/drafts.js';
+import type { Preferences, State } from '../../../commitDetails/protocol.js';
+import type { Change, DraftUserSelection } from '../../../plus/patchDetails/protocol.js';
+import { GlElement } from '../../shared/components/element.js';
+import { buttonStyles } from './button.css.js';
+import '../../plus/patchDetails/components/gl-patch-create.js';
 
 export interface CreatePatchState {
 	title?: string;

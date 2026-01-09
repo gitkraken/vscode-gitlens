@@ -1,10 +1,10 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { dateConverter } from '../converters/date-converter';
-import '../code-icon';
-import '../formatted-date';
-import '../overlays/tooltip';
+import { dateConverter } from '../converters/date-converter.js';
+import '../code-icon.js';
+import '../formatted-date.js';
+import '../overlays/tooltip.js';
 
 @customElement('commit-identity')
 export class CommitIdentity extends LitElement {

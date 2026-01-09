@@ -1,14 +1,14 @@
-import type { IntegrationIds } from '../../../constants.integrations';
-import type { Account } from '../../../git/models/author';
-import type { IssueShape } from '../../../git/models/issue';
-import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor';
-import { gate } from '../../../system/decorators/gate';
-import { debug } from '../../../system/decorators/log';
-import { getLogScope } from '../../../system/logger.scope';
-import type { ProviderAuthenticationSession } from '../authentication/models';
-import type { IssueFilter } from '../providers/models';
-import type { Integration, IntegrationType } from './integration';
-import { IntegrationBase } from './integration';
+import type { IntegrationIds } from '../../../constants.integrations.js';
+import type { Account } from '../../../git/models/author.js';
+import type { IssueShape } from '../../../git/models/issue.js';
+import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
+import { gate } from '../../../system/decorators/gate.js';
+import { debug } from '../../../system/decorators/log.js';
+import { getLogScope } from '../../../system/logger.scope.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import type { IssueFilter } from '../providers/models.js';
+import type { Integration, IntegrationType } from './integration.js';
+import { IntegrationBase } from './integration.js';
 
 export function isIssuesIntegration(integration: Integration): integration is IssuesIntegration {
 	return integration.type === 'issues';

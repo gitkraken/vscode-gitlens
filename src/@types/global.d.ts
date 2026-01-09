@@ -19,30 +19,11 @@ export declare global {
 		: T;
 	export type ExtractSome<T, K extends keyof T, R> = Omit<T, K> & { [P in K]-?: Extract<T[P], R> };
 
-	export type RequireSome<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: T[P] };
-	export type RequireSomeWithProps<T, K extends keyof T, Props extends keyof T[K]> = Omit<T, K> & {
-		[P in K]-?: RequireSome<T[P], Props>;
-	};
-
-	export type AllNonNullable<T> = { [P in keyof T]-?: NonNullable<T[P]> };
-	export type SomeNonNullable<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
-
 	export type NarrowRepo<T extends { repo?: unknown }> = ExcludeSome<T, 'repo', string | undefined>;
 	export type NarrowRepos<T extends { repos?: unknown }> = ExcludeSome<T, 'repos', string | string[] | undefined>;
 
-	export type Prefix<P extends string, T extends string, S extends string = ''> = T extends `${P}${S}${infer R}`
-		? R
-		: never;
-
-	export type Replace<T, K extends keyof T, R> = Omit<T, K> & { [P in K]: R };
-
-	export type StartsWith<P extends string, T extends string, S extends string = ''> = T extends `${P}${S}${string}`
-		? T
-		: never;
-
-	export type UnwrapCustomEvent<T> = T extends CustomEvent<infer U> ? U : never;
-
-	export type RemoveFirstArg<F> = F extends {
+	// Note this is more complex to deal with function overloads
+	export type OmitFirstArg<F> = F extends {
 		(first: any, ...args: infer A1): infer R1;
 		(first: any, ...args: infer A2): infer R2;
 		(first: any, ...args: infer A3): infer R3;
@@ -65,4 +46,24 @@ export declare global {
 					  }
 					? (...args: A1) => R1
 					: never;
+
+	export type RequireNonNullable<T> = { [P in keyof T]-?: NonNullable<T[P]> };
+	export type RequireSome<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: T[P] };
+	export type RequireSomeNonNullable<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
+	export type RequireSomeWithProps<T, K extends keyof T, Props extends keyof T[K]> = Omit<T, K> & {
+		[P in K]-?: RequireSome<T[P], Props>;
+	};
+
+	export type Replace<T, K extends keyof T, R> = Omit<T, K> & { [P in K]: R };
+
+	export type FilterByPrefix<
+		P extends string,
+		T extends string,
+		S extends string = '',
+	> = T extends `${P}${S}${string}` ? T : never;
+	export type StripPrefix<P extends string, T extends string, S extends string = ''> = T extends `${P}${S}${infer R}`
+		? R
+		: never;
+
+	export type UnwrapCustomEvent<T> = T extends CustomEvent<infer U> ? U : never;
 }

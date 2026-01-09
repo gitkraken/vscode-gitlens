@@ -1,20 +1,21 @@
-import { QuickInputButtons } from 'vscode';
-import type { Container } from '../../container';
-import type { GitReference, GitTagReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
+import { QuickInputButtons, window } from 'vscode';
+import type { Container } from '../../container.js';
+import { TagError } from '../../git/errors.js';
+import type { GitReference, GitTagReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isRevisionReference,
 	isTagReference,
-} from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { Logger } from '../../system/logger';
-import { pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+} from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { Logger } from '../../system/logger.js';
+import { pluralize } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -23,7 +24,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canInputStepContinue,
 	canPickStepContinue,
@@ -34,14 +35,14 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	inputTagNameStep,
 	pickBranchOrTagStep,
 	pickRepositoryStep,
 	pickTagsStep,
-} from '../quickCommand.steps';
+} from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];
@@ -68,7 +69,7 @@ interface DeleteState {
 }
 
 type State = CreateState | DeleteState;
-type TagStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type TagStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 type CreateStepState<T extends CreateState = CreateState> = TagStepState<ExcludeSome<T, 'repo', string>>;
 type DeleteStepState<T extends DeleteState = DeleteState> = TagStepState<ExcludeSome<T, 'repo', string>>;
 
@@ -299,7 +300,20 @@ export class TagGitCommand extends QuickCommand<State> {
 				await state.repo.git.tags.createTag?.(state.name, state.reference.ref, state.message);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGenericErrorMessage(ex);
+
+				if (TagError.is(ex, 'alreadyExists')) {
+					void window.showWarningMessage(
+						`Unable to create tag '${state.name}'. A tag with that name already exists.`,
+					);
+					return;
+				}
+
+				if (TagError.is(ex, 'invalidName')) {
+					void window.showWarningMessage(`Unable to create tag '${state.name}'. The tag name is invalid.`);
+					return;
+				}
+
+				void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to create tag');
 			}
 		}
 	}
@@ -389,7 +403,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					await state.repo.git.tags.deleteTag?.(ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
-					void showGenericErrorMessage(ex);
+					void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to delete tag');
 				}
 			}
 		}

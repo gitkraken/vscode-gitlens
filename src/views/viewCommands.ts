@@ -1,47 +1,53 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
-import { getTempFile } from '@env/platform';
-import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
-import type { DiffWithCommandArgs } from '../commands/diffWith';
-import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
-import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking';
-import type { GenerateChangelogCommandArgs } from '../commands/generateChangelog';
-import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateChangelog';
-import type { GenerateRebaseCommandArgs } from '../commands/generateRebase';
-import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision';
-import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
-import type { ViewShowBranchComparison } from '../config';
-import { GlyphChars } from '../constants';
-import type { GlCommands } from '../constants.commands';
-import type { Container } from '../container';
-import { browseAtRevision, executeGitCommand } from '../git/actions';
-import * as BranchActions from '../git/actions/branch';
-import * as CommitActions from '../git/actions/commit';
-import * as ContributorActions from '../git/actions/contributor';
-import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../git/actions/pausedOperation';
-import * as RemoteActions from '../git/actions/remote';
-import * as RepoActions from '../git/actions/repository';
-import * as StashActions from '../git/actions/stash';
-import * as TagActions from '../git/actions/tag';
-import * as WorktreeActions from '../git/actions/worktree';
-import { GitUri } from '../git/gitUri';
-import type { PullRequest } from '../git/models/pullRequest';
-import { RemoteResourceType } from '../git/models/remoteResource';
-import type { Repository } from '../git/models/repository';
-import { deletedOrMissing } from '../git/models/revision';
+import { getTempFile } from '@env/platform.js';
+import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens.d.js';
+import type { DiffWithCommandArgs } from '../commands/diffWith.js';
+import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious.js';
+import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking.js';
+import type { ExplainBranchCommandArgs } from '../commands/explainBranch.js';
+import type { GenerateChangelogCommandArgs } from '../commands/generateChangelog.js';
+import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateChangelog.js';
+import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision.js';
+import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote.js';
+import type { RecomposeFromCommitCommandArgs } from '../commands/recomposeFromCommit.js';
+import type { ViewShowBranchComparison } from '../config.js';
+import type { GlCommands } from '../constants.commands.js';
+import { GlyphChars } from '../constants.js';
+import type { Container } from '../container.js';
+import * as BranchActions from '../git/actions/branch.js';
+import * as CommitActions from '../git/actions/commit.js';
+import * as ContributorActions from '../git/actions/contributor.js';
+import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../git/actions/pausedOperation.js';
+import * as RemoteActions from '../git/actions/remote.js';
+import * as RepoActions from '../git/actions/repository.js';
+import * as StashActions from '../git/actions/stash.js';
+import * as TagActions from '../git/actions/tag.js';
+import * as WorktreeActions from '../git/actions/worktree.js';
+import { browseAtRevision, executeGitCommand } from '../git/actions.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitBranch } from '../git/models/branch.js';
+import type { PullRequest } from '../git/models/pullRequest.js';
+import { RemoteResourceType } from '../git/models/remoteResource.js';
+import type { Repository } from '../git/models/repository.js';
+import { deletedOrMissing } from '../git/models/revision.js';
 import {
 	ensurePullRequestRefs,
 	getOpenedPullRequestRepo,
 	getOrOpenPullRequestRepository,
-} from '../git/utils/-webview/pullRequest.utils';
-import { matchContributor } from '../git/utils/contributor.utils';
-import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../git/utils/pullRequest.utils';
-import { createReference } from '../git/utils/reference.utils';
-import { shortenRevision } from '../git/utils/revision.utils';
-import { showPatchesView } from '../plus/drafts/actions';
-import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
-import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/startWork';
-import { showContributorsPicker } from '../quickpicks/contributorsPicker';
+} from '../git/utils/-webview/pullRequest.utils.js';
+import { openRebaseEditor } from '../git/utils/-webview/rebase.utils.js';
+import { matchContributor } from '../git/utils/contributor.utils.js';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+} from '../git/utils/pullRequest.utils.js';
+import { createReference } from '../git/utils/reference.utils.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
+import { showPatchesView } from '../plus/drafts/actions.js';
+import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider.js';
+import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/startWork.js';
+import { showContributorsPicker } from '../quickpicks/contributorsPicker.js';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -49,66 +55,68 @@ import {
 	executeCoreGitCommand,
 	executeEditorCommand,
 	registerCommand,
-} from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { getContext, setContext } from '../system/-webview/context';
-import { revealInFileExplorer } from '../system/-webview/vscode';
-import type { MergeEditorInputs } from '../system/-webview/vscode/editors';
-import { editorLineToDiffRange, openMergeEditor } from '../system/-webview/vscode/editors';
-import { openUrl } from '../system/-webview/vscode/uris';
-import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces';
-import { openWorkspace } from '../system/-webview/vscode/workspaces';
-import { filterMap } from '../system/array';
-import { createCommandDecorator } from '../system/decorators/command';
-import { log } from '../system/decorators/log';
-import { runSequentially } from '../system/function';
-import { join, map } from '../system/iterable';
-import { lazy } from '../system/lazy';
-import { basename } from '../system/path';
-import { getSettledValue } from '../system/promise';
-import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
-import type { LaunchpadItemNode } from './launchpadView';
-import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
-import type { ClipboardType } from './nodes/abstract/viewNode';
+} from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { getContext, setContext } from '../system/-webview/context.js';
+import type { MergeEditorInputs } from '../system/-webview/vscode/editors.js';
+import { editorLineToDiffRange, openMergeEditor } from '../system/-webview/vscode/editors.js';
+import { openUrl } from '../system/-webview/vscode/uris.js';
+import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces.js';
+import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
+import { revealInFileExplorer } from '../system/-webview/vscode.js';
+import { filterMap } from '../system/array.js';
+import { createCommandDecorator } from '../system/decorators/command.js';
+import { log } from '../system/decorators/log.js';
+import { runSequentially } from '../system/function.js';
+import { join, map } from '../system/iterable.js';
+import { lazy } from '../system/lazy.js';
+import { basename } from '../system/path.js';
+import { getSettledValue } from '../system/promise.js';
+import { DeepLinkActionType } from '../uris/deepLinks/deepLink.js';
+import type { ShowInCommitGraphCommandArgs } from '../webviews/plus/graph/registration.js';
+import type { LaunchpadItemNode } from './launchpadView.js';
+import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode.js';
+import type { ClipboardType } from './nodes/abstract/viewNode.js';
 import {
 	canEditNode,
 	canViewDismissNode,
 	getNodeRepoPath,
 	isPageableViewNode,
 	ViewNode,
-} from './nodes/abstract/viewNode';
-import { ViewRefFileNode, ViewRefNode } from './nodes/abstract/viewRefNode';
-import type { BranchesNode } from './nodes/branchesNode';
-import type { BranchNode } from './nodes/branchNode';
-import type { BranchTrackingStatusFilesNode } from './nodes/branchTrackingStatusFilesNode';
-import type { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
-import type { CommitFileNode } from './nodes/commitFileNode';
-import type { CommitNode } from './nodes/commitNode';
-import type { PagerNode } from './nodes/common';
-import type { CompareResultsNode } from './nodes/compareResultsNode';
-import type { ContributorNode } from './nodes/contributorNode';
-import type { DraftNode } from './nodes/draftNode';
-import type { FileHistoryNode } from './nodes/fileHistoryNode';
-import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
-import type { FolderNode } from './nodes/folderNode';
-import type { LineHistoryNode } from './nodes/lineHistoryNode';
-import type { MergeConflictFileNode } from './nodes/mergeConflictFileNode';
-import type { PausedOperationStatusNode } from './nodes/pausedOperationStatusNode';
-import type { PullRequestNode } from './nodes/pullRequestNode';
-import type { RemoteNode } from './nodes/remoteNode';
-import type { RepositoryNode } from './nodes/repositoryNode';
-import type { ResultsCommitsNode } from './nodes/resultsCommitsNode';
-import type { ResultsFileNode } from './nodes/resultsFileNode';
-import type { ResultsFilesNode } from './nodes/resultsFilesNode';
-import { FilesQueryFilter } from './nodes/resultsFilesNode';
-import type { StashFileNode } from './nodes/stashFileNode';
-import type { StashNode } from './nodes/stashNode';
-import type { StatusFileNode } from './nodes/statusFileNode';
-import type { TagNode } from './nodes/tagNode';
-import type { TagsNode } from './nodes/tagsNode';
-import type { UncommittedFilesNode } from './nodes/UncommittedFilesNode';
-import type { WorktreeNode } from './nodes/worktreeNode';
-import type { WorktreesNode } from './nodes/worktreesNode';
+} from './nodes/abstract/viewNode.js';
+import { ViewRefFileNode, ViewRefNode } from './nodes/abstract/viewRefNode.js';
+import type { BranchesNode } from './nodes/branchesNode.js';
+import type { BranchNode } from './nodes/branchNode.js';
+import type { BranchTrackingStatusFilesNode } from './nodes/branchTrackingStatusFilesNode.js';
+import type { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode.js';
+import type { CommitFileNode } from './nodes/commitFileNode.js';
+import type { CommitNode } from './nodes/commitNode.js';
+import type { PagerNode } from './nodes/common.js';
+import type { CompareResultsNode } from './nodes/compareResultsNode.js';
+import type { ContributorNode } from './nodes/contributorNode.js';
+import type { DraftNode } from './nodes/draftNode.js';
+import type { FileHistoryNode } from './nodes/fileHistoryNode.js';
+import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode.js';
+import type { FolderNode } from './nodes/folderNode.js';
+import type { LineHistoryNode } from './nodes/lineHistoryNode.js';
+import type { MergeConflictFileNode } from './nodes/mergeConflictFileNode.js';
+import type { PausedOperationStatusNode } from './nodes/pausedOperationStatusNode.js';
+import type { PullRequestNode } from './nodes/pullRequestNode.js';
+import type { RemoteNode } from './nodes/remoteNode.js';
+import type { RepositoryNode } from './nodes/repositoryNode.js';
+import type { ResultsCommitsNode } from './nodes/resultsCommitsNode.js';
+import type { ResultsFileNode } from './nodes/resultsFileNode.js';
+import type { ResultsFilesNode } from './nodes/resultsFilesNode.js';
+import { FilesQueryFilter } from './nodes/resultsFilesNode.js';
+import type { StashFileNode } from './nodes/stashFileNode.js';
+import type { StashNode } from './nodes/stashNode.js';
+import type { StatusFileNode } from './nodes/statusFileNode.js';
+import type { TagNode } from './nodes/tagNode.js';
+import type { TagsNode } from './nodes/tagsNode.js';
+import type { UncommittedFileNode } from './nodes/UncommittedFileNode.js';
+import type { UncommittedFilesNode } from './nodes/UncommittedFilesNode.js';
+import type { WorktreeNode } from './nodes/worktreeNode.js';
+import type { WorktreesNode } from './nodes/worktreesNode.js';
 
 const { command, getCommands } = createCommandDecorator<
 	GlCommands,
@@ -386,7 +394,7 @@ export class ViewCommands implements Disposable {
 	}
 
 	@command('gitlens.views.title.createBranch', { args: () => [] })
-	@command('gitlens.views.createBranch')
+	@command('gitlens.createBranch:views')
 	@log()
 	private async createBranch(node?: ViewRefNode | ViewRefFileNode | BranchesNode | BranchTrackingStatusNode) {
 		let from =
@@ -407,7 +415,7 @@ export class ViewCommands implements Disposable {
 		return BranchActions.create(node?.repoPath, from);
 	}
 
-	@command('gitlens.views.createPullRequest')
+	@command('gitlens.createPullRequest:views')
 	@log()
 	private async createPullRequest(node: BranchNode | BranchTrackingStatusNode) {
 		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
@@ -522,7 +530,7 @@ export class ViewCommands implements Disposable {
 		return WorktreeActions.remove(node.repoPath, uris);
 	}
 
-	@command('gitlens.views.fetch')
+	@command('gitlens.fetch:views')
 	@log()
 	private fetch(node: RemoteNode | RepositoryNode | RepositoryFolderNode | BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('repository', 'repo-folder')) return RepoActions.fetch(node.repo);
@@ -595,7 +603,7 @@ export class ViewCommands implements Disposable {
 		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
 	}
 
-	@command('gitlens.views.abortPausedOperation')
+	@command('gitlens.views.pausedOperation.abort')
 	@log()
 	private async abortPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -603,7 +611,7 @@ export class ViewCommands implements Disposable {
 		await abortPausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
-	@command('gitlens.views.continuePausedOperation')
+	@command('gitlens.views.pausedOperation.continue')
 	@log()
 	private async continuePausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -611,7 +619,7 @@ export class ViewCommands implements Disposable {
 		await continuePausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
-	@command('gitlens.views.skipPausedOperation')
+	@command('gitlens.views.pausedOperation.skip')
 	@log()
 	private async skipPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -619,21 +627,15 @@ export class ViewCommands implements Disposable {
 		await skipPausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
-	@command('gitlens.views.openPausedOperationInRebaseEditor')
+	@command('gitlens.views.pausedOperation.open')
 	@log()
 	private async openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return;
 
-		const gitDir = await this.container.git.getRepositoryService(node.repoPath).config.getGitDir?.();
-		if (gitDir == null) return;
-
-		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
-		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
-			preview: false,
-		});
+		await openRebaseEditor(this.container, node.repoPath);
 	}
 
-	@command('gitlens.views.openPullRequest')
+	@command('gitlens.openPullRequest:views')
 	@log()
 	private openPullRequest(node: PullRequestNode) {
 		if (!node.is('pullrequest')) return Promise.resolve();
@@ -652,7 +654,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
-	@command('gitlens.views.openPullRequestChanges')
+	@command('gitlens.openPullRequestChanges:views')
 	@log()
 	private async openPullRequestChanges(node: PullRequestNode | LaunchpadItemNode) {
 		if (!node.is('pullrequest') && !node.is('launchpad-item')) return Promise.resolve();
@@ -685,7 +687,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
-	@command('gitlens.views.openPullRequestComparison')
+	@command('gitlens.openPullRequestComparison:views')
 	@log()
 	private async openPullRequestComparison(node: PullRequestNode | LaunchpadItemNode) {
 		if (!node.is('pullrequest') && !node.is('launchpad-item')) return Promise.resolve();
@@ -721,9 +723,9 @@ export class ViewCommands implements Disposable {
 		await openUrl(url);
 	}
 
-	@command('gitlens.views.openWorktree')
-	@command('gitlens.views.openWorktreeInNewWindow', { args: a => [a, undefined, { location: 'newWindow' }] })
-	@command('gitlens.views.openWorktreeInNewWindow.multi', {
+	@command('gitlens.openWorktree:views')
+	@command('gitlens.openWorktreeInNewWindow:views', { args: a => [a, undefined, { location: 'newWindow' }] })
+	@command('gitlens.openWorktreeInNewWindow.multi:views', {
 		args: (a, s) => [a, s, { location: 'newWindow' }],
 		multiselect: true,
 	})
@@ -831,7 +833,7 @@ export class ViewCommands implements Disposable {
 		return RemoteActions.remove(node.remote.repoPath, node.remote.name);
 	}
 
-	@command('gitlens.views.publishBranch')
+	@command('gitlens.publishBranch:views')
 	@log()
 	private publishBranch(node: BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('branch', 'tracking-status')) {
@@ -911,18 +913,18 @@ export class ViewCommands implements Disposable {
 		return RepoActions.rebase(node.repoPath, node.ref);
 	}
 
-	@command('gitlens.ai.rebaseOntoCommit:views')
+	@command('gitlens.ai.explainUnpushed:views')
 	@log()
-	private async aiRebase(node: BranchNode | CommitNode | FileRevisionAsCommitNode | TagNode) {
-		if (!node.isAny('branch', 'commit', 'file-commit', 'tag')) {
+	private async explainUnpushed(node: BranchNode) {
+		if (!node.is('branch') || !node.branch.upstream) {
 			return Promise.resolve();
 		}
 
-		await executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
+		await executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
 			repoPath: node.repoPath,
-			base: node.ref,
-			head: createReference('HEAD', node.repoPath, { refType: 'revision', name: 'HEAD' }),
-			source: { source: 'view', detail: node.is('branch') ? 'branch' : 'tag' },
+			ref: node.branch.ref,
+			baseBranch: node.branch.upstream.name,
+			source: { source: 'view', context: { type: 'branch' } },
 		});
 	}
 
@@ -955,8 +957,8 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.changeUpstream:views')
 	@command('gitlens.setUpstream:views')
 	@log()
-	private changeUpstreamBranch(node: BranchNode) {
-		if (!node.is('branch')) return Promise.resolve();
+	private changeUpstreamBranch(node: BranchNode | BranchTrackingStatusNode) {
+		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
 
 		return BranchActions.changeUpstream(node.repoPath, node.branch);
 	}
@@ -1074,7 +1076,7 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.views.stageFile')
 	@log()
 	private async stageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
-		if (!node.isAny('commit-file', 'file-commit') && !node.is('status-file')) {
+		if (!node.isAny('commit-file', 'file-commit', 'status-file')) {
 			return;
 		}
 
@@ -1104,13 +1106,13 @@ export class ViewCommands implements Disposable {
 		return node.star();
 	}
 
-	@command('gitlens.views.switchToAnotherBranch')
+	@command('gitlens.switchToAnotherBranch:views')
 	@log()
 	private switch(node?: ViewNode) {
 		return RepoActions.switchTo(getNodeRepoPath(node));
 	}
 
-	@command('gitlens.views.switchToBranch')
+	@command('gitlens.switchToBranch:views')
 	@command('gitlens.views.switchToCommit')
 	@command('gitlens.views.switchToTag')
 	@log()
@@ -1128,6 +1130,40 @@ export class ViewCommands implements Disposable {
 		if (!node.isAny('commit', 'file-commit')) return;
 
 		await CommitActions.undoCommit(this.container, node.ref);
+	}
+
+	@command('gitlens.composeCommits:views')
+	@log()
+	private composeCommits(node: UncommittedFileNode) {
+		void executeCommand('gitlens.composeCommits', {
+			repoPath: node.repoPath,
+			source: 'view',
+		});
+	}
+
+	@command('gitlens.recomposeFromCommit:views')
+	@log()
+	private recomposeFromCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!node.isAny('commit', 'file-commit')) return;
+
+		let branch: GitBranch | undefined;
+		if (node.is('commit')) {
+			branch = node.branch;
+		} else if (node.is('file-commit')) {
+			branch = (node as any)._options?.branch;
+		}
+
+		if (branch == null) {
+			void window.showErrorMessage('Unable to determine branch for commit');
+			return;
+		}
+
+		void executeCommand<RecomposeFromCommitCommandArgs>('gitlens.recomposeFromCommit', {
+			repoPath: node.repoPath,
+			commitSha: node.commit.sha,
+			branchName: branch.name,
+			source: 'view',
+		});
 	}
 
 	@command('gitlens.views.unsetAsDefault')
@@ -1280,7 +1316,20 @@ export class ViewCommands implements Disposable {
 	private compareWithSelected(node: ViewRefNode | ViewRefFileNode) {
 		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return;
 
-		this.container.views.searchAndCompare.compareWithSelected(node.repoPath, node.ref);
+		const selectedRef = getContext('gitlens:views:canCompare');
+		if (selectedRef == null) return;
+
+		void setContext('gitlens:views:canCompare', undefined);
+
+		if (selectedRef.repoPath !== node.repoPath) {
+			this.selectForCompare(node);
+			return;
+		}
+
+		void this.container.views.searchAndCompare.compare(node.repoPath, selectedRef, {
+			label: node.ref.name,
+			ref: node.ref.ref,
+		});
 	}
 
 	@command('gitlens.views.selectForCompare')
@@ -1288,7 +1337,11 @@ export class ViewCommands implements Disposable {
 	private selectForCompare(node: ViewRefNode | ViewRefFileNode) {
 		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return;
 
-		this.container.views.searchAndCompare.selectForCompare(node.repoPath, node.ref);
+		void setContext('gitlens:views:canCompare', {
+			label: node.ref.name,
+			ref: node.ref.ref,
+			repoPath: node.repoPath,
+		});
 	}
 
 	private async compareFileWith(
@@ -1304,14 +1357,8 @@ export class ViewCommands implements Disposable {
 
 		return executeCommand<DiffWithCommandArgs, void>('gitlens.diffWith', {
 			repoPath: repoPath,
-			lhs: {
-				sha: lhsRef,
-				uri: lhsUri,
-			},
-			rhs: {
-				sha: rhsRef,
-				uri: rhsUri ?? lhsUri,
-			},
+			lhs: { sha: lhsRef, uri: lhsUri },
+			rhs: { sha: rhsRef, uri: rhsUri ?? lhsUri },
 		});
 	}
 
@@ -1338,11 +1385,7 @@ export class ViewCommands implements Disposable {
 	private selectFileForCompare(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode) || node.ref == null) return;
 
-		void setContext('gitlens:views:canCompare:file', {
-			ref: node.ref.ref,
-			repoPath: node.repoPath,
-			uri: node.uri,
-		});
+		void setContext('gitlens:views:canCompare:file', { ref: node.ref.ref, repoPath: node.repoPath, uri: node.uri });
 	}
 
 	@command('gitlens.views.openChangedFileDiffs', { args: (n, o) => [n, o] })
@@ -1383,17 +1426,11 @@ export class ViewCommands implements Disposable {
 
 	@command('gitlens.views.openChanges')
 	@log()
-	private openChanges(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
+	private openChanges(node: ViewRefFileNode | MergeConflictFileNode) {
 		if (node.is('conflict-file')) {
 			void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
-				lhs: {
-					sha: node.status.HEAD.ref,
-					uri: GitUri.fromFile(node.file, node.repoPath, undefined, true),
-				},
-				rhs: {
-					sha: 'HEAD',
-					uri: GitUri.fromFile(node.file, node.repoPath),
-				},
+				lhs: { sha: node.status.HEAD.ref, uri: GitUri.fromFile(node.file, node.repoPath, undefined, true) },
+				rhs: { sha: 'HEAD', uri: GitUri.fromFile(node.file, node.repoPath) },
 				repoPath: node.repoPath,
 				range: editorLineToDiffRange(0),
 				showOptions: { preserveFocus: false, preview: false },
@@ -1402,7 +1439,7 @@ export class ViewCommands implements Disposable {
 			return;
 		}
 
-		if (!(node instanceof ViewRefFileNode) && !node.is('status-file')) return;
+		if (!(node instanceof ViewRefFileNode)) return;
 
 		const command = node.getCommand();
 		if (command?.arguments == null) return;
@@ -1479,11 +1516,7 @@ export class ViewCommands implements Disposable {
 		const nodeUri = await repo.git.getBestRevisionUri(node.file.path, node.ref.ref);
 		if (nodeUri == null) return Promise.resolve();
 
-		const input1: MergeEditorInputs['input1'] = {
-			uri: nodeUri,
-			title: `Incoming`,
-			detail: ` ${node.ref.name}`,
-		};
+		const input1: MergeEditorInputs['input1'] = { uri: nodeUri, title: `Incoming`, detail: ` ${node.ref.name}` };
 
 		const [mergeBaseResult, workingUriResult] = await Promise.allSettled([
 			repo.git.refs.getMergeBase(node.ref.ref, 'HEAD'),
@@ -1496,11 +1529,7 @@ export class ViewCommands implements Disposable {
 			return Promise.resolve();
 		}
 
-		const input2: MergeEditorInputs['input2'] = {
-			uri: workingUri,
-			title: 'Current',
-			detail: ' Working Tree',
-		};
+		const input2: MergeEditorInputs['input2'] = { uri: workingUri, title: 'Current', detail: ' Working Tree' };
 
 		const headUri = await repo.git.getBestRevisionUri(node.file.path, 'HEAD');
 		if (headUri != null) {
@@ -1536,34 +1565,24 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openChanges(
 			node.file,
 			{ repoPath: node.repoPath, lhs: mergeBase, rhs: node.ref1 },
-			{
-				preserveFocus: true,
-				preview: true,
-				lhsTitle: `${basename(node.uri.fsPath)} (Base)`,
-			},
+			{ preserveFocus: true, preview: true, lhsTitle: `${basename(node.uri.fsPath)} (Base)` },
 		);
 	}
 
 	@command('gitlens.views.openChangesWithWorking')
 	@log()
-	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
-		if (node.is('status-file')) {
+	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode) {
+		if (node.isAny('status-file', 'uncommitted-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.uri,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
-				},
+				showOptions: { preserveFocus: true, preview: true },
 			});
 		}
 
 		if (node.is('conflict-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.baseUri,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
-				},
+				showOptions: { preserveFocus: true, preview: true },
 			});
 		}
 
@@ -1572,10 +1591,7 @@ export class ViewCommands implements Disposable {
 			if (baseUri != null) {
 				return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 					uri: baseUri,
-					showOptions: {
-						preserveFocus: true,
-						preview: true,
-					},
+					showOptions: { preserveFocus: true, preview: true },
 				});
 			}
 		}
@@ -1602,20 +1618,46 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.views.openFile')
 	@log()
 	private openFile(
-		node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode | FileHistoryNode | LineHistoryNode,
+		node: ViewRefFileNode | MergeConflictFileNode | FileHistoryNode | LineHistoryNode,
 		options?: TextDocumentShowOptions,
 	) {
-		if (
-			!(node instanceof ViewRefFileNode) &&
-			!node.isAny('conflict-file', 'status-file', 'file-history', 'line-history')
-		) {
+		if (!(node instanceof ViewRefFileNode) && !node.isAny('conflict-file', 'file-history', 'line-history')) {
 			return Promise.resolve();
 		}
 
-		return CommitActions.openFile(node.uri, {
-			preserveFocus: true,
-			preview: false,
-			...options,
+		return CommitActions.openFile(node.uri, { preserveFocus: true, preview: false, ...options });
+	}
+
+	@command('gitlens.openFileHistoryInGraph:views')
+	@log()
+	private openFileHistoryInGraph(node: CommitFileNode | FileRevisionAsCommitNode | ResultsFileNode | StashFileNode) {
+		if (!node.isAny('commit-file', 'file-commit', 'results-file', 'stash-file')) {
+			return Promise.resolve();
+		}
+
+		return executeCommand('gitlens.openFileHistoryInGraph', node.uri);
+	}
+
+	@command('gitlens.graph.soloBranch:views')
+	@command('gitlens.graph.soloTag:views')
+	@log()
+	private async soloReferenceInGraph(node: BranchNode | TagNode) {
+		if (!node.is('branch') && !node.is('tag')) return Promise.resolve();
+
+		const repo = this.container.git.getRepository(node.repoPath);
+		if (repo == null) return Promise.resolve();
+
+		// Show the graph with a ref: search query to filter the graph to this branch
+		return void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+			repository: repo,
+			search: {
+				query: `ref:${node.ref.name}`,
+				filter: true,
+				matchAll: false,
+				matchCase: false,
+				matchRegex: false,
+			},
+			source: { source: 'view' },
 		});
 	}
 
@@ -1668,10 +1710,21 @@ export class ViewCommands implements Disposable {
 			| ResultsFileNode
 			| StashFileNode
 			| MergeConflictFileNode
-			| StatusFileNode,
+			| StatusFileNode
+			| UncommittedFileNode,
 		options?: OpenFileAtRevisionCommandArgs,
 	) {
-		if (!node.isAny('commit-file', 'file-commit', 'results-file', 'stash-file', 'conflict-file', 'status-file')) {
+		if (
+			!node.isAny(
+				'commit-file',
+				'file-commit',
+				'results-file',
+				'stash-file',
+				'conflict-file',
+				'status-file',
+				'uncommitted-file',
+			)
+		) {
 			return Promise.resolve();
 		}
 
@@ -1679,7 +1732,7 @@ export class ViewCommands implements Disposable {
 
 		let uri = options.revisionUri;
 		if (uri == null) {
-			if (node.isAny('results-file', 'conflict-file')) {
+			if (node.isAny('results-file', 'conflict-file', 'uncommitted-file')) {
 				uri = this.container.git.getRevisionUriFromGitUri(node.uri);
 			} else {
 				uri =
@@ -1773,7 +1826,7 @@ export class ViewCommands implements Disposable {
 		node.filter = filter;
 	}
 
-	@command('gitlens.views.associateIssueWithBranch')
+	@command('gitlens.associateIssueWithBranch:views')
 	@log()
 	private async associateIssueWithBranch(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();

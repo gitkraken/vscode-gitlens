@@ -1,16 +1,16 @@
 import type { CancellationToken, Disposable, Uri } from 'vscode';
 import { window } from 'vscode';
-import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
-import type { Container } from '../container';
+import type { LiveShare, SharedServiceProxy } from '../@types/vsls.d.js';
+import type { Container } from '../container.js';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports -- Allowed since it is a type import
-import type { GitResult } from '../env/node/git/git';
-import type { GitCommandOptions } from '../git/commandOptions';
-import { debug, log } from '../system/decorators/log';
-import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
-import { VslsHostService } from './host';
-import type { RepositoryProxy, RequestType } from './protocol';
-import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
+import type { GitResult } from '../env/node/git/git.js';
+import type { GitCommandOptions } from '../git/commandOptions.js';
+import { debug, log } from '../system/decorators/log.js';
+import { Logger } from '../system/logger.js';
+import { getLogScope } from '../system/logger.scope.js';
+import { VslsHostService } from './host.js';
+import type { RepositoryProxy, RequestType } from './protocol.js';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol.js';
 
 export class VslsGuestService implements Disposable {
 	@log()

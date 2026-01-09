@@ -1,27 +1,28 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import type { FileAnnotationType } from '../config';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import type { Container } from '../container';
-import { openFileAtRevision } from '../git/actions/commit';
-import type { DiffRange } from '../git/gitProvider';
-import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/utils/revision.utils';
-import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
-import { showCommitPicker } from '../quickpicks/commitPicker';
-import { CommandQuickPickItem } from '../quickpicks/items/common';
-import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
-import { command } from '../system/-webview/command';
-import { splitPath } from '../system/-webview/path';
-import { diffRangeToEditorLine, selectionToDiffRange } from '../system/-webview/vscode/editors';
-import { createMarkdownCommandLink } from '../system/commands';
-import { Logger } from '../system/logger';
-import { pad } from '../system/string';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
-import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
+import type { FileAnnotationType } from '../config.js';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants.js';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { openFileAtRevision } from '../git/actions/commit.js';
+import type { DiffRange } from '../git/gitProvider.js';
+import { GitUri } from '../git/gitUri.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
+import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages.js';
+import { showCommitPicker } from '../quickpicks/commitPicker.js';
+import { CommandQuickPickItem } from '../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive.js';
+import { command } from '../system/-webview/command.js';
+import { splitPath } from '../system/-webview/path.js';
+import { diffRangeToEditorLine, selectionToDiffRange } from '../system/-webview/vscode/editors.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { Logger } from '../system/logger.js';
+import { pad } from '../system/string.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
+import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom.js';
 
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;
@@ -29,22 +30,29 @@ export interface OpenFileAtRevisionCommandArgs {
 	range?: DiffRange;
 	showOptions?: TextDocumentShowOptions;
 	annotationType?: FileAnnotationType;
+	source?: Source;
 }
 
 @command()
 export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 	static createMarkdownCommandLink(args: OpenFileAtRevisionCommandArgs): string;
-	static createMarkdownCommandLink(revisionUri: Uri, annotationType?: FileAnnotationType, range?: DiffRange): string;
+	static createMarkdownCommandLink(
+		revisionUri: Uri,
+		annotationType?: FileAnnotationType,
+		range?: DiffRange,
+		source?: Source,
+	): string;
 	static createMarkdownCommandLink(
 		argsOrUri: OpenFileAtRevisionCommandArgs | Uri,
 		annotationType?: FileAnnotationType,
 		range?: DiffRange,
+		source?: Source,
 	): string {
 		let args: OpenFileAtRevisionCommandArgs | Uri;
 		if (argsOrUri instanceof Uri) {
 			const revisionUri = argsOrUri;
 
-			args = { revisionUri: revisionUri, range: range, annotationType: annotationType };
+			args = { revisionUri: revisionUri, range: range, annotationType: annotationType, source: source };
 		} else {
 			args = argsOrUri;
 		}

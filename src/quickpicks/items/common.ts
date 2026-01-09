@@ -1,8 +1,8 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
 import { commands, QuickPickItemKind } from 'vscode';
-import type { Keys } from '../../constants';
-import type { GlCommands } from '../../constants.commands';
-import type { Directive } from './directive';
+import type { GlCommands } from '../../constants.commands.js';
+import type { Keys } from '../../constants.js';
+import type { Directive } from './directive.js';
 
 declare module 'vscode' {
 	interface QuickPickItem {

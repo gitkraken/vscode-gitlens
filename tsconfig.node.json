@@ -2,10 +2,10 @@
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"paths": {
-			"@env/*": ["src/env/node/*"]
+			"@env/*": ["./src/env/node/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.node.tsbuildinfo"
 	},
 	"include": ["src/**/*"],
-	"exclude": ["src/**/__tests__/**/*", "src/**/webview/**/*", "src/webviews/apps/**/*", "src/env/browser/**/*"]
+	"exclude": ["src/webviews/apps/**/*", "src/env/browser/**/*"]
 }

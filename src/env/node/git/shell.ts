@@ -4,10 +4,10 @@ import type { Stats } from 'fs';
 import { access, constants, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
-import { normalizePath } from '../../../system/path';
-import { CancelledRunError, RunError } from './shell.errors';
+import { Logger } from '../../../system/logger.js';
+import { getLogScope } from '../../../system/logger.scope.js';
+import { normalizePath } from '../../../system/path.js';
+import { CancelledRunError, RunError } from './shell.errors.js';
 
 export const isWindows = process.platform === 'win32';
 
@@ -215,7 +215,9 @@ export function run<T extends number | string>(
 				let stderrDecoded: string;
 				if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
 					// stdout & stderr can be `Buffer` or `string
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 					stdoutDecoded = stdout.toString();
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 					stderrDecoded = stderr.toString();
 				} else {
 					const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;

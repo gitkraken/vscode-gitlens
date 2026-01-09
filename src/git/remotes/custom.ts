@@ -1,13 +1,13 @@
 import type { Range, Uri } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
-import type { RemotesUrlsConfig } from '../../config';
-import { getTokensFromTemplate, interpolate } from '../../system/string';
-import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
-import type { Repository } from '../models/repository';
-import type { GkProviderId } from '../models/repositoryIdentities';
-import type { GitRevisionRangeNotation } from '../models/revision';
-import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
-import { RemoteProvider } from './remoteProvider';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks.js';
+import type { RemotesUrlsConfig } from '../../config.js';
+import { getTokensFromTemplate, interpolate } from '../../system/string.js';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource.js';
+import type { Repository } from '../models/repository.js';
+import type { GkProviderId } from '../models/repositoryIdentities.js';
+import type { GitRevisionRangeNotation } from '../models/revision.js';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider.js';
+import { RemoteProvider } from './remoteProvider.js';
 
 export class CustomRemote extends RemoteProvider {
 	private readonly urls: RemotesUrlsConfig;

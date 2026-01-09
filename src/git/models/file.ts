@@ -1,5 +1,10 @@
-import type { GitCommit } from './commit';
-import type { GitFileConflictStatus, GitFileIndexStatus, GitFileStatus, GitFileWorkingTreeStatus } from './fileStatus';
+import type { GitCommit } from './commit.js';
+import type {
+	GitFileConflictStatus,
+	GitFileIndexStatus,
+	GitFileStatus,
+	GitFileWorkingTreeStatus,
+} from './fileStatus.js';
 
 export interface GitFile {
 	readonly path: string;

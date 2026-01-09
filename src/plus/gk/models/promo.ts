@@ -1,6 +1,6 @@
-import type { GlCommands } from '../../../constants.commands';
-import type { SubscriptionState } from '../../../constants.subscription';
-import type { PaidSubscriptionPlanIds } from './subscription';
+import type { GlExtensionCommands } from '../../../constants.commands.js';
+import type { SubscriptionState } from '../../../constants.subscription.js';
+import type { PaidSubscriptionPlanIds } from './subscription.js';
 
 export type PromoKeys = 'pro50' | (string & {});
 export type PromoLocation = 'account' | 'badge' | 'gate' | 'home';
@@ -25,7 +25,7 @@ export interface Promo {
 			readonly link?: {
 				readonly html: string;
 				readonly title: string;
-				readonly command?: GlCommands;
+				readonly command?: GlExtensionCommands;
 			};
 		};
 	};

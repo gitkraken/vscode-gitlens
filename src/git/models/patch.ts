@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
-import type { GitCommit } from './commit';
-import type { GitDiffFiles } from './diff';
-import type { Repository } from './repository';
+import type { GitCommit } from './commit.js';
+import type { GitDiffFiles } from './diff.js';
+import type { Repository } from './repository.js';
 
 /**
  * For a single commit `to` is the commit SHA and `from` is its parent `<sha>^`

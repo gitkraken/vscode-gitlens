@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import type { UnifiedAsyncDisposable } from '../../system/unifiedDisposable';
+import type { UnifiedAsyncDisposable } from '../../system/unifiedDisposable.js';
 
 export interface SharedGkStorageLocationProvider {
 	getSharedRepositoryLocationFileUri(): Promise<Uri>;

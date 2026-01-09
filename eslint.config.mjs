@@ -1,14 +1,17 @@
 // @ts-check
 import globals from 'globals';
 import { includeIgnoreFile } from '@eslint/compat';
+import { defineConfig } from 'eslint/config';
 import js from '@eslint/js';
 import ts from 'typescript-eslint';
 import antiTrojanSource from 'eslint-plugin-anti-trojan-source';
-import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+import { createCustomTypeScriptImportResolver } from './scripts/eslint-import-resolver-ts.mjs';
 import importX from 'eslint-plugin-import-x';
 import { configs as litConfigs } from 'eslint-plugin-lit';
 import { configs as wcConfigs } from 'eslint-plugin-wc';
-import noSrcImports from './scripts/eslint-rules/no-src-imports.js';
+import noSrcImports from './scripts/eslint-rules/no-src-imports.mjs';
+import noEnvWithoutJs from './scripts/eslint-rules/no-env-without-js.mjs';
+import reactCompiler from 'eslint-plugin-react-compiler';
 import { fileURLToPath } from 'node:url';
 
 /** @type {Awaited<import('typescript-eslint').Config>[number]['languageOptions']} */
@@ -31,7 +34,6 @@ const filePatterns = {
 	webviewsShared: [
 		// Keep in sync with `src/webviews/apps/tsconfig.json`
 		'src/webviews/ipc.ts',
-		'src/webviews/plus/composer/utils.ts',
 		'src/webviews/**/protocol.ts',
 		'src/**/models/**/*.ts',
 		'src/**/utils/**/*.ts',
@@ -41,7 +43,6 @@ const filePatterns = {
 		'src/constants.*.ts',
 		'src/env/browser/**/*',
 		'src/features.ts',
-		'src/git/parsers/diffParser.ts',
 		'src/system/**/*.ts',
 		'**/webview/**/*',
 	],
@@ -118,7 +119,7 @@ const restrictedImports = {
 			paths: [{ name: 'vscode', message: "Can't use `vscode` in webviews", allowTypeImports: true }],
 			patterns: [
 				{
-					group: ['container'],
+					group: ['container.js'],
 					importNames: ['Container'],
 					message: "Can't use `Container` in webviews",
 					allowTypeImports: true,
@@ -145,7 +146,7 @@ const restrictedImports = {
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
-export default ts.config(
+export default defineConfig(
 	includeIgnoreFile(gitignorePath),
 	{ ignores: ignorePatterns.default },
 	js.configs.recommended,
@@ -156,13 +157,17 @@ export default ts.config(
 		languageOptions: { ...defaultLanguageOptions },
 		linterOptions: { reportUnusedDisableDirectives: true },
 		plugins: {
+			// @ts-ignore
 			'import-x': importX,
+			// @ts-ignore
 			'anti-trojan-source': antiTrojanSource,
-			'@gitlens': { rules: { 'no-src-imports': noSrcImports } },
+			// @ts-ignore
+			'@gitlens': { rules: { 'no-src-imports': noSrcImports, 'no-env-without-js': noEnvWithoutJs } },
 		},
 		rules: {
 			// Custom rules
 			'@gitlens/no-src-imports': 'error',
+			'@gitlens/no-env-without-js': 'error',
 			'anti-trojan-source/no-bidi': 'error',
 
 			// Core JavaScript rules
@@ -259,7 +264,7 @@ export default ts.config(
 			// Import rules
 			'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
 			'import-x/default': 'off',
-			'import-x/extensions': 'off',
+			'import-x/extensions': ['error', 'ignorePackages', { checkTypeImports: true, fix: true }],
 			'import-x/named': 'off',
 			'import-x/namespace': 'off',
 			'import-x/newline-after-import': 'warn',
@@ -347,7 +352,8 @@ export default ts.config(
 			'@typescript-eslint/no-restricted-imports': restrictedImports.extension,
 			'@typescript-eslint/no-unnecessary-condition': 'off',
 			'@typescript-eslint/no-unnecessary-boolean-literal-compare': 'off',
-			'@typescript-eslint/no-unnecessary-type-conversion': 'off',
+			'@typescript-eslint/no-unnecessary-type-constraint': 'error',
+			'@typescript-eslint/no-unnecessary-type-conversion': 'error',
 			'@typescript-eslint/no-unnecessary-type-parameters': 'off', // https://github.com/typescript-eslint/typescript-eslint/issues/9705
 			'@typescript-eslint/no-unsafe-argument': 'off',
 			'@typescript-eslint/no-unsafe-assignment': 'off',
@@ -384,7 +390,7 @@ export default ts.config(
 		settings: {
 			'import-x/extensions': ['.ts', '.tsx'],
 			'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
-			'import-x/resolver-next': [createTypeScriptImportResolver()],
+			'import-x/resolver-next': [createCustomTypeScriptImportResolver()],
 		},
 	},
 
@@ -426,8 +432,13 @@ export default ts.config(
 	{
 		name: 'webviews:apps',
 		files: filePatterns.webviewsApps,
-		ignores: ignorePatterns.extensionOnly,
-		extends: [litConfigs['flat/recommended'], wcConfigs['flat/recommended'], wcConfigs['flat/best-practice']],
+		ignores: [...ignorePatterns.extensionOnly, ...filePatterns.unitTests],
+		extends: [
+			litConfigs['flat/recommended'],
+			wcConfigs['flat/recommended'],
+			wcConfigs['flat/best-practice'],
+			reactCompiler.configs.recommended,
+		],
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
 		rules: {
 			'@typescript-eslint/no-restricted-imports': restrictedImports.webviews,
@@ -474,5 +485,12 @@ export default ts.config(
 				},
 			],
 		},
+	},
+
+	// Webview unit tests (browser globals, no Lit/WC rules)
+	{
+		name: 'tests:webview',
+		files: ['src/webviews/apps/**/__tests__/**/*'],
+		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
 	},
 );

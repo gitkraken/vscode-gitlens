@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import type { TimelineScope, TimelineScopeSerialized } from '../../protocol';
+import type { TimelineScope, TimelineScopeSerialized } from '../../protocol.js';
 
 export function areTimelineScopesEqual(
 	a: TimelineScope | TimelineScopeSerialized | undefined,

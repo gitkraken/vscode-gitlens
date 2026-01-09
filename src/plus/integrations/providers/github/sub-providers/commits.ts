@@ -1,9 +1,10 @@
 import type { GitBlame } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, Uri } from 'vscode';
-import type { SearchQuery } from '../../../../../constants.search';
-import type { Source } from '../../../../../constants.telemetry';
-import type { Container } from '../../../../../container';
-import type { GitCache } from '../../../../../git/cache';
+import type { SearchQuery } from '../../../../../constants.search.js';
+import type { Source } from '../../../../../constants.telemetry.js';
+import type { Container } from '../../../../../container.js';
+import { CancellationError } from '../../../../../errors.js';
+import type { GitCache } from '../../../../../git/cache.js';
 import type {
 	GitCommitsSubProvider,
 	GitLogForPathOptions,
@@ -12,30 +13,30 @@ import type {
 	GitSearchCommitsOptions,
 	LeftRightCommitCountResult,
 	SearchCommitsResult,
-} from '../../../../../git/gitProvider';
-import { GitUri } from '../../../../../git/gitUri';
-import { GitCommit, GitCommitIdentity } from '../../../../../git/models/commit';
-import type { ParsedGitDiffHunks } from '../../../../../git/models/diff';
-import { GitFileChange } from '../../../../../git/models/fileChange';
-import { GitFileIndexStatus } from '../../../../../git/models/fileStatus';
-import type { GitLog } from '../../../../../git/models/log';
-import type { GitRevisionRange } from '../../../../../git/models/revision';
-import { deletedOrMissing } from '../../../../../git/models/revision';
-import type { GitUser } from '../../../../../git/models/user';
-import { parseSearchQuery, processNaturalLanguageToSearchQuery } from '../../../../../git/search';
-import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils';
-import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils';
-import { log } from '../../../../../system/decorators/log';
-import { filterMap, first, last, map, some } from '../../../../../system/iterable';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import { isFolderGlob, stripFolderGlob } from '../../../../../system/path';
-import type { CachedLog, TrackedGitDocument } from '../../../../../trackers/trackedDocument';
-import { GitDocumentState } from '../../../../../trackers/trackedDocument';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { stripOrigin } from '../githubGitProvider';
-import { fromCommitFileStatus } from '../models';
-import { getQueryArgsFromSearchQuery } from '../utils/-webview/search.utils';
+} from '../../../../../git/gitProvider.js';
+import { GitUri } from '../../../../../git/gitUri.js';
+import { GitCommit, GitCommitIdentity } from '../../../../../git/models/commit.js';
+import type { ParsedGitDiffHunks } from '../../../../../git/models/diff.js';
+import { GitFileChange } from '../../../../../git/models/fileChange.js';
+import { GitFileIndexStatus } from '../../../../../git/models/fileStatus.js';
+import type { GitLog } from '../../../../../git/models/log.js';
+import type { GitRevisionRange } from '../../../../../git/models/revision.js';
+import { deletedOrMissing } from '../../../../../git/models/revision.js';
+import type { GitUser } from '../../../../../git/models/user.js';
+import { parseSearchQueryGitHubCommand } from '../../../../../git/search.js';
+import { processNaturalLanguageToSearchQuery } from '../../../../../git/search.naturalLanguage.js';
+import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils.js';
+import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { filterMap, first, last, map, some } from '../../../../../system/iterable.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import { isFolderGlob, stripFolderGlob } from '../../../../../system/path.js';
+import type { CachedLog, TrackedGitDocument } from '../../../../../trackers/trackedDocument.js';
+import { GitDocumentState } from '../../../../../trackers/trackedDocument.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
+import { stripOrigin } from '../githubGitProvider.js';
+import { fromCommitFileStatus } from '../models.js';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 
@@ -45,10 +46,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
-
-	private get useCaching() {
-		return true; // configuration.get('advanced.caching.enabled');
-	}
 
 	@log()
 	async getCommit(repoPath: string, rev: string, _cancellation?: CancellationToken): Promise<GitCommit | undefined> {
@@ -496,7 +493,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		let cacheKey: string | undefined;
 		if (
-			this.useCaching &&
 			// Don't cache folders
 			!options.isFolder &&
 			options.authors == null &&
@@ -831,7 +827,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 		if (log == null) return [];
 
-		return map(log.commits.values(), c => c.ref);
+		const shas = map(log.commits.values(), c => c.ref);
+		return options?.reverse ? [...shas].reverse() : shas;
 	}
 
 	@log()
@@ -891,9 +888,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log<CommitsGitSubProvider['searchCommits']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
-					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
-				}`,
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${
+					s.matchWholeWord ? 'W' : ''
+				}]: ${s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query}`,
 		},
 	})
 	async searchCommits(
@@ -901,7 +898,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		search: SearchQuery,
 		source: Source,
 		options?: GitSearchCommitsOptions,
-		_cancellation?: CancellationToken,
+		cancellation?: CancellationToken,
 	): Promise<SearchCommitsResult> {
 		if (repoPath == null) return { search: search, log: undefined };
 
@@ -915,7 +912,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			search = await processNaturalLanguageToSearchQuery(this.container, search, source);
 		}
 
-		const operations = parseSearchQuery(search);
+		const currentUser = search.query.includes('@me')
+			? await this.provider.config.getCurrentUser(repoPath)
+			: undefined;
+		if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+		const { args: queryArgs, operations } = parseSearchQueryGitHubCommand(search, currentUser);
 
 		const values = operations.get('commit:');
 		if (values?.size) {
@@ -935,7 +937,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			};
 		}
 
-		const queryArgs = await getQueryArgsFromSearchQuery(this.provider, search, operations, repoPath);
 		if (!queryArgs.length) return { search: search, log: undefined };
 
 		const limit = this.provider.getPagingLimit(options?.limit);

@@ -1,11 +1,11 @@
 import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { GlElement } from '../element';
-import { getAutolinkIcon } from './utils';
-import '../button';
-import '../code-icon';
-import '../formatted-date';
+import { GlElement } from '../element.js';
+import { getAutolinkIcon } from './utils.js';
+import '../button.js';
+import '../code-icon.js';
+import '../formatted-date.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

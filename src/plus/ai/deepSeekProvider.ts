@@ -1,6 +1,6 @@
-import { deepSeekProviderDescriptor as provider } from '../../constants.ai';
-import type { AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { deepSeekProviderDescriptor as provider } from '../../constants.ai.js';
+import type { AIModel } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type DeepSeekModel = AIModel<typeof provider.id>;
 const models: DeepSeekModel[] = [

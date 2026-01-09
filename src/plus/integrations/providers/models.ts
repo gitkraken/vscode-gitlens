@@ -39,34 +39,34 @@ import {
 } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
-import type { IntegrationIds } from '../../../constants.integrations';
+import type { IntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../../constants.integrations';
-import type { Account as UserAccount } from '../../../git/models/author';
-import type { IssueMember, IssueProject, IssueShape } from '../../../git/models/issue';
-import { Issue, RepositoryAccessLevel } from '../../../git/models/issue';
+} from '../../../constants.integrations.js';
+import type { Account as UserAccount } from '../../../git/models/author.js';
+import type { IssueMember, IssueProject, IssueShape } from '../../../git/models/issue.js';
+import { Issue, RepositoryAccessLevel } from '../../../git/models/issue.js';
 import type {
 	PullRequestMember,
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestReviewer,
 	PullRequestState,
-} from '../../../git/models/pullRequest';
+} from '../../../git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
-} from '../../../git/models/pullRequest';
-import type { Provider, ProviderReference } from '../../../git/models/remoteProvider';
-import { equalsIgnoreCase } from '../../../system/string';
-import type { EnrichableItem } from '../../launchpad/models/enrichedItem';
-import type { Integration, IntegrationType } from '../models/integration';
-import { getEntityIdentifierInput } from './utils';
+} from '../../../git/models/pullRequest.js';
+import type { Provider, ProviderReference } from '../../../git/models/remoteProvider.js';
+import { equalsIgnoreCase } from '../../../system/string.js';
+import type { EnrichableItem } from '../../launchpad/models/enrichedItem.js';
+import type { Integration, IntegrationType } from '../models/integration.js';
+import { getEntityIdentifierInput } from './utils.js';
 
 export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];

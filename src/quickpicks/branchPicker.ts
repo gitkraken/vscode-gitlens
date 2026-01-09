@@ -1,10 +1,10 @@
 import type { Disposable, QuickPickItem } from 'vscode';
 import { window } from 'vscode';
-import { getBranches } from '../commands/quickCommand.steps';
-import type { GitBranch } from '../git/models/branch';
-import type { Repository } from '../git/models/repository';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
-import type { BranchQuickPickItem } from './items/gitWizard';
+import { getBranches } from '../commands/quickCommand.steps.js';
+import type { GitBranch } from '../git/models/branch.js';
+import type { Repository } from '../git/models/repository.js';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
+import type { BranchQuickPickItem } from './items/gitWizard.js';
 
 export async function showBranchPicker(
 	title: string | undefined,

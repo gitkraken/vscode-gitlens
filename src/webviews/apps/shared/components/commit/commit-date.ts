@@ -1,9 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { dateConverter } from '../converters/date-converter';
-import type { FormattedDate } from '../formatted-date';
-import '../code-icon';
-import '../overlays/tooltip';
+import { dateConverter } from '../converters/date-converter.js';
+import type { FormattedDate } from '../formatted-date.js';
+import '../code-icon.js';
+import '../overlays/tooltip.js';
 
 @customElement('gl-commit-date')
 export class GlCommitDate extends LitElement {

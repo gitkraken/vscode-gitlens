@@ -2,12 +2,12 @@ import { consume } from '@lit/context';
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { State } from '../../../home/protocol';
-import { GlElement } from '../../shared/components/element';
-import { linkBase } from '../../shared/components/styles/lit/base.css';
-import { stateContext } from '../context';
-import { alertStyles, homeBaseStyles } from '../home.css';
-import '../../shared/components/button';
+import type { State } from '../../../home/protocol.js';
+import { GlElement } from '../../shared/components/element.js';
+import { linkBase } from '../../shared/components/styles/lit/base.css.js';
+import { stateContext } from '../context.js';
+import { alertStyles, homeBaseStyles } from '../home.css.js';
+import '../../shared/components/button.js';
 
 @customElement('gl-repo-alerts')
 export class GlRepoAlerts extends GlElement {

@@ -1,9 +1,9 @@
-import { Container } from '../../container';
-import type { ViewNode } from '../../views/nodes/abstract/viewNode';
-import type { RevealOptions } from '../../views/viewBase';
-import { executeGitCommand } from '../actions';
-import type { GitContributor } from '../models/contributor';
-import type { Repository } from '../models/repository';
+import { Container } from '../../container.js';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
+import type { RevealOptions } from '../../views/viewBase.js';
+import { executeGitCommand } from '../actions.js';
+import type { GitContributor } from '../models/contributor.js';
+import type { Repository } from '../models/repository.js';
 
 export function addAuthors(
 	repo?: string | Repository,

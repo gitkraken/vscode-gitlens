@@ -1,12 +1,12 @@
-import type { SearchQuery } from '../constants.search';
-import type { Container } from '../container';
-import { executeGitCommand } from '../git/actions';
-import { command } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { SearchResultsNode } from '../views/nodes/searchResultsNode';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasRepository } from './commandContext.utils';
+import type { SearchQuery } from '../constants.search.js';
+import type { Container } from '../container.js';
+import { executeGitCommand } from '../git/actions.js';
+import { command } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { SearchResultsNode } from '../views/nodes/searchResultsNode.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasRepository } from './commandContext.utils.js';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchQuery>;

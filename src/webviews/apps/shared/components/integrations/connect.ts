@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../overlays/popover';
-import '../actions/action-item';
-import '../code-icon';
+import '../overlays/popover.js';
+import '../actions/action-item.js';
+import '../code-icon.js';
 
 @customElement('gl-connect')
 export class GlConnect extends LitElement {

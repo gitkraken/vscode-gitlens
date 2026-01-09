@@ -1,13 +1,13 @@
 import type { TextDocument, TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Selection, Uri, ViewColumn, window } from 'vscode';
-import { imageMimetypes, Schemes } from '../../../constants';
-import type { DiffRange } from '../../../git/gitProvider';
-import { isGitUri } from '../../../git/gitUri';
-import { Logger } from '../../logger';
-import { extname } from '../../path';
-import { executeCoreCommand } from '../command';
-import { isTextDocument } from './documents';
-import { isTrackableUri } from './uris';
+import { imageMimetypes, Schemes } from '../../../constants.js';
+import type { DiffRange } from '../../../git/gitProvider.js';
+import { isGitUri } from '../../../git/gitUri.js';
+import { Logger } from '../../logger.js';
+import { extname } from '../../path.js';
+import { executeCoreCommand } from '../command.js';
+import { isTextDocument } from './documents.js';
+import { isTrackableUri } from './uris.js';
 
 export function getOpenTextEditor(uri: Uri): TextEditor | undefined {
 	const active = window.activeTextEditor;
@@ -25,7 +25,7 @@ export function getOpenTextEditor(uri: Uri): TextEditor | undefined {
 
 export function getOpenTextEditorIfActive(document: TextDocument): TextEditor | undefined {
 	const editor = window.activeTextEditor;
-	return editor != null && editor.document === document ? editor : undefined;
+	return editor?.document === document ? editor : undefined;
 }
 
 export function getOpenTextEditorIfVisible(uri: Uri): TextEditor | undefined;

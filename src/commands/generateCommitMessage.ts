@@ -1,15 +1,15 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Sources } from '../constants.telemetry';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import { showGenericErrorMessage } from '../messages';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCoreCommand } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
+import type { Sources } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command, executeCoreCommand } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
 
 export interface GenerateCommitMessageCommandArgs {
 	repoPath?: string | Uri;
@@ -66,7 +66,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 		try {
 			const currentMessage = scmRepo.inputBox.value;
-			const result = await this.container.ai.generateCommitMessage(
+			const result = await this.container.ai.actions.generateCommitMessage(
 				repo,
 				{ source: args?.source ?? 'commandPalette' },
 				{
@@ -77,8 +77,8 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			if (result == null || result === 'cancelled') return;
 
 			void executeCoreCommand('workbench.view.scm');
-			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}${
-				result.parsed.body ? `\n\n${result.parsed.body}` : ''
+			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.result.summary}${
+				result.result.body ? `\n\n${result.result.body}` : ''
 			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');

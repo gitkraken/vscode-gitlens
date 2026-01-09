@@ -1,5 +1,5 @@
-import type { RemoteResource } from '../models/remoteResource';
-import { RemoteResourceType } from '../models/remoteResource';
+import type { RemoteResource } from '../models/remoteResource.js';
+import { RemoteResourceType } from '../models/remoteResource.js';
 
 // | {
 // 		type: RemoteResourceType.Tag;

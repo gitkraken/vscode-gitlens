@@ -1,8 +1,8 @@
 import { Uri } from 'vscode';
-import { GitRemote } from '../../../../../git/models/remote';
-import { getRemoteProviderMatcher, loadRemoteProvidersFromConfig } from '../../../../../git/remotes/remoteProviders';
-import { RemotesGitProviderBase } from '../../../../../git/sub-providers/remotes';
-import { log } from '../../../../../system/decorators/log';
+import { GitRemote } from '../../../../../git/models/remote.js';
+import { getRemoteProviderMatcher, loadRemoteProvidersFromConfig } from '../../../../../git/remotes/remoteProviders.js';
+import { RemotesGitProviderBase } from '../../../../../git/sub-providers/remotes.js';
+import { log } from '../../../../../system/decorators/log.js';
 
 export class RemotesGitSubProvider extends RemotesGitProviderBase {
 	@log({ args: { 1: false } })

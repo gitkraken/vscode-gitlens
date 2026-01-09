@@ -1,24 +1,24 @@
 import type { TreeCheckboxChangeEvent } from 'vscode';
 import { Disposable, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
-import { md5 } from '@env/crypto';
-import type { StoredNamedRef } from '../../constants.storage';
-import type { FilesComparison } from '../../git/actions/commit';
-import { GitUri } from '../../git/gitUri';
-import type { GitUser } from '../../git/models/user';
-import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
-import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
-import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import { weakEvent } from '../../system/event';
-import { pluralize } from '../../system/string';
-import type { SearchAndCompareView } from '../searchAndCompareView';
-import type { View } from '../viewBase';
-import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { ResultsCommitsNode } from './resultsCommitsNode';
-import { ResultsFilesNode } from './resultsFilesNode';
+import { md5 } from '@env/crypto.js';
+import type { StoredNamedRef } from '../../constants.storage.js';
+import type { FilesComparison } from '../../git/actions/commit.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitUser } from '../../git/models/user.js';
+import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults.js';
+import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults.js';
+import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils.js';
+import { gate } from '../../system/decorators/gate.js';
+import { debug, log } from '../../system/decorators/log.js';
+import { weakEvent } from '../../system/event.js';
+import { pluralize } from '../../system/string.js';
+import type { SearchAndCompareView } from '../searchAndCompareView.js';
+import type { View } from '../viewBase.js';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { ResultsCommitsNode } from './resultsCommitsNode.js';
+import { ResultsFilesNode } from './resultsFilesNode.js';
 
 type State = {
 	filterCommits: GitUser[] | undefined;
@@ -42,6 +42,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 
 		this.updateContext({
 			comparisonId: `${_ref.ref}+${_compareWith.ref}`,
+			repoPath: repoPath,
 			storedComparisonId: this.getStorageId(),
 		});
 		this._uniqueId = getViewNodeId(this.type, this.context);

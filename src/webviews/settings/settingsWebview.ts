@@ -1,37 +1,39 @@
 import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
 import { ConfigurationTarget, Disposable, workspace } from 'vscode';
-import { extensionPrefix } from '../../constants';
-import { IssuesCloudHostIntegrationId } from '../../constants.integrations';
-import type { WebviewTelemetryContext } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import { CommitFormatter } from '../../git/formatters/commitFormatter';
-import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
-import { GitFileChange } from '../../git/models/fileChange';
-import { GitFileIndexStatus } from '../../git/models/fileStatus';
-import { PullRequest } from '../../git/models/pullRequest';
-import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
-import { isIssueCloudIntegrationId } from '../../plus/integrations/authentication/models';
-import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
-import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration';
-import { configuration } from '../../system/-webview/configuration';
-import { map } from '../../system/iterable';
-import { getSettledValue } from '../../system/promise';
-import type { CustomConfigPath, IpcMessage } from '../protocol';
+import { IssuesCloudHostIntegrationId } from '../../constants.integrations.js';
+import { extensionPrefix } from '../../constants.js';
+import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
+import { GitCommit, GitCommitIdentity } from '../../git/models/commit.js';
+import { GitFileChange } from '../../git/models/fileChange.js';
+import { GitFileIndexStatus } from '../../git/models/fileStatus.js';
+import { PullRequest } from '../../git/models/pullRequest.js';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
+import { isIssueCloudIntegrationId } from '../../plus/integrations/authentication/models.js';
+import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService.js';
+import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { map } from '../../system/iterable.js';
+import { getSettledValue } from '../../system/promise.js';
+import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
+import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
+import type { CustomConfigPath } from '../protocol.js';
 import {
 	assertsConfigKeyValue,
 	DidChangeConfigurationNotification,
 	isCustomConfigKey,
 	UpdateConfigurationCommand,
-} from '../protocol';
-import type { WebviewHost, WebviewProvider } from '../webviewProvider';
-import type { State } from './protocol';
+} from '../protocol.js';
+import type { WebviewHost, WebviewProvider } from '../webviewProvider.js';
+import type { State } from './protocol.js';
 import {
 	DidChangeAccountNotification,
 	DidChangeIssueIntegrationConnectedNotification,
 	DidOpenAnchorNotification,
 	GenerateConfigurationPreviewRequest,
-} from './protocol';
-import type { SettingsWebviewShowingArgs } from './registration';
+} from './protocol.js';
+import type { SettingsWebviewShowingArgs } from './registration.js';
 
 export class SettingsWebviewProvider implements WebviewProvider<State, State, SettingsWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -156,136 +158,131 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	async onMessageReceived(e: IpcMessage): Promise<void> {
-		if (e == null) return;
+	@ipcCommand(UpdateConfigurationCommand)
+	private async onUpdateConfiguration(params: IpcParams<typeof UpdateConfigurationCommand>) {
+		const target = params.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
 
-		switch (true) {
-			case UpdateConfigurationCommand.is(e): {
-				const { params } = e;
-				const target =
-					params.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
+		let key: keyof typeof params.changes;
+		for (key in params.changes) {
+			let value = params.changes[key];
 
-				let key: keyof typeof params.changes;
-				for (key in params.changes) {
-					let value = params.changes[key];
-
-					if (isCustomConfigKey(key)) {
-						const customSetting = this.customSettings.get(key);
-						if (customSetting != null) {
-							if (typeof value === 'boolean') {
-								await customSetting.update(value);
-							} else {
-								debugger;
-							}
-						}
-
-						continue;
+			if (isCustomConfigKey(key)) {
+				const customSetting = this.customSettings.get(key);
+				if (customSetting != null) {
+					if (typeof value === 'boolean') {
+						await customSetting.update(value);
+					} else {
+						debugger;
 					}
-
-					assertsConfigKeyValue(key, value);
-
-					const inspect = configuration.inspect(key)!;
-
-					if (value != null) {
-						if (params.scope === 'workspace') {
-							if (value === inspect.workspaceValue) continue;
-						} else {
-							if (value === inspect.globalValue && value !== inspect.defaultValue) continue;
-
-							if (value === inspect.defaultValue) {
-								value = undefined;
-							}
-						}
-					}
-
-					await configuration.update(key, value, target);
 				}
 
-				for (const key of params.removes) {
-					await configuration.update(key as ConfigPath, undefined, target);
-				}
-				break;
+				continue;
 			}
 
-			case GenerateConfigurationPreviewRequest.is(e):
-				switch (e.params.type) {
-					case 'commit':
-					case 'commit-uncommitted': {
-						const commit = new GitCommit(
-							this.container,
-							'~/code/eamodio/vscode-gitlens-demo',
-							'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
-							new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
-							new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2020-11-01T06:57:21.000Z')),
-							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
-							['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
-							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
-							{
-								files: undefined,
-								filtered: {
-									files: [
-										new GitFileChange(
-											this.container,
-											'~/code/eamodio/vscode-gitlens-demo',
-											'code.ts',
-											GitFileIndexStatus.Modified,
-										),
-									],
-									pathspec: 'code.ts',
-								},
-							},
-							undefined,
-							[],
-						);
+			assertsConfigKeyValue(key, value);
 
-						let includePullRequest = false;
-						switch (e.params.key) {
-							case configuration.name('currentLine.format'):
-								includePullRequest = configuration.get('currentLine.pullRequests.enabled');
-								break;
-							case configuration.name('statusBar.format'):
-								includePullRequest = configuration.get('statusBar.pullRequests.enabled');
-								break;
-						}
+			const inspect = configuration.inspect(key)!;
 
-						let pr: PullRequest | undefined;
-						if (includePullRequest) {
-							pr = new PullRequest(
-								{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
-								{
-									id: 'eamodio',
-									name: 'Eric Amodio',
-									avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
-									url: 'https://github.com/eamodio',
-								},
-								'1',
-								undefined,
-								'Supercharged',
-								'https://github.com/gitkraken/vscode-gitlens/pulls/1',
-								{ owner: 'gitkraken', repo: 'vscode-gitlens' },
-								'merged',
-								new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
-								new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
-								undefined,
-								new Date('Sat, 12 Nov 2016 20:41:00 GMT'),
-							);
-						}
+			if (value != null) {
+				if (params.scope === 'workspace') {
+					if (value === inspect.workspaceValue) continue;
+				} else {
+					if (value === inspect.globalValue && value !== inspect.defaultValue) continue;
 
-						let preview;
-						try {
-							preview = CommitFormatter.fromTemplate(e.params.format, commit, {
-								dateFormat: configuration.get('defaultDateFormat'),
-								pullRequest: pr,
-								messageTruncateAtNewLine: true,
-							});
-						} catch {
-							preview = 'Invalid format';
-						}
-
-						await this.host.respond(GenerateConfigurationPreviewRequest, e, { preview: preview });
+					if (value === inspect.defaultValue) {
+						value = undefined;
 					}
 				}
-				break;
+			}
+
+			await configuration.update(key, value, target);
+		}
+
+		for (const key of params.removes) {
+			await configuration.update(key as ConfigPath, undefined, target);
+		}
+	}
+
+	@ipcRequest(GenerateConfigurationPreviewRequest)
+	private onGenerateConfigurationPreview(
+		params: IpcParams<typeof GenerateConfigurationPreviewRequest>,
+	): IpcResponse<typeof GenerateConfigurationPreviewRequest> {
+		switch (params.type) {
+			case 'commit':
+			case 'commit-uncommitted': {
+				const commit = new GitCommit(
+					this.container,
+					'~/code/eamodio/vscode-gitlens-demo',
+					'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
+					new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
+					new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2020-11-01T06:57:21.000Z')),
+					params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
+					['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
+					params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
+					{
+						files: undefined,
+						filtered: {
+							files: [
+								new GitFileChange(
+									this.container,
+									'~/code/eamodio/vscode-gitlens-demo',
+									'code.ts',
+									GitFileIndexStatus.Modified,
+								),
+							],
+							pathspec: 'code.ts',
+						},
+					},
+					undefined,
+					[],
+				);
+
+				let includePullRequest = false;
+				switch (params.key) {
+					case configuration.name('currentLine.format'):
+						includePullRequest = configuration.get('currentLine.pullRequests.enabled');
+						break;
+					case configuration.name('statusBar.format'):
+						includePullRequest = configuration.get('statusBar.pullRequests.enabled');
+						break;
+				}
+
+				let pr: PullRequest | undefined;
+				if (includePullRequest) {
+					pr = new PullRequest(
+						{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
+						{
+							id: 'eamodio',
+							name: 'Eric Amodio',
+							avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
+							url: 'https://github.com/eamodio',
+						},
+						'1',
+						undefined,
+						'Supercharged',
+						'https://github.com/gitkraken/vscode-gitlens/pulls/1',
+						{ owner: 'gitkraken', repo: 'vscode-gitlens' },
+						'merged',
+						new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
+						new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
+						undefined,
+						new Date('Sat, 12 Nov 2016 20:41:00 GMT'),
+					);
+				}
+
+				let preview;
+				try {
+					preview = CommitFormatter.fromTemplate(params.format, commit, {
+						dateFormat: configuration.get('defaultDateFormat'),
+						pullRequest: pr,
+						messageTruncateAtNewLine: true,
+					});
+				} catch {
+					preview = 'Invalid format';
+				}
+
+				return { preview: preview };
+			}
 		}
 	}
 
@@ -321,7 +318,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							configuration.updateEffective(
 								'currentLine.uncommittedChangesFormat',
 								// eslint-disable-next-line no-template-curly-in-string
-								enabled ? '✏️ ${ago}' : null,
+								enabled ? '\u270F\ufe0f ${ago}' : null,
 							),
 					},
 				],

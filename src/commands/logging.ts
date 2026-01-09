@@ -1,7 +1,7 @@
-import type { Container } from '../container';
-import { command } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { GlCommandBase } from './commandBase';
+import type { Container } from '../container.js';
+import { command } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { GlCommandBase } from './commandBase.js';
 
 @command()
 export class EnableDebugLoggingCommand extends GlCommandBase {

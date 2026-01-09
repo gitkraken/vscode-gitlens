@@ -1,14 +1,14 @@
 import type { Uri } from 'vscode';
-import type { GitCommit } from '../../../git/models/commit';
-import type { GitFileChangeShape } from '../../../git/models/fileChange';
-import type { GitPatch, PatchRevisionRange } from '../../../git/models/patch';
-import type { Repository } from '../../../git/models/repository';
+import type { GitCommit } from '../../../git/models/commit.js';
+import type { GitFileChangeShape } from '../../../git/models/fileChange.js';
+import type { GitPatch, PatchRevisionRange } from '../../../git/models/patch.js';
+import type { Repository } from '../../../git/models/repository.js';
 import type {
 	GkRepositoryId,
 	RepositoryIdentity,
 	RepositoryIdentityRequest,
-} from '../../../git/models/repositoryIdentities';
-import type { GitUser } from '../../../git/models/user';
+} from '../../../git/models/repositoryIdentities.js';
+import type { GitUser } from '../../../git/models/user.js';
 
 export interface LocalDraft {
 	readonly draftType: 'local';

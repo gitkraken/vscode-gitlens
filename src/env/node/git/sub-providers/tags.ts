@@ -1,19 +1,20 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../../container';
-import { isCancellationError } from '../../../../errors';
-import type { GitCache } from '../../../../git/cache';
-import { TagError } from '../../../../git/errors';
-import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../git/gitProvider';
-import { GitTag } from '../../../../git/models/tag';
-import { getTagParser } from '../../../../git/parsers/refParser';
-import type { TagSortOptions } from '../../../../git/utils/-webview/sorting';
-import { sortTags } from '../../../../git/utils/-webview/sorting';
-import { filterMap } from '../../../../system/array';
-import { log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { Git } from '../git';
+import type { Container } from '../../../../container.js';
+import { isCancellationError } from '../../../../errors.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { TagError } from '../../../../git/errors.js';
+import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../git/gitProvider.js';
+import { GitTag } from '../../../../git/models/tag.js';
+import { getTagParser } from '../../../../git/parsers/refParser.js';
+import type { TagSortOptions } from '../../../../git/utils/-webview/sorting.js';
+import { sortTags } from '../../../../git/utils/-webview/sorting.js';
+import { filterMap } from '../../../../system/array.js';
+import { log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import type { Git } from '../git.js';
+import { getGitCommandError } from '../git.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
@@ -46,7 +47,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		const scope = getLogScope();
 
-		const resultsPromise = this.cache.tags?.getOrCreate(repoPath, async cancellable => {
+		const resultsPromise = this.cache.tags.getOrCreate(repoPath, async cancellable => {
 			try {
 				const parser = getTagParser();
 
@@ -80,7 +81,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 				return { values: tags };
 			} catch (ex) {
-				cancellable.cancelled();
+				cancellable.invalidate();
 				Logger.error(ex, scope);
 				if (isCancellationError(ex)) throw ex;
 
@@ -125,27 +126,42 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 	@log()
 	async createTag(repoPath: string, name: string, sha: string, message?: string): Promise<void> {
-		try {
-			await this.git.tag(repoPath, name, sha, ...(message != null && message.length > 0 ? ['-m', message] : []));
-		} catch (ex) {
-			if (ex instanceof TagError) {
-				throw ex.update({ tag: name, action: 'create' });
-			}
+		const args = ['tag', name, sha];
+		if (message != null && message.length > 0) {
+			args.push('-m', message);
+		}
 
-			throw ex;
+		try {
+			await this.git.exec({ cwd: repoPath }, ...args);
+		} catch (ex) {
+			throw getGitCommandError(
+				'tag',
+				ex,
+				reason =>
+					new TagError(
+						{ reason: reason, action: 'create', tag: name, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
+			);
 		}
 	}
 
 	@log()
 	async deleteTag(repoPath: string, name: string): Promise<void> {
-		try {
-			await this.git.tag(repoPath, '-d', name);
-		} catch (ex) {
-			if (ex instanceof TagError) {
-				throw ex.update({ tag: name, action: 'delete' });
-			}
+		const args = ['tag', '-d', name];
 
-			throw ex;
+		try {
+			await this.git.exec({ cwd: repoPath }, ...args);
+		} catch (ex) {
+			throw getGitCommandError(
+				'tag',
+				ex,
+				reason =>
+					new TagError(
+						{ reason: reason, action: 'delete', tag: name, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
+			);
 		}
 	}
 }

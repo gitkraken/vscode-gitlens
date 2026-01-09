@@ -1,21 +1,21 @@
-import type { Container } from '../../container';
-import type { GitCommit, GitStashCommit } from '../../git/models/commit';
-import { isCommit } from '../../git/models/commit';
-import type { GitRevisionReference } from '../../git/models/reference';
-import { Repository } from '../../git/models/repository';
-import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
-import { CommandQuickPickItem } from '../../quickpicks/items/common';
-import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import type { PartialStepState, StepGenerator } from '../quickCommand';
-import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
+import type { Container } from '../../container.js';
+import type { GitCommit, GitStashCommit } from '../../git/models/commit.js';
+import { isCommit } from '../../git/models/commit.js';
+import type { GitRevisionReference } from '../../git/models/reference.js';
+import { Repository } from '../../git/models/repository.js';
+import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits.js';
+import { CommandQuickPickItem } from '../../quickpicks/items/common.js';
+import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import type { PartialStepState, StepGenerator } from '../quickCommand.js';
+import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
 import {
 	pickCommitStep,
 	pickRepositoryStep,
 	showCommitOrStashFilesStep,
 	showCommitOrStashFileStep,
 	showCommitOrStashStep,
-} from '../quickCommand.steps';
+} from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];
@@ -34,7 +34,7 @@ export interface ShowGitCommandArgs {
 	state?: Partial<State>;
 }
 
-type RepositoryStepState<T extends State = State> = SomeNonNullable<
+type RepositoryStepState<T extends State = State> = RequireSomeNonNullable<
 	ExcludeSome<PartialStepState<T>, 'repo', string>,
 	'repo'
 >;
@@ -45,7 +45,7 @@ function assertStateStepRepository(state: PartialStepState<State>): asserts stat
 	throw new Error('Missing repository');
 }
 
-type CommitStepState = SomeNonNullable<RepositoryStepState<State<GitCommit | GitStashCommit>>, 'reference'>;
+type CommitStepState = RequireSomeNonNullable<RepositoryStepState<State<GitCommit | GitStashCommit>>, 'reference'>;
 function assertsStateStepCommit(state: RepositoryStepState): asserts state is CommitStepState {
 	if (isCommit(state.reference)) return;
 
@@ -53,7 +53,7 @@ function assertsStateStepCommit(state: RepositoryStepState): asserts state is Co
 	throw new Error('Missing reference');
 }
 
-type FileNameStepState = SomeNonNullable<CommitStepState, 'fileName'>;
+type FileNameStepState = RequireSomeNonNullable<CommitStepState, 'fileName'>;
 function assertsStateStepFileName(state: CommitStepState): asserts state is FileNameStepState {
 	if (state.fileName) return;
 

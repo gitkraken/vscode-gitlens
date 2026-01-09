@@ -1,18 +1,18 @@
-import { GlyphChars } from '../../constants';
-import { escapeMarkdown } from '../../system/markdown';
-import { basename } from '../../system/path';
-import type { TokenOptions } from '../../system/string';
-import type { GitFile, GitFileWithCommit } from '../models/file';
-import { isGitFileChange } from '../models/fileChange';
+import { GlyphChars } from '../../constants.js';
+import { escapeMarkdown } from '../../system/markdown.js';
+import { basename } from '../../system/path.js';
+import type { TokenOptions } from '../../system/string.js';
+import type { GitFile, GitFileWithCommit } from '../models/file.js';
+import { isGitFileChange } from '../models/fileChange.js';
 import {
 	getGitFileFormattedDirectory,
 	getGitFileFormattedPath,
 	getGitFileOriginalRelativePath,
 	getGitFileRelativePath,
-} from '../utils/-webview/file.utils';
-import { getGitFileStatusText } from '../utils/fileStatus.utils';
-import type { FormatOptions } from './formatter';
-import { Formatter } from './formatter';
+} from '../utils/-webview/file.utils.js';
+import { getGitFileStatusText } from '../utils/fileStatus.utils.js';
+import type { FormatOptions } from './formatter.js';
+import { Formatter } from './formatter.js';
 
 export interface StatusFormatOptions extends FormatOptions {
 	outputFormat?: 'markdown' | 'plaintext';

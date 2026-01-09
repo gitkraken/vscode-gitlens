@@ -1,17 +1,17 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
-import type { Sources } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
-import type { ConfiguredIntegrationService } from './configuredIntegrationService';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
+import type { Sources } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils.js';
+import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider.js';
 import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
-} from './integrationAuthenticationProvider';
-import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
-import type { ProviderAuthenticationSession } from './models';
+} from './integrationAuthenticationProvider.js';
+import type { IntegrationAuthenticationService } from './integrationAuthenticationService.js';
+import type { ProviderAuthenticationSession } from './models.js';
 
 export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitCloudHostIntegrationId.GitHub> {
 	constructor(

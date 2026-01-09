@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { CancellationTokenSource } from 'vscode';
-import { getScopedCounter } from '../counter';
+import { getScopedCounter } from '../counter.js';
 
 export class TimedCancellationSource implements CancellationTokenSource, Disposable {
 	private readonly cancellation = new CancellationTokenSource();

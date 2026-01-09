@@ -1,15 +1,15 @@
-import type { GlCommands } from '../../constants.commands';
-import { SubscriptionState } from '../../constants.subscription';
-import type { Container } from '../../container';
-import { deviceCohortGroup } from '../../system/-webview/vscode';
-import type { Lazy } from '../../system/lazy';
-import { lazy } from '../../system/lazy';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import type { Validator } from '../../system/validation';
-import { createValidator, Is } from '../../system/validation';
-import type { Promo, PromoLocation, PromoPlans } from './models/promo';
-import type { ServerConnection } from './serverConnection';
+import type { GlExtensionCommands } from '../../constants.commands.js';
+import { SubscriptionState } from '../../constants.subscription.js';
+import type { Container } from '../../container.js';
+import { deviceCohortGroup } from '../../system/-webview/vscode.js';
+import type { Lazy } from '../../system/lazy.js';
+import { lazy } from '../../system/lazy.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { startLogScope } from '../../system/logger.scope.js';
+import type { Validator } from '../../system/validation.js';
+import { createValidator, Is } from '../../system/validation.js';
+import type { Promo, PromoLocation, PromoPlans } from './models/promo.js';
+import type { ServerConnection } from './serverConnection.js';
 
 type Config = {
 	promos: Promo[];
@@ -45,9 +45,15 @@ export class ProductConfigProvider {
 
 			if (DEBUG) {
 				try {
-					// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- using @ts-ignore instead of @ts-expect-error because if `product.json` is found then @ts-expect-error will complain because its not an error anymore
-					// @ts-ignore
-					const data = (await import('../../../product.json', { with: { type: 'json' } })).default;
+					const data =
+						// prettier-ignore
+						(
+							// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- using @ts-ignore instead of @ts-expect-error because if `product.json` is found then @ts-expect-error will complain because its not an error anymore
+							// @ts-ignore
+							await import(/* webpackChunkName: "product-config" */ '../../../product.json', {
+								with: { type: 'json' },
+							})
+						).default;
 					if (data != null && Object.keys(data).length > 0) {
 						const config = getConfig(data);
 						if (config != null) return config;
@@ -104,13 +110,13 @@ export class ProductConfigProvider {
 						],
 						locations: ['home', 'account', 'badge', 'gate'],
 						content: {
-							modal: { detail: 'Save 50% on GitLens Pro' },
-							quickpick: { detail: '$(star-full) Save 50% on GitLens Pro' },
+							modal: { detail: 'Save up to 50% on GitLens Pro' },
+							quickpick: { detail: '$(star-full) Save up to 50% on GitLens Pro' },
 							webview: {
-								info: { html: '<b>Save 50%</b> on GitLens Pro' },
+								info: { html: '<b>Save up to 50%</b> on GitLens Pro' },
 								link: {
-									html: '<b>Save 50%</b> on GitLens Pro',
-									title: 'Upgrade now and Save 50% on GitLens Pro',
+									html: '<b>Save up to 50%</b> on GitLens Pro',
+									title: 'Upgrade now and Save up to 50% on GitLens Pro',
 								},
 							},
 						},
@@ -167,13 +173,13 @@ function createConfigValidator(): Validator<ConfigJson> {
 		html: Is.Optional(Is.String),
 	});
 
-	const isCommandPattern = (value: unknown): value is GlCommands =>
+	const isCommandPattern = (value: unknown): value is GlExtensionCommands =>
 		typeof value === 'string' && value.startsWith('gitlens.');
 
 	const isWebviewLink = createValidator({
 		html: Is.String,
 		title: Is.String,
-		command: Is.Optional((value): value is GlCommands => isCommandPattern(value)),
+		command: Is.Optional((value): value is GlExtensionCommands => isCommandPattern(value)),
 	});
 
 	const isWebview = createValidator({

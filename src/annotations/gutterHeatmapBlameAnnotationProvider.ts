@@ -1,15 +1,15 @@
 import type { TextEditor } from 'vscode';
 import { Range } from 'vscode';
-import type { Container } from '../container';
-import type { GitCommit } from '../git/models/commit';
-import { log } from '../system/decorators/log';
-import { getLogScope } from '../system/logger.scope';
-import { maybeStopWatch } from '../system/stopwatch';
-import type { TrackedGitDocument } from '../trackers/trackedDocument';
-import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider';
-import type { Decoration } from './annotations';
-import { addOrUpdateGutterHeatmapDecoration } from './annotations';
-import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
+import type { Container } from '../container.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { log } from '../system/decorators/log.js';
+import { getLogScope } from '../system/logger.scope.js';
+import { maybeStopWatch } from '../system/stopwatch.js';
+import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
+import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider.js';
+import type { Decoration } from './annotations.js';
+import { addOrUpdateGutterHeatmapDecoration } from './annotations.js';
+import { BlameAnnotationProviderBase } from './blameAnnotationProvider.js';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	constructor(

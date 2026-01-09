@@ -1,9 +1,9 @@
 import { Uri } from 'vscode';
-import { Schemes } from '../../../constants';
-import type { Container } from '../../../container';
-import type { Issue, IssueShape } from '../../models/issue';
-import type { Repository } from '../../models/repository';
-import { getRepositoryIdentityForIssue } from '../issue.utils';
+import { Schemes } from '../../../constants.js';
+import type { Container } from '../../../container.js';
+import type { Issue, IssueShape } from '../../models/issue.js';
+import type { Repository } from '../../models/repository.js';
+import { getRepositoryIdentityForIssue } from '../issue.utils.js';
 
 export async function getOrOpenIssueRepository(
 	container: Container,

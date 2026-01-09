@@ -5,6 +5,7 @@ import type {
 	GraphContexts,
 	GraphRef,
 	GraphRefOptData,
+	GraphRefType,
 	GraphRow,
 	GraphZoneType,
 	Head,
@@ -22,28 +23,31 @@ import type {
 	UpstreamMetadata,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
-import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config';
-import type { SearchQuery } from '../../../constants.search';
-import type { FeaturePreview } from '../../../features';
-import type { RepositoryVisibility } from '../../../git/gitProvider';
-import type { GitTrackingState } from '../../../git/models/branch';
-import type { GitGraphRowType } from '../../../git/models/graph';
-import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus';
-import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest';
+import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config.js';
+import type { SearchQuery } from '../../../constants.search.js';
+import type { FeaturePreview } from '../../../features.js';
+import type { RepositoryVisibility } from '../../../git/gitProvider.js';
+import type { GitTrackingState } from '../../../git/models/branch.js';
+import type { GitGraphRowType } from '../../../git/models/graph.js';
+import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus.js';
+import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest.js';
 import type {
 	GitBranchReference,
+	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../../../git/models/reference';
-import type { ProviderReference } from '../../../git/models/remoteProvider';
-import type { RepositoryShape } from '../../../git/models/repositoryShape';
-import type { GitGraphSearchResultData } from '../../../git/search';
-import type { Subscription } from '../../../plus/gk/models/subscription';
-import type { DateTimeFormat } from '../../../system/date';
-import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
-import type { IpcScope, WebviewState } from '../../protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
+} from '../../../git/models/reference.js';
+import type { ProviderReference } from '../../../git/models/remoteProvider.js';
+import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
+import type { GitGraphSearchResultData } from '../../../git/search.js';
+import type { Subscription } from '../../../plus/gk/models/subscription.js';
+import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker.js';
+import type { DateTimeFormat } from '../../../system/date.js';
+import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
+import type { IpcScope } from '../../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../ipc/models/ipc.js';
+import type { WebviewState } from '../../protocol.js';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
 
@@ -66,6 +70,13 @@ export type GraphPullRequestMetadata = PullRequestMetadata;
 
 export type GraphRefMetadataTypes = 'upstream' | 'pullRequest' | 'issue';
 export type GraphSearchMode = 'normal' | 'filter';
+
+export interface GraphSelection {
+	id: string;
+	type: GitGraphRowType;
+	active: boolean;
+	hidden: boolean;
+}
 
 export type GraphScrollMarkerTypes =
 	| 'selection'
@@ -91,7 +102,7 @@ export type GraphMinimapMarkerTypes =
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.graph'> {
 	windowFocused?: boolean;
 	webroot?: string;
 	repositories?: GraphRepository[];
@@ -117,8 +128,10 @@ export interface State extends WebviewState {
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
+	searchMode?: GraphSearchMode;
+	/** Search query to be executed once */
+	searchRequest?: SearchQuery;
 	searchResults?: DidSearchParams['results'];
-	defaultSearchMode?: GraphSearchMode;
 	useNaturalLanguageSearch?: boolean;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
@@ -197,6 +210,7 @@ export interface GraphComponentConfig {
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	sidebar: boolean;
+	stickyTimeline?: boolean;
 }
 
 export interface GraphColumnConfig {
@@ -226,19 +240,9 @@ export type UpdateStateCallback = (state: State, type?: IpcNotification<any> | I
 export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
 
 export type DoubleClickedParams =
-	| {
-			type: 'ref';
-			ref: GraphRef;
-			metadata?: GraphRefMetadataItem;
-	  }
-	| {
-			type: 'row';
-			row: { id: string; type: GitGraphRowType };
-			preserveFocus?: boolean;
-	  };
-export const DoubleClickedCommandType = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
-
-export const ContinuePreview = new IpcCommand<undefined>(scope, 'dblclick');
+	| { type: 'ref'; ref: GraphRef; metadata?: GraphRefMetadataItem }
+	| { type: 'row'; row: { id: string; type: GitGraphRowType }; preserveFocus?: boolean };
+export const DoubleClickedCommand = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
 
 export interface GetMissingAvatarsParams {
 	emails: GraphAvatars;
@@ -263,10 +267,29 @@ export const OpenPullRequestDetailsCommand = new IpcCommand<OpenPullRequestDetai
 	'pullRequest/openDetails',
 );
 
+export type RowAction =
+	| 'compose-commits'
+	| 'generate-commit-message'
+	| 'recompose-branch'
+	| 'stash-drop'
+	| 'stash-pop'
+	| 'stash-save';
+
+export interface RowActionParams {
+	action: RowAction;
+	row: { id: string; type: GitGraphRowType };
+}
+export const RowActionCommand = new IpcCommand<RowActionParams>(scope, 'row/action');
+
 export interface SearchOpenInViewParams {
 	search: SearchQuery;
 }
 export const SearchOpenInViewCommand = new IpcCommand<SearchOpenInViewParams>(scope, 'search/openInView');
+
+export interface SearchCancelParams {
+	preserveResults: boolean;
+}
+export const SearchCancelCommand = new IpcCommand<SearchCancelParams>(scope, 'search/cancel');
 
 export interface UpdateColumnsParams {
 	config: GraphColumnsConfig;
@@ -306,17 +329,59 @@ export interface UpdateIncludedRefsParams {
 export const UpdateIncludedRefsCommand = new IpcCommand<UpdateIncludedRefsParams>(scope, 'filters/update/includedRefs');
 
 export interface UpdateSelectionParams {
-	selection: { id: string; type: GitGraphRowType }[];
+	selection: GraphSelection[];
 }
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 
 // REQUESTS
 
+export type DidChooseRefParams =
+	| { id?: string; name: string; sha: string; refType: GitReference['refType']; graphRefType?: GraphRefType }
+	| undefined;
+
+export const JumpToHeadRequest = new IpcRequest<undefined, DidChooseRefParams>(scope, 'jumpToHead');
+
 export interface ChooseRefParams {
-	alt: boolean;
+	title: string;
+	placeholder: string;
+	allowedAdditionalInput?: ReferencesQuickPickOptions2['allowedAdditionalInput'];
+	include?: ReferencesQuickPickOptions2['include'];
+	picked?: string;
 }
-export type DidChooseRefParams = { name: string; sha: string } | undefined;
 export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
+
+export interface ChooseComparisonParams {
+	title: string;
+	placeholder: string;
+}
+export interface DidChooseComparisonParams {
+	range: string | undefined;
+}
+export const ChooseComparisonRequest = new IpcRequest<ChooseComparisonParams, DidChooseComparisonParams>(
+	scope,
+	'chooseComparison',
+);
+
+export interface ChooseAuthorParams {
+	title: string;
+	placeholder: string;
+	picked?: string[];
+}
+export interface DidChooseAuthorParams {
+	authors: string[] | undefined;
+}
+export const ChooseAuthorRequest = new IpcRequest<ChooseAuthorParams, DidChooseAuthorParams>(scope, 'chooseAuthor');
+
+export interface ChooseFileParams {
+	title: string;
+	type: 'file' | 'folder';
+	openLabel?: string;
+	picked?: string[];
+}
+export interface DidChooseFileParams {
+	files: string[] | undefined;
+}
+export const ChooseFileRequest = new IpcRequest<ChooseFileParams, DidChooseFileParams>(scope, 'chooseFile');
 
 export interface EnsureRowParams {
 	id: string;
@@ -326,6 +391,35 @@ export interface DidEnsureRowParams {
 	id?: string; // `undefined` if the row was not found
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
+
+export interface SearchHistoryGetParams {
+	repoPath: string | undefined;
+}
+export interface DidSearchHistoryGetParams {
+	history: SearchQuery[];
+}
+export const SearchHistoryGetRequest = new IpcRequest<SearchHistoryGetParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/get',
+);
+
+export interface SearchHistoryStoreParams {
+	repoPath: string | undefined;
+	search: SearchQuery;
+}
+export const SearchHistoryStoreRequest = new IpcRequest<SearchHistoryStoreParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/store',
+);
+
+export interface SearchHistoryDeleteParams {
+	repoPath: string | undefined;
+	query: string;
+}
+export const SearchHistoryDeleteRequest = new IpcRequest<SearchHistoryDeleteParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/delete',
+);
 
 export type DidGetCountParams =
 	| {
@@ -351,14 +445,16 @@ export interface DidGetRowHoverParams {
 export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
 
 export interface SearchParams {
-	search?: SearchQuery;
+	search: SearchQuery;
 	limit?: number;
 	more?: boolean;
 }
 export interface GraphSearchResults {
 	ids?: Record<string, GitGraphSearchResultData>;
 	count: number;
-	paging?: { hasMore: boolean };
+	hasMore: boolean;
+	/** Whether the commits for these search results are loaded in the graph */
+	commitsLoaded: { count: number };
 }
 export interface GraphSearchResultsError {
 	error: string;
@@ -367,6 +463,10 @@ export interface DidSearchParams {
 	search: SearchQuery | undefined;
 	results: GraphSearchResults | GraphSearchResultsError | undefined;
 	selectedRows?: GraphSelectedRows;
+	/** Indicates this is a partial result (more results coming) */
+	partial?: boolean;
+	/** Search ID to track which search these results belong to */
+	searchId: number;
 }
 export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope, 'search');
 
@@ -464,7 +564,7 @@ export interface DidChangeRowsParams {
 	refsMetadata?: GraphRefsMetadata | null;
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
-	searchResults?: GraphSearchResults;
+	search?: DidSearchParams;
 	selectedRows?: GraphSelectedRows;
 }
 export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(scope, 'rows/didChange');

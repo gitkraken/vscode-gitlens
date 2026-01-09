@@ -1,30 +1,33 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
-import { GlyphChars } from '../constants';
-import type { IntegrationIds } from '../constants.integrations';
-import type { Container } from '../container';
-import type { GitRemote } from '../git/models/remote';
-import type { RemoteProvider, RemoteProviderId } from '../git/remotes/remoteProvider';
-import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
-import type { ConfiguredIntegrationsChangeEvent } from '../plus/integrations/authentication/configuredIntegrationService';
-import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
-import type { Integration } from '../plus/integrations/models/integration';
-import { IntegrationBase } from '../plus/integrations/models/integration';
-import type { IssuesIntegration } from '../plus/integrations/models/issuesIntegration';
+import type { OpenIssueActionContext } from '../api/gitlens.d.js';
+import { OpenIssueOnRemoteCommand } from '../commands/openIssueOnRemote.js';
+import type { IntegrationIds } from '../constants.integrations.js';
+import { GlyphChars } from '../constants.js';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { GitRemote } from '../git/models/remote.js';
+import type { RemoteProvider, RemoteProviderId } from '../git/remotes/remoteProvider.js';
+import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons.js';
+import type { ConfiguredIntegrationsChangeEvent } from '../plus/integrations/authentication/configuredIntegrationService.js';
+import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration.js';
+import type { Integration } from '../plus/integrations/models/integration.js';
+import { IntegrationBase } from '../plus/integrations/models/integration.js';
+import type { IssuesIntegration } from '../plus/integrations/models/issuesIntegration.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationIdForRemote,
-} from '../plus/integrations/utils/-webview/integration.utils';
-import { configuration } from '../system/-webview/configuration';
-import { fromNow } from '../system/date';
-import { debug } from '../system/decorators/log';
-import { encodeUrl } from '../system/encoding';
-import { join, map } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { escapeMarkdown } from '../system/markdown';
-import { getSettledValue, isPromise } from '../system/promise';
-import { PromiseCache } from '../system/promiseCache';
-import { capitalize, encodeHtmlWeak, getSuperscript } from '../system/string';
+} from '../plus/integrations/utils/-webview/integration.utils.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { fromNow } from '../system/date.js';
+import { debug } from '../system/decorators/log.js';
+import { encodeUrl } from '../system/encoding.js';
+import { join, map } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { escapeMarkdown } from '../system/markdown.js';
+import { getSettledValue, isPromise } from '../system/promise.js';
+import { PromiseCache } from '../system/promiseCache.js';
+import { capitalize, encodeHtmlWeak, getSuperscript } from '../system/string.js';
 import type {
 	Autolink,
 	CacheableAutolinkReference,
@@ -32,7 +35,7 @@ import type {
 	EnrichedAutolink,
 	MaybeEnrichedAutolink,
 	RefSet,
-} from './models/autolinks';
+} from './models/autolinks.js';
 import {
 	ensureCachedRegex,
 	getAutolinks,
@@ -40,7 +43,7 @@ import {
 	isDynamic,
 	numRegex,
 	supportedAutolinkIntegrations,
-} from './utils/-webview/autolinks.utils';
+} from './utils/-webview/autolinks.utils.js';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
@@ -144,7 +147,7 @@ export class AutolinksProvider implements Disposable {
 	}
 
 	private async getRefSets(remote?: GitRemote, forBranch?: boolean) {
-		return this._refsetCache.get(`${remote?.remoteKey}${forBranch ? ':branch' : ''}`, async () => {
+		return this._refsetCache.getOrCreate(`${remote?.remoteKey}${forBranch ? ':branch' : ''}`, async () => {
 			const refsets: RefSet[] = [];
 
 			await this.collectIntegrationAutolinks(forBranch ? undefined : remote, refsets);
@@ -279,6 +282,7 @@ export class AutolinksProvider implements Disposable {
 		enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
 		prs?: Set<string>,
 		footnotes?: Map<number, string>,
+		source?: Source,
 	): string {
 		const includeFootnotesInText = outputFormat === 'plaintext' && footnotes == null;
 		if (includeFootnotesInText) {
@@ -291,7 +295,15 @@ export class AutolinksProvider implements Disposable {
 			for (const [, [, link]] of enrichedAutolinks) {
 				if (this.ensureAutolinkCached(link)) {
 					if (link.tokenize != null) {
-						text = link.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
+						text = link.tokenize(
+							text,
+							outputFormat,
+							tokenMapping,
+							enrichedAutolinks,
+							prs,
+							footnotes,
+							source,
+						);
 					}
 				}
 			}
@@ -299,7 +311,15 @@ export class AutolinksProvider implements Disposable {
 			for (const ref of this._references) {
 				if (this.ensureAutolinkCached(ref)) {
 					if (ref.tokenize != null) {
-						text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
+						text = ref.tokenize(
+							text,
+							outputFormat,
+							tokenMapping,
+							enrichedAutolinks,
+							prs,
+							footnotes,
+							source,
+						);
 					}
 				}
 			}
@@ -323,6 +343,7 @@ export class AutolinksProvider implements Disposable {
 									enrichedAutolinks,
 									prs,
 									footnotes,
+									source,
 								);
 							}
 						}
@@ -361,6 +382,7 @@ export class AutolinksProvider implements Disposable {
 				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
 				prs?: Set<string>,
 				footnotes?: Map<number, string>,
+				source?: Source,
 			) => {
 				let footnoteIndex: number;
 
@@ -370,7 +392,15 @@ export class AutolinksProvider implements Disposable {
 						return text.replace(
 							ref.messageMarkdownRegex,
 							(_: string, prefix: string, linkText: string, num: string) => {
-								const url = encodeUrl(ref.url.replace(numRegex, num));
+								const rawUrl = encodeUrl(ref.url.replace(numRegex, num));
+								const footnoteSource = source && { ...source, detail: 'footnote' };
+								const urlCommandContext: {
+									provider: undefined | OpenIssueActionContext['provider'];
+									issue: { url: string };
+								} = {
+									provider: undefined,
+									issue: { url: rawUrl },
+								};
 
 								let title = '';
 								if (ref.title) {
@@ -380,6 +410,10 @@ export class AutolinksProvider implements Disposable {
 									if (issueResult?.value != null) {
 										if (issueResult.paused) {
 											if (footnotes != null && !prs?.has(num)) {
+												const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
+													...urlCommandContext,
+													source: footnoteSource,
+												});
 												const name =
 													ref.description?.replace(numRegex, num) ??
 													`Custom Autolink ${ref.prefix}${num}`;
@@ -395,6 +429,16 @@ export class AutolinksProvider implements Disposable {
 											const issue = issueResult.value;
 											const issueTitle = escapeMarkdown(issue.title.trim());
 											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '\\"');
+
+											urlCommandContext.provider = issue.provider && {
+												id: issue.provider.id,
+												name: issue.provider.name,
+												domain: issue.provider.domain,
+											};
+											const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
+												...urlCommandContext,
+												source: footnoteSource,
+											});
 
 											if (footnotes != null && !prs?.has(num)) {
 												footnoteIndex = footnotes.size + 1;
@@ -417,6 +461,10 @@ export class AutolinksProvider implements Disposable {
 											)}`;
 										}
 									} else if (footnotes != null && !prs?.has(num)) {
+										const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
+											...urlCommandContext,
+											source: footnoteSource,
+										});
 										const name =
 											ref.description?.replace(numRegex, num) ??
 											`Custom Autolink ${ref.prefix}${num}`;
@@ -429,6 +477,10 @@ export class AutolinksProvider implements Disposable {
 									title += '"';
 								}
 
+								const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
+									...urlCommandContext,
+									source: source,
+								});
 								const token = `\x00${tokenMapping.size}\x00`;
 								tokenMapping.set(token, `[${linkText}](${url}${title})`);
 								return `${prefix}${token}`;

@@ -1,19 +1,19 @@
 import type { Disposable, Event } from 'vscode';
 import { authentication, EventEmitter } from 'vscode';
-import type { IntegrationIds } from '../../../constants.integrations';
-import { GitCloudHostIntegrationId } from '../../../constants.integrations';
-import type { Sources } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import { debug } from '../../../system/decorators/log';
-import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
+import type { IntegrationIds } from '../../../constants.integrations.js';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
+import type { Sources } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import { debug } from '../../../system/decorators/log.js';
+import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils.js';
 import {
 	isCloudGitSelfManagedHostIntegrationId,
 	isGitSelfManagedHostIntegrationId,
-} from '../utils/-webview/integration.utils';
-import type { ConfiguredIntegrationService } from './configuredIntegrationService';
-import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
-import type { ProviderAuthenticationSession } from './models';
-import { isSupportedCloudIntegrationId } from './models';
+} from '../utils/-webview/integration.utils.js';
+import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
+import type { IntegrationAuthenticationService } from './integrationAuthenticationService.js';
+import type { ProviderAuthenticationSession } from './models.js';
+import { isSupportedCloudIntegrationId } from './models.js';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
@@ -40,9 +40,9 @@ export interface IntegrationAuthenticationProvider extends Disposable {
 	get onDidChange(): Event<void>;
 }
 
-abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds = IntegrationIds>
-	implements IntegrationAuthenticationProvider
-{
+abstract class IntegrationAuthenticationProviderBase<
+	ID extends IntegrationIds = IntegrationIds,
+> implements IntegrationAuthenticationProvider {
 	protected readonly disposables: Disposable[] = [];
 
 	protected readonly cloud: boolean = false;

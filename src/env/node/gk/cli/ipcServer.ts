@@ -1,10 +1,10 @@
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 import { createServer } from 'http';
 import type { Disposable } from 'vscode';
-import { log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import { createDisposable } from '../../../../system/unifiedDisposable';
+import { log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { createDisposable } from '../../../../system/unifiedDisposable.js';
 
 export interface IpcHandler<Request = unknown, Response = void> {
 	(request: Request): Promise<Response>;

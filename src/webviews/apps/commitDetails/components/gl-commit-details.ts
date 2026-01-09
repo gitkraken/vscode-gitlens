@@ -2,29 +2,30 @@ import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
-import type { Autolink } from '../../../../autolinks/models/autolinks';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
-import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
-import type { PullRequestShape } from '../../../../git/models/pullRequest';
-import { createCommandLink } from '../../../../system/commands';
-import type { IpcSerialized } from '../../../../system/ipcSerialize';
-import { serializeWebviewItemContext } from '../../../../system/webview';
-import type { State as _State, DetailsItemContext, DetailsItemTypedContext } from '../../../commitDetails/protocol';
-import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
-import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
-import { uncommittedSha } from '../commitDetails';
-import type { File } from './gl-details-base';
-import { GlDetailsBase } from './gl-details-base';
-import '../../shared/components/button';
-import '../../shared/components/chips/action-chip';
-import '../../shared/components/chips/autolink-chip';
-import '../../shared/components/code-icon';
-import '../../shared/components/commit/commit-author';
-import '../../shared/components/commit/commit-date';
-import '../../shared/components/commit/commit-stats';
-import '../../shared/components/markdown/markdown';
-import '../../shared/components/panes/pane-group';
-import '../../shared/components/rich/issue-pull-request';
+import type { Autolink } from '../../../../autolinks/models/autolinks.js';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations.js';
+import type { GitCommitReachability } from '../../../../git/gitProvider.js';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest.js';
+import type { PullRequestShape } from '../../../../git/models/pullRequest.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import type { IpcSerialized } from '../../../../system/ipcSerialize.js';
+import { serializeWebviewItemContext } from '../../../../system/webview.js';
+import type { State as _State, DetailsItemContext, DetailsItemTypedContext } from '../../../commitDetails/protocol.js';
+import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol.js';
+import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
+import { uncommittedSha } from '../commitDetails.js';
+import type { File } from './gl-details-base.js';
+import { GlDetailsBase } from './gl-details-base.js';
+import '../../shared/components/button.js';
+import '../../shared/components/chips/action-chip.js';
+import '../../shared/components/chips/autolink-chip.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/commit/commit-author.js';
+import '../../shared/components/commit/commit-date.js';
+import '../../shared/components/commit/commit-stats.js';
+import '../../shared/components/markdown/markdown.js';
+import '../../shared/components/panes/pane-group.js';
+import '../../shared/components/rich/issue-pull-request.js';
 
 type State = IpcSerialized<_State>;
 interface ExplainState {
@@ -55,6 +56,12 @@ export class GlCommitDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	explain?: ExplainState;
+
+	@property({ type: Object })
+	reachability?: GitCommitReachability;
+
+	@property({ type: String })
+	reachabilityState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
 
 	private _commit: State['commit'];
 	get commit(): State['commit'] {
@@ -120,7 +127,43 @@ export class GlCommitDetails extends GlDetailsBase {
 
 		if (changedProperties.has('state')) {
 			this.commit = this.state?.commit;
+			// Reset reachability when commit changes (different commit sha)
+			if (changedProperties.get('state')?.commit?.sha !== this.state?.commit?.sha) {
+				this.reachabilityState = 'idle';
+				this.reachability = undefined;
+			}
 		}
+	}
+
+	override render(): unknown {
+		if (this.state?.commit == null) {
+			return this.renderEmptyContent();
+		}
+
+		return html`
+			${this.renderHiddenNotice()} ${this.renderCommitMessage()}
+			<webview-pane-group flexible>
+				${this.renderChangedFiles(
+					this.isStash ? 'stash' : 'commit',
+					this.renderCommitStats(this.state.commit.stats),
+				)}
+			</webview-pane-group>
+		`;
+	}
+
+	private renderHiddenNotice() {
+		if (!this.searchContext?.hiddenFromGraph) return nothing;
+
+		return html`
+			<div class="section">
+				<div class="alert alert--warning">
+					<code-icon icon="warning"></code-icon>
+					<p class="alert__content">
+						This ${this.isStash ? 'stash' : 'commit'} is not currently visible in the Commit Graph.
+					</p>
+				</div>
+			</div>
+		`;
 	}
 
 	private renderEmptyContent() {
@@ -222,13 +265,14 @@ export class GlCommitDetails extends GlDetailsBase {
 							() => html`
 								<gl-commit-date
 									.date=${details.author.date}
-									.dateFormat="${this.preferences?.dateFormat}"
-									.dateStyle="${this.preferences?.dateStyle}"
+									.dateFormat="${this.preferences?.dateFormat ?? 'absolute'}"
+									.dateStyle="${this.preferences?.dateStyle ?? 'relative'}"
 									.actionLabel="${details.sha === uncommittedSha ? 'Modified' : 'Committed'}"
 								></gl-commit-date>
 							`,
 						)}
 					</div>
+					<div class="message-block-row message-block-row--actions">${this.renderReachability()}</div>
 				</div>
 			</div>
 		`;
@@ -404,20 +448,117 @@ export class GlCommitDetails extends GlDetailsBase {
 		</div>`;
 	}
 
-	override render(): unknown {
-		if (this.state?.commit == null) {
-			return this.renderEmptyContent();
+	private renderReachability() {
+		if (this.isUncommitted) return nothing;
+
+		if (this.reachabilityState === 'loading') {
+			return html`<gl-action-chip icon="loading" label="Loading branches and tags which contain this commit"
+				>Loading...</gl-action-chip
+			>`;
 		}
 
-		return html`
-			${this.renderCommitMessage()}
-			<webview-pane-group flexible>
-				${this.renderChangedFiles(
-					this.isStash ? 'stash' : 'commit',
-					this.renderCommitStats(this.state.commit.stats),
-				)}
-			</webview-pane-group>
-		`;
+		if (this.reachabilityState === 'error') {
+			return html`<gl-action-chip
+				class="error"
+				icon="error"
+				label="Failed to load branches and tags. Click to retry."
+				overlay="tooltip"
+				@click=${() => this.dispatchEvent(new CustomEvent('refresh-reachability'))}
+				><span class="mq-hide-sm">Failed to load</span></gl-action-chip
+			>`;
+		}
+
+		if (this.reachabilityState === 'idle') {
+			return html`<gl-action-chip
+				icon="git-branch"
+				label="Show which branches and tags contain this commit"
+				overlay="tooltip"
+				@click=${() => this.dispatchEvent(new CustomEvent('load-reachability'))}
+				><span class="mq-hide-sm">Show Branches &amp; Tags</span></gl-action-chip
+			>`;
+		}
+
+		if (this.reachability == null) return nothing;
+
+		const { refs } = this.reachability;
+		if (!refs.length) {
+			return html`<gl-action-chip
+				class="warning"
+				icon="git-branch"
+				label="Commit is not on any branch or tag"
+				overlay="tooltip"
+				><span class="mq-hide-sm">Not on any branch or tag</span></gl-action-chip
+			>`;
+		}
+
+		const branches = refs.filter(r => r.refType === 'branch');
+		const tags = refs.filter(r => r.refType === 'tag');
+
+		return html`<div class="reachability-summary">
+			${this.renderReachabilityChip('branch', branches)} ${this.renderReachabilityChip('tag', tags)}
+		</div>`;
+	}
+
+	private renderReachabilityChip(type: 'branch' | 'tag', refs: NonNullable<typeof this.reachability>['refs']) {
+		if (!refs.length) return nothing;
+
+		const icon = type === 'branch' ? 'git-branch' : 'tag';
+		const count = refs.length;
+		const [first] = refs;
+
+		// Single ref - just show it
+		if (count === 1) {
+			const refTypeLabel = first.refType === 'branch' ? (first.remote ? 'remote branch' : 'branch') : 'tag';
+			return html`<gl-action-chip
+				icon="${icon}"
+				label="Commit on 1 ${refTypeLabel}: ${first.name}"
+				overlay="tooltip"
+				class="reachability-range-chip reachability-range-chip--${first.refType === 'branch'
+					? first.remote
+						? 'remote-branch'
+						: 'local-branch'
+					: 'tag'}${first.current ? ' reachability-range-chip--current' : ''}"
+				>${first.name}</gl-action-chip
+			>`;
+		}
+
+		// Multiple refs - show range with popover
+		const last = refs.at(-1)!;
+
+		return html`<gl-popover placement="bottom" trigger="hover focus click" class="reachability-range-chip-wrapper">
+			<gl-action-chip
+				slot="anchor"
+				class="reachability-range-chip reachability-range-chip--range reachability-range-chip--${type ===
+				'branch'
+					? 'local-branch'
+					: 'tag'}"
+				><span class="reachability-range-chip__label">
+					<code-icon icon="${icon}"></code-icon>${first.name}
+					<span class="reachability-range-chip__ellipsis">...</span>
+					<code-icon icon="${icon}"></code-icon>${last.name}
+				</span>
+				<span class="reachability-range-chip__count">+${count}</span></gl-action-chip
+			>
+			<div slot="content" class="reachability-popover">
+				<div class="reachability-popover__header">
+					Commit is on ${count} ${type === 'branch' ? 'branches' : 'tags'}
+				</div>
+				<div class="reachability-popover__list scrollable">
+					${refs.map(
+						r =>
+							html`<div
+								class="reachability-list-item${r.current ? ' reachability-list-item--current' : ''}"
+							>
+								<code-icon
+									icon="${type === 'branch' ? 'git-branch' : 'tag'}"
+									class="reachability-list-item__icon"
+								></code-icon>
+								<span class="reachability-list-item__label">${r.name}</span>
+							</div>`,
+					)}
+				</div>
+			</div>
+		</gl-popover>`;
 	}
 
 	private onExplainChanges(e: MouseEvent | KeyboardEvent) {
@@ -434,11 +575,17 @@ export class GlCommitDetails extends GlDetailsBase {
 		if (stats?.files == null) return undefined;
 
 		if (typeof stats.files === 'number') {
-			return html`<commit-stats added="?" modified="${stats.files}" removed="?"></commit-stats>`;
+			return html`<commit-stats modified="${stats.files}" symbol="icons" appearance="pill"></commit-stats>`;
 		}
 
 		const { added, deleted, changed } = stats.files;
-		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
+		return html`<commit-stats
+			added="${added}"
+			modified="${changed}"
+			removed="${deleted}"
+			symbol="icons"
+			appearance="pill"
+		></commit-stats>`;
 	}
 
 	override getFileActions(_file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {

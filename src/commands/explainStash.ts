@@ -1,15 +1,15 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Container } from '../container';
-import type { GitCommit, GitStashCommit } from '../git/models/commit';
-import { showGenericErrorMessage } from '../messages';
-import { showStashPicker } from '../quickpicks/stashPicker';
-import { command } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
-import type { ExplainBaseArgs } from './explainBase';
-import { ExplainCommandBase } from './explainBase';
+import type { Container } from '../container.js';
+import type { GitCommit, GitStashCommit } from '../git/models/commit.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showStashPicker } from '../quickpicks/stashPicker.js';
+import { command } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
+import type { ExplainBaseArgs } from './explainBase.js';
+import { ExplainCommandBase } from './explainBase.js';
 
 export interface ExplainStashCommandArgs extends ExplainBaseArgs {
 	rev?: string;
@@ -64,7 +64,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				}
 			}
 
-			const result = await this.container.ai.explainCommit(
+			const result = await this.container.ai.actions.explainCommit(
 				commit,
 				{
 					...args.source,

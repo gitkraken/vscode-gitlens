@@ -3,16 +3,16 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { GetInactiveOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
-import { SetOverviewFilter } from '../../../../home/protocol';
-import { stateContext } from '../../../home/context';
-import { ipcContext } from '../../../shared/contexts/ipc';
-import type { HostIpc } from '../../../shared/ipc';
-import { linkStyles } from '../../shared/components/vscode.css';
-import type { InactiveOverviewState } from './overviewState';
-import { inactiveOverviewStateContext } from './overviewState';
-import '../../../shared/components/skeleton-loader';
-import './branch-threshold-filter';
+import type { GetInactiveOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol.js';
+import { SetOverviewFilter } from '../../../../home/protocol.js';
+import { stateContext } from '../../../home/context.js';
+import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { HostIpc } from '../../../shared/ipc.js';
+import { linkStyles } from '../../shared/components/vscode.css.js';
+import type { InactiveOverviewState } from './overviewState.js';
+import { inactiveOverviewStateContext } from './overviewState.js';
+import '../../../shared/components/skeleton-loader.js';
+import './branch-threshold-filter.js';
 
 export const overviewTagName = 'gl-overview';
 

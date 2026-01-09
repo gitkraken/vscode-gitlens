@@ -1,25 +1,24 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
-import type { DraftsViewConfig } from '../config';
-import { previewBadge } from '../constants';
-import type { Container } from '../container';
-import { AuthenticationRequiredError } from '../errors';
-import { unknownGitUri } from '../git/gitUri';
-import type { Draft } from '../plus/drafts/models/drafts';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { gate } from '../system/decorators/gate';
-import { groupByFilterMap, map } from '../system/iterable';
-import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
-import type { ViewNode } from './nodes/abstract/viewNode';
-import { DraftNode } from './nodes/draftNode';
-import { GroupingNode } from './nodes/groupingNode';
-import type { RevealOptions } from './viewBase';
-import { ViewBase } from './viewBase';
-import type { CopyNodeCommandArgs } from './viewCommands';
-import { registerViewCommand } from './viewCommands';
+import type { DraftsViewConfig } from '../config.js';
+import { previewBadge } from '../constants.js';
+import type { Container } from '../container.js';
+import { AuthenticationRequiredError } from '../errors.js';
+import { unknownGitUri } from '../git/gitUri.js';
+import type { Draft } from '../plus/drafts/models/drafts.js';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { gate } from '../system/decorators/gate.js';
+import { groupByFilterMap, map } from '../system/iterable.js';
+import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode.js';
+import type { ViewNode } from './nodes/abstract/viewNode.js';
+import { DraftNode } from './nodes/draftNode.js';
+import { GroupingNode } from './nodes/groupingNode.js';
+import type { RevealOptions } from './viewBase.js';
+import { ViewBase } from './viewBase.js';
+import type { CopyNodeCommandArgs } from './viewCommands.js';
+import { registerViewCommand } from './viewCommands.js';
 
 export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsView, GroupingNode | DraftNode> {
 	constructor(view: DraftsView) {
@@ -115,15 +114,6 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 
 	protected registerCommands(): Disposable[] {
 		return [
-			registerViewCommand(
-				this.getQualifiedCommand('info'),
-				() =>
-					executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-						step: 'streamline-collaboration',
-						source: { source: 'cloud-patches', detail: 'info' },
-					}),
-				this,
-			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),

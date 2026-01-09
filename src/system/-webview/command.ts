@@ -1,19 +1,18 @@
 import type { Command, Disposable, Uri } from 'vscode';
 import { commands } from 'vscode';
-import type { Action, ActionContext } from '../../api/gitlens';
-import type { GlCommandBase } from '../../commands/commandBase';
-import type { CodeLensCommands } from '../../config';
+import type { Action, ActionContext } from '../../api/gitlens.d.js';
+import type { GlCommandBase } from '../../commands/commandBase.js';
+import type { CodeLensCommands } from '../../config.js';
 import type {
 	CoreCommands,
 	CoreGitCommands,
 	GlCommands,
 	GlCommandsDeprecated,
-	WebviewCommands,
-	WebviewViewCommands,
-} from '../../constants.commands';
-import { actionCommandPrefix } from '../../constants.commands';
-import { Container } from '../../container';
-import { isWebviewContext } from '../webview';
+	GlWebviewCommands,
+} from '../../constants.commands.js';
+import { actionCommandPrefix } from '../../constants.commands.js';
+import { Container } from '../../container.js';
+import { isWebviewContext } from '../webview.js';
 
 export type CommandCallback = Parameters<typeof commands.registerCommand>[1];
 
@@ -45,24 +44,36 @@ export function registerCommand(
 				}
 			}
 
-			Container.instance.telemetry.sendEvent('command', {
-				command: command,
-				'context.mode': context?.mode,
-				'context.submode': context?.submode,
-			});
+			Container.instance.telemetry.sendEvent(
+				'command',
+				{
+					command: command,
+					'context.mode': context?.mode,
+					'context.submode': context?.submode,
+				},
+				args[0]?.source,
+			);
 
 			if (command.startsWith('gitlens.graph.')) {
-				Container.instance.telemetry.sendEvent('graph/command', {
-					command: command,
-					'context.mode': context?.mode,
-					'context.submode': context?.submode,
-				});
+				Container.instance.telemetry.sendEvent(
+					'graph/command',
+					{
+						command: command,
+						'context.mode': context?.mode,
+						'context.submode': context?.submode,
+					},
+					args[0]?.source,
+				);
 			} else if (command.startsWith('gitlens.home.')) {
-				Container.instance.telemetry.sendEvent('home/command', {
-					command: command,
-					'context.mode': context?.mode,
-					'context.submode': context?.submode,
-				});
+				Container.instance.telemetry.sendEvent(
+					'home/command',
+					{
+						command: command,
+						'context.mode': context?.mode,
+						'context.submode': context?.submode,
+					},
+					args[0]?.source,
+				);
 			}
 
 			void Container.instance.usage.track(`command:${command}:executed`).catch();
@@ -73,7 +84,7 @@ export function registerCommand(
 }
 
 export function registerWebviewCommand(
-	command: WebviewCommands | WebviewViewCommands,
+	command: GlWebviewCommands,
 	callback: CommandCallback,
 	thisArg?: any,
 ): Disposable {

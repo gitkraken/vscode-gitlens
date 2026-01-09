@@ -1,14 +1,14 @@
 import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import { request } from '@octokit/request';
 import { RequestError } from '@octokit/request-error';
-import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
+import type { Endpoints, RequestParameters } from '@octokit/types';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Event } from 'vscode';
 import { Disposable, EventEmitter, Uri, window } from 'vscode';
-import { base64 } from '@env/base64';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
-import { isWeb } from '@env/platform';
-import type { Container } from '../../../../container';
+import { base64 } from '@env/base64.js';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
+import { isWeb } from '@env/platform.js';
+import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -16,38 +16,38 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 	RequestRateLimitError,
-} from '../../../../errors';
-import type { PagedResult, RepositoryVisibility } from '../../../../git/gitProvider';
-import type { Account, UnidentifiedAuthor } from '../../../../git/models/author';
-import type { DefaultBranch } from '../../../../git/models/defaultBranch';
-import type { Issue, IssueShape } from '../../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
-import type { PullRequest } from '../../../../git/models/pullRequest';
-import { PullRequestMergeMethod } from '../../../../git/models/pullRequest';
-import type { Provider } from '../../../../git/models/remoteProvider';
-import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
-import type { GitRevisionRange } from '../../../../git/models/revision';
-import type { GitUser } from '../../../../git/models/user';
-import { getGitHubNoReplyAddressParts } from '../../../../git/remotes/github';
+} from '../../../../errors.js';
+import type { PagedResult, RepositoryVisibility } from '../../../../git/gitProvider.js';
+import type { Account, UnidentifiedAuthor } from '../../../../git/models/author.js';
+import type { DefaultBranch } from '../../../../git/models/defaultBranch.js';
+import type { Issue, IssueShape } from '../../../../git/models/issue.js';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest.js';
+import type { PullRequest } from '../../../../git/models/pullRequest.js';
+import { PullRequestMergeMethod } from '../../../../git/models/pullRequest.js';
+import type { Provider } from '../../../../git/models/remoteProvider.js';
+import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata.js';
+import type { GitRevisionRange } from '../../../../git/models/revision.js';
+import type { GitUser } from '../../../../git/models/user.js';
+import { getGitHubNoReplyAddressParts } from '../../../../git/remotes/github.js';
 import {
 	createRevisionRange,
 	getRevisionRangeParts,
 	isRevisionRange,
 	isSha,
-} from '../../../../git/utils/revision.utils';
+} from '../../../../git/utils/revision.utils.js';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
-} from '../../../../messages';
-import { configuration } from '../../../../system/-webview/configuration';
-import { debug } from '../../../../system/decorators/log';
-import { uniqueBy } from '../../../../system/iterable';
-import { Logger } from '../../../../system/logger';
-import type { LogScope } from '../../../../system/logger.scope';
-import { getLogScope } from '../../../../system/logger.scope';
-import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { Version } from '../../../../system/version';
-import { fromString, satisfies } from '../../../../system/version';
+} from '../../../../messages.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { debug } from '../../../../system/decorators/log.js';
+import { uniqueBy } from '../../../../system/iterable.js';
+import { Logger } from '../../../../system/logger.js';
+import type { LogScope } from '../../../../system/logger.scope.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import type { Version } from '../../../../system/version.js';
+import { fromString, satisfies } from '../../../../system/version.js';
 import type {
 	GitHubBlame,
 	GitHubBlameRange,
@@ -63,13 +63,13 @@ import type {
 	GitHubPullRequestLite,
 	GitHubPullRequestState,
 	GitHubTag,
-} from './models';
+} from './models.js';
 import {
 	fromGitHubIssue,
 	fromGitHubIssueOrPullRequestState,
 	fromGitHubPullRequest,
 	fromGitHubPullRequestLite,
-} from './models';
+} from './models.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
@@ -410,6 +410,9 @@ export class GitHubApi implements Disposable {
 			};
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
+			if (ex.message.includes('Variable $rev of type GitObjectID! was provided invalid value')) {
+				return undefined;
+			}
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -2637,36 +2640,26 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private async request<R extends string>(
+	private async request<R extends keyof Endpoints>(
 		provider: Provider | undefined,
 		token: string,
-		route: keyof Endpoints | R,
-		options:
-			| (R extends keyof Endpoints ? Endpoints[R]['parameters'] & RequestParameters : RequestParameters)
-			| undefined,
+		route: R,
+		options: (Endpoints[R]['parameters'] & RequestParameters) | undefined,
 		scope: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
-	): Promise<R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<any>> {
+	): Promise<Endpoints[R]['response']> {
 		try {
-			let aborter: AbortController | undefined;
 			if (cancellation != null) {
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				aborter = new AbortController();
-				cancellation.onCancellationRequested(() => aborter!.abort());
-				options = {
-					...options,
-					request: { ...options?.request, signal: aborter.signal },
-				} as unknown as typeof options;
+				const aborter = new AbortController();
+				cancellation.onCancellationRequested(() => aborter.abort());
+				options = { ...options, request: { ...options?.request, signal: aborter.signal } };
 			}
 
-			return await wrapForForcedInsecureSSL(
-				provider?.getIgnoreSSLErrors() ?? false,
-				() =>
-					this.getDefaults(token, request)<R>(route as R, options) as unknown as Promise<
-						R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<any>
-					>,
-			);
+			return (await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
+				this.getDefaults(token, request)(route as string, options),
+			)) as Endpoints[R]['response'];
 		} catch (ex) {
 			if (ex instanceof RequestError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);

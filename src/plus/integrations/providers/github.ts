@@ -1,25 +1,25 @@
 import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
-import type { Sources } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
-import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { Issue, IssueShape } from '../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
-import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
-import type { RepositoryDescriptor } from '../../../git/models/resourceDescriptor';
-import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
-import { log } from '../../../system/decorators/log';
-import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
-import type { IntegrationConnectionChangeEvent } from '../integrationService';
-import { GitHostIntegration } from '../models/gitHostIntegration';
-import type { GitHubIntegrationIds } from './github/github.utils';
-import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils';
-import { providersMetadata } from './models';
-import type { ProvidersApi } from './providersApi';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
+import type { Sources } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import type { Account, UnidentifiedAuthor } from '../../../git/models/author.js';
+import type { DefaultBranch } from '../../../git/models/defaultBranch.js';
+import type { Issue, IssueShape } from '../../../git/models/issue.js';
+import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest.js';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest.js';
+import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata.js';
+import type { RepositoryDescriptor } from '../../../git/models/resourceDescriptor.js';
+import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils.js';
+import { log } from '../../../system/decorators/log.js';
+import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils.js';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { GitHubIntegrationIds } from './github/github.utils.js';
+import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
+import { providersMetadata } from './models.js';
+import type { ProvidersApi } from './providersApi.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitHub];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
@@ -139,7 +139,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	): Promise<PullRequest | undefined> {
 		const { include, ...opts } = options ?? {};
 
-		const toGitHubPullRequestState = (await import(/* webpackChunkName: "integrations" */ './github/models'))
+		const toGitHubPullRequestState = (await import(/* webpackChunkName: "integrations" */ './github/models.js'))
 			.toGitHubPullRequestState;
 		return (await this.container.github)?.getPullRequestForBranch(
 			this,

@@ -1,17 +1,17 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
-import type { GlPromoBanner } from '../../../home/components/promo-banner';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
-import type { GlAccountChip } from './account-chip';
-import './account-chip';
-import './integrations-chip';
-import '../../../home/components/onboarding';
-import '../../../home/components/promo-banner';
-import '../../../shared/components/button';
-import '../../../shared/components/button-container';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/popover';
-// import '../../../shared/components/snow';
+import type { GlPromoBanner } from '../../../home/components/promo-banner.js';
+import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { GlAccountChip } from './account-chip.js';
+import './account-chip.js';
+import './integrations-chip.js';
+import '../../../home/components/onboarding.js';
+import '../../../home/components/promo-banner.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/popover.js';
+// import '../../../shared/components/snow.js';
 
 @customElement('gl-home-header')
 export class GlHomeHeader extends LitElement {

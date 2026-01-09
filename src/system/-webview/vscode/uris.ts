@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { env, workspace } from 'vscode';
-import { Schemes, trackableSchemes } from '../../../constants';
+import { Schemes, trackableSchemes } from '../../../constants.js';
 
 export async function exists(uri: Uri): Promise<boolean> {
 	try {

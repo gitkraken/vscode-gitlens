@@ -1,14 +1,14 @@
+import './graph.scss';
 import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { Color } from '../../../../system/color';
-import type { State } from '../../../plus/graph/protocol';
-import { GlAppHost } from '../../shared/appHost';
-import type { HostIpc } from '../../shared/ipc';
-import type { ThemeChangeEvent } from '../../shared/theme';
-import type { GraphApp } from './graph-app';
-import { GraphStateProvider } from './stateProvider';
-import './graph-app';
-import './graph.scss';
+import { Color } from '../../../../system/color.js';
+import type { State } from '../../../plus/graph/protocol.js';
+import { GlAppHost } from '../../shared/appHost.js';
+import type { HostIpc } from '../../shared/ipc.js';
+import type { ThemeChangeEvent } from '../../shared/theme.js';
+import type { GraphApp } from './graph-app.js';
+import { GraphStateProvider } from './stateProvider.js';
+import './graph-app.js';
 
 @customElement('gl-graph-apphost')
 export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
@@ -19,9 +19,11 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	@query('gl-graph-app')
 	private appElement!: GraphApp;
 
+	private _initialRowsLoaded = false;
+
 	@state()
 	searching: string = '';
-	searchResultsHidden: unknown;
+
 	get hasFilters() {
 		if (this.state.config?.onlyFollowFirstParent) return true;
 		if (this.state.excludeTypes == null) return false;
@@ -38,6 +40,12 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			onStateUpdate: partial => {
 				if ('rows' in partial) {
 					this.appElement.resetHover();
+
+					// Focus the graph after initial rows are loaded
+					if (!this._initialRowsLoaded && partial.rows?.length) {
+						this._initialRowsLoaded = true;
+						requestAnimationFrame(() => this.appElement?.graph?.focus());
+					}
 				}
 			},
 		});

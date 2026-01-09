@@ -1,5 +1,6 @@
 import { ContextProvider } from '@lit/context';
-import type { State } from '../../../plus/composer/protocol';
+import type { IpcMessage } from '../../../ipc/models/ipc.js';
+import type { State } from '../../../plus/composer/protocol.js';
 import {
 	DidCancelGenerateCommitMessageNotification,
 	DidCancelGenerateCommitsNotification,
@@ -18,13 +19,12 @@ import {
 	DidStartGeneratingCommitMessageNotification,
 	DidStartGeneratingNotification,
 	DidWorkingDirectoryChangeNotification,
-} from '../../../plus/composer/protocol';
-import type { IpcMessage } from '../../../protocol';
-import type { ReactiveElementHost } from '../../shared/appHost';
-import { StateProviderBase } from '../../shared/stateProviderBase';
-import { stateContext } from './context';
+} from '../../../plus/composer/protocol.js';
+import type { ReactiveElementHost } from '../../shared/appHost.js';
+import { StateProviderBase } from '../../shared/stateProviderBase.js';
+import { stateContext } from './context.js';
 
-export class ComposerStateProvider extends StateProviderBase<State, typeof stateContext> {
+export class ComposerStateProvider extends StateProviderBase<State['webviewId'], State, typeof stateContext> {
 	protected override createContextProvider(state: State): ContextProvider<typeof stateContext, ReactiveElementHost> {
 		return new ContextProvider(this.host, { context: stateContext, initialValue: state });
 	}
@@ -54,16 +54,49 @@ export class ComposerStateProvider extends StateProviderBase<State, typeof state
 				break;
 			}
 			case DidGenerateCommitsNotification.is(msg): {
+				// if the message params contain replaced commit ids, we only want to replace those commits in state with the new ones. Otherwise replace all of them
+				let newCommits;
+				if (msg.params.replacedCommitIds) {
+					newCommits = [...this._state.commits];
+					// Updates the replaced commits in state with the new commits replacing them
+					const firstRemovedIndex = newCommits.findIndex(c => msg.params.replacedCommitIds!.includes(c.id));
+					newCommits = newCommits.filter(c => !msg.params.replacedCommitIds!.includes(c.id));
+					newCommits.splice(firstRemovedIndex, 0, ...msg.params.commits);
+					// Updates hunk index references on all other commits to match the new hunk indices
+					const oldHunkMap = new Map(
+						this._state.hunks.map(hunk => [hunk.index, `${hunk.diffHeader}\n${hunk.hunkHeader}`]),
+					);
+					const newHunkMap = new Map(
+						msg.params.hunks!.map(hunk => [`${hunk.diffHeader}\n${hunk.hunkHeader}`, hunk.index]),
+					);
+					const newCommitIds = msg.params.commits.map(c => c.id);
+					for (const commit of newCommits) {
+						if (!newCommitIds.includes(commit.id)) {
+							commit.locked = true;
+							const commitHunkHeaders = commit.hunkIndices.map(i => oldHunkMap.get(i)!);
+							commit.hunkIndices = commitHunkHeaders.map(h => newHunkMap.get(h)).filter(i => i != null);
+						}
+					}
+				} else {
+					newCommits = msg.params.commits;
+				}
+
 				const updatedState = {
 					...this._state,
 					generatingCommits: false,
-					commits: msg.params.commits,
-					hunks: this._state.hunks.map(hunk => ({
+					commits: newCommits,
+					hunks: (msg.params.hunks ?? this._state.hunks).map(hunk => ({
 						...hunk,
 						assigned: true,
 					})),
 					hasUsedAutoCompose: true,
 					timestamp: Date.now(),
+					recompose: this._state.recompose?.enabled
+						? {
+								...this._state.recompose,
+								locked: false,
+							}
+						: this._state.recompose,
 				};
 
 				(this as any)._state = updatedState;
@@ -72,7 +105,9 @@ export class ComposerStateProvider extends StateProviderBase<State, typeof state
 			}
 			case DidGenerateCommitMessageNotification.is(msg): {
 				const updatedCommits = this._state.commits.map(commit =>
-					commit.id === msg.params.commitId ? { ...commit, message: msg.params.message } : commit,
+					commit.id === msg.params.commitId
+						? { ...commit, message: { content: msg.params.message, isGenerated: true } }
+						: commit,
 				);
 
 				const updatedState = {
@@ -128,11 +163,6 @@ export class ComposerStateProvider extends StateProviderBase<State, typeof state
 					loadingError: msg.params.loadingError,
 					hasChanges: msg.params.hasChanges,
 					safetyError: null, // Clear any existing safety errors
-					// Reset UI state to defaults
-					selectedCommitId: null,
-					selectedCommitIds: new Set<string>(),
-					selectedUnassignedSection: null,
-					selectedHunkIds: new Set<string>(),
 					// Clear any ongoing operations
 					generatingCommits: false,
 					generatingCommitMessage: null,
@@ -143,6 +173,12 @@ export class ComposerStateProvider extends StateProviderBase<State, typeof state
 					timestamp: Date.now(),
 					hasUsedAutoCompose: false,
 					repositoryState: msg.params.repositoryState,
+					recompose: this._state.recompose?.enabled
+						? {
+								...this._state.recompose,
+								locked: true,
+							}
+						: this._state.recompose,
 				};
 
 				(this as any)._state = updatedState;

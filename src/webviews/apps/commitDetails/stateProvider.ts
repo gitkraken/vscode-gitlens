@@ -1,6 +1,6 @@
 import { ContextProvider } from '@lit/context';
-import type { IpcSerialized } from '../../../system/ipcSerialize';
-import type { State as _State, UpdateablePreferences } from '../../commitDetails/protocol';
+import type { IpcSerialized } from '../../../system/ipcSerialize.js';
+import type { State as _State, UpdateablePreferences } from '../../commitDetails/protocol.js';
 import {
 	ChangeReviewModeCommand,
 	DidChangeDraftStateNotification,
@@ -10,15 +10,15 @@ import {
 	DidChangeWipStateNotification,
 	SwitchModeCommand,
 	UpdatePreferencesCommand,
-} from '../../commitDetails/protocol';
-import type { IpcMessage } from '../../protocol';
-import type { ReactiveElementHost } from '../shared/appHost';
-import { StateProviderBase } from '../shared/stateProviderBase';
-import { stateContext } from './context';
+} from '../../commitDetails/protocol.js';
+import type { IpcMessage } from '../../ipc/models/ipc.js';
+import type { ReactiveElementHost } from '../shared/appHost.js';
+import { StateProviderBase } from '../shared/stateProviderBase.js';
+import { stateContext } from './context.js';
 
 type State = IpcSerialized<_State>;
 
-export class CommitDetailsStateProvider extends StateProviderBase<State, typeof stateContext> {
+export class CommitDetailsStateProvider extends StateProviderBase<State['webviewId'], State, typeof stateContext> {
 	protected override get deferBootstrap(): boolean {
 		return true;
 	}

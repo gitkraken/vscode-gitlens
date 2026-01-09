@@ -1,20 +1,19 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../../../container';
-import { isCancellationError } from '../../../../../errors';
-import type { GitCache } from '../../../../../git/cache';
-import type { GitContributorsResult, GitContributorsSubProvider } from '../../../../../git/gitProvider';
-import type { GitCommit } from '../../../../../git/models/commit';
-import type { GitContributorsStats } from '../../../../../git/models/contributor';
-import { GitContributor } from '../../../../../git/models/contributor';
-import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
-import { calculateContributionScore } from '../../../../../git/utils/contributor.utils';
-import { isUserMatch } from '../../../../../git/utils/user.utils';
-import { log } from '../../../../../system/decorators/log';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import type { Cancellable } from '../../../../../system/promiseCache';
-import { PromiseCache } from '../../../../../system/promiseCache';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
+import type { Container } from '../../../../../container.js';
+import { isCancellationError } from '../../../../../errors.js';
+import type { GitCache } from '../../../../../git/cache.js';
+import type { GitContributorsResult, GitContributorsSubProvider } from '../../../../../git/gitProvider.js';
+import type { GitCommit } from '../../../../../git/models/commit.js';
+import type { GitContributorsStats } from '../../../../../git/models/contributor.js';
+import { GitContributor } from '../../../../../git/models/contributor.js';
+import { getChangedFilesCount } from '../../../../../git/utils/commit.utils.js';
+import { calculateContributionScore } from '../../../../../git/utils/contributor.utils.js';
+import { isUserMatch } from '../../../../../git/utils/user.utils.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import type { CacheController } from '../../../../../system/promiseCache.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	constructor(
@@ -41,7 +40,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getLogScope();
 
-		const getCore = async (cancellable?: Cancellable): Promise<GitContributorsResult> => {
+		const getCore = async (cacheable?: CacheController): Promise<GitContributorsResult> => {
 			const contributors: GitContributor[] = [];
 
 			try {
@@ -196,7 +195,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					cancelled: cancellation?.isCancellationRequested ? { reason: 'cancelled' } : undefined,
 				};
 			} catch (ex) {
-				cancellable?.cancelled();
+				cacheable?.invalidate();
 				Logger.error(ex, scope);
 				debugger;
 
@@ -204,9 +203,6 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				return { contributors: [...contributors.values()], cancelled: { reason: 'cancelled' } };
 			}
 		};
-
-		const cache = this.cache.contributors;
-		if (cache == null) return getCore();
 
 		let customCacheTTL;
 
@@ -229,22 +225,12 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			cacheKey += ':stats';
 		}
 
-		let contributorsCache = cache.get(repoPath);
-		if (contributorsCache == null) {
-			cache.set(
-				repoPath,
-				(contributorsCache = new PromiseCache<string, GitContributorsResult>({
-					accessTTL: 1000 * 60 * 60 /* 60 minutes */,
-				})),
-			);
-		}
-
-		const contributors = contributorsCache.get(
+		return this.cache.contributors.getOrCreate(
+			repoPath,
 			cacheKey,
 			getCore,
 			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
 		);
-		return contributors;
 	}
 
 	@log()

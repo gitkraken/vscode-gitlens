@@ -1,16 +1,21 @@
 import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
-import type { Sources } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import { registerCommand } from '../../../system/-webview/command';
-import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
-import type { State } from './protocol';
+import type { Sources } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import { registerCommand } from '../../../system/-webview/command.js';
+import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController.js';
+import type { State } from './protocol.js';
 
 export interface ComposerCommandArgs {
 	repoPath?: string | Uri;
 	source?: Sources;
 	mode?: 'experimental' | 'preview';
 	includedUnstagedChanges?: boolean;
+	branchName?: string;
+	/** Optional filter: if provided, only these commits are selectable for composition */
+	commitShas?: string[];
+	/** If provided, defines the commit range directly (skips merge target resolution) */
+	range?: { base: string; head: string };
 }
 
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];
@@ -37,7 +42,7 @@ export function registerComposerWebviewPanel(
 		},
 		async (container, host) => {
 			const { ComposerWebviewProvider } = await import(
-				/* webpackChunkName: "webview-composer" */ './composerWebview'
+				/* webpackChunkName: "webview-composer" */ './composerWebview.js'
 			);
 			return new ComposerWebviewProvider(container, host);
 		},
@@ -50,5 +55,6 @@ export function registerComposerWebviewCommands<T>(
 ): Disposable {
 	return Disposable.from(
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
+		registerCommand(`${panels.id}.maximize`, () => void (panels.getActiveInstance() as any)?.maximize()),
 	);
 }

@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../code-icon';
-import '../overlays/tooltip';
+import '../code-icon.js';
+import '../overlays/tooltip.js';
 
 @customElement('gl-avatar')
 export class GlAvatar extends LitElement {
@@ -65,10 +65,10 @@ export class GlAvatar extends LitElement {
 
 	private renderAvatar() {
 		if (this.href) {
-			return html`<a href=${this.href} class="avatar">${this.renderContent()}</a>`;
+			return html`<a href=${this.href} class="avatar" part="avatar">${this.renderContent()}</a>`;
 		}
 
-		return html`<span class="avatar">${this.renderContent()}</span>`;
+		return html`<span class="avatar" part="avatar">${this.renderContent()}</span>`;
 	}
 
 	private renderContent() {

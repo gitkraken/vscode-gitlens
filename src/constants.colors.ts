@@ -1,4 +1,4 @@
-import type { extensionPrefix } from './constants';
+import type { extensionPrefix } from './constants.js';
 
 export type Colors =
 	| `${typeof extensionPrefix}.closedAutolinkedIssueIconColor`

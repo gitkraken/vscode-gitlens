@@ -1,16 +1,18 @@
 import type { MessageItem } from 'vscode';
-import { ConfigurationTarget, window } from 'vscode';
-import type { SuppressedMessages } from './config';
-import { urls } from './constants';
-import type { Source } from './constants.telemetry';
-import type { BlameIgnoreRevsFileError } from './git/errors';
-import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
-import type { GitCommit } from './git/models/commit';
-import { mcpExtensionRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils';
-import { executeCommand, executeCoreCommand } from './system/-webview/command';
-import { configuration } from './system/-webview/configuration';
-import { openUrl } from './system/-webview/vscode/uris';
-import { Logger } from './system/logger';
+import { ConfigurationTarget, ThemeIcon, window } from 'vscode';
+import type { SuppressedMessages } from './config.js';
+import { urls } from './constants.js';
+import type { Source } from './constants.telemetry.js';
+import type { Container } from './container.js';
+import type { BlameIgnoreRevsFileError, GitCommandContext } from './git/errors.js';
+import { BlameIgnoreRevsFileBadRevisionError, GitCommandError } from './git/errors.js';
+import type { GitCommit } from './git/models/commit.js';
+import { mcpExtensionRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils.js';
+import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
+import { configuration } from './system/-webview/configuration.js';
+import { openUrl } from './system/-webview/vscode/uris.js';
+import { filterMap } from './system/array.js';
+import { Logger } from './system/logger.js';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,
@@ -91,6 +93,68 @@ export async function showGenericErrorMessage(message: string): Promise<void> {
 		);
 
 		if (result != null) {
+			void executeCommand('gitlens.enableDebugLogging');
+		}
+	}
+}
+
+function escapeShellArg(arg: string): string {
+	// If the argument contains spaces, quotes, or special characters, wrap it in single quotes
+	// and escape any single quotes within it
+	if (/[\s"'`$\\|&;<>(){}[\]!*?#~]/.test(arg)) {
+		// Escape single quotes by replacing ' with '\''
+		return `'${arg.replace(/'/g, "'\\''")}'`;
+	}
+	return arg;
+}
+
+function showGitCommandInTerminal(gitCommand: GitCommandContext, error: GitCommandError<any>): void {
+	const terminal = window.createTerminal({
+		cwd: gitCommand.repoPath,
+		name: 'GitLens',
+		hideFromUser: false,
+		iconPath: new ThemeIcon('gitlens-gitlens'),
+		isTransient: true,
+		message: `\x1b[1mGitLens attempted to run this Git command and it failed:\x1b[0m\r\n\x1b[31m${error.message}\x1b[0m\r\n\x1b[3mYou can run it again or modify it to diagnose the issue.\x1b[0m\r\n`,
+	});
+	const command = `git ${filterMap(gitCommand.args, a => (a != null ? escapeShellArg(a) : undefined)).join(' ')}`;
+	terminal.sendText(command, false);
+	terminal.show();
+}
+
+export async function showGitErrorMessage(error: Error | GitCommandError<any>, message?: string): Promise<void> {
+	if (!GitCommandError.is(error)) {
+		return void showGenericErrorMessage(message ?? error.message);
+	}
+
+	const { gitCommand } = error.details;
+	message = message ?? error.message;
+	const loggingEnabled = Logger.enabled('error');
+
+	const openOutputChannelOrEnableLogging: MessageItem = {
+		title: loggingEnabled ? 'Open Output Channel' : 'Enable Debug Logging',
+	};
+	const openInTerminalAction: MessageItem = { title: 'Open in Terminal' };
+
+	const result = await showMessage(
+		'error',
+		`${message.endsWith('.') ? message : `${message}.`} ${loggingEnabled ? 'See output channel for more details.' : 'If the error persists, please enable debug logging and try again.'}`,
+		undefined,
+		null,
+		...(gitCommand != null
+			? [openInTerminalAction, openOutputChannelOrEnableLogging]
+			: [openOutputChannelOrEnableLogging]),
+	);
+
+	if (result === openInTerminalAction) {
+		showGitCommandInTerminal(gitCommand, error);
+		return;
+	}
+
+	if (result === openOutputChannelOrEnableLogging) {
+		if (loggingEnabled) {
+			Logger.showOutputChannel();
+		} else {
 			void executeCommand('gitlens.enableDebugLogging');
 		}
 	}
@@ -182,14 +246,6 @@ export function showNoRepositoryWarningMessage(message: string): Promise<Message
 	return showMessage('warn', `${message}. No repository could be found.`, 'suppressNoRepositoryWarning');
 }
 
-export function showRebaseSwitchToTextWarningMessage(): Promise<MessageItem | undefined> {
-	return showMessage(
-		'warn',
-		'Closing either the git-rebase-todo file or the Rebase Editor will start the rebase.',
-		'suppressRebaseSwitchToTextWarning',
-	);
-}
-
 export function showGkDisconnectedTooManyFailedRequestsWarningMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
@@ -267,8 +323,8 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	}
 }
 
-export async function showMcpMessage(_current: string): Promise<void> {
-	const isAutoInstallable = mcpExtensionRegistrationAllowed();
+export async function showMcpMessage(container: Container, _current: string): Promise<void> {
+	const isAutoInstallable = mcpExtensionRegistrationAllowed(container);
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const learnMore = { title: 'Learn More' };
 	const install = { title: 'Install GitKraken MCP' };

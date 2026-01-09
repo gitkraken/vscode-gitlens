@@ -1,30 +1,34 @@
 import type { Uri } from 'vscode';
-import type { Container } from '../../../../../container';
-import type { GitCache } from '../../../../../git/cache';
+import type { Container } from '../../../../../container.js';
+import type { GitCache } from '../../../../../git/cache.js';
 import type {
 	DiffRange,
 	GitDiffSubProvider,
 	NextComparisonUrisResult,
 	PreviousComparisonUrisResult,
 	PreviousRangeComparisonUrisResult,
-} from '../../../../../git/gitProvider';
-import { GitUri } from '../../../../../git/gitUri';
-import type { GitDiffFilter, GitDiffShortStat } from '../../../../../git/models/diff';
-import type { GitFile } from '../../../../../git/models/file';
-import { GitFileChange } from '../../../../../git/models/fileChange';
-import { GitFileIndexStatus } from '../../../../../git/models/fileStatus';
-import type { GitRevisionRange } from '../../../../../git/models/revision';
-import { deletedOrMissing, uncommitted } from '../../../../../git/models/revision';
-import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
-import { createRevisionRange, getRevisionRangeParts, isRevisionRange } from '../../../../../git/utils/revision.utils';
-import { diffRangeToEditorLine } from '../../../../../system/-webview/vscode/editors';
-import { log } from '../../../../../system/decorators/log';
-import { union } from '../../../../../system/iterable';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { stripOrigin } from '../githubGitProvider';
-import { fromCommitFileStatus } from '../models';
+} from '../../../../../git/gitProvider.js';
+import { GitUri } from '../../../../../git/gitUri.js';
+import type { GitDiffFilter, GitDiffShortStat } from '../../../../../git/models/diff.js';
+import type { GitFile } from '../../../../../git/models/file.js';
+import { GitFileChange } from '../../../../../git/models/fileChange.js';
+import { GitFileIndexStatus } from '../../../../../git/models/fileStatus.js';
+import type { GitRevisionRange } from '../../../../../git/models/revision.js';
+import { deletedOrMissing, uncommitted } from '../../../../../git/models/revision.js';
+import { getChangedFilesCount } from '../../../../../git/utils/commit.utils.js';
+import {
+	createRevisionRange,
+	getRevisionRangeParts,
+	isRevisionRange,
+} from '../../../../../git/utils/revision.utils.js';
+import { diffRangeToEditorLine } from '../../../../../system/-webview/vscode/editors.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { union } from '../../../../../system/iterable.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
+import { stripOrigin } from '../githubGitProvider.js';
+import { fromCommitFileStatus } from '../models.js';
 
 export class DiffGitSubProvider implements GitDiffSubProvider {
 	constructor(

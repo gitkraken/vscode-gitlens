@@ -1,86 +1,22 @@
 import type { TimeInput } from '@opentelemetry/api';
-import type { Config } from '../config';
-import type { GlCommands } from '../constants.commands';
-import type { Source, TelemetryEvents, TelemetryEventsFromWebviewApp } from '../constants.telemetry';
-import type {
-	CustomEditorIds,
-	CustomEditorTypes,
-	WebviewIds,
-	WebviewTypes,
-	WebviewViewIds,
-	WebviewViewTypes,
-} from '../constants.views';
-import type { Promo, PromoLocation, PromoPlans } from '../plus/gk/models/promo';
-import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration';
-
-export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
-
-type IpcCompression = 'deflate' | 'utf8' | false;
-export interface IpcMessage<T = unknown> {
-	id: string;
-	scope: IpcScope;
-	method: string;
-	params: T;
-	compressed: IpcCompression;
-	timestamp: number;
-
-	completionId?: string;
-}
-
-abstract class IpcCall<Params> {
-	public readonly method: string;
-
-	constructor(
-		public readonly scope: IpcScope,
-		method: string,
-		public readonly reset: boolean = false,
-	) {
-		this.method = `${scope}/${method}`;
-	}
-
-	is(msg: IpcMessage): msg is IpcMessage<Params> {
-		return msg.method === this.method;
-	}
-}
-
-export type IpcCallMessageType<T> = T extends IpcCall<infer P> ? IpcMessage<P> : never;
-export type IpcCallParamsType<T> = IpcCallMessageType<T>['params'];
-export type IpcCallResponseType<T> = T extends IpcRequest<infer _, infer _> ? T['response'] : never;
-export type IpcCallResponseMessageType<T> = IpcCallMessageType<IpcCallResponseType<T>>;
-export type IpcCallResponseParamsType<T> = IpcCallResponseMessageType<T>['params'];
-
-/**
- * Commands are sent from the webview to the extension
- */
-export class IpcCommand<Params = void> extends IpcCall<Params> {}
-
-/**
- * Requests are sent from the webview to the extension and expect a response back
- */
-export class IpcRequest<Params = void, ResponseParams = void> extends IpcCall<Params> {
-	public readonly response: IpcNotification<ResponseParams>;
-
-	constructor(scope: IpcScope, method: string, reset?: boolean) {
-		super(scope, method, reset);
-
-		this.response = new IpcNotification<ResponseParams>(this.scope, `${method}/completion`, this.reset);
-	}
-}
-
-/**
- * Notifications are sent from the extension to the webview
- */
-export class IpcNotification<Params = void> extends IpcCall<Params> {}
+import type { Config } from '../config.js';
+import type { GlCommands } from '../constants.commands.js';
+import type { Source, WebviewTelemetryEvents } from '../constants.telemetry.js';
+import type { WebviewIds } from '../constants.views.js';
+import type { Promo, PromoLocation, PromoPlans } from '../plus/gk/models/promo.js';
+import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration.js';
+import { IpcCommand, IpcNotification, IpcRequest } from './ipc/models/ipc.js';
 
 // COMMANDS & REQUESTS
+
+export interface WebviewReadyParams {
+	bootstrap?: boolean;
+}
 
 export interface WebviewReadyResponse {
 	state?: unknown | Promise<unknown>;
 }
-export const WebviewReadyRequest = new IpcRequest<{ bootstrap?: boolean }, WebviewReadyResponse>(
-	'core',
-	'webview/ready',
-);
+export const WebviewReadyRequest = new IpcRequest<WebviewReadyParams, WebviewReadyResponse>('core', 'webview/ready');
 
 export interface WebviewFocusChangedParams {
 	focused: boolean;
@@ -116,9 +52,9 @@ export interface UpdateConfigurationParams {
 }
 export const UpdateConfigurationCommand = new IpcCommand<UpdateConfigurationParams>('core', 'configuration/update');
 
-export interface TelemetrySendEventParams<T extends keyof TelemetryEvents = keyof TelemetryEvents> {
+export interface TelemetrySendEventParams<T extends keyof WebviewTelemetryEvents = keyof WebviewTelemetryEvents> {
 	name: T;
-	data: TelemetryEventsFromWebviewApp[T];
+	data: WebviewTelemetryEvents[T];
 	source?: Source;
 	startTime?: TimeInput;
 	endTime?: TimeInput;
@@ -190,7 +126,7 @@ export function assertsConfigKeyValue<T extends ConfigPath>(
 	// Noop
 }
 
-export interface WebviewState<Id extends WebviewIds | WebviewViewIds | CustomEditorIds = WebviewIds | WebviewViewIds> {
+export interface WebviewState<Id extends WebviewIds> {
 	webviewId: Id;
 	webviewInstanceId: string | undefined;
 	timestamp: number;

@@ -1,5 +1,5 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import { map } from './iterable';
+import { map } from './iterable.js';
 
 export type PromiseOrValue<T> = Promise<T> | T;
 
@@ -217,7 +217,7 @@ export function getSettledValue<T>(
 ): NonNullable<T>;
 export function getSettledValue<T>(
 	promise: PromiseSettledResult<T> | undefined,
-	defaultValue: T | undefined = undefined,
+	defaultValue?: T | undefined,
 ): T | typeof defaultValue {
 	return promise?.status === 'fulfilled' ? promise.value : defaultValue;
 }
@@ -749,6 +749,6 @@ export class AggregateError extends Error {
 	constructor(readonly errors: Error[]) {
 		super(`AggregateError(${errors.length})\n${errors.map(e => `\t${String(e)}`).join('\n')}`);
 
-		Error.captureStackTrace?.(this, AggregateError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }

@@ -1,5 +1,11 @@
-import type { TokenOptions } from '../../system/string';
-import { getTokensFromTemplate, getTruncatedWidth, getWidth, interpolate, interpolateAsync } from '../../system/string';
+import type { TokenOptions } from '../../system/string.js';
+import {
+	getTokensFromTemplate,
+	getTruncatedWidth,
+	getWidth,
+	interpolate,
+	interpolateAsync,
+} from '../../system/string.js';
 
 export interface FormatOptions {
 	dateFormat?: string | null;

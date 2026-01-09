@@ -1,8 +1,8 @@
-import type { ViewIds } from '../constants.views';
-import { viewIdsByDefaultContainerId } from '../constants.views';
-import type { Container } from '../container';
-import { command, executeCoreCommand } from '../system/-webview/command';
-import { GlCommandBase } from './commandBase';
+import type { ViewIds } from '../constants.views.js';
+import { viewIdsByDefaultContainerId } from '../constants.views.js';
+import type { Container } from '../container.js';
+import { command, executeCoreCommand } from '../system/-webview/command.js';
+import { GlCommandBase } from './commandBase.js';
 
 @command()
 export class ResetViewsLayoutCommand extends GlCommandBase {

@@ -1,8 +1,8 @@
-import { iterateByDelimiter } from '../../system/string';
-import { GitContributor } from '../models/contributor';
-import type { GitShortLog } from '../models/shortlog';
-import type { GitUser } from '../models/user';
-import { isUserMatch } from '../utils/user.utils';
+import { iterateByDelimiter } from '../../system/string.js';
+import { GitContributor } from '../models/contributor.js';
+import type { GitShortLog } from '../models/shortlog.js';
+import type { GitUser } from '../models/user.js';
+import { isUserMatch } from '../utils/user.utils.js';
 
 export function parseShortlog(data: string, repoPath: string, currentUser: GitUser | undefined): GitShortLog {
 	if (!data) return { repoPath: repoPath, contributors: [] };

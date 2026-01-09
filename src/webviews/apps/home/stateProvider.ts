@@ -1,5 +1,5 @@
 import { ContextProvider } from '@lit/context';
-import type { State } from '../../home/protocol';
+import type { State } from '../../home/protocol.js';
 import {
 	DidChangeAiAllAccessBanner,
 	DidChangeIntegrationsConnections,
@@ -10,13 +10,13 @@ import {
 	DidChangeSubscription,
 	DidChangeWalkthroughProgress,
 	DidCompleteDiscoveringRepositories,
-} from '../../home/protocol';
-import type { IpcMessage } from '../../protocol';
-import type { ReactiveElementHost } from '../shared/appHost';
-import { StateProviderBase } from '../shared/stateProviderBase';
-import { stateContext } from './context';
+} from '../../home/protocol.js';
+import type { IpcMessage } from '../../ipc/models/ipc.js';
+import type { ReactiveElementHost } from '../shared/appHost.js';
+import { StateProviderBase } from '../shared/stateProviderBase.js';
+import { stateContext } from './context.js';
 
-export class HomeStateProvider extends StateProviderBase<State, typeof stateContext> {
+export class HomeStateProvider extends StateProviderBase<State['webviewId'], State, typeof stateContext> {
 	protected override createContextProvider(state: State): ContextProvider<typeof stateContext, ReactiveElementHost> {
 		return new ContextProvider(this.host, { context: stateContext, initialValue: state });
 	}

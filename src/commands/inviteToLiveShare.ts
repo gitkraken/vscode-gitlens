@@ -1,10 +1,10 @@
 import type { Uri } from 'vscode';
-import type { Container } from '../container';
-import { command } from '../system/-webview/command';
-import { createMarkdownCommandLink } from '../system/commands';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasContributor } from './commandContext.utils';
+import type { Container } from '../container.js';
+import { command } from '../system/-webview/command.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasContributor } from './commandContext.utils.js';
 
 export interface InviteToLiveShareCommandArgs {
 	email?: string;

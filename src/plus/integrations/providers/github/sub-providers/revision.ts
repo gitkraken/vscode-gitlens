@@ -1,19 +1,19 @@
 import type { Uri } from 'vscode';
 import { FileType, workspace } from 'vscode';
-import type { Container } from '../../../../../container';
-import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../../git/gitProvider';
-import { deletedOrMissing } from '../../../../../git/models/revision';
-import type { GitTreeEntry } from '../../../../../git/models/tree';
+import type { Container } from '../../../../../container.js';
+import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../../git/gitProvider.js';
+import { deletedOrMissing } from '../../../../../git/models/revision.js';
+import type { GitTreeEntry } from '../../../../../git/models/tree.js';
 import {
 	isRevisionWithSuffix,
 	isSha,
 	isUncommitted,
 	isUncommittedWithParentSuffix,
-} from '../../../../../git/utils/revision.utils';
-import { gate } from '../../../../../system/decorators/gate';
-import { log } from '../../../../../system/decorators/log';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { stripOrigin } from '../githubGitProvider';
+} from '../../../../../git/utils/revision.utils.js';
+import { gate } from '../../../../../system/decorators/gate.js';
+import { log } from '../../../../../system/decorators/log.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
+import { stripOrigin } from '../githubGitProvider.js';
 
 export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	constructor(

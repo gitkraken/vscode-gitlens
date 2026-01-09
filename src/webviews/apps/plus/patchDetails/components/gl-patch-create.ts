@@ -4,32 +4,32 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import type { ViewFilesLayout } from '../../../../../config';
-import { urls } from '../../../../../constants';
-import type { GitFileChangeShape } from '../../../../../git/models/fileChange';
-import type { DraftRole, DraftVisibility } from '../../../../../plus/drafts/models/drafts';
-import { debounce } from '../../../../../system/function/debounce';
-import { flatCount } from '../../../../../system/iterable';
-import type { Serialized } from '../../../../../system/serialize';
+import type { ViewFilesLayout } from '../../../../../config.js';
+import { urls } from '../../../../../constants.js';
+import type { GitFileChangeShape } from '../../../../../git/models/fileChange.js';
+import type { DraftRole, DraftVisibility } from '../../../../../plus/drafts/models/drafts.js';
+import { debounce } from '../../../../../system/function/debounce.js';
+import { flatCount } from '../../../../../system/iterable.js';
+import type { Serialized } from '../../../../../system/serialize.js';
 import type {
 	Change,
 	DraftUserSelection,
 	ExecuteFileActionParams,
 	State,
-} from '../../../../plus/patchDetails/protocol';
+} from '../../../../plus/patchDetails/protocol.js';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
 	TreeItemCheckedDetail,
 	TreeItemSelectionDetail,
 	TreeModel,
-} from '../../../shared/components/tree/base';
-import { GlTreeBase } from './gl-tree-base';
-import '../../../shared/components/actions/action-nav';
-import '../../../shared/components/button';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/commit/commit-stats';
-import '../../../shared/components/webview-pane';
+} from '../../../shared/components/tree/base.js';
+import { GlTreeBase } from './gl-tree-base.js';
+import '../../../shared/components/actions/action-nav.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/webview-pane.js';
 
 export interface CreatePatchEventDetail {
 	title: string;

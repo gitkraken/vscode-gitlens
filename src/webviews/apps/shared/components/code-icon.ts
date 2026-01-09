@@ -1,7 +1,7 @@
 import { css, LitElement, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { iconMap as codiconsMap } from './icons/codicons-map';
-import { iconMap as gliconsMap } from './icons/glicons-map';
+import { iconMap as codiconsMap } from './icons/codicons-map.js';
+import { iconMap as gliconsMap } from './icons/glicons-map.js';
 
 function iconToSelector(name: string, char: string, prefix = '') {
 	return /*css*/ `:host([icon='${prefix}${name}'])::before { content: '${char}'; }`;

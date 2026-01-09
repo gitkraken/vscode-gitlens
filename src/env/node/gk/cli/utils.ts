@@ -1,11 +1,11 @@
 import { chmod, mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, resolve, sep } from 'path';
 import { window } from 'vscode';
-import { urls } from '../../../../constants';
-import { Container } from '../../../../container';
-import { openUrl } from '../../../../system/-webview/vscode/uris';
-import { run } from '../../git/shell';
-import { getPlatform } from '../../platform';
+import { urls } from '../../../../constants.js';
+import { Container } from '../../../../container.js';
+import { openUrl } from '../../../../system/-webview/vscode/uris.js';
+import { run } from '../../git/shell.js';
+import { getPlatform } from '../../platform.js';
 
 /**
  * Extracts a zip file to a destination directory using the fflate library.

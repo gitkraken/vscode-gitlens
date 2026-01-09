@@ -1,10 +1,10 @@
 import { Uri } from 'vscode';
-import type { Container } from '../../container';
-import { normalizePath } from '../../system/path';
-import { maybeStopWatch } from '../../system/stopwatch';
-import { iterateByDelimiter } from '../../system/string';
-import type { GitBranch } from '../models/branch';
-import { GitWorktree } from '../models/worktree';
+import type { Container } from '../../container.js';
+import { normalizePath } from '../../system/path.js';
+import { maybeStopWatch } from '../../system/stopwatch.js';
+import { iterateByDelimiter } from '../../system/string.js';
+import type { GitBranch } from '../models/branch.js';
+import { GitWorktree } from '../models/worktree.js';
 
 interface WorktreeEntry {
 	path: string;

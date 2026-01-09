@@ -1,11 +1,13 @@
+import './commitDetails.scss';
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { ViewFilesLayout } from '../../../config';
-import type { GlCommands } from '../../../constants.commands';
-import type { IpcSerialized } from '../../../system/ipcSerialize';
-import { pluralize } from '../../../system/string';
-import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../commitDetails/protocol';
+import type { ViewFilesLayout } from '../../../config.js';
+import type { GlCommands } from '../../../constants.commands.js';
+import type { GitCommitReachability } from '../../../git/gitProvider.js';
+import type { IpcSerialized } from '../../../system/ipcSerialize.js';
+import { pluralize } from '../../../system/string.js';
+import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../commitDetails/protocol.js';
 import {
 	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
@@ -28,36 +30,36 @@ import {
 	PublishCommand,
 	PullCommand,
 	PushCommand,
+	ReachabilityRequest,
 	SearchCommitCommand,
 	ShowCodeSuggestionCommand,
 	StageFileCommand,
 	SuggestChangesCommand,
 	SwitchCommand,
 	UnstageFileCommand,
-} from '../../commitDetails/protocol';
-import { ExecuteCommand } from '../../protocol';
-import type { CreatePatchMetadataEventDetail } from '../plus/patchDetails/components/gl-patch-create';
-import { GlAppHost } from '../shared/appHost';
-import type { IssuePullRequest } from '../shared/components/rich/issue-pull-request';
-import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane';
-import type { LoggerContext } from '../shared/contexts/logger';
-import { DOM } from '../shared/dom';
-import type { HostIpc } from '../shared/ipc';
-import type { GlCommitDetails } from './components/gl-commit-details';
-import type { FileChangeListItemDetail } from './components/gl-details-base';
-import type { GlInspectNav } from './components/gl-inspect-nav';
-import type { CreatePatchEventDetail, GenerateState } from './components/gl-inspect-patch';
-import type { GlWipDetails } from './components/gl-wip-details';
-import { CommitDetailsStateProvider } from './stateProvider';
-import './commitDetails.scss';
-import '../shared/components/code-icon';
-import '../shared/components/indicators/indicator';
-import '../shared/components/overlays/tooltip';
-import '../shared/components/pills/tracking';
-import './components/gl-commit-details';
-import './components/gl-wip-details';
-import './components/gl-inspect-nav';
-import './components/gl-status-nav';
+} from '../../commitDetails/protocol.js';
+import { ExecuteCommand } from '../../protocol.js';
+import type { CreatePatchMetadataEventDetail } from '../plus/patchDetails/components/gl-patch-create.js';
+import { GlAppHost } from '../shared/appHost.js';
+import type { IssuePullRequest } from '../shared/components/rich/issue-pull-request.js';
+import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane.js';
+import type { LoggerContext } from '../shared/contexts/logger.js';
+import { DOM } from '../shared/dom.js';
+import type { HostIpc } from '../shared/ipc.js';
+import type { GlCommitDetails } from './components/gl-commit-details.js';
+import type { FileChangeListItemDetail } from './components/gl-details-base.js';
+import type { GlInspectNav } from './components/gl-inspect-nav.js';
+import type { CreatePatchEventDetail, GenerateState } from './components/gl-inspect-patch.js';
+import type { GlWipDetails } from './components/gl-wip-details.js';
+import { CommitDetailsStateProvider } from './stateProvider.js';
+import '../shared/components/code-icon.js';
+import '../shared/components/indicators/indicator.js';
+import '../shared/components/overlays/tooltip.js';
+import '../shared/components/pills/tracking.js';
+import './components/gl-commit-details.js';
+import './components/gl-wip-details.js';
+import './components/gl-inspect-nav.js';
+import './components/gl-status-nav.js';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -89,6 +91,12 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 
 	@state()
 	private draftState: DraftState = { inReview: false };
+
+	@state()
+	private reachability?: GitCommitReachability;
+
+	@state()
+	private reachabilityState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
 
 	@state()
 	private get isUncommitted(): boolean {
@@ -401,6 +409,11 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 								.preferences=${this.state?.preferences}
 								.orgSettings=${this.state?.orgSettings}
 								.isUncommitted=${this.isUncommitted}
+								.searchContext=${this.state?.searchContext}
+								.reachability=${this.reachability}
+								.reachabilityState=${this.reachabilityState}
+								@load-reachability=${() => this.onLoadReachability()}
+								@refresh-reachability=${() => this.onRefreshReachability()}
 							></gl-commit-details>`,
 						() =>
 							html`<gl-wip-details
@@ -451,7 +464,7 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 				break;
 			case 'switch':
 				this._ipc.sendCommand(SwitchCommand, undefined);
-				// this.onCommandClickedCore('gitlens.views.switchToBranch');
+				// this.onCommandClickedCore('gitlens.switchToBranch:views');
 				break;
 			case 'open-pr-changes':
 				this._ipc.sendCommand(OpenPullRequestChangesCommand, undefined);
@@ -495,6 +508,33 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 		} catch (_ex) {
 			this.explain = { error: { message: 'Error retrieving content' } };
 		}
+	}
+
+	private async onLoadReachability() {
+		if (this.reachabilityState === 'loading' || this.state?.commit == null) return;
+
+		this.reachabilityState = 'loading';
+
+		try {
+			const result = await this._ipc.sendRequest(ReachabilityRequest, undefined);
+
+			if (result.error) {
+				this.reachabilityState = 'error';
+				this.reachability = undefined;
+			} else {
+				this.reachabilityState = 'loaded';
+				this.reachability = { refs: result.refs };
+			}
+		} catch {
+			this.reachabilityState = 'error';
+			this.reachability = undefined;
+		}
+	}
+
+	private onRefreshReachability() {
+		this.reachabilityState = 'idle';
+		this.reachability = undefined;
+		void this.onLoadReachability();
 	}
 
 	private async onCreateGenerateTitle(_e: CreatePatchMetadataEventDetail) {

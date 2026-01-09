@@ -1,12 +1,12 @@
 import type { Uri } from 'vscode';
-import { isLinux } from '@env/platform';
-import { Schemes } from './constants';
-import type { RevisionUriData } from './git/gitProvider';
-import { decodeGitLensRevisionUriAuthority } from './git/gitUri.authority';
-import type { Repository } from './git/models/repository';
-import { addVslsPrefixIfNeeded } from './system/-webview/path.vsls';
-import { normalizePath } from './system/path';
-import { UriTrie } from './system/trie';
+import { isLinux } from '@env/platform.js';
+import { Schemes } from './constants.js';
+import type { RevisionUriData } from './git/gitProvider.js';
+import { decodeGitLensRevisionUriAuthority } from './git/gitUri.authority.js';
+import type { Repository } from './git/models/repository.js';
+import { addVslsPrefixIfNeeded } from './system/-webview/path.vsls.js';
+import { normalizePath } from './system/path.js';
+import { UriTrie } from './system/trie.js';
 
 const slash = 47; //CharCode.Slash;
 

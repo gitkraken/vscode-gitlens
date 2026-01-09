@@ -1,14 +1,14 @@
 import type { CancellationToken, Uri } from 'vscode';
-import { getCachedAvatarUri } from '../../../../avatars';
-import type { SearchQuery } from '../../../../constants.search';
-import type { Container } from '../../../../container';
-import { emojify } from '../../../../emojis';
-import { isCancellationError } from '../../../../errors';
-import type { GitCache } from '../../../../git/cache';
-import { GitSearchError } from '../../../../git/errors';
-import type { GitGraphSubProvider } from '../../../../git/gitProvider';
-import type { GitBranch } from '../../../../git/models/branch';
-import type { GitStashCommit } from '../../../../git/models/commit';
+import { getCachedAvatarUri } from '../../../../avatars.js';
+import type { SearchQuery } from '../../../../constants.search.js';
+import type { Container } from '../../../../container.js';
+import { emojify } from '../../../../emojis.js';
+import { isCancellationError } from '../../../../errors.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { GitSearchError } from '../../../../git/errors.js';
+import type { GitGraphSubProvider } from '../../../../git/gitProvider.js';
+import type { GitBranch } from '../../../../git/models/branch.js';
+import type { GitStashCommit } from '../../../../git/models/commit.js';
 import type {
 	GitGraph,
 	GitGraphRow,
@@ -18,51 +18,60 @@ import type {
 	GitGraphRowsStats,
 	GitGraphRowStats,
 	GitGraphRowTag,
-} from '../../../../git/models/graph';
-import type { GitBranchReference } from '../../../../git/models/reference';
-import type { GitRemote } from '../../../../git/models/remote';
-import type { GitWorktree } from '../../../../git/models/worktree';
+} from '../../../../git/models/graph.js';
+import type { GitBranchReference } from '../../../../git/models/reference.js';
+import type { GitRemote } from '../../../../git/models/remote.js';
+import type { GitWorktree } from '../../../../git/models/worktree.js';
 import {
 	getGraphParser,
 	getShaAndDatesLogParser,
+	getShaAndDatesWithFilesLogParser,
 	getShaAndStatsLogParser,
 	getShaLogParser,
-} from '../../../../git/parsers/logParser';
-import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQueryCommand } from '../../../../git/search';
-import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
-import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
-import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
+} from '../../../../git/parsers/logParser.js';
+import type {
+	GitGraphSearch,
+	GitGraphSearchCursor,
+	GitGraphSearchProgress,
+	GitGraphSearchResultData,
+	GitGraphSearchResults,
+} from '../../../../git/search.js';
+import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '../../../../git/search.js';
+import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils.js';
+import { getRemoteIconUri } from '../../../../git/utils/-webview/icons.js';
+import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils.js';
 import {
 	getBranchId,
 	getBranchNameWithoutRemote,
 	getRemoteNameFromBranchName,
-} from '../../../../git/utils/branch.utils';
-import { getChangedFilesCount } from '../../../../git/utils/commit.utils';
-import { createReference } from '../../../../git/utils/reference.utils';
-import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
-import { getTagId } from '../../../../git/utils/tag.utils';
-import { isUserMatch } from '../../../../git/utils/user.utils';
-import { getWorktreeId } from '../../../../git/utils/worktree.utils';
-import { configuration } from '../../../../system/-webview/configuration';
-import { log } from '../../../../system/decorators/log';
-import { find, first, join, last } from '../../../../system/iterable';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import { getSettledValue } from '../../../../system/promise';
-import { mixinDisposable } from '../../../../system/unifiedDisposable';
-import { serializeWebviewItemContext } from '../../../../system/webview';
+} from '../../../../git/utils/branch.utils.js';
+import { getChangedFilesCount } from '../../../../git/utils/commit.utils.js';
+import { createReference } from '../../../../git/utils/reference.utils.js';
+import { isUncommitted } from '../../../../git/utils/revision.utils.js';
+import { getTagId } from '../../../../git/utils/tag.utils.js';
+import { isUserMatch } from '../../../../git/utils/user.utils.js';
+import { getWorktreeId } from '../../../../git/utils/worktree.utils.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { log } from '../../../../system/decorators/log.js';
+import { find, first, join, last } from '../../../../system/iterable.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { getSettledValue } from '../../../../system/promise.js';
+import { createDisposable, mixinDisposable } from '../../../../system/unifiedDisposable.js';
+import { serializeWebviewItemContext } from '../../../../system/webview.js';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
 	GraphItemRefContext,
 	GraphItemRefGroupContext,
 	GraphTagContextValue,
-} from '../../../../webviews/plus/graph/protocol';
-import type { Git } from '../git';
-import { gitConfigsLog } from '../git';
-import type { LocalGitProvider } from '../localGitProvider';
-import { convertStashesToStdin } from './stash';
+} from '../../../../webviews/plus/graph/protocol.js';
+import type { Git } from '../git.js';
+import { gitConfigsLog } from '../git.js';
+import type { LocalGitProvider } from '../localGitProvider.js';
+import { convertStashesToStdin } from './stash.js';
+
+const progressiveSearchResultsBatchTimeMs = 500; // Send updates every 500ms (2 updates/second)
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
 	constructor(
@@ -94,14 +103,16 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const [shaResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
 			await Promise.allSettled([
-				this.git.exec(
-					{ cwd: repoPath, configs: gitConfigsLog },
-					'log',
-					...shaParser.arguments,
-					'-n1',
-					rev && !isUncommittedStaged(rev) ? rev : 'HEAD',
-					'--',
-				),
+				!isUncommitted(rev, true)
+					? this.git.exec(
+							{ cwd: repoPath, configs: gitConfigsLog },
+							'log',
+							...shaParser.arguments,
+							'-n1',
+							rev ?? 'HEAD',
+							'--',
+						)
+					: undefined,
 				this.provider.stash?.getStash(repoPath, undefined, cancellation),
 				this.provider.branches.getBranches(repoPath, undefined, cancellation),
 				this.provider.remotes.getRemotes(repoPath, undefined, cancellation),
@@ -131,7 +142,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
-		const selectSha = first(shaParser.parse(getSettledValue(shaResult)?.stdout));
+		const shas = getSettledValue(shaResult)?.stdout;
+		const selectSha = shas != null ? first(shaParser.parse(shas)) : undefined;
 
 		const downstreamMap = new Map<string, string[]>();
 
@@ -144,6 +156,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
+		const reachableFromBranches = new Map<string, Set<string>>();
 		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
 		let pendingRowsStatsCount = 0;
 		let iterations = 0;
@@ -177,6 +190,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					cursor?.skip ? `--skip=${cursor.skip}` : undefined,
 					'--',
 				);
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
 				const rows: GitGraphRow[] = [];
 
@@ -220,9 +234,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				let hasMore = false;
 
 				for await (const commit of parser.parseAsync(stream)) {
-					if (count > limit && (!sha || (sha && found))) {
+					// Stopping logic (check AFTER processing the commit):
+					// - SHA + limit > 0: Find SHA, ensure at least `limit` commits loaded
+					// - SHA + limit = 0: Find SHA, stop immediately
+					// - No SHA + limit > 0: Load exactly `limit` commits
+					// - No SHA + limit = 0: Load everything remaining
+					if ((limit && count >= limit && (!sha || found)) || (!limit && sha && found)) {
 						hasMore = true;
-
 						aborter.abort();
 						break;
 					}
@@ -356,7 +374,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										: branchIdOfMainWorktree === branchId
 											? '+checkedout'
 											: ''
-								}${branch?.starred ? '+starred' : ''}`,
+								}${branch?.starred ? '+starred' : ''}${branch?.upstream?.state.ahead ? '+ahead' : ''}${
+									branch?.upstream?.state.behind ? '+behind' : ''
+								}`,
 								webviewItemValue: {
 									type: 'branch',
 									ref: createReference(tip, repoPath, {
@@ -435,6 +455,31 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 					}
 
+					if (refHeads.length > 0) {
+						let branches = reachableFromBranches.get(shaOrRemapped);
+						if (branches == null) {
+							branches = new Set<string>();
+							reachableFromBranches.set(shaOrRemapped, branches);
+						}
+						for (const refHead of refHeads) {
+							branches.add(refHead.name);
+						}
+					}
+
+					const currentBranches = reachableFromBranches.get(shaOrRemapped);
+					if (currentBranches != null && currentBranches.size > 0) {
+						for (parent of parents) {
+							let parentBranches = reachableFromBranches.get(parent);
+							if (parentBranches == null) {
+								parentBranches = new Set<string>();
+								reachableFromBranches.set(parent, parentBranches);
+							}
+							for (const branchName of currentBranches) {
+								parentBranches.add(branchName);
+							}
+						}
+					}
+
 					stash = gitStash?.stashes.get(shaOrRemapped);
 					if (stash != null) {
 						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
@@ -450,6 +495,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							},
 						});
 
+						const branches = reachableFromBranches.get(shaOrRemapped);
 						rows.push({
 							sha: shaOrRemapped,
 							// Always only return the first parent for stashes, as it is a Git implementation for the index and untracked files
@@ -463,6 +509,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							remotes: refRemoteHeads,
 							tags: refTags,
 							contexts: contexts,
+							reachableFromBranches: branches ? Array.from(branches) : undefined,
 						});
 
 						if (stash.stats != null) {
@@ -482,10 +529,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							}
 						}
 
+						const branches = reachableFromBranches.get(shaOrRemapped);
+						const isUniqueToBranch = branches?.size === 1;
+
 						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 							webviewItem: `gitlens:commit${head ? '+HEAD' : ''}${
 								reachableFromHEAD.has(shaOrRemapped) ? '+current' : ''
-							}`,
+							}${isUniqueToBranch ? '+unique' : ''}`,
 							webviewItemValue: {
 								type: 'commit',
 								ref: createReference(shaOrRemapped, repoPath, {
@@ -518,6 +568,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							remotes: refRemoteHeads,
 							tags: refTags,
 							contexts: contexts,
+							reachableFromBranches: branches ? Array.from(branches) : undefined,
 						});
 
 						if (commit.stats != null) {
@@ -589,7 +640,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					worktrees: worktrees,
 					worktreesByBranch: worktreesByBranch,
 					rows: rows,
-					id: sha,
+					id: sha ?? rev,
 					rowsStats: rowStats,
 					rowsStatsDeferred: rowsStatsDeferred,
 					paging: {
@@ -624,32 +675,65 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			2: o => `limit=${o?.limit}, ordering=${o?.ordering}`,
 		},
 	})
-	async searchGraph(
+	async *searchGraph(
 		repoPath: string,
 		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 		cancellation?: CancellationToken,
-	): Promise<GitGraphSearch> {
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
+		return yield* this.searchGraphCore(repoPath, search, undefined, undefined, options, cancellation);
+	}
+
+	@log<GraphGitSubProvider['continueSearchGraph']>({
+		args: {
+			1: c =>
+				`[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${c.search.matchWholeWord ? 'W' : ''}]: ${
+					c.search.query.length > 500 ? `${c.search.query.substring(0, 500)}...` : c.search.query
+				} (continue)`,
+			2: r => `results=${r.size}`,
+			3: o => `limit=${o?.limit}`,
+		},
+	})
+	async *continueSearchGraph(
+		repoPath: string,
+		cursor: GitGraphSearchCursor,
+		existingResults: GitGraphSearchResults,
+		options?: { limit?: number },
+		cancellation?: CancellationToken,
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
+		return yield* this.searchGraphCore(repoPath, cursor.search, cursor, existingResults, options, cancellation);
+	}
+
+	private async *searchGraphCore(
+		repoPath: string,
+		search: SearchQuery,
+		cursor: GitGraphSearchCursor | undefined,
+		existingResults: GitGraphSearchResults | undefined,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		cancellation?: CancellationToken,
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
 		try {
-			const parser = getShaAndDatesLogParser();
-
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			const args = [
-				'log',
-
-				...parser.arguments,
-				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-				'--use-mailmap',
-			];
-
 			const currentUser = search.query.includes('@me')
 				? await this.provider.config.getCurrentUser(repoPath)
 				: undefined;
 
-			const { args: searchArgs, files, shas, filters } = parseSearchQueryCommand(search, currentUser);
+			const { args: searchArgs, files, shas, filters } = parseSearchQueryGitCommand(search, currentUser);
+
+			const tipsOnly = filters.type === 'tip';
+			const parser = filters.files
+				? getShaAndDatesWithFilesLogParser(tipsOnly)
+				: getShaAndDatesLogParser(tipsOnly);
+
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+			const args = [
+				'log',
+				...parser.arguments,
+				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+				'--use-mailmap',
+			];
 
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
@@ -660,11 +744,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				args.push('--no-walk');
 
 				remappedIds = new Map();
-			} else {
+			} else if (!filters.refs) {
+				// Don't include stashes when using ref: filter, as they would add unrelated commits
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 				({ stdin, stashes, remappedIds } = convertStashesToStdin(
 					await this.provider.stash?.getStash(repoPath, undefined, cancellation),
 				));
+			} else {
+				remappedIds = new Map();
 			}
 
 			if (stdin) {
@@ -684,85 +771,175 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				args.push(arg);
 			}
 
-			const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>();
-			let iterations = 0;
-			/** Total seen, not results */
-			let totalSeen = 0;
+			const results: GitGraphSearchResults = existingResults ?? new Map<string, GitGraphSearchResultData>();
 
-			async function searchForCommitsCore(
-				this: GraphGitSubProvider,
-				limit: number,
-				cursor?: { sha: string; skip: number },
-				cancellation?: CancellationToken,
-			): Promise<GitGraphSearch> {
+			// Use state from cursor, if provided
+			const cursorState = cursor?.state != null && typeof cursor.state === 'object' ? cursor.state : undefined;
+			let iterations = cursorState?.iterations ?? 0;
+			let totalSeen = cursorState?.totalSeen ?? 0;
+			let skipCursor = cursorState ? { sha: cursorState.sha, skip: cursorState.skip } : undefined;
+
+			let count = 0;
+			try {
 				iterations++;
 
-				try {
-					const aborter = new AbortController();
-					using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
+				const aborter = new AbortController();
+				using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
 
-					const stream = this.git.stream(
-						{
-							cwd: repoPath,
-							cancellation: cancellation,
-							configs: ['-C', repoPath, ...gitConfigsLog],
-							signal: aborter.signal,
-							stdin: stdin,
-						},
-						...args,
-						cursor?.skip ? `--skip=${cursor.skip}` : undefined,
-						'--',
-						...files,
-					);
+				const stream = this.git.stream(
+					{
+						cwd: repoPath,
+						cancellation: cancellation,
+						configs: ['-C', repoPath, ...gitConfigsLog],
+						signal: aborter.signal,
+						stdin: stdin,
+					},
+					...args,
+					skipCursor?.skip ? `--skip=${skipCursor.skip}` : undefined,
+					'--',
+					...files,
+				);
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+				let hasMore = false;
+				let sha;
+				const stashesOnly = filters.type === 'stash';
 
-					let count = 0;
-					let hasMore = false;
-					let sha;
-					const stashesOnly = filters.type === 'stash';
+				// Progressive results support - time-based batching for consistent UI updates
+				const batch: [string, GitGraphSearchResultData][] = [];
+				let lastProgressTime = Date.now();
 
-					for await (const r of parser.parseAsync(stream)) {
-						if (count > limit) {
-							hasMore = true;
-
-							aborter.abort();
-							break;
-						}
-
-						count++;
-						sha = remappedIds.get(r.sha) ?? r.sha;
-						if (results.has(sha) || (stashesOnly && !stashes?.has(sha))) {
-							continue;
-						}
-
-						results.set(sha, {
-							i: results.size,
-							date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
-						});
+				for await (const r of parser.parseAsync(stream)) {
+					// Check for cancellation early in each iteration
+					if (cancellation?.isCancellationRequested) {
+						// When paused/cancelled, assume there are more results
+						hasMore = true;
+						break;
 					}
 
+					if (limit && count > limit) {
+						hasMore = true;
+
+						aborter.abort();
+						break;
+					}
+
+					count++;
+					sha = remappedIds.get(r.sha) ?? r.sha;
+					if (results.has(sha) || (stashesOnly && !stashes?.has(sha)) || (tipsOnly && !r.tips)) {
+						continue;
+					}
+
+					const resultData: GitGraphSearchResultData = {
+						i: results.size,
+						date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+						files: r.files,
+					};
+					results.set(sha, resultData);
+					batch.push([sha, resultData]);
+
+					// Send progress updates with incremental results
+					const timeSinceLastProgress = Date.now() - lastProgressTime;
+
+					// Send batch when enough time has passed and we have new results
+					const shouldSendBatch =
+						timeSinceLastProgress >= progressiveSearchResultsBatchTimeMs && batch.length > 0;
+
+					if (shouldSendBatch) {
+						// Send only the NEW results since last batch (incremental)
+						yield {
+							repoPath: repoPath,
+							query: search,
+							queryFilters: filters,
+							comparisonKey: comparisonKey,
+							results: new Map(batch),
+							runningTotal: results.size,
+							hasMore: true,
+						};
+						batch.length = 0;
+						lastProgressTime = Date.now();
+					}
+				}
+
+				// Send final progress update if there are remaining results
+				if (batch.length) {
+					yield {
+						repoPath: repoPath,
+						query: search,
+						queryFilters: filters,
+						comparisonKey: comparisonKey,
+						results: new Map(batch),
+						runningTotal: results.size,
+						hasMore: hasMore,
+					};
+				}
+
+				totalSeen += count;
+				const lastSha = last(results)?.[0];
+				skipCursor = lastSha != null ? { sha: lastSha, skip: totalSeen - iterations } : undefined;
+
+				return {
+					repoPath: repoPath,
+					query: search,
+					queryFilters: filters,
+					comparisonKey: comparisonKey,
+					results: results,
+					hasMore: hasMore,
+					paging:
+						limit || hasMore
+							? {
+									limit: limit || count,
+									cursor:
+										hasMore && skipCursor
+											? {
+													search: search,
+													state: {
+														iterations: iterations,
+														totalSeen: totalSeen,
+														sha: skipCursor.sha,
+														skip: skipCursor.skip,
+													},
+												}
+											: undefined,
+								}
+							: undefined,
+				};
+			} catch (ex) {
+				if (isCancellationError(ex) || cancellation?.isCancellationRequested) {
+					// When cancelled, preserve cursor so search can be resumed
+					// Update totalSeen with the count from this iteration
 					totalSeen += count;
 					const lastSha = last(results)?.[0];
-					cursor = lastSha != null ? { sha: lastSha, skip: totalSeen - iterations } : undefined;
+					const skipCursor = lastSha != null ? { sha: lastSha, skip: totalSeen - iterations } : undefined;
 
 					return {
 						repoPath: repoPath,
 						query: search,
+						queryFilters: filters,
 						comparisonKey: comparisonKey,
 						results: results,
-						paging: limit ? { limit: limit, hasMore: hasMore } : undefined,
-						more: async (limit: number): Promise<GitGraphSearch> =>
-							searchForCommitsCore.call(this, limit, cursor),
+						hasMore: true, // Assume there are more results since we were cancelled mid-search
+						paging:
+							limit || skipCursor
+								? {
+										limit: limit || count,
+										cursor: skipCursor
+											? {
+													search: search,
+													state: {
+														iterations: iterations,
+														totalSeen: totalSeen,
+														sha: skipCursor.sha,
+														skip: skipCursor.skip,
+													},
+												}
+											: undefined,
+									}
+								: undefined,
 					};
-				} catch (ex) {
-					if (isCancellationError(ex) || cancellation?.isCancellationRequested) {
-						return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-					}
-
-					throw new GitSearchError(ex);
 				}
-			}
 
-			return await searchForCommitsCore.call(this, limit, undefined, cancellation);
+				throw new GitSearchError(ex);
+			}
 		} catch (ex) {
 			if (ex instanceof GitSearchError) throw ex;
 

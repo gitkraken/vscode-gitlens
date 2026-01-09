@@ -2,16 +2,16 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../../constants.integrations';
-import type { GitReference } from '../../../git/models/reference';
-import type { Repository } from '../../../git/models/repository';
-import type { GkProviderId } from '../../../git/models/repositoryIdentities';
-import type { RemoteProviderId } from '../../../git/remotes/remoteProvider';
-import { toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils';
-import { isGitReference } from '../../../git/utils/reference.utils';
-import type { Unbrand } from '../../../system/brand';
-import { getSettledValue } from '../../../system/promise';
-import { isWebviewItemContext, isWebviewItemGroupContext } from '../../../system/webview';
+} from '../../../constants.integrations.js';
+import type { GitReference } from '../../../git/models/reference.js';
+import type { Repository } from '../../../git/models/repository.js';
+import type { GkProviderId } from '../../../git/models/repositoryIdentities.js';
+import type { RemoteProviderId } from '../../../git/remotes/remoteProvider.js';
+import { toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils.js';
+import { isGitReference } from '../../../git/utils/reference.utils.js';
+import type { Unbrand } from '../../../system/brand.js';
+import { getSettledValue } from '../../../system/promise.js';
+import { isWebviewItemContext, isWebviewItemGroupContext } from '../../../system/webview.js';
 import type {
 	GraphBranchContextValue,
 	GraphCommitContextValue,
@@ -30,7 +30,7 @@ import type {
 	GraphStashContextValue,
 	GraphTagContextValue,
 	GraphUpstreamStatusContextValue,
-} from './protocol';
+} from './protocol.js';
 
 export async function formatRepositories(repositories: Repository[]): Promise<GraphRepository[]> {
 	if (!repositories.length) return [];

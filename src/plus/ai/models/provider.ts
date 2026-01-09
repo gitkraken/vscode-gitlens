@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable, Event } from 'vscode';
-import type { AIProviders } from '../../../constants.ai';
-import type { AIActionType, AIModel } from './model';
+import type { AIProviders } from '../../../constants.ai.js';
+import type { AIActionType, AIModel } from './model.js';
 
 export type AIChatMessageRole = 'assistant' | 'system' | 'user';
 
@@ -10,27 +10,26 @@ export interface AIChatMessage<T extends AIChatMessageRole = 'assistant' | 'user
 	content: string;
 }
 
-export interface AIRequestResult {
+export interface AIProviderResponse<T> {
 	readonly id: string;
 	readonly content: string;
 	readonly model: AIModel;
+
 	readonly usage?: {
 		readonly promptTokens?: number;
 		readonly completionTokens?: number;
 		readonly totalTokens?: number;
 
-		readonly limits?: {
-			readonly used: number;
-			readonly limit: number;
-			readonly resetsOn: Date;
-		};
+		readonly limits?: { readonly used: number; readonly limit: number; readonly resetsOn: Date };
 	};
+
+	readonly result: T;
 }
 
-export type AIDeferredRequestResult<T extends AIRequestResult> = {
+export type AIProviderResult<T> = {
 	readonly model: AIModel;
 
-	readonly promise: Promise<T | 'cancelled' | undefined>;
+	readonly promise: Promise<AIProviderResponse<T> | 'cancelled' | undefined>;
 };
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
@@ -48,5 +47,5 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 		apiKey: string,
 		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
-	): Promise<AIRequestResult | undefined>;
+	): Promise<AIProviderResponse<void> | undefined>;
 }

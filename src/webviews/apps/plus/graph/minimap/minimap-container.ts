@@ -8,16 +8,16 @@ import type {
 	GraphRowStats,
 	GraphSearchResults,
 	GraphSearchResultsError,
-} from '../../../../plus/graph/protocol';
-import { GlElement, observe } from '../../../shared/components/element';
+} from '../../../../plus/graph/protocol.js';
+import { GlElement, observe } from '../../../shared/components/element.js';
 import type {
 	GlGraphMinimap,
 	GraphMinimapMarker,
 	GraphMinimapSearchResultMarker,
 	GraphMinimapStats,
 	StashMarker,
-} from './minimap';
-import './minimap';
+} from './minimap.js';
+import './minimap.js';
 
 @customElement('gl-graph-minimap-container')
 export class GlGraphMinimapContainer extends GlElement {

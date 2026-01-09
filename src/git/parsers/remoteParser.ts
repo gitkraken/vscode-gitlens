@@ -1,9 +1,9 @@
-import type { Container } from '../../container';
-import { maybeStopWatch } from '../../system/stopwatch';
-import { iterateByDelimiter } from '../../system/string';
-import type { GitRemoteType } from '../models/remote';
-import { GitRemote } from '../models/remote';
-import type { getRemoteProviderMatcher } from '../remotes/remoteProviders';
+import type { Container } from '../../container.js';
+import { maybeStopWatch } from '../../system/stopwatch.js';
+import { iterateByDelimiter } from '../../system/string.js';
+import type { GitRemoteType } from '../models/remote.js';
+import { GitRemote } from '../models/remote.js';
+import type { getRemoteProviderMatcher } from '../remotes/remoteProviders.js';
 
 export function parseGitRemotes(
 	container: Container,

@@ -1,19 +1,19 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { PullRequestViewConfig, ViewFilesLayout } from '../config';
-import type { Container } from '../container';
-import { unknownGitUri } from '../git/gitUri';
-import type { GitBranch } from '../git/models/branch';
-import type { GitCommit } from '../git/models/commit';
-import type { PullRequest } from '../git/models/pullRequest';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { ViewNode } from './nodes/abstract/viewNode';
-import { PullRequestNode } from './nodes/pullRequestNode';
-import { ViewBase } from './viewBase';
-import type { CopyNodeCommandArgs } from './viewCommands';
-import { registerViewCommand } from './viewCommands';
+import type { PullRequestViewConfig, ViewFilesLayout } from '../config.js';
+import type { Container } from '../container.js';
+import { unknownGitUri } from '../git/gitUri.js';
+import type { GitBranch } from '../git/models/branch.js';
+import type { GitCommit } from '../git/models/commit.js';
+import type { PullRequest } from '../git/models/pullRequest.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { ViewNode } from './nodes/abstract/viewNode.js';
+import { PullRequestNode } from './nodes/pullRequestNode.js';
+import { ViewBase } from './viewBase.js';
+import type { CopyNodeCommandArgs } from './viewCommands.js';
+import { registerViewCommand } from './viewCommands.js';
 
 export class PullRequestViewNode extends ViewNode<'pullrequest', PullRequestView> {
 	private child: PullRequestNode | undefined;

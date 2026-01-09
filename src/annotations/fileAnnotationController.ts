@@ -21,30 +21,30 @@ import {
 	window,
 	workspace,
 } from 'vscode';
-import type { AnnotationsToggleMode, FileAnnotationType } from '../config';
-import type { AnnotationStatus } from '../constants';
-import type { Colors, CoreColors } from '../constants.colors';
-import type { Container } from '../container';
-import { registerCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import type { KeyboardScope } from '../system/-webview/keyboard';
-import { UriSet } from '../system/-webview/uriMap';
-import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
-import { debug, log } from '../system/decorators/log';
-import { once } from '../system/event';
-import type { Deferrable } from '../system/function/debounce';
-import { debounce } from '../system/function/debounce';
-import { find } from '../system/iterable';
-import { basename } from '../system/path';
+import type { AnnotationsToggleMode, FileAnnotationType } from '../config.js';
+import type { Colors, CoreColors } from '../constants.colors.js';
+import type { AnnotationStatus } from '../constants.js';
+import type { Container } from '../container.js';
+import { registerCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import type { KeyboardScope } from '../system/-webview/keyboard.js';
+import { UriSet } from '../system/-webview/uriMap.js';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
+import { debug, log } from '../system/decorators/log.js';
+import { once } from '../system/event.js';
+import type { Deferrable } from '../system/function/debounce.js';
+import { debounce } from '../system/function/debounce.js';
+import { find } from '../system/iterable.js';
+import { basename } from '../system/path.js';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
-} from '../trackers/documentTracker';
-import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
-import { getEditorCorrelationKey, getEditorCorrelationKeyFromTab } from './annotationProvider';
-import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
+} from '../trackers/documentTracker.js';
+import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider.js';
+import { getEditorCorrelationKey, getEditorCorrelationKeyFromTab } from './annotationProvider.js';
+import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider.js';
 
 export const Decorations = {
 	gutterBlameAnnotation: window.createTextEditorDecorationType({
@@ -645,7 +645,7 @@ export class FileAnnotationController implements Disposable {
 		switch (type) {
 			case 'blame': {
 				const { GutterBlameAnnotationProvider } = await import(
-					/* webpackChunkName: "annotations" */ './gutterBlameAnnotationProvider'
+					/* webpackChunkName: "annotations" */ './gutterBlameAnnotationProvider.js'
 				);
 				provider = new GutterBlameAnnotationProvider(
 					this.container,
@@ -657,7 +657,7 @@ export class FileAnnotationController implements Disposable {
 			}
 			case 'changes': {
 				const { GutterChangesAnnotationProvider } = await import(
-					/* webpackChunkName: "annotations" */ './gutterChangesAnnotationProvider'
+					/* webpackChunkName: "annotations" */ './gutterChangesAnnotationProvider.js'
 				);
 				provider = new GutterChangesAnnotationProvider(
 					this.container,
@@ -669,7 +669,7 @@ export class FileAnnotationController implements Disposable {
 			}
 			case 'heatmap': {
 				const { GutterHeatmapBlameAnnotationProvider } = await import(
-					/* webpackChunkName: "annotations" */ './gutterHeatmapBlameAnnotationProvider'
+					/* webpackChunkName: "annotations" */ './gutterHeatmapBlameAnnotationProvider.js'
 				);
 				provider = new GutterHeatmapBlameAnnotationProvider(
 					this.container,

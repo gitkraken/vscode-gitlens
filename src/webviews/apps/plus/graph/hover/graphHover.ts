@@ -2,14 +2,14 @@ import type { GraphRow } from '@gitkraken/gitkraken-components';
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { until } from 'lit/directives/until.js';
-import type { Deferrable } from '../../../../../system/function/debounce';
-import { debounce } from '../../../../../system/function/debounce';
-import { getSettledValue, isPromise } from '../../../../../system/promise';
-import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol';
-import { GlElement } from '../../../shared/components/element';
-import type { GlPopover } from '../../../shared/components/overlays/popover';
-import '../../../shared/components/markdown/markdown';
-import '../../../shared/components/overlays/popover';
+import type { Deferrable } from '../../../../../system/function/debounce.js';
+import { debounce } from '../../../../../system/function/debounce.js';
+import { getSettledValue, isPromise } from '../../../../../system/promise.js';
+import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol.js';
+import { GlElement } from '../../../shared/components/element.js';
+import type { GlPopover } from '../../../shared/components/overlays/popover.js';
+import '../../../shared/components/markdown/markdown.js';
+import '../../../shared/components/overlays/popover.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

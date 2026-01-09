@@ -1,10 +1,10 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
-import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css';
-import '../../../shared/components/code-icon';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
+import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css.js';
+import '../../../shared/components/code-icon.js';
 
 @customElement('gl-commit-item')
 export class CommitItem extends LitElement {
@@ -84,6 +84,12 @@ export class CommitItem extends LitElement {
 	isPreviewMode = false;
 
 	@property({ type: Boolean })
+	isRecomposeLocked = false;
+
+	@property({ type: Boolean })
+	locked = false;
+
+	@property({ type: Boolean })
 	first = false;
 
 	@property({ type: Boolean })
@@ -95,15 +101,16 @@ export class CommitItem extends LitElement {
 		this.dataset.commitId = this.commitId;
 	}
 
-	private handleClick(e: MouseEvent | KeyboardEvent) {
-		// Don't select commit if clicking on drag handle
-		if ((e.target as HTMLElement).closest('.drag-handle') || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
-			return;
-		}
-
+	private handleMouseDown(e: MouseEvent) {
 		// Prevent text selection when shift-clicking
 		if (e.shiftKey) {
 			e.preventDefault();
+		}
+	}
+
+	private handleClick(e: MouseEvent | KeyboardEvent) {
+		if ((e.target as HTMLElement).closest('.drag-handle') || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
+			return;
 		}
 
 		this.dispatchEvent(
@@ -123,10 +130,14 @@ export class CommitItem extends LitElement {
 			<div
 				class="composer-item commit-item ${this.selected ? ' is-selected' : ''}${this.multiSelected
 					? ' multi-selected'
-					: ''}${this.first ? ' is-first' : ''}${this.last ? ' is-last' : ''}"
+					: ''}${this.first ? ' is-first' : ''}${this.last ? ' is-last' : ''}${this.isRecomposeLocked
+					? ' is-recompose-locked'
+					: ''}${this.locked ? ' is-locked' : ''}"
+				data-commit-id=${this.commitId}
 				tabindex="0"
 				@click=${this.handleClick}
 				@keydown=${this.handleClick}
+				@mousedown=${this.handleMouseDown}
 			>
 				${when(
 					!this.isPreviewMode,

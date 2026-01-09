@@ -1,20 +1,20 @@
 import type { CancellationToken } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { CommitFormatter } from '../../git/formatters/commitFormatter';
-import type { GitStashCommit } from '../../git/models/commit';
-import type { GitStashReference } from '../../git/models/reference';
-import { configuration } from '../../system/-webview/configuration';
-import { makeHierarchical } from '../../system/array';
-import { joinPaths, normalizePath } from '../../system/path';
-import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
-import { sortCompare } from '../../system/string';
-import type { ViewsWithStashes } from '../viewBase';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { ViewRefNode } from './abstract/viewRefNode';
-import type { FileNode } from './folderNode';
-import { FolderNode } from './folderNode';
-import { StashFileNode } from './stashFileNode';
+import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
+import type { GitStashCommit } from '../../git/models/commit.js';
+import type { GitStashReference } from '../../git/models/reference.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { makeHierarchical } from '../../system/array.js';
+import { joinPaths, normalizePath } from '../../system/path.js';
+import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise.js';
+import { sortCompare } from '../../system/string.js';
+import type { ViewsWithStashes } from '../viewBase.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { ViewRefNode } from './abstract/viewRefNode.js';
+import type { FileNode } from './folderNode.js';
+import { FolderNode } from './folderNode.js';
+import { StashFileNode } from './stashFileNode.js';
 
 export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashReference> {
 	constructor(
@@ -125,6 +125,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 		const tooltip = await CommitFormatter.fromTemplateAsync(
 			configuration.get('views.formats.stashes.tooltip'),
 			this.commit,
+			{ source: 'view:hover' },
 			{
 				enrichedAutolinks: enrichedAutolinks,
 				dateFormat: configuration.get('defaultDateFormat'),

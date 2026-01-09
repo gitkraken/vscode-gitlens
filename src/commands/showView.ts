@@ -1,10 +1,10 @@
 import { window } from 'vscode';
-import type { Container } from '../container';
-import { command, executeCoreCommand } from '../system/-webview/command';
-import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
-import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
+import type { Container } from '../container.js';
+import { command, executeCoreCommand } from '../system/-webview/command.js';
+import type { HomeWebviewShowingArgs } from '../webviews/home/registration.js';
+import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
 
 @command()
 export class ShowViewCommand extends GlCommandBase {

@@ -1,17 +1,23 @@
 /*global window */
 import { inflateSync, strFromU8 } from 'fflate';
-import { getScopedCounter } from '../../../system/counter';
-import { debug, logName } from '../../../system/decorators/log';
-import { deserializeIpcData } from '../../../system/ipcSerialize';
-import { Logger } from '../../../system/logger';
-import { getLogScope, getNewLogScope, setLogScopeExit } from '../../../system/logger.scope';
-import type { Serialized } from '../../../system/serialize';
-import { maybeStopWatch } from '../../../system/stopwatch';
-import type { IpcCallParamsType, IpcCallResponseParamsType, IpcCommand, IpcMessage, IpcRequest } from '../../protocol';
-import { IpcPromiseSettled } from '../../protocol';
-import { DOM } from './dom';
-import type { Disposable, Event } from './events';
-import { Emitter } from './events';
+import { getScopedCounter } from '../../../system/counter.js';
+import { debug, logName } from '../../../system/decorators/log.js';
+import { deserializeIpcData } from '../../../system/ipcSerialize.js';
+import { Logger } from '../../../system/logger.js';
+import { getLogScope, getNewLogScope, setLogScopeExit } from '../../../system/logger.scope.js';
+import type { Serialized } from '../../../system/serialize.js';
+import { maybeStopWatch } from '../../../system/stopwatch.js';
+import type {
+	IpcCallParamsType,
+	IpcCallResponseParamsType,
+	IpcCommand,
+	IpcMessage,
+	IpcRequest,
+} from '../../ipc/models/ipc.js';
+import { IpcPromiseSettled } from '../../protocol.js';
+import { DOM } from './dom.js';
+import type { Disposable, Event } from './events.js';
+import { Emitter } from './events.js';
 
 export interface HostIpcApi {
 	postMessage(msg: unknown): void;

@@ -1,19 +1,19 @@
 import type { TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import { GlyphChars } from '../constants';
-import type { Container } from '../container';
-import { openFolderCompare } from '../git/actions/commit';
-import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../messages';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { isFolderUri } from '../system/-webview/path';
-import { Logger } from '../system/logger';
-import { pad } from '../system/string';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
+import { GlyphChars } from '../constants.js';
+import type { Container } from '../container.js';
+import { openFolderCompare } from '../git/actions/commit.js';
+import { GitUri } from '../git/gitUri.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { isFolderUri } from '../system/-webview/path.js';
+import { Logger } from '../system/logger.js';
+import { pad } from '../system/string.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
 
 export interface DiffFolderWithRevisionFromCommandArgs {
 	uri?: Uri;
@@ -55,40 +55,40 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 					const gitUri = await GitUri.fromUri(uri);
 					args.rhs = gitUri.sha ?? '';
 				} else {
-					const pick = await showReferencePicker(
+					const result = await showReferencePicker2(
 						repoPath,
 						`Open Folder Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}${relativePath}`,
 						'Choose a reference (branch, tag, etc) to compare',
 						{
-							allowRevisions: true,
-							include: ReferencesQuickPickIncludes.All,
+							allowedAdditionalInput: { rev: true },
+							include: ['branches', 'tags', 'workingTree', 'HEAD'],
 							sort: { branches: { current: true }, tags: {} },
 						},
 					);
-					if (pick?.ref == null) return;
+					if (result.value?.ref == null) return;
 
-					args.rhs = pick.ref;
+					args.rhs = result.value.ref;
 				}
 			}
 
 			if (!args.lhs) {
-				const pick = await showReferencePicker(
+				const result = await showReferencePicker2(
 					repoPath,
 					`Open Folder Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}${relativePath}${
 						args.rhs ? ` at ${shortenRevision(args.rhs)}` : ''
 					}`,
 					'Choose a reference (branch, tag, etc) to compare with',
 					{
-						allowRevisions: true,
+						allowedAdditionalInput: { rev: true },
 						include:
 							args.rhs === ''
-								? ReferencesQuickPickIncludes.All & ~ReferencesQuickPickIncludes.WorkingTree
-								: ReferencesQuickPickIncludes.All,
+								? ['branches', 'tags', 'HEAD']
+								: ['branches', 'tags', 'workingTree', 'HEAD'],
 					},
 				);
-				if (pick?.ref == null) return;
+				if (result.value?.ref == null) return;
 
-				args.lhs = pick.ref;
+				args.lhs = result.value.ref;
 
 				// If we are trying to compare to the working tree, swap the lhs and rhs
 				if (args.rhs !== '' && args.lhs === '') {

@@ -1,21 +1,21 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import { GlyphChars } from '../constants';
-import type { Container } from '../container';
-import { openFolderCompare } from '../git/actions/commit';
-import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../messages';
-import { showCommitPicker } from '../quickpicks/commitPicker';
-import { CommandQuickPickItem } from '../quickpicks/items/common';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { isFolderUri } from '../system/-webview/path';
-import { Logger } from '../system/logger';
-import { pad } from '../system/string';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { DiffFolderWithRevisionFromCommandArgs } from './diffFolderWithRevisionFrom';
+import { GlyphChars } from '../constants.js';
+import type { Container } from '../container.js';
+import { openFolderCompare } from '../git/actions/commit.js';
+import { GitUri } from '../git/gitUri.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showCommitPicker } from '../quickpicks/commitPicker.js';
+import { CommandQuickPickItem } from '../quickpicks/items/common.js';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { isFolderUri } from '../system/-webview/path.js';
+import { Logger } from '../system/logger.js';
+import { pad } from '../system/string.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { DiffFolderWithRevisionFromCommandArgs } from './diffFolderWithRevisionFrom.js';
 
 export interface DiffFolderWithRevisionCommandArgs {
 	uri?: Uri;

@@ -1,4 +1,4 @@
-import { defaultResolver } from '@env/resolver';
+import { defaultResolver } from '@env/resolver.js';
 
 export type Resolver<T extends (...arg: any) => any> = (...args: Parameters<T>) => string;
 

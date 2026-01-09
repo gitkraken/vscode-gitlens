@@ -1,4 +1,4 @@
-import { loggingJsonReplacer } from './json';
+import { loggingJsonReplacer } from './json.js';
 
 export function defaultResolver(...args: unknown[]): string {
 	if (args.length === 0) return '';

@@ -31,46 +31,46 @@ import type {
 	ViewsCommonConfig,
 	ViewsConfigKeys,
 	WorktreesViewConfig,
-} from '../config';
-import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
-import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
-import type { TrackedUsageFeatures } from '../constants.telemetry';
-import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views';
-import type { Container } from '../container';
-import type { Repository } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
-import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting';
-import { executeCoreCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import type { StorageChangeEvent } from '../system/-webview/storage';
-import { getViewFocusCommand } from '../system/-webview/vscode/views';
-import { areEqual } from '../system/array';
-import { debug, log } from '../system/decorators/log';
-import { once } from '../system/event';
-import { debounce } from '../system/function/debounce';
-import { first } from '../system/iterable';
-import type { Lazy } from '../system/lazy';
-import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
-import { cancellable, defer, isPromise } from '../system/promise';
-import type { BranchesView } from './branchesView';
-import type { CommitsView } from './commitsView';
-import type { ContributorsView } from './contributorsView';
-import type { DraftsView } from './draftsView';
-import type { FileHistoryView } from './fileHistoryView';
-import type { LaunchpadView } from './launchpadView';
-import type { LineHistoryView } from './lineHistoryView';
-import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode';
-import { isPageableViewNode } from './nodes/abstract/viewNode';
-import { GroupedHeaderNode } from './nodes/common';
-import type { PullRequestView } from './pullRequestView';
-import type { RemotesView } from './remotesView';
-import type { RepositoriesView } from './repositoriesView';
-import type { SearchAndCompareView } from './searchAndCompareView';
-import type { StashesView } from './stashesView';
-import type { TagsView } from './tagsView';
-import type { WorkspacesView } from './workspacesView';
-import type { WorktreesView } from './worktreesView';
+} from '../config.js';
+import { viewsCommonConfigKeys, viewsConfigKeys } from '../config.js';
+import type { GlTreeViewCommandSuffixesByViewType } from '../constants.commands.js';
+import type { TrackedUsageFeatures } from '../constants.telemetry.js';
+import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views.js';
+import type { Container } from '../container.js';
+import type { Repository } from '../git/models/repository.js';
+import { groupRepositories } from '../git/utils/-webview/repository.utils.js';
+import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting.js';
+import { executeCoreCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import type { StorageChangeEvent } from '../system/-webview/storage.js';
+import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
+import { areEqual } from '../system/array.js';
+import { debug, log } from '../system/decorators/log.js';
+import { once } from '../system/event.js';
+import { debounce } from '../system/function/debounce.js';
+import { first } from '../system/iterable.js';
+import type { Lazy } from '../system/lazy.js';
+import { Logger } from '../system/logger.js';
+import { getLogScope } from '../system/logger.scope.js';
+import { cancellable, defer, isPromise } from '../system/promise.js';
+import type { BranchesView } from './branchesView.js';
+import type { CommitsView } from './commitsView.js';
+import type { ContributorsView } from './contributorsView.js';
+import type { DraftsView } from './draftsView.js';
+import type { FileHistoryView } from './fileHistoryView.js';
+import type { LaunchpadView } from './launchpadView.js';
+import type { LineHistoryView } from './lineHistoryView.js';
+import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode.js';
+import { isPageableViewNode } from './nodes/abstract/viewNode.js';
+import { GroupedHeaderNode } from './nodes/common.js';
+import type { PullRequestView } from './pullRequestView.js';
+import type { RemotesView } from './remotesView.js';
+import type { RepositoriesView } from './repositoriesView.js';
+import type { SearchAndCompareView } from './searchAndCompareView.js';
+import type { StashesView } from './stashesView.js';
+import type { TagsView } from './tagsView.js';
+import type { WorkspacesView } from './workspacesView.js';
+import type { WorktreesView } from './worktreesView.js';
 
 const treeViewTypesSupportsRepositoryFilter: TreeViewTypes[] = [
 	'branches',
@@ -191,24 +191,24 @@ export interface GroupedViewContext {
 }
 
 export abstract class ViewBase<
-		Type extends TreeViewTypes,
-		RootNode extends ViewNode,
-		ViewConfig extends
-			| BranchesViewConfig
-			| CommitsViewConfig
-			| ContributorsViewConfig
-			| DraftsViewConfig
-			| FileHistoryViewConfig
-			| LaunchpadViewConfig
-			| LineHistoryViewConfig
-			| PullRequestViewConfig
-			| RemotesViewConfig
-			| RepositoriesViewConfig
-			| SearchAndCompareViewConfig
-			| StashesViewConfig
-			| TagsViewConfig
-			| WorktreesViewConfig,
-	>
+	Type extends TreeViewTypes,
+	RootNode extends ViewNode,
+	ViewConfig extends
+		| BranchesViewConfig
+		| CommitsViewConfig
+		| ContributorsViewConfig
+		| DraftsViewConfig
+		| FileHistoryViewConfig
+		| LaunchpadViewConfig
+		| LineHistoryViewConfig
+		| PullRequestViewConfig
+		| RemotesViewConfig
+		| RepositoriesViewConfig
+		| SearchAndCompareViewConfig
+		| StashesViewConfig
+		| TagsViewConfig
+		| WorktreesViewConfig,
+>
 	implements TreeDataProvider<ViewNode>, Disposable
 {
 	is<T extends keyof TreeViewByType>(type: T): this is TreeViewByType[T] {
@@ -486,8 +486,8 @@ export abstract class ViewBase<
 	}
 
 	getQualifiedCommand(
-		command: TreeViewCommandSuffixesByViewType<Type>,
-	): `gitlens.views.${Type}.${TreeViewCommandSuffixesByViewType<Type>}` {
+		command: GlTreeViewCommandSuffixesByViewType<Type>,
+	): `gitlens.views.${Type}.${GlTreeViewCommandSuffixesByViewType<Type>}` {
 		return `gitlens.views.${this.type}.${command}` as const;
 	}
 
@@ -596,11 +596,10 @@ export abstract class ViewBase<
 	private addHeaderNode(node: ViewNode, promise: ViewNode[] | Promise<ViewNode[]>): ViewNode[] | Promise<ViewNode[]> {
 		if (node !== this.root) return promise;
 
+		const { openRepositories: repos } = this.container.git;
+
 		// If we are not grouped and we are either not filterable or there aren't multiple repos open, then just return the promise
-		if (
-			!this.grouped &&
-			(!this.isAny(...treeViewTypesSupportsRepositoryFilter) || this.container.git.openRepositories.length <= 1)
-		) {
+		if (!this.grouped && (!this.isAny(...treeViewTypesSupportsRepositoryFilter) || repos.length <= 1)) {
 			return promise;
 		}
 
@@ -626,6 +625,16 @@ export abstract class ViewBase<
 
 			return children;
 		};
+
+		if (!this.grouped && this.supportsWorktreeCollapsing) {
+			return groupRepositories(repos).then(grouped => {
+				if (grouped.size <= 1) return promise;
+
+				return isPromise(promise)
+					? promise.then(c => ensureGroupedHeaderNode(c))
+					: ensureGroupedHeaderNode(promise);
+			});
+		}
 
 		return isPromise(promise) ? promise.then(c => ensureGroupedHeaderNode(c)) : ensureGroupedHeaderNode(promise);
 	}

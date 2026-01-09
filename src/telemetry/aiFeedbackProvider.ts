@@ -1,12 +1,12 @@
 import type { Disposable, Uri } from 'vscode';
 import { workspace } from 'vscode';
-import type { AIFeedbackEvent } from '../constants.telemetry';
-import type { AIResultContext } from '../plus/ai/aiProviderService';
-import { setContext } from '../system/-webview/context';
-import { UriMap } from '../system/-webview/uriMap';
-import type { Deferrable } from '../system/function/debounce';
-import { debounce } from '../system/function/debounce';
-import { filterMap } from '../system/iterable';
+import type { AIFeedbackEvent } from '../constants.telemetry.js';
+import type { AIResultContext } from '../plus/ai/aiProviderService.js';
+import { setContext } from '../system/-webview/context.js';
+import { UriMap } from '../system/-webview/uriMap.js';
+import type { Deferrable } from '../system/function/debounce.js';
+import { debounce } from '../system/function/debounce.js';
+import { filterMap } from '../system/iterable.js';
 
 export class AIFeedbackProvider implements Disposable {
 	constructor() {

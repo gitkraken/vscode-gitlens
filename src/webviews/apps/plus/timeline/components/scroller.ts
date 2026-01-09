@@ -2,7 +2,7 @@ import type { PropertyValues } from 'lit';
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { PointerEvent } from 'react';
-import { GlElement } from '../../../shared/components/element';
+import { GlElement } from '../../../shared/components/element.js';
 
 const tagName = 'gl-chart-scroller';
 
@@ -272,7 +272,7 @@ export class GlChartScroller extends GlElement {
 	}
 
 	private emitScrollEvent(start: number, end: number) {
-		if (this.visibleRange && start === this.visibleRange[0] && end === this.visibleRange[1]) {
+		if (start === this.visibleRange?.[0] && end === this.visibleRange[1]) {
 			return;
 		}
 

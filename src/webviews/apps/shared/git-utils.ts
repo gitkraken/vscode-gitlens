@@ -1,11 +1,11 @@
-import { GlyphChars } from '../../../constants';
-// import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
-import type { GitReference, GitStashReference } from '../../../git/models/reference';
-import type { GitRevisionRange } from '../../../git/models/revision';
-// import { isRevisionRange, isShaParent, isStashReference } from '../../../git/models/reference';
-import { capitalize } from '../../../system/string';
+import { GlyphChars } from '../../../constants.js';
+// import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch.js';
+import type { GitReference, GitStashReference } from '../../../git/models/reference.js';
+import type { GitRevisionRange } from '../../../git/models/revision.js';
+// import { isRevisionRange, isShaParent, isStashReference } from '../../../git/models/reference.js';
+import { capitalize } from '../../../system/string.js';
 
-// import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
+// import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch.js';
 export function getRemoteNameSlashIndex(name: string): number {
 	return name.startsWith('remotes/') ? name.indexOf('/', 8) : name.indexOf('/');
 }
@@ -16,7 +16,7 @@ export function getRemoteNameFromBranchName(name: string): string {
 	return name.substring(0, getRemoteNameSlashIndex(name));
 }
 
-// import { isRevisionRange, isShaParent, isStashReference } from '../../../git/models/reference';
+// import { isRevisionRange, isShaParent, isStashReference } from '../../../git/models/reference.js';
 const rangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)?(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)?$/;
 const qualifiedRangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)$/;
 const qualifiedDoubleDotRange = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.)([\w\-/]+(?:\.[\w\-/]+)*)$/;

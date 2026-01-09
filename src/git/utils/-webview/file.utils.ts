@@ -1,8 +1,8 @@
-import { GlyphChars } from '../../../constants';
-import { formatPath } from '../../../system/-webview/formatPath';
-import { relativeDir, splitPath } from '../../../system/-webview/path';
-import { pad } from '../../../system/string';
-import type { GitFile } from '../../models/file';
+import { GlyphChars } from '../../../constants.js';
+import { formatPath } from '../../../system/-webview/formatPath.js';
+import { relativeDir, splitPath } from '../../../system/-webview/path.js';
+import { pad } from '../../../system/string.js';
+import type { GitFile } from '../../models/file.js';
 
 export function getGitFileFormattedDirectory(
 	file: GitFile,

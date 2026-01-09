@@ -1,11 +1,11 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
-import { azureProviderDescriptor as provider } from '../../constants.ai';
-import { configuration } from '../../system/-webview/configuration';
-import type { AIActionType, AIModel } from './models/model';
-import { openAIModels } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { ensureOrgConfiguredUrl, getOrgAIProviderOfType, isAzureUrl } from './utils/-webview/ai.utils';
+import { azureProviderDescriptor as provider } from '../../constants.ai.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import type { AIActionType, AIModel } from './models/model.js';
+import { openAIModels } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
+import { ensureOrgConfiguredUrl, getOrgAIProviderOfType, isAzureUrl } from './utils/-webview/ai.utils.js';
 
 type AzureModel = AIModel<typeof provider.id>;
 const models: AzureModel[] = openAIModels(provider);

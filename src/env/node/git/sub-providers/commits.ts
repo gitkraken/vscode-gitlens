@@ -1,13 +1,13 @@
 import type { CancellationToken, Range, Uri } from 'vscode';
-import type { SearchQuery } from '../../../../constants.search';
-import type { Source } from '../../../../constants.telemetry';
-import type { Container } from '../../../../container';
-import { CancellationError, isCancellationError } from '../../../../errors';
-import type { GitCache } from '../../../../git/cache';
-import type { GitCommandOptions } from '../../../../git/commandOptions';
-import { GitErrorHandling } from '../../../../git/commandOptions';
-import { CherryPickError, CherryPickErrorReason } from '../../../../git/errors';
+import type { SearchQuery } from '../../../../constants.search.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { Container } from '../../../../container.js';
+import { CancellationError, isCancellationError } from '../../../../errors.js';
+import type { GitCache } from '../../../../git/cache.js';
+import type { GitCommandOptions } from '../../../../git/commandOptions.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type {
+	GitCommitReachability,
 	GitCommitsSubProvider,
 	GitLogForPathOptions,
 	GitLogOptions,
@@ -16,51 +16,53 @@ import type {
 	IncomingActivityOptions,
 	LeftRightCommitCountResult,
 	SearchCommitsResult,
-} from '../../../../git/gitProvider';
-import { GitUri } from '../../../../git/gitUri';
-import type { GitBlame } from '../../../../git/models/blame';
-import type { GitCommitFileset, GitStashCommit } from '../../../../git/models/commit';
-import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
-import type { GitDiffFilter, ParsedGitDiffHunks } from '../../../../git/models/diff';
-import { GitFileChange } from '../../../../git/models/fileChange';
-import type { GitFileStatus } from '../../../../git/models/fileStatus';
-import type { GitLog } from '../../../../git/models/log';
-import type { GitReflog } from '../../../../git/models/reflog';
-import type { GitRevisionRange } from '../../../../git/models/revision';
-import type { GitUser } from '../../../../git/models/user';
+} from '../../../../git/gitProvider.js';
+import { GitUri } from '../../../../git/gitUri.js';
+import type { GitBlame } from '../../../../git/models/blame.js';
+import type { GitCommitFileset, GitStashCommit } from '../../../../git/models/commit.js';
+import { GitCommit, GitCommitIdentity, isStash } from '../../../../git/models/commit.js';
+import type { GitDiffFilter, ParsedGitDiffHunks } from '../../../../git/models/diff.js';
+import { GitFileChange } from '../../../../git/models/fileChange.js';
+import type { GitFileStatus } from '../../../../git/models/fileStatus.js';
+import type { GitLog } from '../../../../git/models/log.js';
+import type { GitReflog } from '../../../../git/models/reflog.js';
+import type { GitRevisionRange } from '../../../../git/models/revision.js';
+import type { GitUser } from '../../../../git/models/user.js';
 import type {
 	CommitsInFileRangeLogParser,
 	CommitsLogParser,
 	CommitsWithFilesLogParser,
 	ParsedCommit,
 	ParsedStash,
-} from '../../../../git/parsers/logParser';
+} from '../../../../git/parsers/logParser.js';
 import {
 	getCommitsLogParser,
-	getShaAndDatesLogParser,
 	getShaAndFilesAndStatsLogParser,
 	getShaLogParser,
-} from '../../../../git/parsers/logParser';
-import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser';
-import type { SearchQueryFilters } from '../../../../git/search';
-import { parseSearchQueryCommand, processNaturalLanguageToSearchQuery } from '../../../../git/search';
-import { createUncommittedChangesCommit } from '../../../../git/utils/-webview/commit.utils';
-import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '../../../../git/utils/revision.utils';
-import { isUserMatch } from '../../../../git/utils/user.utils';
-import { configuration } from '../../../../system/-webview/configuration';
-import { splitPath } from '../../../../system/-webview/path';
-import { debug, log } from '../../../../system/decorators/log';
-import { filterMap, first, join, last, some } from '../../../../system/iterable';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
-import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
-import { GitDocumentState } from '../../../../trackers/trackedDocument';
-import type { Git, GitResult } from '../git';
-import { gitConfigsLog, gitConfigsLogWithFiles, GitErrors } from '../git';
-import type { LocalGitProviderInternal } from '../localGitProvider';
-import { convertStashesToStdin } from './stash';
+} from '../../../../git/parsers/logParser.js';
+import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser.js';
+import type { SearchQueryFilters } from '../../../../git/search.js';
+import { parseSearchQueryGitCommand } from '../../../../git/search.js';
+import { processNaturalLanguageToSearchQuery } from '../../../../git/search.naturalLanguage.js';
+import { createUncommittedChangesCommit } from '../../../../git/utils/-webview/commit.utils.js';
+import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '../../../../git/utils/revision.utils.js';
+import { isUserMatch } from '../../../../git/utils/user.utils.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { splitPath } from '../../../../system/-webview/path.js';
+import { debug, log } from '../../../../system/decorators/log.js';
+import { filterMap, findLast, first, join, last, some } from '../../../../system/iterable.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { isFolderGlob, stripFolderGlob } from '../../../../system/path.js';
+import type { CacheController } from '../../../../system/promiseCache.js';
+import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import { createDisposable } from '../../../../system/unifiedDisposable.js';
+import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
+import { GitDocumentState } from '../../../../trackers/trackedDocument.js';
+import type { Git, GitResult } from '../git.js';
+import { gitConfigsLog, gitConfigsLogWithFiles } from '../git.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
+import { convertStashesToStdin } from './stash.js';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
@@ -73,65 +75,24 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		private readonly provider: LocalGitProviderInternal,
 	) {}
 
-	private get useCaching() {
-		return configuration.get('advanced.caching.enabled');
-	}
-
 	@log()
-	async cherryPick(
+	async createUnreachableCommitFromTree(
 		repoPath: string,
-		revs: string[],
-		options?: { edit?: boolean; noCommit?: boolean },
-	): Promise<void> {
-		const args = ['cherry-pick'];
-		if (options?.edit) {
-			args.push('-e');
-		}
-		if (options?.noCommit) {
-			args.push('-n');
-		}
-
-		if (revs.length > 1) {
-			const parser = getShaAndDatesLogParser();
-			// Ensure the revs are in reverse committer date order
-			const result = await this.git.exec(
-				{ cwd: repoPath, stdin: join(revs, '\n') },
-				'log',
-				'--no-walk',
-				'--stdin',
-				...parser.arguments,
-				'--',
-			);
-			const commits = [...parser.parse(result.stdout)].sort(
-				(c1, c2) =>
-					Number(c1.committerDate) - Number(c2.committerDate) ||
-					Number(c1.authorDate) - Number(c2.authorDate),
-			);
-			revs = commits.map(c => c.sha);
-		}
-
-		args.push(...revs);
-
-		try {
-			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-
-			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
-			if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = CherryPickErrorReason.AbortedWouldOverwrite;
-			} else if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
-				reason = CherryPickErrorReason.Conflicts;
-			} else if (GitErrors.emptyPreviousCherryPick.test(msg)) {
-				reason = CherryPickErrorReason.EmptyCommit;
-			}
-
-			debugger;
-			throw new CherryPickError(reason, ex, revs);
-		}
+		tree: string,
+		parent: string,
+		message: string,
+		cancellation?: CancellationToken,
+	): Promise<string> {
+		const result = await this.git.exec(
+			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+			'commit-tree',
+			tree,
+			'-p',
+			parent,
+			'-m',
+			message,
+		);
+		return result.stdout.trim();
 	}
 
 	@log()
@@ -230,6 +191,88 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			return undefined;
 		}
+	}
+
+	@log()
+	async getCommitReachability(
+		repoPath: string,
+		rev: string,
+		cancellation?: CancellationToken,
+	): Promise<GitCommitReachability | undefined> {
+		if (repoPath == null || isUncommitted(rev)) return undefined;
+
+		const scope = getLogScope();
+
+		const getCore = async (cacheable?: CacheController) => {
+			try {
+				// Use for-each-ref with %(HEAD) to mark current branch with *
+				const result = await this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					'for-each-ref',
+					'--contains',
+					rev,
+					'--format=%(HEAD)%(refname)',
+					'--sort=-version:refname',
+					'--sort=-committerdate',
+					'--sort=-HEAD',
+					'refs/heads/',
+					'refs/remotes/',
+					'refs/tags/',
+				);
+				if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+				const refs: GitCommitReachability['refs'] = [];
+
+				// Parse branches from refs/heads/ and refs/remotes/
+				if (result?.stdout) {
+					const lines = result.stdout.split('\n');
+
+					for (let line of lines) {
+						line = line.trim();
+						if (!line) continue;
+
+						// %(HEAD) outputs '*' for current branch, ' ' for others
+						const isCurrent = line.startsWith('*');
+						const refname = isCurrent ? line.substring(1) : line; // Skip the HEAD marker
+
+						// Skip HEADs
+						if (refname.endsWith('/HEAD')) continue;
+
+						if (refname.startsWith('refs/heads/')) {
+							// Remove 'refs/heads/'
+							const name = refname.substring(11);
+							refs.push({
+								refType: 'branch',
+								name: name,
+								remote: false,
+								current: isCurrent,
+							});
+						} else if (refname.startsWith('refs/remotes/')) {
+							// Remove 'refs/remotes/'
+							refs.push({ refType: 'branch', name: refname.substring(13), remote: true });
+						} else if (refname.startsWith('refs/tags/')) {
+							// Remove 'refs/tags/'
+							refs.push({ refType: 'tag', name: refname.substring(10) });
+						}
+					}
+				}
+
+				// Sort to move tags to the end, preserving order within each type
+				refs.sort((a, b) => (a.refType !== b.refType ? (a.refType === 'tag' ? 1 : -1) : 0));
+
+				return { refs: refs };
+			} catch (ex) {
+				cacheable?.invalidate();
+				debugger;
+				if (isCancellationError(ex)) throw ex;
+
+				Logger.error(ex, scope);
+
+				return undefined;
+			}
+		};
+
+		return this.cache.reachability.getOrCreate(repoPath, rev, getCore);
 	}
 
 	@log()
@@ -565,7 +608,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const log: GitLog = {
 				repoPath: repoPath,
 				commits: commits,
-				sha: rev,
+				sha: isRevisionRange(rev) ? undefined : rev,
 				count: commits.size,
 				limit: limit,
 				hasMore: overrideHasMore ?? count - countStashChildCommits > commits.size,
@@ -618,7 +661,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				return moreLog;
 			}
 
-			const lastCommit = last(log.commits.values());
+			// Stashes are not part of the normal commit history, so we need to find the last non-stash commit for the cursor
+			const lastCommit = findLast(log.commits.values(), c => !isStash(c)) ?? last(log.commits.values());
 			const sha = lastCommit?.ref;
 
 			// Check to make sure the filename hasn't changed and if it has use the previous
@@ -679,7 +723,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					count: commits.size,
 					limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 					hasMore: moreUntil == null ? moreLog.hasMore : true,
-					startingCursor: last(log.commits)?.[0],
+					startingCursor: sha,
 					endingCursor: moreLog.endingCursor,
 					pagedCommits: () => {
 						// Remove any duplicates
@@ -743,7 +787,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		let cacheKey: string | undefined;
 		if (
-			this.useCaching &&
 			// Don't cache folders
 			!options.isFolder &&
 			options.authors == null &&
@@ -962,6 +1005,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				args.push('--no-merges');
 			}
 
+			if (options?.reverse) {
+				args.push('--reverse');
+			}
+
 			if (options?.authors?.length) {
 				if (!args.includes('--use-mailmap')) {
 					args.push('--use-mailmap');
@@ -1069,9 +1116,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log<CommitsGitSubProvider['searchCommits']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
-					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
-				}`,
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${
+					s.matchWholeWord ? 'W' : ''
+				}]: ${s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query}`,
 		},
 	})
 	async searchCommits(
@@ -1100,13 +1147,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 			const args = [
 				'log',
-
 				...parser.arguments,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--use-mailmap',
 			];
 
-			const { args: searchArgs, files, shas, filters } = parseSearchQueryCommand(search, currentUser);
+			const { args: searchArgs, files, shas, filters } = parseSearchQueryGitCommand(search, currentUser);
 
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
@@ -1114,7 +1160,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (shas?.size) {
 				stdin = join(shas, '\n');
 				args.push('--no-walk');
-			} else {
+			} else if (!filters.refs) {
+				// Don't include stashes when using ref: filter, as they would add unrelated commits
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 				({ stdin, stashes } = convertStashesToStdin(
 					await this.provider.stash?.getStash(repoPath, undefined, cancellation),
@@ -1325,6 +1372,8 @@ async function parseCommits(
 	let countStashChildCommits = 0;
 	const commits = new Map<string, GitCommit>();
 
+	const tipsOnly = searchFilters?.type === 'tip';
+
 	if (resultOrStream instanceof Promise) {
 		const result = await resultOrStream;
 
@@ -1334,8 +1383,10 @@ async function parseCommits(
 		if (stashes?.size) {
 			const allowFilteredFiles = searchFilters?.files ?? false;
 			const stashesOnly = searchFilters?.type === 'stash';
+
 			for (const c of parser.parse(result.stdout)) {
 				if (stashesOnly && !stashes?.has(c.sha)) continue;
+				if (tipsOnly && !c.tips) continue;
 
 				count++;
 				if (limit && count > limit) break;
@@ -1365,6 +1416,8 @@ async function parseCommits(
 			}
 		} else {
 			for (const c of parser.parse(result.stdout)) {
+				if (tipsOnly && !c.tips) continue;
+
 				count++;
 				if (limit && count > limit) break;
 
@@ -1377,11 +1430,15 @@ async function parseCommits(
 		return { commits: commits, count: count, countStashChildCommits: countStashChildCommits };
 	}
 
+	using _streamDisposer = createDisposable(() => void resultOrStream.return?.(undefined));
+
 	if (stashes?.size) {
 		const allowFilteredFiles = searchFilters?.files ?? false;
 		const stashesOnly = searchFilters?.type === 'stash';
+
 		for await (const c of parser.parseAsync(resultOrStream)) {
 			if (stashesOnly && !stashes?.has(c.sha)) continue;
+			if (tipsOnly && !c.tips) continue;
 
 			count++;
 			if (limit && count > limit) break;
@@ -1411,6 +1468,8 @@ async function parseCommits(
 		}
 	} else {
 		for await (const c of parser.parseAsync(resultOrStream)) {
+			if (tipsOnly && !c.tips) continue;
+
 			count++;
 			if (limit && count > limit) break;
 

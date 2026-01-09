@@ -1,9 +1,9 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { getAltKeySymbol } from '@env/platform';
-import type { State } from '../../../commitDetails/protocol';
-import { commitActionStyles } from './commit-action.css';
+import { getAltKeySymbol } from '@env/platform.js';
+import type { State } from '../../../commitDetails/protocol.js';
+import { commitActionStyles } from './commit-action.css.js';
 
 @customElement('gl-inspect-nav')
 export class GlInspectNav extends LitElement {
@@ -42,6 +42,10 @@ export class GlInspectNav extends LitElement {
 				flex: none;
 				flex-direction: row;
 				max-width: 100%;
+			}
+
+			.group:last-child {
+				margin-inline-start: auto;
 			}
 
 			.sha {

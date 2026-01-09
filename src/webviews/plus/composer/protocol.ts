@@ -1,8 +1,10 @@
-import type { Sources } from '../../../constants.telemetry';
-import type { RepositoryShape } from '../../../git/models/repositoryShape';
-import type { AIModel } from '../../../plus/ai/models/model';
-import type { IpcScope, WebviewState } from '../../protocol';
-import { IpcCommand, IpcNotification } from '../../protocol';
+import type { Sources } from '../../../constants.telemetry.js';
+import type { GitCommitIdentityShape } from '../../../git/models/commit.js';
+import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
+import type { AIModel } from '../../../plus/ai/models/model.js';
+import type { IpcScope } from '../../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification } from '../../ipc/models/ipc.js';
+import type { WebviewState } from '../../protocol.js';
 
 export const scope: IpcScope = 'composer';
 
@@ -23,14 +25,22 @@ export interface ComposerHunkBase {
 	assigned?: boolean; // True when this hunk's index is in any commit's hunkIndices array
 	isRename?: boolean; // True for rename-only hunks
 	originalFileName?: string; // Original filename for renames
+	author?: GitCommitIdentityShape; // Author of the commit this hunk belongs to, if any
+	coAuthors?: GitCommitIdentityShape[]; // Co-authors of the commit this hunk belongs to, if any
+}
+
+export interface ComposerCommitMessage {
+	content: string;
+	isGenerated: boolean;
 }
 
 export interface ComposerCommit {
 	id: string;
-	message: string;
+	message: ComposerCommitMessage;
 	sha?: string; // Optional SHA for existing commits
 	aiExplanation?: string;
 	hunkIndices: number[]; // References to hunk indices in the hunk map
+	locked?: boolean; // True if this commit is fully locked (cannot be reordered, edited, or have hunks reassigned)
 }
 
 // Remove callbacks - use IPC instead
@@ -39,12 +49,14 @@ export interface ComposerBaseCommit {
 	sha: string;
 	message: string;
 	repoName: string;
-	branchName: string;
+	branchName?: string;
 }
 
 export interface ComposerSafetyState {
 	repoPath: string;
+	branchName?: string;
 	headSha: string | null;
+	baseSha: string | null;
 	// branchName: string;
 	// branchRefSha: string;
 	// worktreeName: string;
@@ -52,6 +64,7 @@ export interface ComposerSafetyState {
 		staged: string | null;
 		unstaged: string | null;
 		unified: string | null;
+		commits?: string | null; // Combined diff hash for branch mode
 	};
 
 	// stagedDiff: string | null; // null if no staged changes when composer opened
@@ -60,7 +73,7 @@ export interface ComposerSafetyState {
 	// timestamp: number;
 }
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.composer'> {
 	// data model
 	hunks: ComposerHunk[];
 
@@ -68,10 +81,6 @@ export interface State extends WebviewState {
 	baseCommit: ComposerBaseCommit | null;
 
 	// UI state
-	selectedCommitId: string | null;
-	selectedCommitIds: Set<string>;
-	selectedUnassignedSection: string | null;
-	selectedHunkIds: Set<string>;
 	detailsSectionExpanded: {
 		commitMessage: boolean;
 		aiExplanation: boolean;
@@ -94,6 +103,12 @@ export interface State extends WebviewState {
 
 	// Mode controls
 	mode: 'experimental' | 'preview'; // experimental = normal mode, preview = locked AI preview mode
+	recompose: {
+		enabled: boolean; // true if composer is in recompose mode
+		branchName?: string; // name of the branch being recomposed
+		locked: boolean; // true if commits are locked (cannot be reordered/edited)
+		commitShas?: string[]; // Optional: specific commit SHAs selected for recompose (if not all commits)
+	} | null;
 
 	// AI settings
 	aiEnabled: {
@@ -111,14 +126,10 @@ export interface State extends WebviewState {
 	};
 }
 
-export const initialState: Omit<State, keyof WebviewState> = {
+export const initialState: Omit<State, keyof WebviewState<'gitlens.composer'>> = {
 	hunks: [],
 	commits: [],
 	baseCommit: null,
-	selectedCommitId: null,
-	selectedCommitIds: new Set<string>(),
-	selectedUnassignedSection: null,
-	selectedHunkIds: new Set<string>(),
 	detailsSectionExpanded: {
 		commitMessage: true,
 		aiExplanation: true,
@@ -135,6 +146,7 @@ export const initialState: Omit<State, keyof WebviewState> = {
 	workingDirectoryHasChanged: false,
 	indexHasChanged: false,
 	mode: 'preview',
+	recompose: null,
 	aiEnabled: {
 		org: false,
 		config: false,
@@ -154,6 +166,7 @@ export interface ComposerContext {
 		lines: number;
 		staged: boolean;
 		unstaged: boolean;
+		commits: boolean;
 		unstagedIncluded: boolean;
 	};
 	commits: {
@@ -226,6 +239,7 @@ export const baseContext: ComposerContext = {
 		lines: 0,
 		staged: false,
 		unstaged: false,
+		commits: false,
 		unstagedIncluded: false,
 	},
 	commits: {
@@ -285,58 +299,7 @@ export const baseContext: ComposerContext = {
 	},
 };
 
-export type ComposerTelemetryEvent =
-	| 'composer/loaded'
-	| 'composer/reloaded'
-	| 'composer/action/includedUnstagedChanges'
-	| 'composer/action/compose'
-	| 'composer/action/compose/failed'
-	| 'composer/action/recompose'
-	| 'composer/action/recompose/failed'
-	| 'composer/action/generateCommitMessage'
-	| 'composer/action/generateCommitMessage/failed'
-	| 'composer/action/changeAiModel'
-	| 'composer/action/finishAndCommit'
-	| 'composer/action/finishAndCommit/failed'
-	| 'composer/action/undo'
-	| 'composer/action/reset'
-	| 'composer/warning/workingDirectoryChanged'
-	| 'composer/warning/indexChanged';
-
-export type ComposerLoadedErrorData = {
-	'failure.reason': 'error';
-	'failure.error.message': string;
-};
-
-export type ComposerGenerateCommitsEventData = {
-	'customInstructions.used': boolean;
-	'customInstructions.length': number;
-	'customInstructions.hash': string;
-	'customInstructions.setting.used': boolean;
-	'customInstructions.setting.length': number;
-};
-
-export type ComposerGenerateCommitMessageEventData = {
-	'customInstructions.setting.used': boolean;
-	'customInstructions.setting.length': number;
-	overwriteExistingMessage: boolean;
-};
-
-export type ComposerActionEventFailureData =
-	| {
-			'failure.reason': 'cancelled';
-	  }
-	| {
-			'failure.reason': 'error';
-			'failure.error.message': string;
-	  };
-
 // Commands that can be sent from the webview to the host
-
-export interface GenerateWithAIParams {
-	commits: ComposerCommit[];
-	unassignedHunkIndices: number[];
-}
 
 // Notifications that can be sent from the host to the webview
 export interface DidChangeComposerDataParams {
@@ -433,6 +396,10 @@ export interface GenerateCommitsParams {
 	hunkIndices: number[];
 	commits: ComposerCommit[];
 	baseCommit: ComposerBaseCommit | null;
+	commitsToReplace?: {
+		commits: { id: string; sha?: string; hunkIndices: number[] }[];
+		baseShaForNewDiff?: string;
+	};
 	customInstructions?: string;
 	isRecompose?: boolean;
 }
@@ -456,6 +423,8 @@ export interface ReloadComposerParams {
 
 export interface DidGenerateCommitsParams {
 	commits: ComposerCommit[];
+	replacedCommitIds?: string[];
+	hunks?: ComposerHunk[];
 }
 
 export interface DidGenerateCommitMessageParams {

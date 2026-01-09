@@ -1,26 +1,26 @@
 import type { Command, Selection } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
-import { Schemes } from '../../constants';
-import type { TreeViewRefFileNodeTypes } from '../../constants.views';
-import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
-import type { DiffRange } from '../../git/gitProvider';
-import { GitUri } from '../../git/gitUri';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitCommit } from '../../git/models/commit';
-import type { GitFile } from '../../git/models/file';
-import type { GitRevisionReference } from '../../git/models/reference';
-import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
-import { createCommand } from '../../system/-webview/command';
-import { relativeDir } from '../../system/-webview/path';
-import { selectionToDiffRange } from '../../system/-webview/vscode/editors';
-import { joinPaths } from '../../system/path';
-import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
-import { createViewDecorationUri } from '../viewDecorationProvider';
-import { getFileTooltipMarkdown } from './abstract/viewFileNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { ViewRefFileNode } from './abstract/viewRefNode';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
+import { Schemes } from '../../constants.js';
+import type { TreeViewRefFileNodeTypes } from '../../constants.views.js';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
+import type { DiffRange } from '../../git/gitProvider.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { GitFile } from '../../git/models/file.js';
+import type { GitRevisionReference } from '../../git/models/reference.js';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils.js';
+import { createCommand } from '../../system/-webview/command.js';
+import { relativeDir } from '../../system/-webview/path.js';
+import { selectionToDiffRange } from '../../system/-webview/vscode/editors.js';
+import { joinPaths } from '../../system/path.js';
+import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase.js';
+import { createViewDecorationUri } from '../viewDecorationProvider.js';
+import { getFileTooltipMarkdown } from './abstract/viewFileNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { ViewRefFileNode } from './abstract/viewRefNode.js';
 
 export abstract class CommitFileNodeBase<
 	Type extends TreeViewRefFileNodeTypes,

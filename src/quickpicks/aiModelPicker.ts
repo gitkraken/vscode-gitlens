@@ -1,15 +1,16 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
-import type { AIProviders } from '../constants.ai';
-import type { Container } from '../container';
-import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '../plus/ai/models/model';
-import { ensureAccess } from '../plus/ai/utils/-webview/ai.utils';
-import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
-import { getSettledValue } from '../system/promise';
-import { createQuickPickSeparator } from './items/common';
-import type { DirectiveQuickPickItem } from './items/directive';
-import { Directive, isDirectiveQuickPickItem } from './items/directive';
+import type { AIProviders } from '../constants.ai.js';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '../plus/ai/models/model.js';
+import { ensureAccess } from '../plus/ai/utils/-webview/ai.utils.js';
+import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils.js';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
+import { getSettledValue } from '../system/promise.js';
+import { createQuickPickSeparator } from './items/common.js';
+import type { DirectiveQuickPickItem } from './items/directive.js';
+import { Directive, isDirectiveQuickPickItem } from './items/directive.js';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;
@@ -32,8 +33,9 @@ const ConfigureAIKeyButton: QuickInputButton = {
 export async function showAIProviderPicker(
 	container: Container,
 	current: AIModelDescriptor | undefined,
+	source?: Source,
 ): Promise<ProviderQuickPickItem | undefined> {
-	if (!(await ensureAccess({ showPicker: true }))) return undefined;
+	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
 	const [providersResult, modelResult, subscriptionResult] = await Promise.allSettled([
 		container.ai.getProvidersConfiguration(),
@@ -130,8 +132,9 @@ export async function showAIModelPicker(
 	container: Container,
 	provider: AIProviders,
 	current?: AIModelDescriptor,
+	source?: Source,
 ): Promise<ModelQuickPickItem | Directive | undefined> {
-	if (!(await ensureAccess({ showPicker: true }))) return undefined;
+	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
 	const models = (await container.ai.getModels(provider)) ?? [];
 

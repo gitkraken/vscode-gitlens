@@ -1,11 +1,11 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { SubscriptionState } from '../../../../constants.subscription';
-import type { Source } from '../../../../constants.telemetry';
-import type { FeaturePreview } from '../../../../features';
-import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils';
-import { linkStyles } from '../../plus/shared/components/vscode.css';
-import '../../plus/shared/components/feature-gate-plus-state';
+import type { SubscriptionState } from '../../../../constants.subscription.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { FeaturePreview } from '../../../../features.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils.js';
+import { linkStyles } from '../../plus/shared/components/vscode.css.js';
+import '../../plus/shared/components/feature-gate-plus-state.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -57,6 +57,9 @@ export class GlFeatureGate extends LitElement {
 				--section-background: var(--background);
 				--section-border-color: transparent;
 
+				--link-foreground: var(--vscode-textLink-foreground);
+				--link-foreground-active: var(--vscode-textLink-activeForeground);
+
 				display: flex;
 				flex-direction: column;
 				padding: 0 2rem 1.3rem 2rem;
@@ -74,10 +77,7 @@ export class GlFeatureGate extends LitElement {
 				--section-border-color: var(--color-alert-infoBorder);
 
 				--link-decoration-default: underline;
-				--link-foreground: color-mix(in srgb, var(--section-foreground) 50%, var(--textLink-foreground));
-				/* --link-foreground-active: var(--vscode-foreground); */
-
-				/* --link-foreground: var(--vscode-textLink-foreground); */
+				--link-foreground: color-mix(in srgb, var(--section-foreground) 50%, var(--vscode-textLink-foreground));
 				--link-foreground-active: color-mix(
 					in srgb,
 					var(--section-foreground) 50%,
@@ -101,13 +101,16 @@ export class GlFeatureGate extends LitElement {
 	];
 
 	@property({ reflect: true })
-	appearance?: 'alert' | 'welcome';
+	appearance?: 'alert' | 'default';
 
 	@property({ type: Object })
 	featurePreview?: FeaturePreview;
 
 	@property({ type: String })
 	featurePreviewCommandLink?: string;
+
+	@property()
+	featureRestriction?: 'all' | 'private-repos';
 
 	@property()
 	featureWithArticleIfNeeded?: string;
@@ -127,7 +130,7 @@ export class GlFeatureGate extends LitElement {
 		const appearance =
 			(this.appearance ?? (document.body.getAttribute('data-placement') ?? 'editor') === 'editor')
 				? 'alert'
-				: 'welcome';
+				: 'default';
 
 		return html`
 			<section>
@@ -136,6 +139,7 @@ export class GlFeatureGate extends LitElement {
 					appearance=${appearance}
 					.featurePreview=${this.featurePreview}
 					.featurePreviewCommandLink=${this.featurePreviewCommandLink}
+					.featureRestriction=${this.featureRestriction}
 					.featureWithArticleIfNeeded=${this.featureWithArticleIfNeeded}
 					.source=${this.source}
 					.state=${this.state}

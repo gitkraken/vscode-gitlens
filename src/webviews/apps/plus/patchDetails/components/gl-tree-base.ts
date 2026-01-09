@@ -1,9 +1,9 @@
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
-import type { GitFileChangeShape } from '../../../../../git/models/fileChange';
-import type { HierarchicalItem } from '../../../../../system/array';
-import { makeHierarchical } from '../../../../../system/array';
-import { GlElement } from '../../../shared/components/element';
+import type { GitFileChangeShape } from '../../../../../git/models/fileChange.js';
+import type { HierarchicalItem } from '../../../../../system/array.js';
+import { makeHierarchical } from '../../../../../system/array.js';
+import { GlElement } from '../../../shared/components/element.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -11,10 +11,10 @@ import type {
 	TreeItemCheckedDetail,
 	TreeItemSelectionDetail,
 	TreeModel,
-} from '../../../shared/components/tree/base';
-import '../../../shared/components/tree/tree-generator';
-import '../../../shared/components/skeleton-loader';
-import '../../../shared/components/actions/action-item';
+} from '../../../shared/components/tree/base.js';
+import '../../../shared/components/tree/tree-generator.js';
+import '../../../shared/components/skeleton-loader.js';
+import '../../../shared/components/actions/action-item.js';
 
 export class GlTreeBase extends GlElement {
 	protected onTreeItemActionClicked?(_e: CustomEvent<TreeItemActionDetail>): void;

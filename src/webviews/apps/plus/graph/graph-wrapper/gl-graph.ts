@@ -1,19 +1,26 @@
 import type GraphContainer from '@gitkraken/gitkraken-components';
-import type { GraphRef, GraphRow, GraphZoneType } from '@gitkraken/gitkraken-components';
+import type {
+	GraphRef,
+	GraphRow,
+	GraphSelectionState,
+	GraphZoneType,
+	ReadonlyGraphRow,
+} from '@gitkraken/gitkraken-components';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { SearchQuery } from '../../../../../constants.search';
-import { debounce } from '../../../../../system/function/debounce';
+import { debounce } from '../../../../../system/function/debounce.js';
 import type {
+	GraphAvatars,
 	GraphColumnsConfig,
 	GraphExcludedRef,
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
-} from '../../../../plus/graph/protocol';
-import type { GraphWrapperInitProps, GraphWrapperProps, GraphWrapperSubscriberProps } from './gl-graph.react';
-import { GlGraphReact } from './gl-graph.react';
+	RowAction,
+} from '../../../../plus/graph/protocol.js';
+import type { GraphWrapperInitProps, GraphWrapperProps, GraphWrapperSubscriberProps } from './gl-graph.react.jsx';
+import { GlGraphReact } from './gl-graph.react.jsx';
 
 /**
  * A LitElement web component that encapsulates the GraphWrapperReact component.
@@ -97,11 +104,11 @@ export class GlGraph extends LitElement {
 	@property({ type: Object })
 	theming?: GraphWrapperProps['theming'];
 
-	@property({ type: Object })
-	searchResults?: GraphWrapperProps['searchResults'];
+	@property({ type: String })
+	searchMode?: GraphWrapperProps['searchMode'];
 
 	@property({ type: Object })
-	filter!: SearchQuery;
+	searchResults?: GraphWrapperProps['searchResults'];
 
 	@property({ attribute: false })
 	setRef!: (ref: GraphContainer) => void;
@@ -158,7 +165,6 @@ export class GlGraph extends LitElement {
 				downstreams: this.downstreams,
 				excludeRefs: this.excludeRefs,
 				excludeTypes: this.excludeTypes,
-				filter: this.filter,
 				includeOnlyRefs: this.includeOnlyRefs,
 				loading: this.loading,
 				nonce: this.nonce,
@@ -167,6 +173,7 @@ export class GlGraph extends LitElement {
 				rows: this.rows,
 				rowsStats: this.rowsStats,
 				rowsStatsLoading: this.rowsStatsLoading,
+				searchMode: this.searchMode ?? 'normal',
 				searchResults: this.searchResults,
 				selectedRows: this.selectedRows,
 				theming: this.theming,
@@ -182,10 +189,12 @@ export class GlGraph extends LitElement {
 				onMoreRows: this.handleMoreRows,
 				onMouseLeave: this.handleMouseLeave,
 				onRefDoubleClick: this.handleRefDoubleClick,
+				onRowAction: this.handleRowAction,
 				onRowContextMenu: this.handleRowContextMenu,
 				onRowDoubleClick: this.handleRowDoubleClick,
 				onRowHover: this.handleRowHover,
 				onRowUnhover: this.handleRowUnhover,
+				onRowActionHover: this.handleRowActionHover,
 			} satisfies GraphWrapperInitProps),
 		);
 	}
@@ -204,8 +213,11 @@ export class GlGraph extends LitElement {
 	};
 
 	private handleChangeSelection = debounce(
-		(rows: GraphRow[]): void => void this.dispatchEvent(new CustomEvent('changeselection', { detail: rows })),
-		250,
+		(rows: ReadonlyGraphRow[], focusedRow: ReadonlyGraphRow | undefined, state: GraphSelectionState): void =>
+			void this.dispatchEvent(
+				new CustomEvent('changeselection', { detail: { rows: rows, focusedRow: focusedRow, state: state } }),
+			),
+		50,
 		{ edges: 'both' },
 	);
 
@@ -213,7 +225,7 @@ export class GlGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('changevisibledays', { detail: detail }));
 	};
 
-	private handleMissingAvatars = (emails: Record<string, string>): void => {
+	private handleMissingAvatars = (emails: GraphAvatars): void => {
 		this.dispatchEvent(new CustomEvent('missingavatars', { detail: emails }));
 	};
 
@@ -231,6 +243,10 @@ export class GlGraph extends LitElement {
 
 	private handleRefDoubleClick = (detail: { ref: GraphRef; metadata?: GraphRefMetadataItem }): void => {
 		this.dispatchEvent(new CustomEvent('refdoubleclick', { detail: detail }));
+	};
+
+	private handleRowAction = (detail: { action: RowAction; row: GraphRow }): void => {
+		this.dispatchEvent(new CustomEvent('rowaction', { detail: detail }));
 	};
 
 	private handleRowContextMenu = (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }): void => {
@@ -261,11 +277,45 @@ export class GlGraph extends LitElement {
 		this.handleRowHover.cancel();
 		this.dispatchEvent(new CustomEvent('rowunhover', { detail: detail }));
 	};
+
+	private handleRowActionHover = () => {
+		this.handleRowHover.cancel();
+		this.dispatchEvent(new CustomEvent('row-action-hover', { bubbles: true, composed: true }));
+	};
 }
 
 // Define the element in the custom elements registry
-// declare global {
-// 	interface HTMLElementTagNameMap {
-// 		'gl-graph-wrapper-element': GraphWrapperElement;
-// 	}
-// }
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-graph': GlGraph;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		changecolumns: CustomEvent<{ settings: GraphColumnsConfig }>;
+		changerefsvisibility: CustomEvent<{ refs: GraphExcludedRef[]; visible: boolean }>;
+		changeselection: CustomEvent<{
+			rows: ReadonlyGraphRow[];
+			focusedRow: ReadonlyGraphRow | undefined;
+			state: GraphSelectionState;
+		}>;
+		changevisibledays: CustomEvent<{ top: number; bottom: number }>;
+		missingavatars: CustomEvent<GraphAvatars>;
+		missingrefsmetadata: CustomEvent<GraphMissingRefsMetadata>;
+		morerows: CustomEvent<string | undefined>;
+		refdoubleclick: CustomEvent<{ ref: GraphRef; metadata?: GraphRefMetadataItem }>;
+		rowaction: CustomEvent<{ action: RowAction; row: GraphRow }>;
+		rowcontextmenu: CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
+		rowdoubleclick: CustomEvent<{ row: GraphRow; preserveFocus?: boolean }>;
+		rowhover: CustomEvent<{
+			graphZoneType: GraphZoneType;
+			graphRow: GraphRow;
+			clientX: number;
+			currentTarget: HTMLElement;
+		}>;
+		rowunhover: CustomEvent<{
+			graphZoneType: GraphZoneType;
+			graphRow: GraphRow;
+			relatedTarget: EventTarget | null;
+		}>;
+	}
+}

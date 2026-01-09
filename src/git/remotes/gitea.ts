@@ -1,15 +1,19 @@
 import type { Range, Uri } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
-import type { Source } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
-import type { Repository } from '../models/repository';
-import type { GkProviderId } from '../models/repositoryIdentities';
-import type { GitRevisionRangeNotation } from '../models/revision';
-import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils';
-import { isSha } from '../utils/revision.utils';
-import type { LocalInfoFromRemoteUriResult, RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
-import { RemoteProvider } from './remoteProvider';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks.js';
+import type { Source } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource.js';
+import type { Repository } from '../models/repository.js';
+import type { GkProviderId } from '../models/repositoryIdentities.js';
+import type { GitRevisionRangeNotation } from '../models/revision.js';
+import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils.js';
+import { isSha } from '../utils/revision.utils.js';
+import type {
+	LocalInfoFromRemoteUriResult,
+	RemoteProviderId,
+	RemoteProviderSupportedFeatures,
+} from './remoteProvider.js';
+import { RemoteProvider } from './remoteProvider.js';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;

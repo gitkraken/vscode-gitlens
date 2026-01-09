@@ -1,41 +1,41 @@
 import type { QuickPickItem, SecretStorageChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
-import { fromBase64ToString } from '@env/base64';
-import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
-import { isIntegrationId, isSupportedCloudIntegrationId } from '../../constants.integrations';
-import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
-import type { Container } from '../../container';
-import { executeGitCommand } from '../../git/actions';
-import { openComparisonChanges, openFileAtRevision } from '../../git/actions/commit';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitCommit } from '../../git/models/commit';
-import type { GitReference } from '../../git/models/reference';
-import type { Repository, RepositoryChangeEvent } from '../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import type { RepositoryIdentity } from '../../git/models/repositoryIdentities';
-import { missingRepositoryId } from '../../git/models/repositoryIdentities';
-import type { GitTag } from '../../git/models/tag';
-import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils';
-import { createReference } from '../../git/utils/reference.utils';
-import { isSha } from '../../git/utils/revision.utils';
-import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils';
-import { ensurePaidPlan } from '../../plus/gk/utils/-webview/plus.utils';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import { executeCommand } from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { getOrOpenTextEditor } from '../../system/-webview/vscode/editors';
-import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
-import { openWorkspace } from '../../system/-webview/vscode/workspaces';
-import { debug } from '../../system/decorators/log';
-import { once } from '../../system/event';
-import { Logger } from '../../system/logger';
-import { maybeUri, normalizePath } from '../../system/path';
-import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
-import { showInspectView } from '../../webviews/commitDetails/actions';
-import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
-import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
-import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
+import { fromBase64ToString } from '@env/base64.js';
+import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
+import { isIntegrationId, isSupportedCloudIntegrationId } from '../../constants.integrations.js';
+import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage.js';
+import type { Container } from '../../container.js';
+import { openComparisonChanges, openFileAtRevision } from '../../git/actions/commit.js';
+import { executeGitCommand } from '../../git/actions.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { GitReference } from '../../git/models/reference.js';
+import type { Repository, RepositoryChangeEvent } from '../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
+import type { RepositoryIdentity } from '../../git/models/repositoryIdentities.js';
+import { missingRepositoryId } from '../../git/models/repositoryIdentities.js';
+import type { GitTag } from '../../git/models/tag.js';
+import { parseGitRemoteUrl } from '../../git/parsers/remoteParser.js';
+import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils.js';
+import { createReference } from '../../git/utils/reference.utils.js';
+import { isSha } from '../../git/utils/revision.utils.js';
+import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils.js';
+import { ensurePaidPlan } from '../../plus/gk/utils/-webview/plus.utils.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { getOrOpenTextEditor } from '../../system/-webview/vscode/editors.js';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
+import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
+import { debug } from '../../system/decorators/log.js';
+import { once } from '../../system/event.js';
+import { Logger } from '../../system/logger.js';
+import { maybeUri, normalizePath } from '../../system/path.js';
+import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider.js';
+import { showInspectView } from '../../webviews/commitDetails/actions.js';
+import type { ShowWipArgs } from '../../webviews/commitDetails/protocol.js';
+import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration.js';
+import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink.js';
 import {
 	AccountDeepLinkTypes,
 	DeepLinkActionType,
@@ -50,7 +50,7 @@ import {
 	isDeepLinkCommandType,
 	PaidDeepLinkTypes,
 	parseDeepLinkUri,
-} from './deepLink';
+} from './deepLink.js';
 
 type OpenQuickPickItem = {
 	label: string;
@@ -1196,7 +1196,10 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (targetType === DeepLinkType.Repository) {
-						void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', repo));
+						void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+							repository: repo,
+							source: { source: 'deeplink' },
+						}));
 						action = DeepLinkServiceAction.DeepLinkResolved;
 						break;
 					}
@@ -1209,6 +1212,7 @@ export class DeepLinkService implements Disposable {
 
 					void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 						ref: createReference(targetSha, repo.path),
+						source: { source: 'deeplink' },
 					}));
 
 					action = DeepLinkServiceAction.DeepLinkResolved;

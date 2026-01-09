@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { baseStyles } from './pill.css';
-import '../code-icon';
+import { baseStyles } from './pill.css.js';
+import '../code-icon.js';
 
 @customElement('gl-tracking-pill')
 export class GlTrackingPill extends LitElement {

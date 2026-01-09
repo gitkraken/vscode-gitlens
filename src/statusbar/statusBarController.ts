@@ -1,23 +1,23 @@
 import type { ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
-import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
-import { GlyphChars } from '../constants';
-import type { GlCommands } from '../constants.commands';
-import type { Container } from '../container';
-import { CommitFormatter } from '../git/formatters/commitFormatter';
-import type { PullRequest } from '../git/models/pullRequest';
-import { detailsMessage } from '../hovers/hovers';
-import { createCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
-import { createMarkdownCommandLink } from '../system/commands';
-import { debug } from '../system/decorators/log';
-import { once } from '../system/event';
-import { Logger } from '../system/logger';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import type { MaybePausedResult } from '../system/promise';
-import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise';
-import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
+import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations.js';
+import type { GlCommands } from '../constants.commands.js';
+import { GlyphChars } from '../constants.js';
+import type { Container } from '../container.js';
+import { CommitFormatter } from '../git/formatters/commitFormatter.js';
+import type { PullRequest } from '../git/models/pullRequest.js';
+import { detailsMessage } from '../hovers/hovers.js';
+import { createCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { debug } from '../system/decorators/log.js';
+import { once } from '../system/event.js';
+import { Logger } from '../system/logger.js';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope.js';
+import type { MaybePausedResult } from '../system/promise.js';
+import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise.js';
+import type { LinesChangeEvent, LineState } from '../trackers/lineTracker.js';
 
 export class StatusBarController implements Disposable {
 	private _cancellation: CancellationTokenSource | undefined;
@@ -409,6 +409,7 @@ export class StatusBarController implements Disposable {
 				pullRequests: showPullRequests && pr != null,
 				remotes: remotes,
 				timeout: timeout,
+				sourceName: 'statusbar:hover',
 			});
 		}
 

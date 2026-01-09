@@ -3,11 +3,11 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
-import { urls } from '../../../../../constants';
-import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
-import type { Source } from '../../../../../constants.telemetry';
-import type { PromoPlans } from '../../../../../plus/gk/models/promo';
-import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
+import { urls } from '../../../../../constants.js';
+import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription.js';
+import type { Source } from '../../../../../constants.telemetry.js';
+import type { PromoPlans } from '../../../../../plus/gk/models/promo.js';
+import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
 import {
 	compareSubscriptionPlans,
 	getSubscriptionPlanName,
@@ -16,23 +16,23 @@ import {
 	isSubscriptionPaid,
 	isSubscriptionTrial,
 	isSubscriptionTrialOrPaidFromState,
-} from '../../../../../plus/gk/utils/subscription.utils';
-import { createCommandLink } from '../../../../../system/commands';
-import { pluralize } from '../../../../../system/string';
-import type { State } from '../../../../home/protocol';
-import { stateContext } from '../../../home/context';
-import type { GlPopover } from '../../../shared/components/overlays/popover';
-import type { GlPromo } from '../../../shared/components/promo';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
-import type { PromosContext } from '../../../shared/contexts/promos';
-import { promosContext } from '../../../shared/contexts/promos';
-import { chipStyles } from './chipStyles';
-import { ruleStyles } from './vscode.css';
-import '../../../shared/components/button';
-import '../../../shared/components/button-container';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/popover';
+} from '../../../../../plus/gk/utils/subscription.utils.js';
+import { createCommandLink } from '../../../../../system/commands.js';
+import { pluralize } from '../../../../../system/string.js';
+import type { State } from '../../../../home/protocol.js';
+import { stateContext } from '../../../home/context.js';
+import type { GlPopover } from '../../../shared/components/overlays/popover.js';
+import type { GlPromo } from '../../../shared/components/promo.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { PromosContext } from '../../../shared/contexts/promos.js';
+import { promosContext } from '../../../shared/contexts/promos.js';
+import { chipStyles } from './chipStyles.js';
+import { ruleStyles } from './vscode.css.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/popover.js';
 
 @customElement('gl-account-chip')
 export class GlAccountChip extends LitElement {
@@ -331,7 +331,7 @@ export class GlAccountChip extends LitElement {
 							${this.hasAccount
 								? html`<gl-button
 											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.views.home.account.resync', {
+											href="${createCommandLink<Source>('gitlens.plus.validate', {
 												source: 'account',
 											})}"
 											tooltip="Synchronize Status"
@@ -532,7 +532,7 @@ export class GlAccountChip extends LitElement {
 			case SubscriptionState.TrialExpired:
 				return html`<div class="account-status">
 					<p>Thank you for trying <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
-					<p>Continue leveraging Pro features and workflows on privately-hosted repos by upgrading today.</p>
+					<p>Continue leveraging Pro features and workflows for privately hosted repos by upgrading today.</p>
 					<button-container layout="editor">
 						<gl-button
 							full
@@ -573,7 +573,7 @@ export class GlAccountChip extends LitElement {
 			default:
 				return html`<div class="account-status">
 					<p>
-						Unlock advanced features and workflows on private repos, accelerate reviews, and streamline
+						Unlock advanced features and workflows for private repos, accelerate reviews, and streamline
 						collaboration with
 						<a href="${urls.communityVsPro}">GitLens Pro</a>.
 					</p>
@@ -656,7 +656,7 @@ export class GlAccountChip extends LitElement {
 						<li>Unlimited cloud integrations</li>
 						<li>Smart AI features &mdash; 250K tokens/week</li>
 						<li>
-							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees on private repos
+							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees for private repos
 						</li>
 						<li>Streamlined workflows &mdash; start work from issues, pull request reviews</li>
 					</ul>

@@ -1,37 +1,37 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import { Uri } from 'vscode';
-import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
-import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
-import type { GravatarDefaultStyle } from '../../config';
-import { GlyphChars } from '../../constants';
-import type { Container } from '../../container';
-import { ensureArray } from '../../system/array';
-import { formatDate, fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
-import { memoize } from '../../system/decorators/memoize';
-import { Lazy } from '../../system/lazy';
-import { getLoggableName } from '../../system/logger';
-import { getSettledValue } from '../../system/promise';
-import { pluralize } from '../../system/string';
-import type { DiffRange, PreviousRangeComparisonUrisResult } from '../gitProvider';
-import { GitUri } from '../gitUri';
-import type { RemoteProvider } from '../remotes/remoteProvider';
-import { getChangedFilesCount } from '../utils/commit.utils';
+import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
+import { getAvatarUri, getCachedAvatarUri } from '../../avatars.js';
+import type { GravatarDefaultStyle } from '../../config.js';
+import { GlyphChars } from '../../constants.js';
+import type { Container } from '../../container.js';
+import { ensureArray } from '../../system/array.js';
+import { formatDate, fromNow } from '../../system/date.js';
+import { gate } from '../../system/decorators/gate.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { Lazy } from '../../system/lazy.js';
+import { getLoggableName } from '../../system/logger.js';
+import { getSettledValue } from '../../system/promise.js';
+import { pluralize } from '../../system/string.js';
+import type { DiffRange, PreviousRangeComparisonUrisResult } from '../gitProvider.js';
+import { GitUri } from '../gitUri.js';
+import type { RemoteProvider } from '../remotes/remoteProvider.js';
+import { getChangedFilesCount } from '../utils/commit.utils.js';
 import {
 	isSha,
 	isUncommitted,
 	isUncommittedStaged,
 	isUncommittedStagedWithParentSuffix,
 	isUncommittedWithParentSuffix,
-} from '../utils/revision.utils';
-import type { GitDiffFileStats } from './diff';
-import type { GitFile } from './file';
-import { GitFileChange } from './fileChange';
-import type { PullRequest } from './pullRequest';
-import type { GitRevisionReference, GitStashReference } from './reference';
-import type { GitRemote } from './remote';
-import type { Repository } from './repository';
-import { uncommitted, uncommittedStaged } from './revision';
+} from '../utils/revision.utils.js';
+import type { GitDiffFileStats } from './diff.js';
+import type { GitFile } from './file.js';
+import { GitFileChange } from './fileChange.js';
+import type { PullRequest } from './pullRequest.js';
+import type { GitRevisionReference, GitStashReference } from './reference.js';
+import type { GitRemote } from './remote.js';
+import type { Repository } from './repository.js';
+import { uncommitted, uncommittedStaged } from './revision.js';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
@@ -316,8 +316,23 @@ export class GitCommit implements GitRevisionReference {
 			}
 
 			if (options?.include?.stats) {
-				const stats = await repo?.git.diff.getChangedFilesCount(this.sha);
-				this._stats = stats;
+				this._recomputeStats = true;
+				this.computeFileStats();
+
+				const stats = await repo?.git.diff.getChangedFilesCount(
+					this.isUncommittedStaged ? uncommitted : 'HEAD',
+				);
+				if (stats != null) {
+					if (this._stats != null) {
+						this._stats = {
+							...this._stats,
+							additions: stats.additions,
+							deletions: stats.deletions,
+						};
+					} else {
+						this._stats = stats;
+					}
+				}
 				this._recomputeStats = false;
 			} else {
 				this._recomputeStats = true;
@@ -357,11 +372,7 @@ export class GitCommit implements GitRevisionReference {
 		if (!this._recomputeStats || this.fileset == null) return;
 		this._recomputeStats = false;
 
-		const changedFiles = {
-			added: 0,
-			deleted: 0,
-			changed: 0,
-		};
+		const changedFiles = { added: 0, deleted: 0, changed: 0 };
 
 		let additions = 0;
 		let deletions = 0;
@@ -493,7 +504,7 @@ export class GitCommit implements GitRevisionReference {
 
 		let result = fileStats.join(separator);
 		if (style === 'stats' && options?.color) {
-			result = /*html*/ `<span style="background-color:var(--vscode-textCodeBlock-background);border-radius:3px;">&nbsp;${result}&nbsp;&nbsp;</span>`;
+			result = /*html*/ `<span style="background-color:var(--vscode-textCodeBlock-background);border-radius:3px;">&nbsp;${result}&nbsp;&nbsp;</span> `;
 		}
 		if (options?.addParenthesesToFileStats) {
 			result = `(${result})`;
@@ -679,7 +690,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	@gate()
-	async isPushed(): Promise<boolean> {
+	isPushed(): Promise<boolean> {
 		return this.container.git.getRepositoryService(this.repoPath).commits.hasCommitBeenPushed(this.ref);
 	}
 
@@ -778,4 +789,4 @@ export interface GitStashCommit extends GitCommit {
 	readonly parentTimestamps?: GitStashParentInfo[];
 }
 
-export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'fileset'>;
+export type GitCommitWithFullDetails = GitCommit & RequireSomeNonNullable<GitCommit, 'message' | 'fileset'>;

@@ -1,5 +1,5 @@
 import { GitPullRequestMergeableState, GitPullRequestReviewState, GitPullRequestState } from '@gitkraken/provider-apis';
-import type { ProviderAccount, ProviderPullRequest } from '../models';
+import type { ProviderAccount, ProviderPullRequest } from '../models.js';
 
 export interface BitbucketServerLink {
 	href: string;
