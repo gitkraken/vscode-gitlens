@@ -74,7 +74,7 @@ export async function showComparisonPicker(
 
 		if (base == null || force) {
 			({ title, placeholder } = {
-				title: `Compare ${getReferenceLabel(head)} with`,
+				title: `Compare ${getReferenceLabel(head, { label: false, icon: false })} with`,
 				placeholder: 'Choose a reference (branch, tag, etc) to compare with',
 				...options?.getTitleAndPlaceholder?.(2, head),
 			});
