@@ -4,7 +4,7 @@
 import { spawnSync } from 'child_process';
 import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 import CircularDependencyPlugin from 'circular-dependency-plugin';
-import { CleanWebpackPlugin as CleanPlugin } from 'clean-webpack-plugin';
+
 import CopyPlugin from 'copy-webpack-plugin';
 import CspHtmlPlugin from 'csp-html-webpack-plugin';
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
@@ -195,7 +195,6 @@ function getExtensionConfig(target, mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!dist/webviews/**'] }),
 		new DefinePlugin({
 			DEBUG: mode === 'development',
 			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
@@ -295,6 +294,17 @@ function getExtensionConfig(target, mode, env) {
 			filename: 'gitlens.js',
 			libraryTarget: 'commonjs2',
 			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
+			// Clean output directory, but preserve other build targets' output directories
+			// node target (dist/) needs to preserve webviews/, browser/, and glicons font files; webworker target (dist/browser/) can clean freely
+			clean:
+				target === 'webworker'
+					? true
+					: {
+							keep: asset =>
+								asset.startsWith('webviews/') ||
+								asset.startsWith('browser/') ||
+								asset.startsWith('glicons'),
+						},
 		},
 		optimization: {
 			minimizer: [
@@ -426,27 +436,7 @@ function getWebviewsCommonConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
 	/** @type WebpackConfig['plugins'] | any */
-	const plugins = [];
-	// If we are only building a subset of webviews, don't clean
-	if (!env.webviews) {
-		plugins.push(
-			new CleanPlugin(
-				mode === 'production'
-					? {
-							cleanOnceBeforeBuildPatterns: [
-								path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews', 'media', '**'),
-							],
-							dangerouslyAllowCleanPatternsOutsideProject: true,
-							dry: false,
-						}
-					: env.webviews
-						? { cleanStaleWebpackAssets: false }
-						: undefined,
-			),
-		);
-	}
-
-	plugins.push(
+	const plugins = [
 		new CopyPlugin({
 			patterns: [
 				{
@@ -466,7 +456,7 @@ function getWebviewsCommonConfig(mode, env) {
 				},
 			],
 		}),
-	);
+	];
 
 	if (!env.quick) {
 		plugins.push(
@@ -503,6 +493,9 @@ function getWebviewsCommonConfig(mode, env) {
 		output: {
 			path: path.join(__dirname, 'dist', 'webviews'),
 			publicPath: '#{root}/dist/webviews/',
+			// In production, clean media folder (actual webview cleaning is handled in getWebviewConfig)
+			// In dev, don't clean (media is preserved between builds for faster rebuilds)
+			clean: mode === 'production' ? { keep: asset => !asset.startsWith('media/') } : false,
 		},
 		optimization: {
 			minimizer:
@@ -640,6 +633,9 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			libraryTarget: 'module',
 			path: path.join(__dirname, 'dist', 'webviews'),
 			publicPath: '#{root}/dist/webviews/',
+			// If building a subset of webviews, don't clean; otherwise clean everything except media and codicon.ttf
+			// These assets are copied by webviews:common which runs in parallel
+			clean: env.webviews ? false : { keep: asset => asset.startsWith('media/') || asset === 'codicon.ttf' },
 		},
 		experiments: {
 			outputModule: true,

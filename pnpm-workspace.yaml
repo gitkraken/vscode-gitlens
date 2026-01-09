@@ -3,6 +3,6 @@ minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
+    - '@koa/router@15.2.0'
     - '@vscode/*'
-    - 'diff2html@3.4.55'
-    - 'esbuild-loader@4.4.2'
+    - 'ovsx@0.10.8'
