@@ -327,7 +327,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				actions.push(
 					html`<menu-item
 						?disabled=${isFetching}
-						href=${this._webview.createCommandLink('gitlens.ai.explainWip:')}
+						href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainWip:')}
 						>Explain Working Changes (Preview)</menu-item
 					>`,
 				);
@@ -336,7 +336,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			actions.push(
 				html`<menu-item
 					?disabled=${isFetching}
-					href=${this._webview.createCommandLink('gitlens.ai.explainBranch:')}
+					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
 					>Explain Branch Changes (Preview)</menu-item
 				>`,
 			);
@@ -346,7 +346,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				actions.push(
 					html`<menu-item
 						?disabled=${isFetching}
-						href=${this._webview.createCommandLink('gitlens.createCloudPatch:')}
+						href=${this.createWebviewCommandLinkWithBranchRef('gitlens.createCloudPatch:')}
 						>Share as Cloud Patch</menu-item
 					>`,
 				);
@@ -356,7 +356,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				<gl-button
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}
-					href=${this._webview.createCommandLink('gitlens.createCloudPatch:')}
+					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.createCloudPatch:')}
 					appearance="secondary"
 					tooltip="Share as Cloud Patch"
 					><code-icon icon="gl-cloud-patch-share"></code-icon>
@@ -401,7 +401,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				<gl-button
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}
-					href=${this._webview.createCommandLink('gitlens.composeCommits:home')}
+					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.composeCommits:')}
 					appearance="secondary"
 					density="compact"
 					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"

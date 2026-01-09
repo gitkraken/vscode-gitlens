@@ -376,7 +376,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				const [arg] = args;
 				if (isWebviewContext(arg)) {
 					const { webview: _webview, webviewInstance: _webviewInstance, ...rest } = arg;
-					args.splice(0, 1, hasKeys(rest) ? rest : undefined);
+					if (hasKeys(rest)) {
+						args.splice(0, 1, rest);
+					} else {
+						args.length = 0;
+					}
 				}
 
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
