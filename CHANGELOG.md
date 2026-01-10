@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improves the _Interactive Rebase Editor_ to fully support `--rebase-merges` on linear history while preventing unsafe reordering when merge commits are present ([#1238](https://github.com/gitkraken/vscode-gitlens/issues/1238))
 - Changes AI features to require GitLens Pro instead of GitLens Advanced &mdash; all AI features now consistently lead to Pro plan checkout ([#4843](https://github.com/gitkraken/vscode-gitlens/issues/4843))
 - Updates the Welcome walkthrough to streamline onboarding and highlight core GitLens features ([#4842](https://github.com/gitkraken/vscode-gitlens/issues/4842))
 

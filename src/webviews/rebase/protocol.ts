@@ -29,10 +29,10 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 	ascending: boolean;
 
 	/**
-	 * True if this is a complex rebase (--rebase-merges) that should be read-only.
-	 * Complex rebases contain label/reset/merge commands that form a DAG structure.
+	 * True if this is a --rebase-merges rebase with actual merge commits.
+	 * Reordering is disabled to preserve the DAG structure, but action changes are allowed.
 	 */
-	isReadOnly?: boolean;
+	preservesMerges?: boolean;
 
 	/** Layout density */
 	density: Config['rebaseEditor']['density'];

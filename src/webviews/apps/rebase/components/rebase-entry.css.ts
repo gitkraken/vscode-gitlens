@@ -28,6 +28,11 @@ export const entryStyles = css`
 		}
 	}
 
+	/* Disable grab cursor when reordering is disabled (preserves merges) */
+	:host-context(.preserves-merges) {
+		cursor: default;
+	}
+
 	/* Light theme overrides */
 	:host-context(.vscode-light),
 	:host-context(.vscode-high-contrast-light) {

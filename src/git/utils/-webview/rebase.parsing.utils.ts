@@ -6,10 +6,9 @@ import type {
 	RebaseTodoCommandAction,
 	RebaseTodoCommitAction,
 	RebaseTodoEntry,
-	RebaseTodoMergesAction,
 } from '../../models/rebase.js';
 import { parseRebaseTodo } from '../../parsers/rebaseTodoParser.js';
-import { commandRebaseActions, commitRebaseActions, mergesRebaseActions } from '../rebase.utils.js';
+import { commandRebaseActions, commitRebaseActions } from '../rebase.utils.js';
 
 export function formatRebaseTodoEntryLine(entry: ProcessedRebaseEntry, overrideAction?: string): string {
 	const action = overrideAction ?? entry.action;
@@ -45,11 +44,17 @@ function isCommandEntry(entry: RebaseTodoEntry): entry is RebaseTodoCommandEntry
 }
 
 /**
- * Checks if this is a --rebase-merges rebase that preserves merge commits
- * These use label/reset/merge commands forming a DAG that the reorder UI cannot safely edit
+ * Checks if this is a --rebase-merges rebase that actually has merge commits
+ * Only actual 'merge' commands indicate a true DAG that cannot be safely reordered.
+ * If just label/reset are present (no merge), the history is linear and editable.
  */
-function isRebasingMerges(entries: RebaseTodoEntry[]): boolean {
-	return entries.some(e => mergesRebaseActions.has(e.action as RebaseTodoMergesAction));
+function hasActualMergeCommands(entries: RebaseTodoEntry[]): boolean {
+	return entries.some(e => e.action === 'merge');
+}
+
+/** Checks if an entry is a structural label/reset command (filtered from UI) */
+function isStructuralEntry(entry: RebaseTodoEntry): boolean {
+	return entry.action === 'label' || entry.action === 'reset';
 }
 
 /** Checks if an entry is an update-ref action */
@@ -62,13 +67,13 @@ function isUpdateRefEntry(entry: RebaseTodoEntry): entry is RebaseTodoUpdateRefE
  * Processes parsed rebase entries into a flat list with type discriminators.
  * - Adds `type: 'commit' | 'command'` to each entry
  * - Attaches update-ref entries to their preceding commits
- * - Detects rebases that preserve merges (--rebase-merges with label/reset/merge)
+ * - Filters out structural label/reset entries (they're preserved in the raw file)
+ * - Detects rebases with actual merge commits (reordering disabled but actions allowed)
  */
 export function processRebaseEntries(entries: RebaseTodoEntry[], done?: boolean): ProcessedRebaseTodo {
-	const preservesMerges = isRebasingMerges(entries);
-
-	// For rebases that preserve merges, return empty - the UI will show read-only mode
-	if (preservesMerges) return { entries: [], commits: new Map(), preservesMerges: true };
+	// Only flag as preservesMerges if there are actual merge commands
+	// label/reset alone (no merge) means linear history that can be edited
+	const preservesMerges = hasActualMergeCommands(entries);
 
 	const result: ProcessedRebaseEntry[] = [];
 	const commits = new Map<string, ProcessedRebaseCommitEntry>();
@@ -77,6 +82,10 @@ export function processRebaseEntries(entries: RebaseTodoEntry[], done?: boolean)
 	let lastCommit: ProcessedRebaseCommitEntry | undefined;
 
 	for (const entry of entries) {
+		// Skip structural label/reset entries - they're preserved in the raw file
+		// but not shown in the UI (the UI only shows commits and command actions)
+		if (isStructuralEntry(entry)) continue;
+
 		if (isCommitEntry(entry)) {
 			const commitEntry: ProcessedRebaseCommitEntry = { ...entry, type: 'commit', id: entry.sha, done: done };
 			result.push(commitEntry);
@@ -100,7 +109,7 @@ export function processRebaseEntries(entries: RebaseTodoEntry[], done?: boolean)
 		}
 	}
 
-	return { entries: result, commits: commits, preservesMerges: false };
+	return { entries: result, commits: commits, preservesMerges: preservesMerges };
 }
 
 export interface ParsedRebaseDone {
