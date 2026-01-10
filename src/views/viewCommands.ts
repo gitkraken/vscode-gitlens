@@ -1038,6 +1038,15 @@ export class ViewCommands implements Disposable {
 		return RepoActions.revert(node.repoPath, node.ref);
 	}
 
+	@command('gitlens.views.commitFixup')
+	@log()
+	private commitFixup(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
+
+		return RepoActions.commitFixup(node.repoPath, node.ref);
+	}
+
+
 	@command('gitlens.views.setAsDefault')
 	@log()
 	private setAsDefault(node: RemoteNode) {
