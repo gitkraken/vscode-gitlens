@@ -74,6 +74,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 				const result = await showComparisonPicker(this.container, repoPath, {
 					head: args.ref1 != null ? createReference(args.ref1, repoPath) : undefined,
 					base: args.ref2 != null ? createReference(args.ref2, repoPath) : undefined,
+					headIncludes: ['branches', 'tags', 'HEAD', 'workingTree'],
 				});
 				if (result == null) return;
 
