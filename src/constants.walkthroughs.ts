@@ -9,6 +9,6 @@ export const walkthroughProgressSteps: Record<WalkthroughContextKeys, string> = 
 	gettingStarted: 'Getting Started',
 	visualizeCodeHistory: 'Visualize Code History',
 	aiFeatures: 'AI Features',
-	gitBlame: 'File Blame',
+	gitBlame: 'Inline Blame',
 	prReviews: 'Launchpad',
 };
