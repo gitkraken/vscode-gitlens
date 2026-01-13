@@ -1,9 +1,11 @@
 import { window } from 'vscode';
+import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import { CancellationError } from '../../../../errors.js';
-import { ApplyPatchCommitError, CherryPickError } from '../../../../git/errors.js';
+import { ApplyPatchCommitError, CherryPickError, SigningError, SigningErrorReason } from '../../../../git/errors.js';
 import type { GitPatchSubProvider } from '../../../../git/gitProvider.js';
 import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit.js';
+import type { SigningFormat } from '../../../../git/models/signature.js';
 import { log } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
@@ -130,12 +132,21 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		base: string,
 		message: string,
 		patch: string,
+		options?: { sign?: boolean; source?: Source },
 	): Promise<GitCommit | undefined> {
 		// Create a temporary index file from the base ref
 		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, 'ref', base);
 		const { env } = disposableIndex;
 
-		const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch);
+		const sha = await this.createUnreachableCommitForPatchCore(
+			env,
+			repoPath,
+			base,
+			message,
+			patch,
+			undefined,
+			options,
+		);
 		// eslint-disable-next-line no-return-await -- await is needed for the disposableIndex to be disposed properly after
 		return await this.provider.commits.getCommit(repoPath, sha);
 	}
@@ -145,6 +156,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		repoPath: string,
 		base: string | undefined,
 		patches: { message: string; patch: string; author?: GitCommitIdentityShape }[],
+		options?: { sign?: boolean; source?: Source },
 	): Promise<string[]> {
 		// Create a temporary index file - use empty index if no base (orphan commits)
 		await using disposableIndex = base
@@ -155,7 +167,15 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		const shas: string[] = [];
 
 		for (const { message, patch, author } of patches) {
-			const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch, author);
+			const sha = await this.createUnreachableCommitForPatchCore(
+				env,
+				repoPath,
+				base,
+				message,
+				patch,
+				author,
+				options,
+			);
 			shas.push(sha);
 			base = sha;
 		}
@@ -170,12 +190,18 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		message: string,
 		patch: string,
 		author?: GitCommitIdentityShape,
+		options?: { sign?: boolean; source?: Source },
 	): Promise<string> {
 		const scope = getLogScope();
 
 		if (!patch.endsWith('\n')) {
 			patch += '\n';
 		}
+
+		// Check if we should sign
+		const signingConfig = await this.provider.config.getSigningConfig?.(repoPath);
+		const shouldSign = options?.sign ?? signingConfig?.enabled ?? false;
+		const signingFormat: SigningFormat = signingConfig?.format ?? 'gpg';
 
 		try {
 			// Apply the patch to our temp index, without touching the working directory
@@ -191,31 +217,92 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			const tree = result.stdout.trim();
 
 			// Set the author if provided
-			const commitEnv = author
-				? {
-						...env,
-						GIT_AUTHOR_NAME: author.name,
-						GIT_AUTHOR_EMAIL: author.email || '',
-					}
-				: env;
+			if (author) {
+				env = {
+					...env,
+					GIT_AUTHOR_NAME: author.name,
+					GIT_AUTHOR_EMAIL: author.email || '',
+				};
+			}
 
 			// Create new commit from the tree
-			result = await this.git.exec(
-				{ cwd: repoPath, env: commitEnv },
-				'commit-tree',
-				tree,
-				...(base ? ['-p', base] : []),
-				'-m',
-				message,
-			);
+			const args = ['commit-tree', tree];
+			if (base) {
+				args.push('-p', base);
+			}
+
+			// Add signing flag if enabled
+			if (shouldSign) {
+				args.push('-S');
+			}
+
+			args.push('-m', message);
+
+			// Create new commit from the tree
+			result = await this.git.exec({ cwd: repoPath, env: env }, ...args);
 			const sha = result.stdout.trim();
+
+			// Send telemetry for successful signed commit
+			if (shouldSign) {
+				this.container.telemetry.sendEvent('commit/signed', { format: signingFormat }, options?.source);
+			}
 
 			return sha;
 		} catch (ex) {
 			Logger.error(ex, scope);
-			debugger;
 
+			// Handle signing-specific errors
+			if (shouldSign && ex instanceof Error) {
+				const errorMessage = ex.message.toLowerCase();
+				let signingError: SigningError | undefined;
+
+				if (errorMessage.includes('gpg failed to sign') || errorMessage.includes('error: gpg')) {
+					signingError = new SigningError(SigningErrorReason.PassphraseFailed, ex, ex.message);
+				} else if (
+					errorMessage.includes('secret key not available') ||
+					errorMessage.includes('no secret key') ||
+					errorMessage.includes('no signing key')
+				) {
+					signingError = new SigningError(SigningErrorReason.NoKey, ex, ex.message);
+				} else if (
+					errorMessage.includes('gpg: command not found') ||
+					(errorMessage.includes('gpg') && errorMessage.includes('not found'))
+				) {
+					signingError = new SigningError(SigningErrorReason.GpgNotFound, ex, ex.message);
+				} else if (errorMessage.includes('ssh-keygen') && errorMessage.includes('not found')) {
+					signingError = new SigningError(SigningErrorReason.SshNotFound, ex, ex.message);
+				}
+
+				if (signingError != null) {
+					// Send telemetry for signing failure
+					this.container.telemetry.sendEvent(
+						'commit/signing/failed',
+						{ reason: this.getSigningFailureReason(signingError.reason), format: signingFormat },
+						options?.source,
+					);
+					throw signingError;
+				}
+			}
+
+			debugger;
 			throw ex;
+		}
+	}
+
+	private getSigningFailureReason(
+		reason: SigningErrorReason | undefined,
+	): 'noKey' | 'gpgNotFound' | 'sshNotFound' | 'passphraseFailed' | 'unknown' {
+		switch (reason) {
+			case SigningErrorReason.NoKey:
+				return 'noKey';
+			case SigningErrorReason.GpgNotFound:
+				return 'gpgNotFound';
+			case SigningErrorReason.SshNotFound:
+				return 'sshNotFound';
+			case SigningErrorReason.PassphraseFailed:
+				return 'passphraseFailed';
+			default:
+				return 'unknown';
 		}
 	}
 

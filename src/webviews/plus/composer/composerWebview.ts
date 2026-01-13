@@ -1544,7 +1544,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Create unreachable commits from patches
-			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit?.sha, diffInfo);
+			// Get signing config to determine if commits should be signed
+			const signingConfig = await repo.git.config.getSigningConfig?.();
+			const shouldSign = signingConfig?.enabled ?? false;
+
+			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit?.sha, diffInfo, {
+				sign: shouldSign,
+				source: { source: 'composer' },
+			});
 
 			if (!shas?.length) {
 				this._context.errors.operation.count++;
@@ -1555,6 +1562,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					'failure.error.message': errorMessage,
 				});
 				throw new Error(errorMessage);
+			}
+
+			// Send telemetry for signed commits
+			if (shouldSign && signingConfig?.format) {
+				this.container.telemetry.sendEvent(
+					'commit/signed',
+					{ format: signingConfig.format },
+					{ source: 'composer' },
+				);
 			}
 
 			const baseRef = params.baseCommit?.sha ?? ((await repo.git.commits.getCommit('HEAD')) ? 'HEAD' : rootSha);

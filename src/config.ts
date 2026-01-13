@@ -44,6 +44,7 @@ export interface Config {
 	readonly rebaseEditor: RebaseEditorConfig;
 	readonly remotes: RemotesConfig[] | null;
 	readonly showWhatsNewAfterUpgrades: boolean;
+	readonly signing: SigningConfig;
 	readonly sortBranchesBy: BranchSorting;
 	readonly sortContributorsBy: ContributorSorting;
 	readonly sortTagsBy: TagSorting;
@@ -711,6 +712,13 @@ export interface RemotesUrlsConfig {
 	readonly fileInCommit: string;
 	readonly fileLine: string;
 	readonly fileRange: string;
+}
+
+interface SigningConfig {
+	readonly showSetupWizard: boolean;
+	readonly showStatusBar: boolean;
+	readonly showSignatureBadges: boolean;
+	readonly enableKeyGeneration: boolean;
 }
 
 interface StatusBarConfig {

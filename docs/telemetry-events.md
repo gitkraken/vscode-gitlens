@@ -806,6 +806,48 @@ or
 }
 ```
 
+### commit/signed
+
+> Sent when a commit is signed
+
+```typescript
+{
+  'format': 'gpg' | 'ssh' | 'x509' | 'openpgp'
+}
+```
+
+### commit/signing/failed
+
+> Sent when commit signing fails
+
+```typescript
+{
+  'format': 'gpg' | 'ssh' | 'x509' | 'openpgp',
+  'reason': 'unknown' | 'noKey' | 'gpgNotFound' | 'sshNotFound' | 'passphraseFailed'
+}
+```
+
+### commit/signing/setup
+
+> Sent when commit signing setup is completed
+
+```typescript
+{
+  'format': 'gpg' | 'ssh' | 'x509' | 'openpgp',
+  'keyGenerated': boolean
+}
+```
+
+### commit/signing/setupWizard/opened
+
+> Sent when commit signing setup wizard is opened
+
+```typescript
+{
+  'alreadyConfigured': boolean
+}
+```
+
 ### commitDetails/closed
 
 ```typescript
