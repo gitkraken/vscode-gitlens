@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.9.0] - 2026-01-13
+
 ### Added
 
 - Adds a welcome page webview for first-time installs to highlight Pro benefits for users in IDEs that do not support the standard VS Code walkthrough ([#4769](https://github.com/gitkraken/vscode-gitlens/issues/4769)
@@ -6624,7 +6626,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.9.0...HEAD
+[17.9.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.1...gitkraken:v17.9.0
 [17.8.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.0...gitkraken:v17.8.1
 [17.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.1...gitkraken:v17.8.0
 [17.7.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.0...gitkraken:v17.7.1
