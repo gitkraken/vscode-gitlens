@@ -1,0 +1,143 @@
+import { window } from 'vscode';
+import type { Container } from '../../container.js';
+import { command } from '../../system/-webview/command.js';
+import { GlCommandBase } from '../commandBase.js';
+
+export interface SetupSigningWizardCommandArgs {
+	readonly repoPath?: string;
+}
+
+@command()
+export class SetupSigningWizardCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.git.setupCommitSigning');
+	}
+
+	async execute(args?: SetupSigningWizardCommandArgs): Promise<void> {
+		// Get the repository
+		const repository = args?.repoPath
+			? this.container.git.getRepository(args.repoPath)
+			: this.container.git.getBestRepository();
+
+		if (repository == null) {
+			void window.showErrorMessage('Unable to find a repository to configure signing for');
+			return;
+		}
+
+		// Check if signing is already configured
+		const signingConfig = await repository.git.config.getSigningConfig?.();
+		const alreadyConfigured = Boolean(signingConfig?.enabled && signingConfig?.signingKey);
+
+		// Send telemetry event
+		this.container.telemetry.sendEvent('commit/signing/setupWizard/opened', {
+			alreadyConfigured: alreadyConfigured,
+		});
+
+		if (alreadyConfigured) {
+			const result = await window.showInformationMessage(
+				`Commit signing is already configured for this repository using ${signingConfig?.format?.toUpperCase() ?? 'GPG'}.`,
+				{ modal: false },
+				'Reconfigure',
+				'Test Signing',
+			);
+
+			if (result === 'Test Signing') {
+				await this.testSigning(repository);
+				return;
+			} else if (result !== 'Reconfigure') {
+				return;
+			}
+		}
+
+		// Show setup wizard
+		await this.showSetupWizard(repository);
+	}
+
+	private async showSetupWizard(repository: ReturnType<typeof this.container.git.getRepository>): Promise<void> {
+		if (repository == null) return;
+		// TODO: Implement full setup wizard UI
+		// For now, show a simple quick pick to choose signing format
+
+		const format = await window.showQuickPick(
+			[
+				{
+					label: '$(key) GPG',
+					description: 'Sign commits with GPG',
+					detail: 'Uses GPG (GNU Privacy Guard) for signing commits',
+					value: 'gpg' as const,
+				},
+				{
+					label: '$(key) SSH',
+					description: 'Sign commits with SSH',
+					detail: 'Uses SSH keys for signing commits (requires Git 2.34+)',
+					value: 'ssh' as const,
+				},
+				{
+					label: '$(key) X.509',
+					description: 'Sign commits with X.509',
+					detail: 'Uses X.509 certificates for signing commits',
+					value: 'x509' as const,
+				},
+			],
+			{
+				title: 'Commit Signing Setup',
+				placeHolder: 'Choose a signing format',
+				ignoreFocusOut: true,
+			},
+		);
+
+		if (format == null) return;
+
+		// Get signing key
+		const signingKey = await window.showInputBox({
+			title: 'Commit Signing Setup',
+			prompt: `Enter your ${format.value.toUpperCase()} signing key ${format.value === 'ssh' ? '(file path)' : '(key ID)'}`,
+			placeHolder: format.value === 'ssh' ? '~/.ssh/id_ed25519.pub' : 'Your key ID',
+			ignoreFocusOut: true,
+		});
+
+		if (!signingKey) return;
+
+		// Configure Git
+		try {
+			await repository.git.config.setSigningConfig?.({
+				enabled: true,
+				format: format.value,
+				signingKey: signingKey,
+			});
+
+			const result = await window.showInformationMessage(
+				`Commit signing has been configured successfully using ${format.value.toUpperCase()}.`,
+				{ modal: false },
+				'Test Signing',
+			);
+
+			if (result === 'Test Signing') {
+				await this.testSigning(repository);
+			}
+
+			// Send telemetry event for successful setup
+			this.container.telemetry.sendEvent('commit/signing/setup', {
+				format: format.value,
+				keyGenerated: false, // We don't support key generation yet
+			});
+		} catch (ex) {
+			void window.showErrorMessage(
+				`Failed to configure commit signing: ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+		}
+	}
+
+	private async testSigning(repository: ReturnType<typeof this.container.git.getRepository>): Promise<void> {
+		if (repository == null) return;
+
+		// Validate signing setup
+		const validation = await repository.git.config.validateSigningSetup?.();
+
+		if (validation?.valid) {
+			void window.showInformationMessage('✓ Commit signing is configured correctly and ready to use.');
+		} else {
+			void window.showWarningMessage(`Commit signing validation failed: ${validation?.error ?? 'Unknown error'}`);
+		}
+	}
+}

@@ -886,6 +886,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.externalDiffAll'
 	| 'gitlens.fetchRepositories'
 	| 'gitlens.getStarted'
+	| 'gitlens.git.setupCommitSigning'
 	| 'gitlens.gitCommands'
 	| 'gitlens.gitCommands.branch'
 	| 'gitlens.gitCommands.branch.create'

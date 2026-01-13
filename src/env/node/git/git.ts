@@ -72,6 +72,7 @@ export const gitConfigsBranch = ['-c', 'color.branch=false'] as const;
 export const gitConfigsDiff = ['-c', 'color.diff=false', '-c', 'diff.mnemonicPrefix=false'] as const;
 export const gitConfigsLog = ['-c', 'log.showSignature=false'] as const;
 export const gitConfigsLogWithFiles = ['-c', 'log.showSignature=false', '-c', 'diff.renameLimit=0'] as const;
+export const gitConfigsLogWithSignatures = ['-c', 'log.showSignature=true'] as const;
 export const gitConfigsPull = ['-c', 'merge.autoStash=true', '-c', 'rebase.autoStash=true'] as const;
 export const gitConfigsStatus = ['-c', 'color.status=false'] as const;
 

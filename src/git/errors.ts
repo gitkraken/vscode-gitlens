@@ -796,3 +796,58 @@ export class WorktreeDeleteError extends GitCommandError<WorktreeDeleteErrorDeta
 		}
 	}
 }
+
+export const enum SigningErrorReason {
+	NoKey,
+	GpgNotFound,
+	SshNotFound,
+	PassphraseFailed,
+	Unknown,
+}
+
+export class SigningError extends Error {
+	static is(ex: unknown, reason?: SigningErrorReason): ex is SigningError {
+		return ex instanceof SigningError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: SigningErrorReason | undefined;
+	readonly details?: string;
+
+	constructor(reason?: SigningErrorReason, original?: Error, details?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | SigningErrorReason | undefined, original?: Error, details?: string) {
+		let message;
+		let reason: SigningErrorReason | undefined;
+		if (messageOrReason == null) {
+			message = 'Unable to sign commit';
+		} else if (typeof messageOrReason === 'string') {
+			message = messageOrReason;
+			reason = undefined;
+		} else {
+			reason = messageOrReason;
+			switch (reason) {
+				case SigningErrorReason.NoKey:
+					message = 'Unable to sign commit because no signing key is configured';
+					break;
+				case SigningErrorReason.GpgNotFound:
+					message = 'Unable to sign commit because GPG program was not found';
+					break;
+				case SigningErrorReason.SshNotFound:
+					message = 'Unable to sign commit because SSH program was not found';
+					break;
+				case SigningErrorReason.PassphraseFailed:
+					message = 'Unable to sign commit because GPG passphrase failed or was cancelled';
+					break;
+				default:
+					message = 'Unable to sign commit';
+			}
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this.details = details;
+		Error.captureStackTrace?.(this, SigningError);
+	}
+}
