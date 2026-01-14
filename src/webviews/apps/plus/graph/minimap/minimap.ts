@@ -727,7 +727,8 @@ export class GlGraphMinimap extends GlElement {
 	@debug({ singleLine: true })
 	private async loadChartCore() {
 		if (!this.data?.size) {
-			this.spinner.setAttribute('aria-hidden', 'false');
+			// Hide spinner if data is an empty Map (no commits), show if data is undefined (still loading)
+			this.spinner.setAttribute('aria-hidden', this.data != null ? 'true' : 'false');
 
 			this._chart?.destroy();
 			this._chart = undefined!;
