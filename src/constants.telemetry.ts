@@ -913,6 +913,8 @@ type ComposerGenerateCommitsEvent = ComposerContextEventData & {
 	'customInstructions.hash': string;
 	'customInstructions.setting.used': boolean;
 	'customInstructions.setting.length': number;
+	'customInstructions.commitMessage.setting.used': boolean;
+	'customInstructions.commitMessage.setting.length': number;
 };
 
 type ComposerActionFailureEventData =
