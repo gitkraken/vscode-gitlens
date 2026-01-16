@@ -407,13 +407,35 @@ Follow these guidelines:
 2. For unassigned hunks, group them into logical units that make sense together and can be applied atomically
 3. Use each hunk only once. Ensure all hunks are assigned to exactly one commit
 4. Ensure each new commit is self-contained and atomic
-5. Write meaningful commit messages that accurately describe the changes in each new commit
-6. Provide detailed explanations for new commits
-7. Order commits logically (existing commits first, then new commits in dependency order)
+5. Order commits logically (existing commits first, then new commits in dependency order)
+6. Write a commit message for each new commit using these detailed steps:
+
+6a. Carefully analyze the hunks assigned to each commit, focusing on:
+   - The purpose and rationale of the changes
+   - Any problems addressed or benefits introduced
+   - Any significant logic changes or algorithmic improvements
+6b. Ensure the following when composing each commit message:
+   - Emphasize the 'why' of the change, its benefits, or the problem it addresses
+   - Use an informal yet professional tone
+   - Use a future-oriented manner, third-person singular present tense (e.g., 'Fixes', 'Updates', 'Improves', 'Adds', 'Removes')
+   - Be clear and concise
+   - Synthesize only meaningful information from the code changes
+   - Avoid outputting code, specific code identifiers, names, or file names unless crucial for understanding
+   - Avoid repeating information, broad generalities, and unnecessary phrases like "this", "this commit", or "this change"
+6c. Summarize the main purpose of the changes in a single, concise sentence for the first line of the commit message you generate:
+   - Start with a third-person singular present tense verb
+   - Limit to 50 characters if possible
+6d. Then add a blank line followed by some details of the changes, completed as follows:
+   - Add line breaks for readability and to separate independent ideas
+   - Focus on the "why" rather than the "what" of the changes
+   - Explain the rationale and benefits of the changes
+6e. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the commit message
+
+7. Write a detailed explanation for each commit (separate from the commit message), walking through the changes in further detail as if explaining them to a reviewer.
 
 Output your complete commit organization as a JSON array. Each commit in the array should be an object with the following properties:
 - "message": A string containing the commit message
-- "explanation": A string with a detailed explanation of the changes in the commit
+- "explanation": A string with a detailed explanation of the changes in the commit. Note that this is separate from the commit message and provides more detail than in the message itself.
 - "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
   - "hunk": The hunk index (number) from the hunk_map
 
