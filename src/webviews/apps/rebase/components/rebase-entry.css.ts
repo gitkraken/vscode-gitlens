@@ -97,7 +97,6 @@ export const entryStyles = css`
 		width: 100%;
 
 		&:hover {
-			--fg-color: var(--vscode-list-activeSelectionForeground, var(--color-foreground));
 			--entry-bg: var(--vscode-list-hoverBackground);
 
 			background-color: var(--vscode-list-hoverBackground);
@@ -105,8 +104,6 @@ export const entryStyles = css`
 
 		&:focus,
 		&:focus-within {
-			--fg-color: var(--vscode-list-activeSelectionForeground, var(--color-foreground));
-
 			background-color: var(--vscode-list-focusBackground);
 			box-shadow: 0 0 0 1px var(--vscode-list-focusOutline) inset;
 			outline: none;

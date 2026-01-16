@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes an issue where commit messages become invisible during interactive rebase in some themes ([#4886](https://github.com/gitkraken/vscode-gitlens/issues/4886))
 - Fixes issue in the _Commit Graph_ minimap where it only shows a spinner when the repo has no commits [#4741](https://github.com/gitkraken/vscode-gitlens/issues/4741)
 
 ## [17.9.0] - 2026-01-13
