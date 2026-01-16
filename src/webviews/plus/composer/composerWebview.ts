@@ -1564,15 +1564,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				throw new Error(errorMessage);
 			}
 
-			// Send telemetry for signed commits
-			if (shouldSign && signingConfig?.format) {
-				this.container.telemetry.sendEvent(
-					'commit/signed',
-					{ format: signingConfig.format },
-					{ source: 'composer' },
-				);
-			}
-
 			const baseRef = params.baseCommit?.sha ?? ((await repo.git.commits.getCommit('HEAD')) ? 'HEAD' : rootSha);
 			const resultingDiff = (
 				await repo.git.diff.getDiff?.(shas[shas.length - 1], baseRef, {
