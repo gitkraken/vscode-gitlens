@@ -401,4 +401,17 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			);
 		}
 	}
+
+	@log()
+	async commitFixup(repoPath: string, ref: string): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'commit', '--fixup', ref);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['status'] });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
+	}
 }
