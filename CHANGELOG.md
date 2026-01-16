@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes issue in the _Commit Graph_ minimap where it only shows a spinner when the repo has no commits [#4741](https://github.com/gitkraken/vscode-gitlens/issues/4741)
+- Fixes issue in webview file trees where same named folders are highlighted when one is selected [#4801](https://github.com/gitkraken/vscode-gitlens/issues/4801)
 
 ## [17.9.0] - 2026-01-13
 
