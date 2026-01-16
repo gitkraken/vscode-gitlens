@@ -2251,6 +2251,11 @@
 				]
 			}
 		},
+		"gitlens.git.setupCommitSigning": {
+			"label": "Setup Commit Signing...",
+			"icon": "$(key)",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.gitCommands": {
 			"label": "Git Command Palette",
 			"commandPalette": "!gitlens:disabled",

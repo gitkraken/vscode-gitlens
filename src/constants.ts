@@ -73,6 +73,14 @@ export type GitConfigKeys =
 	| `branch.${string}.gk-last-accessed`
 	| `branch.${string}.gk-last-modified`;
 
+export type GitCoreConfigKeys =
+	| 'commit.gpgsign'
+	| 'gpg.format'
+	| 'gpg.program'
+	| 'gpg.ssh.program'
+	| 'gpg.ssh.allowedSignersFile'
+	| 'user.signingkey';
+
 export type DeprecatedGitConfigKeys = `branch.${string}.gk-target-base`;
 
 export const enum GlyphChars {
