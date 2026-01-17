@@ -657,3 +657,45 @@ Strongly typed Git entities throughout the codebase (located in `src/git/models/
 3. Handle provider-specific authentication
 4. Add integration constants to `src/constants.integrations.ts`
 5. Consider adding rich integration features (PRs, issues, avatars)
+
+## Quick Lookup
+
+Reference examples and critical rules for common tasks.
+
+### Canonical Examples
+
+When implementing something new, look at these files first:
+
+| Task                            | Example File                                   |
+| ------------------------------- | ---------------------------------------------- |
+| Simple command                  | `src/commands/copyCurrentBranch.ts`            |
+| Complex command (multi-command) | `src/commands/gitWizard.ts`                    |
+| IPC protocol                    | `src/webviews/rebase/protocol.ts`              |
+| Webview provider                | `src/webviews/rebase/rebaseWebviewProvider.ts` |
+| Webview app (Lit)               | `src/webviews/apps/rebase/`                    |
+| Unit test                       | `src/system/__tests__/iterable.test.ts`        |
+| E2E test                        | `tests/e2e/specs/smoke.test.ts`                |
+| E2E page object                 | `tests/e2e/pageObjects/gitLensPage.ts`         |
+
+### Critical Rules
+
+**contributions.json** (only applies to `contributes/commands`, `contributes/menus`, `contributes/submenus`, `contributes/keybindings`, and `contributes/views`)
+
+- Never edit these sections in `package.json` directly — edit `contributions.json` instead
+- Run `pnpm run generate:contributions` after editing (or let the watcher handle it)
+- Run `pnpm run generate:commandTypes` after adding commands (or let the watcher handle it)
+
+**Imports**
+
+- Always use `.js` extension in imports (ESM requirement)
+- Use named exports only (no `default` exports)
+
+**IPC**
+
+- `IpcCommand` = fire-and-forget (no response)
+- `IpcRequest` = expects a response (use `await`)
+- `IpcNotification` = extension → webview state updates
+
+**Testing**
+
+- When debugging test failures, DON'T simplify NOR change the intent of the tests just to get them to pass. Instead, INVESTIGATE and UNDERSTAND the root cause of the failure and address that directly, or raise an issue to the user if you can't resolve it.
