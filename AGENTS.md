@@ -56,12 +56,11 @@ pnpm install              # Install dependencies (requires Node >= 22.12.0, pnpm
 
 ```bash
 pnpm run rebuild          # Complete rebuild from scratch
-pnpm run build            # Full development build
+pnpm run build            # Full development build (everything including e2e and unit tests)
 pnpm run build:quick      # Fast build (no linting)
 pnpm run build:turbo      # Turbo build (no typechecking or linting)
 pnpm run build:extension  # Build only the extension (no webviews)
 pnpm run build:webviews   # Build only webviews
-pnpm run build:tests      # Build unit tests (not part of the main build)
 pnpm run bundle           # Production bundle
 pnpm run bundle:e2e       # E2E tests (turbo) production bundle (with DEBUG for account simulation)
 pnpm run bundle:turbo     # Turbo production bundle (no typechecking or linting)
@@ -70,12 +69,12 @@ pnpm run bundle:turbo     # Turbo production bundle (no typechecking or linting)
 ### Watch Mode
 
 ```bash
-pnpm run watch            # Watch mode for development
+pnpm run watch            # Watch mode for development (everything including e2e and unit tests)
 pnpm run watch:quick      # Fast watch mode (no linting)
 pnpm run watch:turbo      # Turbo watch mode (no typechecking or linting)
 pnpm run watch:extension  # Watch extension only
+pnpm run watch:tests      # Watch unit tests only
 pnpm run watch:webviews   # Watch webviews only
-pnpm run watch:tests      # Watch unit test files
 ```
 
 ### Testing
@@ -269,11 +268,12 @@ walkthroughs/                 # Welcome and tips walkthroughs
 - Tests co-located with source files in `__tests__/` directories
 - Pattern: `src/path/to/__tests__/file.test.ts`
 - VS Code extension tests use `@vscode/test-cli`
-- Unit tests are built separately: `pnpm run build:tests`
+- Unit tests are built as part of the main build, but can be built directly: `pnpm run build:tests`
 
 ```bash
-pnpm run test           # Run unit tests (VS Code extension tests)
-pnpm run watch:tests    # Watch mode for tests
+pnpm run test              # Run unit tests (VS Code extension tests)
+pnpm run build:tests       # Build unit tests
+pnpm run watch:tests       # Watch mode (includes unit tests)
 ```
 
 **End-to-End (E2E) Tests**

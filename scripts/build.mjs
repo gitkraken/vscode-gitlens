@@ -16,7 +16,7 @@ const { values } = parseArgs({
 	},
 });
 
-/** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews')[] | undefined; target: ('node' | 'webworker')[] | undefined; quick: 'true' | 'turbo' | undefined; trace: boolean; webview: string[] | undefined; watch: boolean }} */
+/** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews' | 'unit-tests')[] | undefined; target: ('node' | 'webworker')[] | undefined; quick: 'true' | 'turbo' | undefined; trace: boolean; webview: string[] | undefined; watch: boolean }} */
 const { mode, build, target, quick, trace, webview: webviews, watch } = values;
 
 // Build webpack command
@@ -48,6 +48,10 @@ if (build?.length || webviews?.length) {
 		if (webviews?.length) {
 			cmd += ` --env webviews=${webviews.join(',')}`;
 		}
+	}
+
+	if (build?.includes('unit-tests')) {
+		cmd += ` --config-name unit-tests`;
 	}
 } else if (target?.length) {
 	target.forEach(t => {

@@ -1,7 +1,7 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-import { spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 import CircularDependencyPlugin from 'circular-dependency-plugin';
 
@@ -84,12 +84,14 @@ export default function (env, argv) {
 		console.log('Trace mode enabled — generating TypeScript trace files in dist/trace/');
 	}
 
+	/** @type {WebpackConfig[]} */
 	return [
 		getCommonConfig(mode, env),
 		getExtensionConfig('node', mode, env),
 		getExtensionConfig('webworker', mode, env),
 		getWebviewsCommonConfig(mode, env),
 		...getWebviewsConfigs(mode, env),
+		getUnitTestConfig('node', mode, env),
 	];
 }
 
@@ -161,11 +163,7 @@ function getCommonConfig(mode, env) {
 									shell: true,
 								}),
 				onComplete: () =>
-					spawnSync(pkgMgr, ['run', 'icons:apply'], {
-						cwd: __dirname,
-						encoding: 'utf8',
-						shell: true,
-					}),
+					spawnSync(pkgMgr, ['run', 'icons:apply'], { cwd: __dirname, encoding: 'utf8', shell: true }),
 			}),
 		);
 	}
@@ -230,10 +228,7 @@ function getExtensionConfig(target, mode, env) {
 				files: path.join(__dirname, 'src', '**', '*.ts'),
 				exclude: ['**/@types/**', '**/webviews/apps/**', '**/__tests__/**'],
 				worker: eslintWorker,
-				eslintOptions: {
-					...eslintOptions,
-					cacheLocation: path.join(__dirname, '.eslintcache/'),
-				},
+				eslintOptions: { ...eslintOptions, cacheLocation: path.join(__dirname, '.eslintcache/') },
 			}),
 		);
 	}
@@ -283,9 +278,7 @@ function getExtensionConfig(target, mode, env) {
 
 	return {
 		name: `extension:${target}`,
-		entry: {
-			extension: './src/extension.ts',
-		},
+		entry: { extension: './src/extension.ts' },
 		mode: mode,
 		target: target,
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
@@ -321,10 +314,7 @@ function getExtensionConfig(target, mode, env) {
 							keep_classnames: true,
 							module: true,
 						},
-						format: {
-							comments: false,
-							ecma: 2020,
-						},
+						format: { comments: false, ecma: 2020 },
 						mangle: {
 							// Keep the class names otherwise @log won't provide a useful name
 							keep_classnames: true,
@@ -338,15 +328,10 @@ function getExtensionConfig(target, mode, env) {
 					: {
 							// Disable all non-async code splitting
 							chunks: () => false,
-							cacheGroups: {
-								default: false,
-								vendors: false,
-							},
+							cacheGroups: { default: false, vendors: false },
 						},
 		},
-		externals: {
-			vscode: 'commonjs vscode',
-		},
+		externals: { vscode: 'commonjs vscode' },
 		module: {
 			rules: [
 				{
@@ -365,11 +350,7 @@ function getExtensionConfig(target, mode, env) {
 							}
 						: {
 								loader: 'ts-loader',
-								options: {
-									configFile: tsConfigPath,
-									experimentalWatchApi: true,
-									transpileOnly: true,
-								},
+								options: { configFile: tsConfigPath, experimentalWatchApi: true, transpileOnly: true },
 							},
 				},
 			],
@@ -398,6 +379,26 @@ function getExtensionConfig(target, mode, env) {
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
 		cache: getCacheConfig('extension', target, mode),
+	};
+}
+
+/**
+ * Unit test config - delegates to esbuild via EsbuildTestsPlugin for faster builds.
+ * @param { GlTarget } _target
+ * @param { GlMode } mode
+ * @param {GlEnv} _env
+ * @returns { WebpackConfig }
+ */
+function getUnitTestConfig(_target, mode, _env) {
+	return {
+		name: 'unit-tests',
+		context: __dirname,
+		// Empty entry - esbuild handles the actual bundling
+		entry: {},
+		mode: mode,
+		plugins: [new EsbuildTestsPlugin()],
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' },
+		stats: 'none',
 	};
 }
 
@@ -464,10 +465,7 @@ function getWebviewsCommonConfig(mode, env) {
 				files: '**/*.ts?(x)',
 				exclude: ['**/__tests__/**'],
 				worker: eslintWorker,
-				eslintOptions: {
-					...eslintOptions,
-					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
-				},
+				eslintOptions: { ...eslintOptions, cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/') },
 			}),
 		);
 	}
@@ -476,12 +474,7 @@ function getWebviewsCommonConfig(mode, env) {
 
 	if (!env.quick && mode !== 'production') {
 		// Only need to add the plugin for dev mode, as prod is handled by the minimization
-		plugins.push(
-			new ImageMinimizerPlugin({
-				deleteOriginalAssets: true,
-				generator: [imageGeneratorConfig],
-			}),
-		);
+		plugins.push(new ImageMinimizerPlugin({ deleteOriginalAssets: true, generator: [imageGeneratorConfig] }));
 	}
 
 	return {
@@ -500,12 +493,7 @@ function getWebviewsCommonConfig(mode, env) {
 		optimization: {
 			minimizer:
 				mode === 'production'
-					? [
-							new ImageMinimizerPlugin({
-								deleteOriginalAssets: true,
-								generator: [imageGeneratorConfig],
-							}),
-						]
+					? [new ImageMinimizerPlugin({ deleteOriginalAssets: true, generator: [imageGeneratorConfig] })]
 					: [],
 		},
 		plugins: plugins,
@@ -532,9 +520,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			DEBUG: mode === 'development',
 			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
-		new WebpackRequireFromPlugin({
-			variableName: 'webpackResourceBasePath',
-		}),
+		new WebpackRequireFromPlugin({ variableName: 'webpackResourceBasePath' }),
 		new MiniCssExtractPlugin({ filename: '[name].css' }),
 		...Object.entries(webviews).map(([name, config]) => getHtmlPlugin(name, Boolean(config.plus), mode, env)),
 		getCspHtmlPlugin(mode, env),
@@ -583,10 +569,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				files: '**/*.ts?(x)',
 				exclude: ['**/__tests__/**'],
 				worker: eslintWorker,
-				eslintOptions: {
-					...eslintOptions,
-					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
-				},
+				eslintOptions: { ...eslintOptions, cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/') },
 			}),
 		);
 	}
@@ -595,12 +578,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 
 	if (!env.quick && mode !== 'production') {
 		// Only need to add the plugin for dev mode, as prod is handled by the minimization
-		plugins.push(
-			new ImageMinimizerPlugin({
-				deleteOriginalAssets: true,
-				generator: [imageGeneratorConfig],
-			}),
-		);
+		plugins.push(new ImageMinimizerPlugin({ deleteOriginalAssets: true, generator: [imageGeneratorConfig] }));
 	}
 
 	if (env.analyzeBundle) {
@@ -637,9 +615,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			// These assets are copied by webviews:common which runs in parallel
 			clean: env.webviews ? false : { keep: asset => asset.startsWith('media/') || asset === 'codicon.ttf' },
 		},
-		experiments: {
-			outputModule: true,
-		},
+		experiments: { outputModule: true },
 		optimization: {
 			minimizer:
 				mode === 'production'
@@ -667,10 +643,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 									},
 								},
 							}),
-							new ImageMinimizerPlugin({
-								deleteOriginalAssets: true,
-								generator: [imageGeneratorConfig],
-							}),
+							new ImageMinimizerPlugin({ deleteOriginalAssets: true, generator: [imageGeneratorConfig] }),
 							new CssMinimizerPlugin({
 								minimizerOptions: {
 									preset: [
@@ -690,10 +663,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			splitChunks: {
 				// Disable all non-async code splitting
 				// chunks: () => false,
-				cacheGroups: {
-					default: false,
-					vendors: false,
-				},
+				cacheGroups: { default: false, vendors: false },
 			},
 		},
 		module: {
@@ -708,10 +678,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 					test: /\.tsx?$/,
 					use: [
 						// React Compiler - must come before esbuild-loader/ts-loader
-						{
-							loader: reactCompilerLoader,
-							options: defineReactCompilerLoaderOption({ target: '19' }),
-						},
+						{ loader: reactCompilerLoader, options: defineReactCompilerLoaderOption({ target: '19' }) },
 						// TypeScript transpilation
 						env.esbuild
 							? {
@@ -736,22 +703,12 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				{
 					test: /\.scss$/,
 					use: [
-						{
-							loader: MiniCssExtractPlugin.loader,
-						},
+						{ loader: MiniCssExtractPlugin.loader },
 						{
 							loader: 'css-loader',
-							options: {
-								sourceMap: mode !== 'production' && !env.quick,
-								url: false,
-							},
+							options: { sourceMap: mode !== 'production' && !env.quick, url: false },
 						},
-						{
-							loader: 'sass-loader',
-							options: {
-								sourceMap: mode !== 'production' && !env.quick,
-							},
-						},
+						{ loader: 'sass-loader', options: { sourceMap: mode !== 'production' && !env.quick } },
 					],
 					exclude: /node_modules/,
 				},
@@ -773,10 +730,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		},
 		ignoreWarnings: [
 			// Ignore warnings about findDOMNode being removed from React 19
-			{
-				module: /@gitkraken\/gitkraken-components/,
-				message: /export 'findDOMNode'/,
-			},
+			{ module: /@gitkraken\/gitkraken-components/, message: /export 'findDOMNode'/ },
 		],
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
@@ -808,14 +762,8 @@ function getCspHtmlPlugin(mode, env) {
 		{
 			enabled: true,
 			hashingMethod: 'sha256',
-			hashEnabled: {
-				'script-src': true,
-				'style-src': mode === 'production',
-			},
-			nonceEnabled: {
-				'script-src': true,
-				'style-src': mode === 'production',
-			},
+			hashEnabled: { 'script-src': true, 'style-src': mode === 'production' },
+			nonceEnabled: { 'script-src': true, 'style-src': mode === 'production' },
 		},
 	);
 	// Override the nonce creation so we can dynamically generate them at runtime
@@ -921,18 +869,10 @@ function getHtmlPlugin(name, plus, mode, env) {
 const schema = {
 	type: 'object',
 	properties: {
-		config: {
-			type: 'object',
-		},
-		configPath: {
-			type: 'string',
-		},
-		onBefore: {
-			instanceof: 'Function',
-		},
-		onComplete: {
-			instanceof: 'Function',
-		},
+		config: { type: 'object' },
+		configPath: { type: 'string' },
+		onBefore: { instanceof: 'Function' },
+		onComplete: { instanceof: 'Function' },
 	},
 };
 
@@ -1201,6 +1141,70 @@ class FantasticonPlugin {
 		compiler.hooks.beforeRun.tapPromise(this.pluginName, generateFn);
 		// @ts-ignore
 		compiler.hooks.watchRun.tapPromise(this.pluginName, generateFn);
+	}
+}
+
+/**
+ * Webpack plugin to run esbuild for unit tests.
+ * Uses esbuild for faster test builds while integrating with webpack's build lifecycle.
+ */
+class EsbuildTestsPlugin {
+	/** @type {import('child_process').ChildProcess | undefined} */
+	watchProcess;
+
+	/**
+	 * @param {import('webpack').Compiler} compiler
+	 */
+	apply(compiler) {
+		const pluginName = 'EsbuildTestsPlugin';
+		const scriptPath = path.join(__dirname, 'scripts', 'esbuild.tests.mjs');
+
+		compiler.hooks.beforeRun.tapPromise(pluginName, async () => {
+			const logger = compiler.getInfrastructureLogger(pluginName);
+			logger.log('Building unit tests with esbuild...');
+
+			const start = Date.now();
+			const result = spawnSync(process.execPath, [scriptPath], {
+				cwd: __dirname,
+				stdio: 'inherit',
+			});
+
+			if (result.status !== 0) {
+				throw new WebpackError(`esbuild tests failed with exit code ${result.status}`);
+			}
+
+			logger.log(`Built unit tests in \x1b[32m${Date.now() - start}ms\x1b[0m`);
+		});
+
+		compiler.hooks.watchRun.tapPromise(pluginName, async () => {
+			// Only start the watch process once (check exitCode to detect if process died)
+			if (this.watchProcess && this.watchProcess.exitCode == null) return;
+
+			const logger = compiler.getInfrastructureLogger(pluginName);
+			logger.log('Starting esbuild watch for unit tests...');
+
+			this.watchProcess = spawn(process.execPath, [scriptPath, '--watch'], {
+				cwd: __dirname,
+				stdio: 'inherit',
+			});
+
+			this.watchProcess.on('error', err => {
+				logger.error(`esbuild watch error: ${err.message}`);
+			});
+
+			this.watchProcess.on('exit', code => {
+				if (code != null && code !== 0) {
+					logger.error(`esbuild watch exited with code ${code}`);
+				}
+			});
+		});
+
+		compiler.hooks.shutdown.tapPromise(pluginName, async () => {
+			if (this.watchProcess && this.watchProcess.exitCode == null) {
+				this.watchProcess.kill();
+				this.watchProcess = undefined;
+			}
+		});
 	}
 }
 

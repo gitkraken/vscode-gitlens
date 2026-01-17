@@ -252,27 +252,44 @@ To add new icons to the GL Icons font follow the steps below:
 
 Once you've finished copy the new `glicons.woff2?<uuid>` URL from `src/webviews/apps/shared/glicons.scss` and search and replace the old references with the new one.
 
-## Testing
+## Testing (Unit and E2E)
 
 GitLens uses VS Code's testing infrastructure for unit and integration tests.
+
+### Building Tests
+
+Unit and E2E tests are built as part of the main build, but can also be built directly.
+
+```bash
+# Build everything (extension, webviews, and tests)
+pnpm run build
+pnpm run build:turbo  # Turbo build (no typechecking or linting)
+
+# Build unit tests only
+pnpm run build:tests
+
+# Build E2E tests
+pnpm run bundle:e2e
+```
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run unit tests
 pnpm run test
 
 # Run E2E tests
 pnpm run test:e2e
-
-# Build test files (required before running tests)
-pnpm run build:tests
-
-# Watch mode for tests during development
-pnpm run watch:tests
 ```
 
-### Writing Tests
+### Watch Mode
+
+```bash
+# Watch mode for everything during development (extension, webviews, and tests)
+pnpm run watch
+```
+
+### Writing Unit Tests
 
 Tests are co-located with source files in `__tests__/` directories:
 

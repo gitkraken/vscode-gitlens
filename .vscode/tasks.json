@@ -89,26 +89,6 @@
 				"reveal": "never"
 			},
 			"problemMatcher": []
-		},
-		{
-			"type": "npm",
-			"script": "build:tests",
-			"group": {
-				"kind": "build"
-			},
-			"presentation": {
-				"group": "build"
-			}
-		},
-		{
-			"type": "npm",
-			"script": "watch:tests",
-			"group": "build",
-			"isBackground": true,
-			"presentation": {
-				"group": "watchers"
-			},
-			"problemMatcher": "$tsc-watch" //["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		}
 	]
 }
