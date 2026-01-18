@@ -86,7 +86,7 @@ interface RebaseEditorContext {
 	doneCount?: number;
 	isRebasing?: boolean;
 	isPaused?: boolean;
-	isReadOnly?: boolean;
+	preservesMerges?: boolean;
 	hasConflicts?: boolean;
 }
 
@@ -191,7 +191,7 @@ export class RebaseWebviewProvider implements Disposable {
 			'context.done.count': this._context.doneCount,
 			'context.isRebasing': this._context.isRebasing,
 			'context.isPaused': this._context.isPaused,
-			'context.isReadOnly': this._context.isReadOnly,
+			'context.preservesMerges': this._context.preservesMerges,
 			'context.hasConflicts': this._context.hasConflicts,
 			'context.session.start': this._context.sessionStart,
 		};
@@ -683,7 +683,7 @@ export class RebaseWebviewProvider implements Disposable {
 		this._context.doneCount = doneEntries?.filter(e => e.type === 'commit').length ?? 0;
 		this._context.isRebasing = rebaseStatus != null;
 		this._context.isPaused = rebaseStatus?.isPaused;
-		this._context.isReadOnly = processed.preservesMerges;
+		this._context.preservesMerges = processed.preservesMerges;
 		this._context.hasConflicts = rebaseStatus?.hasConflicts ?? false;
 
 		return {
@@ -705,7 +705,7 @@ export class RebaseWebviewProvider implements Disposable {
 			doneEntries: doneEntries,
 			authors: authors != null ? Object.fromEntries(authors) : {},
 			ascending: this.ascending,
-			isReadOnly: processed.preservesMerges,
+			preservesMerges: processed.preservesMerges,
 			density: configuration.get('rebaseEditor.density'),
 			revealLocation: configuration.get('rebaseEditor.revealLocation'),
 			revealBehavior: this.getRevealBehavior(),

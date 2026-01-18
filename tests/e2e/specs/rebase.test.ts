@@ -670,8 +670,10 @@ test.describe('Rebase Merges', () => {
 	test.beforeEach(standardSetup);
 	test.afterEach(standardTeardown);
 
-	test('enforces read-only mode for rebase with merges', async ({ vscode }) => {
-		// Start interactive rebase with --rebase-merges
+	test('allows full editing for --rebase-merges on linear history (no merge commits)', async ({ vscode }) => {
+		const { page } = vscode;
+
+		// Start interactive rebase with --rebase-merges on linear history
 		const rebaseContext = startInteractiveRebase({ rebaseMerges: true });
 		currentRebaseContext = rebaseContext;
 		const { rebasePromise, waitForTodoFile, signalEditorDone, signalEditorAbort } = rebaseContext;
@@ -681,11 +683,117 @@ test.describe('Rebase Merges', () => {
 
 		// Get the webview
 		const webviewFrame = await getRebaseWebviewWithRetry(vscode);
+		const entries = webviewFrame.locator('gl-rebase-entry');
+		await expect(entries.first()).toBeVisible({ timeout: 3000 });
 
-		// Check for the read-only banner
-		const readOnlyBanner = webviewFrame.locator('.read-only-banner');
-		await expect(readOnlyBanner).toBeVisible({ timeout: 3000 });
-		await expect(readOnlyBanner).toContainText('merge commits');
+		// Verify NO preserves-merges banner (linear history should be fully editable)
+		const preservesMergesBanner = webviewFrame.locator('.preserves-merges-banner');
+		await expect(preservesMergesBanner).not.toBeVisible();
+
+		// Verify reordering works (Alt+ArrowDown should move the entry)
+		await entries.nth(0).click();
+		await page.keyboard.press('Alt+ArrowDown');
+		await page.waitForTimeout(200);
+
+		// Verify the order changed
+		const messages = await entries.evaluateAll((elements: HTMLElement[]) => {
+			return elements.slice(0, 4).map(el => {
+				const root = el.shadowRoot;
+				if (!root) return '';
+				const div = root.querySelector('[role="listitem"]');
+				if (!div) return '';
+				const ariaLabel = div.getAttribute('aria-label') || '';
+				const parts = ariaLabel.split(', ');
+				return parts.length >= 2 ? parts.slice(1, -1).join(', ') : '';
+			});
+		});
+		// First entry moved down, so order should be C, D, B, A
+		expect(messages).toEqual(['Commit C', 'Commit D', 'Commit B', 'Commit A']);
+
+		// Signal editor done to keep it open, then abort
+		await signalEditorDone();
+		await signalEditorAbort();
+		await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 1000))]);
+		currentRebaseContext = null;
+	});
+
+	test('disables reordering but allows action changes for --rebase-merges with merge commits', async ({ vscode }) => {
+		const { page } = vscode;
+
+		// Create a history with an actual merge commit
+		// Get current branch name (could be main or master depending on git config)
+		const mainBranch = await git.getCurrentBranch();
+
+		// Create a feature branch from Commit A, add a commit, then merge back
+		await git.checkout('feature-a'); // At Commit A
+		await git.checkout('merge-feature', true); // Create new branch for the merge
+		await git.commit('Feature commit', 'feature.txt', 'feature content');
+
+		// Go back to main branch (at Commit D) and merge
+		await git.checkout(mainBranch);
+		await git.merge('merge-feature', 'Merge merge-feature', { noFF: true });
+
+		// Now start --rebase-merges which will include the merge commit
+		// Rebase onto initial commit to include all commits + the merge
+		const rebaseContext = git.startRebaseInteractiveWithWaitEditor(initialCommitSha, { rebaseMerges: true });
+		currentRebaseContext = rebaseContext;
+		const { rebasePromise, waitForTodoFile, signalEditorDone, signalEditorAbort } = rebaseContext;
+
+		const todoFilePath = await waitForTodoFile();
+		await openRebaseEditor(vscode, todoFilePath);
+
+		// Get the webview
+		const webviewFrame = await getRebaseWebviewWithRetry(vscode);
+		const entries = webviewFrame.locator('gl-rebase-entry');
+		await expect(entries.first()).toBeVisible({ timeout: 3000 });
+
+		// Verify the preserves-merges banner is shown
+		const preservesMergesBanner = webviewFrame.locator('.preserves-merges-banner');
+		await expect(preservesMergesBanner).toBeVisible({ timeout: 3000 });
+		await expect(preservesMergesBanner).toContainText('merge commits');
+		await expect(preservesMergesBanner).toContainText('Reordering is disabled');
+
+		// Verify action changes still work
+		await entries.first().click();
+		await page.keyboard.press('d'); // Drop
+		await page.waitForTimeout(200);
+		await expect(entries.first().locator('.action-select')).toHaveAttribute('value', 'drop');
+
+		// Verify reordering is disabled (Alt+ArrowDown should NOT move the entry)
+		await entries.nth(1).click();
+		const beforeMessages = await entries.evaluateAll((elements: HTMLElement[]) => {
+			return elements.slice(0, 3).map(el => {
+				const root = el.shadowRoot;
+				if (!root) return '';
+				const div = root.querySelector('[role="listitem"]');
+				if (!div) return '';
+				const ariaLabel = div.getAttribute('aria-label') || '';
+				const parts = ariaLabel.split(', ');
+				return parts.length >= 2 ? parts.slice(1, -1).join(', ') : '';
+			});
+		});
+
+		await page.keyboard.press('Alt+ArrowDown');
+		await page.waitForTimeout(200);
+
+		const afterMessages = await entries.evaluateAll((elements: HTMLElement[]) => {
+			return elements.slice(0, 3).map(el => {
+				const root = el.shadowRoot;
+				if (!root) return '';
+				const div = root.querySelector('[role="listitem"]');
+				if (!div) return '';
+				const ariaLabel = div.getAttribute('aria-label') || '';
+				const parts = ariaLabel.split(', ');
+				return parts.length >= 2 ? parts.slice(1, -1).join(', ') : '';
+			});
+		});
+
+		// Order should be unchanged since reordering is disabled
+		expect(afterMessages).toEqual(beforeMessages);
+
+		// Verify Start button is NOT disabled
+		const startButton = webviewFrame.locator('gl-button').filter({ hasText: /Start|Continue/i });
+		await expect(startButton).not.toBeDisabled();
 
 		// Signal editor done to keep it open, then abort
 		await signalEditorDone();

@@ -6,21 +6,32 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes an issue where commit messages become invisible during interactive rebase in some themes ([#4886](https://github.com/gitkraken/vscode-gitlens/issues/4886))
+- Fixes issue in the _Commit Graph_ minimap where it only shows a spinner when the repo has no commits [#4741](https://github.com/gitkraken/vscode-gitlens/issues/4741)
+
+## [17.9.0] - 2026-01-13
+
 ### Added
 
 - Adds a welcome page webview for first-time installs to highlight Pro benefits for users in IDEs that do not support the standard VS Code walkthrough ([#4769](https://github.com/gitkraken/vscode-gitlens/issues/4769)
 
 ### Changed
 
+- Improves the _Interactive Rebase Editor_ to fully support `--rebase-merges` on linear history while preventing unsafe reordering when merge commits are present ([#1238](https://github.com/gitkraken/vscode-gitlens/issues/1238))
+- Improves cherry-pick apply order to use topological sort for correct commit sequence ([#4863](https://github.com/gitkraken/vscode-gitlens/issues/4863))
 - Changes AI features to require GitLens Pro instead of GitLens Advanced &mdash; all AI features now consistently lead to Pro plan checkout ([#4843](https://github.com/gitkraken/vscode-gitlens/issues/4843))
 - Updates the Welcome walkthrough to streamline onboarding and highlight core GitLens features ([#4842](https://github.com/gitkraken/vscode-gitlens/issues/4842))
 
 ### Fixed
 
 - Fixes issue where the button text on feature gates would blend into the background ([#4833](https://github.com/gitkraken/vscode-gitlens/issues/4833))
+- Fixes issue where codicon would render as text in comparison picker title ([#4866](https://github.com/gitkraken/vscode-gitlens/issues/4866))
 - Fixes issue where Interactive Rebase elements overlap when using keyboard and mouse navigation simultaneously ([#4816](https://github.com/gitkraken/vscode-gitlens/issues/4816))
+- Fixes issue where _Home_ view could crash when state fails to load ([#4766](https://github.com/gitkraken/vscode-gitlens/issues/4766))
 - Fixes [#4776](https://github.com/gitkraken/vscode-gitlens/issues/4776) Azure DevOps Work Item autolinks pointing to wrong project when the Work Item belongs to a different project in the same organization &mdash; thanks to [PR #4777](https://github.com/gitkraken/vscode-gitlens/pull/4777) by Daniel Asher ([@danielasher115](https://github.com/danielasher115))
-- Fixes issue where _Load more_ in the _Commits_ view would not correctly load if the last item was a stash
+- Fixes issue where _Load more_ in the _Commits_ view would not correctly load if the last item was a stash ([#4865](https://github.com/gitkraken/vscode-gitlens/issues/4865))
 
 ## [17.8.1] - 2025-12-18
 
@@ -6620,7 +6631,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.9.0...HEAD
+[17.9.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.1...gitkraken:v17.9.0
 [17.8.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.0...gitkraken:v17.8.1
 [17.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.1...gitkraken:v17.8.0
 [17.7.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.0...gitkraken:v17.7.1

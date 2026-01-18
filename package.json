@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "17.8.1",
+	"version": "17.9.0",
 	"engines": {
 		"node": ">= 22.12.0",
 		"pnpm": ">= 10.0.0",
@@ -8436,6 +8436,12 @@
 			{
 				"command": "gitlens.showSettingsPage!contributors-view",
 				"title": "Open View Settings",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage!current-line",
+				"title": "Configure Inline Blame",
+				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
@@ -26958,11 +26964,12 @@
 					{
 						"id": "git-blame",
 						"title": "Learn the Why Behind Every Line with Inline Blame",
-						"description": "See who changed a line, when and why — without leaving your editor. Hover over blame annotations to:\n\n- View previous file revisions\n\n- Open related PRs\n\n- Jump to commits in the Graph\n\n- Compare with previous versions\n\n[See inline blame in action](https://help.gitkraken.com/gitlens/gitlens-features/#file-blame)",
+						"description": "See who changed a line, when and why — without leaving your editor. Hover over blame annotations to:\n\n- View previous file revisions\n\n- Open related PRs\n\n- Jump to commits in the Graph\n\n- Compare with previous versions\n\n[Configure Inline Blame](command:gitlens.showSettingsPage!current-line)",
 						"media": {
 							"markdown": "walkthroughs/welcome/git-blame.md"
 						},
 						"completionEvents": [
+							"onStepSelected",
 							"onContext:gitlens:walkthroughState:gitBlame == true"
 						]
 					},

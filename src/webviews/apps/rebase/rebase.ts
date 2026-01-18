@@ -265,8 +265,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		// Only process navigation keys from here on
 		if (!this.isNavigationKey(e.key)) return;
 
-		// Alt+Arrow/J/K: move entry (only if not read-only)
-		if (e.altKey && !this.state?.isReadOnly) {
+		// Alt+Arrow/J/K: move entry (disabled when preserving merges)
+		if (e.altKey && !this.state?.preservesMerges) {
 			this.handleKeyboardMove(e, sortedIndex, e.key);
 			return;
 		}
@@ -309,8 +309,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		const baseId = this.state?.onto?.sha;
 		if (baseId && entryId === baseId) return;
 
-		// Don't allow dragging in read-only mode
-		if (this.state?.isReadOnly) {
+		// Don't allow dragging when preserving merges (reordering would break DAG)
+		if (this.state?.preservesMerges) {
 			e.preventDefault();
 			return;
 		}
@@ -1006,7 +1006,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private onDocumentKeyDown = (e: KeyboardEvent) => {
 		// Global shortcuts with Ctrl/Cmd
 		if (e.ctrlKey || e.metaKey) {
-			if (e.key === 'Enter' && !this.state?.isReadOnly) {
+			if (e.key === 'Enter') {
 				e.preventDefault();
 				// Use Continue when in active rebase, Start otherwise
 				if (this.isRebasing) {
@@ -1167,14 +1167,14 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	override render() {
 		if (!this.state?.entries) return nothing;
 
-		const isReadOnly = this.state.isReadOnly ?? false;
+		const preservesMerges = this.state.preservesMerges ?? false;
 		const isActive = this.isRebasing;
 		const isEmptyOrNoop = this.isEmptyOrNoop;
 		const density = this.state.density ?? 'compact';
 
 		return html`
 			<div
-				class="container ${isReadOnly ? 'read-only' : ''} ${isActive ? 'active-rebase' : ''}"
+				class="container ${preservesMerges ? 'preserves-merges' : ''} ${isActive ? 'active-rebase' : ''}"
 				data-density="${density}"
 			>
 				${guard(
@@ -1183,12 +1183,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 						this.state.onto,
 						this.state.entries.length,
 						this.ascending,
-						isReadOnly,
+						preservesMerges,
 						this.rebaseStatus,
 					],
 					() => this.renderHeader(),
 				)}
-				${isReadOnly ? this.renderReadOnlyBanner() : nothing}
+				${preservesMerges ? this.renderPreservesMergesBanner() : nothing}
 				${!isEmptyOrNoop
 					? html`<lit-virtualizer
 							role="list"
@@ -1210,22 +1210,18 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 							.layout=${flow({ direction: 'vertical' })}
 							.renderItem=${this.virtualizerRenderFn}
 						></lit-virtualizer>`
-					: !isReadOnly
-						? html`<div class="entries-empty">No commits to rebase</div>`
-						: nothing}
+					: html`<div class="entries-empty">No commits to rebase</div>`}
 				${this.renderFooter()}
 			</div>
 		`;
 	}
 
-	private renderReadOnlyBanner() {
+	private renderPreservesMergesBanner() {
 		return html`<gl-banner
-			class="read-only-banner"
+			class="preserves-merges-banner"
 			display="outline"
 			layout="responsive"
-			body="This rebase contains merge commits and cannot be edited here. Switch to the text editor to make changes."
-			primary-button="Switch to Text Editor"
-			@gl-banner-primary-click=${this.onSwitchClicked}
+			body="This rebase contains merge commits. Reordering is disabled to preserve the merge structure, but you can still change actions (drop, reword, etc.)."
 		></gl-banner>`;
 	}
 
@@ -1538,7 +1534,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		}
 
 		return html`<gl-button
-				?disabled=${!this.state?.entries?.length || this.state?.isReadOnly}
+				?disabled=${!this.state?.entries?.length}
 				variant=${ifDefined(variant)}
 				tooltip=${ifDefined(tooltip)}
 				@click=${this.onStartClicked}

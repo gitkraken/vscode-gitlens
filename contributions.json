@@ -5736,6 +5736,11 @@
 				]
 			}
 		},
+		"gitlens.showSettingsPage!current-line": {
+			"label": "Configure Inline Blame",
+			"icon": "$(gear)",
+			"commandPalette": true
+		},
 		"gitlens.showSettingsPage!file-annotations": {
 			"label": "Open File Annotation Settings",
 			"icon": "$(gear)",

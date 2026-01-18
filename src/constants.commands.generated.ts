@@ -1009,6 +1009,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showSearchAndCompareView'
 	| 'gitlens.showSettingsPage'
 	| 'gitlens.showSettingsPage!autolinks'
+	| 'gitlens.showSettingsPage!current-line'
 	| 'gitlens.showStashesView'
 	| 'gitlens.showTagsView'
 	| 'gitlens.showTimelinePage'

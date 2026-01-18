@@ -152,19 +152,19 @@ export const rebaseStyles = css`
 	}
 
 	/* ==========================================================================
-	   Banners (Read-only)
+	   Banners (Preserves Merges)
 	   ========================================================================== */
 
-	.read-only-banner {
+	.preserves-merges-banner {
 		grid-area: banner;
 		margin: 0.5rem 1rem;
 		margin-block-end: 0.5rem;
 
-		/* Warning-style colors */
-		--gl-banner-primary-background: var(--vscode-inputValidation-warningBackground, rgba(205, 145, 0, 0.15));
-		--gl-banner-secondary-background: var(--vscode-inputValidation-warningBackground, rgba(205, 145, 0, 0.15));
-		--gl-banner-text-color: var(--vscode-inputValidation-warningForeground, inherit);
-		--gl-banner-primary-emphasis-background: var(--vscode-inputValidation-warningBorder, #cca700);
+		/* Info-style colors */
+		--gl-banner-primary-background: var(--vscode-inputValidation-infoBackground, rgba(0, 127, 212, 0.15));
+		--gl-banner-secondary-background: var(--vscode-inputValidation-infoBackground, rgba(0, 127, 212, 0.15));
+		--gl-banner-text-color: var(--vscode-inputValidation-infoForeground, inherit);
+		--gl-banner-primary-emphasis-background: var(--vscode-inputValidation-infoBorder, #007fd4);
 	}
 
 	/* ==========================================================================

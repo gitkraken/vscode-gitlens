@@ -1076,7 +1076,7 @@ export type RebaseEditorTelemetryContext = WebviewTelemetryContext & {
 	'context.done.count': number | undefined;
 	'context.isRebasing': boolean | undefined;
 	'context.isPaused': boolean | undefined;
-	'context.isReadOnly': boolean | undefined;
+	'context.preservesMerges': boolean | undefined;
 	'context.hasConflicts': boolean | undefined;
 	'context.session.start': string;
 };
