@@ -15,6 +15,7 @@ import {
 	getActionName,
 	getOrgAIProviderOfType,
 	getOrPromptApiKey,
+	getReducedMaxInputTokens,
 	getValidatedTemperature,
 } from './utils/-webview/ai.utils.js';
 
@@ -89,7 +90,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		action: TAction,
 		model: AIModel<T>,
 		apiKey: string,
-		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
+		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
@@ -205,8 +206,8 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			json = json[0];
 		}
 		if (json?.error?.code === 'context_length_exceeded') {
-			if (retries < 2) {
-				return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+			if (retries < 3) {
+				return { retry: true, maxInputTokens: getReducedMaxInputTokens(maxInputTokens, retries + 1) };
 			}
 
 			throw new AIError(

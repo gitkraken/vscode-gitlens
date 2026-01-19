@@ -225,7 +225,7 @@ export interface AIRequestProvider {
 		model: AIModel,
 		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
 		cancellation: CancellationToken,
-		maxCodeCharacters: number,
+		maxInputTokens: number,
 		retries: number,
 	) => Promise<AIChatMessage[]>;
 

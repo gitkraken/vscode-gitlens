@@ -51,7 +51,7 @@ export async function generateCommits(
 		'generate-commits',
 		undefined,
 		{
-			getMessages: async (model, reporting, cancellation, maxCodeCharacters, retries) => {
+			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const hunksJson = JSON.stringify(hunks);
 				const existingCommitsJson = JSON.stringify(existingCommits);
 				const hunkMapJson = JSON.stringify(hunkMap);
@@ -75,7 +75,7 @@ export async function generateCommits(
 						hunkMap: hunkMapJson,
 						instructions: customInstructions,
 					},
-					maxCodeCharacters,
+					maxInputTokens,
 					retries,
 					reporting,
 				);

@@ -4,6 +4,7 @@ import { anthropicProviderDescriptor as provider } from '../../constants.ai.js';
 import { AIError, AIErrorReason } from '../../errors.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
+import { getReducedMaxInputTokens } from './utils/-webview/ai.utils.js';
 
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
@@ -251,8 +252,15 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 
 			if (json?.error?.type === 'invalid_request_error') {
 				if (json?.error?.message?.includes('prompt is too long')) {
-					if (retries < 2) {
-						return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+					if (retries < 3) {
+						// Extract actual token count from error to calculate smarter reduction
+						const match = /prompt is too long: (\d+) tokens/.exec(json?.error?.message);
+						const estimatedTokens = match?.[1] != null ? parseInt(match[1], 10) : undefined;
+
+						return {
+							retry: true,
+							maxInputTokens: getReducedMaxInputTokens(maxInputTokens, retries + 1, estimatedTokens),
+						};
 					}
 
 					throw new AIError(

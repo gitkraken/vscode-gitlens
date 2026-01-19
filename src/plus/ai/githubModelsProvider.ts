@@ -4,6 +4,7 @@ import { githubProviderDescriptor as provider } from '../../constants.ai.js';
 import { AIError, AIErrorReason } from '../../errors.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
+import { getReducedMaxInputTokens } from './utils/-webview/ai.utils.js';
 
 type GitHubModelsModel = AIModel<typeof provider.id>;
 
@@ -69,11 +70,13 @@ export class GitHubModelsProvider extends OpenAICompatibleProviderBase<typeof pr
 			} catch {}
 
 			if (json?.error?.code === 'tokens_limit_reached') {
-				if (retries < 2) {
+				if (retries < 3) {
 					const match = /Max size: (\d+) tokens/.exec(json?.error?.message);
 					if (match?.[1] != null) {
 						return { retry: true, maxInputTokens: parseInt(match[1], 10) };
 					}
+
+					return { retry: true, maxInputTokens: getReducedMaxInputTokens(maxInputTokens, retries + 1) };
 				}
 
 				throw new AIError(

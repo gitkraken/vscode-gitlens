@@ -45,7 +45,7 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 		action: T,
 		model: AIModel<Provider>,
 		apiKey: string,
-		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
+		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIProviderResponse<void> | undefined>;
 }

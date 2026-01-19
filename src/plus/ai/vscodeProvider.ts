@@ -10,7 +10,7 @@ import { capitalize } from '../../system/string.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import type { AIChatMessage, AIProvider, AIProviderResponse } from './models/provider.js';
-import { getActionName, getValidatedTemperature } from './utils/-webview/ai.utils.js';
+import { getActionName, getReducedMaxInputTokens, getValidatedTemperature } from './utils/-webview/ai.utils.js';
 
 const provider = vscodeProviderDescriptor;
 
@@ -146,11 +146,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 				if (message.includes('exceeds token limit')) {
 					if (++retries <= 3) {
-						// Reduce by 10%, then 25%, then 50% on retries 1, 2, 3 respectively
-						const reductionPercents = [0, 0.1, 0.25, 0.5] as const;
-						const reduction = reductionPercents[retries] ?? 0.5;
-
-						maxInputTokens -= Math.min(5000 * retries, maxInputTokens * reduction);
+						maxInputTokens = getReducedMaxInputTokens(maxInputTokens, retries);
 						continue;
 					}
 

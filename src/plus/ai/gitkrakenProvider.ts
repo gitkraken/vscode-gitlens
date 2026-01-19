@@ -7,7 +7,7 @@ import { Logger } from '../../system/logger.js';
 import { getLogScope } from '../../system/logger.scope.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
-import { ensureAccount } from './utils/-webview/ai.utils.js';
+import { ensureAccount, getReducedMaxInputTokens } from './utils/-webview/ai.utils.js';
 
 type GitKrakenModel = AIModel<typeof provider.id>;
 
@@ -177,8 +177,8 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 
 				// Request too large
 				if (code === 1) {
-					if (retries < 2) {
-						return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+					if (retries < 3) {
+						return { retry: true, maxInputTokens: getReducedMaxInputTokens(maxInputTokens, retries + 1) };
 					}
 					throw new AIError(
 						AIErrorReason.RequestTooLarge,
