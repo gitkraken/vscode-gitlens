@@ -68,7 +68,7 @@ import type {
 } from '../../../../webviews/plus/graph/protocol.js';
 import type { Git } from '../git.js';
 import { gitConfigsLog } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 import { convertStashesToStdin } from './stash.js';
 
 const progressiveSearchResultsBatchTimeMs = 500; // Send updates every 500ms (2 updates/second)
@@ -78,7 +78,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		private readonly container: Container,
 		private readonly git: Git,
 		private readonly cache: GitCache,
-		private readonly provider: LocalGitProvider,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@log()

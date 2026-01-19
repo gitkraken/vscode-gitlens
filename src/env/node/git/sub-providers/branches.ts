@@ -43,7 +43,7 @@ import { getSettledValue } from '../../../../system/promise.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { Git } from '../git.js';
 import { getGitCommandError, gitConfigsLog, GitError, GitErrors } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 /** Minimum time between writes to the config for last accessed/modified dates */
@@ -59,7 +59,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		private readonly container: Container,
 		private readonly git: Git,
 		private readonly cache: GitCache,
-		private readonly provider: LocalGitProvider,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@log()
@@ -622,7 +622,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'diff', mergeBase, branch.name);
 			if (result.stdout) {
 				// Create a temporary index file
-				await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, into.name);
+				await using disposableIndex = await this.provider.staging!.createTemporaryIndex(
+					repoPath,
+					'ref',
+					into.name,
+				);
 				const { env } = disposableIndex;
 
 				result = await this.git.exec(

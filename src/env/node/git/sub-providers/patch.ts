@@ -9,13 +9,13 @@ import { Logger } from '../../../../system/logger.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
 import type { Git } from '../git.js';
 import { gitConfigsLog } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
-		private readonly provider: LocalGitProvider,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@log()

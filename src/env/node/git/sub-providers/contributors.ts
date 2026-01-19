@@ -18,14 +18,14 @@ import type { CacheController } from '../../../../system/promiseCache.js';
 import { createDisposable } from '../../../../system/unifiedDisposable.js';
 import type { Git } from '../git.js';
 import { gitConfigsLog } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
 		private readonly cache: GitCache,
-		private readonly provider: LocalGitProvider,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@log()

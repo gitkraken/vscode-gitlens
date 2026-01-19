@@ -97,6 +97,7 @@ const RepoSearchWarnings = {
 
 const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
 
+// Exposes `isTrackedWithDetails`, and any other needed private methods to internal sub-providers
 export type LocalGitProviderInternal = Omit<LocalGitProvider, 'isTrackedWithDetails'> & {
 	isTrackedWithDetails: LocalGitProvider['isTrackedWithDetails'];
 };
@@ -1878,7 +1879,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _branches: BranchesGitSubProvider | undefined;
 	get branches(): BranchesGitSubProvider {
-		return (this._branches ??= new BranchesGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._branches ??= new BranchesGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _commits: CommitsGitSubProvider | undefined;
@@ -1893,22 +1899,42 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _config: ConfigGitSubProvider | undefined;
 	get config(): ConfigGitSubProvider {
-		return (this._config ??= new ConfigGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._config ??= new ConfigGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _contributors: ContributorsGitSubProvider | undefined;
 	get contributors(): ContributorsGitSubProvider {
-		return (this._contributors ??= new ContributorsGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._contributors ??= new ContributorsGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _diff: DiffGitSubProvider | undefined;
 	get diff(): DiffGitSubProvider {
-		return (this._diff ??= new DiffGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._diff ??= new DiffGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _graph: GraphGitSubProvider | undefined;
 	get graph(): GraphGitSubProvider {
-		return (this._graph ??= new GraphGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._graph ??= new GraphGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _operations: OperationsGitSubProvider | undefined;
@@ -1923,7 +1949,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _patch: PatchGitSubProvider | undefined;
 	get patch(): PatchGitSubProvider | undefined {
-		return (this._patch ??= new PatchGitSubProvider(this.container, this.git, this));
+		return (this._patch ??= new PatchGitSubProvider(
+			this.container,
+			this.git,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _pausedOperations: PausedOperationsGitSubProvider | undefined;
@@ -1938,17 +1968,32 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _refs: RefsGitSubProvider | undefined;
 	get refs(): RefsGitSubProvider {
-		return (this._refs ??= new RefsGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._refs ??= new RefsGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _remotes: RemotesGitSubProvider | undefined;
 	get remotes(): RemotesGitSubProvider {
-		return (this._remotes ??= new RemotesGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._remotes ??= new RemotesGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _revision: RevisionGitSubProvider | undefined;
 	get revision(): RevisionGitSubProvider {
-		return (this._revision ??= new RevisionGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._revision ??= new RevisionGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _staging: StagingGitSubProvider | undefined;
@@ -1963,7 +2008,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _status: StatusGitSubProvider | undefined;
 	get status(): StatusGitSubProvider {
-		return (this._status ??= new StatusGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._status ??= new StatusGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _tags: TagsGitSubProvider | undefined;
@@ -1972,7 +2022,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 	private _worktrees: WorktreesGitSubProvider | undefined;
 	get worktrees(): WorktreesGitSubProvider {
-		return (this._worktrees ??= new WorktreesGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._worktrees ??= new WorktreesGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _scmGitApi: Promise<ScmGitApi | undefined> | undefined;

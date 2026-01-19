@@ -21,7 +21,7 @@ import { gate } from '../../../../system/decorators/gate.js';
 import { log } from '../../../../system/decorators/log.js';
 import { first } from '../../../../system/iterable.js';
 import type { Git } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 const emptyArray: readonly any[] = Object.freeze([]);
 
@@ -30,7 +30,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		private readonly container: Container,
 		private readonly git: Git,
 		private readonly cache: GitCache,
-		private readonly provider: LocalGitProvider,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	exists(repoPath: string, path: string, rev?: string): Promise<boolean>;

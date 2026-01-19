@@ -14,14 +14,14 @@ import { debug, log } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
 import type { Git } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 export class RefsGitSubProvider implements GitRefsSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
 		private readonly cache: GitCache,
-		private readonly provider: LocalGitProvider,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@log()

@@ -3,7 +3,7 @@ import * as sinon from 'sinon';
 import type { Container } from '../../../../../container.js';
 import type { GitCache } from '../../../../../git/cache.js';
 import type { Git, GitResult } from '../../git.js';
-import type { LocalGitProvider } from '../../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../../localGitProvider.js';
 import { BranchesGitSubProvider } from '../branches.js';
 
 suite('BranchesGitSubProvider Test Suite', () => {
@@ -44,7 +44,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 				getOrCreate: (_repoPath: string, _key: string, factory: () => Promise<unknown>) => factory(),
 			},
 		} as unknown as GitCache;
-		const provider = {} as unknown as LocalGitProvider;
+		const provider = {} as unknown as LocalGitProviderInternal;
 
 		branchesProvider = new BranchesGitSubProvider(container, gitStub as unknown as Git, cache, provider);
 	});

@@ -19,7 +19,7 @@ import { getSettledValue } from '../../../../system/promise.js';
 import { interpolate } from '../../../../system/string.js';
 import type { Git } from '../git.js';
 import { getGitCommandError } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 import { isWindows } from '../shell.js';
 
 export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
@@ -27,7 +27,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		private readonly container: Container,
 		private readonly git: Git,
 		private readonly cache: GitCache,
-		private readonly provider: LocalGitProvider,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@log()

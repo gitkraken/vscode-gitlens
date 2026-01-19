@@ -21,14 +21,14 @@ import { stripFolderGlob } from '../../../../system/path.js';
 import { iterateByDelimiter } from '../../../../system/string.js';
 import { createDisposable } from '../../../../system/unifiedDisposable.js';
 import type { Git } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 export class StatusGitSubProvider implements GitStatusSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
 		private readonly cache: GitCache,
-		private readonly provider: LocalGitProvider,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@gate<StatusGitSubProvider['getStatus']>(rp => rp ?? '')

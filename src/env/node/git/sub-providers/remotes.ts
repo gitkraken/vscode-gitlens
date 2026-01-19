@@ -12,14 +12,14 @@ import { log } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
 import type { Git } from '../git.js';
-import type { LocalGitProvider } from '../localGitProvider.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 export class RemotesGitSubProvider extends RemotesGitProviderBase implements GitRemotesSubProvider {
 	constructor(
 		container: Container,
 		private readonly git: Git,
 		cache: GitCache,
-		provider: LocalGitProvider,
+		provider: LocalGitProviderInternal,
 	) {
 		super(container, cache, provider);
 	}
