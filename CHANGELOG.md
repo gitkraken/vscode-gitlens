@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Shows additional info in Authentication errors to help us investigate issues ([#4880](https://github.com/gitkraken/vscode-gitlens/issues/4880))
+
 ## [17.10.0] - 2026-02-11
 
 ### Added
