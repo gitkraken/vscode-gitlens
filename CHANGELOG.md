@@ -68,6 +68,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where the _Interactive Rebase Editor_ could open in the wrong window for workspace files
 - Fixes issues where the GitLens grouped views would not refresh, tree items could not be resolved, or loading state would get stuck when switching views
 
+### Changed
+
+- Shows additional info in Authentication errors to help us investigate issues ([#4880](https://github.com/gitkraken/vscode-gitlens/issues/4880))
+
 ## [17.9.0] - 2026-01-13
 
 ### Added
