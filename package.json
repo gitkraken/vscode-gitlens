@@ -5686,26 +5686,19 @@
 						"scope": "window",
 						"order": 10
 					},
-					"gitlens.signing.showStatusBar": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the commit signing status in the status bar",
-						"scope": "window",
-						"order": 20
-					},
 					"gitlens.signing.showSignatureBadges": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show signature verification badges on commits in the Commit Graph and other views",
 						"scope": "window",
-						"order": 30
+						"order": 20
 					},
 					"gitlens.signing.enableKeyGeneration": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to enable the ability to generate signing keys from within GitLens",
 						"scope": "window",
-						"order": 40
+						"order": 30
 					}
 				}
 			}

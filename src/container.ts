@@ -51,7 +51,6 @@ import { RepositoryIdentityService } from './plus/repos/repositoryIdentityServic
 import type { SharedGkStorageLocationProvider } from './plus/repos/sharedGkStorageLocationProvider.js';
 import { WorkspacesApi } from './plus/workspaces/workspacesApi.js';
 import { scheduleAddMissingCurrentWorkspaceRepos, WorkspacesService } from './plus/workspaces/workspacesService.js';
-import { SigningStatusBarController } from './statusbar/signingStatusBarController.js';
 import { StatusBarController } from './statusbar/statusBarController.js';
 import { executeCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
@@ -240,7 +239,6 @@ export class Container {
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
 		this._disposables.push((this._lineHoverController = new LineHoverController(this)));
 		this._disposables.push((this._statusBarController = new StatusBarController(this)));
-		this._disposables.push(new SigningStatusBarController(this));
 		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
 
 		const webviewCommandRegistrar = new WebviewCommandRegistrar();
