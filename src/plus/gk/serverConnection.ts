@@ -28,6 +28,8 @@ import { memoize } from '../../system/decorators/memoize.js';
 import { Logger } from '../../system/logger.js';
 import type { LogScope } from '../../system/logger.scope.js';
 import { getLogScope } from '../../system/logger.scope.js';
+import type { TokenInfo } from '../integrations/authentication/models.js';
+import { toTokenInfo } from '../integrations/authentication/models.js';
 import type { UrlsProvider } from './urlsProvider.js';
 
 interface FetchOptions {
@@ -185,7 +187,7 @@ export class ServerConnection implements Disposable {
 			}
 			return rsp;
 		} catch (ex) {
-			this.handleGkRequestError('gitkraken', ex, scope);
+			this.handleGkRequestError(options?.token || undefined, ex, scope);
 			throw ex;
 		}
 	}
@@ -266,6 +268,11 @@ export class ServerConnection implements Disposable {
 		if (ex instanceof CancellationError) throw ex;
 		if (ex.name === 'AbortError') throw new CancellationError(ex);
 
+		const gitkrakenTokenInfo: TokenInfo<'gitkraken'> = toTokenInfo('gitkraken', token, {
+			cloud: true,
+			scopes: undefined,
+		});
+
 		switch (ex.status) {
 			case 404: // Not found
 				throw new RequestNotFoundError(ex);
@@ -274,7 +281,7 @@ export class ServerConnection implements Disposable {
 			case 422: // Unprocessable Entity
 				throw new RequestUnprocessableEntityError(ex);
 			case 401: // Unauthorized
-				throw new AuthenticationError('gitkraken', AuthenticationErrorReason.Unauthorized, ex);
+				throw new AuthenticationError(gitkrakenTokenInfo, AuthenticationErrorReason.Unauthorized, ex);
 			case 429: //Too Many Requests
 				this.trackRequestException();
 				throw this.buildRequestRateLimitError(token, ex);
@@ -283,7 +290,7 @@ export class ServerConnection implements Disposable {
 					this.trackRequestException();
 					throw this.buildRequestRateLimitError(token, ex);
 				}
-				throw new AuthenticationError('gitkraken', AuthenticationErrorReason.Forbidden, ex);
+				throw new AuthenticationError(gitkrakenTokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
 				Logger.error(ex, scope);
 				if (ex.response != null) {

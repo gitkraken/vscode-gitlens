@@ -29,6 +29,7 @@ import { Logger } from '../../../../system/logger.js';
 import type { LogScope } from '../../../../system/logger.scope.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import type { TokenInfo, TokenWithInfo } from '../../authentication/models.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { fromProviderPullRequest } from '../models.js';
@@ -75,7 +76,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getPullRequestForBranch(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		branch: string,
@@ -108,7 +109,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getServerPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getServerPullRequestForBranch(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		branch: string,
@@ -144,7 +145,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getUsersIssuesForRepo(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		userUuid: string,
 		owner: string,
 		repo: string,
@@ -178,7 +179,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssue(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		id: string,
@@ -211,7 +212,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getIssueOrPullRequest(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		id: string,
@@ -285,7 +286,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getServerPullRequestById']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getServerPullRequestById(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		id: string,
@@ -323,7 +324,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoriesForWorkspace(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		workspace: string,
 		options: {
 			baseUrl: string;
@@ -378,7 +379,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getServerPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getServerPullRequestForCommit(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		rev: string,
@@ -419,7 +420,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		rev: string,
@@ -478,7 +479,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		rev: string,
@@ -535,7 +536,7 @@ export class BitbucketApi implements Disposable {
 	@debug<BitbucketApi['getServerAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getServerAccountForCommit(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		rev: string,
@@ -588,13 +589,14 @@ export class BitbucketApi implements Disposable {
 
 	private async request<T>(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		baseUrl: string,
 		route: string,
 		options?: { method: RequestInit['method'] } & Record<string, unknown>,
 		scope?: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
+		const { accessToken, ...tokenInfo } = token;
 		const url = `${baseUrl}/${route}`;
 
 		let rsp: Response;
@@ -613,7 +615,7 @@ export class BitbucketApi implements Disposable {
 
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(url, {
-						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
 						agent: agent,
 						signal: aborter?.signal,
 						...options,
@@ -631,7 +633,7 @@ export class BitbucketApi implements Disposable {
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope);
+				this.handleRequestError(provider, tokenInfo, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`Bitbucket request failed: ${ex.message}`);
 			}
@@ -642,7 +644,7 @@ export class BitbucketApi implements Disposable {
 
 	private handleRequestError(
 		provider: Provider | undefined,
-		_token: string,
+		tokenInfo: TokenInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
 	): void {
@@ -654,7 +656,7 @@ export class BitbucketApi implements Disposable {
 			case 422: // Unprocessable Entity
 				throw new RequestNotFoundError(ex);
 			case 401: // Unauthorized
-				throw new AuthenticationError('bitbucket', AuthenticationErrorReason.Unauthorized, ex);
+				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, ex);
 			case 403: // Forbidden
 				// TODO: Learn the Bitbucket API docs and put it in order:
 				// 	if (ex.message.includes('rate limit')) {
@@ -670,7 +672,7 @@ export class BitbucketApi implements Disposable {
 
 				// 		throw new RequestRateLimitError(ex, token, resetAt);
 				// 	}
-				throw new AuthenticationError('bitbucket', AuthenticationErrorReason.Forbidden, ex);
+				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
 				Logger.error(ex, scope);
 				if (ex.response != null) {
