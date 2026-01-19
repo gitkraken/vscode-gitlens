@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves commit message instructions in _Commit Composer_ auto-compose for better consistency ([PR #4888](https://github.com/gitkraken/vscode-gitlens/pull/4888))
 - Overhauls _Git Command Palette_ quick wizards with scope-based progress tracking and modular sub-commands for branch, stash, remote, tag, and worktree operations ([#4927](https://github.com/gitkraken/vscode-gitlens/issues/4927))
 - Excludes worktrees from repository pickers in commands where selecting a worktree would be inappropriate ([#4931](https://github.com/gitkraken/vscode-gitlens/issues/4931))
+- Stops creating new GitHub sessions via VS Code built-in authentication; new connections now always use the GKDev flow, while existing built-in sessions are still used if available ([#4881](https://github.com/gitkraken/vscode-gitlens/issues/4881))
 
 ### Fixed
 
@@ -31,6 +32,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where opening a deep link to create a PR worktree would incorrectly prompt to add a remote that already exists ([#4926](https://github.com/gitkraken/vscode-gitlens/issues/4926))
 - Fixes an issue where a repository might not be discovered when opening files in parent directories of the repository ([#4932](https://github.com/gitkraken/vscode-gitlens/issues/4932))
 - Fixes an issue where popovers would appear in drag images when dragging commits in the _Interactive Rebase Editor_ ([#4933](https://github.com/gitkraken/vscode-gitlens/issues/4933))
+- Fixes issues with the "Reauthenticate" flow not taking effect ([#4881](https://github.com/gitkraken/vscode-gitlens/issues/4881))
 
 ## [17.9.0] - 2026-01-13
 
