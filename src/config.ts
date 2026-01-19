@@ -1121,6 +1121,7 @@ export type CoreConfig = {
 	readonly git: {
 		readonly autoRepositoryDetection: boolean | 'subFolders' | 'openEditors';
 		readonly enabled: boolean;
+		readonly enableCommitSigning: boolean;
 		readonly fetchOnPull: boolean;
 		readonly path: string | string[] | null;
 		readonly pullTags: boolean;

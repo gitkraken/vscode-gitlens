@@ -874,12 +874,20 @@ export class Git implements Disposable {
 		return folderPath;
 	}
 
-	async config__get(key: string, repoPath?: string, options?: { local?: boolean }): Promise<string | undefined> {
+	async config__get(
+		key: string,
+		repoPath?: string,
+		options?: { local?: boolean; type?: 'bool' | 'int' | 'bool-or-int' | 'path' | 'expiry-date' | 'color' },
+	): Promise<string | undefined> {
+		const args = ['config', '--get'];
+		if (options?.type) {
+			args.push(`--type=${options.type}`);
+		}
+		args.push(key);
+
 		const result = await this.exec(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
-			'config',
-			'--get',
-			key,
+			...args,
 		);
 		return result.stdout.trim() || undefined;
 	}

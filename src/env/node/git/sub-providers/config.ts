@@ -8,6 +8,7 @@ import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type { GitConfigSubProvider, GitDir } from '../../../../git/gitProvider.js';
 import type { SigningConfig, SigningFormat, ValidationResult } from '../../../../git/models/signature.js';
 import type { GitUser } from '../../../../git/models/user.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
 import { getBestPath } from '../../../../system/-webview/path.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { debug, log } from '../../../../system/decorators/log.js';
@@ -31,8 +32,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	getConfig(
 		repoPath: string,
 		key: GitCoreConfigKeys | GitConfigKeys | DeprecatedGitConfigKeys,
+		options?: { type?: 'bool' | 'int' | 'bool-or-int' | 'path' | 'expiry-date' | 'color' },
 	): Promise<string | undefined> {
-		return this.cache.getConfig(repoPath, key, commonPath => this.git.config__get(key, commonPath));
+		return this.cache.getConfig(repoPath, key, commonPath => this.git.config__get(key, commonPath, options));
 	}
 
 	@log()
@@ -163,7 +165,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	@log()
 	async getSigningConfig(repoPath: string): Promise<SigningConfig> {
 		const [enabled, format, signingKey, gpgProgram, sshProgram, allowedSignersFile] = await Promise.all([
-			this.getConfig(repoPath, 'commit.gpgsign'),
+			this.getConfig(repoPath, 'commit.gpgsign', { type: 'bool' }),
 			this.getConfig(repoPath, 'gpg.format'),
 			this.getConfig(repoPath, 'user.signingkey'),
 			this.getConfig(repoPath, 'gpg.program'),
@@ -171,8 +173,19 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			this.getConfig(repoPath, 'gpg.ssh.allowedSignersFile'),
 		]);
 
+		// Check if git config has commit signing enabled
+		let isEnabled = enabled === 'true';
+
+		// If git config doesn't have commit signing enabled, check VS Code's setting
+		if (!isEnabled) {
+			const vscodeEnableCommitSigning = configuration.getCore('git.enableCommitSigning', Uri.file(repoPath));
+			if (vscodeEnableCommitSigning === true) {
+				isEnabled = true;
+			}
+		}
+
 		return {
-			enabled: enabled === 'true',
+			enabled: isEnabled,
 			format: (format as SigningFormat) ?? 'gpg',
 			signingKey: signingKey,
 			gpgProgram: gpgProgram,
