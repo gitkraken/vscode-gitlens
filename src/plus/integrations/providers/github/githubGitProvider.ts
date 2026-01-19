@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/require-await */
 import type {
-	AuthenticationSession,
 	AuthenticationSessionsChangeEvent,
 	CancellationToken,
 	Disposable,
@@ -64,6 +63,8 @@ import { getBuiltInIntegrationSession } from '../../../gk/utils/-webview/integra
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub.js';
 import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub.js';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../authentication/integrationAuthenticationProvider.js';
+import type { ProviderAuthenticationSession } from '../../authentication/models.js';
+import { toTokenWithInfo } from '../../authentication/models.js';
 import type { GitHubApi } from './github.js';
 import { BranchesGitSubProvider } from './sub-providers/branches.js';
 import { CommitsGitSubProvider } from './sub-providers/commits.js';
@@ -280,7 +281,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			case 'github': {
 				const { github, metadata, session } = await this.ensureRepositoryContext(remote.repoPath);
 				const visibility = await github.getRepositoryVisibility(
-					session.accessToken,
+					toTokenWithInfo(this.authenticationProviderId, session),
 					metadata.repo.owner,
 					metadata.repo.name,
 				);
@@ -500,7 +501,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
 			const blame = await github.getBlame(
-				session.accessToken,
+				toTokenWithInfo(this.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				ref,
@@ -652,7 +653,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
 			const blame = await github.getBlame(
-				session.accessToken,
+				toTokenWithInfo(this.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				ref,
@@ -945,7 +946,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private async ensureRepositoryContext(
 		repoPath: string,
 		open?: boolean,
-	): Promise<{ github: GitHubApi; metadata: Metadata; remotehub: RemoteHubApi; session: AuthenticationSession }> {
+	): Promise<{
+		github: GitHubApi;
+		metadata: Metadata;
+		remotehub: RemoteHubApi;
+		session: ProviderAuthenticationSession;
+	}> {
 		let uri = Uri.parse(repoPath, true);
 		if (!/^github\+?/.test(uri.authority)) {
 			throw new OpenVirtualRepositoryError(repoPath, OpenVirtualRepositoryErrorReason.NotAGitHubRepository);
@@ -1058,10 +1064,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	private _sessionPromise: Promise<AuthenticationSession> | undefined;
-	private async ensureSession(force: boolean = false, silent: boolean = false): Promise<AuthenticationSession> {
+	private _sessionPromise: Promise<ProviderAuthenticationSession> | undefined;
+	private async ensureSession(
+		force: boolean = false,
+		silent: boolean = false,
+	): Promise<ProviderAuthenticationSession> {
 		if (force || this._sessionPromise == null) {
-			async function getSession(this: GitHubGitProvider): Promise<AuthenticationSession> {
+			async function getSession(this: GitHubGitProvider): Promise<ProviderAuthenticationSession> {
 				let skip = this.container.storage.get(`provider:authentication:skip:${this.descriptor.id}`, false);
 
 				try {
@@ -1120,13 +1129,29 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								return getSession.call(this);
 							}
 						}
-
-						throw new AuthenticationError('github', AuthenticationErrorReason.UserDidNotConsent);
+						throw new AuthenticationError(
+							{
+								providerId: this.authenticationProviderId,
+								microHash: undefined,
+								cloud: false,
+								scopes: undefined, // scopes are undefined because the token has not been issues
+							},
+							AuthenticationErrorReason.UserDidNotConsent,
+						);
 					}
 
 					Logger.error(ex);
 					debugger;
-					throw new AuthenticationError('github', undefined, ex);
+					throw new AuthenticationError(
+						{
+							providerId: this.authenticationProviderId,
+							microHash: undefined,
+							cloud: false,
+							scopes: undefined, // scopes are undefined because the token has not been issues
+						},
+						undefined,
+						ex,
+					);
 				}
 			}
 
