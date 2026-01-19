@@ -337,7 +337,7 @@ export abstract class GitHostIntegration<
 
 				let userAccount: ProviderAccount | undefined;
 				try {
-					userAccount = await api.getCurrentUserForInstance(providerId, organization);
+					userAccount = await api.getCurrentUserForInstance({ providerId: providerId }, organization);
 				} catch (ex) {
 					Logger.error(ex, 'getIssuesForRepos');
 					return undefined;
@@ -380,7 +380,7 @@ export abstract class GitHostIntegration<
 				await Promise.all(
 					projectInputs.map(async projectInput => {
 						const results = await api.getIssuesForAzureProject(
-							providerId,
+							{ providerId: providerId },
 							projectInput.namespace,
 							projectInput.project,
 							{
@@ -415,7 +415,7 @@ export abstract class GitHostIntegration<
 		if (options?.filters != null) {
 			let userAccount: ProviderAccount | undefined;
 			try {
-				userAccount = await api.getCurrentUser(providerId);
+				userAccount = await api.getCurrentUser({ providerId: providerId });
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
 				return undefined;
@@ -453,7 +453,7 @@ export abstract class GitHostIntegration<
 				const data: ProviderIssue[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
-						const results = await api.getIssuesForRepo(providerId, repoInput.repo, {
+						const results = await api.getIssuesForRepo({ providerId: providerId }, repoInput.repo, {
 							...getIssuesOptions,
 							cursor: repoInput.cursor,
 							baseUrl: options?.customUrl,
@@ -480,7 +480,7 @@ export abstract class GitHostIntegration<
 		}
 
 		try {
-			return await api.getIssuesForRepos(providerId, reposOrRepoIds, {
+			return await api.getIssuesForRepos({ providerId: providerId }, reposOrRepoIds, {
 				...getIssuesOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,
@@ -540,14 +540,14 @@ export abstract class GitHostIntegration<
 
 				const organization: string = first(organizations.values())!;
 				try {
-					userAccount = await api.getCurrentUserForInstance(providerId, organization);
+					userAccount = await api.getCurrentUserForInstance({ providerId: providerId }, organization);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return undefined;
 				}
 			} else {
 				try {
-					userAccount = await api.getCurrentUser(providerId);
+					userAccount = await api.getCurrentUser({ providerId: providerId });
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return undefined;
@@ -602,7 +602,7 @@ export abstract class GitHostIntegration<
 				const data: ProviderPullRequest[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
-						const results = await api.getPullRequestsForRepo(providerId, repoInput.repo, {
+						const results = await api.getPullRequestsForRepo({ providerId: providerId }, repoInput.repo, {
 							...getPullRequestsOptions,
 							cursor: repoInput.cursor,
 							baseUrl: options?.customUrl,
@@ -629,7 +629,7 @@ export abstract class GitHostIntegration<
 		}
 
 		try {
-			return await api.getPullRequestsForRepos(providerId, reposOrRepoIds, {
+			return await api.getPullRequestsForRepos({ providerId: providerId }, reposOrRepoIds, {
 				...getPullRequestsOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,

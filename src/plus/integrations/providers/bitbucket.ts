@@ -11,6 +11,7 @@ import { uniqueBy } from '../../../system/iterable.js';
 import { flatSettled, nonnullSettled } from '../../../system/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { toTokenWithInfo } from '../authentication/models.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import { fromProviderPullRequest, providersMetadata } from './models.js';
@@ -35,21 +36,20 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	protected override async mergeProviderPullRequest(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
 	): Promise<boolean> {
 		const api = await this.getProvidersApi();
-		return api.mergePullRequest(this.id, pr, {
-			accessToken: accessToken,
+		return api.mergePullRequest(toTokenWithInfo(this.id, session), pr, {
 			mergeMethod: options?.mergeMethod,
 		});
 	}
 
 	protected override async getProviderAccountForCommit(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
 		rev: string,
 		options?: {
@@ -58,7 +58,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 	): Promise<Account | UnidentifiedAuthor | undefined> {
 		return (await this.container.bitbucket)?.getAccountForCommit(
 			this,
-			accessToken,
+			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
 			rev,
@@ -88,14 +88,14 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	protected override async getProviderLinkedIssueOrPullRequest(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
 		{ id }: { id: string; key: string },
 		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
 		return (await this.container.bitbucket)?.getIssueOrPullRequest(
 			this,
-			accessToken,
+			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
 			id,
@@ -107,13 +107,13 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	protected override async getProviderIssue(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
 		id: string,
 	): Promise<Issue | undefined> {
 		return (await this.container.bitbucket)?.getIssue(
 			this,
-			accessToken,
+			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
 			id,
@@ -122,7 +122,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	protected override async getProviderPullRequestForBranch(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
 		branch: string,
 		_options?: {
@@ -132,7 +132,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 	): Promise<PullRequest | undefined> {
 		return (await this.container.bitbucket)?.getPullRequestForBranch(
 			this,
-			accessToken,
+			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
 			branch,
@@ -141,13 +141,13 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	protected override async getProviderPullRequestForCommit(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
 		return (await this.container.bitbucket)?.getPullRequestForCommit(
 			this,
-			accessToken,
+			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
 			rev,
@@ -164,15 +164,16 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	private _accounts: Map<string, Account | undefined> | undefined;
-	protected override async getProviderCurrentAccount({
-		accessToken,
-	}: AuthenticationSession): Promise<Account | undefined> {
+	protected override async getProviderCurrentAccount(
+		session: ProviderAuthenticationSession,
+	): Promise<Account | undefined> {
+		const { accessToken } = session;
 		this._accounts ??= new Map<string, Account | undefined>();
 
 		const cachedAccount = this._accounts.get(accessToken);
 		if (cachedAccount == null) {
 			const api = await this.getProvidersApi();
-			const user = await api.getCurrentUser(this.id, { accessToken: accessToken });
+			const user = await api.getCurrentUser(toTokenWithInfo(this.id, session));
 			this._accounts.set(
 				accessToken,
 				user
@@ -193,7 +194,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 	private _workspaces: Map<string, BitbucketWorkspaceDescriptor[] | undefined> | undefined;
 	private async getProviderResourcesForUser(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<BitbucketWorkspaceDescriptor[] | undefined> {
 		this._workspaces ??= new Map<string, BitbucketWorkspaceDescriptor[] | undefined>();
@@ -205,7 +206,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			const account = await this.getProviderCurrentAccount(session);
 			if (account?.id == null) return undefined;
 
-			const resources = await api.getBitbucketResourcesForUser(account.id, { accessToken: accessToken });
+			const resources = await api.getBitbucketResourcesForUser(toTokenWithInfo(this.id, session), account.id);
 			this._workspaces.set(
 				accessToken,
 				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
@@ -245,16 +246,17 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (workspaces == null || workspaces.length === 0) return undefined;
 
 		const authoredPrs = workspaces.map(async ws => {
-			const prs = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(user.id, ws.slug, {
-				accessToken: session.accessToken,
-			});
+			const prs = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
+				toTokenWithInfo(this.id, session),
+				user.id,
+				ws.slug,
+			);
 			return prs?.map(pr => fromProviderPullRequest(pr, this));
 		});
 
 		const reviewingPrs = api
-			.getPullRequestsForRepos(this.id, workspaceRepos, {
+			.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
 				query: `state="OPEN" AND reviewers.uuid="${user.id}"`,
-				accessToken: session.accessToken,
 			})
 			.then(r => r.values?.map(pr => fromProviderPullRequest(pr, this)));
 
@@ -268,7 +270,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	protected override async searchProviderMyIssues(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		repos?: BitbucketRepositoryDescriptor[],
 	): Promise<IssueShape[] | undefined> {
 		if (repos == null || repos.length === 0) return undefined;
@@ -285,7 +287,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			repos.map(repo => {
 				return api.getUsersIssuesForRepo(
 					this,
-					session.accessToken,
+					toTokenWithInfo(this.id, session),
 					user.id,
 					repo.owner,
 					repo.name,

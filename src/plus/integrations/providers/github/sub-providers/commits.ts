@@ -34,6 +34,7 @@ import { getLogScope } from '../../../../../system/logger.scope.js';
 import { isFolderGlob, stripFolderGlob } from '../../../../../system/path.js';
 import type { CachedLog, TrackedGitDocument } from '../../../../../trackers/trackedDocument.js';
 import { GitDocumentState } from '../../../../../trackers/trackedDocument.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 import { stripOrigin } from '../githubGitProvider.js';
 import { fromCommitFileStatus } from '../models.js';
@@ -67,7 +68,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
 			const commit = await github.getCommit(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				stripOrigin(rev),
@@ -138,7 +139,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
 			const count = await github.getCommitCount(
-				session?.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				stripOrigin(rev),
@@ -179,7 +180,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			rev = !rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev;
 			const commit = await github.getCommitForFile(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				stripOrigin(rev),
@@ -258,7 +259,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		try {
 			const result = await github.getComparison(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				stripOrigin(range),
@@ -295,7 +296,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			rev = !rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev;
 			const result = await github.getCommits(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				stripOrigin(rev),
@@ -647,7 +648,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		rev = !rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev;
 		const result = await github.getCommits(
-			session.accessToken,
+			toTokenWithInfo(this.provider.authenticationProviderId, session),
 			metadata.repo.owner,
 			metadata.repo.name,
 			stripOrigin(rev),
@@ -862,7 +863,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		try {
 			const result = await github.getComparison(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				createRevisionRange(stripOrigin(rev1), stripOrigin(rev2), '...'),
@@ -946,16 +947,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			const query = `repo:${metadata.repo.owner}/${metadata.repo.name}+${queryArgs.join('+').trim()}`;
 
-			const result = await github.searchCommits(session.accessToken, query, {
-				cursor: options?.cursor,
-				limit: limit,
-				sort:
-					options?.ordering === 'date'
-						? 'committer-date'
-						: options?.ordering === 'author-date'
-							? 'author-date'
-							: undefined,
-			});
+			const result = await github.searchCommits(
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
+				query,
+				{
+					cursor: options?.cursor,
+					limit: limit,
+					sort:
+						options?.ordering === 'date'
+							? 'committer-date'
+							: options?.ordering === 'author-date'
+								? 'author-date'
+								: undefined,
+				},
+			);
 			if (result == null) return { search: search, log: undefined };
 
 			const commits = new Map<string, GitCommit>();

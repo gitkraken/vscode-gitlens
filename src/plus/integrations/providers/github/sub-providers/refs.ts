@@ -11,6 +11,7 @@ import { createRevisionRange, isShaWithOptionalRevisionSuffix } from '../../../.
 import { log } from '../../../../../system/decorators/log.js';
 import { Logger } from '../../../../../system/logger.js';
 import { getLogScope } from '../../../../../system/logger.scope.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 import { stripOrigin } from '../githubGitProvider.js';
 
@@ -46,7 +47,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 		try {
 			const result = await github.getComparison(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),

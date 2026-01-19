@@ -1,4 +1,4 @@
-import type { AuthenticationSession, CancellationToken } from 'vscode';
+import type { CancellationToken } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
 import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
 import type { Account } from '../../../git/models/author.js';
@@ -8,6 +8,8 @@ import type { IssueResourceDescriptor } from '../../../git/models/resourceDescri
 import { filterMap, flatten } from '../../../system/iterable.js';
 import { Logger } from '../../../system/logger.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
 
@@ -94,13 +96,11 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	}
 
 	protected override async getProviderAccountForResource(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		resource: JiraOrganizationDescriptor,
 	): Promise<Account | undefined> {
 		const api = await this.getProvidersApi();
-		const user = await api.getCurrentUserForResource(this.id, resource.id, {
-			accessToken: accessToken,
-		});
+		const user = await api.getCurrentUserForResource(toTokenWithInfo(this.id, session), resource.id);
 
 		if (user == null) return undefined;
 		return toAccount(user, this);
@@ -108,16 +108,17 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 	private _organizations: Map<string, JiraOrganizationDescriptor[] | undefined> | undefined;
 	protected override async getProviderResourcesForUser(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<JiraOrganizationDescriptor[] | undefined> {
+		const { accessToken } = session;
 		this._organizations ??= new Map<string, JiraOrganizationDescriptor[] | undefined>();
 
 		const cachedResources = this._organizations.get(accessToken);
 
 		if (cachedResources == null || force) {
 			const api = await this.getProvidersApi();
-			const resources = await api.getJiraResourcesForCurrentUser({ accessToken: accessToken });
+			const resources = await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session));
 			this._organizations.set(
 				accessToken,
 				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
@@ -129,10 +130,11 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 	private _projects: Map<string, JiraProjectDescriptor[] | undefined> | undefined;
 	protected override async getProviderProjectsForResources(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		resources: JiraOrganizationDescriptor[],
 		force: boolean = false,
 	): Promise<JiraProjectDescriptor[] | undefined> {
+		const { accessToken } = session;
 		this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>();
 
 		let resourcesWithoutProjects = [];
@@ -151,8 +153,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		if (resourcesWithoutProjects.length > 0) {
 			const api = await this.getProvidersApi();
 			const jiraProjectBaseDescriptors = await api.getJiraProjectsForResources(
+				toTokenWithInfo(this.id, session),
 				resourcesWithoutProjects.map(r => r.id),
-				{ accessToken: accessToken },
 			);
 
 			for (const resource of resourcesWithoutProjects) {
@@ -176,11 +178,12 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	}
 
 	protected override async getProviderIssuesForProject(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		project: JiraProjectDescriptor,
 		options?: { user: string; filters: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
 		let results;
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
 
 		const api = await this.getProvidersApi();
 
@@ -188,11 +191,10 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			user: string,
 			filter: IssueFilter,
 		): Promise<IssueShape[] | undefined> => {
-			const results = await api.getIssuesForProject(this.id, project.name, project.resourceId, {
+			const results = await api.getIssuesForProject(tokenWithInfo, project.name, project.resourceId, {
 				authorLogin: filter === IssueFilter.Author ? user : undefined,
 				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
 				mentionLogin: filter === IssueFilter.Mention ? user : undefined,
-				accessToken: accessToken,
 			});
 
 			return results
@@ -223,16 +225,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			return [...resultsById.values()];
 		}
 
-		results = await api.getIssuesForProject(this.id, project.name, project.resourceId, {
-			accessToken: accessToken,
-		});
+		results = await api.getIssuesForProject(tokenWithInfo, project.name, project.resourceId);
 		return results
 			?.map(issue => toIssueShape(issue, this))
 			.filter((result): result is IssueShape => result !== undefined);
 	}
 
 	protected override async searchProviderMyIssues(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		resources?: JiraOrganizationDescriptor[],
 		_cancellation?: CancellationToken,
 	): Promise<IssueShape[] | undefined> {
@@ -248,10 +248,13 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				let hasMore = false;
 				let requestCount = 0;
 				do {
-					const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
-						accessToken: session.accessToken,
-						cursor: cursor,
-					});
+					const resourceIssues = await api.getIssuesForResourceForCurrentUser(
+						toTokenWithInfo(this.id, session),
+						resource.id,
+						{
+							cursor: cursor,
+						},
+					);
 					requestCount += 1;
 					hasMore = resourceIssues.paging?.more ?? false;
 					cursor = resourceIssues.paging?.cursor;
@@ -273,30 +276,28 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	}
 
 	protected override async getProviderLinkedIssueOrPullRequest(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		resource: JiraOrganizationDescriptor,
 		{ key }: { id: string; key: string },
 	): Promise<IssueOrPullRequest | undefined> {
 		const api = await this.getProvidersApi();
-		const issue = await api.getIssue(
-			this.id,
-			{ resourceId: resource.id, number: key },
-			{ accessToken: session.accessToken },
-		);
+		const issue = await api.getIssue(toTokenWithInfo(this.id, session), {
+			resourceId: resource.id,
+			number: key,
+		});
 		return issue != null ? toIssueShape(issue, this) : undefined;
 	}
 
 	protected override async getProviderIssue(
-		session: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		resource: JiraOrganizationDescriptor,
 		id: string,
 	): Promise<Issue | undefined> {
 		const api = await this.getProvidersApi();
-		const apiResult = await api.getIssue(
-			this.id,
-			{ resourceId: resource.id, number: id },
-			{ accessToken: session.accessToken },
-		);
+		const apiResult = await api.getIssue(toTokenWithInfo(this.id, session), {
+			resourceId: resource.id,
+			number: id,
+		});
 		const issue = apiResult != null ? toIssueShape(apiResult, this) : undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
