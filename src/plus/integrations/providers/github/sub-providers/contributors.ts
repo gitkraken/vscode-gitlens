@@ -13,6 +13,7 @@ import { log } from '../../../../../system/decorators/log.js';
 import { Logger } from '../../../../../system/logger.js';
 import { getLogScope } from '../../../../../system/logger.scope.js';
 import type { CacheController } from '../../../../../system/promiseCache.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 export class ContributorsGitSubProvider implements GitContributorsSubProvider {
@@ -164,7 +165,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				}
 
 				const results = await github.getContributors(
-					session.accessToken,
+					toTokenWithInfo(this.provider.authenticationProviderId, session),
 					metadata.repo.owner,
 					metadata.repo.name,
 				);
@@ -248,7 +249,11 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 			const currentUser = await this.provider.config.getCurrentUser(repoPath);
 
-			const results = await github.getContributors(session.accessToken, metadata.repo.owner, metadata.repo.name);
+			const results = await github.getContributors(
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
+				metadata.repo.owner,
+				metadata.repo.name,
+			);
 
 			const contributors: GitContributor[] = [];
 			for (const c of results) {
@@ -293,7 +298,11 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
-			const results = await github.getContributors(session.accessToken, metadata.repo.owner, metadata.repo.name);
+			const results = await github.getContributors(
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
+				metadata.repo.owner,
+				metadata.repo.name,
+			);
 
 			const contributions = results.map(c => c.contributions).sort((a, b) => b - a);
 
