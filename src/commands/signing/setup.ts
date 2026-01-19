@@ -58,33 +58,47 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		// TODO: Implement full setup wizard UI
 		// For now, show a simple quick pick to choose signing format
 
-		const format = await window.showQuickPick(
-			[
-				{
-					label: '$(key) GPG',
-					description: 'Sign commits with GPG',
-					detail: 'Uses GPG (GNU Privacy Guard) for signing commits',
-					value: 'gpg' as const,
-				},
-				{
-					label: '$(key) SSH',
-					description: 'Sign commits with SSH',
-					detail: 'Uses SSH keys for signing commits (requires Git 2.34+)',
-					value: 'ssh' as const,
-				},
-				{
-					label: '$(key) X.509',
-					description: 'Sign commits with X.509',
-					detail: 'Uses X.509 certificates for signing commits',
-					value: 'x509' as const,
-				},
-			],
+		// Check Git version support for different signing formats
+		const supportsSSH = await repository.git.supports('git:signing:ssh');
+		const supportsX509 = await repository.git.supports('git:signing:x509');
+
+		const options: Array<{
+			label: string;
+			description: string;
+			detail: string;
+			value: 'gpg' | 'ssh' | 'x509';
+		}> = [
 			{
-				title: 'Commit Signing Setup',
-				placeHolder: 'Choose a signing format',
-				ignoreFocusOut: true,
+				label: '$(key) GPG',
+				description: 'Sign commits with GPG',
+				detail: 'Uses GPG (GNU Privacy Guard) for signing commits',
+				value: 'gpg',
 			},
-		);
+		];
+
+		if (supportsSSH) {
+			options.push({
+				label: '$(key) SSH',
+				description: 'Sign commits with SSH',
+				detail: 'Uses SSH keys for signing commits (requires Git 2.34+)',
+				value: 'ssh',
+			});
+		}
+
+		if (supportsX509) {
+			options.push({
+				label: '$(key) X.509',
+				description: 'Sign commits with X.509',
+				detail: 'Uses X.509 certificates for signing commits (requires Git 2.19+)',
+				value: 'x509',
+			});
+		}
+
+		const format = await window.showQuickPick(options, {
+			title: 'Commit Signing Setup',
+			placeHolder: 'Choose a signing format',
+			ignoreFocusOut: true,
+		});
 
 		if (format == null) return;
 
