@@ -1,4 +1,5 @@
 import type { AuthenticationSession } from 'vscode';
+import { md5 } from '@env/crypto.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
@@ -15,6 +16,64 @@ export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly domain: string;
 	readonly protocol?: string;
 }
+
+export interface TokenInfo<T extends IntegrationIds | 'gitkraken' = IntegrationIds | 'gitkraken'> {
+	readonly providerId: T;
+	/**
+	 * The first 3 characters of the md5 hash of the token.
+	 * It's a very obfuscated representation of the token that we can use in logs
+	 * to see whether the token survives refreshing or gets updated.
+	 */
+	readonly microHash: string | undefined;
+	readonly cloud: boolean;
+	readonly type?: CloudIntegrationAuthType;
+	readonly scopes: readonly string[] | undefined;
+	readonly expiresAt?: Date;
+}
+
+export interface TokenWithInfo<T extends IntegrationIds = IntegrationIds> extends TokenInfo<T> {
+	readonly accessToken: string;
+}
+
+export function toTokenInfo<T extends IntegrationIds | 'gitkraken'>(
+	providerId: T,
+	accessToken: string | undefined,
+	info: { cloud: boolean; scopes?: readonly string[]; expiresAt?: Date },
+): TokenInfo<T> {
+	return {
+		providerId: providerId,
+		microHash: microhash(accessToken),
+		cloud: info.cloud,
+		scopes: info.scopes,
+		expiresAt: info.expiresAt,
+	};
+}
+
+export function toTokenWithInfo<T extends IntegrationIds>(
+	providerId: T,
+	session: ProviderAuthenticationSession,
+	altToken?: string,
+): TokenWithInfo<T> {
+	const { accessToken: sessionToken, ...sessionInfo } = session;
+	const accessToken = altToken ?? session.accessToken;
+	return {
+		// pass original token info to form the correlated microhash
+		...toTokenInfo(providerId, sessionToken, sessionInfo),
+		// use the actual token used for the request
+		accessToken: accessToken,
+	};
+}
+
+function microhash(token: undefined): undefined;
+function microhash(token: string): string;
+function microhash(token: string | undefined): string | undefined;
+function microhash(token: string | undefined): string | undefined {
+	return !token ? undefined : `@${md5(token, 'hex').substring(0, 3)}`;
+}
+
+export type TokenOptInfo<T extends IntegrationIds = IntegrationIds> =
+	| TokenWithInfo<T>
+	| { providerId: T; accessToken?: undefined };
 
 export interface ConfiguredIntegrationDescriptor {
 	readonly cloud: boolean;

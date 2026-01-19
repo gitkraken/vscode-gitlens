@@ -12,6 +12,7 @@ import {
 } from '../../../../../git/utils/revision.utils.js';
 import { gate } from '../../../../../system/decorators/gate.js';
 import { log } from '../../../../../system/decorators/log.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 import { stripOrigin } from '../githubGitProvider.js';
 
@@ -126,7 +127,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		const { metadata, github, session } = context;
 
 		const sha = await github.resolveReference(
-			session.accessToken,
+			toTokenWithInfo(this.provider.authenticationProviderId, session),
 			metadata.repo.owner,
 			metadata.repo.name,
 			stripOrigin(ref),

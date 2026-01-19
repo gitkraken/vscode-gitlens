@@ -6,6 +6,7 @@ import { gate } from '../../../../../system/decorators/gate.js';
 import { log } from '../../../../../system/decorators/log.js';
 import { Logger } from '../../../../../system/logger.js';
 import { getLogScope } from '../../../../../system/logger.scope.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 export class ConfigGitSubProvider implements GitConfigSubProvider {
@@ -31,7 +32,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
-			user = await github.getCurrentUser(session.accessToken, metadata.repo.owner, metadata.repo.name);
+			user = await github.getCurrentUser(
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
+				metadata.repo.owner,
+				metadata.repo.name,
+			);
 
 			this.cache.repoInfo.set(repoPath, { ...repo, user: user ?? null });
 			return user;

@@ -21,6 +21,8 @@ import {
 import type { PagedResult } from '../../../git/gitProvider.js';
 import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
+import { toTokenWithInfo } from '../authentication/models.js';
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
@@ -378,18 +380,20 @@ export class ProvidersApi {
 		);
 	}
 
-	private async getProviderToken(
-		provider: ProviderInfo,
+	private async getProviderToken<T extends IntegrationIds>(
+		provider: ProviderInfo & { id: T },
 		options?: { createSessionIfNeeded?: boolean },
-	): Promise<string | undefined> {
+	): Promise<TokenWithInfo<T> | undefined> {
 		const providerDescriptor = { domain: provider.domain, scopes: provider.scopes };
 		try {
 			const authProvider = await this.authenticationService.get(provider.id);
-			return (
-				await authProvider.getSession(providerDescriptor, {
-					createIfNeeded: options?.createSessionIfNeeded,
-				})
-			)?.accessToken;
+			const session = await authProvider.getSession(providerDescriptor, {
+				createIfNeeded: options?.createSessionIfNeeded,
+			});
+			if (session == null) {
+				return undefined;
+			}
+			return toTokenWithInfo(provider.id, session);
 		} catch {
 			return undefined;
 		}
@@ -399,18 +403,24 @@ export class ProvidersApi {
 		return base64(`PAT:${oauthToken}`);
 	}
 
-	private async ensureProviderTokenAndFunction(
-		providerId: IntegrationIds,
+	private async ensureProviderTokenAndFunction<T extends IntegrationIds>(
+		tokenOptInfo: TokenOptInfo<T>,
 		providerFn: keyof ProviderInfo,
-		accessToken?: string,
-	): Promise<{ provider: ProviderInfo; token: string }> {
+	): Promise<{ provider: ProviderInfo; tokenWithInfo: TokenWithInfo<T> }> {
+		const providerId = tokenOptInfo.providerId;
 		const provider = this.providers[providerId];
 		if (provider == null) {
 			throw new Error(`Provider with id ${providerId} not registered`);
 		}
 
-		const token = accessToken ?? (await this.getProviderToken(provider));
-		if (token == null) {
+		if (providerId !== provider.id) {
+			throw new Error(`Provider id mismatch: expected ${providerId} but got ${provider.id}`);
+		}
+
+		const tokenWithInfo = tokenOptInfo?.accessToken
+			? tokenOptInfo
+			: await this.getProviderToken<T>(provider as ProviderInfo & { id: T });
+		if (tokenWithInfo == null) {
 			throw new Error(`Not connected to provider ${providerId}`);
 		}
 
@@ -418,10 +428,12 @@ export class ProvidersApi {
 			throw new Error(`Provider with id ${providerId} does not support function: ${providerFn}`);
 		}
 
-		return { provider: provider, token: token };
+		return { provider: provider, tokenWithInfo: tokenWithInfo };
 	}
 
-	private handleProviderError<T>(providerId: IntegrationIds, token: string, error: any): T {
+	private handleProviderError<T>(tokenWithInfo: TokenWithInfo, error: any): T {
+		const { accessToken: token, ...tokenInfo } = tokenWithInfo;
+		const providerId = tokenWithInfo.providerId;
 		const provider = this.providers[providerId];
 		if (provider == null) {
 			throw new Error(`Provider with id ${providerId} not registered`);
@@ -447,9 +459,9 @@ export class ProvidersApi {
 
 						throw new RequestRateLimitError(error, token, resetAt);
 					}
-					throw new AuthenticationError(providerId, AuthenticationErrorReason.Unauthorized, error);
+					throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, error);
 				case 403: // Forbidden
-					throw new AuthenticationError(providerId, AuthenticationErrorReason.Forbidden, error);
+					throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, error);
 				case 429: {
 					// Too Many Requests
 					let resetAt: number | undefined;
@@ -475,7 +487,6 @@ export class ProvidersApi {
 	}
 
 	async getPagedResult<T>(
-		provider: ProviderInfo,
 		args: any,
 		providerFn:
 			| ((
@@ -483,7 +494,7 @@ export class ProvidersApi {
 					options?: { token?: string; isPAT?: boolean; baseUrl?: string },
 			  ) => Promise<{ data: NonNullable<T>[]; pageInfo?: PageInfo }>)
 			| undefined,
-		token: string,
+		tokenWithInfo: TokenWithInfo,
 		cursor: string = '{}',
 		isPAT: boolean = false,
 		baseUrl?: string,
@@ -509,7 +520,11 @@ export class ProvidersApi {
 		};
 
 		try {
-			const result = await providerFn?.(input, { token: token, isPAT: isPAT, baseUrl: baseUrl });
+			const result = await providerFn?.(input, {
+				token: tokenWithInfo.accessToken,
+				isPAT: isPAT,
+				baseUrl: baseUrl,
+			});
 			if (result == null) {
 				return { values: [] };
 			}
@@ -531,23 +546,24 @@ export class ProvidersApi {
 				},
 			};
 		} catch (e) {
-			return this.handleProviderError<PagedResult<T>>(provider.id, token, e);
+			return this.handleProviderError<PagedResult<T>>(tokenWithInfo, e);
 		}
 	}
 
 	async getRepo(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenOptInfo,
 		owner: string,
 		name: string,
 		project?: string,
-		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderRepository | undefined> {
+		const providerId = tokenOptInfo.providerId;
 		if (providerId === GitCloudHostIntegrationId.AzureDevOps && project != null) {
-			const { provider, token } = await this.ensureProviderTokenAndFunction(
-				providerId,
+			const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+				tokenOptInfo,
 				'getRepoOfProjectFn',
-				options?.accessToken,
 			);
+			const token = tokenWithInfo.accessToken;
 
 			try {
 				const result = await provider['getRepoOfProjectFn']?.(
@@ -556,14 +572,11 @@ export class ProvidersApi {
 				);
 				return result?.data;
 			} catch (e) {
-				return this.handleProviderError<ProviderRepository>(providerId, token, e);
+				return this.handleProviderError<ProviderRepository>(tokenWithInfo, e);
 			}
 		} else {
-			const { provider, token } = await this.ensureProviderTokenAndFunction(
-				providerId,
-				'getRepoFn',
-				options?.accessToken,
-			);
+			const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(tokenOptInfo, 'getRepoFn');
+			const token = tokenWithInfo.accessToken;
 
 			try {
 				const result = await provider['getRepoFn']?.(
@@ -572,20 +585,17 @@ export class ProvidersApi {
 				);
 				return result?.data;
 			} catch (e) {
-				return this.handleProviderError<ProviderRepository>(providerId, token, e);
+				return this.handleProviderError<ProviderRepository>(tokenWithInfo, e);
 			}
 		}
 	}
 
 	async getCurrentUser(
-		providerId: IntegrationIds,
-		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		tokenOptInfo: TokenOptInfo,
+		options?: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderAccount | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
-			'getCurrentUserFn',
-			options?.accessToken,
-		);
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(tokenOptInfo, 'getCurrentUserFn');
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			return (
@@ -595,20 +605,20 @@ export class ProvidersApi {
 				)
 			)?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderAccount>(providerId, token, e);
+			return this.handleProviderError<ProviderAccount>(tokenWithInfo, e);
 		}
 	}
 
 	async getCurrentUserForInstance(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenOptInfo,
 		namespace: string,
-		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderAccount | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getCurrentUserForInstanceFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		return (
 			await provider.getCurrentUserForInstanceFn?.(
@@ -619,15 +629,15 @@ export class ProvidersApi {
 	}
 
 	async getCurrentUserForResource(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenWithInfo,
 		resourceId: string,
-		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderAccount | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getCurrentUserForResourceFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			return (
@@ -637,78 +647,72 @@ export class ProvidersApi {
 				)
 			)?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderAccount>(providerId, token, e);
+			return this.handleProviderError<ProviderAccount>(tokenWithInfo, e);
 		}
 	}
 
-	async getJiraResourcesForCurrentUser(options?: {
-		accessToken?: string;
-	}): Promise<ProviderJiraResource[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			IssuesCloudHostIntegrationId.Jira,
+	async getJiraResourcesForCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Jira>,
+	): Promise<ProviderJiraResource[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getJiraResourcesForCurrentUserFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			return (await provider.getJiraResourcesForCurrentUserFn?.({ token: token }))?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderJiraResource[] | undefined>(
-				IssuesCloudHostIntegrationId.Jira,
-				token,
-				e,
-			);
+			return this.handleProviderError<ProviderJiraResource[] | undefined>(tokenWithInfo, e);
 		}
 	}
 
-	async getLinearOrganization(options?: { accessToken?: string }): Promise<ProviderLinearOrganization | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			IssuesCloudHostIntegrationId.Linear,
+	async getLinearOrganization(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
+	): Promise<ProviderLinearOrganization | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getLinearOrganizationFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			const x = await provider.getLinearOrganizationFn?.({ token: token });
 			const y = x?.data;
 			return y;
 		} catch (e) {
-			return this.handleProviderError<ProviderLinearOrganization | undefined>(
-				IssuesCloudHostIntegrationId.Linear,
-				token,
-				e,
-			);
+			return this.handleProviderError<ProviderLinearOrganization | undefined>(tokenWithInfo, e);
 		}
 	}
 
-	async getLinearTeamsForCurrentUser(options?: { accessToken?: string }): Promise<ProviderLinearTeam[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			IssuesCloudHostIntegrationId.Linear,
+	async getLinearTeamsForCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
+	): Promise<ProviderLinearTeam[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getLinearTeamsForCurrentUserFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			return (await provider.getLinearTeamsForCurrentUserFn?.({ token: token }))?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderLinearTeam[] | undefined>(
-				IssuesCloudHostIntegrationId.Linear,
-				token,
-				e,
-			);
+			return this.handleProviderError<ProviderLinearTeam[] | undefined>(tokenWithInfo, e);
 		}
 	}
 
 	async getAzureResourcesForUser(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer
+		>,
 		userId: string,
-		integrationId: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderAzureResource[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			integrationId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getAzureResourcesForUserFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			return (
@@ -718,45 +722,37 @@ export class ProvidersApi {
 				)
 			)?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderAzureResource[] | undefined>(
-				GitCloudHostIntegrationId.AzureDevOps,
-				token,
-				e,
-			);
+			return this.handleProviderError<ProviderAzureResource[] | undefined>(tokenWithInfo, e);
 		}
 	}
 
 	async getBitbucketResourcesForUser(
+		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
 		userId: string,
-		options?: { accessToken?: string },
 	): Promise<ProviderBitbucketResource[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			GitCloudHostIntegrationId.Bitbucket,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getBitbucketResourcesForUserFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			return (await provider.getBitbucketResourcesForUserFn?.({ userId: userId }, { token: token }))?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderBitbucketResource[] | undefined>(
-				GitCloudHostIntegrationId.Bitbucket,
-				token,
-				e,
-			);
+			return this.handleProviderError<ProviderBitbucketResource[] | undefined>(tokenWithInfo, e);
 		}
 	}
 
 	async getBitbucketPullRequestsAuthoredByUserForWorkspace(
+		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
 		userId: string,
 		workspaceSlug: string,
-		options?: { accessToken?: string },
 	): Promise<ProviderPullRequest[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			GitCloudHostIntegrationId.Bitbucket,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getBitbucketPullRequestsAuthoredByUserForWorkspaceFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			return (
@@ -766,102 +762,93 @@ export class ProvidersApi {
 				)
 			)?.data;
 		} catch (e) {
-			return this.handleProviderError(GitCloudHostIntegrationId.Bitbucket, token, e);
+			return this.handleProviderError(tokenWithInfo, e);
 		}
 	}
 
 	async getBitbucketServerPullRequestsForCurrentUser(
+		tokenOptInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.BitbucketServer>,
 		baseUrl: string,
-		options?: {
-			accessToken?: string;
-		},
 	): Promise<ProviderPullRequest[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			GitSelfManagedHostIntegrationId.BitbucketServer,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getBitbucketServerPullRequestsForCurrentUserFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 		try {
 			return (
 				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.({}, { token: token, baseUrl: baseUrl })
 			)?.data;
 		} catch (e) {
-			return this.handleProviderError(GitSelfManagedHostIntegrationId.BitbucketServer, token, e);
+			return this.handleProviderError(tokenWithInfo, e);
 		}
 	}
 
 	async getJiraProjectsForResources(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Jira>,
 		resourceIds: string[],
-		options?: { accessToken?: string },
 	): Promise<ProviderJiraProject[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			IssuesCloudHostIntegrationId.Jira,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getJiraProjectsForResourcesFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			return (await provider.getJiraProjectsForResourcesFn?.({ resourceIds: resourceIds }, { token: token }))
 				?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderJiraProject[] | undefined>(
-				IssuesCloudHostIntegrationId.Jira,
-				token,
-				e,
-			);
+			return this.handleProviderError<ProviderJiraProject[] | undefined>(tokenWithInfo, e);
 		}
 	}
 
 	async getAzureProjectsForResource(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer
+		>,
 		namespace: string,
-		integrationId: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-		options?: { accessToken?: string; cursor?: string; isPAT?: boolean; baseUrl?: string },
+		options?: { cursor?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderAzureProject>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			integrationId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getAzureProjectsForResourceFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		// Azure only supports PAT for this call
 		const azureToken = options?.isPAT ? token : this.getAzurePATForOAuthToken(token);
 
 		try {
 			return await this.getPagedResult<ProviderAzureProject>(
-				provider,
 				{ namespace: namespace, ...options },
 				provider.getAzureProjectsForResourceFn,
-				azureToken,
+				{ ...tokenWithInfo, accessToken: azureToken },
 				options?.cursor,
 				options?.isPAT,
 				options?.baseUrl,
 			);
 		} catch (e) {
-			return this.handleProviderError<PagedResult<ProviderAzureProject>>(
-				GitCloudHostIntegrationId.AzureDevOps,
-				token,
-				e,
-			);
+			return this.handleProviderError<PagedResult<ProviderAzureProject>>(tokenWithInfo, e);
 		}
 	}
 
 	async getReposForAzureProject(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer
+		>,
 		namespace: string,
 		project: string,
-		integrationId: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-		options?: GetReposOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: GetReposOptions & { isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderRepository>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			integrationId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getReposForAzureProjectFn',
-			options?.accessToken,
 		);
 
 		return this.getPagedResult<ProviderRepository>(
-			provider,
 			{ namespace: namespace, project: project, ...options },
 			provider.getReposForAzureProjectFn,
-			token,
+			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
@@ -869,24 +856,22 @@ export class ProvidersApi {
 	}
 
 	async getPullRequestsForRepos(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenOptInfo,
 		reposOrIds: ProviderReposInput,
-		options?: GetPullRequestsOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: GetPullRequestsOptions & { isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderPullRequest>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getPullRequestsForReposFn',
-			options?.accessToken,
 		);
 
 		return this.getPagedResult<ProviderPullRequest>(
-			provider,
 			{
 				...(this.isRepoIdsInput(reposOrIds) ? { repoIds: reposOrIds } : { repos: reposOrIds }),
 				...options,
 			},
 			provider.getPullRequestsForReposFn,
-			token,
+			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
@@ -894,21 +879,19 @@ export class ProvidersApi {
 	}
 
 	async getPullRequestsForRepo(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenOptInfo,
 		repo: ProviderRepoInput,
-		options?: GetPullRequestsOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: GetPullRequestsOptions & { isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderPullRequest>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getPullRequestsForRepoFn',
-			options?.accessToken,
 		);
 
 		return this.getPagedResult<ProviderPullRequest>(
-			provider,
 			{ repo: repo, ...options },
 			provider.getPullRequestsForRepoFn,
-			token,
+			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
@@ -916,36 +899,34 @@ export class ProvidersApi {
 	}
 
 	async getPullRequestsForUser(
-		providerId: GitCloudHostIntegrationId.Bitbucket,
+		tokenWithInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
 		userId: string,
-		options?: { accessToken?: string; isPAT?: boolean } & GetPullRequestsForUserOptions,
+		options?: { isPAT?: boolean } & GetPullRequestsForUserOptions,
 	): Promise<PagedResult<ProviderPullRequest>>;
 	async getPullRequestsForUser(
-		providerId: Exclude<IntegrationIds, GitCloudHostIntegrationId.Bitbucket>,
+		tokenWithInfo: TokenWithInfo<Exclude<IntegrationIds, GitCloudHostIntegrationId.Bitbucket>>,
 		username: string,
-		options?: { accessToken?: string; isPAT?: boolean } & GetPullRequestsForUserOptions,
+		options?: { isPAT?: boolean } & GetPullRequestsForUserOptions,
 	): Promise<PagedResult<ProviderPullRequest>>;
 	async getPullRequestsForUser(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenWithInfo,
 		usernameOrId: string,
-		options?: { accessToken?: string; isPAT?: boolean } & GetPullRequestsForUserOptions,
+		options?: { isPAT?: boolean } & GetPullRequestsForUserOptions,
 	): Promise<PagedResult<ProviderPullRequest>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getPullRequestsForUserFn',
-			options?.accessToken,
 		);
 
 		return this.getPagedResult<ProviderPullRequest>(
-			provider,
 			{
-				...(providerId === GitCloudHostIntegrationId.Bitbucket
+				...(tokenWithInfo.providerId === GitCloudHostIntegrationId.Bitbucket
 					? { userId: usernameOrId }
 					: { username: usernameOrId }),
 				...options,
 			},
 			provider.getPullRequestsForUserFn,
-			token,
+			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
@@ -953,21 +934,22 @@ export class ProvidersApi {
 	}
 
 	async getPullRequestsForAzureProjects(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer
+		>,
 		projects: { namespace: string; project: string }[],
-		integrationId: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 		options?: {
-			accessToken?: string;
 			authorLogin?: string;
 			assigneeLogins?: string[];
 			isPAT?: boolean;
 			baseUrl?: string;
 		},
 	): Promise<ProviderPullRequest[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			integrationId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getPullRequestsForAzureProjectsFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		// Azure only supports PAT for this call
 		const azureToken = options?.isPAT ? token : this.getAzurePATForOAuthToken(token);
@@ -980,25 +962,24 @@ export class ProvidersApi {
 				)
 			)?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderPullRequest[]>(GitCloudHostIntegrationId.AzureDevOps, token, e);
+			return this.handleProviderError<ProviderPullRequest[]>(tokenWithInfo, e);
 		}
 	}
 
 	async mergePullRequest(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenWithInfo,
 		pr: PullRequest,
 		options?: {
-			accessToken?: string;
 			mergeMethod?: PullRequestMergeMethod;
 			isPAT?: boolean;
 			baseUrl?: string;
 		},
 	): Promise<boolean> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'mergePullRequestFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 		const headRef = pr.refs?.head;
 		if (headRef == null) return false;
 
@@ -1029,29 +1010,27 @@ export class ProvidersApi {
 			);
 			return true;
 		} catch (e) {
-			return this.handleProviderError<boolean>(providerId, token, e);
+			return this.handleProviderError<boolean>(tokenWithInfo, e);
 		}
 	}
 
 	async getIssuesForRepos(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenOptInfo,
 		reposOrIds: ProviderReposInput,
-		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: GetIssuesOptions & { isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderIssue>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getIssuesForReposFn',
-			options?.accessToken,
 		);
 
 		return this.getPagedResult<ProviderIssue>(
-			provider,
 			{
 				...(this.isRepoIdsInput(reposOrIds) ? { repoIds: reposOrIds } : { repos: reposOrIds }),
 				...options,
 			},
 			provider.getIssuesForReposFn,
-			token,
+			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
@@ -1059,21 +1038,19 @@ export class ProvidersApi {
 	}
 
 	async getIssuesForRepo(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenOptInfo,
 		repo: ProviderRepoInput,
-		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: GetIssuesOptions & { isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderIssue>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getIssuesForRepoFn',
-			options?.accessToken,
 		);
 
 		return this.getPagedResult<ProviderIssue>(
-			provider,
 			{ repo: repo, ...options },
 			provider.getIssuesForRepoFn,
-			token,
+			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
@@ -1081,19 +1058,17 @@ export class ProvidersApi {
 	}
 
 	async getIssuesForCurrentUser(
-		providerId: IntegrationIds,
-		options?: PagingInput & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		tokenOptInfo: TokenWithInfo,
+		options?: PagingInput & { isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderIssue>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getIssuesForCurrentUserFn',
-			options?.accessToken,
 		);
 		return this.getPagedResult<ProviderIssue>(
-			provider,
 			options,
 			provider.getIssuesForCurrentUserFn,
-			token,
+			tokenWithInfo,
 			options?.cursor ?? undefined,
 			options?.isPAT,
 			options?.baseUrl,
@@ -1101,22 +1076,22 @@ export class ProvidersApi {
 	}
 
 	async getIssuesForAzureProject(
-		providerId: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+		tokenOptInfo: TokenOptInfo<
+			GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer
+		>,
 		namespace: string,
 		project: string,
-		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: GetIssuesOptions & { isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderIssue>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getIssuesForAzureProjectFn',
-			options?.accessToken,
 		);
 
 		return this.getPagedResult<ProviderIssue>(
-			provider,
 			{ namespace: namespace, project: project, ...options },
 			provider.getIssuesForAzureProjectFn,
-			token,
+			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
@@ -1124,16 +1099,16 @@ export class ProvidersApi {
 	}
 
 	async getIssuesForProject(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenWithInfo,
 		project: string,
 		resourceId: string,
-		options?: GetIssuesOptions & { accessToken?: string },
+		options?: GetIssuesOptions,
 	): Promise<ProviderIssue[] | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getIssuesForProjectFn',
-			options?.accessToken,
 		);
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			const result = await provider.getIssuesForProjectFn?.(
@@ -1143,26 +1118,24 @@ export class ProvidersApi {
 
 			return result?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderIssue[] | undefined>(providerId, token, e);
+			return this.handleProviderError<ProviderIssue[] | undefined>(tokenWithInfo, e);
 		}
 	}
 
 	async getIssuesForResourceForCurrentUser(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenWithInfo,
 		resourceId: string,
-		options?: { accessToken?: string; cursor?: string; isPAT?: boolean; baseUrl?: string },
+		options?: { cursor?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderIssue>> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
 			'getIssuesForResourceForCurrentUserFn',
-			options?.accessToken,
 		);
 
 		return this.getPagedResult<ProviderIssue>(
-			provider,
 			{ resourceId: resourceId },
 			provider.getIssuesForResourceForCurrentUserFn,
-			token,
+			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
@@ -1170,15 +1143,12 @@ export class ProvidersApi {
 	}
 
 	async getIssue(
-		providerId: IntegrationIds,
+		tokenOptInfo: TokenWithInfo,
 		input: { resourceId: string; number: string } | { namespace: string; name: string; number: string },
-		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+		options?: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderIssue | undefined> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			providerId,
-			'getIssueFn',
-			options?.accessToken,
-		);
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(tokenOptInfo, 'getIssueFn');
+		const token = tokenWithInfo.accessToken;
 
 		try {
 			const result = await provider.getIssueFn?.(input, {
@@ -1189,7 +1159,7 @@ export class ProvidersApi {
 
 			return result?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderIssue | undefined>(providerId, token, e);
+			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}
 	}
 }

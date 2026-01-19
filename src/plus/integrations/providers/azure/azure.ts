@@ -26,6 +26,7 @@ import { Logger } from '../../../../system/logger.js';
 import type { LogScope } from '../../../../system/logger.scope.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import type { TokenInfo, TokenWithInfo } from '../../authentication/models.js';
 import type {
 	AzureGitCommit,
 	AzureProjectDescriptor,
@@ -82,7 +83,7 @@ export class AzureDevOpsApi implements Disposable {
 	@debug<AzureDevOpsApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getPullRequestForBranch(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		branch: string,
@@ -136,7 +137,7 @@ export class AzureDevOpsApi implements Disposable {
 	@debug<AzureDevOpsApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		rev: string,
@@ -193,7 +194,7 @@ export class AzureDevOpsApi implements Disposable {
 	@debug<AzureDevOpsApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getIssueOrPullRequest(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		id: string,
@@ -295,7 +296,7 @@ export class AzureDevOpsApi implements Disposable {
 	@debug<AzureDevOpsApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getIssue(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		project: AzureProjectDescriptor,
 		id: string,
 		options: {
@@ -344,7 +345,7 @@ export class AzureDevOpsApi implements Disposable {
 	@debug<AzureDevOpsApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		rev: string,
@@ -394,7 +395,7 @@ export class AzureDevOpsApi implements Disposable {
 	@debug<AzureDevOpsApi['getCurrentUserOnServer']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getCurrentUserOnServer(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		baseUrl: string,
 	): Promise<{ id: string; name?: string; email?: string; username?: string; avatarUrl?: string } | undefined> {
 		const scope = getLogScope();
@@ -450,7 +451,7 @@ export class AzureDevOpsApi implements Disposable {
 		issueType: string,
 		state: string,
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		projectName: string,
 		options: {
@@ -470,7 +471,7 @@ export class AzureDevOpsApi implements Disposable {
 	private async retrieveWorkItemTypeStates(
 		workItemType: string,
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		projectName: string,
 		options: {
@@ -500,13 +501,14 @@ export class AzureDevOpsApi implements Disposable {
 
 	private async request<T>(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		baseUrl: string | undefined,
 		route: string,
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
 		scope: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
+		const { accessToken, ...tokenInfo } = token;
 		const url = baseUrl ? `${baseUrl}/${route}` : route;
 
 		let rsp: Response;
@@ -526,7 +528,7 @@ export class AzureDevOpsApi implements Disposable {
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(url, {
 						headers: {
-							Authorization: `Basic ${base64(`PAT:${token}`)}`,
+							Authorization: `Basic ${base64(`PAT:${accessToken}`)}`,
 							'Content-Type': 'application/json',
 						},
 						agent: agent,
@@ -546,7 +548,7 @@ export class AzureDevOpsApi implements Disposable {
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope);
+				this.handleRequestError(provider, tokenInfo, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`AzureDevOps request failed: ${ex.message}`);
 			}
@@ -557,7 +559,7 @@ export class AzureDevOpsApi implements Disposable {
 
 	private handleRequestError(
 		provider: Provider | undefined,
-		_token: string,
+		tokenInfo: TokenInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
 	): void {
@@ -569,7 +571,7 @@ export class AzureDevOpsApi implements Disposable {
 			case 422: // Unprocessable Entity
 				throw new RequestNotFoundError(ex);
 			case 401: // Unauthorized
-				throw new AuthenticationError('azureDevOps', AuthenticationErrorReason.Unauthorized, ex);
+				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, ex);
 			case 403: // Forbidden
 				// TODO: Learn the Azure API docs and put it in order:
 				// 	if (ex.message.includes('rate limit')) {
@@ -585,7 +587,7 @@ export class AzureDevOpsApi implements Disposable {
 
 				// 		throw new RequestRateLimitError(ex, token, resetAt);
 				// 	}
-				throw new AuthenticationError('azure', AuthenticationErrorReason.Forbidden, ex);
+				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
 				Logger.error(ex, scope);
 				if (ex.response != null) {
