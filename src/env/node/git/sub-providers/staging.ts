@@ -12,15 +12,21 @@ import { mixinAsyncDisposable } from '../../../../system/unifiedDisposable.js';
 import { scope } from '../../../../webviews/commitDetails/protocol.js';
 import type { Git } from '../git.js';
 import { maxGitCliLength } from '../git.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 export class StagingGitSubProvider implements GitStagingSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@log()
-	async createTemporaryIndex(repoPath: string, base: string | undefined): Promise<DisposableTemporaryGitIndex> {
+	async createTemporaryIndex(
+		repoPath: string,
+		from: 'empty' | 'current' | 'ref',
+		ref?: string,
+	): Promise<DisposableTemporaryGitIndex> {
 		// Create a temporary index file
 		const tempDir = await fs.mkdtemp(joinPaths(tmpdir(), 'gl-'));
 		const tempIndex = joinPaths(tempDir, 'index');
@@ -38,26 +44,41 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			// Tell Git to use our soon to be created index file
 			const env = { GIT_INDEX_FILE: tempIndex };
 
-			// Create the temp index file from a base ref/sha
-			if (base) {
-				// Get the tree of the base
-				const newIndexResult = await this.git.exec(
-					{ cwd: repoPath, env: env },
-					'ls-tree',
-					'-z',
-					'-r',
-					'--full-name',
-					base,
-				);
+			switch (from) {
+				case 'empty':
+					// Leave the temp index empty
+					break;
+				case 'current': {
+					// Copy the current index to preserve staged state
+					const gitDir = await this.provider.config.getGitDir(repoPath);
+					const currentIndex = joinPaths(gitDir.uri.fsPath, 'index');
+					await fs.copyFile(currentIndex, tempIndex);
+					break;
+				}
+				case 'ref': {
+					if (ref == null) throw new Error(`ref is required when from is 'ref'`);
 
-				if (newIndexResult.stdout.trim()) {
-					// Write the tree to our temp index
-					await this.git.exec(
-						{ cwd: repoPath, env: env, stdin: newIndexResult.stdout },
-						'update-index',
+					// Create the temp index file from a base ref/sha
+					const newIndexResult = await this.git.exec(
+						{ cwd: repoPath, env: env },
+						'ls-tree',
 						'-z',
-						'--index-info',
+						'-r',
+						'--full-name',
+						ref,
 					);
+
+					if (newIndexResult.stdout.trim()) {
+						// Write the tree to our temp index
+						await this.git.exec(
+							{ cwd: repoPath, env: env, stdin: newIndexResult.stdout },
+							'update-index',
+							'-z',
+							'--index-info',
+						);
+					}
+
+					break;
 				}
 			}
 
@@ -86,7 +107,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 	async stageFiles(
 		repoPath: string,
 		pathOrUri: string[] | Uri[],
-		options?: { intentToAdd?: boolean },
+		options?: { intentToAdd?: boolean; index?: DisposableTemporaryGitIndex },
 	): Promise<void> {
 		const pathspecs = pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0]));
 
@@ -97,7 +118,13 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		// Process files in batches (will be a single batch if under the limit)
 		const batches = chunk(pathspecs, batchSize);
 		for (const batch of batches) {
-			await this.git.exec({ cwd: repoPath }, 'add', options?.intentToAdd ? '-N' : '-A', '--', ...batch);
+			await this.git.exec(
+				{ cwd: repoPath, env: options?.index?.env },
+				'add',
+				options?.intentToAdd ? '-N' : '-A',
+				'--',
+				...batch,
+			);
 		}
 	}
 

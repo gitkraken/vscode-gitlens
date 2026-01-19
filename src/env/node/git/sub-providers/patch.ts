@@ -131,8 +131,8 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		message: string,
 		patch: string,
 	): Promise<GitCommit | undefined> {
-		// Create a temporary index file
-		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, base);
+		// Create a temporary index file from the base ref
+		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, 'ref', base);
 		const { env } = disposableIndex;
 
 		const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch);
@@ -146,8 +146,10 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		base: string | undefined,
 		patches: { message: string; patch: string; author?: GitCommitIdentityShape }[],
 	): Promise<string[]> {
-		// Create a temporary index file
-		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, base);
+		// Create a temporary index file - use empty index if no base (orphan commits)
+		await using disposableIndex = base
+			? await this.provider.staging!.createTemporaryIndex(repoPath, 'ref', base)
+			: await this.provider.staging!.createTemporaryIndex(repoPath, 'empty');
 		const { env } = disposableIndex;
 
 		const shas: string[] = [];

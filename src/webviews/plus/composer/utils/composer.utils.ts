@@ -427,6 +427,7 @@ export interface ComposerDiffs {
 export async function getComposerDiffs(
 	repo: Repository,
 	commits?: { baseSha: string; headSha: string },
+	options?: { includeUntracked?: boolean },
 ): Promise<ComposerDiffs | undefined> {
 	if (commits) {
 		const commitDiffs = await calculateCombinedDiffBetweenCommits(repo, commits.baseSha, commits.headSha);
@@ -438,6 +439,36 @@ export async function getComposerDiffs(
 			unified: commitDiffs,
 		};
 	}
+
+	// Handle untracked files with temp index to avoid modifying real index
+	if (options?.includeUntracked) {
+		const untrackedFiles = await repo.git.status?.getUntrackedFiles();
+		if (untrackedFiles?.length) {
+			// Create temp index that copies current staged state
+			await using disposableIndex = await repo.git.staging?.createTemporaryIndex('current');
+
+			// Stage untracked files with intent-to-add in temp index only
+			await repo.git.staging?.stageFiles(
+				untrackedFiles.map(f => f.path),
+				{ intentToAdd: true, index: disposableIndex },
+			);
+
+			// Get all three diffs using the temp index
+			const [stagedDiffResult, unstagedDiffResult, unifiedDiffResult] = await Promise.allSettled([
+				repo.git.diff.getDiff?.(uncommittedStaged, undefined, { index: disposableIndex }),
+				repo.git.diff.getDiff?.(uncommitted, undefined, { index: disposableIndex }),
+				repo.git.diff.getDiff?.(uncommitted, 'HEAD', { notation: '...', index: disposableIndex }),
+			]);
+
+			return {
+				staged: getSettledValue(stagedDiffResult),
+				unstaged: getSettledValue(unstagedDiffResult),
+				unified: getSettledValue(unifiedDiffResult),
+				commits: undefined,
+			};
+		}
+	}
+
 	const [stagedDiffResult, unstagedDiffResult, unifiedDiffResult] = await Promise.allSettled([
 		// Get staged diff (index vs HEAD)
 		repo.git.diff.getDiff?.(uncommittedStaged),

@@ -365,26 +365,11 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		source?: Sources,
 		isReload?: boolean,
 	): Promise<State> {
-		// Stop repo change subscription so we can deal with untracked files
-		this._repositorySubscription?.dispose();
-		const untrackedPaths = (await repo.git.status?.getUntrackedFiles())?.map(f => f.path);
-		if (untrackedPaths?.length) {
-			try {
-				await repo.git.staging?.stageFiles(untrackedPaths, { intentToAdd: true });
-				this._ignoreIndexChange = true;
-			} catch {}
-		}
-
 		const [diffsResult, commitResult, branchResult] = await Promise.allSettled([
-			// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
-			getComposerDiffs(repo),
+			getComposerDiffs(repo, undefined, { includeUntracked: true }),
 			repo.git.commits.getCommit('HEAD'),
 			repo.git.branches.getBranch(),
 		]);
-
-		if (untrackedPaths?.length) {
-			await repo.git.staging?.unstageFiles(untrackedPaths).catch();
-		}
 
 		const diffs = getSettledValue(diffsResult)!;
 

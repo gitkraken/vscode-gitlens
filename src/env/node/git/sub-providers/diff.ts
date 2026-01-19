@@ -4,6 +4,7 @@ import type { GitCache } from '../../../../git/cache.js';
 import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type {
 	DiffRange,
+	DisposableTemporaryGitIndex,
 	GitDiffSubProvider,
 	NextComparisonUrisResult,
 	PreviousComparisonUrisResult,
@@ -94,7 +95,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number; notation?: GitRevisionRangeNotation; uris?: Uri[] },
+		options?: {
+			context?: number;
+			index?: DisposableTemporaryGitIndex;
+			notation?: GitRevisionRangeNotation;
+			uris?: Uri[];
+		},
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 		const args = [`-U${options?.context ?? 3}`];
@@ -119,7 +125,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		let result;
 		try {
 			result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsDiff, errors: GitErrorHandling.Throw },
+				{ cwd: repoPath, configs: gitConfigsDiff, errors: GitErrorHandling.Throw, env: options?.index?.env },
 				'diff',
 				...args,
 				args.includes('--') ? undefined : '--',

@@ -2006,7 +2006,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _staging: StagingGitSubProvider | undefined;
 	get staging(): StagingGitSubProvider | undefined {
-		return (this._staging ??= new StagingGitSubProvider(this.container, this.git));
+		return (this._staging ??= new StagingGitSubProvider(
+			this.container,
+			this.git,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _stash: StashGitSubProvider | undefined;
