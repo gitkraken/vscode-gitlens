@@ -5,11 +5,13 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import type { Deferred } from '../../../system/promise.js';
 import { dedent } from '../../../system/string.js';
 import type { AIService } from '../aiService.js';
+import { AIConversation } from '../models/conversation.js';
 import type { AIModel } from '../models/model.js';
 import type { AIProviderResponse } from '../models/provider.js';
 
 export interface AIGenerateCommitsResult {
 	readonly commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[];
+	readonly conversation: AIConversation;
 }
 
 export type GenerateCommitsOptions = {
@@ -17,6 +19,7 @@ export type GenerateCommitsOptions = {
 	generating?: Deferred<AIModel>;
 	progress?: ProgressOptions;
 	customInstructions?: string;
+	conversation?: AIConversation;
 };
 
 /**
@@ -47,71 +50,93 @@ export async function generateCommits(
 	source: Source,
 	options?: GenerateCommitsOptions,
 ): Promise<AIGenerateCommitsResult | 'cancelled' | undefined> {
+	const conversation = options?.conversation ?? new AIConversation();
+	let isFirstRun = true;
 	const retryResult = await service.sendRequestConversation<AIGenerateCommitsResult['commits']>(
 		'generate-commits',
 		undefined,
 		{
-			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
-				const hunksJson = JSON.stringify(hunks);
-				const existingCommitsJson = JSON.stringify(existingCommits);
-				const hunkMapJson = JSON.stringify(hunkMap);
-
+            getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				const customInstructionParts: string[] = [];
+				if (conversation.isEmpty) {
+					const hunksJson = JSON.stringify(hunks);
+					const existingCommitsJson = JSON.stringify(existingCommits);
+					const hunkMapJson = JSON.stringify(hunkMap);
 
-				const generateCommitMessageCustomInstructions = configuration.get(
-					'ai.generateCommitMessage.customInstructions',
-				);
-				if (generateCommitMessageCustomInstructions) {
-					customInstructionParts.push(
-						`Here are user-set custom instructions for commit messages: ${generateCommitMessageCustomInstructions}`,
+					const customInstructionParts: string[] = [];
+
+					const generateCommitMessageCustomInstructions = configuration.get(
+						'ai.generateCommitMessage.customInstructions',
 					);
+					if (generateCommitMessageCustomInstructions) {
+						customInstructionParts.push(
+							`Here are user-set custom instructions for commit messages: ${generateCommitMessageCustomInstructions}`,
+						);
+					}
+
+					const generateCommitsCustomInstructions = configuration.get('ai.generateCommits.customInstructions');
+					if (generateCommitsCustomInstructions) {
+						customInstructionParts.push(
+							generateCommitMessageCustomInstructions
+								? `And here are user-set custom instructions for commit organization (any instructions for commit messages here take higher priority): ${generateCommitsCustomInstructions}`
+								: generateCommitsCustomInstructions,
+						);
+					}
+
+					if (options?.customInstructions) {
+						customInstructionParts.push(
+							generateCommitMessageCustomInstructions || generateCommitsCustomInstructions
+								? `And here is additional guidance for this session (any instructions for commit messages here take highest priority): ${options.customInstructions}`
+								: options.customInstructions,
+						);
+					}
+
+					const customInstructions =
+						customInstructionParts.length > 0 ? customInstructionParts.join('\n\n') : undefined;
+
+					const { prompt } = await service.getPrompt(
+						'generate-commits',
+						model,
+						{
+							hunks: hunksJson,
+							existingCommits: existingCommitsJson,
+							hunkMap: hunkMapJson,
+							instructions: customInstructions,
+						},
+						maxInputTokens,
+						retries,
+						reporting,
+					);
+					if (cancellation.isCancellationRequested) throw new CancellationError();
+
+					conversation.addMessage({ role: 'user', content: prompt });
+				} else if (isFirstRun) {
+					const retryPrompt = options?.customInstructions
+						? `Please try again with the following additional guidance:\n\n${options.customInstructions}`
+						: 'Please try again with a different approach.';
+					conversation.addMessage({ role: 'user', content: retryPrompt });
 				}
 
-				const generateCommitsCustomInstructions = configuration.get('ai.generateCommits.customInstructions');
-				if (generateCommitsCustomInstructions) {
-					customInstructionParts.push(
-						generateCommitMessageCustomInstructions
-							? `And here are user-set custom instructions for commit organization (any instructions for commit messages here take higher priority): ${generateCommitsCustomInstructions}`
-							: generateCommitsCustomInstructions,
-					);
+				if (isFirstRun) {
+					isFirstRun = false;
 				}
 
-				if (options?.customInstructions) {
-					customInstructionParts.push(
-						generateCommitMessageCustomInstructions || generateCommitsCustomInstructions
-							? `And here is additional guidance for this session (any instructions for commit messages here take highest priority): ${options.customInstructions}`
-							: options.customInstructions,
-					);
-				}
-
-				const customInstructions =
-					customInstructionParts.length > 0 ? customInstructionParts.join('\n\n') : undefined;
-
-				const { prompt } = await service.getPrompt(
-					'generate-commits',
-					model,
-					{
-						hunks: hunksJson,
-						existingCommits: existingCommitsJson,
-						hunkMap: hunkMapJson,
-						instructions: customInstructions,
-					},
-					maxInputTokens,
-					retries,
-					reporting,
-				);
-				if (cancellation.isCancellationRequested) throw new CancellationError();
-
-				return [{ role: 'user', content: prompt }];
+				return [...conversation.messages];
 			},
 
 			validateResponse: (response, _attempt) => {
 				const validationResult = validateCommitsResponse(response, hunks, existingCommits);
 				if (validationResult.isValid) {
+					conversation.addMessage({ role: 'assistant', content: response.content });
 					return { isValid: true, result: validationResult.commits };
 				}
+
+				conversation.addMessages([
+					{ role: 'assistant', content: response.content },
+					{ role: 'user', content: validationResult.retryPrompt },
+				]);
+
 				return validationResult;
 			},
 
@@ -138,7 +163,7 @@ export async function generateCommits(
 		return retryResult;
 	}
 
-	return { commits: retryResult.result };
+	return { commits: retryResult.result, conversation: conversation };
 }
 
 function parseOutputResult(result: string): string {

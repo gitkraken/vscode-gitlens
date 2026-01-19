@@ -19,6 +19,7 @@ import { rootSha } from '../../../git/models/revision.js';
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils.js';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService.js';
+import type { AIConversation } from '../../../plus/ai/models/conversation.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
 import { executeCoreCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -124,6 +125,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	// Flag to ignore index change tracking for when we need to stage untracked files
 	private _ignoreIndexChange = false;
+
+	// AI conversation map for generate commits (keyed by hunks hash)
+	private _generateCommitsConversations = new Map<string, AIConversation>();
 
 	constructor(
 		protected readonly container: Container,
@@ -290,6 +294,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		commitShas?: string[],
 		isReload?: boolean,
 	): Promise<State> {
+		this._generateCommitsConversations.clear();
 		this._currentRepository = repo;
 		this._hunks = hunks;
 
@@ -731,6 +736,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	@ipcCommand(OnResetCommand)
 	private onReset(): void {
 		this._context.operations.reset.count++;
+		this._generateCommitsConversations.clear();
 		this.host.sendTelemetryEvent('composer/action/reset');
 	}
 
@@ -762,6 +768,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		try {
 			// Clear cache to force fresh data on reload
 			this._cache.clear();
+			this._generateCommitsConversations.clear();
 
 			let repo = this._currentRepository;
 			if (!repo || (params.repoPath != null && repo?.path !== params.repoPath)) {
@@ -1177,6 +1184,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				hunkIndices: commit.hunkIndices,
 			}));
 
+			const hunksHash = await sha256(hunks.map(h => `${h.index}:${h.hunkHeader}:${h.content}`).join('\n'));
+			const conversation = this._generateCommitsConversations.get(hunksHash);
+
 			// Call the AI service
 			void this.container.usage.track(`action:gitlens.ai.generateCommits:happened`).catch();
 			const result = await this.container.ai.actions.generateCommits(
@@ -1187,6 +1197,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				{
 					cancellation: this._generateCommitsCancellation.token,
 					customInstructions: params.customInstructions,
+					conversation: conversation,
 				},
 			);
 
@@ -1221,6 +1232,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					});
 					return;
 				}
+
+				this._generateCommitsConversations.set(hunksHash, result.conversation);
 
 				// Transform AI result back to ComposerCommit format
 				const newCommits = result.commits.map((commit, index) => ({
