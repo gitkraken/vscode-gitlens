@@ -48,6 +48,7 @@ import { getLogScope } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { Version } from '../../../../system/version.js';
 import { fromString, satisfies } from '../../../../system/version.js';
+import type { TokenWithInfo } from '../../authentication/models.js';
 import type {
 	GitHubBlame,
 	GitHubBlameRange,
@@ -250,7 +251,7 @@ export class GitHubApi implements Disposable {
 
 	async getCurrentAccount(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
@@ -310,7 +311,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		rev: string,
@@ -421,7 +422,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForEmail(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		email: string,
@@ -512,7 +513,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getDefaultBranch(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		options?: {
@@ -571,7 +572,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssueOrPullRequest(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		number: number,
@@ -643,7 +644,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssue(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		number: number,
@@ -710,7 +711,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequest(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		number: number,
@@ -770,7 +771,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForBranch(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		branch: string,
@@ -859,7 +860,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		rev: string,
@@ -944,7 +945,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoryMetadata(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		options?: {
@@ -1031,7 +1032,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	@debug<GitHubApi['getBlame']>({ args: { 0: '<token>' } })
-	async getBlame(token: string, owner: string, repo: string, ref: string, path: string): Promise<GitHubBlame> {
+	async getBlame(token: TokenWithInfo, owner: string, repo: string, ref: string, path: string): Promise<GitHubBlame> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -1115,7 +1116,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getBranches']>({ args: { 0: '<token>' } })
 	async getBranches(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		options?: { query?: string; cursor?: string; limit?: number },
@@ -1199,7 +1200,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getCommit']>({ args: { 0: '<token>' } })
 	async getCommit(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		ref: string,
@@ -1257,7 +1258,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getCommitForFile']>({ args: { 0: '<token>' } })
 	async getCommitForFile(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		ref: string,
@@ -1275,7 +1276,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getBranchesWithCommits']>({ args: { 0: '<token>' } })
 	async getBranchesWithCommits(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		refs: string[],
@@ -1359,7 +1360,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	@debug<GitHubApi['getCommitCount']>({ args: { 0: '<token>' } })
-	async getCommitCount(token: string, owner: string, repo: string, ref: string): Promise<number | undefined> {
+	async getCommitCount(token: TokenWithInfo, owner: string, repo: string, ref: string): Promise<number | undefined> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -1414,7 +1415,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getBranchWithCommit']>({ args: { 0: '<token>' } })
 	async getBranchWithCommit(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		branch: string,
@@ -1494,7 +1495,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getCommits']>({ args: { 0: '<token>' } })
 	async getCommits(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		ref: string,
@@ -1642,7 +1643,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	private async getCommitsCoreRange(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		range: GitRevisionRange,
@@ -1681,7 +1682,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	private async getCommitsCoreSingle(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		ref: string,
@@ -1749,7 +1750,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getCommitRefs']>({ args: { 0: '<token>' } })
 	async getCommitRefs(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		ref: string,
@@ -1843,7 +1844,13 @@ export class GitHubApi implements Disposable {
 	}
 
 	@debug<GitHubApi['getTagsWithCommit']>({ args: { 0: '<token>' } })
-	async getTagsWithCommit(token: string, owner: string, repo: string, ref: string, date: Date): Promise<string[]> {
+	async getTagsWithCommit(
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		ref: string,
+		date: Date,
+	): Promise<string[]> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -1920,7 +1927,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getNextCommitRefs']>({ args: { 0: '<token>' } })
 	async getNextCommitRefs(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		ref: string,
@@ -1958,7 +1965,12 @@ export class GitHubApi implements Disposable {
 		return nexts.reverse();
 	}
 
-	private async getCommitDate(token: string, owner: string, repo: string, sha: string): Promise<string | undefined> {
+	private async getCommitDate(
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		sha: string,
+	): Promise<string | undefined> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -2004,7 +2016,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	@debug<GitHubApi['getContributors']>({ args: { 0: '<token>' } })
-	async getContributors(token: string, owner: string, repo: string): Promise<GitHubContributor[]> {
+	async getContributors(token: TokenWithInfo, owner: string, repo: string): Promise<GitHubContributor[]> {
 		const scope = getLogScope();
 
 		// TODO@eamodio implement pagination
@@ -2034,7 +2046,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	@debug<GitHubApi['getDefaultBranchName']>({ args: { 0: '<token>' } })
-	async getDefaultBranchName(token: string, owner: string, repo: string): Promise<string | undefined> {
+	async getDefaultBranchName(token: TokenWithInfo, owner: string, repo: string): Promise<string | undefined> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -2079,7 +2091,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	@debug<GitHubApi['getCurrentUser']>({ args: { 0: '<token>' } })
-	async getCurrentUser(token: string, owner: string, repo: string): Promise<GitUser | undefined> {
+	async getCurrentUser(token: TokenWithInfo, owner: string, repo: string): Promise<GitUser | undefined> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -2128,7 +2140,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getComparison']>({ args: { 0: '<token>' } })
 	async getComparison(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		range: GitRevisionRange,
@@ -2167,7 +2179,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getRepositoryVisibility']>({ args: { 0: '<token>' } })
 	async getRepositoryVisibility(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 	): Promise<RepositoryVisibility | undefined> {
@@ -2214,7 +2226,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getTags']>({ args: { 0: '<token>' } })
 	async getTags(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		options?: { query?: string; cursor?: string; limit?: number },
@@ -2306,7 +2318,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['resolveReference']>({ args: { 0: '<token>' } })
 	async resolveReference(
-		token: string,
+		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		ref: string,
@@ -2398,7 +2410,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['searchCommits']>({ args: { 0: '<token>' } })
 	async searchCommits(
-		token: string,
+		token: TokenWithInfo,
 		query: string,
 		options?: {
 			cursor?: string;
@@ -2483,7 +2495,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['searchCommitShas']>({ args: { 0: '<token>' } })
 	async searchCommitShas(
-		token: string,
+		token: TokenWithInfo,
 		query: string,
 		options?: {
 			cursor?: string;
@@ -2558,10 +2570,11 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: p => p?.name, 1: '<token>' } })
 	private async getEnterpriseVersion(
 		provider: Provider | undefined,
-		token: string,
+		token: TokenWithInfo,
 		options?: { baseUrl?: string },
 	): Promise<Version | undefined> {
-		let version = this._enterpriseVersions.get(token);
+		const { accessToken } = token;
+		let version = this._enterpriseVersions.get(accessToken);
 		if (version != null) return version;
 		if (version === null) return undefined;
 
@@ -2576,18 +2589,19 @@ export class GitHubApi implements Disposable {
 			version = null;
 		}
 
-		this._enterpriseVersions.set(token, version);
+		this._enterpriseVersions.set(accessToken, version);
 		return version ?? undefined;
 	}
 
 	private async graphql<T>(
 		provider: Provider | undefined,
-		token: string,
+		token: TokenWithInfo,
 		query: string,
 		variables: RequestParameters,
 		scope: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
+		const { accessToken, ...tokenInfo } = token;
 		try {
 			let aborter: AbortController | undefined;
 			if (cancellation != null) {
@@ -2603,7 +2617,7 @@ export class GitHubApi implements Disposable {
 			}
 
 			return await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
-				this.getDefaults(token, graphql)(query, variables),
+				this.getDefaults(accessToken, graphql)(query, variables),
 			);
 		} catch (ex) {
 			if (ex instanceof GraphqlResponseError) {
@@ -2611,7 +2625,7 @@ export class GitHubApi implements Disposable {
 					case 'NOT_FOUND':
 						throw new RequestNotFoundError(ex);
 					case 'FORBIDDEN':
-						throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
+						throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 					case 'RATE_LIMITED': {
 						let resetAt: number | undefined;
 
@@ -2623,7 +2637,7 @@ export class GitHubApi implements Disposable {
 							}
 						}
 
-						throw new RequestRateLimitError(ex, token, resetAt);
+						throw new RequestRateLimitError(ex, accessToken, resetAt);
 					}
 				}
 
@@ -2642,12 +2656,13 @@ export class GitHubApi implements Disposable {
 
 	private async request<R extends keyof Endpoints>(
 		provider: Provider | undefined,
-		token: string,
+		token: TokenWithInfo,
 		route: R,
 		options: (Endpoints[R]['parameters'] & RequestParameters) | undefined,
 		scope: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<Endpoints[R]['response']> {
+		const { accessToken } = token;
 		try {
 			if (cancellation != null) {
 				if (cancellation.isCancellationRequested) throw new CancellationError();
@@ -2658,7 +2673,7 @@ export class GitHubApi implements Disposable {
 			}
 
 			return (await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
-				this.getDefaults(token, request)(route as string, options),
+				this.getDefaults(accessToken, request)(route as string, options),
 			)) as Endpoints[R]['response'];
 		} catch (ex) {
 			if (ex instanceof RequestError || ex.name === 'AbortError') {
@@ -2734,12 +2749,13 @@ export class GitHubApi implements Disposable {
 
 	private handleRequestError(
 		provider: Provider | undefined,
-		token: string,
+		token: TokenWithInfo,
 		ex: RequestError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
 	): void {
 		if (ex.name === 'AbortError') throw new CancellationError(ex);
 
+		const { accessToken, ...tokenInfo } = token;
 		switch (ex.status) {
 			case 404: // Not found
 			case 410: // Gone
@@ -2747,7 +2763,7 @@ export class GitHubApi implements Disposable {
 				throw new RequestNotFoundError(ex);
 			// case 429: //Too Many Requests
 			case 401: // Unauthorized
-				throw new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
+				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, ex);
 			case 403: // Forbidden
 				if (ex.message.includes('rate limit')) {
 					let resetAt: number | undefined;
@@ -2760,9 +2776,9 @@ export class GitHubApi implements Disposable {
 						}
 					}
 
-					throw new RequestRateLimitError(ex, token, resetAt);
+					throw new RequestRateLimitError(ex, accessToken, resetAt);
 				}
-				throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
+				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
 				Logger.error(ex, scope);
 				if (ex.response != null) {
@@ -2846,12 +2862,13 @@ export class GitHubApi implements Disposable {
 
 	private async createEnterpriseAvatarUrl(
 		provider: Provider | undefined,
-		token: string,
+		token: TokenWithInfo,
 		baseUrl: string,
 		email: string,
 		avatarSize: number | undefined,
 	): Promise<string | undefined> {
 		avatarSize = avatarSize ?? 16;
+		const { accessToken } = token;
 
 		const version = await this.getEnterpriseVersion(provider, token, { baseUrl: baseUrl });
 		if (satisfies(version, '>= 3.0.0')) {
@@ -2873,7 +2890,7 @@ export class GitHubApi implements Disposable {
 			}
 
 			const rsp = await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
-				fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${token}` } }),
+				fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${accessToken}` } }),
 			);
 
 			if (rsp.ok) {
@@ -2890,7 +2907,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchMyPullRequests(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		options?: {
 			search?: string;
 			user?: string;
@@ -3005,7 +3022,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['searchMyIssues']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchMyIssues(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		options?: {
 			search?: string;
 			user?: string;
@@ -3115,7 +3132,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchPullRequests(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[]> {
@@ -3176,7 +3193,7 @@ export class GitHubApi implements Disposable {
 	@debug<GitHubApi['mergePullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async mergePullRequest(
 		provider: Provider,
-		token: string,
+		token: TokenWithInfo,
 		nodeId: string,
 		expectedSourceSha: string,
 		options?: { mergeMethod?: PullRequestMergeMethod; baseUrl?: string },

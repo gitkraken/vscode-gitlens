@@ -16,6 +16,7 @@ import { log } from '../../../../../system/decorators/log.js';
 import { Logger } from '../../../../../system/logger.js';
 import { getLogScope } from '../../../../../system/logger.scope.js';
 import { HeadType } from '../../../../remotehub.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 import { stripOrigin } from '../githubGitProvider.js';
 import type { GitHubBranch } from '../models.js';
@@ -164,7 +165,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 					while (true) {
 						const result = await github.getBranches(
-							session.accessToken,
+							toTokenWithInfo(this.provider.authenticationProviderId, session),
 							metadata.repo.owner,
 							metadata.repo.name,
 							{ cursor: cursor },
@@ -303,7 +304,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			if (branch) {
 				branches = await github.getBranchWithCommit(
-					session.accessToken,
+					toTokenWithInfo(this.provider.authenticationProviderId, session),
 					metadata.repo.owner,
 					metadata.repo.name,
 					branch,
@@ -313,7 +314,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				);
 			} else {
 				branches = await github.getBranchesWithCommits(
-					session.accessToken,
+					toTokenWithInfo(this.provider.authenticationProviderId, session),
 					metadata.repo.owner,
 					metadata.repo.name,
 					shas.map(stripOrigin),
@@ -342,7 +343,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
-			return await github.getDefaultBranchName(session.accessToken, metadata.repo.owner, metadata.repo.name);
+			return await github.getDefaultBranchName(
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
+				metadata.repo.owner,
+				metadata.repo.name,
+			);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;

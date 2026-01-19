@@ -1,4 +1,4 @@
-import type { AuthenticationSession, CancellationToken } from 'vscode';
+import type { CancellationToken } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
 import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
 import type { Account } from '../../../git/models/author.js';
@@ -9,6 +9,7 @@ import { isIssueResourceDescriptor } from '../../../git/utils/resourceDescriptor
 import { Logger } from '../../../system/logger.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { IssueFilter, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
@@ -80,16 +81,17 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 	private _organizations: Map<string, LinearOrganizationDescriptor | undefined> | undefined;
 	private async getOrganization(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<LinearOrganizationDescriptor | undefined> {
+		const { accessToken } = session;
 		this._organizations ??= new Map<string, LinearOrganizationDescriptor | undefined>();
 
 		const cachedResources = this._organizations.get(accessToken);
 
 		if (cachedResources == null || force) {
 			const api = await this.getProvidersApi();
-			const organization = await api.getLinearOrganization({ accessToken: accessToken });
+			const organization = await api.getLinearOrganization(toTokenWithInfo(this.id, session));
 			const descriptor: LinearOrganizationDescriptor | undefined = organization && {
 				id: organization.id,
 				key: organization.key,
@@ -106,16 +108,17 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 	private _teams: Map<string, LinearTeamDescriptor[] | undefined> | undefined;
 	private async getTeams(
-		{ accessToken }: AuthenticationSession,
+		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<LinearTeamDescriptor[] | undefined> {
+		const { accessToken } = session;
 		this._teams ??= new Map<string, LinearTeamDescriptor[] | undefined>();
 
 		const cachedResources = this._teams.get(accessToken);
 
 		if (cachedResources == null || force) {
 			const api = await this.getProvidersApi();
-			const teams = await api.getLinearTeamsForCurrentUser({ accessToken: accessToken });
+			const teams = await api.getLinearTeamsForCurrentUser(toTokenWithInfo(this.id, session));
 			const descriptors: LinearTeamDescriptor[] | undefined = teams?.map(t => ({
 				id: t.id,
 				key: t.key,
@@ -188,8 +191,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 				if (cancellation?.isCancellationRequested) {
 					break;
 				}
-				const result = await api.getIssuesForCurrentUser(this.id, {
-					accessToken: session.accessToken,
+				const result = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
 					cursor: cursor,
 				});
 				requestCount += 1;
@@ -244,16 +246,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 				return undefined;
 			}
 
-			const result = await api.getIssue(
-				this.id,
-				{
-					resourceId: resource.id,
-					number: id,
-				},
-				{
-					accessToken: session.accessToken,
-				},
-			);
+			const result = await api.getIssue(toTokenWithInfo(this.id, session), {
+				resourceId: resource.id,
+				number: id,
+			});
 
 			if (result == null) return undefined;
 
