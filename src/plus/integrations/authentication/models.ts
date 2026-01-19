@@ -27,7 +27,7 @@ export interface TokenInfo<T extends IntegrationIds | 'gitkraken' = IntegrationI
 	 */
 	readonly microHash: string | undefined;
 	readonly cloud: boolean;
-	readonly type: CloudIntegrationAuthType | undefined;
+	readonly type?: CloudIntegrationAuthType;
 	readonly scopes: readonly string[] | undefined;
 	readonly expiresAt?: Date;
 }
@@ -39,13 +39,12 @@ export interface TokenWithInfo<T extends IntegrationIds = IntegrationIds> extend
 export function toTokenInfo<T extends IntegrationIds | 'gitkraken'>(
 	providerId: T,
 	accessToken: string | undefined,
-	info: { cloud: boolean; type: CloudIntegrationAuthType | undefined; scopes?: readonly string[]; expiresAt?: Date },
+	info: { cloud: boolean; scopes?: readonly string[]; expiresAt?: Date },
 ): TokenInfo<T> {
 	return {
 		providerId: providerId,
 		microHash: microhash(accessToken),
 		cloud: info.cloud,
-		type: info.type,
 		scopes: info.scopes,
 		expiresAt: info.expiresAt,
 	};
@@ -162,5 +161,8 @@ export const toCloudIntegrationType: { [key in IntegrationIds]: CloudIntegration
 	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: 'gitlabSelfHosted',
 	[GitSelfManagedHostIntegrationId.BitbucketServer]: 'bitbucketServer',
 	[GitSelfManagedHostIntegrationId.GitHubEnterprise]: undefined,
+	[GitSelfManagedHostIntegrationId.GitLabSelfHosted]: undefined,
+};
+.GitHubEnterprise]: undefined,
 	[GitSelfManagedHostIntegrationId.GitLabSelfHosted]: undefined,
 };
