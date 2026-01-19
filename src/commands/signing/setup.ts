@@ -35,7 +35,7 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 
 		if (alreadyConfigured) {
 			const result = await window.showInformationMessage(
-				`Commit signing is already configured for this repository using ${signingConfig?.format?.toUpperCase() ?? 'GPG'}.`,
+				`Commit signing is already configured using ${signingConfig?.format?.toUpperCase() ?? 'GPG'}.`,
 				{ modal: false },
 				'Reconfigure',
 				'Test Signing',
@@ -112,16 +112,19 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 
 		if (!signingKey) return;
 
-		// Configure Git
+		// Configure Git globally
 		try {
-			await repository.git.config.setSigningConfig?.({
-				enabled: true,
-				format: format.value,
-				signingKey: signingKey,
-			});
+			await repository.git.config.setSigningConfig?.(
+				{
+					enabled: true,
+					format: format.value,
+					signingKey: signingKey,
+				},
+				{ global: true },
+			);
 
 			const result = await window.showInformationMessage(
-				`Commit signing has been configured successfully using ${format.value.toUpperCase()}.`,
+				`Commit signing has been configured globally using ${format.value.toUpperCase()}.`,
 				{ modal: false },
 				'Test Signing',
 			);

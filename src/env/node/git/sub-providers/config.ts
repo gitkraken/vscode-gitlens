@@ -40,11 +40,12 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		repoPath: string,
 		key: GitCoreConfigKeys | GitConfigKeys,
 		value: string | undefined,
+		options?: { global?: boolean },
 	): Promise<void> {
 		await this.git.exec(
 			{ cwd: repoPath ?? '', local: true },
 			'config',
-			'--local',
+			options?.global ? '--global' : '--local',
 			...(value == null ? ['--unset', key] : [key, value]),
 		);
 
@@ -194,26 +195,30 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	}
 
 	@log()
-	async setSigningConfig(repoPath: string, config: Partial<SigningConfig>): Promise<void> {
+	async setSigningConfig(
+		repoPath: string,
+		config: Partial<SigningConfig>,
+		options?: { global?: boolean },
+	): Promise<void> {
 		const updates: Promise<void>[] = [];
 
 		if (config.enabled !== undefined) {
-			updates.push(this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false'));
+			updates.push(this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false', options));
 		}
 		if (config.format !== undefined) {
-			updates.push(this.setConfig(repoPath, 'gpg.format', config.format));
+			updates.push(this.setConfig(repoPath, 'gpg.format', config.format, options));
 		}
 		if (config.signingKey !== undefined) {
-			updates.push(this.setConfig(repoPath, 'user.signingkey', config.signingKey));
+			updates.push(this.setConfig(repoPath, 'user.signingkey', config.signingKey, options));
 		}
 		if (config.gpgProgram !== undefined) {
-			updates.push(this.setConfig(repoPath, 'gpg.program', config.gpgProgram));
+			updates.push(this.setConfig(repoPath, 'gpg.program', config.gpgProgram, options));
 		}
 		if (config.sshProgram !== undefined) {
-			updates.push(this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram));
+			updates.push(this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram, options));
 		}
 		if (config.allowedSignersFile !== undefined) {
-			updates.push(this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile));
+			updates.push(this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile, options));
 		}
 
 		await Promise.all(updates);

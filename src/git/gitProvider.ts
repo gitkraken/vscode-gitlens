@@ -457,13 +457,22 @@ export interface GitPausedOperationsSubProvider {
 
 export interface GitConfigSubProvider {
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
-	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
+	setConfig?(
+		repoPath: string,
+		key: GitConfigKeys,
+		value: string | undefined,
+		options?: { global?: boolean },
+	): Promise<void>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 	getSigningConfig?(repoPath: string): Promise<import('./models/signature').SigningConfig>;
 	validateSigningSetup?(repoPath: string): Promise<import('./models/signature').ValidationResult>;
-	setSigningConfig?(repoPath: string, config: Partial<import('./models/signature').SigningConfig>): Promise<void>;
+	setSigningConfig?(
+		repoPath: string,
+		config: Partial<import('./models/signature').SigningConfig>,
+		options?: { global?: boolean },
+	): Promise<void>;
 	getSigningConfigFlags?(config: import('./models/signature').SigningConfig): string[];
 }
 
