@@ -12,6 +12,7 @@ import { configuration } from '../../../system/-webview/configuration.js';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly cloud: boolean;
+	readonly type: CloudIntegrationAuthType | undefined;
 	readonly expiresAt?: Date;
 	readonly domain: string;
 	readonly protocol?: string;
@@ -26,7 +27,7 @@ export interface TokenInfo<T extends IntegrationIds | 'gitkraken' = IntegrationI
 	 */
 	readonly microHash: string | undefined;
 	readonly cloud: boolean;
-	readonly type?: CloudIntegrationAuthType;
+	readonly type: CloudIntegrationAuthType | undefined;
 	readonly scopes: readonly string[] | undefined;
 	readonly expiresAt?: Date;
 }
@@ -38,12 +39,13 @@ export interface TokenWithInfo<T extends IntegrationIds = IntegrationIds> extend
 export function toTokenInfo<T extends IntegrationIds | 'gitkraken'>(
 	providerId: T,
 	accessToken: string | undefined,
-	info: { cloud: boolean; scopes?: readonly string[]; expiresAt?: Date },
+	info: { cloud: boolean; type: CloudIntegrationAuthType | undefined; scopes?: readonly string[]; expiresAt?: Date },
 ): TokenInfo<T> {
 	return {
 		providerId: providerId,
 		microHash: microhash(accessToken),
 		cloud: info.cloud,
+		type: info.type,
 		scopes: info.scopes,
 		expiresAt: info.expiresAt,
 	};
