@@ -47,6 +47,7 @@ export const getBuiltInIntegrationSession = sequentialize(
 					return {
 						...session,
 						cloud: false,
+						type: undefined,
 						domain: descriptor.domain,
 					};
 				} catch (ex) {

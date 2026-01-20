@@ -270,6 +270,7 @@ export class ServerConnection implements Disposable {
 
 		const gitkrakenTokenInfo: TokenInfo<'gitkraken'> = toTokenInfo('gitkraken', token, {
 			cloud: true,
+			type: undefined,
 			scopes: undefined,
 		});
 
