@@ -270,6 +270,7 @@ export class DetailsPanel extends LitElement {
 	private autoScrollInterval?: number;
 	private dragOverCleanupTimeout?: number;
 	private commitMessageResizeObserver?: ResizeObserver;
+	private renderFrameId?: number;
 
 	@query('.details-panel')
 	private detailsPanel!: HTMLDivElement;
@@ -287,12 +288,16 @@ export class DetailsPanel extends LitElement {
 			changedProperties.has('isPreviewMode') ||
 			changedProperties.has('canMoveHunks')
 		) {
-			this.initializeHunksSortable();
-			this.setupAutoScroll();
-		}
+			if (this.renderFrameId) {
+				cancelAnimationFrame(this.renderFrameId);
+			}
 
-		if (changedProperties.has('selectedCommits')) {
-			this.updateCommitMessageStickyOffset();
+			this.renderFrameId = requestAnimationFrame(() => {
+				this.renderFrameId = undefined;
+				this.initializeHunksSortable();
+				this.setupAutoScroll();
+				this.updateCommitMessageStickyOffset();
+			});
 		}
 	}
 
@@ -330,6 +335,10 @@ export class DetailsPanel extends LitElement {
 		if (this.commitMessageResizeObserver) {
 			this.commitMessageResizeObserver.disconnect();
 			this.commitMessageResizeObserver = undefined;
+		}
+		if (this.renderFrameId) {
+			cancelAnimationFrame(this.renderFrameId);
+			this.renderFrameId = undefined;
 		}
 	}
 
