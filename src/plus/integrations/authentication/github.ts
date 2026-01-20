@@ -123,6 +123,7 @@ export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuth
 				label: '',
 			},
 			cloud: false,
+			type: 'pat',
 			domain: descriptor.domain,
 		};
 	}

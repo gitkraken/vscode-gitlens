@@ -1130,11 +1130,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							}
 						}
 						throw new AuthenticationError(
+							// scopes and other fields are undefined here because the token has not been issues:
 							{
 								providerId: this.authenticationProviderId,
 								microHash: undefined,
 								cloud: false,
-								scopes: undefined, // scopes are undefined because the token has not been issues
+								type: undefined,
+								scopes: undefined,
 							},
 							AuthenticationErrorReason.UserDidNotConsent,
 						);
@@ -1143,11 +1145,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					Logger.error(ex);
 					debugger;
 					throw new AuthenticationError(
+						// scopes and other fields are undefined here because the token has not been issues:
 						{
 							providerId: this.authenticationProviderId,
 							microHash: undefined,
 							cloud: false,
-							scopes: undefined, // scopes are undefined because the token has not been issues
+							type: undefined,
+							scopes: undefined,
 						},
 						undefined,
 						ex,
