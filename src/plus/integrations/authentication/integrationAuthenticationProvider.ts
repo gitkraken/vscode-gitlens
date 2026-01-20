@@ -298,6 +298,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 				label: '',
 			},
 			cloud: true,
+			type: session.type,
 			expiresAt: new Date(session.expiresIn * 1000 + Date.now()),
 			// Note: do not use the session's domain, because the format is different than in our model
 			domain: descriptor.domain,

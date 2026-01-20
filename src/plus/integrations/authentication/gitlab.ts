@@ -88,6 +88,7 @@ export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthentic
 				label: '',
 			},
 			cloud: false,
+			type: 'pat',
 			domain: descriptor.domain,
 		};
 	}
