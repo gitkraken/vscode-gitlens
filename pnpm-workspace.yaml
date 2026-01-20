@@ -1,5 +1,20 @@
 blockExoticSubdeps: true
+
+ignoredBuiltDependencies:
+    - '@parcel/watcher'
+    - '@playwright/browser-chromium'
+    - '@swc/core'
+    - '@vscode/vsce-sign'
+    - esbuild
+    - keytar
+    - protobufjs
+    - rs-module-lexer
+    - sharp
+    - ttf2woff2
+    - unrs-resolver
+
 minimumReleaseAge: 10080
+
 minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
