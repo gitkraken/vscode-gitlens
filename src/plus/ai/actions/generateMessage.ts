@@ -10,6 +10,7 @@ import type { AIModel } from '../models/model.js';
 import type { AIChatMessage } from '../models/provider.js';
 import type { AISummarizedResult } from '../models/results.js';
 import { parseSummarizeResult } from '../utils/-webview/results.utils.js';
+import { truncatePromptWithDiff } from '../utils/-webview/truncation.utils.js';
 
 /** Generates a commit message based on staged or unstaged changes */
 export async function generateCommitMessage(
@@ -44,6 +45,7 @@ export async function generateCommitMessage(
 					maxInputTokens,
 					retries,
 					reporting,
+					truncatePromptWithDiff,
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
@@ -114,6 +116,7 @@ export async function generateStashMessage(
 					maxInputTokens,
 					retries,
 					reporting,
+					truncatePromptWithDiff,
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 

@@ -4,6 +4,7 @@ import { maybeStopWatch } from '../../system/stopwatch.js';
 import type {
 	GitDiffShortStat,
 	ParsedGitDiff,
+	ParsedGitDiffFile,
 	ParsedGitDiffFileMetadata,
 	ParsedGitDiffHunk,
 	ParsedGitDiffHunkLine,
@@ -167,6 +168,59 @@ export function parseGitDiff(data: string, includeRawContent = false): ParsedGit
 	sw?.stop({ suffix: ` parsed ${parsed.files.length} files` });
 
 	return parsed;
+}
+
+/**
+ * Filters a diff string, keeping only files whose paths are returned by the predicate.
+ * @param diff The raw diff string
+ * @param getIncludedPaths Predicate that receives all file paths and returns the paths to include
+ * @returns Filtered diff with only included files, or the original diff if no files were excluded
+ */
+export async function filterDiffFiles(
+	diff: string,
+	getIncludedPaths: (paths: string[]) => string[] | Promise<string[]>,
+): Promise<string> {
+	if (!diff) return diff;
+
+	// Split into file chunks at "diff --git" boundaries (lookahead keeps the delimiter)
+	const chunks = diff.split(/^(?=diff --git )/m).filter(Boolean);
+	if (!chunks.length) return diff;
+
+	// Extract path from each chunk's header line
+	const filesWithChunks = chunks.map(chunk => {
+		const match = diffRegex.exec(chunk.split('\n', 1)[0]);
+		return { path: match?.[2] ?? '', chunk: chunk };
+	});
+
+	const allPaths = filesWithChunks.map(f => f.path);
+	const includedPaths = await getIncludedPaths(allPaths);
+
+	if (includedPaths.length === allPaths.length) return diff;
+
+	return filesWithChunks
+		.filter(f => includedPaths.includes(f.path))
+		.map(f => f.chunk)
+		.join('');
+}
+
+/** Counts insertions and deletions from a parsed diff file */
+export function countDiffInsertionsAndDeletions(file: ParsedGitDiffFile): { insertions: number; deletions: number } {
+	let insertions = 0;
+	let deletions = 0;
+	for (const hunk of file.hunks) {
+		insertions += hunk.current.count;
+		deletions += hunk.previous.count;
+	}
+	return { insertions: insertions, deletions: deletions };
+}
+
+/** Counts approximate number of changed lines in a diff file */
+export function countDiffLines(file: ParsedGitDiffFile): number {
+	let count = 0;
+	for (const hunk of file.hunks) {
+		count += hunk.current.count + hunk.previous.count;
+	}
+	return count;
 }
 
 export function parseGitFileDiff(data: string, includeRawContent = false): ParsedGitDiffHunks | undefined {

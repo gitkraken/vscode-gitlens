@@ -6,6 +6,7 @@ import type { Lazy } from '../../../system/lazy.js';
 import type { AIResponse } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
 import type { AIChatMessage } from '../models/provider.js';
+import { truncatePromptWithChangelog } from '../utils/-webview/truncation.utils.js';
 
 export interface AIGenerateChangelogChanges {
 	readonly changes: readonly AIGenerateChangelogChange[];
@@ -48,6 +49,7 @@ export async function generateChangelog(
 					maxInputTokens,
 					retries,
 					reporting,
+					truncatePromptWithChangelog,
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 

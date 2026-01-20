@@ -12,6 +12,7 @@ import type { PromptTemplateContext } from '../models/promptTemplates.js';
 import type { AIChatMessage } from '../models/provider.js';
 import type { AISummarizedResult } from '../models/results.js';
 import { parseSummarizeResult } from '../utils/-webview/results.utils.js';
+import { truncatePromptWithDiff } from '../utils/-webview/truncation.utils.js';
 
 export type AIExplainSourceContext = AISourceContext<{ type: TelemetryEvents['ai/explain']['changeType'] }>;
 
@@ -48,6 +49,7 @@ export async function explainChanges(
 					maxInputTokens,
 					retries,
 					reporting,
+					truncatePromptWithDiff,
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 

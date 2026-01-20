@@ -11,6 +11,7 @@ import type { AIChatMessage } from '../models/provider.js';
 import type { AISummarizedResult } from '../models/results.js';
 import { prepareCompareDataForAIRequest } from '../utils/-webview/ai.utils.js';
 import { parseSummarizeResult } from '../utils/-webview/results.utils.js';
+import { truncatePromptWithDiff } from '../utils/-webview/truncation.utils.js';
 
 /** Generates pull request title and description */
 export async function generateCreatePullRequest(
@@ -52,6 +53,7 @@ export async function generateCreatePullRequest(
 					maxInputTokens,
 					retries,
 					reporting,
+					truncatePromptWithDiff,
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 

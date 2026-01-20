@@ -4,6 +4,23 @@ export interface PromptTemplate<T extends PromptTemplateType = PromptTemplateTyp
 	readonly variables: (keyof PromptTemplateContext<T>)[];
 }
 
+/**
+ * Handler for intelligently truncating template context when it exceeds token limits.
+ * Receives the full context, budget information, and a helper to check new character counts.
+ *
+ * @param context - The full template context with all variable values
+ * @param currentCharacters - The current total character count of the prompt
+ * @param targetCharacters - The maximum characters the prompt should be reduced to
+ * @param getCharacters - Helper function to calculate character count for a modified context
+ * @returns Modified context with truncated values, or undefined if truncation is not possible (will throw RequestTooLarge)
+ */
+export type TruncationHandler<T extends PromptTemplateType> = (
+	context: PromptTemplateContext<T>,
+	currentCharacters: number,
+	targetCharacters: number,
+	getCharacters: (context: PromptTemplateContext<T>) => number,
+) => Promise<PromptTemplateContext<T> | undefined>;
+
 interface ChangelogPromptTemplateContext {
 	data: string;
 	instructions?: string;

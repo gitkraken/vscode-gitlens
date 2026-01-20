@@ -1,11 +1,14 @@
 import type { TelemetryEvents } from '../../../../constants.telemetry.js';
 import { AIError, AIErrorReason, CancellationError } from '../../../../errors.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { filterMap } from '../../../../system/array.js';
-import { sum } from '../../../../system/iterable.js';
 import { getPossessiveForm, interpolate } from '../../../../system/string.js';
 import type { AIModel } from '../../models/model.js';
-import type { PromptTemplate, PromptTemplateContext, PromptTemplateType } from '../../models/promptTemplates.js';
+import type {
+	PromptTemplate,
+	PromptTemplateContext,
+	PromptTemplateType,
+	TruncationHandler,
+} from '../../models/promptTemplates.js';
 import {
 	explainChanges,
 	generateChangelog,
@@ -45,8 +48,6 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 	}
 }
 
-const canTruncateTemplateVariables = ['diff'];
-
 export async function resolvePrompt<T extends PromptTemplateType>(
 	model: AIModel,
 	template: PromptTemplate<T>,
@@ -54,34 +55,28 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 	maxInputTokens: number,
 	retries: number,
 	reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+	truncationHandler?: TruncationHandler<T>,
 ): Promise<{ prompt: string; truncated: boolean }> {
 	if (templateContext.instructions) {
 		reporting['config.usedCustomInstructions'] = true;
 	}
 
-	let entries = filterMap(Object.entries(templateContext), ([k, v]) => {
-		if (!template.variables.includes(k as keyof PromptTemplateContext<T>) || (v != null && typeof v !== 'string')) {
-			debugger;
-			return undefined;
-		}
-
-		return [k, (v as string | null | undefined) ?? ''] as const;
-	});
-	const length = template.template.length + sum(entries, ([, v]) => v.length);
-
+	let currentContext = templateContext;
 	let truncated = false;
 
 	const estimatedMaxCharacters = maxInputTokens * estimatedCharactersPerToken;
+	let currentCharacters = getContextCharacters(template, currentContext);
 
-	if (length > estimatedMaxCharacters) {
-		truncated = true;
-
-		entries = entries.map(([k, v]) => {
-			if (!canTruncateTemplateVariables.includes(k)) return [k, v] as const;
-
-			const truncateTo = estimatedMaxCharacters - (length - v.length);
-			if (truncateTo > v.length) {
-				debugger;
+	// If over limit, try truncation handler or fail
+	if (currentCharacters > estimatedMaxCharacters) {
+		if (truncationHandler != null) {
+			const truncatedContext = await truncationHandler(
+				currentContext,
+				currentCharacters,
+				estimatedMaxCharacters,
+				ctx => getContextCharacters(template, ctx),
+			);
+			if (truncatedContext == null) {
 				throw new AIError(
 					AIErrorReason.RequestTooLarge,
 					new Error(
@@ -89,18 +84,19 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 					),
 				);
 			}
-			return [k, v.substring(0, truncateTo)] as const;
-		});
-	}
-
-	// Ensure we blank out any missing variables
-	for (const v of template.variables) {
-		if (!entries.some(([k]) => k === v)) {
-			entries.push([v as string, '']);
+			currentContext = truncatedContext;
+			currentCharacters = getContextCharacters(template, currentContext);
+			truncated = true;
+		} else {
+			// No handler provided and over limit - fail fast
+			throw new AIError(
+				AIErrorReason.RequestTooLarge,
+				new Error(`Context exceeds the ${getPossessiveForm(model.provider.name)} limits`),
+			);
 		}
 	}
 
-	const prompt = interpolate(template.template, Object.fromEntries(entries));
+	const prompt = buildPrompt(template, currentContext);
 
 	const estimatedTokens = Math.ceil(prompt.length / estimatedCharactersPerToken);
 	const warningThreshold = configuration.get('ai.largePromptWarningThreshold', undefined, 10000);
@@ -128,4 +124,30 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 		}
 	}
 	return { prompt: prompt, truncated: truncated };
+}
+
+function getContextCharacters<T extends PromptTemplateType>(
+	template: PromptTemplate<T>,
+	context: PromptTemplateContext<T>,
+): number {
+	let length = template.template.length;
+	for (const key of template.variables) {
+		const value = context[key];
+		if (typeof value === 'string') {
+			length += value.length;
+		}
+	}
+	return length;
+}
+
+function buildPrompt<T extends PromptTemplateType>(
+	template: PromptTemplate<T>,
+	context: PromptTemplateContext<T>,
+): string {
+	const entries: [string, string][] = [];
+	for (const key of template.variables) {
+		const value = context[key];
+		entries.push([key as string, typeof value === 'string' ? value : '']);
+	}
+	return interpolate(template.template, Object.fromEntries(entries));
 }

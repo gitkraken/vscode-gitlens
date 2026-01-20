@@ -32,6 +32,7 @@ import type { AIFeatures } from '../../features.js';
 import { isAdvancedFeature } from '../../features.js';
 import type { Repository } from '../../git/models/repository.js';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
+import { filterDiffFiles } from '../../git/parsers/diffParser.js';
 import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiModelPicker.js';
 import { Directive, isDirective } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -57,6 +58,7 @@ import {
 	isSubscriptionPaid,
 } from '../gk/utils/subscription.utils.js';
 import { AIActions } from './aiActions.js';
+import { AIIgnoreCache } from './aiIgnoreCache.js';
 import type { AIService } from './aiService.js';
 import { GitKrakenProvider } from './gitkrakenProvider.js';
 import type {
@@ -72,6 +74,7 @@ import type {
 	PromptTemplateContext,
 	PromptTemplateId,
 	PromptTemplateType,
+	TruncationHandler,
 } from './models/promptTemplates.js';
 import type { AIChatMessage, AIProvider, AIProviderResponse, AIProviderResult } from './models/provider.js';
 import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils.js';
@@ -1041,11 +1044,14 @@ export class AIProviderService implements AIService, Disposable {
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined> {
 		let changes: string;
+		let repoPath: string | undefined;
+
 		if (typeof changesOrRepo === 'string') {
 			changes = changesOrRepo;
 		} else if (Array.isArray(changesOrRepo)) {
 			changes = changesOrRepo.join('\n');
 		} else {
+			repoPath = changesOrRepo.path;
 			let diff = await changesOrRepo.git.diff.getDiff?.(uncommittedStaged);
 			if (!diff?.contents) {
 				diff = await changesOrRepo.git.diff.getDiff?.(uncommitted);
@@ -1054,6 +1060,12 @@ export class AIProviderService implements AIService, Disposable {
 			if (options?.cancellation?.isCancellationRequested) return undefined;
 
 			changes = diff.contents;
+		}
+
+		// Filter ignored files when we have a repository path
+		if (repoPath != null && changes) {
+			const aiIgnore = new AIIgnoreCache(this.container, repoPath);
+			changes = await filterDiffFiles(changes, paths => aiIgnore.excludeIgnored(paths));
 		}
 
 		return changes;
@@ -1066,6 +1078,7 @@ export class AIProviderService implements AIService, Disposable {
 		maxInputTokens: number,
 		retries: number,
 		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+		truncationHandler?: TruncationHandler<T>,
 	): Promise<{ prompt: string; truncated: boolean }> {
 		const promptTemplate = await this.getPromptTemplate(templateType, model);
 		if (promptTemplate == null) {
@@ -1077,7 +1090,15 @@ export class AIProviderService implements AIService, Disposable {
 			context.instructions = `Carefully follow these additional instructions (provided directly by the user), but do not deviate from the output structure:\n${context.instructions}`;
 		}
 
-		const result = await resolvePrompt(model, promptTemplate, context, maxInputTokens, retries, reporting);
+		const result = await resolvePrompt(
+			model,
+			promptTemplate,
+			context,
+			maxInputTokens,
+			retries,
+			reporting,
+			truncationHandler,
+		);
 		return result;
 	}
 

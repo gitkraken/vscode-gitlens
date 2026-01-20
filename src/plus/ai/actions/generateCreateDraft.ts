@@ -10,6 +10,7 @@ import type { AIModel } from '../models/model.js';
 import type { AIChatMessage } from '../models/provider.js';
 import type { AISummarizedResult } from '../models/results.js';
 import { parseSummarizeResult } from '../utils/-webview/results.utils.js';
+import { truncatePromptWithDiff } from '../utils/-webview/truncation.utils.js';
 
 /** Generates a draft message (cloud patch or code suggestion) */
 export async function generateCreateDraft(
@@ -52,6 +53,7 @@ export async function generateCreateDraft(
 					maxInputTokens,
 					retries,
 					reporting,
+					truncatePromptWithDiff,
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 

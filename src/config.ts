@@ -216,6 +216,10 @@ export interface AdvancedConfig {
 
 interface AIConfig {
 	readonly enabled: boolean;
+	readonly exclude: {
+		/** Glob patterns for files to exclude from AI prompts (like files.exclude). May be undefined on extension upgrade due to VS Code bug. */
+		readonly files: Record<string, boolean> | undefined;
+	};
 	readonly experimental: {
 		readonly composer: {
 			readonly enabled: boolean;

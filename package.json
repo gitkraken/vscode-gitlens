@@ -4380,6 +4380,38 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.exclude.files": {
+						"type": "object",
+						"default": {
+							"**/pnpm-lock.yaml": true,
+							"**/package-lock.json": true,
+							"**/yarn.lock": true,
+							"**/Cargo.lock": true,
+							"**/Gemfile.lock": true,
+							"**/composer.lock": true,
+							"**/Pipfile.lock": true,
+							"**/poetry.lock": true,
+							"**/go.sum": true,
+							"**/*.min.js": true,
+							"**/*.min.css": true,
+							"**/*.map": true,
+							"**/dist/**": true,
+							"**/out/**": true,
+							"**/build/**": true,
+							"**/node_modules/**": true
+						},
+						"markdownDescription": "Specifies glob patterns for files to exclude from AI prompts when generating commit messages, explaining changes, etc. Similar to `files.exclude`, use glob patterns as keys with `true` to exclude or `false` to include.",
+						"scope": "resource",
+						"order": 3,
+						"patternProperties": {
+							".*": {
+								"type": "boolean"
+							}
+						},
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.generateStashMessage.customInstructions": {
 						"type": "string",
 						"default": null,
