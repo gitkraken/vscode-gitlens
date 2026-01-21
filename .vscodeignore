@@ -35,6 +35,7 @@ tests/**
 .yarnrc
 AGENTS.md
 BACKERS.md
+CLAUDE.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 contributions.json
@@ -43,6 +44,7 @@ custom-elements.json
 custom-elements-manifest.config.mjs
 eslint.config.mjs
 pnpm-lock.yaml
+pnpm-workspace.yaml
 README.pre.md
 svgo.config.js
 tsconfig*.json
