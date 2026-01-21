@@ -130,16 +130,17 @@ export class GlSignatureBadge extends LitElement {
 
 		const { status, trustLevel } = this.signature;
 
-		// Non-good statuses are always untrusted
-		if (status !== 'good') {
+		// Bad signatures are always untrusted
+		if (status === 'bad') {
 			return 'untrusted';
 		}
 
-		// Good status - check trust level
-		if (trustLevel === 'ultimate' || trustLevel === 'full') {
+		// Good status with ultimate or full trust is trusted
+		if (status === 'good' && (trustLevel === 'ultimate' || trustLevel === 'full')) {
 			return 'trusted';
 		}
 
+		// Everything else is unknown
 		return 'unknown';
 	}
 
@@ -164,11 +165,9 @@ export class GlSignatureBadge extends LitElement {
 			case 'trusted':
 				return 'Signature is valid and trusted';
 			case 'untrusted':
-				return this.signature.status === 'good'
-					? 'Signature is valid but untrusted'
-					: this.getErrorStatusText();
+				return this.getErrorStatusText();
 			case 'unknown':
-				return 'Signature is valid but unknown';
+				return this.signature.status === 'good' ? 'Signature is valid but unknown' : this.getErrorStatusText();
 		}
 	}
 
