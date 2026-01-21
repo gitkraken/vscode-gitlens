@@ -210,7 +210,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		if (options?.forceNewSession) {
-			if (!(await this.disconnectCloudSession())) {
+			if ((await this.disconnectCloudSession()) === 'failure') {
 				return undefined;
 			}
 
@@ -305,14 +305,14 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		};
 	}
 
-	private async disconnectCloudSession(): Promise<boolean> {
+	private async disconnectCloudSession(): Promise<'skip' | 'success' | 'failure'> {
 		const loggedIn = await this.container.subscription.getAuthenticationSession(false);
-		if (!loggedIn) return false;
+		if (!loggedIn) return 'skip';
 
 		const cloudIntegrations = await this.container.cloudIntegrations;
-		if (cloudIntegrations == null) return false;
+		if (cloudIntegrations == null) return 'skip';
 
-		return cloudIntegrations.disconnect(this.authProviderId);
+		return (await cloudIntegrations.disconnect(this.authProviderId)) ? 'success' : 'failure';
 	}
 }
 
