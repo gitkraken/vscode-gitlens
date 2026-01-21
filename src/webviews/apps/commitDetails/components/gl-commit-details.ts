@@ -23,6 +23,7 @@ import '../../shared/components/code-icon.js';
 import '../../shared/components/commit/commit-author.js';
 import '../../shared/components/commit/commit-date.js';
 import '../../shared/components/commit/commit-stats.js';
+import '../../shared/components/commit/signature-badge.js';
 import '../../shared/components/markdown/markdown.js';
 import '../../shared/components/panes/pane-group.js';
 import '../../shared/components/rich/issue-pull-request.js';
@@ -232,12 +233,26 @@ export class GlCommitDetails extends GlDetailsBase {
 					${when(
 						!this.isStash,
 						() => html`
-							<gl-commit-author
-								name="${details.author.name}"
-								url="${details.author.email ? `mailto:${details.author.email}` : undefined}"
-								.avatarUrl="${details.author.avatar ?? ''}"
-								.showAvatar="${this.preferences?.avatars ?? true}"
-							></gl-commit-author>
+							<div class="message-block-group">
+								<gl-commit-author
+									name="${details.author.name}"
+									url="${details.author.email ? `mailto:${details.author.email}` : undefined}"
+									.avatarUrl="${details.author.avatar ?? ''}"
+									.showAvatar="${this.preferences?.avatars ?? true}"
+								></gl-commit-author>
+								${when(
+									this._enriched?.signature != null &&
+										(this.preferences?.showSignatureBadges ?? true),
+									() =>
+										html`<gl-signature-badge
+											.signature="${this._enriched?.signature}"
+											.authorName="${details.author.name}"
+											.authorEmail="${details.author.email}"
+											.authorAvatar="${details.author.avatar}"
+											.committerEmail="${details.committer.email}"
+										></gl-signature-badge>`,
+								)}
+							</div>
 						`,
 					)}
 					${this.renderExplainChanges()}

@@ -55,7 +55,7 @@ function mapTrustLevel(trustStr: string | undefined): TrustLevel {
 	switch (normalized) {
 		case 'ultimate':
 			return 'ultimate';
-		case 'full':
+		case 'fully':
 			return 'full';
 		case 'marginal':
 			return 'marginal';

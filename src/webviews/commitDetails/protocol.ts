@@ -30,10 +30,19 @@ export interface CommitSummary {
 	// summary: string;
 	message: string;
 	author: GitCommitIdentityShape & { avatar: string | undefined };
-	// committer: GitCommitIdentityShape & { avatar: string | undefined };
+	committer: GitCommitIdentityShape & { avatar: string | undefined };
 	parents: string[];
 	repoPath: string;
 	stashNumber?: string;
+}
+
+export interface CommitSignatureShape {
+	status: 'good' | 'bad' | 'unknown' | 'expired' | 'revoked' | 'error';
+	signer?: string;
+	keyId?: string;
+	fingerprint?: string;
+	trustLevel?: 'ultimate' | 'full' | 'marginal' | 'never' | 'unknown';
+	errorMessage?: string;
 }
 
 export interface CommitDetails extends CommitSummary {
@@ -45,6 +54,7 @@ export interface CommitDetails extends CommitSummary {
 		formattedMessage: string;
 		associatedPullRequest: PullRequestShape | undefined;
 		autolinkedIssues: IssueOrPullRequest[];
+		signature?: CommitSignatureShape;
 	}>;
 }
 
@@ -57,6 +67,7 @@ export interface Preferences {
 	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
 	aiEnabled: boolean;
+	showSignatureBadges: boolean;
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
 
