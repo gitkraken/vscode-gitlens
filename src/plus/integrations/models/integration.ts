@@ -264,7 +264,11 @@ export abstract class IntegrationBase<
 	private skippedNonCloudReported = false;
 	@log()
 	async syncCloudConnection(state: 'connected' | 'disconnected', forceSync: boolean): Promise<void> {
-		if (this._session?.cloud === false) {
+		// Initially the condition on `this._session.cloud` has been added here: https://github.com/gitkraken/vscode-gitlens/commit/e95e70c430bd162924cc3bd5c1e8ab90e6293449#diff-4213141a45cccaab7aa2e40028b155a87eb913b07388485831403e60ce5555e4R237
+		// I'm not sure about reasons, but it seems we want to replace it with the cloud session if it's connected.
+		// Gradually we'll stop having non-cloud sessions.
+		// However this is needed to be tested with PATs, e.g. with a GitLab PAT.
+		if (this._session?.cloud === false && state !== 'connected') {
 			if (this.id !== GitCloudHostIntegrationId.GitHub && !this.skippedNonCloudReported) {
 				this.container.telemetry.sendEvent('cloudIntegrations/refreshConnection/skippedUnusualToken', {
 					'integration.id': this.id,
