@@ -7,6 +7,7 @@ import { debug, log } from '../../../../system/decorators/log.js';
 import type { Deferrable } from '../../../../system/function/debounce.js';
 import { debounce } from '../../../../system/function/debounce.js';
 import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
 import { runCLICommand, toMcpInstallProvider } from '../cli/utils.js';
 
 const CLIProxyMCPConfigOutputs = {
@@ -39,10 +40,10 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	}
 
 	private onStorageChanged(e: StorageChangeEvent): void {
-		if (e.workspace || !e.keys.includes('gk:cli:install')) return;
+		if (e.type !== 'scoped' || !e.keys.includes('gk:cli:install')) return;
 
 		// Only refresh if installation is completed
-		const cliInstall = this.container.storage.get('gk:cli:install');
+		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		if (cliInstall?.status !== 'completed') {
 			return;
 		}
@@ -83,24 +84,20 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 
 	@debug()
 	private async getMcpConfigurationFromCLICore(): Promise<McpConfiguration | undefined> {
-		const cliInstall = this.container.storage.get('gk:cli:install');
-		const cliPath = this.container.storage.get('gk:cli:path');
+		const scope = getLogScope();
 
-		if (cliInstall?.status !== 'completed' || !cliPath) {
-			return undefined;
-		}
+		const cliInstall = this.container.storage.getScoped('gk:cli:install');
+		const cliPath = this.container.storage.getScoped('gk:cli:path');
+
+		if (cliInstall?.status !== 'completed' || !cliPath) return undefined;
 
 		const appName = toMcpInstallProvider(await getHostAppName());
-		if (appName == null) {
-			return undefined;
-		}
+		if (appName == null) return undefined;
 
 		try {
 			let output = await runCLICommand(
 				['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
-				{
-					cwd: cliPath,
-				},
+				{ cwd: cliPath },
 			);
 			output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
 
@@ -119,7 +116,8 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 				version: cliInstall.version,
 			};
 		} catch (ex) {
-			Logger.error(`Error getting MCP configuration: ${ex}`);
+			debugger;
+			Logger.error(ex, scope, `Error getting MCP configuration`);
 			this.onRegistrationFailed('Error getting MCP configuration', String(ex), cliInstall.version);
 		}
 

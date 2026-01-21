@@ -820,7 +820,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onStorageChanged(e: StorageChangeEvent) {
-		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
+		if (e.type === 'global' && e.keys.includes('mcp:banner:dismissed')) {
 			this.onMcpBannerChanged();
 		}
 	}

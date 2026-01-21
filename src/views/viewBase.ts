@@ -717,7 +717,7 @@ export abstract class ViewBase<
 	}
 
 	private onStorageChanged(e: StorageChangeEvent): void {
-		if (e.workspace && e.keys.includes(`views:${this.type}:repositoryFilter`)) {
+		if (e.type === 'workspace' && e.keys.includes(`views:${this.type}:repositoryFilter`)) {
 			this._onDidChangeRepositoryFilter.fire();
 		}
 	}

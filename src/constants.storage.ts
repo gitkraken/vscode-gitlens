@@ -84,9 +84,6 @@ interface GlobalStorageCore {
 	// Value based on `currentOnboardingVersion` in composer's protocol
 	'composer:onboarding:dismissed': string;
 	'composer:onboarding:stepReached': number;
-	'gk:cli:install': StoredGkCLIInstallInfo;
-	'gk:cli:corePath': string;
-	'gk:cli:path': string;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
 	'mcp:banner:dismissed': boolean;
@@ -120,6 +117,19 @@ type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, Sto
 	Record<`bitbucket-server:${string}:account`, Stored<StoredBitbucketAccount | undefined>>;
 
 export type GlobalStorage = GlobalStorageCore & GlobalStorageDynamic;
+
+/**
+ * Storage keys that contain environment-specific data (e.g., file paths, install status).
+ * These are automatically scoped by platform and remote info to avoid conflicts when
+ * globalState is shared across local/remote environments (Windows, WSL, containers, SSH).
+ *
+ * Use `storage.getScoped()` / `storage.storeScoped()` / `storage.deleteScoped()` for these keys.
+ */
+export interface GlobalScopedStorage {
+	'gk:cli:install': StoredGkCLIInstallInfo;
+	'gk:cli:corePath': string;
+	'gk:cli:path': string;
+}
 
 export interface StoredGkCLIInstallInfo {
 	status: 'attempted' | 'unsupported' | 'completed';

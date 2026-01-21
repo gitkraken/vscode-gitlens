@@ -25,3 +25,11 @@ export function getAltKeySymbol(): string {
 	if (isMac) return '⌥';
 	return 'Alt';
 }
+
+/**
+ * Returns an identifier for the current remote instance.
+ * Not applicable in browser environment.
+ */
+export function getRemoteInstanceIdentifier(): string | undefined {
+	return undefined;
+}

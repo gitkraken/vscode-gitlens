@@ -114,7 +114,7 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private ensureAutoInstall() {
-		const cliInstall = this.container.storage.get('gk:cli:install');
+		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		if (cliInstall?.status === 'completed') {
 			void setContext('gitlens:gk:cli:installed', true);
 			return;
@@ -122,7 +122,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		// Reset the attempts count if GitLens extension version has changed
 		if (reachedMaxAttempts(cliInstall) && this.container.version !== this.container.previousVersion) {
-			void this.container.storage.store('gk:cli:install', undefined);
+			void this.container.storage.storeScoped('gk:cli:install', undefined);
 		}
 
 		if (!mcpExtensionRegistrationAllowed(this.container) || reachedMaxAttempts(cliInstall)) {
@@ -437,11 +437,11 @@ export class GkCliIntegrationProvider implements Disposable {
 	): Promise<{ cliVersion?: string; cliPath?: string; status: 'completed' | 'unsupported' | 'attempted' }> {
 		const scope = getLogScope();
 
-		const cliInstall = this.container.storage.get('gk:cli:install');
+		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		let cliInstallAttempts = force ? 0 : (cliInstall?.attempts ?? 0);
 		let cliInstallStatus = cliInstall?.status ?? 'attempted';
 		let cliVersion = cliInstall?.version;
-		let cliPath = this.container.storage.get('gk:cli:path');
+		let cliPath = this.container.storage.getScoped('gk:cli:path');
 		const platform = getPlatform();
 
 		if (!force) {
@@ -465,7 +465,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		try {
 			if (isWeb) {
 				void this.container.storage
-					.store('gk:cli:install', {
+					.storeScoped('gk:cli:install', {
 						status: 'unsupported',
 						attempts: cliInstallAttempts,
 					})
@@ -487,7 +487,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				});
 			}
 			void this.container.storage
-				.store('gk:cli:install', {
+				.storeScoped('gk:cli:install', {
 					status: 'attempted',
 					attempts: cliInstallAttempts,
 				})
@@ -521,7 +521,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					break;
 				default: {
 					void this.container.storage
-						.store('gk:cli:install', {
+						.storeScoped('gk:cli:install', {
 							status: 'unsupported',
 							attempts: cliInstallAttempts,
 						})
@@ -533,7 +533,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 			let cliProxyZipFilePath: Uri | undefined;
 			let cliExtractedProxyFilePath: Uri | undefined;
-			const globalStoragePath = this.container.context.globalStorageUri;
+			const { globalStorageUri } = this.container.context;
 
 			try {
 				// Download the MCP proxy installer
@@ -606,11 +606,11 @@ export class GkCliIntegrationProvider implements Disposable {
 				}
 				// installer file name is the last part of the download URL
 				const cliProxyZipFileName = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
-				cliProxyZipFilePath = Uri.joinPath(globalStoragePath, cliProxyZipFileName);
+				cliProxyZipFilePath = Uri.joinPath(globalStorageUri, cliProxyZipFileName);
 
 				// Ensure the global storage directory exists
 				try {
-					await workspace.fs.createDirectory(globalStoragePath);
+					await workspace.fs.createDirectory(globalStorageUri);
 				} catch (ex) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.GlobalStorageDirectory,
@@ -633,17 +633,17 @@ export class GkCliIntegrationProvider implements Disposable {
 				try {
 					// Extract only the gk binary from the zip file using the fflate library (cross-platform)
 					const expectedBinary = platform === 'windows' ? 'gk.exe' : 'gk';
-					await extractZipFile(cliProxyZipFilePath.fsPath, globalStoragePath.fsPath, {
+					await extractZipFile(cliProxyZipFilePath.fsPath, globalStorageUri.fsPath, {
 						filter: filename => filename === expectedBinary || filename.endsWith(`/${expectedBinary}`),
 					});
 
 					// Check using stat to make sure the newly extracted file exists.
-					cliExtractedProxyFilePath = Uri.joinPath(globalStoragePath, expectedBinary);
+					cliExtractedProxyFilePath = Uri.joinPath(globalStorageUri, expectedBinary);
 
 					// This will throw if the file doesn't exist
 					await workspace.fs.stat(cliExtractedProxyFilePath);
-					void this.container.storage.store('gk:cli:path', globalStoragePath.fsPath).catch();
-					cliPath = globalStoragePath.fsPath;
+					void this.container.storage.storeScoped('gk:cli:path', globalStorageUri.fsPath).catch();
+					cliPath = globalStorageUri.fsPath;
 				} catch (ex) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyExtract,
@@ -654,28 +654,27 @@ export class GkCliIntegrationProvider implements Disposable {
 
 				// Set up the local MCP server files
 				try {
-					const coreInstallOutput = await runCLICommand(['install'], {
-						cwd: globalStoragePath.fsPath,
-					});
+					const coreInstallOutput = await runCLICommand(['install'], { cwd: globalStorageUri.fsPath });
 					const directory = coreInstallOutput.match(/Directory: (.*)/);
 					let directoryPath;
 					if (directory != null && directory.length > 1) {
 						directoryPath = directory[1];
-						void this.container.storage.store('gk:cli:corePath', directoryPath).catch();
+						void this.container.storage.storeScoped('gk:cli:corePath', directoryPath).catch();
 					} else {
 						throw new Error(`Failed to find core directory in install output: ${coreInstallOutput}`);
 					}
 
-					Logger.log('CLI install completed.');
+					Logger.log(scope, 'CLI install completed');
 					cliInstallStatus = 'completed';
 					void this.container.storage
-						.store('gk:cli:install', {
+						.storeScoped('gk:cli:install', {
 							status: cliInstallStatus,
 							attempts: cliInstallAttempts,
 							version: cliVersion,
 						})
 						.catch();
 					void setContext('gitlens:gk:cli:installed', true);
+
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent('cli/install/succeeded', {
 							autoInstall: autoInstall ?? false,
@@ -684,6 +683,7 @@ export class GkCliIntegrationProvider implements Disposable {
 							version: cliVersion,
 						});
 					}
+
 					await this.authCLI();
 				} catch (ex) {
 					throw new CLIInstallError(
@@ -698,15 +698,8 @@ export class GkCliIntegrationProvider implements Disposable {
 					try {
 						await workspace.fs.delete(cliProxyZipFilePath);
 					} catch (ex) {
-						Logger.warn(`Failed to delete CLI proxy archive: ${ex}`);
+						Logger.warn(ex, scope, 'Failed to delete CLI proxy archive');
 					}
-				}
-
-				try {
-					const readmePath = Uri.joinPath(globalStoragePath, 'README.md');
-					await workspace.fs.delete(readmePath);
-				} catch (ex) {
-					Logger.warn(`Failed to delete CLI proxy README: ${ex}`);
 				}
 			}
 		} catch (ex) {
@@ -738,20 +731,17 @@ export class GkCliIntegrationProvider implements Disposable {
 	private async authCLI(): Promise<void> {
 		const scope = getLogScope();
 
-		const cliInstall = this.container.storage.get('gk:cli:install');
-		const cliPath = this.container.storage.get('gk:cli:path');
-		if (cliInstall?.status !== 'completed' || cliPath == null) {
-			return;
-		}
+		const cliInstall = this.container.storage.getScoped('gk:cli:install');
+		const cliPath = this.container.storage.getScoped('gk:cli:path');
+		if (cliInstall?.status !== 'completed' || cliPath == null) return;
 
 		const currentSessionToken = (await this.container.subscription.getAuthenticationSession())?.accessToken;
-		if (currentSessionToken == null) {
-			return;
-		}
+		if (currentSessionToken == null) return;
 
 		try {
 			await runCLICommand(['auth', 'login', '-t', currentSessionToken]);
 		} catch (ex) {
+			debugger;
 			Logger.error(ex, scope);
 		}
 	}

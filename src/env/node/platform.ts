@@ -1,6 +1,6 @@
-import { networkInterfaces, tmpdir } from 'os';
+import { hostname, networkInterfaces, tmpdir } from 'os';
 import { join } from 'path';
-import { platform } from 'process';
+import { platform, env as processEnv } from 'process';
 import { env, UIKind } from 'vscode';
 
 export const isWeb = env.uiKind === UIKind.Web;
@@ -27,4 +27,23 @@ export function getTempFile(filename: string): string {
 export function getAltKeySymbol(): string {
 	if (isMac) return '⌥';
 	return 'Alt';
+}
+
+/**
+ * Returns an identifier for the current remote instance, if running in a remote environment.
+ * Used to differentiate between multiple instances of the same remote type (e.g., multiple WSL distros).
+ *
+ * @returns The WSL distro name, hostname for SSH, or undefined if not applicable
+ */
+export function getRemoteInstanceIdentifier(): string | undefined {
+	// For WSL, use the distro name (e.g., "Ubuntu", "Debian")
+	const wslDistro = processEnv.WSL_DISTRO_NAME;
+	if (wslDistro) return wslDistro;
+
+	// For SSH and other remotes, use hostname to differentiate
+	try {
+		return hostname();
+	} catch {
+		return undefined;
+	}
 }

@@ -1,9 +1,11 @@
 import type { Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
-import { Disposable, EventEmitter } from 'vscode';
+import { Disposable, env, EventEmitter } from 'vscode';
+import { getPlatform, getRemoteInstanceIdentifier } from '@env/platform.js';
 import { extensionPrefix } from '../../constants.js';
 import type {
 	DeprecatedGlobalStorage,
 	DeprecatedWorkspaceStorage,
+	GlobalScopedStorage,
 	GlobalStorage,
 	SecretKeys,
 	WorkspaceStorage,
@@ -12,6 +14,7 @@ import { debug } from '../decorators/log.js';
 import { registerCommand } from './command.js';
 
 type GlobalStorageKeys = keyof (GlobalStorage & DeprecatedGlobalStorage);
+type GlobalScopedStorageKeys = keyof GlobalScopedStorage;
 type WorkspaceStorageKeys = keyof (WorkspaceStorage & DeprecatedWorkspaceStorage);
 
 const allowedStoreCommandGlobalStorageKeys: GlobalStorageKeys[] = ['mcp:banner:dismissed'];
@@ -29,14 +32,21 @@ export type StorageChangeEvent =
 			 * The key of the stored value that has changed.
 			 */
 			readonly keys: GlobalStorageKeys[];
-			readonly workspace: false;
+			readonly type: 'global';
+	  }
+	| {
+			/**
+			 * The key of the stored value that has changed (environment-scoped global storage).
+			 */
+			readonly keys: GlobalScopedStorageKeys[];
+			readonly type: 'scoped';
 	  }
 	| {
 			/**
 			 * The key of the stored value that has changed.
 			 */
 			readonly keys: WorkspaceStorageKeys[];
-			readonly workspace: true;
+			readonly type: 'workspace';
 	  };
 
 export class Storage implements Disposable {
@@ -76,7 +86,7 @@ export class Storage implements Disposable {
 	@debug({ logThreshold: 250 })
 	async delete(key: GlobalStorageKeys): Promise<void> {
 		await this.context.globalState.update(`${extensionPrefix}:${key}`, undefined);
-		this._onDidChange.fire({ keys: [key], workspace: false });
+		this._onDidChange.fire({ keys: [key], type: 'global' });
 	}
 
 	@debug({ logThreshold: 250 })
@@ -102,7 +112,7 @@ export class Storage implements Disposable {
 		}
 
 		if (keys.length) {
-			this._onDidChange.fire({ keys: keys, workspace: false });
+			this._onDidChange.fire({ keys: keys, type: 'global' });
 		}
 	}
 
@@ -114,7 +124,66 @@ export class Storage implements Disposable {
 	@debug({ args: { 1: false }, logThreshold: 250 })
 	async store<T extends keyof GlobalStorage>(key: T, value: GlobalStorage[T] | undefined): Promise<void> {
 		await this.context.globalState.update(`${extensionPrefix}:${key}`, value);
-		this._onDidChange.fire({ keys: [key], workspace: false });
+		this._onDidChange.fire({ keys: [key], type: 'global' });
+	}
+
+	/**
+	 * Returns a unique key for the current environment based on platform and remote authority.
+	 * Used to scope storage keys that contain environment-specific data (like file paths)
+	 * to avoid conflicts when globalState is shared across local/remote environments.
+	 *
+	 * The remote authority includes specific instance info (e.g., WSL distro, SSH host),
+	 * derived from environment variables or hostname.
+	 *
+	 * @returns e.g., "windows", "linux", "wsl+ubuntu:linux", "ssh-remote+myserver:linux"
+	 */
+	private getEnvironmentScopeKey(): string {
+		const platform = getPlatform();
+		const remote = env.remoteName;
+		if (remote == null) return platform;
+
+		// Get instance identifier (e.g., WSL distro name, SSH hostname) to differentiate
+		// between multiple instances of the same remote type
+		const instance = getRemoteInstanceIdentifier();
+		const key = instance ? `${remote}+${instance}:${platform}` : `${remote}:${platform}`;
+		return key.toLowerCase();
+	}
+
+	getScoped<T extends keyof GlobalScopedStorage>(key: T): GlobalScopedStorage[T] | undefined;
+	getScoped<T extends keyof GlobalScopedStorage>(
+		key: T,
+		defaultValue: GlobalScopedStorage[T],
+	): GlobalScopedStorage[T];
+	@debug({ logThreshold: 50 })
+	getScoped<T extends keyof GlobalScopedStorage>(
+		key: T,
+		defaultValue?: GlobalScopedStorage[T],
+	): GlobalScopedStorage[T] | undefined {
+		const scopeKey = this.getEnvironmentScopeKey();
+		const value = this.context.globalState.get<GlobalScopedStorage[T]>(`${extensionPrefix}:${scopeKey}:${key}`);
+		if (value !== undefined) return value;
+
+		// Fallback to legacy unscoped key for backward compatibility.
+		// The consuming code should validate the data (e.g., check if paths exist)
+		// since legacy data may be from a different environment.
+		return this.context.globalState.get(`${extensionPrefix}:${key}`, defaultValue);
+	}
+
+	@debug({ logThreshold: 250 })
+	async deleteScoped(key: keyof GlobalScopedStorage): Promise<void> {
+		const scopeKey = this.getEnvironmentScopeKey();
+		await this.context.globalState.update(`${extensionPrefix}:${scopeKey}:${key}`, undefined);
+		this._onDidChange.fire({ keys: [key], type: 'scoped' });
+	}
+
+	@debug({ args: { 1: false }, logThreshold: 250 })
+	async storeScoped<T extends keyof GlobalScopedStorage>(
+		key: T,
+		value: GlobalScopedStorage[T] | undefined,
+	): Promise<void> {
+		const scopeKey = this.getEnvironmentScopeKey();
+		await this.context.globalState.update(`${extensionPrefix}:${scopeKey}:${key}`, value);
+		this._onDidChange.fire({ keys: [key], type: 'scoped' });
 	}
 
 	@debug({ args: false, logThreshold: 250 })
@@ -144,7 +213,7 @@ export class Storage implements Disposable {
 	@debug({ logThreshold: 250 })
 	async deleteWorkspace(key: WorkspaceStorageKeys): Promise<void> {
 		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, undefined);
-		this._onDidChange.fire({ keys: [key], workspace: true });
+		this._onDidChange.fire({ keys: [key], type: 'workspace' });
 	}
 
 	@debug({ logThreshold: 250 })
@@ -173,7 +242,7 @@ export class Storage implements Disposable {
 		}
 
 		if (keys.length) {
-			this._onDidChange.fire({ keys: keys, workspace: true });
+			this._onDidChange.fire({ keys: keys, type: 'workspace' });
 		}
 	}
 
@@ -188,7 +257,7 @@ export class Storage implements Disposable {
 		value: WorkspaceStorage[T] | undefined,
 	): Promise<void> {
 		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, value);
-		this._onDidChange.fire({ keys: [key], workspace: true });
+		this._onDidChange.fire({ keys: [key], type: 'workspace' });
 	}
 
 	async storeFromCommand(args: StorageStoreCommandArgs): Promise<void> {

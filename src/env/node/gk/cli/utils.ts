@@ -4,6 +4,7 @@ import { window } from 'vscode';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
 import { openUrl } from '../../../../system/-webview/vscode/uris.js';
+import { joinPaths } from '../../../../system/path.js';
 import { run } from '../../git/shell.js';
 import { getPlatform } from '../../platform.js';
 
@@ -90,14 +91,14 @@ export function toMcpInstallProvider<T extends string | undefined>(appHostName: 
 }
 
 export async function runCLICommand(args: string[], options?: { cwd?: string }): Promise<string> {
-	const cwd = options?.cwd ?? Container.instance.storage.get('gk:cli:path');
+	const cwd = options?.cwd ?? Container.instance.storage.getScoped('gk:cli:path');
 	if (cwd == null) {
+		debugger;
 		throw new Error('CLI is not installed');
 	}
 
 	const platform = getPlatform();
-
-	return run(platform === 'windows' ? 'gk.exe' : './gk', args, 'utf8', { cwd: cwd });
+	return run(joinPaths(cwd, platform === 'windows' ? 'gk.exe' : 'gk'), args, 'utf8', { cwd: cwd });
 }
 
 export async function showManualMcpSetupPrompt(message: string): Promise<void> {
