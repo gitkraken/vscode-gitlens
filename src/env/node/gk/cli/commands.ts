@@ -11,11 +11,14 @@ import { getLaunchpadItemGroups } from '../../../../plus/launchpad/launchpadProv
 import { launchpadCategoryToGroupMap } from '../../../../plus/launchpad/models/launchpad.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { createCommandDecorator } from '../../../../system/decorators/command.js';
+import type { ComposerWebviewShowingArgs } from '../../../../webviews/plus/composer/registration.js';
+import type { WebviewPanelShowCommandArgs } from '../../../../webviews/webviewsController.js';
 import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './integration.js';
 
 type CliCommand =
 	| 'cherry-pick'
 	| 'compare'
+	| 'compose'
 	| 'graph'
 	| 'merge'
 	| 'rebase'
@@ -133,6 +136,21 @@ export class CliCommandHandlers implements Disposable {
 		if (ref && !reference) {
 			return { stderr: `'${ref}' is an invalid reference` };
 		}
+	}
+
+	@command('compose')
+	async handleComposeCommand(
+		_request: CliCommandRequest,
+		repo?: Repository | undefined,
+	): Promise<CliCommandResponse> {
+		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
+			'gitlens.showComposerPage',
+			undefined,
+			{
+				repoPath: repo?.path,
+				source: 'gk-cli-integration',
+			},
+		);
 	}
 
 	private async handleGetLaunchpadCore(
