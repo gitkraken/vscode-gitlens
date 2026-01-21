@@ -36,6 +36,15 @@ export interface CommitSummary {
 	stashNumber?: string;
 }
 
+export interface CommitSignatureShape {
+	status: 'good' | 'bad' | 'unknown' | 'expired' | 'revoked' | 'error';
+	signer?: string;
+	keyId?: string;
+	fingerprint?: string;
+	trustLevel?: 'ultimate' | 'full' | 'marginal' | 'never' | 'unknown';
+	errorMessage?: string;
+}
+
 export interface CommitDetails extends CommitSummary {
 	autolinks?: Autolink[];
 	files?: readonly GitFileChangeShape[];
@@ -45,6 +54,7 @@ export interface CommitDetails extends CommitSummary {
 		formattedMessage: string;
 		associatedPullRequest: PullRequestShape | undefined;
 		autolinkedIssues: IssueOrPullRequest[];
+		signature?: CommitSignatureShape;
 	}>;
 }
 
