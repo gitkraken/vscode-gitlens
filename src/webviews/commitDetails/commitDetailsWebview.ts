@@ -48,6 +48,7 @@ import { RemoteResourceType } from '../../git/models/remoteResource.js';
 import type { Repository } from '../../git/models/repository.js';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
+import type { CommitSignature } from '../../git/models/signature.js';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
 import type { GitCommitSearchContext } from '../../git/search.js';
 import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils.js';
@@ -102,6 +103,7 @@ import {
 } from './commitDetailsWebview.utils.js';
 import type {
 	CommitDetails,
+	CommitSignatureShape,
 	DetailsItemContext,
 	ExecuteFileActionParams,
 	GitBranchShape,
@@ -830,6 +832,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
 			indent: configuration.getCore('workbench.tree.indent'),
 			aiEnabled: this.container.ai.enabled,
+			showSignatureBadges: configuration.get('signing.showSignatureBadges'),
 		};
 	}
 
@@ -1670,7 +1673,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			sha: commit.sha,
 			shortSha: commit.shortSha,
 			author: { ...commit.author, avatar: avatarUri?.toString(true) },
-			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
+			committer: { ...commit.committer, avatar: undefined },
 			message: formattedMessage,
 			parents: commit.parents,
 			stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,
@@ -1687,7 +1690,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		commit: GitCommit,
 		remote: GitRemote | undefined,
 	): Promise<NonNullable<Awaited<NonNullable<State['commit']>['enriched']>>> {
-		const [enrichedAutolinksResult, prResult] =
+		const [enrichedAutolinksResult, prResult, signatureResult] =
 			remote?.provider != null
 				? await Promise.allSettled([
 						configuration.get('views.commitDetails.autolinks.enabled') &&
@@ -1699,11 +1702,17 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						configuration.get('views.commitDetails.pullRequests.enabled')
 							? commit.getAssociatedPullRequest(remote as GitRemote<RemoteProvider>)
 							: undefined,
+						commit.getSignature(),
 					])
-				: [];
+				: await Promise.allSettled([
+						Promise.resolve(undefined),
+						Promise.resolve(undefined),
+						commit.getSignature(),
+					]);
 
 		const enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
 		const pr = getSettledValue(prResult);
+		const signature = getSettledValue(signatureResult);
 
 		const issues =
 			enrichedAutolinks != null
@@ -1720,6 +1729,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			formattedMessage: this.getFormattedMessage(commit, remote, enrichedAutolinks),
 			associatedPullRequest: pr != null ? serializePullRequest(pr) : undefined,
 			autolinkedIssues: issues,
+			signature: signature != null ? serializeSignature(signature) : undefined,
 		};
 	}
 
@@ -2388,6 +2398,17 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 // 		avatar: (await commit.getAvatarUri())?.toString(true),
 // 	};
 // }
+
+function serializeSignature(signature: CommitSignature): CommitSignatureShape {
+	return {
+		status: signature.status,
+		signer: signature.signer,
+		keyId: signature.keyId,
+		fingerprint: signature.fingerprint,
+		trustLevel: signature.trustLevel,
+		errorMessage: signature.errorMessage,
+	};
+}
 
 function serializeBranch(branch?: GitBranch): GitBranchShape | undefined {
 	if (branch == null) return undefined;
