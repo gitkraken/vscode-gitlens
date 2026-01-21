@@ -42,6 +42,7 @@ import {
 	getShaLogParser,
 } from '../../../../git/parsers/logParser.js';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser.js';
+import { parseSignatureOutput, signatureFormat } from '../../../../git/parsers/signatureParser.js';
 import type { SearchQueryFilters } from '../../../../git/search.js';
 import { parseSearchQueryGitCommand } from '../../../../git/search.js';
 import { processNaturalLanguageToSearchQuery } from '../../../../git/search.naturalLanguage.js';
@@ -61,7 +62,7 @@ import { createDisposable } from '../../../../system/unifiedDisposable.js';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
 import { GitDocumentState } from '../../../../trackers/trackedDocument.js';
 import type { Git, GitResult } from '../git.js';
-import { gitConfigsLog, gitConfigsLogWithFiles, gitConfigsLogWithSignatures } from '../git.js';
+import { gitConfigsLog, gitConfigsLogWithFiles } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 import { convertStashesToStdin } from './stash.js';
 
@@ -1290,114 +1291,21 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		const scope = getLogScope();
 
 		try {
-			// Use gitConfigsLogWithSignatures to enable signature display
 			const result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsLogWithSignatures, errors: GitErrorHandling.Ignore },
+				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'log',
-				'--show-signature',
-				'--format=%H',
+				`--format=${signatureFormat}`,
 				'-1',
 				sha,
 			);
 
 			if (!result.stdout) return undefined;
 
-			return this.parseSignature(result.stdout);
+			return parseSignatureOutput(result.stdout);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
 		}
-	}
-
-	private parseSignature(output: string): CommitSignature | undefined {
-		// Parse GPG/SSH signature output
-		// Example GPG output:
-		//   gpg: Signature made ...
-		//   gpg: Good signature from "Name <email>"
-		// Example SSH output:
-		//   Good "git" signature for user@example.com with ED25519 key SHA256:...
-
-		const lines = output.split('\n');
-		let status: CommitSignature['status'] = 'unknown';
-		let signer: string | undefined;
-		let keyId: string | undefined;
-		let fingerprint: string | undefined;
-		let trustLevel: CommitSignature['trustLevel'] = 'unknown';
-
-		for (const line of lines) {
-			const trimmed = line.trim();
-
-			// GPG signatures
-			if (trimmed.includes('Good signature from')) {
-				status = 'good';
-				// Extract signer: "Good signature from "Name <email>""
-				const match = /Good signature from "([^"]+)"/.exec(trimmed);
-				if (match) {
-					signer = match[1];
-				}
-			} else if (trimmed.includes('BAD signature from')) {
-				status = 'bad';
-				const match = /BAD signature from "([^"]+)"/.exec(trimmed);
-				if (match) {
-					signer = match[1];
-				}
-			} else if (trimmed.includes('expired')) {
-				status = 'expired';
-			} else if (trimmed.includes('revoked')) {
-				status = 'revoked';
-			} else if (trimmed.includes('error')) {
-				status = 'error';
-			}
-
-			// SSH signatures
-			if (trimmed.includes('Good "git" signature for')) {
-				status = 'good';
-				// Extract signer: "Good "git" signature for user@example.com"
-				const match = /Good "git" signature for ([^\s]+)/.exec(trimmed);
-				if (match) {
-					signer = match[1];
-				}
-			}
-
-			// Extract key ID
-			if (trimmed.includes('key ID')) {
-				const match = /key ID ([A-F0-9]+)/.exec(trimmed);
-				if (match) {
-					keyId = match[1];
-				}
-			}
-
-			// Extract fingerprint
-			if (trimmed.includes('Primary key fingerprint:')) {
-				fingerprint = trimmed.replace('Primary key fingerprint:', '').trim();
-			} else if (trimmed.includes('SHA256:')) {
-				const match = /SHA256:([A-Za-z0-9+/=]+)/.exec(trimmed);
-				if (match) {
-					fingerprint = `SHA256:${match[1]}`;
-				}
-			}
-
-			// Extract trust level
-			if (trimmed.includes('[ultimate]')) {
-				trustLevel = 'ultimate';
-			} else if (trimmed.includes('[full]')) {
-				trustLevel = 'full';
-			} else if (trimmed.includes('[marginal]')) {
-				trustLevel = 'marginal';
-			} else if (trimmed.includes('[never]')) {
-				trustLevel = 'never';
-			}
-		}
-
-		if (status === 'unknown') return undefined;
-
-		return {
-			status: status,
-			signer: signer,
-			keyId: keyId,
-			fingerprint: fingerprint,
-			trustLevel: trustLevel,
-		};
 	}
 }
 
