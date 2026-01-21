@@ -1,7 +1,9 @@
-import { window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { window, workspace } from 'vscode';
 import type { Container } from '../../container.js';
 import { command } from '../../system/-webview/command.js';
 import { GlCommandBase } from '../commandBase.js';
+import { getCommandUri } from '../commandBase.utils.js';
 
 export interface SetupSigningWizardCommandArgs {
 	readonly repoPath?: string;
@@ -13,11 +15,23 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		super('gitlens.git.setupCommitSigning');
 	}
 
-	async execute(args?: SetupSigningWizardCommandArgs): Promise<void> {
+	async execute(editor?: TextEditor, uri?: Uri, args?: SetupSigningWizardCommandArgs): Promise<void> {
 		// Get the repository
-		const repository = args?.repoPath
-			? this.container.git.getRepository(args.repoPath)
-			: this.container.git.getBestRepository();
+		let repository;
+		if (args?.repoPath) {
+			repository = this.container.git.getRepository(args.repoPath);
+		} else {
+			uri = getCommandUri(uri, editor);
+			repository = this.container.git.getBestRepository(uri, editor);
+
+			// If no repository found and there's a single workspace folder, use it
+			if (repository == null && workspace.workspaceFolders?.length === 1) {
+				repository = this.container.git.getRepository(workspace.workspaceFolders[0].uri);
+			}
+
+			// Final fallback to first available repository
+			repository ??= this.container.git.getBestRepositoryOrFirst(uri, editor);
+		}
 
 		if (repository == null) {
 			void window.showErrorMessage('Unable to find a repository to configure signing for');

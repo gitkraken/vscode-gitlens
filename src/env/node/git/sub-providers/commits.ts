@@ -1309,7 +1309,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, errors: 'ignore' },
+				{ cwd: repoPath, errors: 'ignore', configs: gitConfigsLog },
 				'log',
 				`--format=${signatureFormat}`,
 				'-1',
