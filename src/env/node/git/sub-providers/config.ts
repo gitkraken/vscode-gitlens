@@ -19,6 +19,12 @@ import type { LocalGitProviderInternal } from '../localGitProvider.js';
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
 
+function parseGitBoolean(value: string | undefined): boolean {
+	if (value == null) return false;
+	const normalized = value.toLowerCase().trim();
+	return normalized === 'true' || normalized === 'yes' || normalized === 'on' || normalized === '1';
+}
+
 export class ConfigGitSubProvider implements GitConfigSubProvider {
 	constructor(
 		private readonly container: Container,
@@ -198,17 +204,33 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	@log()
 	async getSigningConfig(repoPath: string): Promise<SigningConfig> {
-		const [enabled, format, signingKey, gpgProgram, sshProgram, allowedSignersFile] = await Promise.all([
-			this.getConfig(repoPath, 'commit.gpgsign', { type: 'bool' }),
-			this.getConfig(repoPath, 'gpg.format'),
-			this.getConfig(repoPath, 'user.signingkey'),
-			this.getConfig(repoPath, 'gpg.program'),
-			this.getConfig(repoPath, 'gpg.ssh.program'),
-			this.getConfig(repoPath, 'gpg.ssh.allowedSignersFile'),
-		]);
+		// Fetch all signing-related config in one call
+		const data = await this.getConfigRegex(
+			'^(commit\\.gpgsign|gpg\\.format|user\\.signingkey|gpg\\.program|gpg\\.ssh\\.program|gpg\\.ssh\\.allowedsignersfile)$',
+			repoPath,
+		);
+
+		// Parse output into a map (format: "key value" per line, keys are lowercase)
+		const configMap = new Map<string, string>();
+		if (data) {
+			for (const line of data.split('\n')) {
+				if (!line) continue;
+				const spaceIndex = line.indexOf(' ');
+				if (spaceIndex === -1) continue;
+				configMap.set(line.substring(0, spaceIndex), line.substring(spaceIndex + 1));
+			}
+		}
+
+		// Extract values (keys are lowercase in git output)
+		const enabledRaw = configMap.get('commit.gpgsign');
+		const format = configMap.get('gpg.format');
+		const signingKey = configMap.get('user.signingkey');
+		const gpgProgram = configMap.get('gpg.program');
+		const sshProgram = configMap.get('gpg.ssh.program');
+		const allowedSignersFile = configMap.get('gpg.ssh.allowedsignersfile');
 
 		// Check if git config has commit signing enabled
-		let isEnabled = enabled === 'true';
+		let isEnabled = parseGitBoolean(enabledRaw);
 
 		// If git config doesn't have commit signing enabled, check VS Code's setting
 		if (!isEnabled) {
