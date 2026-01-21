@@ -37,18 +37,18 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined> {
-		let session = await getBuiltInIntegrationSession(this.container, this.authProviderId, descriptor, {
-			silent: true,
-		});
-		if (session != null && options?.forceNewSession) {
-			session = await getBuiltInIntegrationSession(this.container, this.authProviderId, descriptor, {
-				forceNewSession: true,
-			});
+		const session = await super.getSession(descriptor, options);
+
+		if (session) {
+			return session;
 		}
 
-		if (session != null) return session;
-
-		return super.getSession(descriptor, options);
+		// Call silently with `forceNewSession: undefined`
+		// Because we never want force new session from VSCode,
+		// we only try to use an existing one if presented:
+		return getBuiltInIntegrationSession(this.container, this.authProviderId, descriptor, {
+			silent: true,
+		});
 	}
 }
 
