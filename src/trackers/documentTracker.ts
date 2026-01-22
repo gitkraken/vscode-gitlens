@@ -178,7 +178,12 @@ export class GitDocumentTracker implements Disposable {
 	private onTextDocumentOpened(document: TextDocument, visible?: boolean) {
 		if (!this.container.git.supportedSchemes.has(document.uri.scheme)) return;
 
-		void this.addCore(document, visible);
+		// Only add the document if it's visible (has a visible editor)
+		// Non-visible documents will be added later when they become visible via onVisibleTextEditorsChanged
+		visible ??= isVisibleTextDocument(document);
+		if (!visible) return;
+
+		void this.addCore(document, true);
 	}
 
 	private debouncedTextDocumentChanges = new WeakMap<
@@ -264,8 +269,8 @@ export class GitDocumentTracker implements Disposable {
 			const document = editor.document;
 			if (!this.container.git.supportedSchemes.has(document.uri.scheme)) continue;
 
-			const docPromise = this._documentMap.get(document);
-			if (docPromise == null) continue;
+			// If the document not tracked yet, add it now that it's visible
+			const docPromise = this._documentMap.get(document) ?? this.addCore(document, true);
 
 			docPromises.push(docPromise.then(doc => doc?.refresh('visible')));
 		}
