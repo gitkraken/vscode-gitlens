@@ -1,0 +1,8 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "./out/e2e",
+		"rootDir": "."
+	},
+	"include": ["tests/e2e/**/*.ts", "src/constants.subscription.ts", "src/plus/gk/__debug__accountDebug.ts"]
+}

@@ -29,6 +29,7 @@ export function registerCommand(
 	command: GlCommands | GlCommandsDeprecated,
 	callback: CommandCallback,
 	thisArg?: any,
+	options?: { returnResult?: boolean },
 ): Disposable {
 	return commands.registerCommand(
 		command,
@@ -77,6 +78,10 @@ export function registerCommand(
 			}
 
 			void Container.instance.usage.track(`command:${command}:executed`).catch();
+			if (options?.returnResult) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				return callback.call(this, ...args);
+			}
 			callback.call(this, ...args);
 		},
 		thisArg,
@@ -87,6 +92,7 @@ export function registerWebviewCommand(
 	command: GlWebviewCommands,
 	callback: CommandCallback,
 	thisArg?: any,
+	options?: { returnResult?: boolean },
 ): Disposable {
 	return commands.registerCommand(
 		command,
@@ -120,6 +126,10 @@ export function registerWebviewCommand(
 			}
 
 			void Container.instance.usage.track(`command:${command}:executed`).catch();
+			if (options?.returnResult) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				return callback.call(this, ...args);
+			}
 			callback.call(this, ...args);
 		},
 		thisArg,

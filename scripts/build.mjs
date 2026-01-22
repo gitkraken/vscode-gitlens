@@ -8,6 +8,7 @@ const { values } = parseArgs({
 	options: {
 		mode: { type: 'string', default: 'development' }, // development | production | none
 		build: { type: 'string', default: undefined, multiple: true }, // (extension | webviews)[]
+		debug: { type: 'boolean', default: false },
 		target: { type: 'string', default: undefined, multiple: true }, // (node | webworker)[]
 		quick: { type: 'string', default: undefined }, // true | turbo
 		trace: { type: 'boolean', default: false },
@@ -16,8 +17,8 @@ const { values } = parseArgs({
 	},
 });
 
-/** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews' | 'unit-tests')[] | undefined; target: ('node' | 'webworker')[] | undefined; quick: 'true' | 'turbo' | undefined; trace: boolean; webview: string[] | undefined; watch: boolean }} */
-const { mode, build, target, quick, trace, webview: webviews, watch } = values;
+/** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews' | 'unit-tests')[] | undefined; debug: boolean; target: ('node' | 'webworker')[] | undefined; quick: 'true' | 'turbo' | undefined; trace: boolean; webview: string[] | undefined; watch: boolean }} */
+const { mode, build, debug, target, quick, trace, webview: webviews, watch } = values;
 
 // Build webpack command
 let cmd = `webpack`;
@@ -86,6 +87,7 @@ const child = spawn(cmd, [], {
 	stdio: 'inherit',
 	env: {
 		...process.env,
+		...(debug ? { DEBUG: '1' } : {}),
 		NODE_FORCE_COLORS: '1',
 		FORCE_COLOR: '1',
 	},

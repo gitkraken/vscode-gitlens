@@ -1,6 +1,7 @@
 /* eslint-disable no-empty-pattern */
 import { execSync } from 'node:child_process';
-import fs from 'node:fs';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import * as process from 'node:process';
@@ -16,11 +17,13 @@ export { GitFixture } from './fixtures/git.js';
 export type { VSCode } from './fixtures/vscodeEvaluator.js';
 
 export const MaxTimeout = 10000;
+export const DefaultTimeout = 2000;
+export const ShortTimeout = 500;
 
 /** Ensures the E2E runner is built before tests run */
 function ensureRunnerBuilt(): void {
 	const runnerDist = path.join(__dirname, 'runner', 'dist', 'index.js');
-	if (!fs.existsSync(runnerDist)) {
+	if (!existsSync(runnerDist)) {
 		const rootDir = path.resolve(__dirname, '../..');
 		execSync('pnpm run build:e2e-runner', { cwd: rootDir, stdio: 'inherit' });
 	}
@@ -43,6 +46,9 @@ const defaultUserSettings: Record<string, unknown> = {
 	// Use custom dialogs for consistent behavior
 	'files.simpleDialog.enable': true,
 	'window.dialogStyle': 'custom',
+
+	'gitlens.outputLevel': 'debug',
+	'gitlens.telemetry.enabled': false,
 
 	// Associate git-rebase-todo files with GitLens rebase editor
 	// TODO: is this needed?
@@ -115,12 +121,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 
 			// Write user settings before launching VS Code
 			const settingsDir = path.join(userDataDir, 'User');
-			await fs.promises.mkdir(settingsDir, { recursive: true });
+			await mkdir(settingsDir, { recursive: true });
 			const mergedSettings = { ...defaultUserSettings, ...vscodeOptions.userSettings };
-			await fs.promises.writeFile(
-				path.join(settingsDir, 'settings.json'),
-				JSON.stringify(mergedSettings, null, '\t'),
-			);
+			await writeFile(path.join(settingsDir, 'settings.json'), JSON.stringify(mergedSettings, null, '\t'));
 
 			// Run setup callback if provided, otherwise open extension folder
 			const workspacePath = vscodeOptions.setup ? await vscodeOptions.setup() : extensionPath;
@@ -142,7 +145,14 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				],
 			} satisfies Parameters<typeof _electron.launch>[0];
 
-			const electronApp = await _electron.launch(options);
+			const electronApp = await _electron.launch({
+				...options,
+				env: {
+					...process.env,
+					// Allows Claude Code and other CLI agents run the tests from within VS Code
+					ELECTRON_RUN_AS_NODE: undefined!,
+				},
+			});
 
 			// Connect to the VS Code test server using Playwright's internal API
 			const evaluator = await VSCodeEvaluator.connect(electronApp);
@@ -163,7 +173,7 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// Cleanup
 			evaluator.close();
 			await electronApp.close();
-			await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+			await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 		},
 		{ scope: 'worker' },
 	],
@@ -179,7 +189,7 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 		});
 		// Cleanup after test
 		for (const repo of repos) {
-			await fs.promises.rm(repo.repoPath, { recursive: true, force: true }).catch(() => {});
+			await rm(repo.repoPath, { recursive: true, force: true }).catch(() => {});
 		}
 	},
 
@@ -192,11 +202,11 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 		});
 		// Cleanup after test
 		for (const dir of dirs) {
-			await fs.promises.rm(dir, { recursive: true, force: true }).catch(() => {});
+			await rm(dir, { recursive: true, force: true }).catch(() => {});
 		}
 	},
 });
 
 export async function createTmpDir(): Promise<string> {
-	return fs.promises.realpath(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'gltest-')));
+	return realpath(await mkdtemp(path.join(os.tmpdir(), 'gltest-e2e-')));
 }

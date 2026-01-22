@@ -6,10 +6,14 @@ import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import { registerCommand } from '../../system/-webview/command.js';
 import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './models/checkin.js';
+import type { Organization } from './models/organization.js';
 import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './models/subscription.js';
 import type { SubscriptionService } from './subscriptionService.js';
 import { getConfiguredActiveOrganizationId } from './utils/-webview/subscription.utils.js';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils.js';
+
+const SimulatedAccountId = '0000000000000-0000-0000-000000000000';
+const SimulatedOrganizationId = '000000000000000000000000';
 
 type SubscriptionServiceFacade = {
 	getSubscription: () => SubscriptionService['_subscription'];
@@ -31,8 +35,8 @@ interface SimulatedFeaturePreviews {
 	durationSeconds: number;
 }
 
-type SimulateQuickPickItem = QuickPickItemOfT<
-	| { state: null; reactivatedTrial?: never; expiredPaid?: never; planId?: never; featurePreview?: never }
+export type SimulationState =
+	| { state: null; reactivatedTrial?: never; expiredPaid?: never; planId?: never; featurePreviews?: never }
 	| {
 			state: SubscriptionState.Community;
 			reactivatedTrial?: never;
@@ -60,8 +64,9 @@ type SimulateQuickPickItem = QuickPickItemOfT<
 			expiredPaid?: boolean;
 			planId?: PaidSubscriptionPlanIds;
 			featurePreviews?: never;
-	  }
->;
+	  };
+
+type SimulateQuickPickItem = QuickPickItemOfT<SimulationState>;
 
 class AccountDebug {
 	private simulatingPick: SimulateQuickPickItem | undefined;
@@ -71,8 +76,25 @@ class AccountDebug {
 		private readonly service: SubscriptionServiceFacade,
 	) {
 		this.container.context.subscriptions.push(
-			registerCommand('gitlens.plus.simulateSubscription', () => this.showSimulator()),
+			registerCommand(
+				'gitlens.plus.simulateSubscription',
+				(state?: SimulationState) => this.simulateSubscription(state),
+				undefined,
+				{ returnResult: true },
+			),
 		);
+	}
+
+	// Simulate a subscription state. If state is provided, directly sets it; otherwise shows the UI picker.
+	private simulateSubscription(state?: SimulationState): Promise<boolean | void> {
+		// Direct simulation without UI
+		if (state != null) {
+			return this.startSimulation(state);
+		}
+
+		// Show interactive picker
+		void this.showSimulator();
+		return Promise.resolve();
 	}
 
 	// Show a quickpick to select a subscription state to simulate
@@ -253,8 +275,8 @@ class AccountDebug {
 					quickpick.onDidAccept(async () => {
 						const [item] = quickpick.activeItems;
 
-						const close = await this.startSimulation(item);
-						if (close) {
+						const started = await this.startSimulation(item?.item);
+						if (!started) {
 							resolve();
 
 							return;
@@ -289,16 +311,13 @@ class AccountDebug {
 		this.service.changeSubscription(this.service.getStoredSubscription(), undefined, { store: false });
 	}
 
-	private async startSimulation(pick: SimulateQuickPickItem | undefined): Promise<boolean> {
-		this.simulatingPick = pick;
-		if (pick?.item == null) return true;
-		const { item } = pick;
-		if (item.state == null) {
+	private async startSimulation(simulatedState: SimulationState | undefined): Promise<boolean> {
+		if (simulatedState?.state == null) {
 			this.endSimulation();
-			return true;
+			return false;
 		}
 
-		const { state, reactivatedTrial, expiredPaid, planId, featurePreviews } = item;
+		const { state, reactivatedTrial, expiredPaid, planId, featurePreviews } = simulatedState;
 
 		switch (state) {
 			case SubscriptionState.Community:
@@ -311,32 +330,34 @@ class AccountDebug {
 
 				this.service.changeSubscription(undefined, undefined, { store: false });
 
-				return false;
+				return true;
 		}
 
 		this.service.restoreFeaturePreviews();
 		this.service.restoreSession();
 
 		const subscription = this.service.getStoredSubscription();
-		if (subscription?.account == null) {
-			void window.showErrorMessage("Can't simulate state, without an account");
 
-			this.endSimulation();
-			return true;
-		}
+		let accountId: string;
+		let organizations: Organization[] = [];
+		let activeOrganizationId: string | undefined;
 
-		const organizations =
-			(await this.container.organizations.getOrganizations({
-				userId: subscription.account.id,
-			})) ?? [];
-		let activeOrganizationId = getConfiguredActiveOrganizationId();
-		if (activeOrganizationId === '' || (activeOrganizationId == null && organizations.length === 1)) {
-			activeOrganizationId = organizations[0].id;
+		if (subscription?.account != null) {
+			accountId = subscription.account.id;
+			organizations = (await this.container.organizations.getOrganizations({ userId: accountId })) ?? [];
+
+			activeOrganizationId = getConfiguredActiveOrganizationId();
+			if (activeOrganizationId === '' || (activeOrganizationId == null && organizations.length === 1)) {
+				activeOrganizationId = organizations[0]?.id;
+			}
+		} else {
+			accountId = SimulatedAccountId;
+			activeOrganizationId = SimulatedOrganizationId;
 		}
 
 		const simulatedCheckInData: GKCheckInResponse = getSimulatedCheckInResponse(
 			{
-				id: subscription.account.id,
+				id: accountId,
 				name: 'Simulated User',
 				email: 'simulated@user.com',
 				status: state === SubscriptionState.VerificationRequired ? 'pending' : 'activated',
@@ -368,7 +389,7 @@ class AccountDebug {
 
 		this.service.changeSubscription({ ...subscription, ...simulatedSubscription }, undefined, { store: false });
 
-		return false;
+		return true;
 	}
 }
 

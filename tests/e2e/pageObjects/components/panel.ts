@@ -24,7 +24,7 @@ export class Panel {
 	}
 
 	async close(): Promise<void> {
-		await this.vscode.executeCommand('workbench.action.closePanel', 'View: Hide Panel');
+		await this.vscode.executeCommand('workbench.action.closePanel');
 
 		// if (!(await this.isVisible())) return;
 
@@ -33,7 +33,7 @@ export class Panel {
 	}
 
 	async open(): Promise<void> {
-		await this.vscode.executeCommand('workbench.action.focusPanel', 'View: Focus into Panel');
+		await this.vscode.executeCommand('workbench.action.focusPanel');
 
 		// if (await this.isVisible()) return;
 

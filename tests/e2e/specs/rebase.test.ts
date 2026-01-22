@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
-import { test as base, createTmpDir, expect, GitFixture } from '../baseTest.js';
+import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, ShortTimeout } from '../baseTest.js';
 
 /** SHA of the initial commit - captured during repo setup */
 let initialCommitSha: string;
@@ -78,7 +78,7 @@ async function getRebaseWebviewWithRetry(
 	let frame = await vscode.gitlens.getRebaseWebview();
 	let retries = 0;
 	while (!frame && retries < 60) {
-		await vscode.page.waitForTimeout(500);
+		await vscode.page.waitForTimeout(ShortTimeout);
 		frame = await vscode.gitlens.getRebaseWebview();
 		retries++;
 	}
@@ -178,7 +178,7 @@ test.describe('Rebase Editor', () => {
 			await openRebaseEditor(vscode, todoFilePath);
 
 			// Wait a bit for the webview to load
-			await page.waitForTimeout(500);
+			await page.waitForTimeout(ShortTimeout);
 
 			// Verify the webview content is loaded with rebase entries
 			const webviewFrame = await getRebaseWebviewWithRetry(vscode);
@@ -202,7 +202,7 @@ test.describe('Rebase Editor', () => {
 			await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 1000))]);
 
 			// Give Git extra time to finish cleanup
-			await new Promise(resolve => setTimeout(resolve, 500));
+			await new Promise(resolve => setTimeout(resolve, ShortTimeout));
 
 			// Verify rebase was aborted - HEAD unchanged
 			const currentHead = await git.getShortSha('HEAD');
@@ -216,7 +216,7 @@ test.describe('Rebase Editor', () => {
 
 			// Extra wait to ensure Git has completely finished cleanup
 			// This helps prevent race conditions with the next test
-			await new Promise(resolve => setTimeout(resolve, 500));
+			await new Promise(resolve => setTimeout(resolve, ShortTimeout));
 		});
 	});
 
@@ -240,14 +240,14 @@ test.describe('Rebase Editor', () => {
 			// Test single action change: 's' for squash (can't squash first entry)
 			await entries.nth(1).click();
 			await page.keyboard.press('s');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 			await expect(entries.nth(1).locator('.action-select')).toHaveAttribute('value', 'squash');
 
 			// Test bulk action change: multi-select with Ctrl+Click then drop with 'd'
 			await entries.nth(2).click();
 			await entries.nth(3).click({ modifiers: ['Control'] });
 			await page.keyboard.press('d');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 			await expect(entries.nth(2).locator('.action-select')).toHaveAttribute('value', 'drop');
 			await expect(entries.nth(3).locator('.action-select')).toHaveAttribute('value', 'drop');
 		});
@@ -269,7 +269,7 @@ test.describe('Rebase Editor', () => {
 
 			await lastEntry.click();
 			await page.keyboard.press('s');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			// Should still be 'pick'
 			const actionSelect = lastEntry.locator('.action-select');
@@ -296,7 +296,7 @@ test.describe('Rebase Editor', () => {
 
 			// Press 's' to squash selection
 			await page.keyboard.press('s');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			// Verify newest entry became 'squash'
 			await expect(newestEntry.locator('.action-select')).toHaveAttribute('value', 'squash');
@@ -326,7 +326,7 @@ test.describe('Rebase Editor', () => {
 			// Test moving single commit down: Select Commit D (index 0)
 			await entries.nth(0).click();
 			await page.keyboard.press('Alt+ArrowDown');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			let messages = await entries.evaluateAll((elements: HTMLElement[]) => {
 				return elements.slice(0, 4).map(el => {
@@ -344,7 +344,7 @@ test.describe('Rebase Editor', () => {
 			// Test moving single commit up: Move Commit D back up (now at index 1)
 			await entries.nth(1).click();
 			await page.keyboard.press('Alt+ArrowUp');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			messages = await entries.evaluateAll((elements: HTMLElement[]) => {
 				return elements.slice(0, 4).map(el => {
@@ -377,7 +377,7 @@ test.describe('Rebase Editor', () => {
 			await entries.nth(1).click();
 			await entries.nth(2).click({ modifiers: ['Control'] });
 			await page.keyboard.press('Alt+ArrowDown');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			let messages = await entries.evaluateAll((elements: HTMLElement[]) => {
 				return elements.slice(0, 4).map(el => {
@@ -396,7 +396,7 @@ test.describe('Rebase Editor', () => {
 			await entries.nth(2).click();
 			await entries.nth(3).click({ modifiers: ['Control'] });
 			await page.keyboard.press('Alt+ArrowUp');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			// Verify they moved back up (should now be: D, C, B, A)
 			messages = await entries.evaluateAll((elements: HTMLElement[]) => {
@@ -467,23 +467,23 @@ test.describe('Rebase Editor', () => {
 			// Drop the first entry to create a visible change
 			await entries.first().click();
 			await page.keyboard.press('d');
-			await page.waitForTimeout(200);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			// Click Start/Continue button (gl-button custom element)
 			const startButton = webviewFrame.locator('gl-button').filter({ hasText: /Start|Continue/i });
 			// Wait for any notifications to disappear or timeout
-			await page.waitForTimeout(1000);
+			await page.waitForTimeout(ShortTimeout * 2);
 			// Try to close any visible notifications
 			try {
 				const notifications = page.locator('.notifications-toasts');
 				if (await notifications.isVisible()) {
 					await page.keyboard.press('Escape');
-					await page.waitForTimeout(500);
+					await page.waitForTimeout(ShortTimeout);
 				}
 			} catch {}
 			await startButton.click();
 			const rebaseTab = page.getByRole('tab', { name: /Interactive Rebase/i });
-			await expect(rebaseTab).not.toBeVisible({ timeout: 3000 });
+			await expect(rebaseTab).not.toBeVisible({ timeout: DefaultTimeout });
 
 			// Signal the wait editor to exit so git can complete the rebase
 			await signalEditorDone();
@@ -518,23 +518,23 @@ test.describe('Rebase Editor', () => {
 			// Drop "Commit D" (index 0)
 			await entries.nth(0).click();
 			await page.keyboard.press('d');
-			await page.waitForTimeout(100);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			// Fixup "Commit C" (index 1) - merges into "Commit B" (index 2)
 			await entries.nth(1).click();
 			await page.keyboard.press('f');
-			await page.waitForTimeout(100);
+			await page.waitForTimeout(ShortTimeout / 2);
 
 			// Click Start/Continue button
 			const startButton = webviewFrame.locator('gl-button').filter({ hasText: /Start|Continue/i });
 			// Wait for any notifications to disappear or timeout
-			await page.waitForTimeout(1000);
+			await page.waitForTimeout(ShortTimeout * 2);
 			// Try to close any visible notifications
 			try {
 				const notifications = page.locator('.notifications-toasts');
 				if (await notifications.isVisible()) {
 					await page.keyboard.press('Escape');
-					await page.waitForTimeout(500);
+					await page.waitForTimeout(ShortTimeout);
 				}
 			} catch {}
 			await startButton.click();
@@ -642,7 +642,7 @@ test.describe('Update Refs', () => {
 		// In descending order: D, C, B, A - so B is at index 2
 		await entries.nth(2).click();
 		await page.keyboard.press('Alt+ArrowUp');
-		await page.waitForTimeout(500);
+		await page.waitForTimeout(ShortTimeout);
 
 		// Read the updated todo file
 		const updatedContent = fs.readFileSync(todoFilePath, 'utf-8');
@@ -693,7 +693,7 @@ test.describe('Rebase Merges', () => {
 		// Verify reordering works (Alt+ArrowDown should move the entry)
 		await entries.nth(0).click();
 		await page.keyboard.press('Alt+ArrowDown');
-		await page.waitForTimeout(200);
+		await page.waitForTimeout(ShortTimeout / 2);
 
 		// Verify the order changed
 		const messages = await entries.evaluateAll((elements: HTMLElement[]) => {
@@ -756,7 +756,7 @@ test.describe('Rebase Merges', () => {
 		// Verify action changes still work
 		await entries.first().click();
 		await page.keyboard.press('d'); // Drop
-		await page.waitForTimeout(200);
+		await page.waitForTimeout(ShortTimeout / 2);
 		await expect(entries.first().locator('.action-select')).toHaveAttribute('value', 'drop');
 
 		// Verify reordering is disabled (Alt+ArrowDown should NOT move the entry)
@@ -774,7 +774,7 @@ test.describe('Rebase Merges', () => {
 		});
 
 		await page.keyboard.press('Alt+ArrowDown');
-		await page.waitForTimeout(200);
+		await page.waitForTimeout(ShortTimeout / 2);
 
 		const afterMessages = await entries.evaluateAll((elements: HTMLElement[]) => {
 			return elements.slice(0, 3).map(el => {

@@ -84,6 +84,67 @@ pnpm run test             # Run unit tests (VS Code extension tests)
 pnpm run test:e2e         # Run Playwright E2E tests
 ```
 
+#### Running Tests (for AI Assistants without VS Code API access)
+
+If you don't have access to VS Code's built-in `runTests` tool (e.g., Claude Code, Augment, or terminal-based AI tools), use the following commands and patterns:
+
+**Unit Tests**
+
+```bash
+# Run all unit tests
+pnpm run test
+
+# Run specific test file(s) - use glob patterns
+pnpm run test -- --grep "pattern"
+
+# Run tests in a specific directory
+pnpm run test -- "src/git/__tests__/**/*.test.ts"
+```
+
+**E2E Tests (Playwright)**
+
+```bash
+# Run all E2E tests
+pnpm run test:e2e
+
+# Run specific test file
+pnpm run test:e2e -- tests/e2e/specs/quickWizard.test.ts
+
+# Run tests matching a pattern
+pnpm run test:e2e -- --grep "wizard"
+
+# Run in headed mode (useful for debugging)
+pnpm run test:e2e -- --headed
+
+# Run with specific project (Electron desktop)
+pnpm run test:e2e -- --project=electron
+```
+
+**Interpreting Test Output**
+
+- ✓ or PASS = test passed
+- ✗ or FAIL = test failed (look for error message and stack trace)
+- Look for `Error:`, `AssertionError:`, or `expect(` lines for failure details
+- E2E tests show screenshots on failure in `tests/e2e/test-results/`
+
+**Before Running Tests**
+
+1. Ensure the extension is built: `pnpm run build` or have `pnpm run watch` running
+2. For E2E tests, ensure `pnpm run bundle:e2e` has been run (or use watch mode)
+
+**Debugging Test Failures**
+
+```bash
+# Get verbose output
+pnpm run test:e2e -- --reporter=list
+
+# Run single test with full trace
+pnpm run test:e2e -- --trace on --grep "test name"
+
+# Check for TypeScript errors first
+pnpm run lint
+```
+
 ### Quality
 
 ```bash
@@ -290,7 +351,13 @@ pnpm run bundle:e2e     # Build E2E tests (production with DEBUG for account sim
 pnpm run watch          # Watch mode (includes E2E tests)
 ```
 
-**Important**: If you have access to VS Code's `runTests` and `testFailures` tools, use them to run and debug E2E tests
+**AI Assistant Testing Guidelines**
+
+- **GitHub Copilot (VS Code)**: Has access to `runTests` and `testFailures` tools - use these for integrated test running and debugging
+- **Claude Code / Augment / Terminal-based tools**: Use the terminal commands above. See "Running Tests (for AI Assistants without VS Code API access)" in the Development Commands section for detailed patterns
+- Always run tests after making changes to verify correctness
+- For E2E test failures, check `tests/e2e/test-results/` for screenshots and traces
+- Parse test output looking for `FAIL`, `Error:`, `AssertionError:`, or failed `expect()` calls
 
 ### Core Architectural Patterns
 

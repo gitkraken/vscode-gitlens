@@ -42,6 +42,7 @@ const eslintOptions = {
 	// concurrency: 'auto',
 };
 
+const debug = Boolean(process.env.DEBUG);
 const useAsyncTypeChecking = false;
 const useNpm = Boolean(process.env.GL_USE_NPM);
 if (useNpm) {
@@ -194,7 +195,7 @@ function getExtensionConfig(target, mode, env) {
 	 */
 	const plugins = [
 		new DefinePlugin({
-			DEBUG: mode === 'development',
+			DEBUG: debug || mode === 'development',
 			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
 	];
@@ -517,7 +518,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	/** @type WebpackConfig['plugins'] | any */
 	const plugins = [
 		new DefinePlugin({
-			DEBUG: mode === 'development',
+			DEBUG: debug || mode === 'development',
 			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
 		new WebpackRequireFromPlugin({ variableName: 'webpackResourceBasePath' }),
@@ -730,7 +731,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		},
 		ignoreWarnings: [
 			// Ignore warnings about findDOMNode being removed from React 19
-			{ module: /@gitkraken\/gitkraken-components/, message: /export 'findDOMNode'/ },
+			{ module: /@gitkraken[\\/]gitkraken-components/, message: /export 'findDOMNode'/ },
 		],
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers

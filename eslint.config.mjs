@@ -46,7 +46,12 @@ const filePatterns = {
 		'src/system/**/*.ts',
 		'**/webview/**/*',
 	],
-	tests: ['tests/**/*'],
+	tests: [
+		// Keep in sync with `./tsconfig.e2e.json`
+		'tests/**/*',
+		'src/constants.subscription.ts',
+		'src/plus/gk/__debug__accountDebug.ts',
+	],
 	unitTests: ['src/**/__tests__/**/*'],
 };
 

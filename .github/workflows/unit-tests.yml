@@ -1,23 +1,16 @@
-name: Unit tests
+name: Unit tests (Docker)
 
 on:
-    push:
-        branches:
-            - main
-    pull_request:
-        branches: ['*']
-        types:
-            - opened
-            - reopened
-            - synchronize
-            - ready_for_review
+    workflow_dispatch:
 
 jobs:
     test:
-        name: Run unit tests
+        name: Run unit tests (Docker)
         runs-on: ubuntu-latest
+        timeout-minutes: 30
         if: ${{ !github.event.pull_request.draft }}
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
-            - run: cd tests/docker && ./run-e2e-test-local.sh
+              uses: actions/checkout@v4
+            - name: Run unit tests in Docker
+              run: cd tests/docker && ./run-e2e-test-local.sh
