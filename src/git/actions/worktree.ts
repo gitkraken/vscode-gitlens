@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import type { WorktreeGitCommandArgs } from '../../commands/git/worktree.js';
+import type { WorktreeOpenState } from '../../commands/git/worktree/open.js';
 import { Container } from '../../container.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
 import { defer } from '../../system/promise.js';
@@ -48,13 +48,7 @@ export function copyChangesToWorktree(
 ): Promise<void> {
 	return executeGitCommand({
 		command: 'worktree',
-		state: {
-			subcommand: 'copy-changes',
-			repo: repo,
-			source: source,
-			target: target,
-			changes: { type: type },
-		},
+		state: { subcommand: 'copy-changes', repo: repo, source: source, target: target, changes: { type: type } },
 	});
 }
 
@@ -85,10 +79,7 @@ export function revealWorktree(worktree: GitWorktree, options?: RevealOptions): 
 	return Container.instance.views.revealWorktree(worktree, options);
 }
 
-type OpenFlags = Extract<
-	NonNullable<Required<WorktreeGitCommandArgs['state']>>,
-	{ subcommand: 'open' }
->['flags'][number];
+type OpenFlags = WorktreeOpenState['flags'][number];
 
 export function convertLocationToOpenFlags(location: OpenWorkspaceLocation): OpenFlags[];
 export function convertLocationToOpenFlags(location: OpenWorkspaceLocation | undefined): OpenFlags[] | undefined;

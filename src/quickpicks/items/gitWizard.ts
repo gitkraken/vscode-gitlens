@@ -1,8 +1,8 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
 import type { GitWizardCommandArgs } from '../../commands/gitWizard.js';
-import type { StepGenerator } from '../../commands/quickCommand.js';
-import { getSteps } from '../../commands/quickWizard.utils.js';
+import type { StepGenerator, StepsContext, StepStartedFrom } from '../../commands/quick-wizard/models/steps.js';
+import { getSteps } from '../../commands/quick-wizard/utils/quickWizard.utils.js';
 import { GlyphChars } from '../../constants.js';
 import { Container } from '../../container.js';
 import { emojify } from '../../emojis.js';
@@ -30,18 +30,18 @@ export class GitWizardQuickPickItem extends CommandQuickPickItem<[GitWizardComma
 		super(labelOrItem, undefined, 'gitlens.gitCommands', [args], { suppressKeyPress: true });
 	}
 
-	executeSteps(pickedVia: 'menu' | 'command'): StepGenerator {
-		return getSteps(Container.instance, this.args![0], pickedVia);
+	executeSteps(context: StepsContext<any>, startedFrom: StepStartedFrom): StepGenerator {
+		return getSteps(Container.instance, this.args![0], context, startedFrom);
 	}
 }
 
-export interface BranchQuickPickItem extends QuickPickItemOfT<GitBranch> {
+export interface BranchQuickPickItem<T = GitBranch> extends QuickPickItemOfT<T> {
 	readonly current: boolean;
 	readonly ref: string;
 	readonly remote: boolean;
 }
 
-export async function createBranchQuickPickItem(
+export async function createBranchQuickPickItem<T = GitBranch>(
 	branch: GitBranch,
 	picked?: boolean,
 	options?: {
@@ -49,12 +49,13 @@ export async function createBranchQuickPickItem(
 		buttons?: QuickInputButton[];
 		checked?: boolean;
 		current?: boolean | 'checkmark';
+		mapItem?: (branch: GitBranch) => T;
 		ref?: boolean;
 		status?: boolean;
 		type?: boolean | 'remote';
 		worktree?: boolean;
 	},
-): Promise<BranchQuickPickItem> {
+): Promise<BranchQuickPickItem<T>> {
 	let description = '';
 
 	if (options?.type === true) {
@@ -125,13 +126,13 @@ export async function createBranchQuickPickItem(
 
 	const checked =
 		options?.checked || (options?.checked == null && options?.current === 'checkmark' && branch.current);
-	const item: BranchQuickPickItem = {
+	const item: BranchQuickPickItem<T> = {
 		label: checked ? `${branch.name}${pad('$(check)', 2)}` : branch.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked ?? branch.current,
-		item: branch,
+		item: options?.mapItem?.(branch) ?? (branch as T),
 		current: branch.current,
 		ref: branch.name,
 		remote: branch.remote,
@@ -434,24 +435,25 @@ export async function createRepositoryQuickPickItem(
 	return item;
 }
 
-export interface TagQuickPickItem extends QuickPickItemOfT<GitTag> {
+export interface TagQuickPickItem<T = GitTag> extends QuickPickItemOfT<T> {
 	readonly current: boolean;
 	readonly ref: string;
 	readonly remote: boolean;
 }
 
-export function createTagQuickPickItem(
+export function createTagQuickPickItem<T = GitTag>(
 	tag: GitTag,
 	picked?: boolean,
 	options?: {
 		alwaysShow?: boolean;
 		buttons?: QuickInputButton[];
 		checked?: boolean;
+		mapItem?: (tag: GitTag) => T;
 		message?: boolean;
 		ref?: boolean;
 		type?: boolean;
 	},
-): TagQuickPickItem {
+): TagQuickPickItem<T> {
 	let description = '';
 	if (options?.type) {
 		description = 'tag';
@@ -468,13 +470,13 @@ export function createTagQuickPickItem(
 		description = description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${message}` : message;
 	}
 
-	const item: TagQuickPickItem = {
+	const item: TagQuickPickItem<T> = {
 		label: options?.checked ? `${tag.name}${pad('$(check)', 2)}` : tag.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
-		item: tag,
+		item: options?.mapItem?.(tag) ?? (tag as T),
 		current: false,
 		ref: tag.name,
 		remote: false,

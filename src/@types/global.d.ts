@@ -66,4 +66,7 @@ export declare global {
 		: never;
 
 	export type UnwrapCustomEvent<T> = T extends CustomEvent<infer U> ? U : never;
+
+	export type UnionKeys<T> = T extends T ? keyof T : never;
+	export type PartialUnionValues<T> = T extends T ? { [K in keyof T]: Partial<T[K]> } : never;
 }

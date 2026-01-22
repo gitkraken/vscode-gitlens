@@ -3,27 +3,39 @@ import type { Container } from '../../container.js';
 import { ResetError } from '../../git/errors.js';
 import type { GitBranch } from '../../git/models/branch.js';
 import type { GitLog } from '../../git/models/log.js';
-import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference.js';
+import type { GitRevisionReference, GitTagReference } from '../../git/models/reference.js';
 import type { Repository } from '../../git/models/repository.js';
 import { getReferenceLabel } from '../../git/utils/reference.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { Logger } from '../../system/logger.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
-	QuickPickStep,
 	StepGenerator,
-	StepResult,
 	StepResultGenerator,
+	StepsContext,
 	StepSelection,
 	StepState,
-} from '../quickCommand.js';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
-import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps.js';
+} from '../quick-wizard/models/steps.js';
+import { StepResultBreak } from '../quick-wizard/models/steps.js';
+import type { QuickPickStep } from '../quick-wizard/models/steps.quickpick.js';
+import { QuickCommand } from '../quick-wizard/quickCommand.js';
+import { pickCommitStep } from '../quick-wizard/steps/commits.js';
+import { pickRepositoryStep } from '../quick-wizard/steps/repositories.js';
+import { StepsController } from '../quick-wizard/stepsController.js';
+import { appendReposToTitle, assertStepState, canPickStepContinue } from '../quick-wizard/utils/steps.utils.js';
 
-interface Context {
+const Steps = {
+	PickRepo: 'reset-pick-repo',
+	PickCommit: 'reset-pick-commit',
+	Confirm: 'reset-confirm',
+} as const;
+type StepNames = (typeof Steps)[keyof typeof Steps];
+
+interface Context extends StepsContext<StepNames> {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
@@ -32,9 +44,8 @@ interface Context {
 }
 
 type Flags = '--hard' | '--keep' | '--soft';
-
-interface State {
-	repo: string | Repository;
+interface State<Repo = string | Repository> {
+	repo: Repo;
 	reference: GitRevisionReference | GitTagReference;
 	flags: Flags[];
 }
@@ -45,26 +56,11 @@ export interface ResetGitCommandArgs {
 	state?: Partial<State>;
 }
 
-type ResetStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
-
 export class ResetGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: ResetGitCommandArgs) {
 		super(container, 'reset', 'reset', 'Reset', { description: 'resets the current branch to a specified commit' });
 
-		let counter = 0;
-		if (args?.state?.repo != null) {
-			counter++;
-		}
-
-		if (args?.state?.reference != null) {
-			counter++;
-		}
-
-		this.initialState = {
-			counter: counter,
-			confirm: args?.confirm ?? true,
-			...args?.state,
-		};
+		this.initialState = { confirm: args?.confirm ?? true, ...args?.state };
 		this._canSkipConfirm = !this.initialState.confirm;
 	}
 
@@ -73,7 +69,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 		return this._canSkipConfirm;
 	}
 
-	private async execute(state: ResetStepState) {
+	private async execute(state: StepState<State<Repository>>) {
 		const mode = state.flags.includes('--soft')
 			? 'soft'
 			: state.flags.includes('--keep')
@@ -97,41 +93,46 @@ export class ResetGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	protected async *steps(state: PartialStepState<State>): StepGenerator {
-		const context: Context = {
+	protected createContext(context?: StepsContext<any>): Context {
+		return {
+			...context,
+			container: this.container,
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
 		};
+	}
 
-		if (state.flags == null) {
-			state.flags = [];
-		}
+	protected async *steps(state: PartialStepState<State>, context?: Context): StepGenerator {
+		context ??= this.createContext();
+		using steps = new StepsController<StepNames>(context, this);
 
-		let skippedStepOne = false;
+		state.flags ??= [];
 
-		while (this.canStepsContinue(state)) {
+		while (!steps.isComplete) {
 			context.title = this.title;
 
-			if (state.counter < 1 || state.repo == null || typeof state.repo === 'string') {
-				skippedStepOne = false;
+			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
+				// Only show the picker if there are multiple repositories
 				if (context.repos.length === 1) {
-					skippedStepOne = true;
-					if (state.repo == null) {
-						state.counter++;
-					}
-
-					state.repo = context.repos[0];
+					[state.repo] = context.repos;
 				} else {
-					const result = yield* pickRepositoryStep(state, context);
-					// Always break on the first step (so we will go back)
-					if (result === StepResultBreak) break;
+					using step = steps.enterStep(Steps.PickRepo);
+
+					const result = yield* pickRepositoryStep(state, context, step);
+					if (result === StepResultBreak) {
+						state.repo = undefined!;
+						if (step.goBack() == null) break;
+						continue;
+					}
 
 					state.repo = result;
 				}
 			}
+
+			assertStepState<State<Repository>>(state);
 
 			if (context.destination == null) {
 				const branch = await state.repo.git.branches.getBranch();
@@ -142,7 +143,9 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
 
-			if (state.counter < 2 || state.reference == null) {
+			if (steps.isAtStep(Steps.PickCommit) || state.reference == null) {
+				using step = steps.enterStep(Steps.PickCommit);
+
 				const rev = context.destination.ref;
 
 				let log = context.cache.get(rev);
@@ -151,21 +154,24 @@ export class ResetGitCommand extends QuickCommand<State> {
 					context.cache.set(rev, log);
 				}
 
-				const result: StepResult<GitReference> = yield* pickCommitStep(state as ResetStepState, context, {
+				const result = yield* pickCommitStep(state, context, {
+					emptyItems: [
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
+							label: 'OK',
+							detail: `${context.destination.name} has no commits`,
+						}),
+					],
 					log: await log,
 					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
-						log == null
+						!log?.commits.size
 							? `${context.destination.name} has no commits`
 							: `Choose a commit to reset ${context.destination.name} to`,
 					picked: state.reference?.ref,
 				});
 				if (result === StepResultBreak) {
-					// If we skipped the previous step, make sure we back up past it
-					if (skippedStepOne) {
-						state.counter--;
-					}
-
+					state.reference = undefined!;
+					if (step.goBack() == null) break;
 					continue;
 				}
 
@@ -173,20 +179,26 @@ export class ResetGitCommand extends QuickCommand<State> {
 			}
 
 			if (this.confirm(state.confirm)) {
-				const result = yield* this.confirmStep(state as ResetStepState, context);
-				if (result === StepResultBreak) continue;
+				using step = steps.enterStep(Steps.Confirm);
+
+				const result = yield* this.confirmStep(state, context);
+				if (result === StepResultBreak) {
+					state.flags = [];
+					if (step.goBack() == null) break;
+					continue;
+				}
 
 				state.flags = result;
 			}
 
-			endSteps(state);
-			await this.execute(state as ResetStepState);
+			steps.markStepsComplete();
+			await this.execute(state);
 		}
 
-		return state.counter < 0 ? StepResultBreak : undefined;
+		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: ResetStepState, context: Context): StepResultGenerator<Flags[]> {
+	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[

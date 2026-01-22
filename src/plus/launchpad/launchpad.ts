@@ -1,6 +1,16 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars.js';
+import type {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	StepGenerator,
+	StepResultGenerator,
+	StepsContext,
+	StepSelection,
+	StepState,
+} from '../../commands/quick-wizard/models/steps.js';
+import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
 import {
 	ConnectIntegrationButton,
 	FeedbackQuickInputButton,
@@ -18,23 +28,11 @@ import {
 	SnoozeQuickInputButton,
 	UnpinQuickInputButton,
 	UnsnoozeQuickInputButton,
-} from '../../commands/quickCommand.buttons.js';
-import type {
-	AsyncStepResultGenerator,
-	PartialStepState,
-	StepGenerator,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
-} from '../../commands/quickCommand.js';
-import {
-	canPickStepContinue,
-	createPickStep,
-	endSteps,
-	QuickCommand,
-	StepResultBreak,
-} from '../../commands/quickCommand.js';
-import { ensureAccessStep } from '../../commands/quickCommand.steps.js';
+} from '../../commands/quick-wizard/quickButtons.js';
+import { QuickCommand } from '../../commands/quick-wizard/quickCommand.js';
+import { ensureAccessStep } from '../../commands/quick-wizard/steps/access.js';
+import { StepsController } from '../../commands/quick-wizard/stepsController.js';
+import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import type { IntegrationIds } from '../../constants.integrations.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
@@ -112,7 +110,7 @@ const connectMoreIntegrationsItem: ConnectMoreIntegrationsQuickPickItem = {
 	detail: 'Connect additional integrations to view their pull requests in Launchpad',
 };
 
-interface Context {
+interface Context extends StepsContext<StepNames> {
 	result: LaunchpadCategorizedResult;
 	searchResult: LaunchpadCategorizedResult | undefined;
 
@@ -157,6 +155,14 @@ const instanceCounter = getScopedCounter();
 
 const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
 
+const Steps = {
+	ConnectIntegrations: 'connect-integrations',
+	EnsureAccess: 'ensure-access',
+	PickItem: 'pick-item',
+	ConfirmAction: 'confirm-action',
+} as const;
+type StepNames = (typeof Steps)[keyof typeof Steps];
+
 export class LaunchpadCommand extends QuickCommand<State> {
 	private readonly source: Source;
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
@@ -185,16 +191,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			this.container.telemetry.sendEvent('launchpad/open', { ...this.telemetryContext }, this.source);
 		}
 
-		let counter = 0;
-		if (args?.state?.item != null) {
-			counter++;
-		}
-
-		this.initialState = {
-			counter: counter,
-			confirm: args?.confirm,
-			...args?.state,
-		};
+		this.initialState = { confirm: args?.confirm, ...args?.state };
 	}
 
 	private async ensureIntegrationConnected(id: IntegrationIds) {
@@ -209,17 +206,29 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		return connected;
 	}
 
-	protected async *steps(state: PartialStepState<State>): StepGenerator {
+	protected override createContext(context?: StepsContext<any>): Context {
+		return {
+			...context,
+			container: this.container,
+			result: { items: [] },
+			searchResult: undefined,
+			title: this.title,
+			collapsed: undefined!,
+			connectedIntegrations: undefined!,
+			inSearch: false,
+			telemetryContext: this.telemetryContext,
+			updateItemsDebouncer: undefined!,
+		};
+	}
+
+	protected async *steps(state: PartialStepState<State>, context?: Context): StepGenerator {
 		if (this.container.git.isDiscoveringRepositories) {
 			await this.container.git.isDiscoveringRepositories;
 		}
 
-		let storedCollapsed = this.container.storage.get('launchpad:groups:collapsed') satisfies
-			| LaunchpadGroup[]
-			| undefined;
-		if (storedCollapsed == null) {
-			storedCollapsed = defaultCollapsedGroups;
-		}
+		const storedCollapsed =
+			(this.container.storage.get('launchpad:groups:collapsed') satisfies LaunchpadGroup[] | undefined) ??
+			defaultCollapsedGroups;
 
 		const collapsed = new Map<LaunchpadGroup, boolean>(storedCollapsed.map(g => [g, true]));
 		if (state.initialGroup != null) {
@@ -231,16 +240,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 		using updateItemsDebouncer = createAsyncDebouncer(500);
 
-		const context: Context = {
-			result: { items: [] },
-			searchResult: undefined,
-			title: this.title,
-			collapsed: collapsed,
-			telemetryContext: this.telemetryContext,
-			connectedIntegrations: await this.container.launchpad.getConnectedIntegrations(),
-			inSearch: false,
-			updateItemsDebouncer: updateItemsDebouncer,
-		};
+		context ??= this.createContext();
+		context.collapsed = collapsed;
+		context.connectedIntegrations = await this.container.launchpad.getConnectedIntegrations();
+		context.updateItemsDebouncer = updateItemsDebouncer;
 
 		const toggleSearchMode = (enabled: boolean) => {
 			context.inSearch = enabled ? 'mode' : false;
@@ -249,9 +252,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			state.item = undefined;
 		};
 
+		using steps = new StepsController<StepNames>(context, this);
+
 		let opened = false;
 
-		while (this.canStepsContinue(state)) {
+		while (!steps.isComplete) {
 			context.title = this.title;
 			context.updateItemsDebouncer.cancel();
 
@@ -271,12 +276,15 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 				opened = true;
 
+				using step = steps.enterStep(Steps.ConnectIntegrations);
+
 				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
 				const result = isUsingCloudIntegrations
 					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
 					: yield* this.confirmLocalIntegrationConnectStep(state, context);
 				if (result === StepResultBreak) {
-					return result;
+					if (step.goBack() == null) break;
+					continue;
 				}
 
 				result.resume();
@@ -289,19 +297,23 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				newlyConnected = Boolean(connected);
 			}
 
-			const result = yield* ensureAccessStep(this.container, state, context, 'launchpad');
-			if (result === StepResultBreak) continue;
+			if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
+				using step = steps.enterStep(Steps.EnsureAccess);
+
+				const result = yield* ensureAccessStep(this.container, 'launchpad', state, context, step);
+				if (result === StepResultBreak) {
+					if (step.goBack() == null) break;
+					continue;
+				}
+			}
 
 			await updateContextItems(this.container, context, { force: newlyConnected });
 
-			if (state.counter < 1 || state.item == null) {
+			if (steps.isAtStepOrUnset(Steps.PickItem) || state.item == null) {
 				if (state.id != null) {
 					const item = context.result.items?.find(item => item.uuid === state.id?.uuid);
 					if (item != null) {
 						state.item = { ...item, group: state.id.group };
-						if (state.counter < 1) {
-							state.counter = 1;
-						}
 						continue;
 					}
 				}
@@ -319,54 +331,63 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 				opened = true;
 
-				const result = yield* this.pickLaunchpadItemStep(state, context, {
+				using step = steps.enterStep(Steps.PickItem);
+
+				const pickResult = yield* this.pickLaunchpadItemStep(state, context, {
 					picked: state.item?.graphQLId ?? state.item?.uuid,
 					selectTopItem: state.selectTopItem,
 				});
-				if (result === StepResultBreak) {
+				if (pickResult === StepResultBreak) {
 					toggleSearchMode(false);
+					state.item = undefined;
+					if (step.goBack() == null) break;
 					continue;
 				}
 
-				if (isConnectMoreIntegrationsItem(result)) {
+				if (isConnectMoreIntegrationsItem(pickResult)) {
 					toggleSearchMode(false);
 
 					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-					const result = isUsingCloudIntegrations
+					const connectResult = isUsingCloudIntegrations
 						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
 						: yield* this.confirmLocalIntegrationConnectStep(state, context);
-					if (result === StepResultBreak) continue;
+					if (connectResult === StepResultBreak) continue;
 
-					result.resume();
+					connectResult.resume();
 
-					const connected = result.connected;
+					const connected = connectResult.connected;
 					newlyConnected = Boolean(connected);
 					await updateContextItems(this.container, context, { force: newlyConnected });
 
-					state.counter--;
 					continue;
 				}
 
-				if (isToggleSearchModeItem(result)) {
-					toggleSearchMode(result.searchMode);
-
-					state.counter--;
+				if (isToggleSearchModeItem(pickResult)) {
+					toggleSearchMode(pickResult.searchMode);
 					continue;
 				}
 
-				state.item = { ...result.item, group: result.group };
+				state.item = { ...pickResult.item, group: pickResult.group };
 			}
 
 			assertsLaunchpadStepState(state);
 
+			if (!steps.isAtStepOrUnset(Steps.ConfirmAction)) continue;
+
 			if (this.confirm(state.confirm)) {
+				using step = steps.enterStep(Steps.ConfirmAction);
+
 				this.sendItemActionTelemetry('select', state.item, state.item.group, context);
 				await this.container.launchpad.ensureLaunchpadItemCodeSuggestions(state.item);
 
-				const result = yield* this.confirmStep(state, context);
-				if (result === StepResultBreak) continue;
+				const confirmResult = yield* this.confirmStep(state, context);
+				if (confirmResult === StepResultBreak) {
+					state.action = undefined;
+					if (step.goBack() == null) break;
+					continue;
+				}
 
-				state.action = result;
+				state.action = confirmResult;
 			}
 
 			if (state.action) {
@@ -383,7 +404,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						break;
 					case 'soft-open':
 						this.container.launchpad.open(state.item);
-						state.counter = 2;
+						// Stay in the flow - go back to confirm step
+						state.action = undefined;
 						continue;
 					case 'switch':
 					case 'show-overview':
@@ -412,10 +434,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				}
 			}
 
-			endSteps(state);
+			steps.markStepsComplete();
 		}
 
-		return state.counter < 0 ? StepResultBreak : undefined;
+		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
 	private *pickLaunchpadItemStep(
@@ -427,20 +449,29 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
 
+		// Should only be used for optimistic update of the list when some UI property (like pinned, snoozed, collapsed) changed with an
+		// item. For all other cases, use updateItems.
+		const optimisticallyUpdateItems = (quickpick: QuickPick<LaunchpadQuickPickItem>) => {
+			const { items, placeholder, title } = getItemsAndQuickpickProps(Boolean(quickpick.value));
+			quickpick.title = title;
+			quickpick.placeholder = placeholder;
+			quickpick.items = items;
+		};
+
 		const buildGroupHeading = (
 			ui: LaunchpadGroup,
 			groupLength: number,
 		): [DirectiveQuickPickItem, DirectiveQuickPickItem] => {
 			return [
 				createQuickPickSeparator(groupLength ? groupLength.toString() : undefined),
-				createDirectiveQuickPickItem(Directive.Reload, false, {
+				createDirectiveQuickPickItem(Directive.Noop, false, {
 					label: `$(${
 						context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
 					})\u00a0\u00a0${launchpadGroupIconMap.get(ui)!}\u00a0\u00a0${launchpadGroupLabelMap
 						.get(ui)
 						?.toUpperCase()}`, //'\u00a0',
 					//detail: groupMap.get(group)?.[0].toUpperCase(),
-					onDidSelect: () => {
+					onDidSelect: quickpick => {
 						const collapsed = !context.collapsed.get(ui);
 						context.collapsed.set(ui, collapsed);
 						if (state.initialGroup == null) {
@@ -462,6 +493,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								this.source,
 							);
 						}
+
+						// Refresh the quickpick items with the updated collapsed state
+						optimisticallyUpdateItems(quickpick as QuickPick<LaunchpadQuickPickItem>);
 					},
 				}),
 			];
@@ -526,12 +560,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		};
 
 		const getLaunchpadQuickPickItems = (items: LaunchpadItem[] = [], isFiltering?: boolean) => {
-			const groupedAndSorted: (
-				| LaunchpadItemQuickPickItem
-				| DirectiveQuickPickItem
-				| ConnectMoreIntegrationsQuickPickItem
-				| ToggleSearchModeQuickPickItem
-			)[] = [];
+			const groupedAndSorted: LaunchpadQuickPickItem[] = [];
 
 			if (items.length) {
 				const uiGroups = groupAndSortLaunchpadItems(items);
@@ -652,12 +681,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		}
 
 		const updateItems = async (
-			quickpick: QuickPick<
-				| LaunchpadItemQuickPickItem
-				| DirectiveQuickPickItem
-				| ConnectMoreIntegrationsQuickPickItem
-				| ToggleSearchModeQuickPickItem
-			>,
+			quickpick: QuickPick<LaunchpadQuickPickItem>,
 			options?: { force?: boolean; immediate?: boolean },
 		) => {
 			const search = context.inSearch ? quickpick.value : undefined;
@@ -701,22 +725,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			} finally {
 				quickpick.busy = false;
 			}
-		};
-
-		// Should only be used for optimistic update of the list when some UI property (like pinned, snoozed) changed with an
-		// item. For all other cases, use updateItems.
-		const optimisticallyUpdateItems = (
-			quickpick: QuickPick<
-				| LaunchpadItemQuickPickItem
-				| DirectiveQuickPickItem
-				| ConnectMoreIntegrationsQuickPickItem
-				| ToggleSearchModeQuickPickItem
-			>,
-		) => {
-			const { items, placeholder, title } = getItemsAndQuickpickProps(Boolean(quickpick.value));
-			quickpick.title = title;
-			quickpick.placeholder = placeholder;
-			quickpick.items = items;
 		};
 
 		const { items, placeholder, title } = getItemsAndQuickpickProps();

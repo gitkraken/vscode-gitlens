@@ -21,20 +21,33 @@ import { Logger } from '../../system/logger.js';
 import { pluralize } from '../../system/string.js';
 import { createDisposable } from '../../system/unifiedDisposable.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
-import { PickCommitToggleQuickInputButton } from '../quickCommand.buttons.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
-	QuickPickStep,
 	StepGenerator,
-	StepResult,
+	StepsContext,
 	StepSelection,
 	StepState,
-} from '../quickCommand.js';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
-import { appendReposToTitle, pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps.js';
+} from '../quick-wizard/models/steps.js';
+import { StepResultBreak } from '../quick-wizard/models/steps.js';
+import type { QuickPickStep } from '../quick-wizard/models/steps.quickpick.js';
+import { PickCommitToggleQuickInputButton } from '../quick-wizard/quickButtons.js';
+import { QuickCommand } from '../quick-wizard/quickCommand.js';
+import { pickCommitStep } from '../quick-wizard/steps/commits.js';
+import { pickBranchOrTagStep } from '../quick-wizard/steps/references.js';
+import { pickRepositoryStep } from '../quick-wizard/steps/repositories.js';
+import { StepsController } from '../quick-wizard/stepsController.js';
+import { appendReposToTitle, assertStepState, canPickStepContinue } from '../quick-wizard/utils/steps.utils.js';
 
-interface Context {
+const Steps = {
+	PickRepo: 'rebase-pick-repo',
+	PickBranchOrTag: 'rebase-pick-branch-or-tag',
+	PickCommit: 'rebase-pick-commit',
+	Confirm: 'rebase-confirm',
+} as const;
+type StepNames = (typeof Steps)[keyof typeof Steps];
+
+interface Context extends StepsContext<StepNames> {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
@@ -47,9 +60,8 @@ interface Context {
 }
 
 type Flags = '--interactive' | '--update-refs';
-
-interface State {
-	repo: string | Repository;
+interface State<Repo = string | Repository> {
+	repo: Repo;
 	destination: GitReference;
 	flags: Flags[];
 }
@@ -59,8 +71,6 @@ export interface RebaseGitCommandArgs {
 	state?: Partial<State>;
 }
 
-type RebaseStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
-
 export class RebaseGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RebaseGitCommandArgs) {
 		super(container, 'rebase', 'rebase', 'Rebase', {
@@ -68,27 +78,14 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				'integrates changes from a specified branch into the current branch, by changing the base of the branch and reapplying the commits on top',
 		});
 
-		let counter = 0;
-		if (args?.state?.repo != null) {
-			counter++;
-		}
-
-		if (args?.state?.destination != null) {
-			counter++;
-		}
-
-		this.initialState = {
-			counter: counter,
-			confirm: true,
-			...args?.state,
-		};
+		this.initialState = { confirm: true, ...args?.state };
 	}
 
 	override get canSkipConfirm(): boolean {
 		return false;
 	}
 
-	private async execute(state: RebaseStepState) {
+	private async execute(state: StepState<State<Repository>>) {
 		const interactive = state.flags.includes('--interactive');
 		const updateRefs = state.flags.includes('--update-refs');
 
@@ -148,8 +145,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	protected async *steps(state: PartialStepState<State>): StepGenerator {
-		const context: Context = {
+	protected createContext(context?: StepsContext<any>): Context {
+		return {
+			...context,
+			container: this.container,
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
@@ -160,33 +159,36 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			showTags: true,
 			title: this.title,
 		};
+	}
 
-		if (state.flags == null) {
-			state.flags = [];
-		}
+	protected async *steps(state: PartialStepState<State>, context?: Context): StepGenerator {
+		context ??= this.createContext();
+		using steps = new StepsController<StepNames>(context, this);
 
-		let skippedStepOne = false;
+		state.flags ??= [];
 
-		while (this.canStepsContinue(state)) {
+		while (!steps.isComplete) {
 			context.title = this.title;
 
-			if (state.counter < 1 || state.repo == null || typeof state.repo === 'string') {
-				skippedStepOne = false;
+			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
+				// Only show the picker if there are multiple repositories
 				if (context.repos.length === 1) {
-					skippedStepOne = true;
-					if (state.repo == null) {
-						state.counter++;
-					}
-
-					state.repo = context.repos[0];
+					[state.repo] = context.repos;
 				} else {
-					const result = yield* pickRepositoryStep(state, context);
-					// Always break on the first step (so we will go back)
-					if (result === StepResultBreak) break;
+					using step = steps.enterStep(Steps.PickRepo);
+
+					const result = yield* pickRepositoryStep(state, context, step);
+					if (result === StepResultBreak) {
+						state.repo = undefined!;
+						if (step.goBack() == null) break;
+						continue;
+					}
 
 					state.repo = result;
 				}
 			}
+
+			assertStepState<State<Repository>>(state);
 
 			if (context.branch == null) {
 				const branch = await state.repo.git.branches.getBranch();
@@ -201,24 +203,23 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			})} onto`;
 			context.pickCommitForItem = false;
 
-			if (state.counter < 2 || state.destination == null) {
+			if (steps.isAtStep(Steps.PickBranchOrTag) || state.destination == null) {
+				using step = steps.enterStep(Steps.PickBranchOrTag);
+
 				const pickCommitToggle = new PickCommitToggleQuickInputButton(context.pickCommit, context, () => {
 					context.pickCommit = !context.pickCommit;
 					pickCommitToggle.on = context.pickCommit;
 				});
 
-				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(state as RebaseStepState, context, {
+				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to rebase onto`,
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.destination?.ref : undefined,
 					additionalButtons: [pickCommitToggle],
 				});
 				if (result === StepResultBreak) {
-					// If we skipped the previous step, make sure we back up past it
-					if (skippedStepOne) {
-						state.counter--;
-					}
-
+					state.destination = undefined!;
+					if (step.goBack() == null) break;
 					continue;
 				}
 
@@ -231,10 +232,14 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			if (
-				state.counter < 3 &&
 				context.selectedBranchOrTag != null &&
-				(context.pickCommit || context.pickCommitForItem || state.destination.ref === context.branch.ref)
+				(steps.isAtStep(Steps.PickCommit) ||
+					context.pickCommit ||
+					context.pickCommitForItem ||
+					state.destination.ref === context.branch.ref)
 			) {
+				using step = steps.enterStep(Steps.PickCommit);
+
 				const rev = context.selectedBranchOrTag.ref;
 
 				let log = context.cache.get(rev);
@@ -243,38 +248,54 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					context.cache.set(rev, log);
 				}
 
-				const result: StepResult<GitReference> = yield* pickCommitStep(state as RebaseStepState, context, {
+				const result = yield* pickCommitStep(state, context, {
+					emptyItems: [
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
+							label: 'OK',
+							detail: `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, { icon: false })}`,
+						}),
+					],
 					ignoreFocusOut: true,
 					log: await log,
 					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
-						log == null
-							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
-									icon: false,
-								})}`
-							: `Choose a commit to rebase ${getReferenceLabel(context.branch, {
-									icon: false,
-								})} onto`,
+						!log?.commits.size
+							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, { icon: false })}`
+							: `Choose a commit to rebase ${getReferenceLabel(context.branch, { icon: false })} onto`,
 					picked: state.destination?.ref,
 				});
-				if (result === StepResultBreak) continue;
+				if (result === StepResultBreak) {
+					if (step.goBack() == null) break;
+					continue;
+				}
 
 				state.destination = result;
 			}
 
-			const result = yield* this.confirmStep(state as RebaseStepState, context);
-			if (result === StepResultBreak) continue;
+			{
+				using step = steps.enterStep(Steps.Confirm);
 
-			state.flags = result;
+				const result = yield* this.confirmStep(state, context);
+				if (result === StepResultBreak) {
+					state.flags = [];
+					if (step.goBack() == null) break;
+					continue;
+				}
 
-			endSteps(state);
-			void this.execute(state as RebaseStepState);
+				state.flags = result;
+			}
+
+			steps.markStepsComplete();
+			void this.execute(state);
 		}
 
-		return state.counter < 0 ? StepResultBreak : undefined;
+		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
+	private async *confirmStep(
+		state: StepState<State<Repository>>,
+		context: Context,
+	): AsyncStepResultGenerator<Flags[]> {
 		const counts = await state.repo.git.commits.getLeftRightCommitCount(
 			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
 			{ excludeMerges: true },
@@ -285,7 +306,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		const behind = counts?.left ?? 0;
 		if (behind === 0 && ahead === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(title, state, context),
+				appendReposToTitle(`Confirm ${title}`, state, context),
 				[],
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
 					label: 'OK',

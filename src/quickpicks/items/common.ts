@@ -6,7 +6,7 @@ import type { Directive } from './directive.js';
 
 declare module 'vscode' {
 	interface QuickPickItem {
-		onDidSelect?(): void;
+		onDidSelect?(quickpick: QuickPick<QuickPickItem>): void | Promise<void>;
 		onDidPressKey?(key: Keys): Promise<void>;
 	}
 }

@@ -1,5 +1,4 @@
 import type { Uri } from 'vscode';
-import type { PushFlags } from '../../commands/git/stash.js';
 import { Container } from '../../container.js';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
 import type { RevealOptions } from '../../views/viewBase.js';
@@ -54,10 +53,10 @@ export function push(
 			onlyStagedUris: onlyStagedUris,
 			message: message,
 			flags: [
-				...(includeUntracked ? ['--include-untracked'] : []),
-				...(keepStaged ? ['--keep-index'] : []),
-				...(onlyStaged ? ['--staged'] : []),
-			] as PushFlags[],
+				...(includeUntracked ? ['--include-untracked' as const] : []),
+				...(keepStaged ? ['--keep-index' as const] : []),
+				...(onlyStaged ? ['--staged' as const] : []),
+			],
 		},
 	});
 }

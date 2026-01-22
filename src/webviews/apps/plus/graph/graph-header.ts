@@ -1024,13 +1024,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				<gl-tooltip placement="bottom">
 					<a
 						class="action-button"
-						href=${createCommandLink<BranchGitCommandArgs>('gitlens.gitCommands.branch', {
-							state: {
-								subcommand: 'create',
-								reference: branch,
-							},
+						href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
 							command: 'branch',
 							confirm: true,
+							state: { subcommand: 'create', reference: branch },
 						})}
 					>
 						<code-icon class="action-button__icon" icon="custom-start-work"></code-icon>

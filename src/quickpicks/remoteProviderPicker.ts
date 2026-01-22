@@ -1,7 +1,7 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote.js';
-import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons.js';
+import { SetRemoteAsDefaultQuickInputButton } from '../commands/quick-wizard/quickButtons.js';
 import type { IntegrationIds } from '../constants.integrations.js';
 import type { Keys } from '../constants.js';
 import { GlyphChars } from '../constants.js';

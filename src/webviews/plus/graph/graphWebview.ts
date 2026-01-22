@@ -122,7 +122,7 @@ import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../.
 import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService.js';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider.js';
-import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork.js';
+import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/associateIssueWithBranch.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';

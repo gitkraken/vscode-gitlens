@@ -1,7 +1,7 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
 import { getAvatarUri } from '../avatars.js';
-import { ClearQuickInputButton } from '../commands/quickCommand.buttons.js';
+import { ClearQuickInputButton } from '../commands/quick-wizard/quickButtons.js';
 import type { OrganizationMember } from '../plus/gk/models/organization.js';
 import { debounce } from '../system/function/debounce.js';
 import { defer } from '../system/promise.js';

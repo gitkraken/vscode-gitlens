@@ -4,7 +4,7 @@ import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyCha
 import {
 	RevealInSideBarQuickInputButton,
 	ShowDetailsViewQuickInputButton,
-} from '../../commands/quickCommand.buttons.js';
+} from '../../commands/quick-wizard/quickButtons.js';
 import type { Keys } from '../../constants.js';
 import { GlyphChars } from '../../constants.js';
 import { Container } from '../../container.js';

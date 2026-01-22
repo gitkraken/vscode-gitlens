@@ -46,7 +46,7 @@ import { createReference } from '../git/utils/reference.utils.js';
 import { shortenRevision } from '../git/utils/revision.utils.js';
 import { showPatchesView } from '../plus/drafts/actions.js';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider.js';
-import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/startWork.js';
+import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/associateIssueWithBranch.js';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker.js';
 import {
 	executeActionCommand,

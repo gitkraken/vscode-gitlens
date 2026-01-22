@@ -12,35 +12,21 @@ export function changeUpstream(repo?: string | Repository, branch?: GitBranchRef
 export function create(repo?: string | Repository, ref?: GitReference, name?: string): Promise<void> {
 	return executeGitCommand({
 		command: 'branch',
-		state: {
-			subcommand: 'create',
-			repo: repo,
-			reference: ref,
-			name: name,
-		},
+		state: { subcommand: 'create', repo: repo, reference: ref, name: name },
 	});
 }
 
 export function remove(repo?: string | Repository, refs?: GitBranchReference | GitBranchReference[]): Promise<void> {
 	return executeGitCommand({
 		command: 'branch',
-		state: {
-			subcommand: 'delete',
-			repo: repo,
-			references: refs,
-		},
+		state: { subcommand: 'delete', repo: repo, references: refs },
 	});
 }
 
 export function rename(repo?: string | Repository, ref?: GitBranchReference, name?: string): Promise<void> {
 	return executeGitCommand({
 		command: 'branch',
-		state: {
-			subcommand: 'rename',
-			repo: repo,
-			reference: ref,
-			name: name,
-		},
+		state: { subcommand: 'rename', repo: repo, reference: ref, name: name },
 	});
 }
 

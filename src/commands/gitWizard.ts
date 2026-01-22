@@ -20,8 +20,8 @@ import type { StatusGitCommandArgs } from './git/status.js';
 import type { SwitchGitCommandArgs } from './git/switch.js';
 import type { TagGitCommandArgs } from './git/tag.js';
 import type { WorktreeGitCommandArgs } from './git/worktree.js';
-import type { QuickWizardCommandArgsWithCompletion } from './quickWizard.base.js';
-import { QuickWizardCommandBase } from './quickWizard.base.js';
+import type { QuickWizardCommandArgsWithCompletion } from './quick-wizard/models/quickWizard.js';
+import { QuickWizardCommandBase } from './quick-wizard/quickWizardCommandBase.js';
 
 export type GitWizardCommandArgs =
 	| BranchGitCommandArgs
@@ -49,41 +49,42 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 	constructor(container: Container) {
 		super(container, [
 			'gitlens.gitCommands',
-			'gitlens.gitCommands.branch',
-			'gitlens.gitCommands.branch.create',
-			'gitlens.gitCommands.branch.delete',
-			'gitlens.gitCommands.branch.prune',
-			'gitlens.gitCommands.branch.rename',
-			'gitlens.gitCommands.branch.upstream',
-			'gitlens.gitCommands.checkout',
-			'gitlens.gitCommands.cherryPick',
-			'gitlens.gitCommands.history',
-			'gitlens.gitCommands.merge',
-			'gitlens.gitCommands.rebase',
-			'gitlens.gitCommands.remote',
-			'gitlens.gitCommands.remote.add',
-			'gitlens.gitCommands.remote.prune',
-			'gitlens.gitCommands.remote.remove',
-			'gitlens.gitCommands.reset',
-			'gitlens.gitCommands.revert',
-			'gitlens.gitCommands.show',
-			'gitlens.gitCommands.stash',
-			'gitlens.gitCommands.stash.drop',
-			'gitlens.gitCommands.stash.list',
-			'gitlens.gitCommands.stash.pop',
-			'gitlens.gitCommands.stash.push',
-			'gitlens.gitCommands.stash.rename',
-			'gitlens.gitCommands.status',
-			'gitlens.gitCommands.switch',
-			'gitlens.gitCommands.tag',
-			'gitlens.gitCommands.tag.create',
-			'gitlens.gitCommands.tag.delete',
-			'gitlens.gitCommands.worktree',
-			'gitlens.gitCommands.worktree.create',
-			'gitlens.gitCommands.worktree.delete',
-			'gitlens.gitCommands.worktree.open',
-
+			'gitlens.git.branch',
+			'gitlens.git.branch.create',
+			'gitlens.git.branch.delete',
+			'gitlens.git.branch.prune',
+			'gitlens.git.branch.rename',
+			'gitlens.git.branch.setMergeTarget',
+			'gitlens.git.branch.setUpstream',
+			'gitlens.git.checkout',
+			'gitlens.git.cherryPick',
+			'gitlens.git.history',
+			'gitlens.git.merge',
+			'gitlens.git.rebase',
+			'gitlens.git.remote',
+			'gitlens.git.remote.add',
+			'gitlens.git.remote.prune',
+			'gitlens.git.remote.remove',
+			'gitlens.git.reset',
+			'gitlens.git.revert',
+			'gitlens.git.show',
+			'gitlens.git.stash',
+			'gitlens.git.stash.drop',
+			'gitlens.git.stash.list',
+			'gitlens.git.stash.pop',
+			'gitlens.git.stash.push',
+			'gitlens.git.stash.rename',
+			'gitlens.git.status',
+			'gitlens.git.switch',
+			'gitlens.git.tag',
+			'gitlens.git.tag.create',
+			'gitlens.git.tag.delete',
+			'gitlens.git.worktree',
+			'gitlens.git.worktree.copyWorkingChangesTo',
 			'gitlens.copyWorkingChangesToWorktree',
+			'gitlens.git.worktree.create',
+			'gitlens.git.worktree.delete',
+			'gitlens.git.worktree.open',
 		]);
 	}
 
@@ -92,80 +93,107 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 		args?: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs>,
 	): Promise<void> {
 		switch (context.command) {
-			case 'gitlens.gitCommands.branch':
+			case 'gitlens.git.branch':
 				return this.execute({ command: 'branch', ...args });
-			case 'gitlens.gitCommands.branch.create':
-				return this.execute({ command: 'branch', state: { subcommand: 'create' } });
-			case 'gitlens.gitCommands.branch.delete':
-				return this.execute({ command: 'branch', state: { subcommand: 'delete' } });
-			case 'gitlens.gitCommands.branch.prune':
-				return this.execute({ command: 'branch', state: { subcommand: 'prune' } });
-			case 'gitlens.gitCommands.branch.rename':
-				return this.execute({ command: 'branch', state: { subcommand: 'rename' } });
-			case 'gitlens.gitCommands.branch.upstream':
-				return this.execute({ command: 'branch', state: { subcommand: 'upstream' } });
-			case 'gitlens.gitCommands.cherryPick':
-				return this.execute({ command: 'cherry-pick' });
-			case 'gitlens.gitCommands.history':
-				return this.execute({ command: 'log' });
-			case 'gitlens.gitCommands.merge':
-				return this.execute({ command: 'merge' });
-			case 'gitlens.gitCommands.rebase':
-				return this.execute({ command: 'rebase' });
-			case 'gitlens.gitCommands.remote':
-				return this.execute({ command: 'remote' });
-			case 'gitlens.gitCommands.remote.add':
-				return this.execute({ command: 'remote', state: { subcommand: 'add' } });
-			case 'gitlens.gitCommands.remote.prune':
-				return this.execute({ command: 'remote', state: { subcommand: 'prune' } });
-			case 'gitlens.gitCommands.remote.remove':
-				return this.execute({ command: 'remote', state: { subcommand: 'remove' } });
-			case 'gitlens.gitCommands.reset':
-				return this.execute({ command: 'reset' });
-			case 'gitlens.gitCommands.revert':
-				return this.execute({ command: 'revert' });
-			case 'gitlens.gitCommands.show':
-				return this.execute({ command: 'show' });
-			case 'gitlens.gitCommands.stash':
-				return this.execute({ command: 'stash' });
-			case 'gitlens.gitCommands.stash.drop':
-				return this.execute({ command: 'stash', state: { subcommand: 'drop' } });
-			case 'gitlens.gitCommands.stash.list':
-				return this.execute({ command: 'stash', state: { subcommand: 'list' } });
-			case 'gitlens.gitCommands.stash.pop':
-				return this.execute({ command: 'stash', state: { subcommand: 'pop' } });
-			case 'gitlens.gitCommands.stash.push':
-				return this.execute({ command: 'stash', state: { subcommand: 'push' } });
-			case 'gitlens.gitCommands.stash.rename':
-				return this.execute({ command: 'stash', state: { subcommand: 'rename' } });
-			case 'gitlens.gitCommands.status':
-				return this.execute({ command: 'status' });
-			case 'gitlens.gitCommands.switch':
-			case 'gitlens.gitCommands.checkout':
-				return this.execute({ command: 'switch' });
-			case 'gitlens.gitCommands.tag':
-				return this.execute({ command: 'tag' });
-			case 'gitlens.gitCommands.tag.create':
-				return this.execute({ command: 'tag', state: { subcommand: 'create' } });
-			case 'gitlens.gitCommands.tag.delete':
-				return this.execute({ command: 'tag', state: { subcommand: 'delete' } });
-			case 'gitlens.gitCommands.worktree':
-				return this.execute({ command: 'worktree' });
-			case 'gitlens.gitCommands.worktree.create':
-				return this.execute({ command: 'worktree', state: { subcommand: 'create' } });
-			case 'gitlens.gitCommands.worktree.delete':
-				return this.execute({ command: 'worktree', state: { subcommand: 'delete' } });
-			case 'gitlens.gitCommands.worktree.open':
-				return this.execute({ command: 'worktree', state: { subcommand: 'open' } });
-
+			case 'gitlens.git.branch.create':
+				return this.execute(getSubcommandArgs(args, 'branch', 'create'));
+			case 'gitlens.git.branch.delete':
+				return this.execute(getSubcommandArgs(args, 'branch', 'delete'));
+			case 'gitlens.git.branch.prune':
+				return this.execute(getSubcommandArgs(args, 'branch', 'prune'));
+			case 'gitlens.git.branch.rename':
+				return this.execute(getSubcommandArgs(args, 'branch', 'rename'));
+			case 'gitlens.git.branch.setMergeTarget':
+				return this.execute(getSubcommandArgs(args, 'branch', 'mergeTarget'));
+			case 'gitlens.git.branch.setUpstream':
+				return this.execute(getSubcommandArgs(args, 'branch', 'upstream'));
+			case 'gitlens.git.cherryPick':
+				return this.execute({ command: 'cherry-pick', ...args });
+			case 'gitlens.git.history':
+				return this.execute({ command: 'log', ...args });
+			case 'gitlens.git.merge':
+				return this.execute({ command: 'merge', ...args });
+			case 'gitlens.git.rebase':
+				return this.execute({ command: 'rebase', ...args });
+			case 'gitlens.git.remote':
+				return this.execute({ command: 'remote', ...args });
+			case 'gitlens.git.remote.add':
+				return this.execute(getSubcommandArgs(args, 'remote', 'add'));
+			case 'gitlens.git.remote.prune':
+				return this.execute(getSubcommandArgs(args, 'remote', 'prune'));
+			case 'gitlens.git.remote.remove':
+				return this.execute(getSubcommandArgs(args, 'remote', 'remove'));
+			case 'gitlens.git.reset':
+				return this.execute({ command: 'reset', ...args });
+			case 'gitlens.git.revert':
+				return this.execute({ command: 'revert', ...args });
+			case 'gitlens.git.show':
+				return this.execute({ command: 'show', ...args });
+			case 'gitlens.git.stash':
+				return this.execute({ command: 'stash', ...args });
+			case 'gitlens.git.stash.drop':
+				return this.execute(getSubcommandArgs(args, 'stash', 'drop'));
+			case 'gitlens.git.stash.list':
+				return this.execute(getSubcommandArgs(args, 'stash', 'list'));
+			case 'gitlens.git.stash.pop':
+				return this.execute(getSubcommandArgs(args, 'stash', 'pop'));
+			case 'gitlens.git.stash.push':
+				return this.execute(getSubcommandArgs(args, 'stash', 'push'));
+			case 'gitlens.git.stash.rename':
+				return this.execute(getSubcommandArgs(args, 'stash', 'rename'));
+			case 'gitlens.git.status':
+				return this.execute({ command: 'status', ...args });
+			case 'gitlens.git.switch':
+			case 'gitlens.git.checkout':
+				return this.execute({ command: 'switch', ...args });
+			case 'gitlens.git.tag':
+				return this.execute({ command: 'tag', ...args });
+			case 'gitlens.git.tag.create':
+				return this.execute(getSubcommandArgs(args, 'tag', 'create'));
+			case 'gitlens.git.tag.delete':
+				return this.execute(getSubcommandArgs(args, 'tag', 'delete'));
+			case 'gitlens.git.worktree':
+				return this.execute({ command: 'worktree', ...args });
+			case 'gitlens.git.worktree.copyWorkingChangesTo':
 			case 'gitlens.copyWorkingChangesToWorktree':
 				return this.execute({
 					command: 'worktree',
 					state: { subcommand: 'copy-changes', changes: { type: 'working-tree' } },
 				});
+			case 'gitlens.git.worktree.create':
+				return this.execute(getSubcommandArgs(args, 'worktree', 'create'));
+			case 'gitlens.git.worktree.delete':
+				return this.execute(getSubcommandArgs(args, 'worktree', 'delete'));
+			case 'gitlens.git.worktree.open':
+				return this.execute(getSubcommandArgs(args, 'worktree', 'open'));
 
 			default:
 				return this.execute(args);
 		}
 	}
+
+	override async execute(args?: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs>): Promise<void> {
+		return super.execute(args, this.container.git.isDiscoveringRepositories);
+	}
+}
+
+function getSubcommandArgs<
+	TCommand extends string,
+	TSubcommand extends string,
+	TArgs extends { command: TCommand; state?: { subcommand?: string } },
+>(
+	args: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs> | undefined,
+	command: TCommand,
+	subcommand: TSubcommand,
+): { command: TCommand; state: { subcommand: TSubcommand } } {
+	if (args?.command == null) {
+		return { command: command, state: { subcommand: subcommand } };
+	}
+
+	const typedArgs = args as TArgs;
+	if (typedArgs.state?.subcommand != null && typedArgs.state.subcommand !== subcommand) {
+		throw new Error(`Invalid subcommand: expected '${subcommand}', got '${typedArgs.state.subcommand}'`);
+	}
+
+	return { ...typedArgs, command: command, state: { ...typedArgs.state, subcommand: subcommand } };
 }

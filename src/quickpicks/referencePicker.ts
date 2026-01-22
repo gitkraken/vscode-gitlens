@@ -1,7 +1,8 @@
 import type { Disposable } from 'vscode';
 import { CancellationTokenSource, QuickInputButtons, window } from 'vscode';
-import { RevealInSideBarQuickInputButton } from '../commands/quickCommand.buttons.js';
-import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand.steps.js';
+import { RevealInSideBarQuickInputButton } from '../commands/quick-wizard/quickButtons.js';
+import { getBranchesAndOrTags } from '../commands/quick-wizard/steps/references.js';
+import { getValidateGitReferenceFn } from '../commands/quick-wizard/utils/steps.utils.js';
 import type { Keys } from '../constants.js';
 import { Container } from '../container.js';
 import { revealBranch } from '../git/actions/branch.js';

@@ -275,7 +275,7 @@ export class WalkthroughShowLaunchpadCommand extends GlCommandBase {
 	}
 }
 
-// gitlens.gitCommands.worktree.create
+// gitlens.git.worktree.create
 @command()
 export class WalkthroughWorktreeCreateCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
@@ -283,7 +283,7 @@ export class WalkthroughWorktreeCreateCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command: GlCommands = 'gitlens.gitCommands.worktree.create';
+		const command: GlCommands = 'gitlens.git.worktree.create';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'create/worktree',

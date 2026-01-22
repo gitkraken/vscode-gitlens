@@ -1,51 +1,34 @@
 import type { QuickInputButton } from 'vscode';
-import type { StoredRecentUsage } from '../constants.storage.js';
-import type { Container } from '../container.js';
-import { LaunchpadCommand } from '../plus/launchpad/launchpad.js';
-import { AssociateIssueWithBranchCommand, StartWorkCommand } from '../plus/startWork/startWork.js';
-import { configuration } from '../system/-webview/configuration.js';
-import { getContext } from '../system/-webview/context.js';
-import { ChangeBranchMergeTargetCommand } from './changeBranchMergeTarget.js';
-import { BranchGitCommand } from './git/branch.js';
-import { CherryPickGitCommand } from './git/cherry-pick.js';
-import { CoAuthorsGitCommand } from './git/coauthors.js';
-import { FetchGitCommand } from './git/fetch.js';
-import { LogGitCommand } from './git/log.js';
-import { MergeGitCommand } from './git/merge.js';
-import { PullGitCommand } from './git/pull.js';
-import { PushGitCommand } from './git/push.js';
-import { RebaseGitCommand } from './git/rebase.js';
-import { RemoteGitCommand } from './git/remote.js';
-import { ResetGitCommand } from './git/reset.js';
-import { RevertGitCommand } from './git/revert.js';
-import { SearchGitCommand } from './git/search.js';
-import { ShowGitCommand } from './git/show.js';
-import { StashGitCommand } from './git/stash.js';
-import { StatusGitCommand } from './git/status.js';
-import { SwitchGitCommand } from './git/switch.js';
-import { TagGitCommand } from './git/tag.js';
-import { WorktreeGitCommand } from './git/worktree.js';
-import type { QuickCommand, QuickPickStep, StepGenerator } from './quickCommand.js';
-import type { AnyQuickWizardCommandArgs } from './quickWizard.base.js';
-
-function* nullSteps(): StepGenerator {
-	/* noop */
-}
-
-export function getSteps(
-	container: Container,
-	args: AnyQuickWizardCommandArgs,
-	pickedVia: 'menu' | 'command',
-): StepGenerator {
-	const rootStep = new QuickWizardRootStep(container, args);
-
-	const command = rootStep.find(args.command);
-	if (command == null) return nullSteps();
-
-	rootStep.setCommand(command, pickedVia);
-
-	return command.executeSteps();
-}
+import type { StoredRecentUsage } from '../../constants.storage.js';
+import type { Container } from '../../container.js';
+import { LaunchpadCommand } from '../../plus/launchpad/launchpad.js';
+import { AssociateIssueWithBranchCommand } from '../../plus/startWork/associateIssueWithBranch.js';
+import { StartWorkCommand } from '../../plus/startWork/startWork.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { getContext } from '../../system/-webview/context.js';
+import { BranchGitCommand } from '../git/branch.js';
+import { CherryPickGitCommand } from '../git/cherry-pick.js';
+import { CoAuthorsGitCommand } from '../git/coauthors.js';
+import { FetchGitCommand } from '../git/fetch.js';
+import { LogGitCommand } from '../git/log.js';
+import { MergeGitCommand } from '../git/merge.js';
+import { PullGitCommand } from '../git/pull.js';
+import { PushGitCommand } from '../git/push.js';
+import { RebaseGitCommand } from '../git/rebase.js';
+import { RemoteGitCommand } from '../git/remote.js';
+import { ResetGitCommand } from '../git/reset.js';
+import { RevertGitCommand } from '../git/revert.js';
+import { SearchGitCommand } from '../git/search.js';
+import { ShowGitCommand } from '../git/show.js';
+import { StashGitCommand } from '../git/stash.js';
+import { StatusGitCommand } from '../git/status.js';
+import { SwitchGitCommand } from '../git/switch.js';
+import { TagGitCommand } from '../git/tag.js';
+import { WorktreeGitCommand } from '../git/worktree.js';
+import type { AnyQuickWizardCommandArgs } from './models/quickWizard.js';
+import type { StepStartedFrom } from './models/steps.js';
+import type { QuickPickStep } from './models/steps.quickpick.js';
+import type { QuickCommand } from './quickCommand.js';
 
 export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 	readonly type = 'pick';
@@ -123,10 +106,6 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 		if (args?.command === 'associateIssueWithBranch') {
 			this.hiddenItems.push(new AssociateIssueWithBranchCommand(container, args));
 		}
-
-		if (args?.command === 'changeBranchMergeTarget') {
-			this.hiddenItems.push(new ChangeBranchMergeTargetCommand(container, args));
-		}
 	}
 
 	private _command: QuickCommand | undefined;
@@ -143,14 +122,14 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 		return this.items.find(c => c.isMatch(commandName)) ?? this.hiddenItems.find(c => c.isMatch(commandName));
 	}
 
-	setCommand(command: QuickCommand | undefined, via: 'menu' | 'command'): void {
+	setCommand(command: QuickCommand | undefined, startedFrom: StepStartedFrom): void {
 		if (this._command != null) {
 			this._command.picked = false;
 		}
 
 		if (command != null) {
 			command.picked = true;
-			command.pickedVia = via;
+			command.startedFrom = startedFrom;
 		}
 
 		this._command = command;

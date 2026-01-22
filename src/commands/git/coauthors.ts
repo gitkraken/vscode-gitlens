@@ -2,22 +2,33 @@ import type { Container } from '../../container.js';
 import type { GitContributor } from '../../git/models/contributor.js';
 import type { Repository } from '../../git/models/repository.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
+import { ensureArray } from '../../system/array.js';
 import { normalizePath } from '../../system/path.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
-import type { PartialStepState, StepGenerator, StepState } from '../quickCommand.js';
-import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
-import { pickContributorsStep, pickRepositoryStep } from '../quickCommand.steps.js';
+import type { PartialStepState, StepGenerator, StepsContext, StepState } from '../quick-wizard/models/steps.js';
+import { StepResultBreak } from '../quick-wizard/models/steps.js';
+import { QuickCommand } from '../quick-wizard/quickCommand.js';
+import { pickContributorsStep } from '../quick-wizard/steps/contributors.js';
+import { pickRepositoryStep } from '../quick-wizard/steps/repositories.js';
+import { StepsController } from '../quick-wizard/stepsController.js';
+import { assertStepState } from '../quick-wizard/utils/steps.utils.js';
 
-interface Context {
+const Steps = {
+	PickRepo: 'coauthors-pick-repo',
+	PickContributors: 'coauthors-pick-contributors',
+} as const;
+type StepNames = (typeof Steps)[keyof typeof Steps];
+
+interface Context extends StepsContext<StepNames> {
 	repos: Repository[];
 	activeRepo: Repository | undefined;
 	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
-interface State {
-	repo: string | Repository;
-	contributors: GitContributor | GitContributor[];
+interface State<Repo = string | Repository, Contributors = GitContributor | GitContributor[]> {
+	repo: Repo;
+	contributors: Contributors;
 }
 
 export interface CoAuthorsGitCommandArgs {
@@ -25,38 +36,20 @@ export interface CoAuthorsGitCommandArgs {
 	state?: Partial<State>;
 }
 
-type CoAuthorStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
-
 export class CoAuthorsGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: CoAuthorsGitCommandArgs) {
 		super(container, 'co-authors', 'co-authors', 'Add Co-Authors', {
 			description: 'adds co-authors to a commit message',
 		});
 
-		let counter = 0;
-		if (args?.state?.repo != null) {
-			counter++;
-		}
-
-		if (
-			args?.state?.contributors != null &&
-			(!Array.isArray(args.state.contributors) || args.state.contributors.length !== 0)
-		) {
-			counter++;
-		}
-
-		this.initialState = {
-			counter: counter,
-			confirm: false,
-			...args?.state,
-		};
+		this.initialState = { confirm: false, ...args?.state };
 	}
 
 	override get canConfirm(): boolean {
 		return false;
 	}
 
-	private async execute(state: CoAuthorStepState) {
+	private async execute(state: StepState<State<Repository, GitContributor[]>>) {
 		const scmRepo = await state.repo.git.getOrOpenScmRepository();
 		if (scmRepo == null) return;
 
@@ -67,11 +60,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 			message = message.substring(0, index - 1).trimEnd();
 		}
 
-		if (state.contributors != null && !Array.isArray(state.contributors)) {
-			state.contributors = [state.contributors];
-		}
-
-		for (const c of state.contributors) {
+		for (const c of ensureArray(state.contributors)) {
 			let newlines;
 			if (message.includes('Co-authored-by: ')) {
 				newlines = '\n';
@@ -88,13 +77,20 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		void (await executeCoreCommand('workbench.view.scm'));
 	}
 
-	protected async *steps(state: PartialStepState<State>): StepGenerator {
-		const context: Context = {
+	protected createContext(context?: StepsContext<any>): Context {
+		return {
+			...context,
+			container: this.container,
 			repos: this.container.git.openRepositories,
 			activeRepo: undefined,
 			associatedView: this.container.views.contributors,
 			title: this.title,
 		};
+	}
+
+	protected async *steps(state: PartialStepState<State>, context?: Context): StepGenerator {
+		context ??= this.createContext();
+		using steps = new StepsController<StepNames>(context, this);
 
 		const scmRepositories = await this.container.git.getOpenScmRepositories();
 		if (scmRepositories.length) {
@@ -113,51 +109,55 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		let skippedStepOne = false;
-
-		while (this.canStepsContinue(state)) {
+		while (!steps.isComplete) {
 			context.title = this.title;
 
-			if (state.counter < 1 || state.repo == null || typeof state.repo === 'string') {
-				skippedStepOne = false;
+			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
+				// Only show the picker if there are multiple repositories
 				if (context.repos.length === 1) {
-					skippedStepOne = true;
-					if (state.repo == null) {
-						state.counter++;
-					}
-
-					state.repo = context.repos[0];
+					[state.repo] = context.repos;
 				} else {
-					const result = yield* pickRepositoryStep(state, context);
-					// Always break on the first step (so we will go back)
-					if (result === StepResultBreak) break;
+					using step = steps.enterStep(Steps.PickRepo);
+
+					const result = yield* pickRepositoryStep(state, context, step);
+					if (result === StepResultBreak) {
+						state.repo = undefined!;
+						if (step.goBack() == null) break;
+						continue;
+					}
 
 					state.repo = result;
 				}
 			}
 
-			if (state.counter < 2 || state.contributors == null) {
-				const result = yield* pickContributorsStep(
-					state as CoAuthorStepState,
-					context,
-					'Choose contributors to add as co-authors',
-				);
-				if (result === StepResultBreak) {
-					// If we skipped the previous step, make sure we back up past it
-					if (skippedStepOne) {
-						state.counter--;
-					}
+			assertStepState<State<Repository>>(state);
 
+			if (state.contributors != null && !Array.isArray(state.contributors)) {
+				state.contributors = [state.contributors];
+			}
+
+			if (steps.isAtStep(Steps.PickContributors) || state.contributors == null) {
+				using step = steps.enterStep(Steps.PickContributors);
+
+				const result = yield* pickContributorsStep(state, context, {
+					picked: state.contributors?.map(c => c.email)?.filter(<T>(email?: T): email is T => email != null),
+					placeholder: 'Choose contributors to add as co-authors',
+				});
+				if (result === StepResultBreak) {
+					state.contributors = undefined!;
+					if (step.goBack() == null) break;
 					continue;
 				}
 
 				state.contributors = result;
 			}
 
-			endSteps(state);
-			void this.execute(state as CoAuthorStepState);
+			assertStepState<State<Repository, GitContributor[]>>(state);
+
+			steps.markStepsComplete();
+			void this.execute(state);
 		}
 
-		return state.counter < 0 ? StepResultBreak : undefined;
+		return steps.isComplete ? undefined : StepResultBreak;
 	}
 }

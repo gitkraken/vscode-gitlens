@@ -12,26 +12,35 @@ import { isStringArray } from '../../system/array.js';
 import { fromNow } from '../../system/date.js';
 import { pad, pluralize } from '../../system/string.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
-import { FetchQuickInputButton } from '../quickCommand.buttons.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
-	QuickPickStep,
 	StepGenerator,
+	StepsContext,
 	StepSelection,
 	StepState,
-} from '../quickCommand.js';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
-import { appendReposToTitle, pickRepositoriesStep, pickRepositoryStep } from '../quickCommand.steps.js';
+} from '../quick-wizard/models/steps.js';
+import { StepResultBreak } from '../quick-wizard/models/steps.js';
+import type { QuickPickStep } from '../quick-wizard/models/steps.quickpick.js';
+import { FetchQuickInputButton } from '../quick-wizard/quickButtons.js';
+import { QuickCommand } from '../quick-wizard/quickCommand.js';
+import { pickRepositoriesStep, pickRepositoryStep } from '../quick-wizard/steps/repositories.js';
+import { StepsController } from '../quick-wizard/stepsController.js';
+import { appendReposToTitle, assertStepState, canPickStepContinue } from '../quick-wizard/utils/steps.utils.js';
 
-interface Context {
+const Steps = {
+	PickRepos: 'push-pick-repos',
+	Confirm: 'push-confirm',
+} as const;
+type StepNames = (typeof Steps)[keyof typeof Steps];
+
+interface Context extends StepsContext<StepNames> {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
 type Flags = '--force' | '--set-upstream' | string;
-
 interface State<Repos = string | string[] | Repository | Repository[]> {
 	repos: Repos;
 	reference?: GitReference;
@@ -44,27 +53,16 @@ export interface PushGitCommandArgs {
 	state?: Partial<State>;
 }
 
-type PushStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
-
 export class PushGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: PushGitCommandArgs) {
 		super(container, 'push', 'push', 'Push', {
 			description: 'pushes changes from the current branch to a remote',
 		});
 
-		let counter = 0;
-		if (args?.state?.repos != null && (!Array.isArray(args.state.repos) || args.state.repos.length !== 0)) {
-			counter++;
-		}
-
-		this.initialState = {
-			counter: counter,
-			confirm: args?.confirm,
-			...args?.state,
-		};
+		this.initialState = { confirm: args?.confirm, ...args?.state };
 	}
 
-	private execute(state: State<Repository[]>) {
+	private execute(state: StepState<State<Repository[]>>) {
 		const index = state.flags.indexOf('--set-upstream');
 		if (index !== -1) {
 			return this.container.git.pushAll(state.repos, {
@@ -80,79 +78,93 @@ export class PushGitCommand extends QuickCommand<State> {
 		});
 	}
 
-	protected async *steps(state: PartialStepState<State>): StepGenerator {
-		const context: Context = {
+	protected createContext(context?: StepsContext<any>): Context {
+		return {
+			...context,
+			container: this.container,
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.views.commits,
 			title: this.title,
 		};
+	}
 
-		if (state.flags == null) {
-			state.flags = [];
-		}
+	protected async *steps(state: PartialStepState<State>, context?: Context): StepGenerator {
+		context ??= this.createContext();
+		using steps = new StepsController<StepNames>(context, this);
+
+		state.flags ??= [];
 
 		if (state.repos != null && !Array.isArray(state.repos)) {
-			state.repos = [state.repos as string];
+			state.repos = typeof state.repos === 'string' ? [state.repos] : [state.repos];
 		}
 
-		let skippedStepOne = false;
+		assertStepState<State<Repository[] | string[]>>(state);
 
-		while (this.canStepsContinue(state)) {
+		while (!steps.isComplete) {
 			context.title = this.title;
 
-			if (state.counter < 1 || state.repos == null || state.repos.length === 0 || isStringArray(state.repos)) {
-				skippedStepOne = false;
+			if (steps.isAtStep(Steps.PickRepos) || !state.repos?.length || isStringArray(state.repos)) {
+				// Only show the picker if there are multiple repositories
 				if (context.repos.length === 1) {
-					skippedStepOne = true;
-					if (state.repos == null) {
-						state.counter++;
-					}
-
-					state.repos = [context.repos[0]];
+					state.repos = context.repos;
 				} else if (state.reference != null) {
+					// If a reference is specified, only allow picking the repository that contains it
+					using step = steps.enterStep(Steps.PickRepos);
+
 					const result = yield* pickRepositoryStep(
 						{ ...state, repos: undefined, repo: state.reference.repoPath },
 						context,
+						step,
 					);
-					// Always break on the first step (so we will go back)
-					if (result === StepResultBreak) break;
+					if (result === StepResultBreak) {
+						state.repos = undefined!;
+						if (step.goBack() == null) break;
+						continue;
+					}
 
 					state.repos = [result];
 				} else {
-					const result = yield* pickRepositoriesStep(
-						state as ExcludeSome<typeof state, 'repos', string | Repository>,
-						context,
-						{ skipIfPossible: state.counter >= 1 },
-					);
-					// Always break on the first step (so we will go back)
-					if (result === StepResultBreak) break;
+					using step = steps.enterStep(Steps.PickRepos);
+
+					const result = yield* pickRepositoriesStep(state, context, step, {
+						skipIfPossible: !steps.isAtStep(Steps.PickRepos),
+					});
+					if (result === StepResultBreak) {
+						state.repos = undefined!;
+						if (step.goBack() == null) break;
+						continue;
+					}
 
 					state.repos = result;
 				}
 			}
 
-			if (this.confirm(state.confirm)) {
-				const result = yield* this.confirmStep(state as PushStepState, context);
-				if (result === StepResultBreak) {
-					// If we skipped the previous step, make sure we back up past it
-					if (skippedStepOne) {
-						state.counter--;
-					}
+			assertStepState<State<Repository[]>>(state);
 
+			if (this.confirm(state.confirm)) {
+				using step = steps.enterStep(Steps.Confirm);
+
+				const result = yield* this.confirmStep(state, context);
+				if (result === StepResultBreak) {
+					state.flags = [];
+					if (step.goBack() == null) break;
 					continue;
 				}
 
 				state.flags = result;
 			}
 
-			endSteps(state);
-			void this.execute(state as State<Repository[]>);
+			steps.markStepsComplete();
+			void this.execute(state);
 		}
 
-		return state.counter < 0 ? StepResultBreak : undefined;
+		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
+	private async *confirmStep(
+		state: StepState<State<Repository[]>>,
+		context: Context,
+	): AsyncStepResultGenerator<Flags[]> {
 		const useForceWithLease = configuration.getCore('git.useForcePushWithLease') ?? true;
 		const useForceIfIncludes =
 			useForceWithLease &&

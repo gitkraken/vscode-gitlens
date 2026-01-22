@@ -7,6 +7,7 @@ import type { GitRevisionReference } from '../../git/models/reference.js';
 import type { Repository } from '../../git/models/repository.js';
 import { getReferenceLabel } from '../../git/utils/reference.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { executeCommand } from '../../system/-webview/command.js';
@@ -14,17 +15,29 @@ import { Logger } from '../../system/logger.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
-	QuickPickStep,
 	StepGenerator,
 	StepResult,
 	StepResultGenerator,
+	StepsContext,
 	StepSelection,
 	StepState,
-} from '../quickCommand.js';
-import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
-import { appendReposToTitle, pickCommitsStep, pickRepositoryStep } from '../quickCommand.steps.js';
+} from '../quick-wizard/models/steps.js';
+import { StepResultBreak } from '../quick-wizard/models/steps.js';
+import type { QuickPickStep } from '../quick-wizard/models/steps.quickpick.js';
+import { QuickCommand } from '../quick-wizard/quickCommand.js';
+import { pickCommitsStep } from '../quick-wizard/steps/commits.js';
+import { pickRepositoryStep } from '../quick-wizard/steps/repositories.js';
+import { StepsController } from '../quick-wizard/stepsController.js';
+import { appendReposToTitle, assertStepState, canPickStepContinue } from '../quick-wizard/utils/steps.utils.js';
 
-interface Context {
+const Steps = {
+	PickRepo: 'revert-pick-repo',
+	PickCommits: 'revert-pick-commits',
+	Confirm: 'revert-confirm',
+} as const;
+type StepNames = (typeof Steps)[keyof typeof Steps];
+
+interface Context extends StepsContext<StepNames> {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
@@ -33,9 +46,8 @@ interface Context {
 }
 
 type Flags = '--edit' | '--no-edit';
-
-interface State<Refs = GitRevisionReference | GitRevisionReference[]> {
-	repo: string | Repository;
+interface State<Repo = string | Repository, Refs = GitRevisionReference | GitRevisionReference[]> {
+	repo: Repo;
 	references: Refs;
 	flags: Flags[];
 }
@@ -45,38 +57,20 @@ export interface RevertGitCommandArgs {
 	state?: Partial<State>;
 }
 
-type RevertStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
-
 export class RevertGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RevertGitCommandArgs) {
 		super(container, 'revert', 'revert', 'Revert', {
 			description: 'undoes the changes of specified commits, by creating new commits with inverted changes',
 		});
 
-		let counter = 0;
-		if (args?.state?.repo != null) {
-			counter++;
-		}
-
-		if (
-			args?.state?.references != null &&
-			(!Array.isArray(args.state.references) || args.state.references.length !== 0)
-		) {
-			counter++;
-		}
-
-		this.initialState = {
-			counter: counter,
-			confirm: true,
-			...args?.state,
-		};
+		this.initialState = { confirm: true, ...args?.state };
 	}
 
 	override get canSkipConfirm(): boolean {
 		return false;
 	}
 
-	private async execute(state: RevertStepState<State<GitRevisionReference[]>>) {
+	private async execute(state: StepState<State<Repository, GitRevisionReference[]>>) {
 		const refs = state.references.map(c => c.ref).reverse();
 
 		const options: { editMessage?: boolean } = {};
@@ -124,45 +118,50 @@ export class RevertGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	protected async *steps(state: PartialStepState<State>): StepGenerator {
-		const context: Context = {
+	protected createContext(context?: StepsContext<any>): Context {
+		return {
+			...context,
+			container: this.container,
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
 		};
+	}
 
-		if (state.flags == null) {
-			state.flags = [];
-		}
+	protected async *steps(state: PartialStepState<State>, context?: Context): StepGenerator {
+		context ??= this.createContext();
+		using steps = new StepsController<StepNames>(context, this);
+
+		state.flags ??= [];
 
 		if (state.references != null && !Array.isArray(state.references)) {
 			state.references = [state.references];
 		}
 
-		let skippedStepOne = false;
-
-		while (this.canStepsContinue(state)) {
+		while (!steps.isComplete) {
 			context.title = this.title;
 
-			if (state.counter < 1 || state.repo == null || typeof state.repo === 'string') {
-				skippedStepOne = false;
+			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
+				// Only show the picker if there are multiple repositories
 				if (context.repos.length === 1) {
-					skippedStepOne = true;
-					if (state.repo == null) {
-						state.counter++;
-					}
-
-					state.repo = context.repos[0];
+					[state.repo] = context.repos;
 				} else {
-					const result = yield* pickRepositoryStep(state, context);
-					// Always break on the first step (so we will go back)
-					if (result === StepResultBreak) break;
+					using step = steps.enterStep(Steps.PickRepo);
+
+					const result = yield* pickRepositoryStep(state, context, step);
+					if (result === StepResultBreak) {
+						state.repo = undefined!;
+						if (step.goBack() == null) break;
+						continue;
+					}
 
 					state.repo = result;
 				}
 			}
+
+			assertStepState<State<Repository>>(state);
 
 			if (context.destination == null) {
 				const branch = await state.repo.git.branches.getBranch();
@@ -171,7 +170,9 @@ export class RevertGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			if (state.counter < 2 || state.references == null || state.references.length === 0) {
+			if (steps.isAtStep(Steps.PickCommits) || state.references == null || state.references.length === 0) {
+				using step = steps.enterStep(Steps.PickCommits);
+
 				const rev = context.destination.ref;
 
 				let log = context.cache.get(rev);
@@ -180,42 +181,54 @@ export class RevertGitCommand extends QuickCommand<State> {
 					context.cache.set(rev, log);
 				}
 
-				const result: StepResult<GitRevisionReference[]> = yield* pickCommitsStep(
-					state as RevertStepState,
-					context,
-					{
-						log: await log,
-						onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
-						placeholder: (context, log) =>
-							log == null ? `${context.destination.name} has no commits` : 'Choose commits to revert',
-						picked: state.references?.map(r => r.ref),
-					},
-				);
+				const result: StepResult<GitRevisionReference[]> = yield* pickCommitsStep(state, context, {
+					emptyItems: [
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
+							label: 'OK',
+							detail: `${context.destination.name} has no commits`,
+						}),
+					],
+					log: await log,
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
+					placeholder: (context, log) =>
+						!log?.commits.size ? `${context.destination.name} has no commits` : 'Choose commits to revert',
+					picked: state.references?.map(r => r.ref),
+				});
 				if (result === StepResultBreak) {
-					// If we skipped the previous step, make sure we back up past it
-					if (skippedStepOne) {
-						state.counter--;
-					}
-
+					state.references = undefined!;
+					if (step.goBack() == null) break;
 					continue;
 				}
 
 				state.references = result;
 			}
 
-			const result = yield* this.confirmStep(state as RevertStepState, context);
-			if (result === StepResultBreak) continue;
+			assertStepState<State<Repository, GitRevisionReference[]>>(state);
 
-			state.flags = result;
+			{
+				using step = steps.enterStep(Steps.Confirm);
 
-			endSteps(state);
-			void this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
+				const result = yield* this.confirmStep(state, context);
+				if (result === StepResultBreak) {
+					state.flags = [];
+					if (step.goBack() == null) break;
+					continue;
+				}
+
+				state.flags = result;
+			}
+
+			steps.markStepsComplete();
+			void this.execute(state);
 		}
 
-		return state.counter < 0 ? StepResultBreak : undefined;
+		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<Flags[]> {
+	private *confirmStep(
+		state: StepState<State<Repository, GitRevisionReference[]>>,
+		context: Context,
+	): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[

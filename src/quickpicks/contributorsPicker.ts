@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
-import { ClearQuickInputButton } from '../commands/quickCommand.buttons.js';
+import { ClearQuickInputButton } from '../commands/quick-wizard/quickButtons.js';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants.js';
 import type { Container } from '../container.js';
 import type { GitContributor } from '../git/models/contributor.js';

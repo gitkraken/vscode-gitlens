@@ -534,7 +534,7 @@ export class GlMergeTargetStatus extends LitElement {
 			>${branchRef && targetRef
 				? html`<gl-button
 							href="${this._webview.createCommandLink<BranchAndTargetRefs>(
-								'gitlens.changeBranchMergeTarget:',
+								'gitlens.git.branch.setMergeTarget:',
 								{
 									...branchRef,
 									mergeTargetId: targetRef.branchId,
@@ -579,7 +579,7 @@ export class GlMergeTargetStatus extends LitElement {
 			appearance="toolbar"
 			density="compact"
 			tooltip="Change Merge Target"
-			href="${this._webview.createCommandLink<BranchAndTargetRefs>('gitlens.changeBranchMergeTarget:', {
+			href="${this._webview.createCommandLink<BranchAndTargetRefs>('gitlens.git.branch.setMergeTarget:', {
 				...this.branchRef!,
 				mergeTargetId: this.targetBranchRef!.branchId,
 				mergeTargetName: this.targetBranchRef!.branchName,

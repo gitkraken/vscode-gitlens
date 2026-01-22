@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import type { BrowseRepoAtRevisionCommandArgs } from '../commands/browseRepoAtRevision.js';
 import type { GitWizardCommandArgs } from '../commands/gitWizard.js';
-import type { QuickWizardCommandArgsWithCompletion } from '../commands/quickWizard.base.js';
+import type { QuickWizardCommandArgsWithCompletion } from '../commands/quick-wizard/models/quickWizard.js';
 import { executeCommand, executeEditorCommand } from '../system/-webview/command.js';
 import { defer } from '../system/promise.js';
 

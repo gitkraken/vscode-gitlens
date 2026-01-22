@@ -1,4 +1,4 @@
-import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
+import type { QuickPick, QuickPickItem, ThemeIcon, Uri } from 'vscode';
 import { proTrialLengthInDays } from '../../constants.subscription.js';
 import { pluralize } from '../../system/string.js';
 
@@ -8,7 +8,6 @@ export enum Directive {
 	Reset,
 	LoadMore,
 	Noop,
-	Reload,
 
 	SignIn,
 	StartProTrial,
@@ -26,7 +25,7 @@ export function isDirective<T>(value: Directive | T): value is Directive {
 
 export interface DirectiveQuickPickItem extends QuickPickItem {
 	directive: Directive;
-	onDidSelect?: () => void | Promise<void>;
+	onDidSelect?: (quickpick: QuickPick<QuickPickItem>) => void | Promise<void>;
 }
 
 export function createDirectiveQuickPickItem(
@@ -38,7 +37,7 @@ export function createDirectiveQuickPickItem(
 		detail?: string;
 		buttons?: QuickPickItem['buttons'];
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon;
-		onDidSelect?: () => void | Promise<void>;
+		onDidSelect?: (quickpick: QuickPick<QuickPickItem>) => void | Promise<void>;
 	},
 ): DirectiveQuickPickItem {
 	let label = options?.label;
@@ -57,9 +56,6 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.Noop:
 				label = 'Try again';
-				break;
-			case Directive.Reload:
-				label = 'Refresh';
 				break;
 			case Directive.Reset:
 				label = 'Reset';

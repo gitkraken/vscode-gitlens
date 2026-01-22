@@ -41,7 +41,7 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.visualizeHistory.repo:graph';
 
 type InternalHomeWebviewCommands =
-	| 'gitlens.changeBranchMergeTarget:home'
+	| 'gitlens.git.branch.setMergeTarget:home'
 	| 'gitlens.deleteBranchOrWorktree:home'
 	| 'gitlens.ai.explainBranch:home'
 	| 'gitlens.ai.explainWip:home'
@@ -124,7 +124,6 @@ type InternalGlCommands =
 	| 'gitlens.ai.feedback.helpful'
 	| 'gitlens.ai.feedback.unhelpful'
 	| 'gitlens.ai.mcp.authCLI'
-	| 'gitlens.changeBranchMergeTarget'
 	| 'gitlens.diffWith'
 	| 'gitlens.diffWithPrevious:codelens'
 	| 'gitlens.diffWithPrevious:command'

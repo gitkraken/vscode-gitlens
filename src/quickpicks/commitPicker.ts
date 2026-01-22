@@ -1,6 +1,9 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
-import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../commands/quickCommand.buttons.js';
+import {
+	RevealInSideBarQuickInputButton,
+	ShowDetailsViewQuickInputButton,
+} from '../commands/quick-wizard/quickButtons.js';
 import type { Keys } from '../constants.js';
 import { Container } from '../container.js';
 import { revealCommit, showCommitInDetailsView } from '../git/actions/commit.js';

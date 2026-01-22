@@ -444,10 +444,6 @@
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
 			"commandPalette": "!gitlens:hasVirtualFolders && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
 		},
-		"gitlens.changeBranchMergeTarget": {
-			"label": "Change Branch Merge Target",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
 		"gitlens.changeUpstream:graph": {
 			"label": "Change Upstream...",
 			"icon": "$(link)",
@@ -2251,6 +2247,146 @@
 				]
 			}
 		},
+		"gitlens.git.branch": {
+			"label": "Git Branch...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.branch.create": {
+			"label": "Git Create Branch...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.branch.delete": {
+			"label": "Git Delete Branch...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.branch.prune": {
+			"label": "Git Prune Branches...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.branch.rename": {
+			"label": "Git Rename Branch...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.branch.setMergeTarget": {
+			"label": "Git Change Branch Merge Target...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.branch.setUpstream": {
+			"label": "Git Change Branch Upstream...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.checkout": {
+			"label": "Git Checkout...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.cherryPick": {
+			"label": "Git Cherry Pick...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.history": {
+			"label": "Git History (log)...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.merge": {
+			"label": "Git Merge...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.rebase": {
+			"label": "Git Rebase...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.remote": {
+			"label": "Git Remote...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.remote.add": {
+			"label": "Git Add Remote...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.remote.prune": {
+			"label": "Git Prune Remote...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.remote.remove": {
+			"label": "Git Remove Remote...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.reset": {
+			"label": "Git Reset...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.revert": {
+			"label": "Git Revert...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.show": {
+			"label": "Git Show...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.stash": {
+			"label": "Git Stash...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.stash.drop": {
+			"label": "Git Drop Stash...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.stash.list": {
+			"label": "Git Stash List...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.stash.pop": {
+			"label": "Git Pop Stash...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.stash.push": {
+			"label": "Git Push Stash...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.stash.rename": {
+			"label": "Git Rename Stash...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.status": {
+			"label": "Git Status...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.switch": {
+			"label": "Git Switch to...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.tag": {
+			"label": "Git Tag...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.tag.create": {
+			"label": "Git Create Tag...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.tag.delete": {
+			"label": "Git Delete Tag...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.worktree": {
+			"label": "Git Worktree...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.worktree.copyWorkingChangesTo": {
+			"label": "Git Copy Working Changes to Worktree...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.worktree.create": {
+			"label": "Git Create Worktree...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.worktree.delete": {
+			"label": "Git Delete Worktree...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.git.worktree.open": {
+			"label": "Git Open Worktree...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.gitCommands": {
 			"label": "Git Command Palette",
 			"commandPalette": "!gitlens:disabled",
@@ -2265,138 +2401,6 @@
 					"mac": "cmd+alt+g /"
 				}
 			]
-		},
-		"gitlens.gitCommands.branch": {
-			"label": "Git Branch...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.branch.create": {
-			"label": "Git Create Branch...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.branch.delete": {
-			"label": "Git Delete Branch...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.branch.prune": {
-			"label": "Git Prune Branches...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.branch.rename": {
-			"label": "Git Rename Branch...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.branch.upstream": {
-			"label": "Git Change Branch Upstream...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.checkout": {
-			"label": "Git Checkout...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.cherryPick": {
-			"label": "Git Cherry Pick...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.history": {
-			"label": "Git History (log)...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.merge": {
-			"label": "Git Merge...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.rebase": {
-			"label": "Git Rebase...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.remote": {
-			"label": "Git Remote...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.remote.add": {
-			"label": "Git Add Remote...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.remote.prune": {
-			"label": "Git Prune Remote...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.remote.remove": {
-			"label": "Git Remove Remote...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.reset": {
-			"label": "Git Reset...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.revert": {
-			"label": "Git Revert...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.show": {
-			"label": "Git Show...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.stash": {
-			"label": "Git Stash...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.stash.drop": {
-			"label": "Git Drop Stash...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.stash.list": {
-			"label": "Git Stash List...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.stash.pop": {
-			"label": "Git Pop Stash...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.stash.push": {
-			"label": "Git Push Stash...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.stash.rename": {
-			"label": "Git Rename Stash...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.status": {
-			"label": "Git Status...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.switch": {
-			"label": "Git Switch to...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.tag": {
-			"label": "Git Tag...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.tag.create": {
-			"label": "Git Create Tag...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.tag.delete": {
-			"label": "Git Delete Tag...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.worktree": {
-			"label": "Git Worktree...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.worktree.create": {
-			"label": "Git Create Worktree...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.worktree.delete": {
-			"label": "Git Delete Worktree...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
-		"gitlens.gitCommands.worktree.open": {
-			"label": "Git Open Worktree...",
-			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.gk.switchOrganization": {
 			"label": "Switch Organization...",

@@ -1,36 +1,35 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
-import type { GlCommands } from '../constants.commands.js';
-import { Container } from '../container.js';
-import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive.js';
-import { configuration } from '../system/-webview/configuration.js';
-import type { KeyMapping } from '../system/-webview/keyboard.js';
-import { log } from '../system/decorators/log.js';
-import type { Deferred } from '../system/promise.js';
-import { isPromise } from '../system/promise.js';
-import { GlCommandBase } from './commandBase.js';
-import type { GitWizardCommandArgs } from './gitWizard.js';
+import type { GlCommands } from '../../constants.commands.js';
+import { Container } from '../../container.js';
+import { Directive, isDirective, isDirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import type { KeyMapping } from '../../system/-webview/keyboard.js';
+import { log } from '../../system/decorators/log.js';
+import { isPromise } from '../../system/promise.js';
+import { GlCommandBase } from '../commandBase.js';
+import type { QuickWizardCommandArgsWithCompletion } from './models/quickWizard.js';
+import type { CustomStep } from './models/steps.custom.js';
+import type { StepSelection, StepStartedFrom } from './models/steps.js';
+import { StepResultBreak } from './models/steps.js';
+import type { QuickInputStep } from './models/steps.quickinput.js';
+import type { QuickPickStep } from './models/steps.quickpick.js';
 import {
 	LoadMoreQuickInputButton,
 	ToggleQuickInputButton,
 	WillConfirmForcedQuickInputButton,
 	WillConfirmToggleQuickInputButton,
-} from './quickCommand.buttons.js';
-import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand.js';
-import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand.js';
-import type { QuickWizardCommandArgs } from './quickWizard.js';
-import { QuickWizardRootStep } from './quickWizard.utils.js';
+} from './quickButtons.js';
+import type { QuickCommand } from './quickCommand.js';
+import { QuickWizardRootStep } from './quickWizardRootStep.js';
+import { isQuickCommand } from './utils/quickWizard.utils.js';
+import { isCustomStep, isQuickInputStep, isQuickPickStep } from './utils/steps.utils.js';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');
 
-export type AnyQuickWizardCommandArgs = QuickWizardCommandArgs | GitWizardCommandArgs;
-
-export type QuickWizardCommandArgsWithCompletion<T extends AnyQuickWizardCommandArgs = AnyQuickWizardCommandArgs> =
-	T & { completion?: Deferred<void> };
-
 export abstract class QuickWizardCommandBase extends GlCommandBase {
-	private startedWith: 'menu' | 'command' = 'menu';
+	private startedFrom: StepStartedFrom = 'menu';
 
 	constructor(
 		protected readonly container: Container,
@@ -40,19 +39,37 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
-	async execute(args?: QuickWizardCommandArgsWithCompletion): Promise<void> {
+	async execute(args?: QuickWizardCommandArgsWithCompletion, waitUntil?: Promise<unknown>): Promise<void> {
 		const rootStep = new QuickWizardRootStep(this.container, args);
 
 		const command = args?.command != null ? rootStep.find(args.command) : undefined;
-		this.startedWith = command != null ? 'command' : 'menu';
+		this.startedFrom = command != null ? 'command' : 'menu';
 
 		let ignoreFocusOut;
 
 		let step: QuickPickStep | QuickInputStep | CustomStep | undefined;
 		if (command == null) {
-			step = rootStep;
+			step =
+				waitUntil != null
+					? await this.showLoadingIfNeeded(
+							rootStep.title,
+							waitUntil.then(
+								() => rootStep,
+								() => rootStep,
+							),
+						)
+					: rootStep;
 		} else {
-			step = await this.showLoadingIfNeeded(command, this.getCommandStep(command, rootStep));
+			step = await this.showLoadingIfNeeded(
+				command.title,
+				this.getCommandStep(command, rootStep).then(
+					step =>
+						waitUntil?.then(
+							() => step,
+							() => step,
+						) ?? step,
+				),
+			);
 		}
 
 		// If this is the first step, don't honor the step's setting
@@ -101,11 +118,13 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 			break;
 		}
 
+		rootStep.command?.terminate();
+
 		args?.completion?.fulfill();
 	}
 
 	private async showLoadingIfNeeded(
-		command: QuickCommand,
+		title: string,
 		stepPromise: Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>,
 	): Promise<QuickPickStep | QuickInputStep | CustomStep | undefined> {
 		const stepOrTimeout = await Promise.race([
@@ -129,7 +148,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 				async resolve => {
 					disposables.push(quickpick.onDidHide(() => resolve(step)));
 
-					quickpick.title = command.title;
+					quickpick.title = title;
 					quickpick.placeholder = 'Loading...';
 					quickpick.busy = true;
 					quickpick.enabled = false;
@@ -151,13 +170,16 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 		const buttons: QuickInputButton[] = [];
 
 		if (step != null) {
-			if (step.buttons != null) {
-				buttons.push(...step.buttons);
-				return buttons;
+			// Show back button unless explicitly disabled by step or by the command's steps navigation
+			// step.canGoBack takes precedence if explicitly set, otherwise check command's stepsNavigation
+			const canGoBack = step.canGoBack ?? command?.stepsNavigation?.canGoBack ?? true;
+			if (canGoBack) {
+				buttons.push(QuickInputButtons.Back);
 			}
 
-			if (step.disallowBack !== true) {
-				buttons.push(QuickInputButtons.Back);
+			// Add step's custom buttons, but filter out Back button since we handle it above
+			if (step.buttons != null) {
+				buttons.push(...step.buttons.filter(b => b !== QuickInputButtons.Back));
 			}
 
 			if (step.additionalButtons != null) {
@@ -236,7 +258,6 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 				case Directive.Back:
 					return (await rootStep?.command?.previous()) ?? rootStep;
 				case Directive.Noop:
-				case Directive.Reload:
 					return rootStep.command?.retry();
 				case Directive.Cancel:
 				default:
@@ -271,7 +292,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 			// eslint-disable-next-line no-async-promise-executor
 			return await new Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>(async resolve => {
 				const goBack = async () => {
-					if (step.disallowBack === true) return;
+					if (step.canGoBack === false) return;
 
 					input.value = '';
 					if (rootStep.command != null) {
@@ -406,7 +427,12 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 			// eslint-disable-next-line no-async-promise-executor
 			return await new Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>(async resolve => {
 				async function goBack() {
-					if (step.disallowBack === true) return;
+					if (step.canGoBack === false) return;
+
+					// Allow step to intercept back and prevent default behavior
+					if (step.onGoBack != null && (await step.onGoBack(quickpick))) {
+						return;
+					}
 
 					quickpick.value = '';
 					if (rootStep.command != null) {
@@ -580,7 +606,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 									const command = rootStep.find(quickpick.value.trim(), true);
 									if (command == null) return;
 
-									rootStep.setCommand(command, this.startedWith);
+									rootStep.setCommand(command, this.startedFrom);
 								} else {
 									const cmd = quickpick.value.trim().toLowerCase();
 									const item = (await step.items).find(
@@ -596,12 +622,14 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 							}
 						}
 
-						// Assume there is no matches (since there is no activeItems)
+						// Assume there is no matches (since there is no activeItems or only directive items)
 						if (
 							!quickpick.canSelectMany &&
 							rootStep.command != null &&
 							e.trim().length !== 0 &&
-							(overrideItems || quickpick.activeItems.length === 0)
+							(overrideItems ||
+								quickpick.activeItems.length === 0 ||
+								quickpick.activeItems.every(i => isDirectiveQuickPickItem(i)))
 						) {
 							if (step.onValidateValue == null) return;
 
@@ -678,7 +706,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 						if (items.length === 1) {
 							const [item] = items;
 							if (isDirectiveQuickPickItem(item)) {
-								await item.onDidSelect?.();
+								await item.onDidSelect?.(quickpick);
 
 								switch (item.directive) {
 									case Directive.Cancel:
@@ -694,10 +722,6 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 										return;
 
 									case Directive.Noop:
-										return;
-
-									case Directive.Reload:
-										resolve(await rootStep.command?.retry());
 										return;
 
 									case Directive.SignIn: {
@@ -754,7 +778,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 							const [command] = items;
 							if (!isQuickCommand(command)) return;
 
-							rootStep.setCommand(command, this.startedWith);
+							rootStep.setCommand(command, this.startedFrom);
 						}
 
 						if (!quickpick.canSelectMany) {

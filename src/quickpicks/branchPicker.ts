@@ -1,6 +1,6 @@
 import type { Disposable, QuickPickItem } from 'vscode';
 import { window } from 'vscode';
-import { getBranches } from '../commands/quickCommand.steps.js';
+import { getBranches } from '../commands/quick-wizard/steps/branches.js';
 import type { GitBranch } from '../git/models/branch.js';
 import type { Repository } from '../git/models/repository.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';

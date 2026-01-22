@@ -1,27 +1,18 @@
 import type { Container } from '../container.js';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
-import type { AssociateIssueWithBranchCommandArgs, StartWorkCommandArgs } from '../plus/startWork/startWork.js';
+import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/associateIssueWithBranch.js';
+import type { StartWorkCommandArgs } from '../plus/startWork/startWork.js';
 import { command } from '../system/-webview/command.js';
-import type { ChangeBranchMergeTargetCommandArgs } from './changeBranchMergeTarget.js';
 import type { CommandContext } from './commandContext.js';
-import type { QuickWizardCommandArgsWithCompletion } from './quickWizard.base.js';
-import { QuickWizardCommandBase } from './quickWizard.base.js';
+import type { QuickWizardCommandArgsWithCompletion } from './quick-wizard/models/quickWizard.js';
+import { QuickWizardCommandBase } from './quick-wizard/quickWizardCommandBase.js';
 
-export type QuickWizardCommandArgs =
-	| LaunchpadCommandArgs
-	| StartWorkCommandArgs
-	| AssociateIssueWithBranchCommandArgs
-	| ChangeBranchMergeTargetCommandArgs;
+export type QuickWizardCommandArgs = LaunchpadCommandArgs | StartWorkCommandArgs | AssociateIssueWithBranchCommandArgs;
 
 @command()
 export class QuickWizardCommand extends QuickWizardCommandBase {
 	constructor(container: Container) {
-		super(container, [
-			'gitlens.showLaunchpad',
-			'gitlens.startWork',
-			'gitlens.associateIssueWithBranch',
-			'gitlens.changeBranchMergeTarget',
-		]);
+		super(container, ['gitlens.showLaunchpad', 'gitlens.startWork', 'gitlens.associateIssueWithBranch']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: QuickWizardCommandArgsWithCompletion): Promise<void> {
@@ -34,9 +25,6 @@ export class QuickWizardCommand extends QuickWizardCommandBase {
 
 			case 'gitlens.associateIssueWithBranch':
 				return this.execute({ command: 'associateIssueWithBranch', ...args });
-
-			case 'gitlens.changeBranchMergeTarget':
-				return this.execute({ command: 'changeBranchMergeTarget', ...args });
 
 			default:
 				return this.execute(args);

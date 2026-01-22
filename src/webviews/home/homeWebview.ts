@@ -4,7 +4,6 @@ import { ActionRunnerType } from '../../api/actionRunners.js';
 import type { CreatePullRequestActionContext } from '../../api/gitlens.d.js';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import { getAvatarUriFromGravatarEmail } from '../../avatars.js';
-import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget.js';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch.js';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip.js';
 import type { BranchGitCommandArgs } from '../../commands/git/branch.js';
@@ -559,21 +558,24 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			command: 'branch',
 			state: {
 				subcommand: 'create',
-				repo: this.getSelectedRepository(), // TODO: Needs to move to be an arg
-				suggestNameOnly: true,
-				suggestRepoOnly: true,
+				suggestedRepo: this.getSelectedRepository(),
 				confirmOptions: ['--switch', '--worktree'],
 			},
 		});
 	}
 
-	@command('gitlens.changeBranchMergeTarget:')
+	@command('gitlens.git.branch.setMergeTarget:')
 	@log<HomeWebviewProvider['changeBranchMergeTarget']>()
 	private changeBranchMergeTarget(ref: BranchAndTargetRefs) {
 		this.container.telemetry.sendEvent('home/changeBranchMergeTarget');
-		void executeCommand<ChangeBranchMergeTargetCommandArgs>('gitlens.changeBranchMergeTarget', {
-			command: 'changeBranchMergeTarget',
-			state: { repo: ref.repoPath, branch: ref.branchName, mergeBranch: ref.mergeTargetName },
+		void executeCommand<BranchGitCommandArgs>('gitlens.git.branch.setMergeTarget', {
+			command: 'branch',
+			state: {
+				subcommand: 'mergeTarget',
+				repo: ref.repoPath,
+				reference: ref.branchName,
+				suggestedMergeTarget: ref.mergeTargetName,
+			},
 		});
 	}
 
