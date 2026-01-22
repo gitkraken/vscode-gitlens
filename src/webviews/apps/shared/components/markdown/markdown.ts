@@ -243,7 +243,8 @@ function getInlineMarkdownRenderer(): RendererObject {
 			return `<code>${escape(text, true)}</code>`;
 		},
 		heading: function (this: RendererThis, { tokens }: Tokens.Heading): string {
-			// In inline mode, disable heading styles - just return the text content
+			// In inline mode, disable heading styles to prevent text starting with '#' (e.g. commit messages)
+			// from being rendered as large headings that cause visual overlap. Just return the plain text.
 			const text = this.parser.parseInline(tokens);
 			return text;
 		},
