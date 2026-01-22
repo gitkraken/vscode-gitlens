@@ -242,7 +242,11 @@ function getInlineMarkdownRenderer(): RendererObject {
 			// In inline mode, wrap in code tag but without pre block formatting
 			return `<code>${escape(text, true)}</code>`;
 		},
-
+		heading: function (this: RendererThis, { tokens }: Tokens.Heading): string {
+			// In inline mode, disable heading styles - just return the text content
+			const text = this.parser.parseInline(tokens);
+			return text;
+		},
 		br: function (): string {
 			// In inline mode, render as a space instead of line break
 			return ' ';
