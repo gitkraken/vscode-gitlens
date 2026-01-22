@@ -1,6 +1,6 @@
 import type SlPopup from '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import { css, html, LitElement } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { parseDuration, waitForEvent } from '../../dom.js';
 import { GlElement, observe } from '../element.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
@@ -233,12 +233,14 @@ export class GlPopover extends GlElement {
 	@property({ reflect: true })
 	appearance?: 'menu';
 
+	@state() private suppressed: boolean = false;
+
 	get currentPlacement(): SlPopup['placement'] {
 		return (this.popup?.getAttribute('data-current-placement') ?? this.placement) as SlPopup['placement'];
 	}
 
-	constructor() {
-		super();
+	override connectedCallback(): void {
+		super.connectedCallback?.();
 
 		this.addEventListener('blur', this.handleTriggerBlur, true);
 		this.addEventListener('focus', this.handleTriggerFocus, true);
@@ -246,15 +248,30 @@ export class GlPopover extends GlElement {
 		this.addEventListener('mousedown', this.handleTriggerMouseDown);
 		this.addEventListener('mouseover', this.handleMouseOver);
 		this.addEventListener('mouseout', this.handleMouseOut);
+
+		// Listen for drag events to hide popover before drag image is captured
+		window.addEventListener('mouseup', this.handleMouseUp);
+		window.addEventListener('dragstart', this.handleDragStart, { capture: true });
+		window.addEventListener('dragend', this.handleDragEnd, { capture: true });
 	}
 
 	override disconnectedCallback(): void {
+		this.removeEventListener('blur', this.handleTriggerBlur, true);
+		this.removeEventListener('focus', this.handleTriggerFocus, true);
+		this.removeEventListener('click', this.handleTriggerClick);
+		this.removeEventListener('mousedown', this.handleTriggerMouseDown);
+		this.removeEventListener('mouseover', this.handleMouseOver);
+		this.removeEventListener('mouseout', this.handleMouseOut);
+
 		// Cleanup this event in case the popover is removed while open
 		this.closeWatcher?.destroy();
 		document.removeEventListener('focusin', this.handlePopupBlur);
 		window.removeEventListener('webview-blur', this.handleWebviewBlur, false);
 		document.removeEventListener('keydown', this.handleDocumentKeyDown);
-		document.removeEventListener('mousedown', this.handleWebviewMouseDown);
+		document.removeEventListener('mousedown', this.handleDocumentMouseDown);
+		window.removeEventListener('mouseup', this.handleMouseUp);
+		window.removeEventListener('dragstart', this.handleDragStart, { capture: true });
+		window.removeEventListener('dragend', this.handleDragEnd, { capture: true });
 
 		// Remove this popover from the registry when it's disconnected
 		GlPopover.openPopovers.delete(this);
@@ -315,7 +332,7 @@ export class GlPopover extends GlElement {
 		if (this._triggeredBy == null || triggeredBy !== 'hover') {
 			this._triggeredBy = triggeredBy;
 		}
-		if (this.open) return undefined;
+		if (this.open || this.suppressed) return undefined;
 
 		// Close other popovers before showing this one, unless this popover is a descendant of an open popover
 		GlPopover.closeOthers(this);
@@ -372,6 +389,26 @@ export class GlPopover extends GlElement {
 		} else {
 			this._skipHideOnClick = false;
 		}
+
+		// Suppress and hide hover-triggered popovers on mousedown to prevent
+		// them from being included in drag images
+		if (this.open && this._triggeredBy === 'hover') {
+			this.suppressed = true;
+			void this.hide();
+		}
+	};
+
+	private readonly handleMouseUp = () => {
+		this.suppressed = false;
+	};
+
+	private readonly handleDragStart = () => {
+		this.suppressed = true;
+		void this.hide();
+	};
+
+	private readonly handleDragEnd = () => {
+		this.suppressed = false;
 	};
 
 	private readonly handleTriggerFocus = () => {
@@ -403,7 +440,7 @@ export class GlPopover extends GlElement {
 		void this.hide();
 	};
 
-	private readonly handleWebviewMouseDown = (e: MouseEvent) => {
+	private readonly handleDocumentMouseDown = (e: MouseEvent) => {
 		const composedPath = e.composedPath();
 		if (!composedPath.includes(this) && !composedPath.includes(this.body)) {
 			void this.hide();
@@ -461,7 +498,7 @@ export class GlPopover extends GlElement {
 			window.addEventListener('webview-blur', this.handleWebviewBlur, false);
 
 			if (this.hasTrigger('click') || this.hasTrigger('focus')) {
-				document.addEventListener('mousedown', this.handleWebviewMouseDown);
+				document.addEventListener('mousedown', this.handleDocumentMouseDown);
 			}
 
 			this.body.hidden = false;
@@ -472,7 +509,7 @@ export class GlPopover extends GlElement {
 		} else {
 			document.removeEventListener('focusin', this.handlePopupBlur);
 			window.removeEventListener('webview-blur', this.handleWebviewBlur, false);
-			document.removeEventListener('mousedown', this.handleWebviewMouseDown);
+			document.removeEventListener('mousedown', this.handleDocumentMouseDown);
 
 			// Hide
 
