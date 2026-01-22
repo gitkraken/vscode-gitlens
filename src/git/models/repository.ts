@@ -374,12 +374,26 @@ export class Repository implements Disposable {
 		// Ignore node_modules, .git, index.lock, and watchman cookie files
 		if (/(?:(?:\/|\\)node_modules|\.git(?:\/index\.lock)?|\.watchman-cookie-)(?:\/|\\|$)/.test(uri.fsPath)) return;
 
+		// If filter not ready yet, buffer the event for later processing
+		if (this._fsBufferedEvents != null) {
+			this._fsBufferedEvents.push(uri);
+			return;
+		}
+
+		// Sync filter using .gitignore rules
+		if (this._fsIsIgnored?.(uri)) return;
+
 		this._etagFileSystem = Date.now();
 		this.fireFileSystemChange(uri);
 	}
 
 	@debug()
 	private onGitIgnoreChanged(_uri: Uri) {
+		// Refresh the ignore filter if FS watching is active
+		if (this._fsWatcherDisposable != null) {
+			this.ensureIgnoredUrisFilter();
+		}
+
 		this.fireChange(RepositoryChange.Ignores);
 	}
 
@@ -405,6 +419,10 @@ export class Repository implements Disposable {
 					return;
 
 				case 'info/exclude':
+					// Refresh the ignore filter if FS watching is active
+					if (this._fsWatcherDisposable != null) {
+						this.ensureIgnoredUrisFilter();
+					}
 					this.fireChange(RepositoryChange.Ignores);
 					return;
 
@@ -738,7 +756,7 @@ export class Repository implements Disposable {
 
 		if (this._pendingFileSystemChange != null) {
 			Logger.debug(scope, `Firing pending file system changes`);
-			void this.fireFileSystemChangeCore();
+			this.fireFileSystemChangeCore();
 		}
 	}
 
@@ -854,15 +872,38 @@ export class Repository implements Disposable {
 		]);
 	}
 
+	private _fsBufferedEvents: Uri[] | undefined;
+	private _fsChangeDelay: number = defaultFileSystemChangeDelay;
+	private _fsIsIgnored: ((uri: Uri) => boolean) | undefined;
 	private _fsWatcherDisposable: Disposable | undefined;
 	private _fsWatchers = new Map<string, number>();
-	private _fsChangeDelay: number = defaultFileSystemChangeDelay;
+
+	private ensureIgnoredUrisFilter(): void {
+		// Clear stale filter and start buffering until new filter is ready
+		this._fsIsIgnored = undefined;
+		this._fsBufferedEvents = [];
+
+		void this.git.getIgnoredUrisFilter().then(filter => {
+			this._fsIsIgnored = filter;
+
+			const buffered = this._fsBufferedEvents;
+			this._fsBufferedEvents = undefined;
+
+			if (buffered?.length) {
+				for (const uri of buffered) {
+					this.onFileSystemChanged(uri);
+				}
+			}
+		});
+	}
 
 	@debug({ singleLine: true })
 	watchFileSystem(delay: number = defaultFileSystemChangeDelay): Disposable {
 		const id = uuid();
 		this._fsWatchers.set(id, delay);
 		if (this._fsWatcherDisposable == null) {
+			this.ensureIgnoredUrisFilter();
+
 			const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, '**'));
 			this._fsWatcherDisposable = Disposable.from(
 				watcher,
@@ -889,7 +930,9 @@ export class Repository implements Disposable {
 		}
 
 		this._etagFileSystem = undefined;
+		this._fsBufferedEvents = undefined;
 		this._fsChangeDelay = defaultFileSystemChangeDelay;
+		this._fsIsIgnored = undefined;
 		this._fsWatchers.clear();
 		this._fsWatcherDisposable?.dispose();
 		this._fsWatcherDisposable = undefined;
@@ -990,26 +1033,16 @@ export class Repository implements Disposable {
 		this._fireFileSystemChangeDebounced();
 	}
 
-	private async fireFileSystemChangeCore() {
+	private fireFileSystemChangeCore() {
 		using scope = startLogScope(`${getLoggableName(this)}.fireFileSystemChangeCore`, false);
 
-		let e = this._pendingFileSystemChange;
+		const e = this._pendingFileSystemChange;
 		if (e == null) {
 			Logger.debug(scope, 'No pending fs changes');
 			return;
 		}
 
 		this._pendingFileSystemChange = undefined;
-
-		const uris = await this.git.excludeIgnoredUris([...e.uris]);
-		if (!uris.length) {
-			Logger.debug(scope, 'No non-ignored fs changes');
-			return;
-		}
-
-		if (uris.length !== e.uris.size) {
-			e = { ...e, uris: new UriSet(uris) };
-		}
 
 		Logger.debug(
 			scope,

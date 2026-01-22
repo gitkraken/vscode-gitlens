@@ -156,6 +156,7 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 
 export interface GitRepositoryProvider {
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
+	getIgnoredUrisFilter(repoPath: string): Promise<(uri: Uri) => boolean>;
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
 
 	branches: GitBranchesSubProvider;

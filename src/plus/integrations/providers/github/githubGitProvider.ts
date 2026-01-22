@@ -395,6 +395,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return uris;
 	}
 
+	async getIgnoredUrisFilter(_repoPath: string): Promise<(uri: Uri) => boolean> {
+		return () => false;
+	}
+
 	@gate()
 	@debug()
 	async findRepositoryUri(uri: Uri, _isDirectory?: boolean): Promise<Uri | undefined> {

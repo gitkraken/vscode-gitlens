@@ -78,6 +78,11 @@ export class GitRepositoryService implements IGitRepositoryService {
 		return this._provider.excludeIgnoredUris(this.path, uris);
 	}
 
+	@debug()
+	getIgnoredUrisFilter(): Promise<(uri: Uri) => boolean> {
+		return this._provider.getIgnoredUrisFilter(this.path);
+	}
+
 	getAbsoluteUri: IGitRepositoryService['getAbsoluteUri'];
 
 	@log()

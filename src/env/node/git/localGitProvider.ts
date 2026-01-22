@@ -999,13 +999,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log<LocalGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
+		return this.getOrCreateIgnoreCache(repoPath).excludeIgnored(uris);
+	}
+
+	@debug()
+	getIgnoredUrisFilter(repoPath: string): Promise<(uri: Uri) => boolean> {
+		return this.getOrCreateIgnoreCache(repoPath).getIgnoredFilter();
+	}
+
+	private getOrCreateIgnoreCache(repoPath: string): GitIgnoreCache {
 		let cache = this._cache.gitIgnore.get(repoPath);
 		if (cache == null) {
 			cache = new GitIgnoreCache(this.container, repoPath, () => this.git.config__get('core.excludesFile'));
 			this._cache.gitIgnore.set(repoPath, cache);
 		}
-
-		return cache.excludeIgnored(uris);
+		return cache;
 	}
 
 	private readonly toCanonicalMap = new Map<string, Uri>();

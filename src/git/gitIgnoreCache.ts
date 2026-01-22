@@ -54,6 +54,16 @@ export class GitIgnoreCache {
 		return this.isIgnoredCore(await this.getIgnore(), pathOrUri);
 	}
 
+	/**
+	 * Returns a synchronous filter function after ensuring patterns are loaded.
+	 * Use this when you need to perform many sync checks after an initial async setup.
+	 * @returns A sync predicate that returns true if the URI should be ignored
+	 */
+	async getIgnoredFilter(): Promise<(uri: Uri) => boolean> {
+		const ig = await this.getIgnore();
+		return (uri: Uri) => this.isIgnoredCore(ig, uri);
+	}
+
 	private isIgnoredCore(ig: Ignore, pathOrUri: string | Uri): boolean {
 		const relativePath =
 			typeof pathOrUri === 'string' ? pathOrUri : normalizePath(relative(this.repoPath, pathOrUri.fsPath));
