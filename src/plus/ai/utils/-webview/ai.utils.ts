@@ -167,11 +167,7 @@ export function getValidatedTemperature(model: AIModel, modelTemperature?: numbe
  * @param estimatedTokens - Optional: estimated tokens in the prompt (if known)
  * @returns New max input tokens value
  */
-export function getReducedMaxInputTokens(
-	maxInputTokens: number,
-	retryCount: number,
-	estimatedTokens?: number,
-): number {
+export function getReducedMaxInputTokens(maxInputTokens: number, retryCount: number, estimatedTokens?: number): number {
 	// If we know the estimated tokens, calculate reduction based on overage
 	if (estimatedTokens != null && estimatedTokens > maxInputTokens) {
 		const overageRatio = estimatedTokens / maxInputTokens;
