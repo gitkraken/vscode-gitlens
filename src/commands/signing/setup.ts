@@ -109,12 +109,16 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		if (format == null) return;
 
 		// Get signing key
-		const signingKey = await window.showInputBox({
+		const placeholder = format.value === 'ssh' ? '~/.ssh/id_ed25519.pub' : 'Your key ID';
+		let signingKey = await window.showInputBox({
 			title: 'Commit Signing Setup',
 			prompt: `Enter your ${format.value.toUpperCase()} signing key ${format.value === 'ssh' ? '(file path)' : '(key ID)'}`,
-			placeHolder: format.value === 'ssh' ? '~/.ssh/id_ed25519.pub' : 'Your key ID',
+			placeHolder: placeholder,
 			ignoreFocusOut: true,
 		});
+
+		// For SSH keys, use placeholder value if user pressed Enter without input
+		signingKey = !signingKey && format.value === 'ssh' ? placeholder : signingKey;
 
 		if (!signingKey) return;
 
