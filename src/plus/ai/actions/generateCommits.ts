@@ -110,7 +110,6 @@ export async function generateCommits(
 						retries,
 						reporting,
 					);
-					if (cancellation.isCancellationRequested) throw new CancellationError();
 
 					conversation.addMessage({ role: 'user', content: prompt });
 				} else if (isFirstRun) {
