@@ -98,22 +98,21 @@ async function standardSetup({ vscode: _vscode }: { vscode: VSCodeInstance }) {
 		ongoingCleanup = null;
 	}
 
-	// Get the repo path and completely wipe it
-	const repoPath = git.repoPath;
+	// Clean up any rebase state from previous test
+	await git.cleanupRebaseState();
 
-	// Remove the entire .git directory and all files to start fresh
+	// Reset to initial commit instead of wiping the repo
+	// This avoids triggering VS Code's git watcher and prevents lock conflicts
+	await git.reset(initialCommitSha, 'hard');
+	await git.clean();
+
+	// Delete test branches if they exist (ignore errors if they don't)
 	try {
-		await fs.promises.rm(repoPath, { recursive: true, force: true });
-	} catch {
-		// Ignore errors if directory doesn't exist
-	}
-
-	// Recreate the directory and reinitialize the repo
-	await fs.promises.mkdir(repoPath, { recursive: true });
-	await git.init();
-
-	// Capture the initial commit SHA
-	initialCommitSha = await git.getShortSha('HEAD');
+		await git.deleteBranch('feature-a');
+	} catch {}
+	try {
+		await git.deleteBranch('feature-b');
+	} catch {}
 
 	// Create test commits
 	await git.commit('Commit A', 'a.txt', 'content a');
@@ -151,7 +150,8 @@ async function standardTeardown({ vscode }: { vscode: VSCodeInstance }) {
 	await ongoingCleanup;
 }
 
-test.describe('Rebase Editor', () => {
+test.describe('Editor — Core', () => {
+	test.describe.configure({ mode: 'serial' });
 	test.setTimeout(30000);
 
 	test.describe('Start & Abort', () => {
@@ -587,7 +587,8 @@ test.describe('Rebase Editor', () => {
  * When using --update-refs, branches pointing to rebased commits get update-ref entries
  * that must follow their commits when reordered.
  */
-test.describe('Update Refs', () => {
+test.describe('Editor — Update Refs', () => {
+	test.describe.configure({ mode: 'serial' });
 	test.beforeEach(standardSetup);
 	test.afterEach(standardTeardown);
 
@@ -666,7 +667,8 @@ test.describe('Update Refs', () => {
 	});
 });
 
-test.describe('Rebase Merges', () => {
+test.describe('Editor — Rebase Merges', () => {
+	test.describe.configure({ mode: 'serial' });
 	test.beforeEach(standardSetup);
 	test.afterEach(standardTeardown);
 

@@ -37,9 +37,7 @@ export class ShowViewCommand extends GlCommandBase {
 	}
 
 	async notifyWhenNoRepository(featureName?: string): Promise<void> {
-		if (this.container.git.openRepositoryCount > 0) {
-			return;
-		}
+		if (this.container.git.openRepositoryCount > 0) return;
 
 		const message = featureName
 			? `No repository detected. To view ${featureName}, open a folder containing a git repository or clone from a URL in Source Control.`
@@ -50,6 +48,15 @@ export class ShowViewCommand extends GlCommandBase {
 		if (result === openRepo) {
 			void executeCoreCommand('workbench.view.scm');
 		}
+	}
+
+	async waitForRepoDiscoveryAndNotifyWhenNoRepo(featureName?: string): Promise<void> {
+		// Wait for repository discovery to complete before checking
+		if (this.container.git.isDiscoveringRepositories) {
+			await this.container.git.isDiscoveringRepositories;
+		}
+
+		void this.notifyWhenNoRepository(featureName);
 	}
 
 	async execute(context: CommandContext, ...args: unknown[]): Promise<void> {
@@ -63,7 +70,7 @@ export class ShowViewCommand extends GlCommandBase {
 			case 'gitlens.showBranchesView':
 				return this.container.views.showView('branches');
 			case 'gitlens.showCommitDetailsView':
-				void this.notifyWhenNoRepository('Inspect');
+				await this.waitForRepoDiscoveryAndNotifyWhenNoRepo('Inspect');
 				return this.container.views.commitDetails.show();
 			case 'gitlens.showCommitsView':
 				return this.container.views.showView('commits');
@@ -74,7 +81,7 @@ export class ShowViewCommand extends GlCommandBase {
 			case 'gitlens.showFileHistoryView':
 				return this.container.views.showView('fileHistory');
 			case 'gitlens.showGraphView':
-				void this.notifyWhenNoRepository('the Commit Graph');
+				await this.waitForRepoDiscoveryAndNotifyWhenNoRepo('the Commit Graph');
 				return this.container.views.graph.show(undefined, ...(args as GraphWebviewShowingArgs));
 			case 'gitlens.showHomeView':
 				return this.container.views.home.show(undefined, ...(args as HomeWebviewShowingArgs));

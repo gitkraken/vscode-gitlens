@@ -1,3 +1,4 @@
+import * as process from 'node:process';
 import { defineConfig } from '@playwright/test';
 
 interface CustomOptions {
@@ -15,7 +16,8 @@ export default defineConfig<CustomOptions>({
 	},
 	reporter: 'list', // process.env.CI ? 'html' : 'list',
 	timeout: 60000, // 1 minute
-	workers: 1,
+	fullyParallel: true,
+	workers: process.env.CI ? 4 : 8,
 	expect: {
 		timeout: 60000, // 1 minute
 	},

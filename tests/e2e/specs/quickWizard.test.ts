@@ -221,7 +221,7 @@ async function testDirectGitCommand(gitlens: GitLensPage, suffix: string, step: 
 	expect(await quickPick.isVisible()).toBeFalsy();
 }
 
-test.describe('Quick Wizard - Branch Commands', () => {
+test.describe('Quick Wizard — Branch Commands', () => {
 	// Enable Pro features for all branch tests since branches can be linked to worktrees (Pro feature)
 	test.beforeEach(async ({ vscode }) => {
 		await vscode.gitlens.startSubscriptionSimulation();
@@ -474,7 +474,7 @@ test.describe('Quick Wizard - Branch Commands', () => {
 	});
 });
 
-test.describe('Quick Wizard - Switch Command', () => {
+test.describe('Quick Wizard — Switch Command', () => {
 	// Enable Pro features since switch can work with branches linked to worktrees (Pro feature)
 	test.beforeEach(async ({ vscode }) => {
 		await vscode.gitlens.startSubscriptionSimulation();
@@ -518,7 +518,7 @@ test.describe('Quick Wizard - Switch Command', () => {
 	});
 });
 
-test.describe('Quick Wizard - Tag Commands', () => {
+test.describe('Quick Wizard — Tag Commands', () => {
 	test.describe('Tag Create Flow', () => {
 		test('Complete flow: command → subcommand → reference → name → message → confirm & reverse', async ({
 			vscode,
@@ -594,7 +594,7 @@ test.describe('Quick Wizard - Tag Commands', () => {
 	});
 });
 
-test.describe('Quick Wizard - Stash Commands', () => {
+test.describe('Quick Wizard — Stash Commands', () => {
 	test.describe('Stash Push Flow', () => {
 		test('Complete flow: command → subcommand → message & reverse', async ({
 			vscode,
@@ -841,7 +841,7 @@ test.describe('Quick Wizard - Stash Commands', () => {
 	});
 });
 
-test.describe('Quick Wizard - Remote Commands', () => {
+test.describe('Quick Wizard — Remote Commands', () => {
 	test.describe('Remote Add Flow', () => {
 		test('Complete flow: command → subcommand → name → url → confirm & reverse', async ({
 			vscode,
@@ -940,7 +940,7 @@ test.describe('Quick Wizard - Remote Commands', () => {
 	});
 });
 
-test.describe('Quick Wizard - Fetch/Pull/Push Commands', () => {
+test.describe('Quick Wizard — Fetch/Pull/Push Commands', () => {
 	test.describe('Fetch Flow', () => {
 		test('Complete flow: command → confirm & reverse', async ({
 			vscode,
@@ -996,7 +996,7 @@ test.describe('Quick Wizard - Fetch/Pull/Push Commands', () => {
 	});
 });
 
-test.describe('Quick Wizard - Merge/Rebase/Cherry-pick/Reset/Revert Commands', () => {
+test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands', () => {
 	// Enable Pro features since these commands work with branches that could be linked to worktrees (Pro feature)
 	test.beforeEach(async ({ vscode }) => {
 		await vscode.gitlens.startSubscriptionSimulation();
@@ -1389,7 +1389,7 @@ test.describe('Quick Wizard - Merge/Rebase/Cherry-pick/Reset/Revert Commands', (
 	});
 });
 
-test.describe('Quick Wizard - Log/Show/Search Commands', () => {
+test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 	test.describe('Log Flow', () => {
 		test('Complete flow: command → branch → commits → show & reverse', async ({
 			vscode,
@@ -1701,7 +1701,7 @@ test.describe('Quick Wizard - Log/Show/Search Commands', () => {
 	});
 });
 
-test.describe('Quick Wizard - Status Command', () => {
+test.describe('Quick Wizard — Status Command', () => {
 	test('Complete flow: command → status info & reverse', async ({
 		vscode,
 		vscode: {
@@ -1729,7 +1729,7 @@ test.describe('Quick Wizard - Status Command', () => {
 	});
 });
 
-test.describe('Quick Wizard - Worktree Commands', () => {
+test.describe('Quick Wizard — Worktree Commands', () => {
 	// Enable Pro features for all worktree tests since worktrees are a Pro feature
 	test.beforeEach(async ({ vscode }) => {
 		await vscode.gitlens.startSubscriptionSimulation();
@@ -2178,7 +2178,7 @@ test.describe('Quick Wizard - Worktree Commands', () => {
 	});
 });
 
-test.describe('Quick Wizard - Co-Authors Command', () => {
+test.describe('Quick Wizard — Co-Authors Command', () => {
 	test('Complete flow: command → contributors picker & reverse', async ({
 		vscode,
 		vscode: {
@@ -2196,7 +2196,7 @@ test.describe('Quick Wizard - Co-Authors Command', () => {
 	});
 });
 
-test.describe('Quick Wizard - Direct Command Access', () => {
+test.describe('Quick Wizard — Direct Command Access', () => {
 	test.describe('Branch Direct Commands', () => {
 		test('Direct branch create command opens at create step', async ({ vscode }) => {
 			await testDirectGitCommand(vscode.gitlens, 'branch.create', { title: /Create Branch/i });

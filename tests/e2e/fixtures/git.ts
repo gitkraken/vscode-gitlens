@@ -19,6 +19,15 @@ export class GitFixture {
 		await this.git('branch', undefined, name);
 	}
 
+	/**
+	 * Delete a branch
+	 * @param name Branch name
+	 * @param force Force delete even if not fully merged
+	 */
+	async deleteBranch(name: string, force: boolean = true): Promise<void> {
+		await this.git('branch', undefined, force ? '-D' : '-d', name);
+	}
+
 	async checkout(name: string, create: boolean = false): Promise<void> {
 		if (create) {
 			await this.git('checkout', undefined, '-b', name);
