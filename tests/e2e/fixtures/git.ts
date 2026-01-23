@@ -125,7 +125,7 @@ export class GitFixture {
 
 	async init(): Promise<void> {
 		await fs.mkdir(this.repoPath, { recursive: true });
-		await this.git('init');
+		await this.git('init', undefined, '-b', 'main');
 		// Configure user for commits
 		await this.git('config', undefined, 'user.email', 'you@example.com');
 		await this.git('config', undefined, 'user.name', 'Your Name');
