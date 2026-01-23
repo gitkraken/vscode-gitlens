@@ -23,15 +23,23 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
+            - name: Calc tools versions
+              id: tools-versions
+              run: |
+                  NODE_VERSION=$(jq -r '.engines.node | gsub("[^0-9.]"; "")' package.json)
+                  PNPM_VERSION=$(jq -r '.packageManager | split("@")[1]' package.json)
+                  echo "node-version=$NODE_VERSION" >> $GITHUB_OUTPUT
+                  echo "pnpm-version=$PNPM_VERSION" >> $GITHUB_OUTPUT
+
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: '22'
+                  node-version: ${{ steps.tools-versions.outputs.node-version }}
 
             - name: Install pnpm
               uses: pnpm/action-setup@v4
               with:
-                  version: 10
+                  version: ${{ steps.tools-versions.outputs.pnpm-version }}
 
             - name: Get pnpm store directory
               shell: bash
@@ -64,15 +72,23 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
+            - name: Calc tools versions
+              id: tools-versions
+              run: |
+                  NODE_VERSION=$(jq -r '.engines.node | gsub("[^0-9.]"; "")' package.json)
+                  PNPM_VERSION=$(jq -r '.packageManager | split("@")[1]' package.json)
+                  echo "node-version=$NODE_VERSION" >> $GITHUB_OUTPUT
+                  echo "pnpm-version=$PNPM_VERSION" >> $GITHUB_OUTPUT
+
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: '22'
+                  node-version: ${{ steps.tools-versions.outputs.node-version }}
 
             - name: Install pnpm
               uses: pnpm/action-setup@v4
               with:
-                  version: 10
+                  version: ${{ steps.tools-versions.outputs.pnpm-version }}
 
             - name: Get pnpm store directory
               shell: bash
@@ -105,15 +121,23 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
+            - name: Calc tools versions
+              id: tools-versions
+              run: |
+                  NODE_VERSION=$(jq -r '.engines.node | gsub("[^0-9.]"; "")' package.json)
+                  PNPM_VERSION=$(jq -r '.packageManager | split("@")[1]' package.json)
+                  echo "node-version=$NODE_VERSION" >> $GITHUB_OUTPUT
+                  echo "pnpm-version=$PNPM_VERSION" >> $GITHUB_OUTPUT
+
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: '22'
+                  node-version: ${{ steps.tools-versions.outputs.node-version }}
 
             - name: Install pnpm
               uses: pnpm/action-setup@v4
               with:
-                  version: 10
+                  version: ${{ steps.tools-versions.outputs.pnpm-version }}
 
             - name: Get pnpm store directory
               shell: bash
