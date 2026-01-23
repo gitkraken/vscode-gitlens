@@ -158,11 +158,8 @@ jobs:
             - name: Build (production with DEBUG for simulator)
               run: pnpm run bundle:e2e
 
-            - name: Install Playwright browsers
-              run: npx playwright install --with-deps chromium
-
             - name: Run E2E tests
-              run: pnpm run test:e2e
+              run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16" pnpm run test:e2e
 
             - name: Upload test results
               if: failure()
