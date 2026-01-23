@@ -5679,13 +5679,6 @@
 				"title": "Commit Signing",
 				"order": 1400,
 				"properties": {
-					"gitlens.signing.showSetupWizard": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the commit signing setup wizard when signing is not configured",
-						"scope": "window",
-						"order": 10
-					},
 					"gitlens.signing.showSignatureBadges": {
 						"type": "boolean",
 						"default": true,
