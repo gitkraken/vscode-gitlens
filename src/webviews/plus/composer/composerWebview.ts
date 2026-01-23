@@ -1077,8 +1077,16 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			'customInstructions.hash': '',
 			'customInstructions.setting.used': false,
 			'customInstructions.setting.length': 0,
+			'customInstructions.commitMessage.setting.used': false,
+			'customInstructions.commitMessage.setting.length': 0,
 		};
 		try {
+			const commitMessageCustomInstructions = configuration.get('ai.generateCommitMessage.customInstructions');
+			if (commitMessageCustomInstructions) {
+				eventData['customInstructions.commitMessage.setting.used'] = true;
+				eventData['customInstructions.commitMessage.setting.length'] = commitMessageCustomInstructions.length;
+			}
+
 			const generateCommitsInstructionSetting = configuration.get('ai.generateCommits.customInstructions');
 			if (generateCommitsInstructionSetting) {
 				eventData['customInstructions.setting.used'] = true;

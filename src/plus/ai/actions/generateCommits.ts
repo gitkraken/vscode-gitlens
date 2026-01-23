@@ -58,13 +58,36 @@ export async function generateCommits(
 
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				let customInstructions: string | undefined = undefined;
-				const customInstructionsConfig = configuration.get('ai.generateCommits.customInstructions');
-				if (customInstructionsConfig) {
-					customInstructions = `${customInstructionsConfig}${options?.customInstructions ? `\nAnd here is additional guidance for this session:\n${options.customInstructions}` : ''}`;
-				} else {
-					customInstructions = options?.customInstructions;
+				const customInstructionParts: string[] = [];
+
+				const generateCommitMessageCustomInstructions = configuration.get(
+					'ai.generateCommitMessage.customInstructions',
+				);
+				if (generateCommitMessageCustomInstructions) {
+					customInstructionParts.push(
+						`Here are user-set custom instructions for commit messages: ${generateCommitMessageCustomInstructions}`,
+					);
 				}
+
+				const generateCommitsCustomInstructions = configuration.get('ai.generateCommits.customInstructions');
+				if (generateCommitsCustomInstructions) {
+					customInstructionParts.push(
+						generateCommitMessageCustomInstructions
+							? `And here are user-set custom instructions for commit organization (any instructions for commit messages here take higher priority): ${generateCommitsCustomInstructions}`
+							: generateCommitsCustomInstructions,
+					);
+				}
+
+				if (options?.customInstructions) {
+					customInstructionParts.push(
+						generateCommitMessageCustomInstructions || generateCommitsCustomInstructions
+							? `And here is additional guidance for this session (any instructions for commit messages here take highest priority): ${options.customInstructions}`
+							: options.customInstructions,
+					);
+				}
+
+				const customInstructions =
+					customInstructionParts.length > 0 ? customInstructionParts.join('\n\n') : undefined;
 
 				const { prompt } = await service.getPrompt(
 					'generate-commits',
