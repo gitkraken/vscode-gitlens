@@ -9,6 +9,7 @@ import { serializePullRequest } from '../../../../git/utils/pullRequest.utils.js
 import type { LaunchpadCategorizedResult, LaunchpadItem } from '../../../../plus/launchpad/launchpadProvider.js';
 import { getLaunchpadItemGroups } from '../../../../plus/launchpad/launchpadProvider.js';
 import { launchpadCategoryToGroupMap } from '../../../../plus/launchpad/models/launchpad.js';
+import { startReviewFromPullRequest } from '../../../../plus/launchpad/utils/-webview/startReview.utils.js';
 import { startWorkFromIssue } from '../../../../plus/startWork/utils/-webview/startWork.utils.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { createCommandDecorator } from '../../../../system/decorators/command.js';
@@ -25,6 +26,7 @@ type CliCommand =
 	| 'rebase'
 	| 'get-launchpad-item'
 	| 'get-launchpad-list'
+	| 'start-review'
 	| 'start-work';
 type CliCommandHandler = (
 	request: CliCommandRequest | undefined,
@@ -153,6 +155,30 @@ export class CliCommandHandlers implements Disposable {
 				source: 'gk-cli-integration',
 			},
 		);
+	}
+
+	@command('start-review')
+	async handleStartReviewCommand(
+		request: CliCommandRequest,
+		_repo?: Repository | undefined,
+	): Promise<CliCommandResponse> {
+		if (!request?.args?.length) return { stderr: 'No Pull Request provided' };
+		const [prSearch] = request.args;
+
+		try {
+			const { worktree, branch, pr } = await startReviewFromPullRequest(this.container, prSearch);
+
+			const result = {
+				worktreePath: worktree.path,
+				branchName: branch.name,
+				prUrl: pr.url,
+				prTitle: pr.title,
+			};
+
+			return { stdout: JSON.stringify(result) };
+		} catch (ex) {
+			return { stderr: `Error reviewing PR: ${ex instanceof Error ? ex.message : String(ex)}` };
+		}
 	}
 
 	@command('start-work')
