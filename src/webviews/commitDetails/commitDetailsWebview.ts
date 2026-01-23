@@ -832,6 +832,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
 			indent: configuration.getCore('workbench.tree.indent'),
 			aiEnabled: this.container.ai.enabled,
+			showSignatureBadges: configuration.get('signing.showSignatureBadges'),
 		};
 	}
 

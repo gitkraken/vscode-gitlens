@@ -67,6 +67,7 @@ export interface Preferences {
 	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
 	aiEnabled: boolean;
+	showSignatureBadges: boolean;
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
 

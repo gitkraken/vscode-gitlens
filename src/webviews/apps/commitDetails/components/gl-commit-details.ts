@@ -241,7 +241,8 @@ export class GlCommitDetails extends GlDetailsBase {
 									.showAvatar="${this.preferences?.avatars ?? true}"
 								></gl-commit-author>
 								${when(
-									this._enriched?.signature != null,
+									this._enriched?.signature != null &&
+										(this.preferences?.showSignatureBadges ?? true),
 									() =>
 										html`<gl-signature-badge
 											.signature="${this._enriched?.signature}"
