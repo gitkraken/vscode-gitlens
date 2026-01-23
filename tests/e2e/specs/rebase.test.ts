@@ -189,14 +189,14 @@ test.describe('Editor — Core', () => {
 			const rebaseEntry = webviewFrame.locator('gl-rebase-entry').first();
 			await expect(rebaseEntry).toBeVisible({ timeout: 3000 });
 
-			// Signal the wait editor to exit before clicking abort
-			// This ensures the .done file exists when git tries to exit
-			await signalEditorDone();
-
-			// Click the Abort button (gl-button custom element with exact text "Abort")
+			// Click the Abort button first - this clears the todo file and saves it
 			// Use appearance="secondary" to target the main abort button, not the "Abort > Recompose" button
 			const abortButton = webviewFrame.locator('gl-button[appearance="secondary"]').filter({ hasText: 'Abort' });
 			await abortButton.click();
+
+			// Signal the wait editor to exit after the abort button has cleared the todo file
+			// Git will then read the empty todo file and complete with no changes
+			await signalEditorDone();
 
 			// Wait for abort to complete with timeout
 			await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 1000))]);
