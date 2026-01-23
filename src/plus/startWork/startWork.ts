@@ -1,9 +1,9 @@
-import slug from 'slug';
 import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
 import { getSteps } from '../../commands/quick-wizard/utils/quickWizard.utils.js';
 import type { Sources } from '../../constants.telemetry.js';
 import type { StartWorkContext, StartWorkStepState } from './startWorkBase.js';
 import { StartWorkBaseCommand } from './startWorkBase.js';
+import { createBranchNameFromIssue } from './utils/-webview/startWork.utils.js';
 
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
@@ -27,7 +27,7 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 				state: {
 					subcommand: 'create',
 					suggestedRepo: repo,
-					suggestedName: issue ? `${slug(issue.id, { lower: false })}-${slug(issue.title)}` : undefined,
+					suggestedName: issue ? createBranchNameFromIssue(issue) : undefined,
 					confirmOptions: ['--switch', '--worktree'],
 					associateWithIssue: issue,
 				},

@@ -607,7 +607,9 @@ function buildItemTelemetryData(item: StartWorkItem) {
 	};
 }
 
-async function getConnectedIntegrations(container: Container): Promise<Map<SupportedStartWorkIntegrationIds, boolean>> {
+export async function getConnectedIntegrations(
+	container: Container,
+): Promise<Map<SupportedStartWorkIntegrationIds, boolean>> {
 	const connected = new Map<SupportedStartWorkIntegrationIds, boolean>();
 	await Promise.allSettled(
 		supportedStartWorkIntegrations.map(async integrationId => {
