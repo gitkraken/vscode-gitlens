@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
+import { window, workspace } from 'vscode';
 import type { Container } from '../../container.js';
 import { command } from '../../system/-webview/command.js';
 import { GlCommandBase } from '../commandBase.js';
@@ -23,6 +23,14 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		} else {
 			uri = getCommandUri(uri, editor);
 			repository = this.container.git.getBestRepository(uri, editor);
+
+			// If no repository found and there's a single workspace folder, use it
+			if (repository == null && workspace.workspaceFolders?.length === 1) {
+				repository = this.container.git.getRepository(workspace.workspaceFolders[0].uri);
+			}
+
+			// Final fallback to first available repository
+			repository ??= this.container.git.getBestRepositoryOrFirst(uri, editor);
 		}
 
 		if (repository == null) {
