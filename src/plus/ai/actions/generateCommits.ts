@@ -56,7 +56,7 @@ export async function generateCommits(
 		'generate-commits',
 		undefined,
 		{
-            getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
+			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				if (conversation.isEmpty) {
@@ -75,7 +75,9 @@ export async function generateCommits(
 						);
 					}
 
-					const generateCommitsCustomInstructions = configuration.get('ai.generateCommits.customInstructions');
+					const generateCommitsCustomInstructions = configuration.get(
+						'ai.generateCommits.customInstructions',
+					);
 					if (generateCommitsCustomInstructions) {
 						customInstructionParts.push(
 							generateCommitMessageCustomInstructions
