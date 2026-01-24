@@ -82,6 +82,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	previousLineComparisonUris?: PreviousRangeComparisonUrisResult;
 	outputFormat?: 'html' | 'markdown' | 'plaintext';
 	remotes?: GitRemote<RemoteProvider>[];
+	signed?: boolean;
 	unpublished?: boolean;
 
 	tokenOptions?: {
@@ -120,6 +121,7 @@ export interface CommitFormatOptions extends FormatOptions {
 		pullRequestDate?: TokenOptions;
 		pullRequestState?: TokenOptions;
 		sha?: TokenOptions;
+		signature?: TokenOptions;
 		stashName?: TokenOptions;
 		stashNumber?: TokenOptions;
 		stashOnRef?: TokenOptions;
@@ -933,6 +935,26 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get sha(): string {
 		return this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.sha);
+	}
+
+	get signature(): string {
+		const { signed } = this._options;
+		if (!signed || this._options.outputFormat === 'plaintext') {
+			return this._padOrTruncate('', this._options.tokenOptions.signature);
+		}
+
+		const tooltip = 'Commit is signed.\nOpen commit details to validate signature.';
+
+		return this._padOrTruncate(
+			this._options.outputFormat === 'markdown'
+				? ` [$(workspace-unknown)](${InspectCommand.createMarkdownCommandLink(
+						this._item.sha,
+						this._item.repoPath,
+						this._options.source,
+					)} "${tooltip}")`
+				: '',
+			this._options.tokenOptions.signature,
+		);
 	}
 
 	get stashName(): string {
