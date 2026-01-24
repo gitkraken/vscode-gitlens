@@ -130,34 +130,38 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				}
 			}
 
-			const commits = await commit.getCommitsForFiles({
-				allowFilteredFiles: this._options.allowFilteredFiles,
-				include: { stats: true },
-			});
-			for (const c of commits) {
-				children.push(new CommitFileNode(this.view, this, c.file!, c));
+			try {
+				const commits = await commit.getCommitsForFiles({
+					allowFilteredFiles: this._options.allowFilteredFiles,
+					include: { stats: true },
+				});
+				for (const c of commits) {
+					children.push(new CommitFileNode(this.view, this, c.file!, c));
+				}
+
+				if (this.view.config.files.layout !== 'list') {
+					const hierarchy = makeHierarchical(
+						children as FileNode[],
+						n => n.uri.relativePath.split('/'),
+						(...parts: string[]) => normalizePath(joinPaths(...parts)),
+						this.view.config.files.compact,
+					);
+
+					const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
+					children = root.getChildren() as FileNode[];
+				} else {
+					(children as FileNode[]).sort((a, b) => sortCompare(a.label!, b.label!));
+				}
+
+				if (pullRequest != null) {
+					children.unshift(new PullRequestNode(this.view, this, pullRequest, commit));
+				}
+
+				this.children = children;
+			} finally {
+				// Always fulfill the deferred to prevent orphaned microtasks
+				setTimeout(() => onCompleted?.fulfill(), 1);
 			}
-
-			if (this.view.config.files.layout !== 'list') {
-				const hierarchy = makeHierarchical(
-					children as FileNode[],
-					n => n.uri.relativePath.split('/'),
-					(...parts: string[]) => normalizePath(joinPaths(...parts)),
-					this.view.config.files.compact,
-				);
-
-				const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
-				children = root.getChildren() as FileNode[];
-			} else {
-				(children as FileNode[]).sort((a, b) => sortCompare(a.label!, b.label!));
-			}
-
-			if (pullRequest != null) {
-				children.unshift(new PullRequestNode(this.view, this, pullRequest, commit));
-			}
-
-			this.children = children;
-			setTimeout(() => onCompleted?.fulfill(), 1);
 		}
 
 		return this.children;

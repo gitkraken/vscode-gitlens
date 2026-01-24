@@ -220,164 +220,170 @@ export class BranchNode
 				}
 			}
 
-			const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
-			const [
-				logResult,
-				getBranchAndTagTipsResult,
-				pausedOpStatusResult,
-				unpublishedCommitsResult,
-				baseResult,
-				targetResult,
-			] = await Promise.allSettled([
-				this.getLog(svc),
-				svc.getBranchesAndTagsTipsLookup(branch.name),
-				this.options.showStatus && branch.current ? svc.pausedOps?.getPausedOperationStatus?.() : undefined,
-				!branch.remote
-					? getBranchAheadRange(svc, branch).then(range =>
-							range
-								? svc.commits.getLogShas(range, { limit: 0, merges: this.options.showMergeCommits })
-								: undefined,
-						)
-					: undefined,
-				loadComparisonDefaultCompareWith ? svc.branches.getBaseBranchName?.(this.branch.name) : undefined,
-				loadComparisonDefaultCompareWith
-					? getBranchMergeTargetName(this.view.container, this.branch, {
-							associatedPullRequest: prPromise,
-							timeout: 100,
-						})
-					: undefined,
-			]);
-			const log = getSettledValue(logResult);
-			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+			try {
+				const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
+				const [
+					logResult,
+					getBranchAndTagTipsResult,
+					pausedOpStatusResult,
+					unpublishedCommitsResult,
+					baseResult,
+					targetResult,
+				] = await Promise.allSettled([
+					this.getLog(svc),
+					svc.getBranchesAndTagsTipsLookup(branch.name),
+					this.options.showStatus && branch.current ? svc.pausedOps?.getPausedOperationStatus?.() : undefined,
+					!branch.remote
+						? getBranchAheadRange(svc, branch).then(range =>
+								range
+									? svc.commits.getLogShas(range, { limit: 0, merges: this.options.showMergeCommits })
+									: undefined,
+							)
+						: undefined,
+					loadComparisonDefaultCompareWith ? svc.branches.getBaseBranchName?.(this.branch.name) : undefined,
+					loadComparisonDefaultCompareWith
+						? getBranchMergeTargetName(this.view.container, this.branch, {
+								associatedPullRequest: prPromise,
+								timeout: 100,
+							})
+						: undefined,
+				]);
+				const log = getSettledValue(logResult);
+				if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-			const children = [];
+				const children = [];
 
-			const pausedOpsStatus = getSettledValue(pausedOpStatusResult);
-			const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
+				const pausedOpsStatus = getSettledValue(pausedOpStatusResult);
+				const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
 
-			if (pullRequest != null) {
-				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
-			}
-
-			if (pausedOpsStatus != null) {
-				children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpsStatus, this.root));
-			} else if (this.options.showTracking) {
-				const status = {
-					ref: branch.ref,
-					repoPath: branch.repoPath,
-					upstream: branch.upstream,
-				};
-
-				if (status.upstream != null) {
-					if (this.root && status.upstream.missing) {
-						children.push(
-							new BranchTrackingStatusNode(this.view, this, branch, status, 'missing', this.root),
-						);
-					} else if (this.root && !status.upstream.state.behind && !status.upstream.state.ahead) {
-						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', this.root));
-					} else {
-						if (status.upstream.state.behind) {
-							children.push(
-								new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', this.root),
-							);
-						}
-
-						if (status.upstream.state.ahead) {
-							children.push(
-								new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root, {
-									unpublishedCommits: unpublishedCommits,
-								}),
-							);
-						}
-					}
-				} else if (!branch.detached) {
-					children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', this.root));
+				if (pullRequest != null) {
+					children.push(new PullRequestNode(this.view, this, pullRequest, branch));
 				}
-			}
 
-			pullRequestInsertIndex = 0;
+				if (pausedOpsStatus != null) {
+					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpsStatus, this.root));
+				} else if (this.options.showTracking) {
+					const status = {
+						ref: branch.ref,
+						repoPath: branch.repoPath,
+						upstream: branch.upstream,
+					};
 
-			if (comparison != null) {
-				children.push(comparison);
+					if (status.upstream != null) {
+						if (this.root && status.upstream.missing) {
+							children.push(
+								new BranchTrackingStatusNode(this.view, this, branch, status, 'missing', this.root),
+							);
+						} else if (this.root && !status.upstream.state.behind && !status.upstream.state.ahead) {
+							children.push(
+								new BranchTrackingStatusNode(this.view, this, branch, status, 'same', this.root),
+							);
+						} else {
+							if (status.upstream.state.behind) {
+								children.push(
+									new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', this.root),
+								);
+							}
 
-				if (loadComparisonDefaultCompareWith) {
-					const baseBranchName = getSettledValue(baseResult);
-					const targetMaybeResult = getSettledValue(targetResult);
-
-					let baseOrTargetBranchName: string | undefined;
-					if (targetMaybeResult?.paused) {
-						baseOrTargetBranchName = baseBranchName;
-					} else {
-						baseOrTargetBranchName = targetMaybeResult?.value ?? baseBranchName;
+							if (status.upstream.state.ahead) {
+								children.push(
+									new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root, {
+										unpublishedCommits: unpublishedCommits,
+									}),
+								);
+							}
+						}
+					} else if (!branch.detached) {
+						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', this.root));
 					}
+				}
 
-					if (baseOrTargetBranchName != null) {
-						void comparison.setDefaultCompareWith({
-							ref: baseOrTargetBranchName,
-							label: baseOrTargetBranchName,
-							notation: '...',
-							type: 'branch',
-							checkedFiles: [],
-						});
-					}
+				pullRequestInsertIndex = 0;
 
-					if (targetMaybeResult?.paused) {
-						void targetMaybeResult.value.then(target => {
-							if (target == null) return;
+				if (comparison != null) {
+					children.push(comparison);
 
+					if (loadComparisonDefaultCompareWith) {
+						const baseBranchName = getSettledValue(baseResult);
+						const targetMaybeResult = getSettledValue(targetResult);
+
+						let baseOrTargetBranchName: string | undefined;
+						if (targetMaybeResult?.paused) {
+							baseOrTargetBranchName = baseBranchName;
+						} else {
+							baseOrTargetBranchName = targetMaybeResult?.value ?? baseBranchName;
+						}
+
+						if (baseOrTargetBranchName != null) {
 							void comparison.setDefaultCompareWith({
-								ref: target,
-								label: target,
+								ref: baseOrTargetBranchName,
+								label: baseOrTargetBranchName,
 								notation: '...',
 								type: 'branch',
 								checkedFiles: [],
 							});
-						});
+						}
+
+						if (targetMaybeResult?.paused) {
+							void targetMaybeResult.value.then(target => {
+								if (target == null) return;
+
+								void comparison.setDefaultCompareWith({
+									ref: target,
+									label: target,
+									notation: '...',
+									type: 'branch',
+									checkedFiles: [],
+								});
+							});
+						}
 					}
 				}
-			}
 
-			if (children.length !== 0) {
-				if (this.view.type === 'commits') {
-					children.push(new CommitsCurrentBranchNode(this.view, this, this.branch));
-				} else {
-					children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
+				if (children.length !== 0) {
+					if (this.view.type === 'commits') {
+						children.push(new CommitsCurrentBranchNode(this.view, this, this.branch));
+					} else {
+						children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
+					}
 				}
-			}
 
-			const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
+				const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
 
-			children.push(
-				...insertDateMarkers(
-					map(log.commits.values(), c =>
-						isStash(c)
-							? new StashNode(this.view, this, c, { icon: true })
-							: new CommitNode(
-									this.view,
-									this,
-									c,
-									unpublishedCommits?.has(c.ref),
-									branch,
-									getBranchAndTagTips,
-								),
-					),
-					this,
-				),
-			);
-
-			if (log.hasMore) {
 				children.push(
-					new LoadMoreNode(this.view, this, children[children.length - 1], {
-						getCount: () =>
-							this.view.container.git
-								.getRepositoryService(branch.repoPath)
-								.commits.getCommitCount(branch.name),
-					}),
+					...insertDateMarkers(
+						map(log.commits.values(), c =>
+							isStash(c)
+								? new StashNode(this.view, this, c, { icon: true })
+								: new CommitNode(
+										this.view,
+										this,
+										c,
+										unpublishedCommits?.has(c.ref),
+										branch,
+										getBranchAndTagTips,
+									),
+						),
+						this,
+					),
 				);
-			}
 
-			this.children = children;
-			setTimeout(() => onCompleted?.fulfill(), 1);
+				if (log.hasMore) {
+					children.push(
+						new LoadMoreNode(this.view, this, children[children.length - 1], {
+							getCount: () =>
+								this.view.container.git
+									.getRepositoryService(branch.repoPath)
+									.commits.getCommitCount(branch.name),
+						}),
+					);
+				}
+
+				this.children = children;
+			} finally {
+				// Always fulfill the deferred to prevent orphaned microtasks
+				setTimeout(() => onCompleted?.fulfill(), 1);
+			}
 		}
 
 		return this.children;

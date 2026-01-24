@@ -140,74 +140,84 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				}
 			}
 
-			const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
+			try {
+				const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
 
-			const [logResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
-				this.getLog(),
-				svc.getBranchesAndTagsTipsLookup(),
-				branch != null && !branch.remote
-					? getBranchAheadRange(svc, branch).then(range =>
-							range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
-						)
-					: undefined,
-			]);
-			const log = getSettledValue(logResult);
-			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+				const [logResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
+					this.getLog(),
+					svc.getBranchesAndTagsTipsLookup(),
+					branch != null && !branch.remote
+						? getBranchAheadRange(svc, branch).then(range =>
+								range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
+							)
+						: undefined,
+				]);
+				const log = getSettledValue(logResult);
+				if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-			const children = [];
+				const children = [];
 
-			if (branch != null && pullRequest != null) {
-				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
-			}
+				if (branch != null && pullRequest != null) {
+					children.push(new PullRequestNode(this.view, this, pullRequest, branch));
+				}
 
-			if (branch != null && this.view.config.showBranchComparison !== false) {
+				if (branch != null && this.view.config.showBranchComparison !== false) {
+					children.push(
+						new CompareBranchNode(
+							this.uri,
+							this.view,
+							this,
+							branch,
+							this.view.config.showBranchComparison,
+							this.splatted,
+						),
+					);
+				}
+
+				const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
+				const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
+
 				children.push(
-					new CompareBranchNode(
-						this.uri,
-						this.view,
+					...insertDateMarkers(
+						map(log.commits.values(), c =>
+							isStash(c)
+								? new StashNode(this.view, this, c, { icon: true })
+								: new CommitNode(
+										this.view,
+										this,
+										c,
+										unpublishedCommits?.has(c.ref),
+										branch,
+										getBranchAndTagTips,
+									),
+						),
 						this,
-						branch,
-						this.view.config.showBranchComparison,
-						this.splatted,
 					),
 				);
+
+				if (log.hasMore) {
+					children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+				}
+
+				const { hasChanges } = await this.hasWorkingChanges();
+				if (hasChanges) {
+					this._lazyStatus ??= lazy(() => this.worktree.getStatus());
+					children.unshift(
+						new UncommittedFilesNode(
+							this.view,
+							this,
+							this.worktree.uri.fsPath,
+							this._lazyStatus,
+							undefined,
+						),
+					);
+				}
+
+				this.children = children;
+			} finally {
+				// Always fulfill the deferred to prevent orphaned microtasks
+				onCompleted?.fulfill();
 			}
-
-			const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
-			const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
-
-			children.push(
-				...insertDateMarkers(
-					map(log.commits.values(), c =>
-						isStash(c)
-							? new StashNode(this.view, this, c, { icon: true })
-							: new CommitNode(
-									this.view,
-									this,
-									c,
-									unpublishedCommits?.has(c.ref),
-									branch,
-									getBranchAndTagTips,
-								),
-					),
-					this,
-				),
-			);
-
-			if (log.hasMore) {
-				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
-			}
-
-			const { hasChanges } = await this.hasWorkingChanges();
-			if (hasChanges) {
-				this._lazyStatus ??= lazy(() => this.worktree.getStatus());
-				children.unshift(
-					new UncommittedFilesNode(this.view, this, this.worktree.uri.fsPath, this._lazyStatus, undefined),
-				);
-			}
-
-			this.children = children;
-			onCompleted?.fulfill();
 		}
 
 		return this.children;

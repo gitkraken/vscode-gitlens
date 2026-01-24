@@ -52,7 +52,7 @@ import { first } from '../system/iterable.js';
 import type { Lazy } from '../system/lazy.js';
 import { Logger } from '../system/logger.js';
 import { getLogScope } from '../system/logger.scope.js';
-import { cancellable, defer, isPromise } from '../system/promise.js';
+import { cancellable, defer, isPromise, PromiseCancelledError } from '../system/promise.js';
 import type { BranchesView } from './branchesView.js';
 import type { CommitsView } from './commitsView.js';
 import type { ContributorsView } from './contributorsView.js';
@@ -593,6 +593,32 @@ export abstract class ViewBase<
 		return promise;
 	}
 
+	/**
+	 * Waits for any pending loading operations to complete, with timeout protection.
+	 * After timeout, clears the loading state to prevent indefinite hangs.
+	 */
+	private async waitUntilLoaded(context: string): Promise<void> {
+		const timeoutMs = 30000; // 30 seconds
+
+		while (this._loadingPromise != null) {
+			try {
+				await cancellable(this._loadingPromise, timeoutMs, undefined, {
+					onDidCancel: resolve => {
+						Logger.warn(
+							`[${this.type}] ${context}: loading timed out after ${timeoutMs}ms, forcing continue`,
+						);
+						this._loadingPromise = undefined;
+						resolve(undefined);
+					},
+				});
+			} catch (ex) {
+				if (!(ex instanceof PromiseCancelledError)) {
+					Logger.error(ex, `[${this.type}] ${context}: loading promise rejected`);
+				}
+			}
+		}
+	}
+
 	private addHeaderNode(node: ViewNode, promise: ViewNode[] | Promise<ViewNode[]>): ViewNode[] | Promise<ViewNode[]> {
 		if (node !== this.root) return promise;
 
@@ -997,10 +1023,7 @@ export abstract class ViewBase<
 		const scope = getLogScope();
 
 		try {
-			while (this._loadingPromise != null) {
-				await this._loadingPromise;
-			}
-
+			await this.waitUntilLoaded('revealCore');
 			await this.tree?.reveal(node, options);
 		} catch (ex) {
 			if (!node.id || root == null) {
@@ -1090,9 +1113,7 @@ export abstract class ViewBase<
 			const target = first(this._pendingNodeChanges.values());
 
 			// Wait until all loading is complete (avoids Element with id '...' already exists errors)
-			while (this._loadingPromise != null) {
-				await this._loadingPromise;
-			}
+			await this.waitUntilLoaded('processNextNodeChange');
 
 			// Clear all pending changes if this was a full-refresh
 			if (target == null) {
