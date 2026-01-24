@@ -1052,6 +1052,8 @@ interface OperationGateDeadlockEvent {
 	key: string;
 	prop: string;
 	timeout: number;
+	/** Whether this is just a warning or the gate was forcibly cleared */
+	status: 'warning' | 'aborted';
 }
 
 interface OperationGitAbortedEvent {

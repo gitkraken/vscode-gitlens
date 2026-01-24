@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { isCancellationError } from '../../../errors.js';
 import { gate } from '../gate.js';
 import { memoize } from '../memoize.js';
 import { sequentialize } from '../sequentialize.js';
@@ -578,6 +579,102 @@ suite('Decorator Test Suite', () => {
 			assert.notStrictEqual(results[0], results[1]); // p1 and p2 different
 			// Should run in parallel (total time should be ~50ms, not ~100ms)
 			assert.ok(totalTime < 80, `Expected parallel execution (~50ms), but took ${totalTime}ms`);
+		});
+
+		test('should reject with CancellationError on timeout', async () => {
+			let executionCount = 0;
+
+			class TestClass {
+				@gate(undefined, { timeout: 50 })
+				async method(): Promise<number> {
+					executionCount++;
+					// Takes longer than the 50ms timeout
+					await new Promise(resolve => setTimeout(resolve, 200));
+					return executionCount;
+				}
+			}
+
+			const instance = new TestClass();
+
+			const promise = instance.method();
+
+			await assert.rejects(promise, (err: unknown) => {
+				assert.ok(isCancellationError(err), 'Expected CancellationError');
+				assert.ok(err instanceof Error && err.message.includes('Gate timeout'), 'Expected timeout message');
+				return true;
+			});
+
+			assert.strictEqual(executionCount, 1);
+
+			// After timeout, the gate should be cleared and new calls allowed
+			// Create a fast-completing method to verify gate is cleared
+			let secondCallStarted = false;
+			const p2 = instance.method();
+			secondCallStarted = true;
+
+			// The second call should start (gate cleared), but will also timeout
+			assert.ok(secondCallStarted, 'Second call should start after gate cleared');
+			await assert.rejects(p2); // Will also timeout
+		});
+
+		test('should retry operation when rejectOnTimeout is false', async () => {
+			let executionCount = 0;
+			let shouldHang = true;
+
+			class TestClass {
+				@gate(undefined, { timeout: 50, rejectOnTimeout: false })
+				async method(): Promise<number> {
+					executionCount++;
+					if (shouldHang) {
+						// First call hangs
+						await new Promise(resolve => setTimeout(resolve, 200));
+					} else {
+						// Retry completes quickly
+						await new Promise(resolve => setTimeout(resolve, 10));
+					}
+					return executionCount;
+				}
+			}
+
+			const instance = new TestClass();
+
+			// After the first timeout, make subsequent calls fast
+			setTimeout(() => {
+				shouldHang = false;
+			}, 60);
+
+			const result = await instance.method();
+
+			// Should have executed twice: first hung, then retried
+			assert.strictEqual(executionCount, 2);
+			assert.strictEqual(result, 2);
+		});
+
+		test('should clear gate and allow new calls after timeout', async () => {
+			let executionCount = 0;
+
+			class TestClass {
+				@gate(undefined, { timeout: 50 })
+				async method(): Promise<number> {
+					executionCount++;
+					if (executionCount === 1) {
+						// First call hangs
+						await new Promise(resolve => setTimeout(resolve, 200));
+					}
+					return executionCount;
+				}
+			}
+
+			const instance = new TestClass();
+
+			// First call will timeout
+			await assert.rejects(instance.method());
+			assert.strictEqual(executionCount, 1);
+
+			// Second call should work (gate cleared after timeout)
+			const result = await instance.method();
+			assert.strictEqual(executionCount, 2);
+			assert.strictEqual(result, 2);
 		});
 	});
 

@@ -3073,6 +3073,8 @@ void
 {
   'key': string,
   'prop': string,
+  // Whether this is just a warning or the gate was forcibly cleared
+  'status': 'warning' | 'aborted',
   'timeout': number
 }
 ```

@@ -166,7 +166,7 @@ export abstract class SubscribeableViewNode<
 		}
 	}
 
-	@gate()
+	@gate(undefined, { timeout: 30000, rejectOnTimeout: false }) // 30 second timeout to prevent indefinite hangs
 	@debug()
 	async ensureSubscription(): Promise<void> {
 		const scope = getLogScope();
