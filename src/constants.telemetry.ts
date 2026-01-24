@@ -277,6 +277,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	'op/gate/deadlock': OperationGateDeadlockEvent;
 	'op/git/aborted': OperationGitAbortedEvent;
+	/** Sent when a background git command waited in the queue */
+	'op/git/queueWait': OperationGitQueueWaitEvent;
 
 	/** Sent when fetching the product config fails */
 	'productConfig/failed': ProductConfigFailedEvent;
@@ -1061,6 +1063,23 @@ interface OperationGitAbortedEvent {
 	duration: number;
 	timeout: number;
 	reason: 'timeout' | 'cancellation' | 'unknown';
+}
+
+interface OperationGitQueueWaitEvent {
+	/** Priority level of the command that waited */
+	priority: 'interactive' | 'normal' | 'background';
+	/** Time in ms the command waited in the queue before executing */
+	waitTime: number;
+	/** Number of active git processes when this command started */
+	active: number;
+	/** Number of interactive commands queued */
+	'queued.interactive': number;
+	/** Number of normal commands queued */
+	'queued.normal': number;
+	/** Number of background commands queued */
+	'queued.background': number;
+	/** Configured max concurrent processes */
+	maxConcurrent: number;
 }
 
 interface ProductConfigFailedEvent {

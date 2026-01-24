@@ -3090,6 +3090,29 @@ void
 }
 ```
 
+### op/git/queueWait
+
+> Sent when a background git command waited in the queue
+
+```typescript
+{
+  // Number of active git processes when this command started
+  'active': number,
+  // Configured max concurrent processes
+  'maxConcurrent': number,
+  // Priority level of the command that waited
+  'priority': 'interactive' | 'normal' | 'background',
+  // Number of background commands queued
+  'queued.background': number,
+  // Number of interactive commands queued
+  'queued.interactive': number,
+  // Number of normal commands queued
+  'queued.normal': number,
+  // Time in ms the command waited in the queue before executing
+  'waitTime': number
+}
+```
+
 ### openReviewMode
 
 > Sent when a PR review was started in the inspect overview

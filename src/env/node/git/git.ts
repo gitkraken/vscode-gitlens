@@ -57,9 +57,10 @@ import { slowCallWarningThreshold } from '../../../system/logger.constants.js';
 import { Logger } from '../../../system/logger.js';
 import { getLoggableScopeBlockOverride } from '../../../system/logger.scope.js';
 import { dirname, isAbsolute, joinPaths, normalizePath } from '../../../system/path.js';
-import { isPromise } from '../../../system/promise.js';
+import { defer, isPromise } from '../../../system/promise.js';
 import { getDurationMilliseconds } from '../../../system/string.js';
 import { compare, fromString } from '../../../system/version.js';
+import { GitQueue, inferGitCommandPriority } from './gitQueue.js';
 import type { GitLocation } from './locator.js';
 import { CancelledRunError, RunError } from './shell.errors.js';
 import type { RunOptions, RunResult } from './shell.js';
@@ -242,8 +243,11 @@ export class Git implements Disposable {
 	private readonly _disposable: Disposable;
 	/** Map of running git commands -- avoids running duplicate overlapping commands */
 	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
+	/** Queue for throttling background git operations */
+	private readonly _queue: GitQueue;
 
 	constructor(private readonly container: Container) {
+		this._queue = new GitQueue(container);
 		this._disposable = container.events.on('git:cache:reset', e => {
 			// Ignore provider resets (e.g. it needs to be git specific)
 			if (e.data.types?.every(t => t === 'providers')) return;
@@ -253,6 +257,7 @@ export class Git implements Disposable {
 	}
 
 	dispose(): void {
+		this._queue.dispose();
 		this._disposable.dispose();
 	}
 
@@ -275,7 +280,7 @@ export class Git implements Disposable {
 		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, local, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
 
-		const defaultTimeout = (configuration.get('advanced.gitTimeout') ?? 60) * 1000;
+		const defaultTimeout = (configuration.get('advanced.git.timeout') ?? 60) * 1000;
 		const runOpts: Mutable<RunOptions> = {
 			...opts,
 			timeout: opts.timeout === 0 || defaultTimeout === 0 ? undefined : (opts.timeout ?? defaultTimeout),
@@ -303,6 +308,12 @@ export class Git implements Disposable {
 		if (promise == null) {
 			waiting = false;
 
+			// Create a deferred promise and store it immediately to prevent duplicate commands
+			// from concurrent calls that might arrive during async operations below
+			const deferred = defer<RunResult<string | Buffer>>();
+			promise = deferred.promise;
+			this.pendingCommands.set(cacheKey, promise);
+
 			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
 			runArgs.unshift(
@@ -325,12 +336,21 @@ export class Git implements Disposable {
 				disposeCancellation = cancellation.onCancellationRequested(() => abortController?.abort());
 			}
 
-			promise = runSpawn<T>(await this.path(), runArgs, encoding ?? 'utf8', runOpts).finally(() => {
-				this.pendingCommands.delete(cacheKey);
-				void disposeCancellation?.dispose();
-			});
+			// Determine command priority:
+			// Priority resolution:
+			// 1. Explicit priority from options (highest precedence)
+			// 2. Inferred from command type (only downgrades expensive commands to Background)
+			const priority = options.priority ?? inferGitCommandPriority(runArgs);
 
-			this.pendingCommands.set(cacheKey, promise);
+			// Execute through the queue (interactive/normal run immediately, background is throttled)
+			const gitPath = await this.path();
+			void this._queue
+				.execute(priority, () => runSpawn<T>(gitPath, runArgs, encoding ?? 'utf8', runOpts))
+				.then(deferred.fulfill, (e: unknown) => deferred.cancel(e instanceof Error ? e : new Error(String(e))))
+				.finally(() => {
+					this.pendingCommands.delete(cacheKey);
+					void disposeCancellation?.dispose();
+				});
 		} else {
 			waiting = true;
 			Logger.debug(`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} waiting...`);

@@ -201,7 +201,10 @@ export interface AdvancedConfig {
 	readonly fileHistoryFollowsRenames: boolean;
 	readonly fileHistoryShowAllBranches: boolean;
 	readonly fileHistoryShowMergeCommits: boolean;
-	readonly gitTimeout: number;
+	readonly git: {
+		readonly timeout: number;
+		readonly maxConcurrentProcesses: number;
+	};
 	readonly maxListItems: number;
 	readonly maxSearchItems: number;
 	readonly messages: { [key in SuppressedMessages]: boolean };
