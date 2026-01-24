@@ -2340,13 +2340,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const lastFetched = (await repo.getLastFetched()) ?? 0;
 
-		let interval = getLastFetchedUpdateInterval(lastFetched);
+		const interval = getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			this._lastFetchedDisposable = disposableInterval(() => {
+				// Skip update if webview is not visible to reduce unnecessary work
+				if (!this.host.visible) return;
+
 				// Check if the interval should change, and if so, reset it
-				const checkInterval = getLastFetchedUpdateInterval(lastFetched);
 				if (interval !== getLastFetchedUpdateInterval(lastFetched)) {
-					interval = checkInterval;
+					void this.ensureLastFetchedSubscription(true);
+					return;
 				}
 
 				void this.notifyDidFetch();

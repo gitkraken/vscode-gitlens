@@ -782,9 +782,13 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 			return Disposable.from(
 				this.repo != null ? weakEvent(this.repo.onDidChange, this.onRepositoryChanged, this) : emptyDisposable,
 				disposableInterval(() => {
+					// Skip update if view is not visible to reduce unnecessary work
+					if (!this.view.visible) return;
+
 					// Check if the interval should change, and if so, reset it
 					if (interval !== getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
+						return;
 					}
 
 					this.view.triggerNodeChange(this);
