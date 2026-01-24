@@ -280,10 +280,30 @@ export class GitProviderService implements Disposable {
 
 	@debug<GitProviderService['onWindowStateChanged']>({ args: { 0: e => `focused=${e.focused}` } })
 	private onWindowStateChanged(e: WindowState) {
-		if (e.focused) {
-			this._repositories.forEach(r => r.resume());
-		} else {
+		if (!e.focused) {
 			this._repositories.forEach(r => r.suspend());
+			return;
+		}
+
+		if (!this.repositoryCount) return;
+
+		// Resume repositories with staggered timing to prevent overwhelming the system, except for the "active" one
+		const activeRepo = this.getBestRepositoryOrFirst(window.activeTextEditor);
+		activeRepo?.resume();
+
+		// Stagger remaining repositories with pending changes
+		const staggerDelay = 50; // ms between each repository with pending changes
+		let delay = 0;
+
+		for (const repo of this._repositories.values()) {
+			if (repo === activeRepo) continue;
+
+			if (repo.hasPendingChanges) {
+				delay += staggerDelay;
+				repo.resume(delay);
+			} else {
+				repo.resume();
+			}
 		}
 	}
 

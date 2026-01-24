@@ -182,6 +182,7 @@ export class Repository implements Disposable {
 	private _fireFileSystemChangeDebounced: Deferrable<() => void> | undefined = undefined;
 	private _pendingFileSystemChange?: RepositoryFileSystemChangeEvent;
 	private _pendingRepoChange?: RepositoryChangeEvent;
+	private _pendingResumeTimer?: ReturnType<typeof setTimeout>;
 	private _repoWatchersDisposable: Disposable | undefined;
 	private _suspended: boolean;
 
@@ -736,8 +737,25 @@ export class Repository implements Disposable {
 		}
 	}
 
+	/**
+	 * Resumes the repository, optionally after a delay.
+	 * Delayed resumes are automatically cancelled if suspend() is called.
+	 */
 	@debug({ singleLine: true })
-	resume(): void {
+	resume(delayMs?: number): void {
+		// If a delay is specified, schedule the resume and return
+		if (delayMs) {
+			// Cancel any existing pending resume
+			if (this._pendingResumeTimer != null) {
+				clearTimeout(this._pendingResumeTimer);
+			}
+			this._pendingResumeTimer = setTimeout(() => {
+				this._pendingResumeTimer = undefined;
+				this.resume();
+			}, delayMs);
+			return;
+		}
+
 		const scope = getLogScope();
 
 		if (!this._suspended) {
@@ -838,9 +856,19 @@ export class Repository implements Disposable {
 		return this._etagFileSystem;
 	}
 
+	get hasPendingChanges(): boolean {
+		return this._pendingRepoChange != null;
+	}
+
 	@debug({ singleLine: true })
 	suspend(): void {
 		this._suspended = true;
+
+		// Cancel any pending delayed resume
+		if (this._pendingResumeTimer != null) {
+			clearTimeout(this._pendingResumeTimer);
+			this._pendingResumeTimer = undefined;
+		}
 	}
 
 	waitForRepoChange(timeoutMs: number): Promise<boolean> {
