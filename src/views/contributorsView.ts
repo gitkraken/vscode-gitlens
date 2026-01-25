@@ -66,8 +66,12 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				return [];
 			}
 
+			const repo = this.view.container.git.getBestRepositoryOrFirst();
 			this.children = repositories.map(
-				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
+				r =>
+					new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, {
+						expand: r === repo,
+					}),
 			);
 		}
 

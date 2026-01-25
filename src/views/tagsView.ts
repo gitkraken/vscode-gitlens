@@ -51,8 +51,9 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				return [];
 			}
 
+			const repo = this.view.container.git.getBestRepositoryOrFirst();
 			this.children = repositories.map(
-				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
+				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, { expand: r === repo }),
 			);
 		}
 

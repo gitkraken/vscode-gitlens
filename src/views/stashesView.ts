@@ -46,8 +46,9 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				return [];
 			}
 
+			const repo = this.view.container.git.getBestRepositoryOrFirst();
 			this.children = repositories.map(
-				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
+				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, { expand: r === repo }),
 			);
 		}
 

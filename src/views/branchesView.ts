@@ -73,8 +73,10 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				worktreesByBranch: worktreesByBranch?.size ? worktreesByBranch : undefined,
 			});
 
+			const repo = this.view.container.git.getBestRepositoryOrFirst();
 			this.children = repositories.map(
-				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
+				r =>
+					new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, { expand: r === repo }),
 			);
 		}
 

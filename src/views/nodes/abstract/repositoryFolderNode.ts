@@ -1,4 +1,4 @@
-import type { Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../../constants.js';
 import type { GitUri } from '../../../git/gitUri.js';
@@ -20,12 +20,15 @@ export abstract class RepositoryFolderNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<'repo-folder', TView> {
+	private _cachedBranch: Awaited<ReturnType<typeof this.repo.git.branches.getBranch>> | undefined;
+	private _cachedLastFetched: number | undefined;
+
 	constructor(
 		uri: GitUri,
 		view: TView,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: { showBranchAndLastFetched?: boolean },
+		private readonly options?: { expand?: boolean; showBranchAndLastFetched?: boolean },
 	) {
 		super('repo-folder', uri, view, parent);
 
@@ -63,12 +66,7 @@ export abstract class RepositoryFolderNode<
 
 	async getTreeItem(): Promise<TreeItem> {
 		const branch = await this.repo.git.branches.getBranch();
-		const ahead = Boolean(branch?.upstream?.state.ahead);
-		const behind = Boolean(branch?.upstream?.state.behind);
-
-		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
-
-		const { isWorktree } = this.repo;
+		this._cachedBranch = branch;
 
 		let label = this.repo.name ?? this.uri.repoPath ?? '';
 		if (this.options?.showBranchAndLastFetched && branch != null) {
@@ -83,25 +81,27 @@ export abstract class RepositoryFolderNode<
 
 		const item = new TreeItem(
 			label,
-			expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+			this.options?.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
-		if (ahead) {
+		if (branch?.upstream?.state.ahead) {
 			item.contextValue += '+ahead';
 		}
-		if (behind) {
+		if (branch?.upstream?.state.behind) {
 			item.contextValue += '+behind';
 		}
 		if (this.view.type === 'commits' && this.view.state.filterCommits.get(this.repo.id)?.length) {
 			item.contextValue += '+filtered';
 		}
 
+		const { isWorktree } = this.repo;
 		item.iconPath = new ThemeIcon(
 			isWorktree ? 'gitlens-worktree' : this.repo.virtual ? 'gitlens-repository-cloud' : 'gitlens-repository',
 		);
 
 		if (branch != null && this.options?.showBranchAndLastFetched) {
 			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
+			this._cachedLastFetched = lastFetched;
 
 			const status = branch.getTrackingStatus();
 			if (status) {
@@ -113,47 +113,54 @@ export abstract class RepositoryFolderNode<
 			if (lastFetched) {
 				item.description = `${item.description ?? ''}Last fetched ${formatLastFetched(lastFetched)}`;
 			}
-
-			let providerName;
-			if (branch.upstream != null) {
-				const providers = getHighlanderProviders(
-					await this.view.container.git
-						.getRepositoryService(branch.repoPath)
-						.remotes.getRemotesWithProviders(),
-				);
-				providerName = providers?.length ? providers[0].name : undefined;
-			} else {
-				const remote = await branch.getRemote();
-				providerName = remote?.provider?.name;
-			}
-
-			item.tooltip = new MarkdownString(
-				`${this.repo.name ?? this.uri.repoPath ?? ''}${
-					lastFetched
-						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}`
-						: ''
-				}${this.repo.name ? `\\\n$(folder) ${isWorktree ? '(worktree) ' : ''}${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
-					branch.upstream != null
-						? ` is ${branch.getTrackingStatus({
-								empty: branch.upstream.missing
-									? `missing upstream $(git-branch) ${branch.upstream.name}`
-									: `up to date with $(git-branch) ${branch.upstream.name}${
-											providerName ? ` on ${providerName}` : ''
-										}`,
-								expand: true,
-								icons: true,
-								separator: ', ',
-								suffix: ` $(git-branch) ${branch.upstream.name}${
-									providerName ? ` on ${providerName}` : ''
-								}`,
-							})}`
-						: `hasn't been published to ${providerName ?? 'a remote'}`
-				}`,
-				true,
-			);
 		} else {
+			this._cachedLastFetched = undefined;
 			item.tooltip = this.repo.name ? `${this.repo.name}\n${this.uri.repoPath}` : (this.uri.repoPath ?? '');
 		}
+
+		return item;
+	}
+
+	override async resolveTreeItem(item: TreeItem, _token: CancellationToken): Promise<TreeItem> {
+		const branch = this._cachedBranch;
+		if (branch == null) return item;
+
+		const { isWorktree } = this.repo;
+		const lastFetched = this._cachedLastFetched ?? 0;
+
+		let providerName;
+		if (branch.upstream != null) {
+			const providers = getHighlanderProviders(
+				await this.view.container.git.getRepositoryService(branch.repoPath).remotes.getRemotesWithProviders(),
+			);
+			providerName = providers?.length ? providers[0].name : undefined;
+		} else {
+			const remote = await branch.getRemote();
+			providerName = remote?.provider?.name;
+		}
+
+		item.tooltip = new MarkdownString(
+			`${this.repo.name ?? this.uri.repoPath ?? ''}${
+				lastFetched ? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}` : ''
+			}${this.repo.name ? `\\\n$(folder) ${isWorktree ? '(worktree) ' : ''}${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
+				branch.upstream != null
+					? ` is ${branch.getTrackingStatus({
+							empty: branch.upstream.missing
+								? `missing upstream $(git-branch) ${branch.upstream.name}`
+								: `up to date with $(git-branch) ${branch.upstream.name}${
+										providerName ? ` on ${providerName}` : ''
+									}`,
+							expand: true,
+							icons: true,
+							separator: ', ',
+							suffix: ` $(git-branch) ${branch.upstream.name}${
+								providerName ? ` on ${providerName}` : ''
+							}`,
+						})}`
+					: `hasn't been published to ${providerName ?? 'a remote'}`
+			}`,
+			true,
+		);
 
 		return item;
 	}

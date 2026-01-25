@@ -71,7 +71,10 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			if (repo != null && !(await repo.git.supports('git:worktrees'))) return [];
 
 			this.children = repositories.map(
-				r => new WorktreesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
+				r =>
+					new WorktreesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, {
+						expand: r === repo,
+					}),
 			);
 		}
 

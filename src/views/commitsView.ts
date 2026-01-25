@@ -148,9 +148,11 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				return [];
 			}
 
+			const repo = this.view.container.git.getBestRepositoryOrFirst();
 			this.children = repositories.map(
 				r =>
 					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, {
+						expand: r === repo,
 						showBranchAndLastFetched: true,
 					}),
 			);
