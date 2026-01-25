@@ -1,5 +1,6 @@
 /* eslint-disable no-empty-pattern */
-import { execSync } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -19,6 +20,53 @@ export type { VSCode } from './fixtures/vscodeEvaluator.js';
 export const MaxTimeout = 10000;
 export const DefaultTimeout = 2000;
 export const ShortTimeout = 500;
+
+/** Xvfb display number used for headless Linux testing */
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const XVFB_DISPLAY = ':99';
+
+/** Xvfb process reference for cleanup */
+let xvfbProcess: ChildProcess | undefined;
+
+/**
+ * Ensures Xvfb is running for headless Linux environments (WSL/SSH).
+ * Returns the DISPLAY value to use, or undefined if not needed.
+ */
+function ensureXvfb(): string | undefined {
+	// Only needed on Linux without a display
+	if (process.platform !== 'linux' || process.env.DISPLAY) {
+		return process.env.DISPLAY;
+	}
+
+	try {
+		// Check if Xvfb is available
+		execSync('which Xvfb', { stdio: 'ignore' });
+
+		// Check if Xvfb is already running on our display
+		try {
+			execSync(`xdpyinfo -display ${XVFB_DISPLAY}`, { stdio: 'ignore' });
+			// Already running
+			return XVFB_DISPLAY;
+		} catch {
+			// Not running, start it
+		}
+
+		// Start Xvfb
+		xvfbProcess = spawn('Xvfb', [XVFB_DISPLAY, '-screen', '0', '1920x1080x24'], {
+			detached: true,
+			stdio: 'ignore',
+		});
+		xvfbProcess.unref();
+
+		// Give Xvfb time to start
+		execSync('sleep 0.5');
+
+		return XVFB_DISPLAY;
+	} catch {
+		// Xvfb not available
+		return undefined;
+	}
+}
 
 /** Ensures the E2E runner is built before tests run */
 function ensureRunnerBuilt(): void {
@@ -145,12 +193,17 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				],
 			} satisfies Parameters<typeof _electron.launch>[0];
 
+			// Ensure Xvfb is running for headless Linux environments
+			const display = ensureXvfb();
+
 			const electronApp = await _electron.launch({
 				...options,
 				env: {
 					...process.env,
 					// Allows Claude Code and other CLI agents run the tests from within VS Code
 					ELECTRON_RUN_AS_NODE: undefined!,
+					// Set DISPLAY for headless Linux (Xvfb)
+					...(display ? { DISPLAY: display } : {}),
 				},
 			});
 
