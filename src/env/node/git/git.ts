@@ -1400,6 +1400,132 @@ export class Git implements Disposable {
 		return { path: dotGitPath };
 	}
 
+	/**
+	 * Combined rev-parse call that returns repository info in a single spawn.
+	 * This is an optimization to reduce process spawns during repository discovery.
+	 *
+	 * @returns Object with repoPath (toplevel), gitDir path, and optional commonGitDir path for worktrees.
+	 *          Returns `[false]` for unsafe repositories, or `undefined`/empty array for non-repos.
+	 */
+	async rev_parse__repository_info(
+		cwd: string,
+	): Promise<
+		| { repoPath: string; gitDir: string; commonGitDir: string | undefined }
+		| [safe: true, repoPath: string]
+		| [safe: false]
+		| []
+	> {
+		let result;
+
+		if (!workspace.isTrusted) {
+			// Check if the folder is a bare clone: if it has a file named HEAD && `rev-parse --show-cdup` is empty
+			try {
+				accessSync(joinPaths(cwd, 'HEAD'));
+				result = await this.exec(
+					{ cwd: cwd, errors: GitErrorHandling.Throw, configs: ['-C', cwd] },
+					'rev-parse',
+					'--show-cdup',
+				);
+				if (!result.stdout.trim()) {
+					Logger.log(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
+					return emptyArray as [];
+				}
+			} catch {
+				// If this throw, we should be good to open the repo (e.g. HEAD doesn't exist)
+			}
+		}
+
+		try {
+			result = await this.exec(
+				{ cwd: cwd, errors: GitErrorHandling.Throw },
+				'rev-parse',
+				'--show-toplevel',
+				'--git-dir',
+				'--git-common-dir',
+			);
+			if (!result.stdout) return emptyArray as [];
+
+			// Output is 3 lines: show-toplevel, git-dir, git-common-dir
+			// Keep trailing spaces which are part of the directory name
+			const lines = result.stdout.split('\n').map(r => r.trimStart());
+			const [repoPath, dotGitPath, commonDotGitPath] = lines;
+
+			if (!repoPath) return emptyArray as [];
+
+			// Normalize repo path: https://github.com/git-for-windows/git/issues/2478
+			const normalizedRepoPath = normalizePath(repoPath.replace(/[\r|\n]+$/, ''));
+
+			// Normalize git dir paths (may be relative)
+			let gitDir = dotGitPath;
+			if (gitDir && !isAbsolute(gitDir)) {
+				gitDir = joinPaths(cwd, gitDir);
+			}
+			gitDir = normalizePath(gitDir);
+
+			let commonGitDir: string | undefined;
+			if (commonDotGitPath) {
+				commonGitDir = commonDotGitPath;
+				if (!isAbsolute(commonGitDir)) {
+					commonGitDir = joinPaths(cwd, commonGitDir);
+				}
+				commonGitDir = normalizePath(commonGitDir);
+				// Only set if different from gitDir
+				if (commonGitDir === gitDir) {
+					commonGitDir = undefined;
+				}
+			}
+
+			return { repoPath: normalizedRepoPath, gitDir: gitDir, commonGitDir: commonGitDir };
+		} catch (ex) {
+			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
+
+			const unsafeMatch =
+				/(?:^fatal: detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
+					ex.stderr,
+				);
+			if (unsafeMatch != null) {
+				Logger.log(
+					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
+						unsafeMatch[3]
+					}' to allow it`,
+				);
+				return [false];
+			}
+
+			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
+			// Check if we are in a bare clone
+			if (inDotGit && workspace.isTrusted) {
+				result = await this.exec(
+					{ cwd: cwd, errors: GitErrorHandling.Ignore },
+					'rev-parse',
+					'--is-bare-repository',
+				);
+				if (result.stdout.trim() === 'true') {
+					const result = await this.rev_parse__git_dir(cwd);
+					const repoPath = result?.commonPath ?? result?.path;
+					if (repoPath?.length) return [true, repoPath];
+				}
+			}
+
+			if (inDotGit || ex.code === 'ENOENT') {
+				// If the `cwd` doesn't exist, walk backward to see if any parent folder exists
+				let exists = inDotGit ? false : await fsExists(cwd);
+				if (!exists) {
+					do {
+						const parent = dirname(cwd);
+						if (parent === cwd || parent.length === 0) return emptyArray as [];
+
+						cwd = parent;
+						exists = await fsExists(cwd);
+					} while (!exists);
+
+					return this.rev_parse__repository_info(cwd);
+				}
+			}
+			return emptyArray as [];
+		}
+	}
+
 	async rev_parse__show_toplevel(cwd: string): Promise<[safe: true, repoPath: string] | [safe: false] | []> {
 		let result;
 

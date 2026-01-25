@@ -1026,6 +1026,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const scope = getLogScope();
 
 		let repoPath: string | undefined;
+		let gitDirInfo: { gitDir: string; commonGitDir: string | undefined } | undefined;
 		try {
 			if (isDirectory == null) {
 				isDirectory = await isFolderUri(uri);
@@ -1036,13 +1037,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				uri = Uri.joinPath(uri, '..');
 			}
 
-			let safe;
-			[safe, repoPath] = await this.git.rev_parse__show_toplevel(uri.fsPath);
-			if (safe) {
+			// Use combined rev-parse to get both repoPath and gitDir in a single spawn
+			const result = await this.git.rev_parse__repository_info(uri.fsPath);
+
+			// Handle the different return types
+			if (Array.isArray(result)) {
+				// Tuple result: [safe: true, repoPath] or [safe: false] or []
+				const [safe, path] = result as [boolean | undefined, string | undefined];
+				if (safe === true) {
+					this.unsafePaths.delete(uri.fsPath);
+					repoPath = path;
+				} else if (safe === false) {
+					this.unsafePaths.add(uri.fsPath);
+					return undefined;
+				}
+				// No gitDir info for tuple results (bare repo fallback case)
+			} else if (result != null) {
+				// Object result with full info
 				this.unsafePaths.delete(uri.fsPath);
-			} else if (safe === false) {
-				this.unsafePaths.add(uri.fsPath);
+				repoPath = result.repoPath;
+				gitDirInfo = { gitDir: result.gitDir, commonGitDir: result.commonGitDir };
 			}
+
 			if (!repoPath) return undefined;
 
 			const repoUri = Uri.file(repoPath);
@@ -1071,12 +1087,37 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									`${letter.toLowerCase()}:${isDriveRoot || networkPath.endsWith('\\') ? '\\' : ''}`,
 								),
 							);
-							return Uri.file(repoPath);
+							// Pre-populate the gitDir cache for Windows mapped drive path
+							// Use Uri.file().fsPath as cache key to match getGitDir() lookup
+							const resultUri = Uri.file(repoPath);
+							if (gitDirInfo != null) {
+								const gitDir: GitDir = {
+									uri: Uri.file(gitDirInfo.gitDir),
+									commonUri:
+										gitDirInfo.commonGitDir != null ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+								};
+								const cacheKey = resultUri.fsPath;
+								const repo = this._cache.repoInfo.get(cacheKey);
+								this._cache.repoInfo.set(cacheKey, { ...repo, gitDir: gitDir });
+							}
+							return resultUri;
 						}
 					} catch {}
 				}
 
-				return Uri.file(normalizePath(uri.fsPath));
+				// Pre-populate the gitDir cache for Windows fallback path
+				// Use Uri.file().fsPath as cache key to match getGitDir() lookup
+				const fallbackUri = Uri.file(normalizePath(uri.fsPath));
+				if (gitDirInfo != null) {
+					const gitDir: GitDir = {
+						uri: Uri.file(gitDirInfo.gitDir),
+						commonUri: gitDirInfo.commonGitDir != null ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+					};
+					const cacheKey = fallbackUri.fsPath;
+					const repo = this._cache.repoInfo.get(cacheKey);
+					this._cache.repoInfo.set(cacheKey, { ...repo, gitDir: gitDir });
+				}
+				return fallbackUri;
 			}
 
 			// Check if we are a symlink and if so, use the symlink path (not its resolved path)
@@ -1122,7 +1163,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			return repoPath ? Uri.file(repoPath) : undefined;
+			// Pre-populate the gitDir cache to avoid a second rev-parse call in getGitDir()
+			// Use Uri.file().fsPath as cache key to match getGitDir() lookup
+			if (!repoPath) return undefined;
+
+			const resultUri = Uri.file(repoPath);
+			if (gitDirInfo != null) {
+				const gitDir: GitDir = {
+					uri: Uri.file(gitDirInfo.gitDir),
+					commonUri: gitDirInfo.commonGitDir != null ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+				};
+				const cacheKey = resultUri.fsPath;
+				const repo = this._cache.repoInfo.get(cacheKey);
+				this._cache.repoInfo.set(cacheKey, { ...repo, gitDir: gitDir });
+			}
+
+			return resultUri;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
