@@ -35,6 +35,18 @@ export function getRepositoryOrWorktreePath(uri: Uri): string {
 	return uri.scheme === Schemes.File ? normalizePath(uri.fsPath) : uri.toString();
 }
 
+export function getCommonRepositoryPath(commonUri: Uri): string {
+	const uri = getCommonRepositoryUri(commonUri);
+	return getRepositoryOrWorktreePath(uri);
+}
+
+export function getCommonRepositoryUri(commonUri: Uri): Uri {
+	if (commonUri?.path.endsWith('/.git')) {
+		return commonUri.with({ path: commonUri.path.substring(0, commonUri.path.length - 5) });
+	}
+	return commonUri;
+}
+
 export async function groupRepositories(
 	repositories: Iterable<Repository>,
 ): Promise<Map<Repository, Map<string, Repository>>> {

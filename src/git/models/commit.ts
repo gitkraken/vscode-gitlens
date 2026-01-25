@@ -721,6 +721,32 @@ export class GitCommit implements GitRevisionReference {
 		) as T;
 	}
 
+	/**
+	 * Creates a copy of this commit with a different repoPath.
+	 * Used for worktree-aware caching where shared data needs per-worktree IDs.
+	 */
+	withRepoPath<T extends GitCommit>(repoPath: string): T {
+		return repoPath === this.repoPath
+			? (this as unknown as T)
+			: (new GitCommit(
+					this.container,
+					repoPath,
+					this.sha,
+					this.author,
+					this.committer,
+					this.summary,
+					this.parents,
+					this.message,
+					this.fileset,
+					this.stats,
+					this.lines,
+					this.tips,
+					this.stashName,
+					this.stashOnRef,
+					this.parentTimestamps,
+				) as T);
+	}
+
 	protected getChangedValue<T>(change: T | null | undefined, original: T | undefined): T | undefined {
 		return change === undefined ? original : change === null ? undefined : change;
 	}

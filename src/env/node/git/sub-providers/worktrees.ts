@@ -97,7 +97,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			'Displaying worktrees',
 			' Please install a more recent version of Git and try again.',
 		);
-		const worktrees = this.cache.worktrees.getOrCreate(repoPath, async () => {
+
+		return this.cache.getWorktrees(repoPath, async (commonPath, _cacheable) => {
 			const [dataResult, branchesResult] = await Promise.allSettled([
 				this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
 				this.provider.branches.getBranches(repoPath, undefined, cancellation),
@@ -106,26 +107,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			return parseGitWorktrees(
 				this.container,
 				getSettledValue(dataResult)?.stdout,
-				repoPath,
+				commonPath,
 				getSettledValue(branchesResult)?.values ?? [],
 			);
 		});
-
-		if (worktrees == null) {
-			const [dataResult, branchesResult] = await Promise.allSettled([
-				this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
-				this.provider.branches.getBranches(repoPath, undefined, cancellation),
-			]);
-
-			return parseGitWorktrees(
-				this.container,
-				getSettledValue(dataResult)?.stdout,
-				repoPath,
-				getSettledValue(branchesResult)?.values ?? [],
-			);
-		}
-
-		return worktrees;
 	}
 
 	@log()

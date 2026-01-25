@@ -360,22 +360,25 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 	@log({ exit: true })
 	async getInitialCommitSha(repoPath: string, cancellation?: CancellationToken): Promise<string | undefined> {
-		try {
-			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
-				'rev-list',
-				`--max-parents=0`,
-				'HEAD',
-				'--',
-			);
-			if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
+		// Initial commit SHA is shared across all worktrees
+		return this.cache.getInitialCommitSha(repoPath, async commonPath => {
+			try {
+				const result = await this.git.exec(
+					{ cwd: commonPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					'rev-list',
+					`--max-parents=0`,
+					'HEAD',
+					'--',
+				);
+				if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
 
-			return result.stdout.trim().split('\n')?.[0];
-		} catch (ex) {
-			if (isCancellationError(ex)) throw ex;
+				return result.stdout.trim().split('\n')?.[0];
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
 
-			return undefined;
-		}
+				return undefined;
+			}
+		});
 	}
 
 	@log()

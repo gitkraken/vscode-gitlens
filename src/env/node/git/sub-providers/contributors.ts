@@ -13,7 +13,6 @@ import { isUserMatch } from '../../../../git/utils/user.utils.js';
 import { log } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
-import { normalizePath } from '../../../../system/path.js';
 import type { CacheController } from '../../../../system/promiseCache.js';
 import { createDisposable } from '../../../../system/unifiedDisposable.js';
 import type { Git } from '../git.js';
@@ -46,12 +45,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getLogScope();
 
-		const getCore = async (cacheable?: CacheController): Promise<GitContributorsResult> => {
+		const getCore = async (commonPath: string, cacheable?: CacheController): Promise<GitContributorsResult> => {
 			const contributors = new Map<string, GitContributor>();
 
 			try {
-				repoPath = normalizePath(repoPath);
-
 				const currentUser = await this.provider.config.getCurrentUser(repoPath);
 				if (cancellation?.isCancellationRequested) throw new CancellationError();
 
@@ -105,7 +102,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					let contributor: Mutable<GitContributor> | undefined = contributors.get(key);
 					if (contributor == null) {
 						contributor = new GitContributor(
-							repoPath,
+							commonPath,
 							c.author,
 							c.email,
 							isUserMatch(currentUser, c.author, c.email),
@@ -210,10 +207,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			customCacheTTL = timeout * 2;
 		}
 
-		return this.cache.contributors.getOrCreate(
+		return this.cache.getContributors(
 			repoPath,
 			cacheKey,
-			getCore,
+			commonPath => getCore(commonPath),
 			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
 		);
 	}
@@ -234,7 +231,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			options = { ...options, all: true };
 		}
 
-		const getCore = async (cacheable?: CacheController) => {
+		const getCore = async (commonPath: string, cacheable?: CacheController) => {
 			try {
 				// eventually support `--group=author --group=trailer:co-authored-by`
 				const args = ['shortlog', '-s', '-e', '-n'];
@@ -259,7 +256,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, ...args);
 				if (!result.stdout) return [];
 
-				const shortlog = parseShortlog(result.stdout, repoPath, await currentUserPromise);
+				const shortlog = parseShortlog(result.stdout, commonPath, await currentUserPromise);
 				return shortlog.contributors;
 			} catch (ex) {
 				cacheable?.invalidate();
@@ -281,7 +278,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			customCacheTTL = 1000 * 60 * 5; // 5 minutes
 		}
 
-		return this.cache.contributorsLite.getOrCreate(
+		return this.cache.getContributorsLite(
 			repoPath,
 			cacheKey,
 			getCore,
@@ -300,38 +297,62 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getLogScope();
 
-		try {
-			const args = ['shortlog', '-s', '--all'];
+		const getCore = async (commonPath: string): Promise<GitContributorsStats | undefined> => {
+			try {
+				const args = ['shortlog', '-s', '--all'];
 
-			const merges = options?.merges ?? true;
-			if (merges) {
-				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
-			} else {
-				args.push('--no-merges');
+				const merges = options?.merges ?? true;
+				if (merges) {
+					args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
+				} else {
+					args.push('--no-merges');
+				}
+
+				if (options?.since) {
+					args.push(`--since=${options.since}`);
+				}
+
+				const result = await this.git.exec(
+					{ cwd: commonPath, cancellation: cancellation, timeout: timeout },
+					...args,
+				);
+				if (!result.stdout) return undefined;
+
+				const contributions = result.stdout
+					.split('\n')
+					.map(line => parseInt(line.trim().split('\t', 1)[0], 10))
+					.filter(c => !isNaN(c))
+					.sort((a, b) => b - a);
+
+				return { count: contributions.length, contributions: contributions } satisfies GitContributorsStats;
+			} catch (ex) {
+				Logger.error(ex, scope);
+				debugger;
+
+				return undefined;
 			}
+		};
 
-			if (options?.since) {
-				args.push(`--since=${options.since}`);
-			}
+		let customCacheTTL;
 
-			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, timeout: timeout },
-				...args,
-			);
-			if (!result.stdout) return undefined;
-
-			const contributions = result.stdout
-				.split('\n')
-				.map(line => parseInt(line.trim().split('\t', 1)[0], 10))
-				.filter(c => !isNaN(c))
-				.sort((a, b) => b - a);
-
-			return { count: contributions.length, contributions: contributions } satisfies GitContributorsStats;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-
-			return undefined;
+		let cacheKey = 'stats';
+		if (options?.merges) {
+			cacheKey += `:merges=${options.merges}`;
 		}
+		if (options?.since) {
+			cacheKey += `:since=${options.since}`;
+			customCacheTTL = 1000 * 60 * 5; // 5 minutes
+		}
+		if (timeout) {
+			cacheKey += `:timeout=${timeout}`;
+			customCacheTTL = timeout * 2;
+		}
+
+		return this.cache.getContributorsStats(
+			repoPath,
+			cacheKey,
+			getCore,
+			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
+		);
 	}
 }

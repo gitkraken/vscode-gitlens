@@ -80,7 +80,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		const stashPromise = this.cache.stashes.getOrCreate(repoPath, async _cancellable => {
+		const stash = await this.cache.getStash(repoPath, async (commonPath, _cacheable) => {
 			const parser = getStashLogParser();
 			const args = [...parser.arguments];
 
@@ -94,7 +94,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 			// First pass: create stashes and collect parent SHAs
 			for (const s of parser.parse(result.stdout)) {
-				stashes.set(s.sha, createStash(this.container, s, repoPath));
+				stashes.set(s.sha, createStash(this.container, s, commonPath));
 				// Collect all parent SHAs for timestamp lookup
 				if (s.parents) {
 					for (const parentSha of s.parents.split(' ')) {
@@ -136,24 +136,22 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 			// Third pass: update stashes with parent timestamp information
 			for (const sha of stashes.keys()) {
-				const stash = stashes.get(sha);
-				if (stash?.parents.length) {
-					const parentsWithTimestamps: GitStashParentInfo[] = stash.parents.map(parentSha => ({
+				const stashCommit = stashes.get(sha);
+				if (stashCommit?.parents.length) {
+					const parentsWithTimestamps: GitStashParentInfo[] = stashCommit.parents.map(parentSha => ({
 						sha: parentSha,
 						authorDate: parentTimestamps.get(parentSha)?.authorDate,
 						committerDate: parentTimestamps.get(parentSha)?.committerDate,
 					}));
 					// Store the parent timestamp information on the stash
-					stashes.set(sha, stash.with({ parentTimestamps: parentsWithTimestamps }));
+					stashes.set(sha, stashCommit.with({ parentTimestamps: parentsWithTimestamps }));
 				}
 			}
 
-			return { repoPath: repoPath, stashes: stashes };
+			return { repoPath: commonPath, stashes: stashes };
 		});
 
-		if (stashPromise == null) return undefined;
-
-		const stash = await stashPromise;
+		if (stash == null) return undefined;
 		if (!options?.reachableFrom || !stash?.stashes.size) return stash;
 
 		// Return only reachable stashes from the given ref

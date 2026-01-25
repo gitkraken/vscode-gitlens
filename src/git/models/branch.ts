@@ -261,6 +261,29 @@ export class GitBranch implements GitBranchReference {
 			}
 		}
 	}
+
+	/**
+	 * Creates a copy of this branch with a different repoPath.
+	 * Used for worktree-aware caching where shared data needs per-worktree IDs.
+	 */
+	withRepoPath(repoPath: string): GitBranch {
+		return repoPath === this.repoPath
+			? this
+			: new GitBranch(
+					this.container,
+					repoPath,
+					this.refName,
+					this.current,
+					this.date,
+					this.lastAccessedDate,
+					this.lastModifiedDate,
+					this.sha,
+					this.upstream,
+					this.worktree,
+					this.detached,
+					this.rebasing,
+				);
+	}
 }
 
 export interface GitTrackingState {

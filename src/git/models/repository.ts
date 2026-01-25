@@ -26,7 +26,7 @@ import { basename, normalizePath } from '../../system/path.js';
 import { CheckoutError, FetchError, PullError, PushError } from '../errors.js';
 import type { GitDir, GitProviderDescriptor } from '../gitProvider.js';
 import type { GitRepositoryService } from '../gitRepositoryService.js';
-import { getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils.js';
+import { getCommonRepositoryUri, getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../utils/branch.utils.js';
 import { getReferenceNameWithoutRemote, isBranchReference } from '../utils/reference.utils.js';
 import type { GitBranch } from './branch.js';
@@ -295,27 +295,19 @@ export class Repository implements Disposable {
 	@memoize()
 	get commonPath(): string | undefined {
 		const { commonUri } = this;
-		if (commonUri == null) return undefined;
-
-		return normalizePath(commonUri.path);
+		return commonUri && normalizePath(commonUri.path);
 	}
 
 	@memoize()
 	get commonRepositoryName(): string | undefined {
 		const { commonPath } = this;
-		if (!commonPath) return undefined;
-
-		return basename(commonPath);
+		return commonPath && basename(commonPath);
 	}
 
 	@memoize()
 	get commonUri(): Uri | undefined {
 		const uri = this._gitDir?.commonUri;
-		if (uri?.path.endsWith('/.git')) {
-			return uri.with({ path: uri.path.substring(0, uri.path.length - 5) });
-		}
-
-		return uri;
+		return uri && getCommonRepositoryUri(uri);
 	}
 
 	get etag(): number {

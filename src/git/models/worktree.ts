@@ -162,6 +162,26 @@ export class GitWorktree {
 		}
 		return this._hasWorkingChangesPromise;
 	}
+
+	/**
+	 * Creates a copy of this worktree with a different repoPath.
+	 * Used for worktree-aware caching where shared data needs per-worktree context.
+	 */
+	withRepoPath(repoPath: string): GitWorktree {
+		return repoPath === this.repoPath
+			? this
+			: new GitWorktree(
+					this.container,
+					this.isDefault,
+					this.type,
+					repoPath,
+					this.uri,
+					this.locked,
+					this.prunable,
+					this.sha,
+					this.branch,
+				);
+	}
 }
 
 export function isWorktree(worktree: any): worktree is GitWorktree {

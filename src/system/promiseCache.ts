@@ -37,6 +37,36 @@ export class PromiseCache<K, V> {
 		this.options = { expireOnError: true, ...options };
 	}
 
+	clear(): void {
+		this.cache.clear();
+	}
+
+	delete(key: K): void {
+		this.cache.delete(key);
+	}
+
+	/**
+	 * Gets a promise from the cache without creating it and updates accessed time
+	 * @param key - The cache key
+	 * @returns The cached promise, or undefined if not cached or expired
+	 */
+	get(key: K): Promise<V> | undefined {
+		const now = Date.now();
+		const entry = this.cache.get(key);
+		if (entry == null || this.expired(entry, now)) {
+			return undefined;
+		}
+		// Update accessed time
+		entry.accessed = now;
+		return entry.promise;
+	}
+
+	/**
+	 * Gets a promise from the cache or creates a new one using the factory function
+	 * @param key - The cache key
+	 * @param factory - Factory function to create the value if not cached
+	 * @param options - Optional TTL and error handling options that override the defaults
+	 */
 	async getOrCreate(
 		key: K,
 		factory: (cacheable: CacheController) => Promise<V>,
@@ -135,12 +165,28 @@ export class PromiseCache<K, V> {
 		);
 	}
 
-	clear(): void {
-		this.cache.clear();
-	}
+	/**
+	 * Sets a promise in the cache.
+	 * The promise will use the default options from the cache constructor, unless overridden.
+	 *
+	 * @param key - The cache key
+	 * @param promise - The promise to cache
+	 * @param options - Optional TTL options that override the defaults
+	 */
+	set(key: K, promise: Promise<V>, options?: { accessTTL?: number; createTTL?: number }): void {
+		const now = Date.now();
+		const entry: CacheEntry<V> = {
+			promise: promise,
+			created: now,
+			accessed: now,
+			createTTL: options?.createTTL ?? this.options.createTTL,
+			accessTTL: options?.accessTTL ?? this.options.accessTTL,
+		};
+		this.cache.set(key, entry);
 
-	delete(key: K): void {
-		this.cache.delete(key);
+		if (this.options.expireOnError ?? true) {
+			promise.catch(() => this.cache.delete(key));
+		}
 	}
 }
 
@@ -307,6 +353,38 @@ export class RepoPromiseCacheMap<K, V> {
 		}
 
 		return repoCache.getOrCreate(key, factory, options);
+	}
+
+	/**
+	 * Gets a promise from the cache without creating it.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @returns The cached promise, or undefined if not cached
+	 */
+	get(repoPath: string, key: K): Promise<V> | undefined {
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return undefined;
+
+		return repoCache.get(key);
+	}
+
+	/**
+	 * Sets a promise in the cache.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @param promise - The promise to cache
+	 * @param options - Optional TTL options that override the defaults
+	 */
+	set(repoPath: string, key: K, promise: Promise<V>, options?: { accessTTL?: number; createTTL?: number }): void {
+		let repoCache = this.cache.get(repoPath);
+		if (repoCache == null) {
+			repoCache = new PromiseCache<K, V>(this.options);
+			this.cache.set(repoPath, repoCache);
+		}
+
+		repoCache.set(key, promise, options);
 	}
 
 	/**

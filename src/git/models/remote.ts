@@ -127,6 +127,25 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	supportsIntegration(): this is GitRemote<RemoteProvider> {
 		return Boolean(getIntegrationIdForRemote(this.provider));
 	}
+
+	/**
+	 * Creates a copy of this remote with a different repoPath.
+	 * Used for worktree-aware caching where shared data needs per-worktree context.
+	 */
+	withRepoPath(repoPath: string): GitRemote<TProvider> {
+		return repoPath === this.repoPath
+			? this
+			: new GitRemote<TProvider>(
+					this.container,
+					repoPath,
+					this.name,
+					this.scheme,
+					this._domain,
+					this._path,
+					this.provider,
+					this.urls,
+				);
+	}
 }
 
 export type GitRemoteType = 'fetch' | 'push';

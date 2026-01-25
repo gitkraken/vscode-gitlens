@@ -48,6 +48,29 @@ export class GitContributor {
 	getCoauthor(): string {
 		return `${this.name}${this.email ? ` <${this.email}>` : ''}`;
 	}
+
+	/**
+	 * Creates a copy of this contributor with a different repoPath.
+	 * Used for worktree-aware caching where shared data needs per-worktree context.
+	 */
+	withRepoPath(repoPath: string): GitContributor {
+		return repoPath === this.repoPath
+			? this
+			: new GitContributor(
+					repoPath,
+					this.name,
+					this.email,
+					this.current,
+					this.contributionCount,
+					this.contributions,
+					this.latestCommitDate,
+					this.firstCommitDate,
+					this.stats,
+					this.username,
+					this.avatarUrl,
+					this.id,
+				);
+	}
 }
 
 interface GitContributorContribution extends Partial<GitCommitStats<number>> {

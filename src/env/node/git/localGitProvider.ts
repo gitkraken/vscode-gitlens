@@ -440,6 +440,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			void this.getOrOpenScmRepository(uri);
 		}
 
+		// Register the repo path mapping for worktree-aware caching
+		this._cache.registerRepoPath(uri, gitDir);
+
 		const opened = [
 			new Repository(
 				this.container,
@@ -459,6 +462,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// Add a closed (hidden) repository for the canonical version if not already opened
 		const canonicalUri = this.toCanonicalMap.get(getBestPath(uri));
 		if (canonicalUri != null && this.container.git.getRepository(canonicalUri) == null) {
+			// Also register the canonical path for worktree-aware caching
+			this._cache.registerRepoPath(canonicalUri, gitDir);
+
 			opened.push(
 				new Repository(
 					this.container,
@@ -1785,10 +1791,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@debug()
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined> {
-		return this._cache.lastFetched.getOrCreate(repoPath, async (_cancellable): Promise<number | undefined> => {
+		return this._cache.getLastFetchedTimestamp(repoPath, async (commonPath): Promise<number | undefined> => {
 			try {
-				const gitDir = await this.config.getGitDir(repoPath);
-				const stats = await workspace.fs.stat(Uri.joinPath(gitDir.uri, 'FETCH_HEAD'));
+				const gitDir = await this.config.getGitDir(commonPath);
+				// FETCH_HEAD is always in the common .git directory (gitDir.commonUri for worktrees)
+				const gitDirUri = gitDir.commonUri ?? gitDir.uri;
+				const stats = await workspace.fs.stat(Uri.joinPath(gitDirUri, 'FETCH_HEAD'));
 				// If the file is empty, assume the fetch failed, and don't update the timestamp
 				if (stats.size > 0) return stats.mtime;
 			} catch {}

@@ -34,7 +34,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 
 		const scope = getLogScope();
 
-		const remotesPromise = this.cache.remotes.getOrCreate(repoPath, async cancellable => {
+		let remotes = await this.cache.getRemotes(repoPath, async (commonPath, cacheable) => {
 			const providers = loadRemoteProvidersFromConfig(
 				this.container.git.getRepository(repoPath)?.folder?.uri ?? null,
 				await this.container.integrations.getConfigured(),
@@ -42,23 +42,19 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 
 			try {
 				const result = await this.git.exec({ cwd: repoPath }, 'remote', '-v');
-				const remotes = parseGitRemotes(
+				return parseGitRemotes(
 					this.container,
 					result.stdout,
-					repoPath,
+					commonPath,
 					await getRemoteProviderMatcher(this.container, providers),
 				);
-				return remotes;
 			} catch (ex) {
-				cancellable.invalidate();
+				cacheable?.invalidate();
 				Logger.error(ex, scope);
 				return [];
 			}
 		});
 
-		if (remotesPromise == null) return [];
-
-		let remotes = await remotesPromise;
 		if (options?.filter != null) {
 			remotes = remotes.filter(options.filter);
 		}

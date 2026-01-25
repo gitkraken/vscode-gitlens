@@ -47,7 +47,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		const scope = getLogScope();
 
-		const resultsPromise = this.cache.tags.getOrCreate(repoPath, async cancellable => {
+		let tagsResult = await this.cache.getTags(repoPath, async (commonPath, _cacheable) => {
 			try {
 				const parser = getTagParser();
 
@@ -67,7 +67,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 					tags.push(
 						new GitTag(
 							this.container,
-							repoPath,
+							commonPath,
 							entry.name,
 							entry.sha || entry.tagSha,
 							entry.message,
@@ -81,7 +81,6 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 				return { values: tags };
 			} catch (ex) {
-				cancellable.invalidate();
 				Logger.error(ex, scope);
 				if (isCancellationError(ex)) throw ex;
 
@@ -89,21 +88,18 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			}
 		});
 
-		if (resultsPromise == null) return emptyPagedResult;
-
-		let result = await resultsPromise;
 		if (options?.filter != null) {
-			result = {
-				...result,
-				values: result.values.filter(options.filter),
+			tagsResult = {
+				...tagsResult,
+				values: tagsResult.values.filter(options.filter),
 			};
 		}
 
 		if (options?.sort) {
-			sortTags(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
+			sortTags(tagsResult.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
-		return result;
+		return tagsResult;
 	}
 
 	@log()

@@ -1705,7 +1705,6 @@ export class GitProviderService implements Disposable {
 
 			return this._repositories.getClosest(this.getAbsoluteUri(pathOrUri));
 		}
-
 		return this._repositories.getClosest(pathOrUri);
 	}
 
