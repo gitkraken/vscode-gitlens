@@ -5,7 +5,6 @@ import { Container } from '../../../container.js';
 import type { QuickPickItemOfT } from '../../../quickpicks/items/common.js';
 import { pad } from '../../../system/string.js';
 import type { GitWorktree } from '../../models/worktree.js';
-import { shortenRevision } from '../revision.utils.js';
 import { getBranchIconPath } from './icons.js';
 
 export interface WorktreeQuickPickItem extends QuickPickItemOfT<GitWorktree> {
@@ -90,7 +89,7 @@ export function createWorktreeQuickPickItem(
 			iconPath = getBranchIconPath(Container.instance, worktree.branch);
 			break;
 		case 'detached':
-			label = shortenRevision(worktree.sha);
+			label = worktree.name;
 			iconPath = new ThemeIcon('git-commit');
 			break;
 	}

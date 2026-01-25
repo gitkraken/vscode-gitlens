@@ -7,7 +7,7 @@ import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode/workspace
 import { formatDate, fromNow } from '../../system/date.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { getLoggableName } from '../../system/logger.js';
-import { normalizePath } from '../../system/path.js';
+import { basename, normalizePath } from '../../system/path.js';
 import { getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils.js';
 import { shortenRevision } from '../utils/revision.utils.js';
 import type { GitBranch } from './branch.js';
@@ -100,7 +100,7 @@ export class GitWorktree {
 			case 'bare':
 				return '(bare)';
 			case 'detached':
-				return shortenRevision(this.sha);
+				return `${basename(this.uri.fsPath)} (${shortenRevision(this.sha)})`;
 			default:
 				return this.branch?.name || this.friendlyPath;
 		}
