@@ -552,6 +552,21 @@ export class GitCache implements Disposable {
 		}));
 	}
 
+	/**
+	 * Pre-populates the current branch reference cache for a worktree.
+	 * This is called when for-each-ref returns branches with worktreePath info,
+	 * allowing us to skip the rev-parse call for current branch detection.
+	 *
+	 * @param worktreePath The path of the worktree
+	 * @param reference The branch reference to cache, or undefined if no current branch
+	 */
+	setCurrentBranchRef(worktreePath: string, reference: GitBranchReference | undefined): void {
+		// Only set if not already cached to avoid overwriting fresher data
+		if (this.currentBranchRef.get(worktreePath) == null) {
+			this.currentBranchRef.set(worktreePath, Promise.resolve(reference));
+		}
+	}
+
 	private _conflictDetectionCache:
 		| RepoPromiseCacheMap<ConflictDetectionCacheKey, ConflictDetectionResult>
 		| undefined;

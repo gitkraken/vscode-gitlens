@@ -26,6 +26,7 @@ import {
 	getLocalBranchByUpstream,
 	isDetachedHead,
 	isRemoteHEAD,
+	parseRefName,
 	parseUpstream,
 } from '../../../../git/utils/branch.utils.js';
 import { createConflictDetectionError } from '../../../../git/utils/mergeConflicts.utils.js';
@@ -224,6 +225,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				}
 
 				sw?.stop({ suffix: ` parsed ${branches.length} branches` });
+
+				// Pre-populate current branch cache for worktrees based on worktreePath info
+				// This eliminates the need for rev-parse calls during branch reconstruction
+				for (const branch of branches) {
+					if (branch.worktree && branch.worktree.path) {
+						const { name } = parseRefName(branch.refName);
+						const reference = createReference(name, branch.worktree.path, {
+							refType: 'branch',
+							name: name,
+							id: getBranchId(branch.worktree.path, false, name),
+							remote: false,
+							upstream: branch.upstream?.name
+								? { name: branch.upstream.name, missing: branch.upstream.missing }
+								: undefined,
+							sha: branch.sha,
+						});
+						this.cache.setCurrentBranchRef(branch.worktree.path, reference);
+					}
+				}
 
 				return branches.length ? { values: branches } : emptyPagedResult;
 			} catch (ex) {
