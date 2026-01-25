@@ -3,6 +3,7 @@ import type { GlCommands } from '../../../constants.commands.js';
 import type { Container } from '../../../container.js';
 import type { AnyQuickWizardCommandArgs, CrossCommandReference } from '../models/quickWizard.js';
 import type { StepGenerator, StepsContext, StepStartedFrom } from '../models/steps.js';
+import { StepsComplete } from '../models/steps.js';
 import { QuickCommand } from '../quickCommand.js';
 import { QuickWizardRootStep } from '../quickWizardRootStep.js';
 
@@ -22,6 +23,12 @@ export function getSteps(
 	if (command == null) return nullSteps();
 
 	rootStep.setCommand(command, startedFrom);
+
+	// Reset currentStep if it was marked complete, since we're starting a new command chain
+	// that should run independently of the parent's complete state
+	if (context.steps?.currentStep === StepsComplete) {
+		context.steps.currentStep = undefined;
+	}
 
 	// Only include the StepsContext properties
 	return command.executeSteps({
