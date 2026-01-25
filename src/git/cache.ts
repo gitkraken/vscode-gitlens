@@ -4,13 +4,8 @@ import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { log } from '../system/decorators/log.js';
 import type { PromiseOrValue } from '../system/promise.js';
-import {
-	CacheController,
-	PromiseCache,
-	PromiseMap,
-	RepoPromiseCacheMap,
-	RepoPromiseMap,
-} from '../system/promiseCache.js';
+import type { RepoPromiseMap } from '../system/promiseCache.js';
+import { CacheController, PromiseCache, PromiseMap, RepoPromiseCacheMap } from '../system/promiseCache.js';
 import { PathTrie } from '../system/trie.js';
 import type { GitIgnoreCache } from './gitIgnoreCache.js';
 import type {
