@@ -1109,23 +1109,25 @@ export abstract class ViewBase<
 	}
 
 	private async processNextNodeChange(): Promise<void> {
-		while (this._pendingNodeChanges.size > 0) {
-			const target = first(this._pendingNodeChanges.values());
+		try {
+			while (this._pendingNodeChanges.size > 0) {
+				const target = first(this._pendingNodeChanges.values());
 
-			// Wait until all loading is complete (avoids Element with id '...' already exists errors)
-			await this.waitUntilLoaded('processNextNodeChange');
+				// Wait until all loading is complete (avoids Element with id '...' already exists errors)
+				await this.waitUntilLoaded('processNextNodeChange');
 
-			// Clear all pending changes if this was a full-refresh
-			if (target == null) {
-				this._pendingNodeChanges.clear();
-			} else {
-				this._pendingNodeChanges.delete(target);
+				// Clear all pending changes if this was a full-refresh
+				if (target == null) {
+					this._pendingNodeChanges.clear();
+				} else {
+					this._pendingNodeChanges.delete(target);
+				}
+
+				this._onDidChangeTreeData.fire(target);
 			}
-
-			this._onDidChangeTreeData.fire(target);
+		} finally {
+			this._processingNodeChanges = false;
 		}
-
-		this._processingNodeChanges = false;
 	}
 
 	protected abstract readonly configKey: ViewsConfigKeys;
