@@ -9,7 +9,7 @@ import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from
 import { formatPath } from '../../system/-webview/formatPath.js';
 import { pad } from '../../system/string.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
-import type { PartialStepState, StepGenerator, StepResult, StepsContext } from '../quick-wizard/models/steps.js';
+import type { PartialStepState, StepGenerator, StepsContext } from '../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../quick-wizard/models/steps.js';
 import { QuickCommand } from '../quick-wizard/quickCommand.js';
 import { pickCommitStep } from '../quick-wizard/steps/commits.js';
@@ -185,21 +185,21 @@ export class LogGitCommand extends QuickCommand<State> {
 			if (steps.isAtStepOrUnset(Steps.ShowCommit)) {
 				using step = steps.enterStep(Steps.ShowCommit);
 
-				let result: StepResult<ReturnType<typeof getSteps>>;
 				if (state.openPickInView) {
+					steps.markStepsComplete();
 					void showCommitInDetailsView(state.reference as GitCommit, { pin: false, preserveFocus: false });
-					result = StepResultBreak;
-				} else {
-					result = yield* getSteps(
-						this.container,
-						{
-							command: 'show',
-							state: { repo: state.repo, reference: state.reference, fileName: state.fileName },
-						},
-						context,
-						this.startedFrom,
-					);
+					break;
 				}
+
+				const result = yield* getSteps(
+					this.container,
+					{
+						command: 'show',
+						state: { repo: state.repo, reference: state.reference, fileName: state.fileName },
+					},
+					context,
+					this.startedFrom,
+				);
 				if (result === StepResultBreak) {
 					if (step.goBack() == null) break;
 					continue;

@@ -22,7 +22,6 @@ import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
 	StepGenerator,
-	StepResult,
 	StepResultGenerator,
 	StepsContext,
 	StepSelection,
@@ -291,19 +290,18 @@ export class SearchGitCommand extends QuickCommand<State> {
 			if (steps.isAtStepOrUnset(Steps.ShowCommit)) {
 				using step = steps.enterStep(Steps.ShowCommit);
 
-				let result: StepResult<ReturnType<typeof getSteps>>;
 				if (state.openPickInView) {
+					steps.markStepsComplete();
 					void showCommitInDetailsView(context.commit, { pin: false, preserveFocus: false });
-					result = StepResultBreak;
-				} else {
-					result = yield* getSteps(
-						this.container,
-						{ command: 'show', state: { repo: state.repo, reference: context.commit } },
-						context,
-						this.startedFrom,
-					);
+					break;
 				}
 
+				const result = yield* getSteps(
+					this.container,
+					{ command: 'show', state: { repo: state.repo, reference: context.commit } },
+					context,
+					this.startedFrom,
+				);
 				if (result === StepResultBreak) {
 					if (step.goBack() == null) break;
 					continue;
