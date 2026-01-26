@@ -92,7 +92,7 @@ export class GitLabApi implements Disposable {
 		return proxyAgent ?? undefined;
 	}
 
-	@debug<GitLabApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -161,7 +161,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getAccountForEmail(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -194,7 +194,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getDefaultBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -254,7 +254,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -374,7 +374,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -529,7 +529,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -578,7 +578,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['getPullRequest']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -666,7 +666,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getRepositoryMetadata(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -717,7 +717,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitLabApi['searchPullRequests']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async searchPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
