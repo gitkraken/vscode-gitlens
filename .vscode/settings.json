@@ -1,4 +1,5 @@
 {
+	"chat.useAgentsMdFile": true,
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": "explicit"
 	},
@@ -43,7 +44,7 @@
 	"search.exclude": {
 		"**/dist": true
 	},
+	"task.allowAutomaticTasks": "on",
 	"typescript.preferences.importModuleSpecifier": "project-relative",
-	"typescript.tsdk": "node_modules/typescript/lib",
-	"chat.useAgentsMdFile": true
+	"typescript.tsdk": "node_modules/typescript/lib"
 }
