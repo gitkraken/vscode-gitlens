@@ -9,6 +9,7 @@ import type { SigningFormat } from '../../../../git/models/signature.js';
 import { log } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
+import { getSettledValue } from '../../../../system/promise.js';
 import type { Git } from '../git.js';
 import { gitConfigsLog } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
@@ -198,19 +199,29 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			patch += '\n';
 		}
 
-		// Check if we should sign
-		const signingConfig = await this.provider.config.getSigningConfig?.(repoPath);
-		const shouldSign = options?.sign ?? signingConfig?.enabled ?? false;
-		const signingFormat: SigningFormat = signingConfig?.format ?? 'gpg';
+		let shouldSign = options?.sign;
+		let signingFormat: SigningFormat = 'gpg';
 
 		try {
-			// Apply the patch to our temp index, without touching the working directory
-			await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsLog, env: env, stdin: patch },
-				'apply',
-				'--cached',
-				'-',
-			);
+			const [signingConfigResult, applyResult] = await Promise.allSettled([
+				this.provider.config.getSigningConfig?.(repoPath),
+				// Apply the patch to our temp index, without touching the working directory
+				this.git.exec(
+					{ cwd: repoPath, configs: gitConfigsLog, env: env, stdin: patch },
+					'apply',
+					'--cached',
+					'-',
+				),
+			]);
+
+			if (applyResult.status === 'rejected') {
+				throw applyResult.reason;
+			}
+
+			// Check if we should sign
+			const signingConfig = getSettledValue(signingConfigResult);
+			shouldSign ??= signingConfig?.enabled ?? false;
+			signingFormat = signingConfig?.format ?? 'gpg';
 
 			// Create a new tree from our patched index
 			let result = await this.git.exec({ cwd: repoPath, env: env }, 'write-tree');
