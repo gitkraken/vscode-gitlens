@@ -38,8 +38,14 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 			return;
 		}
 
+		// Check if the git provider supports getSigningConfig
+		if (repository.git.config.getSigningConfig == null) {
+			void window.showErrorMessage('Commit signing is not supported by the current git provider.');
+			return;
+		}
+
 		// Check if signing is already configured
-		const signingConfig = await repository.git.config.getSigningConfig?.();
+		const signingConfig = await repository.git.config.getSigningConfig();
 		const alreadyConfigured = Boolean(signingConfig?.enabled && signingConfig?.signingKey);
 
 		// Send telemetry event
@@ -69,6 +75,13 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 
 	private async showSetupWizard(repository: ReturnType<typeof this.container.git.getRepository>): Promise<void> {
 		if (repository == null) return;
+
+		// Check if the git provider supports setSigningConfig
+		if (repository.git.config.setSigningConfig == null) {
+			void window.showErrorMessage('Commit signing is not supported by the current git provider.');
+			return;
+		}
+
 		// TODO: Implement full setup wizard UI
 		// For now, show a simple quick pick to choose signing format
 
@@ -166,8 +179,14 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 	private async testSigning(repository: ReturnType<typeof this.container.git.getRepository>): Promise<void> {
 		if (repository == null) return;
 
+		// Check if the git provider supports validateSigningSetup
+		if (repository.git.config.validateSigningSetup == null) {
+			void window.showErrorMessage('Commit signing is not supported by the current git provider.');
+			return;
+		}
+
 		// Validate signing setup
-		const validation = await repository.git.config.validateSigningSetup?.();
+		const validation = await repository.git.config.validateSigningSetup();
 
 		if (validation?.valid) {
 			void window.showInformationMessage('✓ Commit signing is configured correctly and ready to use.');
