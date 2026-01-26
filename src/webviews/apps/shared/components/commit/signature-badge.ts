@@ -1,10 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
+import { getSignatureState } from './signature-badge.utils.js';
 import '../code-icon.js';
 import '../overlays/tooltip.js';
-
-type SignatureState = 'trusted' | 'unknown' | 'untrusted';
 
 @customElement('gl-signature-badge')
 export class GlSignatureBadge extends LitElement {
@@ -128,68 +127,8 @@ export class GlSignatureBadge extends LitElement {
 	@property({ type: String })
 	committerEmail?: string;
 
-	private getSignatureState(): SignatureState {
-		if (this.signature == null) return 'unknown';
-
-		const { status, trustLevel, signer } = this.signature;
-
-		// Bad signatures are always untrusted
-		if (status === 'bad') {
-			return 'untrusted';
-		}
-
-		// Good status with ultimate or full trust requires email verification
-		if (status === 'good' && (trustLevel === 'ultimate' || trustLevel === 'full')) {
-			// Verify that the committer email matches the signer email for trusted status
-			const signerEmail = this.extractEmailFromSigner(signer);
-
-			if (signerEmail && this.committerEmail) {
-				// Case-insensitive email comparison
-				if (signerEmail.toLowerCase() === this.committerEmail.toLowerCase()) {
-					return 'trusted';
-				}
-			}
-
-			// Emails don't match or couldn't be verified - return unknown
-			return 'unknown';
-		}
-
-		// Everything else is unknown
-		return 'unknown';
-	}
-
-	/**
-	 * Extracts the email address from a signer identity string.
-	 * Handles formats:
-	 * - GPG: "Name <email@example.com>" -> "email@example.com"
-	 * - SSH: "email@example.com" -> "email@example.com"
-	 * - X.509: "/C=US/O=Org/CN=Name/EMail=email@example.com" -> "email@example.com"
-	 */
-	private extractEmailFromSigner(signer: string | undefined): string | undefined {
-		if (!signer) return undefined;
-
-		// X.509 Distinguished Name format: extract from /EMail= field
-		const x509Match = signer.match(/\/EMail=([^/]+)/i);
-		if (x509Match) {
-			return x509Match[1];
-		}
-
-		// GPG format: "Name <email@example.com>"
-		const angleMatch = signer.match(/<([^>]+)>/);
-		if (angleMatch) {
-			return angleMatch[1];
-		}
-
-		// SSH format: just an email address (contains @ and no spaces)
-		if (signer.includes('@') && !signer.includes(' ')) {
-			return signer;
-		}
-
-		return undefined;
-	}
-
 	private getIcon(): string {
-		const state = this.getSignatureState();
+		const state = getSignatureState(this.signature, this.committerEmail);
 		switch (state) {
 			case 'trusted':
 				return 'workspace-trusted';
@@ -204,7 +143,7 @@ export class GlSignatureBadge extends LitElement {
 	private getStatusText(): string {
 		if (this.signature == null) return 'Unknown';
 
-		const state = this.getSignatureState();
+		const state = getSignatureState(this.signature, this.committerEmail);
 		switch (state) {
 			case 'trusted':
 				return 'Signature is valid and trusted';
@@ -235,7 +174,7 @@ export class GlSignatureBadge extends LitElement {
 	override render() {
 		if (this.signature == null) return nothing;
 
-		const state = this.getSignatureState();
+		const state = getSignatureState(this.signature, this.committerEmail);
 		const icon = this.getIcon();
 
 		return html`
