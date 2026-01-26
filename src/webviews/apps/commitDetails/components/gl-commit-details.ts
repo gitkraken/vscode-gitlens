@@ -246,9 +246,9 @@ export class GlCommitDetails extends GlDetailsBase {
 									() =>
 										html`<gl-signature-badge
 											.signature="${this._enriched?.signature}"
-											.committerName="${details.author.name}"
-											.committerEmail="${details.author.email}"
-											.committerAvatar="${details.author.avatar}"
+											.authorName="${details.author.name}"
+											.authorEmail="${details.author.email}"
+											.authorAvatar="${details.author.avatar}"
 										></gl-signature-badge>`,
 								)}
 							</div>

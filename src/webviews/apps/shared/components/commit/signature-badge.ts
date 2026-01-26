@@ -39,20 +39,20 @@ export class GlSignatureBadge extends LitElement {
 			padding: var(--sl-tooltip-padding);
 		}
 
-		.committer-info {
+		.author-info {
 			display: flex;
 			gap: 0.625rem;
 			align-items: center;
 		}
 
-		.committer-avatar {
+		.author-avatar {
 			width: 32px;
 			height: 32px;
 			border-radius: 8px;
 			flex-shrink: 0;
 		}
 
-		.committer-details {
+		.author-details {
 			display: flex;
 			flex-direction: column;
 			gap: 0;
@@ -61,7 +61,7 @@ export class GlSignatureBadge extends LitElement {
 			line-height: normal;
 		}
 
-		.committer-name {
+		.author-name {
 			font-weight: 500;
 			overflow: hidden;
 			text-overflow: ellipsis;
@@ -69,7 +69,7 @@ export class GlSignatureBadge extends LitElement {
 			color: var(--vscode-foreground);
 		}
 
-		.committer-email {
+		.author-email {
 			font-weight: 400;
 			color: var(--vscode-descriptionForeground);
 			overflow: hidden;
@@ -117,13 +117,13 @@ export class GlSignatureBadge extends LitElement {
 	signature?: CommitSignatureShape;
 
 	@property({ type: String })
-	committerName?: string;
+	authorName?: string;
 
 	@property({ type: String })
-	committerEmail?: string;
+	authorEmail?: string;
 
 	@property({ type: String })
-	committerAvatar?: string;
+	authorAvatar?: string;
 
 	private getSignatureState(): SignatureState {
 		if (this.signature == null) return 'unknown';
@@ -200,20 +200,20 @@ export class GlSignatureBadge extends LitElement {
 					<code-icon icon="${icon}"></code-icon>
 				</span>
 				<div slot="content" class="tooltip-content">
-					${this.committerName
+					${this.authorName
 						? html`
-								<div class="committer-info">
-									${this.committerAvatar
+								<div class="author-info">
+									${this.authorAvatar
 										? html`<img
-												class="committer-avatar"
-												src="${this.committerAvatar}"
-												alt="${this.committerName}"
+												class="author-avatar"
+												src="${this.authorAvatar}"
+												alt="${this.authorName}"
 											/>`
 										: nothing}
-									<div class="committer-details">
-										<div class="committer-name">${this.committerName}</div>
-										${this.committerEmail
-											? html`<div class="committer-email">${this.committerEmail}</div>`
+									<div class="author-details">
+										<div class="author-name">${this.authorName}</div>
+										${this.authorEmail
+											? html`<div class="author-email">${this.authorEmail}</div>`
 											: nothing}
 									</div>
 								</div>
