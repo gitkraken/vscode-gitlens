@@ -136,6 +136,7 @@ type InternalGlCommands =
 	| 'gitlens.openWorkingFile:command'
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
+	| 'gitlens.sendToChat'
 	| 'gitlens.showComposerPage'
 	| 'gitlens.showInCommitGraphView'
 	| 'gitlens.showQuickCommitDetails'
@@ -166,9 +167,18 @@ export type GlCommands = ContributedCommands | InternalGlCommands; // | GlComman
 export type GlExtensionCommands = Exclude<GlCommands, GlWebviewCommands>;
 export type GlPaletteCommands = ContributedPaletteCommands;
 
+export type VendorChatCommands =
+	| 'composer.newAgentChat'
+	| 'kiroAgent.focusContinueInputWithoutClear'
+	| 'kiroAgent.newSession'
+	| 'windsurf.prioritized.chat.openNewConversation'
+	| 'workbench.action.icube.aiChatSidebar.createNewSession';
+
 export type CoreCommands =
 	| '_open.mergeEditor'
+	| 'composer.newAgentChat'
 	| 'cursorMove'
+	| 'editor.action.clipboardPasteAction'
 	| 'editor.action.showHover'
 	| 'editor.action.showReferences'
 	| 'editor.action.webvieweditor.showFind'
@@ -190,6 +200,7 @@ export type CoreCommands =
 	| 'vscode.executeDocumentSymbolProvider'
 	| 'vscode.moveViews'
 	| 'vscode.previewHtml'
+	| 'workbench.action.chat.open'
 	| 'workbench.action.closeActiveEditor'
 	| 'workbench.action.closeAllEditors'
 	| 'workbench.action.closePanel'
@@ -211,6 +222,7 @@ export type CoreCommands =
 	| 'workbench.view.explorer'
 	| 'workbench.view.extension.gitlensInspect'
 	| 'workbench.view.scm'
+	| VendorChatCommands
 	| `${ViewContainerIds | CoreViewContainerIds}.resetViewContainerLocation`
 	| `${ViewIds}.${'focus' | 'open' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
 

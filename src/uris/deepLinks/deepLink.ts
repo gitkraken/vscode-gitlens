@@ -1,5 +1,7 @@
 import type { Uri } from 'vscode';
 import type { GlCommands } from '../../constants.commands.js';
+import type { IssueShape } from '../../git/models/issue.js';
+import type { PullRequestShape } from '../../git/models/pullRequest.js';
 import type { GitReference } from '../../git/models/reference.js';
 import type { GitRemote } from '../../git/models/remote.js';
 import type { Repository } from '../../git/models/repository.js';
@@ -29,6 +31,8 @@ export enum DeepLinkCommandType {
 	Launchpad = 'launchpad',
 	Login = 'login',
 	SignUp = 'signup',
+	StartReview = 'start-review',
+	StartWork = 'start-work',
 	Walkthrough = 'walkthrough',
 	Worktrees = 'worktrees',
 }
@@ -45,6 +49,7 @@ export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, GlComma
 	[DeepLinkCommandType.Launchpad, 'gitlens.showLaunchpad'],
 	[DeepLinkCommandType.Login, 'gitlens.plus.login'],
 	[DeepLinkCommandType.SignUp, 'gitlens.plus.signUp'],
+	// StartReview and StartWork are handled specially in DeepLinkService
 	[DeepLinkCommandType.Walkthrough, 'gitlens.getStarted'],
 	[DeepLinkCommandType.Worktrees, 'gitlens.showWorktreesView'],
 	[DeepLinkCommandType.InstallMCP, 'gitlens.ai.mcp.install'],
@@ -264,6 +269,8 @@ export const enum DeepLinkServiceState {
 	OpenAllPrChanges,
 	DeleteBranch,
 	ConnectCloudIntegrations,
+	StartReview,
+	StartWork,
 }
 
 export const enum DeepLinkServiceAction {
@@ -299,6 +306,8 @@ export const enum DeepLinkServiceAction {
 	OpenSwitch,
 	OpenAllPrChanges,
 	DeleteBranch,
+	StartReview,
+	StartWork,
 }
 
 export type DeepLinkRepoOpenType = 'clone' | 'folder' | 'workspace' | 'current';
@@ -324,6 +333,8 @@ export interface DeepLinkServiceContext {
 	repoOpenUri?: Uri | undefined;
 	params?: URLSearchParams | undefined;
 	currentBranch?: string | undefined;
+	prData?: PullRequestShape | undefined;
+	issueData?: IssueShape | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
@@ -468,6 +479,8 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.StartReview]: DeepLinkServiceState.StartReview,
+		[DeepLinkServiceAction.StartWork]: DeepLinkServiceState.StartWork,
 	},
 	[DeepLinkServiceState.DeleteBranch]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
@@ -475,6 +488,18 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.ConnectCloudIntegrations]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.StartReview]: {
+		[DeepLinkServiceAction.StartReview]: DeepLinkServiceState.StartReview,
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.StartWork]: {
+		[DeepLinkServiceAction.StartWork]: DeepLinkServiceState.StartWork,
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
@@ -513,4 +538,6 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.OpenAllPrChanges]: { message: 'Opening all PR changes...', increment: 90 },
 	[DeepLinkServiceState.DeleteBranch]: { message: 'Deleting branch...', increment: 90 },
 	[DeepLinkServiceState.ConnectCloudIntegrations]: { message: 'Connecting cloud integrations...', increment: 90 },
+	[DeepLinkServiceState.StartReview]: { message: 'Starting review...', increment: 90 },
+	[DeepLinkServiceState.StartWork]: { message: 'Starting work...', increment: 90 },
 };

@@ -63,6 +63,7 @@ import './commands/repositories.js';
 import './commands/resets.js';
 import './commands/resetViewsLayout.js';
 import './commands/searchCommits.js';
+import './commands/sendToChat.js';
 import './commands/showCommitsInView.js';
 import './commands/showLastQuickPick.js';
 import './commands/openOnlyChangedFiles.js';

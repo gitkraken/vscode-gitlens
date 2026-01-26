@@ -128,11 +128,14 @@ export class DeepLinkService implements Disposable {
 			secondaryRemoteUrl: undefined,
 			targetType: undefined,
 			targetSha: undefined,
+			secondaryTargetSha: undefined,
 			action: undefined,
 			repoOpenLocation: undefined,
 			repoOpenUri: undefined,
 			params: undefined,
 			currentBranch: undefined,
+			prData: undefined,
+			issueData: undefined,
 		};
 	}
 
@@ -236,6 +239,10 @@ export class DeepLinkService implements Disposable {
 
 				return DeepLinkServiceAction.DeepLinkErrored;
 			}
+			case DeepLinkServiceState.StartReview:
+				return DeepLinkServiceAction.StartReview;
+			case DeepLinkServiceState.StartWork:
+				return DeepLinkServiceAction.StartWork;
 			default:
 				return DeepLinkServiceAction.DeepLinkErrored;
 		}
@@ -316,6 +323,8 @@ export class DeepLinkService implements Disposable {
 		this._context.targetSha = pendingDeepLink.targetSha;
 		this._context.secondaryTargetSha = pendingDeepLink.secondaryTargetSha;
 		this._context.repoPath = pendingDeepLink.repoPath;
+		this._context.prData = pendingDeepLink.prData != null ? JSON.parse(pendingDeepLink.prData) : undefined;
+		this._context.issueData = pendingDeepLink.issueData != null ? JSON.parse(pendingDeepLink.issueData) : undefined;
 
 		if (this.container.git.isDiscoveringRepositories) {
 			await this.container.git.isDiscoveringRepositories;
@@ -1537,6 +1546,17 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
+					// Handle special command types that need custom processing
+					if (mainId === DeepLinkCommandType.StartReview) {
+						action = DeepLinkServiceAction.StartReview;
+						break;
+					}
+
+					if (mainId === DeepLinkCommandType.StartWork) {
+						action = DeepLinkServiceAction.StartWork;
+						break;
+					}
+
 					const command = DeepLinkCommandTypeToCommand.get(mainId);
 					if (command == null) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
@@ -1609,6 +1629,46 @@ export class DeepLinkService implements Disposable {
 						source != null ? { source: 'deeplink', detail: source } : { source: 'deeplink' },
 					);
 					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+				}
+				case DeepLinkServiceState.StartReview: {
+					// Get PR data from context
+					const pr = this._context.prData;
+					if (!pr) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Missing PR data.';
+						break;
+					}
+
+					try {
+						const { startReviewInChat } =
+							await import('../../plus/launchpad/utils/-webview/startReview.utils.js');
+						await startReviewInChat(this.container, pr);
+						action = DeepLinkServiceAction.DeepLinkResolved;
+					} catch (ex) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = `Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`;
+					}
+					break;
+				}
+				case DeepLinkServiceState.StartWork: {
+					// Get issue data from context
+					const issue = this._context.issueData;
+					if (!issue) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Missing issue data.';
+						break;
+					}
+
+					try {
+						const { startWorkInChat } =
+							await import('../../plus/startWork/utils/-webview/startWork.utils.js');
+						await startWorkInChat(this.container, issue);
+						action = DeepLinkServiceAction.DeepLinkResolved;
+					} catch (ex) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = `Failed to start work: ${ex instanceof Error ? ex.message : String(ex)}`;
+					}
 					break;
 				}
 

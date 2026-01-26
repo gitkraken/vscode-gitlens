@@ -72,6 +72,18 @@ interface GenerateCommitsPromptTemplateContext {
 	instructions?: string;
 }
 
+interface ReviewPullRequestPromptTemplateContext {
+	prData: string;
+	instructions?: string;
+	mcpTools?: string;
+}
+
+interface StartWorkIssuePromptTemplateContext {
+	issue: string;
+	instructions?: string;
+	mcpTools?: string;
+}
+
 export type PromptTemplateType =
 	| 'generate-commitMessage'
 	| 'generate-stashMessage'
@@ -79,7 +91,9 @@ export type PromptTemplateType =
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
 	| 'generate-commits'
 	| 'generate-searchQuery'
-	| 'explain-changes';
+	| 'explain-changes'
+	| 'start-review-pullRequest'
+	| 'start-work-issue';
 
 type PromptTemplateVersions = '' | '_v2';
 
@@ -102,4 +116,8 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? SearchQueryPromptTemplateContext
 	: T extends 'explain-changes'
 	? ExplainChangesPromptTemplateContext
+	: T extends 'start-review-pullRequest'
+	? ReviewPullRequestPromptTemplateContext
+	: T extends 'start-work-issue'
+	? StartWorkIssuePromptTemplateContext
 	: never;

@@ -1,17 +1,22 @@
-import { Uri } from 'vscode';
+import { env, Uri } from 'vscode';
+import type { SendToChatCommandArgs } from '../../../../commands/sendToChat.js';
 import type { Container } from '../../../../container.js';
 import { WorktreeCreateError } from '../../../../git/errors.js';
 import type { GitBranch } from '../../../../git/models/branch.js';
-import type { PullRequest } from '../../../../git/models/pullRequest.js';
+import type { PullRequest, PullRequestShape } from '../../../../git/models/pullRequest.js';
 import type { GitBranchReference } from '../../../../git/models/reference.js';
 import type { Repository } from '../../../../git/models/repository.js';
 import type { GitWorktree } from '../../../../git/models/worktree.js';
 import { parseGitRemoteUrl } from '../../../../git/parsers/remoteParser.js';
 import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils.js';
 import { getWorktreeForBranch } from '../../../../git/utils/-webview/worktree.utils.js';
-import { getRepositoryIdentityForPullRequest } from '../../../../git/utils/pullRequest.utils.js';
+import { getRepositoryIdentityForPullRequest, serializePullRequest } from '../../../../git/utils/pullRequest.utils.js';
 import { createReference } from '../../../../git/utils/reference.utils.js';
+import { executeCommand } from '../../../../system/-webview/command.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
 import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js';
+import type { UriTypes } from '../../../../uris/deepLinks/deepLink.js';
+import { DeepLinkCommandType, DeepLinkServiceState, DeepLinkType } from '../../../../uris/deepLinks/deepLink.js';
 
 export async function startReviewFromPullRequest(
 	container: Container,
@@ -59,8 +64,10 @@ export async function startReviewFromPullRequest(
 	// Step 4: Check if worktree already exists
 	const existingWorktree = await getWorktreeForBranch(repo, localBranchName, remoteBranchName);
 	if (existingWorktree != null) {
-		// Worktree already exists, just open it
+		// Worktree already exists, store deeplink and open it
+		await storeStartReviewDeepLink(container, pr, existingWorktree.uri.fsPath);
 		openWorkspace(existingWorktree.uri, { location: 'newWindow' });
+		// openWorkspace(existingWorktree.uri);
 
 		const worktreeBranch = await getBranchFromWorktree(container, existingWorktree, localBranchName);
 		return { worktree: existingWorktree, branch: worktreeBranch, pr: pr };
@@ -69,8 +76,10 @@ export async function startReviewFromPullRequest(
 	// Step 5: Create new worktree
 	const worktree = await createPullRequestWorktree(repo, localBranchName, branchRef, createBranch, addRemote);
 
-	// Step 6: Open worktree in new window
+	// Step 6: Store deeplink and open worktree in new window
+	await storeStartReviewDeepLink(container, pr, worktree.uri.fsPath);
 	openWorkspace(worktree.uri, { location: 'newWindow' });
+	// openWorkspace(worktree.uri);
 
 	// Step 7: Get branch from worktree
 	const worktreeBranch = await getBranchFromWorktree(container, worktree, localBranchName);
@@ -224,4 +233,36 @@ async function getBranchFromWorktree(
 	}
 
 	return worktreeBranch;
+}
+
+export async function startReviewInChat(container: Container, pr: PullRequestShape): Promise<void> {
+	const { prompt } = await container.ai.getPrompt('start-review-pullRequest', undefined, {
+		prData: JSON.stringify(pr),
+	});
+
+	return executeCommand('gitlens.sendToChat', {
+		query: prompt,
+		execute: true,
+	} as SendToChatCommandArgs) as Promise<void>;
+}
+
+async function storeStartReviewDeepLink(container: Container, pr: PullRequest, repoPath: string): Promise<void> {
+	const schemeOverride = configuration.get('deepLinks.schemeOverride');
+	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+
+	const deepLinkUrl = new URL(
+		`${scheme}://${container.context.extension.id}/${'link' satisfies UriTypes}/${
+			DeepLinkType.Command
+		}/${DeepLinkCommandType.StartReview}`,
+	);
+
+	await container.storage.storeSecret(
+		'deepLinks:pending',
+		JSON.stringify({
+			url: deepLinkUrl.toString(),
+			repoPath: repoPath,
+			prData: JSON.stringify(serializePullRequest(pr)),
+			state: DeepLinkServiceState.StartReview,
+		}),
+	);
 }
