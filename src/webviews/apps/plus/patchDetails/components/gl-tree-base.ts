@@ -107,7 +107,7 @@ export class GlTreeBase extends GlElement {
 
 		let model: TreeModel;
 		if (item.value == null) {
-			model = this.folderToTreeModel(item.name, options);
+			model = this.folderToTreeModel(item.name, item.relativePath, options);
 		} else {
 			model = this.fileToTreeModel(item.value, options);
 		}
@@ -128,11 +128,11 @@ export class GlTreeBase extends GlElement {
 		return model;
 	}
 
-	protected folderToTreeModel(name: string, options?: Partial<TreeItemBase>): TreeModel {
+	protected folderToTreeModel(name: string, relativePath: string, options?: Partial<TreeItemBase>): TreeModel {
 		return {
 			branch: false,
 			expanded: true,
-			path: name,
+			path: relativePath,
 			level: 1,
 			checkable: false,
 			checked: false,
