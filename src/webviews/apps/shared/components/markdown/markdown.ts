@@ -215,11 +215,31 @@ function getInlineMarkdownRenderer(): RendererObject {
 	};
 
 	return {
+		// Block-level elements that need special handling in inline mode
+		blockquote: function (this: RendererThis, { tokens }: Tokens.Blockquote): string {
+			// In inline mode, render blockquote content without block formatting
+			const text = this.parser.parse(tokens);
+			return text;
+		},
+		code: function (this: RendererThis, { text }: Tokens.Code): string {
+			// In inline mode, wrap in code tag but without pre block formatting
+			return `<code>${escape(text, true)}</code>`;
+		},
+		heading: function (this: RendererThis, { tokens }: Tokens.Heading): string {
+			// In inline mode, disable heading styles to prevent text starting with '#' (e.g. commit messages)
+			// from being rendered as large headings that cause visual overlap. Just return the plain text.
+			const text = this.parser.parseInline(tokens);
+			return text;
+		},
+		hr: function (): string {
+			// In inline mode, skip horizontal rules
+			return '';
+		},
 		image: function (this: RendererThis, { text }: Tokens.Image): string {
 			// In inline mode, use alt text if available, otherwise skip
 			return text || '';
 		},
-		paragraph: function (this: RendererThis, { tokens }: Tokens.Paragraph): string {
+		link: function (this: RendererThis, { tokens }: Tokens.Link): string | false {
 			const text = this.parser.parseInline(tokens);
 			return text;
 		},
@@ -234,15 +254,15 @@ function getInlineMarkdownRenderer(): RendererObject {
 			return body;
 		},
 		listitem: renderListItem,
-		link: function (this: RendererThis, { tokens }: Tokens.Link): string | false {
+		paragraph: function (this: RendererThis, { tokens }: Tokens.Paragraph): string {
 			const text = this.parser.parseInline(tokens);
 			return text;
 		},
-		code: function (this: RendererThis, { text }: Tokens.Code): string {
-			// In inline mode, wrap in code tag but without pre block formatting
-			return `<code>${escape(text, true)}</code>`;
+		table: function (): string {
+			// In inline mode, skip tables entirely as they don't make sense in inline context
+			return '';
 		},
-
+		// Inline-level elements
 		br: function (): string {
 			// In inline mode, render as a space instead of line break
 			return ' ';
