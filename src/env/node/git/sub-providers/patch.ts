@@ -198,19 +198,25 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			patch += '\n';
 		}
 
-		// Check if we should sign
-		const signingConfig = await this.provider.config.getSigningConfig?.(repoPath);
-		const shouldSign = options?.sign ?? signingConfig?.enabled ?? false;
-		const signingFormat: SigningFormat = signingConfig?.format ?? 'gpg';
-
+		let shouldSign = false;
+		let signingFormat: SigningFormat = 'gpg';
 		try {
-			// Apply the patch to our temp index, without touching the working directory
-			await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsLog, env: env, stdin: patch },
-				'apply',
-				'--cached',
-				'-',
-			);
+			// Check if we should sign and apply the patch in parallel
+			const [signingConfig] = await Promise.all([
+				this.provider.config.getSigningConfig?.(repoPath),
+				// Apply the patch to our temp index, without touching the working directory
+				this.git.exec(
+					{ cwd: repoPath, configs: gitConfigsLog, env: env, stdin: patch },
+					'apply',
+					'--cached',
+					'-',
+				),
+			]);
+
+			shouldSign = options?.sign ?? signingConfig?.enabled ?? false;
+			if (signingConfig?.format) {
+				signingFormat = signingConfig.format;
+			}
 
 			// Create a new tree from our patched index
 			let result = await this.git.exec({ cwd: repoPath, env: env }, 'write-tree');
