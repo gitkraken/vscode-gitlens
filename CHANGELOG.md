@@ -36,7 +36,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Shows additional info in Authentication errors to help us investigate issues ([#4880](https://github.com/gitkraken/vscode-gitlens/issues/4880))
+- Shows additional info in Authentication errors and in debug logs to help us investigate issues ([#4880](https://github.com/gitkraken/vscode-gitlens/issues/4880))
 
 ## [17.9.0] - 2026-01-13
 

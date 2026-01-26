@@ -80,7 +80,7 @@ export class AzureDevOpsApi implements Disposable {
 		this._workItemStates.clear();
 	}
 
-	@debug<AzureDevOpsApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<AzureDevOpsApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	public async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -134,7 +134,7 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
-	@debug<AzureDevOpsApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<AzureDevOpsApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -191,7 +191,7 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
-	@debug<AzureDevOpsApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<AzureDevOpsApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	public async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -293,7 +293,7 @@ export class AzureDevOpsApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<AzureDevOpsApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<AzureDevOpsApi['getIssue']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	public async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -342,7 +342,7 @@ export class AzureDevOpsApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<AzureDevOpsApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<AzureDevOpsApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -392,7 +392,7 @@ export class AzureDevOpsApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<AzureDevOpsApi['getCurrentUserOnServer']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<AzureDevOpsApi['getCurrentUserOnServer']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getCurrentUserOnServer(
 		provider: Provider,
 		token: TokenWithInfo,

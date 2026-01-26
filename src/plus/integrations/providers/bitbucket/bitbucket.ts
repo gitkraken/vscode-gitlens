@@ -73,7 +73,7 @@ export class BitbucketApi implements Disposable {
 		this._proxyAgent = null;
 	}
 
-	@debug<BitbucketApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	public async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -106,7 +106,7 @@ export class BitbucketApi implements Disposable {
 		return fromBitbucketPullRequest(response.values[0], provider);
 	}
 
-	@debug<BitbucketApi['getServerPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getServerPullRequestForBranch']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	public async getServerPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -142,7 +142,7 @@ export class BitbucketApi implements Disposable {
 		return gitlensPr;
 	}
 
-	@debug<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getUsersIssuesForRepo(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -176,7 +176,7 @@ export class BitbucketApi implements Disposable {
 		return response.values.map(issue => fromBitbucketIssue(issue, provider));
 	}
 
-	@debug<BitbucketApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getIssue']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -209,7 +209,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	public async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -283,7 +283,7 @@ export class BitbucketApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<BitbucketApi['getServerPullRequestById']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getServerPullRequestById']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	public async getServerPullRequestById(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -321,7 +321,7 @@ export class BitbucketApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getRepositoriesForWorkspace(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -376,7 +376,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getServerPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getServerPullRequestForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getServerPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -417,7 +417,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -476,7 +476,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -533,7 +533,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getServerAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<BitbucketApi['getServerAccountForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getServerAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
