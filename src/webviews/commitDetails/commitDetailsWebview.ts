@@ -1702,12 +1702,12 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						configuration.get('views.commitDetails.pullRequests.enabled')
 							? commit.getAssociatedPullRequest(remote as GitRemote<RemoteProvider>)
 							: undefined,
-						commit.getSignature(),
+						configuration.get('signing.showSignatureBadges') ? commit.getSignature() : undefined,
 					])
 				: await Promise.allSettled([
 						Promise.resolve(undefined),
 						Promise.resolve(undefined),
-						commit.getSignature(),
+						configuration.get('signing.showSignatureBadges') ? commit.getSignature() : undefined,
 					]);
 
 		const enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;

@@ -269,28 +269,24 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		config: Partial<SigningConfig>,
 		options?: { global?: boolean },
 	): Promise<void> {
-		const updates: Promise<void>[] = [];
-
-		if (config.enabled !== undefined) {
-			updates.push(this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false', options));
+		if (config.enabled != null) {
+			await this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false', options);
 		}
-		if (config.format !== undefined) {
-			updates.push(this.setConfig(repoPath, 'gpg.format', config.format, options));
+		if (config.format != null) {
+			await this.setConfig(repoPath, 'gpg.format', config.format, options);
 		}
-		if (config.signingKey !== undefined) {
-			updates.push(this.setConfig(repoPath, 'user.signingkey', config.signingKey, options));
+		if (config.signingKey != null) {
+			await this.setConfig(repoPath, 'user.signingkey', config.signingKey, options);
 		}
-		if (config.gpgProgram !== undefined) {
-			updates.push(this.setConfig(repoPath, 'gpg.program', config.gpgProgram, options));
+		if (config.gpgProgram != null) {
+			await this.setConfig(repoPath, 'gpg.program', config.gpgProgram, options);
 		}
-		if (config.sshProgram !== undefined) {
-			updates.push(this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram, options));
+		if (config.sshProgram != null) {
+			await this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram, options);
 		}
-		if (config.allowedSignersFile !== undefined) {
-			updates.push(this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile, options));
+		if (config.allowedSignersFile != null) {
+			await this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile, options);
 		}
-
-		await Promise.all(updates);
 	}
 
 	getSigningConfigFlags(config: SigningConfig): string[] {
