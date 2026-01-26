@@ -20,15 +20,15 @@ export class GlSignatureBadge extends LitElement {
 		}
 
 		.badge--trusted {
-			color: var(--vscode-testing-iconPassed, #73c991);
+			color: var(--vscode-charts-green);
 		}
 
 		.badge--unknown {
-			color: var(--vscode-editorWarning-foreground, #cca700);
+			color: var(--color-foreground--65);
 		}
 
 		.badge--untrusted {
-			color: var(--vscode-testing-iconFailed, #f14c4c);
+			color: var(--vscode-charts-red);
 		}
 
 		.tooltip-content {

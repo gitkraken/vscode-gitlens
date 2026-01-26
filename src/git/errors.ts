@@ -797,13 +797,7 @@ export class WorktreeDeleteError extends GitCommandError<WorktreeDeleteErrorDeta
 	}
 }
 
-export const enum SigningErrorReason {
-	NoKey,
-	GpgNotFound,
-	SshNotFound,
-	PassphraseFailed,
-	Unknown,
-}
+export type SigningErrorReason = 'noKey' | 'gpgNotFound' | 'sshNotFound' | 'passphraseFailed' | 'unknown';
 
 export class SigningError extends Error {
 	static is(ex: unknown, reason?: SigningErrorReason): ex is SigningError {
@@ -827,16 +821,16 @@ export class SigningError extends Error {
 		} else {
 			reason = messageOrReason;
 			switch (reason) {
-				case SigningErrorReason.NoKey:
+				case 'noKey':
 					message = 'Unable to sign commit because no signing key is configured';
 					break;
-				case SigningErrorReason.GpgNotFound:
+				case 'gpgNotFound':
 					message = 'Unable to sign commit because GPG program was not found';
 					break;
-				case SigningErrorReason.SshNotFound:
+				case 'sshNotFound':
 					message = 'Unable to sign commit because SSH program was not found';
 					break;
-				case SigningErrorReason.PassphraseFailed:
+				case 'passphraseFailed':
 					message = 'Unable to sign commit because GPG passphrase failed or was cancelled';
 					break;
 				default:
