@@ -4,7 +4,7 @@ import { Uri } from 'vscode';
 import { isLinux } from '../../env/node/platform.js';
 import { normalizeRepoUri } from '../../repositories.js';
 import type { UriEntry } from '../trie.js';
-import { PathEntryTrie, UriEntryTrie, UriTrie } from '../trie.js';
+import { PathEntryTrie, UriEntryTrie, UriTrie, VisitedPathsTrie } from '../trie.js';
 import paths from './__mock__/paths.json';
 
 suite.skip('PathEntryTrie Test Suite', () => {
@@ -1100,5 +1100,134 @@ suite.skip('UriTrie(Repositories) Test Suite', () => {
 	test('getDescendants', () => {
 		const descendants = [...trie.getDescendants()];
 		assert.strictEqual(descendants.length, 4);
+	});
+});
+
+suite('VisitedPathsTrie Test Suite', () => {
+	suite('with root marker (repo found)', () => {
+		let trie: VisitedPathsTrie;
+
+		setup(() => {
+			trie = new VisitedPathsTrie();
+			// Simulate: searched /code/foo/bar/baz/file.ts, found repo at /code/foo
+			trie.set('/code/foo/bar/baz/file.ts', '/code/foo');
+		});
+
+		test('has: exact path returns true', () => {
+			assert.strictEqual(trie.has('/code/foo/bar/baz/file.ts'), true);
+		});
+
+		test('has: path on same branch returns true', () => {
+			assert.strictEqual(trie.has('/code/foo/bar/baz'), true);
+			assert.strictEqual(trie.has('/code/foo/bar'), true);
+			assert.strictEqual(trie.has('/code/foo'), true);
+		});
+
+		test('has: path above root returns false', () => {
+			assert.strictEqual(trie.has('/code'), false);
+		});
+
+		test('has: diverging path returns false', () => {
+			assert.strictEqual(trie.has('/code/foo/sibling'), false);
+			assert.strictEqual(trie.has('/code/other'), false);
+		});
+
+		test('hasParent: file in same directory returns true', () => {
+			assert.strictEqual(trie.hasParent('/code/foo/bar/baz/other.ts'), true);
+		});
+
+		test('hasParent: file in ancestor directory returns true', () => {
+			assert.strictEqual(trie.hasParent('/code/foo/bar/other.ts'), true);
+			assert.strictEqual(trie.hasParent('/code/foo/other.ts'), true);
+		});
+
+		test('hasParent: file in sibling directory returns false', () => {
+			assert.strictEqual(trie.hasParent('/code/foo/sibling/file.ts'), false);
+			assert.strictEqual(trie.hasParent('/code/foo/bar/sibling/file.ts'), false);
+		});
+
+		test('hasParent: file above root returns false', () => {
+			assert.strictEqual(trie.hasParent('/code/other.ts'), false);
+		});
+
+		test('hasParent: completely different path returns false', () => {
+			assert.strictEqual(trie.hasParent('/other/path/file.ts'), false);
+		});
+	});
+
+	suite('without root marker (no repo found)', () => {
+		let trie: VisitedPathsTrie;
+
+		setup(() => {
+			trie = new VisitedPathsTrie();
+			// Simulate: searched /outside/deep/file.ts, found no repo
+			trie.set('/outside/deep/file.ts', undefined);
+		});
+
+		test('has: exact path returns false (no root marker)', () => {
+			// The path exists but has no root marker, so has() returns false
+			// unless there are leaf children at the final node
+			assert.strictEqual(trie.has('/outside/deep/file.ts'), false);
+		});
+
+		test('hasParent: file in same directory returns true (leaf child exists)', () => {
+			// /outside/deep has a leaf child (file.ts), so we know we searched here
+			assert.strictEqual(trie.hasParent('/outside/deep/other.ts'), true);
+		});
+
+		test('hasParent: file in different directory returns false', () => {
+			assert.strictEqual(trie.hasParent('/outside/other/file.ts'), false);
+			assert.strictEqual(trie.hasParent('/outside/deep/nested/file.ts'), false);
+		});
+	});
+
+	suite('multiple paths', () => {
+		let trie: VisitedPathsTrie;
+
+		setup(() => {
+			trie = new VisitedPathsTrie();
+			// Two files in same repo
+			trie.set('/code/foo/bar/file1.ts', '/code/foo');
+			trie.set('/code/foo/other/file2.ts', '/code/foo');
+		});
+
+		test('hasParent: both branches covered', () => {
+			assert.strictEqual(trie.hasParent('/code/foo/bar/new.ts'), true);
+			assert.strictEqual(trie.hasParent('/code/foo/other/new.ts'), true);
+		});
+
+		test('hasParent: uncovered sibling returns false', () => {
+			assert.strictEqual(trie.hasParent('/code/foo/uncovered/file.ts'), false);
+		});
+	});
+
+	suite('deeply nested repo', () => {
+		let trie: VisitedPathsTrie;
+
+		setup(() => {
+			trie = new VisitedPathsTrie();
+			// Repo is at the deepest level
+			trie.set('/code/foo/bar/baz/file.ts', '/code/foo/bar/baz');
+		});
+
+		test('hasParent: file in repo directory returns true', () => {
+			assert.strictEqual(trie.hasParent('/code/foo/bar/baz/other.ts'), true);
+		});
+
+		test('hasParent: file above repo returns false', () => {
+			assert.strictEqual(trie.hasParent('/code/foo/bar/other.ts'), false);
+			assert.strictEqual(trie.hasParent('/code/foo/other.ts'), false);
+		});
+	});
+
+	suite('clear', () => {
+		test('clear removes all entries', () => {
+			const trie = new VisitedPathsTrie();
+			trie.set('/code/foo/file.ts', '/code/foo');
+			assert.strictEqual(trie.hasParent('/code/foo/other.ts'), true);
+
+			trie.clear();
+			assert.strictEqual(trie.hasParent('/code/foo/other.ts'), false);
+		});
 	});
 });

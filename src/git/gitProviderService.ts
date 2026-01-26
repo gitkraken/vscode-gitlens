@@ -1607,7 +1607,7 @@ export class GitProviderService implements Disposable {
 					const { provider } = this.getProvider(uri);
 					const repoUri = await provider.findRepositoryUri(uri, isDirectory);
 
-					this._searchedRepositoryPaths.set(path);
+					this._searchedRepositoryPaths.set(path, repoUri != null ? getBestPath(repoUri) : undefined);
 
 					if (repoUri == null) return undefined;
 

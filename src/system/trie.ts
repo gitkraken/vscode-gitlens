@@ -575,6 +575,7 @@ function disposeValue(obj: unknown): void {
 
 class VisitedPathNode {
 	children: Map<string, VisitedPathNode> | undefined;
+	root: boolean = false;
 
 	constructor(public readonly path: string) {}
 }
@@ -646,15 +647,35 @@ export class VisitedPathsTrie {
 		ignoreCase = ignoreCase ?? !isLinux;
 
 		let node: VisitedPathNode | undefined;
+		let foundRoot = false;
 
 		for (const segment of path.split('/')) {
 			const n = (node ?? this.root).children?.get(ignoreCase ? segment.toLowerCase() : segment);
 			if (n == null) return false;
 
 			node = n;
+			if (node.root) {
+				foundRoot = true;
+			}
 		}
 
-		return node != null;
+		if (node == null) return false;
+
+		// Return true if we found a root marker on the path
+		if (foundRoot) {
+			return true;
+		}
+
+		// Check if this node has any leaf children (indicating we searched a file here before with no root found)
+		if (node.children != null) {
+			for (const child of node.children.values()) {
+				if (child.children == null || child.children.size === 0) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	hasParent(path: string, ignoreCase?: boolean): boolean {
@@ -665,22 +686,40 @@ export class VisitedPathsTrie {
 		segments.pop(); // Remove the last segment (file name)
 
 		let node: VisitedPathNode | undefined;
+		let foundRoot = false;
 
 		for (const segment of segments) {
 			const n = (node ?? this.root).children?.get(ignoreCase ? segment.toLowerCase() : segment);
 			if (n == null) return false;
 
 			node = n;
+			if (node.root) {
+				foundRoot = true;
+			}
 		}
 
-		return node != null;
+		if (node == null) return false;
+
+		// Return true if we found a root marker on the path
+		if (foundRoot) return true;
+
+		// Check if this node has any leaf children (indicating we searched a file here before with no root found)
+		if (node.children != null) {
+			for (const child of node.children.values()) {
+				if (!child.children?.size) return true;
+			}
+		}
+
+		return false;
 	}
 
-	set(path: string, ignoreCase?: boolean): void {
+	set(path: string, rootPath: string | undefined, ignoreCase?: boolean): void {
 		path = this.normalize(path);
+		const normalizedRootPath = rootPath ? this.normalize(rootPath) : undefined;
 		ignoreCase = ignoreCase ?? !isLinux;
 
 		let node = this.root;
+		let currentPath = '';
 
 		for (const segment of path.split('/')) {
 			const key = ignoreCase ? segment.toLowerCase() : segment;
@@ -696,6 +735,12 @@ export class VisitedPathsTrie {
 			}
 
 			node = n;
+			currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+
+			// Mark the node as root if it matches the rootPath
+			if (normalizedRootPath != null && currentPath === normalizedRootPath) {
+				node.root = true;
+			}
 		}
 	}
 }
