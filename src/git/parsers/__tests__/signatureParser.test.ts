@@ -20,7 +20,7 @@ suite('Signature Parser Test Suite', () => {
 	});
 
 	test('parses good GPG signature with full trust', () => {
-		const output = `G${fieldSeparator}Jane Smith${fieldSeparator}5678EFGH${fieldSeparator}${fieldSeparator}ABCDEF1234567890${fieldSeparator}full${fieldSeparator}`;
+		const output = `G${fieldSeparator}Jane Smith${fieldSeparator}5678EFGH${fieldSeparator}${fieldSeparator}ABCDEF1234567890${fieldSeparator}fully${fieldSeparator}`;
 
 		const result = parseSignatureOutput(output);
 
