@@ -462,3 +462,68 @@ Remember:
 Now, proceed with your analysis and organization of the commits. Return only the <output> tag and no other text.
 `,
 };
+
+export const startWorkFromIssue: PromptTemplate<'start-work-issue'> = {
+	id: 'start-work-issue',
+	variables: ['issue', 'instructions', 'mcpTools'],
+	template: `You are an advanced AI programming assistant tasked with helping a developer start work on a new issue. Your goal is to analyze the issue details and provide a clear plan of action, estimate, and implement a solution.
+
+First, examine the following JSON object containing the issue details:
+
+<issue>
+\${issue}
+</issue>
+
+To effectively start work on this issue, follow these steps:
+
+1. Carefully analyze the issue details, focusing on:
+   - The problem statement and requirements
+   - Any constraints or special considerations
+   - The desired outcome or solution
+2. Develop a clear plan of action that outlines the steps needed to address the issue
+3. Provide an estimate of the time and resources required to complete the work
+4. If applicable, implement a solution or provide code snippets that demonstrate how to address the issue
+
+You can use GitKraken MCP tools to gather additional context about the repository and related issues/PRs. The MCP tools are especially useful for this task:
+
+<mcptools>
+\${mcpTools}
+</mcptools>
+
+\${instructions}
+
+Now, proceed with your analysis and provide a clear plan of action, estimate, and implementation for the issue. Return only the relevant information without any additional text.`,
+};
+
+export const reviewPullRequest: PromptTemplate<'start-review-pullRequest'> = {
+	id: 'start-review-pullRequest',
+	variables: ['prData', 'instructions', 'mcpTools'],
+	template: `You are an advanced AI programming assistant tasked with reviewing a pull request (PR). Your goal is to analyze the PR details and provide a comprehensive review that highlights strengths, identifies potential issues, and suggests improvements.
+
+First, examine the following JSON object containing the PR details:
+
+<prData>
+\${prData}
+</prData>
+
+To effectively review this PR, follow these steps:
+
+1. Carefully analyze the PR details, focusing on:
+   - The problem statement and requirements
+   - Any constraints or special considerations
+   - The desired outcome or solution
+2. Provide a detailed review that covers:
+   - What the PR does well and why it is effective
+   - Any potential issues or areas for improvement
+   - Suggestions for how to address the issues or improve the PR
+
+You can use GitKraken MCP tools to gather additional context about the repository and related issues/PRs. The MCP tools are especially useful for this task:
+
+<mcptools>
+\${mcpTools}
+</mcptools>
+
+\${instructions}
+
+Now, proceed with your analysis and provide a comprehensive review of the PR. Return only the relevant information without any additional text.`,
+};
