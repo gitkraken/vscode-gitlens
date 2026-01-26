@@ -1673,7 +1673,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			sha: commit.sha,
 			shortSha: commit.shortSha,
 			author: { ...commit.author, avatar: avatarUri?.toString(true) },
-			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
+			committer: { ...commit.committer, avatar: undefined },
 			message: formattedMessage,
 			parents: commit.parents,
 			stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,

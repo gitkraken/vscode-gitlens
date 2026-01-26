@@ -30,7 +30,7 @@ export interface CommitSummary {
 	// summary: string;
 	message: string;
 	author: GitCommitIdentityShape & { avatar: string | undefined };
-	// committer: GitCommitIdentityShape & { avatar: string | undefined };
+	committer: GitCommitIdentityShape & { avatar: string | undefined };
 	parents: string[];
 	repoPath: string;
 	stashNumber?: string;

@@ -249,6 +249,7 @@ export class GlCommitDetails extends GlDetailsBase {
 											.authorName="${details.author.name}"
 											.authorEmail="${details.author.email}"
 											.authorAvatar="${details.author.avatar}"
+											.committerEmail="${details.committer.email}"
 										></gl-signature-badge>`,
 								)}
 							</div>
