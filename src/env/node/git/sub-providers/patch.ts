@@ -2,7 +2,8 @@ import { window } from 'vscode';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import { CancellationError } from '../../../../errors.js';
-import { ApplyPatchCommitError, CherryPickError, SigningError, SigningErrorReason } from '../../../../git/errors.js';
+import type { SigningErrorReason } from '../../../../git/errors.js';
+import { ApplyPatchCommitError, CherryPickError, SigningError } from '../../../../git/errors.js';
 import type { GitPatchSubProvider } from '../../../../git/gitProvider.js';
 import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit.js';
 import type { SigningFormat } from '../../../../git/models/signature.js';
@@ -213,10 +214,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 					'-',
 				),
 			]);
-
-			if (applyResult.status === 'rejected') {
-				throw applyResult.reason;
-			}
+			if (applyResult.status === 'rejected') throw applyResult.reason;
 
 			// Check if we should sign
 			const signingConfig = getSettledValue(signingConfigResult);
@@ -229,11 +227,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 			// Set the author if provided
 			if (author) {
-				env = {
-					...env,
-					GIT_AUTHOR_NAME: author.name,
-					GIT_AUTHOR_EMAIL: author.email || '',
-				};
+				env = { ...env, GIT_AUTHOR_NAME: author.name, GIT_AUTHOR_EMAIL: author.email || '' };
 			}
 
 			// Create new commit from the tree
@@ -268,20 +262,20 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 				let signingError: SigningError | undefined;
 
 				if (errorMessage.includes('gpg failed to sign') || errorMessage.includes('error: gpg')) {
-					signingError = new SigningError(SigningErrorReason.PassphraseFailed, ex, ex.message);
+					signingError = new SigningError('passphraseFailed', ex, ex.message);
 				} else if (
 					errorMessage.includes('secret key not available') ||
 					errorMessage.includes('no secret key') ||
 					errorMessage.includes('no signing key')
 				) {
-					signingError = new SigningError(SigningErrorReason.NoKey, ex, ex.message);
+					signingError = new SigningError('noKey', ex, ex.message);
 				} else if (
 					errorMessage.includes('gpg: command not found') ||
 					(errorMessage.includes('gpg') && errorMessage.includes('not found'))
 				) {
-					signingError = new SigningError(SigningErrorReason.GpgNotFound, ex, ex.message);
+					signingError = new SigningError('gpgNotFound', ex, ex.message);
 				} else if (errorMessage.includes('ssh-keygen') && errorMessage.includes('not found')) {
-					signingError = new SigningError(SigningErrorReason.SshNotFound, ex, ex.message);
+					signingError = new SigningError('sshNotFound', ex, ex.message);
 				}
 
 				if (signingError != null) {
@@ -300,21 +294,8 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		}
 	}
 
-	private getSigningFailureReason(
-		reason: SigningErrorReason | undefined,
-	): 'noKey' | 'gpgNotFound' | 'sshNotFound' | 'passphraseFailed' | 'unknown' {
-		switch (reason) {
-			case SigningErrorReason.NoKey:
-				return 'noKey';
-			case SigningErrorReason.GpgNotFound:
-				return 'gpgNotFound';
-			case SigningErrorReason.SshNotFound:
-				return 'sshNotFound';
-			case SigningErrorReason.PassphraseFailed:
-				return 'passphraseFailed';
-			default:
-				return 'unknown';
-		}
+	private getSigningFailureReason(reason: SigningErrorReason | undefined): SigningErrorReason {
+		return reason ?? 'unknown';
 	}
 
 	async createEmptyInitialCommit(repoPath: string): Promise<string> {

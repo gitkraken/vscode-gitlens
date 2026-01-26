@@ -33,7 +33,7 @@ import type { GitReflog } from './models/reflog.js';
 import type { GitRemote } from './models/remote.js';
 import type { Repository, RepositoryChangeEvent } from './models/repository.js';
 import type { GitRevisionRange, GitRevisionRangeNotation } from './models/revision.js';
-import type { CommitSignature } from './models/signature.js';
+import type { CommitSignature, SigningConfig, ValidationResult } from './models/signature.js';
 import type { GitStash } from './models/stash.js';
 import type { GitStatus } from './models/status.js';
 import type { GitStatusFile } from './models/statusFile.js';
@@ -489,14 +489,10 @@ export interface GitConfigSubProvider {
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
-	getSigningConfig?(repoPath: string): Promise<import('./models/signature').SigningConfig>;
-	validateSigningSetup?(repoPath: string): Promise<import('./models/signature').ValidationResult>;
-	setSigningConfig?(
-		repoPath: string,
-		config: Partial<import('./models/signature').SigningConfig>,
-		options?: { global?: boolean },
-	): Promise<void>;
-	getSigningConfigFlags?(config: import('./models/signature').SigningConfig): string[];
+	getSigningConfig?(repoPath: string): Promise<SigningConfig>;
+	validateSigningSetup?(repoPath: string): Promise<ValidationResult>;
+	setSigningConfig?(repoPath: string, config: Partial<SigningConfig>, options?: { global?: boolean }): Promise<void>;
+	getSigningConfigFlags?(config: SigningConfig): string[];
 }
 
 export interface GitContributorsResult {

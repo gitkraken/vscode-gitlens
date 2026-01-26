@@ -215,8 +215,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		if (data) {
 			for (const line of data.split('\n')) {
 				if (!line) continue;
+
 				const spaceIndex = line.indexOf(' ');
 				if (spaceIndex === -1) continue;
+
 				configMap.set(line.substring(0, spaceIndex), line.substring(spaceIndex + 1));
 			}
 		}
@@ -269,23 +271,30 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		config: Partial<SigningConfig>,
 		options?: { global?: boolean },
 	): Promise<void> {
-		if (config.enabled != null) {
-			await this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false', options);
-		}
-		if (config.format != null) {
-			await this.setConfig(repoPath, 'gpg.format', config.format, options);
-		}
-		if (config.signingKey != null) {
-			await this.setConfig(repoPath, 'user.signingkey', config.signingKey, options);
-		}
-		if (config.gpgProgram != null) {
-			await this.setConfig(repoPath, 'gpg.program', config.gpgProgram, options);
-		}
-		if (config.sshProgram != null) {
-			await this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram, options);
-		}
-		if (config.allowedSignersFile != null) {
-			await this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile, options);
+		const scope = getLogScope();
+
+		try {
+			if (config.enabled != null) {
+				await this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false', options);
+			}
+			if (config.format != null) {
+				await this.setConfig(repoPath, 'gpg.format', config.format, options);
+			}
+			if (config.signingKey != null) {
+				await this.setConfig(repoPath, 'user.signingkey', config.signingKey, options);
+			}
+			if (config.gpgProgram != null) {
+				await this.setConfig(repoPath, 'gpg.program', config.gpgProgram, options);
+			}
+			if (config.sshProgram != null) {
+				await this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram, options);
+			}
+			if (config.allowedSignersFile != null) {
+				await this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile, options);
+			}
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
 		}
 	}
 
