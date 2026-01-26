@@ -168,6 +168,7 @@ export class CliCommandHandlers implements Disposable {
 		try {
 			const { worktree, branch, pr } = await startReviewFromPullRequest(this.container, prSearch);
 
+			// Create result object with only the necessary properties
 			const result = {
 				worktreePath: worktree.path,
 				branchName: branch.name,

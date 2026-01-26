@@ -355,6 +355,8 @@ export interface StoredDeepLinkContext {
 	secondaryTargetSha?: string | undefined;
 	useProgress?: boolean | undefined;
 	state?: DeepLinkServiceState | undefined;
+	prData?: string | undefined;
+	issueData?: string | undefined;
 }
 
 export interface StoredGraphColumn {

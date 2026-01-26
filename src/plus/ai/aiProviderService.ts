@@ -1075,9 +1075,29 @@ export class AIProviderService implements AIService, Disposable {
 		templateType: T,
 		model: AIModel,
 		context: PromptTemplateContext<T>,
-		maxInputTokens: number,
-		retries: number,
-		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+		maxInputTokens: number | undefined,
+		retries: number | undefined,
+		reporting: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
+		truncationHandler?: TruncationHandler<T>,
+	): Promise<{ prompt: string; truncated: boolean }>;
+
+	async getPrompt<T extends PromptTemplateType>(
+		templateType: T,
+		model: undefined,
+		context: PromptTemplateContext<T>,
+		maxInputTokens?: undefined,
+		retries?: undefined,
+		reporting?: undefined,
+		truncationHandler?: undefined,
+	): Promise<{ prompt: string; truncated: boolean }>;
+
+	async getPrompt<T extends PromptTemplateType>(
+		templateType: T,
+		model: AIModel | undefined,
+		context: PromptTemplateContext<T>,
+		maxInputTokens?: number | undefined,
+		retries?: number | undefined,
+		reporting?: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
 		truncationHandler?: TruncationHandler<T>,
 	): Promise<{ prompt: string; truncated: boolean }> {
 		const promptTemplate = await this.getPromptTemplate(templateType, model);
@@ -1090,21 +1110,17 @@ export class AIProviderService implements AIService, Disposable {
 			context.instructions = `Carefully follow these additional instructions (provided directly by the user), but do not deviate from the output structure:\n${context.instructions}`;
 		}
 
-		const result = await resolvePrompt(
-			model,
-			promptTemplate,
-			context,
-			maxInputTokens,
-			retries,
-			reporting,
-			truncationHandler,
-		);
-		return result;
+		// Handle the two overload cases
+		if (model == null) {
+			return resolvePrompt(undefined, promptTemplate, context, undefined, undefined, undefined, undefined);
+		}
+
+		return resolvePrompt(model, promptTemplate, context, maxInputTokens, retries, reporting, truncationHandler);
 	}
 
 	private async getPromptTemplate<T extends PromptTemplateType>(
 		templateType: T,
-		model: AIModel,
+		model: AIModel | undefined,
 	): Promise<PromptTemplate | undefined> {
 		const scope = getLogScope();
 
