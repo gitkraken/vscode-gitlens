@@ -470,8 +470,8 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@debug()
-	openCodeSuggestionInBrowser(target: string): void {
-		void openUrl(this.container.drafts.generateWebUrl(target));
+	async openCodeSuggestionInBrowser(target: string): Promise<void> {
+		void openUrl(await this.container.drafts.generateWebUrl(target));
 	}
 
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
@@ -535,7 +535,7 @@ export class LaunchpadProvider implements Disposable {
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
 	}
 
-	generateWebUrl(): string {
+	generateWebUrl(): Promise<string> {
 		return this.container.urls.getGkDevUrl('launchpad');
 	}
 
