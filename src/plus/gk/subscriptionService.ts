@@ -735,7 +735,7 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'refer-friend' }, source);
 		}
 
-		await openUrl(await this.container.urls.getGkDevUrl(undefined, 'referral_portal=true&source=gitlens'));
+		await openUrl(await this.container.urls.getGkDevUrl(undefined, 'referral_portal=true'));
 	}
 
 	@gate(() => '')
@@ -874,7 +874,6 @@ export class SubscriptionService implements Disposable {
 		}
 
 		const query = new URLSearchParams();
-		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
 		query.set('planType', getSubscriptionPlanType(plan));
 
@@ -1675,7 +1674,6 @@ export class SubscriptionService implements Disposable {
 		const hasAccount = this._session != null;
 
 		const query = new URLSearchParams();
-		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
 
 		try {

@@ -99,7 +99,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			const token =
 				options?.signIn != null
 					? await this._authConnection.getTokenFromCodeAndState(options.signIn.code, options.signIn.state)
-					: await this._authConnection.login(scopes, scopesKey, options?.signUp, options?.context);
+					: await this._authConnection.login(scopesKey, options?.signUp, options?.context);
 			const session = await this.createSessionForToken(token, scopes);
 
 			const sessions = await this._sessionsPromise;
