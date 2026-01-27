@@ -31,7 +31,7 @@ import {
 } from '../../../../git/utils/branch.utils.js';
 import { createConflictDetectionError } from '../../../../git/utils/mergeConflicts.utils.js';
 import { createReference } from '../../../../git/utils/reference.utils.js';
-import { createRevisionRange } from '../../../../git/utils/revision.utils.js';
+import { createRevisionRange, shortenRevision } from '../../../../git/utils/revision.utils.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { ensureArray, filterMap } from '../../../../system/array.js';
 import { debounce } from '../../../../system/decorators/debounce.js';
@@ -44,7 +44,7 @@ import { getSettledValue } from '../../../../system/promise.js';
 import type { CacheController } from '../../../../system/promiseCache.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { Git } from '../git.js';
-import { getGitCommandError, gitConfigsLog, GitError, GitErrors } from '../git.js';
+import { getGitCommandError, gitConfigsLog, GitError, GitErrors, GitWarnings } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -493,7 +493,108 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.cache.currentBranchRef.getOrCreate(repoPath, async () => {
 			const commitOrdering = configuration.get('advanced.commitOrdering');
 
-			const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering, cancellation);
+			let data: [string, string | undefined] | undefined;
+			let result;
+			try {
+				result = await this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+					'rev-parse',
+					'--abbrev-ref',
+					'--symbolic-full-name',
+					'@',
+					'@{u}',
+					'--',
+				);
+				data = [result.stdout, undefined];
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+
+				const msg: string = ex?.toString() ?? '';
+				if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
+					if (ex.stdout != null && ex.stdout.length !== 0) {
+						data = [ex.stdout, undefined];
+					} else {
+						try {
+							result = await this.git.exec(
+								{ cwd: repoPath, cancellation: cancellation },
+								'symbolic-ref',
+								'--short',
+								'HEAD',
+							);
+							if (result.stdout) {
+								data = [result.stdout.trim(), undefined];
+							}
+						} catch {
+							if (isCancellationError(ex)) throw ex;
+						}
+
+						if (data == null) {
+							const symbolicRef = await this.getDefaultBranchName(repoPath, 'origin', cancellation);
+							if (symbolicRef != null) {
+								data = [
+									symbolicRef.startsWith('origin/')
+										? symbolicRef.substring('origin/'.length)
+										: symbolicRef,
+									undefined,
+								];
+							}
+						}
+
+						if (data == null) {
+							const defaultBranch =
+								(await this.provider.config.getConfig(repoPath, 'init.defaultBranch')) ?? 'main';
+							const branchConfig = await this.provider.config.getConfigRegex(
+								repoPath,
+								`branch\\.${defaultBranch}\\.+`,
+								{ runGitLocally: true },
+							);
+
+							let remote;
+							let remoteBranch;
+
+							if (branchConfig) {
+								let match = /^branch\..+\.remote\s(.+)$/m.exec(branchConfig);
+								if (match != null) {
+									remote = match[1];
+								}
+
+								match = /^branch\..+\.merge\srefs\/heads\/(.+)$/m.exec(branchConfig);
+								if (match != null) {
+									remoteBranch = match[1];
+								}
+							}
+							data = [
+								`${defaultBranch}${remote && remoteBranch ? `\n${remote}/${remoteBranch}` : ''}`,
+								undefined,
+							];
+						}
+					}
+				} else if (GitWarnings.headNotABranch.test(msg)) {
+					result = await this.git.exec(
+						{
+							cwd: repoPath,
+							cancellation: cancellation,
+							configs: gitConfigsLog,
+							errors: GitErrorHandling.Ignore,
+						},
+						'log',
+						'-n1',
+						'--format=%H',
+						commitOrdering ? `--${commitOrdering}-order` : undefined,
+						'--',
+					);
+
+					if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
+
+					const sha = result.stdout.trim();
+					if (sha) {
+						data = [`(HEAD detached at ${shortenRevision(sha)})`, sha];
+					}
+				} else {
+					Logger.warn(`[${repoPath}] Unable to get current branch: ${ex}`);
+				}
+			}
+
 			if (data == null) return undefined;
 
 			const [name, upstream] = data[0].split('\n');
@@ -520,7 +621,53 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		remote ??= 'origin';
 
 		return this.cache.getDefaultBranchName(repoPath, remote, async commonPath => {
-			return this.git.symbolic_ref__HEAD(commonPath, remote, cancellation);
+			let retried = false;
+			while (true) {
+				try {
+					const result = await this.git.exec(
+						{ cwd: commonPath, cancellation: cancellation },
+						'symbolic-ref',
+						'--short',
+						`refs/remotes/${remote}/HEAD`,
+					);
+					return result.stdout.trim() || undefined;
+				} catch (ex) {
+					if (/is not a symbolic ref/.test(ex.stderr)) {
+						try {
+							if (!retried) {
+								retried = true;
+								await this.git.exec(
+									{ cwd: commonPath, cancellation: cancellation },
+									'remote',
+									'set-head',
+									'-a',
+									remote,
+								);
+								continue;
+							}
+
+							const result = await this.git.exec(
+								{ cwd: commonPath, cancellation: cancellation },
+								'ls-remote',
+								'--symref',
+								remote,
+								'HEAD',
+							);
+							if (result.stdout) {
+								const match = /ref:\s(\S+)\s+HEAD/m.exec(result.stdout);
+								if (match != null) {
+									const [, branch] = match;
+									return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
+								}
+							}
+						} catch {
+							if (isCancellationError(ex)) throw ex;
+						}
+					}
+
+					return undefined;
+				}
+			}
 		});
 	}
 
@@ -990,7 +1137,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	): Promise<string | undefined> {
 		try {
 			const pattern = `^branch\\.${ref}\\.`;
-			const data = await this.git.config__get_regex(pattern, repoPath);
+			const data = await this.provider.config.getConfigRegex?.(repoPath, pattern);
 			if (data) {
 				const regex = new RegExp(`${pattern}(.+) (.+)$`, 'gm');
 
@@ -1210,9 +1357,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		try {
 			// Use git config --get-regexp to load all gk-* branch date metadata in one call
-			const data = await this.git.config__get_regex('^branch\\..*\\.gk-last-(accessed|modified)$', repoPath, {
-				local: true,
-			});
+			const data = await this.provider.config.getConfigRegex(
+				repoPath,
+				'^branch\\..*\\.gk-last-(accessed|modified)$',
+				{ runGitLocally: true },
+			);
 			if (!data) return dateMetadataMap;
 
 			// Parse the output: "branch.{name}.gk-last-accessed {timestamp}"

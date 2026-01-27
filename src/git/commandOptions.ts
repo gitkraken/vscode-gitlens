@@ -19,10 +19,10 @@ export interface GitCommandOptions {
 	configs?: readonly string[];
 	readonly correlationKey?: string;
 	errors?: GitErrorHandling;
-	// Specifies that this command should always be executed locally if possible
-	local?: boolean;
 	/** Priority level for queue ordering. If not specified, will be inferred from the command type. */
 	priority?: GitCommandPriority;
+	/** Specifies that this command should always be executed locally if possible (for live share sessions) */
+	runLocally?: boolean;
 
 	// Below options comes from RunOptions<BufferEncoding | 'buffer' | string>
 	cwd?: string;

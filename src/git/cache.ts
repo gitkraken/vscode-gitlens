@@ -58,7 +58,8 @@ interface Caches {
 	reachability: RepoPromiseCacheMap<string, GitCommitReachability | undefined> | undefined;
 	remotes: PromiseMap<RepoPath, GitRemote[]> | undefined;
 	repoInfo: Map<RepoPath, RepositoryInfo> | undefined;
-	config: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	configKeys: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	configPatterns: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	stashes: PromiseMap<RepoPath, GitStash> | undefined;
 	tags: PromiseMap<RepoPath, PagedResult<GitTag>> | undefined;
 	worktrees: PromiseMap<RepoPath, GitWorktree[]> | undefined;
@@ -83,7 +84,8 @@ function createEmptyCaches(): Caches {
 		reachability: undefined,
 		remotes: undefined,
 		repoInfo: undefined,
-		config: undefined,
+		configKeys: undefined,
+		configPatterns: undefined,
 		stashes: undefined,
 		tags: undefined,
 		worktrees: undefined,
@@ -133,8 +135,14 @@ export class GitCache implements Disposable {
 		return (this._caches.sharedBranches ??= new PromiseMap<RepoPath, PagedResult<GitBranch>>());
 	}
 
-	private get config(): RepoPromiseCacheMap<string, string | undefined> {
-		return (this._caches.config ??= new RepoPromiseCacheMap<string, string | undefined>({
+	private get configKeys(): RepoPromiseCacheMap<string, string | undefined> {
+		return (this._caches.configKeys ??= new RepoPromiseCacheMap<string, string | undefined>({
+			createTTL: 1000 * 30, // 30 seconds - ensures global config changes are picked up
+		}));
+	}
+
+	private get configPatterns(): RepoPromiseCacheMap<string, string | undefined> {
+		return (this._caches.configPatterns ??= new RepoPromiseCacheMap<string, string | undefined>({
 			createTTL: 1000 * 30, // 30 seconds - ensures global config changes are picked up
 		}));
 	}
@@ -274,7 +282,8 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length || types.includes('config')) {
-			sharedCachesToClear.add(this._caches.config);
+			sharedCachesToClear.add(this._caches.configKeys);
+			sharedCachesToClear.add(this._caches.configPatterns);
 		}
 
 		if (!types.length || types.includes('contributors')) {
@@ -439,18 +448,48 @@ export class GitCache implements Disposable {
 		return mappedPromise;
 	}
 
-	/** Gets a config value from cache or fetches it via factory (config is shared across worktrees) */
+	/** Sentinel key used for global git config (when no repoPath is provided) */
+	private static readonly globalConfigKey = '';
+
+	/** Gets a config value by exact key from cache or fetches it via factory (config is shared across worktrees) */
 	getConfig(
-		repoPath: string,
+		repoPath: string | undefined,
 		key: string,
-		factory: (commonPath: string) => PromiseOrValue<string | undefined>,
+		factory: () => PromiseOrValue<string | undefined>,
 	): Promise<string | undefined> {
-		return this.getSharedSimpleWithKey(this.config, repoPath, key, factory);
+		const cacheKey = repoPath != null ? this.getCommonPath(repoPath) : GitCache.globalConfigKey;
+
+		const result = this.configKeys.get(cacheKey, key);
+		if (result != null) return result;
+
+		const factoryPromise = Promise.resolve(factory());
+		this.configKeys.set(cacheKey, key, factoryPromise);
+		return factoryPromise;
 	}
 
-	/** Deletes a cached config value (config is only cached at commonPath since values are identical across worktrees) */
-	deleteConfig(repoPath: string, key: string): void {
-		this._caches.config?.delete(this.getCommonPath(repoPath), key);
+	/** Gets config values by regex pattern from cache or fetches them via factory (config is shared across worktrees) */
+	getConfigRegex(
+		repoPath: string | undefined,
+		pattern: string,
+		factory: () => PromiseOrValue<string | undefined>,
+	): Promise<string | undefined> {
+		const cacheKey = repoPath != null ? this.getCommonPath(repoPath) : GitCache.globalConfigKey;
+
+		const result = this.configPatterns.get(cacheKey, pattern);
+		if (result != null) return result;
+
+		const factoryPromise = Promise.resolve(factory());
+		this.configPatterns.set(cacheKey, pattern, factoryPromise);
+		return factoryPromise;
+	}
+
+	/** Deletes a cached config value by key and clears all regex pattern caches for that scope */
+	deleteConfig(repoPath: string | undefined, key: string): void {
+		const cacheKey = repoPath != null ? this.getCommonPath(repoPath) : GitCache.globalConfigKey;
+		// Delete the specific key from the keys cache
+		this._caches.configKeys?.delete(cacheKey, key);
+		// Clear all regex patterns for this scope since any pattern might include this key
+		this._caches.configPatterns?.delete(cacheKey);
 	}
 
 	/** Gets contributors from cache or creates them via factory (contributors are shared across worktrees) */

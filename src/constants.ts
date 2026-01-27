@@ -47,6 +47,8 @@ export const enum CharCode {
 	z = 122,
 }
 
+export type GitCoreConfigKeys = 'core.excludesFile' | 'diff.guitool' | 'diff.tool' | 'init.defaultBranch';
+
 /**
  * `gk-merge-target` means the branch that the current branch is most likely to be merged into, e.g.
  * - branch to compare with by default

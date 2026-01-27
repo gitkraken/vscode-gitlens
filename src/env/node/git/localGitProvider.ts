@@ -1016,7 +1016,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private getOrCreateIgnoreCache(repoPath: string): GitIgnoreCache {
 		let cache = this._cache.gitIgnore.get(repoPath);
 		if (cache == null) {
-			cache = new GitIgnoreCache(this.container, repoPath, () => this.git.config__get('core.excludesFile'));
+			cache = new GitIgnoreCache(this.container, repoPath, () =>
+				this.config.getConfig(repoPath, 'core.excludesFile'),
+			);
 			this._cache.gitIgnore.set(repoPath, cache);
 		}
 		return cache;

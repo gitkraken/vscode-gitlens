@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import type { Commit, InputBox } from '../@types/vscode.git.d.js';
 import type { ForcePushMode } from '../@types/vscode.git.enums.js';
-import type { GitConfigKeys } from '../constants.js';
+import type { DeprecatedGitConfigKeys, GitConfigKeys, GitCoreConfigKeys } from '../constants.js';
 import type { SearchQuery } from '../constants.search.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Features } from '../features.js';
@@ -452,9 +452,37 @@ export interface GitPausedOperationsSubProvider {
 	continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void>;
 }
 
+export type GitConfigType = 'bool' | 'int' | 'bool-or-int' | 'path' | 'expiry-date' | 'color';
 export interface GitConfigSubProvider {
-	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
-	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
+	getConfig?(
+		repoPath: string | undefined,
+		key: GitCoreConfigKeys | GitConfigKeys | DeprecatedGitConfigKeys,
+		options?: {
+			global?: boolean;
+			/** Specifies that this Git command should always be executed locally if possible (for live share sessions) */
+			runGitLocally?: boolean;
+			type?: GitConfigType;
+		},
+	): Promise<string | undefined>;
+	getConfigRegex?(
+		repoPath: string | undefined,
+		pattern: string,
+		options?: {
+			global?: boolean;
+			/** Specifies that this Git command should always be executed locally if possible (for live share sessions) */
+			runGitLocally?: boolean;
+		},
+	): Promise<string | undefined>;
+	setConfig?(
+		repoPath: string | undefined,
+		key: GitCoreConfigKeys | GitConfigKeys,
+		value: string | undefined,
+		options?: {
+			global?: boolean;
+			/** Specifies that this Git command should always be executed locally if possible (for live share sessions) */
+			runGitLocally?: boolean;
+		},
+	): Promise<void>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;

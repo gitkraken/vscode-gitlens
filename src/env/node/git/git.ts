@@ -48,7 +48,7 @@ import type { GitDir } from '../../../git/gitProvider.js';
 import type { GitDiffFilter } from '../../../git/models/diff.js';
 import { rootSha } from '../../../git/models/revision.js';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser.js';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils.js';
+import { isUncommitted, isUncommittedStaged } from '../../../git/utils/revision.utils.js';
 import { getCancellationTokenId } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { splitPath } from '../../../system/-webview/path.js';
@@ -142,7 +142,7 @@ export const GitErrors = {
 	unstagedChanges: /You have unstaged changes/i,
 };
 
-const GitWarnings = {
+export const GitWarnings = {
 	notARepository: /Not a git repository/i,
 	outsideRepository: /is outside repository/i,
 	noPath: /no such path/i,
@@ -277,7 +277,7 @@ export class Git implements Disposable {
 
 		const start = hrtime();
 
-		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, local, ...opts } = options;
+		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, runLocally, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
 
 		const defaultTimeout = (configuration.get('advanced.git.timeout') ?? 60) * 1000;
@@ -873,30 +873,6 @@ export class Git implements Disposable {
 		return folderPath;
 	}
 
-	async config__get(key: string, repoPath?: string, options?: { local?: boolean }): Promise<string | undefined> {
-		const result = await this.exec(
-			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
-			'config',
-			'--get',
-			key,
-		);
-		return result.stdout.trim() || undefined;
-	}
-
-	async config__get_regex(
-		pattern: string,
-		repoPath?: string,
-		options?: { local?: boolean },
-	): Promise<string | undefined> {
-		const result = await this.exec(
-			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
-			'config',
-			'--get-regex',
-			pattern,
-		);
-		return result.stdout.trim() || undefined;
-	}
-
 	async diff(
 		repoPath: string,
 		fileName: string,
@@ -1220,152 +1196,6 @@ export class Git implements Disposable {
 				reason =>
 					new ResetError({ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } }, ex),
 			);
-		}
-	}
-
-	async rev_parse__currentBranch(
-		repoPath: string,
-		ordering: 'date' | 'author-date' | 'topo' | null,
-		cancellation?: CancellationToken,
-	): Promise<[string, string | undefined] | undefined> {
-		let result;
-		try {
-			result = await this.exec(
-				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
-				'rev-parse',
-				'--abbrev-ref',
-				'--symbolic-full-name',
-				'@',
-				'@{u}',
-				'--',
-			);
-			return [result.stdout, undefined];
-		} catch (ex) {
-			if (isCancellationError(ex)) throw ex;
-
-			const msg: string = ex?.toString() ?? '';
-			if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
-				if (ex.stdout != null && ex.stdout.length !== 0) {
-					return [ex.stdout, undefined];
-				}
-
-				try {
-					result = await this.exec(
-						{ cwd: repoPath, cancellation: cancellation },
-						'symbolic-ref',
-						'--short',
-						'HEAD',
-					);
-					if (result.stdout) return [result.stdout.trim(), undefined];
-				} catch {
-					if (isCancellationError(ex)) throw ex;
-				}
-				const data = await this.symbolic_ref__HEAD(repoPath, 'origin', cancellation);
-				if (data != null) {
-					return [data.startsWith('origin/') ? data.substring('origin/'.length) : data, undefined];
-				}
-
-				const defaultBranch = (await this.config__get('init.defaultBranch', repoPath)) ?? 'main';
-				const branchConfig = await this.config__get_regex(`branch\\.${defaultBranch}\\.+`, repoPath, {
-					local: true,
-				});
-
-				let remote;
-				let remoteBranch;
-
-				if (branchConfig) {
-					let match = /^branch\..+\.remote\s(.+)$/m.exec(branchConfig);
-					if (match != null) {
-						remote = match[1];
-					}
-
-					match = /^branch\..+\.merge\srefs\/heads\/(.+)$/m.exec(branchConfig);
-					if (match != null) {
-						remoteBranch = match[1];
-					}
-				}
-				return [`${defaultBranch}${remote && remoteBranch ? `\n${remote}/${remoteBranch}` : ''}`, undefined];
-			}
-
-			if (GitWarnings.headNotABranch.test(msg)) {
-				result = await this.exec(
-					{
-						cwd: repoPath,
-						cancellation: cancellation,
-						configs: gitConfigsLog,
-						errors: GitErrorHandling.Ignore,
-					},
-					'log',
-					'-n1',
-					'--format=%H',
-					ordering ? `--${ordering}-order` : undefined,
-					'--',
-				);
-
-				if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
-
-				const sha = result.stdout.trim();
-				if (!sha) return undefined;
-
-				return [`(HEAD detached at ${shortenRevision(sha)})`, sha];
-			}
-
-			defaultExceptionHandler(ex, repoPath);
-			return undefined;
-		}
-	}
-
-	async symbolic_ref__HEAD(
-		repoPath: string,
-		remote: string,
-		cancellation?: CancellationToken,
-	): Promise<string | undefined> {
-		let retried = false;
-		while (true) {
-			try {
-				const result = await this.exec(
-					{ cwd: repoPath, cancellation: cancellation },
-					'symbolic-ref',
-					'--short',
-					`refs/remotes/${remote}/HEAD`,
-				);
-				return result.stdout.trim() || undefined;
-			} catch (ex) {
-				if (/is not a symbolic ref/.test(ex.stderr)) {
-					try {
-						if (!retried) {
-							retried = true;
-							await this.exec(
-								{ cwd: repoPath, cancellation: cancellation },
-								'remote',
-								'set-head',
-								'-a',
-								remote,
-							);
-							continue;
-						}
-
-						const result = await this.exec(
-							{ cwd: repoPath, cancellation: cancellation },
-							'ls-remote',
-							'--symref',
-							remote,
-							'HEAD',
-						);
-						if (result.stdout) {
-							const match = /ref:\s(\S+)\s+HEAD/m.exec(result.stdout);
-							if (match != null) {
-								const [, branch] = match;
-								return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
-							}
-						}
-					} catch {
-						if (isCancellationError(ex)) throw ex;
-					}
-				}
-
-				return undefined;
-			}
 		}
 	}
 

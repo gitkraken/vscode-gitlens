@@ -22,7 +22,7 @@ export class VslsGit extends Git {
 	}
 
 	override async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<GitResult<T>> {
-		if (options.local) {
+		if (options.runLocally) {
 			// Since we will have a live share path here, just blank it out
 			options.cwd = '';
 			return this.localGit.exec<T>(options, ...args);

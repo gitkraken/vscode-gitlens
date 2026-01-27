@@ -193,8 +193,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	@log()
 	async getDiffTool(repoPath?: string): Promise<string | undefined> {
 		return (
-			(await this.git.config__get('diff.guitool', repoPath, { local: true })) ??
-			this.git.config__get('diff.tool', repoPath, { local: true })
+			(await this.provider.config.getConfig(repoPath, 'diff.guitool', { runGitLocally: true })) ??
+			this.provider.config.getConfig(repoPath, 'diff.tool', { runGitLocally: true })
 		);
 	}
 
