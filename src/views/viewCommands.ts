@@ -719,7 +719,7 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.views.draft.openOnWeb')
 	@debug()
 	private async openDraftOnWeb(node: DraftNode) {
-		const url = this.container.drafts.generateWebUrl(node.draft);
+		const url = await this.container.drafts.generateWebUrl(node.draft);
 		await openUrl(url);
 	}
 

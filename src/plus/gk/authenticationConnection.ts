@@ -81,7 +81,7 @@ export class AuthenticationConnection implements Disposable {
 			Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${AuthenticationUriPathPrefix}`),
 		);
 
-		const url = this.container.urls.getGkDevUrl(
+		const url = await this.container.urls.getGkDevUrl(
 			signUp ? 'register' : 'login',
 			`${scopes.includes('gitlens') ? 'source=gitlens&' : ''}${
 				context != null ? `context=${context}&` : ''

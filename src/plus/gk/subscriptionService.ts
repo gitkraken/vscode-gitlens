@@ -633,10 +633,10 @@ export class SubscriptionService implements Disposable {
 
 		try {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-			return await openUrl(this.container.urls.getGkDevUrl('account', `token=${exchangeToken}`));
+			return await openUrl(await this.container.urls.getGkDevUrl('account', `token=${exchangeToken}`));
 		} catch (ex) {
 			scope?.error(ex);
-			return openUrl(this.container.urls.getGkDevUrl('account'));
+			return openUrl(await this.container.urls.getGkDevUrl('account'));
 		}
 	}
 
@@ -646,7 +646,7 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'manage-subscription' }, source);
 		}
 
-		return openUrl(this.container.urls.getGkDevUrl('subscription/edit'));
+		return openUrl(await this.container.urls.getGkDevUrl('subscription/edit'));
 	}
 
 	@gate(() => '')
@@ -735,7 +735,7 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'refer-friend' }, source);
 		}
 
-		await openUrl(this.container.urls.getGkDevUrl(undefined, 'referral_portal=true&source=gitlens'));
+		await openUrl(await this.container.urls.getGkDevUrl(undefined, 'referral_portal=true&source=gitlens'));
 	}
 
 	@gate(() => '')
@@ -914,7 +914,7 @@ export class SubscriptionService implements Disposable {
 			scope?.error(ex);
 		}
 
-		aborted = !(await openUrl(this.container.urls.getGkDevUrl('purchase/checkout', query)));
+		aborted = !(await openUrl(await this.container.urls.getGkDevUrl('purchase/checkout', query)));
 
 		if (aborted) {
 			return false;
@@ -1700,7 +1700,7 @@ export class SubscriptionService implements Disposable {
 				this.container.telemetry.sendEvent('aiAllAccess/opened', undefined, source);
 			}
 
-			if (!(await openUrl(this.container.urls.getGkDevUrl('all-access', query)))) {
+			if (!(await openUrl(await this.container.urls.getGkDevUrl('all-access', query)))) {
 				return false;
 			}
 		} catch (ex) {
