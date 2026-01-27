@@ -532,7 +532,7 @@ export class LaunchpadProvider implements Disposable {
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false);
 	}
 
-	generateWebUrl(): string {
+	generateWebUrl(): Promise<string> {
 		return this.container.urls.getGkDevUrl('launchpad');
 	}
 
