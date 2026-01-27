@@ -1625,10 +1625,18 @@ export class GitProviderService implements Disposable {
 					let closed =
 						options?.closeOnOpen ??
 						(autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors');
-					// If we are trying to open a file inside the .git folder, then treat the repository as closed, unless explicitly requested it to be open
-					// This avoids showing the root repo in worktrees during certain operations (e.g. rebase) and vice-versa
-					if (!closed && options?.closeOnOpen !== false && !isDirectory && uri.path.includes('/.git/')) {
-						closed = true;
+					if (!closed && options?.closeOnOpen !== false && !isDirectory) {
+						// If we are trying to open a file inside the .git folder or the file is git-ignored, then treat the repository as closed, unless explicitly requested it to be open
+						// This avoids showing the root repo in worktrees during certain operations (e.g. rebase) and vice-versa
+						if (uri.path.includes('/.git/')) {
+							closed = true;
+						} else {
+							const filteredUris = await provider.excludeIgnoredUris(repoUri.fsPath, [uri]);
+							if (!filteredUris.length) {
+								Logger.debug(scope, `File is gitignored; treating repository as closed`);
+								closed = true;
+							}
+						}
 					}
 
 					Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
