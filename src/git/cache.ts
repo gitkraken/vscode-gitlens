@@ -134,7 +134,9 @@ export class GitCache implements Disposable {
 	}
 
 	private get config(): RepoPromiseCacheMap<string, string | undefined> {
-		return (this._caches.config ??= new RepoPromiseCacheMap<string, string | undefined>());
+		return (this._caches.config ??= new RepoPromiseCacheMap<string, string | undefined>({
+			createTTL: 1000 * 30, // 30 seconds - ensures global config changes are picked up
+		}));
 	}
 
 	get currentBranchRef(): PromiseCache<RepoPath, GitBranchReference | undefined> {
