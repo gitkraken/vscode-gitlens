@@ -308,7 +308,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -419,7 +419,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getAccountForEmail(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -510,7 +510,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getDefaultBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -569,7 +569,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -641,7 +641,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getIssue']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -708,7 +708,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getPullRequest']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -768,7 +768,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -857,7 +857,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -942,7 +942,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async getRepositoryMetadata(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -1031,7 +1031,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getBlame']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getBlame']>({ args: { 0: t => t.microHash } })
 	async getBlame(token: TokenWithInfo, owner: string, repo: string, ref: string, path: string): Promise<GitHubBlame> {
 		const scope = getLogScope();
 
@@ -1114,7 +1114,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getBranches']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getBranches']>({ args: { 0: t => t.microHash } })
 	async getBranches(
 		token: TokenWithInfo,
 		owner: string,
@@ -1198,7 +1198,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommit']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getCommit']>({ args: { 0: t => t.microHash } })
 	async getCommit(
 		token: TokenWithInfo,
 		owner: string,
@@ -1256,7 +1256,7 @@ export class GitHubApi implements Disposable {
 		// return { ...results.values[0], viewer: results.viewer };
 	}
 
-	@debug<GitHubApi['getCommitForFile']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getCommitForFile']>({ args: { 0: t => t.microHash } })
 	async getCommitForFile(
 		token: TokenWithInfo,
 		owner: string,
@@ -1274,7 +1274,7 @@ export class GitHubApi implements Disposable {
 		return { ...(commit ?? results.values[0]), viewer: results.viewer };
 	}
 
-	@debug<GitHubApi['getBranchesWithCommits']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getBranchesWithCommits']>({ args: { 0: t => t.microHash } })
 	async getBranchesWithCommits(
 		token: TokenWithInfo,
 		owner: string,
@@ -1359,7 +1359,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommitCount']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getCommitCount']>({ args: { 0: t => t.microHash } })
 	async getCommitCount(token: TokenWithInfo, owner: string, repo: string, ref: string): Promise<number | undefined> {
 		const scope = getLogScope();
 
@@ -1413,7 +1413,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getBranchWithCommit']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getBranchWithCommit']>({ args: { 0: t => t.microHash } })
 	async getBranchWithCommit(
 		token: TokenWithInfo,
 		owner: string,
@@ -1493,7 +1493,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommits']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getCommits']>({ args: { 0: t => t.microHash } })
 	async getCommits(
 		token: TokenWithInfo,
 		owner: string,
@@ -1748,7 +1748,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommitRefs']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getCommitRefs']>({ args: { 0: t => t.microHash } })
 	async getCommitRefs(
 		token: TokenWithInfo,
 		owner: string,
@@ -1843,7 +1843,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getTagsWithCommit']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getTagsWithCommit']>({ args: { 0: t => t.microHash } })
 	async getTagsWithCommit(
 		token: TokenWithInfo,
 		owner: string,
@@ -1925,7 +1925,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getNextCommitRefs']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getNextCommitRefs']>({ args: { 0: t => t.microHash } })
 	async getNextCommitRefs(
 		token: TokenWithInfo,
 		owner: string,
@@ -2015,7 +2015,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getContributors']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getContributors']>({ args: { 0: t => t.microHash } })
 	async getContributors(token: TokenWithInfo, owner: string, repo: string): Promise<GitHubContributor[]> {
 		const scope = getLogScope();
 
@@ -2045,7 +2045,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getDefaultBranchName']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getDefaultBranchName']>({ args: { 0: t => t.microHash } })
 	async getDefaultBranchName(token: TokenWithInfo, owner: string, repo: string): Promise<string | undefined> {
 		const scope = getLogScope();
 
@@ -2090,7 +2090,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCurrentUser']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getCurrentUser']>({ args: { 0: t => t.microHash } })
 	async getCurrentUser(token: TokenWithInfo, owner: string, repo: string): Promise<GitUser | undefined> {
 		const scope = getLogScope();
 
@@ -2138,7 +2138,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getComparison']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getComparison']>({ args: { 0: t => t.microHash } })
 	async getComparison(
 		token: TokenWithInfo,
 		owner: string,
@@ -2177,7 +2177,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getRepositoryVisibility']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getRepositoryVisibility']>({ args: { 0: t => t.microHash } })
 	async getRepositoryVisibility(
 		token: TokenWithInfo,
 		owner: string,
@@ -2224,7 +2224,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getTags']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getTags']>({ args: { 0: t => t.microHash } })
 	async getTags(
 		token: TokenWithInfo,
 		owner: string,
@@ -2316,7 +2316,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['resolveReference']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['resolveReference']>({ args: { 0: t => t.microHash } })
 	async resolveReference(
 		token: TokenWithInfo,
 		owner: string,
@@ -2408,7 +2408,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchCommits']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['searchCommits']>({ args: { 0: t => t.microHash } })
 	async searchCommits(
 		token: TokenWithInfo,
 		query: string,
@@ -2493,7 +2493,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchCommitShas']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['searchCommitShas']>({ args: { 0: t => t.microHash } })
 	async searchCommitShas(
 		token: TokenWithInfo,
 		query: string,
@@ -2567,7 +2567,7 @@ export class GitHubApi implements Disposable {
 
 	private _enterpriseVersions = new Map<string, Version | null>();
 
-	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: p => p?.name, 1: '<token>' } })
+	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: p => p?.name, 1: t => t.microHash } })
 	private async getEnterpriseVersion(
 		provider: Provider | undefined,
 		token: TokenWithInfo,
@@ -2904,7 +2904,7 @@ export class GitHubApi implements Disposable {
 		return `https://avatars.githubusercontent.com/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
 	}
 
-	@debug<GitHubApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async searchMyPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -3019,7 +3019,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchMyIssues']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['searchMyIssues']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async searchMyIssues(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -3129,7 +3129,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['searchPullRequests']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async searchPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -3190,7 +3190,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['mergePullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@debug<GitHubApi['mergePullRequest']>({ args: { 0: p => p.name, 1: t => t.microHash } })
 	async mergePullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
