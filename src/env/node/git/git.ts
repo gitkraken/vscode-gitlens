@@ -73,6 +73,7 @@ export const gitConfigsBranch = ['-c', 'color.branch=false'] as const;
 export const gitConfigsDiff = ['-c', 'color.diff=false', '-c', 'diff.mnemonicPrefix=false'] as const;
 export const gitConfigsLog = ['-c', 'log.showSignature=false'] as const;
 export const gitConfigsLogWithFiles = ['-c', 'log.showSignature=false', '-c', 'diff.renameLimit=0'] as const;
+export const gitConfigsLogWithSignatures = ['-c', 'log.showSignature=true'] as const;
 export const gitConfigsPull = ['-c', 'merge.autoStash=true', '-c', 'rebase.autoStash=true'] as const;
 export const gitConfigsStatus = ['-c', 'color.status=false'] as const;
 
@@ -873,12 +874,20 @@ export class Git implements Disposable {
 		return folderPath;
 	}
 
-	async config__get(key: string, repoPath?: string, options?: { local?: boolean }): Promise<string | undefined> {
+	async config__get(
+		key: string,
+		repoPath?: string,
+		options?: { local?: boolean; type?: 'bool' | 'int' | 'bool-or-int' | 'path' | 'expiry-date' | 'color' },
+	): Promise<string | undefined> {
+		const args = ['config', '--get'];
+		if (options?.type) {
+			args.push(`--type=${options.type}`);
+		}
+		args.push(key);
+
 		const result = await this.exec(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
-			'config',
-			'--get',
-			key,
+			...args,
 		);
 		return result.stdout.trim() || undefined;
 	}

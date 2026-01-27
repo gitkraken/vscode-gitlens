@@ -33,6 +33,7 @@ import type { GitReflog } from './models/reflog.js';
 import type { GitRemote } from './models/remote.js';
 import type { Repository, RepositoryChangeEvent } from './models/repository.js';
 import type { GitRevisionRange, GitRevisionRangeNotation } from './models/revision.js';
+import type { CommitSignature, SigningConfig, ValidationResult } from './models/signature.js';
 import type { GitStash } from './models/stash.js';
 import type { GitStatus } from './models/status.js';
 import type { GitStatusFile } from './models/statusFile.js';
@@ -390,6 +391,8 @@ export interface GitCommitsSubProvider {
 		rev: string,
 		cancellation?: CancellationToken,
 	): Promise<GitCommitReachability | undefined>;
+
+	getCommitSignature?(repoPath: string, sha: string): Promise<CommitSignature | undefined>;
 }
 
 export interface GitOperationsSubProvider {
@@ -454,10 +457,19 @@ export interface GitPausedOperationsSubProvider {
 
 export interface GitConfigSubProvider {
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
-	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
+	setConfig?(
+		repoPath: string,
+		key: GitConfigKeys,
+		value: string | undefined,
+		options?: { global?: boolean },
+	): Promise<void>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
+	getSigningConfig?(repoPath: string): Promise<SigningConfig>;
+	validateSigningSetup?(repoPath: string): Promise<ValidationResult>;
+	setSigningConfig?(repoPath: string, config: Partial<SigningConfig>, options?: { global?: boolean }): Promise<void>;
+	getSigningConfigFlags?(config: SigningConfig): string[];
 }
 
 export interface GitContributorsResult {
@@ -618,11 +630,13 @@ export interface GitPatchSubProvider {
 		base: string,
 		message: string,
 		patch: string,
+		options?: { sign?: boolean; source?: Source },
 	): Promise<GitCommit | undefined>;
 	createUnreachableCommitsFromPatches(
 		repoPath: string,
 		base: string | undefined,
 		patches: { message: string; patch: string; author?: GitCommitIdentityShape }[],
+		options?: { sign?: boolean; source?: Source },
 	): Promise<string[]>;
 	createEmptyInitialCommit(repoPath: string): Promise<string>;
 

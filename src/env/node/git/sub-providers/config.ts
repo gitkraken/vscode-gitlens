@@ -1,12 +1,14 @@
 import { hostname, userInfo } from 'os';
 import { env as process_env } from 'process';
 import { Uri } from 'vscode';
-import type { DeprecatedGitConfigKeys, GitConfigKeys } from '../../../../constants.js';
+import type { DeprecatedGitConfigKeys, GitConfigKeys, GitCoreConfigKeys } from '../../../../constants.js';
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
 import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type { GitConfigSubProvider, GitDir } from '../../../../git/gitProvider.js';
+import type { SigningConfig, SigningFormat, ValidationResult } from '../../../../git/models/signature.js';
 import type { GitUser } from '../../../../git/models/user.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
 import { getBestPath } from '../../../../system/-webview/path.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { debug, log } from '../../../../system/decorators/log.js';
@@ -18,6 +20,12 @@ import type { LocalGitProviderInternal } from '../localGitProvider.js';
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
 
+function parseGitBoolean(value: string | undefined): boolean {
+	if (value == null) return false;
+	const normalized = value.toLowerCase().trim();
+	return normalized === 'true' || normalized === 'yes' || normalized === 'on' || normalized === '1';
+}
+
 export class ConfigGitSubProvider implements GitConfigSubProvider {
 	constructor(
 		private readonly container: Container,
@@ -27,16 +35,25 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	) {}
 
 	@debug()
-	getConfig(repoPath: string, key: GitConfigKeys | DeprecatedGitConfigKeys): Promise<string | undefined> {
-		return this.cache.getConfig(repoPath, key, commonPath => this.git.config__get(key, commonPath));
+	getConfig(
+		repoPath: string,
+		key: GitCoreConfigKeys | GitConfigKeys | DeprecatedGitConfigKeys,
+		options?: { type?: 'bool' | 'int' | 'bool-or-int' | 'path' | 'expiry-date' | 'color' },
+	): Promise<string | undefined> {
+		return this.cache.getConfig(repoPath, key, commonPath => this.git.config__get(key, commonPath, options));
 	}
 
 	@log()
-	async setConfig(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void> {
+	async setConfig(
+		repoPath: string,
+		key: GitCoreConfigKeys | GitConfigKeys,
+		value: string | undefined,
+		options?: { global?: boolean },
+	): Promise<void> {
 		await this.git.exec(
 			{ cwd: repoPath ?? '', local: true },
 			'config',
-			'--local',
+			options?.global ? '--global' : '--local',
 			...(value == null ? ['--unset', key] : [key, value]),
 		);
 
@@ -149,5 +166,111 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		this.cache.repoInfo.set(repoPath, { ...repo, gitDir: gitDir });
 
 		return gitDir;
+	}
+
+	@log()
+	async getSigningConfig(repoPath: string): Promise<SigningConfig> {
+		// Fetch all signing-related config in one call
+		const data = await this.git.config__get_regex(
+			'^(commit\\.gpgsign|gpg\\.format|user\\.signingkey|gpg\\.program|gpg\\.ssh\\.program|gpg\\.ssh\\.allowedsignersfile)$',
+			repoPath,
+		);
+
+		// Parse output into a map (format: "key value" per line, keys are lowercase)
+		const configMap = new Map<string, string>();
+		if (data) {
+			for (const line of data.split('\n')) {
+				if (!line) continue;
+				const spaceIndex = line.indexOf(' ');
+				if (spaceIndex === -1) continue;
+				configMap.set(line.substring(0, spaceIndex), line.substring(spaceIndex + 1));
+			}
+		}
+
+		// Extract values (keys are lowercase in git output)
+		const enabledRaw = configMap.get('commit.gpgsign');
+		const format = configMap.get('gpg.format');
+		const signingKey = configMap.get('user.signingkey');
+		const gpgProgram = configMap.get('gpg.program');
+		const sshProgram = configMap.get('gpg.ssh.program');
+		const allowedSignersFile = configMap.get('gpg.ssh.allowedsignersfile');
+
+		// Check if git config has commit signing enabled
+		let isEnabled = parseGitBoolean(enabledRaw);
+
+		// If git config doesn't have commit signing enabled, check VS Code's setting
+		if (!isEnabled) {
+			const vscodeEnableCommitSigning = configuration.getCore('git.enableCommitSigning', Uri.file(repoPath));
+			if (vscodeEnableCommitSigning === true) {
+				isEnabled = true;
+			}
+		}
+
+		return {
+			enabled: isEnabled,
+			format: (format as SigningFormat) ?? 'gpg',
+			signingKey: signingKey,
+			gpgProgram: gpgProgram,
+			sshProgram: sshProgram,
+			allowedSignersFile: allowedSignersFile,
+		};
+	}
+
+	@log()
+	async validateSigningSetup(repoPath: string): Promise<ValidationResult> {
+		const config = await this.getSigningConfig(repoPath);
+
+		if (!config.signingKey) {
+			return { valid: false, error: 'No signing key configured' };
+		}
+
+		// Basic validation: just check that a signing key is configured
+		// Git will handle the actual validation when signing commits
+		return { valid: true };
+	}
+
+	@log()
+	async setSigningConfig(
+		repoPath: string,
+		config: Partial<SigningConfig>,
+		options?: { global?: boolean },
+	): Promise<void> {
+		if (config.enabled != null) {
+			await this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false', options);
+		}
+		if (config.format != null) {
+			await this.setConfig(repoPath, 'gpg.format', config.format, options);
+		}
+		if (config.signingKey != null) {
+			await this.setConfig(repoPath, 'user.signingkey', config.signingKey, options);
+		}
+		if (config.gpgProgram != null) {
+			await this.setConfig(repoPath, 'gpg.program', config.gpgProgram, options);
+		}
+		if (config.sshProgram != null) {
+			await this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram, options);
+		}
+		if (config.allowedSignersFile != null) {
+			await this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile, options);
+		}
+	}
+
+	getSigningConfigFlags(config: SigningConfig): string[] {
+		const flags: string[] = [];
+
+		if (config.gpgProgram) {
+			flags.push('-c', `gpg.program=${config.gpgProgram}`);
+		}
+		if (config.format && config.format !== 'gpg') {
+			flags.push('-c', `gpg.format=${config.format}`);
+		}
+		if (config.sshProgram) {
+			flags.push('-c', `gpg.ssh.program=${config.sshProgram}`);
+		}
+		if (config.allowedSignersFile) {
+			flags.push('-c', `gpg.ssh.allowedSignersFile=${config.allowedSignersFile}`);
+		}
+
+		return flags;
 	}
 }

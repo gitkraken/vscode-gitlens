@@ -12,6 +12,8 @@ export type GitFeatures =
 	| 'git:merge-tree:write-tree'
 	| 'git:push:force-if-includes'
 	| 'git:rev-parse:end-of-options'
+	| 'git:signing:ssh'
+	| 'git:signing:x509'
 	| 'git:stash:push:pathspecs'
 	| 'git:stash:push:staged'
 	| 'git:stash:push:stdin'
@@ -38,6 +40,8 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:merge-tree:write-tree', '2.38'],
 	['git:push:force-if-includes', '2.30.0'],
 	['git:rev-parse:end-of-options', '2.30'],
+	['git:signing:ssh', '2.34.0'],
+	['git:signing:x509', '2.19.0'],
 	['git:stash:push:pathspecs', '2.13.2'],
 	['git:stash:push:staged', '2.35.0'],
 	['git:stash:push:stdin', '2.30.0'],

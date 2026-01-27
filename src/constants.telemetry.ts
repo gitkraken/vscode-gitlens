@@ -141,6 +141,15 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a VS Code command is executed by a GitLens provided action */
 	'command/core': CoreCommandEvent;
 
+	/** Sent when a commit is signed */
+	'commit/signed': CommitSignedEvent;
+	/** Sent when commit signing fails */
+	'commit/signing/failed': CommitSigningFailedEvent;
+	/** Sent when commit signing setup is completed */
+	'commit/signing/setup': CommitSigningSetupEvent;
+	/** Sent when commit signing setup wizard is opened */
+	'commit/signing/setupWizard/opened': CommitSigningSetupWizardOpenedEvent;
+
 	/** Sent when the Inspect view is shown */
 	'commitDetails/shown': DetailsShownEvent;
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
@@ -713,6 +722,24 @@ interface DetailsReachabilityFailedEvent {
 	duration: number;
 	'failed.reason': 'git-error' | 'timeout' | 'unknown';
 	'failed.error'?: string;
+}
+
+interface CommitSignedEvent {
+	format: 'gpg' | 'ssh' | 'x509' | 'openpgp';
+}
+
+interface CommitSigningFailedEvent {
+	reason: 'noKey' | 'gpgNotFound' | 'sshNotFound' | 'passphraseFailed' | 'unknown';
+	format: 'gpg' | 'ssh' | 'x509' | 'openpgp';
+}
+
+interface CommitSigningSetupEvent {
+	format: 'gpg' | 'ssh' | 'x509' | 'openpgp';
+	keyGenerated: boolean;
+}
+
+interface CommitSigningSetupWizardOpenedEvent {
+	alreadyConfigured: boolean;
 }
 
 export type FeaturePreviewDayEventData = Record<`day.${number}.startedOn`, string>;
