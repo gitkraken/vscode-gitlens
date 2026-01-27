@@ -68,6 +68,9 @@ export class GlDiffFile extends LitElement {
 		this._isVisible = value;
 	}
 
+	@state()
+	private userExpandedState?: boolean;
+
 	// should only ever be one file
 	get diffFile(): DiffFile | undefined {
 		return this.parsedDiff?.[0];
@@ -75,6 +78,7 @@ export class GlDiffFile extends LitElement {
 
 	private diff2htmlUi?: Diff2HtmlUI;
 	private intersectionObserver?: IntersectionObserver;
+	private detailsToggleListener?: () => void;
 
 	override connectedCallback() {
 		super.connectedCallback?.();
@@ -101,7 +105,10 @@ export class GlDiffFile extends LitElement {
 
 		if (changedProperties.has('parsedDiff') || changedProperties.has('sideBySide')) {
 			this.renderDiff(true);
-		} else if (changedProperties.has('defaultExpanded') || changedProperties.has('isVisible')) {
+		} else if (changedProperties.has('defaultExpanded')) {
+			this.userExpandedState = undefined;
+			this.renderDiff();
+		} else if (changedProperties.has('isVisible')) {
 			this.renderDiff();
 		}
 	}
@@ -127,6 +134,8 @@ export class GlDiffFile extends LitElement {
 
 	private clearDiff() {
 		if (this.targetElement) {
+			this.captureUserExpandedState();
+			this.removeDetailsToggleListener();
 			this.targetElement.innerHTML = '';
 		}
 		this.hasRendered = false;
@@ -163,14 +172,14 @@ export class GlDiffFile extends LitElement {
 
 		const detailsElement = this.targetElement?.querySelector('details');
 		if (detailsElement) {
-			detailsElement.open = this.defaultExpanded;
+			detailsElement.open = this.userExpandedState ?? this.defaultExpanded;
+			this.setupDetailsToggleListener(detailsElement);
 		}
 
 		this.hasRendered = true;
 	}
 
 	private processDiff() {
-		// create diff text, then call parseDiff
 		if (!this.filename || !this.hunks || this.hunks.length === 0) {
 			this.diffText = undefined;
 			this.parsedDiff = undefined;
@@ -192,5 +201,32 @@ export class GlDiffFile extends LitElement {
 		this.parsedDiff = parsedDiff;
 		const lineCount = this.diffFile?.blocks.reduce((p, c) => p + 1 + c.lines.length, 0) ?? -1;
 		this.style.setProperty('--d2h-intrinsic-line-count', lineCount > -1 ? `${lineCount}` : '50');
+	}
+
+	private captureUserExpandedState() {
+		const detailsElement = this.targetElement?.querySelector('details');
+		if (detailsElement && this.userExpandedState === undefined) {
+			this.userExpandedState = detailsElement.open;
+		}
+	}
+
+	private setupDetailsToggleListener(detailsElement: HTMLDetailsElement) {
+		this.removeDetailsToggleListener();
+
+		this.detailsToggleListener = () => {
+			this.userExpandedState = detailsElement.open;
+		};
+
+		detailsElement.addEventListener('toggle', this.detailsToggleListener);
+	}
+
+	private removeDetailsToggleListener() {
+		if (this.detailsToggleListener) {
+			const detailsElement = this.targetElement?.querySelector('details');
+			if (detailsElement) {
+				detailsElement.removeEventListener('toggle', this.detailsToggleListener);
+			}
+			this.detailsToggleListener = undefined;
+		}
 	}
 }
