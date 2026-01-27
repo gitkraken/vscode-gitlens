@@ -64,7 +64,7 @@ Search existing issues using `github/search_issues` with keywords from commit.
 
 ### Title Guidelines
 
-- Describe the *problem* or *need* from the user's perspective, not the solution
+- Describe the _problem_ or _need_ from the user's perspective, not the solution
 - Be specific and include context (e.g., "when switching repositories", "in large repos")
 - For bugs, focus on the symptom the user experiences, not code paths
 - Keep it concise with no trailing punctuation

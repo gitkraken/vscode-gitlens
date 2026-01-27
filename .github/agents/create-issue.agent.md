@@ -57,7 +57,7 @@ Search existing issues using `github/search_issues` with keywords from commit.
 
 ### Title Guidelines
 
-- Describe the *problem* or *need* from the user's perspective, not the solution
+- Describe the _problem_ or _need_ from the user's perspective, not the solution
 - Be specific and include context (e.g., "when switching repositories", "in large repos")
 - For bugs, focus on the symptom the user experiences, not code paths
 - Keep it concise with no trailing punctuation
@@ -136,7 +136,7 @@ Check `[Unreleased]` section for:
 2. Prefer component/feature names over specific file paths
 3. NEVER include credentials, keys, tokens, or secrets
 4. NEVER create non-existent labels without explicit confirmation
-4. **NEVER auto-create issue or edit CHANGELOG without user confirmation**
+5. **NEVER auto-create issue or edit CHANGELOG without user confirmation**
 
 ## Error Handling
 

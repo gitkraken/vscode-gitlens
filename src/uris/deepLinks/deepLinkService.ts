@@ -935,7 +935,9 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (remoteUrl && !remote) {
-						const matchingRemotes = await repo.git.remotes.getRemotes({ filter: r => r.matches(remoteUrl) });
+						const matchingRemotes = await repo.git.remotes.getRemotes({
+							filter: r => r.matches(remoteUrl),
+						});
 						if (matchingRemotes.length > 0) {
 							this._context.remote = matchingRemotes[0];
 						}
