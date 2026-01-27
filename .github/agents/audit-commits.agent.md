@@ -50,8 +50,8 @@ Search existing issues using `github/search_issues` with keywords from commit.
 **Scoring (0–1 scale):**
 
 - Title similarity (>75% token overlap): +0.5
-- Body keyword overlap: +0.2 per keyword
-- Label overlap: +0.15 per label
+- Body keyword overlap: +0.3 (if significant overlap)
+- Label overlap: +0.1 per label (max +0.2)
 - Same component mentioned: +0.15
 
 **Thresholds:**
@@ -60,24 +60,21 @@ Search existing issues using `github/search_issues` with keywords from commit.
 - 0.45–0.69: Possibly related → show as suggestion
 - <0.45: Ignore
 
+**Presentation:** Sort candidates by score (highest first); show top 3 matches with matched fields highlighted. If related (but not duplicate) issue found, ask user whether to link to it, add a comment, or create a new issue.
+
 ### Title Guidelines
 
-**Principles:** User-centered, specific, actionable, imperative tense, concise (no trailing punctuation)
-
-| Type        | Pattern                           | Example                                      |
-| ----------- | --------------------------------- | -------------------------------------------- |
-| Feature     | "Add [capability] for [context]"  | "Add support for custom autolinks for Jira"  |
-| Enhancement | "Improve [aspect] of [component]" | "Improve search performance in large repos"  |
-| Bugfix      | "Fix [symptom] when [condition]"  | "Fix stale token reuse after logout"         |
-| Refactor    | "Refactor [system] to [benefit]"  | "Refactor auth config to reduce duplication" |
-| Docs        | "Document [what] for [audience]"  | "Document worktree setup for contributors"   |
-| Tests       | "Add tests for [scenario]"        | "Add tests for concurrent worktree ops"      |
+- Describe the *problem* or *need* from the user's perspective, not the solution
+- Be specific and include context (e.g., "when switching repositories", "in large repos")
+- For bugs, focus on the symptom the user experiences, not code paths
+- Keep it concise with no trailing punctuation
+- If intent unclear, offer 2–3 title variants for user to choose
 
 ### Issue Body Structure
 
 | Section    | Required | Content                                              |
 | ---------- | -------- | ---------------------------------------------------- |
-| Summary    | Yes      | One-line imperative statement of purpose             |
+| Summary    | Yes      | One-line description of the problem or need          |
 | Impact     | Yes      | Who/what benefits; user-visible or maintenance value |
 | Validation | Yes      | Steps to verify fix/behavior                         |
 | Risk       | Yes      | Potential regressions; risk level justification      |
@@ -166,7 +163,7 @@ Uses [Keep a Changelog](http://keepachangelog.com/) format under `[Unreleased]`.
 **Example:**
 
 ```markdown
-- Fixes an issue where the _Home_ view would not update when switching repositories ([#4717](https://github.com/gitkraken/vscode-gitlens/issues/4717))
+- Fixes an issue where the _Home_ view would not update when switching repositories ([#issue](url))
 ```
 
 ### Detection
@@ -181,10 +178,11 @@ Check `[Unreleased]` section for:
 
 **CRITICAL:**
 
-1. NEVER include code, diffs, file paths, or folder names in issues
-2. NEVER include credentials, keys, tokens, or secrets
-3. NEVER create labels without explicit user confirmation
-4. **NEVER auto-create issues or edit CHANGELOG without user confirmation**
+1. NEVER include code snippets, diffs, or internal implementation details
+2. Prefer component/feature names over specific file paths
+3. NEVER include credentials, keys, tokens, or secrets
+4. NEVER create labels without explicit user confirmation
+5. **NEVER auto-create issues or edit CHANGELOG without user confirmation**
 
 ## Error Handling
 
@@ -213,7 +211,7 @@ Check `[Unreleased]` section for:
 ## Progress Display
 
 ```
-Auditing commits: v17.7.1..HEAD
+Auditing commits: <tag>..HEAD
 
 Summary:
 • Total commits: 25

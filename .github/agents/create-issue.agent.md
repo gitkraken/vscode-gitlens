@@ -29,8 +29,8 @@ Analyze uncommitted changes, commit, or commit range, and create concise, high-q
 2. **Collect diff**: Gather changes, excluding lock files and other known generated files, use `gitkraken/git_log_or_diff` (for commit range pass the range as the commit argument)
 3. **Infer intent**: Classify as bugfix/feature/refactor/docs/tests from diff and messages; search codebase for additional context if needed
 4. **Evaluate changes**
-   - Check if a duplicate issue already exists using derived keywords -> if not, create one
-   - Check if it's in the `[Unreleased]` section of `CHANGELOG.md` → if not, add entry
+   - Check if a duplicate issue already exists using derived keywords
+   - Check if it's in the `[Unreleased]` section of `CHANGELOG.md`
 5. **Create issue**: If no duplicate, generate title, body, and labels and use `github/issue_write` to create an issue; return URL; request confirmation
 6. **Update CHANGELOG**: If no entry, generate entry based on issue title and inferred change type, and insert it into [Unreleased] section of `CHANGELOG.md`, preserve existing formatting; request confirmation
 
@@ -43,8 +43,8 @@ Search existing issues using `github/search_issues` with keywords from commit.
 **Scoring (0–1 scale):**
 
 - Title similarity (>75% token overlap): +0.5
-- Body keyword overlap: +0.2 per keyword
-- Label overlap: +0.15 per label
+- Body keyword overlap: +0.3 (if significant overlap)
+- Label overlap: +0.1 per label (max +0.2)
 - Same component/area mentioned: +0.15
 
 **Thresholds:**
@@ -53,33 +53,21 @@ Search existing issues using `github/search_issues` with keywords from commit.
 - 0.45–0.69: Possibly related → show as suggestion
 - <0.45: Ignore
 
-Show top 3 matches ranked by score with matched fields highlighted.
-
-**Presentation:** Sort candidates by score (highest first); show top 3 matches with matched fields highlighted.
+**Presentation:** Sort candidates by score (highest first); show top 3 matches with matched fields highlighted. If related (but not duplicate) issue found, ask user whether to link to it, add a comment, or create a new issue.
 
 ### Title Guidelines
 
-**Principles:** User-centered, specific, actionable, imperative tense, concise (no trailing punctuation)
-
-| Type        | Pattern                           | Example                                              |
-| ----------- | --------------------------------- | ---------------------------------------------------- |
-| Feature     | "Add [capability] for [context]"  | "Add support for custom autolinks for Jira"          |
-| Enhancement | "Improve [aspect] of [component]" | "Improve search performance in large repos"          |
-| Bugfix      | "Fix [symptom] when [condition]"  | "Fixes stale token reuse after logout"               |
-| Refactor    | "Refactor [system] to [benefit]"  | "Refactor auth config loading to reduce duplication" |
-| Docs        | "Document [what] for [audience]"  | "Document worktree setup for new contributors"       |
-| Tests       | "Add tests for [scenario]"        | "Add tests for concurrent worktree operations"       |
-
-- Include context (e.g., "for Jira", "in large repos", "after logout")
-- Focus on symptoms for bugs, not code paths
+- Describe the *problem* or *need* from the user's perspective, not the solution
+- Be specific and include context (e.g., "when switching repositories", "in large repos")
+- For bugs, focus on the symptom the user experiences, not code paths
+- Keep it concise with no trailing punctuation
 - If intent unclear, offer 2–3 title variants for user to choose
-  - Variants should differ in scope or framing, not just wording
 
 ### Issue Body Structure
 
 | Section    | Required               | Content                                              |
 | ---------- | ---------------------- | ---------------------------------------------------- |
-| Summary    | Yes                    | One-line imperative statement of purpose             |
+| Summary    | Yes                    | One-line description of the problem or need          |
 | Impact     | Yes                    | Who/what benefits; user-visible or maintenance value |
 | Validation | Yes                    | Steps to verify fix/behavior                         |
 | Risk       | Yes                    | Potential regressions; risk level justification      |
@@ -129,7 +117,7 @@ Uses [Keep a Changelog](http://keepachangelog.com/) format under `[Unreleased]`.
 **Example:**
 
 ```markdown
-- Fixes an issue where the _Home_ view would not update when switching repositories ([#4717](https://github.com/gitkraken/vscode-gitlens/issues/4717))
+- Fixes an issue where the _Home_ view would not update when switching repositories ([#issue](url))
 ```
 
 ### Detection
@@ -144,9 +132,10 @@ Check `[Unreleased]` section for:
 
 **CRITICAL:**
 
-1. NEVER include code, diffs, file paths, or folder names
-2. NEVER include credentials, keys, tokens, or secrets
-3. NEVER create non-existent labels without explicit confirmation
+1. NEVER include code snippets, diffs, or internal implementation details
+2. Prefer component/feature names over specific file paths
+3. NEVER include credentials, keys, tokens, or secrets
+4. NEVER create non-existent labels without explicit confirmation
 4. **NEVER auto-create issue or edit CHANGELOG without user confirmation**
 
 ## Error Handling
@@ -174,11 +163,11 @@ Check `[Unreleased]` section for:
 ## Example Issue Body
 
 ```
-Improves search performance in large repositories by optimizing query indexing.
+Search is slow in large repositories, impacting developer productivity during code exploration.
 
 ## Impact
 
-Reduces search response time for users working with large codebases; improves developer productivity during code exploration.
+Users working with large codebases experience long wait times when searching; improving this reduces friction during code exploration.
 
 ## Validation
 
@@ -189,11 +178,6 @@ Reduces search response time for users working with large codebases; improves de
 ## Risk
 
 Low – read-only optimization. No behavioral changes to search results.
-
-## Follow Ups
-
-- Add performance benchmarks for different repo sizes
-- Consider caching layer for frequently searched terms
 ```
 
 ## Quality Bar
