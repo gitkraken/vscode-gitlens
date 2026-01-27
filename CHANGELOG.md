@@ -9,10 +9,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds support for AI ignore files (`.aiignore`, `.cursorignore`, `.aiexclude`) and `gitlens.ai.exclude.files` setting to filter sensitive data from AI prompts, and smart diff truncation that prioritizes dropping low-value files when prompts exceed token limits ([#4916](https://github.com/gitkraken/vscode-gitlens/issues/4916))
+- Adds conversation threading to _Commit Composer_ auto-compose for improved outcomes ([PR #4900](https://github.com/gitkraken/vscode-gitlens/pull/4900))
 
 ### Changed
 
+- Improves performance when opening repositories with worktrees by sharing cached Git data and optimizing branch detection ([#4929](https://github.com/gitkraken/vscode-gitlens/issues/4929))
+- Improves system responsiveness with priority-based Git process management and optimized repository discovery; adds `gitlens.advanced.git.maxConcurrentProcesses` setting ([#4930](https://github.com/gitkraken/vscode-gitlens/issues/4930))
 - Improves file system event filtering performance by using sync filters and buffering events during Git ignore rule loading ([#4919](https://github.com/gitkraken/vscode-gitlens/issues/4919))
+- Improves view update performance by skipping hidden views, preventing deadlocks during node loading, and avoiding auto-expand with multiple repositories ([#4928](https://github.com/gitkraken/vscode-gitlens/issues/4928))
+- Improves commit message instructions in _Commit Composer_ auto-compose for better consistency ([PR #4888](https://github.com/gitkraken/vscode-gitlens/pull/4888))
+- Overhauls _Git Command Palette_ quick wizards with scope-based progress tracking and modular sub-commands for branch, stash, remote, tag, and worktree operations ([#4927](https://github.com/gitkraken/vscode-gitlens/issues/4927))
+- Excludes worktrees from repository pickers in commands where selecting a worktree would be inappropriate ([#4931](https://github.com/gitkraken/vscode-gitlens/issues/4931))
 
 ### Fixed
 
@@ -22,6 +29,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue in the _Commit Graph_ minimap where it only shows a spinner when the repo has no commits ([#4741](https://github.com/gitkraken/vscode-gitlens/issues/4741))
 - Fixes an inline markdown rendering issue in the _Interactive Rebase Editor_ ([#4914](https://github.com/gitkraken/vscode-gitlens/issues/4914))
 - Fixes an issue where opening a deep link to create a PR worktree would incorrectly prompt to add a remote that already exists ([#4926](https://github.com/gitkraken/vscode-gitlens/issues/4926))
+- Fixes an issue where a repository might not be discovered when opening files in parent directories of the repository ([#4932](https://github.com/gitkraken/vscode-gitlens/issues/4932))
+- Fixes an issue where popovers would appear in drag images when dragging commits in the _Interactive Rebase Editor_ ([#4933](https://github.com/gitkraken/vscode-gitlens/issues/4933))
 
 ## [17.9.0] - 2026-01-13
 
