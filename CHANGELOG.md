@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves file system event filtering performance by using sync filters and buffering events during Git ignore rule loading ([#4919](https://github.com/gitkraken/vscode-gitlens/issues/4919))
 - Improves view update performance by skipping hidden views, preventing deadlocks during node loading, and avoiding auto-expand with multiple repositories ([#4928](https://github.com/gitkraken/vscode-gitlens/issues/4928))
 - Improves commit message instructions in _Commit Composer_ auto-compose for better consistency ([PR #4888](https://github.com/gitkraken/vscode-gitlens/pull/4888))
+- Improves tracking for connecting flow actions by adding ide attributes to gk.dev links ([#4905](https://github.com/gitkraken/vscode-gitlens/issues/4905))
 - Overhauls _Git Command Palette_ quick wizards with scope-based progress tracking and modular sub-commands for branch, stash, remote, tag, and worktree operations ([#4927](https://github.com/gitkraken/vscode-gitlens/issues/4927))
 - Excludes worktrees from repository pickers in commands where selecting a worktree would be inappropriate ([#4931](https://github.com/gitkraken/vscode-gitlens/issues/4931))
 - Stops creating new GitHub sessions via VS Code built-in authentication; new connections now always use the GKDev flow, while existing built-in sessions are still used if available ([#4881](https://github.com/gitkraken/vscode-gitlens/issues/4881))
