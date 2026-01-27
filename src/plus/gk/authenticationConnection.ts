@@ -84,7 +84,7 @@ export class AuthenticationConnection implements Disposable {
 
 		const url = await this.container.urls.getGkDevUrl(
 			signUp ? 'register' : 'login',
-			`${scopes.includes('gitlens') ? 'source=gitlens&' : ''}${
+			`${
 				context != null ? `context=${context}&` : ''
 			}state=${encodeURIComponent(gkstate)}&redirect_uri=${encodeURIComponent(callbackUri.toString(true))}`,
 		);
