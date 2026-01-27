@@ -111,7 +111,7 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 				} else {
 					using step = steps.enterStep(Steps.PickRepo);
 
-					const result = yield* pickRepositoryStep(state, context, step);
+					const result = yield* pickRepositoryStep(state, context, step, { excludeWorktrees: true });
 					if (result === StepResultBreak) {
 						state.repo = undefined!;
 						if (step.goBack() == null) break;

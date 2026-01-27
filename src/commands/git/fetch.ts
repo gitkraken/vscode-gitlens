@@ -105,6 +105,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 					using step = steps.enterStep(Steps.PickRepos);
 
 					const result = yield* pickRepositoriesStep(state, context, step, {
+						excludeWorktrees: true,
 						skipIfPossible: !steps.isAtStep(Steps.PickRepos),
 					});
 					if (result === StepResultBreak) {
