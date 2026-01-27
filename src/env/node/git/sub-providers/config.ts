@@ -28,7 +28,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	@debug()
 	getConfig(repoPath: string, key: GitConfigKeys | DeprecatedGitConfigKeys): Promise<string | undefined> {
-		return this.git.config__get(key, repoPath);
+		return this.cache.getConfig(repoPath, key, commonPath => this.git.config__get(key, commonPath));
 	}
 
 	@log()
@@ -39,6 +39,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			'--local',
 			...(value == null ? ['--unset', key] : [key, value]),
 		);
+
+		// Invalidate the cached value for this key
+		this.cache.deleteConfig(repoPath, key);
 	}
 
 	@gate()

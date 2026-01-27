@@ -41,6 +41,7 @@ import { getLogScope } from '../../../../system/logger.scope.js';
 import { PageableResult } from '../../../../system/paging.js';
 import { normalizePath } from '../../../../system/path.js';
 import { getSettledValue } from '../../../../system/promise.js';
+import type { CacheController } from '../../../../system/promiseCache.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { Git } from '../git.js';
 import { getGitCommandError, gitConfigsLog, GitError, GitErrors } from '../git.js';
@@ -164,7 +165,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const scope = getLogScope();
 
-		const getCore = async (commonPath: string): Promise<PagedResult<GitBranch>> => {
+		const getCore = async (commonPath: string, cacheable?: CacheController): Promise<PagedResult<GitBranch>> => {
 			try {
 				const supported = await this.git.supported('git:for-each-ref');
 				const parser = getBranchParser(supported);
@@ -247,8 +248,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 				return branches.length ? { values: branches } : emptyPagedResult;
 			} catch (ex) {
-				// Clean up the shared cache if there is an error
-				this.cache.clearSharedBranches(commonPath);
+				// Signal cache invalidation so the shared cache entry is cleaned up
+				cacheable?.invalidate();
 				if (isCancellationError(ex)) throw ex;
 
 				return emptyPagedResult;

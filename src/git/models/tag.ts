@@ -70,10 +70,7 @@ export class GitTag implements GitTagReference {
 		return index !== -1 ? this.name.substring(index + 1) : this.name;
 	}
 
-	/**
-	 * Creates a copy of this tag with a different repoPath.
-	 * Used for worktree-aware caching where shared data needs per-worktree IDs.
-	 */
+	/** Creates a copy of this tag with a different repoPath — ONLY used for worktree-aware caching */
 	withRepoPath(repoPath: string): GitTag {
 		return repoPath === this.repoPath
 			? this

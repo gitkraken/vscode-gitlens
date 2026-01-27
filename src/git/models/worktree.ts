@@ -163,10 +163,7 @@ export class GitWorktree {
 		return this._hasWorkingChangesPromise;
 	}
 
-	/**
-	 * Creates a copy of this worktree with a different repoPath.
-	 * Used for worktree-aware caching where shared data needs per-worktree context.
-	 */
+	/** Creates a copy of this worktree with a different repoPath and updated branch — ONLY used for worktree-aware caching */
 	withRepoPath(repoPath: string): GitWorktree {
 		return repoPath === this.repoPath
 			? this
@@ -179,7 +176,7 @@ export class GitWorktree {
 					this.locked,
 					this.prunable,
 					this.sha,
-					this.branch,
+					this.branch?.withRepoPath(repoPath, true),
 				);
 	}
 }

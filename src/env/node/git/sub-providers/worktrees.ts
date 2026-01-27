@@ -100,8 +100,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 		return this.cache.getWorktrees(repoPath, async (commonPath, _cacheable) => {
 			const [dataResult, branchesResult] = await Promise.allSettled([
-				this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
-				this.provider.branches.getBranches(repoPath, undefined, cancellation),
+				this.git.exec({ cwd: commonPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
+				// Use commonPath to get shared branches (repoPath=commonPath, current=false)
+				// The worktree mapper will remap branches to the requester's context
+				this.provider.branches.getBranches(commonPath, undefined, cancellation),
 			]);
 
 			return parseGitWorktrees(

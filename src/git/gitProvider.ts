@@ -46,6 +46,7 @@ import type { BranchSortOptions, TagSortOptions } from './utils/-webview/sorting
 
 export type CachedGitTypes =
 	| 'branches'
+	| 'config'
 	| 'contributors'
 	| 'gitignore'
 	| 'providers'

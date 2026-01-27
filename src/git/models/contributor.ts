@@ -49,10 +49,7 @@ export class GitContributor {
 		return `${this.name}${this.email ? ` <${this.email}>` : ''}`;
 	}
 
-	/**
-	 * Creates a copy of this contributor with a different repoPath.
-	 * Used for worktree-aware caching where shared data needs per-worktree context.
-	 */
+	/** Creates a copy of this contributor with a different repoPath — ONLY used for worktree-aware caching */
 	withRepoPath(repoPath: string): GitContributor {
 		return repoPath === this.repoPath
 			? this

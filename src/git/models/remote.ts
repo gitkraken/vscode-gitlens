@@ -128,10 +128,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return Boolean(getIntegrationIdForRemote(this.provider));
 	}
 
-	/**
-	 * Creates a copy of this remote with a different repoPath.
-	 * Used for worktree-aware caching where shared data needs per-worktree context.
-	 */
+	/** Creates a copy of this remote with a different repoPath — ONLY used for worktree-aware caching */
 	withRepoPath(repoPath: string): GitRemote<TProvider> {
 		return repoPath === this.repoPath
 			? this
