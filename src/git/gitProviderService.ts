@@ -137,50 +137,71 @@ export class GitProviderService implements Disposable {
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
 		if (added?.length && this.container.telemetry.enabled) {
-			setTimeout(() => {
-				void Promise.allSettled(
-					added.map(async repo => {
-						const since = '1.year.ago';
-						const [remotesResult, contributorsStatsResult] = await Promise.allSettled([
-							repo.git.remotes.getRemotes(),
-							repo.git.contributors.getContributorsStats({ since: since }, undefined, 2000),
-						]);
-
-						const remotes = getSettledValue(remotesResult) ?? [];
-
-						const remoteProviders = new Set<string>();
-						for (const remote of remotes) {
-							remoteProviders.add(remote.provider?.id ?? 'unknown');
-						}
-
-						const stats = getSettledValue(contributorsStatsResult);
-
-						let commits;
-						let avgPerContributor;
-						if (stats != null) {
-							commits = sum(stats.contributions);
-							avgPerContributor = Math.round(commits / stats.count);
-						}
-						const distribution = calculateDistribution(stats, 'repository.contributors.distribution.');
-
-						this.container.telemetry.sendEvent('repository/opened', {
-							'repository.id': repo.idHash,
-							'repository.scheme': repo.uri.scheme,
-							'repository.closed': repo.closed,
-							'repository.folder.scheme': repo.folder?.uri.scheme,
-							'repository.provider.id': repo.provider.id,
-							'repository.remoteProviders': join(remoteProviders, ','),
-							'repository.contributors.commits.count': commits,
-							'repository.contributors.commits.avgPerContributor': avgPerContributor,
-							'repository.contributors.count': stats?.count,
-							'repository.contributors.since': since,
-							...distribution,
-						});
-					}),
-				);
-			}, 10000);
+			for (const repo of added) {
+				this._pendingRepositoryTelemetry.set(repo.path, repo);
+			}
+			this.sendPendingRepositoryTelemetry();
 		}
 	}
+
+	private sendPendingRepositoryTelemetry = debounce(() => {
+		if (!this._pendingRepositoryTelemetry.size || !this.container.telemetry.enabled) return;
+
+		// Group by commonPath and pick one repo per group (prefer main repo over worktrees)
+		const grouped = groupByMap(this._pendingRepositoryTelemetry.values(), r => r.commonUri?.path ?? r.path);
+		this._pendingRepositoryTelemetry.clear();
+
+		const reposAndCounts = [...grouped.values()].map(group => {
+			const repo = group.find(r => !r.isWorktree) ?? group[0];
+			return {
+				repo: repo,
+				worktreeCount: group.filter(r => r.isWorktree && r !== repo).length,
+			};
+		});
+		if (!reposAndCounts.length) return;
+
+		void Promise.allSettled(
+			reposAndCounts.map(async ({ repo, worktreeCount }) => {
+				const since = '1.year.ago';
+				const [remotesResult, contributorsStatsResult] = await Promise.allSettled([
+					repo.git.remotes.getRemotes(),
+					repo.git.contributors.getContributorsStats({ since: since }, undefined, 2000),
+				]);
+
+				const remotes = getSettledValue(remotesResult) ?? [];
+
+				const remoteProviders = new Set<string>();
+				for (const remote of remotes) {
+					remoteProviders.add(remote.provider?.id ?? 'unknown');
+				}
+
+				const stats = getSettledValue(contributorsStatsResult);
+
+				let commits;
+				let avgPerContributor;
+				if (stats != null) {
+					commits = sum(stats.contributions);
+					avgPerContributor = Math.round(commits / stats.count);
+				}
+				const distribution = calculateDistribution(stats, 'repository.contributors.distribution.');
+
+				this.container.telemetry.sendEvent('repository/opened', {
+					'repository.id': repo.idHash,
+					'repository.scheme': repo.uri.scheme,
+					'repository.closed': repo.closed,
+					'repository.folder.scheme': repo.folder?.uri.scheme,
+					'repository.provider.id': repo.provider.id,
+					'repository.remoteProviders': join(remoteProviders, ','),
+					'repository.worktrees.openedCount': worktreeCount,
+					'repository.contributors.commits.count': commits,
+					'repository.contributors.commits.avgPerContributor': avgPerContributor,
+					'repository.contributors.count': stats?.count,
+					'repository.contributors.since': since,
+					...distribution,
+				});
+			}),
+		);
+	}, 10000);
 
 	private readonly _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
@@ -192,6 +213,7 @@ export class GitProviderService implements Disposable {
 	private readonly _disposable: Disposable;
 	private _initializing: Deferred<number> | undefined;
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
+	private readonly _pendingRepositoryTelemetry = new Map<string, Repository>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
 	private readonly _searchedRepositoryPaths = new VisitedPathsTrie();

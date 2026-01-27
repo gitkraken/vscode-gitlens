@@ -1217,6 +1217,7 @@ type RepositoryContributorsDistributionEventData = {
 
 interface RepositoryOpenedEvent extends RepositoryEventData, RepositoryContributorsDistributionEventData {
 	'repository.remoteProviders': string;
+	'repository.worktrees.openedCount': number;
 	'repository.contributors.commits.count': number | undefined;
 	'repository.contributors.commits.avgPerContributor': number | undefined;
 	'repository.contributors.count': number | undefined;

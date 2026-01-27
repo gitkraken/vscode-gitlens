@@ -3660,7 +3660,8 @@ void
   'repository.id': string,
   'repository.provider.id': string,
   'repository.remoteProviders': string,
-  'repository.scheme': string
+  'repository.scheme': string,
+  'repository.worktrees.openedCount': number
 }
 ```
 
