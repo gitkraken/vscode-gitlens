@@ -167,7 +167,7 @@ export abstract class SubscribeableViewNode<
 	}
 
 	@gate(undefined, { timeout: 30000, rejectOnTimeout: false }) // 30 second timeout to prevent indefinite hangs
-	@debug()
+	@debug({ singleLine: true })
 	async ensureSubscription(): Promise<void> {
 		const scope = getLogScope();
 
@@ -189,7 +189,10 @@ export abstract class SubscribeableViewNode<
 		}
 
 		// If we already have a subscription, just kick out
-		if (this.subscription != null) return;
+		if (this.subscription != null) {
+			setLogScopeExit(scope, ' \u2022 already subscribed');
+			return;
+		}
 
 		setLogScopeExit(
 			scope,
