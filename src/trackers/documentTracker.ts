@@ -246,7 +246,7 @@ export class GitDocumentTracker implements Disposable {
 		doc.dirty = dirty;
 
 		// Only fire state change events for the active document
-		if (editor == null || editor.document !== e.document) return;
+		if (editor?.document !== e.document) return;
 
 		this.fireDocumentDirtyStateChanged({ editor: editor, document: doc, dirty: doc.dirty });
 	}

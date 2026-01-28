@@ -275,7 +275,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Clone branches with correct repoPath and current flag
 			const branches: GitBranch[] = shared.values.map(b => {
 				// Check if this branch is current in the target worktree
-				const isCurrent = !b.remote && currentRef != null && b.name === currentRef.name && !isDetached;
+				const isCurrent = !b.remote && b.name === currentRef?.name && !isDetached;
 
 				// Only create new object if something changed
 				if (!isCurrent && targetRepoPath === commonPath) return b;

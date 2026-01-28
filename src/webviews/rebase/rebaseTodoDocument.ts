@@ -231,7 +231,7 @@ export class RebaseTodoDocument {
 		// Build new content with entries in new order, each followed by its update-refs
 		const newLines: string[] = [];
 		for (const entry of newEntries) {
-			const overrideAction = fixOldestCommit && entry.id === fixOldestCommit.id ? 'pick' : undefined;
+			const overrideAction = entry.id === fixOldestCommit?.id ? 'pick' : undefined;
 			newLines.push(formatRebaseTodoEntryLine(entry, overrideAction));
 
 			// Add update-ref lines after commit entries

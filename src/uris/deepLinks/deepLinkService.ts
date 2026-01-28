@@ -1372,10 +1372,7 @@ export class DeepLinkService implements Disposable {
 						const targetBranch = await this.getBranch(targetId);
 						if (
 							currentBranch != null &&
-							targetBranch != null &&
-							// TODO: When we create a new local branch during switch, it should set its upstream to the original remote branch target.
-							// Then this can be updated to just check the upstream of `currentBranch`.
-							currentBranch.getNameWithoutRemote() === targetBranch.getNameWithoutRemote()
+							currentBranch.getNameWithoutRemote() === targetBranch?.getNameWithoutRemote()
 						) {
 							skipSwitch = true;
 						}

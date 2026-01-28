@@ -19,3 +19,4 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
+    - 'prettier@3.8.1'

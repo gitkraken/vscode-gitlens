@@ -158,7 +158,7 @@ export class GlChartScroller extends GlElement {
 	};
 
 	private readonly onDragMove = (e: PointerEvent): void => {
-		if (!this._dragInfo || e.pointerId !== this._dragInfo.pointerId) return;
+		if (e.pointerId !== this._dragInfo?.pointerId) return;
 
 		e.preventDefault();
 		e.stopPropagation();

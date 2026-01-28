@@ -1079,7 +1079,7 @@ export class SubscriptionService implements Disposable {
 		// Check 4 times a day to ensure we validate at least once a day
 		this._validationTimer = setInterval(
 			() => {
-				if (this._lastValidatedDate == null || this._lastValidatedDate.getDate() !== new Date().getDate()) {
+				if (this._lastValidatedDate?.getDate() !== new Date().getDate()) {
 					void this.ensureSession(false, undefined, { force: true });
 				}
 			},
@@ -1595,7 +1595,7 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		if (currentActiveOrganization != null && pick.org.id === currentActiveOrganization.id) {
+		if (pick.org.id === currentActiveOrganization?.id) {
 			return;
 		}
 

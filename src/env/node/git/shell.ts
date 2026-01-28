@@ -57,8 +57,8 @@ function runDownPath(exe: string): string {
 function isExecutable(stats: Stats) {
 	if (isWindows) return true;
 
-	const isGroup = stats.gid ? process.getgid != null && stats.gid === process.getgid() : true;
-	const isUser = stats.uid ? process.getuid != null && stats.uid === process.getuid() : true;
+	const isGroup = stats.gid ? stats.gid === process.getgid?.() : true;
+	const isUser = stats.uid ? stats.uid === process.getuid?.() : true;
 
 	return Boolean(stats.mode & 0o0001 || (stats.mode & 0o0010 && isGroup) || (stats.mode & 0o0100 && isUser));
 }

@@ -414,7 +414,7 @@ export class LineTracker {
 
 function isIncluded(selections: LineSelection[] | undefined, within: LineSelection[] | undefined): boolean {
 	if (selections == null && within == null) return true;
-	if (selections == null || within == null || selections.length !== within.length) return false;
+	if (selections == null || selections.length !== within?.length) return false;
 
 	return selections.every((s, i) => {
 		const match = within[i];
