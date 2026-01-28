@@ -1,9 +1,11 @@
 import { window } from 'vscode';
 import type { Container } from '../../../container.js';
 import { BranchError } from '../../../git/errors.js';
+import type { GitBranch } from '../../../git/models/branch.js';
 import type { IssueShape } from '../../../git/models/issue.js';
 import type { GitReference } from '../../../git/models/reference.js';
 import type { Repository } from '../../../git/models/repository.js';
+import type { GitWorktree } from '../../../git/models/worktree.js';
 import { addAssociatedIssueToBranch } from '../../../git/utils/-webview/branch.issue.utils.js';
 import {
 	getReferenceLabel,
@@ -16,6 +18,8 @@ import { getIssueOwner } from '../../../plus/integrations/providers/utils.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { Logger } from '../../../system/logger.js';
+import type { Deferred } from '../../../system/promise.js';
+import { defer } from '../../../system/promise.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -63,6 +67,15 @@ interface State<Repo = string | Repository> {
 
 	confirmOptions?: Flags[];
 	associateWithIssue?: IssueShape;
+
+	// Pass through to worktree command
+	worktreeDefaultOpen?: 'new' | 'current';
+
+	// Result tracking
+	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree }>;
+
+	// Issue for deeplink storage
+	startWorkIssue?: IssueShape;
 }
 export type BranchCreateState = State;
 
@@ -186,6 +199,9 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 			if (state.flags.includes('--worktree')) {
 				using step = steps.enterStep(Steps.ConfirmCreateWorktree);
 
+				// Create a deferred promise to get the worktree result
+				const worktreeResult = state.result ? defer<GitWorktree | undefined>() : undefined;
+
 				const result = yield* getSteps(
 					this.container,
 					{
@@ -195,6 +211,9 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 							reference: state.reference,
 							createBranch: state.name,
 							repo: state.repo,
+							worktreeDefaultOpen: state.worktreeDefaultOpen,
+							result: worktreeResult,
+							startWorkIssue: state.startWorkIssue,
 						},
 					},
 					context,
@@ -206,6 +225,30 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 				}
 
 				steps.markStepsComplete();
+
+				// Capture the full result if requested
+				if (worktreeResult != null && state.result != null) {
+					try {
+						const worktree = await worktreeResult.promise;
+						if (worktree) {
+							// Get the branch from the worktree repository
+							const worktreeRepo = await this.container.git.getOrOpenRepository(worktree.uri);
+							const branch = worktreeRepo
+								? await worktreeRepo.git.branches.getBranch(state.name)
+								: undefined;
+							if (branch) {
+								state.result.fulfill({ branch: branch, worktree: worktree });
+							} else {
+								state.result.cancel();
+							}
+						} else {
+							state.result.cancel();
+						}
+					} catch (ex) {
+						state.result.cancel(ex);
+					}
+				}
+
 				return;
 			}
 
@@ -249,6 +292,16 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 				const owner = getIssueOwner(issue);
 				if (branch != null && owner != null) {
 					await addAssociatedIssueToBranch(this.container, branch, { ...issue, type: 'issue' }, owner);
+				}
+			}
+
+			// Capture branch-only result if requested (non-worktree case)
+			if (state.result && !state.flags.includes('--worktree')) {
+				const branch = await state.repo.git.branches.getBranch(state.name);
+				if (branch) {
+					state.result.fulfill({ branch: branch, worktree: undefined });
+				} else {
+					state.result.cancel();
 				}
 			}
 		}

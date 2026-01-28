@@ -3,16 +3,19 @@ import type { Disposable } from 'vscode';
 import type { CompareWithCommandArgs } from '../../../../commands/compareWith.js';
 import type { Container } from '../../../../container.js';
 import { cherryPick, merge, rebase } from '../../../../git/actions/repository.js';
+import type { GitBranch } from '../../../../git/models/branch.js';
 import type { PullRequest } from '../../../../git/models/pullRequest.js';
 import type { Repository } from '../../../../git/models/repository.js';
+import type { GitWorktree } from '../../../../git/models/worktree.js';
 import { serializePullRequest } from '../../../../git/utils/pullRequest.utils.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from '../../../../plus/launchpad/launchpadProvider.js';
 import { getLaunchpadItemGroups } from '../../../../plus/launchpad/launchpadProvider.js';
 import { launchpadCategoryToGroupMap } from '../../../../plus/launchpad/models/launchpad.js';
 import { startReviewFromPullRequest } from '../../../../plus/launchpad/utils/-webview/startReview.utils.js';
-import { startWorkFromIssue } from '../../../../plus/startWork/utils/-webview/startWork.utils.js';
+import type { StartWorkCommandArgs } from '../../../../plus/startWork/startWork.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { createCommandDecorator } from '../../../../system/decorators/command.js';
+import { defer } from '../../../../system/promise.js';
 import type { ComposerWebviewShowingArgs } from '../../../../webviews/plus/composer/registration.js';
 import type { WebviewPanelShowCommandArgs } from '../../../../webviews/webviewsController.js';
 import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './integration.js';
@@ -188,18 +191,27 @@ export class CliCommandHandlers implements Disposable {
 		_repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No issue identifier provided' };
-		const [issueSearch] = request.args;
+		const [issueUrl] = request.args;
 
 		try {
-			const { worktree, branch } = await startWorkFromIssue(this.container, { search: issueSearch });
+			const result = defer<{ branch: GitBranch; worktree?: GitWorktree }>();
 
-			// get branch name and worktree path for branch
-			const result = {
-				branchName: branch.name,
-				worktreePath: worktree.path,
+			await executeCommand<StartWorkCommandArgs>('gitlens.startWork', {
+				command: 'startWork',
+				source: 'gk-cli-integration',
+				issueUrl: issueUrl,
+				useDefaults: true,
+				result: result,
+			});
+
+			const { branch, worktree } = await result.promise;
+
+			return {
+				stdout: JSON.stringify({
+					branchName: branch.name,
+					worktreePath: worktree?.path,
+				}),
 			};
-
-			return { stdout: JSON.stringify(result) };
 		} catch (ex) {
 			return { stderr: `Error starting work on issue: ${ex}` };
 		}
