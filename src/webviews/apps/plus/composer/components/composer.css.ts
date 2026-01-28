@@ -29,13 +29,15 @@ export const composerItemStyles = css`
 		--composer-item-background: var(--vscode-list-hoverBackground);
 	}
 
-	.composer-item.is-selected {
+	.composer-item.is-selected,
+	.composer-item:focus-visible {
 		--composer-item-background: var(--vscode-list-activeSelectionBackground, var(--color-background));
 		--composer-item-icon-color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
 		--composer-item-color: var(--vscode-list-activeSelectionForeground);
 	}
 
-	:host-context(.vscode-high-contrast) .composer-item.is-selected {
+	:host-context(.vscode-high-contrast) .composer-item.is-selected,
+	:host-context(.vscode-high-contrast) .composer-item:focus-visible {
 		--composer-item-border: var(
 			--vscode-list-focusAndSelectionOutline,
 			var(--vscode-contrastActiveBorder, var(--vscode-list-focusOutline))

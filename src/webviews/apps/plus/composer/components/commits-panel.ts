@@ -1440,7 +1440,8 @@ export class CommitsPanel extends LitElement {
 											.fileCount=${getFileCountForCommit(commit, this.hunks)}
 											.additions=${changes.additions}
 											.deletions=${changes.deletions}
-											.selected=${this.selectedCommitIds.has(commit.id)}
+											.selected=${this.selectedCommitId === commit.id ||
+											this.selectedCommitIds.has(commit.id)}
 											.multiSelected=${this.selectedCommitIds.size > 1 &&
 											this.selectedCommitIds.has(commit.id)}
 											.isPreviewMode=${this.isPreviewMode}
