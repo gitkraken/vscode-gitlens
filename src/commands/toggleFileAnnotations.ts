@@ -189,7 +189,7 @@ function getValidEditor(editor: TextEditor | undefined, uri: Uri | undefined) {
 		editor = undefined;
 	}
 
-	if (uri != null && (editor?.document.uri.toString() !== uri.toString())) {
+	if (uri != null && editor?.document.uri.toString() !== uri.toString()) {
 		const e = getOpenTextEditorIfVisible(uri);
 		if (e != null) {
 			editor = e;
