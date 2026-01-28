@@ -1,7 +1,10 @@
 import type { Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
 import type { Container } from '../../container.js';
-import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
+import type {
+	RepositoryLocationEntry,
+	RepositoryLocationProvider,
+} from '../../git/location/repositorylocationProvider.js';
 import { RemoteResourceType } from '../../git/models/remoteResource.js';
 import type { Repository } from '../../git/models/repository.js';
 import type {
@@ -12,6 +15,8 @@ import type {
 import { missingRepositoryId } from '../../git/models/repositoryIdentities.js';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser.js';
 import { log } from '../../system/decorators/log.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
 import { getSettledValue } from '../../system/promise.js';
 
 export class RepositoryIdentityService implements Disposable {
@@ -195,6 +200,96 @@ export class RepositoryIdentityService implements Disposable {
 				owner: identity.provider.repoDomain,
 				repoName: identity.provider.repoName,
 			});
+		}
+	}
+
+	@log()
+	async storeRepositoryLocations(repos: Repository[]): Promise<void> {
+		if (!repos.length || this.locator == null) return;
+
+		const scope = getLogScope();
+
+		// Use batched method if available, otherwise fall back to sequential
+		if (this.locator.storeLocations == null) {
+			for (const repo of repos) {
+				try {
+					await this.storeRepositoryLocation(repo);
+				} catch (ex) {
+					Logger.error(ex, scope);
+				}
+			}
+			return;
+		}
+
+		// Gather all identity/remote info for all repos in parallel
+		const repoDataPromises = repos
+			.filter(repo => !repo.virtual)
+			.map(async repo => {
+				const [identityResult, remotesResult] = await Promise.allSettled([
+					this.getRepositoryIdentity(repo),
+					repo.git.remotes.getRemotes(),
+				]);
+
+				const identity = getSettledValue(identityResult);
+				const remotes = getSettledValue(remotesResult) ?? [];
+
+				return { repo: repo, identity: identity, remotes: remotes };
+			});
+
+		const repoDataResults = await Promise.allSettled(repoDataPromises);
+
+		// Build batch of location entries
+		const entries: RepositoryLocationEntry[] = [];
+
+		for (const result of repoDataResults) {
+			if (result.status !== 'fulfilled') continue;
+
+			const { repo, identity, remotes } = result.value;
+			const repoPath = repo.uri.fsPath;
+
+			// Collect remote URLs in parallel
+			const remoteUrlPromises = remotes.map(async remote => {
+				try {
+					return await remote.provider?.url({ type: RemoteResourceType.Repo });
+				} catch {
+					return undefined;
+				}
+			});
+
+			const remoteUrls = await Promise.all(remoteUrlPromises);
+
+			// Add entries for each remote URL
+			for (const remoteUrl of remoteUrls) {
+				if (remoteUrl != null) {
+					entries.push({ path: repoPath, remoteUrl: remoteUrl, repoInfo: undefined });
+				}
+			}
+
+			// Add entry for provider identity if available
+			if (
+				identity?.provider?.id != null &&
+				identity?.provider?.repoDomain != null &&
+				identity?.provider?.repoName != null
+			) {
+				entries.push({
+					path: repoPath,
+					remoteUrl: undefined,
+					repoInfo: {
+						provider: identity.provider.id,
+						owner: identity.provider.repoDomain,
+						repoName: identity.provider.repoName,
+					},
+				});
+			}
+		}
+
+		// Store all locations in a single batched call
+		if (entries.length) {
+			try {
+				await this.locator.storeLocations(entries);
+			} catch (ex) {
+				Logger.error(ex, scope);
+			}
 		}
 	}
 }

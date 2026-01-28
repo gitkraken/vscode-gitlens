@@ -136,20 +136,57 @@ export class GitProviderService implements Disposable {
 
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
-		if (added?.length && this.container.telemetry.enabled) {
+		// Queue repositories for deferred processing (location storage + telemetry)
+		if (added?.length) {
 			for (const repo of added) {
-				this._pendingRepositoryTelemetry.set(repo.path, repo);
+				this._pendingRepositoryOperations.set(repo.path, repo);
 			}
-			this.sendPendingRepositoryTelemetry();
+			this.processPendingRepositoryOperations();
 		}
 	}
 
-	private sendPendingRepositoryTelemetry = debounce(() => {
-		if (!this._pendingRepositoryTelemetry.size || !this.container.telemetry.enabled) return;
+	private processPendingRepositoryOperations = debounce(() => {
+		if (!this._pendingRepositoryOperations.size) return;
 
+		// If user is active, wait for idle (up to 30s) before processing
+		if (window.state.active) {
+			let disposable: Disposable | undefined;
+			const maxWaitTimeout = setTimeout(() => {
+				disposable?.dispose();
+				this.executePendingRepositoryOperations();
+			}, 30000);
+
+			disposable = window.onDidChangeWindowState(e => {
+				if (!e.active) {
+					clearTimeout(maxWaitTimeout);
+					disposable?.dispose();
+					this.executePendingRepositoryOperations();
+				}
+			});
+			return;
+		}
+
+		this.executePendingRepositoryOperations();
+	}, 5000);
+
+	private executePendingRepositoryOperations(): void {
+		if (!this._pendingRepositoryOperations.size) return;
+
+		const repos = [...this._pendingRepositoryOperations.values()];
+		this._pendingRepositoryOperations.clear();
+
+		// Store locations (deferred to allow discovery to settle)
+		void this.container.repositoryIdentity.storeRepositoryLocations(repos);
+
+		// Send telemetry (if enabled)
+		if (this.container.telemetry.enabled) {
+			this.sendRepositoryOpenedTelemetry(repos);
+		}
+	}
+
+	private sendRepositoryOpenedTelemetry(repos: Repository[]): void {
 		// Group by commonPath and pick one repo per group (prefer main repo over worktrees)
-		const grouped = groupByMap(this._pendingRepositoryTelemetry.values(), r => r.commonUri?.path ?? r.path);
-		this._pendingRepositoryTelemetry.clear();
+		const grouped = groupByMap(repos, r => r.commonUri?.path ?? r.path);
 
 		const reposAndCounts = [...grouped.values()].map(group => {
 			const repo = group.find(r => !r.isWorktree) ?? group[0];
@@ -201,7 +238,7 @@ export class GitProviderService implements Disposable {
 				});
 			}),
 		);
-	}, 10000);
+	}
 
 	private readonly _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
@@ -213,7 +250,7 @@ export class GitProviderService implements Disposable {
 	private readonly _disposable: Disposable;
 	private _initializing: Deferred<number> | undefined;
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
-	private readonly _pendingRepositoryTelemetry = new Map<string, Repository>();
+	private readonly _pendingRepositoryOperations = new Map<string, Repository>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
 	private readonly _searchedRepositoryPaths = new VisitedPathsTrie();
@@ -679,8 +716,8 @@ export class GitProviderService implements Disposable {
 			if (added.length) {
 				this._etag = Date.now();
 				queueMicrotask(() => {
-					void this.storeRepositoriesLocation(added);
 					// Defer the event trigger enough to let everything unwind
+					// Note: fireRepositoriesChanged queues location storage via processPendingRepositoryOperations
 					this.fireRepositoriesChanged(added);
 				});
 			}
@@ -1684,8 +1721,8 @@ export class GitProviderService implements Disposable {
 					if (added.length) {
 						this._etag = Date.now();
 						queueMicrotask(() => {
-							void this.storeRepositoriesLocation(added);
 							// Send a notification that the repositories changed
+							// Note: fireRepositoriesChanged queues location storage via processPendingRepositoryOperations
 							this.fireRepositoriesChanged(added);
 						});
 					}
@@ -1814,12 +1851,11 @@ export class GitProviderService implements Disposable {
 	@log()
 	async storeRepositoriesLocation(repos: Repository[]): Promise<void> {
 		const scope = getLogScope();
-		for (const repo of repos) {
-			try {
-				await this.container.repositoryIdentity.storeRepositoryLocation(repo);
-			} catch (ex) {
-				Logger.error(ex, scope);
-			}
+
+		try {
+			await this.container.repositoryIdentity.storeRepositoryLocations(repos);
+		} catch (ex) {
+			Logger.error(ex, scope);
 		}
 	}
 }

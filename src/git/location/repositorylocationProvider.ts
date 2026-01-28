@@ -1,5 +1,11 @@
 import type { Disposable } from 'vscode';
 
+export interface RepositoryLocationEntry {
+	path: string;
+	remoteUrl: string | undefined;
+	repoInfo?: { provider?: string; owner?: string; repoName?: string };
+}
+
 export interface RepositoryLocationProvider extends Disposable {
 	getLocation(
 		remoteUrl: string | undefined,
@@ -11,4 +17,6 @@ export interface RepositoryLocationProvider extends Disposable {
 		remoteUrl: string | undefined,
 		repoInfo?: { provider?: string; owner?: string; repoName?: string },
 	): Promise<void>;
+
+	storeLocations?(entries: RepositoryLocationEntry[]): Promise<void>;
 }

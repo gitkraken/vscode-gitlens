@@ -1,7 +1,10 @@
 import type { Disposable } from 'vscode';
 import { workspace } from 'vscode';
 import type { Container } from '../../../container.js';
-import type { RepositoryLocationProvider } from '../../../git/location/repositorylocationProvider.js';
+import type {
+	RepositoryLocationEntry,
+	RepositoryLocationProvider,
+} from '../../../git/location/repositorylocationProvider.js';
 import type { LocalRepoDataMap } from '../../../git/models/pathMapping.js';
 import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider.js';
 import { debug, log } from '../../../system/decorators/log.js';
@@ -88,6 +91,45 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 		}
 	}
 
+	@log()
+	async storeLocations(entries: RepositoryLocationEntry[]): Promise<void> {
+		if (!entries.length) return;
+
+		const scope = getLogScope();
+
+		await using lock = await this.sharedStorage.acquireSharedStorageWriteLock();
+		if (lock == null) return;
+
+		await this.loadLocalRepoDataMap();
+		this._localRepoDataMap ??= {};
+
+		// Apply all updates to the in-memory map
+		for (const entry of entries) {
+			const { path, remoteUrl, repoInfo } = entry;
+			if (!path) continue;
+
+			// Store by remoteUrl if present
+			if (remoteUrl) {
+				this.updateMapEntry(remoteUrl, path);
+			}
+
+			// Store by provider/owner/repoName if present
+			if (repoInfo?.provider != null && repoInfo?.owner != null && repoInfo?.repoName != null) {
+				const key = `${repoInfo.provider}/${repoInfo.owner}/${repoInfo.repoName}`;
+				this.updateMapEntry(key, path);
+			}
+		}
+
+		// Write the file once with all updates
+		const localFileUri = await this.sharedStorage.getSharedRepositoryLocationFileUri();
+		const outputData = new Uint8Array(Buffer.from(JSON.stringify(this._localRepoDataMap)));
+		try {
+			await workspace.fs.writeFile(localFileUri, outputData);
+		} catch (ex) {
+			Logger.error(ex, scope);
+		}
+	}
+
 	@debug()
 	private async storeLocationCore(key: string, path: string): Promise<void> {
 		if (!key || !path) return;
@@ -98,17 +140,9 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 		if (lock == null) return;
 
 		await this.loadLocalRepoDataMap();
-		if (this._localRepoDataMap == null) {
-			this._localRepoDataMap = {};
-		}
+		this._localRepoDataMap ??= {};
 
-		if (this._localRepoDataMap[key] == null) {
-			this._localRepoDataMap[key] = { paths: [path] };
-		} else if (this._localRepoDataMap[key].paths == null) {
-			this._localRepoDataMap[key].paths = [path];
-		} else if (!this._localRepoDataMap[key].paths.includes(path)) {
-			this._localRepoDataMap[key].paths.push(path);
-		}
+		this.updateMapEntry(key, path);
 
 		const localFileUri = await this.sharedStorage.getSharedRepositoryLocationFileUri();
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(this._localRepoDataMap)));
@@ -116,6 +150,20 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (ex) {
 			Logger.error(ex, scope);
+		}
+	}
+
+	private updateMapEntry(key: string, path: string): void {
+		if (!key || !path) return;
+
+		this._localRepoDataMap ??= {};
+
+		if (this._localRepoDataMap[key] == null) {
+			this._localRepoDataMap[key] = { paths: [path] };
+		} else if (this._localRepoDataMap[key].paths == null) {
+			this._localRepoDataMap[key].paths = [path];
+		} else if (!this._localRepoDataMap[key].paths.includes(path)) {
+			this._localRepoDataMap[key].paths.push(path);
 		}
 	}
 }
