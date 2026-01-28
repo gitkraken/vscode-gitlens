@@ -11,7 +11,7 @@ import type { GitFileStatus } from '../../../../git/models/fileStatus.js';
 import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus.js';
 import { RepositoryChange } from '../../../../git/models/repository.js';
 import type { GitStash } from '../../../../git/models/stash.js';
-import type { ParsedStash } from '../../../../git/parsers/logParser.js';
+import type { ParsedStash, ParsedStashWithFiles } from '../../../../git/parsers/logParser.js';
 import {
 	getShaAndDatesLogParser,
 	getStashFilesOnlyLogParser,
@@ -82,11 +82,14 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		if (repoPath == null) return undefined;
 
 		const stash = await this.cache.getStash(repoPath, async (commonPath, _cacheable) => {
-			const parser = getStashLogParser();
+			const includeFiles = !configuration.get('advanced.commits.delayLoadingFileDetails');
+			const parser = getStashLogParser(includeFiles);
 			const args = [...parser.arguments];
 
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+			if (includeFiles) {
+				const similarityThreshold = configuration.get('advanced.similarityThreshold');
+				args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+			}
 
 			const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'stash', 'list', ...args);
 
@@ -432,7 +435,7 @@ const stashSummaryRegex =
 	// eslint-disable-next-line no-control-regex
 	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
 
-function createStash(container: Container, s: ParsedStash, repoPath: string): GitStashCommit {
+function createStash(container: Container, s: ParsedStash | ParsedStashWithFiles, repoPath: string): GitStashCommit {
 	let message = s.summary.trim();
 
 	let onRef;

@@ -177,13 +177,24 @@ const stashMapping = {
 	summary: '%gs',
 };
 
-type StashLogParser = LogParserWithFilesAndStats<typeof stashMapping>;
+type StashLogParser = LogParser<typeof stashMapping>;
 let _stashParser: StashLogParser | undefined;
+type StashLogParserWithFiles = LogParserWithFilesAndStats<typeof stashMapping>;
+let _stashParserWithFiles: StashLogParserWithFiles | undefined;
 
-export type ParsedStash = LogParsedEntryWithFilesAndStats<typeof stashMapping>;
+export type ParsedStash = LogParsedEntry<typeof stashMapping>;
+export type ParsedStashWithFiles = LogParsedEntryWithFilesAndStats<typeof stashMapping>;
 
-export function getStashLogParser(): StashLogParser {
-	_stashParser ??= createLogParserWithFilesAndStats(stashMapping);
+export function getStashLogParser(includeFiles?: false): StashLogParser;
+export function getStashLogParser(includeFiles: true): StashLogParserWithFiles;
+export function getStashLogParser(includeFiles?: boolean): StashLogParser | StashLogParserWithFiles;
+export function getStashLogParser(includeFiles?: boolean): StashLogParser | StashLogParserWithFiles {
+	if (includeFiles) {
+		_stashParserWithFiles ??= createLogParserWithFilesAndStats(stashMapping);
+		return _stashParserWithFiles;
+	}
+
+	_stashParser ??= createLogParser(stashMapping);
 	return _stashParser;
 }
 

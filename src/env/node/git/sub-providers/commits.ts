@@ -33,6 +33,7 @@ import type {
 	CommitsWithFilesLogParser,
 	ParsedCommit,
 	ParsedStash,
+	ParsedStashWithFiles,
 } from '../../../../git/parsers/logParser.js';
 import {
 	getCommitsLogParser,
@@ -1337,7 +1338,7 @@ function createCommit(
 
 export function createCommitFileset(
 	container: Container,
-	c: ParsedCommit | ParsedStash,
+	c: ParsedCommit | ParsedStash | ParsedStashWithFiles,
 	repoPath: string,
 	pathspec: string | undefined,
 ): GitCommitFileset {
