@@ -147,6 +147,24 @@ export class WalkthroughPlusSignUpCommand extends GlCommandBase {
 	}
 }
 
+// gitlens.plus.login
+@command()
+export class WalkthroughPlusLoginCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.plus.login');
+	}
+
+	execute(): void {
+		const command: GlCommands = 'gitlens.plus.login';
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'plus/login',
+			command: command,
+		});
+		executeCommand<Source>(command, { source: 'walkthrough' });
+	}
+}
+
 @command()
 export class WalkthroughPlusReactivateCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {

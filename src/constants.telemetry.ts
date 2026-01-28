@@ -1377,6 +1377,7 @@ type WalkthroughActionNames =
 	| 'open/launchpad'
 	| 'create/worktree'
 	| 'open/help-center'
+	| 'plus/login'
 	| 'plus/sign-up'
 	| 'plus/upgrade'
 	| 'plus/reactivate'

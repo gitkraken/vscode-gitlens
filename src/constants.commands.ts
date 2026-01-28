@@ -106,6 +106,7 @@ type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.openInteractiveCodeHistory'
 	| 'gitlens.walkthrough.openLearnAboutAiFeatures'
 	| 'gitlens.walkthrough.openWalkthrough'
+	| 'gitlens.walkthrough.plus.login'
 	| 'gitlens.walkthrough.plus.signUp'
 	| 'gitlens.walkthrough.plus.upgrade'
 	| 'gitlens.walkthrough.plus.reactivate'
