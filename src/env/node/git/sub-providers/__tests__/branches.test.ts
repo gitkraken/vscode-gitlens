@@ -2,7 +2,8 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import type { Container } from '../../../../../container.js';
 import type { GitCache } from '../../../../../git/cache.js';
-import type { Git, GitResult } from '../../git.js';
+import type { GitResult } from '../../../../../git/execTypes.js';
+import type { Git } from '../../git.js';
 import type { LocalGitProviderInternal } from '../../localGitProvider.js';
 import { BranchesGitSubProvider } from '../branches.js';
 
@@ -11,7 +12,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 	let branchesProvider: BranchesGitSubProvider;
 	let gitStub: sinon.SinonStubbedInstance<Git>;
 
-	function createGitResult(stdout: string): GitResult<string> {
+	function createGitResult(stdout: string): GitResult {
 		return {
 			stdout: stdout,
 			stderr: undefined,

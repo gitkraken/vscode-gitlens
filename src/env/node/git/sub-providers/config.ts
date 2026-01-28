@@ -4,7 +4,6 @@ import { Uri } from 'vscode';
 import type { DeprecatedGitConfigKeys, GitConfigKeys, GitCoreConfigKeys } from '../../../../constants.js';
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type { GitConfigSubProvider, GitConfigType, GitDir } from '../../../../git/gitProvider.js';
 import type { GitUser } from '../../../../git/models/user.js';
 import { getBestPath } from '../../../../system/-webview/path.js';
@@ -44,7 +43,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			args.push(key);
 
 			const result = await this.git.exec(
-				{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, runLocally: options?.runGitLocally },
+				{ cwd: repoPath ?? '', errors: 'ignore', runLocally: options?.runGitLocally },
 				...args,
 			);
 			return result.stdout.trim() || undefined;
@@ -66,7 +65,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			args.push(pattern);
 
 			const result = await this.git.exec(
-				{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, runLocally: options?.runGitLocally },
+				{ cwd: repoPath ?? '', errors: 'ignore', runLocally: options?.runGitLocally },
 				...args,
 			);
 			return result.stdout.trim() || undefined;
@@ -141,11 +140,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 			const author = `${user.name} <${user.email}>`;
 			// Check if there is a mailmap for the current user
-			const result = await this.git.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-				'check-mailmap',
-				author,
-			);
+			const result = await this.git.exec({ cwd: repoPath, errors: 'ignore' }, 'check-mailmap', author);
 
 			if (result.stdout && result.stdout !== author) {
 				const match = mappedAuthorRegex.exec(result.stdout);

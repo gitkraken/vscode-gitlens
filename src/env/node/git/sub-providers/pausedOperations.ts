@@ -4,7 +4,6 @@ import { Uri } from 'vscode';
 import type { Container } from '../../../../container.js';
 import { CancellationError } from '../../../../errors.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import { PausedOperationAbortError, PausedOperationContinueError } from '../../../../git/errors.js';
 import type { GitPausedOperationsSubProvider } from '../../../../git/gitProvider.js';
 import type {
@@ -110,7 +109,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			switch (operation) {
 				case 'cherry-pick': {
 					const result = await this.git.exec(
-						{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+						{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 						'rev-parse',
 						'--quiet',
 						'--verify',
@@ -138,7 +137,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 				}
 				case 'merge': {
 					const result = await this.git.exec(
-						{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+						{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 						'rev-parse',
 						'--quiet',
 						'--verify',
@@ -190,7 +189,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 				}
 				case 'revert': {
 					const result = await this.git.exec(
-						{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+						{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 						'rev-parse',
 						'--quiet',
 						'--verify',
@@ -234,7 +233,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						isInteractiveResult,
 					] = await Promise.allSettled([
 						this.git.exec(
-							{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+							{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 							'rev-parse',
 							'--quiet',
 							'--verify',
@@ -415,7 +414,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		const args = [status.type, options?.quit ? '--quit' : '--abort'];
 
 		try {
-			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
+			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 		} catch (ex) {
 			debugger;
 			Logger.error(ex);
@@ -448,7 +447,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		const args = [status.type, options?.skip ? '--skip' : status.type === 'revert' ? '--abort' : '--continue'];
 
 		try {
-			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
+			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 		} catch (ex) {
 			debugger;
 			Logger.error(ex);

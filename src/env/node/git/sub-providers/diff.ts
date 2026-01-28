@@ -1,7 +1,7 @@
 import { env, Uri, window } from 'vscode';
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
+import type { GitResult } from '../../../../git/execTypes.js';
 import type {
 	DiffRange,
 	DisposableTemporaryGitIndex,
@@ -35,7 +35,7 @@ import { log } from '../../../../system/decorators/log.js';
 import { first } from '../../../../system/iterable.js';
 import { Logger } from '../../../../system/logger.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
-import type { Git, GitResult } from '../git.js';
+import type { Git } from '../git.js';
 import { gitConfigsDiff, gitConfigsLog, GitErrors } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
@@ -125,7 +125,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		let result;
 		try {
 			result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsDiff, errors: GitErrorHandling.Throw, env: options?.index?.env },
+				{ cwd: repoPath, configs: gitConfigsDiff, errors: 'throw', env: options?.index?.env },
 				'diff',
 				...args,
 				args.includes('--') ? undefined : '--',
@@ -581,7 +581,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			args.push(`-L${range.startLine},${range.endLine}:${relativePath}`);
 
-			let result: GitResult<string>;
+			let result: GitResult;
 			try {
 				result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
 			} catch (ex) {

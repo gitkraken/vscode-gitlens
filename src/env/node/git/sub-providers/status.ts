@@ -2,7 +2,6 @@ import type { CancellationToken, Uri } from 'vscode';
 import type { Container } from '../../../../container.js';
 import { isCancellationError } from '../../../../errors.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type { GitStatusSubProvider, GitWorkingChangesState } from '../../../../git/gitProvider.js';
 import type { GitFile } from '../../../../git/models/file.js';
 import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus.js';
@@ -134,7 +133,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			const unstaged = options?.unstaged ?? true;
 			if (staged || unstaged) {
 				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 					'diff',
 					'--quiet',
 					staged && unstaged ? 'HEAD' : staged ? '--staged' : undefined,
@@ -184,17 +183,13 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			const [stagedResult, unstagedResult, untrackedResult] = await Promise.allSettled([
 				// Check for staged changes
 				this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 					'diff',
 					'--quiet',
 					'--staged',
 				),
 				// Check for unstaged changes
-				this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
-					'diff',
-					'--quiet',
-				),
+				this.git.exec({ cwd: repoPath, cancellation: cancellation, errors: 'ignore' }, 'diff', '--quiet'),
 				// Check for untracked files
 				this.hasUntrackedFiles(repoPath, cancellation),
 			]);
@@ -250,7 +245,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 				'ls-files',
 				'-z',
 				'--unmerged',
@@ -308,7 +303,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 				'ls-files',
 				'-z',
 				'--others',

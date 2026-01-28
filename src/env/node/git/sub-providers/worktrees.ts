@@ -5,7 +5,6 @@ import type { CancellationToken } from 'vscode';
 import { Uri } from 'vscode';
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import { WorktreeCreateError, WorktreeDeleteError } from '../../../../git/errors.js';
 import type { GitWorktreesSubProvider } from '../../../../git/gitProvider.js';
 import type { GitWorktree } from '../../../../git/models/worktree.js';
@@ -166,7 +165,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		args.push(path);
 
 		try {
-			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
+			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			const gitError = getGitCommandError(

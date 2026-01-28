@@ -41,7 +41,12 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 			);
 
 			try {
-				const result = await this.git.exec({ cwd: repoPath }, 'remote', '-v');
+				const result = await this.git.exec(
+					{ cwd: repoPath, caching: { cache: this.cache.gitResults, commonPath: commonPath } },
+					'remote',
+					'-v',
+				);
+
 				return parseGitRemotes(
 					this.container,
 					result.stdout,

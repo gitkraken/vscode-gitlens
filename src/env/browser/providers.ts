@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container.js';
-import type { GitCommandOptions } from '../../git/commandOptions.js';
+import type { GitExecOptions, GitResult } from '../../git/execTypes.js';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { GitProvider } from '../../git/gitProvider.js';
@@ -9,11 +9,10 @@ import { GitHubGitProvider } from '../../plus/integrations/providers/github/gith
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider.js';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider.js';
 import type { TelemetryService } from '../../telemetry/telemetry.js';
-import type { GitResult } from '../node/git/git.js';
 
 export function git(
 	_container: Container,
-	_options: GitCommandOptions,
+	_options: GitExecOptions,
 	..._args: any[]
 ): Promise<GitResult<string | Buffer>> {
 	return Promise.resolve({ stdout: '', exitCode: 0 });

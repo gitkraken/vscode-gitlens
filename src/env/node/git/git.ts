@@ -11,8 +11,6 @@ import type { Container } from '../../../container.js';
 import { CancellationError, isCancellationError } from '../../../errors.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features.js';
 import { gitFeaturesByVersion } from '../../../features.js';
-import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions.js';
-import { GitErrorHandling } from '../../../git/commandOptions.js';
 import type {
 	BranchErrorReason,
 	CheckoutErrorReason,
@@ -44,6 +42,7 @@ import {
 	StashPushError,
 	WorkspaceUntrustedError,
 } from '../../../git/errors.js';
+import type { GitExecOptions, GitResult, GitSpawnOptions } from '../../../git/execTypes.js';
 import type { GitDir } from '../../../git/gitProvider.js';
 import type { GitDiffFilter } from '../../../git/models/diff.js';
 import { rootSha } from '../../../git/models/revision.js';
@@ -194,7 +193,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 const uniqueCounterForStdin = getScopedCounter();
 const uniqueCounterForStream = getScopedCounter();
 
-type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
+type ExitCodeOnlyGitCommandOptions = GitExecOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
 
 export class GitError extends Error {
@@ -231,14 +230,6 @@ export class GitError extends Error {
 	}
 }
 
-export type GitResult<T extends string | Buffer | unknown> = {
-	readonly exitCode: number;
-	readonly stdout: T;
-	readonly stderr?: T;
-
-	readonly cancelled?: boolean;
-};
-
 export class Git implements Disposable {
 	private readonly _disposable: Disposable;
 	/** Map of running git commands -- avoids running duplicate overlapping commands */
@@ -266,19 +257,47 @@ export class Git implements Disposable {
 		...args: readonly (string | undefined)[]
 	): Promise<GitResult<unknown>>;
 	async exec<T extends string | Buffer = string>(
-		options: GitCommandOptions,
+		options: GitExecOptions,
 		...args: readonly (string | undefined)[]
 	): Promise<GitResult<T>>;
 	async exec<T extends string | Buffer = string>(
-		options: GitCommandOptions,
+		options: GitExecOptions,
 		...args: readonly (string | undefined)[]
 	): Promise<GitResult<T | unknown>> {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
+		const runArgs = args.filter(a => a != null);
+		const gitCommand = `git ${runArgs.join(' ')}`;
+
+		// If cache is provided, use it to cache the full result
+		if (options.caching != null) {
+			return options.caching.cache.getOrCreate(
+				// Use cache.commonPath if provided for worktree-shared data, otherwise cwd
+				options.caching.commonPath ?? options.cwd!,
+				gitCommand,
+				async cacheable => {
+					const result = await this.execCore<T>({ ...options, caching: undefined }, runArgs, gitCommand);
+					if (result.exitCode !== 0) {
+						cacheable.invalidate();
+					}
+					return result;
+				},
+				options.caching.options,
+			);
+		}
+
+		return this.execCore<T>(options, runArgs, gitCommand);
+	}
+
+	private async execCore<T extends string | Buffer>(
+		options: GitExecOptions,
+		args: string[],
+		gitCommand: string,
+	): Promise<GitResult<T | unknown>> {
 		const start = hrtime();
 
+		gitCommand = `[${options.cwd}] ${gitCommand}`;
 		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, runLocally, ...opts } = options;
-		const runArgs = args.filter(a => a != null);
 
 		const defaultTimeout = (configuration.get('advanced.git.timeout') ?? 60) * 1000;
 		const runOpts: Mutable<RunOptions> = {
@@ -297,8 +316,6 @@ export class Git implements Disposable {
 			},
 		};
 
-		const gitCommand = `[${runOpts.cwd}] git ${runArgs.join(' ')}`;
-
 		const cacheKey = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
 			options?.stdin != null ? `${uniqueCounterForStdin.next()}:` : ''
 		}${cancellation != null ? `${getCancellationTokenId(cancellation)}:` : ''}${gitCommand}`;
@@ -316,7 +333,7 @@ export class Git implements Disposable {
 
 			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-			runArgs.unshift(
+			args.unshift(
 				'-c',
 				'core.quotepath=false',
 				'-c',
@@ -325,7 +342,7 @@ export class Git implements Disposable {
 			);
 
 			if (process.platform === 'win32') {
-				runArgs.unshift('-c', 'core.longpaths=true');
+				args.unshift('-c', 'core.longpaths=true');
 			}
 
 			let abortController: AbortController | undefined;
@@ -340,12 +357,12 @@ export class Git implements Disposable {
 			// Priority resolution:
 			// 1. Explicit priority from options (highest precedence)
 			// 2. Inferred from command type (only downgrades expensive commands to Background)
-			const priority = options.priority ?? inferGitCommandPriority(runArgs);
+			const priority = options.priority ?? inferGitCommandPriority(args);
 
 			// Execute through the queue (interactive/normal run immediately, background is throttled)
 			const gitPath = await this.path();
 			void this._queue
-				.execute(priority, () => runSpawn<T>(gitPath, runArgs, encoding ?? 'utf8', runOpts))
+				.execute(priority, () => runSpawn<T>(gitPath, args, encoding ?? 'utf8', runOpts))
 				.then(deferred.fulfill, (e: unknown) => deferred.cancel(e instanceof Error ? e : new Error(String(e))))
 				.finally(() => {
 					this.pendingCommands.delete(cacheKey);
@@ -386,7 +403,7 @@ export class Git implements Disposable {
 				});
 			}
 
-			if (errorHandling === GitErrorHandling.Ignore) {
+			if (errorHandling === 'ignore') {
 				if (ex instanceof RunError) {
 					return {
 						stdout: ex.stdout as T,
@@ -405,7 +422,7 @@ export class Git implements Disposable {
 			}
 
 			exception = ex instanceof CancelledRunError ? new CancellationError(ex) : new GitError(ex);
-			if (errorHandling === GitErrorHandling.Throw) throw exception;
+			if (errorHandling === 'throw') throw exception;
 
 			defaultExceptionHandler(exception, options.cwd, start);
 			exception = undefined;
@@ -671,7 +688,7 @@ export class Git implements Disposable {
 			startLine?: number;
 			endLine?: number;
 		},
-	): Promise<GitResult<string>> {
+	): Promise<GitResult> {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['blame', '--root', '--incremental'];
@@ -791,7 +808,7 @@ export class Git implements Disposable {
 			remotes?: boolean;
 		},
 		cancellation?: CancellationToken,
-	): Promise<GitResult<string>> {
+	): Promise<GitResult> {
 		const params: string[] = [options?.type ?? 'branch'];
 		if (options?.all) {
 			params.push('-a');
@@ -814,7 +831,7 @@ export class Git implements Disposable {
 				cwd: repoPath,
 				cancellation: cancellation,
 				configs: gitConfigsBranch,
-				errors: GitErrorHandling.Ignore,
+				errors: 'ignore',
 			},
 			...params,
 		);
@@ -825,7 +842,7 @@ export class Git implements Disposable {
 		repoPath: string,
 		ref: string,
 		{ createBranch, path }: { createBranch?: string; path?: string } = {},
-	): Promise<GitResult<string>> {
+	): Promise<GitResult> {
 		const params = ['checkout'];
 		if (createBranch) {
 			params.push('-b', createBranch, ref, '--');
@@ -885,7 +902,7 @@ export class Git implements Disposable {
 			renames?: boolean;
 			similarityThreshold?: number | null;
 		},
-	): Promise<GitResult<string>> {
+	): Promise<GitResult> {
 		const params = ['diff', '--no-ext-diff', '--minimal'];
 
 		if (options?.linesOfContext != null) {
@@ -1200,12 +1217,7 @@ export class Git implements Disposable {
 	}
 
 	async rev_parse__git_dir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
-		const result = await this.exec(
-			{ cwd: cwd, errors: GitErrorHandling.Ignore },
-			'rev-parse',
-			'--git-dir',
-			'--git-common-dir',
-		);
+		const result = await this.exec({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--git-dir', '--git-common-dir');
 		if (!result.stdout) return undefined;
 
 		// Keep trailing spaces which are part of the directory name
@@ -1252,7 +1264,7 @@ export class Git implements Disposable {
 			try {
 				accessSync(joinPaths(cwd, 'HEAD'));
 				result = await this.exec(
-					{ cwd: cwd, errors: GitErrorHandling.Throw, configs: ['-C', cwd] },
+					{ cwd: cwd, errors: 'throw', configs: ['-C', cwd] },
 					'rev-parse',
 					'--show-cdup',
 				);
@@ -1267,7 +1279,7 @@ export class Git implements Disposable {
 
 		try {
 			result = await this.exec(
-				{ cwd: cwd, errors: GitErrorHandling.Throw },
+				{ cwd: cwd, errors: 'throw' },
 				'rev-parse',
 				'--show-toplevel',
 				'--git-dir',
@@ -1325,11 +1337,7 @@ export class Git implements Disposable {
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
 			// Check if we are in a bare clone
 			if (inDotGit && workspace.isTrusted) {
-				result = await this.exec(
-					{ cwd: cwd, errors: GitErrorHandling.Ignore },
-					'rev-parse',
-					'--is-bare-repository',
-				);
+				result = await this.exec({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
 				if (result.stdout.trim() === 'true') {
 					const result = await this.rev_parse__git_dir(cwd);
 					const repoPath = result?.commonPath ?? result?.path;
@@ -1364,7 +1372,7 @@ export class Git implements Disposable {
 			try {
 				accessSync(joinPaths(cwd, 'HEAD'));
 				result = await this.exec(
-					{ cwd: cwd, errors: GitErrorHandling.Throw, configs: ['-C', cwd] },
+					{ cwd: cwd, errors: 'throw', configs: ['-C', cwd] },
 					'rev-parse',
 					'--show-cdup',
 				);
@@ -1378,7 +1386,7 @@ export class Git implements Disposable {
 		}
 
 		try {
-			result = await this.exec({ cwd: cwd, errors: GitErrorHandling.Throw }, 'rev-parse', '--show-toplevel');
+			result = await this.exec({ cwd: cwd, errors: 'throw' }, 'rev-parse', '--show-toplevel');
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
 			return !result.stdout
@@ -1403,11 +1411,7 @@ export class Git implements Disposable {
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
 			// Check if we are in a bare clone
 			if (inDotGit && workspace.isTrusted) {
-				result = await this.exec(
-					{ cwd: cwd, errors: GitErrorHandling.Ignore },
-					'rev-parse',
-					'--is-bare-repository',
-				);
+				result = await this.exec({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
 				if (result.stdout.trim() === 'true') {
 					const result = await this.rev_parse__git_dir(cwd);
 					const repoPath = result?.commonPath ?? result?.path;
@@ -1449,11 +1453,11 @@ export class Git implements Disposable {
 		}
 		if (isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
-		const opts: GitCommandOptions = {
+		const opts: GitExecOptions = {
 			configs: gitConfigsLog,
 			cwd: root,
 			encoding: options?.encoding ?? 'utf8',
-			errors: GitErrorHandling.Throw,
+			errors: 'throw',
 		};
 		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
@@ -1554,7 +1558,7 @@ export class Git implements Disposable {
 		options?: { similarityThreshold?: number },
 		cancellation?: CancellationToken,
 		...pathspecs: string[]
-	): Promise<GitResult<string>> {
+	): Promise<GitResult> {
 		const params = [
 			'status',
 			porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain',

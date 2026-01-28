@@ -7,6 +7,7 @@ import type { PromiseOrValue } from '../system/promise.js';
 import type { RepoPromiseMap } from '../system/promiseCache.js';
 import { CacheController, PromiseCache, PromiseMap, RepoPromiseCacheMap } from '../system/promiseCache.js';
 import { PathTrie } from '../system/trie.js';
+import type { GitResult } from './execTypes.js';
 import type { GitIgnoreCache } from './gitIgnoreCache.js';
 import type {
 	CachedGitTypes,
@@ -52,6 +53,7 @@ interface Caches {
 	contributorsStats: RepoPromiseCacheMap<string, GitContributorsStats | undefined> | undefined;
 	defaultBranchName: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	gitIgnore: Map<RepoPath, GitIgnoreCache> | undefined;
+	gitResults: RepoPromiseCacheMap<string, GitResult> | undefined;
 	initialCommitSha: PromiseMap<RepoPath, string | undefined> | undefined;
 	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
 	logShas: RepoPromiseCacheMap<string, string[]> | undefined;
@@ -79,6 +81,7 @@ function createEmptyCaches(): Caches {
 		contributorsStats: undefined,
 		defaultBranchName: undefined,
 		gitIgnore: undefined,
+		gitResults: undefined,
 		initialCommitSha: undefined,
 		lastFetched: undefined,
 		logShas: undefined,
@@ -208,6 +211,11 @@ export class GitCache implements Disposable {
 		return (this._caches.gitIgnore ??= new Map<RepoPath, GitIgnoreCache>());
 	}
 
+	/** Generic cache for git command results */
+	get gitResults(): RepoPromiseCacheMap<RepoPath, GitResult> {
+		return (this._caches.gitResults ??= new RepoPromiseCacheMap<RepoPath, GitResult>());
+	}
+
 	get initialCommitSha(): PromiseMap<RepoPath, string | undefined> {
 		return (this._caches.initialCommitSha ??= new PromiseMap<RepoPath, string | undefined>());
 	}
@@ -285,6 +293,7 @@ export class GitCache implements Disposable {
 		const sharedCachesToClear = new Set<CacheType>();
 
 		if (!types.length || types.includes('branches')) {
+			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.branch);
 			sharedCachesToClear.add(this._caches.branches);
 			sharedCachesToClear.add(this._caches.sharedBranches);
@@ -297,11 +306,13 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length || types.includes('config')) {
+			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.configKeys);
 			sharedCachesToClear.add(this._caches.configPatterns);
 		}
 
 		if (!types.length || types.includes('contributors')) {
+			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.contributors);
 			sharedCachesToClear.add(this._caches.contributorsLite);
 			sharedCachesToClear.add(this._caches.contributorsStats);
@@ -312,16 +323,21 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length || types.includes('providers')) {
+			// When providers change, clear parsed remotes but NOT raw git output
+			// Raw git output doesn't change, only the parsing/provider matching does
+			sharedCachesToClear.add(this._caches.remotes);
 			cachesToClear.add(this._caches.bestRemotes);
 		}
 
 		if (!types.length || types.includes('remotes')) {
+			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.remotes);
 			cachesToClear.add(this._caches.bestRemotes);
 			sharedCachesToClear.add(this._caches.defaultBranchName);
 		}
 
 		if (!types.length || types.includes('stashes')) {
+			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.stashes);
 		}
 
@@ -330,14 +346,17 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length || types.includes('tags')) {
+			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.tags);
 		}
 
 		if (!types.length || types.includes('worktrees')) {
+			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.worktrees);
 		}
 
 		if (!types.length) {
+			sharedCachesToClear.add(this._caches.gitResults);
 			cachesToClear.add(this._caches.repoInfo);
 			cachesToClear.add(this._trackedPaths);
 			cachesToClear.add(this._caches.gitIgnore);

@@ -3,8 +3,8 @@ import { window } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls.d.js';
 import type { Container } from '../container.js';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports -- Allowed since it is a type import
-import type { GitResult } from '../env/node/git/git.js';
-import type { GitCommandOptions } from '../git/commandOptions.js';
+import type {} from '../env/node/git/git.js';
+import type { GitExecOptions, GitResult } from '../git/execTypes.js';
 import { debug, log } from '../system/decorators/log.js';
 import { Logger } from '../system/logger.js';
 import { getLogScope } from '../system/logger.scope.js';
@@ -58,7 +58,7 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
-	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<GitResult<TOut>> {
+	async git<TOut extends string | Buffer>(options: GitExecOptions, ...args: any[]): Promise<GitResult<TOut>> {
 		const response = await this.sendRequest(GitCommandRequestType, {
 			__type: 'gitlens',
 			options: options,

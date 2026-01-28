@@ -4,8 +4,7 @@ import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import { CancellationError, isCancellationError } from '../../../../errors.js';
 import type { GitCache } from '../../../../git/cache.js';
-import type { GitCommandOptions } from '../../../../git/commandOptions.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
+import type { GitExecOptions, GitResult } from '../../../../git/execTypes.js';
 import type {
 	GitCommitReachability,
 	GitCommitsSubProvider,
@@ -59,7 +58,7 @@ import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import { createDisposable } from '../../../../system/unifiedDisposable.js';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
 import { GitDocumentState } from '../../../../trackers/trackedDocument.js';
-import type { Git, GitResult } from '../git.js';
+import type { Git } from '../git.js';
 import { gitConfigsLog, gitConfigsLogWithFiles } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 import { convertStashesToStdin } from './stash.js';
@@ -84,7 +83,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<string> {
 		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+			{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
 			'commit-tree',
 			tree,
 			'-p',
@@ -116,7 +115,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log({ exit: true })
 	async getCommitCount(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<number | undefined> {
 		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 			'rev-list',
 			'--count',
 			rev,
@@ -207,7 +206,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			try {
 				// Use for-each-ref with %(HEAD) to mark current branch with *
 				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 					'for-each-ref',
 					'--contains',
 					rev,
@@ -364,7 +363,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return this.cache.getInitialCommitSha(repoPath, async commonPath => {
 			try {
 				const result = await this.git.exec(
-					{ cwd: commonPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					{ cwd: commonPath, cancellation: cancellation, errors: 'ignore' },
 					'rev-list',
 					`--max-parents=0`,
 					'HEAD',
@@ -391,7 +390,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		const authors = options?.authors?.length ? options.authors.map(a => `--author=^${a.name} <${a.email}>$`) : [];
 
 		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 			'rev-list',
 			'--left-right',
 			'--count',
@@ -560,7 +559,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const currentUser = await currentUserPromise.catch(() => undefined);
 			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
-			const cmdOpts: GitCommandOptions = {
+			const cmdOpts: GitExecOptions = {
 				cwd: repoPath,
 				cancellation: cancellation,
 				configs: gitConfigsLogWithFiles,
@@ -1380,7 +1379,7 @@ function getGitStartEnd(range: Range): [number, number] {
 async function parseCommits(
 	container: Container,
 	parser: CommitsLogParser | CommitsWithFilesLogParser | CommitsInFileRangeLogParser,
-	resultOrStream: Promise<GitResult<string>> | AsyncGenerator<string>,
+	resultOrStream: Promise<GitResult> | AsyncGenerator<string>,
 	repoPath: string,
 	pathspec: string | undefined,
 	limit: number | undefined,

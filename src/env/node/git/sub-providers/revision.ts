@@ -1,7 +1,6 @@
 import type { Uri } from 'vscode';
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../git/gitProvider.js';
 import type { GitFileStatus } from '../../../../git/models/fileStatus.js';
 import { deletedOrMissing } from '../../../../git/models/revision.js';
@@ -55,7 +54,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			args.push('-o');
 		}
 
-		const result = await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...args, '--', path);
+		const result = await this.git.exec({ cwd: repoPath, errors: 'ignore' }, ...args, '--', path);
 		return Boolean(result.stdout.trim());
 	}
 
@@ -78,7 +77,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 		if (isUncommittedStaged(rev)) {
 			let result = await this.git.exec(
-				{ cwd: root, errors: GitErrorHandling.Ignore },
+				{ cwd: root, errors: 'ignore' },
 				'ls-files',
 				'-z',
 				'--stage',
@@ -108,7 +107,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	private async getTreeForRevisionCore(repoPath: string, rev: string, path?: string): Promise<GitTreeEntry[]> {
 		const hasPath = Boolean(path);
 		const args = hasPath ? ['ls-tree', '-l', rev, '--', path] : ['ls-tree', '-lrt', rev, '--'];
-		const result = await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...args);
+		const result = await this.git.exec({ cwd: repoPath, errors: 'ignore' }, ...args);
 		const data = result.stdout.trim();
 		if (!data) return emptyArray as GitTreeEntry[];
 
@@ -152,7 +151,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 		const parser = getShaAndFileSummaryLogParser();
 		let result = await this.git.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, errors: 'ignore' },
 			'log',
 			...parser.arguments,
 			'-n1',
@@ -184,7 +183,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		if (file.status === 'D') {
 			// If the file was deleted, check if it was moved or renamed
 			result = await this.git.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+				{ cwd: repoPath, errors: 'ignore' },
 				'log',
 				...parser.arguments,
 				'-n1',

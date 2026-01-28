@@ -1,6 +1,6 @@
 import type { Disposable, McpServerDefinitionProvider } from 'vscode';
 import type { Container } from '../../container.js';
-import type { GitCommandOptions } from '../../git/commandOptions.js';
+import type { GitExecOptions, GitResult } from '../../git/execTypes.js';
 import type { GitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
 import { mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
@@ -9,7 +9,6 @@ import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/wo
 import { configuration } from '../../system/-webview/configuration.js';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import type { TelemetryService } from '../../telemetry/telemetry.js';
-import type { GitResult } from './git/git.js';
 import { Git } from './git/git.js';
 import { LocalGitProvider } from './git/localGitProvider.js';
 import { VslsGit, VslsGitProvider } from './git/vslsGitProvider.js';
@@ -26,7 +25,7 @@ function ensureGit(container: Container) {
 
 export function git(
 	container: Container,
-	options: GitCommandOptions,
+	options: GitExecOptions,
 	...args: any[]
 ): Promise<GitResult<string | Buffer>> {
 	return ensureGit(container).exec(options, ...args);

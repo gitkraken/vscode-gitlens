@@ -2,7 +2,6 @@ import type { CancellationToken, Uri } from 'vscode';
 import type { Container } from '../../../../container.js';
 import { isCancellationError } from '../../../../errors.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type { GitRefsSubProvider } from '../../../../git/gitProvider.js';
 import type { GitBranch } from '../../../../git/models/branch.js';
 import type { GitReference } from '../../../../git/models/reference.js';
@@ -27,12 +26,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	@log()
 	async checkIfCouldBeValidBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
 		try {
-			const result = await this.git.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Throw },
-				'check-ref-format',
-				'--branch',
-				ref,
-			);
+			const result = await this.git.exec({ cwd: repoPath, errors: 'throw' }, 'check-ref-format', '--branch', ref);
 			return Boolean(result.stdout.trim());
 		} catch {
 			return false;
@@ -112,7 +106,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
 		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 			'rev-parse',
 			'--verify',
 			'--quiet',
@@ -170,7 +164,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
 		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 			'rev-parse',
 			'--verify',
 			supportsEndOfOptions ? '--end-of-options' : undefined,

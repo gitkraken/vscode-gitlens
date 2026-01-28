@@ -1,6 +1,5 @@
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import { CherryPickError, MergeError, PushError, RebaseError, RevertError } from '../../../../git/errors.js';
 import type { GitOperationsSubProvider } from '../../../../git/gitProvider.js';
 import type { GitBranchReference, GitReference } from '../../../../git/models/reference.js';
@@ -80,7 +79,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(...revs);
 
 		try {
-			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
+			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			throw getGitCommandError(
@@ -155,7 +154,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.exec(
 				// Avoid a timeout since merges can take a long time (set to 0 to disable)
-				{ cwd: repoPath, errors: GitErrorHandling.Throw, timeout: 0 },
+				{ cwd: repoPath, errors: 'throw', timeout: 0 },
 				...args,
 			);
 
@@ -328,7 +327,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.exec(
 				// Avoid a timeout since rebases can take a long time (set to 0 to disable)
-				{ cwd: repoPath, errors: GitErrorHandling.Throw, configs: configs, timeout: 0 },
+				{ cwd: repoPath, errors: 'throw', configs: configs, timeout: 0 },
 				...args,
 			);
 		} catch (ex) {
@@ -382,7 +381,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.exec(
 				// Avoid a timeout since reverts can take a long time (set to 0 to disable)
-				{ cwd: repoPath, errors: GitErrorHandling.Throw, timeout: 0 },
+				{ cwd: repoPath, errors: 'throw', timeout: 0 },
 				...args,
 			);
 

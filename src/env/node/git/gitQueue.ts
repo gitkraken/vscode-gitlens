@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../../container.js';
-import type { GitCommandPriority } from '../../../git/commandOptions.js';
+import type { GitCommandPriority } from '../../../git/execTypes.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { Logger } from '../../../system/logger.js';
 

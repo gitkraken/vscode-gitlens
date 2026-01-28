@@ -2,7 +2,6 @@ import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../container.js';
 import { CancellationError, isCancellationError } from '../../../../errors.js';
 import type { ConflictDetectionCacheKey, GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import { BranchError } from '../../../../git/errors.js';
 import type {
 	BranchContributionsOverview,
@@ -111,7 +110,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							cwd: repoPath,
 							cancellation: cancellation,
 							configs: gitConfigsLog,
-							errors: GitErrorHandling.Ignore,
+							errors: 'ignore',
 						},
 						'log',
 						'-n1',
@@ -497,7 +496,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let result;
 			try {
 				result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+					{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
 					'rev-parse',
 					'--abbrev-ref',
 					'--symbolic-full-name',
@@ -575,7 +574,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							cwd: repoPath,
 							cancellation: cancellation,
 							configs: gitConfigsLog,
-							errors: GitErrorHandling.Ignore,
+							errors: 'ignore',
 						},
 						'log',
 						'-n1',
@@ -791,7 +790,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Check if branch is direct ancestor (handles FF merges)
 			try {
 				await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+					{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
 					'merge-base',
 					'--is-ancestor',
 					branch.name,
@@ -845,7 +844,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						cwd: repoPath,
 						cancellation: cancellation,
 						env: env,
-						errors: GitErrorHandling.Ignore,
+						errors: 'ignore',
 						stdin: result.stdout,
 					},
 					'apply',
@@ -901,7 +900,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let parentShas: string[];
 			try {
 				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+					{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
 					'rev-parse',
 					...parentRefs,
 				);
@@ -941,7 +940,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let data;
 			try {
 				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+					{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
 					'merge-tree',
 					'-z',
 					'--name-only',
@@ -1014,7 +1013,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		try {
 			// Get the initial target branch tree OID
 			const treeResult = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
 				'rev-parse',
 				`${targetBranch}^{tree}`,
 			);
@@ -1040,7 +1039,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				//   - ours = currentTreeOid (current state of the target)
 				//   - theirs = commit.sha (what we're cherry-picking)
 				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+					{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
 					'merge-tree',
 					'--write-tree',
 					'-z',

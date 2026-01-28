@@ -1,8 +1,27 @@
 import type { CancellationToken } from 'vscode';
+import type { CacheController } from '../system/promiseCache.js';
 
-export const enum GitErrorHandling {
-	Throw = 0,
-	Ignore = 1,
+export type GitErrorHandling = 'throw' | 'ignore';
+
+export type GitResult<T extends string | Buffer | unknown = string> = {
+	readonly exitCode: number;
+	readonly stdout: T;
+	readonly stderr?: T;
+
+	readonly cancelled?: boolean;
+};
+
+/**
+ * Cache store interface for git command output caching.
+ * Stores full GitResult to preserve exitCode/stderr.
+ */
+export interface GitResultCache {
+	getOrCreate(
+		repoPath: string,
+		key: string,
+		factory: (cacheable: CacheController) => Promise<GitResult<unknown>>,
+		options?: { createTTL?: number; accessTTL?: number },
+	): Promise<GitResult<unknown>>;
 }
 
 /**
@@ -13,7 +32,7 @@ export const enum GitErrorHandling {
  */
 export type GitCommandPriority = 'interactive' | 'normal' | 'background';
 
-export interface GitCommandOptions {
+export interface GitExecOptions {
 	// extends RunOptions<BufferEncoding | 'buffer' | string> {
 	cancellation?: CancellationToken;
 	configs?: readonly string[];
@@ -23,6 +42,17 @@ export interface GitCommandOptions {
 	priority?: GitCommandPriority;
 	/** Specifies that this command should always be executed locally if possible (for live share sessions) */
 	runLocally?: boolean;
+
+	/**
+	 * If provided, cache the command's result (stdout, stderr, exitCode) in this store via an auto-generated cache key
+	 * Only use for commands with stable output (e.g., `git remote -v`)
+	 */
+	caching?: {
+		cache: GitResultCache;
+		/** The common repository path for worktree-shared caching. If not provided, defaults to cwd. */
+		commonPath?: string;
+		options?: { createTTL?: number; accessTTL?: number };
+	};
 
 	// Below options comes from RunOptions<BufferEncoding | 'buffer' | string>
 	cwd?: string;

@@ -2,7 +2,6 @@ import type { CancellationToken, Uri } from 'vscode';
 import { window } from 'vscode';
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
-import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import { StashApplyError } from '../../../../git/errors.js';
 import type { GitStashSubProvider } from '../../../../git/gitProvider.js';
 import type { GitStashCommit, GitStashParentInfo } from '../../../../git/models/commit.js';
@@ -299,7 +298,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		let result;
 		if (sha) {
 			result = await this.git.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+				{ cwd: repoPath, errors: 'ignore' },
 				'show',
 				'--format=%H',
 				'--no-patch',
