@@ -2081,7 +2081,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _stash: StashGitSubProvider | undefined;
 	get stash(): StashGitSubProvider {
-		return (this._stash ??= new StashGitSubProvider(this.container, this.git, this._cache));
+		return (this._stash ??= new StashGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _status: StatusGitSubProvider | undefined;

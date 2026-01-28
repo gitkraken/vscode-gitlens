@@ -54,6 +54,7 @@ interface Caches {
 	gitIgnore: Map<RepoPath, GitIgnoreCache> | undefined;
 	initialCommitSha: PromiseMap<RepoPath, string | undefined> | undefined;
 	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
+	logShas: RepoPromiseCacheMap<string, string[]> | undefined;
 	pausedOperationStatus: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
 	reachability: RepoPromiseCacheMap<string, GitCommitReachability | undefined> | undefined;
 	remotes: PromiseMap<RepoPath, GitRemote[]> | undefined;
@@ -80,6 +81,7 @@ function createEmptyCaches(): Caches {
 		gitIgnore: undefined,
 		initialCommitSha: undefined,
 		lastFetched: undefined,
+		logShas: undefined,
 		pausedOperationStatus: undefined,
 		reachability: undefined,
 		remotes: undefined,
@@ -216,6 +218,18 @@ export class GitCache implements Disposable {
 		}));
 	}
 
+	/**
+	 * Cache for log SHA results (e.g., unpublished commits).
+	 * Short TTL since commit state changes frequently, with capacity limit per repo.
+	 */
+	get logShas(): RepoPromiseCacheMap<string, string[]> {
+		return (this._caches.logShas ??= new RepoPromiseCacheMap<string, string[]>({
+			createTTL: 1000 * 60 * 5, // 5 minutes max age
+			accessTTL: 1000 * 30, // 30 seconds if not accessed
+			capacity: 5, // Limit to 5 different ranges per repo
+		}));
+	}
+
 	get pausedOperationStatus(): PromiseMap<RepoPath, GitPausedOperationStatus | undefined> {
 		return (this._caches.pausedOperationStatus ??= new PromiseMap<
 			RepoPath,
@@ -278,6 +292,7 @@ export class GitCache implements Disposable {
 			cachesToClear.add(this._caches.currentBranchRef);
 			sharedCachesToClear.add(this._caches.defaultBranchName);
 			sharedCachesToClear.add(this._caches.initialCommitSha);
+			sharedCachesToClear.add(this._caches.logShas);
 			cachesToClear.add(this._caches.reachability);
 		}
 

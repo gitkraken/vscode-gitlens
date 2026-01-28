@@ -27,6 +27,7 @@ import { min, skip } from '../../../../system/iterable.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import type { Git } from '../git.js';
 import { getGitCommandError, GitError, maxGitCliLength } from '../git.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 import { createCommitFileset } from './commits.js';
 
 export class StashGitSubProvider implements GitStashSubProvider {
@@ -34,6 +35,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		private readonly container: Container,
 		private readonly git: Git,
 		private readonly cache: GitCache,
+		private readonly provider: LocalGitProviderInternal,
 	) {}
 
 	@gate()
@@ -160,24 +162,20 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 		const oldestStashDate = new Date(findOldestStashTimestamp(stash.stashes.values())).toISOString();
 
-		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
-			'rev-list',
-			`--since="${oldestStashDate}"`,
-			'--date-order',
-			options.reachableFrom,
-			'--',
-		);
+		const { reachableFrom } = options;
+		const reachableShas = await this.provider.commits.getLogShas(repoPath, reachableFrom, {
+			since: oldestStashDate,
+			ordering: 'date',
+			limit: 0,
+		});
+		const reachableCommits = new Set(reachableShas);
 
-		const ancestors = result.stdout.trim().split('\n');
-		const reachableCommits =
-			ancestors?.length && (ancestors.length !== 1 || ancestors[0]) ? new Set(ancestors) : undefined;
-		if (reachableCommits?.size) {
+		if (reachableCommits.size) {
 			const reachableStashes = new Set<string>();
 
 			// First pass: mark directly reachable stashes
 			for (const [sha, s] of stash.stashes) {
-				if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
+				if (s.parents.some(p => p === reachableFrom || reachableCommits.has(p))) {
 					reachableStashes.add(sha);
 				}
 			}

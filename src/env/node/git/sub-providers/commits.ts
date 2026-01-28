@@ -979,76 +979,93 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	): Promise<Iterable<string>> {
 		const scope = getLogScope();
 
-		try {
-			const parser = getShaLogParser();
-			const args = [...parser.arguments];
+		options ??= {};
+		options.ordering ??= configuration.get('advanced.commitOrdering');
+		options.limit ??= configuration.get('advanced.maxListItems') ?? 0;
+		options.merges ??= true;
 
-			if (options?.all) {
-				args.push(`--all`);
-			}
+		const getCore = async (): Promise<string[]> => {
+			try {
+				const parser = getShaLogParser();
+				const args = [...parser.arguments];
 
-			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
-			if (ordering) {
-				args.push(`--${ordering}-order`);
-			}
-
-			const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
-			if (limit) {
-				args.push(`-n${limit}`);
-			}
-
-			if (options?.since) {
-				args.push(`--since="${options.since}"`);
-			}
-
-			const merges = options?.merges ?? true;
-			if (merges) {
-				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
-			} else {
-				args.push('--no-merges');
-			}
-
-			if (options?.reverse) {
-				args.push('--reverse');
-			}
-
-			if (options?.authors?.length) {
-				if (!args.includes('--use-mailmap')) {
-					args.push('--use-mailmap');
+				if (options.all) {
+					args.push(`--all`);
 				}
-				args.push(...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
+
+				if (options.ordering) {
+					args.push(`--${options.ordering}-order`);
+				}
+
+				if (options.limit) {
+					args.push(`-n${options.limit}`);
+				}
+
+				if (options.since) {
+					args.push(`--since="${options.since}"`);
+				}
+
+				if (options.merges) {
+					args.push(options.merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
+				} else {
+					args.push('--no-merges');
+				}
+
+				if (options.reverse) {
+					args.push('--reverse');
+				}
+
+				if (options.authors?.length) {
+					if (!args.includes('--use-mailmap')) {
+						args.push('--use-mailmap');
+					}
+					args.push(...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
+				}
+
+				const pathspec =
+					options.pathOrUri != null ? this.provider.getRelativePath(options.pathOrUri, repoPath) : undefined;
+				if (pathspec) {
+					const similarityThreshold = configuration.get('advanced.similarityThreshold');
+					args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+				}
+
+				if (rev && !isUncommittedStaged(rev)) {
+					args.push(rev);
+				}
+
+				args.push('--');
+
+				if (pathspec) {
+					args.push(pathspec);
+				}
+
+				const result = await this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation, configs: gitConfigsLog },
+					'log',
+					...args,
+				);
+				return [...parser.parse(result.stdout)];
+			} catch (ex) {
+				Logger.error(ex, scope);
+				if (isCancellationError(ex)) throw ex;
+				debugger;
+
+				return [];
 			}
+		};
 
-			const pathspec =
-				options?.pathOrUri != null ? this.provider.getRelativePath(options.pathOrUri, repoPath) : undefined;
-			if (pathspec) {
-				const similarityThreshold = configuration.get('advanced.similarityThreshold');
-				args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
-			}
+		// Cache simple queries (no pathspec, no authors) as these are on hot paths (e.g. getting unpublished commits)
+		const cacheable = !options.pathOrUri && !options.authors?.length && !options.reverse && !options.all;
 
-			if (rev && !isUncommittedStaged(rev)) {
-				args.push(rev);
-			}
-
-			args.push('--');
-
-			if (pathspec) {
-				args.push(pathspec);
-			}
-
-			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, configs: gitConfigsLog },
-				'log',
-				...args,
+		if (cacheable) {
+			return this.cache.logShas.getOrCreate(
+				repoPath,
+				`${rev ?? ''}:${options.ordering ?? ''}:${options.limit}:${options.merges}:${options.since ?? ''}`,
+				() => getCore(),
 			);
-			return parser.parse(result.stdout);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			if (isCancellationError(ex)) throw ex;
-			debugger;
-
-			return [];
 		}
+
+		return getCore();
 	}
 
 	@log()
