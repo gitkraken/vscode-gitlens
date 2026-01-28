@@ -27191,7 +27191,7 @@
 					{
 						"id": "get-started-community",
 						"title": "Welcome to GitLens: Unlock Your Repo’s Full Story",
-						"description": "The Community Edition lets you:\n\n- View blame annotations and commit details inline\n- Explore file revision history for any repo\n\nUpgrade to **GitLens Pro** (Free 14-Day Trial) to access everything above plus advanced visualization, collaboration, and built-in AI tools that work right inside VS Code.\n\n$(sparkle) Pro gives you full access to:\n\n**- Commit Graph:** visualize every branch and commit relationship\n**- Visual File History:** see how a file has evolved with a graph of what changed and when\n**- Launchpad & Worktrees:** manage PRs and branches in one hub\n**- GitKraken AI: ** writes commits, PRs & changelogs for you.\n\n[Get Started with GitLens Pro](command:gitlens.walkthrough.plus.signUp)",
+						"description": "The Community Edition lets you:\n\n- View blame annotations and commit details inline\n- Explore file revision history for any repo\n\nUpgrade to **GitLens Pro** (Free 14-Day Trial) to access everything above plus advanced visualization, collaboration, and built-in AI tools that work right inside VS Code.\n\n$(sparkle) Pro gives you full access to:\n\n**- Commit Graph:** visualize every branch and commit relationship\n**- Visual File History:** see how a file has evolved with a graph of what changed and when\n**- Launchpad & Worktrees:** manage PRs and branches in one hub\n**- GitKraken AI: ** writes commits, PRs & changelogs for you.\n\n[Get Started with GitLens Pro](command:gitlens.walkthrough.plus.signUp)\n\nor [sign in](command:gitlens.walkthrough.plus.login)",
 						"media": {
 							"markdown": "walkthroughs/welcome/get-started-community.md"
 						},
