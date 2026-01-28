@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { Uri } from 'vscode';
+import { Uri, window } from 'vscode';
 import { md5 } from '@env/crypto.js';
 import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations.js';
 import type {
@@ -34,8 +34,10 @@ import { proBadge } from '../../constants.js';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { PlusFeatures } from '../../features.js';
+import type { GitBranch } from '../../git/models/branch.js';
 import type { Issue, IssueShape } from '../../git/models/issue.js';
 import type { Repository } from '../../git/models/repository.js';
+import type { GitWorktree } from '../../git/models/worktree.js';
 import { getOrOpenIssueRepository } from '../../git/utils/-webview/issue.utils.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
@@ -47,6 +49,7 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { getScopedCounter } from '../../system/counter.js';
 import { fromNow } from '../../system/date.js';
 import { some } from '../../system/iterable.js';
+import type { Deferred } from '../../system/promise.js';
 
 const instanceCounter = getScopedCounter();
 
@@ -127,6 +130,9 @@ export interface StartWorkOverrides {
 
 interface StartWorkState {
 	item?: StartWorkItem;
+	issueUrl?: string;
+	useDefaults?: boolean;
+	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree }>;
 }
 
 export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> {
@@ -253,6 +259,35 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				}
 
 				opened = true;
+
+				// Auto-select issue if issueUrl is provided
+				if (state.issueUrl && context.result?.items) {
+					const matchedItem = context.result.items.find(item => item.issue.url === state.issueUrl);
+
+					if (matchedItem) {
+						state.item = matchedItem;
+
+						if (this.container.telemetry.enabled) {
+							this.container.telemetry.sendEvent(
+								`${this.telemetryEventKey}/issue/chosen`,
+								{
+									...context.telemetryContext!,
+									...buildItemTelemetryData(matchedItem),
+									connected: true,
+								},
+								this.source,
+							);
+						}
+
+						// Skip the picker step entirely
+						continue;
+					}
+
+					// If issue not found, show error and fall through to picker
+					void window.showErrorMessage(
+						`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
+					);
+				}
 
 				const result = yield* this.pickStartWorkIssueStep(state, context);
 				if (result === StepResultBreak) {

@@ -4,6 +4,7 @@ import type { Config } from '../../../config.js';
 import type { Container } from '../../../container.js';
 import { convertLocationToOpenFlags, revealWorktree } from '../../../git/actions/worktree.js';
 import { WorktreeCreateError } from '../../../git/errors.js';
+import type { IssueShape } from '../../../git/models/issue.js';
 import type { GitReference } from '../../../git/models/reference.js';
 import type { Repository } from '../../../git/models/repository.js';
 import type { GitWorktree } from '../../../git/models/worktree.js';
@@ -15,6 +16,7 @@ import {
 	isRevisionReference,
 } from '../../../git/utils/reference.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
+import { storeStartWorkDeepLink } from '../../../plus/startWork/utils/-webview/startWork.utils.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import { Directive } from '../../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
@@ -87,6 +89,9 @@ interface State<Repo = string | Repository> {
 
 	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
 	worktreeDefaultOpen?: 'new' | 'current';
+
+	// Issue for deeplink storage
+	startWorkIssue?: IssueShape;
 }
 export type WorktreeCreateState = State;
 
@@ -340,6 +345,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					force: state.flags.includes('--force'),
 				});
 				state.result?.fulfill(worktree);
+
+				// Store deeplink before opening worktree (if this is a Start Work flow)
+				if (state.startWorkIssue && worktree) {
+					await storeStartWorkDeepLink(this.container, state.startWorkIssue, worktree.uri.fsPath);
+				}
 			} catch (ex) {
 				if (WorktreeCreateError.is(ex, 'alreadyCheckedOut') && !state.flags.includes('--force')) {
 					const createBranch: MessageItem = { title: 'Create New Branch' };
