@@ -347,6 +347,23 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a repository's visibility is first requested */
 	'repository/visibility': RepositoryVisibilityEvent;
 
+	/** Sent when the user opens Start Review; use `instance` to correlate a StartReview "session" */
+	'startReview/open': StartReviewEventDataBase;
+	/** Sent when the launchpad is opened; use `instance` to correlate a StartReview "session" */
+	'startReview/opened': StartReviewConnectedEventData;
+	/** Sent when the user takes an action on a Start Review PR */
+	'startReview/pr/action': StartReviewPrActionEvent;
+	/** Sent when the user chooses a PR to review in the second step */
+	'startReview/pr/chosen': StartReviewPrChosenEvent;
+	/** Sent when the user reaches the "connect an integration" step of Start Review */
+	'startReview/steps/connect': StartReviewConnectedEventData;
+	/** Sent when the user reaches the "choose a PR" step of Start Review */
+	'startReview/steps/pr': StartReviewConnectedEventData;
+	/** Sent when the user chooses to connect an integration */
+	'startReview/title/action': StartReviewTitleActionEvent;
+	/** Sent when the user chooses to manage integrations */
+	'startReview/action': StartReviewActionEvent;
+
 	/** Sent when the user opens Start Work; use `instance` to correlate a StartWork "session" */
 	'startWork/open': StartWorkEventDataBase;
 	/** Sent when the launchpad is opened; use `instance` to correlate a StartWork "session" */
@@ -1255,6 +1272,35 @@ interface RepositoryVisibilityEvent extends Partial<RepositoryEventData> {
 	'repository.visibility': 'private' | 'public' | 'local' | undefined;
 }
 
+interface StartReviewEventDataBase {
+	/** @order 1 */
+	instance: number;
+}
+
+interface StartReviewEventData extends StartReviewEventDataBase {
+	'items.count'?: number;
+}
+export type StartReviewTelemetryContext = StartReviewEventData;
+
+type StartReviewConnectedEventData = StartReviewEventData & {
+	connected: boolean;
+};
+
+type StartReviewPrActionEvent = StartReviewConnectedEventData & {
+	action: 'soft-open';
+} & Partial<Record<`item.${string}`, string | number | boolean>>;
+
+type StartReviewPrChosenEvent = StartReviewConnectedEventData &
+	Partial<Record<`item.${string}`, string | number | boolean>>;
+
+type StartReviewTitleActionEvent = StartReviewConnectedEventData & {
+	action: 'connect';
+};
+
+type StartReviewActionEvent = StartReviewConnectedEventData & {
+	action: 'manage' | 'connect';
+};
+
 interface StartWorkEventDataBase {
 	/** @order 1 */
 	instance: number;
@@ -1503,6 +1549,7 @@ export type Sources =
 	| 'scm'
 	| 'scm-input'
 	| 'settings'
+	| 'startReview'
 	| 'startWork'
 	| 'statusbar:hover'
 	| 'subscription'

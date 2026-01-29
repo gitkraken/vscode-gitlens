@@ -1025,6 +1025,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showTimelineView'
 	| 'gitlens.showWorkspacesView'
 	| 'gitlens.showWorktreesView'
+	| 'gitlens.startReview'
 	| 'gitlens.startWork'
 	| 'gitlens.stashSave'
 	| 'gitlens.stashSave.staged:scm'

@@ -8,103 +8,94 @@ import type { GitBranchReference } from '../../../../git/models/reference.js';
 import type { Repository } from '../../../../git/models/repository.js';
 import type { GitWorktree } from '../../../../git/models/worktree.js';
 import { parseGitRemoteUrl } from '../../../../git/parsers/remoteParser.js';
+import { getOrOpenPullRequestRepository } from '../../../../git/utils/-webview/pullRequest.utils.js';
 import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils.js';
 import { getWorktreeForBranch } from '../../../../git/utils/-webview/worktree.utils.js';
-import { getRepositoryIdentityForPullRequest, serializePullRequest } from '../../../../git/utils/pullRequest.utils.js';
+import { serializePullRequest } from '../../../../git/utils/pullRequest.utils.js';
 import { createReference } from '../../../../git/utils/reference.utils.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js';
 import type { UriTypes } from '../../../../uris/deepLinks/deepLink.js';
 import { DeepLinkCommandType, DeepLinkServiceState, DeepLinkType } from '../../../../uris/deepLinks/deepLink.js';
+import type { LaunchpadItem } from '../../launchpadProvider.js';
 
-export async function startReviewFromPullRequest(
-	container: Container,
-	prUrl: string,
-): Promise<{
-	worktree: GitWorktree;
+export interface StartReviewResult {
+	worktree?: GitWorktree;
 	branch: GitBranch;
 	pr: PullRequest;
-}> {
-	// Step 1: Fetch PR details using Launchpad
-	const hasConnectedIntegration = await container.launchpad.hasConnectedIntegration();
-	if (!hasConnectedIntegration) {
-		throw new Error('No connected integrations. Please connect a GitHub, GitLab, or other integration first.');
-	}
+}
 
-	const result = await container.launchpad.getCategorizedItems({ search: prUrl });
-	if (result.error != null) {
-		throw new Error(`Error fetching PR: ${result.error.message}`);
-	}
-
-	const items = result.items;
-	if (items == null || items.length === 0) {
-		throw new Error(`No PR found matching '${prUrl}'`);
-	}
-
-	const prItem = items[0];
-	const pr = prItem.underlyingPullRequest;
+/**
+ * Start a review from a LaunchpadItem - uses already-fetched PR and repository data.
+ * This is the preferred method when you already have a LaunchpadItem.
+ */
+export async function startReviewFromLaunchpadItem(
+	container: Container,
+	item: LaunchpadItem,
+): Promise<StartReviewResult> {
+	const pr = item.underlyingPullRequest;
 	if (!pr) {
 		throw new Error('Unable to retrieve PR details');
 	}
 
-	// Step 2: Find matching repository
-	const repo = await findMatchingRepository(container, pr);
+	if (item.openRepository?.localBranch?.current) {
+		await startReviewInChat(container, pr);
+		// If the branch is already checked out in the open repository, just get the worktree if it exists
+		const existingWorktree = await getWorktreeForBranch(
+			item.openRepository.repo,
+			item.openRepository.localBranch.name,
+			`${pr.refs?.head?.owner}/${pr.refs?.head?.branch}`,
+		);
+		return {
+			worktree: existingWorktree,
+			branch: item.openRepository.localBranch,
+			pr: pr,
+		};
+		// return StartReviewResult
+	}
+
+	// Use the already-resolved repository from LaunchpadItem if available,
+	// otherwise use getOpenedPullRequestRepo which handles finding/opening the repo
+	const repo =
+		item.openRepository?.repo ??
+		(await getOrOpenPullRequestRepository(container, pr, {
+			skipVirtual: true,
+		}));
+
 	if (!repo) {
 		const repoName = `${pr.repository.owner}/${pr.repository.repo}`;
 		throw new Error(`No local repository found for ${repoName}. Please clone the repository first.`);
 	}
 
-	// Step 3: Setup remote and branch
+	// Step 1: Setup remote and branch
 	const { addRemote, localBranchName, remoteBranchName, branchRef, createBranch } = await setupPullRequestBranch(
 		repo,
 		pr,
 	);
 
-	// Step 4: Check if worktree already exists
+	// Step 2: Check if worktree already exists
 	const existingWorktree = await getWorktreeForBranch(repo, localBranchName, remoteBranchName);
 	if (existingWorktree != null) {
 		// Worktree already exists, store deeplink and open it
 		await storeStartReviewDeepLink(container, pr, existingWorktree.uri.fsPath);
 		openWorkspace(existingWorktree.uri, { location: 'newWindow' });
-		// openWorkspace(existingWorktree.uri);
 
 		const worktreeBranch = await getBranchFromWorktree(container, existingWorktree, localBranchName);
 		return { worktree: existingWorktree, branch: worktreeBranch, pr: pr };
 	}
 
-	// Step 5: Create new worktree
+	// Step 3: Create new worktree
 	const worktree = await createPullRequestWorktree(repo, localBranchName, branchRef, createBranch, addRemote);
 
-	// Step 6: Store deeplink and open worktree in new window
+	// Step 4: Store deeplink and open worktree in new window
 	await storeStartReviewDeepLink(container, pr, worktree.uri.fsPath);
 	openWorkspace(worktree.uri, { location: 'newWindow' });
-	// openWorkspace(worktree.uri);
 
-	// Step 7: Get branch from worktree
+	// Step 5: Get branch from worktree
 	const worktreeBranch = await getBranchFromWorktree(container, worktree, localBranchName);
 
 	return { worktree: worktree, branch: worktreeBranch, pr: pr };
-}
-
-async function findMatchingRepository(container: Container, pr: PullRequest): Promise<Repository | undefined> {
-	const repoIdentity = getRepositoryIdentityForPullRequest(pr, false);
-
-	// Search through open repositories for a matching remote
-	for (const repo of container.git.openRepositories) {
-		const remotes = await repo.git.remotes.getRemotes();
-		for (const remote of remotes) {
-			// Check if remote URL matches the PR's repository
-			if (
-				remote.url.includes(repoIdentity.name) ||
-				remote.url.includes(`${pr.repository.owner}/${pr.repository.repo}`)
-			) {
-				return (await repo.getCommonRepository()) ?? repo;
-			}
-		}
-	}
-
-	return undefined;
 }
 
 async function setupPullRequestBranch(
