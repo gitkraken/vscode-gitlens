@@ -200,6 +200,11 @@ export class Repository implements Disposable {
 		public readonly root: boolean,
 		closed: boolean = false,
 	) {
+		this.id = asRepoComparisonKey(uri);
+		this.index = folder?.index ?? container.git.repositoryCount;
+		this._suspended = !window.state.focused;
+		this._closed = closed;
+
 		if (folder != null) {
 			if (root) {
 				this._name = folder.name;
@@ -220,13 +225,6 @@ export class Repository implements Disposable {
 		}
 
 		this.setupRepoWatchers(_gitDir);
-
-		this.index = folder?.index ?? container.git.repositoryCount;
-
-		this.id = asRepoComparisonKey(uri);
-
-		this._suspended = !window.state.focused;
-		this._closed = closed;
 
 		this._disposable = Disposable.from(
 			this._onDidChange,
