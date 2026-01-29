@@ -73,6 +73,7 @@ import './commands/showQuickFileHistory.js';
 import './commands/showQuickRepoStatus.js';
 import './commands/showQuickStashList.js';
 import './commands/showView.js';
+import './commands/signing/setup.js';
 import './commands/stashApply.js';
 import './commands/stashSave.js';
 import './commands/switchMode.js';

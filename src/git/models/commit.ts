@@ -32,6 +32,7 @@ import type { GitRevisionReference, GitStashReference } from './reference.js';
 import type { GitRemote } from './remote.js';
 import type { Repository } from './repository.js';
 import { uncommitted, uncommittedStaged } from './revision.js';
+import type { CommitSignature } from './signature.js';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
@@ -57,6 +58,7 @@ export interface GitCommitFileset {
 export class GitCommit implements GitRevisionReference {
 	private _stashUntrackedFilesLoaded = false;
 	private _recomputeStats = false;
+	private _signature: CommitSignature | undefined | null;
 
 	readonly lines: GitCommitLine[];
 	readonly ref: string;
@@ -584,6 +586,19 @@ export class GitCommit implements GitRevisionReference {
 
 	getCachedAvatarUri(options?: { size?: number }): Uri | undefined {
 		return this.author.getCachedAvatarUri(options);
+	}
+
+	async getSignature(): Promise<CommitSignature | undefined> {
+		if (this.isUncommitted) return undefined;
+		if (this._signature === null) return undefined;
+		if (this._signature !== undefined) return this._signature;
+
+		// Fetch signature from git
+		this._signature =
+			(await this.container.git.getRepositoryService(this.repoPath).commits.getCommitSignature?.(this.sha)) ??
+			null;
+
+		return this._signature ?? undefined;
 	}
 
 	async getCommitForFile(file: string | GitFile, staged?: boolean): Promise<GitCommit | undefined> {

@@ -2319,6 +2319,11 @@
 			"label": "Git Revert...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.git.setupCommitSigning": {
+			"label": "Setup Commit Signing...",
+			"icon": "$(key)",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.git.show": {
 			"label": "Git Show...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"

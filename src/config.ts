@@ -44,6 +44,7 @@ export interface Config {
 	readonly rebaseEditor: RebaseEditorConfig;
 	readonly remotes: RemotesConfig[] | null;
 	readonly showWhatsNewAfterUpgrades: boolean;
+	readonly signing: SigningConfig;
 	readonly sortBranchesBy: BranchSorting;
 	readonly sortContributorsBy: ContributorSorting;
 	readonly sortTagsBy: TagSorting;
@@ -713,6 +714,11 @@ export interface RemotesUrlsConfig {
 	readonly fileRange: string;
 }
 
+interface SigningConfig {
+	readonly showSignatureBadges: boolean;
+	readonly enableKeyGeneration: boolean;
+}
+
 interface StatusBarConfig {
 	readonly alignment: 'left' | 'right';
 	readonly command: StatusBarCommands;
@@ -1114,6 +1120,7 @@ export type CoreConfig = {
 	readonly git: {
 		readonly autoRepositoryDetection: boolean | 'subFolders' | 'openEditors';
 		readonly enabled: boolean;
+		readonly enableCommitSigning: boolean;
 		readonly fetchOnPull: boolean;
 		readonly path: string | string[] | null;
 		readonly pullTags: boolean;
