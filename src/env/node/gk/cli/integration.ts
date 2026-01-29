@@ -97,6 +97,15 @@ export class GkCliIntegrationProvider implements Disposable {
 				void this.start();
 			}
 		}
+
+		// Reinstall CLI when insiders setting changes
+		if (e != null && configuration.changed(e, 'gitkraken.cli.insiders.enabled')) {
+			const cliInstall = this.container.storage.getScoped('gk:cli:install');
+			if (cliInstall?.status === 'completed') {
+				// Force reinstall to switch between production and insiders
+				void this.setupMCPCore('settings', true, true).catch(() => {});
+			}
+		}
 	}
 
 	private async start() {
@@ -499,6 +508,8 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 		}
 
+		const insidersEnabled = configuration.get('gitkraken.cli.insiders.enabled');
+
 		try {
 			if (isWeb) {
 				void this.container.storage
@@ -514,13 +525,13 @@ export class GkCliIntegrationProvider implements Disposable {
 			if (isOffline) {
 				throw new CLIInstallError(CLIInstallErrorReason.Offline);
 			}
-
 			cliInstallAttempts += 1;
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cli/install/started', {
 					source: source,
 					autoInstall: autoInstall ?? false,
 					attempts: cliInstallAttempts,
+					insiders: insidersEnabled,
 				});
 			}
 			void this.container.storage
@@ -691,7 +702,11 @@ export class GkCliIntegrationProvider implements Disposable {
 
 				// Set up the local MCP server files
 				try {
-					const coreInstallOutput = await runCLICommand(['install'], { cwd: globalStorageUri.fsPath });
+					const installArgs = ['install'];
+					if (insidersEnabled) {
+						installArgs.push('--insiders');
+					}
+					const coreInstallOutput = await runCLICommand(installArgs, { cwd: globalStorageUri.fsPath });
 					const directory = coreInstallOutput.match(/Directory: (.*)/);
 					let directoryPath;
 					if (directory != null && directory.length > 1) {
@@ -718,6 +733,7 @@ export class GkCliIntegrationProvider implements Disposable {
 							attempts: cliInstallAttempts,
 							source: source,
 							version: cliVersion,
+							insiders: insidersEnabled,
 						});
 					}
 
@@ -751,6 +767,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					attempts: cliInstallAttempts,
 					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
 					source: source,
+					insiders: insidersEnabled,
 				});
 			}
 

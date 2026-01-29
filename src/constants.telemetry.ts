@@ -573,6 +573,7 @@ export interface CLIInstallStartedEvent {
 	source?: Sources;
 	autoInstall: boolean;
 	attempts: number;
+	insiders: boolean;
 }
 
 export interface CLIInstallSucceededEvent {
@@ -580,6 +581,7 @@ export interface CLIInstallSucceededEvent {
 	attempts: number;
 	source?: Sources;
 	version?: string;
+	insiders: boolean;
 }
 
 export interface CLIInstallFailedEvent {
@@ -587,6 +589,7 @@ export interface CLIInstallFailedEvent {
 	attempts: number;
 	'error.message'?: string;
 	source?: Sources;
+	insiders: boolean;
 }
 
 export interface MCPSetupStartedEvent {

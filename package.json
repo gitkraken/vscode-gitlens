@@ -4180,12 +4180,22 @@
 							"experimental"
 						]
 					},
+					"gitlens.gitkraken.cli.insiders.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to enable experimental insiders version of the GitKraken CLI",
+						"scope": "window",
+						"order": 40,
+						"tags": [
+							"experimental"
+						]
+					},
 					"gitlens.gitkraken.mcp.autoEnabled": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to automatically install and enable the GitKraken MCP. This only applies to VS Code 1.101 and later.",
 						"scope": "window",
-						"order": 40
+						"order": 50
 					},
 					"gitlens.terminal.overrideGitEditor": {
 						"type": "boolean",
