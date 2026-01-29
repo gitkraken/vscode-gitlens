@@ -91,7 +91,7 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 		}
 	}
 
-	@log()
+	@log<LocalRepositoryLocationProvider['storeLocations']>({ args: { 0: entries => entries.length } })
 	async storeLocations(entries: RepositoryLocationEntry[]): Promise<void> {
 		if (!entries.length) return;
 
