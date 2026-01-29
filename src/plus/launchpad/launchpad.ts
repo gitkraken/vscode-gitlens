@@ -821,7 +821,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 					case OpenOnWebQuickInputButton:
 						this.sendTitleActionTelemetry('open-on-gkdev', context);
-						void openUrl(this.container.launchpad.generateWebUrl());
+						void openUrl(await this.container.launchpad.generateWebUrl());
 						break;
 
 					case RefreshQuickInputButton:

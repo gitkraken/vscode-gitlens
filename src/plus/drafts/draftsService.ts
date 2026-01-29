@@ -887,7 +887,7 @@ export class DraftService implements Disposable {
 	generateWebUrl(draft: Draft): string;
 	generateWebUrl(draftOrDraftId: Draft | string): string {
 		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
-		return this.container.urls.getGkDevUrl(['drafts', id]);
+		return this.container.urls.getGkDevUrlWithoutIdeArg(['drafts', id]);
 	}
 }
 
