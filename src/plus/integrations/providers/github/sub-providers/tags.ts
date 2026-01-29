@@ -8,6 +8,7 @@ import { sortTags } from '../../../../../git/utils/-webview/sorting.js';
 import { log } from '../../../../../system/decorators/log.js';
 import { Logger } from '../../../../../system/logger.js';
 import { getLogScope } from '../../../../../system/logger.scope.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 import { stripOrigin } from '../githubGitProvider.js';
 
@@ -58,7 +59,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 						while (true) {
 							const result = await github.getTags(
-								session.accessToken,
+								toTokenWithInfo(this.provider.authenticationProviderId, session),
 								metadata.repo.owner,
 								metadata.repo.name,
 								{ cursor: cursor },
@@ -134,7 +135,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
 			const tags = await github.getTagsWithCommit(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				stripOrigin(sha),
