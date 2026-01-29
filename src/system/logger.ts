@@ -334,8 +334,17 @@ export function getLoggableName(instance: object): string {
 		name = name.substring(index + 1);
 	}
 
-	const customNameFn = customLoggableNameFns.get(ctor);
-	return customNameFn?.(instance, name) ?? name;
+	// Walk the prototype chain to find a custom name function (supports @logName on base classes)
+	let proto = ctor;
+	while (proto != null) {
+		const customNameFn = customLoggableNameFns.get(proto);
+		if (customNameFn != null) {
+			return customNameFn(instance, name);
+		}
+		proto = Object.getPrototypeOf(proto);
+	}
+
+	return name;
 }
 
 export interface LogProvider {

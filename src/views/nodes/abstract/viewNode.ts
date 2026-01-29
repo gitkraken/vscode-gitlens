@@ -1,6 +1,7 @@
 import type { CancellationToken, Command, Disposable, Event, TreeItem } from 'vscode';
 import type { TreeViewNodeTypes, TreeViewTypes } from '../../../constants.views.js';
 import type { GitUri } from '../../../git/gitUri.js';
+import { unknownGitUri } from '../../../git/gitUri.js';
 import type { GitBranch } from '../../../git/models/branch.js';
 import type { GitCommit } from '../../../git/models/commit.js';
 import type { GitContributor } from '../../../git/models/contributor.js';
@@ -218,7 +219,10 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 
 export type ClipboardType = 'text' | 'markdown';
 
-@logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
+@logName<ViewNode>(
+	(c, name) =>
+		`${name}${c.id != null || (c.uri != null && c.uri !== unknownGitUri) ? `(${c.id ?? c.uri.toString()})` : ''}`,
+)
 export abstract class ViewNode<
 	Type extends TreeViewNodeTypes = TreeViewNodeTypes,
 	TView extends View = View,
