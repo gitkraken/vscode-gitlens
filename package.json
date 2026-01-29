@@ -8624,6 +8624,12 @@
 				"icon": "$(star-empty)"
 			},
 			{
+				"command": "gitlens.startReview",
+				"title": "Start Review",
+				"category": "GitLens",
+				"icon": "$(git-pull-request)"
+			},
+			{
 				"command": "gitlens.startWork",
 				"title": "Start Work",
 				"category": "GitLens",
@@ -13536,6 +13542,10 @@
 				{
 					"command": "gitlens.star.repository.multi:views",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.startReview",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.startWork",

@@ -11,7 +11,7 @@ import { serializePullRequest } from '../../../../git/utils/pullRequest.utils.js
 import type { LaunchpadCategorizedResult, LaunchpadItem } from '../../../../plus/launchpad/launchpadProvider.js';
 import { getLaunchpadItemGroups } from '../../../../plus/launchpad/launchpadProvider.js';
 import { launchpadCategoryToGroupMap } from '../../../../plus/launchpad/models/launchpad.js';
-import { startReviewFromPullRequest } from '../../../../plus/launchpad/utils/-webview/startReview.utils.js';
+import type { StartReviewCommandArgs } from '../../../../plus/launchpad/startReview.js';
 import type { StartWorkCommandArgs } from '../../../../plus/startWork/startWork.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { createCommandDecorator } from '../../../../system/decorators/command.js';
@@ -166,20 +166,29 @@ export class CliCommandHandlers implements Disposable {
 		_repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No Pull Request provided' };
-		const [prSearch] = request.args;
+		const [prUrl] = request.args;
 
 		try {
-			const { worktree, branch, pr } = await startReviewFromPullRequest(this.container, prSearch);
+			const result = defer<{ branch: GitBranch; worktree?: GitWorktree; pr: PullRequest }>();
 
-			// Create result object with only the necessary properties
-			const result = {
-				worktreePath: worktree.path,
-				branchName: branch.name,
-				prUrl: pr.url,
-				prTitle: pr.title,
+			await executeCommand<StartReviewCommandArgs>('gitlens.startReview', {
+				command: 'startReview',
+				source: 'gk-cli-integration',
+				prUrl: prUrl,
+				useDefaults: true,
+				result: result,
+			});
+
+			const { branch, worktree, pr } = await result.promise;
+
+			return {
+				stdout: JSON.stringify({
+					branchName: branch.name,
+					worktreePath: worktree?.path,
+					prUrl: pr.url,
+					prTitle: pr.title,
+				}),
 			};
-
-			return { stdout: JSON.stringify(result) };
 		} catch (ex) {
 			return { stderr: `Error reviewing PR: ${ex instanceof Error ? ex.message : String(ex)}` };
 		}
@@ -213,7 +222,7 @@ export class CliCommandHandlers implements Disposable {
 				}),
 			};
 		} catch (ex) {
-			return { stderr: `Error starting work on issue: ${ex}` };
+			return { stderr: `Error starting work on issue: ${ex instanceof Error ? ex.message : String(ex)}` };
 		}
 	}
 

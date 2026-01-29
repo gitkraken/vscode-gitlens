@@ -6190,6 +6190,11 @@
 				]
 			}
 		},
+		"gitlens.startReview": {
+			"label": "Start Review",
+			"icon": "$(git-pull-request)",
+			"commandPalette": "gitlens:enabled"
+		},
 		"gitlens.startWork": {
 			"label": "Start Work",
 			"icon": "$(rocket)",
