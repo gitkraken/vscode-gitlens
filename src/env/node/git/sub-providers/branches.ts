@@ -241,7 +241,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								: undefined,
 							sha: branch.sha,
 						});
-						this.cache.setCurrentBranchRef(branch.worktree.path, reference);
+						this.cache.setCurrentBranchReference(branch.worktree.path, reference);
 					}
 				}
 
@@ -489,7 +489,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		repoPath: string,
 		cancellation?: CancellationToken,
 	): Promise<GitBranchReference | undefined> {
-		return this.cache.currentBranchRef.getOrCreate(repoPath, async () => {
+		return this.cache.currentBranchReference.getOrCreate(repoPath, async () => {
 			const commitOrdering = configuration.get('advanced.commitOrdering');
 
 			let data: [string, string | undefined] | undefined;

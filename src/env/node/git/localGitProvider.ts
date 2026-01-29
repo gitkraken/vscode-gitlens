@@ -165,6 +165,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this._cache.clearCaches(repo.path);
 		} else {
 			if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+				this._cache.currentBranchReference.delete(repo.path);
 				queueMicrotask(() => this.branches.onCurrentBranchAccessed(repo.path));
 			}
 
@@ -174,12 +175,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
+				this._cache.currentBranchReference.delete(repo.path);
 				this._cache.repoInfo.delete(repo.path);
 			}
 
 			if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
 				this._cache.branch.delete(repo.path);
 				this._cache.branches.delete(repo.path);
+				this._cache.currentBranchReference.delete(repo.path);
 				this._cache.contributors.delete(repo.path);
 				this._cache.worktrees.delete(repo.path);
 			}

@@ -45,12 +45,13 @@ interface Caches {
 	bestRemotes: PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> | undefined;
 	branch: PromiseMap<RepoPath, GitBranch | undefined> | undefined;
 	branches: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
-	sharedBranches: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
-	currentBranchRef: PromiseCache<RepoPath, GitBranchReference | undefined> | undefined;
+	configKeys: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	configPatterns: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	conflictDetection: RepoPromiseCacheMap<ConflictDetectionCacheKey, ConflictDetectionResult> | undefined;
 	contributors: RepoPromiseCacheMap<string, GitContributorsResult> | undefined;
 	contributorsLite: RepoPromiseCacheMap<string, GitContributor[]> | undefined;
 	contributorsStats: RepoPromiseCacheMap<string, GitContributorsStats | undefined> | undefined;
+	currentBranchReference: PromiseCache<RepoPath, GitBranchReference | undefined> | undefined;
 	defaultBranchName: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	gitIgnore: Map<RepoPath, GitIgnoreCache> | undefined;
 	gitResults: RepoPromiseCacheMap<string, GitResult> | undefined;
@@ -61,8 +62,7 @@ interface Caches {
 	reachability: RepoPromiseCacheMap<string, GitCommitReachability | undefined> | undefined;
 	remotes: PromiseMap<RepoPath, GitRemote[]> | undefined;
 	repoInfo: Map<RepoPath, RepositoryInfo> | undefined;
-	configKeys: RepoPromiseCacheMap<string, string | undefined> | undefined;
-	configPatterns: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	sharedBranches: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
 	stashes: PromiseMap<RepoPath, GitStash> | undefined;
 	tags: PromiseMap<RepoPath, PagedResult<GitTag>> | undefined;
 	worktrees: PromiseMap<RepoPath, GitWorktree[]> | undefined;
@@ -73,12 +73,13 @@ function createEmptyCaches(): Caches {
 		bestRemotes: undefined,
 		branch: undefined,
 		branches: undefined,
-		sharedBranches: undefined,
-		currentBranchRef: undefined,
+		configKeys: undefined,
+		configPatterns: undefined,
 		conflictDetection: undefined,
 		contributors: undefined,
 		contributorsLite: undefined,
 		contributorsStats: undefined,
+		currentBranchReference: undefined,
 		defaultBranchName: undefined,
 		gitIgnore: undefined,
 		gitResults: undefined,
@@ -89,8 +90,7 @@ function createEmptyCaches(): Caches {
 		reachability: undefined,
 		remotes: undefined,
 		repoInfo: undefined,
-		configKeys: undefined,
-		configPatterns: undefined,
+		sharedBranches: undefined,
 		stashes: undefined,
 		tags: undefined,
 		worktrees: undefined,
@@ -152,13 +152,11 @@ export class GitCache implements Disposable {
 		}));
 	}
 
-	get currentBranchRef(): PromiseCache<RepoPath, GitBranchReference | undefined> {
-		// Short-TTL cache for current branch reference per worktree
+	get currentBranchReference(): PromiseCache<RepoPath, GitBranchReference | undefined> {
+		// Cache for current branch reference per worktree
 		// Avoids running `git rev-parse --abbrev-ref --symbolic-full-name @ @{u}` repeatedly during branch mapping for worktrees
 
-		return (this._caches.currentBranchRef ??= new PromiseCache<RepoPath, GitBranchReference | undefined>({
-			createTTL: 1000 * 30, // 30 seconds - short enough to stay fresh, long enough to dedupe calls
-		}));
+		return (this._caches.currentBranchReference ??= new PromiseCache<RepoPath, GitBranchReference | undefined>());
 	}
 
 	/**
@@ -169,10 +167,10 @@ export class GitCache implements Disposable {
 	 * @param worktreePath The path of the worktree
 	 * @param reference The branch reference to cache, or undefined if no current branch
 	 */
-	setCurrentBranchRef(worktreePath: string, reference: GitBranchReference | undefined): void {
+	setCurrentBranchReference(worktreePath: string, reference: GitBranchReference | undefined): void {
 		// Only set if not already cached to avoid overwriting fresher data
-		if (this.currentBranchRef.get(worktreePath) == null) {
-			this.currentBranchRef.set(worktreePath, Promise.resolve(reference));
+		if (this.currentBranchReference.get(worktreePath) == null) {
+			this.currentBranchReference.set(worktreePath, Promise.resolve(reference));
 		}
 	}
 
@@ -298,7 +296,7 @@ export class GitCache implements Disposable {
 			sharedCachesToClear.add(this._caches.branches);
 			sharedCachesToClear.add(this._caches.sharedBranches);
 			cachesToClear.add(this._caches.conflictDetection);
-			cachesToClear.add(this._caches.currentBranchRef);
+			cachesToClear.add(this._caches.currentBranchReference);
 			sharedCachesToClear.add(this._caches.defaultBranchName);
 			sharedCachesToClear.add(this._caches.initialCommitSha);
 			sharedCachesToClear.add(this._caches.logShas);
