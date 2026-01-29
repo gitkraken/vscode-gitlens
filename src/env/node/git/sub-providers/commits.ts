@@ -26,6 +26,7 @@ import type { GitFileStatus } from '../../../../git/models/fileStatus.js';
 import type { GitLog } from '../../../../git/models/log.js';
 import type { GitReflog } from '../../../../git/models/reflog.js';
 import type { GitRevisionRange } from '../../../../git/models/revision.js';
+import type { CommitSignature } from '../../../../git/models/signature.js';
 import type { GitUser } from '../../../../git/models/user.js';
 import type {
 	CommitsInFileRangeLogParser,
@@ -41,6 +42,7 @@ import {
 	getShaLogParser,
 } from '../../../../git/parsers/logParser.js';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser.js';
+import { parseSignatureOutput, signatureFormat } from '../../../../git/parsers/signatureParser.js';
 import type { SearchQueryFilters } from '../../../../git/search.js';
 import { parseSearchQueryGitCommand } from '../../../../git/search.js';
 import { processNaturalLanguageToSearchQuery } from '../../../../git/search.naturalLanguage.js';
@@ -1298,6 +1300,28 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (isCancellationError(ex)) throw ex;
 
 			return { search: search, log: undefined };
+		}
+	}
+
+	@log()
+	async getCommitSignature(repoPath: string, sha: string): Promise<CommitSignature | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const result = await this.git.exec(
+				{ cwd: repoPath, errors: 'ignore' },
+				'log',
+				`--format=${signatureFormat}`,
+				'-1',
+				sha,
+			);
+
+			if (!result.stdout) return undefined;
+
+			return parseSignatureOutput(result.stdout);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
 		}
 	}
 }

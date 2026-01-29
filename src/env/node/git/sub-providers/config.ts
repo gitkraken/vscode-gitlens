@@ -5,7 +5,9 @@ import type { DeprecatedGitConfigKeys, GitConfigKeys, GitCoreConfigKeys } from '
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
 import type { GitConfigSubProvider, GitConfigType, GitDir } from '../../../../git/gitProvider.js';
+import type { SigningConfig, SigningFormat, ValidationResult } from '../../../../git/models/signature.js';
 import type { GitUser } from '../../../../git/models/user.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
 import { getBestPath } from '../../../../system/-webview/path.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { debug, log } from '../../../../system/decorators/log.js';
@@ -192,5 +194,99 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		this.cache.repoInfo.set(repoPath, { ...repo, gitDir: gitDir });
 
 		return gitDir;
+	}
+
+	@log()
+	async getSigningConfig(repoPath: string): Promise<SigningConfig> {
+		const [enabled, format, signingKey, gpgProgram, sshProgram, allowedSignersFile] = await Promise.all([
+			this.getConfig(repoPath, 'commit.gpgsign', { type: 'bool' }),
+			this.getConfig(repoPath, 'gpg.format'),
+			this.getConfig(repoPath, 'user.signingkey'),
+			this.getConfig(repoPath, 'gpg.program'),
+			this.getConfig(repoPath, 'gpg.ssh.program'),
+			this.getConfig(repoPath, 'gpg.ssh.allowedSignersFile'),
+		]);
+
+		// Check if git config has commit signing enabled
+		let isEnabled = enabled === 'true';
+
+		// If git config doesn't have commit signing enabled, check VS Code's setting
+		if (!isEnabled) {
+			const vscodeEnableCommitSigning = configuration.getCore('git.enableCommitSigning', Uri.file(repoPath));
+			if (vscodeEnableCommitSigning === true) {
+				isEnabled = true;
+			}
+		}
+
+		return {
+			enabled: isEnabled,
+			format: (format as SigningFormat) ?? 'gpg',
+			signingKey: signingKey,
+			gpgProgram: gpgProgram,
+			sshProgram: sshProgram,
+			allowedSignersFile: allowedSignersFile,
+		};
+	}
+
+	@log()
+	async validateSigningSetup(repoPath: string): Promise<ValidationResult> {
+		const config = await this.getSigningConfig(repoPath);
+
+		if (!config.signingKey) {
+			return { valid: false, error: 'No signing key configured' };
+		}
+
+		// Basic validation: just check that a signing key is configured
+		// Git will handle the actual validation when signing commits
+		return { valid: true };
+	}
+
+	@log()
+	async setSigningConfig(
+		repoPath: string,
+		config: Partial<SigningConfig>,
+		options?: { global?: boolean },
+	): Promise<void> {
+		const updates: Promise<void>[] = [];
+
+		if (config.enabled !== undefined) {
+			updates.push(this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false', options));
+		}
+		if (config.format !== undefined) {
+			updates.push(this.setConfig(repoPath, 'gpg.format', config.format, options));
+		}
+		if (config.signingKey !== undefined) {
+			updates.push(this.setConfig(repoPath, 'user.signingkey', config.signingKey, options));
+		}
+		if (config.gpgProgram !== undefined) {
+			updates.push(this.setConfig(repoPath, 'gpg.program', config.gpgProgram, options));
+		}
+		if (config.sshProgram !== undefined) {
+			updates.push(this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram, options));
+		}
+		if (config.allowedSignersFile !== undefined) {
+			updates.push(this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile, options));
+		}
+
+		await Promise.all(updates);
+	}
+
+	getSigningConfigFlags(config: SigningConfig): string[] {
+		const flags: string[] = [];
+
+		if (config.gpgProgram) {
+			flags.push('-c', `gpg.program=${config.gpgProgram}`);
+		}
+		if (config.format && config.format !== 'gpg') {
+			flags.push('-c', `gpg.format=${config.format}`);
+		}
+		if (config.sshProgram) {
+			flags.push('-c', `gpg.ssh.program=${config.sshProgram}`);
+		}
+		if (config.allowedSignersFile) {
+			flags.push('-c', `gpg.ssh.allowedSignersFile=${config.allowedSignersFile}`);
+		}
+
+		return flags;
 	}
 }

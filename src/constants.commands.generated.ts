@@ -903,6 +903,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.git.remote.remove'
 	| 'gitlens.git.reset'
 	| 'gitlens.git.revert'
+	| 'gitlens.git.setupCommitSigning'
 	| 'gitlens.git.show'
 	| 'gitlens.git.stash'
 	| 'gitlens.git.stash.drop'

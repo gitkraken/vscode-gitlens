@@ -5673,6 +5673,27 @@
 						"markdownDeprecationMessage": "Deprecated. Use the pre-release of GitLens instead"
 					}
 				}
+			},
+			{
+				"id": "commit-signing",
+				"title": "Commit Signing",
+				"order": 1400,
+				"properties": {
+					"gitlens.signing.showSignatureBadges": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show signature verification badges on commits in the Commit Graph and other views",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.signing.enableKeyGeneration": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to enable the ability to generate signing keys from within GitLens",
+						"scope": "window",
+						"order": 30
+					}
+				}
 			}
 		],
 		"configurationDefaults": {
@@ -7159,6 +7180,12 @@
 				"command": "gitlens.git.revert",
 				"title": "Git Revert...",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.git.setupCommitSigning",
+				"title": "Setup Commit Signing...",
+				"category": "GitLens",
+				"icon": "$(key)"
 			},
 			{
 				"command": "gitlens.git.show",
@@ -12357,6 +12384,10 @@
 				{
 					"command": "gitlens.git.revert",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.git.setupCommitSigning",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.git.show",

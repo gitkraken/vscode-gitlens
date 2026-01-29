@@ -1544,7 +1544,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Create unreachable commits from patches
-			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit?.sha, diffInfo);
+			// Get signing config to determine if commits should be signed
+			const signingConfig = await repo.git.config.getSigningConfig?.();
+			const shouldSign = signingConfig?.enabled ?? false;
+
+			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit?.sha, diffInfo, {
+				sign: shouldSign,
+				source: { source: 'composer' },
+			});
 
 			if (!shas?.length) {
 				this._context.errors.operation.count++;
