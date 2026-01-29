@@ -136,8 +136,13 @@ export class GlDiffFile extends LitElement {
 		if (this.targetElement) {
 			this.captureUserExpandedState();
 			this.removeDetailsToggleListener();
+			const currentHeight = this.targetElement.offsetHeight;
+			if (currentHeight > 0) {
+				this.style.minHeight = `${currentHeight}px`;
+			}
 			this.targetElement.innerHTML = '';
 		}
+		this.diff2htmlUi = undefined;
 		this.hasRendered = false;
 	}
 
@@ -152,6 +157,8 @@ export class GlDiffFile extends LitElement {
 		if (this.hasRendered && !force) {
 			return;
 		}
+
+		this.style.minHeight = '';
 
 		if (!this.diff2htmlUi || force) {
 			const config: Diff2HtmlUIConfig = {
@@ -205,7 +212,7 @@ export class GlDiffFile extends LitElement {
 
 	private captureUserExpandedState() {
 		const detailsElement = this.targetElement?.querySelector('details');
-		if (detailsElement && this.userExpandedState === undefined) {
+		if (detailsElement) {
 			this.userExpandedState = detailsElement.open;
 		}
 	}
