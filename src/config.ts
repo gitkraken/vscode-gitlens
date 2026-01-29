@@ -408,6 +408,9 @@ interface GitKrakenCliConfig {
 	readonly integration: {
 		readonly enabled: boolean;
 	};
+	readonly insiders: {
+		readonly enabled: boolean;
+	};
 }
 
 interface GitKrakenMcpConfig {

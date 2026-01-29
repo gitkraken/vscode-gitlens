@@ -1,6 +1,7 @@
 import type { Event, McpServerDefinition, McpServerDefinitionProvider } from 'vscode';
 import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition } from 'vscode';
 import type { Container } from '../../../../container.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
 import { getHostAppName } from '../../../../system/-webview/vscode.js';
 import { debug, log } from '../../../../system/decorators/log.js';
@@ -117,10 +118,12 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		if (appName == null) return undefined;
 
 		try {
-			let output = await runCLICommand(
-				['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
-				{ cwd: cliPath },
-			);
+			const args = ['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`];
+			if (configuration.get('gitkraken.cli.insiders.enabled')) {
+				args.push('--insiders');
+			}
+
+			let output = await runCLICommand(args, { cwd: cliPath });
 			output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
 
 			const config: McpConfiguration = JSON.parse(output);
