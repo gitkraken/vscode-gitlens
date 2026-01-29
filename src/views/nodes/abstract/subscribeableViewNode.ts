@@ -37,14 +37,14 @@ export abstract class SubscribeableViewNode<
 		const getTreeItem = this.getTreeItem;
 		this.getTreeItem = async function (this: SubscribeableViewNode<Type, TView>) {
 			this.loaded = true;
-			await this.ensureSubscription();
+			await this.ensureSubscription(true);
 			return getTreeItem.apply(this);
 		};
 
 		const getChildren = this.getChildren;
 		this.getChildren = async function (this: SubscribeableViewNode<Type, TView>) {
 			this.loaded = true;
-			await this.ensureSubscription();
+			await this.ensureSubscription(true);
 			return getChildren.apply(this);
 		};
 
@@ -159,7 +159,9 @@ export abstract class SubscribeableViewNode<
 	// }
 	@debug()
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
-		void this.ensureSubscription();
+		// Pass the event's visibility to ensureSubscription to avoid race conditions
+		// between the debounced event and the current view.visible state
+		void this.ensureSubscription(false, e.visible);
 
 		if (e.visible) {
 			void this.triggerChange(this.requiresResetOnVisible);
@@ -168,20 +170,21 @@ export abstract class SubscribeableViewNode<
 
 	@gate(undefined, { timeout: 30000, rejectOnTimeout: false }) // 30 second timeout to prevent indefinite hangs
 	@debug({ singleLine: true })
-	async ensureSubscription(): Promise<void> {
+	async ensureSubscription(force?: boolean, visible?: boolean): Promise<void> {
 		const scope = getLogScope();
 
 		// We only need to subscribe if we are visible and if auto-refresh isn't disabled
-		const {
-			canSubscribe,
-			view: { visible: isVisible },
-		} = this;
+		// If force is true (node is being accessed), subscribe regardless of visibility
+		// If visible is passed explicitly (from visibility event), use it to avoid race conditions
+		// with the debounced event vs current tree.visible state
+		const { canSubscribe } = this;
+		const isVisible = visible ?? this.view.visible;
 		const autoRefreshDisabled = canAutoRefreshView(this.view) && !this.view.autoRefresh;
 
-		if (!canSubscribe || !isVisible || autoRefreshDisabled) {
+		if (!canSubscribe || (!force && !isVisible) || autoRefreshDisabled) {
 			setLogScopeExit(
 				scope,
-				` \u2022 unsubscribed (subscription=${this.subscription != null}); canSubscribe=${canSubscribe}, viewVisible=${isVisible}, autoRefreshDisabled=${autoRefreshDisabled}`,
+				` \u2022 unsubscribed (subscription=${this.subscription != null}); canSubscribe=${canSubscribe}, viewVisible=${isVisible}, force=${force}, autoRefreshDisabled=${autoRefreshDisabled}`,
 			);
 			await this.unsubscribe();
 
@@ -196,7 +199,7 @@ export abstract class SubscribeableViewNode<
 
 		setLogScopeExit(
 			scope,
-			` \u2022 subscribed; canSubscribe=${canSubscribe}, viewVisible=${isVisible}, autoRefreshDisabled=${autoRefreshDisabled}`,
+			` \u2022 subscribed; canSubscribe=${canSubscribe}, viewVisible=${isVisible}, force=${force}, autoRefreshDisabled=${autoRefreshDisabled}`,
 		);
 
 		this.subscription = Promise.resolve(this.subscribe());
