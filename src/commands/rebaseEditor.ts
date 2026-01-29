@@ -62,6 +62,20 @@ export class RebaseContinue extends ActiveEditorCommand {
 }
 
 @command()
+export class RebaseRefresh extends ActiveEditorCommand {
+	constructor(private readonly container: Container) {
+		super(['gitlens.rebase.refresh']);
+	}
+
+	execute(editor?: TextEditor, uri?: Uri): void {
+		uri = getCommandUri(uri, editor);
+		if (uri == null) return;
+
+		this.container.rebaseEditor.refresh(uri);
+	}
+}
+
+@command()
 export class ReopenRebaseAsInteractiveEditor extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super(['gitlens.rebase.reopenAsInteractiveEditor:editor/title']);

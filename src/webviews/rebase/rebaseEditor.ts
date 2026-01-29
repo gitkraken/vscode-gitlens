@@ -82,6 +82,11 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		await setRebaseTodoEditorEnablement(enabled);
 	}
 
+	refresh(uri: Uri): void {
+		const controller = this._controllers.get(uri.toString());
+		void controller?.refresh(true);
+	}
+
 	private isRebaseTodoActive(): boolean {
 		const activeTab = window.tabGroups.activeTabGroup.activeTab;
 		if (activeTab == null) return false;

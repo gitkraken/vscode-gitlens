@@ -264,6 +264,7 @@ export type ContributedCommands =
 	| 'gitlens.rebase.continue:editor/title'
 	| 'gitlens.rebase.disableEditor:editor/title'
 	| 'gitlens.rebase.enableEditor:editor/title'
+	| 'gitlens.rebase.refresh'
 	| 'gitlens.rebase.reopenAsInteractiveEditor:editor/title'
 	| 'gitlens.rebase.reopenAsTextEditor:editor/title'
 	| 'gitlens.recomposeBranch:graph'

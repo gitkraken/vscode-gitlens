@@ -4790,6 +4790,19 @@
 				]
 			}
 		},
+		"gitlens.rebase.refresh": {
+			"label": "Refresh",
+			"icon": "$(refresh)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceFilename == git-rebase-todo && activeCustomEditorId == gitlens.rebase",
+						"group": "navigation",
+						"order": 99
+					}
+				]
+			}
+		},
 		"gitlens.rebase.reopenAsInteractiveEditor:editor/title": {
 			"label": "Switch to Interactive Editor",
 			"icon": "$(gitlens-gitlens)",

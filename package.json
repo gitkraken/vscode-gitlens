@@ -8145,6 +8145,11 @@
 				"title": "Enable Interactive Editor"
 			},
 			{
+				"command": "gitlens.rebase.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.rebase.reopenAsInteractiveEditor:editor/title",
 				"title": "Switch to Interactive Editor",
 				"icon": "$(gitlens-gitlens)"
@@ -13143,6 +13148,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.rebase.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.rebase.reopenAsInteractiveEditor:editor/title",
 					"when": "false"
 				},
@@ -15770,9 +15779,10 @@
 					"alt": "gitlens.toggleFileHeatmap:editor/title"
 				},
 				{
-					"submenu": "gitlens/editor/annotations",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
-					"group": "navigation@100"
+					"command": "gitlens.toggleFileHeatmap:editor/title",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileBlame"
 				},
 				{
 					"command": "gitlens.diffWithPrevious:editor/title",
@@ -15812,10 +15822,9 @@
 					"alt": "gitlens.toggleFileBlame:editor/title"
 				},
 				{
-					"command": "gitlens.toggleFileHeatmap:editor/title",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
-					"group": "navigation@100",
-					"alt": "gitlens.toggleFileBlame"
+					"submenu": "gitlens/editor/annotations",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
+					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
@@ -15858,11 +15867,6 @@
 					"group": "navigation@2"
 				},
 				{
-					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
-					"group": "navigation@3"
-				},
-				{
 					"command": "gitlens.ai.feedback.helpful",
 					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
 					"group": "navigation@1"
@@ -15893,6 +15897,11 @@
 					"group": "navigation@2"
 				},
 				{
+					"command": "gitlens.regenerateMarkdownDocument",
+					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
+					"group": "navigation@3"
+				},
+				{
 					"command": "gitlens.rebase.reopenAsInteractiveEditor:editor/title",
 					"when": "resourceFilename == git-rebase-todo && activeCustomEditorId != gitlens.rebase",
 					"group": "navigation@10"
@@ -15901,6 +15910,11 @@
 					"command": "gitlens.rebase.reopenAsTextEditor:editor/title",
 					"when": "resourceFilename == git-rebase-todo && activeCustomEditorId == gitlens.rebase",
 					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.rebase.refresh",
+					"when": "resourceFilename == git-rebase-todo && activeCustomEditorId == gitlens.rebase",
+					"group": "navigation@99"
 				},
 				{
 					"command": "gitlens.rebase.enableEditor:editor/title",
