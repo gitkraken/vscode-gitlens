@@ -152,7 +152,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
-		this._cache.clearCaches(repo.path);
+		this._cache.onRepositoryChanged(repo.path, e);
 		this._onWillChangeRepository.fire(e);
 	}
 

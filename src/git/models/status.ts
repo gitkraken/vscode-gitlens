@@ -207,7 +207,7 @@ export class GitStatus {
 		return getFormattedDiffStatus(this.getDiffStatus(), options);
 	}
 
-	@memoize()
+	@memoize({ version: 'providers' })
 	async getRemote(): Promise<GitRemote | undefined> {
 		if (this.upstream == null) return undefined;
 

@@ -3,6 +3,7 @@ import { Disposable } from 'vscode';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { log } from '../system/decorators/log.js';
+import { invalidateMemoized } from '../system/decorators/memoize.js';
 import type { PromiseOrValue } from '../system/promise.js';
 import type { RepoPromiseMap } from '../system/promiseCache.js';
 import { CacheController, PromiseCache, PromiseMap, RepoPromiseCacheMap } from '../system/promiseCache.js';
@@ -23,6 +24,8 @@ import type { ConflictDetectionResult } from './models/mergeConflicts.js';
 import type { GitPausedOperationStatus } from './models/pausedOperationStatus.js';
 import type { GitBranchReference } from './models/reference.js';
 import type { GitRemote } from './models/remote.js';
+import type { RepositoryChangeEvent } from './models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from './models/repository.js';
 import type { GitStash } from './models/stash.js';
 import type { GitTag } from './models/tag.js';
 import type { GitUser } from './models/user.js';
@@ -292,7 +295,7 @@ export class GitCache implements Disposable {
 
 		if (!types.length || types.includes('branches')) {
 			sharedCachesToClear.add(this._caches.gitResults);
-			sharedCachesToClear.add(this._caches.branch);
+			cachesToClear.add(this._caches.branch); // per-worktree: each worktree has its own current branch
 			sharedCachesToClear.add(this._caches.branches);
 			sharedCachesToClear.add(this._caches.sharedBranches);
 			cachesToClear.add(this._caches.conflictDetection);
@@ -307,6 +310,8 @@ export class GitCache implements Disposable {
 			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.configKeys);
 			sharedCachesToClear.add(this._caches.configPatterns);
+			cachesToClear.add(this._caches.currentBranchReference);
+			cachesToClear.add(this._caches.repoInfo);
 		}
 
 		if (!types.length || types.includes('contributors')) {
@@ -325,6 +330,8 @@ export class GitCache implements Disposable {
 			// Raw git output doesn't change, only the parsing/provider matching does
 			sharedCachesToClear.add(this._caches.remotes);
 			cachesToClear.add(this._caches.bestRemotes);
+			// Invalidate memoized values that depend on providers (e.g., GitBranch.getEnrichedAutolinks)
+			invalidateMemoized('providers');
 		}
 
 		if (!types.length || types.includes('remotes')) {
@@ -422,6 +429,86 @@ export class GitCache implements Disposable {
 		// Clear all caches and reset to empty state
 		this._caches = createEmptyCaches();
 		this._trackedPaths.clear();
+	}
+
+	/**
+	 * Handles repository change events by invalidating appropriate caches.
+	 * Encapsulates all cache invalidation logic for repository changes.
+	 */
+	@log({ singleLine: true })
+	onRepositoryChanged(repoPath: string, e: RepositoryChangeEvent): void {
+		if (e.changed(RepositoryChange.Unknown, RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
+			this.clearCaches(repoPath);
+			return;
+		}
+
+		const types = new Set<CachedGitTypes>();
+
+		if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+			this.currentBranchReference.delete(repoPath);
+		}
+
+		if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+			this.trackedPaths.clear();
+		}
+
+		if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
+			types.add('config');
+		}
+
+		if (e.changed(RepositoryChange.Heads, RepositoryChangeComparisonMode.Any)) {
+			// Clear branches cache (includes sharedBranches, logShas, reachability, gitResults, etc.)
+			types.add('branches');
+			types.add('contributors');
+			types.add('worktrees');
+		}
+
+		if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
+			// Clear branches cache for upstream tracking state (ahead/behind counts) that changes on push
+			types.add('branches');
+			types.add('contributors');
+			types.add('remotes');
+			types.add('worktrees');
+		}
+
+		if (e.changed(RepositoryChange.Ignores, RepositoryChangeComparisonMode.Any)) {
+			types.add('gitignore');
+		}
+
+		if (e.changed(RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
+			// RemoteProviders change only affects parsed remotes, not raw git output
+			types.add('providers');
+		}
+
+		if (
+			e.changed(
+				RepositoryChange.CherryPick,
+				RepositoryChange.Merge,
+				RepositoryChange.Rebase,
+				RepositoryChange.Revert,
+				RepositoryChange.PausedOperationStatus,
+				RepositoryChangeComparisonMode.Any,
+			)
+		) {
+			this.branch.delete(repoPath);
+			types.add('status');
+		}
+
+		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+			types.add('stashes');
+		}
+
+		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
+			types.add('tags');
+		}
+
+		if (e.changed(RepositoryChange.Worktrees, RepositoryChangeComparisonMode.Any)) {
+			types.add('worktrees');
+		}
+
+		if (types.size) {
+			this.clearCaches(repoPath, ...types);
+		}
 	}
 
 	/**

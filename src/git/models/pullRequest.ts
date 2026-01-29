@@ -70,7 +70,7 @@ export class PullRequest implements PullRequestShape {
 			: this.formatDateFromNow();
 	}
 
-	@memoize<PullRequest['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
+	@memoize<PullRequest['formatDate']>({ resolver: format => format ?? 'MMMM Do, YYYY h:mma' })
 	formatDate(format?: string | null): string {
 		return formatDate(this.mergedDate ?? this.closedDate ?? this.updatedDate, format ?? 'MMMM Do, YYYY h:mma');
 	}
@@ -79,7 +79,7 @@ export class PullRequest implements PullRequestShape {
 		return fromNow(this.mergedDate ?? this.closedDate ?? this.updatedDate);
 	}
 
-	@memoize<PullRequest['formatClosedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
+	@memoize<PullRequest['formatClosedDate']>({ resolver: format => format ?? 'MMMM Do, YYYY h:mma' })
 	formatClosedDate(format?: string | null): string {
 		if (this.closedDate == null) return '';
 		return formatDate(this.closedDate, format ?? 'MMMM Do, YYYY h:mma');
@@ -90,7 +90,7 @@ export class PullRequest implements PullRequestShape {
 		return fromNow(this.closedDate);
 	}
 
-	@memoize<PullRequest['formatMergedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
+	@memoize<PullRequest['formatMergedDate']>({ resolver: format => format ?? 'MMMM Do, YYYY h:mma' })
 	formatMergedDate(format?: string | null): string {
 		if (this.mergedDate == null) return '';
 		return formatDate(this.mergedDate, format ?? 'MMMM Do, YYYY h:mma') ?? '';
@@ -101,7 +101,7 @@ export class PullRequest implements PullRequestShape {
 		return fromNow(this.mergedDate);
 	}
 
-	@memoize<PullRequest['formatUpdatedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
+	@memoize<PullRequest['formatUpdatedDate']>({ resolver: format => format ?? 'MMMM Do, YYYY h:mma' })
 	formatUpdatedDate(format?: string | null): string {
 		return formatDate(this.updatedDate, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}

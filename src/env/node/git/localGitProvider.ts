@@ -161,70 +161,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
-		if (e.changed(RepositoryChange.Unknown, RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
-			this._cache.clearCaches(repo.path);
-		} else {
+		this._cache.onRepositoryChanged(repo.path, e);
+
+		if (!e.changed(RepositoryChange.Unknown, RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
-				this._cache.currentBranchReference.delete(repo.path);
 				queueMicrotask(() => this.branches.onCurrentBranchAccessed(repo.path));
 			}
 
 			if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
 				queueMicrotask(() => this.branches.onCurrentBranchModified(repo.path));
-				this._cache.trackedPaths.clear();
-			}
-
-			if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
-				this._cache.currentBranchReference.delete(repo.path);
-				this._cache.repoInfo.delete(repo.path);
-			}
-
-			if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
-				this._cache.branch.delete(repo.path);
-				this._cache.branches.delete(repo.path);
-				this._cache.currentBranchReference.delete(repo.path);
-				this._cache.contributors.delete(repo.path);
-				this._cache.worktrees.delete(repo.path);
-			}
-
-			if (e.changed(RepositoryChange.Ignores, RepositoryChangeComparisonMode.Any)) {
-				this._cache.clearCaches(repo.path, 'gitignore');
-			}
-
-			if (
-				e.changed(
-					RepositoryChange.Remotes,
-					RepositoryChange.RemoteProviders,
-					RepositoryChangeComparisonMode.Any,
-				)
-			) {
-				this._cache.remotes.delete(repo.path);
-				this._cache.bestRemotes.delete(repo.path);
-			}
-
-			if (
-				e.changed(
-					RepositoryChange.CherryPick,
-					RepositoryChange.Merge,
-					RepositoryChange.Rebase,
-					RepositoryChange.Revert,
-					RepositoryChangeComparisonMode.Any,
-				)
-			) {
-				this._cache.branch.delete(repo.path);
-				this._cache.pausedOperationStatus.delete(repo.path);
-			}
-
-			if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
-				this._cache.stashes.delete(repo.path);
-			}
-
-			if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
-				this._cache.tags.delete(repo.path);
-			}
-
-			if (e.changed(RepositoryChange.Worktrees, RepositoryChangeComparisonMode.Any)) {
-				this._cache.worktrees.delete(repo.path);
 			}
 		}
 

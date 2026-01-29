@@ -118,7 +118,7 @@ export class GitBranch implements GitBranchReference {
 		return 'upToDate';
 	}
 
-	@memoize<GitBranch['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
+	@memoize<GitBranch['formatDate']>({ resolver: format => format ?? 'MMMM Do, YYYY h:mma' })
 	formatDate(format?: string | null): string {
 		return this.date != null ? formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') : '';
 	}
@@ -152,7 +152,7 @@ export class GitBranch implements GitBranchReference {
 		);
 	}
 
-	@memoize()
+	@memoize({ version: 'providers' })
 	async getEnrichedAutolinks(): Promise<Map<string, EnrichedAutolink> | undefined> {
 		const remote = await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithProvider();
 		const branchAutolinks = await this.container.autolinks.getBranchAutolinks(this.name, remote);
@@ -176,7 +176,7 @@ export class GitBranch implements GitBranchReference {
 		return getBranchTrackingWithoutRemote(this);
 	}
 
-	@memoize()
+	@memoize({ version: 'providers' })
 	async getRemote(): Promise<GitRemote | undefined> {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;

@@ -627,7 +627,9 @@ export class GitCommit implements GitRevisionReference {
 		});
 	}
 
-	@memoize<GitCommit['getPreviousComparisonUrisForRange']>((r, rev) => `${r.startLine}-${r.endLine}|${rev ?? ''}`)
+	@memoize<GitCommit['getPreviousComparisonUrisForRange']>({
+		resolver: (r, rev) => `${r.startLine}-${r.endLine}|${rev ?? ''}`,
+	})
 	getPreviousComparisonUrisForRange(
 		range: DiffRange,
 		rev?: string,
@@ -766,7 +768,7 @@ export class GitCommitIdentity implements GitCommitIdentityShape {
 		private readonly avatarUrl?: string | undefined,
 	) {}
 
-	@memoize<GitCommitIdentity['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
+	@memoize<GitCommitIdentity['formatDate']>({ resolver: format => format ?? 'MMMM Do, YYYY h:mma' })
 	formatDate(format?: string | null): string {
 		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}

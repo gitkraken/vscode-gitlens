@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { isCancellationError } from '../../../errors.js';
 import { gate } from '../gate.js';
-import { memoize } from '../memoize.js';
+import { invalidateMemoized, memoize } from '../memoize.js';
 import { sequentialize } from '../sequentialize.js';
 
 suite('Decorator Test Suite', () => {
@@ -732,7 +732,7 @@ suite('Decorator Test Suite', () => {
 			let executionCount = 0;
 
 			class TestClass {
-				@memoize((obj: { id: number }) => obj.id.toString())
+				@memoize({ resolver: (obj: { id: number }) => obj.id.toString() })
 				method(obj: { id: number; data: string }): number {
 					executionCount++;
 					return executionCount;
@@ -883,6 +883,114 @@ suite('Decorator Test Suite', () => {
 			const result2 = instance.method(false);
 			assert.strictEqual(executionCount, 3); // Only one more execution
 			assert.strictEqual(result1, result2);
+		});
+
+		test('should invalidate versioned memoize when version is bumped', () => {
+			let executionCount = 0;
+
+			class TestClass {
+				@memoize({ version: 'providers' })
+				method(): number {
+					executionCount++;
+					return executionCount;
+				}
+			}
+
+			const instance = new TestClass();
+
+			// First call - should execute
+			const result1 = instance.method();
+			assert.strictEqual(executionCount, 1);
+			assert.strictEqual(result1, 1);
+
+			// Second call - should use cache
+			const result2 = instance.method();
+			assert.strictEqual(executionCount, 1);
+			assert.strictEqual(result2, 1);
+
+			// Invalidate
+			invalidateMemoized('providers');
+
+			// Third call - should execute again (cache invalidated)
+			const result3 = instance.method();
+			assert.strictEqual(executionCount, 2);
+			assert.strictEqual(result3, 2);
+
+			// Fourth call - should use new cache
+			const result4 = instance.method();
+			assert.strictEqual(executionCount, 2);
+			assert.strictEqual(result4, 2);
+		});
+
+		test('should invalidate across multiple instances', () => {
+			let executionCount = 0;
+
+			class TestClass {
+				@memoize({ version: 'providers' })
+				method(): number {
+					executionCount++;
+					return executionCount;
+				}
+			}
+
+			const instance1 = new TestClass();
+			const instance2 = new TestClass();
+
+			// Cache values on both instances
+			const result1a = instance1.method();
+			const result2a = instance2.method();
+			assert.strictEqual(executionCount, 2);
+
+			// Verify cache works
+			instance1.method();
+			instance2.method();
+			assert.strictEqual(executionCount, 2);
+
+			// Invalidate
+			invalidateMemoized('providers');
+
+			// Both instances should recompute
+			const result1b = instance1.method();
+			const result2b = instance2.method();
+			assert.strictEqual(executionCount, 4);
+			assert.strictEqual(result1b, 3);
+			assert.strictEqual(result2b, 4);
+		});
+
+		test('should not affect non-versioned memoize', () => {
+			let versionedCount = 0;
+			let unversionedCount = 0;
+
+			class TestClass {
+				@memoize({ version: 'providers' })
+				versionedMethod(): number {
+					versionedCount++;
+					return versionedCount;
+				}
+
+				@memoize()
+				unversionedMethod(): number {
+					unversionedCount++;
+					return unversionedCount;
+				}
+			}
+
+			const instance = new TestClass();
+
+			// Cache both
+			instance.versionedMethod();
+			instance.unversionedMethod();
+			assert.strictEqual(versionedCount, 1);
+			assert.strictEqual(unversionedCount, 1);
+
+			// Invalidate
+			invalidateMemoized('providers');
+
+			// Versioned should recompute, unversioned should still be cached
+			instance.versionedMethod();
+			instance.unversionedMethod();
+			assert.strictEqual(versionedCount, 2);
+			assert.strictEqual(unversionedCount, 1); // Still cached
 		});
 	});
 });

@@ -30,7 +30,7 @@ export class GitContributor {
 		return this.name ?? this.username!;
 	}
 
-	@memoize<GitContributor['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
+	@memoize<GitContributor['formatDate']>({ resolver: format => format ?? 'MMMM Do, YYYY h:mma' })
 	formatDate(format?: string | null): string {
 		return this.latestCommitDate != null ? formatDate(this.latestCommitDate, format ?? 'MMMM Do, YYYY h:mma') : '';
 	}
