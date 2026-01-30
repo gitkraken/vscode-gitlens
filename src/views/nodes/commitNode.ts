@@ -16,7 +16,12 @@ import { editorLineToDiffRange } from '../../system/-webview/vscode/editors.js';
 import { makeHierarchical } from '../../system/array.js';
 import { joinPaths, normalizePath } from '../../system/path.js';
 import type { Deferred } from '../../system/promise.js';
-import { defer, getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise.js';
+import {
+	defer,
+	getSettledValue,
+	pauseOnCancelOrTimeout,
+	pauseOnCancelOrTimeoutMapTuplePromise,
+} from '../../system/promise.js';
 import { sortCompare } from '../../system/string.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import type { ViewsWithCommits } from '../viewBase.js';
@@ -255,7 +260,14 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 	}
 
 	private async getTooltip(cancellation: CancellationToken) {
-		const [remotesResult, _] = await Promise.allSettled([
+		const template = this.getTooltipTemplate();
+
+		const showSignature =
+			configuration.get('signing.showSignatureBadges') &&
+			!this.commit.isUncommitted &&
+			CommitFormatter.has(template, 'signature');
+
+		const [remotesResult, _, signatureResult] = await Promise.allSettled([
 			this.view.container.git
 				.getRepositoryService(this.commit.repoPath)
 				.remotes.getBestRemotesWithProviders(cancellation),
@@ -263,12 +275,14 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				allowFilteredFiles: this._options.allowFilteredFiles,
 				include: { stats: true },
 			}),
+			showSignature ? pauseOnCancelOrTimeout(this.commit.getSignature(), cancellation) : undefined,
 		]);
 
 		if (cancellation.isCancellationRequested) return undefined;
 
 		const remotes = getSettledValue(remotesResult, []);
 		const [remote] = remotes;
+		const signature = getSettledValue(signatureResult);
 
 		let enrichedAutolinks;
 		let pr;
@@ -289,7 +303,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
-			this.getTooltipTemplate(),
+			template,
 			this.commit,
 			{ source: 'view:hover' },
 			{
@@ -302,6 +316,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				outputFormat: 'markdown',
 				remotes: remotes,
 				unpublished: this.unpublished,
+				signed: signature?.value != null,
 			},
 		);
 

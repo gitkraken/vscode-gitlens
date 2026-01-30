@@ -1017,16 +1017,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
+		const template = configuration.get(`views.formats.${isStash(commit) ? 'stashes' : 'commits'}.tooltip`);
+
+		const showSignature =
+			configuration.get('signing.showSignatureBadges') &&
+			!commit.isUncommitted &&
+			CommitFormatter.has(template, 'signature');
+
 		const svc = this.container.git.getRepositoryService(commit.repoPath);
-		const [remotesResult, _] = await Promise.allSettled([
+		const [remotesResult, _, signatureResult] = await Promise.allSettled([
 			svc.remotes.getBestRemotesWithProviders(),
 			commit.ensureFullDetails({ include: { stats: true } }),
+			showSignature ? pauseOnCancelOrTimeout(commit.getSignature(), cancellation) : undefined,
 		]);
 
 		if (cancellation.isCancellationRequested) throw new CancellationError();
 
 		const remotes = getSettledValue(remotesResult, []);
 		const [remote] = remotes;
+		const signature = getSettledValue(signatureResult);
 
 		let enrichedAutolinks;
 		let pr;
@@ -1046,8 +1055,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			pr = getSettledValue(prResult);
 		}
 
-		const template = configuration.get(`views.formats.${isStash(commit) ? 'stashes' : 'commits'}.tooltip`);
-
 		this._getBranchesAndTagsTips ??= await svc.getBranchesAndTagsTipsLookup();
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
@@ -1063,6 +1070,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				pullRequest: pr,
 				outputFormat: 'markdown',
 				remotes: remotes,
+				signed: signature?.value != null,
 				// unpublished: this.unpublished,
 			},
 		);

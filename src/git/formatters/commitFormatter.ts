@@ -943,7 +943,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return this._padOrTruncate('', this._options.tokenOptions.signature);
 		}
 
-		const tooltip = 'Commit is signed.\nOpen commit details to validate signature.';
+		const tooltip = 'Signed\nClick to verify signature in Commit Details';
 
 		return this._padOrTruncate(
 			this._options.outputFormat === 'markdown'
