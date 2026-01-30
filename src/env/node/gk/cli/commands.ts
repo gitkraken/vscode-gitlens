@@ -61,7 +61,7 @@ export class CliCommandHandlers implements Disposable {
 
 	@command('cherry-pick')
 	async handleCherryPickCommand(
-		_request: CliCommandRequest,
+		_request: CliCommandRequest | undefined,
 		repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		void cherryPick(repo);
@@ -69,15 +69,15 @@ export class CliCommandHandlers implements Disposable {
 
 	@command('compare')
 	async handleCompareCommand(
-		_request: CliCommandRequest,
+		request: CliCommandRequest | undefined,
 		repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
-		if (!repo || !_request.args?.length) {
+		if (!repo || !request?.args?.length) {
 			void executeCommand('gitlens.compareWith');
 			return;
 		}
 
-		const [ref1, ref2] = _request.args;
+		const [ref1, ref2] = request.args;
 		if (!ref1 || !ref2) {
 			void executeCommand('gitlens.compareWith');
 			return;
@@ -101,8 +101,11 @@ export class CliCommandHandlers implements Disposable {
 	}
 
 	@command('graph')
-	async handleGraphCommand(request: CliCommandRequest, repo?: Repository | undefined): Promise<CliCommandResponse> {
-		if (!repo || !request.args?.length) {
+	async handleGraphCommand(
+		request: CliCommandRequest | undefined,
+		repo?: Repository | undefined,
+	): Promise<CliCommandResponse> {
+		if (!repo || !request?.args?.length) {
 			void executeCommand('gitlens.showGraphView');
 			return;
 		}
@@ -118,8 +121,11 @@ export class CliCommandHandlers implements Disposable {
 	}
 
 	@command('merge')
-	async handleMergeCommand(request: CliCommandRequest, repo?: Repository | undefined): Promise<CliCommandResponse> {
-		if (!repo || !request.args?.length) return merge(repo);
+	async handleMergeCommand(
+		request: CliCommandRequest | undefined,
+		repo?: Repository | undefined,
+	): Promise<CliCommandResponse> {
+		if (!repo || !request?.args?.length) return merge(repo);
 
 		const [ref] = request.args;
 		const reference = await repo.git.refs.getReference(ref);
@@ -132,8 +138,11 @@ export class CliCommandHandlers implements Disposable {
 	}
 
 	@command('rebase')
-	async handleRebaseCommand(request: CliCommandRequest, repo?: Repository | undefined): Promise<CliCommandResponse> {
-		if (!repo || !request.args?.length) return rebase(repo);
+	async handleRebaseCommand(
+		request: CliCommandRequest | undefined,
+		repo?: Repository | undefined,
+	): Promise<CliCommandResponse> {
+		if (!repo || !request?.args?.length) return rebase(repo);
 
 		const [ref] = request.args;
 		const reference = await repo.git.refs.getReference(ref);
@@ -147,7 +156,7 @@ export class CliCommandHandlers implements Disposable {
 
 	@command('compose')
 	async handleComposeCommand(
-		_request: CliCommandRequest,
+		_request: CliCommandRequest | undefined,
 		repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
@@ -162,7 +171,7 @@ export class CliCommandHandlers implements Disposable {
 
 	@command('start-review')
 	async handleStartReviewCommand(
-		request: CliCommandRequest,
+		request: CliCommandRequest | undefined,
 		_repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No Pull Request provided' };
@@ -196,7 +205,7 @@ export class CliCommandHandlers implements Disposable {
 
 	@command('start-work')
 	async handleStartWorkCommand(
-		request: CliCommandRequest,
+		request: CliCommandRequest | undefined,
 		_repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No issue identifier provided' };
@@ -248,10 +257,10 @@ export class CliCommandHandlers implements Disposable {
 
 	@command('get-launchpad-item')
 	async handleGetLaunchpadInfoCommand(
-		request: CliCommandRequest,
+		request: CliCommandRequest | undefined,
 		_repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
-		if (!request.args?.length) return { stderr: 'No Launchpad item identifier provided' };
+		if (!request?.args?.length) return { stderr: 'No Launchpad item identifier provided' };
 		const [prSearch] = request.args;
 
 		let result: LaunchpadCategorizedResult;
@@ -279,7 +288,7 @@ export class CliCommandHandlers implements Disposable {
 
 	@command('get-launchpad-list')
 	async handleGetLaunchpadCommand(
-		_request: CliCommandRequest,
+		_request: CliCommandRequest | undefined,
 		_repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		let result: LaunchpadCategorizedResult;
