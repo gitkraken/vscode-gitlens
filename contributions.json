@@ -2322,7 +2322,7 @@
 		"gitlens.git.setupCommitSigning": {
 			"label": "Setup Commit Signing...",
 			"icon": "$(key)",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+			"commandPalette": "false && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.git.show": {
 			"label": "Git Show...",
