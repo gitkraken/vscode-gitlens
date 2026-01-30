@@ -1690,26 +1690,19 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		commit: GitCommit,
 		remote: GitRemote | undefined,
 	): Promise<NonNullable<Awaited<NonNullable<State['commit']>['enriched']>>> {
-		const [enrichedAutolinksResult, prResult, signatureResult] =
-			remote?.provider != null
-				? await Promise.allSettled([
-						configuration.get('views.commitDetails.autolinks.enabled') &&
-						configuration.get('views.commitDetails.autolinks.enhanced')
-							? pauseOnCancelOrTimeoutMapTuplePromise(
-									commit.getEnrichedAutolinks(remote as GitRemote<RemoteProvider>),
-								)
-							: undefined,
-						configuration.get('views.commitDetails.pullRequests.enabled')
-							? commit.getAssociatedPullRequest(remote as GitRemote<RemoteProvider>)
-							: undefined,
-						configuration.get('signing.showSignatureBadges') ? commit.getSignature() : undefined,
-					])
-				: await Promise.allSettled([
-						Promise.resolve(undefined),
-						Promise.resolve(undefined),
-						configuration.get('signing.showSignatureBadges') ? commit.getSignature() : undefined,
-					]);
-
+		const [enrichedAutolinksResult, prResult, signatureResult] = await Promise.allSettled([
+			remote?.provider != null &&
+			configuration.get('views.commitDetails.autolinks.enabled') &&
+			configuration.get('views.commitDetails.autolinks.enhanced')
+				? pauseOnCancelOrTimeoutMapTuplePromise(
+						commit.getEnrichedAutolinks(remote as GitRemote<RemoteProvider>),
+					)
+				: undefined,
+			remote?.provider != null && configuration.get('views.commitDetails.pullRequests.enabled')
+				? commit.getAssociatedPullRequest(remote as GitRemote<RemoteProvider>)
+				: undefined,
+			configuration.get('signing.showSignatureBadges') ? commit.getSignature() : undefined,
+		]);
 		const enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
 		const pr = getSettledValue(prResult);
 		const signature = getSettledValue(signatureResult);
@@ -2402,6 +2395,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 function serializeSignature(signature: CommitSignature): CommitSignatureShape {
 	return {
 		status: signature.status,
+		format: signature.format,
 		signer: signature.signer,
 		keyId: signature.keyId,
 		fingerprint: signature.fingerprint,

@@ -38,6 +38,7 @@ export interface CommitSummary {
 
 export interface CommitSignatureShape {
 	status: 'good' | 'bad' | 'unknown' | 'expired' | 'revoked' | 'error';
+	format?: 'gpg' | 'ssh' | 'x509' | 'openpgp';
 	signer?: string;
 	keyId?: string;
 	fingerprint?: string;

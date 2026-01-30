@@ -10,11 +10,6 @@ import '../code-icon.js';
 
 @customElement('gl-action-chip')
 export class ActionChip extends LitElement {
-	static override shadowRootOptions: ShadowRootInit = {
-		...LitElement.shadowRootOptions,
-		delegatesFocus: true,
-	};
-
 	static override styles = [
 		linkStyles,
 		ruleStyles,
@@ -61,6 +56,9 @@ export class ActionChip extends LitElement {
 				padding: 0.2rem;
 				text-decoration: none;
 				cursor: pointer;
+				background: none;
+				border: none;
+				font: inherit;
 			}
 			.chip:hover {
 				text-decoration: none;
@@ -96,8 +94,8 @@ export class ActionChip extends LitElement {
 	@property({ type: Boolean })
 	disabled = false;
 
-	@query('a')
-	private defaultFocusEl!: HTMLAnchorElement;
+	@query('.chip')
+	private defaultFocusEl!: HTMLElement;
 
 	override render(): unknown {
 		if (!this.label) {
@@ -115,23 +113,25 @@ export class ActionChip extends LitElement {
 	}
 
 	private renderContent() {
+		const slot = this.overlay === 'popover' ? 'anchor' : nothing;
+		const iconHtml = html`<code-icon
+			part="icon"
+			icon="${this.icon}"
+			modifier="${ifDefined(this.icon === 'loading' ? 'spin' : '')}"
+		></code-icon>`;
+
+		if (this.href) {
+			return html`
+				<a class="chip" part="base" ?disabled=${this.disabled} href=${this.href} slot=${slot}>
+					${iconHtml}<slot></slot>
+				</a>
+			`;
+		}
+
 		return html`
-			<a
-				class="chip"
-				part="base"
-				role="${!this.href ? 'button' : nothing}"
-				type="${!this.href ? 'button' : nothing}"
-				?disabled=${this.disabled}
-				href=${this.href ?? nothing}
-				slot=${this.overlay === 'popover' ? 'anchor' : nothing}
-			>
-				<code-icon
-					part="icon"
-					icon="${this.icon}"
-					modifier="${ifDefined(this.icon === 'loading' ? 'spin' : '')}"
-				></code-icon
-				><slot></slot>
-			</a>
+			<button class="chip" part="base" type="button" ?disabled=${this.disabled} slot=${slot}>
+				${iconHtml}<slot></slot>
+			</button>
 		`;
 	}
 
