@@ -1,4 +1,4 @@
-import type { CommitSignature, SignatureStatus, TrustLevel } from '../models/signature.js';
+import type { CommitSignature, SignatureStatus, SigningFormat, TrustLevel } from '../models/signature.js';
 
 /**
  * Git format specifiers for signature information:
@@ -41,6 +41,52 @@ function mapStatusCode(statusCode: string): SignatureStatus | undefined {
 		default:
 			return undefined;
 	}
+}
+
+/**
+ * Infers the signing format from signature data patterns
+ * @param signer Signer identity string
+ * @param keyId Key ID
+ * @param fingerprint Key fingerprint
+ * @returns Inferred SigningFormat or undefined
+ */
+function inferSigningFormat(
+	signer: string | undefined,
+	keyId: string | undefined,
+	fingerprint: string | undefined,
+): SigningFormat | undefined {
+	// X.509: Distinguished Name format with slashes (e.g., "/C=US/O=Org/CN=Name")
+	if (signer?.startsWith('/') && signer.includes('/CN=')) {
+		return 'x509';
+	}
+
+	// SSH: key ID or fingerprint starts with "SHA256:" or "SHA512:" prefix
+	if (
+		keyId?.startsWith('SHA256:') ||
+		keyId?.startsWith('SHA512:') ||
+		fingerprint?.startsWith('SHA256:') ||
+		fingerprint?.startsWith('SHA512:')
+	) {
+		return 'ssh';
+	}
+
+	// GPG/OpenPGP: fingerprints are hex strings (typically 16-40 chars)
+	// Signer format is "Name <email@example.com>"
+	if (fingerprint && /^[0-9A-Fa-f]{16,40}$/.test(fingerprint)) {
+		return 'gpg';
+	}
+
+	// If signer has angle bracket email format, likely GPG
+	if (signer?.includes('<') && signer?.includes('>')) {
+		return 'gpg';
+	}
+
+	// If keyId looks like a hex GPG key ID (8-16 hex chars)
+	if (keyId && /^[0-9A-Fa-f]{8,16}$/.test(keyId)) {
+		return 'gpg';
+	}
+
+	return undefined;
 }
 
 /**
@@ -98,8 +144,12 @@ export function parseSignatureOutput(output: string): CommitSignature | undefine
 	// Use raw message as error message for non-good signatures
 	const errorMessage = status !== 'good' && rawMessage ? rawMessage.trim() : undefined;
 
+	// Infer signing format from signature data
+	const format = inferSigningFormat(signer, keyId, fingerprint);
+
 	return {
 		status: status,
+		format: format,
 		signer: signer || undefined,
 		keyId: keyId || undefined,
 		fingerprint: fingerprint,

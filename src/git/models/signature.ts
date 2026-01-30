@@ -14,6 +14,7 @@ export type TrustLevel = 'ultimate' | 'full' | 'marginal' | 'never' | 'unknown';
 
 export interface CommitSignature {
 	status: SignatureStatus;
+	format?: SigningFormat;
 	signer?: string;
 	keyId?: string;
 	fingerprint?: string;

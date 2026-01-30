@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import type { CommitSignatureShape } from '../../../../../commitDetails/protocol.js';
-import { extractEmailFromSigner, getSignatureState } from '../signature-badge.utils.js';
+import { extractEmailFromSigner, getSignatureState } from '../signature.utils.js';
 
 suite('GlSignatureBadge Email Extraction Test Suite', () => {
 	suite('extractEmailFromSigner', () => {

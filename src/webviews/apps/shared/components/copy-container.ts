@@ -1,5 +1,5 @@
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GlTooltip } from './overlays/tooltip.js';
 import './overlays/tooltip.js';
@@ -10,6 +10,11 @@ const tagName = 'gl-copy-container';
 export class GlCopyContainer extends LitElement {
 	static readonly tagName = tagName;
 
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
 	static override styles = css`
 		:host {
 			display: inline-block;
@@ -17,6 +22,11 @@ export class GlCopyContainer extends LitElement {
 
 		gl-tooltip {
 			cursor: pointer;
+		}
+
+		gl-tooltip:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 2px;
 		}
 
 		/* Hide focus outline on slotted copy icon - we show it on the host instead */
@@ -88,21 +98,36 @@ export class GlCopyContainer extends LitElement {
 	@state()
 	private label!: string;
 
-	override disconnectedCallback() {
-		this.cancelResetTimer();
-		super.disconnectedCallback?.();
-	}
+	@query('gl-tooltip')
+	private tooltip!: GlTooltip;
 
 	override connectedCallback() {
 		super.connectedCallback?.();
-
 		this.label = this.copyLabel;
+		this.addEventListener('focusin', this.onFocusIn);
+		this.addEventListener('focusout', this.onFocusOut);
 	}
+
+	override disconnectedCallback() {
+		this.cancelResetTimer();
+		this.removeEventListener('focusin', this.onFocusIn);
+		this.removeEventListener('focusout', this.onFocusOut);
+		super.disconnectedCallback?.();
+	}
+
+	private onFocusIn = () => {
+		void this.tooltip?.show();
+	};
+
+	private onFocusOut = () => {
+		void this.tooltip?.hide();
+	};
 
 	override render() {
 		if (!this.content && !this.disabled) return nothing;
 
 		return html`<gl-tooltip
+			tabindex="0"
 			.content="${this.label}"
 			placement="${ifDefined(this.placement)}"
 			@click=${this.onClick}

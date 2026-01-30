@@ -1,8 +1,10 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
+import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 import '../code-icon.js';
-import '../overlays/tooltip.js';
+import '../overlays/popover.js';
+import './signature-badge.js';
+import './signature-details.js';
 
 @customElement('gl-commit-author')
 export class GlCommitAuthor extends LitElement {
@@ -20,6 +22,13 @@ export class GlCommitAuthor extends LitElement {
 			flex-direction: row;
 			align-items: center;
 			gap: 0 0.6rem;
+			border-radius: 0.3rem;
+			cursor: pointer;
+
+			&:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: 2px;
+			}
 		}
 
 		a {
@@ -57,19 +66,87 @@ export class GlCommitAuthor extends LitElement {
 			white-space: nowrap;
 			text-overflow: ellipsis;
 		}
+
+		gl-signature-badge {
+			margin-left: 0.4rem;
+		}
+
+		.popover-content {
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
+		.author-info {
+			display: flex;
+			gap: 0.625rem;
+			align-items: center;
+		}
+
+		.author-avatar {
+			width: 32px;
+			height: 32px;
+			border-radius: 8px;
+			flex-shrink: 0;
+		}
+
+		.author-details {
+			display: flex;
+			flex-direction: column;
+			gap: 0;
+			min-width: 0;
+			flex: 1;
+			line-height: normal;
+		}
+
+		.author-name-text {
+			font-weight: 500;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			color: var(--vscode-foreground);
+		}
+
+		.author-email {
+			font-weight: 400;
+			color: var(--vscode-descriptionForeground);
+
+			a {
+				display: inline-block;
+				max-width: 100%;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				vertical-align: bottom;
+			}
+
+			a:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: 2px;
+			}
+		}
 	`;
-
-	@property()
-	name = '';
-
-	@property()
-	url?: string;
 
 	@property()
 	avatarUrl = 'https://www.gravatar.com/avatar/?s=64&d=robohash';
 
+	@property()
+	committerEmail?: string;
+
+	@property()
+	email?: string;
+
+	@property()
+	name = '';
+
 	@property({ type: Boolean, attribute: 'show-avatar', reflect: true })
 	showAvatar = false;
+
+	@property({ type: Boolean, attribute: 'show-signature', reflect: true })
+	showSignature = true;
+
+	@property({ type: Object })
+	signature?: CommitSignatureShape;
 
 	private renderAvatar() {
 		if (this.showAvatar && this.avatarUrl?.length) {
@@ -78,28 +155,48 @@ export class GlCommitAuthor extends LitElement {
 		return html`<code-icon icon="person" size="18"></code-icon>`;
 	}
 
+	private renderSignatureBadge() {
+		if (this.signature == null || !this.showSignature) return nothing;
+
+		return html`<gl-signature-badge
+			.signature=${this.signature}
+			.committerEmail=${this.committerEmail}
+		></gl-signature-badge>`;
+	}
+
+	private renderPopoverContent() {
+		return html`
+			<div class="popover-content">
+				<div class="author-info">
+					${this.avatarUrl?.length
+						? html`<img class="author-avatar" src="${this.avatarUrl}" alt="${this.name}" />`
+						: nothing}
+					<div class="author-details">
+						<div class="author-name-text">${this.name}</div>
+						${this.email
+							? html`<span class="author-email"><a href="mailto:${this.email}">${this.email}</a></span>`
+							: nothing}
+					</div>
+				</div>
+				${this.signature && this.showSignature
+					? html`<gl-signature-details
+							.signature=${this.signature}
+							.committerEmail=${this.committerEmail}
+						></gl-signature-details>`
+					: nothing}
+			</div>
+		`;
+	}
+
 	override render(): unknown {
 		return html`
-			<gl-tooltip>
-				${when(
-					this.url != null,
-					() =>
-						html`<a class="author" href="${this.url}"
-							><span class="avatar">${this.renderAvatar()}</span><span class="name">${this.name}</span></a
-						>`,
-					() =>
-						html`<span class="author"
-							><span class="avatar">${this.renderAvatar()}</span
-							><span class="name">${this.name}</span></span
-						>`,
-				)}
-				<div class="author-hover" slot="content">
-					${this.avatarUrl?.length
-						? html`<img class="thumb" src="${this.avatarUrl}" alt="${this.name}" />`
-						: nothing}
-					<span>${this.name}</span>
-				</div>
-			</gl-tooltip>
+			<gl-popover hoist placement="bottom" trigger="hover click focus">
+				<span slot="anchor" class="author" tabindex="0"
+					><span class="avatar">${this.renderAvatar()}</span
+					><span class="name">${this.name}</span>${this.renderSignatureBadge()}</span
+				>
+				<div slot="content">${this.renderPopoverContent()}</div>
+			</gl-popover>
 		`;
 	}
 }

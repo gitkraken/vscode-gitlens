@@ -23,7 +23,6 @@ import '../../shared/components/code-icon.js';
 import '../../shared/components/commit/commit-author.js';
 import '../../shared/components/commit/commit-date.js';
 import '../../shared/components/commit/commit-stats.js';
-import '../../shared/components/commit/signature-badge.js';
 import '../../shared/components/markdown/markdown.js';
 import '../../shared/components/panes/pane-group.js';
 import '../../shared/components/rich/issue-pull-request.js';
@@ -235,23 +234,14 @@ export class GlCommitDetails extends GlDetailsBase {
 						() => html`
 							<div class="message-block-group">
 								<gl-commit-author
-									name="${details.author.name}"
-									url="${details.author.email ? `mailto:${details.author.email}` : undefined}"
 									.avatarUrl="${details.author.avatar ?? ''}"
+									.committerEmail="${details.committer.email}"
+									email="${details.author.email}"
+									name="${details.author.name}"
 									.showAvatar="${this.preferences?.avatars ?? true}"
+									.showSignature="${this.preferences?.showSignatureBadges ?? true}"
+									.signature="${this._enriched?.signature}"
 								></gl-commit-author>
-								${when(
-									this._enriched?.signature != null &&
-										(this.preferences?.showSignatureBadges ?? true),
-									() =>
-										html`<gl-signature-badge
-											.signature="${this._enriched?.signature}"
-											.authorName="${details.author.name}"
-											.authorEmail="${details.author.email}"
-											.authorAvatar="${details.author.avatar}"
-											.committerEmail="${details.committer.email}"
-										></gl-signature-badge>`,
-								)}
 							</div>
 						`,
 					)}
@@ -577,7 +567,14 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private onExplainChanges(e: MouseEvent | KeyboardEvent) {
-		if (this.explainBusy === true || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
+		if (e instanceof KeyboardEvent) {
+			// Only handle Enter/Space for activation, let other keys (like Tab) pass through
+			if (e.key !== 'Enter' && e.key !== ' ') return;
+			if (this.explainBusy) {
+				e.preventDefault();
+				return;
+			}
+		} else if (this.explainBusy) {
 			e.preventDefault();
 			e.stopPropagation();
 			return;
