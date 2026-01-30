@@ -141,7 +141,7 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 		await this.replace(currentId, true);
 
 		void this.triggerChange(true);
-		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
+		void this.view.reveal(this, { expand: true, focus: true, select: true });
 	}
 
 	private getStorageId() {

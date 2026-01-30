@@ -72,6 +72,15 @@ import type { TagsView } from './tagsView.js';
 import type { WorkspacesView } from './workspacesView.js';
 import type { WorktreesView } from './worktreesView.js';
 
+/**
+ * VS Code debounces onDidChangeTreeData events for 200ms before processing.
+ * We need to wait for this debounce to complete before revealing nodes,
+ * otherwise the reveal and refresh race to register the same node IDs.
+ * See: https://github.com/microsoft/vscode/issues/192055
+ */
+const onDidChangeTreeDebounceMs = 200;
+const revealBufferMs = 50; // Safety margin for timer drift
+
 const treeViewTypesSupportsRepositoryFilter: TreeViewTypes[] = [
 	'branches',
 	'commits',
@@ -577,6 +586,9 @@ export abstract class ViewBase<
 
 	private _loadingPromise: Promise<any> | undefined;
 
+	/** Tracks the last time onDidChangeTreeData was fired */
+	private _lastTreeDataChangeAt = 0;
+
 	private trackAsLoading<T>(promise: T | Promise<T>): T | Promise<T> {
 		if (!isPromise(promise)) return promise;
 
@@ -616,6 +628,20 @@ export abstract class ViewBase<
 					Logger.error(ex, `[${this.type}] ${context}: loading promise rejected`);
 				}
 			}
+		}
+	}
+
+	/**
+	 * Waits for VS Code's internal tree data debounce period to complete.
+	 * This prevents race conditions between refresh and reveal operations.
+	 * Only waits if a tree data change was fired recently (within the cooldown period).
+	 */
+	private async waitForTreeDataDebounce(): Promise<void> {
+		const cooldownMs = onDidChangeTreeDebounceMs + revealBufferMs;
+		const elapsed = Date.now() - this._lastTreeDataChangeAt;
+
+		if (this._lastTreeDataChangeAt > 0 && elapsed < cooldownMs) {
+			await new Promise<void>(resolve => setTimeout(resolve, cooldownMs - elapsed));
 		}
 	}
 
@@ -1024,6 +1050,8 @@ export abstract class ViewBase<
 
 		try {
 			await this.waitUntilLoaded('revealCore');
+			// Wait for VS Code's tree data debounce to prevent race conditions
+			await this.waitForTreeDataDebounce();
 			await this.tree?.reveal(node, options);
 		} catch (ex) {
 			if (!node.id || root == null) {
@@ -1124,6 +1152,8 @@ export abstract class ViewBase<
 				}
 
 				this._onDidChangeTreeData.fire(target);
+				// Record when we fired so reveals can wait for VS Code's debounce
+				this._lastTreeDataChangeAt = Date.now();
 			}
 		} finally {
 			this._processingNodeChanges = false;

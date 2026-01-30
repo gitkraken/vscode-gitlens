@@ -268,7 +268,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 
 		this.children = undefined;
 		this.view.triggerNodeChange(this.parent);
-		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
+		void this.view.reveal(this, { expand: true, focus: true, select: true });
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
