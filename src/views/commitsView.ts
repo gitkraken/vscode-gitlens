@@ -479,7 +479,15 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		}
 
 		if (filter) {
-			repo ??= await getRepositoryOrShowPicker(this.container, 'Filter Commits', 'Choose a repository');
+			repo ??= await getRepositoryOrShowPicker(
+				this.container,
+				'Filter Commits',
+				'Choose a repository',
+				undefined,
+				{
+					excludeWorktrees: true,
+				},
+			);
 			if (repo == null) return;
 
 			let authors = this.state.filterCommits.get(repo.id);
