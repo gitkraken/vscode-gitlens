@@ -251,7 +251,7 @@ export async function detailsMessage(
 		presenceResult,
 		previousLineComparisonUrisResult,
 		_fullDetailsResult,
-		signatureResult,
+		signedResult,
 	] = await Promise.allSettled([
 		enhancedAutolinks
 			? pauseOnCancelOrTimeoutMapTuplePromise(
@@ -278,9 +278,7 @@ export async function detailsMessage(
 			? commit.getPreviousComparisonUrisForRange(editorLineToDiffRange(editorLine), uri.sha)
 			: undefined,
 		commit.message == null ? commit.ensureFullDetails() : undefined,
-		showSignature
-			? pauseOnCancelOrTimeout(commit.getSignature(), options?.cancellation, options?.timeout)
-			: undefined,
+		showSignature ? commit.isSigned() : undefined,
 	]);
 
 	if (options?.cancellation?.isCancellationRequested) return undefined;
@@ -289,7 +287,7 @@ export async function detailsMessage(
 	const pr = getSettledValue(prResult);
 	const presence = getSettledValue(presenceResult);
 	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
-	const signature = getSettledValue(signatureResult);
+	const signed = getSettledValue(signedResult);
 
 	const details = await CommitFormatter.fromTemplateAsync(
 		options.format,
@@ -308,7 +306,7 @@ export async function detailsMessage(
 			previousLineComparisonUris: previousLineComparisonUris,
 			outputFormat: 'markdown',
 			remotes: remotes,
-			signed: signature?.value != null,
+			signed: signed,
 		},
 	);
 

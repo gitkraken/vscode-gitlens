@@ -275,7 +275,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				allowFilteredFiles: this._options.allowFilteredFiles,
 				include: { stats: true },
 			}),
-			showSignature ? pauseOnCancelOrTimeout(this.commit.getSignature(), cancellation) : undefined,
+			showSignature ? pauseOnCancelOrTimeout(this.commit.isSigned(), cancellation) : undefined,
 		]);
 
 		if (cancellation.isCancellationRequested) return undefined;
