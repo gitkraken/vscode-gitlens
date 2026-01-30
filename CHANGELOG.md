@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where a repository might not be discovered when opening files in parent directories of the repository ([#4932](https://github.com/gitkraken/vscode-gitlens/issues/4932))
 - Fixes an issue where popovers would appear in drag images when dragging commits in the _Interactive Rebase Editor_ ([#4933](https://github.com/gitkraken/vscode-gitlens/issues/4933))
 - Fixes issues with the "Reauthenticate" flow not taking effect ([#4881](https://github.com/gitkraken/vscode-gitlens/issues/4881))
+- Fixes an issue where clicking on the repository filter header in the _Branches_, _Worktrees_, _Tags_, _Remotes_, _Stashes_, and _Contributors_ views would do nothing when only 1 grouped repository exists ([#4947](https://github.com/gitkraken/vscode-gitlens/issues/4947))
 
 ## [17.9.0] - 2026-01-13
 

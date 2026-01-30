@@ -163,14 +163,19 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		if (!this.view.supportsRepositoryFilter) return;
 
 		const { openRepositories: repos } = this.view.container.git;
-		if (repos.length <= 1) return;
+		const isFiltered = this.view.repositoryFilter?.length;
 
-		if (this.view.supportsWorktreeCollapsing) {
-			const grouped = await groupRepositories(repos);
-			if (grouped.size <= 1) return;
+		// Only skip opening picker if there's no active filter AND there's only 1 repo/group
+		// When a filter is active, always allow opening the picker so users can clear/modify it
+		if (!isFiltered) {
+			if (repos.length <= 1) return;
+
+			if (this.view.supportsWorktreeCollapsing) {
+				const grouped = await groupRepositories(repos);
+				if (grouped.size <= 1) return;
+			}
 		}
 
-		const isFiltered = this.view.repositoryFilter?.length;
 		const result = await showRepositoriesPicker2(
 			this.view.container,
 			`Select Repositories or Worktrees to Show`,
