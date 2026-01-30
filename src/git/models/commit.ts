@@ -59,6 +59,7 @@ export class GitCommit implements GitRevisionReference {
 	private _stashUntrackedFilesLoaded = false;
 	private _recomputeStats = false;
 	private _signature: CommitSignature | undefined | null;
+	private _signed: boolean | undefined;
 
 	readonly lines: GitCommitLine[];
 	readonly ref: string;
@@ -599,6 +600,15 @@ export class GitCommit implements GitRevisionReference {
 			null;
 
 		return this._signature ?? undefined;
+	}
+
+	async isSigned(): Promise<boolean> {
+		if (this.isUncommitted) return false;
+		if (this._signed != null) return this._signed;
+
+		this._signed =
+			(await this.container.git.getRepositoryService(this.repoPath).commits.isCommitSigned?.(this.sha)) ?? false;
+		return this._signed;
 	}
 
 	async getCommitForFile(file: string | GitFile, staged?: boolean): Promise<GitCommit | undefined> {

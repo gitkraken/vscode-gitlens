@@ -1025,17 +1025,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			CommitFormatter.has(template, 'signature');
 
 		const svc = this.container.git.getRepositoryService(commit.repoPath);
-		const [remotesResult, _, signatureResult] = await Promise.allSettled([
+		const [remotesResult, _, signedResult] = await Promise.allSettled([
 			svc.remotes.getBestRemotesWithProviders(),
 			commit.ensureFullDetails({ include: { stats: true } }),
-			showSignature ? pauseOnCancelOrTimeout(commit.getSignature(), cancellation) : undefined,
+			showSignature ? commit.isSigned() : undefined,
 		]);
 
 		if (cancellation.isCancellationRequested) throw new CancellationError();
 
 		const remotes = getSettledValue(remotesResult, []);
 		const [remote] = remotes;
-		const signature = getSettledValue(signatureResult);
+		const signed = getSettledValue(signedResult);
 
 		let enrichedAutolinks;
 		let pr;
@@ -1070,7 +1070,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				pullRequest: pr,
 				outputFormat: 'markdown',
 				remotes: remotes,
-				signed: signature?.value != null,
+				signed: signed,
 				// unpublished: this.unpublished,
 			},
 		);

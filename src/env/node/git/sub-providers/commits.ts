@@ -1309,7 +1309,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, errors: 'ignore', configs: gitConfigsLog },
+				{
+					cwd: repoPath,
+					errors: 'ignore',
+					caching: { cache: this.cache.gitResults, options: { accessTTL: 60 * 1000 } },
+					configs: gitConfigsLog,
+				},
 				'log',
 				`--format=${signatureFormat}`,
 				'-1',
@@ -1322,6 +1327,28 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
+		}
+	}
+
+	@log()
+	async isCommitSigned(repoPath: string, sha: string): Promise<boolean> {
+		const scope = getLogScope();
+
+		try {
+			const result = await this.git.exec(
+				{
+					cwd: repoPath,
+					errors: 'ignore',
+					caching: { cache: this.cache.gitResults, options: { accessTTL: 60 * 1000 } },
+				},
+				'cat-file',
+				'commit',
+				sha,
+			);
+			return /^gpgsig(-sha256)? /m.test(result.stdout);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return false;
 		}
 	}
 }

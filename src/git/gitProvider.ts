@@ -391,8 +391,8 @@ export interface GitCommitsSubProvider {
 		rev: string,
 		cancellation?: CancellationToken,
 	): Promise<GitCommitReachability | undefined>;
-
 	getCommitSignature?(repoPath: string, sha: string): Promise<CommitSignature | undefined>;
+	isCommitSigned?(repoPath: string, sha: string): Promise<boolean>;
 }
 
 export interface GitOperationsSubProvider {
