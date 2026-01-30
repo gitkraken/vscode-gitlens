@@ -581,9 +581,6 @@ export abstract class ViewBase<
 		return this.root;
 	}
 
-	/** Tracks whether the view has been initialized and should avoid a duplicate refresh */
-	private _skipNextVisibilityChange: boolean = false;
-
 	private _loadingPromise: Promise<any> | undefined;
 
 	/** Tracks the last time onDidChangeTreeData was fired */
@@ -697,9 +694,6 @@ export abstract class ViewBase<
 			return this.trackAsLoading(this.addHeaderNode(node, node.getChildren()));
 		}
 
-		// If we are already visible, then skip the next visibility change event otherwise we end up refreshing twice
-		this._skipNextVisibilityChange = this.tree?.visible ?? false;
-
 		const root = this.ensureRoot();
 		root.splatted ??= true;
 		const children = this.trackAsLoading(this.addHeaderNode(root, root.getChildren()));
@@ -779,12 +773,7 @@ export abstract class ViewBase<
 			void this.container.usage.track(`${this.trackingFeature}:shown`).catch();
 		}
 
-		const skip = this._skipNextVisibilityChange;
-		this._skipNextVisibilityChange = false;
-
-		if (!skip || !e.visible) {
-			this._onDidChangeVisibility.fire(e);
-		}
+		this._onDidChangeVisibility.fire(e);
 
 		if (e.visible) {
 			this.notifySelections();

@@ -26527,7 +26527,7 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "Loading...",
+				"contents": "$(loading~spin) Loading...",
 				"when": "gitlens:views:scm:grouped:loading"
 			},
 			{

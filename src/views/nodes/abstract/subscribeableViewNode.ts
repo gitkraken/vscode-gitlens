@@ -21,6 +21,8 @@ export abstract class SubscribeableViewNode<
 	protected subscription: Promise<Disposable | undefined> | undefined;
 
 	protected loaded: boolean = false;
+	/** Tracks when the node was last loaded to avoid duplicate refreshes on visibility changes */
+	private _loadedAt: number = 0;
 
 	constructor(type: Type, uri: GitUri, view: TView, parent?: ViewNode) {
 		super(type, uri, view, parent);
@@ -37,6 +39,7 @@ export abstract class SubscribeableViewNode<
 		const getTreeItem = this.getTreeItem;
 		this.getTreeItem = async function (this: SubscribeableViewNode<Type, TView>) {
 			this.loaded = true;
+			this._loadedAt = Date.now();
 			await this.ensureSubscription(true);
 			return getTreeItem.apply(this);
 		};
@@ -44,6 +47,7 @@ export abstract class SubscribeableViewNode<
 		const getChildren = this.getChildren;
 		this.getChildren = async function (this: SubscribeableViewNode<Type, TView>) {
 			this.loaded = true;
+			this._loadedAt = Date.now();
 			await this.ensureSubscription(true);
 			return getChildren.apply(this);
 		};
@@ -159,12 +163,23 @@ export abstract class SubscribeableViewNode<
 	// }
 	@debug()
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
+		const scope = getLogScope();
+
 		// Pass the event's visibility to ensureSubscription to avoid race conditions
 		// between the debounced event and the current view.visible state
 		void this.ensureSubscription(false, e.visible);
 
 		if (e.visible) {
-			void this.triggerChange(this.requiresResetOnVisible);
+			// Skip refresh if the node was just loaded (within 500ms) to avoid double refresh.
+			// The visibility event is debounced by 250ms, so if getChildren/getTreeItem was called
+			// after the tree became visible, the refresh would be redundant.
+			const timeSinceLoad = Date.now() - this._loadedAt;
+			if (timeSinceLoad > 500) {
+				setLogScopeExit(scope, ` \u2022 triggering refresh; timeSinceLoad=${timeSinceLoad}ms`);
+				void this.triggerChange(this.requiresResetOnVisible);
+			} else {
+				setLogScopeExit(scope, ` \u2022 skipped refresh; timeSinceLoad=${timeSinceLoad}ms`);
+			}
 		}
 	}
 

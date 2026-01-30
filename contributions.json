@@ -19247,7 +19247,7 @@
 			"order": 8,
 			"welcomeContent": [
 				{
-					"contents": "Loading...",
+					"contents": "$(loading~spin) Loading...",
 					"when": "gitlens:views:scm:grouped:loading"
 				},
 				{

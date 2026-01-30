@@ -3,9 +3,12 @@ import { CancellationTokenSource, EventEmitter, TreeItem, TreeItemCollapsibleSta
 import type { GroupableTreeViewTypes } from '../constants.views.js';
 import type { Container } from '../container.js';
 import { setContext } from '../system/-webview/context.js';
+import { debug } from '../system/decorators/log.js';
 import { once } from '../system/function.js';
 import { first } from '../system/iterable.js';
 import { lazy } from '../system/lazy.js';
+import { getLoggableName, Logger } from '../system/logger.js';
+import { startLogScope } from '../system/logger.scope.js';
 import type { Deferred } from '../system/promise.js';
 import { defer, isPromise } from '../system/promise.js';
 import { BranchesView } from './branchesView.js';
@@ -127,12 +130,21 @@ export class ScmGroupedView implements Disposable {
 		}
 	}
 
+	@debug({ singleLine: true })
 	setView<T extends GroupableTreeViewTypes>(
 		type: T,
 		options?: { focus?: boolean; preventReveal?: boolean },
 	): TreeViewByType[T] {
 		if (!this.views.scmGroupedViews?.has(type)) {
 			type = this.views.scmGroupedViews?.size ? (first(this.views.scmGroupedViews) as T) : undefined!;
+		}
+
+		// Already on this view type, just handle show/focus if needed
+		if (this._view?.type === type) {
+			if (!options?.preventReveal) {
+				void this._view.show({ preserveFocus: !options?.focus });
+			}
+			return this._view as TreeViewByType[T];
 		}
 
 		void setContext('gitlens:views:scm:grouped:loading', true);
@@ -143,10 +155,16 @@ export class ScmGroupedView implements Disposable {
 
 		this._loaded?.cancel();
 		this._loaded = defer<void>();
-		void this._loaded.promise.then(
-			async () => {
+		void this._loaded.promise
+			.finally(() => {
 				this._loaded = undefined;
 
+				this._clearLoadingTimer = setTimeout(
+					() => void setContext('gitlens:views:scm:grouped:loading', false),
+					500,
+				);
+			})
+			.then(async () => {
 				const view = this._view;
 				if (view != null) {
 					if (!options?.preventReveal && !view.visible) {
@@ -154,18 +172,14 @@ export class ScmGroupedView implements Disposable {
 					}
 
 					let selection = this._lastSelectedByView.get(type);
-
-					setTimeout(async () => {
-						if (selection == null && view.selection?.length) {
-							selection = { node: view.selection[0], parents: undefined, expanded: false };
+					if (selection == null && view.selection?.length) {
+						selection = { node: view.selection[0], parents: undefined, expanded: false };
+					}
+					if (selection == null) {
+						if (options?.focus) {
+							await view.show({ preserveFocus: false });
 						}
-						if (selection == null) {
-							if (options?.focus) {
-								await view.show({ preserveFocus: false });
-							}
-							return;
-						}
-
+					} else {
 						const { node, parents, expanded } = selection;
 						if (parents == null) {
 							await view.revealDeep(node, {
@@ -180,16 +194,10 @@ export class ScmGroupedView implements Disposable {
 								select: true,
 							});
 						}
-					}, 50);
+					}
 				}
-
-				this._clearLoadingTimer = setTimeout(
-					() => void setContext('gitlens:views:scm:grouped:loading', false),
-					500,
-				);
-			},
-			() => {},
-		);
+			})
+			.catch(() => {});
 
 		if (this._view?.type !== type) {
 			this._view?.dispose();
@@ -226,43 +234,89 @@ export class ScmGroupedView implements Disposable {
 						getTreeItem: node => {
 							if (this._view == null) {
 								this._cleared?.fulfill();
+								this._loaded?.fulfill();
 								return emptyTreeItem;
 							}
 
-							const result = this._view.getTreeItem(node);
-							if (!isPromise(result)) {
-								this._loaded?.fulfill();
-								return result;
-							}
+							using scope = startLogScope(
+								`${getLoggableName(this)}.ensureGroupedContext.getTreeItem`,
+								false,
+							);
 
-							const promise = new Promise<TreeItem>(resolve => {
-								void result.then(resolve);
-								this._cancellationSource?.token.onCancellationRequested(() => resolve(emptyTreeItem));
-							});
-							void promise.finally(() => this._loaded?.fulfill());
-							return promise;
+							try {
+								const result = this._view.getTreeItem(node);
+								if (!isPromise(result)) {
+									this._loaded?.fulfill();
+									return result;
+								}
+
+								const promise = new Promise<TreeItem>(resolve => {
+									result.then(resolve, (ex: unknown) => {
+										Logger.error(ex, scope);
+										resolve(emptyTreeItem);
+									});
+									this._cancellationSource?.token.onCancellationRequested(() =>
+										resolve(emptyTreeItem),
+									);
+								});
+								void promise.finally(() => this._loaded?.fulfill());
+								return promise;
+							} catch (ex) {
+								Logger.error(ex, scope);
+								this._loaded?.fulfill();
+								return emptyTreeItem;
+							}
 						},
 						getChildren: node => {
 							if (this._view == null) {
 								this._cleared?.fulfill();
+								this._loaded?.fulfill();
 								return emptyArray;
 							}
 
-							const result = this._view.getChildren(node);
-							if (!isPromise(result)) {
-								this._loaded?.fulfill();
-								return result;
-							}
+							using scope = startLogScope(
+								`${getLoggableName(this)}.ensureGroupedContext.getChildren`,
+								false,
+							);
 
-							const promise = new Promise<ViewNode[]>(resolve => {
-								void result.then(resolve);
-								this._cancellationSource?.token.onCancellationRequested(() => resolve(emptyArray));
-							});
-							void promise.finally(() => this._loaded?.fulfill());
-							return promise;
+							try {
+								const result = this._view.getChildren(node);
+								if (!isPromise(result)) {
+									this._loaded?.fulfill();
+									return result;
+								}
+
+								const promise = new Promise<ViewNode[]>(resolve => {
+									result.then(resolve, (ex: unknown) => {
+										Logger.error(ex, scope);
+										resolve(emptyArray);
+									});
+									this._cancellationSource?.token.onCancellationRequested(() => resolve(emptyArray));
+								});
+								void promise.finally(() => this._loaded?.fulfill());
+								return promise;
+							} catch (ex) {
+								Logger.error(ex, scope);
+								this._loaded?.fulfill();
+								return emptyArray;
+							}
 						},
 						getParent: node => this._view?.getParent(node),
-						resolveTreeItem: (item, node, token) => this._view?.resolveTreeItem(item, node, token),
+						resolveTreeItem: (item, node, token) => {
+							if (this._view == null) return item;
+
+							using scope = startLogScope(
+								`${getLoggableName(this)}.ensureGroupedContext.resolveTreeItem`,
+								false,
+							);
+
+							try {
+								return this._view.resolveTreeItem(item, node, token);
+							} catch (ex) {
+								Logger.error(ex, scope);
+								return item;
+							}
+						},
 					},
 				})),
 		);
