@@ -7147,6 +7147,43 @@
 				}
 			]
 		},
+		"gitlens.views.branches.filterRepositories": {
+			"label": "Filter Repositories...",
+			"icon": "$(filter)",
+			"menus": {
+				"gitlens/views/grouped/branches": [
+					{
+						"when": "gitlens:views:scm:grouped:view == branches",
+						"group": "8_gitlens_",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:branches",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == branches",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.branches",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.views.branches.refresh": {
 			"label": "Refresh",
 			"icon": "$(refresh)",
@@ -8001,6 +8038,43 @@
 				}
 			]
 		},
+		"gitlens.views.commits.filterRepositories": {
+			"label": "Filter Repositories...",
+			"icon": "$(filter)",
+			"menus": {
+				"gitlens/views/grouped/commits": [
+					{
+						"when": "gitlens:views:scm:grouped:view == commits",
+						"group": "8_gitlens_",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:commits",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == commits",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.commits",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.views.commits.refresh": {
 			"label": "Refresh",
 			"icon": "$(refresh)",
@@ -8054,21 +8128,19 @@
 						"when": "view == gitlens.views.commits",
 						"group": "2_gitlens",
 						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits",
+						"group": "2_gitlens",
+						"order": 1
 					}
 				]
 			}
 		},
 		"gitlens.views.commits.setCommitsFilterOff": {
-			"label": "Clear Filter",
+			"label": "Clear Author Filter",
 			"icon": "$(filter-filled)",
 			"menus": {
-				"gitlens/views/grouped/commits": [
-					{
-						"when": "gitlens:views:scm:grouped:view == commits && gitlens:views:commits:filtered",
-						"group": "8_gitlens_",
-						"order": 0
-					}
-				],
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:commits:current-branch && gitlens:views:commits:filtered",
@@ -8089,11 +8161,6 @@
 						"when": "viewItem == gitlens:views:commits && gitlens:views:commits:filtered",
 						"group": "inline",
 						"order": 50
-					},
-					{
-						"when": "viewItem == gitlens:views:commits && gitlens:views:commits:filtered",
-						"group": "2_gitlens",
-						"order": 0
 					}
 				],
 				"view/title": [
@@ -8101,11 +8168,6 @@
 						"when": "view == gitlens.views.commits && gitlens:views:commits:filtered",
 						"group": "navigation",
 						"order": 50
-					},
-					{
-						"when": "view == gitlens.views.commits && gitlens:views:commits:filtered",
-						"group": "2_gitlens",
-						"order": 0
 					}
 				]
 			}
@@ -8813,6 +8875,43 @@
 					"mac": "cmd+c"
 				}
 			]
+		},
+		"gitlens.views.contributors.filterRepositories": {
+			"label": "Filter Repositories...",
+			"icon": "$(filter)",
+			"menus": {
+				"gitlens/views/grouped/contributors": [
+					{
+						"when": "gitlens:views:scm:grouped:view == contributors",
+						"group": "8_gitlens_",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:contributors",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == contributors",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.contributors",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.views.contributors.refresh": {
 			"label": "Refresh",
@@ -12268,6 +12367,43 @@
 					"mac": "cmd+c"
 				}
 			]
+		},
+		"gitlens.views.remotes.filterRepositories": {
+			"label": "Filter Repositories...",
+			"icon": "$(filter)",
+			"menus": {
+				"gitlens/views/grouped/remotes": [
+					{
+						"when": "gitlens:views:scm:grouped:view == remotes",
+						"group": "8_gitlens_",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:remotes",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == remotes",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.remotes",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.views.remotes.refresh": {
 			"label": "Refresh",
@@ -16177,6 +16313,43 @@
 				}
 			]
 		},
+		"gitlens.views.stashes.filterRepositories": {
+			"label": "Filter Repositories...",
+			"icon": "$(filter)",
+			"menus": {
+				"gitlens/views/grouped/stashes": [
+					{
+						"when": "gitlens:views:scm:grouped:view == stashes",
+						"group": "8_gitlens_",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == stashes",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "viewItem == gitlens:views:stashes",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.stashes",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.views.stashes.refresh": {
 			"label": "Refresh",
 			"icon": "$(refresh)",
@@ -16398,6 +16571,43 @@
 					"mac": "cmd+c"
 				}
 			]
+		},
+		"gitlens.views.tags.filterRepositories": {
+			"label": "Filter Repositories...",
+			"icon": "$(filter)",
+			"menus": {
+				"gitlens/views/grouped/tags": [
+					{
+						"when": "gitlens:views:scm:grouped:view == tags",
+						"group": "8_gitlens_",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == tags",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "viewItem == gitlens:views:tags",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.tags",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.views.tags.refresh": {
 			"label": "Refresh",
@@ -17299,6 +17509,43 @@
 					"mac": "cmd+c"
 				}
 			]
+		},
+		"gitlens.views.worktrees.filterRepositories": {
+			"label": "Filter Repositories...",
+			"icon": "$(filter)",
+			"menus": {
+				"gitlens/views/grouped/worktrees": [
+					{
+						"when": "gitlens:views:scm:grouped:view == worktrees",
+						"group": "8_gitlens_",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == worktrees",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "viewItem == gitlens:views:worktrees",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
+						"group": "2_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.worktrees",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.views.worktrees.refresh": {
 			"label": "Refresh",

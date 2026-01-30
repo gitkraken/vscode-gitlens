@@ -146,6 +146,11 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				},
 				this,
 			),
+			registerViewCommand(
+				this.getQualifiedCommand('filterRepositories'),
+				() => this.filterRepositories(),
+				this,
+			),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
 			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),

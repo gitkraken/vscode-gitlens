@@ -3,9 +3,6 @@ import { commands, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState
 import { GlyphChars } from '../../constants.js';
 import { unknownGitUri } from '../../git/gitUri.js';
 import type { Repository } from '../../git/models/repository.js';
-import { groupRepositories } from '../../git/utils/-webview/repository.utils.js';
-import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
-import { showRepositoriesPicker2 } from '../../quickpicks/repositoryPicker.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getScopedCounter } from '../../system/counter.js';
 import { getSettledValue, isPromise } from '../../system/promise.js';
@@ -160,46 +157,8 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 	}
 
 	override async action(): Promise<void> {
-		if (!this.view.supportsRepositoryFilter) return;
-
-		const { openRepositories: repos } = this.view.container.git;
-		const isFiltered = this.view.repositoryFilter?.length;
-
-		// Only skip opening picker if there's no active filter AND there's only 1 repo/group
-		// When a filter is active, always allow opening the picker so users can clear/modify it
-		if (!isFiltered) {
-			if (repos.length <= 1) return;
-
-			if (this.view.supportsWorktreeCollapsing) {
-				const grouped = await groupRepositories(repos);
-				if (grouped.size <= 1) return;
-			}
-		}
-
-		const result = await showRepositoriesPicker2(
-			this.view.container,
-			`Select Repositories or Worktrees to Show`,
-			`Choose which repositories or worktrees to show`,
-			repos,
-			{
-				additionalItems: [createDirectiveQuickPickItem(Directive.ReposAll, !isFiltered)],
-				picked: isFiltered ? await this.view.getFilteredRepositories() : undefined,
-			},
-		);
-
-		if (result.directive === Directive.ReposAll) {
-			this.view.repositoryFilter = undefined;
-		} else if (result.value != null) {
-			if (result.value.length) {
-				this.view.repositoryFilter = result.value.map(r => r.id);
-			} else {
-				this.view.repositoryFilter = undefined;
-			}
-		} else {
-			return;
-		}
-
-		this.view.triggerNodeChange(this);
+		if (!(await this.view.canFilterRepositories())) return;
+		return this.view.filterRepositories();
 	}
 
 	override async getTreeItem(): Promise<TreeItem> {

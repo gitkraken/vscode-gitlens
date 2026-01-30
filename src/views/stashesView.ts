@@ -112,6 +112,11 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 				this,
 			),
 			registerViewCommand(
+				this.getQualifiedCommand('filterRepositories'),
+				() => this.filterRepositories(),
+				this,
+			),
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
 				this,

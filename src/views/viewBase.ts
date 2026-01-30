@@ -40,6 +40,8 @@ import type { Container } from '../container.js';
 import type { Repository } from '../git/models/repository.js';
 import { groupRepositories } from '../git/utils/-webview/repository.utils.js';
 import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting.js';
+import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive.js';
+import { showRepositoriesPicker2 } from '../quickpicks/repositoryPicker.js';
 import { executeCoreCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import type { StorageChangeEvent } from '../system/-webview/storage.js';
@@ -525,6 +527,53 @@ export abstract class ViewBase<
 		return this.repositoryFilter?.length
 			? this.container.git.openRepositories.some(r => this.repositoryFilter!.includes(r.id))
 			: false;
+	}
+
+	async canFilterRepositories(): Promise<boolean> {
+		if (!this.supportsRepositoryFilter) return false;
+
+		const { openRepositories: repos } = this.container.git;
+
+		// If there's an active filter, always allow filtering (to clear/modify it)
+		if (this.repositoryFilter?.length) return true;
+
+		// Otherwise, only allow filtering if there's more than 1 repo/group
+		if (repos.length <= 1) return false;
+
+		if (this.supportsWorktreeCollapsing) {
+			const grouped = await groupRepositories(repos);
+			if (grouped.size <= 1) return false;
+		}
+
+		return true;
+	}
+
+	async filterRepositories(): Promise<void> {
+		if (!this.supportsRepositoryFilter) return;
+
+		const { openRepositories: repos } = this.container.git;
+		const isFiltered = this.repositoryFilter?.length;
+
+		const result = await showRepositoriesPicker2(
+			this.container,
+			`Select Repositories or Worktrees to Show`,
+			`Choose which repositories or worktrees to show`,
+			repos,
+			{
+				additionalItems: [createDirectiveQuickPickItem(Directive.ReposAll, !isFiltered)],
+				picked: isFiltered ? await this.getFilteredRepositories() : undefined,
+			},
+		);
+
+		if (result.directive === Directive.ReposAll) {
+			this.repositoryFilter = undefined;
+		} else if (result.value != null) {
+			this.repositoryFilter = result.value.length ? result.value.map(r => r.id) : undefined;
+		} else {
+			return;
+		}
+
+		this.triggerNodeChange();
 	}
 
 	protected abstract getRoot(): RootNode;

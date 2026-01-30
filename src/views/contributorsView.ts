@@ -161,6 +161,11 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				this,
 			),
 			registerViewCommand(
+				this.getQualifiedCommand('filterRepositories'),
+				() => this.filterRepositories(),
+				this,
+			),
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
 				this,
