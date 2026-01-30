@@ -12392,7 +12392,7 @@
 				},
 				{
 					"command": "gitlens.git.setupCommitSigning",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+					"when": "false && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.git.show",
