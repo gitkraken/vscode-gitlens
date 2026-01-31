@@ -61,7 +61,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			const repositories = await this.view.getFilteredRepositories();
+			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No branches could be found.';
 				return [];
@@ -147,11 +147,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				},
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('filterRepositories'),
-				() => this.filterRepositories(),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('filterRepositories'), () => this.filterRepositories(), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
 			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),

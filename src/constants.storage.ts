@@ -194,8 +194,16 @@ interface WorkspaceStorageCore {
 	'views:scm:grouped:selected': GroupableTreeViewTypes;
 }
 
+/**
+ * Repository filter values:
+ * - `undefined` or `'all'` - show all repositories (new code should set `'all'`)
+ * - `'exclude-worktrees'` - show all except linked worktrees (worktrees whose main repo is also open)
+ * - `string[]` - show only the specified repository IDs
+ */
+export type RepositoryFilterValue = 'all' | 'exclude-worktrees' | string[] | undefined;
+
 type WorkspaceStorageDynamic = Record<IntegrationConnectedKey, boolean> &
-	Record<`views:${TreeViewTypes}:repositoryFilter`, string[] | undefined> &
+	Record<`views:${TreeViewTypes}:repositoryFilter`, RepositoryFilterValue> &
 	Record<`graph:searchHistory:${string}`, StoredGraphSearchHistory[]>;
 
 export type WorkspaceStorage = WorkspaceStorageCore & WorkspaceStorageDynamic;

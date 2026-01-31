@@ -141,7 +141,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			const repositories = await this.view.getFilteredRepositories();
+			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No commits could be found.';
 

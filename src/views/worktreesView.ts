@@ -61,7 +61,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			const repositories = await this.view.getFilteredRepositories();
+			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No worktrees could be found.';
 				return [];
@@ -146,11 +146,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				},
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('filterRepositories'),
-				() => this.filterRepositories(),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('filterRepositories'), () => this.filterRepositories(), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
 			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),

@@ -103,7 +103,7 @@ export async function showRepositoryPicker2(
 		);
 	}
 
-	const grouped = await groupRepositories(repos);
+	const grouped = groupRepositories(repos);
 	if (options?.excludeWorktrees) {
 		repos = sortRepositories([...grouped.keys()]);
 	} else {
@@ -202,7 +202,7 @@ export async function showRepositoriesPicker2(
 		);
 	}
 
-	const grouped = await groupRepositories(repos);
+	const grouped = groupRepositories(repos);
 	if (options?.excludeWorktrees) {
 		repos = sortRepositories([...grouped.keys()]);
 	} else {

@@ -1440,7 +1440,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				},
 			});
 		} else if (repo != null && worktree != null && !worktree.isDefault) {
-			const commonRepo = await repo.getCommonRepository();
+			const commonRepo = await repo.getOrOpenCommonRepository();
 			const defaultWorktree = await repo.git.worktrees?.getWorktree(w => w.isDefault);
 			if (defaultWorktree == null || commonRepo == null) return;
 

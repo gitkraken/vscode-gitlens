@@ -40,7 +40,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			const repositories = await this.view.getFilteredRepositories();
+			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No stashes could be found.';
 				return [];
@@ -111,11 +111,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 				},
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('filterRepositories'),
-				() => this.filterRepositories(),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('filterRepositories'), () => this.filterRepositories(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),

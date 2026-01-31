@@ -76,7 +76,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 			return;
 		}
 
-		repo = await repo.getCommonRepository();
+		repo = await repo.getOrOpenCommonRepository();
 		if (repo == null) {
 			void window.showWarningMessage(`Unable to find main repository(${localUri.toString()}) for PR #${number}`);
 			return;

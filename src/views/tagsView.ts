@@ -45,7 +45,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			const repositories = await this.view.getFilteredRepositories();
+			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No tags could be found.';
 				return [];
@@ -116,11 +116,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 				},
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('filterRepositories'),
-				() => this.filterRepositories(),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('filterRepositories'), () => this.filterRepositories(), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
 			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),

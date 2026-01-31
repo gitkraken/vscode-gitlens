@@ -183,7 +183,7 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 		} else {
 			let name;
 
-			const repo = (await state.repo.getCommonRepository()) ?? state.repo;
+			const repo = (await state.repo.getOrOpenCommonRepository()) ?? state.repo;
 			if (repo.name !== state.worktree.name) {
 				name = `${repo.name}: ${state.worktree.name}`;
 			} else {

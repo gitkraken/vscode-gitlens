@@ -60,7 +60,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			const repositories = await this.view.getFilteredRepositories();
+			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No contributors could be found.';
 				return [];
@@ -160,11 +160,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				},
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('filterRepositories'),
-				() => this.filterRepositories(),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('filterRepositories'), () => this.filterRepositories(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),

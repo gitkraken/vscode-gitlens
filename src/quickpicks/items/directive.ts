@@ -17,6 +17,7 @@ export enum Directive {
 
 	RefsAllBranches,
 	ReposAll,
+	ReposAllExceptWorktrees,
 }
 
 export function isDirective<T>(value: Directive | T): value is Directive {
@@ -91,6 +92,11 @@ export function createDirectiveQuickPickItem(
 
 			case Directive.ReposAll:
 				label = 'All Repositories';
+				break;
+
+			case Directive.ReposAllExceptWorktrees:
+				label = 'All Repositories';
+				description = ' excluding worktrees';
 				break;
 		}
 	}

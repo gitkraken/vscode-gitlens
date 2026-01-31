@@ -586,9 +586,17 @@ export class Repository implements Disposable {
 		}
 	}
 
+	@log({ exit: true })
+	getCommonRepository(): Repository | undefined {
+		const { commonUri } = this;
+		if (commonUri == null) return this;
+
+		return this.container.git.getRepository(commonUri);
+	}
+
 	@gate()
 	@log({ exit: true })
-	async getCommonRepository(): Promise<Repository | undefined> {
+	async getOrOpenCommonRepository(): Promise<Repository | undefined> {
 		const { commonUri } = this;
 		if (commonUri == null) return this;
 

@@ -2,9 +2,11 @@ import type { Uri } from 'vscode';
 import { Schemes } from '../../../constants.js';
 import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils.js';
 import { configuration } from '../../../system/-webview/configuration.js';
+import { UriMap } from '../../../system/-webview/uriMap.js';
 import { formatDate, fromNow } from '../../../system/date.js';
 import { map } from '../../../system/iterable.js';
 import { normalizePath } from '../../../system/path.js';
+import { areUrisEqual } from '../../../system/uri.js';
 import type { GitRemote } from '../../models/remote.js';
 import { RemoteResourceType } from '../../models/remoteResource.js';
 import type { Repository } from '../../models/repository.js';
@@ -47,25 +49,33 @@ export function getCommonRepositoryUri(commonUri: Uri): Uri {
 	return commonUri;
 }
 
-export async function groupRepositories(
-	repositories: Iterable<Repository>,
-): Promise<Map<Repository, Map<string, Repository>>> {
+export function groupRepositories(repositories: Iterable<Repository>): Map<Repository, Map<string, Repository>> {
 	const repos = new Map<string, Repository>(map(repositories, r => [r.id, r]));
+
+	// Build a map of repo uris to repos for quick lookup
+	// We use each repo's own uri as the key, so worktrees can find their main repo
+	const reposByUri = new UriMap<Repository>();
+	for (const repo of repos.values()) {
+		reposByUri.set(repo.uri, repo);
+	}
 
 	// Group worktree repos under the common repo when the common repo is also in the list
 	const result = new Map<string, { repo: Repository; worktrees: Map<string, Repository> }>();
-	for (const [, repo] of repos) {
-		let commonRepo = await repo.getCommonRepository();
-		if (commonRepo == null) {
+	for (const repo of repos.values()) {
+		const { commonUri } = repo;
+
+		// If no common URI, this is a main repo (or standalone)
+		if (commonUri == null) {
 			if (result.has(repo.id)) {
 				debugger;
 			}
+
 			result.set(repo.id, { repo: repo, worktrees: new Map() });
 			continue;
 		}
 
-		// If the common repo is the repo itself, it's a main repo
-		if (commonRepo === repo) {
+		// Check if the common repo is this repo itself (it's a main repo)
+		if (areUrisEqual(repo.uri, commonUri)) {
 			// Only add if not already present (could have been added by a worktree)
 			if (!result.has(repo.id)) {
 				result.set(repo.id, { repo: repo, worktrees: new Map() });
@@ -73,13 +83,14 @@ export async function groupRepositories(
 			continue;
 		}
 
-		// This is a worktree, so find its common repo in the repos map
-		commonRepo = repos.get(commonRepo.id);
+		// This is a worktree - find its common repo in our list
+		const commonRepo = reposByUri.get(commonUri);
 		if (commonRepo == null) {
 			// Common repo not in the list, treat this worktree as standalone
 			if (result.has(repo.id)) {
 				debugger;
 			}
+
 			result.set(repo.id, { repo: repo, worktrees: new Map() });
 			continue;
 		}

@@ -34,6 +34,7 @@ import type {
 } from '../config.js';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config.js';
 import type { GlTreeViewCommandSuffixesByViewType } from '../constants.commands.js';
+import type { RepositoryFilterValue } from '../constants.storage.js';
 import type { TrackedUsageFeatures } from '../constants.telemetry.js';
 import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views.js';
 import type { Container } from '../container.js';
@@ -404,16 +405,17 @@ export abstract class ViewBase<
 		return this._nodeState;
 	}
 
-	get repositoryFilter(): string[] | undefined {
+	get repositoryFilter(): RepositoryFilterValue {
 		return this.container.storage.getWorkspace(`views:${this.type}:repositoryFilter`);
 	}
-	set repositoryFilter(value: string[] | undefined) {
-		if (areEqual(value, this.repositoryFilter)) return;
+	set repositoryFilter(value: RepositoryFilterValue) {
+		const current = this.repositoryFilter;
+		if (value === current || (Array.isArray(value) && Array.isArray(current) && areEqual(value, current))) return;
 
 		for (const type of treeViewTypesSupportsRepositoryFilter) {
 			void this.container.storage.storeWorkspace(
 				`views:${type}:repositoryFilter`,
-				value?.length ? value : undefined,
+				Array.isArray(value) ? (value.length ? value : 'all') : (value ?? 'all'),
 			);
 		}
 	}
@@ -502,17 +504,25 @@ export abstract class ViewBase<
 		return `gitlens.views.${this.type}.${command}` as const;
 	}
 
-	async getFilteredRepositories(): Promise<Repository[]> {
+	getFilteredRepositories(): Repository[] {
 		let repos = this.container.git.openRepositories;
 
 		const filter = this.repositoryFilter;
-		if (filter?.length && repos.length > 1) {
-			const filtered = repos.filter(r => filter.includes(r.id));
-			repos = filtered.length ? filtered : repos;
+		if (repos.length > 1 && filter != null && filter !== 'all') {
+			if (filter === 'exclude-worktrees') {
+				const grouped = groupRepositories(repos);
+				repos = sortRepositories([...grouped.keys()]);
+				return repos;
+			}
+
+			if (filter.length) {
+				const filtered = repos.filter(r => filter.includes(r.id));
+				repos = filtered.length ? filtered : repos;
+			}
 		}
 
 		if (repos.length > 1) {
-			const grouped = await groupRepositories(repos);
+			const grouped = groupRepositories(repos);
 			if (this.supportsWorktreeCollapsing) {
 				repos = sortRepositories([...grouped.keys()]);
 			} else {
@@ -524,24 +534,30 @@ export abstract class ViewBase<
 	}
 
 	isRepositoryFilterActive(): boolean {
-		return this.repositoryFilter?.length
-			? this.container.git.openRepositories.some(r => this.repositoryFilter!.includes(r.id))
+		const filter = this.repositoryFilter;
+		return Array.isArray(filter) && filter.length > 0
+			? this.container.git.openRepositories.some(r => filter.includes(r.id))
 			: false;
 	}
 
-	async canFilterRepositories(): Promise<boolean> {
+	isRepositoryFilterExcludingWorktreesActive(): boolean {
+		return this.supportsRepositoryFilter && this.repositoryFilter === 'exclude-worktrees';
+	}
+
+	canFilterRepositories(): boolean {
 		if (!this.supportsRepositoryFilter) return false;
 
 		const { openRepositories: repos } = this.container.git;
 
 		// If there's an active filter, always allow filtering (to clear/modify it)
-		if (this.repositoryFilter?.length) return true;
+		const filter = this.repositoryFilter;
+		if (filter != null && filter !== 'all') return true;
 
 		// Otherwise, only allow filtering if there's more than 1 repo/group
 		if (repos.length <= 1) return false;
 
 		if (this.supportsWorktreeCollapsing) {
-			const grouped = await groupRepositories(repos);
+			const grouped = groupRepositories(repos);
 			if (grouped.size <= 1) return false;
 		}
 
@@ -552,7 +568,12 @@ export abstract class ViewBase<
 		if (!this.supportsRepositoryFilter) return;
 
 		const { openRepositories: repos } = this.container.git;
-		const isFiltered = this.repositoryFilter?.length;
+		const isExcludeWorktrees = this.isRepositoryFilterExcludingWorktreesActive();
+		const filter = this.repositoryFilter;
+		const isFiltered = Array.isArray(filter) && filter.length > 0;
+
+		// Get picked repos directly from filter IDs to avoid extra groupRepositories call
+		const picked = isFiltered ? repos.filter(r => filter.includes(r.id)) : undefined;
 
 		const result = await showRepositoriesPicker2(
 			this.container,
@@ -560,20 +581,24 @@ export abstract class ViewBase<
 			`Choose which repositories or worktrees to show`,
 			repos,
 			{
-				additionalItems: [createDirectiveQuickPickItem(Directive.ReposAll, !isFiltered)],
-				picked: isFiltered ? await this.getFilteredRepositories() : undefined,
+				additionalItems: [
+					createDirectiveQuickPickItem(Directive.ReposAll, !isFiltered && !isExcludeWorktrees),
+					createDirectiveQuickPickItem(Directive.ReposAllExceptWorktrees, isExcludeWorktrees),
+				],
+				picked: picked,
 			},
 		);
 
+		// Only update filter if user made a selection (not cancelled)
+		// Note: No explicit triggerNodeChange() needed - the storage change event
+		// already triggers view refresh via onDidChangeRepositoryFilter subscription
 		if (result.directive === Directive.ReposAll) {
-			this.repositoryFilter = undefined;
+			this.repositoryFilter = 'all';
+		} else if (result.directive === Directive.ReposAllExceptWorktrees) {
+			this.repositoryFilter = 'exclude-worktrees';
 		} else if (result.value != null) {
-			this.repositoryFilter = result.value.length ? result.value.map(r => r.id) : undefined;
-		} else {
-			return;
+			this.repositoryFilter = result.value.length ? result.value.map(r => r.id) : 'all';
 		}
-
-		this.triggerNodeChange();
 	}
 
 	protected abstract getRoot(): RootNode;
@@ -725,13 +750,12 @@ export abstract class ViewBase<
 		};
 
 		if (!this.grouped && this.supportsWorktreeCollapsing) {
-			return groupRepositories(repos).then(grouped => {
-				if (grouped.size <= 1) return promise;
+			const grouped = groupRepositories(repos);
+			if (grouped.size <= 1) return promise;
 
-				return isPromise(promise)
-					? promise.then(c => ensureGroupedHeaderNode(c))
-					: ensureGroupedHeaderNode(promise);
-			});
+			return isPromise(promise)
+				? promise.then(c => ensureGroupedHeaderNode(c))
+				: ensureGroupedHeaderNode(promise);
 		}
 
 		return isPromise(promise) ? promise.then(c => ensureGroupedHeaderNode(c)) : ensureGroupedHeaderNode(promise);

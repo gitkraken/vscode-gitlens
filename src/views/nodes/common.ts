@@ -5,7 +5,7 @@ import { unknownGitUri } from '../../git/gitUri.js';
 import type { Repository } from '../../git/models/repository.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getScopedCounter } from '../../system/counter.js';
-import { getSettledValue, isPromise } from '../../system/promise.js';
+import { isPromise } from '../../system/promise.js';
 import { compareSubstringIgnoreCase, equalsIgnoreCase, pluralize } from '../../system/string.js';
 import type { View } from '../viewBase.js';
 import type { PageableViewNode } from './abstract/viewNode.js';
@@ -157,25 +157,21 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 	}
 
 	override async action(): Promise<void> {
-		if (!(await this.view.canFilterRepositories())) return;
+		if (!this.view.canFilterRepositories()) return;
 		return this.view.filterRepositories();
 	}
 
 	override async getTreeItem(): Promise<TreeItem> {
-		const [itemResult, reposResult] = await Promise.allSettled([
-			super.getTreeItem(),
-			this.view.getFilteredRepositories(),
-		]);
-
-		const item = getSettledValue(itemResult)!;
-		const repos = getSettledValue(reposResult) ?? [];
+		const item = await super.getTreeItem();
+		const repos = this.view.getFilteredRepositories();
 
 		item.description = this.getDescription(repos);
 		item.tooltip = this.getTooltip(repos);
 		if (!this.view.grouped) {
-			item.iconPath = this.view.isRepositoryFilterActive()
-				? new ThemeIcon('filter-filled')
-				: new ThemeIcon('filter');
+			item.iconPath =
+				this.view.isRepositoryFilterActive() || this.view.isRepositoryFilterExcludingWorktreesActive()
+					? new ThemeIcon('filter-filled')
+					: new ThemeIcon('filter');
 		}
 		return item;
 	}
@@ -207,13 +203,22 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 			}
 		}
 
-		if (!this.view.supportsRepositoryFilter || repos.length <= 1) return tooltip;
+		if (!this.view.supportsRepositoryFilter) return tooltip;
 
-		tooltip.appendMarkdown(`\n\nShowing ${this.getRepositoryFilterLabel(repos, false)}`);
-		if (this.view.isRepositoryFilterActive()) {
+		if (this.view.isRepositoryFilterExcludingWorktreesActive()) {
+			tooltip.appendMarkdown('\n\nShowing all repos, excluding worktrees');
 			tooltip.appendMarkdown('\\\nClick to change filtering');
 		} else {
-			tooltip.appendMarkdown('\\\nClick to filter by a repo or worktree');
+			const { openRepositories } = this.view.container.git;
+			const type = openRepositories.some(r => r.isWorktree) ? 'repos / worktrees' : 'repos';
+
+			if (this.view.isRepositoryFilterActive()) {
+				tooltip.appendMarkdown(`\n\nShowing ${repos.length} of ${openRepositories.length} ${type}`);
+				tooltip.appendMarkdown('\\\nClick to change filtering');
+			} else if (repos.length > 1) {
+				tooltip.appendMarkdown(`\n\nShowing all ${type}`);
+				tooltip.appendMarkdown('\\\nClick to filter by a repo or worktree');
+			}
 		}
 
 		return tooltip;
@@ -232,7 +237,8 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 			return undefined;
 		}
 
-		const mixed = !this.view.supportsWorktreeCollapsing;
+		// When excluding worktrees, always show "repos" not "repos / worktrees"
+		const mixed = !this.view.supportsWorktreeCollapsing && !this.view.isRepositoryFilterExcludingWorktreesActive();
 
 		const label = pluralize(mixed ? 'repo / worktree' : 'repo', repos.length, {
 			plural: mixed ? 'repos / worktrees' : 'repos',
