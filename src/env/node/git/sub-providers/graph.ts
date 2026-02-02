@@ -816,6 +816,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						break;
 					}
 
+					count++;
 					if (limit && count > limit) {
 						hasMore = true;
 
@@ -823,7 +824,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						break;
 					}
 
-					count++;
 					sha = remappedIds.get(r.sha) ?? r.sha;
 					if (results.has(sha) || (stashesOnly && !stashes?.has(sha)) || (tipsOnly && !r.tips)) {
 						continue;
