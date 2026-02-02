@@ -539,9 +539,13 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 				label: isRemoteBranch
 					? 'Create Worktree from New Local Branch'
 					: isBranch
-						? 'Create Worktree from Branch'
+						? state.createBranch
+							? 'Create Worktree from New Branch'
+							: 'Create Worktree from Branch'
 						: context.title,
-				description: '',
+				description: state.createBranch
+					? state.createBranch
+					: getReferenceLabel(state.reference, { icon: false, label: false }),
 				detail: `Will create worktree in $(folder) ${
 					state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
 				}`,
@@ -568,7 +572,9 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 								: isBranch
 									? 'Create Worktree from Branch'
 									: context.title,
-							description: '',
+							description: isBranch
+								? getReferenceLabel(state.reference, { icon: false, label: false })
+								: '',
 							detail: `Will create worktree directly in $(folder) ${truncateLeft(
 								pickedFriendlyPath,
 								60,
@@ -587,7 +593,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						label: isRemoteBranch
 							? 'Create Worktree from New Local Branch'
 							: 'Create Worktree from New Branch',
-						description: '',
+						description: state.createBranch,
 						detail: `Will create worktree directly in $(folder) ${truncateLeft(pickedFriendlyPath, 60)}`,
 					},
 					pickedUri,
@@ -597,7 +603,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 		if (!createDirectlyInFolder) {
 			confirmations.push(
-				createQuickPickSeparator(),
+				createQuickPickSeparator('Change Location'),
 				createFlagsQuickPickItem<Flags, ConfirmationChoice>(
 					[],
 					[],
@@ -619,8 +625,8 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 				[],
 				[],
 				{
-					label: 'Choose a Specific Folder...',
-					description: '',
+					label: 'Choose Specific Folder...',
+					description: 'Create directly in a folder you choose',
 					picked: false,
 				},
 				'chooseFolder',
