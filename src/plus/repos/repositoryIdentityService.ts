@@ -203,7 +203,7 @@ export class RepositoryIdentityService implements Disposable {
 		}
 	}
 
-	@log()
+	@log<RepositoryIdentityService['storeRepositoryLocations']>({ args: { 0: repos => repos.length } })
 	async storeRepositoryLocations(repos: Repository[]): Promise<void> {
 		if (!repos.length || this.locator == null) return;
 
