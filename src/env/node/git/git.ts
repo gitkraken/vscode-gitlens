@@ -1217,7 +1217,8 @@ export class Git implements Disposable {
 		}
 	}
 
-	async rev_parse__git_dir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	private async rev_parse__git_dir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
 		const result = await this.exec({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--git-dir', '--git-common-dir');
 		if (!result.stdout) return undefined;
 

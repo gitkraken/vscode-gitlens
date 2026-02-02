@@ -106,14 +106,12 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		const scope = getLogScope();
 
-		const repo = this.cache.repoInfo.get(repoPath);
+		const cached = this.cache.currentUser.get(repoPath);
+		if (cached != null) return cached;
+		// If we found null, user data was not found - don't bother trying again
+		if (cached === null) return undefined;
 
-		let user = repo?.user;
-		if (user != null) return user;
-		// If we found the repo, but no user data was found just return
-		if (user === null) return undefined;
-
-		user = { name: undefined, email: undefined };
+		const user: GitUser = { name: undefined, email: undefined };
 
 		try {
 			const data = await this.getConfigRegex(repoPath, '^user\\.', { runGitLocally: true });
@@ -135,7 +133,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
 				if (!user.name) {
 					// If we found no user data, mark it so we won't bother trying again
-					this.cache.repoInfo.set(repoPath, { ...repo, user: null });
+					this.cache.currentUser.set(repoPath, null);
 					return undefined;
 				}
 
@@ -157,14 +155,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				}
 			}
 
-			this.cache.repoInfo.set(repoPath, { ...repo, user: user });
+			this.cache.currentUser.set(repoPath, user);
 			return user;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
 
 			// Mark it so we won't bother trying again
-			this.cache.repoInfo.set(repoPath, { ...repo, user: null });
+			this.cache.currentUser.set(repoPath, null);
 			return undefined;
 		}
 	}
@@ -181,23 +179,23 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		exit: r => `returned ${r.uri.toString(true)}, commonUri=${r.commonUri?.toString(true)}`,
 	})
 	async getGitDir(repoPath: string): Promise<GitDir> {
-		const repo = this.cache.repoInfo.get(repoPath);
-		if (repo?.gitDir != null) return repo.gitDir;
+		const cached = this.cache.gitDir.get(repoPath);
+		if (cached != null) return cached;
 
-		const gitDirPaths = await this.git.rev_parse__git_dir(repoPath);
+		const repoInfo = await this.git.rev_parse__repository_info(repoPath);
 
 		let gitDir: GitDir;
-		if (gitDirPaths != null) {
+		if (!Array.isArray(repoInfo) && repoInfo != null) {
 			gitDir = {
-				uri: Uri.file(gitDirPaths.path),
-				commonUri: gitDirPaths.commonPath != null ? Uri.file(gitDirPaths.commonPath) : undefined,
+				uri: Uri.file(repoInfo.gitDir),
+				commonUri: repoInfo.commonGitDir ? Uri.file(repoInfo.commonGitDir) : undefined,
 			};
 		} else {
 			gitDir = {
 				uri: this.provider.getAbsoluteUri('.git', repoPath),
 			};
 		}
-		this.cache.repoInfo.set(repoPath, { ...repo, gitDir: gitDir });
+		this.cache.gitDir.set(repoPath, gitDir);
 
 		return gitDir;
 	}

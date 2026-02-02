@@ -37,11 +37,6 @@ type RepoPath = string;
 
 export type ConflictDetectionCacheKey = `apply:${string}:${string}:${string}` | `merge:${string}:${string}`;
 
-interface RepositoryInfo {
-	gitDir?: GitDir;
-	user?: GitUser | null;
-}
-
 const emptyArray: readonly any[] = Object.freeze([]);
 
 interface Caches {
@@ -55,7 +50,9 @@ interface Caches {
 	contributorsLite: RepoPromiseCacheMap<string, GitContributor[]> | undefined;
 	contributorsStats: RepoPromiseCacheMap<string, GitContributorsStats | undefined> | undefined;
 	currentBranchReference: PromiseCache<RepoPath, GitBranchReference | undefined> | undefined;
+	currentUser: Map<RepoPath, GitUser | null> | undefined;
 	defaultBranchName: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	gitDir: Map<RepoPath, GitDir> | undefined;
 	gitIgnore: Map<RepoPath, GitIgnoreCache> | undefined;
 	gitResults: RepoPromiseCacheMap<string, GitResult> | undefined;
 	initialCommitSha: PromiseMap<RepoPath, string | undefined> | undefined;
@@ -64,7 +61,6 @@ interface Caches {
 	pausedOperationStatus: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
 	reachability: RepoPromiseCacheMap<string, GitCommitReachability | undefined> | undefined;
 	remotes: PromiseMap<RepoPath, GitRemote[]> | undefined;
-	repoInfo: Map<RepoPath, RepositoryInfo> | undefined;
 	sharedBranches: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
 	stashes: PromiseMap<RepoPath, GitStash> | undefined;
 	tags: PromiseMap<RepoPath, PagedResult<GitTag>> | undefined;
@@ -83,7 +79,9 @@ function createEmptyCaches(): Caches {
 		contributorsLite: undefined,
 		contributorsStats: undefined,
 		currentBranchReference: undefined,
+		currentUser: undefined,
 		defaultBranchName: undefined,
+		gitDir: undefined,
 		gitIgnore: undefined,
 		gitResults: undefined,
 		initialCommitSha: undefined,
@@ -92,7 +90,6 @@ function createEmptyCaches(): Caches {
 		pausedOperationStatus: undefined,
 		reachability: undefined,
 		remotes: undefined,
-		repoInfo: undefined,
 		sharedBranches: undefined,
 		stashes: undefined,
 		tags: undefined,
@@ -204,8 +201,16 @@ export class GitCache implements Disposable {
 		}));
 	}
 
+	get currentUser(): Map<RepoPath, GitUser | null> {
+		return (this._caches.currentUser ??= new Map<RepoPath, GitUser | null>());
+	}
+
 	get defaultBranchName(): RepoPromiseCacheMap<string, string | undefined> {
 		return (this._caches.defaultBranchName ??= new RepoPromiseCacheMap<string, string | undefined>());
+	}
+
+	get gitDir(): Map<RepoPath, GitDir> {
+		return (this._caches.gitDir ??= new Map<RepoPath, GitDir>());
 	}
 
 	get gitIgnore(): Map<RepoPath, GitIgnoreCache> {
@@ -255,10 +260,6 @@ export class GitCache implements Disposable {
 
 	get remotes(): PromiseMap<RepoPath, GitRemote[]> {
 		return (this._caches.remotes ??= new PromiseMap<RepoPath, GitRemote[]>());
-	}
-
-	get repoInfo(): Map<RepoPath, RepositoryInfo> {
-		return (this._caches.repoInfo ??= new Map<RepoPath, RepositoryInfo>());
 	}
 
 	get stashes(): PromiseMap<RepoPath, GitStash> {
@@ -311,7 +312,8 @@ export class GitCache implements Disposable {
 			sharedCachesToClear.add(this._caches.configKeys);
 			sharedCachesToClear.add(this._caches.configPatterns);
 			cachesToClear.add(this._caches.currentBranchReference);
-			cachesToClear.add(this._caches.repoInfo);
+			cachesToClear.add(this._caches.currentUser);
+			cachesToClear.add(this._caches.gitDir);
 		}
 
 		if (!types.length || types.includes('contributors')) {
@@ -361,10 +363,11 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length) {
-			sharedCachesToClear.add(this._caches.gitResults);
-			cachesToClear.add(this._caches.repoInfo);
-			cachesToClear.add(this._trackedPaths);
+			cachesToClear.add(this._caches.currentUser);
+			cachesToClear.add(this._caches.gitDir);
 			cachesToClear.add(this._caches.gitIgnore);
+			sharedCachesToClear.add(this._caches.gitResults);
+			cachesToClear.add(this._trackedPaths);
 		}
 
 		// Clear per-worktree caches

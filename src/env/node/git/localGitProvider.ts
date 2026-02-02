@@ -984,10 +984,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let repoPath: string | undefined;
 		let gitDirInfo: { gitDir: string; commonGitDir: string | undefined } | undefined;
 		try {
-			if (isDirectory == null) {
-				isDirectory = await isFolderUri(uri);
-			}
-
+			isDirectory ??= await isFolderUri(uri);
 			// If the uri isn't a directory, go up one level
 			if (!isDirectory) {
 				uri = Uri.joinPath(uri, '..');
@@ -1044,17 +1041,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								),
 							);
 							// Pre-populate the gitDir cache for Windows mapped drive path
-							// Use Uri.file().fsPath as cache key to match getGitDir() lookup
 							const resultUri = Uri.file(repoPath);
 							if (gitDirInfo != null) {
 								const gitDir: GitDir = {
 									uri: Uri.file(gitDirInfo.gitDir),
-									commonUri:
-										gitDirInfo.commonGitDir != null ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+									commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
 								};
-								const cacheKey = resultUri.fsPath;
-								const repo = this._cache.repoInfo.get(cacheKey);
-								this._cache.repoInfo.set(cacheKey, { ...repo, gitDir: gitDir });
+								this._cache.gitDir.set(resultUri.fsPath, gitDir);
 							}
 							return resultUri;
 						}
@@ -1062,16 +1055,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				// Pre-populate the gitDir cache for Windows fallback path
-				// Use Uri.file().fsPath as cache key to match getGitDir() lookup
 				const fallbackUri = Uri.file(normalizePath(uri.fsPath));
 				if (gitDirInfo != null) {
 					const gitDir: GitDir = {
 						uri: Uri.file(gitDirInfo.gitDir),
-						commonUri: gitDirInfo.commonGitDir != null ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+						commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
 					};
-					const cacheKey = fallbackUri.fsPath;
-					const repo = this._cache.repoInfo.get(cacheKey);
-					this._cache.repoInfo.set(cacheKey, { ...repo, gitDir: gitDir });
+					this._cache.gitDir.set(fallbackUri.fsPath, gitDir);
 				}
 				return fallbackUri;
 			}
@@ -1119,19 +1109,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			// Pre-populate the gitDir cache to avoid a second rev-parse call in getGitDir()
-			// Use Uri.file().fsPath as cache key to match getGitDir() lookup
 			if (!repoPath) return undefined;
 
+			// Pre-populate the gitDir cache
 			const resultUri = Uri.file(repoPath);
 			if (gitDirInfo != null) {
 				const gitDir: GitDir = {
 					uri: Uri.file(gitDirInfo.gitDir),
-					commonUri: gitDirInfo.commonGitDir != null ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+					commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
 				};
-				const cacheKey = resultUri.fsPath;
-				const repo = this._cache.repoInfo.get(cacheKey);
-				this._cache.repoInfo.set(cacheKey, { ...repo, gitDir: gitDir });
+				this._cache.gitDir.set(resultUri.fsPath, gitDir);
 			}
 
 			return resultUri;

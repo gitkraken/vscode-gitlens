@@ -22,25 +22,23 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		const scope = getLogScope();
 
-		const repo = this.cache.repoInfo.get(repoPath);
-
-		let user = repo?.user;
-		if (user != null) return user;
-		// If we found the repo, but no user data was found just return
-		if (user === null) return undefined;
+		const cached = this.cache.currentUser.get(repoPath);
+		if (cached != null) return cached;
+		// If we found null, user data was not found - don't bother trying again
+		if (cached === null) return undefined;
 
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
-			user = await github.getCurrentUser(session.accessToken, metadata.repo.owner, metadata.repo.name);
+			const user = await github.getCurrentUser(session.accessToken, metadata.repo.owner, metadata.repo.name);
 
-			this.cache.repoInfo.set(repoPath, { ...repo, user: user ?? null });
+			this.cache.currentUser.set(repoPath, user ?? null);
 			return user;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
 
 			// Mark it so we won't bother trying again
-			this.cache.repoInfo.set(repoPath, { ...repo, user: null });
+			this.cache.currentUser.set(repoPath, null);
 			return undefined;
 		}
 	}
