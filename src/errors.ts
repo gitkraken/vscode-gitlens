@@ -4,6 +4,7 @@ import { CancellationError as _CancellationError } from 'vscode';
 import type { Response } from '@env/fetch.js';
 import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 import { isSubscriptionPaidPlan } from './plus/gk/utils/subscription.utils.js';
+import type { TokenInfo } from './plus/integrations/authentication/models.js';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;
@@ -53,10 +54,22 @@ export class AuthenticationError extends Error {
 	readonly id: string;
 	readonly original?: Error;
 	readonly reason: AuthenticationErrorReason | undefined;
+	readonly authInfo: string;
 
-	constructor(id: string, reason?: AuthenticationErrorReason, original?: Error);
-	constructor(id: string, message?: string, original?: Error);
-	constructor(id: string, messageOrReason: string | AuthenticationErrorReason | undefined, original?: Error) {
+	constructor(info: TokenInfo, reason?: AuthenticationErrorReason, original?: Error);
+	constructor(info: TokenInfo, message?: string, original?: Error);
+	constructor(info: TokenInfo, messageOrReason: string | AuthenticationErrorReason | undefined, original?: Error) {
+		const { providerId: id, type, cloud, scopes, expiresAt } = info;
+		const tokenDetails = [
+			cloud ? 'cloud' : 'self-managed',
+			type,
+			info.microHash,
+			expiresAt && `expiresAt=${isNaN(expiresAt.getTime()) ? expiresAt.toString() : expiresAt.toISOString()}`,
+			scopes && `[${scopes.join(',')}]`,
+		]
+			.filter(v => v)
+			.join(', ');
+		const authInfo = `(token details: ${tokenDetails})`;
 		let message;
 		let reason: AuthenticationErrorReason | undefined;
 		if (messageOrReason == null) {
@@ -83,7 +96,12 @@ export class AuthenticationError extends Error {
 		this.id = id;
 		this.original = original;
 		this.reason = reason;
+		this.authInfo = authInfo;
 		Error.captureStackTrace?.(this, new.target);
+	}
+
+	override toString(): string {
+		return `${super.toString()} ${this.authInfo}`;
 	}
 }
 

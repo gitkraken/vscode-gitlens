@@ -26,6 +26,7 @@ import { log } from '../../../../../system/decorators/log.js';
 import { union } from '../../../../../system/iterable.js';
 import { Logger } from '../../../../../system/logger.js';
 import { getLogScope } from '../../../../../system/logger.scope.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 import { stripOrigin } from '../githubGitProvider.js';
 import { fromCommitFileStatus } from '../models.js';
@@ -87,7 +88,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		try {
 			let result = await github.getComparison(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				stripOrigin(range),
@@ -98,7 +99,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			let files = files1;
 			if (range2) {
 				result = await github.getComparison(
-					session.accessToken,
+					toTokenWithInfo(this.provider.authenticationProviderId, session),
 					metadata.repo.owner,
 					metadata.repo.name,
 					stripOrigin(range2),
@@ -160,7 +161,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			}
 
 			const refs = await github.getNextCommitRefs(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				revision,
@@ -209,7 +210,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			const offset = rev != null ? 1 : 0;
 
 			const result = await github.getCommitRefs(
-				session.accessToken,
+				toTokenWithInfo(this.provider.authenticationProviderId, session),
 				metadata.repo.owner,
 				metadata.repo.name,
 				stripOrigin(!rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev),

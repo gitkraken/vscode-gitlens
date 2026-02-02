@@ -46,6 +46,7 @@ import type {
 	GraphItemRefContext,
 	GraphTagContextValue,
 } from '../../../../../webviews/plus/graph/protocol.js';
+import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 const doubleQuoteRegex = /"/g;
@@ -609,16 +610,20 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			let hasMore = true;
 
 			while (hasMore && !cancellation?.isCancellationRequested) {
-				const result = await github.searchCommitShas(session.accessToken, query, {
-					cursor: apiCursor,
-					limit: limit,
-					sort:
-						options?.ordering === 'date'
-							? 'committer-date'
-							: options?.ordering === 'author-date'
-								? 'author-date'
-								: undefined,
-				});
+				const result = await github.searchCommitShas(
+					toTokenWithInfo(this.provider.authenticationProviderId, session),
+					query,
+					{
+						cursor: apiCursor,
+						limit: limit,
+						sort:
+							options?.ordering === 'date'
+								? 'committer-date'
+								: options?.ordering === 'author-date'
+									? 'author-date'
+									: undefined,
+					},
+				);
 
 				if (result == null || cancellation?.isCancellationRequested) {
 					break;

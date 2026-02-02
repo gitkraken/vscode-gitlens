@@ -13,7 +13,11 @@ import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integratio
 import { providersMetadata } from '../providers/models.js';
 import { isGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils.js';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider.js';
-import type { ConfiguredIntegrationDescriptor, ProviderAuthenticationSession } from './models.js';
+import type {
+	CloudIntegrationAuthType,
+	ConfiguredIntegrationDescriptor,
+	ProviderAuthenticationSession,
+} from './models.js';
 
 interface StoredSession {
 	id: string;
@@ -21,6 +25,7 @@ interface StoredSession {
 	account?: { label?: string; displayName?: string; id: string };
 	scopes: string[];
 	cloud?: boolean;
+	type: CloudIntegrationAuthType | undefined;
 	expiresAt?: string;
 	domain?: string;
 	protocol?: string;
@@ -431,5 +436,6 @@ function convertStoredSessionToSession(
 		expiresAt: storedSession.expiresAt ? new Date(storedSession.expiresAt) : undefined,
 		domain: storedSession.domain ?? descriptor.domain,
 		protocol: storedSession.protocol,
+		type: storedSession.type,
 	};
 }
