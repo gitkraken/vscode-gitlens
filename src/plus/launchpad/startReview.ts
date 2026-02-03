@@ -1,6 +1,5 @@
-import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { QuickPick } from 'vscode';
 import { Uri, window } from 'vscode';
-import { md5 } from '@env/crypto.js';
 import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations.js';
 import type {
 	AsyncStepResultGenerator,
@@ -24,7 +23,7 @@ import { ensureAccessStep } from '../../commands/quick-wizard/steps/access.js';
 import { StepsController } from '../../commands/quick-wizard/stepsController.js';
 import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
 import type { IntegrationIds } from '../../constants.integrations.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
+import { GitCloudHostIntegrationId } from '../../constants.integrations.js';
 import { proBadge } from '../../constants.js';
 import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -42,8 +41,14 @@ import { getScopedCounter } from '../../system/counter.js';
 import { fromNow } from '../../system/date.js';
 import { some } from '../../system/iterable.js';
 import type { Deferred } from '../../system/promise.js';
+import type { ConnectMoreIntegrationsItem } from '../integrations/utils/-webview/integration.quickPicks.js';
+import {
+	getOpenOnGitProviderQuickInputButtons,
+	isManageIntegrationsItem,
+	manageIntegrationsItem,
+} from '../integrations/utils/-webview/integration.quickPicks.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
-import { supportedLaunchpadIntegrations } from './launchpadProvider.js';
+import { getLaunchpadItemIdHash, supportedLaunchpadIntegrations } from './launchpadProvider.js';
 import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
 
 export interface StartReviewTelemetryContext {
@@ -74,28 +79,14 @@ const Steps = {
 } as const;
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
-type SupportedStartReviewIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
-
-type ConnectMoreIntegrationsItem = QuickPickItem & {
-	item: undefined;
-};
 const connectMoreIntegrationsItem: ConnectMoreIntegrationsItem = {
 	label: 'Connect an Additional Integration...',
 	detail: 'Connect additional integrations to view their pull requests',
 	item: undefined,
 };
 
-type ManageIntegrationsItem = QuickPickItem & {
-	item: undefined;
-};
-const manageIntegrationsItem: ManageIntegrationsItem = {
-	label: 'Manage integrations...',
-	detail: 'Manage your connected integrations',
-	item: undefined,
-};
-
 interface StartReviewItem {
-	pr: LaunchpadItem;
+	launchpadItem: LaunchpadItem;
 }
 
 interface StartReviewResult {
@@ -106,7 +97,7 @@ export interface StartReviewContext extends StepsContext<StepNames> {
 	result?: StartReviewResult;
 	title: string;
 	telemetryContext: StartReviewTelemetryContext | undefined;
-	connectedIntegrations: Map<SupportedStartReviewIntegrationIds, boolean>;
+	connectedIntegrations: Map<IntegrationIds, boolean>;
 }
 
 interface StartReviewState {
@@ -129,37 +120,11 @@ function isConnectMoreIntegrationsItem(item: unknown): item is ConnectMoreIntegr
 	return item === connectMoreIntegrationsItem;
 }
 
-function isManageIntegrationsItem(item: unknown): item is ManageIntegrationsItem {
-	return item === manageIntegrationsItem;
-}
-
-function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton | undefined {
-	switch (integrationId) {
-		case GitCloudHostIntegrationId.AzureDevOps:
-		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
-			return OpenOnAzureDevOpsQuickInputButton;
-		case GitCloudHostIntegrationId.Bitbucket:
-			return OpenOnBitbucketQuickInputButton;
-		case GitCloudHostIntegrationId.GitHub:
-		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-			return OpenOnGitHubQuickInputButton;
-		case GitCloudHostIntegrationId.GitLab:
-		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
-			return OpenOnGitLabQuickInputButton;
-		default:
-			return undefined;
-	}
-}
-
-function getStartReviewItemIdHash(item: StartReviewItem): string {
-	return md5(item.pr.uuid ?? item.pr.id);
-}
-
 function buildItemTelemetryData(item: StartReviewItem) {
 	return {
-		'item.id': getStartReviewItemIdHash(item),
-		'item.provider': item.pr.provider.id,
-		'item.updatedDate': item.pr.updatedDate.getTime(),
+		'item.id': getLaunchpadItemIdHash(item.launchpadItem),
+		'item.provider': item.launchpadItem.provider.id,
+		'item.updatedDate': item.launchpadItem.updatedDate.getTime(),
 	};
 }
 
@@ -209,7 +174,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		}
 
 		context ??= this.createContext();
-		context.connectedIntegrations = await getConnectedIntegrations(this.container);
+		context.connectedIntegrations = await this.container.launchpad.getConnectedIntegrations();
 
 		using steps = new StepsController<StepNames>(context, this);
 
@@ -324,7 +289,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 			// Execute the review using the LaunchpadItem directly (avoids redundant PR lookup)
 			try {
-				const reviewResult = await startReviewFromLaunchpadItem(this.container, state.item.pr);
+				const reviewResult = await startReviewFromLaunchpadItem(this.container, state.item.launchpadItem);
 				state.result?.fulfill(reviewResult);
 			} catch (ex) {
 				state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
@@ -480,15 +445,18 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
 
 		const buildPullRequestQuickPickItem = (i: StartReviewItem) => {
-			const onWebButton = i.pr.url ? getOpenOnWebQuickInputButton(i.pr.provider.id) : undefined;
-			const buttons = onWebButton ? [onWebButton] : [];
+			const buttons = getOpenOnGitProviderQuickInputButtons(i.launchpadItem.provider.id);
 			return {
-				label: i.pr.title.length > 60 ? `${i.pr.title.substring(0, 60)}...` : i.pr.title,
-				description: `\u00a0 ${i.pr.repository.owner.login}/${i.pr.repository.name}#${i.pr.id} \u00a0`,
-				detail: `      ${fromNow(i.pr.updatedDate)} by @${i.pr.author?.username ?? 'unknown'}`,
-				iconPath: i.pr.author?.avatarUrl != null ? Uri.parse(i.pr.author.avatarUrl) : undefined,
+				label:
+					i.launchpadItem.title.length > 60
+						? `${i.launchpadItem.title.substring(0, 60)}...`
+						: i.launchpadItem.title,
+				description: `\u00a0 ${i.launchpadItem.repository.owner.login}/${i.launchpadItem.repository.name}#${i.launchpadItem.id} \u00a0`,
+				detail: `      ${fromNow(i.launchpadItem.updatedDate)} by @${i.launchpadItem.author?.username ?? 'unknown'}`,
+				iconPath:
+					i.launchpadItem.author?.avatarUrl != null ? Uri.parse(i.launchpadItem.author.avatarUrl) : undefined,
 				item: i,
-				picked: i.pr.uuid === state.item?.pr.uuid,
+				picked: i.launchpadItem.uuid === state.item?.launchpadItem.uuid,
 				buttons: buttons,
 			};
 		};
@@ -597,8 +565,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 	}
 
 	private open(item: StartReviewItem): void {
-		if (item.pr.url == null) return;
-		void openUrl(item.pr.url);
+		if (item.launchpadItem.url == null) return;
+		void openUrl(item.launchpadItem.url);
 	}
 
 	private sendItemActionTelemetry(action: 'soft-open', item: StartReviewItem, context: StartReviewContext) {
@@ -631,28 +599,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 	}
 }
 
-async function getConnectedIntegrations(
-	container: Container,
-): Promise<Map<SupportedStartReviewIntegrationIds, boolean>> {
-	const connected = new Map<SupportedStartReviewIntegrationIds, boolean>();
-	await Promise.allSettled(
-		supportedLaunchpadIntegrations.map(async integrationId => {
-			const integration = await container.integrations.get(integrationId);
-			if (integration == null) {
-				connected.set(integrationId, false);
-				return;
-			}
-			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
-			const hasAccess = isConnected && (await integration.access());
-			connected.set(integrationId, hasAccess);
-		}),
-	);
-
-	return connected;
-}
-
 async function updateContextItems(container: Container, context: StartReviewContext) {
-	context.connectedIntegrations = await getConnectedIntegrations(container);
+	context.connectedIntegrations = await container.launchpad.getConnectedIntegrations();
 
 	// Get PRs from launchpad that need review
 	const result: LaunchpadCategorizedResult = await container.launchpad.getCategorizedItems();
@@ -667,7 +615,7 @@ async function updateContextItems(container: Container, context: StartReviewCont
 		result.items?.filter(item => item.actionableCategory === 'needs-my-review' || !item.viewer.isAuthor) ?? [];
 
 	context.result = {
-		items: reviewablePrs.map(pr => ({ pr: pr })),
+		items: reviewablePrs.map(launchpadItem => ({ launchpadItem: launchpadItem })),
 	};
 
 	if (container.telemetry.enabled) {
