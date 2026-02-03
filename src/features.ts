@@ -83,6 +83,7 @@ export type ProFeatures =
 	| 'worktrees'
 	| 'graph'
 	| 'launchpad'
+	| 'startReview'
 	| 'startWork'
 	| 'associateIssueWithBranch'
 	| ProAIFeatures;
@@ -118,6 +119,7 @@ export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFea
 export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFeatures {
 	switch (feature) {
 		case 'launchpad':
+		case 'startReview':
 		case 'startWork':
 		case 'associateIssueWithBranch':
 		case 'explain-changes':

@@ -252,7 +252,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
 				using step = steps.enterStep(Steps.EnsureAccess);
 
-				const result = yield* ensureAccessStep(this.container, 'launchpad', state, context, step);
+				const result = yield* ensureAccessStep(this.container, 'startReview', state, context, step);
 				if (result === StepResultBreak) {
 					if (step.goBack() == null) break;
 					continue;
