@@ -705,13 +705,21 @@ export abstract class ViewBase<
 	/**
 	 * Waits for VS Code's internal tree data debounce period to complete.
 	 * This prevents race conditions between refresh and reveal operations.
-	 * Only waits if a tree data change was fired recently (within the cooldown period).
+	 * Waits if a tree data change was fired recently, or if this is the first load
+	 * (to allow VS Code time to process initial tree data).
 	 */
 	private async waitForTreeDataDebounce(): Promise<void> {
 		const cooldownMs = onDidChangeTreeDebounceMs + revealBufferMs;
-		const elapsed = Date.now() - this._lastTreeDataChangeAt;
 
-		if (this._lastTreeDataChangeAt > 0 && elapsed < cooldownMs) {
+		// On first load (_lastTreeDataChangeAt is 0), wait the full debounce time
+		// to allow VS Code to finish processing initial tree data
+		if (this._lastTreeDataChangeAt === 0) {
+			await new Promise<void>(resolve => setTimeout(resolve, cooldownMs));
+			return;
+		}
+
+		const elapsed = Date.now() - this._lastTreeDataChangeAt;
+		if (elapsed < cooldownMs) {
 			await new Promise<void>(resolve => setTimeout(resolve, cooldownMs - elapsed));
 		}
 	}
