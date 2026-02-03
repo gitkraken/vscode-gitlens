@@ -72,9 +72,17 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 	private onRequest(req: IncomingMessage, res: ServerResponse): void {
 		const scope = getLogScope();
 
-		const handler = this.handlers.get(req.url);
+		// Parse URL to extract pathname for routing, separating from query parameters
+		let pathname: string | undefined;
+		try {
+			pathname = new URL(req.url ?? '', this.ipcAddress).pathname;
+		} catch {
+			pathname = req.url;
+		}
+
+		const handler = this.handlers.get(pathname);
 		if (handler == null) {
-			Logger.warn(scope, `IPC handler for ${req.url} not found`);
+			Logger.warn(scope, `IPC handler for ${pathname} not found`);
 			res.writeHead(404);
 			res.end();
 			return;
