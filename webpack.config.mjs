@@ -10,7 +10,7 @@ import CspHtmlPlugin from 'csp-html-webpack-plugin';
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
 import esbuild from 'esbuild';
 import { ESLintLitePlugin } from '@eamodio/eslint-lite-webpack-plugin';
-import { generateFonts } from '@twbs/fantasticon';
+import { generateFonts } from 'fantasticon';
 import ForkTsCheckerPlugin from 'fork-ts-checker-webpack-plugin';
 import fs from 'fs';
 import HtmlPlugin from 'html-webpack-plugin';

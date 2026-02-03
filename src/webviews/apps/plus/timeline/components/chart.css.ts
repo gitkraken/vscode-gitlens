@@ -421,6 +421,10 @@ export const timelineChartStyles = css`
 		font-weight: 600;
 	}
 
+	.bb-tooltip .icon {
+		font-family: codicon;
+	}
+
 	.bb-tooltip .branches {
 		white-space: nowrap;
 		overflow: hidden;

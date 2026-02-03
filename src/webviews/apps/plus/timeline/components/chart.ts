@@ -831,8 +831,8 @@ export class GlTimelineChart extends GlElement {
 
 							if (commit.sha === '') {
 								return /*html*/ `<div class="bb-tooltip">
-									<section class="author">Working Tree</section>
-									<section class="message"><span class="message__content">No uncommitted changes</span></section>
+									<div class="author">Working Tree</div>
+									<div class="message"><span class="message__content">No uncommitted changes</span></div>
 								</div>`;
 							}
 
@@ -851,27 +851,23 @@ export class GlTimelineChart extends GlElement {
 							}
 
 							const branchesSection = commit.branches?.length
-								? /*html*/ `<section class="branches"><code-icon icon="git-branch"></code-icon> ${commit.branches.join(
-										', ',
-									)}</section>`
+								? /*html*/ `<div class="branches"><span class="icon">\u{EA68}</span> ${commit.branches.join(', ')}</div>`
 								: '';
 
 							return /*html*/ `<div class="bb-tooltip">
-									<section class="author">${commit.author}</section>
-									<section>
-										<span class="sha"><code-icon icon="git-commit"></code-icon> ${shortenRevision(commit.sha)}</span>
+									<div class="author">${commit.author}</div>
+									<div>
+										<span class="sha"><span class="icon">\u{EAFC}</span> ${shortenRevision(commit.sha)}</span>
 										<span class="changes">${additionsLabel}${deletionsLabel}</span>
-									</section>
-									<section class="date">
-										<code-icon icon="history"></code-icon><span class="date--relative">${capitalize(
-											fromNow(date),
-										)}</span><span class="date--absolute">(${formatDate(
+									</div>
+									<div class="date">
+										<span class="icon">\u{EA82}</span><span class="date--relative">${capitalize(fromNow(date))}</span><span class="date--absolute">(${formatDate(
 											date,
 											this.dateFormat,
 										)})</span>
-									</section>
+									</div>
 									${branchesSection}
-									<section class="message"><span class="message__content">${commit.message}</span></section>
+									<div class="message"><span class="message__content">${commit.message}</span></div>
 								</div>`;
 						},
 						show: true,

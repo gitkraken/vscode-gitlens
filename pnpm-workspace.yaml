@@ -5,6 +5,7 @@ ignoredBuiltDependencies:
     - '@playwright/browser-chromium'
     - '@swc/core'
     - '@vscode/vsce-sign'
+    - es5-ext
     - esbuild
     - keytar
     - protobufjs
@@ -19,4 +20,6 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - 'prettier@3.8.1'
+    - '@types/react'
+    - diff2html@3.4.56
+    - tar@7.5.7
