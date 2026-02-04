@@ -27108,6 +27108,15 @@
 			"gitlens": [
 				{
 					"type": "webview",
+					"id": "gitlens.views.welcome",
+					"name": "Welcome",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-gitlens)",
+					"initialSize": 1,
+					"visibility": "visible"
+				},
+				{
+					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
 					"contextualTitle": "GitLens",
