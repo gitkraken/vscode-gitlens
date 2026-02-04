@@ -542,26 +542,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						if (data == null) {
 							const defaultBranch =
 								(await this.provider.config.getConfig(repoPath, 'init.defaultBranch')) ?? 'main';
-							const branchConfig = await this.provider.config.getConfigRegex(
+							const configMap = await this.provider.config.getConfigRegex(
 								repoPath,
 								`branch\\.${defaultBranch}\\.+`,
 								{ runGitLocally: true },
 							);
 
-							let remote;
-							let remoteBranch;
+							const remote = configMap.get(`branch.${defaultBranch}.remote`);
+							const merge = configMap.get(`branch.${defaultBranch}.merge`);
+							const remoteBranch = merge?.startsWith('refs/heads/')
+								? merge.substring('refs/heads/'.length)
+								: undefined;
 
-							if (branchConfig) {
-								let match = /^branch\..+\.remote\s(.+)$/m.exec(branchConfig);
-								if (match != null) {
-									remote = match[1];
-								}
-
-								match = /^branch\..+\.merge\srefs\/heads\/(.+)$/m.exec(branchConfig);
-								if (match != null) {
-									remoteBranch = match[1];
-								}
-							}
 							data = [
 								`${defaultBranch}${remote && remoteBranch ? `\n${remote}/${remoteBranch}` : ''}`,
 								undefined,
@@ -1135,37 +1127,23 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<string | undefined> {
 		try {
-			const pattern = `^branch\\.${ref}\\.`;
-			const data = await this.provider.config.getConfigRegex?.(repoPath, pattern);
-			if (data) {
-				const regex = new RegExp(`${pattern}(.+) (.+)$`, 'gm');
+			// getGkConfig has built-in fallback to regular config for backward compatibility
+			let mergeBase = await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-base`);
+			let update = false;
 
-				let mergeBase: string | undefined;
-				let update = false;
-				while (true) {
-					const match = regex.exec(data);
-					if (match == null) break;
+			// Also check vscode-merge-base in regular config (VS Code compatibility)
+			if (mergeBase == null) {
+				mergeBase = await this.provider.config.getConfig(repoPath, `branch.${ref}.vscode-merge-base`);
+				update = mergeBase != null;
+			}
 
-					const [, key, value] = match;
-					if (key === 'gk-merge-base') {
-						mergeBase = value;
-						update = false;
-						break;
-					} else if (key === 'vscode-merge-base') {
-						mergeBase = value;
-						update = true;
-						continue;
+			if (mergeBase != null) {
+				const branch = await this.provider.refs.getSymbolicReferenceName(repoPath, mergeBase);
+				if (branch != null) {
+					if (update) {
+						void this.storeBaseBranchName(repoPath, ref, branch);
 					}
-				}
-
-				if (mergeBase != null) {
-					const branch = await this.provider.refs.getSymbolicReferenceName(repoPath, mergeBase);
-					if (branch != null) {
-						if (update) {
-							void this.storeBaseBranchName(repoPath, ref, branch);
-						}
-						return branch;
-					}
+					return branch;
 				}
 			}
 		} catch {}
@@ -1251,14 +1229,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	@log({ exit: true })
 	async getStoredDetectedMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target =
-			(await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-merge-target`)) ??
-			(await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-target-base`));
+			(await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target`)) ??
+			(await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-target-base`)); // legacy key
 		return target?.trim() || undefined;
 	}
 
 	@log()
 	async getStoredUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
-		const target = await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-merge-target-user`);
+		const target = await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target-user`);
 		return target?.trim() || undefined;
 	}
 
@@ -1333,17 +1311,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	@log()
 	async storeBaseBranchName(repoPath: string, ref: string, base: string): Promise<void> {
-		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-base`, base);
+		await this.provider.config.setGkConfig(repoPath, `branch.${ref}.gk-merge-base`, base);
 	}
 
 	@log()
 	async storeMergeTargetBranchName(repoPath: string, ref: string, target: string): Promise<void> {
-		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-target`, target);
+		await this.provider.config.setGkConfig(repoPath, `branch.${ref}.gk-merge-target`, target);
 	}
 
 	@log()
 	async storeUserMergeTargetBranchName(repoPath: string, ref: string, target: string | undefined): Promise<void> {
-		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-target-user`, target);
+		await this.provider.config.setGkConfig(repoPath, `branch.${ref}.gk-merge-target-user`, target);
 	}
 
 	/**
@@ -1356,24 +1334,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		try {
 			// Use git config --get-regexp to load all gk-* branch date metadata in one call
-			const data = await this.provider.config.getConfigRegex(
+			const configMap = await this.provider.config.getGkConfigRegex(
 				repoPath,
 				'^branch\\..*\\.gk-last-(accessed|modified)$',
-				{ runGitLocally: true },
 			);
-			if (!data) return dateMetadataMap;
+			if (!configMap.size) return dateMetadataMap;
 
-			// Parse the output: "branch.{name}.gk-last-accessed {timestamp}"
-			for (const line of data.split('\n')) {
-				if (!line) continue;
-
-				// Find the last space to split key from value
-				const spaceIndex = line.lastIndexOf(' ');
-				if (spaceIndex === -1) continue;
-
-				const key = line.substring(0, spaceIndex);
-				const value = line.substring(spaceIndex + 1);
-
+			// Parse entries: key is "branch.{name}.gk-last-accessed" or "branch.{name}.gk-last-modified"
+			for (const [key, value] of configMap) {
 				// Extract branch name and date metadata key from "branch.{name}.gk-{key}"
 				if (!key.startsWith('branch.')) continue;
 
@@ -1410,12 +1378,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		ref: string,
 		date: Date,
 	): Promise<void> {
-		const value = await this.provider.config.getConfig(repoPath, `branch.${ref}.${key}`);
+		const value = await this.provider.config.getGkConfig(repoPath, `branch.${ref}.${key}`);
 		// Skip if incoming date is not at least 5 minutes newer than stored date
 		if (value != null && date.getTime() - new Date(value).getTime() < dateMetadataStaleThresholdMs) {
 			return;
 		}
 
-		return this.provider.config.setConfig(repoPath, `branch.${ref}.${key}`, date.toISOString());
+		return this.provider.config.setGkConfig(repoPath, `branch.${ref}.${key}`, date.toISOString());
 	}
 }

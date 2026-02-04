@@ -44,7 +44,7 @@ interface Caches {
 	branch: PromiseMap<RepoPath, GitBranch | undefined> | undefined;
 	branches: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
 	configKeys: RepoPromiseCacheMap<string, string | undefined> | undefined;
-	configPatterns: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	configPatterns: RepoPromiseCacheMap<string, Map<string, string>> | undefined;
 	conflictDetection: RepoPromiseCacheMap<ConflictDetectionCacheKey, ConflictDetectionResult> | undefined;
 	contributors: RepoPromiseCacheMap<string, GitContributorsResult> | undefined;
 	contributorsLite: RepoPromiseCacheMap<string, GitContributor[]> | undefined;
@@ -55,6 +55,8 @@ interface Caches {
 	gitDir: Map<RepoPath, GitDir> | undefined;
 	gitIgnore: Map<RepoPath, GitIgnoreCache> | undefined;
 	gitResults: RepoPromiseCacheMap<string, GitResult> | undefined;
+	gkConfigKeys: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	gkConfigPatterns: RepoPromiseCacheMap<string, Map<string, string>> | undefined;
 	initialCommitSha: PromiseMap<RepoPath, string | undefined> | undefined;
 	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
 	logShas: RepoPromiseCacheMap<string, string[]> | undefined;
@@ -84,6 +86,8 @@ function createEmptyCaches(): Caches {
 		gitDir: undefined,
 		gitIgnore: undefined,
 		gitResults: undefined,
+		gkConfigKeys: undefined,
+		gkConfigPatterns: undefined,
 		initialCommitSha: undefined,
 		lastFetched: undefined,
 		logShas: undefined,
@@ -146,10 +150,18 @@ export class GitCache implements Disposable {
 		}));
 	}
 
-	private get configPatterns(): RepoPromiseCacheMap<string, string | undefined> {
-		return (this._caches.configPatterns ??= new RepoPromiseCacheMap<string, string | undefined>({
+	private get configPatterns(): RepoPromiseCacheMap<string, Map<string, string>> {
+		return (this._caches.configPatterns ??= new RepoPromiseCacheMap<string, Map<string, string>>({
 			createTTL: 1000 * 30, // 30 seconds - ensures global config changes are picked up
 		}));
+	}
+
+	private get gkConfigKeys(): RepoPromiseCacheMap<string, string | undefined> {
+		return (this._caches.gkConfigKeys ??= new RepoPromiseCacheMap<string, string | undefined>());
+	}
+
+	private get gkConfigPatterns(): RepoPromiseCacheMap<string, Map<string, string>> {
+		return (this._caches.gkConfigPatterns ??= new RepoPromiseCacheMap<string, Map<string, string>>());
 	}
 
 	get currentBranchReference(): PromiseCache<RepoPath, GitBranchReference | undefined> {
@@ -327,6 +339,11 @@ export class GitCache implements Disposable {
 			cachesToClear.add(this._caches.gitIgnore);
 		}
 
+		if (!types.length || types.includes('gkConfig')) {
+			sharedCachesToClear.add(this._caches.gkConfigKeys);
+			sharedCachesToClear.add(this._caches.gkConfigPatterns);
+		}
+
 		if (!types.length || types.includes('providers')) {
 			// When providers change, clear parsed remotes but NOT raw git output
 			// Raw git output doesn't change, only the parsing/provider matching does
@@ -478,6 +495,10 @@ export class GitCache implements Disposable {
 			types.add('gitignore');
 		}
 
+		if (e.changed(RepositoryChange.GkConfig, RepositoryChangeComparisonMode.Any)) {
+			types.add('gkConfig');
+		}
+
 		if (e.changed(RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
 			// RemoteProviders change only affects parsed remotes, not raw git output
 			types.add('providers');
@@ -593,8 +614,8 @@ export class GitCache implements Disposable {
 	getConfigRegex(
 		repoPath: string | undefined,
 		pattern: string,
-		factory: () => PromiseOrValue<string | undefined>,
-	): Promise<string | undefined> {
+		factory: () => PromiseOrValue<Map<string, string>>,
+	): Promise<Map<string, string>> {
 		const cacheKey = repoPath != null ? this.getCommonPath(repoPath) : GitCache.globalConfigKey;
 
 		const result = this.configPatterns.get(cacheKey, pattern);
@@ -612,6 +633,47 @@ export class GitCache implements Disposable {
 		this._caches.configKeys?.delete(cacheKey, key);
 		// Clear all regex patterns for this scope since any pattern might include this key
 		this._caches.configPatterns?.delete(cacheKey);
+	}
+
+	/** Gets a GK config value by exact key from cache or fetches it via factory (GK config is shared across worktrees) */
+	getGkConfig(
+		repoPath: string,
+		key: string,
+		factory: () => PromiseOrValue<string | undefined>,
+	): Promise<string | undefined> {
+		const cacheKey = this.getCommonPath(repoPath);
+
+		const result = this.gkConfigKeys.get(cacheKey, key);
+		if (result != null) return result;
+
+		const factoryPromise = Promise.resolve(factory());
+		this.gkConfigKeys.set(cacheKey, key, factoryPromise);
+		return factoryPromise;
+	}
+
+	/** Gets GK config values by regex pattern from cache or fetches them via factory (GK config is shared across worktrees) */
+	getGkConfigRegex(
+		repoPath: string,
+		pattern: string,
+		factory: () => PromiseOrValue<Map<string, string>>,
+	): Promise<Map<string, string>> {
+		const cacheKey = this.getCommonPath(repoPath);
+
+		const result = this.gkConfigPatterns.get(cacheKey, pattern);
+		if (result != null) return result;
+
+		const factoryPromise = Promise.resolve(factory());
+		this.gkConfigPatterns.set(cacheKey, pattern, factoryPromise);
+		return factoryPromise;
+	}
+
+	/** Deletes a cached GK config value by key and clears all regex pattern caches for that scope */
+	deleteGkConfig(repoPath: string, key: string): void {
+		const cacheKey = this.getCommonPath(repoPath);
+		// Delete the specific key from the keys cache
+		this._caches.gkConfigKeys?.delete(cacheKey, key);
+		// Clear all regex patterns for this scope since any pattern might include this key
+		this._caches.gkConfigPatterns?.delete(cacheKey);
 	}
 
 	/** Gets contributors from cache or creates them via factory (contributors are shared across worktrees) */

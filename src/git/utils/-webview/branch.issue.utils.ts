@@ -1,5 +1,5 @@
 import type { CancellationToken } from 'vscode';
-import type { GitConfigKeys } from '../../../constants.js';
+import type { GkConfigKeys } from '../../../constants.js';
 import type { Container } from '../../../container.js';
 import type { GitConfigEntityIdentifier } from '../../../plus/integrations/providers/models.js';
 import {
@@ -36,7 +36,7 @@ export async function addAssociatedIssueToBranch(
 		associatedIssues.push(encodeIssueOrPullRequestForGitConfig(issue, owner));
 		await container.git
 			.getRepositoryService(branch.repoPath)
-			.config.setConfig?.(key, JSON.stringify(associatedIssues));
+			.config.setGkConfig?.(key, JSON.stringify(associatedIssues));
 	} catch (ex) {
 		Logger.error(ex, 'addAssociatedIssueToBranch');
 	}
@@ -98,11 +98,11 @@ export async function removeAssociatedIssueFromBranch(
 			: [];
 		associatedIssues = associatedIssues.filter(i => i.entityId !== id);
 		if (associatedIssues.length === 0) {
-			await container.git.getRepositoryService(branch.repoPath).config.setConfig?.(key, undefined);
+			await container.git.getRepositoryService(branch.repoPath).config.setGkConfig?.(key, undefined);
 		} else {
 			await container.git
 				.getRepositoryService(branch.repoPath)
-				.config.setConfig?.(key, JSON.stringify(associatedIssues));
+				.config.setGkConfig?.(key, JSON.stringify(associatedIssues));
 		}
 	} catch (ex) {
 		Logger.error(ex, 'removeAssociatedIssueFromBranch');
@@ -112,8 +112,8 @@ export async function removeAssociatedIssueFromBranch(
 async function getConfigKeyAndEncodedAssociatedIssuesForBranch(
 	container: Container,
 	branch: GitBranchReference,
-): Promise<{ key: GitConfigKeys; encoded: string | undefined }> {
-	const key = `branch.${branch.name}.gk-associated-issues` satisfies GitConfigKeys;
-	const encoded = await container.git.getRepositoryService(branch.repoPath).config.getConfig?.(key);
+): Promise<{ key: GkConfigKeys; encoded: string | undefined }> {
+	const key = `branch.${branch.name}.gk-associated-issues` satisfies GkConfigKeys;
+	const encoded = await container.git.getRepositoryService(branch.repoPath).config.getGkConfig?.(key);
 	return { key: key, encoded: encoded };
 }

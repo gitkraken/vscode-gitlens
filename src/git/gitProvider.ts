@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import type { Commit, InputBox } from '../@types/vscode.git.d.js';
 import type { ForcePushMode } from '../@types/vscode.git.enums.js';
-import type { DeprecatedGitConfigKeys, GitConfigKeys, GitCoreConfigKeys } from '../constants.js';
+import type { DeprecatedGkConfigKeys, GitConfigKeys, GkConfigKeys } from '../constants.js';
 import type { SearchQuery } from '../constants.search.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Features } from '../features.js';
@@ -50,6 +50,7 @@ export type CachedGitTypes =
 	| 'config'
 	| 'contributors'
 	| 'gitignore'
+	| 'gkConfig'
 	| 'providers'
 	| 'remotes'
 	| 'stashes'
@@ -462,7 +463,7 @@ export type GitConfigType = 'bool' | 'int' | 'bool-or-int' | 'path' | 'expiry-da
 export interface GitConfigSubProvider {
 	getConfig?(
 		repoPath: string | undefined,
-		key: GitCoreConfigKeys | GitConfigKeys | DeprecatedGitConfigKeys,
+		key: GitConfigKeys,
 		options?: {
 			global?: boolean;
 			/** Specifies that this Git command should always be executed locally if possible (for live share sessions) */
@@ -478,10 +479,10 @@ export interface GitConfigSubProvider {
 			/** Specifies that this Git command should always be executed locally if possible (for live share sessions) */
 			runGitLocally?: boolean;
 		},
-	): Promise<string | undefined>;
+	): Promise<Map<string, string>>;
 	setConfig?(
 		repoPath: string | undefined,
-		key: GitCoreConfigKeys | GitConfigKeys,
+		key: GitConfigKeys,
 		value: string | undefined,
 		options?: {
 			global?: boolean;
@@ -489,13 +490,27 @@ export interface GitConfigSubProvider {
 			runGitLocally?: boolean;
 		},
 	): Promise<void>;
+
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
+
+	getGkConfig?(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+		options?: { type?: GitConfigType },
+	): Promise<string | undefined>;
+	getGkConfigRegex?(repoPath: string, pattern: string): Promise<Map<string, string>>;
+	setGkConfig?(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+		value: string | undefined,
+	): Promise<void>;
+
 	getSigningConfig?(repoPath: string): Promise<SigningConfig>;
-	validateSigningSetup?(repoPath: string): Promise<ValidationResult>;
-	setSigningConfig?(repoPath: string, config: Partial<SigningConfig>, options?: { global?: boolean }): Promise<void>;
 	getSigningConfigFlags?(config: SigningConfig): string[];
+	setSigningConfig?(repoPath: string, config: Partial<SigningConfig>, options?: { global?: boolean }): Promise<void>;
+	validateSigningSetup?(repoPath: string): Promise<ValidationResult>;
 }
 
 export interface GitContributorsResult {
