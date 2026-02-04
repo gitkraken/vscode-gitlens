@@ -19328,7 +19328,7 @@
 			"initialSize": 2,
 			"visibility": "collapsed",
 			"container": "gitlens",
-			"order": 2,
+			"order": 3,
 			"welcomeContent": [
 				{
 					"contents": "Cloud Patches ᴘʀᴇᴠɪᴇᴡ — privately and securely share code with specific teammates and other developers, accessible from anywhere. Enhance collaboration without adding noise to your repositories."
@@ -19387,7 +19387,7 @@
 			"initialSize": 6,
 			"visibility": "visible",
 			"container": "gitlens",
-			"order": 0
+			"order": 1
 		},
 		"gitlens.views.launchpad": {
 			"name": "Launchpad",
@@ -19397,7 +19397,7 @@
 			"initialSize": 2,
 			"visibility": "collapsed",
 			"container": "gitlens",
-			"order": 1,
+			"order": 2,
 			"welcomeContent": [
 				{
 					"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
@@ -19661,6 +19661,16 @@
 			"container": "gitlensInspect",
 			"order": 4
 		},
+		"gitlens.views.welcome": {
+			"type": "webview",
+			"name": "Welcome",
+			"contextualTitle": "GitLens",
+			"icon": "$(gitlens-gitlens)",
+			"initialSize": 1,
+			"visibility": "visible",
+			"container": "gitlens",
+			"order": 0
+		},
 		"gitlens.views.workspaces": {
 			"name": "Cloud Workspaces",
 			"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
@@ -19669,7 +19679,7 @@
 			"initialSize": 2,
 			"visibility": "collapsed",
 			"container": "gitlens",
-			"order": 3,
+			"order": 4,
 			"welcomeContent": [
 				{
 					"contents": "Workspaces ᴘʀᴇᴠɪᴇᴡ — group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."

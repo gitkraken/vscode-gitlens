@@ -27,6 +27,7 @@ import { registerGraphWebviewView } from '../webviews/plus/graph/registration.js
 import { registerPatchDetailsWebviewView } from '../webviews/plus/patchDetails/registration.js';
 import { registerTimelineWebviewView } from '../webviews/plus/timeline/registration.js';
 import type { WebviewsController } from '../webviews/webviewsController.js';
+import { registerWelcomeWebviewView } from '../webviews/welcome/registration.js';
 import { BranchesView } from './branchesView.js';
 import { CommitsView } from './commitsView.js';
 import { ContributorsView } from './contributorsView.js';
@@ -426,6 +427,7 @@ export class Views implements Disposable {
 			(this._homeView = registerHomeWebviewView(webviews)),
 			(this._patchDetailsView = registerPatchDetailsWebviewView(webviews)),
 			(this._timelineView = registerTimelineWebviewView(webviews)),
+			(this._welcomeView = registerWelcomeWebviewView(webviews)),
 		];
 	}
 
@@ -779,6 +781,11 @@ export class Views implements Disposable {
 	private _timelineView!: ReturnType<typeof registerTimelineWebviewView>;
 	get timeline(): ReturnType<typeof registerTimelineWebviewView> {
 		return this._timelineView;
+	}
+
+	private _welcomeView!: ReturnType<typeof registerWelcomeWebviewView>;
+	get welcome(): ReturnType<typeof registerWelcomeWebviewView> {
+		return this._welcomeView;
 	}
 
 	private _worktreesView: WorktreesView | undefined;
