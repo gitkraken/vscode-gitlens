@@ -368,6 +368,11 @@ export class SettingsApp extends App<State> {
 				if ($template != null) {
 					$popup.appendChild($template);
 				}
+				
+				// Prevent blur when clicking on popup content (like links)
+				$popup.addEventListener('mousedown', (e) => {
+					e.preventDefault();
+				});
 			}
 			$popup.classList.remove('hidden');
 		}
