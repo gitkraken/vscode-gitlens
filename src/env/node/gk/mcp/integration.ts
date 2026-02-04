@@ -88,11 +88,24 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			}
 		}
 
+		const serverEnv: McpStdioServerDefinition['env'] = {};
+		const discoveryFilePath = envVars.get('GK_GL_PATH')?.value;
+		if (discoveryFilePath != null) {
+			// const arg = `--gitlens-discovery-file=${discoveryFilePath}`;
+			// const existingArgIndex = config.args.findIndex(a => a.startsWith('--gitlens-discovery-file='));
+			// if (existingArgIndex === -1) {
+			// 	config.args.push(arg);
+			// } else if (config.args[existingArgIndex] !== arg) {
+			// 	config.args[existingArgIndex] = arg;
+			// }
+			serverEnv['GK_GL_PATH'] = discoveryFilePath;
+		}
+
 		const serverDefinition = new McpStdioServerDefinition(
 			config.name,
 			config.command,
 			config.args,
-			{},
+			serverEnv,
 			config.version,
 		);
 

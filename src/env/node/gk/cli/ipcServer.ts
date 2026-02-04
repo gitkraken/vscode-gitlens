@@ -1,6 +1,7 @@
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 import { createServer } from 'http';
 import type { Disposable } from 'vscode';
+import { uuid } from '@env/crypto.js';
 import { log } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
 import { getLogScope } from '../../../../system/logger.scope.js';
@@ -12,6 +13,7 @@ export interface IpcHandler<Request = unknown, Response = void> {
 
 export async function createIpcServer<Request = unknown, Response = void>(): Promise<IpcServer<Request, Response>> {
 	const server = createServer();
+	const token = uuid();
 
 	return new Promise<IpcServer<Request, Response>>((resolve, reject) => {
 		try {
@@ -29,8 +31,9 @@ export async function createIpcServer<Request = unknown, Response = void>(): Pro
 					return;
 				}
 
-				const serverUrl = `http://127.0.0.1:${address.port}`;
-				resolve(new IpcServer(serverUrl, server));
+				const port = address.port;
+				const serverUrl = `http://127.0.0.1:${port}`;
+				resolve(new IpcServer(serverUrl, port, token, server));
 			});
 		} catch (ex) {
 			// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
@@ -44,6 +47,8 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 
 	constructor(
 		readonly ipcAddress: string,
+		readonly ipcPort: number,
+		readonly ipcToken: string,
 		private server: Server,
 	) {
 		server
@@ -71,6 +76,15 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 		if (handler == null) {
 			Logger.warn(scope, `IPC handler for ${req.url} not found`);
 			res.writeHead(404);
+			res.end();
+			return;
+		}
+
+		// Add bearer token authorization
+		const authHeader = req.headers['authorization'];
+		if (authHeader !== `Bearer ${this.ipcToken}`) {
+			Logger.warn(scope, `IPC handler for ${req.url} unauthorized`);
+			res.writeHead(401);
 			res.end();
 			return;
 		}
