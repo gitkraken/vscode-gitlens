@@ -1,8 +1,7 @@
-import { createHash } from 'crypto';
 import { mkdir, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { arch, pid } from 'process';
+import { arch, ppid } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { urls } from '../../../../constants.js';
@@ -128,23 +127,18 @@ export class GkCliIntegrationProvider implements Disposable {
 		envVars.replace('GK_GL_ADDR', server.ipcAddress);
 		envVars.description = 'Enables GK CLI integration';
 
-		if (!mcpExtensionRegistrationAllowed(this.container)) {
-			// Create discovery file for external terminal support
-			try {
-				const workspaceFolders = workspace.workspaceFolders;
-				if (workspaceFolders != null && workspaceFolders.length > 0) {
-					const workspacePath = workspaceFolders[0].uri.fsPath;
-					const workspacePaths = workspaceFolders.map(folder => folder.uri.fsPath);
-					this._discoveryFilePath = await createDiscoveryFile(
-						server.ipcAddress,
-						workspacePath,
-						workspacePaths,
-					);
-				}
-			} catch (error) {
-				// Discovery file creation failure should not prevent IPC server startup
-				Logger.warn(`Failed to create discovery file: ${error}`);
+		// Create discovery file for external terminal support
+		try {
+			const workspaceFolders = workspace.workspaceFolders;
+			if (workspaceFolders != null && workspaceFolders.length > 0) {
+				const workspacePaths = workspaceFolders.map(folder => folder.uri.fsPath);
+				this._discoveryFilePath = await createDiscoveryFile(server, workspacePaths);
+
+				envVars.replace('GK_GL_PATH', this._discoveryFilePath);
 			}
+		} catch (error) {
+			// Discovery file creation failure should not prevent IPC server startup
+			Logger.warn(`Failed to create discovery file: ${error}`);
 		}
 
 		this._runningDisposable = Disposable.from(new CliCommandHandlers(this.container, server), server);
@@ -912,29 +906,22 @@ class McpSetupError extends Error {
 // Discovery file helper functions
 
 /**
- * Computes a hash of the workspace path for discovery file naming
- */
-function computeWorkspaceHash(workspacePath: string): string {
-	const hash = createHash('sha256');
-	hash.update(workspacePath);
-	return hash.digest('hex').substring(0, 16);
-}
-
-/**
  * Gets the discovery file path for a given workspace
  */
-function getDiscoveryFilePath(workspacePath: string, discoveryDir?: string): string {
-	const hash = computeWorkspaceHash(workspacePath);
+function getDiscoveryFilePath(processId: number, port: number, discoveryDir?: string): string {
 	discoveryDir ??= join(tmpdir(), 'gitkraken', 'gitlens');
-	return join(discoveryDir, `gitlens-ipc-server-${hash}.json`);
+	return join(discoveryDir, `gitlens-ipc-server-${processId}-${port}.json`);
 }
 
 /**
  * Creates a discovery file for the GitLens IPC server
  */
-async function createDiscoveryFile(address: string, workspacePath: string, workspacePaths: string[]): Promise<string> {
+async function createDiscoveryFile(
+	server: { ipcToken: string; ipcAddress: string; ipcPort: number },
+	workspacePaths: string[],
+): Promise<string> {
 	const discoveryDir = join(tmpdir(), 'gitkraken', 'gitlens');
-	const filePath = getDiscoveryFilePath(workspacePath, discoveryDir);
+	const filePath = getDiscoveryFilePath(ppid, server.ipcPort, discoveryDir);
 
 	// Create directory if it doesn't exist
 	await mkdir(discoveryDir, { recursive: true });
@@ -945,13 +932,14 @@ async function createDiscoveryFile(address: string, workspacePath: string, works
 
 	// Prepare discovery file content
 	const discoveryData = {
-		address: address,
-		workspacePath: workspacePath,
+		token: server.ipcToken,
+		address: server.ipcAddress,
+		port: server.ipcPort,
 		workspacePaths: workspacePaths,
 		ideName: ideName,
 		ideDisplayName: ideDisplayName,
 		scheme: env.uriScheme,
-		pid: pid,
+		pid: ppid,
 		createdAt: new Date().toISOString(),
 	};
 

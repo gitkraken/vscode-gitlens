@@ -23,14 +23,14 @@ import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './inte
 type CliCommand =
 	| 'cherry-pick'
 	| 'compare'
-	| 'compose'
 	| 'graph'
-	| 'merge'
 	| 'rebase'
-	| 'get-launchpad-item'
-	| 'get-launchpad-list'
-	| 'start-review'
-	| 'start-work';
+	| 'mcp/launchpad/item'
+	| 'mcp/launchpad/list'
+	| 'mcp/pr/review/start'
+	| 'mcp/issue/start'
+	| 'mcp/wip/compose/open'
+	| 'merge';
 type CliCommandHandler = (
 	request: CliCommandRequest | undefined,
 	repo?: Repository | undefined,
@@ -154,7 +154,7 @@ export class CliCommandHandlers implements Disposable {
 		}
 	}
 
-	@command('compose')
+	@command('mcp/wip/compose/open')
 	async handleComposeCommand(
 		_request: CliCommandRequest | undefined,
 		repo?: Repository | undefined,
@@ -169,7 +169,7 @@ export class CliCommandHandlers implements Disposable {
 		);
 	}
 
-	@command('start-review')
+	@command('mcp/pr/review/start')
 	async handleStartReviewCommand(
 		request: CliCommandRequest | undefined,
 		_repo?: Repository | undefined,
@@ -203,7 +203,7 @@ export class CliCommandHandlers implements Disposable {
 		}
 	}
 
-	@command('start-work')
+	@command('mcp/issue/start')
 	async handleStartWorkCommand(
 		request: CliCommandRequest | undefined,
 		_repo?: Repository | undefined,
@@ -255,7 +255,7 @@ export class CliCommandHandlers implements Disposable {
 		return result;
 	}
 
-	@command('get-launchpad-item')
+	@command('mcp/launchpad/item')
 	async handleGetLaunchpadInfoCommand(
 		request: CliCommandRequest | undefined,
 		_repo?: Repository | undefined,
@@ -286,7 +286,7 @@ export class CliCommandHandlers implements Disposable {
 		}
 	}
 
-	@command('get-launchpad-list')
+	@command('mcp/launchpad/list')
 	async handleGetLaunchpadCommand(
 		_request: CliCommandRequest | undefined,
 		_repo?: Repository | undefined,
