@@ -1,7 +1,7 @@
 import { hostname, userInfo } from 'os';
 import { env as process_env } from 'process';
-import { Uri } from 'vscode';
-import type { DeprecatedGitConfigKeys, GitConfigKeys, GitCoreConfigKeys } from '../../../../constants.js';
+import { Uri, workspace } from 'vscode';
+import type { DeprecatedGkConfigKeys, GitConfigKeys, GkConfigKeys } from '../../../../constants.js';
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
 import type { GitConfigSubProvider, GitConfigType, GitDir } from '../../../../git/gitProvider.js';
@@ -16,8 +16,27 @@ import { getLogScope } from '../../../../system/logger.scope.js';
 import type { Git } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
-const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
+
+/**
+ * Parses git config --get-regex output into a Map.
+ * The output format is "key value" per line, where key and value are space-separated.
+ */
+function parseConfigRegexOutput(data: string | undefined): Map<string, string> {
+	const configMap = new Map<string, string>();
+	if (!data) return configMap;
+
+	for (const line of data.split('\n')) {
+		if (!line) continue;
+
+		const spaceIndex = line.indexOf(' ');
+		if (spaceIndex === -1) continue;
+
+		configMap.set(line.substring(0, spaceIndex), line.substring(spaceIndex + 1));
+	}
+
+	return configMap;
+}
 
 function parseGitBoolean(value: string | undefined): boolean {
 	if (value == null) return false;
@@ -36,26 +55,36 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	@debug()
 	getConfig(
 		repoPath: string | undefined,
-		key: GitCoreConfigKeys | GitConfigKeys | DeprecatedGitConfigKeys,
+		key: GitConfigKeys,
 		options?: { global?: boolean; runGitLocally?: boolean; type?: GitConfigType },
 	): Promise<string | undefined> {
 		const global = options?.global || repoPath == null;
-		return this.cache.getConfig(global ? undefined : repoPath, key, async () => {
-			const args = ['config', '--get'];
-			if (global) {
-				args.push('--global');
-			}
-			if (options?.type) {
-				args.push(`--type=${options.type}`);
-			}
-			args.push(key);
+		return this.cache.getConfig(global ? undefined : repoPath, key, () =>
+			this.getConfigCore(repoPath, key, options),
+		);
+	}
 
-			const result = await this.git.exec(
-				{ cwd: repoPath ?? '', errors: 'ignore', runLocally: options?.runGitLocally },
-				...args,
-			);
-			return result.stdout.trim() || undefined;
-		});
+	private async getConfigCore(
+		repoPath: string | undefined,
+		key: GitConfigKeys | GkConfigKeys | DeprecatedGkConfigKeys,
+		options?: { file?: string; global?: boolean; runGitLocally?: boolean; type?: GitConfigType },
+	): Promise<string | undefined> {
+		const args = ['config', '--get'];
+		if (options?.file) {
+			args.push('-f', options.file);
+		} else if (options?.global || repoPath == null) {
+			args.push('--global');
+		}
+		if (options?.type) {
+			args.push(`--type=${options.type}`);
+		}
+		args.push(key);
+
+		const result = await this.git.exec(
+			{ cwd: repoPath ?? '', errors: 'ignore', runLocally: options?.runGitLocally },
+			...args,
+		);
+		return result.stdout.trim() || undefined;
 	}
 
 	@debug()
@@ -63,40 +92,72 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		repoPath: string | undefined,
 		pattern: string,
 		options?: { global?: boolean; runGitLocally?: boolean },
-	): Promise<string | undefined> {
+	): Promise<Map<string, string>> {
 		const global = options?.global || repoPath == null;
-		return this.cache.getConfigRegex(global ? undefined : repoPath, pattern, async () => {
-			const args = ['config', '--get-regex'];
-			if (global) {
-				args.push('--global');
-			}
-			args.push(pattern);
+		return this.cache.getConfigRegex(global ? undefined : repoPath, pattern, () =>
+			this.getConfigRegexCore(repoPath, pattern, options),
+		);
+	}
 
-			const result = await this.git.exec(
-				{ cwd: repoPath ?? '', errors: 'ignore', runLocally: options?.runGitLocally },
-				...args,
-			);
-			return result.stdout.trim() || undefined;
-		});
+	private async getConfigRegexCore(
+		repoPath: string | undefined,
+		pattern: string,
+		options?: { file?: string; global?: boolean; runGitLocally?: boolean },
+	): Promise<Map<string, string>> {
+		const args = ['config', '--get-regex'];
+		if (options?.file) {
+			args.push('-f', options.file);
+		} else if (options?.global || repoPath == null) {
+			args.push('--global');
+		}
+		args.push(pattern);
+
+		const result = await this.git.exec(
+			{ cwd: repoPath ?? '', errors: 'ignore', runLocally: options?.runGitLocally },
+			...args,
+		);
+		return parseConfigRegexOutput(result.stdout.trim());
 	}
 
 	@log()
 	async setConfig(
 		repoPath: string | undefined,
-		key: GitCoreConfigKeys | GitConfigKeys,
+		key: GitConfigKeys,
 		value: string | undefined,
-		options?: { global?: boolean },
+		options?: { file?: string; global?: boolean },
 	): Promise<void> {
-		const global = options?.global || repoPath == null;
-		await this.git.exec(
-			{ cwd: repoPath ?? '', runLocally: true },
-			'config',
-			global ? '--global' : '--local',
-			...(value == null ? ['--unset', key] : [key, value]),
-		);
+		return this.setConfigCore(repoPath, key, value, options);
+	}
 
-		// Invalidate the cached value for this key and clear all regex patterns for this scope
-		this.cache.deleteConfig(global ? undefined : repoPath, key);
+	private async setConfigCore(
+		repoPath: string | undefined,
+		key: GitConfigKeys | GkConfigKeys | DeprecatedGkConfigKeys,
+		value: string | undefined,
+		options?: { file?: string; global?: boolean },
+	): Promise<void> {
+		const args: string[] = ['config'];
+
+		if (options?.file) {
+			args.push('-f', options.file);
+		} else {
+			const global = options?.global || repoPath == null;
+			args.push(global ? '--global' : '--local');
+		}
+
+		if (value == null) {
+			args.push('--unset', key);
+		} else {
+			args.push(key, value);
+		}
+
+		await this.git.exec({ cwd: repoPath ?? '', runLocally: true }, ...args);
+
+		// Only invalidate cache when not using a custom file (custom files aren't cached)
+		if (!options?.file) {
+			const global = options?.global || repoPath == null;
+			// Invalidate the cached value for this key and clear all regex patterns for this scope
+			this.cache.deleteConfig(global ? undefined : repoPath, key);
+		}
 	}
 
 	@gate()
@@ -114,20 +175,12 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		const user: GitUser = { name: undefined, email: undefined };
 
 		try {
-			const data = await this.getConfigRegex(repoPath, '^user\\.', { runGitLocally: true });
-			if (data) {
-				let key: string;
-				let value: string;
-
-				let match;
-				do {
-					match = userConfigRegex.exec(data);
-					if (match == null) break;
-
-					[, key, value] = match;
-					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					user[key as 'name' | 'email'] = ` ${value}`.substring(1);
-				} while (true);
+			const configMap = await this.getConfigRegex(repoPath, '^user\\.(name|email)$', {
+				runGitLocally: true,
+			});
+			if (configMap.size) {
+				user.name = configMap.get('user.name');
+				user.email = configMap.get('user.email');
 			} else {
 				user.name =
 					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
@@ -200,26 +253,82 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return gitDir;
 	}
 
+	/**
+	 * Gets the path to the .git/gk/config file for storing GitKraken-specific metadata.
+	 * Uses commonUri for worktrees so all worktrees share the same data.
+	 */
+	private async getGkConfigUri(repoPath: string): Promise<Uri> {
+		const gitDir = await this.getGitDir(repoPath);
+		// Use commonUri (main .git dir) for worktrees, otherwise use uri
+		const baseUri = gitDir.commonUri ?? gitDir.uri;
+		return Uri.joinPath(baseUri, 'gk', 'config');
+	}
+
+	@debug()
+	async getGkConfig(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+		options?: { type?: GitConfigType },
+	): Promise<string | undefined> {
+		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
+		return this.cache.getGkConfig(repoPath, key, () => this.getGkConfigCore(repoPath, key, options));
+	}
+
+	private async getGkConfigCore(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+		options?: { type?: GitConfigType },
+	): Promise<string | undefined> {
+		const gkConfigPath = (await this.getGkConfigUri(repoPath))?.fsPath;
+		return this.getConfigCore(repoPath, key, {
+			...options,
+			runGitLocally: true,
+			file: gkConfigPath,
+		});
+	}
+
+	@debug()
+	async getGkConfigRegex(repoPath: string, pattern: string): Promise<Map<string, string>> {
+		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
+		return this.cache.getGkConfigRegex(repoPath, pattern, () => this.getGkConfigRegexCore(repoPath, pattern));
+	}
+
+	private async getGkConfigRegexCore(repoPath: string, pattern: string): Promise<Map<string, string>> {
+		const gkConfigPath = (await this.getGkConfigUri(repoPath))?.fsPath;
+		return this.getConfigRegexCore(repoPath, pattern, { runGitLocally: true, file: gkConfigPath });
+	}
+
+	@log()
+	async setGkConfig(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+		value: string | undefined,
+	): Promise<void> {
+		const scope = getLogScope();
+
+		const gkConfigUri = await this.getGkConfigUri(repoPath);
+
+		// Ensure the .git/gk/ directory exists before writing
+		const gkConfigFolderUri = Uri.joinPath(gkConfigUri, '..');
+		try {
+			await workspace.fs.createDirectory(gkConfigFolderUri);
+		} catch (ex) {
+			Logger.error(ex, scope, `Failed to create '${gkConfigFolderUri.toString(true)}' directory`);
+		}
+
+		await this.setConfigCore(repoPath, key, value, { file: gkConfigUri.fsPath });
+
+		// Invalidate the cached value for this key and clear all regex patterns for this scope
+		this.cache.deleteGkConfig(repoPath, key);
+	}
+
 	@log()
 	async getSigningConfig(repoPath: string): Promise<SigningConfig> {
 		// Fetch all signing-related config in one call
-		const data = await this.getConfigRegex(
-			'^(commit\\.gpgsign|gpg\\.format|user\\.signingkey|gpg\\.program|gpg\\.ssh\\.program|gpg\\.ssh\\.allowedsignersfile)$',
+		const configMap = await this.getConfigRegex(
 			repoPath,
+			'^(commit\\.gpgsign|gpg\\.format|user\\.signingkey|gpg\\.program|gpg\\.ssh\\.program|gpg\\.ssh\\.allowedsignersfile)$',
 		);
-
-		// Parse output into a map (format: "key value" per line, keys are lowercase)
-		const configMap = new Map<string, string>();
-		if (data) {
-			for (const line of data.split('\n')) {
-				if (!line) continue;
-
-				const spaceIndex = line.indexOf(' ');
-				if (spaceIndex === -1) continue;
-
-				configMap.set(line.substring(0, spaceIndex), line.substring(spaceIndex + 1));
-			}
-		}
 
 		// Extract values (keys are lowercase in git output)
 		const enabledRaw = configMap.get('commit.gpgsign');
@@ -313,5 +422,94 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		}
 
 		return flags;
+	}
+
+	private _migratedRepos = new Set<string>();
+
+	/**
+	 * One-time migration of GK config entries from regular git config to `.git/gk/config`.
+	 * If `.git/gk/config` already exists, assumes migration is complete (or data is already there).
+	 * Preserves existing `.git/gk/config` values as source of truth (won't overwrite).
+	 * Removes migrated keys from regular git config to stop cluttering it.
+	 */
+	@gate()
+	@log()
+	private async migrateGkConfigFromGitConfig(repoPath: string): Promise<void> {
+		if (this._migratedRepos.has(repoPath)) return;
+
+		const scope = getLogScope();
+
+		const gkConfigUri = await this.getGkConfigUri(repoPath);
+		const gkConfigFolderUri = Uri.joinPath(gkConfigUri, '..');
+
+		// If .git/gk/config already exists, consider migration done — it was either
+		// already migrated or values were written there directly via setGkConfig
+		try {
+			await workspace.fs.stat(gkConfigUri);
+			this._migratedRepos.add(repoPath);
+			return;
+		} catch {}
+
+		// If .git/gk/config doesn't exist, create an empty file to prevent multiple migration attempts in future sessions
+		try {
+			await workspace.fs.createDirectory(gkConfigFolderUri);
+			try {
+				await workspace.fs.writeFile(gkConfigUri, new Uint8Array());
+			} catch (ex) {
+				Logger.error(ex, scope, `Failed to create '${gkConfigUri.toString(true)}' file`);
+			}
+		} catch (ex) {
+			Logger.error(ex, scope, `Failed to create '${gkConfigFolderUri.toString(true)}' directory`);
+			return;
+		}
+
+		// Read legacy gk-* keys from regular git config
+		let migrateConfig: Map<string, string>;
+		try {
+			migrateConfig = await this.getConfigRegexCore(repoPath, '^branch\\..*\\.gk-', { runGitLocally: true });
+		} catch (ex) {
+			Logger.error(ex, scope, 'Failed to read legacy GK config entries');
+			this._migratedRepos.add(repoPath);
+			return;
+		}
+
+		if (!migrateConfig.size) {
+			this._migratedRepos.add(repoPath);
+			return;
+		}
+
+		Logger.log(scope, `Migrating ${migrateConfig.size} GK config entries from git config to .git/gk/config`);
+
+		// Copy legacy entries to .git/gk/config
+		const gkConfigPath = gkConfigUri.fsPath;
+		for (const [key, value] of [...migrateConfig]) {
+			try {
+				await this.setConfigCore(repoPath, key as GkConfigKeys, value, { file: gkConfigPath });
+			} catch (ex) {
+				Logger.error(ex, scope, `Failed to migrate key '${key}' to GK config`);
+				// If we failed to migrate, delete it from the list so we won't try to remove it from git config later
+				migrateConfig.delete(key);
+			}
+		}
+
+		// Remove legacy keys from regular git config (use --unset-all defensively)
+		for (const [key] of migrateConfig) {
+			try {
+				await this.git.exec(
+					{ cwd: repoPath, errors: 'ignore', runLocally: true },
+					'config',
+					'--local',
+					'--unset-all',
+					key,
+				);
+			} catch (ex) {
+				Logger.error(ex, scope, `Failed to remove migrated key '${key}' from git config`);
+			}
+		}
+
+		// Clear caches since we modified both config files
+		this.cache.clearCaches(repoPath, 'config', 'gkConfig');
+
+		this._migratedRepos.add(repoPath);
 	}
 }

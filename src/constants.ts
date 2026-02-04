@@ -59,33 +59,28 @@ export type GitCoreConfigKeys =
 	| 'init.defaultBranch'
 	| 'user.signingkey';
 
-/**
- * `gk-merge-target` means the branch that the current branch is most likely to be merged into, e.g.
- * - branch to compare with by default
- * - default target for creating a PR
- * - etc.
- *
- * `gk-merge-target-user` — merge target branch explicitly defined by user,
- *    if it's defined we use this value instead of `gk-merge-target`, but we keep storing `gk-merge-target` value that was determined automatically.
- *
- *  `gk-merge-base` means the branch that the current branch originates from, e.g. what was the base in the moment of creation.
- *   This value is used for: ... (TODO describe use cases).
- *
- * `vscode-merge-base` — value determined by VS Code that is used to determine the merge base for the current branch.
- *   once `gk-merge-base` is determined, we stop using `vscode-merge-base`
- *
- */
 export type GitConfigKeys =
+	| GitCoreConfigKeys
+	/** `vscode-merge-base` — value determined by VS Code that is used to determine the merge base for the current branch. Once `gk-merge-base` is determined, we stop using `vscode-merge-base` */
 	| `branch.${string}.vscode-merge-base`
+	/** `github-pr-owner-number` — value determined by VS Code/GitHub PR extension that is used to determine the PR number for the current branch */
+	| `branch.${string}.github-pr-owner-number`;
+
+export type GkConfigKeys =
+	/** `gk-merge-base` — the branch that the current branch was created from (the original base at branch creation time) */
 	| `branch.${string}.gk-merge-base`
+	/** `gk-merge-target` — the auto-detected branch that the current branch will likely be merged into (used for comparisons, PR targets, etc.) */
 	| `branch.${string}.gk-merge-target`
+	/** `gk-merge-target-user` — user-specified merge target branch; takes precedence over auto-detected `gk-merge-target` */
 	| `branch.${string}.gk-merge-target-user`
+	/** `gk-associated-issues` — JSON array of issue/PR entity identifiers linked to this branch */
 	| `branch.${string}.gk-associated-issues`
-	| `branch.${string}.github-pr-owner-number`
+	/** `gk-last-accessed` — ISO 8601 timestamp of when the branch was last checked out or viewed */
 	| `branch.${string}.gk-last-accessed`
+	/** `gk-last-modified` — ISO 8601 timestamp of when the branch last received a commit */
 	| `branch.${string}.gk-last-modified`;
 
-export type DeprecatedGitConfigKeys = `branch.${string}.gk-target-base`;
+export type DeprecatedGkConfigKeys = `branch.${string}.gk-target-base`;
 
 export const enum GlyphChars {
 	AngleBracketLeftHeavy = '\u2770',

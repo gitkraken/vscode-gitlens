@@ -38,8 +38,8 @@ const dotGitWatcherGlobWorktreeFiles =
 	'worktrees/*,worktrees/**/index,worktrees/**/HEAD,worktrees/**/*_HEAD,worktrees/**/MERGE_*,worktrees/**/rebase-merge,worktrees/**/rebase-merge/**,worktrees/**/rebase-apply,worktrees/**/rebase-apply/**,worktrees/**/sequencer,worktrees/**/sequencer/**';
 
 const dotGitWatcherGlobRoot = `{${dotGitWatcherGlobFiles}}`;
-const dotGitWatcherGlobCommon = `{config,refs/**,info/exclude,${dotGitWatcherGlobWorktreeFiles}}`;
-const dotGitWatcherGlobCombined = `{${dotGitWatcherGlobFiles},config,refs/**,info/exclude,${dotGitWatcherGlobWorktreeFiles}}`;
+const dotGitWatcherGlobCommon = `{config,gk/config,refs/**,info/exclude,${dotGitWatcherGlobWorktreeFiles}}`;
+const dotGitWatcherGlobCombined = `{${dotGitWatcherGlobFiles},config,gk/config,refs/**,info/exclude,${dotGitWatcherGlobWorktreeFiles}}`;
 
 const gitIgnoreGlob = '.gitignore';
 
@@ -85,6 +85,8 @@ export const enum RepositoryChange {
 	RemoteProviders = 102,
 	Starred = 103,
 	Opened = 104,
+	/** Changes to GitKraken-specific config (.git/gk/config) */
+	GkConfig = 105,
 }
 
 export const enum RepositoryChangeComparisonMode {
@@ -412,7 +414,7 @@ export class Repository implements Disposable {
 		const match =
 			uri != null
 				? // Move worktrees first, since if it is in a worktree it isn't affecting this repo directly
-					/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|info\/exclude|refs\/(?:heads|remotes|stash|tags))/.exec(
+					/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags))/.exec(
 						this.container.git.getRelativePath(uri, base),
 					)
 				: undefined;
@@ -421,6 +423,10 @@ export class Repository implements Disposable {
 			switch (match[1]) {
 				case 'config':
 					this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
+					return;
+
+				case 'gk/config':
+					this.fireChange(RepositoryChange.GkConfig);
 					return;
 
 				case 'info/exclude':
