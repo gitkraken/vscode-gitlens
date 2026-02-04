@@ -30,7 +30,6 @@ import './components/ai-all-access-banner.js';
 import './components/ama-banner.js';
 import './components/integration-banner.js';
 import './components/preview-banner.js';
-import './components/welcome-overlay.js';
 import '../shared/components/mcp-banner.js';
 import './components/repo-alerts.js';
 import '../shared/components/banner/banner.js';
@@ -123,7 +122,6 @@ export class GlHomeApp extends GlAppHost<State> {
 						`,
 					)}
 				</main>
-				<gl-welcome-overlay .isLightTheme=${this.isLightTheme} .webroot=${this.webroot}></gl-welcome-overlay>
 			</div>
 		`;
 	}
