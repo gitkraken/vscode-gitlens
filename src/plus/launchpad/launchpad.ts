@@ -1,4 +1,4 @@
-import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { CancellationToken, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars.js';
 import type {
@@ -52,6 +52,7 @@ import { fromNow } from '../../system/date.js';
 import { some } from '../../system/iterable.js';
 import { interpolate, pluralize } from '../../system/string.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
+import { getOpenOnGitProviderQuickInputButtons } from '../integrations/utils/-webview/integration.quickPicks.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import {
 	countLaunchpadItemGroups,
@@ -1592,32 +1593,6 @@ function getOpenActionLabel(actionCategory: string) {
 		default:
 			return 'Open';
 	}
-}
-
-function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInputButton | undefined {
-	switch (integrationId) {
-		case GitCloudHostIntegrationId.GitLab:
-		case GitSelfManagedHostIntegrationId.GitLabSelfHosted:
-		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
-			return OpenOnGitLabQuickInputButton;
-		case GitCloudHostIntegrationId.GitHub:
-		case GitSelfManagedHostIntegrationId.GitHubEnterprise:
-		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-			return OpenOnGitHubQuickInputButton;
-		case GitCloudHostIntegrationId.AzureDevOps:
-		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
-			return OpenOnAzureDevOpsQuickInputButton;
-		case GitCloudHostIntegrationId.Bitbucket:
-		case GitSelfManagedHostIntegrationId.BitbucketServer:
-			return OpenOnBitbucketQuickInputButton;
-		default:
-			return undefined;
-	}
-}
-
-function getOpenOnGitProviderQuickInputButtons(integrationId: string): QuickInputButton[] {
-	const button = getOpenOnGitProviderQuickInputButton(integrationId);
-	return button != null ? [button] : [];
 }
 
 function getIntegrationTitle(integrationId: string): string {
