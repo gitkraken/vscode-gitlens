@@ -1,4 +1,4 @@
-import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { QuickInputButton, QuickPick } from 'vscode';
 import { Uri, window } from 'vscode';
 import { md5 } from '@env/crypto.js';
 import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations.js';
@@ -50,6 +50,11 @@ import { getScopedCounter } from '../../system/counter.js';
 import { fromNow } from '../../system/date.js';
 import { some } from '../../system/iterable.js';
 import type { Deferred } from '../../system/promise.js';
+import type { ConnectMoreIntegrationsItem } from '../integrations/utils/-webview/integration.quickPicks.js';
+import {
+	isManageIntegrationsItem,
+	manageIntegrationsItem,
+} from '../integrations/utils/-webview/integration.quickPicks.js';
 
 const instanceCounter = getScopedCounter();
 
@@ -74,21 +79,9 @@ const supportedStartWorkIntegrations = [
 ];
 type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
 
-type ConnectMoreIntegrationsItem = QuickPickItem & {
-	item: undefined;
-};
 const connectMoreIntegrationsItem: ConnectMoreIntegrationsItem = {
 	label: 'Connect an Additional Integration...',
 	detail: 'Connect additional integrations to view and start work on their issues',
-	item: undefined,
-};
-
-type ManageIntegrationsItem = QuickPickItem & {
-	item: undefined;
-};
-const manageIntegrationsItem: ManageIntegrationsItem = {
-	label: 'Manage integrations...',
-	detail: 'Manage your connected integrations',
 	item: undefined,
 };
 
@@ -687,10 +680,6 @@ function getStartWorkItemIdHash(item: StartWorkItem): string {
 
 function isConnectMoreIntegrationsItem(item: unknown): item is ConnectMoreIntegrationsItem {
 	return item === connectMoreIntegrationsItem;
-}
-
-function isManageIntegrationsItem(item: unknown): item is ManageIntegrationsItem {
-	return item === manageIntegrationsItem;
 }
 
 function repeatSpaces(count: number) {
