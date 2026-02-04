@@ -1640,6 +1640,21 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
+					// Open all the changes in the PR
+					const prHeadRef = pr.refs?.head;
+					const prBaseRef = pr.refs?.base;
+					if (repoPath && prHeadRef && prBaseRef) {
+						await openComparisonChanges(
+							this.container,
+							{
+								repoPath: repoPath,
+								lhs: prBaseRef.sha,
+								rhs: prHeadRef.sha,
+							},
+							{ title: `Changes in Pull Request ${pr.title ? `"${pr.title}"` : `#${pr.id}`}` },
+						);
+					}
+
 					try {
 						const { startReviewInChat } =
 							await import('../../plus/launchpad/utils/-webview/startReview.utils.js');
