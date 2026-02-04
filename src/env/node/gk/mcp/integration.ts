@@ -17,12 +17,18 @@ const CLIProxyMCPConfigOutputs = {
 
 type McpConfiguration = { name: string; type: string; command: string; args: string[]; version?: string };
 
+const ipcWaitTime = 30000; // 30 seconds
+
 export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	private _cliVersion: string | undefined;
 	private readonly _disposable: Disposable;
 	private readonly _onDidChangeMcpServerDefinitions = new EventEmitter<void>();
 	private _fireChangeDebounced: Deferrable<() => void> | undefined = undefined;
 	private _getMcpConfigurationFromCLIPromise: Promise<McpConfiguration | undefined> | undefined;
+
+	private _ipcTimeoutId: NodeJS.Timeout | undefined;
+	private _hasProvidedDefinition: boolean = false;
+	private _waitingForIPC: boolean = true;
 
 	get onDidChangeMcpServerDefinitions(): Event<void> {
 		return this._onDidChangeMcpServerDefinitions.event;
@@ -34,9 +40,20 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			this.container.events.on('gk:cli:ipc:started', () => this.onIpcServerStarted()),
 			lm.registerMcpServerDefinitionProvider('gitlens.gkMcpProvider', this),
 		);
+
+		this._ipcTimeoutId = setTimeout(() => this.onIpcTimeoutExpired(), ipcWaitTime);
+	}
+
+	private clearIpcTimeout(): void {
+		this._waitingForIPC = false;
+		if (this._ipcTimeoutId == null) return;
+
+		clearTimeout(this._ipcTimeoutId);
+		this._ipcTimeoutId = undefined;
 	}
 
 	dispose(): void {
+		this.clearIpcTimeout();
 		this._disposable.dispose();
 		this._onDidChangeMcpServerDefinitions.dispose();
 	}
@@ -63,6 +80,8 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	}
 
 	private onIpcServerStarted(): void {
+		this.clearIpcTimeout();
+
 		// Fire change event to refresh MCP server definitions now that GK_GL_ADDR is available
 		this._fireChangeDebounced ??= debounce(() => {
 			this._onDidChangeMcpServerDefinitions.fire();
@@ -70,12 +89,31 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		this._fireChangeDebounced();
 	}
 
+	private onIpcTimeoutExpired(): void {
+		this.clearIpcTimeout();
+
+		if (!this._hasProvidedDefinition) {
+			this._onDidChangeMcpServerDefinitions.fire();
+		}
+	}
+
 	@log({ exit: true })
 	async provideMcpServerDefinitions(): Promise<McpServerDefinition[]> {
+		const { environmentVariableCollection: envVars } = this.container.context;
+		const discoveryFilePath = envVars.get('GK_GL_PATH')?.value;
+
+		// Gives time for the IPC server to start and set the environment variables
+		if (discoveryFilePath != null) {
+			this.clearIpcTimeout();
+		} else if (this._waitingForIPC) {
+			return [];
+		}
+
 		const config = await this.getMcpConfigurationFromCLI();
 		if (config == null) return [];
 
-		const { environmentVariableCollection: envVars } = this.container.context;
+		// Mark that we've provided a definition (either with or without GK_GL_PATH)
+		this._hasProvidedDefinition = true;
 
 		const ipcAddress = envVars.get('GK_GL_ADDR');
 		if (ipcAddress != null) {
@@ -89,7 +127,6 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		}
 
 		const serverEnv: McpStdioServerDefinition['env'] = {};
-		const discoveryFilePath = envVars.get('GK_GL_PATH')?.value;
 		if (discoveryFilePath != null) {
 			// const arg = `--gitlens-discovery-file=${discoveryFilePath}`;
 			// const existingArgIndex = config.args.findIndex(a => a.startsWith('--gitlens-discovery-file='));
