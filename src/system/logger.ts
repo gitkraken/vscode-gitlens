@@ -46,7 +46,10 @@ export const Logger = new (class Logger {
 		this.logLevel = logLevel;
 	}
 
-	enabled(level: LogLevel): boolean {
+	enabled(level?: Exclude<LogLevel, 'off'>): boolean {
+		if (this.isDebugging) return true;
+		if (level == null) return this.level > OrderedLevel.Off;
+
 		return this.level >= toOrderedLevel(level);
 	}
 
@@ -348,12 +351,12 @@ export function getLoggableName(instance: object): string {
 }
 
 export interface LogProvider {
-	enabled(logLevel: LogLevel): boolean;
+	enabled(logLevel: Exclude<LogLevel, 'off'>): boolean;
 	log(logLevel: LogLevel, scope: LogScope | undefined, message: string, ...params: any[]): void;
 }
 
 export const defaultLogProvider: LogProvider = {
-	enabled: (logLevel: LogLevel) => Logger.enabled(logLevel) || Logger.isDebugging,
+	enabled: (logLevel: Exclude<LogLevel, 'off'>) => Logger.enabled(logLevel),
 	log: (logLevel: LogLevel, scope: LogScope | undefined, message: string, ...params: any[]) => {
 		switch (logLevel) {
 			case 'error':

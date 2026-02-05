@@ -85,9 +85,8 @@ export function log<T extends (...arg: any) => any>(
 		scoped = true;
 	}
 
-	const debugging = Logger.isDebugging;
 	const logFn: (message: string, ...params: any[]) => void = debug ? Logger.debug : Logger.log;
-	const logLevel = debugging ? 'debug' : 'info';
+	const logLevel = Logger.isDebugging ? 'debug' : 'info';
 
 	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -105,7 +104,7 @@ export function log<T extends (...arg: any) => any>(
 		const parameters = overrides !== false ? getParameters(fn) : [];
 
 		descriptor[fnKey] = function (this: any, ...args: Parameters<T>) {
-			if ((!debugging && !Logger.enabled(logLevel)) || (ifFn != null && !ifFn.apply(this, args))) {
+			if (!Logger.enabled(logLevel) || (ifFn != null && !ifFn.apply(this, args))) {
 				return fn.apply(this, args);
 			}
 

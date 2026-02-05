@@ -229,8 +229,8 @@ export function run<T extends number | string>(
 				return;
 			}
 
-			if (stderr) {
-				Logger.warn(`Warning(${command} ${args.join(' ')}): ${stderr}`);
+			if (stderr && Logger.enabled('debug')) {
+				Logger.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 			}
 
 			if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
@@ -327,8 +327,8 @@ export function runSpawn<T extends string | Buffer>(
 			if (code !== 0 || signal) {
 				const stdio = getStdio<string>('utf8');
 				const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
-				if (stderr.length) {
-					Logger.warn(scope, `Warning(${command} ${args.join(' ')}): ${stderr}`);
+				if (stderr.length && Logger.enabled('debug')) {
+					Logger.warn(scope, `[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 				}
 
 				if (signal === 'SIGTERM') {
@@ -354,10 +354,10 @@ export function runSpawn<T extends string | Buffer>(
 
 			const stdio = getStdio<T>(encoding);
 			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
-			if (stderr.length) {
+			if (stderr.length && Logger.enabled('debug')) {
 				Logger.warn(
 					scope,
-					`Warning(${command} ${args.join(' ')}): ${typeof stderr === 'string' ? stderr : stderr.toString()}`,
+					`[SHELL] '${command} ${args.join(' ')}' \u2022 ${typeof stderr === 'string' ? stderr : stderr.toString()}`,
 				);
 			}
 
