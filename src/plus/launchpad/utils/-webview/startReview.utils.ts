@@ -1,8 +1,7 @@
-import { Uri } from 'vscode';
+import type { WorktreeGitCommandArgs } from '../../../../commands/git/worktree.js';
 import type { OpenChatActionCommandArgs } from '../../../../commands/openChatAction.js';
 import type { SendToChatCommandArgs } from '../../../../commands/sendToChat.js';
 import type { Container } from '../../../../container.js';
-import { WorktreeCreateError } from '../../../../git/errors.js';
 import type { GitBranch } from '../../../../git/models/branch.js';
 import type { PullRequest, PullRequestShape } from '../../../../git/models/pullRequest.js';
 import type { GitBranchReference } from '../../../../git/models/reference.js';
@@ -16,6 +15,8 @@ import { serializePullRequest } from '../../../../git/utils/pullRequest.utils.js
 import { createReference } from '../../../../git/utils/reference.utils.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js';
+import { defer } from '../../../../system/promise.js';
+import type { StartReviewChatAction } from '../../../chat/chatActions.js';
 import { storeChatActionDeepLink } from '../../../chat/chatActions.js';
 import type { LaunchpadItem } from '../../launchpadProvider.js';
 
@@ -34,6 +35,7 @@ export async function startReviewFromLaunchpadItem(
 	item: LaunchpadItem,
 	instructions?: string,
 	openChatOnComplete?: boolean,
+	useDefaults?: boolean,
 ): Promise<StartReviewResult> {
 	const pr = item.underlyingPullRequest;
 	if (!pr) {
@@ -83,17 +85,29 @@ export async function startReviewFromLaunchpadItem(
 	// Check if worktree already exists
 	let worktree = await getWorktreeForBranch(repo, localBranchName, remoteBranchName);
 	if (worktree == null) {
-		worktree = await createPullRequestWorktree(repo, localBranchName, branchRef, createBranch, addRemote);
-	}
-
-	if (openChatOnComplete) {
-		await storeChatActionDeepLink(
+		worktree = await createPullRequestWorktree(
 			container,
-			{ type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
-			worktree.uri.fsPath,
+			repo,
+			localBranchName,
+			branchRef,
+			createBranch,
+			addRemote,
+			useDefaults,
+			openChatOnComplete
+				? { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions }
+				: undefined,
 		);
+	} else {
+		// Worktree already exists - handle chat and workspace opening manually
+		if (openChatOnComplete) {
+			await storeChatActionDeepLink(
+				container,
+				{ type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
+				worktree.uri.fsPath,
+			);
+		}
+		openWorkspace(worktree.uri, { location: 'newWindow' });
 	}
-	openWorkspace(worktree.uri, { location: 'newWindow' });
 
 	// Get branch from worktree
 	const worktreeBranch = await getBranchFromWorktree(container, worktree, localBranchName);
@@ -139,7 +153,6 @@ async function setupPullRequestBranch(
 
 	const remoteBranchName = `${remoteName}/${headRef.branch}`;
 	const localBranchName = `pr/${pr.id}-${headRef.branch}`;
-	const qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 
 	// Check if local branch exists
 	let branchRef: GitBranchReference;
@@ -149,11 +162,13 @@ async function setupPullRequestBranch(
 	if (localBranch != null) {
 		branchRef = getReferenceFromBranch(localBranch);
 	} else {
-		// Create from remote branch
-		branchRef = createReference(qualifiedRemoteBranchName, repo.path, {
+		// Use the remote branch as the reference to create from, but pass it as the commitish
+		// rather than as a remote branch reference to avoid the worktree create command
+		// overwriting our custom local branch name with the remote branch name
+		branchRef = createReference(remoteBranchName, repo.path, {
 			refType: 'branch',
-			name: qualifiedRemoteBranchName,
-			remote: true,
+			name: remoteBranchName,
+			remote: false,
 		});
 		createBranch = localBranchName;
 	}
@@ -169,45 +184,44 @@ async function setupPullRequestBranch(
 }
 
 async function createPullRequestWorktree(
+	_container: Container,
 	repo: Repository,
 	localBranchName: string,
 	branchRef: GitBranchReference,
 	createBranch: string | undefined,
 	addRemote: { name: string; url: string } | undefined,
+	useDefaults?: boolean,
+	chatAction?: StartReviewChatAction,
 ): Promise<GitWorktree> {
-	const defaultUri = repo.git.worktrees?.getWorktreesDefaultUri();
-	if (!defaultUri) {
-		throw new Error('Unable to determine worktree location');
+	// Add remote if needed (for forks)
+	if (addRemote != null) {
+		await repo.git.remotes.addRemote?.(addRemote.name, addRemote.url, { fetch: true });
 	}
 
-	const worktreePath = Uri.joinPath(defaultUri, ...localBranchName.replace(/\\/g, '/').split('/'));
+	// Use WorktreeCreateGitCommand to create the worktree with consistent path calculation
+	const worktreeResult = defer<GitWorktree | undefined>();
 
-	try {
-		// Add remote if needed (for forks)
-		if (addRemote != null) {
-			await repo.git.remotes.addRemote?.(addRemote.name, addRemote.url, { fetch: true });
-		}
-
-		// Create worktree
-		const worktree = await repo.git.worktrees?.createWorktreeWithResult(worktreePath.fsPath, {
-			commitish: branchRef.ref,
+	void executeCommand<WorktreeGitCommandArgs>('gitlens.git.worktree', {
+		command: 'worktree',
+		confirm: useDefaults ? false : undefined,
+		state: {
+			subcommand: 'create',
+			repo: repo,
+			reference: branchRef,
 			createBranch: createBranch,
-		});
+			flags: createBranch ? ['-b'] : [],
+			worktreeDefaultOpen: useDefaults ? 'new' : undefined,
+			result: worktreeResult,
+			chatAction: chatAction,
+		},
+	});
 
-		if (!worktree) {
-			throw new Error(`Failed to create worktree for branch: ${localBranchName}`);
-		}
-
-		return worktree;
-	} catch (ex) {
-		if (WorktreeCreateError.is(ex, 'alreadyCheckedOut')) {
-			throw new Error(`Branch '${localBranchName}' is already checked out in another worktree`);
-		}
-		if (WorktreeCreateError.is(ex, 'alreadyExists')) {
-			throw new Error(`Worktree path '${worktreePath.fsPath}' already exists`);
-		}
-		throw ex;
+	const worktree = await worktreeResult.promise;
+	if (!worktree) {
+		throw new Error(`Failed to create worktree for branch: ${localBranchName}`);
 	}
+
+	return worktree;
 }
 
 async function getBranchFromWorktree(
