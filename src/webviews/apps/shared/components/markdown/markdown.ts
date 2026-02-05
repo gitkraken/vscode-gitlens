@@ -132,11 +132,12 @@ export class GlMarkdown extends LitElement {
 			inlineMarked ??= new Marked({ breaks: false, gfm: true, renderer: getInlineMarkdownRenderer() });
 			// Not using parseInline here, since our custom inline renderer handles lists and other block elements manually for prettier formatting
 			rendered = await inlineMarked.parse(markdownEscapeEscapedIcons(markdown));
-		} else {
-			blockMarked ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer() });
-			rendered = await blockMarked.parse(markdownEscapeEscapedIcons(markdown));
+			rendered = renderThemeIconsWithinText(rendered);
+			return html`<span>${unsafeHTML(rendered)}</span>`;
 		}
 
+		blockMarked ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer() });
+		rendered = await blockMarked.parse(markdownEscapeEscapedIcons(markdown));
 		rendered = renderThemeIconsWithinText(rendered);
 		return unsafeHTML(rendered);
 	}
