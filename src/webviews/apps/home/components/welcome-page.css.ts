@@ -4,6 +4,7 @@ const colorScheme = css`
 	:host {
 		--accent-color: #cb64ff;
 		--text-color: var(--vscode-descriptionForeground);
+		--heading-color: var(--vscode-tab-activeForeground);
 		--em-color: var(--vscode-sideBar-foreground);
 		--link-color: var(--vscode-textLink-foreground);
 		--card-background: var(--vscode-textBlockQuote-background);
@@ -112,10 +113,10 @@ const section = css`
 		text-align: center;
 	}
 	.section h1 {
-		color: var(--em-color);
+		color: var(--heading-color);
 	}
 	.section h2 {
-		color: var(--em-color);
+		color: var(--heading-color);
 		font-weight: normal;
 		font-size: var(--p-font-size);
 	}
@@ -174,30 +175,38 @@ const section = css`
 `;
 
 const header = css`
-	.logo {
-		transform: scale(0.7);
-	}
-
 	.header {
-		margin-top: 3em;
 		max-width: 620px;
 		margin-left: auto;
 		margin-right: auto;
 	}
-	.header gitlens-logo {
-		transform: translateX(-0.75rem);
+	.header gitlens-logo-circle {
+		height: calc(46px * 0.6);
+		transform: scale(0.6) translate(calc(46px * 0.4), calc(-46px * 0.2));
+		margin-right: 0.4em;
+		vertical-align: top;
 	}
 	.header h1 {
-		margin-bottom: 0;
+		margin: 0;
 		font-size: var(--h1-font-size);
+	}
+	.header h1 + p {
+		margin-top: 0;
 	}
 
 	@media (max-width: 640px) {
-		.logo {
-			transform: scale(0.5);
+		.header gitlens-logo-circle {
+			height: calc(46px * 0.5);
+			transform: scale(0.5) translate(calc(46px * 0.5), calc(-46px * 0.25 - 2px));
+			margin-right: 0.3em;
 		}
-		.header {
-			margin-top: 1.5em;
+	}
+
+	@media (max-width: 300px) {
+		.header gitlens-logo-circle {
+			height: calc(46px * 0.4);
+			transform: scale(0.4) translate(calc(46px * 0.6), calc(-46px * 0.3 - 4px));
+			margin-right: 0.2em;
 		}
 	}
 `;
