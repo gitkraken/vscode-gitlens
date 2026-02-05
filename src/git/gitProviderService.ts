@@ -551,7 +551,7 @@ export class GitProviderService implements Disposable {
 				if (repository != null) {
 					repository.closed = false;
 				} else {
-					void this.getOrOpenRepository(e.uri);
+					void this.getOrOpenRepository(e.uri, e.source === 'scm' ? { detectNested: true } : undefined);
 				}
 			}),
 		);

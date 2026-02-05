@@ -228,11 +228,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				const closed = [...closing];
 				closing.clear();
 				for (const uri of closed) {
-					this._onDidCloseRepository.fire({ uri: uri });
+					this._onDidCloseRepository.fire({ uri: uri, source: 'scm' });
 				}
 			}, 1000);
 
-			const opening = new Set<Uri>();
+			const opening = new UriSet();
 			const fireRepositoryOpened = debounce(() => {
 				if (this.container.deactivating) return;
 
@@ -240,7 +240,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				opening.clear();
 
 				for (const uri of opened) {
-					this._onDidOpenRepository.fire({ uri: uri });
+					this._onDidOpenRepository.fire({ uri: uri, source: 'scm' });
 				}
 			}, 1000);
 			this._disposables.push(
@@ -260,7 +260,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 
 			for (const scmRepository of scmGit.repositories) {
-				this._onDidOpenRepository.fire({ uri: scmRepository.rootUri });
+				this._onDidOpenRepository.fire({ uri: scmRepository.rootUri, source: 'scm' });
 			}
 		}
 		void subscribeToScmOpenCloseRepository.call(this);

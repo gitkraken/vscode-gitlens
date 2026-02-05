@@ -129,10 +129,12 @@ export interface PreviousRangeComparisonUrisResult extends PreviousComparisonUri
 
 export interface RepositoryCloseEvent {
 	readonly uri: Uri;
+	readonly source?: 'scm';
 }
 
 export interface RepositoryOpenEvent {
 	readonly uri: Uri;
+	readonly source?: 'scm';
 }
 
 export type RepositoryVisibility = 'private' | 'public' | 'local';
