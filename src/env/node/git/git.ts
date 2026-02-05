@@ -84,9 +84,10 @@ export const GitErrors = {
 	alreadyCheckedOut: /already checked out/i,
 	alreadyExists: /already exists/i,
 	ambiguousArgument: /fatal:\s*ambiguous argument ['"].+['"]: unknown revision or path not in the working tree/i,
+	badObject: /fatal:\s*bad object (.*?)/i,
 	badRevision: /bad revision '(.*?)'/i,
-	branchAlreadyExists: /fatal: A branch named '.+?' already exists/i,
-	notFullyMerged: /error: The branch '.+?' is not fully merged/i,
+	branchAlreadyExists: /fatal:\s*A branch named '.+?' already exists/i,
+	notFullyMerged: /error:\s*The branch '.+?' is not fully merged/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten:
 		/Your local changes to the following files would be overwritten|Your local changes would be overwritten|overwritten by checkout/i,
@@ -98,30 +99,30 @@ export const GitErrors = {
 	detachedHead: /You are in 'detached HEAD' state/i,
 	entryNotUpToDate: /error:\s*Entry ['"].+['"] not uptodate\. Cannot merge\./i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
-	invalidName: /fatal: '.+?' is not a valid branch name/i,
+	invalidName: /fatal:\s*'.+?' is not a valid branch name/i,
 	invalidLineCount: /file .+? has only (\d+) lines/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
 	invalidTagName: /invalid tag name/i,
 	mainWorkingTree: /is a main working tree/i,
 	mergeAborted: /merge.*aborted/i,
-	mergeInProgress: /^fatal: You have not concluded your merge/i,
+	mergeInProgress: /^fatal:\s*You have not concluded your merge/i,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
 	noRemoteReference: /unable to delete '.+?': remote ref does not exist/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
-	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
+	noUpstream: /^fatal:\s*The current branch .* has no upstream branch/i,
 	notAValidObjectName: /Not a valid object name/i,
 	notAWorkingTree: /'(.*?)' is not a working tree/i,
 	noUserNameConfigured: /Please tell me who you are\./i,
 	noPausedOperation:
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
 	permissionDenied: /Permission.*denied/i,
-	pushRejected: /^error: failed to push some refs to\b/m,
-	pushRejectedRefDoesNotExists: /error: unable to delete '(.*?)': remote ref does not exist/m,
+	pushRejected: /^error:\s*failed to push some refs to\b/m,
+	pushRejectedRefDoesNotExists: /error:\s*unable to delete '(.*?)': remote ref does not exist/m,
 	rebaseAborted: /Nothing to do|rebase.*aborted/i,
 	rebaseInProgress: /It seems that there is already a rebase-(?:merge|apply) directory/i,
-	rebaseMissingTodo: /error: could not read file .*\/git-rebase-todo': No such file or directory/,
+	rebaseMissingTodo: /error:\s*could not read file .*\/git-rebase-todo': No such file or directory/,
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
 	revertAborted: /revert.*aborted/i,
 	revertInProgress: /^(error: )?(revert|cherry-pick) is already in progress/i,
@@ -172,7 +173,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 				Logger.warn(
 					`[${cwd}] Git ${msg
 						.trim()
-						.replace(/fatal: /g, '')
+						.replace(/fatal:\s*/g, '')
 						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)}${duration}`,
 				);
 				return;
@@ -1325,7 +1326,7 @@ export class Git implements Disposable {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 
 			const unsafeMatch =
-				/(?:^fatal: detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
+				/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
 					ex.stderr,
 				);
 			if (unsafeMatch != null) {
@@ -1399,7 +1400,7 @@ export class Git implements Disposable {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 
 			const unsafeMatch =
-				/(?:^fatal: detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
+				/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
 					ex.stderr,
 				);
 			if (unsafeMatch != null) {
@@ -1643,7 +1644,7 @@ export class Git implements Disposable {
 						? 'cancelled'
 						: (ex.message || String(ex) || '')
 								.trim()
-								.replace(/fatal: /g, '')
+								.replace(/fatal:\s*/g, '')
 								.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)
 				} [${duration}ms]${status}`,
 			);
