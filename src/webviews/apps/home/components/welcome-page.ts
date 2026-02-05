@@ -10,7 +10,7 @@ import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import { stateContext } from '../../welcome/context.js';
 import { welcomeStyles } from './welcome-page.css.js';
-import '../../shared/components/gitlens-logo.js';
+import '../../shared/components/gitlens-logo-circle.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import './welcome-parts.js';
@@ -110,8 +110,7 @@ export class GlWelcomePage extends LitElement {
 		return html`
 			<div part="page" class="welcome scrollable">
 				<div class="section plain header">
-					<div class="logo"><gitlens-logo></gitlens-logo></div>
-					<h1>GitLens is now installed in ${this._state.hostAppName}</h1>
+					<h1><gitlens-logo-circle></gitlens-logo-circle><span>Get Started with GitLens<span></h1>
 					<p>
 						Understand every line of code — instantly. GitLens reveals authorship, activity, and history
 						inside the editor
