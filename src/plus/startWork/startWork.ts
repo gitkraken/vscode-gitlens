@@ -4,6 +4,7 @@ import type { Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { GitBranch } from '../../git/models/branch.js';
 import type { GitWorktree } from '../../git/models/worktree.js';
+import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils.js';
 import type { Deferred } from '../../system/promise.js';
 import type { StartWorkContext, StartWorkStepState } from './startWorkBase.js';
 import { StartWorkBaseCommand } from './startWorkBase.js';
@@ -54,13 +55,17 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 		const repo = issue && (await this.getIssueRepositoryIfExists(issue));
 
 		// Determine defaults when useDefaults is enabled
-		let defaultReference;
+		let defaultReference = undefined;
 
 		if (state.useDefaults && repo) {
-			// Get default branch
+			// Get default branch (returns remote branch name like "origin/main")
 			const defaultBranchName = await repo.git.branches.getDefaultBranchName();
 			if (defaultBranchName) {
-				const defaultBranch = await repo.git.branches.getBranch(defaultBranchName);
+				// Strip remote prefix to get local branch name (e.g., "origin/main" -> "main")
+				const localBranchName = getBranchNameWithoutRemote(defaultBranchName);
+
+				// Get the local version of the default branch
+				const defaultBranch = await repo.git.branches.getBranch(localBranchName);
 				if (defaultBranch) {
 					defaultReference = defaultBranch;
 				}
@@ -73,6 +78,7 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			this.container,
 			{
 				command: 'branch',
+				confirm: state.useDefaults ? false : undefined,
 				state: {
 					subcommand: 'create',
 					// When useDefaults is true, set repo directly to skip picker
