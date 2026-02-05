@@ -425,6 +425,10 @@ export class ComposerApp extends LitElement {
 		if (!this.state.onboardingDismissed && !this.hasAnyError()) {
 			this.openOnboarding();
 		}
+		// Initialize custom instructions from state if provided
+		if (this.state.autoComposeInstructions) {
+			this.customInstructions = this.state.autoComposeInstructions;
+		}
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {

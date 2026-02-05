@@ -360,6 +360,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			indexHasChanged: false,
 			repositoryState: this.getRepositoryState(),
 			recompose: this._recompose ?? null,
+			autoComposeInstructions: this._args?.autoComposeInstructions,
 		};
 	}
 

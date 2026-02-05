@@ -156,15 +156,18 @@ export class CliCommandHandlers implements Disposable {
 
 	@command('mcp/wip/compose/open')
 	async handleComposeCommand(
-		_request: CliCommandRequest | undefined,
+		request: CliCommandRequest | undefined,
 		repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
+		const instructions = request?.args?.[0];
+
 		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
 			'gitlens.showComposerPage',
 			undefined,
 			{
 				repoPath: repo?.path,
 				source: 'gk-cli-integration',
+				autoComposeInstructions: instructions,
 			},
 		);
 	}
