@@ -103,11 +103,11 @@ export function gate<T extends (...arg: any) => any>(
 				}
 
 				this[prop] = promise;
-				void promise.finally(() => (this[prop] = undefined));
+				void promise.finally(() => (this[prop] = undefined)).catch(() => {});
 
 				// Set up deadlock warning timeouts (only for warnings that would fire before the timeout)
 				const warningsDisposable = scheduleDeadlockWarnings(key, prop, timeout);
-				void promise.finally(() => warningsDisposable.dispose());
+				void promise.finally(() => warningsDisposable.dispose()).catch(() => {});
 			}
 
 			return promise;

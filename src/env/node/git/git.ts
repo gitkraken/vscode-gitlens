@@ -368,7 +368,8 @@ export class Git implements Disposable {
 				.finally(() => {
 					this.pendingCommands.delete(cacheKey);
 					void disposeCancellation?.dispose();
-				});
+				})
+				.catch(() => {});
 		} else {
 			waiting = true;
 			Logger.debug(`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} waiting...`);
