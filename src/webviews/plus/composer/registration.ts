@@ -16,6 +16,7 @@ export interface ComposerCommandArgs {
 	commitShas?: string[];
 	/** If provided, defines the commit range directly (skips merge target resolution) */
 	range?: { base: string; head: string };
+	autoComposeInstructions?: string;
 }
 
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];

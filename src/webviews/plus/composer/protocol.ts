@@ -95,6 +95,7 @@ export interface State extends WebviewState<'gitlens.composer'> {
 
 	// AI composition state
 	hasUsedAutoCompose: boolean; // true if auto-compose has been successfully used at least once
+	autoComposeInstructions?: string; // optional instructions to trigger auto-compose on load
 
 	// Content state
 	hasChanges: boolean; // true if there are working directory changes to compose
