@@ -264,6 +264,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 							launchpadItem,
 							state.instructions,
 							state.openChatOnComplete,
+							state.useDefaults,
 						);
 						state.result?.fulfill(reviewResult);
 						steps.markStepsComplete();
@@ -309,6 +310,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 					state.item.launchpadItem,
 					state.instructions,
 					state.openChatOnComplete,
+					state.useDefaults,
 				);
 				state.result?.fulfill(reviewResult);
 			} catch (ex) {
