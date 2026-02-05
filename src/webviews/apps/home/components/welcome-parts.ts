@@ -1,7 +1,9 @@
+import type { TemplateResult } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, queryAssignedElements, state } from 'lit/decorators.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import type { SubscriptionState } from '../../../../constants.subscription.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -9,6 +11,7 @@ declare global {
 		'gl-feature-carousel': GlFeatureCarousel;
 		'gl-feature-narrow-card': GlFeatureNarrowCard;
 		'gl-scrollable-features': GlScrollableFeatures;
+		'gl-walkthrough-step': GlWalkthroughStep;
 	}
 }
 
@@ -204,6 +207,33 @@ export class GlFeatureCarousel extends LitElement {
 					<code-icon icon="chevron-right" size="20"></code-icon>
 				</gl-button>
 			</div>
+		`;
+	}
+}
+
+export type WalkthroughStep = {
+	id: string;
+	title: string;
+	body: TemplateResult;
+	condition?: (plusState?: SubscriptionState) => boolean;
+};
+
+@customElement('gl-walkthrough-step')
+export class GlWalkthroughStep extends LitElement {
+	static override styles = [
+		css`
+			:host {
+				display: flex;
+				gap: 1em;
+				flex-direction: column;
+			}
+		`,
+	];
+
+	override render(): unknown {
+		return html`
+			<slot name="title"></slot>
+			<slot></slot>
 		`;
 	}
 }

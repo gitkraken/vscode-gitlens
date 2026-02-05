@@ -3,7 +3,8 @@ import { css } from 'lit';
 const colorScheme = css`
 	:host {
 		--accent-color: #cb64ff;
-		--text-color: var(--vscode-descriptionForeground);
+		--text-color: var(--vscode-sideBar-foreground);
+		--dimmed-text-color: var(--vscode-descriptionForeground);
 		--heading-color: var(--vscode-tab-activeForeground);
 		--em-color: var(--vscode-sideBar-foreground);
 		--link-color: var(--vscode-textLink-foreground);
@@ -111,6 +112,7 @@ const section = css`
 		justify-content: center;
 		align-items: center;
 		text-align: center;
+		gap: 0.7em;
 	}
 	.section h1 {
 		color: var(--heading-color);
@@ -120,6 +122,7 @@ const section = css`
 		font-weight: normal;
 		font-size: var(--p-font-size);
 	}
+
 	.section p {
 		color: var(--text-color);
 	}
@@ -136,6 +139,11 @@ const section = css`
 		font-size: var(--p-font-size);
 	}
 
+	.section.plain ul {
+		max-width: 26em;
+		font-size: var(--p-font-size);
+	}
+
 	.section.start-trial {
 		display: flex;
 		gap: 0.5em;
@@ -144,20 +152,20 @@ const section = css`
 	.section.start-trial p {
 		width: 100%;
 	}
-	.section.start-trial gl-button.start-trial-button {
+	.section gl-button.start-trial-button {
 		background: var(--trial-button-gradient);
 		border: var(--trial-button-border);
 		color: var(--trial-button-text-color);
 	}
-	.section.start-trial gl-button {
+	.section gl-button {
 		width: 100%;
 	}
 
 	@media (min-width: 640px) {
-		.section.start-trial gl-button {
+		.section gl-button {
 			width: initial;
 		}
-		.section.start-trial gl-button.start-trial-button {
+		.section gl-button.start-trial-button {
 			--button-padding: 0.4em 4em;
 		}
 	}
@@ -213,6 +221,9 @@ const header = css`
 
 const cards = css`
 	.card {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7em;
 		border-radius: 0.63em;
 		background-color: var(--card-background);
 		padding: 1.8em;
@@ -221,7 +232,7 @@ const cards = css`
 
 	@media (max-width: 640px) {
 		.card {
-			padding: 1em;
+			padding: 1em 2em;
 		}
 	}
 
@@ -245,8 +256,27 @@ const cards = css`
 		margin: 1em 0 0;
 	}
 
+	.card ul {
+		color: var(--text-color);
+		text-align: initial;
+		padding: 0;
+		margin: auto;
+	}
+
 	.card img {
 		max-width: 100%;
+	}
+
+	p.card-part--tip {
+		color: var(--dimmed-text-color);
+	}
+	p.card-part--tip em {
+		color: var(--em-color);
+		font-style: normal;
+	}
+
+	gl-walkthrough-step.card {
+		text-align: center;
 	}
 `;
 
