@@ -255,36 +255,23 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 				opened = true;
 
+				let preSelecteditem: StartWorkItem | undefined = undefined;
 				// Auto-select issue if issueUrl is provided
-				if (state.issueUrl && context.result?.items) {
-					const matchedItem = context.result.items.find(item => item.issue.url === state.issueUrl);
-
-					if (matchedItem) {
-						state.item = matchedItem;
-
-						if (this.container.telemetry.enabled) {
-							this.container.telemetry.sendEvent(
-								`${this.telemetryEventKey}/issue/chosen`,
-								{
-									...context.telemetryContext!,
-									...buildItemTelemetryData(matchedItem),
-									connected: true,
-								},
-								this.source,
-							);
-						}
-
-						// Skip the picker step entirely
-						continue;
+				if (state.issueUrl) {
+					if (context.result == null) {
+						await updateContextItems(this.container, context);
 					}
+					preSelecteditem = context.result?.items.find(item => item.issue.url === state.issueUrl);
 
 					// If issue not found, show error and fall through to picker
-					void window.showErrorMessage(
-						`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
-					);
+					if (preSelecteditem == null) {
+						void window.showErrorMessage(
+							`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
+						);
+					}
 				}
 
-				const result = yield* this.pickStartWorkIssueStep(state, context);
+				const result = preSelecteditem ?? (yield* this.pickStartWorkIssueStep(state, context));
 				if (result === StepResultBreak) {
 					state.item = undefined;
 					if (step.goBack() == null) break;
