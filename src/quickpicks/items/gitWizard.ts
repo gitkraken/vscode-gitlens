@@ -13,7 +13,7 @@ import type { GitReference } from '../../git/models/reference.js';
 import type { GitRemote } from '../../git/models/remote.js';
 import type { Repository } from '../../git/models/repository.js';
 import type { GitTag } from '../../git/models/tag.js';
-import { getBranchIconPath, getWorktreeBranchIconPath } from '../../git/utils/-webview/icons.js';
+import { getBranchIconPath, getRepositoryIcon, getWorktreeBranchIconPath } from '../../git/utils/-webview/icons.js';
 import { createReference } from '../../git/utils/reference.utils.js';
 import { getRemoteUpstreamDescription } from '../../git/utils/remote.utils.js';
 import { isRevisionRange, shortenRevision } from '../../git/utils/revision.utils.js';
@@ -415,11 +415,7 @@ export async function createRepositoryQuickPickItem(
 		}
 	}
 
-	const codiconName = repository.isWorktree
-		? 'gitlens-worktree'
-		: repository.virtual
-			? 'gitlens-repository-cloud'
-			: 'gitlens-repository';
+	const codiconName = getRepositoryIcon(repository);
 
 	const item: RepositoryQuickPickItem = {
 		label: options?.indent ? `$(${codiconName}) ${GlyphChars.Space}${repository.name}` : repository.name,

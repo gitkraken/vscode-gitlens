@@ -182,6 +182,16 @@ export function getRemoteIconUri(
 	return asWebviewUri != null ? asWebviewUri(uri) : uri;
 }
 
+export function getRepositoryIcon(repository: Repository): string {
+	if (repository.isWorktree) return 'gitlens-worktree';
+	if (repository.virtual) return 'gitlens-repository-cloud';
+	return 'gitlens-repository';
+}
+
+export function getRepositoryIconPath(repository: Repository): IconPath {
+	return new ThemeIcon(getRepositoryIcon(repository));
+}
+
 export function getRepositoryStatusIconPath(
 	container: Container,
 	repository: Repository,

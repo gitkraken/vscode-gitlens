@@ -1,9 +1,10 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../../constants.js';
 import type { GitUri } from '../../../git/gitUri.js';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository.js';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { getRepositoryIconPath } from '../../../git/utils/-webview/icons.js';
 import { formatLastFetched } from '../../../git/utils/-webview/repository.utils.js';
 import { getHighlanderProviders } from '../../../git/utils/remote.utils.js';
 import { gate } from '../../../system/decorators/gate.js';
@@ -94,10 +95,7 @@ export abstract class RepositoryFolderNode<
 			item.contextValue += '+filtered';
 		}
 
-		const { isWorktree } = this.repo;
-		item.iconPath = new ThemeIcon(
-			isWorktree ? 'gitlens-worktree' : this.repo.virtual ? 'gitlens-repository-cloud' : 'gitlens-repository',
-		);
+		item.iconPath = getRepositoryIconPath(this.repo);
 
 		if (branch != null && this.options?.showBranchAndLastFetched) {
 			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
