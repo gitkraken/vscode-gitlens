@@ -111,6 +111,7 @@ const section = css`
 		justify-content: center;
 		align-items: center;
 		text-align: center;
+		gap: 0.7em;
 	}
 	.section h1 {
 		color: var(--heading-color);
@@ -119,6 +120,10 @@ const section = css`
 		color: var(--heading-color);
 		font-weight: normal;
 		font-size: var(--p-font-size);
+	}
+	.section em {
+		color: var(--em-color);
+		font-style: normal;
 	}
 	.section p {
 		color: var(--text-color);
@@ -136,6 +141,11 @@ const section = css`
 		font-size: var(--p-font-size);
 	}
 
+	.section.plain ul {
+		max-width: 26em;
+		font-size: var(--p-font-size);
+	}
+
 	.section.start-trial {
 		display: flex;
 		gap: 0.5em;
@@ -144,20 +154,20 @@ const section = css`
 	.section.start-trial p {
 		width: 100%;
 	}
-	.section.start-trial gl-button.start-trial-button {
+	.section gl-button.start-trial-button {
 		background: var(--trial-button-gradient);
 		border: var(--trial-button-border);
 		color: var(--trial-button-text-color);
 	}
-	.section.start-trial gl-button {
+	.section gl-button {
 		width: 100%;
 	}
 
 	@media (min-width: 640px) {
-		.section.start-trial gl-button {
+		.section gl-button {
 			width: initial;
 		}
-		.section.start-trial gl-button.start-trial-button {
+		.section gl-button.start-trial-button {
 			--button-padding: 0.4em 4em;
 		}
 	}
@@ -213,6 +223,9 @@ const header = css`
 
 const cards = css`
 	.card {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7em;
 		border-radius: 0.63em;
 		background-color: var(--card-background);
 		padding: 1.8em;
@@ -221,7 +234,7 @@ const cards = css`
 
 	@media (max-width: 640px) {
 		.card {
-			padding: 1em;
+			padding: 1em 2em;
 		}
 	}
 
@@ -245,8 +258,18 @@ const cards = css`
 		margin: 1em 0 0;
 	}
 
+	.card ul {
+		text-align: initial;
+		padding: 0;
+		margin: auto;
+	}
+
 	.card img {
 		max-width: 100%;
+	}
+
+	gl-walkthrough-step.card {
+		text-align: center;
 	}
 `;
 
