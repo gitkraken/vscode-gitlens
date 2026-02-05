@@ -53,6 +53,7 @@ import { asRepoComparisonKey } from '../../../repositories.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { setContext } from '../../../system/-webview/context.js';
 import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path.js';
+import { UriSet } from '../../../system/-webview/uriMap.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { debug, log } from '../../../system/decorators/log.js';
 import { debounce } from '../../../system/function/debounce.js';
@@ -893,6 +894,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return (await fsExists(uri.fsPath)) ? uri : undefined;
 	}
 
+	@log({ exit: true })
+	async isFolderUri(repoPath: string, uri: Uri): Promise<boolean> {
+		// Use tree entry to determine type: 'tree' = folder, 'commit' = submodule, 'blob' = file
+		const relativePath = this.getRelativePath(uri, repoPath);
+		const tree = await this.revision.getTreeEntryForRevision(repoPath, 'HEAD', relativePath);
+		return tree?.type === 'tree';
+	}
+
 	@log()
 	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const scope = getLogScope();
@@ -1040,6 +1049,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									`${letter.toLowerCase()}:${isDriveRoot || networkPath.endsWith('\\') ? '\\' : ''}`,
 								),
 							);
+
 							// Pre-populate the gitDir cache for Windows mapped drive path
 							const resultUri = Uri.file(repoPath);
 							if (gitDirInfo != null) {

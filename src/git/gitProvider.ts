@@ -59,6 +59,7 @@ export type CachedGitTypes =
 
 export interface GitDir {
 	readonly uri: Uri;
+	/** The common git directory for worktrees */
 	readonly commonUri?: Uri;
 }
 
@@ -1041,6 +1042,7 @@ export interface GitProvider extends GitRepositoryProvider, Disposable {
 	getRevisionUri(repoPath: string, rev: string, path: string): Uri;
 	// getRootUri(pathOrUri: string | Uri): Uri;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
+	isFolderUri(repoPath: string, uri: Uri): Promise<boolean>;
 
 	applyChangesToWorkingFile?(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
 	clone?(url: string, parentPath: string): Promise<string | undefined>;

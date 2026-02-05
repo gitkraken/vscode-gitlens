@@ -390,6 +390,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this.createVirtualUri(repoPath, undefined, uri.path);
 	}
 
+	@log({ exit: true })
+	async isFolderUri(repoPath: string, uri: Uri): Promise<boolean> {
+		// Check if it's a directory via the tree entry
+		const relativePath = this.getRelativePath(uri, repoPath);
+		const tree = await this.revision.getTreeEntryForRevision(repoPath, 'HEAD', relativePath);
+		return tree?.type === 'tree';
+	}
+
 	@log<GitHubGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
 	async excludeIgnoredUris(_repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		return uris;

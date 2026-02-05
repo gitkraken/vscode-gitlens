@@ -217,6 +217,10 @@ export class GitRepositoryService implements IGitRepositoryService {
 	getWorkingUri(uri: Uri): Promise<Uri | undefined> {
 		return this._provider.getWorkingUri(this.path, uri);
 	}
+	@debug({ exit: true })
+	isFolderUri(uri: Uri): Promise<boolean> {
+		return this._provider.isFolderUri(this.path, uri);
+	}
 
 	@debug({ exit: true })
 	supports(feature: Features): Promise<boolean> {

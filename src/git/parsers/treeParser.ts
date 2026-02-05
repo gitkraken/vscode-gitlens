@@ -1,6 +1,6 @@
 import { maybeStopWatch } from '../../system/stopwatch.js';
 import { iterateByDelimiter } from '../../system/string.js';
-import type { GitTreeEntry } from '../models/tree.js';
+import type { GitTreeEntry, GitTreeType } from '../models/tree.js';
 
 export function parseGitTree(data: string | undefined, ref: string, singleEntry: boolean): GitTreeEntry[] {
 	using sw = maybeStopWatch(`Git.parseTree`, { log: false, logLevel: 'debug' });
@@ -16,7 +16,7 @@ export function parseGitTree(data: string | undefined, ref: string, singleEntry:
 	let metadata: string;
 	let oid: string;
 	let size: number;
-	let type: 'blob' | 'tree';
+	let type: GitTreeType;
 	let path: string;
 
 	let startIndex = 0;
@@ -38,7 +38,7 @@ export function parseGitTree(data: string | undefined, ref: string, singleEntry:
 		endIndex = metadata.indexOf(' ', startIndex);
 		if (endIndex === -1) continue;
 
-		type = metadata.substring(startIndex, endIndex) as 'blob' | 'tree';
+		type = metadata.substring(startIndex, endIndex) as GitTreeType;
 
 		// Parse oid
 		startIndex = endIndex + 1;

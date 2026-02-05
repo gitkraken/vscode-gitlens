@@ -7,7 +7,6 @@ import { isBranchReference } from '../../git/utils/reference.utils.js';
 import { isSha } from '../../git/utils/revision.utils.js';
 import { showReferencePicker } from '../../quickpicks/referencePicker.js';
 import { setContext } from '../../system/-webview/context.js';
-import { isFolderUri } from '../../system/-webview/path.js';
 import { isVirtualUri } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
 import { debug, log } from '../../system/decorators/log.js';
@@ -78,7 +77,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				sha: this._base ?? this.uri.sha,
 			};
 			const fileUri = new GitUri(this.uri, commitish);
-			const folder = await isFolderUri(this.uri);
+			const svc = this.view.container.git.getRepositoryService(commitish.repoPath);
+			const folder = await svc.isFolderUri(this.uri);
 
 			if (this.view.grouped) {
 				this.view.groupedLabel = (folder ? 'Folder History' : 'File History').toLocaleLowerCase();
@@ -86,8 +86,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			} else {
 				this.view.title = folder ? 'Folder History' : 'File History';
 			}
-
-			const svc = this.view.container.git.getRepositoryService(commitish.repoPath);
 
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
