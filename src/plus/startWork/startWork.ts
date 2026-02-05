@@ -19,6 +19,12 @@ export interface StartWorkCommandArgs {
 	// Use smart defaults and skip unnecessary steps
 	useDefaults?: boolean;
 
+	// Open chat on after branch/worktree is opened
+	openChatOnComplete?: boolean;
+
+	// Instructions to include in the AI prompt
+	instructions?: string;
+
 	// Result tracking for programmatic usage
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree }>;
 }
@@ -33,7 +39,9 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 		this.initialState = {
 			...this.initialState,
 			issueUrl: args?.issueUrl,
+			instructions: args?.instructions,
 			useDefaults: args?.useDefaults,
+			openChatOnComplete: args?.openChatOnComplete,
 			result: args?.result,
 		};
 	}
@@ -79,7 +87,14 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 					associateWithIssue: issue,
 					worktreeDefaultOpen: state.useDefaults ? 'new' : undefined,
 					result: state.result,
-					startWorkIssue: issue,
+					chatAction:
+						state.openChatOnComplete && issue
+							? {
+									type: 'startWork',
+									issue: issue,
+									instructions: state.instructions,
+								}
+							: undefined,
 				},
 			},
 			context,

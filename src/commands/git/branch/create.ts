@@ -14,6 +14,7 @@ import {
 	isRevisionReference,
 } from '../../../git/utils/reference.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
+import type { ChatActions } from '../../../plus/chat/chatActions.js';
 import { getIssueOwner } from '../../../plus/integrations/providers/utils.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
@@ -74,8 +75,8 @@ interface State<Repo = string | Repository> {
 	// Result tracking
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree }>;
 
-	// Issue for deeplink storage
-	startWorkIssue?: IssueShape;
+	// Chat action for deeplink storage
+	chatAction?: ChatActions;
 }
 export type BranchCreateState = State;
 
@@ -213,7 +214,7 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 							repo: state.repo,
 							worktreeDefaultOpen: state.worktreeDefaultOpen,
 							result: worktreeResult,
-							startWorkIssue: state.startWorkIssue,
+							chatAction: state.chatAction,
 						},
 					},
 					context,

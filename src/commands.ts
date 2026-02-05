@@ -37,6 +37,7 @@ import './commands/logging.js';
 import './commands/openAssociatedPullRequestOnRemote.js';
 import './commands/openBranchesOnRemote.js';
 import './commands/openBranchOnRemote.js';
+import './commands/openChatAction.js';
 import './commands/openCurrentBranchOnRemote.js';
 import './commands/openChangedFiles.js';
 import './commands/openCommitOnRemote.js';

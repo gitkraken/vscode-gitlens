@@ -124,7 +124,9 @@ export interface StartWorkOverrides {
 interface StartWorkState {
 	item?: StartWorkItem;
 	issueUrl?: string;
+	instructions?: string;
 	useDefaults?: boolean;
+	openChatOnComplete?: boolean;
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree }>;
 }
 

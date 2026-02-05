@@ -66,6 +66,12 @@ export interface StartReviewCommandArgs {
 	// Use smart defaults and skip unnecessary steps
 	useDefaults?: boolean;
 
+	// Open chat on after branch/worktree is opened
+	openChatOnComplete?: boolean;
+
+	// Instructions to include in the AI prompt
+	instructions?: string;
+
 	// Result tracking for programmatic usage
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree; pr: PullRequest }>;
 }
@@ -103,7 +109,9 @@ export interface StartReviewContext extends StepsContext<StepNames> {
 interface StartReviewState {
 	item?: StartReviewItem;
 	prUrl?: string;
+	instructions?: string;
 	useDefaults?: boolean;
+	openChatOnComplete?: boolean;
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree; pr: PullRequest }>;
 }
 
@@ -152,7 +160,9 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 		this.initialState = {
 			prUrl: args?.prUrl,
+			instructions: args?.instructions,
 			useDefaults: args?.useDefaults,
+			openChatOnComplete: args?.openChatOnComplete,
 			result: args?.result,
 		};
 	}
@@ -249,7 +259,12 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 							throw new Error(`No PR found matching '${state.prUrl}'`);
 						}
 
-						const reviewResult = await startReviewFromLaunchpadItem(this.container, launchpadItem);
+						const reviewResult = await startReviewFromLaunchpadItem(
+							this.container,
+							launchpadItem,
+							state.instructions,
+							state.openChatOnComplete,
+						);
 						state.result?.fulfill(reviewResult);
 						steps.markStepsComplete();
 						return;
@@ -289,7 +304,12 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 			// Execute the review using the LaunchpadItem directly (avoids redundant PR lookup)
 			try {
-				const reviewResult = await startReviewFromLaunchpadItem(this.container, state.item.launchpadItem);
+				const reviewResult = await startReviewFromLaunchpadItem(
+					this.container,
+					state.item.launchpadItem,
+					state.instructions,
+					state.openChatOnComplete,
+				);
 				state.result?.fulfill(reviewResult);
 			} catch (ex) {
 				state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));

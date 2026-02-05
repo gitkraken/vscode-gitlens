@@ -357,6 +357,7 @@ export interface StoredDeepLinkContext {
 	state?: DeepLinkServiceState | undefined;
 	prData?: string | undefined;
 	issueData?: string | undefined;
+	instructions?: string | undefined;
 }
 
 export interface StoredGraphColumn {
