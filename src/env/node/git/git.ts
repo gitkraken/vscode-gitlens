@@ -25,6 +25,7 @@ import type {
 	RebaseErrorReason,
 	ResetErrorReason,
 	RevertErrorReason,
+	ShowErrorReason,
 	StashApplyErrorReason,
 	StashPushErrorReason,
 	TagErrorReason,
@@ -39,10 +40,11 @@ import {
 	PullError,
 	PushError,
 	ResetError,
+	ShowError,
 	StashPushError,
 	WorkspaceUntrustedError,
 } from '../../../git/errors.js';
-import type { GitExecOptions, GitResult, GitSpawnOptions } from '../../../git/execTypes.js';
+import type { GitErrorHandling, GitExecOptions, GitResult, GitSpawnOptions } from '../../../git/execTypes.js';
 import type { GitDir } from '../../../git/gitProvider.js';
 import type { GitDiffFilter } from '../../../git/models/diff.js';
 import { rootSha } from '../../../git/models/revision.js';
@@ -1444,18 +1446,19 @@ export class Git implements Disposable {
 
 	async show__content<T extends string | Buffer>(
 		repoPath: string | undefined,
-		fileName: string,
-		ref: string,
+		path: string,
+		rev: string,
 		options?: {
 			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
+			errors?: GitErrorHandling;
 		},
 	): Promise<T | undefined> {
-		const [file, root] = splitPath(fileName, repoPath, true);
+		const [file, root] = splitPath(path, repoPath, true);
 
-		if (isUncommittedStaged(ref)) {
-			ref = ':';
+		if (isUncommittedStaged(rev)) {
+			rev = ':';
 		}
-		if (isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
+		if (isUncommitted(rev)) throw new Error(`ref=${rev} is uncommitted`);
 
 		const opts: GitExecOptions = {
 			configs: gitConfigsLog,
@@ -1463,21 +1466,38 @@ export class Git implements Disposable {
 			encoding: options?.encoding ?? 'utf8',
 			errors: 'throw',
 		};
-		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
+		const args = rev.endsWith(':') ? `${rev}./${file}` : `${rev}:./${file}`;
+		const params = ['show', '--textconv', args, '--'];
 
 		try {
-			const result = await this.exec<T>(opts, 'show', '--textconv', args, '--');
+			const result = await this.exec<T>(opts, ...params);
 			return result.stdout;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			if (ref === ':' && GitErrors.badRevision.test(msg)) {
-				return this.show__content<T>(repoPath, fileName, 'HEAD:', options);
+			if (rev === ':' && GitErrors.badRevision.test(msg)) {
+				return this.show__content<T>(repoPath, path, 'HEAD:', options);
 			}
 
+			const error = getGitCommandError(
+				'show',
+				ex,
+				reason =>
+					new ShowError(
+						{
+							reason: reason ?? 'other',
+							rev: rev,
+							path: path,
+							gitCommand: { repoPath: repoPath ?? '', args: params },
+						},
+						ex,
+					),
+			);
+			if (options?.errors === 'throw') throw error;
+
 			if (
-				GitErrors.badRevision.test(msg) ||
-				GitWarnings.notFound.test(msg) ||
-				GitWarnings.foundButNotInRevision.test(msg)
+				ShowError.is(error, 'invalidRevision') ||
+				ShowError.is(error, 'notFound') ||
+				ShowError.is(error, 'notInRevision')
 			) {
 				return undefined;
 			}
@@ -1690,6 +1710,7 @@ type GitCommand =
 	| 'rebase'
 	| 'reset'
 	| 'revert'
+	| 'show'
 	| 'stash-apply'
 	| 'stash-push'
 	| 'tag'
@@ -1708,6 +1729,7 @@ type GitCommandToReasonMap = {
 	rebase: RebaseErrorReason;
 	reset: ResetErrorReason;
 	revert: RevertErrorReason;
+	show: ShowErrorReason;
 	'stash-apply': StashApplyErrorReason;
 	'stash-push': StashPushErrorReason;
 	tag: TagErrorReason;
@@ -1832,6 +1854,16 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.unresolvedConflicts, 'conflicts'],
 			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
 			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	[
+		'show',
+		[
+			[GitErrors.badObject, 'invalidObject'],
+			[GitErrors.badRevision, 'invalidRevision'],
+			[GitErrors.notAValidObjectName, 'invalidRevision'],
+			[GitWarnings.notFound, 'notFound'],
+			[GitWarnings.foundButNotInRevision, 'notInRevision'],
 		],
 	],
 	['stash-apply', [[GitErrors.changesWouldBeOverwritten, 'uncommittedChanges']]],

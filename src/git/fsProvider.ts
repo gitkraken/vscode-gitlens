@@ -6,11 +6,14 @@ import type { Container } from '../container.js';
 import { relative } from '../system/-webview/path.js';
 import { debug } from '../system/decorators/log.js';
 import { map } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { getLogScope } from '../system/logger.scope.js';
 import { normalizePath } from '../system/path.js';
 import { TernarySearchTree } from '../system/searchTree.js';
+import { ShowError } from './errors.js';
 import { GitUri, isGitUri } from './gitUri.js';
 import { deletedOrMissing } from './models/revision.js';
-import type { GitTreeEntry } from './models/tree.js';
+import type { GitTreeEntry, GitTreeType } from './models/tree.js';
 
 const emptyArray = Object.freeze(new Uint8Array(0));
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
@@ -71,12 +74,25 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 	@debug()
 	async readFile(uri: Uri): Promise<Uint8Array> {
+		const scope = getLogScope();
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
 		if (ref === deletedOrMissing) return emptyArray;
 
-		const data = await this.container.git.getRepositoryService(repoPath).revision.getRevisionContent(ref, path);
-		return data != null ? data : emptyArray;
+		const svc = this.container.git.getRepositoryService(repoPath);
+
+		let data: Uint8Array | undefined;
+		try {
+			data = await svc.revision.getRevisionContent(ref, path);
+		} catch (ex) {
+			if (ShowError.is(ex) && ex.details.reason !== 'other') {
+				return emptyArray;
+			}
+
+			Logger.error(ex, scope, `Failed to read file for ${uri.toString(true)}`);
+		}
+
+		return data ?? emptyArray;
 	}
 
 	rename(oldUri: Uri, _newUri: Uri, _options: { readonly overwrite: boolean }): void | Thenable<void> {
@@ -153,7 +169,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	}
 }
 
-function typeToFileType(type: 'blob' | 'tree' | undefined | null) {
+function typeToFileType(type: GitTreeType | undefined | null) {
 	switch (type) {
 		case 'blob':
 			return FileType.File;

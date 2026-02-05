@@ -685,6 +685,42 @@ export class StashPushError extends GitCommandError<StashPushErrorDetails> {
 	}
 }
 
+export type ShowErrorReason = 'invalidObject' | 'invalidRevision' | 'notFound' | 'notInRevision' | 'other';
+interface ShowErrorDetails {
+	reason?: ShowErrorReason;
+	rev?: string;
+	path?: string;
+	gitCommand?: GitCommandContext;
+}
+
+export class ShowError extends GitCommandError<ShowErrorDetails> {
+	static override is(ex: unknown, reason?: ShowErrorReason): ex is ShowError {
+		return ex instanceof ShowError && (reason == null || ex.details.reason === reason);
+	}
+
+	constructor(details: ShowErrorDetails, original?: Error) {
+		super('Unable to show file', details, original);
+	}
+
+	protected override buildErrorMessage(details: ShowErrorDetails): string {
+		const baseMessage = `Unable to show${details.path ? ` '${details.path}'` : ' file'}${
+			details.rev ? ` at revision '${details.rev}'` : ''
+		}`;
+		switch (details.reason) {
+			case 'invalidObject':
+				return `${baseMessage} because the path is not a file`;
+			case 'invalidRevision':
+				return `${baseMessage} because the specified revision is invalid`;
+			case 'notFound':
+				return `${baseMessage} because the file does not exist`;
+			case 'notInRevision':
+				return `${baseMessage} because the file is not in the specified revision`;
+			default:
+				return baseMessage;
+		}
+	}
+}
+
 export type TagErrorReason =
 	| 'alreadyExists'
 	| 'invalidName'

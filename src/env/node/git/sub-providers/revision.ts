@@ -60,12 +60,9 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 	@gate()
 	@log()
-	getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined> {
+	async getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
-
-		return this.git.show__content<Buffer>(root, relativePath, rev, { encoding: 'buffer' }) as Promise<
-			Uint8Array | undefined
-		>;
+		return this.git.show__content<Buffer>(root, relativePath, rev, { encoding: 'buffer', errors: 'throw' });
 	}
 
 	@gate()
