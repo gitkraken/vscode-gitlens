@@ -175,7 +175,7 @@ export class CliCommandHandlers implements Disposable {
 		_repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No Pull Request provided' };
-		const [prUrl] = request.args;
+		const [prUrl, instructions] = request.args;
 
 		try {
 			const result = defer<{ branch: GitBranch; worktree?: GitWorktree; pr: PullRequest }>();
@@ -184,7 +184,9 @@ export class CliCommandHandlers implements Disposable {
 				command: 'startReview',
 				source: 'gk-cli-integration',
 				prUrl: prUrl,
+				instructions: instructions,
 				useDefaults: true,
+				openChatOnComplete: true,
 				result: result,
 			});
 
@@ -209,7 +211,7 @@ export class CliCommandHandlers implements Disposable {
 		_repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No issue identifier provided' };
-		const [issueUrl] = request.args;
+		const [issueUrl, instructions] = request.args;
 
 		try {
 			const result = defer<{ branch: GitBranch; worktree?: GitWorktree }>();
@@ -218,7 +220,9 @@ export class CliCommandHandlers implements Disposable {
 				command: 'startWork',
 				source: 'gk-cli-integration',
 				issueUrl: issueUrl,
+				instructions: instructions,
 				useDefaults: true,
+				openChatOnComplete: true,
 				result: result,
 			});
 

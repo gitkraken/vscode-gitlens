@@ -1,6 +1,7 @@
 import type { QuickPickItem, SecretStorageChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
 import { fromBase64ToString } from '@env/base64.js';
+import type { OpenChatActionCommandArgs } from '../../commands/openChatAction.js';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
 import { isIntegrationId, isSupportedCloudIntegrationId } from '../../constants.integrations.js';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage.js';
@@ -136,6 +137,7 @@ export class DeepLinkService implements Disposable {
 			currentBranch: undefined,
 			prData: undefined,
 			issueData: undefined,
+			instructions: undefined,
 		};
 	}
 
@@ -325,6 +327,7 @@ export class DeepLinkService implements Disposable {
 		this._context.repoPath = pendingDeepLink.repoPath;
 		this._context.prData = pendingDeepLink.prData != null ? JSON.parse(pendingDeepLink.prData) : undefined;
 		this._context.issueData = pendingDeepLink.issueData != null ? JSON.parse(pendingDeepLink.issueData) : undefined;
+		this._context.instructions = pendingDeepLink.instructions;
 
 		if (this.container.git.isDiscoveringRepositories) {
 			await this.container.git.isDiscoveringRepositories;
@@ -1656,9 +1659,13 @@ export class DeepLinkService implements Disposable {
 					}
 
 					try {
-						const { startReviewInChat } =
-							await import('../../plus/launchpad/utils/-webview/startReview.utils.js');
-						await startReviewInChat(this.container, pr);
+						await executeCommand('gitlens.openChatAction', {
+							chatAction: {
+								type: 'startReview',
+								pr: pr,
+								instructions: this._context.instructions,
+							},
+						} as OpenChatActionCommandArgs);
 						action = DeepLinkServiceAction.DeepLinkResolved;
 					} catch (ex) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
@@ -1676,9 +1683,13 @@ export class DeepLinkService implements Disposable {
 					}
 
 					try {
-						const { startWorkInChat } =
-							await import('../../plus/startWork/utils/-webview/startWork.utils.js');
-						await startWorkInChat(this.container, issue);
+						await executeCommand('gitlens.openChatAction', {
+							chatAction: {
+								type: 'startWork',
+								issue: issue,
+								instructions: this._context.instructions,
+							},
+						} as OpenChatActionCommandArgs);
 						action = DeepLinkServiceAction.DeepLinkResolved;
 					} catch (ex) {
 						action = DeepLinkServiceAction.DeepLinkErrored;

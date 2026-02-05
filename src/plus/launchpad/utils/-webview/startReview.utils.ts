@@ -1,4 +1,5 @@
-import { env, Uri } from 'vscode';
+import { Uri } from 'vscode';
+import type { OpenChatActionCommandArgs } from '../../../../commands/openChatAction.js';
 import type { SendToChatCommandArgs } from '../../../../commands/sendToChat.js';
 import type { Container } from '../../../../container.js';
 import { WorktreeCreateError } from '../../../../git/errors.js';
@@ -14,10 +15,8 @@ import { getWorktreeForBranch } from '../../../../git/utils/-webview/worktree.ut
 import { serializePullRequest } from '../../../../git/utils/pullRequest.utils.js';
 import { createReference } from '../../../../git/utils/reference.utils.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
-import { configuration } from '../../../../system/-webview/configuration.js';
 import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js';
-import type { UriTypes } from '../../../../uris/deepLinks/deepLink.js';
-import { DeepLinkCommandType, DeepLinkServiceState, DeepLinkType } from '../../../../uris/deepLinks/deepLink.js';
+import { storeChatActionDeepLink } from '../../../chat/chatActions.js';
 import type { LaunchpadItem } from '../../launchpadProvider.js';
 
 export interface StartReviewResult {
@@ -33,6 +32,8 @@ export interface StartReviewResult {
 export async function startReviewFromLaunchpadItem(
 	container: Container,
 	item: LaunchpadItem,
+	instructions?: string,
+	openChatOnComplete?: boolean,
 ): Promise<StartReviewResult> {
 	const pr = item.underlyingPullRequest;
 	if (!pr) {
@@ -40,7 +41,12 @@ export async function startReviewFromLaunchpadItem(
 	}
 
 	if (item.openRepository?.localBranch?.current) {
-		await startReviewInChat(container, pr);
+		if (openChatOnComplete) {
+			void executeCommand('gitlens.openChatAction', {
+				chatAction: { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
+			} as OpenChatActionCommandArgs);
+		}
+
 		// If the branch is already checked out in the open repository, just get the worktree if it exists
 		const existingWorktree = await getWorktreeForBranch(
 			item.openRepository.repo,
@@ -68,31 +74,28 @@ export async function startReviewFromLaunchpadItem(
 		throw new Error(`No local repository found for ${repoName}. Please clone the repository first.`);
 	}
 
-	// Step 1: Setup remote and branch
+	// Setup remote and branch
 	const { addRemote, localBranchName, remoteBranchName, branchRef, createBranch } = await setupPullRequestBranch(
 		repo,
 		pr,
 	);
 
-	// Step 2: Check if worktree already exists
-	const existingWorktree = await getWorktreeForBranch(repo, localBranchName, remoteBranchName);
-	if (existingWorktree != null) {
-		// Worktree already exists, store deeplink and open it
-		await storeStartReviewDeepLink(container, pr, existingWorktree.uri.fsPath);
-		openWorkspace(existingWorktree.uri, { location: 'newWindow' });
-
-		const worktreeBranch = await getBranchFromWorktree(container, existingWorktree, localBranchName);
-		return { worktree: existingWorktree, branch: worktreeBranch, pr: pr };
+	// Check if worktree already exists
+	let worktree = await getWorktreeForBranch(repo, localBranchName, remoteBranchName);
+	if (worktree == null) {
+		worktree = await createPullRequestWorktree(repo, localBranchName, branchRef, createBranch, addRemote);
 	}
 
-	// Step 3: Create new worktree
-	const worktree = await createPullRequestWorktree(repo, localBranchName, branchRef, createBranch, addRemote);
-
-	// Step 4: Store deeplink and open worktree in new window
-	await storeStartReviewDeepLink(container, pr, worktree.uri.fsPath);
+	if (openChatOnComplete) {
+		await storeChatActionDeepLink(
+			container,
+			{ type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
+			worktree.uri.fsPath,
+		);
+	}
 	openWorkspace(worktree.uri, { location: 'newWindow' });
 
-	// Step 5: Get branch from worktree
+	// Get branch from worktree
 	const worktreeBranch = await getBranchFromWorktree(container, worktree, localBranchName);
 
 	return { worktree: worktree, branch: worktreeBranch, pr: pr };
@@ -226,34 +229,18 @@ async function getBranchFromWorktree(
 	return worktreeBranch;
 }
 
-export async function startReviewInChat(container: Container, pr: PullRequestShape): Promise<void> {
+export async function startReviewInChat(
+	container: Container,
+	pr: PullRequestShape,
+	instructions?: string,
+): Promise<void> {
 	const { prompt } = await container.ai.getPrompt('start-review-pullRequest', undefined, {
 		prData: JSON.stringify(pr),
+		instructions: instructions,
 	});
 
 	return executeCommand('gitlens.sendToChat', {
 		query: prompt,
 		execute: true,
 	} as SendToChatCommandArgs) as Promise<void>;
-}
-
-async function storeStartReviewDeepLink(container: Container, pr: PullRequest, repoPath: string): Promise<void> {
-	const schemeOverride = configuration.get('deepLinks.schemeOverride');
-	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
-
-	const deepLinkUrl = new URL(
-		`${scheme}://${container.context.extension.id}/${'link' satisfies UriTypes}/${
-			DeepLinkType.Command
-		}/${DeepLinkCommandType.StartReview}`,
-	);
-
-	await container.storage.storeSecret(
-		'deepLinks:pending',
-		JSON.stringify({
-			url: deepLinkUrl.toString(),
-			repoPath: repoPath,
-			prData: JSON.stringify(serializePullRequest(pr)),
-			state: DeepLinkServiceState.StartReview,
-		}),
-	);
 }

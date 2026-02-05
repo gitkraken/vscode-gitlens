@@ -131,6 +131,7 @@ type InternalGlCommands =
 	| 'gitlens.diffWithPrevious:views'
 	| 'gitlens.diffWithWorking:command'
 	| 'gitlens.diffWithWorking:views'
+	| 'gitlens.openChatAction'
 	| 'gitlens.openCloudPatch'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'

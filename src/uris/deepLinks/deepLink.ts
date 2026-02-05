@@ -335,6 +335,7 @@ export interface DeepLinkServiceContext {
 	currentBranch?: string | undefined;
 	prData?: PullRequestShape | undefined;
 	issueData?: IssueShape | undefined;
+	instructions?: string | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
