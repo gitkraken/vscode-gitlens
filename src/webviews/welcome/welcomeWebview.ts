@@ -1,5 +1,6 @@
 import type { Disposable } from 'vscode';
 import { env } from 'vscode';
+import { SubscriptionState } from '../../constants.subscription.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
@@ -11,7 +12,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 	private readonly _disposable: Disposable | undefined;
 
 	constructor(
-		_container: Container,
+		private readonly container: Container,
 		private readonly host: WebviewHost<'gitlens.views.welcome'>,
 	) {}
 
@@ -37,11 +38,15 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		return this.getState();
 	}
 
-	private getState(): Promise<State> {
-		return Promise.resolve({
+	private async getState(): Promise<State> {
+		const subscription = await this.container.subscription.getSubscription();
+		const plusState = subscription?.state ?? SubscriptionState.Community;
+
+		return {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
 			hostAppName: env.appName,
-		});
+			plusState: plusState,
+		};
 	}
 }
