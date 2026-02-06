@@ -17,6 +17,7 @@ export type ManageIntegrationsItem = QuickPickItem & {
 
 export const manageIntegrationsItem: ManageIntegrationsItem = {
 	label: 'Manage integrations...',
+	detail: 'Manage your connected integrations',
 	item: undefined,
 };
 
