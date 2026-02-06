@@ -312,18 +312,18 @@ export class GlWelcomePage extends LitElement {
 					<hr />
 					<p>3/5 steps complete</p>
 				</div>
-				<div class="section plain">
+				<gl-walkthrough class="section plain">
 					${walkthroughSteps
 						.filter(step => !step.condition || step.condition(this._state.plusState))
 						.map(
 							step => html`
-								<gl-walkthrough-step class="card">
+								<gl-walkthrough-step class="card" stepId=${step.id}>
 									<h1 slot="title">${step.title}</h1>
 									${step.body}
 								</gl-walkthrough-step>
 							`,
 						)}
-				</div>
+				</gl-walkthrough>
 			</div>
 		`;
 	}
