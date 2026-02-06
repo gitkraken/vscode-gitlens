@@ -11058,6 +11058,11 @@
 				"icon": "$(remove)"
 			},
 			{
+				"command": "gitlens.views.welcome.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.workspaces.addRepos",
 				"title": "Add Repositories...",
 				"icon": "$(add)"
@@ -15522,6 +15527,10 @@
 				},
 				{
 					"command": "gitlens.views.unstageFile:graphDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.welcome.refresh",
 					"when": "false"
 				},
 				{
@@ -25154,6 +25163,11 @@
 				{
 					"command": "gitlens.views.timeline.refresh",
 					"when": "view == gitlens.views.timeline",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.welcome.refresh",
+					"when": "view == gitlens.views.welcome",
 					"group": "navigation@99"
 				},
 				{
