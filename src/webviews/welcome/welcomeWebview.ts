@@ -3,6 +3,7 @@ import { SubscriptionState } from '../../constants.subscription.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
+import { registerCommand } from '../../system/-webview/command.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
 import type { State } from './protocol.js';
@@ -40,6 +41,13 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 
 	includeBootstrap(): Promise<State> {
 		return this.getState();
+	}
+
+	registerCommands(): Disposable[] {
+		if (this.host.is('view')) {
+			return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
+		}
+		return [];
 	}
 
 	private onSubscriptionChanged(e: SubscriptionChangeEvent): void {
