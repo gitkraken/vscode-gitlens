@@ -41,7 +41,7 @@ const colorScheme = css`
 
 const typography = css`
 	:host {
-		font-size: var(--vscode-font-size);
+		font-size: var(--vscode-editor-font-size);
 
 		--h1-font-size: 1.7em;
 		--p-font-size: 1.23em;
@@ -51,7 +51,7 @@ const typography = css`
 	@media (max-width: 640px) {
 		:host {
 			font-size: var(--vscode-editor-font-size);
-			--h1-font-size: 1em;
+			--h1-font-size: 1.2em;
 			--p-font-size: 1em;
 			--card-font-size: 1em;
 		}
@@ -110,9 +110,11 @@ const section = css`
 		display: flex;
 		flex-flow: column;
 		justify-content: center;
-		align-items: center;
 		text-align: center;
 		gap: 0.7em;
+		margin: 0 auto;
+		padding: 1em;
+		max-width: 620px;
 	}
 	.section h1 {
 		color: var(--heading-color);
@@ -125,7 +127,12 @@ const section = css`
 
 	.section p {
 		color: var(--text-color);
+		font-size: var(--p-font-size);
 	}
+	.section > p {
+		max-width: 30em;
+	}
+
 	.section .accent {
 		color: var(--accent-color);
 	}
@@ -134,24 +141,11 @@ const section = css`
 		text-decoration: none;
 	}
 
-	.section.plain p {
-		max-width: 30em;
+	.section ul {
+		color: var(--text-color);
 		font-size: var(--p-font-size);
 	}
 
-	.section.plain ul {
-		max-width: 26em;
-		font-size: var(--p-font-size);
-	}
-
-	.section.start-trial {
-		display: flex;
-		gap: 0.5em;
-		margin: 2em 3.1em 1.5em;
-	}
-	.section.start-trial p {
-		width: 100%;
-	}
 	.section gl-button.start-trial-button {
 		background: var(--trial-button-gradient);
 		border: var(--trial-button-border);
@@ -161,7 +155,7 @@ const section = css`
 		width: 100%;
 	}
 
-	@media (min-width: 640px) {
+	@media (min-width: 400px) {
 		.section gl-button {
 			width: initial;
 		}
@@ -169,20 +163,12 @@ const section = css`
 			--button-padding: 0.4em 4em;
 		}
 	}
-
-	@media (max-width: 400px) {
-		.section.start-trial {
-			margin: 2em 0 1.5em;
-		}
-	}
-
-	.section.wide {
-		margin-left: calc(-1 * var(--page-margin-left));
-		margin-right: calc(-1 * var(--page-margin-right));
-	}
 `;
 
 const header = css`
+	.section.header {
+		align-items: center;
+	}
 	.header {
 		max-width: 620px;
 		margin-left: auto;
@@ -226,19 +212,22 @@ const cards = css`
 		gap: 0.7em;
 		border-radius: 0.63em;
 		background-color: var(--card-background);
-		padding: 1.8em;
+		padding: 1em 2em;
 		text-align: initial;
 	}
 
-	@media (max-width: 640px) {
-		.card {
-			padding: 1em 2em;
-		}
+	gl-walkthrough-step.card::part(header) {
+		padding: 1em 2em;
+		margin: -1em -2em;
 	}
 
 	@media (max-width: 300px) {
 		.card {
-			padding: 0.5em 0.5em 1em;
+			padding: 0.5em 0.5em;
+		}
+		gl-walkthrough-step.card::part(header) {
+			padding: 0.5em 0.5em;
+			margin: -0.5em -0.5em;
 		}
 	}
 
@@ -257,10 +246,10 @@ const cards = css`
 	}
 
 	.card ul {
-		color: var(--text-color);
 		text-align: initial;
-		padding: 0;
+		padding-inline-start: 2em;
 		margin: auto;
+		font-size: var(--card-font-size);
 	}
 
 	.card img {
