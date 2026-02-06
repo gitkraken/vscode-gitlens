@@ -26,11 +26,11 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 		return this._uniqueId;
 	}
 
-	override toClipboard(): string {
+	override toClipboard(): Promise<string> {
 		return this.getUrl();
 	}
 
-	override getUrl(): string {
+	override getUrl(): Promise<string> {
 		return this.view.container.drafts.generateWebUrl(this.draft.id);
 	}
 

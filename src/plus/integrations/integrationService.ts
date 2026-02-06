@@ -207,12 +207,12 @@ export class IntegrationService implements Disposable {
 				query += `&redirect_uri=${encodeURIComponent(callbackUri.toString(true))}`;
 			}
 
-			if (!(await openUrl(this.container.urls.getGkDevUrl('connect', query)))) {
+			if (!(await openUrl(await this.container.urls.getGkDevUrl('connect', query)))) {
 				return false;
 			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!(await openUrl(this.container.urls.getGkDevUrl('connect', baseQuery)))) {
+			if (!(await openUrl(await this.container.urls.getGkDevUrl('connect', baseQuery)))) {
 				return false;
 			}
 		}
@@ -895,12 +895,16 @@ export class IntegrationService implements Disposable {
 
 		try {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations', `token=${exchangeToken}`)))) {
+			if (
+				!(await openUrl(
+					await this.container.urls.getGkDevUrl('settings/integrations', `token=${exchangeToken}`),
+				))
+			) {
 				return;
 			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations')))) {
+			if (!(await openUrl(await this.container.urls.getGkDevUrl('settings/integrations')))) {
 				return;
 			}
 		}
