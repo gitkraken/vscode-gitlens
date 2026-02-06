@@ -11,7 +11,12 @@ declare global {
 		'gl-feature-carousel': GlFeatureCarousel;
 		'gl-feature-narrow-card': GlFeatureNarrowCard;
 		'gl-scrollable-features': GlScrollableFeatures;
+		'gl-walkthrough': GlWalkthrough;
 		'gl-walkthrough-step': GlWalkthroughStep;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		'gl-walkthrough-step-expand-toggled': CustomEvent<{ expanded: boolean }>;
 	}
 }
 
@@ -223,18 +228,179 @@ export class GlWalkthroughStep extends LitElement {
 	static override styles = [
 		css`
 			:host {
+				display: block;
+			}
+
+			:host(:focus-within) {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
+
+			.header {
 				display: flex;
-				gap: 1em;
+				align-items: center;
+				gap: 0.6em;
+				cursor: pointer;
+				user-select: none;
+			}
+
+			.header:hover {
+				opacity: 0.8;
+			}
+
+			.header:focus {
+				outline: none;
+			}
+
+			.icon {
+				flex: none;
+				transition: transform 0.2s ease;
+			}
+
+			:host([expanded]) .icon {
+				transform: rotate(90deg);
+			}
+
+			.title {
+				flex: 1;
+				display: block;
+			}
+
+			.content {
+				display: none;
 				flex-direction: column;
+				gap: 1em;
+			}
+
+			:host([expanded]) .content {
+				display: flex;
 			}
 		`,
 	];
 
+	@property({ type: String })
+	stepId?: string;
+
+	@property({ type: Boolean, reflect: true })
+	expanded: boolean = false;
+
+	toggleExpanded(expanded = !this.expanded): void {
+		this.expanded = expanded;
+
+		queueMicrotask(() => {
+			this.dispatchEvent(
+				new CustomEvent('gl-walkthrough-step-expand-toggled', {
+					detail: { expanded: expanded },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+		});
+	}
+
+	private handleHeaderClick(): void {
+		this.toggleExpanded();
+	}
+
+	private handleHeaderKeydown(e: KeyboardEvent): void {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			this.toggleExpanded();
+		}
+	}
+
 	override render(): unknown {
 		return html`
-			<slot name="title"></slot>
-			<slot></slot>
+			<div
+				class="header"
+				role="button"
+				tabindex="0"
+				aria-expanded=${this.expanded}
+				@click=${this.handleHeaderClick}
+				@keydown=${this.handleHeaderKeydown}
+			>
+				<code-icon class="icon" icon="chevron-right"></code-icon>
+				<span class="title"><slot name="title"></slot></span>
+			</div>
+			<div class="content">
+				<slot></slot>
+			</div>
 		`;
+	}
+}
+
+@customElement('gl-walkthrough')
+export class GlWalkthrough extends LitElement {
+	@queryAssignedElements({ selector: 'gl-walkthrough-step' })
+	private steps!: GlWalkthroughStep[];
+
+	/** The stepId of the currently expanded step, or undefined if no step is expanded */
+	@property({ type: String, reflect: true, attribute: 'expanded-step-id' })
+	expandedStepId?: string;
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		this.addEventListener('gl-walkthrough-step-expand-toggled', this.onStepExpandToggled);
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+		this.removeEventListener('gl-walkthrough-step-expand-toggled', this.onStepExpandToggled);
+	}
+
+	override updated(changedProperties: Map<string, unknown>): void {
+		super.updated(changedProperties);
+
+		// When expandedStepId is changed programmatically, sync the step states
+		if (changedProperties.has('expandedStepId')) {
+			this.syncStepsToExpandedStepId();
+		}
+	}
+
+	private readonly onStepExpandToggled = (e: GlobalEventHandlersEventMap['gl-walkthrough-step-expand-toggled']) => {
+		const path = e.composedPath();
+		const step = path.find(p => (p as HTMLElement).matches?.('gl-walkthrough-step')) as
+			| GlWalkthroughStep
+			| undefined;
+
+		if (step == null) return;
+
+		if (step.expanded) {
+			// Step is being expanded - collapse all others and update expandedStepId
+			this.steps.forEach(s => {
+				if (s !== step) {
+					s.expanded = false;
+				}
+			});
+			this.expandedStepId = step.stepId;
+		} else {
+			// Step is being collapsed - set expandedStepId to undefined
+			this.expandedStepId = undefined;
+		}
+	};
+
+	private syncStepsToExpandedStepId(): void {
+		// Sync step expanded states to match expandedStepId
+		this.steps.forEach(step => {
+			step.expanded = step.stepId != null && step.stepId === this.expandedStepId;
+		});
+	}
+
+	private handleSlotChange(): void {
+		// Sync step states when slot content changes
+		if (this.expandedStepId != null) {
+			this.syncStepsToExpandedStepId();
+		} else {
+			// If no expandedStepId is set, check if any step is already expanded and sync
+			const expandedStep = this.steps.find(step => step.expanded);
+			if (expandedStep != null) {
+				this.expandedStepId = expandedStep.stepId;
+			}
+		}
+	}
+
+	override render(): unknown {
+		return html`<slot @slotchange=${this.handleSlotChange}></slot>`;
 	}
 }
 
