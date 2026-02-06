@@ -112,198 +112,204 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 
 		state.flags ??= [];
 
-		while (!steps.isComplete) {
-			context.title = this.title;
+		try {
+			while (!steps.isComplete) {
+				context.title = this.title;
 
-			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
-				// Only show the picker if there are multiple repositories
-				if (context.repos.length === 1) {
-					[state.repo] = context.repos;
-				} else {
-					using step = steps.enterStep(Steps.PickRepo);
+				if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
+					// Only show the picker if there are multiple repositories
+					if (context.repos.length === 1) {
+						[state.repo] = context.repos;
+					} else {
+						using step = steps.enterStep(Steps.PickRepo);
 
-					const result = yield* pickRepositoryStep(state, context, step, { picked: state.suggestedRepo });
+						const result = yield* pickRepositoryStep(state, context, step, { picked: state.suggestedRepo });
+						if (result === StepResultBreak) {
+							state.repo = undefined!;
+							if (step.goBack() == null) break;
+							continue;
+						}
+
+						state.repo = result;
+					}
+				}
+
+				assertStepState<State<Repository>>(state);
+
+				if (steps.isAtStep(Steps.PickRef) || state.reference == null) {
+					using step = steps.enterStep(Steps.PickRef);
+
+					const result = yield* pickBranchOrTagStep(state, context, {
+						placeholder: `Choose a base to create the new branch from`,
+						picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
+						title: 'Select Base to Create Branch From',
+						value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
+					});
 					if (result === StepResultBreak) {
-						state.repo = undefined!;
+						state.reference = undefined!;
 						if (step.goBack() == null) break;
 						continue;
 					}
 
-					state.repo = result;
-				}
-			}
-
-			assertStepState<State<Repository>>(state);
-
-			if (steps.isAtStep(Steps.PickRef) || state.reference == null) {
-				using step = steps.enterStep(Steps.PickRef);
-
-				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: `Choose a base to create the new branch from`,
-					picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
-					title: 'Select Base to Create Branch From',
-					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
-				});
-				if (result === StepResultBreak) {
-					state.reference = undefined!;
-					if (step.goBack() == null) break;
-					continue;
+					state.reference = result;
 				}
 
-				state.reference = result;
-			}
+				const isRemoteBranch = isBranchReference(state.reference) && state.reference.remote;
+				const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
 
-			const isRemoteBranch = isBranchReference(state.reference) && state.reference.remote;
-			const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
+				if (steps.isAtStep(Steps.InputName) || state.name == null) {
+					using step = steps.enterStep(Steps.InputName);
 
-			if (steps.isAtStep(Steps.InputName) || state.name == null) {
-				using step = steps.enterStep(Steps.InputName);
+					let value: string | undefined = state.name ?? state.suggestedName;
+					// if it's a remote branch, pre-fill the name (if it doesn't already exist)
+					if (!value && isRemoteBranch && !(await state.repo.git.branches.getBranch(remoteBranchName))) {
+						value = remoteBranchName;
+					}
 
-				let value: string | undefined = state.name ?? state.suggestedName;
-				// if it's a remote branch, pre-fill the name (if it doesn't already exist)
-				if (!value && isRemoteBranch && !(await state.repo.git.branches.getBranch(remoteBranchName))) {
-					value = remoteBranchName;
+					const result = yield* inputBranchNameStep(state, context, {
+						prompt: 'Please provide a name for the new branch',
+						title: `${context.title} from ${getReferenceLabel(state.reference, {
+							capitalize: true,
+							icon: false,
+							label: state.reference.refType !== 'branch',
+						})}`,
+						value: value,
+					});
+					if (result === StepResultBreak) {
+						state.name = undefined!;
+						if (step.goBack() == null) break;
+						continue;
+					}
+
+					state.name = result;
 				}
 
-				const result = yield* inputBranchNameStep(state, context, {
-					prompt: 'Please provide a name for the new branch',
-					title: `${context.title} from ${getReferenceLabel(state.reference, {
-						capitalize: true,
-						icon: false,
-						label: state.reference.refType !== 'branch',
-					})}`,
-					value: value,
-				});
-				if (result === StepResultBreak) {
-					state.name = undefined!;
-					if (step.goBack() == null) break;
-					continue;
+				if (!steps.isAtStepOrUnset(Steps.Confirm)) continue;
+				if (this.confirm(state.confirm)) {
+					using step = steps.enterStep(Steps.Confirm);
+
+					const result = yield* this.confirmStep(state, context);
+					if (result === StepResultBreak) {
+						state.flags = [];
+						if (step.goBack() == null) break;
+						continue;
+					}
+
+					state.flags = result;
 				}
 
-				state.name = result;
-			}
+				if (state.flags.includes('--worktree')) {
+					using step = steps.enterStep(Steps.ConfirmCreateWorktree);
 
-			if (!steps.isAtStepOrUnset(Steps.Confirm)) continue;
-			if (this.confirm(state.confirm)) {
-				using step = steps.enterStep(Steps.Confirm);
+					// Create a deferred promise to get the worktree result
+					const worktreeResult = state.result ? defer<GitWorktree | undefined>() : undefined;
 
-				const result = yield* this.confirmStep(state, context);
-				if (result === StepResultBreak) {
-					state.flags = [];
-					if (step.goBack() == null) break;
-					continue;
-				}
-
-				state.flags = result;
-			}
-
-			if (state.flags.includes('--worktree')) {
-				using step = steps.enterStep(Steps.ConfirmCreateWorktree);
-
-				// Create a deferred promise to get the worktree result
-				const worktreeResult = state.result ? defer<GitWorktree | undefined>() : undefined;
-
-				const result = yield* getSteps(
-					this.container,
-					{
-						command: 'worktree',
-						state: {
-							subcommand: 'create',
-							reference: state.reference,
-							createBranch: state.name,
-							repo: state.repo,
-							worktreeDefaultOpen: state.worktreeDefaultOpen,
-							result: worktreeResult,
-							chatAction: state.chatAction,
+					const result = yield* getSteps(
+						this.container,
+						{
+							command: 'worktree',
+							state: {
+								subcommand: 'create',
+								reference: state.reference,
+								createBranch: state.name,
+								repo: state.repo,
+								worktreeDefaultOpen: state.worktreeDefaultOpen,
+								result: worktreeResult,
+								chatAction: state.chatAction,
+							},
 						},
-					},
-					context,
-					this.startedFrom,
-				);
-				if (result === StepResultBreak) {
-					if (step.goBack() == null) break;
-					continue;
+						context,
+						this.startedFrom,
+					);
+					if (result === StepResultBreak) {
+						if (step.goBack() == null) break;
+						continue;
+					}
+
+					steps.markStepsComplete();
+
+					// Capture the full result if requested
+					if (worktreeResult != null && state.result != null) {
+						try {
+							const worktree = await worktreeResult.promise;
+							if (worktree) {
+								// Get the branch from the worktree repository
+								const worktreeRepo = await this.container.git.getOrOpenRepository(worktree.uri);
+								const branch = worktreeRepo
+									? await worktreeRepo.git.branches.getBranch(state.name)
+									: undefined;
+								if (branch) {
+									state.result.fulfill({ branch: branch, worktree: worktree });
+								} else {
+									state.result.cancel();
+								}
+							} else {
+								state.result.cancel();
+							}
+						} catch (ex) {
+							state.result.cancel(ex);
+						}
+					}
+
+					return;
 				}
 
 				steps.markStepsComplete();
 
-				// Capture the full result if requested
-				if (worktreeResult != null && state.result != null) {
-					try {
-						const worktree = await worktreeResult.promise;
-						if (worktree) {
-							// Get the branch from the worktree repository
-							const worktreeRepo = await this.container.git.getOrOpenRepository(worktree.uri);
-							const branch = worktreeRepo
-								? await worktreeRepo.git.branches.getBranch(state.name)
-								: undefined;
-							if (branch) {
-								state.result.fulfill({ branch: branch, worktree: worktree });
-							} else {
-								state.result.cancel();
-							}
-						} else {
-							state.result.cancel();
-						}
-					} catch (ex) {
-						state.result.cancel(ex);
-					}
-				}
-
-				return;
-			}
-
-			steps.markStepsComplete();
-
-			if (state.flags.includes('--switch')) {
-				await state.repo.switch(state.reference.ref, { createBranch: state.name });
-			} else {
-				try {
-					await state.repo.git.branches.createBranch?.(
-						state.name,
-						state.reference.ref,
-						isRemoteBranch && state.name !== remoteBranchName ? { noTracking: true } : undefined,
-					);
-				} catch (ex) {
-					Logger.error(ex, context.title);
-
-					if (BranchError.is(ex, 'alreadyExists')) {
-						void window.showWarningMessage(
-							`Unable to create branch '${state.name}'. A branch with that name already exists.`,
-						);
-						return;
-					}
-
-					if (BranchError.is(ex, 'invalidName')) {
-						void window.showWarningMessage(
-							`Unable to create branch '${state.name}'. The branch name is invalid.`,
-						);
-						return;
-					}
-
-					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to create branch');
-					return;
-				}
-			}
-
-			if (state.associateWithIssue != null) {
-				const issue = state.associateWithIssue;
-				const branch = await state.repo.git.branches.getBranch(state.name);
-				// TODO: These descriptors are hacked in. Use an integration function to get the right resource for the issue.
-				const owner = getIssueOwner(issue);
-				if (branch != null && owner != null) {
-					await addAssociatedIssueToBranch(this.container, branch, { ...issue, type: 'issue' }, owner);
-				}
-			}
-
-			// Capture branch-only result if requested (non-worktree case)
-			if (state.result && !state.flags.includes('--worktree')) {
-				const branch = await state.repo.git.branches.getBranch(state.name);
-				if (branch) {
-					state.result.fulfill({ branch: branch, worktree: undefined });
+				if (state.flags.includes('--switch')) {
+					await state.repo.switch(state.reference.ref, { createBranch: state.name });
 				} else {
-					state.result.cancel();
+					try {
+						await state.repo.git.branches.createBranch?.(
+							state.name,
+							state.reference.ref,
+							isRemoteBranch && state.name !== remoteBranchName ? { noTracking: true } : undefined,
+						);
+					} catch (ex) {
+						Logger.error(ex, context.title);
+
+						if (BranchError.is(ex, 'alreadyExists')) {
+							void window.showWarningMessage(
+								`Unable to create branch '${state.name}'. A branch with that name already exists.`,
+							);
+							return;
+						}
+
+						if (BranchError.is(ex, 'invalidName')) {
+							void window.showWarningMessage(
+								`Unable to create branch '${state.name}'. The branch name is invalid.`,
+							);
+							return;
+						}
+
+						void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to create branch');
+						return;
+					}
 				}
+
+				if (state.associateWithIssue != null) {
+					const issue = state.associateWithIssue;
+					const branch = await state.repo.git.branches.getBranch(state.name);
+					// TODO: These descriptors are hacked in. Use an integration function to get the right resource for the issue.
+					const owner = getIssueOwner(issue);
+					if (branch != null && owner != null) {
+						await addAssociatedIssueToBranch(this.container, branch, { ...issue, type: 'issue' }, owner);
+					}
+				}
+
+				// Capture branch-only result if requested (non-worktree case)
+				if (state.result && !state.flags.includes('--worktree')) {
+					const branch = await state.repo.git.branches.getBranch(state.name);
+					if (branch) {
+						state.result.fulfill({ branch: branch, worktree: undefined });
+					} else {
+						state.result.cancel();
+					}
+				}
+			}
+		} finally {
+			if (state.result?.pending) {
+				state.result.cancel(new Error('Create Branch cancelled'));
 			}
 		}
 
