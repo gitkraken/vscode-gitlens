@@ -17190,6 +17190,19 @@
 				]
 			}
 		},
+		"gitlens.views.welcome.refresh": {
+			"label": "Refresh",
+			"icon": "$(refresh)",
+			"menus": {
+				"view/title": [
+					{
+						"when": "view == gitlens.views.welcome",
+						"group": "navigation",
+						"order": 99
+					}
+				]
+			}
+		},
 		"gitlens.views.workspaces.addRepos": {
 			"label": "Add Repositories...",
 			"icon": "$(add)",

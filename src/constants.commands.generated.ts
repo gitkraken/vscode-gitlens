@@ -788,6 +788,7 @@ export type ContributedCommands =
 	| 'gitlens.views.unstageFile'
 	| 'gitlens.views.unstageFile:commitDetails'
 	| 'gitlens.views.unstageFile:graphDetails'
+	| 'gitlens.views.welcome.refresh'
 	| 'gitlens.views.workspaces.addRepos'
 	| 'gitlens.views.workspaces.addReposFromLinked'
 	| 'gitlens.views.workspaces.changeAutoAddSetting'
