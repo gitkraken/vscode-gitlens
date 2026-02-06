@@ -187,119 +187,125 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		using steps = new StepsController<StepNames>(context, this);
 
 		let opened = false;
-		while (!steps.isComplete) {
-			context.title = this.title;
-			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+		try {
+			while (!steps.isComplete) {
+				context.title = this.title;
+				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 
-			if (steps.isAtStep(Steps.ConnectIntegrations) || !hasConnectedIntegrations) {
-				using step = steps.enterStep(Steps.ConnectIntegrations);
+				if (steps.isAtStep(Steps.ConnectIntegrations) || !hasConnectedIntegrations) {
+					using step = steps.enterStep(Steps.ConnectIntegrations);
 
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						opened ? `${this.telemetryEventKey}/steps/connect` : `${this.telemetryEventKey}/opened`,
-						{
-							...context.telemetryContext!,
-							connected: false,
-						},
-						this.source,
-					);
-				}
-
-				opened = true;
-
-				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-				const result = isUsingCloudIntegrations
-					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
-					: yield* this.confirmLocalIntegrationConnectStep(state, context);
-				if (result === StepResultBreak) {
-					if (step.goBack() == null) break;
-					continue;
-				}
-
-				result.resume();
-
-				const connected = result.connected;
-				if (!connected) continue;
-			}
-
-			let plusFeature: PlusFeatures | undefined;
-			if (this.key === 'startWork') {
-				plusFeature = 'startWork';
-			} else if (this.key === 'associateIssueWithBranch') {
-				plusFeature = 'associateIssueWithBranch';
-			}
-
-			if (plusFeature != null && steps.isAtStepOrUnset(Steps.EnsureAccess)) {
-				using step = steps.enterStep(Steps.EnsureAccess);
-
-				const result = yield* ensureAccessStep(this.container, plusFeature, state, context, step);
-				if (result === StepResultBreak) {
-					if (step.goBack() == null) break;
-					continue;
-				}
-			}
-
-			if (steps.isAtStepOrUnset(Steps.PickIssue) || state.item == null) {
-				using step = steps.enterStep(Steps.PickIssue);
-
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						opened ? `${this.telemetryEventKey}/steps/issue` : `${this.telemetryEventKey}/opened`,
-						{
-							...context.telemetryContext!,
-							connected: true,
-						},
-						this.source,
-					);
-				}
-
-				opened = true;
-
-				let preSelecteditem: StartWorkItem | undefined = undefined;
-				// Auto-select issue if issueUrl is provided
-				if (state.issueUrl) {
-					if (context.result == null) {
-						await updateContextItems(this.container, context);
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							opened ? `${this.telemetryEventKey}/steps/connect` : `${this.telemetryEventKey}/opened`,
+							{
+								...context.telemetryContext!,
+								connected: false,
+							},
+							this.source,
+						);
 					}
-					preSelecteditem = context.result?.items.find(item => item.issue.url === state.issueUrl);
 
-					// If issue not found, show error and fall through to picker
-					if (preSelecteditem == null) {
-						void window.showErrorMessage(
-							`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
+					opened = true;
+
+					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
+					const result = isUsingCloudIntegrations
+						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
+						: yield* this.confirmLocalIntegrationConnectStep(state, context);
+					if (result === StepResultBreak) {
+						if (step.goBack() == null) break;
+						continue;
+					}
+
+					result.resume();
+
+					const connected = result.connected;
+					if (!connected) continue;
+				}
+
+				let plusFeature: PlusFeatures | undefined;
+				if (this.key === 'startWork') {
+					plusFeature = 'startWork';
+				} else if (this.key === 'associateIssueWithBranch') {
+					plusFeature = 'associateIssueWithBranch';
+				}
+
+				if (plusFeature != null && steps.isAtStepOrUnset(Steps.EnsureAccess)) {
+					using step = steps.enterStep(Steps.EnsureAccess);
+
+					const result = yield* ensureAccessStep(this.container, plusFeature, state, context, step);
+					if (result === StepResultBreak) {
+						if (step.goBack() == null) break;
+						continue;
+					}
+				}
+
+				if (steps.isAtStepOrUnset(Steps.PickIssue) || state.item == null) {
+					using step = steps.enterStep(Steps.PickIssue);
+
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							opened ? `${this.telemetryEventKey}/steps/issue` : `${this.telemetryEventKey}/opened`,
+							{
+								...context.telemetryContext!,
+								connected: true,
+							},
+							this.source,
+						);
+					}
+
+					opened = true;
+
+					let preSelecteditem: StartWorkItem | undefined = undefined;
+					// Auto-select issue if issueUrl is provided
+					if (state.issueUrl) {
+						if (context.result == null) {
+							await updateContextItems(this.container, context);
+						}
+						preSelecteditem = context.result?.items.find(item => item.issue.url === state.issueUrl);
+
+						// If issue not found, show error and fall through to picker
+						if (preSelecteditem == null) {
+							void window.showErrorMessage(
+								`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
+							);
+						}
+					}
+
+					const result = preSelecteditem ?? (yield* this.pickStartWorkIssueStep(state, context));
+					if (result === StepResultBreak) {
+						state.item = undefined;
+						if (step.goBack() == null) break;
+						continue;
+					}
+
+					state.item = result;
+
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							`${this.telemetryEventKey}/issue/chosen`,
+							{
+								...context.telemetryContext!,
+								...buildItemTelemetryData(result),
+								connected: true,
+							},
+							this.source,
 						);
 					}
 				}
 
-				const result = preSelecteditem ?? (yield* this.pickStartWorkIssueStep(state, context));
-				if (result === StepResultBreak) {
-					state.item = undefined;
-					if (step.goBack() == null) break;
-					continue;
+				assertsStartWorkStepState(state);
+
+				if (this.continuation) {
+					yield* this.continuation(state, context);
 				}
 
-				state.item = result;
-
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						`${this.telemetryEventKey}/issue/chosen`,
-						{
-							...context.telemetryContext!,
-							...buildItemTelemetryData(result),
-							connected: true,
-						},
-						this.source,
-					);
-				}
+				steps.markStepsComplete();
 			}
-
-			assertsStartWorkStepState(state);
-
-			if (this.continuation) {
-				yield* this.continuation(state, context);
+		} finally {
+			if (state.result?.pending) {
+				state.result.cancel(new Error('Start Work cancelled'));
 			}
-
-			steps.markStepsComplete();
 		}
 
 		return steps.isComplete ? undefined : StepResultBreak;

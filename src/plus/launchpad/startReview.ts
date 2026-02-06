@@ -189,139 +189,145 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		using steps = new StepsController<StepNames>(context, this);
 
 		let opened = false;
-		while (!steps.isComplete) {
-			context.title = this.title;
-			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+		try {
+			while (!steps.isComplete) {
+				context.title = this.title;
+				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 
-			if (steps.isAtStep(Steps.ConnectIntegrations) || !hasConnectedIntegrations) {
-				using step = steps.enterStep(Steps.ConnectIntegrations);
+				if (steps.isAtStep(Steps.ConnectIntegrations) || !hasConnectedIntegrations) {
+					using step = steps.enterStep(Steps.ConnectIntegrations);
 
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						opened ? `${this.telemetryEventKey}/steps/connect` : `${this.telemetryEventKey}/opened`,
-						{
-							...context.telemetryContext!,
-							connected: false,
-						},
-						this.source,
-					);
-				}
-
-				opened = true;
-
-				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-				const result = isUsingCloudIntegrations
-					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
-					: yield* this.confirmLocalIntegrationConnectStep(state, context);
-				if (result === StepResultBreak) {
-					if (step.goBack() == null) break;
-					continue;
-				}
-
-				result.resume();
-
-				const connected = result.connected;
-				if (!connected) continue;
-			}
-
-			if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
-				using step = steps.enterStep(Steps.EnsureAccess);
-
-				const result = yield* ensureAccessStep(this.container, 'startReview', state, context, step);
-				if (result === StepResultBreak) {
-					if (step.goBack() == null) break;
-					continue;
-				}
-			}
-
-			if (steps.isAtStepOrUnset(Steps.PickPullRequest) || state.item == null) {
-				using step = steps.enterStep(Steps.PickPullRequest);
-
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						opened ? `${this.telemetryEventKey}/steps/pr` : `${this.telemetryEventKey}/opened`,
-						{
-							...context.telemetryContext!,
-							connected: true,
-						},
-						this.source,
-					);
-				}
-
-				opened = true;
-
-				// Auto-select PR if prUrl is provided
-				if (state.prUrl && state.useDefaults) {
-					// Lookup the LaunchpadItem from the URL, then execute the review
-					try {
-						const launchpadItem = await this.lookupLaunchpadItem(state.prUrl);
-						if (launchpadItem == null) {
-							throw new Error(`No PR found matching '${state.prUrl}'`);
-						}
-
-						const reviewResult = await startReviewFromLaunchpadItem(
-							this.container,
-							launchpadItem,
-							state.instructions,
-							state.openChatOnComplete,
-							state.useDefaults,
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							opened ? `${this.telemetryEventKey}/steps/connect` : `${this.telemetryEventKey}/opened`,
+							{
+								...context.telemetryContext!,
+								connected: false,
+							},
+							this.source,
 						);
-						state.result?.fulfill(reviewResult);
-						steps.markStepsComplete();
-						return;
-					} catch (ex) {
-						state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
-						void window.showErrorMessage(
-							`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
-						);
-						return StepResultBreak;
+					}
+
+					opened = true;
+
+					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
+					const result = isUsingCloudIntegrations
+						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
+						: yield* this.confirmLocalIntegrationConnectStep(state, context);
+					if (result === StepResultBreak) {
+						if (step.goBack() == null) break;
+						continue;
+					}
+
+					result.resume();
+
+					const connected = result.connected;
+					if (!connected) continue;
+				}
+
+				if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
+					using step = steps.enterStep(Steps.EnsureAccess);
+
+					const result = yield* ensureAccessStep(this.container, 'startReview', state, context, step);
+					if (result === StepResultBreak) {
+						if (step.goBack() == null) break;
+						continue;
 					}
 				}
 
-				// Otherwise, show the PR picker
-				const result = yield* this.pickPullRequestStep(state, context);
-				if (result === StepResultBreak) {
-					state.item = undefined;
-					if (step.goBack() == null) break;
-					continue;
+				if (steps.isAtStepOrUnset(Steps.PickPullRequest) || state.item == null) {
+					using step = steps.enterStep(Steps.PickPullRequest);
+
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							opened ? `${this.telemetryEventKey}/steps/pr` : `${this.telemetryEventKey}/opened`,
+							{
+								...context.telemetryContext!,
+								connected: true,
+							},
+							this.source,
+						);
+					}
+
+					opened = true;
+
+					// Auto-select PR if prUrl is provided
+					if (state.prUrl && state.useDefaults) {
+						// Lookup the LaunchpadItem from the URL, then execute the review
+						try {
+							const launchpadItem = await this.lookupLaunchpadItem(state.prUrl);
+							if (launchpadItem == null) {
+								throw new Error(`No PR found matching '${state.prUrl}'`);
+							}
+
+							const reviewResult = await startReviewFromLaunchpadItem(
+								this.container,
+								launchpadItem,
+								state.instructions,
+								state.openChatOnComplete,
+								state.useDefaults,
+							);
+							state.result?.fulfill(reviewResult);
+							steps.markStepsComplete();
+							return;
+						} catch (ex) {
+							state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
+							void window.showErrorMessage(
+								`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
+							);
+							return StepResultBreak;
+						}
+					}
+
+					// Otherwise, show the PR picker
+					const result = yield* this.pickPullRequestStep(state, context);
+					if (result === StepResultBreak) {
+						state.item = undefined;
+						if (step.goBack() == null) break;
+						continue;
+					}
+
+					state.item = result;
+
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							`${this.telemetryEventKey}/pr/chosen`,
+							{
+								...context.telemetryContext!,
+								...buildItemTelemetryData(result),
+								connected: true,
+							},
+							this.source,
+						);
+					}
 				}
 
-				state.item = result;
+				assertsStartReviewStepState(state);
 
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						`${this.telemetryEventKey}/pr/chosen`,
-						{
-							...context.telemetryContext!,
-							...buildItemTelemetryData(result),
-							connected: true,
-						},
-						this.source,
+				// Execute the review using the LaunchpadItem directly (avoids redundant PR lookup)
+				try {
+					const reviewResult = await startReviewFromLaunchpadItem(
+						this.container,
+						state.item.launchpadItem,
+						state.instructions,
+						state.openChatOnComplete,
+						state.useDefaults,
 					);
+					state.result?.fulfill(reviewResult);
+				} catch (ex) {
+					state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
+					void window.showErrorMessage(
+						`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
+					);
+					return StepResultBreak;
 				}
+
+				steps.markStepsComplete();
 			}
-
-			assertsStartReviewStepState(state);
-
-			// Execute the review using the LaunchpadItem directly (avoids redundant PR lookup)
-			try {
-				const reviewResult = await startReviewFromLaunchpadItem(
-					this.container,
-					state.item.launchpadItem,
-					state.instructions,
-					state.openChatOnComplete,
-					state.useDefaults,
-				);
-				state.result?.fulfill(reviewResult);
-			} catch (ex) {
-				state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
-				void window.showErrorMessage(
-					`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
-				);
-				return StepResultBreak;
+		} finally {
+			if (state.result?.pending) {
+				state.result.cancel(new Error('Start Review cancelled'));
 			}
-
-			steps.markStepsComplete();
 		}
 
 		return steps.isComplete ? undefined : StepResultBreak;

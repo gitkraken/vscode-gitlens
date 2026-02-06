@@ -60,7 +60,6 @@ export async function startReviewFromLaunchpadItem(
 			branch: item.openRepository.localBranch,
 			pr: pr,
 		};
-		// return StartReviewResult
 	}
 
 	// Use the already-resolved repository from LaunchpadItem if available,

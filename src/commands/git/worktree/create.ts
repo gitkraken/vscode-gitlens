@@ -138,325 +138,331 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 		let setCreateBranchFlag = false;
 
-		while (!steps.isComplete) {
-			context.title = state.overrides?.title ?? this.title;
+		try {
+			while (!steps.isComplete) {
+				context.title = state.overrides?.title ?? this.title;
 
-			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
-				// Only show the picker if there are multiple repositories
-				if (context.repos.length === 1) {
-					[state.repo] = context.repos;
-				} else {
-					using step = steps.enterStep(Steps.PickRepo);
+				if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
+					// Only show the picker if there are multiple repositories
+					if (context.repos.length === 1) {
+						[state.repo] = context.repos;
+					} else {
+						using step = steps.enterStep(Steps.PickRepo);
 
-					const result = yield* pickRepositoryStep(state, context, step, { excludeWorktrees: true });
+						const result = yield* pickRepositoryStep(state, context, step, { excludeWorktrees: true });
+						if (result === StepResultBreak) {
+							state.repo = undefined!;
+							if (step.goBack() == null) break;
+							continue;
+						}
+
+						state.repo = result;
+					}
+				}
+
+				assertStepState<State<Repository>>(state);
+
+				if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
+					using step = steps.enterStep(Steps.EnsureAccess);
+
+					const result = yield* ensureAccessStep(this.container, 'worktrees', state, context, step);
 					if (result === StepResultBreak) {
-						state.repo = undefined!;
+						if (step.goBack() == null) break;
+						continue;
+					}
+				}
+
+				context.defaultUri ??= state.repo.git.worktrees?.getWorktreesDefaultUri();
+				context.pickedRootFolder = undefined;
+				context.pickedSpecificFolder = undefined;
+
+				if (steps.isAtStep(Steps.PickRef) || state.reference == null) {
+					using step = steps.enterStep(Steps.PickRef);
+
+					const result = yield* pickBranchOrTagStep(state, context, {
+						placeholder: ctx =>
+							`Choose a branch${ctx.showTags ? ' or tag' : ''} to create the new worktree from`,
+						picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
+						title: `Select Branch to Create Worktree From`,
+						value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
+					});
+					if (result === StepResultBreak) {
+						state.reference = undefined!;
 						if (step.goBack() == null) break;
 						continue;
 					}
 
-					state.repo = result;
-				}
-			}
-
-			assertStepState<State<Repository>>(state);
-
-			if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
-				using step = steps.enterStep(Steps.EnsureAccess);
-
-				const result = yield* ensureAccessStep(this.container, 'worktrees', state, context, step);
-				if (result === StepResultBreak) {
-					if (step.goBack() == null) break;
-					continue;
-				}
-			}
-
-			context.defaultUri ??= state.repo.git.worktrees?.getWorktreesDefaultUri();
-			context.pickedRootFolder = undefined;
-			context.pickedSpecificFolder = undefined;
-
-			if (steps.isAtStep(Steps.PickRef) || state.reference == null) {
-				using step = steps.enterStep(Steps.PickRef);
-
-				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: ctx =>
-						`Choose a branch${ctx.showTags ? ' or tag' : ''} to create the new worktree from`,
-					picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
-					title: `Select Branch to Create Worktree From`,
-					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
-				});
-				if (result === StepResultBreak) {
-					state.reference = undefined!;
-					if (step.goBack() == null) break;
-					continue;
+					state.reference = result;
+					if (setCreateBranchFlag) {
+						state.flags = state.flags.filter(f => f !== '-b');
+						setCreateBranchFlag = false;
+					}
 				}
 
-				state.reference = result;
-				if (setCreateBranchFlag) {
-					state.flags = state.flags.filter(f => f !== '-b');
+				state.uri ??= context.defaultUri!;
+
+				state.worktree =
+					isBranchReference(state.reference) && !state.reference.remote
+						? await getWorktreeForBranch(state.repo, state.reference.name, undefined, context.worktrees)
+						: undefined;
+
+				const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
+				if ((isRemoteBranch || state.worktree != null) && !state.flags.includes('-b')) {
+					setCreateBranchFlag = true;
+					state.flags.push('-b');
+				} else {
 					setCreateBranchFlag = false;
 				}
-			}
 
-			state.uri ??= context.defaultUri!;
-
-			state.worktree =
-				isBranchReference(state.reference) && !state.reference.remote
-					? await getWorktreeForBranch(state.repo, state.reference.name, undefined, context.worktrees)
-					: undefined;
-
-			const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
-			if ((isRemoteBranch || state.worktree != null) && !state.flags.includes('-b')) {
-				setCreateBranchFlag = true;
-				state.flags.push('-b');
-			} else {
-				setCreateBranchFlag = false;
-			}
-
-			if (isRemoteBranch) {
-				state.createBranch = getReferenceNameWithoutRemote(state.reference);
-				const branch = await state.repo.git.branches.getBranch(state.createBranch);
-				if (branch != null && !branch.remote) {
-					state.createBranch = branch.name;
-				}
-			}
-
-			if (state.flags.includes('-b')) {
-				let createBranchOverride: string | undefined;
-				if (state.createBranch != null) {
-					let valid = await state.repo.git.refs.checkIfCouldBeValidBranchOrTagName(state.createBranch);
-					if (valid) {
-						const alreadyExists = await state.repo.git.branches.getBranch(state.createBranch);
-						valid = alreadyExists == null;
-					}
-
-					if (!valid) {
-						createBranchOverride = state.createBranch;
-						state.createBranch = undefined;
+				if (isRemoteBranch) {
+					state.createBranch = getReferenceNameWithoutRemote(state.reference);
+					const branch = await state.repo.git.branches.getBranch(state.createBranch);
+					if (branch != null && !branch.remote) {
+						state.createBranch = branch.name;
 					}
 				}
 
-				if (steps.isAtStep(Steps.InputBranchName) || state.createBranch == null) {
-					using step = steps.enterStep(Steps.InputBranchName);
+				if (state.flags.includes('-b')) {
+					let createBranchOverride: string | undefined;
+					if (state.createBranch != null) {
+						let valid = await state.repo.git.refs.checkIfCouldBeValidBranchOrTagName(state.createBranch);
+						if (valid) {
+							const alreadyExists = await state.repo.git.branches.getBranch(state.createBranch);
+							valid = alreadyExists == null;
+						}
 
-					const result = yield* inputBranchNameStep(state, context, {
-						prompt: 'Please provide a name for the new branch',
-						title: `${context.title} and New Branch from ${getReferenceLabel(state.reference, {
-							capitalize: true,
-							icon: false,
-							label: state.reference.refType !== 'branch',
-						})}`,
-						value: createBranchOverride,
-					});
+						if (!valid) {
+							createBranchOverride = state.createBranch;
+							state.createBranch = undefined;
+						}
+					}
+
+					if (steps.isAtStep(Steps.InputBranchName) || state.createBranch == null) {
+						using step = steps.enterStep(Steps.InputBranchName);
+
+						const result = yield* inputBranchNameStep(state, context, {
+							prompt: 'Please provide a name for the new branch',
+							title: `${context.title} and New Branch from ${getReferenceLabel(state.reference, {
+								capitalize: true,
+								icon: false,
+								label: state.reference.refType !== 'branch',
+							})}`,
+							value: createBranchOverride,
+						});
+						if (result === StepResultBreak) {
+							state.createBranch = undefined;
+							if (step.goBack() == null) break;
+							continue;
+						}
+
+						state.createBranch = result;
+					}
+				}
+
+				if (this.confirm(state.confirm)) {
+					using step = steps.enterStep(Steps.Confirm);
+
+					const result = yield* this.confirmStep(state, context);
 					if (result === StepResultBreak) {
-						state.createBranch = undefined;
+						state.uri = undefined!;
 						if (step.goBack() == null) break;
 						continue;
 					}
 
-					state.createBranch = result;
-				}
-			}
+					if (typeof result[0] === 'string') {
+						switch (result[0]) {
+							case 'changeRoot': {
+								using pathStep = steps.enterStep(Steps.ConfirmChoosePath);
 
-			if (this.confirm(state.confirm)) {
-				using step = steps.enterStep(Steps.Confirm);
+								const pathResult = yield* this.choosePathStep(state, context, {
+									title: `Choose a Different Root Folder for this Worktree`,
+									label: 'Choose Root Folder',
+									pickedUri: context.pickedRootFolder,
+									defaultUri: context.pickedRootFolder ?? context.defaultUri,
+								});
+								if (pathResult === StepResultBreak) {
+									state.uri = undefined!;
+									if (pathStep.goBack() == null) break;
+									continue;
+								}
 
-				const result = yield* this.confirmStep(state, context);
-				if (result === StepResultBreak) {
-					state.uri = undefined!;
-					if (step.goBack() == null) break;
-					continue;
-				}
-
-				if (typeof result[0] === 'string') {
-					switch (result[0]) {
-						case 'changeRoot': {
-							using pathStep = steps.enterStep(Steps.ConfirmChoosePath);
-
-							const pathResult = yield* this.choosePathStep(state, context, {
-								title: `Choose a Different Root Folder for this Worktree`,
-								label: 'Choose Root Folder',
-								pickedUri: context.pickedRootFolder,
-								defaultUri: context.pickedRootFolder ?? context.defaultUri,
-							});
-							if (pathResult === StepResultBreak) {
-								state.uri = undefined!;
-								if (pathStep.goBack() == null) break;
-								continue;
+								state.uri = pathResult;
+								// Keep track of the actual uri they picked, because we will modify it in later steps
+								context.pickedRootFolder = state.uri;
+								context.pickedSpecificFolder = undefined;
+								return;
 							}
+							case 'chooseFolder': {
+								using pathStep = steps.enterStep(Steps.ConfirmChoosePath);
 
-							state.uri = pathResult;
-							// Keep track of the actual uri they picked, because we will modify it in later steps
-							context.pickedRootFolder = state.uri;
-							context.pickedSpecificFolder = undefined;
-							return;
-						}
-						case 'chooseFolder': {
-							using pathStep = steps.enterStep(Steps.ConfirmChoosePath);
+								const pathResult = yield* this.choosePathStep(state, context, {
+									title: `Choose a Specific Folder for this Worktree`,
+									label: 'Choose Worktree Folder',
+									pickedUri: context.pickedRootFolder,
+									defaultUri: context.pickedSpecificFolder ?? context.defaultUri,
+								});
+								if (pathResult === StepResultBreak) {
+									state.uri = undefined!;
+									if (pathStep.goBack() == null) break;
+									continue;
+								}
 
-							const pathResult = yield* this.choosePathStep(state, context, {
-								title: `Choose a Specific Folder for this Worktree`,
-								label: 'Choose Worktree Folder',
-								pickedUri: context.pickedRootFolder,
-								defaultUri: context.pickedSpecificFolder ?? context.defaultUri,
-							});
-							if (pathResult === StepResultBreak) {
-								state.uri = undefined!;
-								if (pathStep.goBack() == null) break;
-								continue;
+								state.uri = pathResult;
+								// Keep track of the actual uri they picked, because we will modify it in later steps
+								context.pickedRootFolder = undefined;
+								context.pickedSpecificFolder = state.uri;
+								return;
 							}
-
-							state.uri = pathResult;
-							// Keep track of the actual uri they picked, because we will modify it in later steps
-							context.pickedRootFolder = undefined;
-							context.pickedSpecificFolder = state.uri;
-							return;
 						}
 					}
+
+					state.uri = result[0] as Uri;
+					state.flags = result[1];
 				}
 
-				state.uri = result[0] as Uri;
-				state.flags = result[1];
-			}
+				// Reset any confirmation overrides
+				state.confirm = true;
+				this._canSkipConfirmOverride = undefined;
 
-			// Reset any confirmation overrides
-			state.confirm = true;
-			this._canSkipConfirmOverride = undefined;
-
-			const uri = state.flags.includes('--direct')
-				? state.uri
-				: Uri.joinPath(
-						state.uri,
-						...(state.createBranch ?? state.reference.name).replace(/\\/g, '/').split('/'),
-					);
-
-			let worktree: GitWorktree | undefined;
-			try {
-				if (state.addRemote != null) {
-					await state.repo.git.remotes.addRemote?.(state.addRemote.name, state.addRemote.url, {
-						fetch: true,
-					});
-				}
-
-				worktree = await state.repo.git.worktrees?.createWorktreeWithResult(uri.fsPath, {
-					commitish: state.reference?.name,
-					createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
-					detach: state.flags.includes('--detach'),
-					force: state.flags.includes('--force'),
-				});
-				state.result?.fulfill(worktree);
-
-				// Store deeplink before opening worktree (if this is a chat action flow)
-				if (state.chatAction && worktree) {
-					await storeChatActionDeepLink(this.container, state.chatAction, worktree.uri.fsPath);
-				}
-			} catch (ex) {
-				if (WorktreeCreateError.is(ex, 'alreadyCheckedOut') && !state.flags.includes('--force')) {
-					const createBranch: MessageItem = { title: 'Create New Branch' };
-					const force: MessageItem = { title: 'Create Anyway' };
-					const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
-					const result = await window.showWarningMessage(
-						`Unable to create the new worktree because ${getReferenceLabel(state.reference, {
-							icon: false,
-							quoted: true,
-						})} is already checked out.\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?`,
-						{ modal: true },
-						createBranch,
-						force,
-						cancel,
-					);
-
-					if (result === createBranch) {
-						state.flags.push('-b');
-						this._canSkipConfirmOverride = true;
-						state.confirm = false;
-						return;
-					}
-
-					if (result === force) {
-						state.flags.push('--force');
-						this._canSkipConfirmOverride = true;
-						state.confirm = false;
-						return;
-					}
-				} else if (WorktreeCreateError.is(ex, 'alreadyExists')) {
-					const confirm: MessageItem = { title: 'OK' };
-					const openFolder: MessageItem = { title: 'Open Folder' };
-					void window
-						.showErrorMessage(
-							`Unable to create a new worktree in '${getWorkspaceFriendlyPath(
-								uri,
-							)}' because the folder already exists and is not empty.`,
-							confirm,
-							openFolder,
-						)
-						.then(result => {
-							if (result === openFolder) {
-								void revealInFileExplorer(uri);
-							}
-						});
-				} else {
-					void showGitErrorMessage(
-						ex,
-						`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}.`,
-					);
-				}
-			}
-
-			steps.markStepsComplete();
-
-			if (worktree == null) return StepResultBreak;
-
-			if (state.reveal !== false) {
-				setTimeout(() => {
-					if (this.container.views.worktrees.visible) {
-						void revealWorktree(worktree, { select: true, focus: false });
-					}
-				}, 100);
-			}
-
-			type OpenAction = Config['worktrees']['openAfterCreate'];
-			const action: OpenAction = configuration.get('worktrees.openAfterCreate');
-			if (action !== 'never') {
-				let flags: WorktreeOpenState['flags'];
-				switch (action) {
-					case 'always':
-						flags = convertLocationToOpenFlags('currentWindow');
-						break;
-					case 'alwaysNewWindow':
-						flags = convertLocationToOpenFlags('newWindow');
-						break;
-					case 'onlyWhenEmpty':
-						flags = convertLocationToOpenFlags(
-							workspace.workspaceFolders?.length ? 'newWindow' : 'currentWindow',
+				const uri = state.flags.includes('--direct')
+					? state.uri
+					: Uri.joinPath(
+							state.uri,
+							...(state.createBranch ?? state.reference.name).replace(/\\/g, '/').split('/'),
 						);
-						break;
-					default:
-						flags = [];
-						break;
+
+				let worktree: GitWorktree | undefined;
+				try {
+					if (state.addRemote != null) {
+						await state.repo.git.remotes.addRemote?.(state.addRemote.name, state.addRemote.url, {
+							fetch: true,
+						});
+					}
+
+					worktree = await state.repo.git.worktrees?.createWorktreeWithResult(uri.fsPath, {
+						commitish: state.reference?.name,
+						createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
+						detach: state.flags.includes('--detach'),
+						force: state.flags.includes('--force'),
+					});
+					state.result?.fulfill(worktree);
+
+					// Store deeplink before opening worktree (if this is a chat action flow)
+					if (state.chatAction && worktree) {
+						await storeChatActionDeepLink(this.container, state.chatAction, worktree.uri.fsPath);
+					}
+				} catch (ex) {
+					if (WorktreeCreateError.is(ex, 'alreadyCheckedOut') && !state.flags.includes('--force')) {
+						const createBranch: MessageItem = { title: 'Create New Branch' };
+						const force: MessageItem = { title: 'Create Anyway' };
+						const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+						const result = await window.showWarningMessage(
+							`Unable to create the new worktree because ${getReferenceLabel(state.reference, {
+								icon: false,
+								quoted: true,
+							})} is already checked out.\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?`,
+							{ modal: true },
+							createBranch,
+							force,
+							cancel,
+						);
+
+						if (result === createBranch) {
+							state.flags.push('-b');
+							this._canSkipConfirmOverride = true;
+							state.confirm = false;
+							return;
+						}
+
+						if (result === force) {
+							state.flags.push('--force');
+							this._canSkipConfirmOverride = true;
+							state.confirm = false;
+							return;
+						}
+					} else if (WorktreeCreateError.is(ex, 'alreadyExists')) {
+						const confirm: MessageItem = { title: 'OK' };
+						const openFolder: MessageItem = { title: 'Open Folder' };
+						void window
+							.showErrorMessage(
+								`Unable to create a new worktree in '${getWorkspaceFriendlyPath(
+									uri,
+								)}' because the folder already exists and is not empty.`,
+								confirm,
+								openFolder,
+							)
+							.then(result => {
+								if (result === openFolder) {
+									void revealInFileExplorer(uri);
+								}
+							});
+					} else {
+						void showGitErrorMessage(
+							ex,
+							`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}.`,
+						);
+					}
 				}
 
-				yield* getSteps(
-					this.container,
-					{
-						command: 'worktree',
-						confirm: action === 'prompt',
-						state: {
-							subcommand: 'open',
-							repo: state.repo,
-							worktree: worktree,
-							flags: flags,
-							openOnly: true,
-							overrides: { canGoBack: false },
-							isNewWorktree: true,
-							worktreeDefaultOpen: state.worktreeDefaultOpen,
-							onWorkspaceChanging: state.onWorkspaceChanging,
+				steps.markStepsComplete();
+
+				if (worktree == null) return StepResultBreak;
+
+				if (state.reveal !== false) {
+					setTimeout(() => {
+						if (this.container.views.worktrees.visible) {
+							void revealWorktree(worktree, { select: true, focus: false });
+						}
+					}, 100);
+				}
+
+				type OpenAction = Config['worktrees']['openAfterCreate'];
+				const action: OpenAction = configuration.get('worktrees.openAfterCreate');
+				if (action !== 'never') {
+					let flags: WorktreeOpenState['flags'];
+					switch (action) {
+						case 'always':
+							flags = convertLocationToOpenFlags('currentWindow');
+							break;
+						case 'alwaysNewWindow':
+							flags = convertLocationToOpenFlags('newWindow');
+							break;
+						case 'onlyWhenEmpty':
+							flags = convertLocationToOpenFlags(
+								workspace.workspaceFolders?.length ? 'newWindow' : 'currentWindow',
+							);
+							break;
+						default:
+							flags = [];
+							break;
+					}
+
+					yield* getSteps(
+						this.container,
+						{
+							command: 'worktree',
+							confirm: action === 'prompt',
+							state: {
+								subcommand: 'open',
+								repo: state.repo,
+								worktree: worktree,
+								flags: flags,
+								openOnly: true,
+								overrides: { canGoBack: false },
+								isNewWorktree: true,
+								worktreeDefaultOpen: state.worktreeDefaultOpen,
+								onWorkspaceChanging: state.onWorkspaceChanging,
+							},
 						},
-					},
-					context,
-					this.startedFrom,
-				);
-				break;
+						context,
+						this.startedFrom,
+					);
+					break;
+				}
+			}
+		} finally {
+			if (state.result?.pending) {
+				state.result.cancel(new Error('Create Worktree cancelled'));
 			}
 		}
 
