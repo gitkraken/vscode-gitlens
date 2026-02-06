@@ -42,7 +42,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				Upgrade to <strong>GitLens Pro</strong> (Free 14-Day Trial) to access everything above plus advanced
 				visualization, collaboration, and built-in AI tools that work right inside VS Code.
 			</p>
-			<p>$(sparkle) Pro gives you full access to:</p>
+			<p><code-icon class="icon" icon="sparkle"></code-icon> Pro gives you full access to:</p>
 			<ul>
 				<li><strong>Commit Graph:</strong> visualize every branch and commit relationship</li>
 				<li>
@@ -52,9 +52,11 @@ const walkthroughSteps: WalkthroughStep[] = [
 				<li><strong>Launchpad & Worktrees:</strong> manage PRs and branches in one hub</li>
 				<li><strong>GitKraken AI:</strong> writes commits, PRs & changelogs for you.</li>
 			</ul>
-			<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.signUp"
-				>Get Started with GitLens Pro</gl-button
-			>
+			<div>
+				<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.signUp"
+					>Get Started with GitLens Pro</gl-button
+				>
+			</div>
 			<p>or <a href="command:gitlens.walkthrough.plus.login">sign in</a></p>
 		`,
 		condition: plusState => !plusState || plusState < SubscriptionState.Trial,
@@ -74,9 +76,11 @@ const walkthroughSteps: WalkthroughStep[] = [
 				Once your trial ends, you'll return to <strong>GitLens Community</strong> — where you can still leverage
 				features like in-editor blame annotations, hovers, CodeLens, and more.
 			</p>
-			<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.upgrade"
-				>Upgrade to GitLens Pro</gl-button
-			>
+			<div>
+				<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.upgrade"
+					>Upgrade to GitLens Pro</gl-button
+				>
+			</div>
 		`,
 		condition: plusState => plusState === SubscriptionState.Trial,
 	},
@@ -96,9 +100,11 @@ const walkthroughSteps: WalkthroughStep[] = [
 				>.
 			</p>
 			<p><strong>Unlock more powerful tools with GitLens Pro</strong></p>
-			<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.upgrade"
-				>Upgrade to GitLens Pro</gl-button
-			>
+			<div>
+				<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.upgrade"
+					>Upgrade to GitLens Pro</gl-button
+				>
+			</div>
 			<p>
 				With GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance
 				collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.
@@ -117,9 +123,11 @@ const walkthroughSteps: WalkthroughStep[] = [
 				features like in-editor blame annotations, hovers, CodeLens, and more—completely free.
 			</p>
 			<p><strong>Unlock more powerful tools — Try GitLens Pro again</strong> free for another 14 days.</p>
-			<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.reactivate"
-				>Reactivate GitLens Pro Trial</gl-button
-			>
+			<div>
+				<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.reactivate"
+					>Reactivate GitLens Pro Trial</gl-button
+				>
+			</div>
 			<p>
 				With GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance
 				collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.
@@ -136,7 +144,9 @@ const walkthroughSteps: WalkthroughStep[] = [
 				As a <strong>GitLens Pro</strong> user, you have access to powerful tools that accelerate PR reviews,
 				provide deeper code history visualizations, and streamline collaboration across your team.
 			</p>
-			<gl-button href="command:gitlens.walkthrough.openWalkthrough">Continue the Walkthrough</gl-button>
+			<div>
+				<gl-button href="command:gitlens.walkthrough.openWalkthrough">Continue the Walkthrough</gl-button>
+			</div>
 			<p>
 				<em>Tip:</em> To get the most out of your <strong>GitLens Pro</strong> experience, complete the
 				walkthrough and visit our Help Center for in-depth guides.
@@ -158,7 +168,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				Select multiple commits to batch operations like cherry-picking or generate AI changelogs with a single
 				command.
 			</p>
-			<gl-button href="command:gitlens.walkthrough.showGraph">Discover your Commit Graph</gl-button>
+			<div><gl-button href="command:gitlens.walkthrough.showGraph">Discover your Commit Graph</gl-button></div>
 		`,
 	},
 
@@ -183,7 +193,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 			</ul>
 			<p>Stay in control - review and edit before committing.</p>
 			<p>See how effortless documenting your work can be, all without leaving VS Code.</p>
-			<gl-button href="command:gitlens.walkthrough.showComposer">Compose Commits with AI</gl-button>
+			<div><gl-button href="command:gitlens.walkthrough.showComposer">Compose Commits with AI</gl-button></div>
 		`,
 	},
 
@@ -198,7 +208,9 @@ const walkthroughSteps: WalkthroughStep[] = [
 				<li>Jump to commits in the Graph</li>
 				<li>Compare with previous versions</li>
 			</ul>
-			<gl-button href="command:gitlens.showSettingsPage!current-line">Configure Inline Blame</gl-button>
+			<div>
+				<gl-button href="command:gitlens.showSettingsPage!current-line">Configure Inline Blame</gl-button>
+			</div>
 		`,
 	},
 
@@ -215,7 +227,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				</li>
 			</ul>
 			<p>Stay in flow, ship faster, and never lose track of what matters.</p>
-			<gl-button href="command:gitlens.walkthrough.showLaunchpad">Open Launchpad</gl-button>
+			<div><gl-button href="command:gitlens.walkthrough.showLaunchpad">Open Launchpad</gl-button></div>
 		`,
 	},
 ];
@@ -299,7 +311,7 @@ export class GlWelcomePage extends LitElement {
 
 		return html`
 			<div part="page" class="welcome scrollable">
-				<div class="section plain header">
+				<div class="section header">
 					<h1><gitlens-logo-circle></gitlens-logo-circle><span>Get Started with GitLens</span></h1>
 					<p>
 						Supercharge Git and unlock untapped knowledge within your repo to better understand, write, and
@@ -310,7 +322,7 @@ export class GlWelcomePage extends LitElement {
 					<hr />
 					<p>3/5 steps complete</p>
 				</div>
-				<gl-walkthrough class="section plain">
+				<gl-walkthrough class="section">
 					${walkthroughSteps
 						.filter(step => !step.condition || step.condition(this._state.plusState))
 						.map(

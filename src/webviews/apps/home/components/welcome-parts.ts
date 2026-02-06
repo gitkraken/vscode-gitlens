@@ -312,6 +312,7 @@ export class GlWalkthroughStep extends LitElement {
 	override render(): unknown {
 		return html`
 			<div
+				part="header"
 				class="header"
 				role="button"
 				tabindex="0"
