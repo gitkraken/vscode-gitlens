@@ -125,18 +125,44 @@ function parseStatusV2(container: Container, lines: string[], repoPath: string):
 		} else {
 			const lineParts = line.split(' ');
 			switch (lineParts[0][0]) {
-				case '1': // normal
-					files.push(parseStatusFile(container, repoPath, lineParts[1], lineParts.slice(8).join(' ')));
-					break;
-				case '2': {
-					// rename
-					const file = lineParts.slice(9).join(' ').split('\t');
-					files.push(parseStatusFile(container, repoPath, lineParts[1], file[0], file[1]));
+				case '1': {
+					// normal: 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+					// <sub> starts with 'S' if submodule, 'N' if not
+					const isSubmodule = lineParts[2]?.startsWith('S');
+					files.push(
+						parseStatusFile(
+							container,
+							repoPath,
+							lineParts[1],
+							lineParts.slice(8).join(' '),
+							undefined,
+							isSubmodule,
+						),
+					);
 					break;
 				}
-				case 'u': // unmerged
-					files.push(parseStatusFile(container, repoPath, lineParts[1], lineParts.slice(10).join(' ')));
+				case '2': {
+					// rename: 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path>\t<origPath>
+					const isSubmodule = lineParts[2]?.startsWith('S');
+					const file = lineParts.slice(9).join(' ').split('\t');
+					files.push(parseStatusFile(container, repoPath, lineParts[1], file[0], file[1], isSubmodule));
 					break;
+				}
+				case 'u': {
+					// unmerged: u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
+					const isSubmodule = lineParts[2]?.startsWith('S');
+					files.push(
+						parseStatusFile(
+							container,
+							repoPath,
+							lineParts[1],
+							lineParts.slice(10).join(' '),
+							undefined,
+							isSubmodule,
+						),
+					);
+					break;
+				}
 				case '?': // untracked
 					files.push(parseStatusFile(container, repoPath, '??', lineParts.slice(1).join(' ')));
 					break;
@@ -160,6 +186,7 @@ function parseStatusFile(
 	rawStatus: string,
 	fileName: string,
 	originalFileName?: string,
+	isSubmodule?: boolean,
 ): GitStatusFile {
 	let x = !rawStatus.startsWith('.') ? rawStatus[0].trim() : undefined;
 	if (x == null || x.length === 0) {
@@ -174,5 +201,5 @@ function parseStatusFile(
 		}
 	}
 
-	return new GitStatusFile(container, repoPath, x, y, fileName, originalFileName);
+	return new GitStatusFile(container, repoPath, x, y, fileName, originalFileName, isSubmodule);
 }

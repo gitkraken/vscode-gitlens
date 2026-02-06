@@ -18,9 +18,14 @@ import type { GitTreeEntry, GitTreeType } from './models/tree.js';
 const emptyArray = Object.freeze(new Uint8Array(0));
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
-export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
+export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string; submoduleSha?: string } {
 	const gitUri = isGitUri(uri) ? uri : GitUri.fromRevisionUri(uri);
-	return { path: gitUri.relativePath, ref: gitUri.sha!, repoPath: gitUri.repoPath! };
+	return {
+		path: gitUri.relativePath,
+		ref: gitUri.sha!,
+		repoPath: gitUri.repoPath!,
+		submoduleSha: gitUri.submoduleSha,
+	};
 }
 
 export class GitFileSystemProvider implements FileSystemProvider, Disposable {
@@ -75,9 +80,14 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	@debug()
 	async readFile(uri: Uri): Promise<Uint8Array> {
 		const scope = getLogScope();
-		const { path, ref, repoPath } = fromGitLensFSUri(uri);
+		const { path, ref, repoPath, submoduleSha } = fromGitLensFSUri(uri);
 
 		if (ref === deletedOrMissing) return emptyArray;
+
+		// If this is a submodule, return the submodule commit format directly
+		if (submoduleSha) {
+			return new TextEncoder().encode(`Subproject commit ${submoduleSha}\n`);
+		}
 
 		const svc = this.container.git.getRepositoryService(repoPath);
 
@@ -85,6 +95,16 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		try {
 			data = await svc.revision.getRevisionContent(ref, path);
 		} catch (ex) {
+			if (ShowError.is(ex, 'invalidObject') || ShowError.is(ex, 'invalidRevision')) {
+				// Check the tree entry to determine if this is a regular file or submodule
+				// For submodules (type 'commit' in git tree), return the standard git submodule diff format
+				// This matches the format Git uses in diff output (see diff.c:show_submodule_diff_summary)
+				const treeEntry = await svc.revision.getTreeEntryForRevision(ref, path);
+				if (treeEntry?.type === 'commit') {
+					return new TextEncoder().encode(`Subproject commit ${treeEntry.oid}\n`);
+				}
+			}
+
 			if (ShowError.is(ex) && ex.details.reason !== 'other') {
 				return emptyArray;
 			}
@@ -101,9 +121,14 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 	@debug()
 	async stat(uri: Uri): Promise<FileStat> {
-		const { path, ref, repoPath } = fromGitLensFSUri(uri);
+		const { path, ref, repoPath, submoduleSha } = fromGitLensFSUri(uri);
 
 		if (ref === deletedOrMissing) {
+			return { type: FileType.File, size: 0, ctime: 0, mtime: 0 };
+		}
+
+		// Submodules appear as files in diff views
+		if (submoduleSha) {
 			return { type: FileType.File, size: 0, ctime: 0, mtime: 0 };
 		}
 
@@ -126,7 +151,9 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 				.revision.getTreeEntryForRevision(ref, path);
 		}
 
-		if (treeItem == null) throw FileSystemError.FileNotFound(uri);
+		if (treeItem == null) {
+			throw FileSystemError.FileNotFound(uri);
+		}
 
 		return { type: typeToFileType(treeItem.type), size: treeItem.size, ctime: 0, mtime: 0 };
 	}
@@ -175,6 +202,9 @@ function typeToFileType(type: GitTreeType | undefined | null) {
 			return FileType.File;
 		case 'tree':
 			return FileType.Directory;
+		case 'commit':
+			// Submodules (gitlinks) appear as files in the diff view
+			return FileType.File;
 		default:
 			return FileType.Unknown;
 	}

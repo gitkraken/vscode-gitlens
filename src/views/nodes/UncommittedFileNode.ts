@@ -83,7 +83,7 @@ export class UncommittedFileNode extends ViewRefFileNode<'uncommitted-file', Vie
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
-		item.contextValue = ContextValues.File;
+		item.contextValue = `${ContextValues.File}${this.file.isSubmodule ? '+submodule' : ''}`;
 		item.description = this.description;
 		// Use the file icon and decorations
 		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);

@@ -115,13 +115,16 @@ export abstract class CommitFileNodeBase<
 	}
 
 	protected get contextValue(): string {
+		const submodule = this.file.isSubmodule ? '+submodule' : '';
 		if (!this.commit.isUncommitted) {
 			return `${ContextValues.File}+committed${this.options?.branch?.current ? '+current' : ''}${
 				this.options?.branch?.current && this.options.branch.sha === this.commit.ref ? '+HEAD' : ''
-			}${this.options?.unpublished ? '+unpublished' : ''}`;
+			}${this.options?.unpublished ? '+unpublished' : ''}${submodule}`;
 		}
 
-		return this.commit.isUncommittedStaged ? `${ContextValues.File}+staged` : `${ContextValues.File}+unstaged`;
+		return this.commit.isUncommittedStaged
+			? `${ContextValues.File}+staged${submodule}`
+			: `${ContextValues.File}+unstaged${submodule}`;
 	}
 
 	private get description() {

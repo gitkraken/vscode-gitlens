@@ -1,7 +1,9 @@
 import type { Uri } from 'vscode';
+import { Schemes } from '../../../../constants.js';
 import type { Container } from '../../../../container.js';
 import type { GitCache } from '../../../../git/cache.js';
 import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../git/gitProvider.js';
+import { GitUri } from '../../../../git/gitUri.js';
 import type { GitFileStatus } from '../../../../git/models/fileStatus.js';
 import { deletedOrMissing } from '../../../../git/models/revision.js';
 import type { GitTreeEntry } from '../../../../git/models/tree.js';
@@ -63,6 +65,20 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	async getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 		return this.git.show__content<Buffer>(root, relativePath, rev, { encoding: 'buffer', errors: 'throw' });
+	}
+
+	@log()
+	async getSubmoduleHead(repoPath: string, submodulePath: string): Promise<string | undefined> {
+		// Verify the path is a submodule (gitlink commit) in the parent tree, not just a regular directory
+		const treeEntry = await this.getTreeEntryForRevision(repoPath, 'HEAD', submodulePath);
+		if (treeEntry?.type !== 'commit') return undefined;
+
+		const [relativePath, root] = splitPath(submodulePath, repoPath);
+		const submoduleFullPath = this.provider.getAbsoluteUri(relativePath, root).fsPath;
+
+		const result = await this.git.exec({ cwd: submoduleFullPath, errors: 'ignore' }, 'rev-parse', 'HEAD');
+		const sha = result.stdout.trim();
+		return sha || undefined;
 	}
 
 	@gate()
@@ -127,6 +143,13 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 				// If it looks like non-sha like then preserve it as the friendly name
 				revision: isRevisionWithSuffix(ref) ? sha : ref,
 			};
+		} else if (typeof pathOrUri !== 'string' && pathOrUri.scheme === Schemes.GitLens) {
+			// If this is a gitlens:// URI with a submoduleSha, return it directly without looking it up
+			// (the sha is a submodule commit that doesn't exist in the parent repo)
+			const gitUri = GitUri.fromRevisionUri(pathOrUri);
+			if (gitUri.submoduleSha) {
+				return { sha: gitUri.submoduleSha, revision: gitUri.submoduleSha };
+			}
 		}
 
 		if (isUncommittedWithParentSuffix(ref)) {

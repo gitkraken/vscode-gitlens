@@ -22,6 +22,9 @@ export function getPseudoCommits(
 	let wip: GitFileChange[] | undefined;
 
 	for (const file of files) {
+		// Convert isSubmodule to mode for GitFileChange
+		const mode = file.isSubmodule ? '160000' : undefined;
+
 		if (file.conflicted) {
 			conflicted ??= [];
 			conflicted.push(
@@ -34,6 +37,8 @@ export function getPseudoCommits(
 					'HEAD',
 					undefined,
 					false,
+					undefined,
+					mode,
 				),
 			);
 		} else {
@@ -49,6 +54,8 @@ export function getPseudoCommits(
 						file.staged ? uncommittedStaged : 'HEAD',
 						undefined,
 						false,
+						undefined,
+						mode,
 					),
 				);
 			}
@@ -65,6 +72,8 @@ export function getPseudoCommits(
 						'HEAD',
 						undefined,
 						true,
+						undefined,
+						mode,
 					),
 				);
 			}

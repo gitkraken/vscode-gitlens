@@ -244,6 +244,8 @@ export interface LogParsedFile {
 	deletions?: never;
 	range?: LogParsedRange;
 	originalRange?: LogParsedRange;
+	/** Git file mode (e.g., 100644=regular, 100755=executable, 120000=symlink, 160000=submodule) */
+	mode?: string;
 }
 type LogParsedFileWithStats = Omit<LogParsedFile, 'additions' | 'deletions'> & {
 	additions: number;
@@ -373,109 +375,116 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 			format += `${mapping[key]}${fieldFormatSep}`;
 		}
 	}
-	const args = [`--format=${format}`, '--numstat', '--summary'];
+	// Use --raw instead of --summary to get accurate mode info for ALL files (not just creates/deletes)
+	// This allows us to reliably detect submodules (mode 160000) even for modifications
+	const args = [`--format=${format}`, '--numstat', '--raw'];
 
 	function parseFilesAndStats(content: string): LogParsedFileWithStats[] {
 		const files: LogParsedFileWithStats[] = [];
 		if (!content?.length) return files;
 
-		const fileMap = new Map<string, number>(); // Maps path to index in files array
+		// Map to store info from --raw lines: path -> { mode, status, originalPath }
+		// Raw format: :<old_mode> <new_mode> <old_sha> <new_sha> <status>[score]\t<path>[\t<new_path>]
+		const rawInfoMap = new Map<string, { mode: string; status: string; originalPath?: string }>();
 
-		let fileIndex;
-		let startIndex;
-		let endIndex;
+		let startIndex: number;
+		let endIndex: number;
 
-		let file: LogParsedFileWithStats;
-		let status;
-		let additions;
-		let deletions;
-		let path;
-		let originalPath;
-
+		// Single pass: --raw lines come first, then --numstat lines
 		for (const line of iterateByDelimiter(content, '\n')) {
 			if (!line) continue;
 
-			if (line.startsWith(' ')) {
-				if (line.startsWith(' rename ')) {
-					({ path, originalPath } = parseCopyOrRename(line.substring(8 /* move past ' rename ' */), true));
-					fileIndex = fileMap.get(path);
-					if (fileIndex != null) {
-						file = files[fileIndex];
-						file.status = 'R';
-						file.originalPath = originalPath;
-					} else {
-						debugger;
-					}
-				} else if (line.startsWith(' copy ')) {
-					({ path, originalPath } = parseCopyOrRename(line.substring(6 /* move past ' copy ' */), true));
-					fileIndex = fileMap.get(path);
-					if (fileIndex != null) {
-						file = files[fileIndex];
-						file.status = 'C';
-						file.originalPath = originalPath;
-					} else {
-						debugger;
-					}
+			if (line.charCodeAt(0) === 58 /* ':' */) {
+				// --raw format: :<old_mode> <new_mode> <old_sha> <new_sha> <status>[score]\t<path>[\t<new_path>]
+				const tabIndex = line.indexOf('\t');
+				if (tabIndex === -1) continue;
+
+				// Parse metadata using indexOf instead of split() to avoid array allocation
+				// Format after ':': <old_mode> <new_mode> <old_sha> <new_sha> <status>[score]
+
+				// Skip old_mode, find new_mode
+				startIndex = line.indexOf(' ') + 1;
+				if (startIndex === 0) continue;
+
+				endIndex = line.indexOf(' ', startIndex);
+				if (endIndex === -1) continue;
+				const newMode = line.substring(startIndex, endIndex);
+
+				// Skip old_sha (find space after new_mode)
+				startIndex = line.indexOf(' ', endIndex + 1);
+				if (startIndex === -1) continue;
+
+				// Skip new_sha (find space after old_sha)
+				startIndex = line.indexOf(' ', startIndex + 1);
+				if (startIndex === -1) continue;
+
+				// Status is first char after the last space
+				const status = line.charAt(startIndex + 1);
+
+				// Parse path(s) using indexOf instead of split
+				const pathPart = line.substring(tabIndex + 1);
+				let path: string;
+				let originalPath: string | undefined;
+
+				const pathTabIndex = pathPart.indexOf('\t');
+				if ((status === 'R' || status === 'C') && pathTabIndex !== -1) {
+					// For renames/copies: old_path\tnew_path
+					originalPath = pathPart.substring(0, pathTabIndex);
+					path = pathPart.substring(pathTabIndex + 1);
 				} else {
-					if (line.startsWith(' create mode ')) {
-						status = 'A';
-					} else if (line.startsWith(' delete mode ')) {
-						status = 'D';
-					} else {
-						// Ignore " mode change " lines
-						if (!line.startsWith(' mode change ')) {
-							debugger;
-						}
-						continue;
-					}
-
-					startIndex = line.indexOf(' ', 13 /* move past 'create mode <num>' or 'delete mode <num>' */);
-					if (startIndex > -1) {
-						const path = line.substring(startIndex + 1);
-
-						fileIndex = fileMap.get(path);
-						if (fileIndex != null) {
-							files[fileIndex].status = status;
-						} else {
-							debugger;
-						}
-					} else {
-						debugger;
-					}
+					path = pathPart;
 				}
+
+				// Trim to match parseCopyOrRename which trims renamed paths
+				rawInfoMap.set(path.trim(), { mode: newMode, status: status, originalPath: originalPath?.trim() });
 			} else {
-				startIndex = 0;
+				// --numstat format: <additions>\t<deletions>\t<path>
+				// With renames: <additions>\t<deletions>\t{prefix/old => new/suffix}
 				endIndex = line.indexOf('\t');
 				if (endIndex === -1) {
 					debugger;
+					continue;
 				}
 
-				additions = line.substring(startIndex, endIndex);
+				const additions = line.substring(0, endIndex);
 
 				startIndex = endIndex + 1;
 				endIndex = line.indexOf('\t', startIndex);
 				if (endIndex === -1) {
 					debugger;
+					continue;
 				}
 
-				deletions = line.substring(startIndex, endIndex);
+				const deletions = line.substring(startIndex, endIndex);
 
-				startIndex = endIndex + 1;
-				path = line.substring(startIndex);
+				let path = line.substring(endIndex + 1);
+				let originalPath: string | undefined;
 
-				// Check for renamed files
+				// Parse rename format from numstat (e.g., "{old => new}/path")
 				({ path, originalPath } = parseCopyOrRename(path, false));
 
-				file = {
-					status: originalPath == null ? 'M' : 'R',
+				// Look up --raw info for this path (keyed by trimmed new/destination path)
+				const rawInfo = rawInfoMap.get(path.trim());
+
+				// Use status from --raw if available; provides accurate status (A/D/M/R/C/T)
+				const status = rawInfo?.status ?? (originalPath ? 'R' : 'M');
+
+				// Use originalPath from --raw if available (cleaner than numstat format)
+				if (rawInfo?.originalPath) {
+					originalPath = rawInfo.originalPath;
+				}
+
+				const file: LogParsedFileWithStats = {
+					status: status,
 					path: path.trim(),
 					originalPath: originalPath?.trim(),
 					additions: additions === '-' ? 0 : parseInt(additions, 10) || 0,
 					deletions: deletions === '-' ? 0 : parseInt(deletions, 10) || 0,
+					// Store mode for consumers to derive file type (160000=submodule, 100755=executable, etc.)
+					mode: rawInfo?.mode,
 				};
 
 				files.push(file);
-				fileMap.set(path, files.length - 1);
 			}
 		}
 

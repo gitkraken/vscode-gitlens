@@ -1,7 +1,7 @@
 import { readdir, realpath } from 'fs';
 import { resolve as resolvePath } from 'path';
 import type { CancellationToken, Disposable, Event, Range, TextDocument, WorkspaceFolder } from 'vscode';
-import { EventEmitter, extensions, Uri, window, workspace } from 'vscode';
+import { EventEmitter, extensions, FileType, Uri, window, workspace } from 'vscode';
 import { md5 } from '@env/crypto.js';
 import { fetch, getProxyAgent } from '@env/fetch.js';
 import { hrtime } from '@env/hrtime.js';
@@ -23,6 +23,7 @@ import type {
 	RepositoryOpenEvent,
 	RepositoryVisibility,
 	RevisionUriData,
+	RevisionUriOptions,
 	ScmRepository,
 } from '../../../git/gitProvider.js';
 import { encodeGitLensRevisionUriAuthority } from '../../../git/gitUri.authority.js';
@@ -36,7 +37,7 @@ import type { GitRemote } from '../../../git/models/remote.js';
 import { RemoteResourceType } from '../../../git/models/remoteResource.js';
 import type { RepositoryChangeEvent } from '../../../git/models/repository.js';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
-import { deletedOrMissing } from '../../../git/models/revision.js';
+import { deletedOrMissing, uncommitted } from '../../../git/models/revision.js';
 import { parseGitBlame } from '../../../git/parsers/blameParser.js';
 import { parseGitFileDiff } from '../../../git/parsers/diffParser.js';
 import { getVisibilityCacheKey } from '../../../git/utils/remote.utils.js';
@@ -70,7 +71,6 @@ import { GitDocumentState } from '../../../trackers/trackedDocument.js';
 import type { Git } from './git.js';
 import type { GitLocation } from './locator.js';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator.js';
-import { fsExists } from './shell.js';
 import { BranchesGitSubProvider } from './sub-providers/branches.js';
 import { CommitsGitSubProvider } from './sub-providers/commits.js';
 import { ConfigGitSubProvider } from './sub-providers/config.js';
@@ -760,8 +760,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ exit: true })
-	async getBestRevisionUri(repoPath: string, path: string, rev: string | undefined): Promise<Uri | undefined> {
+	async getBestRevisionUri(
+		repoPath: string,
+		pathOrUri: string | Uri,
+		rev: string | undefined,
+	): Promise<Uri | undefined> {
 		if (rev === deletedOrMissing) return undefined;
+
+		const path = getBestPath(pathOrUri);
 
 		// TODO@eamodio Align this with isTrackedCore?
 		if (!rev || (isUncommitted(rev) && !isUncommittedStaged(rev))) {
@@ -831,8 +837,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return normalizePath(relativePath);
 	}
 
-	getRevisionUri(repoPath: string, rev: string, path: string): Uri {
-		if (isUncommitted(rev) && !isUncommittedStaged(rev)) return this.getAbsoluteUri(path, repoPath);
+	getRevisionUri(repoPath: string, rev: string, path: string, options?: RevisionUriOptions): Uri {
+		if (isUncommitted(rev) && !isUncommittedStaged(rev) && !options?.submoduleSha) {
+			return this.getAbsoluteUri(path, repoPath);
+		}
 
 		let uncPath;
 
@@ -852,6 +860,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref: rev,
 			repoPath: normalizePath(repoPath),
 			uncPath: uncPath,
+			submoduleSha: options?.submoduleSha,
 		};
 
 		const uri = Uri.from({
@@ -890,8 +899,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			relativePath = result?.file.path;
 		} while (true);
 
-		uri = this.getAbsoluteUri(relativePath, repoPath);
-		return (await fsExists(uri.fsPath)) ? uri : undefined;
+		const absoluteUri = this.getAbsoluteUri(relativePath, repoPath);
+
+		// Check what type of thing exists at this path
+		try {
+			const stat = await workspace.fs.stat(absoluteUri);
+			if (stat.type & FileType.File) return absoluteUri;
+
+			if (stat.type & FileType.Directory) {
+				// Check if it's a submodule
+				const submoduleSha = await this.revision.getSubmoduleHead(repoPath, relativePath);
+				if (submoduleSha != null) {
+					return this.getRevisionUri(repoPath, uncommitted, relativePath, { submoduleSha: submoduleSha });
+				}
+			}
+		} catch {
+			// Path doesn't exist on disk
+		}
+
+		return undefined;
 	}
 
 	@log({ exit: true })
@@ -991,7 +1017,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const scope = getLogScope();
 
 		let repoPath: string | undefined;
-		let gitDirInfo: { gitDir: string; commonGitDir: string | undefined } | undefined;
+		let gitDirInfo:
+			| { gitDir: string; commonGitDir: string | undefined; superprojectPath: string | undefined }
+			| undefined;
 		try {
 			isDirectory ??= await isFolderUri(uri);
 			// If the uri isn't a directory, go up one level
@@ -1018,7 +1046,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				// Object result with full info
 				this.unsafePaths.delete(uri.fsPath);
 				repoPath = result.repoPath;
-				gitDirInfo = { gitDir: result.gitDir, commonGitDir: result.commonGitDir };
+				gitDirInfo = {
+					gitDir: result.gitDir,
+					commonGitDir: result.commonGitDir,
+					superprojectPath: result.superprojectPath,
+				};
 			}
 
 			if (!repoPath) return undefined;
@@ -1056,6 +1088,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								const gitDir: GitDir = {
 									uri: Uri.file(gitDirInfo.gitDir),
 									commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+									parentUri: gitDirInfo.superprojectPath
+										? Uri.file(gitDirInfo.superprojectPath)
+										: undefined,
 								};
 								this._cache.gitDir.set(resultUri.fsPath, gitDir);
 							}
@@ -1070,6 +1105,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					const gitDir: GitDir = {
 						uri: Uri.file(gitDirInfo.gitDir),
 						commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+						parentUri: gitDirInfo.superprojectPath ? Uri.file(gitDirInfo.superprojectPath) : undefined,
 					};
 					this._cache.gitDir.set(fallbackUri.fsPath, gitDir);
 				}
@@ -1127,6 +1163,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				const gitDir: GitDir = {
 					uri: Uri.file(gitDirInfo.gitDir),
 					commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
+					parentUri: gitDirInfo.superprojectPath ? Uri.file(gitDirInfo.superprojectPath) : undefined,
 				};
 				this._cache.gitDir.set(resultUri.fsPath, gitDir);
 			}
@@ -1798,7 +1835,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			repository = this.container.git.getRepository(pathOrUri);
-			repoPath = repoPath || repository?.path;
+			if (repository?.isSubmodule) {
+				repoPath = repoPath || repository.parentUri?.fsPath || repository.path;
+			} else {
+				repoPath = repoPath || repository?.path;
+			}
 
 			[relativePath, repoPath] = splitPath(pathOrUri, repoPath);
 		}

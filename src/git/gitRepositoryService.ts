@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import { GlyphChars } from '../constants.js';
+import { GlyphChars, Schemes } from '../constants.js';
 import type { Features } from '../features.js';
 import { debug, log } from '../system/decorators/log.js';
 import { groupByFilterMap } from '../system/iterable.js';
@@ -28,10 +28,12 @@ import type {
 	GitSubProvidersProps,
 	GitTagsSubProvider,
 	GitWorktreesSubProvider,
+	RevisionUriOptions,
 	ScmRepository,
 } from './gitProvider.js';
 import { createSubProviderProxyForRepo } from './gitProvider.js';
 import type { GitProviderService } from './gitProviderService.js';
+import { GitUri } from './gitUri.js';
 import type { GitBranch } from './models/branch.js';
 import type { GitFile } from './models/file.js';
 import { deletedOrMissing } from './models/revision.js';
@@ -86,9 +88,15 @@ export class GitRepositoryService implements IGitRepositoryService {
 	getAbsoluteUri: IGitRepositoryService['getAbsoluteUri'];
 
 	@log()
-	async getBestRevisionUri(path: string, rev: string | undefined): Promise<Uri | undefined> {
+	async getBestRevisionUri(pathOrUri: string | Uri, rev: string | undefined): Promise<Uri | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
+		// If the URI is already a gitlens:// revision URI (e.g., for submodule diffs), use it directly
+		if (typeof pathOrUri !== 'string' && pathOrUri.scheme === Schemes.GitLens) {
+			return pathOrUri;
+		}
+
+		const path = typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.fsPath;
 		return this._provider.getBestRevisionUri(this.path, this._provider.getRelativePath(path, this.path), rev);
 	}
 
@@ -193,9 +201,9 @@ export class GitRepositoryService implements IGitRepositoryService {
 	getRepository: IGitRepositoryService['getRepository'];
 
 	@log()
-	getRevisionUri(rev: string, pathOrFile: string | GitFile): Uri {
+	getRevisionUri(rev: string, pathOrFile: string | GitFile, options?: RevisionUriOptions): Uri {
 		const path = typeof pathOrFile === 'string' ? pathOrFile : (pathOrFile?.originalPath ?? pathOrFile?.path ?? '');
-		return this._provider.getRevisionUri(this.path, rev, this._provider.getRelativePath(path, this.path));
+		return this._provider.getRevisionUri(this.path, rev, this._provider.getRelativePath(path, this.path), options);
 	}
 
 	@log()
@@ -217,9 +225,39 @@ export class GitRepositoryService implements IGitRepositoryService {
 	getWorkingUri(uri: Uri): Promise<Uri | undefined> {
 		return this._provider.getWorkingUri(this.path, uri);
 	}
+
 	@debug({ exit: true })
 	isFolderUri(uri: Uri): Promise<boolean> {
 		return this._provider.isFolderUri(this.path, uri);
+	}
+
+	/**
+	 * For submodule URIs, extracts the working SHA and looks up the base SHA to construct diff URIs.
+	 * Returns undefined for regular file URIs.
+	 */
+	async getSubmoduleDiffUris(
+		workingUri: Uri,
+		relativePath: string,
+		baseRev: string | undefined,
+	): Promise<{ lhsUri: Uri; rhsUri: Uri; lhsSha: string; rhsSha: string } | undefined> {
+		if (workingUri.scheme !== Schemes.GitLens) return undefined;
+
+		const workingGitUri = GitUri.fromRevisionUri(workingUri);
+		if (!workingGitUri.submoduleSha) return undefined;
+
+		const rhsSha = workingGitUri.submoduleSha;
+
+		// Look up the committed submodule SHA at the base revision (must be a gitlink commit, not a blob/tree)
+		const treeEntry = baseRev ? await this.revision.getTreeEntryForRevision(baseRev, relativePath) : undefined;
+		const lhsSha = treeEntry?.type === 'commit' ? treeEntry.oid : undefined;
+		if (lhsSha == null) return undefined;
+
+		return {
+			lhsUri: this.getRevisionUri(lhsSha, relativePath, { submoduleSha: lhsSha }),
+			rhsUri: workingUri,
+			lhsSha: lhsSha,
+			rhsSha: rhsSha,
+		};
 	}
 
 	@debug({ exit: true })

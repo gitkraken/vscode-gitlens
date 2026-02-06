@@ -170,7 +170,7 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 		item.tooltip = new MarkdownString(tooltip, true);
 
 		if (this._hasStagedChanges || this._hasUnstagedChanges) {
-			item.contextValue = `${ContextValues.File}${this._hasStagedChanges ? '+staged' : ''}${this._hasUnstagedChanges ? '+unstaged' : ''}`;
+			item.contextValue = `${ContextValues.File}${this._hasStagedChanges ? '+staged' : ''}${this._hasUnstagedChanges ? '+unstaged' : ''}${this.file.isSubmodule ? '+submodule' : ''}`;
 
 			// Use the file icon and decorations
 			item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);

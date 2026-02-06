@@ -779,7 +779,21 @@ export async function openOnlyChangedFiles(container: Container, commitOrFiles: 
 
 		files = commitOrFiles.fileset?.files ?? [];
 	} else {
-		files = commitOrFiles.map(f => new GitFileChange(container, f.repoPath!, f.path, f.status, f.originalPath));
+		files = commitOrFiles.map(
+			f =>
+				new GitFileChange(
+					container,
+					f.repoPath!,
+					f.path,
+					f.status,
+					f.originalPath,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					f.isSubmodule ? '160000' : undefined,
+				),
+		);
 	}
 
 	if (
