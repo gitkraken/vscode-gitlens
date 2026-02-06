@@ -31,6 +31,7 @@ import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
 import { debug } from '../../system/decorators/log.js';
 import { once } from '../../system/event.js';
 import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
 import { maybeUri, normalizePath } from '../../system/path.js';
 import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider.js';
 import { showInspectView } from '../../webviews/commitDetails/actions.js';
@@ -314,9 +315,13 @@ export class DeepLinkService implements Disposable {
 
 	@debug()
 	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext | undefined) {
+		const scope = getLogScope();
+
 		if (pendingDeepLink == null) return;
+
 		void this.container.storage.deleteSecret('deepLinks:pending');
 		if (pendingDeepLink?.url == null) return;
+
 		const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
 		if (link == null) return;
 
@@ -325,9 +330,17 @@ export class DeepLinkService implements Disposable {
 		this._context.targetSha = pendingDeepLink.targetSha;
 		this._context.secondaryTargetSha = pendingDeepLink.secondaryTargetSha;
 		this._context.repoPath = pendingDeepLink.repoPath;
-		this._context.prData = pendingDeepLink.prData != null ? JSON.parse(pendingDeepLink.prData) : undefined;
-		this._context.issueData = pendingDeepLink.issueData != null ? JSON.parse(pendingDeepLink.issueData) : undefined;
-		this._context.instructions = pendingDeepLink.instructions;
+		try {
+			this._context.prData = pendingDeepLink.prData != null ? JSON.parse(pendingDeepLink.prData) : undefined;
+		} catch {
+			Logger.warn(scope, `Failed to parse pending deep link PR data: ${pendingDeepLink.prData}`);
+		}
+		try {
+			this._context.issueData =
+				pendingDeepLink.issueData != null ? JSON.parse(pendingDeepLink.issueData) : undefined;
+		} catch {
+			Logger.warn(scope, `Failed to parse pending deep link issue data: ${pendingDeepLink.issueData}`);
+		}
 
 		if (this.container.git.isDiscoveringRepositories) {
 			await this.container.git.isDiscoveringRepositories;
