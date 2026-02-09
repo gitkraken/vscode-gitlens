@@ -1,7 +1,7 @@
 import { ContextProvider } from '@lit/context';
 import type { IpcMessage } from '../../ipc/models/ipc.js';
 import type { State } from '../../welcome/protocol.js';
-import { DidChangeSubscription, DidChangeWalkthroughProgress } from '../../welcome/protocol.js';
+import { DidChangeSubscription, DidChangeWalkthroughProgress, DidFocusWalkthrough } from '../../welcome/protocol.js';
 import type { ReactiveElementHost } from '../shared/appHost.js';
 import { StateProviderBase } from '../shared/stateProviderBase.js';
 import { stateContext } from './context.js';
@@ -30,6 +30,12 @@ export class WelcomeStateProvider extends StateProviderBase<State['webviewId'], 
 				this._state.timestamp = Date.now();
 
 				this.provider.setValue(this._state, true);
+				break;
+
+			case DidFocusWalkthrough.is(msg):
+				this.host.dispatchEvent(
+					new CustomEvent('gl-walkthrough-focus-command', { bubbles: true, composed: true }),
+				);
 				break;
 		}
 	}

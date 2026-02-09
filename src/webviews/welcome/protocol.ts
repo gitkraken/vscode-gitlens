@@ -34,3 +34,5 @@ export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeWalkthr
 	scope,
 	'walkthroughProgress/didChange',
 );
+
+export const DidFocusWalkthrough = new IpcNotification<void>(scope, 'walkthrough/didFocus');
