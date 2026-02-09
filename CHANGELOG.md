@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for GitKraken MCP tools powered by GitLens including _Start Work_, _Commit Composer_, _Launchpad_, and the all new _Start Review_ ([#4797](https://github.com/gitkraken/vscode-gitlens/issues/4797), [#4908](https://github.com/gitkraken/vscode-gitlens/issues/4908), [#4909](https://github.com/gitkraken/vscode-gitlens/issues/4909), [#4910](https://github.com/gitkraken/vscode-gitlens/issues/4910), [#4912](https://github.com/gitkraken/vscode-gitlens/issues/4912))
 - Adds support for AI ignore files (`.aiignore`, `.cursorignore`, `.aiexclude`) and `gitlens.ai.exclude.files` setting to filter sensitive data from AI prompts, and smart diff truncation that prioritizes dropping low-value files when prompts exceed token limits ([#4916](https://github.com/gitkraken/vscode-gitlens/issues/4916))
 - Adds conversation threading to _Commit Composer_ auto-compose for improved outcomes ([PR #4900](https://github.com/gitkraken/vscode-gitlens/pull/4900))
 - Adds an option to filter tree views to exclude worktrees, allowing users to show all repositories except worktrees whose main repository is also open ([#4952](https://github.com/gitkraken/vscode-gitlens/issues/4952))
