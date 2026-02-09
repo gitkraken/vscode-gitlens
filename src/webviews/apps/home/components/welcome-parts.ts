@@ -296,6 +296,13 @@ export class GlWalkthroughStep extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	expanded: boolean = false;
 
+	@query('.header')
+	private header?: HTMLElement;
+
+	override focus(options?: FocusOptions): void {
+		this.header?.focus(options);
+	}
+
 	toggleExpanded(expanded = !this.expanded): void {
 		this.expanded = expanded;
 
@@ -400,6 +407,12 @@ export class GlWalkthrough extends LitElement {
 		});
 	}
 
+	private getDefaultStepToExpand(): GlWalkthroughStep | undefined {
+		// Find first incomplete step, or first step if all complete
+		const firstIncompleteStep = this.steps.find(step => !step.completed);
+		return firstIncompleteStep ?? this.steps[0];
+	}
+
 	private handleSlotChange(): void {
 		// Sync step states when slot content changes
 		if (this.expandedStepId != null) {
@@ -411,12 +424,23 @@ export class GlWalkthrough extends LitElement {
 				this.expandedStepId = expandedStep.stepId;
 			} else {
 				// Auto-expand first incomplete step, or first step if all complete
-				const firstIncompleteStep = this.steps.find(step => !step.completed);
-				const stepToExpand = firstIncompleteStep ?? this.steps[0];
+				const stepToExpand = this.getDefaultStepToExpand();
 				if (stepToExpand?.stepId != null) {
 					this.expandedStepId = stepToExpand.stepId;
 				}
 			}
+		}
+	}
+
+	/** Resets the walkthrough to expand the default step (first incomplete, or first if all complete) and focuses it */
+	async resetToDefaultAndFocus(): Promise<void> {
+		const stepToExpand = this.getDefaultStepToExpand();
+		if (stepToExpand?.stepId != null) {
+			this.expandedStepId = stepToExpand.stepId;
+			// Focus the step after the update
+			await this.updateComplete;
+			await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+			stepToExpand.focus();
 		}
 	}
 

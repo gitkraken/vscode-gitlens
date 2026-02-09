@@ -8582,6 +8582,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showWelcomeView",
+				"title": "Show Welcome View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showWorkspacesView",
 				"title": "Show Cloud Workspaces View",
 				"category": "GitLens"
