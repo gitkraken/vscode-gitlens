@@ -329,10 +329,11 @@ export class GlWelcomePage extends LitElement {
 						review code.
 					</p>
 				</div>
-				<div class="section">
-					<hr />
-					<p>3/5 steps complete</p>
-				</div>
+				<gl-walkthrough-progress
+					class="section"
+					.doneCount=${this._state.walkthroughProgress?.doneCount ?? 0}
+					.allCount=${this._state.walkthroughProgress?.allCount ?? 0}
+				></gl-walkthrough-progress>
 				<gl-walkthrough class="section">
 					${walkthroughSteps
 						.filter(step => !step.condition || step.condition(this._state.plusState))
