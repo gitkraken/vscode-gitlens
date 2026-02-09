@@ -11,20 +11,34 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for AI ignore files (`.aiignore`, `.cursorignore`, `.aiexclude`) and `gitlens.ai.exclude.files` setting to filter sensitive data from AI prompts, and smart diff truncation that prioritizes dropping low-value files when prompts exceed token limits ([#4916](https://github.com/gitkraken/vscode-gitlens/issues/4916))
 - Adds conversation threading to _Commit Composer_ auto-compose for improved outcomes ([PR #4900](https://github.com/gitkraken/vscode-gitlens/pull/4900))
 - Adds an option to filter tree views to exclude worktrees, allowing users to show all repositories except worktrees whose main repository is also open ([#4952](https://github.com/gitkraken/vscode-gitlens/issues/4952))
+- Adds commit signature verification with support for GPG, SSH, and X.509 formats ([#4552](https://github.com/gitkraken/vscode-gitlens/issues/4552), [#2363](https://github.com/gitkraken/vscode-gitlens/issues/2363))
+  - Adds verification badges and detailed tooltips to the _Commit Details_ and _Graph Details_ views
+  - Adds signature indicator icon to inline blame hovers
+  - Adds `${signature}` token to default commit and status tooltip formats in views and the _Commit Graph_
+- Adds a "Filter Repositories..." command to the _Branches_, _Commits_, _Contributors_, _Remotes_, _Stashes_, _Tags_, and _Worktrees_ views to filter to all repos, all repos excluding worktrees, or specific repos
+- Adds a refresh button to the _Interactive Rebase Editor_ toolbar to manually refresh the rebase state
 
 ### Changed
 
-- Improves performance when opening repositories with worktrees by sharing cached Git data and optimizing branch detection ([#4929](https://github.com/gitkraken/vscode-gitlens/issues/4929))
-- Improves system responsiveness with priority-based Git process management and optimized repository discovery; adds `gitlens.advanced.git.maxConcurrentProcesses` setting ([#4930](https://github.com/gitkraken/vscode-gitlens/issues/4930))
-- Improves file system event filtering performance by using sync filters and buffering events during Git ignore rule loading ([#4919](https://github.com/gitkraken/vscode-gitlens/issues/4919))
-- Improves view update performance by skipping hidden views, preventing deadlocks during node loading, and avoiding auto-expand with multiple repositories ([#4928](https://github.com/gitkraken/vscode-gitlens/issues/4928))
+- Significantly improves performance and reduces overhead, especially with worktrees
+  - Improves performance when opening repositories with worktrees by sharing cached Git data across them ([#4929](https://github.com/gitkraken/vscode-gitlens/issues/4929))
+  - Improves responsiveness by adding priority-based Git process scheduling and smarter repository discovery ([#4930](https://github.com/gitkraken/vscode-gitlens/issues/4930))
+    - Adds a `gitlens.advanced.git.maxConcurrentProcesses` setting to specify the maximum number of background Git processes that can run concurrently
+  - Improves file system event handling performance by optimizing Git ignore rule processing ([#4919](https://github.com/gitkraken/vscode-gitlens/issues/4919))
+  - Improves view update performance by skipping refreshes for hidden views and preventing unnecessary auto-expand with multiple repositories ([#4928](https://github.com/gitkraken/vscode-gitlens/issues/4928))
+  - Moves GitLens-specific metadata (merge targets, issues, activity) to a dedicated `.git/gk/config` file to avoid modifying `.git/config` ([#4968](https://github.com/gitkraken/vscode-gitlens/issues/4968))
+    - Eliminates unnecessary Git repository change events previously triggered by metadata updates
+  - Improves stash loading performance by deferring file detail loading (requires the `gitlens.advanced.commits.delayLoadingFileDetails` setting to be enabled)
 - Improves commit message instructions in _Commit Composer_ auto-compose for better consistency ([PR #4888](https://github.com/gitkraken/vscode-gitlens/pull/4888))
 - Overhauls _Git Command Palette_ quick wizards with scope-based progress tracking and modular sub-commands for branch, stash, remote, tag, and worktree operations ([#4927](https://github.com/gitkraken/vscode-gitlens/issues/4927))
+- Improves worktree naming for detached states by including the folder name for better context
 - Excludes worktrees from repository pickers in commands where selecting a worktree would be inappropriate ([#4931](https://github.com/gitkraken/vscode-gitlens/issues/4931))
+- Prevents repositories from automatically opening when an opened file is git-ignored
 - Stops creating new GitHub sessions via VS Code built-in authentication; new connections now always use the GKDev flow, while existing built-in sessions are still used if available ([#4881](https://github.com/gitkraken/vscode-gitlens/issues/4881))
 
 ### Fixed
 
+- Fixes potential deadlocks during node loading in views ([#4928](https://github.com/gitkraken/vscode-gitlens/issues/4928))
 - Fixes an issue where the GitKraken MCP installation could fail or conflict across remote environments like WSL, SSH, or containers ([#4918](https://github.com/gitkraken/vscode-gitlens/issues/4918))
 - Fixes an issue where diffing untracked files in the _Commit Composer_ could trigger unwanted file system events ([#4917](https://github.com/gitkraken/vscode-gitlens/issues/4917))
 - Fixes an issue where a single-selected commit in the _Commit Composer_ would not get proper highlighting ([#4899](https://github.com/gitkraken/vscode-gitlens/issues/4899))
@@ -38,6 +52,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with the "Reauthenticate" flow not taking effect ([#4881](https://github.com/gitkraken/vscode-gitlens/issues/4881))
 - Fixes an issue where clicking on the repository filter header in the _Branches_, _Worktrees_, _Tags_, _Remotes_, _Stashes_, and _Contributors_ views would do nothing when only 1 grouped repository exists ([#4947](https://github.com/gitkraken/vscode-gitlens/issues/4947))
 - Fixes issue in webview file trees where same named folders are highlighted when one is selected [#4801](https://github.com/gitkraken/vscode-gitlens/issues/4801)
+- Fixes potential quick pick hung state when cancelling wizards in quick commands
+- Fixes an issue where the _Interactive Rebase Editor_ could open in the wrong window for workspace files
+- Fixes issues where the GitLens grouped views would not refresh, tree items could not be resolved, or loading state would get stuck when switching views
 
 ## [17.9.0] - 2026-01-13
 

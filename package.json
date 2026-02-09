@@ -5513,7 +5513,7 @@
 						"default": 7,
 						"minimum": 1,
 						"maximum": 50,
-						"markdownDescription": "Specifies the maximum number of background Git processes that can run concurrently. Interactive operations (like blame and hover) are never throttled. Reduce this value if you experience system slowdowns with large repositories",
+						"markdownDescription": "Specifies the maximum number of background Git processes that can run concurrently. Reduce this value if you experience system slowdowns with large repositories",
 						"scope": "window",
 						"order": 79
 					},
