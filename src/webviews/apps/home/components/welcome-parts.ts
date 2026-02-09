@@ -242,6 +242,7 @@ export class GlWalkthroughStep extends LitElement {
 			.header {
 				display: flex;
 				align-items: center;
+				justify-content: center;
 				gap: 0.6em;
 				cursor: pointer;
 				user-select: none;
@@ -265,7 +266,6 @@ export class GlWalkthroughStep extends LitElement {
 			}
 
 			.title {
-				flex: 1;
 				display: block;
 			}
 
