@@ -8,7 +8,7 @@ import { registerCommand } from '../../system/-webview/command.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
 import type { State, WalkthroughProgress } from './protocol.js';
-import { DidChangeSubscription, DidChangeWalkthroughProgress } from './protocol.js';
+import { DidChangeSubscription, DidChangeWalkthroughProgress, DidFocusWalkthrough } from './protocol.js';
 import type { WelcomeWebviewShowingArgs } from './registration.js';
 
 export class WelcomeWebviewProvider implements WebviewProvider<State, State, WelcomeWebviewShowingArgs> {
@@ -36,10 +36,14 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 	}
 
 	onShowing(
-		_loading: boolean,
+		loading: boolean,
 		_options?: WebviewShowOptions,
 		..._args: WebviewShowingArgs<WelcomeWebviewShowingArgs, State>
 	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
+		// If not loading (already loaded), notify the webview to reset and focus the walkthrough
+		if (!loading) {
+			void this.host.notify(DidFocusWalkthrough, undefined);
+		}
 		return [true, undefined];
 	}
 

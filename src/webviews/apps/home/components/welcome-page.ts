@@ -1,6 +1,6 @@
 import { consume } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { GlCommands } from '../../../../constants.commands.js';
 import { SubscriptionState } from '../../../../constants.subscription.js';
 import { ExecuteCommand } from '../../../protocol.js';
@@ -15,7 +15,7 @@ import '../../shared/components/gitlens-logo-circle.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import './welcome-parts.js';
-import type { WalkthroughStep } from './welcome-parts.js';
+import type { GlWalkthrough, WalkthroughStep } from './welcome-parts.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -271,6 +271,13 @@ export class GlWelcomePage extends LitElement {
 	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
 	_telemetry!: TelemetryContext;
 
+	@query('gl-walkthrough')
+	private walkthrough?: GlWalkthrough;
+
+	private readonly handleWalkthroughFocusCommand = () => {
+		return this.walkthrough?.resetToDefaultAndFocus();
+	};
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this._telemetry.sendEvent({
@@ -280,6 +287,13 @@ export class GlWelcomePage extends LitElement {
 			},
 			source: { source: 'welcome' },
 		});
+
+		window.addEventListener('gl-walkthrough-focus-command', this.handleWalkthroughFocusCommand);
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+		window.removeEventListener('gl-walkthrough-focus-command', this.handleWalkthroughFocusCommand);
 	}
 
 	private onStartTrial() {
