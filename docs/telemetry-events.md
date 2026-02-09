@@ -4313,9 +4313,29 @@ or
 
 ```typescript
 {
-  'name': 'plus/sign-up' | 'dismiss' | 'shown',
+  'name': 'shown' | 'dismiss',
   'proButtonClicked': boolean,
   'viewedCarouselPages': number
+}
+```
+
+or
+
+```typescript
+{
+  'command': string,
+  'name': 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'shown' | 'dismiss',
+  'type': 'command'
+}
+```
+
+or
+
+```typescript
+{
+  'name': 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'shown' | 'dismiss',
+  'type': 'url',
+  'url': string
 }
 ```
 
