@@ -27,6 +27,7 @@ export class ShowViewCommand extends GlCommandBase {
 			'gitlens.showStashesView',
 			'gitlens.showTagsView',
 			'gitlens.showTimelineView',
+			'gitlens.showWelcomeView',
 			'gitlens.showWorktreesView',
 			'gitlens.showWorkspacesView',
 		]);
@@ -112,6 +113,8 @@ export class ShowViewCommand extends GlCommandBase {
 			case 'gitlens.showTimelineView':
 				await this.waitForRepo();
 				return this.container.views.timeline.show();
+			case 'gitlens.showWelcomeView':
+				return this.container.views.welcome.show();
 			case 'gitlens.showWorktreesView':
 				await this.waitForRepo();
 				return this.container.views.showView('worktrees');
