@@ -1,6 +1,6 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement } from 'lit';
-import { customElement, property, queryAssignedElements, state } from 'lit/decorators.js';
+import { customElement, property, query, queryAssignedElements, state } from 'lit/decorators.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
@@ -13,6 +13,7 @@ declare global {
 		'gl-feature-narrow-card': GlFeatureNarrowCard;
 		'gl-scrollable-features': GlScrollableFeatures;
 		'gl-walkthrough': GlWalkthrough;
+		'gl-walkthrough-progress': GlWalkthroughProgress;
 		'gl-walkthrough-step': GlWalkthroughStep;
 	}
 
@@ -414,6 +415,76 @@ export class GlWalkthrough extends LitElement {
 
 	override render(): unknown {
 		return html`<slot @slotchange=${this.handleSlotChange}></slot>`;
+	}
+}
+
+@customElement('gl-walkthrough-progress')
+export class GlWalkthroughProgress extends LitElement {
+	static override styles = [
+		css`
+			:host {
+				display: block;
+			}
+
+			.progress {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 0.5em;
+				padding: 0 2em;
+			}
+
+			.progress-bar {
+				width: 100%;
+				height: 4px;
+				background: var(--card-background);
+				border-radius: 2px;
+				overflow: hidden;
+			}
+
+			.progress-bar__fill {
+				height: 100%;
+				background: linear-gradient(to right, #7900c9, #196fff);
+				border-radius: 2px;
+				transition: width 0.3s ease;
+			}
+
+			p {
+				margin: 0;
+				color: var(--vscode-descriptionForeground);
+			}
+		`,
+	];
+
+	@property({ type: Number })
+	doneCount: number = 0;
+
+	@property({ type: Number })
+	allCount: number = 0;
+
+	@query('.progress-bar__fill')
+	private _fillEl!: HTMLElement;
+
+	private get progressPercent(): number {
+		if (this.allCount === 0) return 0;
+		return (this.doneCount / this.allCount) * 100;
+	}
+
+	override updated(): void {
+		if (this._fillEl) {
+			this._fillEl.style.width = `${this.progressPercent}%`;
+		}
+	}
+
+	override render(): unknown {
+		return html`
+			<div class="progress">
+				<div class="progress-bar">
+					<div class="progress-bar__fill"></div>
+				</div>
+				<p>${this.doneCount}/${this.allCount} steps complete</p>
+			</div>
+		`;
 	}
 }
 
