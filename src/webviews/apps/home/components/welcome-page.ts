@@ -54,11 +54,11 @@ const walkthroughSteps: WalkthroughStep[] = [
 				<li><strong>GitKraken AI:</strong> writes commits, PRs & changelogs for you.</li>
 			</ul>
 			<div>
-				<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.signUp"
+				<gl-button class="start-trial-button" href="command:gitlens.welcome.plus.signUp"
 					>Get Started with GitLens Pro</gl-button
 				>
 			</div>
-			<p>or <a href="command:gitlens.walkthrough.plus.login">sign in</a></p>
+			<p>or <a href="command:gitlens.welcome.plus.login">sign in</a></p>
 		`,
 		condition: plusState => !plusState || plusState < SubscriptionState.Trial,
 	},
@@ -73,13 +73,13 @@ const walkthroughSteps: WalkthroughStep[] = [
 				Complete this walkthrough to experience enhanced PR review tools, deeper code history visualizations,
 				and streamlined collaboration to help boost your productivity.
 			</p>
-			<a href="command:gitlens.walkthrough.openWalkthrough">Continue the Walkthrough</a>
+			<a href="#continue-walkthrough">Continue the Walkthrough</a>
 			<p>
 				Once your trial ends, you'll return to <strong>GitLens Community</strong> — where you can still leverage
 				features like in-editor blame annotations, hovers, CodeLens, and more.
 			</p>
 			<div>
-				<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.upgrade"
+				<gl-button class="start-trial-button" href="command:gitlens.welcome.plus.upgrade"
 					>Upgrade to GitLens Pro</gl-button
 				>
 			</div>
@@ -99,12 +99,11 @@ const walkthroughSteps: WalkthroughStep[] = [
 			</p>
 			<p>
 				Learn more about the
-				<a href="command:gitlens.walkthrough.openCommunityVsPro">difference between GitLens Community vs. Pro</a
-				>.
+				<a href="command:gitlens.welcome.openCommunityVsPro">difference between GitLens Community vs. Pro</a>.
 			</p>
 			<p><strong>Unlock more powerful tools with GitLens Pro</strong></p>
 			<div>
-				<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.upgrade"
+				<gl-button class="start-trial-button" href="command:gitlens.welcome.plus.upgrade"
 					>Upgrade to GitLens Pro</gl-button
 				>
 			</div>
@@ -128,7 +127,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 			</p>
 			<p><strong>Unlock more powerful tools — Try GitLens Pro again</strong> free for another 14 days.</p>
 			<div>
-				<gl-button class="start-trial-button" href="command:gitlens.walkthrough.plus.reactivate"
+				<gl-button class="start-trial-button" href="command:gitlens.welcome.plus.reactivate"
 					>Reactivate GitLens Pro Trial</gl-button
 				>
 			</div>
@@ -150,13 +149,13 @@ const walkthroughSteps: WalkthroughStep[] = [
 				provide deeper code history visualizations, and streamline collaboration across your team.
 			</p>
 			<div>
-				<gl-button href="command:gitlens.walkthrough.openWalkthrough">Continue the Walkthrough</gl-button>
+				<gl-button href="#continue-walkthrough">Continue the Walkthrough</gl-button>
 			</div>
 			<p>
 				<em>Tip:</em> To get the most out of your <strong>GitLens Pro</strong> experience, complete the
 				walkthrough and visit our Help Center for in-depth guides.
 			</p>
-			<a href="command:gitlens.walkthrough.openHelpCenter">Learn more in the Help Center</a>
+			<a href="command:gitlens.welcome.openHelpCenter">Learn more in the Help Center</a>
 		`,
 		condition: plusState => plusState === SubscriptionState.Paid,
 	},
@@ -174,7 +173,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				Select multiple commits to batch operations like cherry-picking or generate AI changelogs with a single
 				command.
 			</p>
-			<div><gl-button href="command:gitlens.walkthrough.showGraph">Discover your Commit Graph</gl-button></div>
+			<div><gl-button href="command:gitlens.welcome.showGraph">Discover your Commit Graph</gl-button></div>
 		`,
 	},
 
@@ -200,7 +199,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 			</ul>
 			<p>Stay in control - review and edit before committing.</p>
 			<p>See how effortless documenting your work can be, all without leaving VS Code.</p>
-			<div><gl-button href="command:gitlens.walkthrough.showComposer">Compose Commits with AI</gl-button></div>
+			<div><gl-button href="command:gitlens.welcome.showComposer">Compose Commits with AI</gl-button></div>
 		`,
 	},
 
@@ -236,7 +235,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				</li>
 			</ul>
 			<p>Stay in flow, ship faster, and never lose track of what matters.</p>
-			<div><gl-button href="command:gitlens.walkthrough.showLaunchpad">Open Launchpad</gl-button></div>
+			<div><gl-button href="command:gitlens.welcome.showLaunchpad">Open Launchpad</gl-button></div>
 		`,
 	},
 ];
@@ -276,6 +275,17 @@ export class GlWelcomePage extends LitElement {
 		return this.walkthrough?.resetToDefaultAndFocus();
 	};
 
+	private readonly handleClick = (e: MouseEvent) => {
+		const target = e.composedPath()[0] as HTMLElement;
+		const anchor = target.closest?.('a[href="#continue-walkthrough"]');
+		const button = (e.target as HTMLElement).closest?.('gl-button[href="#continue-walkthrough"]');
+		if (anchor != null || button != null) {
+			e.preventDefault();
+			e.stopPropagation();
+			void this.walkthrough?.resetToDefaultAndFocus();
+		}
+	};
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this._telemetry.sendEvent({
@@ -287,11 +297,13 @@ export class GlWelcomePage extends LitElement {
 		});
 
 		window.addEventListener('gl-walkthrough-focus-command', this.handleWalkthroughFocusCommand);
+		this.addEventListener('click', this.handleClick);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 		window.removeEventListener('gl-walkthrough-focus-command', this.handleWalkthroughFocusCommand);
+		this.removeEventListener('click', this.handleClick);
 	}
 
 	private onStartTrial() {

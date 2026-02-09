@@ -83,3 +83,4 @@ import './commands/toggleCodeLens.js';
 import './commands/toggleFileAnnotations.js';
 import './commands/toggleLineBlame.js';
 import './commands/walkthroughs.js';
+import './commands/welcome.js';
