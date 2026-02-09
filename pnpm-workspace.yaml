@@ -1,28 +1,28 @@
 blockExoticSubdeps: true
 
 ignoredBuiltDependencies:
-  - '@parcel/watcher'
-  - '@playwright/browser-chromium'
-  - '@swc/core'
-  - '@vscode/vsce-sign'
-  - es5-ext
-  - esbuild
-  - keytar
-  - protobufjs
-  - rs-module-lexer
-  - sharp
-  - ttf2woff2
-  - unrs-resolver
+    - '@parcel/watcher'
+    - '@playwright/browser-chromium'
+    - '@swc/core'
+    - '@vscode/vsce-sign'
+    - es5-ext
+    - esbuild
+    - keytar
+    - protobufjs
+    - rs-module-lexer
+    - sharp
+    - ttf2woff2
+    - unrs-resolver
 
 minimumReleaseAge: 10080
 
 minimumReleaseAgeExclude:
-  - '@eamodio/*'
-  - '@gitkraken/*'
-  - '@vscode/*'
-  - '@types/react'
-  - diff2html@3.4.56
-  - tar@7.5.7
+    - '@eamodio/*'
+    - '@gitkraken/*'
+    - '@vscode/*'
+    - '@types/react'
+    - diff2html@3.4.56
+    - tar@7.5.7
 
 patchedDependencies:
-  fantasticon@4.1.0: patches/fantasticon@4.1.0.patch
+    fantasticon@4.1.0: patches/fantasticon@4.1.0.patch
