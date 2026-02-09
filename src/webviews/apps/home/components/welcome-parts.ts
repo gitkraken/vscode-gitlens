@@ -4,6 +4,7 @@ import { customElement, property, queryAssignedElements, state } from 'lit/decor
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
+import type { WalkthroughContextKeys } from '../../../../constants.walkthroughs.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -218,6 +219,8 @@ export class GlFeatureCarousel extends LitElement {
 
 export type WalkthroughStep = {
 	id: string;
+	/** The key used to track completion in the walkthrough progress state */
+	walkthroughKey?: WalkthroughContextKeys;
 	title: string;
 	body: TemplateResult;
 	condition?: (plusState?: SubscriptionState) => boolean;
@@ -266,6 +269,11 @@ export class GlWalkthroughStep extends LitElement {
 				display: block;
 			}
 
+			.status-icon {
+				flex: none;
+				color: var(--vscode-textLink-foreground);
+			}
+
 			.content {
 				display: none;
 				flex-direction: column;
@@ -280,6 +288,9 @@ export class GlWalkthroughStep extends LitElement {
 
 	@property({ type: String })
 	stepId?: string;
+
+	@property({ type: Boolean, reflect: true })
+	completed: boolean = false;
 
 	@property({ type: Boolean, reflect: true })
 	expanded: boolean = false;
@@ -322,6 +333,7 @@ export class GlWalkthroughStep extends LitElement {
 			>
 				<code-icon class="icon" icon="chevron-right"></code-icon>
 				<span class="title"><slot name="title"></slot></span>
+				<code-icon class="status-icon" icon=${this.completed ? 'pass-filled' : 'circle-large'}></code-icon>
 			</div>
 			<div class="content">
 				<slot></slot>
