@@ -331,9 +331,9 @@ export class GlWalkthroughStep extends LitElement {
 				@click=${this.handleHeaderClick}
 				@keydown=${this.handleHeaderKeydown}
 			>
-				<code-icon class="icon" icon="chevron-right"></code-icon>
-				<span class="title"><slot name="title"></slot></span>
 				<code-icon class="status-icon" icon=${this.completed ? 'pass-filled' : 'circle-large'}></code-icon>
+				<span class="title"><slot name="title"></slot></span>
+				<code-icon class="icon" icon="chevron-right"></code-icon>
 			</div>
 			<div class="content">
 				<slot></slot>
