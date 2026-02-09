@@ -409,6 +409,13 @@ export class GlWalkthrough extends LitElement {
 			const expandedStep = this.steps.find(step => step.expanded);
 			if (expandedStep != null) {
 				this.expandedStepId = expandedStep.stepId;
+			} else {
+				// Auto-expand first incomplete step, or first step if all complete
+				const firstIncompleteStep = this.steps.find(step => !step.completed);
+				const stepToExpand = firstIncompleteStep ?? this.steps[0];
+				if (stepToExpand?.stepId != null) {
+					this.expandedStepId = stepToExpand.stepId;
+				}
 			}
 		}
 	}
