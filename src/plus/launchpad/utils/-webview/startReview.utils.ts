@@ -151,7 +151,7 @@ async function setupPullRequestBranch(
 	}
 
 	const remoteBranchName = `${remoteName}/${headRef.branch}`;
-	const localBranchName = `pr/${pr.id}-${headRef.branch}`;
+	let localBranchName = `pr/${pr.id}-${headRef.branch}`;
 
 	// Check if local branch exists
 	let branchRef: GitBranchReference;
@@ -159,7 +159,9 @@ async function setupPullRequestBranch(
 
 	const localBranch = await repo.git.branches.getLocalBranchByUpstream?.(remoteBranchName);
 	if (localBranch != null) {
+		// Use the existing local branch name instead of the PR-prefixed name
 		branchRef = getReferenceFromBranch(localBranch);
+		localBranchName = localBranch.name;
 	} else {
 		// Use the remote branch as the reference to create from, but pass it as the commitish
 		// rather than as a remote branch reference to avoid the worktree create command
