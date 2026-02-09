@@ -350,6 +350,12 @@ export class GlWelcomePage extends LitElement {
 							`,
 						)}
 				</gl-walkthrough>
+				<div class="section section--centered">
+					<p>
+						You also have access to the GitKraken DevEx platform, unleashing powerful Git visualization &
+						productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
+					</p>
+				</div>
 			</div>
 		`;
 	}

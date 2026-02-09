@@ -115,6 +115,9 @@ const section = css`
 		padding: 1em;
 		max-width: 620px;
 	}
+	.section.section--centered {
+		align-items: center;
+	}
 	.section h1 {
 		color: var(--heading-color);
 	}
@@ -134,6 +137,12 @@ const section = css`
 	}
 	.section > p {
 		max-width: 30em;
+	}
+	.section > p:first-child {
+		margin-top: 0;
+	}
+	.section > p:last-child {
+		margin-bottom: 0;
 	}
 
 	.section .accent {
