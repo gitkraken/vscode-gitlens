@@ -31,6 +31,7 @@ type TelemetryData = {
 const walkthroughSteps: WalkthroughStep[] = [
 	{
 		id: 'get-started-community',
+		walkthroughKey: 'gettingStarted',
 		title: 'Welcome to GitLens: Unlock Your Repo’s Full Story',
 		body: html`
 			<p>The Community Edition lets you:</p>
@@ -64,6 +65,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'welcome-in-trial',
+		walkthroughKey: 'gettingStarted',
 		title: 'Welcome to GitLens Pro',
 		body: html`
 			<p>Thanks for starting your <strong>GitLens Pro</strong> trial.</p>
@@ -87,6 +89,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'welcome-in-trial-expired',
+		walkthroughKey: 'gettingStarted',
 		title: 'Get the most out of GitLens',
 		body: html`
 			<p>Thanks for installing GitLens and trying out GitLens Pro.</p>
@@ -115,6 +118,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'welcome-in-trial-expired-eligible',
+		walkthroughKey: 'gettingStarted',
 		title: 'Get the most out of GitLens',
 		body: html`
 			<p>Thanks for installing GitLens and trying out GitLens Pro.</p>
@@ -138,6 +142,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'welcome-paid',
+		walkthroughKey: 'gettingStarted',
 		title: 'Discover the Benefits of GitLens Pro',
 		body: html`
 			<p>
@@ -158,6 +163,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'visualize-code-history',
+		walkthroughKey: 'visualizeCodeHistory',
 		title: "See Your Code's Story: Commit Graph",
 		body: html`
 			<p>
@@ -174,6 +180,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'ai-features',
+		walkthroughKey: 'aiFeatures',
 		title: 'Commit smarter, not harder',
 		body: html`
 			<p>
@@ -199,6 +206,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'git-blame',
+		walkthroughKey: 'gitBlame',
 		title: 'Learn the Why Behind Every Line with Inline Blame',
 		body: html`
 			<p>See who changed a line, when and why — without leaving your editor. Hover over blame annotations to:</p>
@@ -216,6 +224,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'accelerate-pr-reviews',
+		walkthroughKey: 'prReviews',
 		title: 'Stay in Flow, Manage All Your Work in One Place',
 		body: html`
 			<p>Keep everything at your fingertips with Launchpad & Worktrees.</p>
@@ -327,7 +336,12 @@ export class GlWelcomePage extends LitElement {
 						.filter(step => !step.condition || step.condition(this._state.plusState))
 						.map(
 							step => html`
-								<gl-walkthrough-step class="card" stepId=${step.id}>
+								<gl-walkthrough-step
+									class="card"
+									stepId=${step.id}
+									.completed=${step.walkthroughKey != null &&
+									this._state.walkthroughProgress?.state[step.walkthroughKey] === true}
+								>
 									<h1 slot="title">${step.title}</h1>
 									${step.body}
 								</gl-walkthrough-step>
