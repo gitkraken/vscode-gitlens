@@ -1,13 +1,14 @@
 import { Disposable, env } from 'vscode';
 import { SubscriptionState } from '../../constants.subscription.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
+import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
 import { registerCommand } from '../../system/-webview/command.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
-import type { State } from './protocol.js';
-import { DidChangeSubscription } from './protocol.js';
+import type { State, WalkthroughProgress } from './protocol.js';
+import { DidChangeSubscription, DidChangeWalkthroughProgress } from './protocol.js';
 import type { WelcomeWebviewShowingArgs } from './registration.js';
 
 export class WelcomeWebviewProvider implements WebviewProvider<State, State, WelcomeWebviewShowingArgs> {
@@ -18,7 +19,10 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		private readonly container: Container,
 		private readonly host: WebviewHost<'gitlens.views.welcome'>,
 	) {
-		this._disposable = Disposable.from(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
+		this._disposable = Disposable.from(
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this.container.walkthrough.onDidChangeProgress(this.onWalkthroughProgressChanged, this),
+		);
 	}
 
 	dispose(): void {
@@ -61,6 +65,25 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		void this.host.notify(DidChangeSubscription, { plusState: plusState });
 	}
 
+	private onWalkthroughProgressChanged(): void {
+		const walkthroughProgress = this.getWalkthroughProgress();
+		if (walkthroughProgress == null) return;
+
+		void this.host.notify(DidChangeWalkthroughProgress, { walkthroughProgress: walkthroughProgress });
+	}
+
+	private getWalkthroughProgress(): WalkthroughProgress | undefined {
+		const walkthroughState = this.container.walkthrough.getState();
+		const state: Record<string, boolean> = Object.fromEntries(walkthroughState);
+
+		return {
+			allCount: this.container.walkthrough.walkthroughSize,
+			doneCount: this.container.walkthrough.doneCount,
+			progress: this.container.walkthrough.progress,
+			state: state as Record<WalkthroughContextKeys, boolean>,
+		};
+	}
+
 	private async getState(): Promise<State> {
 		const subscription = await this.container.subscription.getSubscription();
 		const plusState = subscription?.state ?? SubscriptionState.Community;
@@ -70,6 +93,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 			webroot: this.host.getWebRoot(),
 			hostAppName: env.appName,
 			plusState: plusState,
+			walkthroughProgress: this.getWalkthroughProgress(),
 		};
 	}
 }
