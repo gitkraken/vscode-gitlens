@@ -11,6 +11,11 @@ overrides:
   iconv-lite: 0.6.3
   node-fetch: 2.7.0
 
+patchedDependencies:
+  fantasticon@4.1.0:
+    hash: 305553b0f6e028d1e95761a804e3da3f8a572bbe21681ad7b18166ec77c017c7
+    path: patches/fantasticon@4.1.0.patch
+
 importers:
 
   .:
@@ -258,7 +263,7 @@ importers:
         version: 3.0.2(eslint@9.39.2(jiti@2.4.0))
       fantasticon:
         specifier: 4.1.0
-        version: 4.1.0
+        version: 4.1.0(patch_hash=305553b0f6e028d1e95761a804e3da3f8a572bbe21681ad7b18166ec77c017c7)
       fork-ts-checker-webpack-plugin:
         specifier: 9.1.0
         version: 9.1.0(typescript@5.9.3)(webpack@5.104.1)
@@ -9915,7 +9920,7 @@ snapshots:
     dependencies:
       type: 2.7.3
 
-  fantasticon@4.1.0:
+  fantasticon@4.1.0(patch_hash=305553b0f6e028d1e95761a804e3da3f8a572bbe21681ad7b18166ec77c017c7):
     dependencies:
       case: 1.6.3
       cli-color: 2.0.4

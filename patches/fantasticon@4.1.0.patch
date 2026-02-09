@@ -1,0 +1,13 @@
+diff --git a/dist/chunk-I73JJ2KG.js b/dist/chunk-I73JJ2KG.js
+index 3c7ba017785cc1d6ea00bc7ae95c2c7af903695a..94f7dbb1ef3a211c9b2196e27773aa1e15e69e90 100644
+--- a/dist/chunk-I73JJ2KG.js
++++ b/dist/chunk-I73JJ2KG.js
+@@ -176,7 +176,7 @@ import { glob } from "glob";
+ import { resolve as resolve3, relative, join as join2 } from "path";
+ var ASSETS_EXTENSION = "svg";
+ var loadPaths = async (dir) => {
+-  const globPath = join2(dir, `**/*.${ASSETS_EXTENSION}`);
++  const globPath = join2(dir, `**/*.${ASSETS_EXTENSION}`).replace(/\\/g, '/');
+   const files = await glob(globPath, {});
+   if (!files.length) {
+     throw new Error(`No SVGs found in ${dir}`);
