@@ -27,6 +27,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes an issue where the GitKraken MCP installation could fail or conflict across remote environments like WSL, SSH, or containers ([#4918](https://github.com/gitkraken/vscode-gitlens/issues/4918))
 - Fixes an issue where diffing untracked files in the _Commit Composer_ could trigger unwanted file system events ([#4917](https://github.com/gitkraken/vscode-gitlens/issues/4917))
+- Fixes an issue where a single-selected commit in the _Commit Composer_ would not get proper highlighting ([#4899](https://github.com/gitkraken/vscode-gitlens/issues/4899))
+- Fixes an issue where the collapsed state of diffs in the _Commit Composer_ would get reset when scrolling ([#4898](https://github.com/gitkraken/vscode-gitlens/issues/4898))
 - Fixes an issue where commit messages become invisible during interactive rebase in some themes ([#4886](https://github.com/gitkraken/vscode-gitlens/issues/4886))
 - Fixes issue in the _Commit Graph_ minimap where it only shows a spinner when the repo has no commits ([#4741](https://github.com/gitkraken/vscode-gitlens/issues/4741))
 - Fixes an inline markdown rendering issue in the _Interactive Rebase Editor_ ([#4914](https://github.com/gitkraken/vscode-gitlens/issues/4914))
