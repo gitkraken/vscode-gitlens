@@ -19,7 +19,7 @@ import { gate } from '../../../../system/decorators/gate.js';
 import { debug, log } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
-import { compare } from '../../../../system/version.js';
+import { compare, fromString, satisfies } from '../../../../system/version.js';
 import { getPlatform, isOffline, isWeb } from '../../platform.js';
 import { CliCommandHandlers } from './commands.js';
 import type { IpcServer } from './ipcServer.js';
@@ -703,7 +703,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				// Set up the local MCP server files
 				try {
 					const installArgs = ['install'];
-					if (insidersEnabled) {
+					if (insidersEnabled && canSupportCliInsiders(cliVersion)) {
 						installArgs.push('--insiders');
 					}
 					const coreInstallOutput = await runCLICommand(installArgs, { cwd: globalStorageUri.fsPath });
@@ -813,6 +813,12 @@ export class GkCliIntegrationProvider implements Disposable {
 			registerCommand('gitlens.ai.mcp.authCLI', () => this.authCLI()),
 		];
 	}
+}
+
+// The CLI insiders flag was added in 3.1.51, so check for that version before allowing it to be used
+function canSupportCliInsiders(version: string | undefined): boolean {
+	if (version == null) return false;
+	return satisfies(fromString(version), '>= 3.1.51');
 }
 
 function reachedMaxAttempts(cliInstall?: StoredGkCLIInstallInfo): boolean {
