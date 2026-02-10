@@ -582,12 +582,18 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 	}
 
 	private sendItemActionTelemetry(action: 'soft-open', item: StartWorkItem, context: StartWorkContext) {
-		this.container.telemetry.sendEvent(`${this.telemetryEventKey}/issue/action`, {
-			...context.telemetryContext!,
-			...buildItemTelemetryData(item),
-			action: action,
-			connected: true,
-		});
+		if (!this.container.telemetry.enabled) return;
+
+		this.container.telemetry.sendEvent(
+			`${this.telemetryEventKey}/issue/action`,
+			{
+				...context.telemetryContext!,
+				...buildItemTelemetryData(item),
+				action: action,
+				connected: true,
+			},
+			this.source,
+		);
 	}
 
 	private sendTitleActionTelemetry(
