@@ -35,27 +35,30 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	exists(repoPath: string, path: string, rev?: string): Promise<boolean>;
 	exists(repoPath: string, path: string, options?: { untracked?: boolean }): Promise<boolean>;
 	async exists(repoPath: string, path: string, revOrOptions?: string | { untracked?: boolean }): Promise<boolean> {
-		let rev;
-		let untracked;
+		let rev: string | undefined;
+		let untracked: boolean | undefined;
 		if (typeof revOrOptions === 'string') {
 			rev = revOrOptions;
 		} else if (revOrOptions != null) {
 			untracked = revOrOptions.untracked;
 		}
 
-		const args = ['ls-files'];
-		if (rev) {
-			if (!isUncommitted(rev)) {
-				args.push(`--with-tree=${rev}`);
-			} else if (isUncommittedStaged(rev)) {
-				args.push('--stage');
+		const cacheKey = `${path}\0${rev ?? ''}\0${untracked ? 'u' : ''}`;
+		return this.cache.fileExistence.getOrCreate(repoPath, cacheKey, async () => {
+			const args = ['ls-files'];
+			if (rev) {
+				if (!isUncommitted(rev)) {
+					args.push(`--with-tree=${rev}`);
+				} else if (isUncommittedStaged(rev)) {
+					args.push('--stage');
+				}
+			} else if (untracked) {
+				args.push('-o');
 			}
-		} else if (untracked) {
-			args.push('-o');
-		}
 
-		const result = await this.git.exec({ cwd: repoPath, errors: 'ignore' }, ...args, '--', path);
-		return Boolean(result.stdout.trim());
+			const result = await this.git.exec({ cwd: repoPath, errors: 'ignore' }, ...args, '--', path);
+			return Boolean(result.stdout.trim());
+		});
 	}
 
 	@gate()

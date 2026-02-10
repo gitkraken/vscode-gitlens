@@ -7,7 +7,6 @@ import { invalidateMemoized } from '../system/decorators/memoize.js';
 import type { PromiseOrValue } from '../system/promise.js';
 import type { RepoPromiseMap } from '../system/promiseCache.js';
 import { CacheController, PromiseCache, PromiseMap, RepoPromiseCacheMap } from '../system/promiseCache.js';
-import { PathTrie } from '../system/trie.js';
 import type { GitResult } from './execTypes.js';
 import type { GitIgnoreCache } from './gitIgnoreCache.js';
 import type {
@@ -43,6 +42,7 @@ interface Caches {
 	bestRemotes: PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> | undefined;
 	branch: PromiseMap<RepoPath, GitBranch | undefined> | undefined;
 	branches: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
+	fileExistence: RepoPromiseCacheMap<string, boolean> | undefined;
 	configKeys: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	configPatterns: RepoPromiseCacheMap<string, Map<string, string>> | undefined;
 	conflictDetection: RepoPromiseCacheMap<ConflictDetectionCacheKey, ConflictDetectionResult> | undefined;
@@ -66,6 +66,7 @@ interface Caches {
 	sharedBranches: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
 	stashes: PromiseMap<RepoPath, GitStash> | undefined;
 	tags: PromiseMap<RepoPath, PagedResult<GitTag>> | undefined;
+	trackedPaths: RepoPromiseCacheMap<string, [string, string] | false> | undefined;
 	worktrees: PromiseMap<RepoPath, GitWorktree[]> | undefined;
 }
 
@@ -74,6 +75,7 @@ function createEmptyCaches(): Caches {
 		bestRemotes: undefined,
 		branch: undefined,
 		branches: undefined,
+		fileExistence: undefined,
 		configKeys: undefined,
 		configPatterns: undefined,
 		conflictDetection: undefined,
@@ -97,6 +99,7 @@ function createEmptyCaches(): Caches {
 		sharedBranches: undefined,
 		stashes: undefined,
 		tags: undefined,
+		trackedPaths: undefined,
 		worktrees: undefined,
 	};
 }
@@ -282,9 +285,20 @@ export class GitCache implements Disposable {
 		return (this._caches.tags ??= new PromiseMap<RepoPath, PagedResult<GitTag>>());
 	}
 
-	private _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
-	get trackedPaths(): PathTrie<PromiseOrValue<[string, string] | undefined>> {
-		return this._trackedPaths;
+	get fileExistence(): RepoPromiseCacheMap<string, boolean> {
+		return (this._caches.fileExistence ??= new RepoPromiseCacheMap<string, boolean>({
+			createTTL: 1000 * 10, // 10 seconds
+			capacity: 100,
+			expireOnError: true,
+		}));
+	}
+
+	get trackedPaths(): RepoPromiseCacheMap<string, [string, string] | false> {
+		return (this._caches.trackedPaths ??= new RepoPromiseCacheMap<string, [string, string] | false>({
+			createTTL: 1000 * 60, // 60 seconds
+			accessTTL: 1000 * 30, // 30 seconds idle
+			capacity: 200,
+		}));
 	}
 
 	get worktrees(): PromiseMap<RepoPath, GitWorktree[]> {
@@ -299,7 +313,6 @@ export class GitCache implements Disposable {
 			| PromiseMap<string, unknown>
 			| RepoPromiseCacheMap<unknown, unknown>
 			| RepoPromiseMap<unknown, unknown>
-			| PathTrie<unknown>
 			| undefined;
 
 		const cachesToClear = new Set<CacheType>();
@@ -381,10 +394,11 @@ export class GitCache implements Disposable {
 
 		if (!types.length) {
 			cachesToClear.add(this._caches.currentUser);
+			cachesToClear.add(this._caches.fileExistence);
 			cachesToClear.add(this._caches.gitDir);
 			cachesToClear.add(this._caches.gitIgnore);
 			sharedCachesToClear.add(this._caches.gitResults);
-			cachesToClear.add(this._trackedPaths);
+			cachesToClear.add(this._caches.trackedPaths);
 		}
 
 		// Clear per-worktree caches
@@ -448,7 +462,6 @@ export class GitCache implements Disposable {
 
 		// Clear all caches and reset to empty state
 		this._caches = createEmptyCaches();
-		this._trackedPaths.clear();
 	}
 
 	/**
@@ -469,7 +482,8 @@ export class GitCache implements Disposable {
 		}
 
 		if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
-			this.trackedPaths.clear();
+			this._caches.fileExistence?.delete(repoPath);
+			this._caches.trackedPaths?.delete(repoPath);
 		}
 
 		if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
