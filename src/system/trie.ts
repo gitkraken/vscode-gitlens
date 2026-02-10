@@ -403,7 +403,7 @@ export class PathTrie<T> {
 			node = n;
 		}
 
-		if (!node?.value) return false;
+		if (node?.value == null) return false;
 
 		if (dispose) {
 			disposeValue(node.value);

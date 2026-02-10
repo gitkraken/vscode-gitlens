@@ -763,8 +763,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getBestRevisionUri(repoPath: string, path: string, rev: string | undefined): Promise<Uri | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
-		// TODO@eamodio Align this with isTrackedCore?
 		if (!rev || (isUncommitted(rev) && !isUncommittedStaged(rev))) {
+			// Fast path: check if isTracked already resolved this path
+			const trackedKey = getTrackedPathsCacheKey(`${repoPath}/${path}`);
+			const trackedPromise = this._cache.trackedPaths.get(repoPath, trackedKey);
+			if (trackedPromise != null) {
+				const resolved = await trackedPromise;
+				if (resolved !== false) return this.getAbsoluteUri(resolved[0], resolved[1]);
+			}
+
 			// Make sure the file exists in the repo
 			let exists = await this.revision.exists(repoPath, path);
 			if (exists) return this.getAbsoluteUri(path, repoPath);
@@ -1805,18 +1812,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const path = repoPath ? `${repoPath}/${relativePath}` : relativePath;
 
-		let key = path;
-		key = `${ref ?? ''}:${key.startsWith('/') ? key : `/${key}`}`;
+		const key = getTrackedPathsCacheKey(path, ref);
 
-		let tracked = this._cache.trackedPaths.get(key);
-		if (tracked != null) return tracked;
-
-		tracked = this.isTrackedCore(path, relativePath, repoPath ?? '', ref, repository);
-		this._cache.trackedPaths.set(key, tracked);
-
-		tracked = await tracked;
-		this._cache.trackedPaths.set(key, tracked);
-		return tracked;
+		// false means "confirmed not tracked"; getOrCreate handles in-flight deduplication and TTL
+		const result = await this._cache.trackedPaths.getOrCreate(repoPath ?? '', key, async () => {
+			const tracked = await this.isTrackedCore(path, relativePath, repoPath ?? '', ref, repository);
+			return tracked ?? false;
+		});
+		return result === false ? undefined : result;
 	}
 
 	@debug()
@@ -2143,6 +2146,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return undefined;
 		}
 	}
+}
+
+function getTrackedPathsCacheKey(path: string, ref?: string): string {
+	return `${ref ?? ''}:${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 async function getEncoding(uri: Uri): Promise<string> {
