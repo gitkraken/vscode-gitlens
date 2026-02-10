@@ -1,5 +1,6 @@
 import type { Container } from '../container.js';
 import { executeGitCommand } from '../git/actions.js';
+import { groupRepositories } from '../git/utils/-webview/repository.utils.js';
 import { command } from '../system/-webview/command.js';
 import { GlCommandBase } from './commandBase.js';
 
@@ -10,9 +11,11 @@ export class FetchRepositoriesCommand extends GlCommandBase {
 	}
 
 	async execute(): Promise<void> {
+		const grouped = groupRepositories(this.container.git.openRepositories);
+
 		return executeGitCommand({
 			command: 'fetch',
-			state: { repos: this.container.git.openRepositories },
+			state: { repos: [...grouped.keys()] },
 		});
 	}
 }
