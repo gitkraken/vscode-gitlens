@@ -25,7 +25,7 @@ import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard
 import type { IntegrationIds } from '../../constants.integrations.js';
 import { GitCloudHostIntegrationId } from '../../constants.integrations.js';
 import { proBadge } from '../../constants.js';
-import type { Source, Sources } from '../../constants.telemetry.js';
+import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { GitBranch } from '../../git/models/branch.js';
 import type { PullRequest } from '../../git/models/pullRequest.js';
@@ -58,7 +58,7 @@ export interface StartReviewTelemetryContext {
 
 export interface StartReviewCommandArgs {
 	readonly command: 'startReview';
-	source?: Sources;
+	source?: Source;
 
 	// Pre-select PR by URL (skips PR picker)
 	prUrl?: string;

@@ -109,7 +109,7 @@ export function assertsStartWorkStepState(state: StepState<StartWorkState>): ass
 }
 export interface StartWorkBaseCommandArgs {
 	readonly command: 'startWork' | 'associateIssueWithBranch';
-	source?: Sources;
+	source?: Sources | Source;
 }
 export interface StartWorkOverrides {
 	ownSource?: 'startWork' | 'associateIssueWithBranch';
@@ -151,7 +151,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		});
 
 		this.telemetryEventKey = telemetryEventKey;
-		this.source = { source: args?.source ?? 'commandPalette' };
+		this.source = typeof args?.source === 'object' ? args.source : { source: args?.source ?? 'commandPalette' };
 
 		if (this.container.telemetry.enabled) {
 			this.telemetryContext = { instance: instanceCounter.next() };

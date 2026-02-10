@@ -166,7 +166,7 @@ export class CliCommandHandlers implements Disposable {
 			undefined,
 			{
 				repoPath: repo?.path,
-				source: 'gk-cli-integration',
+				source: { source: 'mcp', detail: 'mcp/wip/compose/open' },
 				autoComposeInstructions: instructions,
 			},
 		);
@@ -185,7 +185,7 @@ export class CliCommandHandlers implements Disposable {
 
 			await executeCommand<StartReviewCommandArgs>('gitlens.startReview', {
 				command: 'startReview',
-				source: 'gk-cli-integration',
+				source: { source: 'mcp', detail: 'mcp/pr/review/start' },
 				prUrl: prUrl,
 				instructions: instructions,
 				useDefaults: true,
@@ -221,7 +221,7 @@ export class CliCommandHandlers implements Disposable {
 
 			await executeCommand<StartWorkCommandArgs>('gitlens.startWork', {
 				command: 'startWork',
-				source: 'gk-cli-integration',
+				source: { source: 'mcp', detail: 'mcp/issue/start' },
 				issueUrl: issueUrl,
 				instructions: instructions,
 				useDefaults: true,

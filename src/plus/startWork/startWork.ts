@@ -1,6 +1,6 @@
 import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
 import { getSteps } from '../../commands/quick-wizard/utils/quickWizard.utils.js';
-import type { Sources } from '../../constants.telemetry.js';
+import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { GitBranch } from '../../git/models/branch.js';
 import type { GitWorktree } from '../../git/models/worktree.js';
@@ -12,7 +12,7 @@ import { createBranchNameFromIssue } from './utils/-webview/startWork.utils.js';
 
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
-	source?: Sources;
+	source?: Sources | Source;
 
 	// Pre-select issue by URL (skips issue picker)
 	issueUrl?: string;

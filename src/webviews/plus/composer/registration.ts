@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
-import type { Sources } from '../../../constants.telemetry.js';
+import type { Source, Sources } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { registerCommand } from '../../../system/-webview/command.js';
 import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController.js';
@@ -8,7 +8,7 @@ import type { State } from './protocol.js';
 
 export interface ComposerCommandArgs {
 	repoPath?: string | Uri;
-	source?: Sources;
+	source?: Sources | Source;
 	mode?: 'experimental' | 'preview';
 	includedUnstagedChanges?: boolean;
 	branchName?: string;
