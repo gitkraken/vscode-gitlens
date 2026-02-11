@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.10.0] - 2026-02-11
+
 ### Added
 
 - Adds support for GitKraken MCP tools powered by GitLens including _Start Work_, _Commit Composer_, _Launchpad_, and the all new _Start Review_ ([#4797](https://github.com/gitkraken/vscode-gitlens/issues/4797), [#4908](https://github.com/gitkraken/vscode-gitlens/issues/4908), [#4909](https://github.com/gitkraken/vscode-gitlens/issues/4909), [#4910](https://github.com/gitkraken/vscode-gitlens/issues/4910), [#4912](https://github.com/gitkraken/vscode-gitlens/issues/4912))
@@ -6677,7 +6679,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.9.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.10.0...HEAD
+[17.10.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.9.0...gitkraken:v17.10.0
 [17.9.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.1...gitkraken:v17.9.0
 [17.8.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.0...gitkraken:v17.8.1
 [17.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.1...gitkraken:v17.8.0
