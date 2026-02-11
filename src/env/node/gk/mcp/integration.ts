@@ -115,17 +115,6 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		// Mark that we've provided a definition (either with or without GK_GL_PATH)
 		this._hasProvidedDefinition = true;
 
-		const ipcAddress = envVars.get('GK_GL_ADDR');
-		if (ipcAddress != null) {
-			const arg = `--gitlens-url=${ipcAddress.value}`;
-			const existingArgIndex = config.args.findIndex(a => a.startsWith('--gitlens-url='));
-			if (existingArgIndex === -1) {
-				config.args.push(arg);
-			} else if (config.args[existingArgIndex] !== arg) {
-				config.args[existingArgIndex] = arg;
-			}
-		}
-
 		const serverEnv: McpStdioServerDefinition['env'] = {};
 		if (discoveryFilePath != null) {
 			// const arg = `--gitlens-discovery-file=${discoveryFilePath}`;
