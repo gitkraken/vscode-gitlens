@@ -102,6 +102,9 @@ export class GkCliIntegrationProvider implements Disposable {
 			const cliInstall = this.container.storage.getScoped('gk:cli:install');
 			if (cliInstall?.status === 'completed') {
 				// Force reinstall to switch between production and insiders
+				Logger.log(
+					`Forcing CLI reinstall on settings change (insiders = ${configuration.get('gitkraken.cli.insiders.enabled')})`,
+				);
 				void this.setupMCPCore('settings', true, true).catch(() => {});
 			}
 		}
@@ -146,6 +149,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		// Notify that the IPC server is ready so MCP providers can refresh
 		this.container.events.fire('gk:cli:ipc:started', undefined);
+		Logger.log(`IPC server started on ${server.ipcAddress}`);
 	}
 
 	private stop() {
@@ -156,8 +160,11 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 
 		this.container.context.environmentVariableCollection.clear();
-		this._runningDisposable?.dispose();
-		this._runningDisposable = undefined;
+		if (this._runningDisposable != null) {
+			this._runningDisposable.dispose();
+			this._runningDisposable = undefined;
+			Logger.log('IPC server stopped');
+		}
 	}
 
 	private ensureAutoInstall() {
@@ -165,6 +172,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		if (cliInstall?.status === 'completed') {
 			if (!cliInstall.version || satisfies(fromString(cliInstall.version), '< 3.1.52')) {
+				Logger.log(`CLI version ${cliInstall.version ?? 'unknown'} is outdated, forcing reinstall`);
 				forceInstall = true;
 			} else {
 				void setContext('gitlens:gk:cli:installed', true);
@@ -353,6 +361,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				);
 			}
 
+			Logger.debug(scope, `Running MCP install command for ${mcpInstallAppName}`);
 			let output = await runCLICommand(
 				['mcp', 'install', mcpInstallAppName, '--source=gitlens', `--scheme=${env.uriScheme}`],
 				{
@@ -362,6 +371,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 			output = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
 			if (CLIProxyMCPInstallOutputs.installedSuccessfully.test(output)) {
+				setLogScopeExit(scope, `completed (version: ${cliVersion})`);
 				// Send success telemetry
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent('mcp/setup/completed', {
@@ -401,6 +411,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				);
 			}
 
+			setLogScopeExit(scope, `completed, requires user action (version: ${cliVersion})`);
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/completed', {
 					requiresUserCompletion: true,
@@ -504,9 +515,11 @@ export class GkCliIntegrationProvider implements Disposable {
 			if (cliInstallStatus === 'completed') {
 				if (cliPath != null) {
 					cliVersion = cliInstall?.version;
-					if (await exists(Uri.joinPath(Uri.file(cliPath), platform === 'windows' ? 'gk.exe' : 'gk'))) {
+					const cliExecutable = Uri.joinPath(Uri.file(cliPath), platform === 'windows' ? 'gk.exe' : 'gk');
+					if (await exists(cliExecutable)) {
 						return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
 					}
+					Logger.warn(scope, `CLI binary not found at expected path: ${cliExecutable.fsPath}`);
 				}
 
 				cliInstallStatus = 'attempted';
@@ -514,6 +527,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			} else if (cliInstallStatus === 'unsupported') {
 				return { cliVersion: undefined, cliPath: undefined, status: 'unsupported' };
 			} else if (autoInstall && reachedMaxAttempts({ status: cliInstallStatus, attempts: cliInstallAttempts })) {
+				Logger.warn(scope, `Skipping auto-install, reached max attempts (${cliInstallAttempts})`);
 				return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
 			}
 		}
@@ -536,6 +550,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				throw new CLIInstallError(CLIInstallErrorReason.Offline);
 			}
 			cliInstallAttempts += 1;
+			Logger.log(scope, `Starting CLI installation (attempt ${cliInstallAttempts}/${maxAutoInstallAttempts})`);
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cli/install/started', {
 					source: source,
@@ -614,6 +629,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					'active',
 				); */
 
+				Logger.debug(scope, `Fetching CLI proxy: platform=${platformName}, arch=${architecture}`);
 				let response = await fetch(proxyUrl);
 				if (!response.ok) {
 					throw new CLIInstallError(
@@ -645,6 +661,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					);
 				}
 
+				Logger.debug(scope, `Downloading CLI proxy (version: ${cliVersion})`);
 				response = await fetch(downloadUrl);
 				if (!response.ok) {
 					throw new CLIInstallError(
@@ -710,7 +727,6 @@ export class GkCliIntegrationProvider implements Disposable {
 					);
 				}
 
-				// Set up the local MCP server files
 				try {
 					const installArgs = ['install'];
 					if (insidersEnabled && canSupportCliInsiders(cliVersion)) {
@@ -726,8 +742,7 @@ export class GkCliIntegrationProvider implements Disposable {
 						throw new Error(`Failed to find core directory in install output: ${coreInstallOutput}`);
 					}
 
-					// TODO: Include version in this logger
-					Logger.log(scope, 'CLI install completed');
+					Logger.log(scope, `CLI installed (version: ${cliVersion}, path: ${cliPath})`);
 					cliInstallStatus = 'completed';
 					void this.container.storage
 						.storeScoped('gk:cli:install', {
@@ -807,7 +822,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			await runCLICommand(['auth', 'login', '-t', currentSessionToken]);
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			Logger.error(ex, scope, 'Failed to authenticate CLI');
 		}
 	}
 
