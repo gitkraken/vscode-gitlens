@@ -807,7 +807,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
 			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
-			options.isFolder = tree?.type === 'tree';
+			if (tree?.type === 'commit') {
+				// It's a submodule — line ranges and rename tracking don't apply, and the rev may reference
+				// the submodule's internal SHA which isn't valid in the parent repo
+				options.range = undefined;
+				options.renames = false;
+				rev = undefined;
+			} else {
+				options.isFolder = tree?.type === 'tree';
+			}
 		}
 
 		let cacheKey: string | undefined;
