@@ -90,16 +90,13 @@ export class CacheProvider implements Disposable {
 		) {
 			const cacheController = new CacheController();
 			const { value, expiresAt } = cacheable(cacheController);
-			if (isPromise(value)) {
-				void value.finally(() => {
-					if (cacheController.invalidated) {
-						this.delete(cache, key);
-					}
-				});
-			}
-			return this.set<T>(cache, key, value, etag, expiresAt, options?.expireOnError)?.value as CacheResult<
-				CacheValue<T>
-			>;
+			const setResult = this.set<T>(cache, key, value, etag, expiresAt, options?.expireOnError);
+			void setResult?.promise?.finally(() => {
+				if (cacheController.invalidated) {
+					this.delete(cache, key);
+				}
+			});
+			return setResult?.item.value as CacheResult<CacheValue<T>>;
 		}
 
 		return item.value as CacheResult<CacheValue<T>>;
@@ -263,13 +260,26 @@ export class CacheProvider implements Disposable {
 		etag: string | undefined,
 		expiresAt?: number,
 		expireOnError?: boolean,
-	): Cached<CacheResult<CacheValue<T>>> {
+	): { item: Cached<CacheResult<CacheValue<T>>>; promise: undefined | Promise<void> } {
 		let item: Cached<CacheResult<CacheValue<T>>>;
+		let promise: undefined | Promise<void>;
 		if (isPromise(value)) {
-			void value.then(v => this.set(cache, key, v, etag, expiresAt, expireOnError));
-			if (expireOnError !== false) {
-				void value.catch(() => this.delete(cache, key));
-			}
+			promise = value.then(v => {
+				if (this._cache.get(`${cache}:${key}`)?.value === value) {
+					this.set(cache, key, v, etag, expiresAt, expireOnError);
+				}
+			});
+			promise = promise.catch(
+				expireOnError !== false
+					? () => this.delete(cache, key)
+					: () => {
+							// catch error and do nothing,
+							// This is to make the behaviour consistent and independent from the `expireOnError` option,
+							// because otherwise the promise gets handled and resolved to success in once case
+							// and be an unhandled rejection in another case.
+							// By adding this empty handler we make it always handled.
+						},
+			);
 
 			item = { value: value, etag: etag, cachedAt: Date.now() };
 		} else {
@@ -282,7 +292,7 @@ export class CacheProvider implements Disposable {
 		}
 
 		this._cache.set(`${cache}:${key}`, item);
-		return item;
+		return { item: item, promise: promise };
 	}
 
 	private wrapPullRequestCacheable(
