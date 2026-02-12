@@ -190,7 +190,6 @@ export class Repository implements Disposable {
 	private _pendingResumeTimer?: ReturnType<typeof setTimeout>;
 	private _repoWatchersDisposable: Disposable | undefined;
 	private _suspended: boolean;
-	private readonly _type: RepositoryType;
 
 	constructor(
 		private readonly container: Container,
@@ -205,14 +204,6 @@ export class Repository implements Disposable {
 		public readonly root: boolean,
 		closed: boolean = false,
 	) {
-		if (_gitDir?.parentUri != null) {
-			this._type = 'submodule';
-		} else if (_gitDir?.commonUri != null) {
-			this._type = 'worktree';
-		} else {
-			this._type = 'repository';
-		}
-
 		this.id = asRepoComparisonKey(uri);
 		this.index = folder?.index ?? container.git.repositoryCount;
 		this._suspended = !window.state.focused;
@@ -338,12 +329,12 @@ export class Repository implements Disposable {
 
 	/** Indicates whether this repository is a submodule */
 	get isSubmodule(): boolean {
-		return this._type === 'submodule';
+		return this._gitDir?.parentUri != null;
 	}
 
 	/** Indicates whether this repository is a worktree */
 	get isWorktree(): boolean {
-		return this._type === 'worktree';
+		return this._gitDir?.commonUri != null;
 	}
 
 	private _name: string;
@@ -363,11 +354,6 @@ export class Repository implements Disposable {
 	private _orderByLastFetched = false;
 	get orderByLastFetched(): boolean {
 		return this._orderByLastFetched;
-	}
-
-	/** The type of repository: 'repository', 'submodule', or 'worktree' */
-	get type(): RepositoryType {
-		return this._type;
 	}
 
 	private _updatedAt: number = 0;
