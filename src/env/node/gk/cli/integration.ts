@@ -24,7 +24,13 @@ import { getPlatform, isOffline, isWeb } from '../../platform.js';
 import { CliCommandHandlers } from './commands.js';
 import type { IpcServer } from './ipcServer.js';
 import { createIpcServer } from './ipcServer.js';
-import { extractZipFile, runCLICommand, showManualMcpSetupPrompt, toMcpInstallProvider } from './utils.js';
+import {
+	extractZipFile,
+	getCLIVersions,
+	runCLICommand,
+	showManualMcpSetupPrompt,
+	toMcpInstallProvider,
+} from './utils.js';
 
 const enum CLIInstallErrorReason {
 	UnsupportedPlatform,
@@ -70,17 +76,18 @@ export class GkCliIntegrationProvider implements Disposable {
 	private readonly _disposable: Disposable;
 	private _runningDisposable: Disposable | undefined;
 	private _discoveryFilePath: string | undefined;
+	private _cliCoreVersion: string | undefined;
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			...this.registerCommands(),
+			this.container.onReady(() => {
+				this.onConfigurationChanged();
+				void this.ensureUpdateOrInstall();
+			}),
 		);
-
-		this.onConfigurationChanged();
-
-		this.ensureAutoInstall();
 	}
 
 	dispose(): void {
@@ -167,16 +174,29 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 	}
 
-	private ensureAutoInstall() {
+	private async ensureUpdateOrInstall() {
 		let forceInstall = false;
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		if (cliInstall?.status === 'completed') {
-			if (!cliInstall.version || satisfies(fromString(cliInstall.version), '< 3.1.52')) {
-				Logger.log(`CLI version ${cliInstall.version ?? 'unknown'} is outdated, forcing reinstall`);
+			let currentCoreVersion = await this.getCliCoreVersion();
+			const minimumVersion = await this.container.productConfig.getCliMinimumVersion();
+			if (!currentCoreVersion || satisfies(fromString(currentCoreVersion), `< ${minimumVersion}`)) {
+				Logger.log(`CLI core version ${currentCoreVersion ?? 'unknown'} is outdated, forcing reinstall`);
 				forceInstall = true;
 			} else {
-				void setContext('gitlens:gk:cli:installed', true);
-				return;
+				// Only update if GitLens extension version has changed since last check, to avoid unnecessary update checks
+				if (this.container.version !== this.container.previousVersion) {
+					const updateResult = await this.updateCliCore();
+					if (updateResult?.current != null) {
+						currentCoreVersion = updateResult.current;
+					}
+				}
+
+				if (currentCoreVersion != null) {
+					Logger.log(`CLI core version is ${currentCoreVersion}`);
+					void setContext('gitlens:gk:cli:installed', true);
+					return;
+				}
 			}
 		}
 
@@ -838,6 +858,46 @@ export class GkCliIntegrationProvider implements Disposable {
 			registerCommand('gitlens.ai.mcp.reinstall', (src?: Source) => this.setupMCP(src?.source, true)),
 			registerCommand('gitlens.ai.mcp.authCLI', () => this.authCLI()),
 		];
+	}
+
+	@log()
+	private async updateCliCore(): Promise<{ previous: string | undefined; current: string | undefined } | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const previousVersion = await getCLIVersions();
+			await runCLICommand(['update']);
+			const currentVersion = await getCLIVersions();
+			this._cliCoreVersion = currentVersion?.core;
+
+			Logger.log(scope, `CLI core update (previous: ${previousVersion?.core}, current: ${currentVersion?.core})`);
+
+			return {
+				previous: previousVersion?.core,
+				current: currentVersion?.core,
+			};
+		} catch (ex) {
+			Logger.error(ex, scope, 'Failed to update CLI');
+		}
+
+		return undefined;
+	}
+
+	@log()
+	private async getCliCoreVersion(force = false): Promise<string | undefined> {
+		const scope = getLogScope();
+
+		if (force || this._cliCoreVersion == null) {
+			try {
+				const versions = await getCLIVersions();
+				this._cliCoreVersion = versions?.core;
+			} catch (ex) {
+				Logger.error(ex, scope, 'Failed to get CLI version');
+				this._cliCoreVersion = undefined;
+			}
+		}
+
+		return this._cliCoreVersion;
 	}
 }
 
