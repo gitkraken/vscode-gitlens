@@ -230,22 +230,23 @@ function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs
 	if (pr.sourceProject == null) {
 		return undefined;
 	}
+	// GitLab terminology: sourceBranch = branch with changes (head), targetBranch = merge target (base)
 	return {
-		base: {
+		head: {
 			owner: getRepoNamespace(pr.sourceProject.fullPath),
 			branch: pr.sourceBranch,
 			exists: true,
 			url: pr.sourceProject.webUrl,
 			repo: pr.sourceProject.fullPath,
-			sha: pr.diffRefs?.baseSha || '',
+			sha: pr.diffRefs?.headSha || '',
 		},
-		head: {
+		base: {
 			owner: getRepoNamespace(pr.project.fullPath),
 			branch: pr.targetBranch,
 			exists: true,
 			url: pr.project.webUrl,
 			repo: pr.project.fullPath,
-			sha: pr.diffRefs?.headSha || '',
+			sha: pr.diffRefs?.baseSha || '',
 		},
 		isCrossRepository: pr.sourceProject.id !== pr.project.id,
 	};
