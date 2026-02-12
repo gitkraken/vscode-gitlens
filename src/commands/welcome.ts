@@ -4,7 +4,7 @@ import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription.js';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
-import { command, executeCommand } from '../system/-webview/command.js';
+import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
 import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
 import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
@@ -112,6 +112,18 @@ export class WelcomeOpenCommunityVsProCommand extends GlCommandBase {
 			url: url,
 		});
 		void openUrl(url);
+	}
+}
+
+@command()
+export class WelcomeCloseCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.views.welcome.close');
+	}
+
+	execute(): void {
+		void executeCoreCommand('gitlens.views.welcome.toggleVisibility');
+		void this.container.views.home.show();
 	}
 }
 

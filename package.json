@@ -11063,6 +11063,11 @@
 				"icon": "$(remove)"
 			},
 			{
+				"command": "gitlens.views.welcome.close",
+				"title": "Close Welcome",
+				"icon": "$(x)"
+			},
+			{
 				"command": "gitlens.views.welcome.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
@@ -15532,6 +15537,10 @@
 				},
 				{
 					"command": "gitlens.views.unstageFile:graphDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.welcome.close",
 					"when": "false"
 				},
 				{
@@ -25174,6 +25183,11 @@
 					"command": "gitlens.views.welcome.refresh",
 					"when": "view == gitlens.views.welcome",
 					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.welcome.close",
+					"when": "view == gitlens.views.welcome",
+					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.views.workspaces.create",

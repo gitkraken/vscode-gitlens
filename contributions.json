@@ -17194,6 +17194,19 @@
 				]
 			}
 		},
+		"gitlens.views.welcome.close": {
+			"label": "Close Welcome",
+			"icon": "$(x)",
+			"menus": {
+				"view/title": [
+					{
+						"when": "view == gitlens.views.welcome",
+						"group": "navigation",
+						"order": 100
+					}
+				]
+			}
+		},
 		"gitlens.views.welcome.refresh": {
 			"label": "Refresh",
 			"icon": "$(refresh)",
