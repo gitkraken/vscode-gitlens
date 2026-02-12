@@ -13,6 +13,9 @@ import type { ServerConnection } from './serverConnection.js';
 
 type Config = {
 	promos: Promo[];
+	cli: {
+		minimumVersion: string;
+	};
 };
 
 type ConfigJson = {
@@ -20,6 +23,9 @@ type ConfigJson = {
 	v?: number;
 	promos?: PromoJson[];
 	promosV2?: PromoV2Json[];
+	cli?: {
+		minimumVersion: string;
+	};
 };
 type PromoJson = Replace<Promo, 'plan' | 'expiresOn' | 'startsOn', string | undefined> & {
 	v?: number;
@@ -28,6 +34,36 @@ type PromoJson = Replace<Promo, 'plan' | 'expiresOn' | 'startsOn', string | unde
 type PromoV2Json = Replace<Promo, 'expiresOn' | 'startsOn', string | undefined> & { v: number | undefined };
 
 const maxKnownPromoVersion = 2;
+
+const fallbackConfig: Config = {
+	promos: [
+		{
+			key: 'pro50',
+			plan: 'pro',
+			states: [
+				SubscriptionState.Community,
+				SubscriptionState.Trial,
+				SubscriptionState.TrialExpired,
+				SubscriptionState.TrialReactivationEligible,
+			],
+			locations: ['home', 'account', 'badge', 'gate'],
+			content: {
+				modal: { detail: 'Save up to 50% on GitLens Pro' },
+				quickpick: { detail: '$(star-full) Save up to 50% on GitLens Pro' },
+				webview: {
+					info: { html: '<b>Save up to 50%</b> on GitLens Pro' },
+					link: {
+						html: '<b>Save up to 50%</b> on GitLens Pro',
+						title: 'Upgrade now and Save up to 50% on GitLens Pro',
+					},
+				},
+			},
+		} satisfies Promo,
+	],
+	cli: {
+		minimumVersion: '3.1.52',
+	},
+} as const;
 
 export class ProductConfigProvider {
 	private readonly _lazyConfig: Lazy<Promise<Config>>;
@@ -91,38 +127,14 @@ export class ProductConfigProvider {
 			const stored = container.storage.get('product:config');
 			if (stored?.data != null) {
 				return {
+					...fallbackConfig,
 					...stored.data,
 					promos: stored.data.promos.map(p => ({ ...p, plan: p.plan ?? 'pro' }) satisfies Promo),
 				} satisfies Config;
 			}
 
 			// If all else fails, return a default set of promos
-			return {
-				promos: [
-					{
-						key: 'pro50',
-						plan: 'pro',
-						states: [
-							SubscriptionState.Community,
-							SubscriptionState.Trial,
-							SubscriptionState.TrialExpired,
-							SubscriptionState.TrialReactivationEligible,
-						],
-						locations: ['home', 'account', 'badge', 'gate'],
-						content: {
-							modal: { detail: 'Save up to 50% on GitLens Pro' },
-							quickpick: { detail: '$(star-full) Save up to 50% on GitLens Pro' },
-							webview: {
-								info: { html: '<b>Save up to 50%</b> on GitLens Pro' },
-								link: {
-									html: '<b>Save up to 50%</b> on GitLens Pro',
-									title: 'Upgrade now and Save up to 50% on GitLens Pro',
-								},
-							},
-						},
-					} satisfies Promo,
-				],
-			};
+			return fallbackConfig;
 		});
 	}
 
@@ -135,6 +147,10 @@ export class ProductConfigProvider {
 
 		const promos = await this.getPromos();
 		return getApplicablePromo(promos, state, plan, location);
+	}
+
+	async getCliMinimumVersion(): Promise<string> {
+		return (await this.getConfig()).cli.minimumVersion;
 	}
 
 	private getConfig(): Promise<Config> {
@@ -225,7 +241,12 @@ function createConfigValidator(): Validator<ConfigJson> {
 		percentile: Is.Optional(Is.Number),
 	});
 
+	const cliValidator = createValidator({
+		minimumVersion: Is.String,
+	});
+
 	return createValidator<ConfigJson>({
+		cli: Is.Optional(cliValidator),
 		v: Is.Optional(Is.Number),
 		promos: Is.Optional(Is.Array(promoValidator)),
 		promosV2: Is.Optional(Is.Array(promoV2Validator)),
@@ -256,7 +277,9 @@ function getConfig(data: unknown): Config | undefined {
 	const validator = createConfigValidator();
 	if (!validator(data)) return undefined;
 
-	const promos = (data.promosV2 ?? data.promos ?? [])
+	const { promosV2, promos: promosV1, ...rest } = data;
+
+	const promos = (promosV2 ?? promosV1 ?? [])
 		// Filter out promos that we don't know how to handle
 		.filter(d => d.v == null || d.v <= maxKnownPromoVersion)
 		.map(
@@ -274,7 +297,11 @@ function getConfig(data: unknown): Config | undefined {
 				}) satisfies Promo,
 		);
 
-	const config: Config = { promos: promos };
+	const config: Config = {
+		...fallbackConfig,
+		...rest,
+		promos: promos,
+	};
 	return config;
 }
 

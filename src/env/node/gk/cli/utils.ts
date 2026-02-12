@@ -4,6 +4,8 @@ import { window } from 'vscode';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
 import { openUrl } from '../../../../system/-webview/vscode/uris.js';
+import { maybeStartLoggableScope } from '../../../../system/loggable.js';
+import { getLoggableScopeBlockOverride } from '../../../../system/logger.scope.js';
 import { joinPaths } from '../../../../system/path.js';
 import { run } from '../../git/shell.js';
 import { getPlatform } from '../../platform.js';
@@ -92,13 +94,50 @@ export function toMcpInstallProvider<T extends string | undefined>(appHostName: 
 
 export async function runCLICommand(args: string[], options?: { cwd?: string }): Promise<string> {
 	const cwd = options?.cwd ?? Container.instance.storage.getScoped('gk:cli:path');
-	if (cwd == null) {
+	const command = cwd == null ? undefined : joinPaths(cwd, getPlatform() === 'windows' ? 'gk.exe' : 'gk');
+	using scope = maybeStartLoggableScope(
+		`${getLoggableScopeBlockOverride('CLI')} ${command} ${args[0] === 'auth' ? '[auth]' : args.join(' ')}`,
+		{
+			debug: true,
+		},
+	);
+
+	if (command == null) {
+		scope?.setExit(undefined, 'CLI is not installed');
 		debugger;
 		throw new Error('CLI is not installed');
 	}
 
-	const platform = getPlatform();
-	return run(joinPaths(cwd, platform === 'windows' ? 'gk.exe' : 'gk'), args, 'utf8', { cwd: cwd });
+	// eslint-disable-next-line no-return-await -- await is needed for the scope to be properly disposed
+	return await run(command, args, 'utf8', { cwd: cwd });
+}
+
+const CLIVersionOutputs = {
+	core: /CLI Core: (\d+\.\d+\.\d+)/,
+	installer: /CLI Installer: (\d+\.\d+\.\d+)/,
+} as const;
+
+export async function getCLIVersions(cliPath?: string): Promise<{ proxy: string; core: string } | undefined> {
+	try {
+		const output = await runCLICommand(['version'], cliPath ? { cwd: cliPath } : undefined);
+		const coreMatch = output.match(CLIVersionOutputs.core)?.[1];
+		const installerMatch = output.match(CLIVersionOutputs.installer)?.[1];
+
+		if (!coreMatch || !installerMatch) {
+			throw new Error(`Unexpected CLI version output: ${output}`);
+		}
+
+		return {
+			core: coreMatch,
+			proxy: installerMatch,
+		};
+	} catch (ex) {
+		if (ex instanceof Error && ex.message.includes('CLI is not installed')) {
+			return undefined;
+		}
+		debugger;
+		throw ex;
+	}
 }
 
 export async function showManualMcpSetupPrompt(message: string): Promise<void> {
