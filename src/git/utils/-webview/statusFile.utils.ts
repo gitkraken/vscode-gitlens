@@ -22,8 +22,7 @@ export function getPseudoCommits(
 	let wip: GitFileChange[] | undefined;
 
 	for (const file of files) {
-		// Convert isSubmodule to mode for GitFileChange
-		const mode = file.isSubmodule ? '160000' : undefined;
+		const mode = file.submodule != null ? '160000' : undefined;
 
 		if (file.conflicted) {
 			conflicted ??= [];
@@ -39,6 +38,7 @@ export function getPseudoCommits(
 					false,
 					undefined,
 					mode,
+					file.submodule,
 				),
 			);
 		} else {
@@ -56,6 +56,7 @@ export function getPseudoCommits(
 						false,
 						undefined,
 						mode,
+						file.submodule,
 					),
 				);
 			}
@@ -74,6 +75,7 @@ export function getPseudoCommits(
 						true,
 						undefined,
 						mode,
+						file.submodule,
 					),
 				);
 			}

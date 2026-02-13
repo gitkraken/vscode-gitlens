@@ -128,7 +128,9 @@ function parseStatusV2(container: Container, lines: string[], repoPath: string):
 				case '1': {
 					// normal: 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
 					// <sub> starts with 'S' if submodule, 'N' if not
-					const isSubmodule = lineParts[2]?.startsWith('S');
+					const submodule = lineParts[2]?.startsWith('S')
+						? { oid: lineParts[7], previousOid: lineParts[6] }
+						: undefined;
 					files.push(
 						parseStatusFile(
 							container,
@@ -136,21 +138,25 @@ function parseStatusV2(container: Container, lines: string[], repoPath: string):
 							lineParts[1],
 							lineParts.slice(8).join(' '),
 							undefined,
-							isSubmodule,
+							submodule,
 						),
 					);
 					break;
 				}
 				case '2': {
 					// rename: 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path>\t<origPath>
-					const isSubmodule = lineParts[2]?.startsWith('S');
+					const submodule = lineParts[2]?.startsWith('S')
+						? { oid: lineParts[7], previousOid: lineParts[6] }
+						: undefined;
 					const file = lineParts.slice(9).join(' ').split('\t');
-					files.push(parseStatusFile(container, repoPath, lineParts[1], file[0], file[1], isSubmodule));
+					files.push(parseStatusFile(container, repoPath, lineParts[1], file[0], file[1], submodule));
 					break;
 				}
 				case 'u': {
 					// unmerged: u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
-					const isSubmodule = lineParts[2]?.startsWith('S');
+					const submodule = lineParts[2]?.startsWith('S')
+						? { oid: lineParts[9], previousOid: lineParts[7] }
+						: undefined;
 					files.push(
 						parseStatusFile(
 							container,
@@ -158,7 +164,7 @@ function parseStatusV2(container: Container, lines: string[], repoPath: string):
 							lineParts[1],
 							lineParts.slice(10).join(' '),
 							undefined,
-							isSubmodule,
+							submodule,
 						),
 					);
 					break;
@@ -186,7 +192,7 @@ function parseStatusFile(
 	rawStatus: string,
 	fileName: string,
 	originalFileName?: string,
-	isSubmodule?: boolean,
+	submodule?: { readonly oid: string; readonly previousOid?: string },
 ): GitStatusFile {
 	let x = !rawStatus.startsWith('.') ? rawStatus[0].trim() : undefined;
 	if (x == null || x.length === 0) {
@@ -201,5 +207,5 @@ function parseStatusFile(
 		}
 	}
 
-	return new GitStatusFile(container, repoPath, x, y, fileName, originalFileName, isSubmodule);
+	return new GitStatusFile(container, repoPath, x, y, fileName, originalFileName, submodule);
 }

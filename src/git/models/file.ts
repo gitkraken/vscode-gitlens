@@ -16,8 +16,8 @@ export interface GitFile {
 	readonly indexStatus?: GitFileIndexStatus;
 	readonly workingTreeStatus?: GitFileWorkingTreeStatus;
 
-	/** Indicates this is a submodule (gitlink) rather than a regular file */
-	readonly isSubmodule?: boolean;
+	/** For submodule (gitlink) entries, contains the submodule's commit SHAs */
+	readonly submodule?: { readonly oid: string; readonly previousOid?: string } | undefined;
 }
 
 export interface GitFileWithCommit extends GitFile {

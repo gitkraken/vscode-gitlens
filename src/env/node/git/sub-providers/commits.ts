@@ -158,6 +158,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					undefined,
 					undefined,
 					f.mode,
+					f.oid ? { oid: f.oid, previousOid: f.previousOid } : undefined,
 				),
 		);
 
@@ -800,9 +801,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			renames: options?.renames ?? configuration.get('advanced.fileHistoryFollowsRenames'),
 		};
 
+		let type: 'file' | 'folder' | 'submodule' = options.isFolder ? 'folder' : 'file';
 		if (isFolderGlob(relativePath)) {
 			relativePath = stripFolderGlob(relativePath);
 			options.isFolder = true;
+			type = 'folder';
 		} else if (options.isFolder == null) {
 			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
 			if (cancellation?.isCancellationRequested) throw new CancellationError();
@@ -810,18 +813,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (tree?.type === 'commit') {
 				// It's a submodule — line ranges and rename tracking don't apply, and the rev may reference
 				// the submodule's internal SHA which isn't valid in the parent repo
+				type = 'submodule';
 				options.range = undefined;
 				options.renames = false;
-				rev = undefined;
+				// rev = undefined;
 			} else {
-				options.isFolder = tree?.type === 'tree';
+				type = tree?.type === 'tree' ? 'folder' : 'file';
+				options.isFolder = type === 'folder';
 			}
 		}
 
 		let cacheKey: string | undefined;
 		if (
-			// Don't cache folders
-			!options.isFolder &&
+			// Only cache files
+			type === 'file' &&
 			options.authors == null &&
 			options.cursor == null &&
 			options.filters == null &&
@@ -1442,6 +1447,7 @@ export function createCommitFileset(
 				undefined,
 				f.range ? { startLine: f.range.startLine, endLine: f.range.endLine } : undefined,
 				f.mode,
+				f.oid ? { oid: f.oid, previousOid: f.previousOid } : undefined,
 			),
 	);
 
