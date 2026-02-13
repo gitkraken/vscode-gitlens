@@ -791,7 +791,8 @@ export async function openOnlyChangedFiles(container: Container, commitOrFiles: 
 					undefined,
 					undefined,
 					undefined,
-					f.isSubmodule ? '160000' : undefined,
+					f.submodule != null ? '160000' : undefined,
+					f.submodule,
 				),
 		);
 	}

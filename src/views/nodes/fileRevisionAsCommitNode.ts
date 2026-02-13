@@ -128,7 +128,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	}
 
 	protected get contextValue(): string {
-		const submodule = this.file.isSubmodule ? '+submodule' : '';
+		const submodule = this.file.submodule != null ? '+submodule' : '';
 		if (!this.commit.isUncommitted) {
 			return `${ContextValues.File}+committed${this._options.branch?.current ? '+current' : ''}${
 				this.isTip ? '+HEAD' : ''

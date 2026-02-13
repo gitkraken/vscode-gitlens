@@ -600,11 +600,11 @@ export class GlCommitDetails extends GlDetailsBase {
 		></commit-stats>`;
 	}
 
-	override getFileActions(_file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {
+	override getFileActions(file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {
 		const actions = [
 			{
 				icon: 'go-to-file',
-				label: 'Open file',
+				label: 'Open File',
 				action: 'file-open',
 			},
 		];
@@ -619,10 +619,10 @@ export class GlCommitDetails extends GlDetailsBase {
 			action: 'file-compare-working',
 		});
 
-		if (!this.isStash) {
+		if (!this.isStash && file.submodule == null) {
 			actions.push({
 				icon: 'globe',
-				label: 'Open on remote',
+				label: 'Open on Remote',
 				action: 'file-open-on-remote',
 			});
 		}
@@ -636,7 +636,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		// Pattern: gitlens:file+committed[+current][+HEAD][+unpublished][+submodule]
 		const commit = this.state.commit;
 		const isStash = commit.stashNumber != null;
-		const submodule = file.isSubmodule ? '+submodule' : '';
+		const submodule = file.submodule != null ? '+submodule' : '';
 
 		let webviewItem: DetailsItemContext['webviewItem'];
 		if (isStash) {
