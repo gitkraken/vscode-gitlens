@@ -66,6 +66,8 @@ export const enum ContextValues {
 	Folder = 'gitlens:folder',
 	Grouping = 'gitlens:grouping',
 	LaunchpadItem = 'gitlens:launchpad:item',
+	LaunchpadError = 'gitlens:launchpad:error',
+	LaunchpadErrorAuth = 'gitlens:launchpad:error+auth',
 	LineHistory = 'gitlens:history:line',
 	MergeConflictCurrentChanges = 'gitlens:merge-conflict:current',
 	MergeConflictIncomingChanges = 'gitlens:merge-conflict:incoming',
