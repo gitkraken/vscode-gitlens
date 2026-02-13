@@ -792,29 +792,29 @@ export class IntegrationService implements Disposable {
 		}
 
 		const results = await Promise.allSettled(promises);
-
+		const successfulResults = [
+			...flatten(
+				filterMap(results, r =>
+					r.status === 'fulfilled' && r.value?.value != null ? r.value.value : undefined,
+				),
+			),
+		];
 		const errors = [
 			...filterMap(results, r =>
 				r.status === 'fulfilled' && r.value?.error != null ? r.value.error : undefined,
 			),
 		];
-		if (errors.length) {
-			return {
-				error: errors.length === 1 ? errors[0] : new AggregateError(errors),
-				duration: Date.now() - start,
-			};
-		}
+
+		const error =
+			errors.length === 0
+				? undefined
+				: errors.length === 1
+					? errors[0]
+					: new AggregateError(errors, 'Failed to get some pull requests');
 
 		return {
-			value: [
-				...flatten(
-					filterMap(results, r =>
-						r.status === 'fulfilled' && r.value != null && r.value?.error == null
-							? r.value.value
-							: undefined,
-					),
-				),
-			],
+			value: successfulResults,
+			error: error,
 			duration: Date.now() - start,
 		};
 	}

@@ -149,7 +149,7 @@ export type LaunchpadCategorizedResult =
 	| {
 			items: LaunchpadItem[];
 			timings?: LaunchpadCategorizedTimings;
-			error?: never;
+			error?: Error;
 	  }
 	| {
 			error: Error;
@@ -221,11 +221,6 @@ export class LaunchpadProvider implements Disposable {
 		}
 
 		const prs = getSettledValue(prsResult)?.value;
-		if (prs?.error != null) {
-			Logger.error(prs.error, scope, 'Failed to get pull requests');
-			throw prs.error;
-		}
-
 		const subscription = getSettledValue(subscriptionResult);
 
 		let suggestionCounts;
@@ -252,7 +247,7 @@ export class LaunchpadProvider implements Disposable {
 			search,
 			connectedIntegrations,
 		);
-		const result: { readonly value: PullRequest[]; duration: number } = {
+		const result: { readonly value: PullRequest[]; duration: number; error?: Error } = {
 			value: [],
 			duration: 0,
 		};
@@ -690,7 +685,7 @@ export class LaunchpadProvider implements Disposable {
 				isSearching
 					? typeof options.search === 'string'
 						? this.getSearchedPullRequests(options.search, cancellation)
-						: { prs: { value: options.search, duration: 0 }, suggestionCounts: undefined }
+						: { prs: { value: options.search, duration: 0, error: undefined }, suggestionCounts: undefined }
 					: this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
 			]);
 
@@ -719,6 +714,7 @@ export class LaunchpadProvider implements Disposable {
 						codeSuggestionCounts: prsWithSuggestionCounts?.suggestionCounts?.duration,
 						enrichedItems: enrichedItems?.duration,
 					},
+					error: prsWithSuggestionCounts?.prs?.error,
 				};
 				return result;
 			}
@@ -848,6 +844,7 @@ export class LaunchpadProvider implements Disposable {
 					codeSuggestionCounts: prsWithSuggestionCounts?.suggestionCounts?.duration,
 					enrichedItems: enrichedItems?.duration,
 				},
+				error: prsWithSuggestionCounts?.prs?.error,
 			};
 			return result;
 		} finally {

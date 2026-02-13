@@ -1,4 +1,4 @@
-import type { CancellationToken, QuickPick, QuickPickItem } from 'vscode';
+import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars.js';
 import type {
@@ -39,6 +39,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../.
 import { proBadge, urls } from '../../constants.js';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { AuthenticationError } from '../../errors.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -50,6 +51,7 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { getScopedCounter } from '../../system/counter.js';
 import { fromNow } from '../../system/date.js';
 import { some } from '../../system/iterable.js';
+import { Logger } from '../../system/logger.js';
 import { interpolate, pluralize } from '../../system/string.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
 import { getOpenOnGitProviderQuickInputButtons } from '../integrations/utils/-webview/integration.quickPicks.js';
@@ -163,6 +165,11 @@ const Steps = {
 	ConfirmAction: 'confirm-action',
 } as const;
 type StepNames = (typeof Steps)[keyof typeof Steps];
+
+const OpenLogsQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('output'),
+	tooltip: 'Open Logs',
+};
 
 export class LaunchpadCommand extends QuickCommand<State> {
 	private readonly source: Source;
@@ -598,21 +605,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		function getItemsAndQuickpickProps(isFiltering?: boolean) {
 			const result = context.inSearch ? context.searchResult : context.result;
 
-			if (result?.error != null) {
-				return {
-					title: `${context.title} \u00a0\u2022\u00a0 Unable to Load Items`,
-					placeholder: `Unable to load items (${
-						result.error.name === 'HttpError' &&
-						'status' in result.error &&
-						typeof result.error.status === 'number'
-							? `${result.error.status}: ${String(result.error)}`
-							: String(result.error)
-					})`,
-					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
-				};
-			}
-
-			if (!result?.items.length) {
+			if (result?.error == null && !result?.items?.length) {
 				if (context.inSearch === 'mode') {
 					return {
 						title: `Search For Pull Request \u00a0\u2022\u00a0 ${context.title}`,
@@ -646,6 +639,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			}
 
 			const items = getLaunchpadQuickPickItems(result.items, isFiltering);
+
+			// Add error information item if there's an error but items were still loaded
+			const errorItem: DirectiveQuickPickItem | undefined =
+				result?.error != null ? createErrorQuickPickItem(result.error) : undefined;
+
 			const hasPicked = items.some(i => i.picked);
 			if (context.inSearch === 'mode') {
 				const offItem: ToggleSearchModeQuickPickItem = {
@@ -660,7 +658,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				return {
 					title: `Search For Pull Request \u00a0\u2022\u00a0 ${context.title}`,
 					placeholder: 'Enter a term to search for a pull request to act on',
-					items: isFiltering ? [...items, offItem] : [offItem, ...items],
+					items: isFiltering
+						? [...(errorItem != null ? [errorItem] : []), ...items, offItem]
+						: [offItem, ...(errorItem != null ? [errorItem] : []), ...items],
 				};
 			}
 
@@ -676,9 +676,34 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				title: context.title,
 				placeholder: 'Choose a pull request or paste a pull request URL to act on',
 				items: isFiltering
-					? [...items, onItem]
-					: [onItem, ...getLaunchpadQuickPickItems(result.items, isFiltering)],
+					? [...(errorItem != null ? [errorItem] : []), ...items, onItem]
+					: [
+							onItem,
+							...(errorItem != null ? [errorItem] : []),
+							...getLaunchpadQuickPickItems(result.items, isFiltering),
+						],
 			};
+		}
+
+		function createErrorQuickPickItem(error: Error): DirectiveQuickPickItem {
+			if (error instanceof AggregateError) {
+				const firstAuthError = error.errors.find(e => e instanceof AuthenticationError);
+				error = firstAuthError ?? error.errors[0] ?? error;
+			}
+
+			const isAuthError = error instanceof AuthenticationError;
+
+			return createDirectiveQuickPickItem(Directive.Noop, false, {
+				label: isAuthError ? '$(warning) Authentication Required' : '$(warning) Unable to fully load items',
+				detail: isAuthError
+					? `${String(error)} — Reconnect your integration`
+					: error.name === 'HttpError' && 'status' in error && typeof error.status === 'number'
+						? `${error.status}: ${String(error)}`
+						: String(error),
+				buttons: isAuthError
+					? [ConnectIntegrationButton, OpenLogsQuickInputButton]
+					: [OpenLogsQuickInputButton],
+			});
 		}
 
 		const updateItems = async (
@@ -836,6 +861,16 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			onDidClickItemButton: async (quickpick, button, { group, item }) => {
 				if (button === LearnAboutProQuickInputButton) {
 					void openUrl(urls.proFeatures);
+					return;
+				}
+
+				if (button === OpenLogsQuickInputButton) {
+					Logger.showOutputChannel();
+					return;
+				}
+
+				if (button === ConnectIntegrationButton) {
+					await this.container.integrations.manageCloudIntegrations({ source: 'launchpad' });
 					return;
 				}
 
@@ -1640,10 +1675,10 @@ function updateTelemetryContext(context: Context) {
 	if (context.telemetryContext == null) return;
 
 	let updatedContext: NonNullable<(typeof context)['telemetryContext']>;
-	if (context.result.error != null) {
+	if (context.result.error != null || !context.result.items) {
 		updatedContext = {
 			...context.telemetryContext,
-			'items.error': String(context.result.error),
+			'items.error': String(context.result.error ?? 'items not loaded'),
 		};
 	} else {
 		const grouped = countLaunchpadItemGroups(context.result.items);
