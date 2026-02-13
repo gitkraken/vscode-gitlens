@@ -1,5 +1,6 @@
 import { Uri } from 'vscode';
 import type { Environment } from '../../container.js';
+import { getHostAppName } from '../../system/-webview/vscode.js';
 import { memoize } from '../../system/decorators/memoize.js';
 
 export class UrlsProvider {
@@ -46,7 +47,7 @@ export class UrlsProvider {
 		return Uri.joinPath(Uri.parse('https://configs.gitkraken.dev'), 'gitlens', ...pathSegments).toString();
 	}
 
-	getGkDevUrl(pathSegments?: string | string[], query?: string | URLSearchParams): string {
+	async getGkDevUrl(pathSegments?: string | string[], query?: string | URLSearchParams): Promise<string> {
 		pathSegments ??= [];
 		if (typeof pathSegments === 'string') {
 			pathSegments = [pathSegments];
@@ -54,18 +55,18 @@ export class UrlsProvider {
 
 		let uri = pathSegments.length ? Uri.joinPath(this.baseGkDevUri, ...pathSegments) : this.baseGkDevUri;
 
-		query ??= 'source=gitlens';
+		const ide = (await getHostAppName()) ?? 'unknown';
+		query ??= `source=gitlens&ide=${encodeURIComponent(ide)}`;
 		if (typeof query === 'string') {
-			if (!query.includes('source=gitlens')) {
-				query = `source=gitlens&${query}`;
-			}
-			uri = uri.with({ query: query });
-		} else {
-			if (!query.has('source')) {
-				query.set('source', 'gitlens');
-			}
-			uri = uri.with({ query: query.toString() });
+			query = new URLSearchParams(query);
 		}
+		if (!query.has('source')) {
+			query.set('source', 'gitlens');
+		}
+		if (!query.has('ide')) {
+			query.set('ide', ide);
+		}
+		uri = uri.with({ query: query.toString() });
 
 		return uri.toString(true);
 	}
