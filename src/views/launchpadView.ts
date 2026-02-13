@@ -4,7 +4,7 @@ import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs.js';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config.js';
 import { proBadge } from '../constants.js';
 import type { Container } from '../container.js';
-import { AuthenticationRequiredError } from '../errors.js';
+import { AuthenticationError, AuthenticationRequiredError } from '../errors.js';
 import { GitUri, unknownGitUri } from '../git/gitUri.js';
 import type { PullRequest } from '../git/models/pullRequest.js';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService.js';
@@ -16,9 +16,11 @@ import type { LaunchpadGroup } from '../plus/launchpad/models/launchpad.js';
 import { launchpadGroupIconMap, launchpadGroupLabelMap } from '../plus/launchpad/models/launchpad.js';
 import { createCommand, executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
+import { Logger } from '../system/logger.js';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode.js';
 import type { ClipboardType, ViewNode } from './nodes/abstract/viewNode.js';
 import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode.js';
+import { MessageNode } from './nodes/common.js';
 import type { GroupingNode } from './nodes/groupingNode.js';
 import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode.js';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode.js';
@@ -121,7 +123,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 export class LaunchpadViewNode extends CacheableChildrenViewNode<
 	'launchpad',
 	LaunchpadView,
-	GroupingNode | LaunchpadItemNode
+	GroupingNode | LaunchpadItemNode | MessageNode
 > {
 	private disposable: Disposable;
 
@@ -151,7 +153,7 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		this.children = undefined;
 	}
 
-	async getChildren(): Promise<(GroupingNode | LaunchpadItemNode)[]> {
+	async getChildren(): Promise<(GroupingNode | LaunchpadItemNode | MessageNode)[]> {
 		this.view.description = this.view.grouped
 			? `${this.view.name.toLocaleLowerCase()}\u00a0\u2022\u00a0 ${proBadge}`
 			: proBadge;
@@ -161,16 +163,23 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 			const access = await this.view.container.git.access('launchpad');
 			if (!access.allowed) return [];
 
-			const children: (GroupingNode | LaunchpadItemNode)[] = [];
+			const children: (GroupingNode | LaunchpadItemNode | MessageNode)[] = [];
 
 			const hasIntegrations = await this.view.container.launchpad.hasConnectedIntegration();
 			if (!hasIntegrations) return [];
 
+			let error: Error | undefined;
 			try {
 				const result = await this.view.container.launchpad.getCategorizedItems();
-				if (!result.items?.length) {
+				error = result.error;
+
+				if (!error && !result.items?.length) {
 					this.view.message = 'All done! Take a vacation.';
 					return [];
+				}
+
+				if (error != null) {
+					children.push(this.createErrorNode(error));
 				}
 
 				const uiGroups = groupAndSortLaunchpadItems(result.items);
@@ -211,6 +220,38 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		}
 
 		return this.children;
+	}
+
+	private createErrorNode(error: Error): MessageNode {
+		if (error instanceof AggregateError) {
+			const firstAuthError = error.errors.find(e => e instanceof AuthenticationError);
+			error = firstAuthError ?? error.errors[0] ?? error;
+		}
+
+		const isAuthError = error instanceof AuthenticationError;
+
+		const tooltip = isAuthError
+			? `Authentication Required\n\n${String(error)}\n\nReconnect your integration`
+			: error.name === 'HttpError' && 'status' in error && typeof error.status === 'number'
+				? `Unable to fully load items\n\n${error.status}: ${String(error)}`
+				: `Unable to fully load items\n\n${String(error)}`;
+
+		// Add suffix to contextValue to distinguish auth errors from other errors
+		const contextValue = `${ContextValues.LaunchpadError}${isAuthError ? '+auth' : ''}` as const;
+
+		return new MessageNode(
+			this.view,
+			this,
+			isAuthError ? 'Authentication Required' : 'Unable to fully load items',
+			isAuthError
+				? String(error)
+				: error.name === 'HttpError' && 'status' in error && typeof error.status === 'number'
+					? `${error.status}: ${String(error)}`
+					: String(error),
+			tooltip,
+			new ThemeIcon('warning'),
+			contextValue as any,
+		);
 	}
 
 	getTreeItem(): TreeItem {
@@ -303,6 +344,12 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 			),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
+			registerViewCommand(
+				this.getQualifiedCommand('error.connectIntegrations'),
+				() => this.container.integrations.manageCloudIntegrations({ source: 'launchpad-view' }),
+				this,
+			),
+			registerViewCommand(this.getQualifiedCommand('error.openLogs'), () => Logger.showOutputChannel(), this),
 		];
 	}
 

@@ -509,6 +509,8 @@ export type ContributedCommands =
 	| 'gitlens.views.home.refresh'
 	| 'gitlens.views.home.whatsNew'
 	| 'gitlens.views.launchpad.attach'
+	| 'gitlens.views.launchpad.error.connectIntegrations'
+	| 'gitlens.views.launchpad.error.openLogs'
 	| 'gitlens.views.launchpad.info'
 	| 'gitlens.views.launchpad.refresh'
 	| 'gitlens.views.launchpad.setFilesLayoutToAuto'

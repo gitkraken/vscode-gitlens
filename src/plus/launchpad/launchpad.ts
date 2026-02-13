@@ -696,7 +696,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			return createDirectiveQuickPickItem(Directive.Noop, false, {
 				label: isAuthError ? '$(warning) Authentication Required' : '$(warning) Unable to fully load items',
 				detail: isAuthError
-					? `${String(error)} — Click to reconnect your integration`
+					? `${String(error)} — Reconnect your integration`
 					: error.name === 'HttpError' && 'status' in error && typeof error.status === 'number'
 						? `${error.status}: ${String(error)}`
 						: String(error),

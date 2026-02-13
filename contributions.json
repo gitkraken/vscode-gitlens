@@ -10804,6 +10804,30 @@
 				}
 			]
 		},
+		"gitlens.views.launchpad.error.connectIntegrations": {
+			"label": "Connect Integration",
+			"icon": "$(plug)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:launchpad:error\\+auth/ && view == gitlens.views.launchpad",
+						"group": "inline"
+					}
+				]
+			}
+		},
+		"gitlens.views.launchpad.error.openLogs": {
+			"label": "Open Logs",
+			"icon": "$(output)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:launchpad:error/ && view == gitlens.views.launchpad",
+						"group": "inline"
+					}
+				]
+			}
+		},
 		"gitlens.views.launchpad.info": {
 			"label": "Learn about Launchpad...",
 			"icon": "$(info)",
