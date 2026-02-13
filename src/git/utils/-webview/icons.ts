@@ -183,6 +183,7 @@ export function getRemoteIconUri(
 }
 
 export function getRepositoryIcon(repository: Repository): string {
+	if (repository.isSubmodule) return 'archive';
 	if (repository.isWorktree) return 'gitlens-worktree';
 	if (repository.virtual) return 'gitlens-repository-cloud';
 	return 'gitlens-repository';
@@ -197,6 +198,8 @@ export function getRepositoryStatusIconPath(
 	repository: Repository,
 	status: GitStatus | undefined,
 ): IconPath {
+	if (repository.isSubmodule) return new ThemeIcon('archive');
+
 	const type = repository.virtual ? '-cloud' : '';
 
 	const branchStatus = status?.branchStatus;

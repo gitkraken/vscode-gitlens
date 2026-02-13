@@ -96,7 +96,7 @@ export function createDirectiveQuickPickItem(
 
 			case Directive.ReposAllExceptWorktrees:
 				label = 'All Repositories';
-				description = ' excluding worktrees';
+				description = ' excluding worktrees / submodules';
 				break;
 		}
 	}

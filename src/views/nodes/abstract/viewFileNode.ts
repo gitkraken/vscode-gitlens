@@ -37,11 +37,9 @@ export function getFileTooltip(
 	outputFormat?: 'markdown' | 'plaintext',
 ): string {
 	return StatusFileFormatter.fromTemplate(
-		`\${status${suffix ? `' ${suffix}'` : ''}} $(file) \${filePath}\${  ←  originalPath}\${'\\\n'changesDetail}`,
+		`\${status${suffix ? `' ${suffix}'` : ''}} $(file) \${filePath}${file.isSubmodule ? ' (submodule)' : ''}\${  ←  originalPath}\${'\\\n'changesDetail}`,
 		file,
-		{
-			outputFormat: outputFormat ?? 'markdown',
-		},
+		{ outputFormat: outputFormat ?? 'markdown' },
 	);
 }
 

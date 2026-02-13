@@ -128,17 +128,18 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	}
 
 	protected get contextValue(): string {
+		const submodule = this.file.isSubmodule ? '+submodule' : '';
 		if (!this.commit.isUncommitted) {
 			return `${ContextValues.File}+committed${this._options.branch?.current ? '+current' : ''}${
 				this.isTip ? '+HEAD' : ''
-			}${this._options.unpublished ? '+unpublished' : ''}`;
+			}${this._options.unpublished ? '+unpublished' : ''}${submodule}`;
 		}
 
 		return this.commit.file?.hasConflicts
-			? `${ContextValues.File}+conflicted`
+			? `${ContextValues.File}+conflicted${submodule}`
 			: this.commit.isUncommittedStaged
-				? `${ContextValues.File}+staged`
-				: `${ContextValues.File}+unstaged`;
+				? `${ContextValues.File}+staged${submodule}`
+				: `${ContextValues.File}+unstaged${submodule}`;
 	}
 
 	override getCommand(): Command | undefined {

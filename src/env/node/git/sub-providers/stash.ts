@@ -279,6 +279,9 @@ export class StashGitSubProvider implements GitStashSubProvider {
 										changes: 0,
 									}
 								: undefined,
+							undefined,
+							undefined,
+							f.mode,
 						),
 				) ?? []
 			);
