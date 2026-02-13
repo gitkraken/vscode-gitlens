@@ -9682,6 +9682,16 @@
 				"title": "Copy"
 			},
 			{
+				"command": "gitlens.views.launchpad.error.connectIntegrations",
+				"title": "Connect Integration",
+				"icon": "$(plug)"
+			},
+			{
+				"command": "gitlens.views.launchpad.error.openLogs",
+				"title": "Open Logs",
+				"icon": "$(output)"
+			},
+			{
 				"command": "gitlens.views.launchpad.info",
 				"title": "Learn about Launchpad...",
 				"icon": "$(info)"
@@ -14378,6 +14388,14 @@
 				},
 				{
 					"command": "gitlens.views.launchpad.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.error.connectIntegrations",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.launchpad.error.openLogs",
 					"when": "false"
 				},
 				{
@@ -20042,6 +20060,16 @@
 					"when": "viewItem =~ /gitlens:(history:(file|line)|status:file)\\b/ && !listMultiSelection && gitlens:repos:withRemotes",
 					"group": "5_gitlens_open@2",
 					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
+				},
+				{
+					"command": "gitlens.views.launchpad.error.openLogs",
+					"when": "viewItem =~ /gitlens:launchpad:error/ && view == gitlens.views.launchpad",
+					"group": "inline"
+				},
+				{
+					"command": "gitlens.views.launchpad.error.connectIntegrations",
+					"when": "viewItem =~ /gitlens:launchpad:error\\+auth/ && view == gitlens.views.launchpad",
+					"group": "inline"
 				},
 				{
 					"command": "gitlens.openPullRequestChanges:views",
