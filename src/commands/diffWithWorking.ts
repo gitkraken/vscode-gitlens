@@ -3,8 +3,9 @@ import { window } from 'vscode';
 import type { Container } from '../container.js';
 import type { DiffRange } from '../git/gitProvider.js';
 import { GitUri } from '../git/gitUri.js';
-import { deletedOrMissing, uncommittedStaged } from '../git/models/revision.js';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from '../git/models/revision.js';
 import { createReference } from '../git/utils/reference.utils.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
@@ -127,17 +128,32 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			workingUri = picked?.uri;
 		}
 
+		// For submodules, getWorkingUri returns a gitlens:// URI with the working submodule SHA
+		const submoduleDiff = gitUri.sha
+			? await svc.getSubmoduleDiffUris(workingUri, gitUri.relativePath, gitUri.sha)
+			: undefined;
+		if (submoduleDiff) {
+			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
+				repoPath: gitUri.repoPath,
+				lhs: {
+					sha: submoduleDiff.lhsSha,
+					uri: submoduleDiff.lhsUri,
+					title: args?.lhsTitle ?? `${gitUri.relativePath} (${shortenRevision(submoduleDiff.lhsSha)})`,
+				},
+				rhs: {
+					sha: uncommitted,
+					uri: submoduleDiff.rhsUri,
+					title: `${gitUri.relativePath} (${shortenRevision(uncommitted)})`,
+				},
+				showOptions: args.showOptions,
+			}));
+			return;
+		}
+
 		void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 			repoPath: gitUri.repoPath,
-			lhs: {
-				sha: gitUri.sha,
-				uri: uri,
-				title: args?.lhsTitle,
-			},
-			rhs: {
-				sha: '',
-				uri: workingUri,
-			},
+			lhs: { sha: gitUri.sha, uri: uri, title: args?.lhsTitle },
+			rhs: { sha: '', uri: workingUri },
 			range: args.range,
 			showOptions: args.showOptions,
 		}));

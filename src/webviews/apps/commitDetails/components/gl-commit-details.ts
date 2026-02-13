@@ -633,15 +633,16 @@ export class GlCommitDetails extends GlDetailsBase {
 		if (!this.state?.commit) return undefined;
 
 		// Build webviewItem with modifiers matching view context values
-		// Pattern: gitlens:file+committed[+current][+HEAD][+unpublished]
+		// Pattern: gitlens:file+committed[+current][+HEAD][+unpublished][+submodule]
 		const commit = this.state.commit;
 		const isStash = commit.stashNumber != null;
+		const submodule = file.isSubmodule ? '+submodule' : '';
 
 		let webviewItem: DetailsItemContext['webviewItem'];
 		if (isStash) {
-			webviewItem = 'gitlens:file+stashed';
+			webviewItem = `gitlens:file+stashed${submodule}`;
 		} else {
-			webviewItem = 'gitlens:file+committed';
+			webviewItem = `gitlens:file+committed${submodule}`;
 		}
 
 		const context: DetailsItemTypedContext = {

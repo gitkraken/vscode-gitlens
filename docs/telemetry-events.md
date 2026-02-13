@@ -3706,6 +3706,7 @@ void
   'repository.provider.id': string,
   'repository.remoteProviders': string,
   'repository.scheme': string,
+  'repository.submodules.openedCount': number,
   'repository.worktrees.openedCount': number
 }
 ```

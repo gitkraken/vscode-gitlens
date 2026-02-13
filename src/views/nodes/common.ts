@@ -206,7 +206,7 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		if (!this.view.supportsRepositoryFilter) return tooltip;
 
 		if (this.view.isRepositoryFilterExcludingWorktreesActive()) {
-			tooltip.appendMarkdown('\n\nShowing all repos, excluding worktrees');
+			tooltip.appendMarkdown('\n\nShowing all repos, excluding worktrees / submodules');
 			tooltip.appendMarkdown('\\\nClick to change filtering');
 		} else {
 			const { openRepositories } = this.view.container.git;
@@ -237,7 +237,7 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 			return undefined;
 		}
 
-		// When excluding worktrees, always show "repos" not "repos / worktrees"
+		// When excluding worktrees/submodules, always show "repos" not "repos / worktrees"
 		const mixed = !this.view.supportsWorktreeCollapsing && !this.view.isRepositoryFilterExcludingWorktreesActive();
 
 		const label = pluralize(mixed ? 'repo / worktree' : 'repo', repos.length, {
