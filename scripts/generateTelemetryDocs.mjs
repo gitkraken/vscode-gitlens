@@ -194,6 +194,7 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 			result = unionTypeCache.get(type);
 			if (result == null) {
 				const types = type.types
+					.filter(t => !(t.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)))
 					.map(t => expandType(file, t, indent, false, prefix))
 					.filter(t => Boolean(t))
 					.join(' | ')
@@ -300,7 +301,7 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 		}
 	} else if (type.flags & ts.TypeFlags.Boolean) {
 		result = 'boolean';
-	} else if (type.flags & ts.TypeFlags.Never) {
+	} else if (type.flags & (ts.TypeFlags.Never | ts.TypeFlags.Undefined)) {
 		return '';
 	} else {
 		result = typeChecker.typeToString(type);
