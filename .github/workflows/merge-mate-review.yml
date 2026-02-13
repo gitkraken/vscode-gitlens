@@ -1,0 +1,39 @@
+name: Merge Mate Review
+on:
+    issue_comment:
+        types: [edited]
+    workflow_dispatch:
+        inputs:
+            pr-number:
+                description: 'PR number to process'
+                required: true
+                type: number
+            action:
+                description: 'Action to perform'
+                required: true
+                type: choice
+                options:
+                    - apply
+                    - undo
+permissions:
+    contents: write
+    pull-requests: write
+    id-token: write
+concurrency:
+    group: merge-mate-review-${{ github.event.issue.number || inputs.pr-number }}
+    cancel-in-progress: false
+jobs:
+    review:
+        if: >
+            github.event_name == 'workflow_dispatch' ||
+            (
+                github.event.issue.pull_request &&
+                github.event.comment.user.login == 'github-actions[bot]' &&
+                contains(fromJSON('["eamodio", "d13", "axosoft-ramint", "sergeibbb", "justinrobots", "ianhattendorf"]'), github.event.sender.login)
+            )
+        runs-on: ubuntu-latest
+        steps:
+            - uses: gitkraken/merge-mate-action/review@v0.1
+              with:
+                  pr-number: ${{ inputs.pr-number }}
+                  action: ${{ inputs.action }}
