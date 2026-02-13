@@ -38,6 +38,7 @@ interface UriEx {
 export class GitUri extends (Uri as any as UriEx) {
 	readonly repoPath?: string;
 	readonly sha?: string;
+	readonly submoduleSha?: string;
 
 	constructor(uri?: Uri);
 	// eslint-disable-next-line @typescript-eslint/unified-signatures
@@ -77,6 +78,8 @@ export class GitUri extends (Uri as any as UriEx) {
 			if (!isUncommitted(ref) || isUncommittedStaged(ref)) {
 				this.sha = ref;
 			}
+
+			this.submoduleSha = metadata.submoduleSha;
 
 			return;
 		}

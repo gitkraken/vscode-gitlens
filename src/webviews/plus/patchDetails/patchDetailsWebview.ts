@@ -1301,6 +1301,8 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 					undefined,
 					undefined,
 					params.staged,
+					undefined,
+					params.mode,
 				),
 				revision,
 			];

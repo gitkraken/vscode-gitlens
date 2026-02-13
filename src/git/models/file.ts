@@ -15,6 +15,9 @@ export interface GitFile {
 	readonly conflictStatus?: GitFileConflictStatus;
 	readonly indexStatus?: GitFileIndexStatus;
 	readonly workingTreeStatus?: GitFileWorkingTreeStatus;
+
+	/** Indicates this is a submodule (gitlink) rather than a regular file */
+	readonly isSubmodule?: boolean;
 }
 
 export interface GitFileWithCommit extends GitFile {

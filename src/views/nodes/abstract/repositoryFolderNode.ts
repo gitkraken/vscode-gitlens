@@ -123,7 +123,7 @@ export abstract class RepositoryFolderNode<
 		const branch = this._cachedBranch;
 		if (branch == null) return item;
 
-		const { isWorktree } = this.repo;
+		const { isSubmodule, isWorktree } = this.repo;
 		const lastFetched = this._cachedLastFetched ?? 0;
 
 		let providerName;
@@ -140,7 +140,7 @@ export abstract class RepositoryFolderNode<
 		item.tooltip = new MarkdownString(
 			`${this.repo.name ?? this.uri.repoPath ?? ''}${
 				lastFetched ? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}` : ''
-			}${this.repo.name ? `\\\n$(folder) ${isWorktree ? '(worktree) ' : ''}${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
+			}${this.repo.name ? `\\\n$(folder) ${isSubmodule ? '(submodule) ' : isWorktree ? '(worktree) ' : ''}${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
 				branch.upstream != null
 					? ` is ${branch.getTrackingStatus({
 							empty: branch.upstream.missing

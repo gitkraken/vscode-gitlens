@@ -129,8 +129,8 @@ export class DiffWithCommand extends GlCommandBase {
 			}
 
 			const [lhsResult, rhsResult] = await Promise.allSettled([
-				svc.getBestRevisionUri(lhsUri.fsPath, lhsResolved.sha),
-				svc.getBestRevisionUri(rhsUri.fsPath, rhsResolved.sha),
+				svc.getBestRevisionUri(lhsUri, lhsResolved.sha),
+				svc.getBestRevisionUri(rhsUri, rhsResolved.sha),
 			]);
 
 			const lhs = getSettledValue(lhsResult);
