@@ -15,6 +15,9 @@ export interface GitFile {
 	readonly conflictStatus?: GitFileConflictStatus;
 	readonly indexStatus?: GitFileIndexStatus;
 	readonly workingTreeStatus?: GitFileWorkingTreeStatus;
+
+	/** For submodule (gitlink) entries, contains the submodule's commit SHAs */
+	readonly submodule?: { readonly oid: string; readonly previousOid?: string } | undefined;
 }
 
 export interface GitFileWithCommit extends GitFile {

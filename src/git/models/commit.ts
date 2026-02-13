@@ -200,6 +200,8 @@ export class GitCommit implements GitRevisionReference {
 				file.stats ?? current?.stats,
 				file.staged ?? current?.staged,
 				file.range ?? current?.range,
+				file.mode ?? current?.mode,
+				file.submodule ?? current?.submodule,
 			);
 		});
 	}

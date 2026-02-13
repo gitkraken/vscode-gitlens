@@ -62,7 +62,7 @@ import { createDisposable } from '../../../../system/unifiedDisposable.js';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
 import { GitDocumentState } from '../../../../trackers/trackedDocument.js';
 import type { Git } from '../git.js';
-import { gitConfigsLog, gitConfigsLogWithFiles } from '../git.js';
+import { gitConfigsLog, gitConfigsLogWithFiles, GitErrors } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 import { convertStashesToStdin } from './stash.js';
 
@@ -155,6 +155,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					f.originalPath,
 					undefined,
 					{ additions: f.additions, deletions: f.deletions, changes: 0 },
+					undefined,
+					undefined,
+					f.mode,
+					f.oid ? { oid: f.oid, previousOid: f.previousOid } : undefined,
 				),
 		);
 
@@ -629,8 +633,25 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			return log;
 		} catch (ex) {
-			Logger.error(ex, scope);
 			if (isCancellationError(ex)) throw ex;
+
+			// Check if this is a "bad object" error due to a submodule's internal SHA
+			const pathspec = options?.path?.pathspec;
+			if (rev && pathspec && ex instanceof Error && GitErrors.badObject.test(ex.message)) {
+				const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, 'HEAD', pathspec);
+				if (tree?.type === 'commit') {
+					// It's a submodule - retry without the rev and without rename tracking
+					return this.getLogCore(
+						repoPath,
+						undefined,
+						{ ...options, path: { ...options.path, pathspec: pathspec, renames: false } },
+						cancellation,
+						additionalArgs,
+					);
+				}
+			}
+
+			Logger.error(ex, scope);
 			debugger;
 
 			return undefined;
@@ -780,20 +801,32 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			renames: options?.renames ?? configuration.get('advanced.fileHistoryFollowsRenames'),
 		};
 
+		let type: 'file' | 'folder' | 'submodule' = options.isFolder ? 'folder' : 'file';
 		if (isFolderGlob(relativePath)) {
 			relativePath = stripFolderGlob(relativePath);
 			options.isFolder = true;
+			type = 'folder';
 		} else if (options.isFolder == null) {
 			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
 			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
-			options.isFolder = tree?.type === 'tree';
+			if (tree?.type === 'commit') {
+				// It's a submodule — line ranges and rename tracking don't apply, and the rev may reference
+				// the submodule's internal SHA which isn't valid in the parent repo
+				type = 'submodule';
+				options.range = undefined;
+				options.renames = false;
+				// rev = undefined;
+			} else {
+				type = tree?.type === 'tree' ? 'folder' : 'file';
+				options.isFolder = type === 'folder';
+			}
 		}
 
 		let cacheKey: string | undefined;
 		if (
-			// Don't cache folders
-			!options.isFolder &&
+			// Only cache files
+			type === 'file' &&
 			options.authors == null &&
 			options.cursor == null &&
 			options.filters == null &&
@@ -1413,6 +1446,8 @@ export function createCommitFileset(
 				{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: 0 },
 				undefined,
 				f.range ? { startLine: f.range.startLine, endLine: f.range.endLine } : undefined,
+				f.mode,
+				f.oid ? { oid: f.oid, previousOid: f.previousOid } : undefined,
 			),
 	);
 

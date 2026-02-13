@@ -1934,6 +1934,16 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
 
+		// if (file.submodule != null) {
+		// 	const submodulePath = this.container.git.getAbsoluteUri(file.path, commit.repoPath).fsPath;
+		// 	const submoduleRepo = this.container.git.getRepository(submodulePath);
+		// 	if (submoduleRepo != null) {
+		// 		const ref = createReference(file.submodule.oid, submoduleRepo.path, { refType: 'revision' });
+		// 		void showInspectView({ commit: ref });
+		// 	}
+		// 	return;
+		// }
+
 		this.suspendLineTracker();
 		void openFile(file, commit, { preserveFocus: true, preview: true });
 	}
@@ -2036,6 +2046,16 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	private async openFileRevision(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
+
+		// if (file.submodule != null) {
+		// 	const submodulePath = this.container.git.getAbsoluteUri(file.path, commit.repoPath).fsPath;
+		// 	const submoduleRepo = this.container.git.getRepository(submodulePath);
+		// 	if (submoduleRepo != null) {
+		// 		const ref = createReference(file.submodule.oid, submoduleRepo.path, { refType: 'revision' });
+		// 		void showInspectView({ commit: ref });
+		// 	}
+		// 	return;
+		// }
 
 		this.suspendLineTracker();
 		void openFileAtRevision(file, commit, { preserveFocus: true, preview: false });

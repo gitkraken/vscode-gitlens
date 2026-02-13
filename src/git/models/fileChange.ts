@@ -17,6 +17,11 @@ export interface GitFileChangeShape {
 
 	readonly originalPath?: string | undefined;
 	readonly staged?: boolean;
+
+	/** Git file mode (e.g., 100644=regular, 100755=executable, 120000=symlink, 160000=submodule) */
+	readonly mode?: string | undefined;
+	/** For submodule (gitlink) entries, contains the submodule's commit SHAs */
+	readonly submodule?: { readonly oid: string; readonly previousOid?: string } | undefined;
 }
 
 export class GitFileChange implements GitFileChangeShape {
@@ -30,7 +35,14 @@ export class GitFileChange implements GitFileChangeShape {
 		public readonly stats?: GitFileChangeStats | undefined,
 		public readonly staged?: boolean,
 		public readonly range?: DiffRange | undefined,
+		public readonly mode?: string | undefined,
+		public readonly submodule?: { readonly oid: string; readonly previousOid?: string } | undefined,
 	) {}
+
+	/** Indicates this is a submodule (gitlink) rather than a regular file */
+	get isSubmodule(): boolean {
+		return this.submodule != null;
+	}
 
 	get hasConflicts(): boolean {
 		switch (this.status) {

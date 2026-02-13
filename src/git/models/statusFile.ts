@@ -25,6 +25,7 @@ export class GitStatusFile implements GitFile {
 		y: string | undefined,
 		public readonly path: string,
 		public readonly originalPath?: string,
+		public readonly submodule?: { readonly oid: string; readonly previousOid?: string } | undefined,
 	) {
 		if (x != null && y != null) {
 			switch (x + y) {
@@ -134,6 +135,8 @@ export class GitStatusFile implements GitFile {
 	}
 
 	getPseudoFileChanges(): GitFileChange[] {
+		const mode = this.submodule != null ? '160000' : undefined;
+
 		if (this.conflicted) {
 			return [
 				new GitFileChange(
@@ -145,6 +148,9 @@ export class GitStatusFile implements GitFile {
 					'HEAD',
 					undefined,
 					false,
+					undefined,
+					mode,
+					this.submodule,
 				),
 			];
 		}
@@ -156,7 +162,6 @@ export class GitStatusFile implements GitFile {
 			files.push(
 				new GitFileChange(
 					this.container,
-
 					this.repoPath,
 					this.path,
 					this.status,
@@ -164,6 +169,9 @@ export class GitStatusFile implements GitFile {
 					staged ? uncommittedStaged : 'HEAD',
 					undefined,
 					false,
+					undefined,
+					mode,
+					this.submodule,
 				),
 			);
 		}
@@ -179,6 +187,9 @@ export class GitStatusFile implements GitFile {
 					'HEAD',
 					undefined,
 					true,
+					undefined,
+					mode,
+					this.submodule,
 				),
 			);
 		}

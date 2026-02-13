@@ -41,7 +41,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		args = { ...args };
 		if (args.uri == null) {
 			uri = getCommandUri(uri, editor);
-			if (uri == null) return;
+			if (uri == null && args.commit == null) return;
 		} else {
 			uri = args.uri;
 		}
@@ -70,6 +70,8 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 			gitUri = args.commit?.getGitUri();
 		} else {
+			if (uri == null) return;
+
 			gitUri = await GitUri.fromUri(uri);
 		}
 
@@ -81,7 +83,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		let isInRightSideOfDiffEditor = false;
 		let isDirty = false;
 
-		if (args.commit == null) {
+		if (args.commit == null && uri != null) {
 			// Figure out if we are in a diff editor and if so, which side
 			const [tab] = getVisibleTabs(uri);
 			if (tab != null) {

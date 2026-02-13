@@ -28,6 +28,7 @@ import type {
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
 	RepositoryVisibility,
+	RevisionUriOptions,
 	ScmRepository,
 } from '../../../../git/gitProvider.js';
 import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority.js';
@@ -49,7 +50,7 @@ import { getVisibilityCacheKey } from '../../../../git/utils/remote.utils.js';
 import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { setContext } from '../../../../system/-webview/context.js';
-import { relative } from '../../../../system/-webview/path.js';
+import { getBestPath, relative } from '../../../../system/-webview/path.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { debug, log } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
@@ -337,7 +338,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getBestRevisionUri(repoPath: string, path: string, rev: string | undefined): Promise<Uri | undefined> {
+	async getBestRevisionUri(
+		repoPath: string,
+		pathOrUri: string | Uri,
+		rev: string | undefined,
+	): Promise<Uri | undefined> {
+		const path = getBestPath(pathOrUri);
 		return rev ? this.createProviderUri(repoPath, rev, path) : this.createVirtualUri(repoPath, rev, path);
 	}
 
@@ -381,7 +387,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return relativePath;
 	}
 
-	getRevisionUri(repoPath: string, rev: string, path: string): Uri {
+	getRevisionUri(repoPath: string, rev: string, path: string, _options?: RevisionUriOptions): Uri {
 		const uri = this.createProviderUri(repoPath, rev, path);
 		return rev === deletedOrMissing ? uri.with({ query: '~' }) : uri;
 	}

@@ -192,13 +192,14 @@ export class GitProviderService implements Disposable {
 			const repo = group.find(r => !r.isWorktree) ?? group[0];
 			return {
 				repo: repo,
+				submoduleCount: group.filter(r => r.isSubmodule && r !== repo).length,
 				worktreeCount: group.filter(r => r.isWorktree && r !== repo).length,
 			};
 		});
 		if (!reposAndCounts.length) return;
 
 		void Promise.allSettled(
-			reposAndCounts.map(async ({ repo, worktreeCount }) => {
+			reposAndCounts.map(async ({ repo, worktreeCount, submoduleCount }) => {
 				const since = '1.year.ago';
 				const [remotesResult, contributorsStatsResult] = await Promise.allSettled([
 					repo.git.remotes.getRemotes(),
@@ -229,6 +230,7 @@ export class GitProviderService implements Disposable {
 					'repository.folder.scheme': repo.folder?.uri.scheme,
 					'repository.provider.id': repo.provider.id,
 					'repository.remoteProviders': join(remoteProviders, ','),
+					'repository.submodules.openedCount': submoduleCount,
 					'repository.worktrees.openedCount': worktreeCount,
 					'repository.contributors.commits.count': commits,
 					'repository.contributors.commits.avgPerContributor': avgPerContributor,
