@@ -43,7 +43,7 @@ const dotGitWatcherGlobCombined = `{${dotGitWatcherGlobFiles},config,gk/config,r
 
 const gitIgnoreGlob = '.gitignore';
 
-export type RepositoryType = 'repository' | 'worktree';
+export type RepositoryType = 'repository' | 'submodule' | 'worktree';
 
 export const enum RepositoryChange {
 	Unknown = -1,
@@ -205,7 +205,9 @@ export class Repository implements Disposable {
 		public readonly root: boolean,
 		closed: boolean = false,
 	) {
-		if (_gitDir?.commonUri != null) {
+		if (_gitDir?.parentUri != null) {
+			this._type = 'submodule';
+		} else if (_gitDir?.commonUri != null) {
 			this._type = 'worktree';
 		} else {
 			this._type = 'repository';
@@ -334,6 +336,11 @@ export class Repository implements Disposable {
 		return this._idHash;
 	}
 
+	/** Indicates whether this repository is a submodule */
+	get isSubmodule(): boolean {
+		return this._type === 'submodule';
+	}
+
 	/** Indicates whether this repository is a worktree */
 	get isWorktree(): boolean {
 		return this._type === 'worktree';
@@ -342,6 +349,11 @@ export class Repository implements Disposable {
 	private _name: string;
 	get name(): string {
 		return this._name;
+	}
+
+	/** The parent repository URI (for submodules) */
+	get parentUri(): Uri | undefined {
+		return this._gitDir?.parentUri;
 	}
 
 	get path(): string {

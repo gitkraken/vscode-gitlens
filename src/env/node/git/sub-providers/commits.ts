@@ -62,7 +62,7 @@ import { createDisposable } from '../../../../system/unifiedDisposable.js';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
 import { GitDocumentState } from '../../../../trackers/trackedDocument.js';
 import type { Git } from '../git.js';
-import { gitConfigsLog, gitConfigsLogWithFiles } from '../git.js';
+import { gitConfigsLog, gitConfigsLogWithFiles, GitErrors } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 import { convertStashesToStdin } from './stash.js';
 
@@ -155,6 +155,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					f.originalPath,
 					undefined,
 					{ additions: f.additions, deletions: f.deletions, changes: 0 },
+					undefined,
+					undefined,
+					f.mode,
 				),
 		);
 
@@ -629,8 +632,25 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			return log;
 		} catch (ex) {
-			Logger.error(ex, scope);
 			if (isCancellationError(ex)) throw ex;
+
+			// Check if this is a "bad object" error due to a submodule's internal SHA
+			const pathspec = options?.path?.pathspec;
+			if (rev && pathspec && ex instanceof Error && GitErrors.badObject.test(ex.message)) {
+				const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, 'HEAD', pathspec);
+				if (tree?.type === 'commit') {
+					// It's a submodule - retry without the rev and without rename tracking
+					return this.getLogCore(
+						repoPath,
+						undefined,
+						{ ...options, path: { ...options.path, pathspec: pathspec, renames: false } },
+						cancellation,
+						additionalArgs,
+					);
+				}
+			}
+
+			Logger.error(ex, scope);
 			debugger;
 
 			return undefined;
@@ -1413,6 +1433,7 @@ export function createCommitFileset(
 				{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: 0 },
 				undefined,
 				f.range ? { startLine: f.range.startLine, endLine: f.range.endLine } : undefined,
+				f.mode,
 			),
 	);
 

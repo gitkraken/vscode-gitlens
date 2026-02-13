@@ -53,16 +53,32 @@ export function groupRepositories(repositories: Iterable<Repository>): Map<Repos
 	const repos = new Map<string, Repository>(map(repositories, r => [r.id, r]));
 
 	// Build a map of repo uris to repos for quick lookup
-	// We use each repo's own uri as the key, so worktrees can find their main repo
+	// We use each repo's own uri as the key, so worktrees and submodules can find their main/parent repo
 	const reposByUri = new UriMap<Repository>();
 	for (const repo of repos.values()) {
 		reposByUri.set(repo.uri, repo);
 	}
 
-	// Group worktree repos under the common repo when the common repo is also in the list
-	const result = new Map<string, { repo: Repository; worktrees: Map<string, Repository> }>();
+	// Group worktree and submodule repos under the common/parent repo when that repo is also in the list
+	const result = new Map<string, { repo: Repository; children: Map<string, Repository> }>();
 	for (const repo of repos.values()) {
-		const { commonUri } = repo;
+		const { commonUri, parentUri } = repo;
+
+		// Check if this is a submodule with a parent in our list
+		if (repo.isSubmodule && parentUri != null) {
+			const parentRepo = reposByUri.get(parentUri);
+			if (parentRepo != null) {
+				// Add the submodule to its parent repo's children map
+				let r = result.get(parentRepo.id);
+				if (r == null) {
+					r = { repo: parentRepo, children: new Map() };
+					result.set(parentRepo.id, r);
+				}
+				r.children.set(repo.path, repo);
+				continue;
+			}
+			// Parent repo not in the list, treat this submodule as standalone (fall through)
+		}
 
 		// If no common URI, this is a main repo (or standalone)
 		if (commonUri == null) {
@@ -70,15 +86,15 @@ export function groupRepositories(repositories: Iterable<Repository>): Map<Repos
 				debugger;
 			}
 
-			result.set(repo.id, { repo: repo, worktrees: new Map() });
+			result.set(repo.id, { repo: repo, children: new Map() });
 			continue;
 		}
 
 		// Check if the common repo is this repo itself (it's a main repo)
 		if (areUrisEqual(repo.uri, commonUri)) {
-			// Only add if not already present (could have been added by a worktree)
+			// Only add if not already present (could have been added by a worktree or submodule)
 			if (!result.has(repo.id)) {
-				result.set(repo.id, { repo: repo, worktrees: new Map() });
+				result.set(repo.id, { repo: repo, children: new Map() });
 			}
 			continue;
 		}
@@ -91,20 +107,20 @@ export function groupRepositories(repositories: Iterable<Repository>): Map<Repos
 				debugger;
 			}
 
-			result.set(repo.id, { repo: repo, worktrees: new Map() });
+			result.set(repo.id, { repo: repo, children: new Map() });
 			continue;
 		}
 
-		// Add the worktree to its common repo's worktrees map
+		// Add the worktree to its common repo's children map
 		let r = result.get(commonRepo.id);
 		if (r == null) {
-			r = { repo: commonRepo, worktrees: new Map() };
+			r = { repo: commonRepo, children: new Map() };
 			result.set(commonRepo.id, r);
 		}
-		r.worktrees.set(repo.path, repo);
+		r.children.set(repo.path, repo);
 	}
 
-	return new Map(map(result, ([, r]) => [r.repo, r.worktrees]));
+	return new Map(map(result, ([, r]) => [r.repo, r.children]));
 }
 
 export function toRepositoryShape(repo: Repository): RepositoryShape {

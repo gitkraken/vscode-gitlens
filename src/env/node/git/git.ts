@@ -1252,13 +1252,14 @@ export class Git implements Disposable {
 	 * Combined rev-parse call that returns repository info in a single spawn.
 	 * This is an optimization to reduce process spawns during repository discovery.
 	 *
-	 * @returns Object with repoPath (toplevel), gitDir path, and optional commonGitDir path for worktrees.
+	 * @returns Object with repoPath (toplevel), gitDir path, optional commonGitDir path for worktrees,
+	 *          and optional superprojectPath for submodules.
 	 *          Returns `[false]` for unsafe repositories, or `undefined`/empty array for non-repos.
 	 */
 	async rev_parse__repository_info(
 		cwd: string,
 	): Promise<
-		| { repoPath: string; gitDir: string; commonGitDir: string | undefined }
+		| { repoPath: string; gitDir: string; commonGitDir: string | undefined; superprojectPath: string | undefined }
 		| [safe: true, repoPath: string]
 		| [safe: false]
 		| []
@@ -1290,13 +1291,15 @@ export class Git implements Disposable {
 				'--show-toplevel',
 				'--git-dir',
 				'--git-common-dir',
+				'--show-superproject-working-tree',
 			);
 			if (!result.stdout) return emptyArray as [];
 
-			// Output is 3 lines: show-toplevel, git-dir, git-common-dir
+			// Output is 3-4 lines: show-toplevel, git-dir, git-common-dir, [show-superproject-working-tree]
+			// The 4th line is only present for submodules
 			// Keep trailing spaces which are part of the directory name
 			const lines = result.stdout.split('\n').map(r => r.trimStart());
-			const [repoPath, dotGitPath, commonDotGitPath] = lines;
+			const [repoPath, dotGitPath, commonDotGitPath, superprojectPath] = lines;
 
 			if (!repoPath) return emptyArray as [];
 
@@ -1323,7 +1326,17 @@ export class Git implements Disposable {
 				}
 			}
 
-			return { repoPath: normalizedRepoPath, gitDir: gitDir, commonGitDir: commonGitDir };
+			// Normalize superproject path if present (4th line only exists for submodules)
+			const normalizedSuperprojectPath = superprojectPath
+				? normalizePath(superprojectPath.replace(/[\r|\n]+$/, ''))
+				: undefined;
+
+			return {
+				repoPath: normalizedRepoPath,
+				gitDir: gitDir,
+				commonGitDir: commonGitDir,
+				superprojectPath: normalizedSuperprojectPath,
+			};
 		} catch (ex) {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 

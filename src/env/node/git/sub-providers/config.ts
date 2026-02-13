@@ -229,7 +229,8 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	@gate()
 	@debug<NonNullable<ConfigGitSubProvider>['getGitDir']>({
-		exit: r => `returned ${r.uri.toString(true)}, commonUri=${r.commonUri?.toString(true)}`,
+		exit: r =>
+			`returned ${r.uri.toString(true)}, commonUri=${r.commonUri?.toString(true)}, parentUri=${r.parentUri?.toString(true)}`,
 	})
 	async getGitDir(repoPath: string): Promise<GitDir> {
 		const cached = this.cache.gitDir.get(repoPath);
@@ -242,6 +243,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			gitDir = {
 				uri: Uri.file(repoInfo.gitDir),
 				commonUri: repoInfo.commonGitDir ? Uri.file(repoInfo.commonGitDir) : undefined,
+				parentUri: repoInfo.superprojectPath ? Uri.file(repoInfo.superprojectPath) : undefined,
 			};
 		} else {
 			gitDir = {
