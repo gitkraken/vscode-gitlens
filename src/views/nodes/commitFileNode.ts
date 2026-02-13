@@ -115,7 +115,7 @@ export abstract class CommitFileNodeBase<
 	}
 
 	protected get contextValue(): string {
-		const submodule = this.file.isSubmodule ? '+submodule' : '';
+		const submodule = this.file.submodule != null ? '+submodule' : '';
 		if (!this.commit.isUncommitted) {
 			return `${ContextValues.File}+committed${this.options?.branch?.current ? '+current' : ''}${
 				this.options?.branch?.current && this.options.branch.sha === this.commit.ref ? '+HEAD' : ''

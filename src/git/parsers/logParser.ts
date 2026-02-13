@@ -246,6 +246,10 @@ export interface LogParsedFile {
 	originalRange?: LogParsedRange;
 	/** Git file mode (e.g., 100644=regular, 100755=executable, 120000=symlink, 160000=submodule) */
 	mode?: string;
+	/** For submodule entries (mode 160000), the commit SHA the submodule points to */
+	oid?: string;
+	/** For submodule entries (mode 160000), the previous commit SHA */
+	previousOid?: string;
 }
 type LogParsedFileWithStats = Omit<LogParsedFile, 'additions' | 'deletions'> & {
 	additions: number;
@@ -383,9 +387,12 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 		const files: LogParsedFileWithStats[] = [];
 		if (!content?.length) return files;
 
-		// Map to store info from --raw lines: path -> { mode, status, originalPath }
+		// Map to store info from --raw lines: path -> { mode, status, originalPath, oid?, previousOid? }
 		// Raw format: :<old_mode> <new_mode> <old_sha> <new_sha> <status>[score]\t<path>[\t<new_path>]
-		const rawInfoMap = new Map<string, { mode: string; status: string; originalPath?: string }>();
+		const infoMap = new Map<
+			string,
+			{ mode: string; status: string; originalPath?: string; oid?: string; previousOid?: string }
+		>();
 
 		let startIndex: number;
 		let endIndex: number;
@@ -410,15 +417,25 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 				if (endIndex === -1) continue;
 				const newMode = line.substring(startIndex, endIndex);
 
-				// Skip old_sha (find space after new_mode)
-				startIndex = line.indexOf(' ', endIndex + 1);
-				if (startIndex === -1) continue;
+				// Parse old_sha and new_sha positions
+				const oldShaStart = endIndex + 1;
+				const oldShaEnd = line.indexOf(' ', oldShaStart);
+				if (oldShaEnd === -1) continue;
 
-				// Skip new_sha (find space after old_sha)
-				startIndex = line.indexOf(' ', startIndex + 1);
-				if (startIndex === -1) continue;
+				const newShaStart = oldShaEnd + 1;
+				const newShaEnd = line.indexOf(' ', newShaStart);
+				if (newShaEnd === -1) continue;
+
+				// For submodules (mode 160000), capture the commit SHAs
+				let oid: string | undefined;
+				let previousOid: string | undefined;
+				if (newMode === '160000') {
+					previousOid = line.substring(oldShaStart, oldShaEnd);
+					oid = line.substring(newShaStart, newShaEnd);
+				}
 
 				// Status is first char after the last space
+				startIndex = newShaEnd;
 				const status = line.charAt(startIndex + 1);
 
 				// Parse path(s) using indexOf instead of split
@@ -436,7 +453,13 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 				}
 
 				// Trim to match parseCopyOrRename which trims renamed paths
-				rawInfoMap.set(path.trim(), { mode: newMode, status: status, originalPath: originalPath?.trim() });
+				infoMap.set(path.trim(), {
+					mode: newMode,
+					status: status,
+					originalPath: originalPath?.trim(),
+					oid: oid,
+					previousOid: previousOid,
+				});
 			} else {
 				// --numstat format: <additions>\t<deletions>\t<path>
 				// With renames: <additions>\t<deletions>\t{prefix/old => new/suffix}
@@ -464,14 +487,14 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 				({ path, originalPath } = parseCopyOrRename(path, false));
 
 				// Look up --raw info for this path (keyed by trimmed new/destination path)
-				const rawInfo = rawInfoMap.get(path.trim());
+				const info = infoMap.get(path.trim());
 
 				// Use status from --raw if available; provides accurate status (A/D/M/R/C/T)
-				const status = rawInfo?.status ?? (originalPath ? 'R' : 'M');
+				const status = info?.status ?? (originalPath ? 'R' : 'M');
 
 				// Use originalPath from --raw if available (cleaner than numstat format)
-				if (rawInfo?.originalPath) {
-					originalPath = rawInfo.originalPath;
+				if (info?.originalPath) {
+					originalPath = info.originalPath;
 				}
 
 				const file: LogParsedFileWithStats = {
@@ -481,7 +504,9 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 					additions: additions === '-' ? 0 : parseInt(additions, 10) || 0,
 					deletions: deletions === '-' ? 0 : parseInt(deletions, 10) || 0,
 					// Store mode for consumers to derive file type (160000=submodule, 100755=executable, etc.)
-					mode: rawInfo?.mode,
+					mode: info?.mode,
+					oid: info?.oid,
+					previousOid: info?.previousOid,
 				};
 
 				files.push(file);
