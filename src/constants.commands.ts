@@ -118,6 +118,17 @@ type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.worktree.create'
 	| 'gitlens.walkthrough.openDevExPlatform';
 
+type InternalWelcomeCommands =
+	| 'gitlens.welcome.openCommunityVsPro'
+	| 'gitlens.welcome.openHelpCenter'
+	| 'gitlens.welcome.plus.login'
+	| 'gitlens.welcome.plus.reactivate'
+	| 'gitlens.welcome.plus.signUp'
+	| 'gitlens.welcome.plus.upgrade'
+	| 'gitlens.welcome.showComposer'
+	| 'gitlens.welcome.showGraph'
+	| 'gitlens.welcome.showLaunchpad';
+
 type InternalGlCommands =
 	| `gitlens.action.${string}`
 	| 'gitlens.ai.explainCommit:editor'
@@ -162,7 +173,8 @@ type InternalGlCommands =
 	| InternalScmGroupedViewCommands
 	| InternalTimelineWebviewViewCommands
 	| InternalViewCommands
-	| InternalWalkthroughCommands;
+	| InternalWalkthroughCommands
+	| InternalWelcomeCommands;
 
 export type GlCommands = ContributedCommands | InternalGlCommands; // | GlCommandsDeprecated;
 /** Non-webview commands */

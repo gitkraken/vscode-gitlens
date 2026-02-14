@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
+			}
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?7017c56e8de71afd2cb7f621608a442a') format('woff2');
+			}
+		</style>
+	</head>
+
+	<body
+		class="preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
+		<gl-welcome-app
+			name="WelcomeView"
+			placement="#{placement}"
+			bootstrap="#{state}"
+			webroot="#{webroot}"
+		></gl-welcome-app>
+	</body>
+</html>
