@@ -39,7 +39,62 @@
 			"presentation": {
 				"group": "watchers"
 			},
-			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
+			"problemMatcher": [
+				{
+					"owner": "typescript",
+					"source": "ts",
+					"applyTo": "closedDocuments",
+					"fileLocation": ["relative", "${cwd}"],
+					"severity": "error",
+					"pattern": [
+						{
+							"kind": "location",
+							"regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
+							"severity": 1,
+							"file": 2,
+							"line": 3,
+							"column": 4
+						},
+						{
+							"regexp": "\\s*TS(\\d+):\\s*(.*)$",
+							"code": 1,
+							"message": 2
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "\\[build\\] Compilation starting",
+						"endsPattern": "\\[build\\] Compiled (successfully|with problems)"
+					}
+				},
+				{
+					"owner": "eslint",
+					"source": "eslint",
+					"applyTo": "closedDocuments",
+					"fileLocation": ["relative", "${cwd}"],
+					"severity": "warning",
+					"pattern": [
+						{
+							"kind": "location",
+							"regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
+							"severity": 1,
+							"file": 2,
+							"line": 3,
+							"column": 4
+						},
+						{
+							"regexp": "\\s*(@typescript-eslint\\/.+):\\s*(.*)$",
+							"code": 1,
+							"message": 2
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "\\[build\\] Compilation starting",
+						"endsPattern": "\\[build\\] Compiled (successfully|with problems)"
+					}
+				}
+			]
 		},
 		{
 			"type": "npm",
@@ -51,7 +106,35 @@
 			"presentation": {
 				"group": "watchers"
 			},
-			"problemMatcher": ["$ts-checker-webpack-watch"]
+			"problemMatcher": [
+				{
+					"owner": "typescript",
+					"source": "ts",
+					"applyTo": "closedDocuments",
+					"fileLocation": ["relative", "${cwd}"],
+					"severity": "error",
+					"pattern": [
+						{
+							"kind": "location",
+							"regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
+							"severity": 1,
+							"file": 2,
+							"line": 3,
+							"column": 4
+						},
+						{
+							"regexp": "\\s*TS(\\d+):\\s*(.*)$",
+							"code": 1,
+							"message": 2
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "\\[build\\] Compilation starting",
+						"endsPattern": "\\[build\\] Compiled (successfully|with problems)"
+					}
+				}
+			]
 		},
 		{
 			"label": "Install dependencies",
