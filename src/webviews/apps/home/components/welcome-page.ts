@@ -51,7 +51,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				<li><strong>Launchpad & Worktrees:</strong> manage PRs and branches in one hub</li>
 				<li><strong>GitKraken AI:</strong> writes commits, PRs & changelogs for you.</li>
 			</ul>
-			<div>
+			<div class="card-part--centered">
 				<gl-button class="start-trial-button" href="command:gitlens.welcome.plus.signUp"
 					>Get Started with GitLens Pro</gl-button
 				>
@@ -76,7 +76,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				Once your trial ends, you'll return to <strong>GitLens Community</strong> — where you can still leverage
 				features like in-editor blame annotations, hovers, CodeLens, and more.
 			</p>
-			<div>
+			<div class="card-part--centered">
 				<gl-button class="start-trial-button" href="command:gitlens.welcome.plus.upgrade"
 					>Upgrade to GitLens Pro</gl-button
 				>
@@ -100,7 +100,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				<a href="command:gitlens.welcome.openCommunityVsPro">difference between GitLens Community vs. Pro</a>.
 			</p>
 			<p><strong>Unlock more powerful tools with GitLens Pro</strong></p>
-			<div>
+			<div class="card-part--centered">
 				<gl-button class="start-trial-button" href="command:gitlens.welcome.plus.upgrade"
 					>Upgrade to GitLens Pro</gl-button
 				>
@@ -124,7 +124,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				features like in-editor blame annotations, hovers, CodeLens, and more—completely free.
 			</p>
 			<p><strong>Unlock more powerful tools — Try GitLens Pro again</strong> free for another 14 days.</p>
-			<div>
+			<div class="card-part--centered">
 				<gl-button class="start-trial-button" href="command:gitlens.welcome.plus.reactivate"
 					>Reactivate GitLens Pro Trial</gl-button
 				>
@@ -146,7 +146,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				As a GitLens Pro user, you have access to powerful tools that accelerate PR reviews, provide deeper code
 				history visualizations, and streamline collaboration across your team.
 			</p>
-			<div>
+			<div class="card-part--centered">
 				<gl-button href="#continue-walkthrough">Continue the Walkthrough</gl-button>
 			</div>
 			<p class="card-part--tip">
@@ -171,7 +171,9 @@ const walkthroughSteps: WalkthroughStep[] = [
 				Select multiple commits to batch operations like cherry-picking or generate AI changelogs with a single
 				command.
 			</p>
-			<div><gl-button href="command:gitlens.welcome.showGraph">Discover your Commit Graph</gl-button></div>
+			<div class="card-part--centered">
+				<gl-button href="command:gitlens.welcome.showGraph">Discover your Commit Graph</gl-button>
+			</div>
 		`,
 	},
 
@@ -200,7 +202,9 @@ const walkthroughSteps: WalkthroughStep[] = [
 				<a href="command:gitlens.ai.switchProvider">configure your preferred AI provider</a>
 				and model to fit your needs.
 			</p>
-			<div><gl-button href="command:gitlens.welcome.showComposer">Compose Commits with AI</gl-button></div>
+			<div class="card-part--centered">
+				<gl-button href="command:gitlens.welcome.showComposer">Compose Commits with AI</gl-button>
+			</div>
 		`,
 	},
 
@@ -217,7 +221,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				<li>Jump to commits in the Graph</li>
 				<li>Compare with previous versions</li>
 			</ul>
-			<div>
+			<div class="card-part--centered">
 				<gl-button href="command:gitlens.showSettingsPage!current-line">Configure Inline Blame</gl-button>
 			</div>
 		`,
@@ -237,7 +241,9 @@ const walkthroughSteps: WalkthroughStep[] = [
 				</li>
 			</ul>
 			<p>Stay in flow, ship faster, and never lose track of what matters.</p>
-			<div><gl-button href="command:gitlens.welcome.showLaunchpad">Open Launchpad</gl-button></div>
+			<div class="card-part--centered">
+				<gl-button href="command:gitlens.welcome.showLaunchpad">Open Launchpad</gl-button>
+			</div>
 		`,
 	},
 ];

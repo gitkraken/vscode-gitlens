@@ -161,14 +161,14 @@ const section = css`
 		color: var(--trial-button-text-color);
 	}
 	.section gl-button {
-		width: 100%;
+		--button-width: 100%;
 	}
 
 	@media (min-width: 400px) {
 		.section gl-button {
-			width: initial;
+			--button-width: initial;
 		}
-		.section gl-button.start-trial-button {
+		.section gl-button {
 			--button-padding: 0.4em 4em;
 		}
 	}
@@ -185,7 +185,8 @@ const header = css`
 	}
 	.header gitlens-logo-circle {
 		height: calc(46px * 0.6);
-		transform: scale(0.6) translate(calc(46px * 0.4), calc(-46px * 0.2));
+		width: 0;
+		transform: scale(0.6) translate(calc(-46px), calc(-46px * 0.2));
 		margin-right: 0.4em;
 		vertical-align: top;
 	}
@@ -200,7 +201,7 @@ const header = css`
 	@media (max-width: 640px) {
 		.header gitlens-logo-circle {
 			height: calc(46px * 0.5);
-			transform: scale(0.5) translate(calc(46px * 0.5), calc(-46px * 0.25 - 2px));
+			transform: scale(0.5) translate(calc(-46px), calc(-46px * 0.25 - 2px));
 			margin-right: 0.3em;
 		}
 	}
@@ -208,7 +209,7 @@ const header = css`
 	@media (max-width: 300px) {
 		.header gitlens-logo-circle {
 			height: calc(46px * 0.4);
-			transform: scale(0.4) translate(calc(46px * 0.6), calc(-46px * 0.3 - 4px));
+			transform: scale(0.4) translate(calc(-46px), calc(-46px * 0.3 - 4px));
 			margin-right: 0.2em;
 		}
 	}
@@ -221,22 +222,34 @@ const cards = css`
 		gap: 0.7em;
 		border-radius: 0.63em;
 		background-color: var(--card-background);
-		padding: 1em 2em;
+		padding: 1.5em;
 		text-align: initial;
 	}
 
+	.card-part--centered {
+		margin: auto;
+		align-items: center;
+		text-align: center;
+	}
+
 	gl-walkthrough-step.card::part(header) {
-		padding: 1em 2em;
-		margin: -1em -2em;
+		padding: 1.5em;
+		margin: -1.5em;
+	}
+
+	@media (max-width: 400px) {
+		.card-part--centered {
+			margin: 0;
+		}
 	}
 
 	@media (max-width: 300px) {
 		.card {
-			padding: 0.5em 0.5em;
+			padding: 1em;
 		}
 		gl-walkthrough-step.card::part(header) {
-			padding: 0.5em 0.5em;
-			margin: -0.5em -0.5em;
+			padding: 1em;
+			margin: -1em;
 		}
 	}
 
@@ -256,8 +269,8 @@ const cards = css`
 
 	.card ul {
 		text-align: initial;
-		padding-inline-start: 2em;
-		margin: auto;
+		padding-inline-start: 1em;
+		margin: 0.5em 0 0;
 		font-size: var(--card-font-size);
 	}
 
@@ -274,7 +287,7 @@ const cards = css`
 	}
 
 	gl-walkthrough-step.card {
-		text-align: center;
+		text-align: left;
 	}
 `;
 
