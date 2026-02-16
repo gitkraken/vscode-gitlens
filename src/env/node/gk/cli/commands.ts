@@ -44,16 +44,21 @@ export class CliCommandHandlers implements Disposable {
 		private readonly server: CliIpcServer,
 	) {
 		for (const { command, handler } of getCommands()) {
-			this.server.registerHandler(command, rq => this.wrapHandler(rq, handler));
+			this.server.registerHandler(command, rq => this.wrapHandler(command, rq, handler));
 		}
 	}
 
 	dispose(): void {}
 
-	private wrapHandler(request: CliCommandRequest | undefined, handler: CliCommandHandler) {
+	private wrapHandler(command: CliCommand, request: CliCommandRequest | undefined, handler: CliCommandHandler) {
 		let repo: Repository | undefined;
 		if (request?.cwd) {
 			repo = this.container.git.getRepository(request.cwd);
+		}
+
+		// Track MCP IPC request usage (only for MCP-specific commands)
+		if (command.startsWith('mcp/')) {
+			void this.container.usage.track('action:gitlens.mcp.ipcRequest:happened');
 		}
 
 		return handler.call(this, request, repo);

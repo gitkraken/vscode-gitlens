@@ -120,8 +120,12 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		const config = await this.getMcpConfigurationFromCLI();
 		if (config == null) return [];
 
-		// Mark that we've provided a definition (either with or without GK_GL_PATH)
-		this._hasProvidedDefinition = true;
+		if (!this._hasProvidedDefinition) {
+			// Mark that we've provided a definition (either with or without GK_GL_PATH)
+			this._hasProvidedDefinition = true;
+			// Track usage for walkthrough completion
+			void this.container.usage.track('action:gitlens.mcp.bundledMcpDefinitionProvided:happened');
+		}
 
 		const serverEnv: McpStdioServerDefinition['env'] = {};
 		if (discoveryFilePath != null) {

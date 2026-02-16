@@ -51,6 +51,9 @@ export async function executeChatAction(
 	}
 
 	if (promptToSend != null) {
+		// Track MCP chat interaction usage
+		void container.usage.track('action:gitlens.mcp.chatInteraction:happened');
+
 		return executeCommand('gitlens.sendToChat', {
 			query: promptToSend,
 			execute: true,
