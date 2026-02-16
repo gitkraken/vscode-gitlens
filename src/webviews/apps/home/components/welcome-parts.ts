@@ -243,7 +243,7 @@ export class GlWalkthroughStep extends LitElement {
 			.header {
 				display: flex;
 				align-items: center;
-				justify-content: center;
+				justify-content: flex-start;
 				gap: 0.6em;
 				cursor: pointer;
 				user-select: none;
@@ -272,6 +272,10 @@ export class GlWalkthroughStep extends LitElement {
 
 			.status-icon {
 				flex: none;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			:host([completed]) .status-icon {
 				color: var(--vscode-textLink-foreground);
 			}
 
