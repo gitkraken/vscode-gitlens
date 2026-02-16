@@ -218,13 +218,18 @@ export class GlFeatureCarousel extends LitElement {
 	}
 }
 
+export type WalkthroughStepConditionState = {
+	plusState: SubscriptionState | undefined;
+	mcpNeedsInstall: boolean;
+};
+
 export type WalkthroughStep = {
 	id: string;
 	/** The key used to track completion in the walkthrough progress state */
 	walkthroughKey?: WalkthroughContextKeys;
 	title: string;
 	body: TemplateResult;
-	condition?: (plusState?: SubscriptionState) => boolean;
+	condition?: (state: WalkthroughStepConditionState) => boolean;
 };
 
 @customElement('gl-walkthrough-step')
