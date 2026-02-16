@@ -3,7 +3,7 @@ export type WalkthroughContextKeys =
 	| 'visualizeCodeHistory'
 	| 'gitBlame'
 	| 'prReviews'
-	| 'mcpSetup'
+	| 'mcpFeatures'
 	| 'aiFeatures';
 
 export const walkthroughProgressSteps: Record<WalkthroughContextKeys, string> = {
@@ -12,5 +12,5 @@ export const walkthroughProgressSteps: Record<WalkthroughContextKeys, string> = 
 	aiFeatures: 'AI Features',
 	gitBlame: 'Inline Blame',
 	prReviews: 'Launchpad',
-	mcpSetup: 'MCP Setup',
+	mcpFeatures: 'MCP Features',
 };

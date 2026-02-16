@@ -1599,7 +1599,11 @@ export type TrackedUsage = {
 /**
  * Actions that happen without a command
  */
-export type TrackedGlActions = `gitlens.ai.generateCommits`;
+export type TrackedGlActions =
+	| 'gitlens.ai.generateCommits'
+	| 'gitlens.mcp.ipcRequest'
+	| 'gitlens.mcp.chatInteraction'
+	| 'gitlens.mcp.bundledMcpDefinitionProvided';
 
 export type TrackedUsageFeatures =
 	| `${WebviewPanelTypes}Webview`

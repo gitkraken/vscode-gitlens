@@ -101,9 +101,15 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		'mcpSetup',
+		'mcpFeatures',
 		{
-			usage: ['command:gitlens.ai.mcp.install:executed', 'command:gitlens.ai.mcp.reinstall:executed'],
+			usage: [
+				'command:gitlens.ai.mcp.install:executed',
+				'command:gitlens.ai.mcp.reinstall:executed',
+				'action:gitlens.mcp.ipcRequest:happened',
+				'action:gitlens.mcp.chatInteraction:happened',
+				'action:gitlens.mcp.bundledMcpDefinitionProvided:happened',
+			],
 		},
 	],
 ]);
