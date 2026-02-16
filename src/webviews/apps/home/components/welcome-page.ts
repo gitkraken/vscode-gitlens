@@ -249,7 +249,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'mcp-bundled',
-		walkthroughKey: 'mcpSetup',
+		walkthroughKey: 'mcpFeatures',
 		title: 'GitKraken MCP is Bundled with GitLens',
 		body: html`
 			<p>
@@ -263,7 +263,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 
 	{
 		id: 'mcp-install',
-		walkthroughKey: 'mcpSetup',
+		walkthroughKey: 'mcpFeatures',
 		title: 'Install GitKraken MCP for GitLens',
 		body: html`
 			<p>
