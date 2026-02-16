@@ -4,7 +4,9 @@ import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
+import { mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
 import { registerCommand } from '../../system/-webview/command.js';
+import { getContext } from '../../system/-webview/context.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
 import type { State, WalkthroughProgress } from './protocol.js';
@@ -88,6 +90,18 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		};
 	}
 
+	private getMcpCanAutoRegister(): boolean {
+		return mcpExtensionRegistrationAllowed(this.container);
+	}
+
+	private isCliInstalled(): boolean {
+		return getContext('gitlens:gk:cli:installed', false);
+	}
+
+	private getMcpNeedsInstall(): boolean {
+		return !this.getMcpCanAutoRegister() || !this.isCliInstalled();
+	}
+
 	private async getState(): Promise<State> {
 		const subscription = await this.container.subscription.getSubscription();
 		const plusState = subscription?.state ?? SubscriptionState.Community;
@@ -98,6 +112,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 			hostAppName: env.appName,
 			plusState: plusState,
 			walkthroughProgress: this.getWalkthroughProgress(),
+			mcpNeedsInstall: this.getMcpNeedsInstall(),
 		};
 	}
 }

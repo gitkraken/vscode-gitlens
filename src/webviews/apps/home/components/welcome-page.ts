@@ -2,7 +2,9 @@ import { consume } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { GlCommands } from '../../../../constants.commands.js';
+import { urls } from '../../../../constants.js';
 import { SubscriptionState } from '../../../../constants.subscription.js';
+import { createCommandLink } from '../../../../system/commands.js';
 import { ExecuteCommand } from '../../../protocol.js';
 import type { State } from '../../../welcome/protocol.js';
 import { scrollableBase } from '../../shared/components/styles/lit/base.css.js';
@@ -58,7 +60,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 			</div>
 			<p>or <a href="command:gitlens.welcome.plus.login">sign in</a></p>
 		`,
-		condition: plusState => !plusState || plusState < SubscriptionState.Trial,
+		condition: state => !state.plusState || state.plusState < SubscriptionState.Trial,
 	},
 
 	{
@@ -82,7 +84,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				>
 			</div>
 		`,
-		condition: plusState => plusState === SubscriptionState.Trial,
+		condition: state => state.plusState === SubscriptionState.Trial,
 	},
 
 	{
@@ -110,7 +112,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.
 			</p>
 		`,
-		condition: plusState => plusState === SubscriptionState.TrialExpired,
+		condition: state => state.plusState === SubscriptionState.TrialExpired,
 	},
 
 	{
@@ -134,7 +136,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.
 			</p>
 		`,
-		condition: plusState => plusState === SubscriptionState.TrialReactivationEligible,
+		condition: state => state.plusState === SubscriptionState.TrialReactivationEligible,
 	},
 
 	{
@@ -155,7 +157,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 			</p>
 			<a href="command:gitlens.welcome.openHelpCenter">Learn more in the Help Center</a>
 		`,
-		condition: plusState => plusState === SubscriptionState.Paid,
+		condition: state => state.plusState === SubscriptionState.Paid,
 	},
 
 	{
@@ -245,6 +247,38 @@ const walkthroughSteps: WalkthroughStep[] = [
 				<gl-button href="command:gitlens.welcome.showLaunchpad">Open Launchpad</gl-button>
 			</div>
 		`,
+	},
+
+	{
+		id: 'mcp-bundled',
+		walkthroughKey: 'mcpSetup',
+		title: 'GitKraken MCP',
+		body: html`
+			<p>
+				GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and
+				perform actions.
+			</p>
+			<p><a href="${urls.helpCenterMCP}">Learn more in the Help Center</a></p>
+		`,
+		condition: state => state.mcpNeedsInstall === false,
+	},
+
+	{
+		id: 'mcp-install',
+		walkthroughKey: 'mcpSetup',
+		title: 'Install GitKraken MCP for GitLens',
+		body: html`
+			<p>
+				Leverage Git and your integrations (issues, PRs, etc) to provide context and perform actions in AI chat.
+			</p>
+			<div class="card-part--centered">
+				<gl-button href="${createCommandLink('gitlens.ai.mcp.install', { source: 'welcome' })}"
+					>Install GitKraken MCP</gl-button
+				>
+			</div>
+			<p><a href="${urls.helpCenterMCP}">Learn more</a></p>
+		`,
+		condition: state => state.mcpNeedsInstall === true,
 	},
 ];
 
@@ -368,7 +402,7 @@ export class GlWelcomePage extends LitElement {
 				></gl-walkthrough-progress>
 				<gl-walkthrough class="section">
 					${walkthroughSteps
-						.filter(step => !step.condition || step.condition(this._state.plusState))
+						.filter(step => !step.condition || step.condition(this._state))
 						.map(
 							step => html`
 								<gl-walkthrough-step
