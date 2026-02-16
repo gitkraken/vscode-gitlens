@@ -31,6 +31,7 @@ export class GlButton extends LitElement {
 				--button-border: var(--vscode-button-border, transparent);
 
 				/* Layout variables */
+				--button-width: max-content;
 				--button-padding: 0.4rem;
 				--button-gap: 0.6rem;
 				--button-compact-padding: 0.4rem;
@@ -39,6 +40,7 @@ export class GlButton extends LitElement {
 				--button-line-height: 1.35;
 
 				display: inline-block;
+				width: var(--button-width);
 				border: none;
 				font-family: inherit;
 				font-size: inherit;
@@ -69,7 +71,7 @@ export class GlButton extends LitElement {
 				color: inherit;
 				text-decoration: none;
 
-				width: max-content;
+				width: var(--button-width);
 				max-width: 100%;
 				height: 100%;
 				cursor: pointer;
