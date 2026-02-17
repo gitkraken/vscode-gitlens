@@ -13,17 +13,24 @@ export class LoggerContext {
 			{
 				name: appName,
 				createChannel: function (name: string) {
+					const appendLine = Logger.isDebugging
+						? function (_message: string, ..._args: any[]) {} // if debugging, don't log to the console, because the logger already will
+						: function (message: string, ...args: any[]) {
+								console.log(`[${padOrTruncateEnd(name, 13)}] ${message}`, ...args);
+							};
+
 					return {
 						name: name,
-						appendLine: Logger.isDebugging
-							? function () {} // if debugging, don't log to the console, because the logger already will
-							: function (value: string) {
-									console.log(`[${padOrTruncateEnd(name, 13)}] ${value}`);
-								},
+						logLevel: DEBUG ? 2 : 0,
+
+						trace: appendLine,
+						debug: appendLine,
+						info: appendLine,
+						warn: appendLine,
+						error: appendLine,
 					};
 				},
 			},
-			DEBUG ? 'debug' : 'off',
 			DEBUG,
 		);
 	}

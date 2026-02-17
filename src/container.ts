@@ -18,7 +18,6 @@ import { CacheProvider } from './cache.js';
 import { GitCodeLensController } from './codelens/codeLensController.js';
 import type { ToggleFileAnnotationCommandArgs } from './commands/toggleFileAnnotations.js';
 import type { DateSource, DateStyle, FileAnnotationType, Mode } from './config.js';
-import { fromOutputLevel } from './config.js';
 import type { GlCommands } from './constants.commands.js';
 import { extensionPrefix } from './constants.js';
 import { MarkdownContentProvider } from './documents/markdown.js';
@@ -364,10 +363,6 @@ export class Container {
 		if (!configuration.changedAny(e, extensionPrefix)) return;
 
 		this._mode = undefined;
-
-		if (configuration.changed(e, 'outputLevel')) {
-			Logger.logLevel = fromOutputLevel(configuration.get('outputLevel'));
-		}
 
 		if (configuration.changed(e, 'defaultGravatarsStyle')) {
 			setDefaultGravatarsStyle(configuration.get('defaultGravatarsStyle'));

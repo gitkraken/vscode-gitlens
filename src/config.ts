@@ -1,7 +1,6 @@
 import type { AIProviderAndModel, SupportedAIModels } from './constants.ai.js';
 import type { GroupableTreeViewTypes } from './constants.views.js';
 import type { DateTimeFormat } from './system/date.js';
-import type { LogLevel } from './system/logger.constants.js';
 
 export interface Config {
 	readonly advanced: AdvancedConfig;
@@ -37,7 +36,6 @@ export interface Config {
 	readonly menus: boolean | MenuConfig;
 	readonly mode: ModeConfig;
 	readonly modes: ModesConfig | null;
-	readonly outputLevel: OutputLevel;
 	readonly partners: PartnersConfig | null;
 	readonly plusFeatures: PlusFeaturesConfig;
 	readonly proxy: ProxyConfig | null;
@@ -127,12 +125,6 @@ export type GraphMinimapMarkersAdditionalTypes =
 export type GravatarDefaultStyle = 'wavatar' | 'identicon' | 'monsterid' | 'mp' | 'retro' | 'robohash';
 export type HeatmapLocations = 'gutter' | 'line' | 'overview';
 export type KeyMap = 'alternate' | 'chorded' | 'none';
-
-type DeprecatedOutputLevel =
-	| /** @deprecated use `off` */ 'silent'
-	| /** @deprecated use `error` */ 'errors'
-	| /** @deprecated use `info` */ 'verbose';
-export type OutputLevel = LogLevel | DeprecatedOutputLevel;
 
 export type StatusBarCommands =
 	| 'gitlens.copyRemoteCommitUrl'
@@ -1097,19 +1089,6 @@ interface WorktreesConfig {
 	readonly defaultLocation: string | null;
 	readonly openAfterCreate: 'always' | 'alwaysNewWindow' | 'onlyWhenEmpty' | 'never' | 'prompt';
 	readonly promptForLocation: boolean;
-}
-
-export function fromOutputLevel(level: OutputLevel): LogLevel {
-	switch (level) {
-		case /** @deprecated use `off` */ 'silent':
-			return 'off';
-		case /** @deprecated use `error` */ 'errors':
-			return 'error';
-		case /** @deprecated use `info` */ 'verbose':
-			return 'info';
-		default:
-			return level;
-	}
 }
 
 export type CoreConfig = {

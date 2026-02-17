@@ -1,5 +1,5 @@
 import type { ExtensionContext } from 'vscode';
-import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
+import { version as codeVersion, env, ExtensionMode, LogLevel, Uri, window, workspace } from 'vscode';
 import { md5 } from '@env/crypto.js';
 import { hrtime } from '@env/hrtime.js';
 import { isWeb } from '@env/platform.js';
@@ -13,7 +13,6 @@ import type {
 import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote.js';
 import type { OpenIssueOnRemoteCommandArgs } from './commands/openIssueOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote.js';
-import { fromOutputLevel } from './config.js';
 import { trackableSchemes } from './constants.js';
 import { SyncedStorageKeys } from './constants.storage.js';
 import { Container } from './container.js';
@@ -38,7 +37,7 @@ import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vsco
 import { setDefaultDateLocales } from './system/date.js';
 import { once } from './system/event.js';
 import { isLoggable } from './system/loggable.js';
-import { BufferedLogChannel, getLoggableName, Logger } from './system/logger.js';
+import { getLoggableName, Logger } from './system/logger.js';
 import { flatten } from './system/object.js';
 import { Stopwatch } from './system/stopwatch.js';
 import { compare, fromString, satisfies } from './system/version.js';
@@ -49,15 +48,15 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	const prerelease = satisfies(gitlensVersion, '> 2020.0.0');
 
 	const defaultDateLocale = configuration.get('defaultDateLocale');
-	const logLevel = fromOutputLevel(configuration.get('outputLevel'));
 	Logger.configure(
 		{
 			name: 'GitLens',
 			createChannel: function (name: string) {
-				const channel = new BufferedLogChannel(window.createOutputChannel(name, { log: true }), 500);
+				const channel = window.createOutputChannel(name, { log: true });
 				context.subscriptions.push(channel);
 
-				if (logLevel === 'error' || logLevel === 'warn') {
+				// Show message if debug logging is not enabled (level > Debug)
+				if (channel.logLevel === LogLevel.Off || channel.logLevel > LogLevel.Debug) {
 					channel.appendLine(
 						'To enable debug logging, run "GitLens: Enable Debug Logging" or "Developer: Set Log Level..." from the Command Palette',
 					);
@@ -101,7 +100,6 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 				return md5(data).slice(0, 4);
 			},
 		},
-		logLevel,
 		context.extensionMode === ExtensionMode.Development,
 	);
 

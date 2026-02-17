@@ -22,9 +22,17 @@ export interface LogChannelProvider {
 
 export interface LogChannel {
 	readonly name: string;
-	appendLine(value: string): void;
+	readonly logLevel: number;
+	readonly onDidChangeLogLevel?: (listener: (level: number) => void) => { dispose(): void };
+
 	dispose?(): void;
 	show?(preserveFocus?: boolean): void;
+
+	trace(message: string, ...args: any[]): void;
+	debug(message: string, ...args: any[]): void;
+	info(message: string, ...args: any[]): void;
+	warn(message: string, ...args: any[]): void;
+	error(error: string | Error, ...args: any[]): void;
 }
 
 const defaultSanitizeKeys = ['accessToken', 'password', 'token'];
@@ -33,7 +41,7 @@ export const Logger = new (class Logger {
 	private output: LogChannel | undefined;
 	private provider: RequireSome<LogChannelProvider, 'sanitizeKeys'> | undefined;
 
-	configure(provider: LogChannelProvider, logLevel: LogLevel, debugging: boolean = false) {
+	configure(provider: LogChannelProvider, debugging: boolean = false) {
 		if (provider.sanitizeKeys != null) {
 			for (const key of defaultSanitizeKeys) {
 				provider.sanitizeKeys.add(key);
@@ -44,7 +52,13 @@ export const Logger = new (class Logger {
 		this.provider = provider as RequireSome<LogChannelProvider, 'sanitizeKeys'>;
 
 		this._isDebugging = debugging;
-		this.logLevel = logLevel;
+
+		// Create output channel and sync with VS Code's log level
+		this.output = provider.createChannel(provider.name);
+		this.level = fromVSCodeLogLevel(this.output.logLevel);
+		this.output.onDidChangeLogLevel?.(vsCodeLevel => {
+			this.level = fromVSCodeLogLevel(vsCodeLevel);
+		});
 	}
 
 	enabled(level?: Exclude<LogLevel, 'off'>): boolean {
@@ -60,20 +74,8 @@ export const Logger = new (class Logger {
 	}
 
 	private level: OrderedLevel = OrderedLevel.Off;
-	private _logLevel: LogLevel = 'off';
 	get logLevel(): LogLevel {
-		return this._logLevel;
-	}
-	set logLevel(value: LogLevel) {
-		this._logLevel = value;
-		this.level = toOrderedLevel(this._logLevel);
-
-		if (value === 'off') {
-			this.output?.dispose?.();
-			this.output = undefined;
-		} else {
-			this.output ??= this.provider!.createChannel(this.provider!.name);
-		}
+		return toLogLevel(this.level);
 	}
 
 	get timestamp(): string {
@@ -99,9 +101,7 @@ export const Logger = new (class Logger {
 		if (this.isDebugging) {
 			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
-
-		if (this.output == null || this.level < OrderedLevel.Trace) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(true, params)}`);
+		this.output?.trace(`  ${message ?? ''}${this.toLoggableParams(true, params)}`);
 	}
 
 	debug(message: string, ...params: any[]): void;
@@ -123,9 +123,7 @@ export const Logger = new (class Logger {
 		if (this.isDebugging) {
 			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
-
-		if (this.output == null || this.level < OrderedLevel.Debug) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
+		this.output?.debug(`  ${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
 
 	info(message: string, ...params: any[]): void;
@@ -147,9 +145,7 @@ export const Logger = new (class Logger {
 		if (this.isDebugging) {
 			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
-
-		if (this.output == null || this.level < OrderedLevel.Info) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
+		this.output?.info(`   ${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
 
 	warn(message: string, ...params: any[]): void;
@@ -171,9 +167,7 @@ export const Logger = new (class Logger {
 		if (this.isDebugging) {
 			console.warn(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
 		}
-
-		if (this.output == null || this.level < OrderedLevel.Warn) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
+		this.output?.warn(`${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
 
 	error(ex: Error | unknown, message?: string, ...params: any[]): void;
@@ -217,13 +211,13 @@ export const Logger = new (class Logger {
 			}
 		}
 
-		if (this.output == null || this.level < OrderedLevel.Error) return;
-		this.output.appendLine(
-			`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}${
-				// eslint-disable-next-line @typescript-eslint/no-base-to-string
-				ex != null ? `\n${String(ex)}` : ''
-			}`,
-		);
+		const errorMessage = `  ${message ?? ''}${this.toLoggableParams(false, params)}`;
+		if (ex != null) {
+			// eslint-disable-next-line @typescript-eslint/no-base-to-string
+			this.output?.error(ex instanceof Error ? ex : String(ex), errorMessage);
+		} else {
+			this.output?.error(errorMessage);
+		}
 	}
 
 	showOutputChannel(preserveFocus?: boolean): void {
@@ -290,65 +284,6 @@ export const Logger = new (class Logger {
 	}
 })();
 
-const maxBufferedLines = 100;
-
-export class BufferedLogChannel implements LogChannel {
-	private readonly buffer: string[] = [];
-	private bufferTimer: ReturnType<typeof setTimeout> | undefined;
-
-	constructor(
-		private readonly channel: RequireSome<LogChannel, 'dispose'> & { append(value: string): void },
-		private readonly interval: number = 500,
-	) {}
-
-	dispose(): void {
-		clearInterval(this.bufferTimer);
-		this.bufferTimer = undefined;
-
-		this.flush();
-		this.channel.dispose();
-	}
-
-	get name(): string {
-		return this.channel.name;
-	}
-
-	appendLine(value: string): void {
-		this.buffer.push(value);
-
-		if (this.buffer.length >= maxBufferedLines) {
-			this.flush();
-		} else {
-			this.bufferTimer ??= setInterval(() => this.flush(), this.interval);
-		}
-	}
-
-	show(preserveFocus?: boolean): void {
-		this.channel.show?.(preserveFocus);
-	}
-
-	private _emptyCounter = 0;
-
-	private flush() {
-		if (this.buffer.length) {
-			this._emptyCounter = 0;
-
-			let value = this.buffer.join('\n');
-			value += '\n';
-			this.buffer.length = 0;
-
-			this.channel.append(value);
-		} else {
-			this._emptyCounter++;
-			if (this._emptyCounter > 10) {
-				clearInterval(this.bufferTimer);
-				this.bufferTimer = undefined;
-				this._emptyCounter = 0;
-			}
-		}
-	}
-}
-
 function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 	switch (logLevel) {
 		case 'off':
@@ -363,6 +298,48 @@ function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 			return OrderedLevel.Debug;
 		case 'trace':
 			return OrderedLevel.Trace;
+		default:
+			return OrderedLevel.Off;
+	}
+}
+
+function toLogLevel(level: OrderedLevel): LogLevel {
+	switch (level) {
+		case OrderedLevel.Off:
+			return 'off';
+		case OrderedLevel.Error:
+			return 'error';
+		case OrderedLevel.Warn:
+			return 'warn';
+		case OrderedLevel.Info:
+			return 'info';
+		case OrderedLevel.Debug:
+			return 'debug';
+		case OrderedLevel.Trace:
+			return 'trace';
+		default:
+			return 'off';
+	}
+}
+
+/**
+ * Converts VS Code's LogLevel enum value to OrderedLevel.
+ * VS Code LogLevel: Off=0, Trace=1, Debug=2, Info=3, Warning=4, Error=5
+ */
+function fromVSCodeLogLevel(vsCodeLevel: number): OrderedLevel {
+	switch (vsCodeLevel) {
+		case 0: // LogLevel.Off
+			return OrderedLevel.Off;
+		case 1: // LogLevel.Trace
+			return OrderedLevel.Trace;
+		case 2: // LogLevel.Debug
+			return OrderedLevel.Debug;
+		case 3: // LogLevel.Info
+			return OrderedLevel.Info;
+		case 4: // LogLevel.Warning
+			return OrderedLevel.Warn;
+		case 5: // LogLevel.Error
+			return OrderedLevel.Error;
 		default:
 			return OrderedLevel.Off;
 	}
