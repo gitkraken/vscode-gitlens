@@ -207,6 +207,81 @@ suite('Debounce Test Suite', () => {
 		}
 	});
 
+	test('should not lose events during rapid-fire calls', () => {
+		const clock = sinon.useFakeTimers();
+		try {
+			const spy = sinon.spy();
+			const wait = 50;
+			const debounced = debounce(spy, wait);
+
+			// Rapid calls every 10ms (each resets the timer)
+			for (let i = 0; i < 5; i++) {
+				debounced(i);
+				clock.tick(10);
+			}
+
+			// Now at t=50, last call was at t=40
+			assert.strictEqual(spy.callCount, 0);
+
+			// After wait period from last call (t=40 + 50 = t=90)
+			clock.tick(40);
+			assert.strictEqual(spy.callCount, 1);
+			assert.strictEqual(spy.firstCall.args[0], 4); // last call's args
+		} finally {
+			clock.restore();
+		}
+	});
+
+	test('should not immediately invoke on first call with maxWait', () => {
+		const clock = sinon.useFakeTimers();
+		try {
+			const spy = sinon.spy();
+			const wait = 100;
+			const maxWait = 250;
+			const debounced = debounce(spy, wait, { maxWait: maxWait });
+
+			// First call should NOT trigger immediate invocation
+			debounced('first');
+			assert.strictEqual(spy.callCount, 0);
+
+			// Should invoke after normal wait time
+			clock.tick(wait);
+			assert.strictEqual(spy.callCount, 1);
+			assert.strictEqual(spy.firstCall.args[0], 'first');
+		} finally {
+			clock.restore();
+		}
+	});
+
+	test('should not immediately invoke after cancel with maxWait', () => {
+		const clock = sinon.useFakeTimers();
+		try {
+			const spy = sinon.spy();
+			const wait = 100;
+			const maxWait = 250;
+			const debounced = debounce(spy, wait, { maxWait: maxWait });
+
+			// First cycle
+			debounced('a');
+			clock.tick(wait);
+			assert.strictEqual(spy.callCount, 1);
+
+			// Cancel resets state
+			debounced.cancel();
+
+			// Next call after cancel should NOT immediately invoke
+			debounced('b');
+			assert.strictEqual(spy.callCount, 1);
+
+			// Should invoke after normal wait time
+			clock.tick(wait);
+			assert.strictEqual(spy.callCount, 2);
+			assert.strictEqual(spy.secondCall.args[0], 'b');
+		} finally {
+			clock.restore();
+		}
+	});
+
 	test('should maintain correct this context', () => {
 		const clock = sinon.useFakeTimers();
 		try {
