@@ -5,7 +5,7 @@ import { access, constants, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { Logger } from '../../../system/logger.js';
-import { getLogScope } from '../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../system/logger.scope.js';
 import { normalizePath } from '../../../system/path.js';
 import { CancelledRunError, RunError } from './shell.errors.js';
 
@@ -274,7 +274,7 @@ export function runSpawn<T extends string | Buffer>(
 	encoding: BufferEncoding | 'buffer' | string,
 	options: RunOptions & { exitCodeOnly?: boolean },
 ): Promise<RunExitResult | RunResult<T>> {
-	const scope = getLogScope();
+	const scope = getScopedLogger();
 
 	const { stdin, stdinEncoding, ...opts }: RunOptions = options;
 

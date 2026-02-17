@@ -16,9 +16,9 @@ import { setContext } from '../../../../system/-webview/context.js';
 import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
 import { gate } from '../../../../system/decorators/gate.js';
-import { debug, log } from '../../../../system/decorators/log.js';
+import { debug, trace } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../../../system/logger.scope.js';
 import { compare, fromString, satisfies } from '../../../../system/version.js';
 import { getPlatform, isOffline, isWeb } from '../../platform.js';
 import { CliCommandHandlers } from './commands.js';
@@ -109,7 +109,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			const cliInstall = this.container.storage.getScoped('gk:cli:install');
 			if (cliInstall?.status === 'completed') {
 				// Force reinstall to switch between production and insiders
-				Logger.log(
+				Logger.debug(
 					`Forcing CLI reinstall on settings change (insiders = ${configuration.get('gitkraken.cli.insiders.enabled')})`,
 				);
 				void this.setupMCPCore('settings', true, true).catch(() => {});
@@ -156,7 +156,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		// Notify that the IPC server is ready so MCP providers can refresh
 		this.container.events.fire('gk:cli:ipc:started', undefined);
-		Logger.log(`IPC server started on ${server.ipcAddress}`);
+		Logger.debug(`IPC server started on ${server.ipcAddress}`);
 	}
 
 	private stop() {
@@ -170,7 +170,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		if (this._runningDisposable != null) {
 			this._runningDisposable.dispose();
 			this._runningDisposable = undefined;
-			Logger.log('IPC server stopped');
+			Logger.debug('IPC server stopped');
 		}
 	}
 
@@ -181,7 +181,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			let currentCoreVersion = await this.getCliCoreVersion();
 			const minimumVersion = await this.container.productConfig.getCliMinimumVersion();
 			if (!currentCoreVersion || satisfies(fromString(currentCoreVersion), `< ${minimumVersion}`)) {
-				Logger.log(`CLI core version ${currentCoreVersion ?? 'unknown'} is outdated, forcing reinstall`);
+				Logger.debug(`CLI core version ${currentCoreVersion ?? 'unknown'} is outdated, forcing reinstall`);
 				forceInstall = true;
 			} else {
 				// Only update if GitLens extension version has changed since last check, to avoid unnecessary update checks
@@ -193,7 +193,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				}
 
 				if (currentCoreVersion != null) {
-					Logger.log(`CLI core version is ${currentCoreVersion}`);
+					Logger.debug(`CLI core version is ${currentCoreVersion}`);
 					void setContext('gitlens:gk:cli:installed', true);
 					return;
 				}
@@ -218,7 +218,7 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@gate()
-	@log({ exit: true })
+	@debug({ exit: true })
 	private async setupMCP(source?: Sources, force = false): Promise<void> {
 		await this.container.storage.store('mcp:banner:dismissed', true);
 
@@ -284,7 +284,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	private async setupMCPCore(
 		source?: Sources,
 		force = false,
@@ -295,7 +295,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		usingExtensionRegistration?: boolean;
 		url?: string;
 	}> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const commandSource = source ?? 'commandPalette';
 
 		if (this.container.telemetry.enabled) {
@@ -381,7 +381,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				);
 			}
 
-			Logger.debug(scope, `Running MCP install command for ${mcpInstallAppName}`);
+			Logger.trace(scope, `Running MCP install command for ${mcpInstallAppName}`);
 			let output = await runCLICommand(
 				['mcp', 'install', mcpInstallAppName, '--source=gitlens', `--scheme=${env.uriScheme}`],
 				{
@@ -516,13 +516,13 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@gate()
-	@log({ exit: true })
+	@debug({ exit: true })
 	private async installCLI(
 		autoInstall?: boolean,
 		source?: Sources,
 		force = false,
 	): Promise<{ cliVersion?: string; cliPath?: string; status: 'completed' | 'unsupported' | 'attempted' }> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		let cliInstallAttempts = force ? 0 : (cliInstall?.attempts ?? 0);
@@ -570,7 +570,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				throw new CLIInstallError(CLIInstallErrorReason.Offline);
 			}
 			cliInstallAttempts += 1;
-			Logger.log(scope, `Starting CLI installation (attempt ${cliInstallAttempts}/${maxAutoInstallAttempts})`);
+			Logger.debug(scope, `Starting CLI installation (attempt ${cliInstallAttempts}/${maxAutoInstallAttempts})`);
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cli/install/started', {
 					source: source,
@@ -649,7 +649,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					'active',
 				); */
 
-				Logger.debug(scope, `Fetching CLI proxy: platform=${platformName}, arch=${architecture}`);
+				Logger.trace(scope, `Fetching CLI proxy: platform=${platformName}, arch=${architecture}`);
 				let response = await fetch(proxyUrl);
 				if (!response.ok) {
 					throw new CLIInstallError(
@@ -681,7 +681,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					);
 				}
 
-				Logger.debug(scope, `Downloading CLI proxy (version: ${cliVersion})`);
+				Logger.trace(scope, `Downloading CLI proxy (version: ${cliVersion})`);
 				response = await fetch(downloadUrl);
 				if (!response.ok) {
 					throw new CLIInstallError(
@@ -762,7 +762,7 @@ export class GkCliIntegrationProvider implements Disposable {
 						throw new Error(`Failed to find core directory in install output: ${coreInstallOutput}`);
 					}
 
-					Logger.log(scope, `CLI installed (version: ${cliVersion}, path: ${cliPath})`);
+					Logger.debug(scope, `CLI installed (version: ${cliVersion}, path: ${cliPath})`);
 					cliInstallStatus = 'completed';
 					void this.container.storage
 						.storeScoped('gk:cli:install', {
@@ -827,9 +827,9 @@ export class GkCliIntegrationProvider implements Disposable {
 		return { cliVersion: cliVersion, cliPath: cliPath, status: cliInstallStatus };
 	}
 
-	@debug()
+	@trace()
 	private async authCLI(): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		const cliPath = this.container.storage.getScoped('gk:cli:path');
@@ -860,9 +860,9 @@ export class GkCliIntegrationProvider implements Disposable {
 		];
 	}
 
-	@log()
+	@debug()
 	private async updateCliCore(): Promise<{ previous: string | undefined; current: string | undefined } | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const previousVersion = await getCLIVersions();
@@ -870,7 +870,10 @@ export class GkCliIntegrationProvider implements Disposable {
 			const currentVersion = await getCLIVersions();
 			this._cliCoreVersion = currentVersion?.core;
 
-			Logger.log(scope, `CLI core update (previous: ${previousVersion?.core}, current: ${currentVersion?.core})`);
+			Logger.debug(
+				scope,
+				`CLI core update (previous: ${previousVersion?.core}, current: ${currentVersion?.core})`,
+			);
 
 			return {
 				previous: previousVersion?.core,
@@ -883,9 +886,9 @@ export class GkCliIntegrationProvider implements Disposable {
 		return undefined;
 	}
 
-	@log()
+	@debug()
 	private async getCliCoreVersion(force = false): Promise<string | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (force || this._cliCoreVersion == null) {
 			try {

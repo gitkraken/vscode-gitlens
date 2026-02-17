@@ -2,7 +2,7 @@ import { hrtime } from '@env/hrtime.js';
 import type { LogLevel } from './logger.constants.js';
 import type { LogProvider } from './logger.js';
 import { defaultLogProvider } from './logger.js';
-import type { LogScope } from './logger.scope.js';
+import type { ScopedLogger } from './logger.scope.js';
 import { getNewLogScope } from './logger.scope.js';
 
 (Symbol as any).dispose ??= Symbol('Symbol.dispose');
@@ -17,7 +17,7 @@ type StopwatchOptions = {
 type StopwatchLogLevel = Exclude<LogLevel, 'off'>;
 
 export class Stopwatch implements Disposable {
-	private readonly logScope: LogScope;
+	private readonly logScope: ScopedLogger;
 	private readonly logLevel: StopwatchLogLevel;
 	private readonly logProvider: LogProvider;
 
@@ -28,7 +28,7 @@ export class Stopwatch implements Disposable {
 
 	private _stopped = false;
 
-	constructor(scope: string | LogScope | undefined, options?: StopwatchOptions, ...params: any[]) {
+	constructor(scope: string | ScopedLogger | undefined, options?: StopwatchOptions, ...params: any[]) {
 		this.logScope = scope != null && typeof scope !== 'string' ? scope : getNewLogScope(scope ?? '', false);
 
 		let logOptions: StopwatchLogOptions | undefined;
@@ -110,7 +110,7 @@ export class Stopwatch implements Disposable {
 }
 
 export function maybeStopWatch(
-	scope: string | LogScope | undefined,
+	scope: string | ScopedLogger | undefined,
 	options?: StopwatchOptions,
 	...params: any[]
 ): Stopwatch | undefined {

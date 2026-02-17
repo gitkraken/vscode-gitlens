@@ -2,7 +2,7 @@ import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri.js';
 import type { GitLog } from '../../git/models/log.js';
 import { isPullRequest } from '../../git/models/pullRequest.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import { debounce } from '../../system/function/debounce.js';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuple } from '../../system/promise.js';
@@ -35,7 +35,7 @@ export class AutolinkedItemsNode extends SubscribeableViewNode<'autolinks', View
 		return this._uniqueId;
 	}
 
-	@debug()
+	@trace()
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		return Disposable.from(
 			weakEvent(

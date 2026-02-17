@@ -1,10 +1,10 @@
 /*global window */
 import { inflateSync, strFromU8 } from 'fflate';
 import { getScopedCounter } from '../../../system/counter.js';
-import { debug, logName } from '../../../system/decorators/log.js';
+import { logName, trace } from '../../../system/decorators/log.js';
 import { deserializeIpcData } from '../../../system/ipcSerialize.js';
 import { Logger } from '../../../system/logger.js';
-import { getLogScope, getNewLogScope, setLogScopeExit } from '../../../system/logger.scope.js';
+import { getNewLogScope, getScopedLogger, setLogScopeExit } from '../../../system/logger.scope.js';
 import type { Serialized } from '../../../system/serialize.js';
 import { maybeStopWatch } from '../../../system/stopwatch.js';
 import type {
@@ -59,9 +59,9 @@ export class HostIpc implements Disposable {
 		this._disposable.dispose();
 	}
 
-	@debug<HostIpc['onMessageReceived']>({ args: { 0: e => `${e.data.id}|${e.data.method}` } })
+	@trace<HostIpc['onMessageReceived']>({ args: { 0: e => `${e.data.id}|${e.data.method}` } })
 	private onMessageReceived(e: MessageEvent) {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const msg = e.data as IpcMessage;
 		const sw = maybeStopWatch(getNewLogScope(`(e=${msg.id}|${msg.method})`, scope), {
@@ -113,7 +113,7 @@ export class HostIpc implements Disposable {
 
 	sendCommand<T extends IpcCommand>(commandType: T, params?: never): void;
 	sendCommand<T extends IpcCommand<unknown>>(commandType: T, params: IpcCallParamsType<T>): void;
-	@debug<HostIpc['sendCommand']>({ args: { 0: c => c.method, 1: false } })
+	@trace<HostIpc['sendCommand']>({ args: { 0: c => c.method, 1: false } })
 	sendCommand<T extends IpcCommand | IpcCommand<unknown>>(commandType: T, params?: IpcCallParamsType<T>): void {
 		const id = nextIpcId();
 		// this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
@@ -128,7 +128,7 @@ export class HostIpc implements Disposable {
 		} satisfies IpcMessage<IpcCallParamsType<T>>);
 	}
 
-	@debug<HostIpc['sendRequest']>({ args: { 0: c => c.method, 1: false, 2: false } })
+	@trace<HostIpc['sendRequest']>({ args: { 0: c => c.method, 1: false, 2: false } })
 	async sendRequest<T extends IpcRequest<unknown, unknown>>(
 		requestType: T,
 		params: IpcCallParamsType<T>,
@@ -202,7 +202,7 @@ export class HostIpc implements Disposable {
 		this.setPersistedState(state);
 	}
 
-	@debug<HostIpc['postMessage']>({ args: { 0: e => `${e.id}, method=${e.method}` } })
+	@trace<HostIpc['postMessage']>({ args: { 0: e => `${e.id}, method=${e.method}` } })
 	private postMessage(e: IpcMessage) {
 		this._api.postMessage(e);
 	}

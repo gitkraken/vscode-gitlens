@@ -5,7 +5,7 @@ import { command } from '../system/-webview/command.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
 import { Logger } from '../system/logger.js';
-import { getLogScope } from '../system/logger.scope.js';
+import { getScopedLogger } from '../system/logger.scope.js';
 import { GlCommandBase } from './commandBase.js';
 
 export interface OpenIssueOnRemoteCommandArgs {
@@ -29,7 +29,7 @@ export class OpenIssueOnRemoteCommand extends GlCommandBase {
 	async execute(args?: OpenIssueOnRemoteCommandArgs): Promise<void> {
 		if (args?.issue == null) {
 			void window.showInformationMessage('No issue provided');
-			Logger.warn(getLogScope(), 'No issue provided in OpenIssueOnRemoteCommand', args);
+			Logger.warn(getScopedLogger(), 'No issue provided in OpenIssueOnRemoteCommand', args);
 			return;
 		}
 

@@ -21,7 +21,7 @@ import { configuration } from '../../../../system/-webview/configuration.js';
 import { splitPath } from '../../../../system/-webview/path.js';
 import { countStringLength } from '../../../../system/array.js';
 import { gate } from '../../../../system/decorators/gate.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { min, skip } from '../../../../system/iterable.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import type { Git } from '../git.js';
@@ -38,7 +38,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	) {}
 
 	@gate()
-	@log()
+	@debug()
 	async applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
 		if (!stashName) return;
 
@@ -73,7 +73,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getStash(
 		repoPath: string,
 		options?: { reachableFrom?: string },
@@ -207,7 +207,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return { ...stash, stashes: stashes };
 	}
 
-	@log()
+	@debug()
 	async getStashCommitFiles(
 		repoPath: string,
 		ref: string,
@@ -290,7 +290,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return undefined;
 	}
 
-	@log()
+	@debug()
 	async deleteStash(repoPath: string, stashName: string, sha?: string): Promise<void> {
 		await this.deleteStashCore(repoPath, stashName, sha);
 		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
@@ -319,7 +319,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return result.stdout;
 	}
 
-	@log()
+	@debug()
 	async renameStash(
 		repoPath: string,
 		stashName: string,
@@ -341,7 +341,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['stashes'] });
 	}
 
-	@log<StashGitSubProvider['saveStash']>({ args: { 2: uris => uris?.length } })
+	@debug<StashGitSubProvider['saveStash']>({ args: { 2: uris => uris?.length } })
 	async saveStash(
 		repoPath: string,
 		message?: string,
@@ -386,7 +386,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['stashes', 'status'] });
 	}
 
-	@log()
+	@debug()
 	async saveSnapshot(repoPath: string, message?: string): Promise<void> {
 		const result = await this.git.exec({ cwd: repoPath }, 'stash', 'create');
 		const id = result.stdout.trim() || undefined;

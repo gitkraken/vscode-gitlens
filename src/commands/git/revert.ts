@@ -85,7 +85,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the revert
 			if (RevertError.is(ex, 'aborted')) {
-				Logger.log(ex.message, this.title);
+				Logger.debug(ex.message, this.title);
 				return;
 			}
 

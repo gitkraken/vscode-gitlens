@@ -10,7 +10,7 @@ import type {
 	SecretKeys,
 	WorkspaceStorage,
 } from '../../constants.storage.js';
-import { debug } from '../decorators/log.js';
+import { trace } from '../decorators/log.js';
 import { registerCommand } from './command.js';
 
 type GlobalStorageKeys = keyof (GlobalStorage & DeprecatedGlobalStorage);
@@ -78,18 +78,18 @@ export class Storage implements Disposable {
 	/** @deprecated */
 	get<T extends keyof DeprecatedGlobalStorage>(key: T): DeprecatedGlobalStorage[T] | undefined;
 	get<T extends keyof GlobalStorage>(key: T, defaultValue: GlobalStorage[T]): GlobalStorage[T];
-	@debug({ logThreshold: 50 })
+	@trace({ logThreshold: 50 })
 	get(key: GlobalStorageKeys, defaultValue?: unknown): unknown | undefined {
 		return this.context.globalState.get(`${extensionPrefix}:${key}`, defaultValue);
 	}
 
-	@debug({ logThreshold: 250 })
+	@trace({ logThreshold: 250 })
 	async delete(key: GlobalStorageKeys): Promise<void> {
 		await this.context.globalState.update(`${extensionPrefix}:${key}`, undefined);
 		this._onDidChange.fire({ keys: [key], type: 'global' });
 	}
 
-	@debug({ logThreshold: 250 })
+	@trace({ logThreshold: 250 })
 	async deleteWithPrefix(prefix: ExtractPrefixes<GlobalStorageKeys, ':'>): Promise<void> {
 		return this.deleteWithPrefixCore(prefix);
 	}
@@ -116,12 +116,12 @@ export class Storage implements Disposable {
 		}
 	}
 
-	@debug({ logThreshold: 250 })
+	@trace({ logThreshold: 250 })
 	async reset(): Promise<void> {
 		return this.deleteWithPrefixCore(undefined, /^(premium:subscription|plus:preview:.*)$/);
 	}
 
-	@debug({ args: { 1: false }, logThreshold: 250 })
+	@trace({ args: { 1: false }, logThreshold: 250 })
 	async store<T extends keyof GlobalStorage>(key: T, value: GlobalStorage[T] | undefined): Promise<void> {
 		await this.context.globalState.update(`${extensionPrefix}:${key}`, value);
 		this._onDidChange.fire({ keys: [key], type: 'global' });
@@ -154,7 +154,7 @@ export class Storage implements Disposable {
 		key: T,
 		defaultValue: GlobalScopedStorage[T],
 	): GlobalScopedStorage[T];
-	@debug({ logThreshold: 50 })
+	@trace({ logThreshold: 50 })
 	getScoped<T extends keyof GlobalScopedStorage>(
 		key: T,
 		defaultValue?: GlobalScopedStorage[T],
@@ -169,14 +169,14 @@ export class Storage implements Disposable {
 		return this.context.globalState.get(`${extensionPrefix}:${key}`, defaultValue);
 	}
 
-	@debug({ logThreshold: 250 })
+	@trace({ logThreshold: 250 })
 	async deleteScoped(key: keyof GlobalScopedStorage): Promise<void> {
 		const scopeKey = this.getEnvironmentScopeKey();
 		await this.context.globalState.update(`${extensionPrefix}:${scopeKey}:${key}`, undefined);
 		this._onDidChange.fire({ keys: [key], type: 'scoped' });
 	}
 
-	@debug({ args: { 1: false }, logThreshold: 250 })
+	@trace({ args: { 1: false }, logThreshold: 250 })
 	async storeScoped<T extends keyof GlobalScopedStorage>(
 		key: T,
 		value: GlobalScopedStorage[T] | undefined,
@@ -186,17 +186,17 @@ export class Storage implements Disposable {
 		this._onDidChange.fire({ keys: [key], type: 'scoped' });
 	}
 
-	@debug({ args: false, logThreshold: 250 })
+	@trace({ args: false, logThreshold: 250 })
 	async getSecret(key: SecretKeys): Promise<string | undefined> {
 		return this.context.secrets.get(key);
 	}
 
-	@debug({ args: false, logThreshold: 250 })
+	@trace({ args: false, logThreshold: 250 })
 	async deleteSecret(key: SecretKeys): Promise<void> {
 		return this.context.secrets.delete(key);
 	}
 
-	@debug({ args: false, logThreshold: 250 })
+	@trace({ args: false, logThreshold: 250 })
 	async storeSecret(key: SecretKeys, value: string): Promise<void> {
 		return this.context.secrets.store(key, value);
 	}
@@ -205,18 +205,18 @@ export class Storage implements Disposable {
 	/** @deprecated */
 	getWorkspace<T extends keyof DeprecatedWorkspaceStorage>(key: T): DeprecatedWorkspaceStorage[T] | undefined;
 	getWorkspace<T extends keyof WorkspaceStorage>(key: T, defaultValue: WorkspaceStorage[T]): WorkspaceStorage[T];
-	@debug({ logThreshold: 25 })
+	@trace({ logThreshold: 25 })
 	getWorkspace(key: WorkspaceStorageKeys, defaultValue?: unknown): unknown | undefined {
 		return this.context.workspaceState.get(`${extensionPrefix}:${key}`, defaultValue);
 	}
 
-	@debug({ logThreshold: 250 })
+	@trace({ logThreshold: 250 })
 	async deleteWorkspace(key: WorkspaceStorageKeys): Promise<void> {
 		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, undefined);
 		this._onDidChange.fire({ keys: [key], type: 'workspace' });
 	}
 
-	@debug({ logThreshold: 250 })
+	@trace({ logThreshold: 250 })
 	async deleteWorkspaceWithPrefix(prefix: ExtractPrefixes<WorkspaceStorageKeys, ':'>): Promise<void> {
 		return this.deleteWorkspaceWithPrefixCore(prefix);
 	}
@@ -246,12 +246,12 @@ export class Storage implements Disposable {
 		}
 	}
 
-	@debug({ logThreshold: 250 })
+	@trace({ logThreshold: 250 })
 	async resetWorkspace(): Promise<void> {
 		return this.deleteWorkspaceWithPrefixCore();
 	}
 
-	@debug({ args: { 1: false }, logThreshold: 250 })
+	@trace({ args: { 1: false }, logThreshold: 250 })
 	async storeWorkspace<T extends keyof WorkspaceStorage>(
 		key: T,
 		value: WorkspaceStorage[T] | undefined,

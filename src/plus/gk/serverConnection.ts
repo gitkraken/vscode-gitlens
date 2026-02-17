@@ -23,11 +23,11 @@ import {
 	showGkRequestFailed500WarningMessage,
 	showGkRequestTimedOutWarningMessage,
 } from '../../messages.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { Logger } from '../../system/logger.js';
-import type { LogScope } from '../../system/logger.scope.js';
-import { getLogScope } from '../../system/logger.scope.js';
+import type { ScopedLogger } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import type { TokenInfo } from '../integrations/authentication/models.js';
 import { toTokenInfo } from '../integrations/authentication/models.js';
 import type { UrlsProvider } from './urlsProvider.js';
@@ -68,7 +68,7 @@ export class ServerConnection implements Disposable {
 				: 'gitlens-vsc';
 	}
 
-	@debug<ServerConnection['fetch']>({
+	@trace<ServerConnection['fetch']>({
 		args: {
 			0: u => (typeof u === 'string' ? u : 'href' in u ? u.href : 'url' in u ? u.url : 'unknown'),
 			1: false,
@@ -76,7 +76,7 @@ export class ServerConnection implements Disposable {
 		},
 	})
 	async fetch(url: RequestInfo, init?: RequestInit, options?: FetchOptions): Promise<Response> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (options?.cancellation?.isCancellationRequested) throw new CancellationError();
 
@@ -112,12 +112,12 @@ export class ServerConnection implements Disposable {
 		}
 	}
 
-	@debug({ args: { 1: false, 2: false } })
+	@trace({ args: { 1: false, 2: false } })
 	async fetchGkApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
 		return this.gkFetch(this.urls.getGkApiUrl(path), init, options);
 	}
 
-	@debug({ args: { 1: false, 2: false } })
+	@trace({ args: { 1: false, 2: false } })
 	async fetchGkConfig(path: string, init?: RequestInit, options?: FetchOptions): Promise<Response> {
 		return this.fetch(this.urls.getGkConfigUrl(path), init, options);
 	}
@@ -162,7 +162,7 @@ export class ServerConnection implements Disposable {
 		if (this.requestsAreBlocked) {
 			throw new RequestsAreBlockedTemporarilyError();
 		}
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const headers = await this.getGkHeaders(
@@ -205,7 +205,7 @@ export class ServerConnection implements Disposable {
 		return new RequestRateLimitError(ex, token, resetAt);
 	}
 
-	private async handleGkUnsuccessfulResponse(rsp: Response, scope: LogScope | undefined): Promise<void> {
+	private async handleGkUnsuccessfulResponse(rsp: Response, scope: ScopedLogger | undefined): Promise<void> {
 		let content;
 		switch (rsp.status) {
 			// Forbidden
@@ -263,7 +263,7 @@ export class ServerConnection implements Disposable {
 	private handleGkRequestError(
 		token: string | undefined,
 		ex: RequestError | (Error & { name: 'AbortError' }),
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 	): void {
 		if (ex instanceof CancellationError) throw ex;
 		if (ex.name === 'AbortError') throw new CancellationError(ex);

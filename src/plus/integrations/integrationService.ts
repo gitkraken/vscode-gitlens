@@ -24,11 +24,11 @@ import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { promisifyDeferred, take } from '../../system/event.js';
 import { filterMap, flatten, join } from '../../system/iterable.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService.js';
 import type {
 	ConfiguredIntegrationsChangeEvent,
@@ -109,12 +109,12 @@ export class IntegrationService implements Disposable {
 		this._disposable?.dispose();
 	}
 
-	@log()
+	@debug()
 	async connectCloudIntegrations(
 		connect?: { integrationIds: SupportedCloudIntegrationIds[]; skipIfConnected?: boolean; skipPreSync?: boolean },
 		source?: Source,
 	): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const integrationIds = connect?.integrationIds;
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
@@ -144,7 +144,7 @@ export class IntegrationService implements Disposable {
 						connectedIntegrations.add(integrationId);
 					}
 				} catch (ex) {
-					Logger.log(
+					Logger.debug(
 						`Failed to get integration ${integrationId} by its ID. Consider it as not-connected and ignore. Error message: ${ex.message}`,
 						scope,
 					);
@@ -602,7 +602,7 @@ export class IntegrationService implements Disposable {
 		return this.configuredIntegrationService.getConfiguredLite(id, options);
 	}
 
-	@log<IntegrationService['getMyIssues']>({
+	@debug<IntegrationService['getMyIssues']>({
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
 	})
 	async getMyIssues(
@@ -695,7 +695,7 @@ export class IntegrationService implements Disposable {
 
 	async getMyIssuesForRemotes(remote: GitRemote): Promise<IssueShape[] | undefined>;
 	async getMyIssuesForRemotes(remotes: GitRemote[]): Promise<IssueShape[] | undefined>;
-	@debug<IntegrationService['getMyIssuesForRemotes']>({
+	@trace<IntegrationService['getMyIssuesForRemotes']>({
 		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
 	})
 	async getMyIssuesForRemotes(remoteOrRemotes: GitRemote | GitRemote[]): Promise<IssueShape[] | undefined> {
@@ -731,7 +731,7 @@ export class IntegrationService implements Disposable {
 		return this.getMyIssuesCore(integrations);
 	}
 
-	@log<IntegrationService['getMyCurrentAccounts']>({
+	@debug<IntegrationService['getMyCurrentAccounts']>({
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>') },
 	})
 	async getMyCurrentAccounts(
@@ -752,7 +752,7 @@ export class IntegrationService implements Disposable {
 		return accounts;
 	}
 
-	@log<IntegrationService['getMyPullRequests']>({
+	@debug<IntegrationService['getMyPullRequests']>({
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
 	})
 	async getMyPullRequests(
@@ -821,7 +821,7 @@ export class IntegrationService implements Disposable {
 
 	async getMyPullRequestsForRemotes(remote: GitRemote): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	async getMyPullRequestsForRemotes(remotes: GitRemote[]): Promise<IntegrationResult<PullRequest[] | undefined>>;
-	@debug<IntegrationService['getMyPullRequestsForRemotes']>({
+	@trace<IntegrationService['getMyPullRequestsForRemotes']>({
 		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
 	})
 	async getMyPullRequestsForRemotes(
@@ -875,9 +875,9 @@ export class IntegrationService implements Disposable {
 		return ignoreSSLErrors;
 	}
 
-	@log()
+	@debug()
 	async manageCloudIntegrations(source: Source | undefined): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
 				'cloudIntegrations/settingsOpened',
@@ -924,7 +924,7 @@ export class IntegrationService implements Disposable {
 		});
 	}
 
-	@log()
+	@debug()
 	async reset(): Promise<void> {
 		for (const integration of this._integrations.values()) {
 			await integration.reset();
@@ -1069,9 +1069,9 @@ export class IntegrationService implements Disposable {
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	private async syncCloudIntegrations(forceConnect: boolean) {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const connectedIntegrations = new Set<IntegrationIds>();
 		const domainsById = new Map<IntegrationIds, string>();
 

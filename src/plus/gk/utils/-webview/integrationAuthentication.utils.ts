@@ -4,7 +4,7 @@ import type { IntegrationIds } from '../../../../constants.integrations.js';
 import type { Container } from '../../../../container.js';
 import { sequentialize } from '../../../../system/function.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../../integrations/authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../../../integrations/authentication/models.js';
 
@@ -25,7 +25,7 @@ export const getBuiltInIntegrationSession = sequentialize(
 			async () => {
 				if (failedAuthProviderIds.has(id)) return undefined;
 
-				const scope = getLogScope();
+				const scope = getScopedLogger();
 
 				if (id === 'github') {
 					const extension = extensions.getExtension('vscode.github-authentication');

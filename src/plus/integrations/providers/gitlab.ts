@@ -11,7 +11,7 @@ import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../.
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '../../../git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils.js';
-import { log } from '../../../system/decorators/log.js';
+import { debug } from '../../../system/decorators/log.js';
 import { uniqueBy } from '../../../system/iterable.js';
 import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
@@ -500,7 +500,7 @@ export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<
 				: cloudEnterpriseAuthProvider;
 	}
 
-	@log()
+	@debug()
 	override async connect(source: Sources): Promise<boolean> {
 		if (
 			!(await ensurePaidPlan(this.container, `Rich integration with ${this.name} is a Pro feature.`, {

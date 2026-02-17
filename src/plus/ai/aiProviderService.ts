@@ -38,13 +38,13 @@ import { Directive, isDirective } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
 import type { Storage } from '../../system/-webview/storage.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import { debounce } from '../../system/function/debounce.js';
 import { map } from '../../system/iterable.js';
 import type { Lazy } from '../../system/lazy.js';
 import { lazy } from '../../system/lazy.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../system/logger.scope.js';
 import type { Deferred } from '../../system/promise.js';
 import { getSettledValue, getSettledValues } from '../../system/promise.js';
 import { PromiseCache } from '../../system/promiseCache.js';
@@ -615,7 +615,7 @@ export class AIProviderService implements AIService, Disposable {
 		return true;
 	}
 
-	@log({ args: false })
+	@debug({ args: false })
 	async sendRequest<T extends AIActionType>(
 		action: T,
 		model: AIModel | undefined,
@@ -628,7 +628,7 @@ export class AIProviderService implements AIService, Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AIProviderResult<void> | 'cancelled' | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!(await this.ensureFeatureAccess(action, source))) {
 			setLogScopeExit(scope, undefined, 'cancelled: no feature access');
@@ -968,7 +968,7 @@ export class AIProviderService implements AIService, Disposable {
 	 *
 	 * @template TResult The type of the final result after validation
 	 */
-	@log({ args: false })
+	@debug({ args: false })
 	async sendRequestConversation<TResult>(
 		action: AIActionType,
 		model: AIModel | undefined,
@@ -1122,7 +1122,7 @@ export class AIProviderService implements AIService, Disposable {
 		templateType: T,
 		model: AIModel | undefined,
 	): Promise<PromptTemplate | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const template = getLocalPromptTemplate(templateType, model);
 		const templateId = template?.id ?? templateType;

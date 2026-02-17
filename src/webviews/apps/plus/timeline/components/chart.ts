@@ -4,7 +4,7 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb.d.js';
 import { shortenRevision } from '../../../../../git/utils/revision.utils.js';
-import { log } from '../../../../../system/decorators/log.js';
+import { debug } from '../../../../../system/decorators/log.js';
 import { debounce } from '../../../../../system/function/debounce.js';
 import { defer } from '../../../../../system/promise.js';
 import { pluralize, truncateMiddle } from '../../../../../system/string.js';
@@ -573,7 +573,7 @@ export class GlTimelineChart extends GlElement {
 		};
 	}
 
-	@log<GlTimelineChart['prepareChartData']>({ args: { 0: d => d?.length } })
+	@debug<GlTimelineChart['prepareChartData']>({ args: { 0: d => d?.length } })
 	private prepareChartData(
 		dataset: TimelineDatum[],
 		metrics: { minRadius: number; maxRadius: number; q1: number; q3: number; maxChanges: number },
@@ -658,7 +658,7 @@ export class GlTimelineChart extends GlElement {
 		return { axes: axes, columns: columns, names: names, types: types, xs: xs };
 	}
 
-	@log({ args: false })
+	@debug({ args: false })
 	private async renderChart(
 		dataPromise: NonNullable<State['dataset']>,
 		loading: ReturnType<typeof defer<void>>,

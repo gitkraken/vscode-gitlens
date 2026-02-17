@@ -31,7 +31,7 @@ import { setContext } from '../system/-webview/context.js';
 import type { KeyboardScope } from '../system/-webview/keyboard.js';
 import { UriSet } from '../system/-webview/uriMap.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
-import { debug, log } from '../system/decorators/log.js';
+import { debug, trace } from '../system/decorators/log.js';
 import { once } from '../system/event.js';
 import type { Deferrable } from '../system/function/debounce.js';
 import { debounce } from '../system/function/debounce.js';
@@ -280,7 +280,7 @@ export class FileAnnotationController implements Disposable {
 		return this._toggleModes.get(annotationType) ?? 'file';
 	}
 
-	@log<FileAnnotationController['clear']>({ args: { 0: e => e?.document.uri.toString(true) } })
+	@debug<FileAnnotationController['clear']>({ args: { 0: e => e?.document.uri.toString(true) } })
 	clear(editor: TextEditor | undefined): Promise<void> | undefined {
 		if (this.isInWindowToggle()) return this.clearAll();
 		if (editor == null) return;
@@ -288,7 +288,7 @@ export class FileAnnotationController implements Disposable {
 		return this.clearCore(getEditorCorrelationKey(editor), true);
 	}
 
-	@log()
+	@debug()
 	async clearAll(): Promise<void> {
 		this._windowAnnotationType = undefined;
 
@@ -424,7 +424,7 @@ export class FileAnnotationController implements Disposable {
 
 	async show(editor: TextEditor | undefined, type: FileAnnotationType, context?: AnnotationContext): Promise<boolean>;
 	async show(editor: TextEditor | undefined, type: 'changes', context?: ChangesAnnotationContext): Promise<boolean>;
-	@log<FileAnnotationController['show']>({
+	@debug<FileAnnotationController['show']>({
 		args: {
 			0: e => e?.document.uri.toString(true),
 			2: false,
@@ -502,7 +502,7 @@ export class FileAnnotationController implements Disposable {
 		context?: ChangesAnnotationContext,
 		on?: boolean,
 	): Promise<boolean>;
-	@log<FileAnnotationController['toggle']>({
+	@debug<FileAnnotationController['toggle']>({
 		args: {
 			0: e => e?.document.uri.toString(true),
 			2: false,
@@ -546,13 +546,13 @@ export class FileAnnotationController implements Disposable {
 		return this.show(editor, type, context);
 	}
 
-	@log()
+	@debug()
 	nextChange(): void {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.nextChange?.();
 	}
 
-	@log()
+	@debug()
 	previousChange(): void {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.previousChange?.();
@@ -577,7 +577,7 @@ export class FileAnnotationController implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	private async clearCore(key: TextEditorCorrelationKey, force?: boolean) {
 		const provider = this._annotationProviders.get(key);
 		if (provider == null) return;
@@ -701,7 +701,7 @@ export class FileAnnotationController implements Disposable {
 		return undefined;
 	}
 
-	@debug({
+	@trace({
 		singleLine: true,
 		if: function () {
 			return this._annotationsDisposable == null;
@@ -722,7 +722,7 @@ export class FileAnnotationController implements Disposable {
 		);
 	}
 
-	@debug({
+	@trace({
 		singleLine: true,
 		if: function () {
 			return this._annotationsDisposable != null;

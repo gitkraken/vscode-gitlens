@@ -5,7 +5,7 @@ import { vscodeProviderDescriptor } from '../../constants.ai.js';
 import type { Container } from '../../container.js';
 import { AIError, AIErrorReason, CancellationError } from '../../errors.js';
 import { getLoggableName, Logger } from '../../system/logger.js';
-import { startLogScope } from '../../system/logger.scope.js';
+import { startScopedLogger } from '../../system/logger.scope.js';
 import { capitalize } from '../../system/string.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import type { AIActionType, AIModel } from './models/model.js';
@@ -73,7 +73,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIProviderResponse<void> | undefined> {
-		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
+		using scope = startScopedLogger(`${getLoggableName(this)}.sendRequest`, false);
 
 		const chatModel = await this.getChatModel(model);
 		if (chatModel == null) return undefined;

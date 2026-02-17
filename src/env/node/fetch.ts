@@ -26,7 +26,7 @@ export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined 
 	}
 
 	if (proxyUrl) {
-		Logger.debug(`Using https proxy: ${proxyUrl}`);
+		Logger.trace(`Using https proxy: ${proxyUrl}`);
 		const proxyURL = new URL(proxyUrl);
 		return new HttpsProxyAgent({
 			host: proxyURL.hostname,

@@ -3,9 +3,9 @@ import { Disposable } from 'vscode';
 import type { TreeViewSubscribableNodeTypes } from '../../../constants.views.js';
 import type { GitUri } from '../../../git/gitUri.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug } from '../../../system/decorators/log.js';
+import { trace } from '../../../system/decorators/log.js';
 import { weakEvent } from '../../../system/event.js';
-import { getLogScope, setLogScopeExit } from '../../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../../system/logger.scope.js';
 import type { View } from '../../viewBase.js';
 import { CacheableChildrenViewNode } from './cacheableChildrenViewNode.js';
 import type { ViewNode } from './viewNode.js';
@@ -61,9 +61,9 @@ export abstract class SubscribeableViewNode<
 		this.disposable?.dispose();
 	}
 
-	@debug()
+	@trace()
 	override async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// If the node has been disposed, nothing to do
 		if (this._disposed) {
@@ -129,7 +129,7 @@ export abstract class SubscribeableViewNode<
 
 	protected abstract subscribe(): Disposable | undefined | Promise<Disposable | undefined>;
 
-	@debug()
+	@trace()
 	protected async unsubscribe(): Promise<void> {
 		this._etag = this.etag();
 
@@ -141,7 +141,7 @@ export abstract class SubscribeableViewNode<
 		}
 	}
 
-	@debug()
+	@trace()
 	protected onAutoRefreshChanged(): void {
 		this.onVisibilityChanged({ visible: this.view.visible });
 	}
@@ -161,9 +161,9 @@ export abstract class SubscribeableViewNode<
 	// 		}
 	// 	}
 	// }
-	@debug()
+	@trace()
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// Pass the event's visibility to ensureSubscription to avoid race conditions
 		// between the debounced event and the current view.visible state
@@ -184,9 +184,9 @@ export abstract class SubscribeableViewNode<
 	}
 
 	@gate(undefined, { timeout: 30000, rejectOnTimeout: false }) // 30 second timeout to prevent indefinite hangs
-	@debug({ singleLine: true })
+	@trace({ singleLine: true })
 	async ensureSubscription(force?: boolean, visible?: boolean): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// We only need to subscribe if we are visible and if auto-refresh isn't disabled
 		// If force is true (node is being accessed), subscribe regardless of visibility
@@ -222,7 +222,7 @@ export abstract class SubscribeableViewNode<
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	async resetSubscription(): Promise<void> {
 		await this.unsubscribe();
 		await this.ensureSubscription();

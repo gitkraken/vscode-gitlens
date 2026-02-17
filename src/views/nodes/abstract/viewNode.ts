@@ -28,7 +28,7 @@ import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../../plus/workspaces/models/localWorkspace.js';
-import { debug, logName } from '../../../system/decorators/log.js';
+import { logName, trace } from '../../../system/decorators/log.js';
 import { sequentialize } from '../../../system/decorators/sequentialize.js';
 import { is as isA } from '../../../system/function.js';
 import { getLoggableName } from '../../../system/logger.js';
@@ -271,7 +271,7 @@ export abstract class ViewNode<
 
 	protected _disposed = false;
 	// NOTE: @eamodio uncomment to track node leaks
-	// @debug()
+	// @trace()
 	dispose(): void {
 		this._disposed = true;
 		// NOTE: @eamodio uncomment to track node leaks
@@ -325,7 +325,7 @@ export abstract class ViewNode<
 	refresh?(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }>;
 
 	@sequentialize()
-	@debug()
+	@trace()
 	triggerChange(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode): Promise<void> {
 		if (this._disposed) return Promise.resolve();
 

@@ -1,11 +1,11 @@
 import { createContext } from '@lit/context';
 import { Logger } from '../../../../system/logger.js';
-import type { LogScope } from '../../../../system/logger.scope.js';
+import type { ScopedLogger } from '../../../../system/logger.scope.js';
 import { getNewLogScope } from '../../../../system/logger.scope.js';
 import { padOrTruncateEnd } from '../../../../system/string.js';
 
 export class LoggerContext {
-	private readonly scope: LogScope;
+	private readonly scope: ScopedLogger;
 
 	constructor(appName: string) {
 		this.scope = getNewLogScope(appName, undefined);
@@ -28,11 +28,27 @@ export class LoggerContext {
 		);
 	}
 
-	log(messageOrScope: string | LogScope | undefined, ...optionalParams: any[]): void {
+	trace(messageOrScope: string | ScopedLogger | undefined, ...optionalParams: any[]): void {
 		if (typeof messageOrScope === 'string') {
-			Logger.log(this.scope, messageOrScope, ...optionalParams);
+			Logger.trace(this.scope, messageOrScope, ...optionalParams);
 		} else {
-			Logger.log(messageOrScope, optionalParams.shift(), ...optionalParams);
+			Logger.trace(messageOrScope, optionalParams.shift(), ...optionalParams);
+		}
+	}
+
+	debug(messageOrScope: string | ScopedLogger | undefined, ...optionalParams: any[]): void {
+		if (typeof messageOrScope === 'string') {
+			Logger.debug(this.scope, messageOrScope, ...optionalParams);
+		} else {
+			Logger.debug(messageOrScope, optionalParams.shift(), ...optionalParams);
+		}
+	}
+
+	info(messageOrScope: string | ScopedLogger | undefined, ...optionalParams: any[]): void {
+		if (typeof messageOrScope === 'string') {
+			Logger.info(this.scope, messageOrScope, ...optionalParams);
+		} else {
+			Logger.info(messageOrScope, optionalParams.shift(), ...optionalParams);
 		}
 	}
 }

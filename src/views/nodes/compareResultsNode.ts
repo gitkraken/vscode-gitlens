@@ -9,7 +9,7 @@ import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResu
 import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults.js';
 import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import { pluralize } from '../../system/string.js';
 import type { SearchAndCompareView } from '../searchAndCompareView.js';
@@ -101,7 +101,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return authors;
 	}
 
-	@debug()
+	@trace()
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		return Disposable.from(
 			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
@@ -232,7 +232,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	async getDiffRefs(): Promise<[string, string]> {
 		return Promise.resolve<[string, string]>([this._compareWith.ref, this._ref.ref]);
 	}
@@ -243,13 +243,13 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return node?.getFilesComparison();
 	}
 
-	@log()
+	@debug()
 	clearReviewed(): void {
 		resetComparisonCheckedFiles(this.view, this.getStorageId());
 		void this.store().catch();
 	}
 
-	@log()
+	@debug()
 	async swap(): Promise<void> {
 		if (this._ref.ref === '') {
 			void window.showErrorMessage('Cannot swap comparisons with the working tree');

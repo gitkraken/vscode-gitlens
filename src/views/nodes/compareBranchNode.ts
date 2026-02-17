@@ -12,7 +12,7 @@ import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../
 import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils.js';
 import { CommandQuickPickItem } from '../../quickpicks/items/common.js';
 import { showReferencePicker } from '../../quickpicks/referencePicker.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import { pluralize } from '../../system/string.js';
 import type { ViewsWithBranches } from '../viewBase.js';
@@ -103,7 +103,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		return this.branch.repoPath;
 	}
 
-	@debug()
+	@trace()
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		const subscriptions: Disposable[] = [
 			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
@@ -264,7 +264,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		return item;
 	}
 
-	@log()
+	@debug()
 	async clear(): Promise<void> {
 		this._compareWith = undefined;
 		await this.updateCompareWith(undefined);
@@ -273,13 +273,13 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		this.view.triggerNodeChange(this);
 	}
 
-	@log()
+	@debug()
 	clearReviewed(): void {
 		void this.storeCompareWith(true).catch();
 		void this.triggerChange();
 	}
 
-	@log()
+	@debug()
 	async edit(): Promise<void> {
 		const pick = await showReferencePicker(
 			this.branch.repoPath,
@@ -303,13 +303,13 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		this.view.triggerNodeChange(this);
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		this.loadCompareWith();
 		return super.refresh(reset);
 	}
 
-	@log()
+	@debug()
 	async setComparisonType(comparisonType: Exclude<ViewShowBranchComparison, false>): Promise<void> {
 		if (this._compareWith != null) {
 			await this.updateCompareWith({ ...this._compareWith, type: comparisonType, checkedFiles: undefined });
@@ -321,7 +321,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		this.view.triggerNodeChange(this);
 	}
 
-	@log()
+	@debug()
 	async setDefaultCompareWith(compareWith: StoredBranchComparison): Promise<void> {
 		if (this._compareWith != null) return;
 

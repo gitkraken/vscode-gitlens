@@ -1,5 +1,5 @@
 import type { LogLevel } from './logger.constants.js';
-import type { LogScope } from './logger.scope.js';
+import type { ScopedLogger } from './logger.scope.js';
 import { padOrTruncateEnd } from './string.js';
 
 const enum OrderedLevel {
@@ -8,6 +8,7 @@ const enum OrderedLevel {
 	Warn = 2,
 	Info = 3,
 	Debug = 4,
+	Trace = 5,
 }
 
 export interface LogChannelProvider {
@@ -79,9 +80,33 @@ export const Logger = new (class Logger {
 		return `[${new Date().toISOString().replace(/T/, ' ').slice(0, -1)}]`;
 	}
 
+	trace(message: string, ...params: any[]): void;
+	trace(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
+	trace(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
+		if (this.level < OrderedLevel.Trace && !this.isDebugging) return;
+
+		let message;
+		if (typeof scopeOrMessage === 'string') {
+			message = scopeOrMessage;
+		} else {
+			message = params.shift();
+
+			if (scopeOrMessage != null) {
+				message = `${scopeOrMessage.prefix} ${message ?? ''}`;
+			}
+		}
+
+		if (this.isDebugging) {
+			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
+		}
+
+		if (this.output == null || this.level < OrderedLevel.Trace) return;
+		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(true, params)}`);
+	}
+
 	debug(message: string, ...params: any[]): void;
-	debug(scope: LogScope | undefined, message: string, ...params: any[]): void;
-	debug(scopeOrMessage: LogScope | string | undefined, ...params: any[]): void {
+	debug(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
+	debug(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
 		if (this.level < OrderedLevel.Debug && !this.isDebugging) return;
 
 		let message;
@@ -100,12 +125,60 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Debug) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(true, params)}`);
+		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
+	}
+
+	info(message: string, ...params: any[]): void;
+	info(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
+	info(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
+		if (this.level < OrderedLevel.Info && !this.isDebugging) return;
+
+		let message;
+		if (typeof scopeOrMessage === 'string') {
+			message = scopeOrMessage;
+		} else {
+			message = params.shift();
+
+			if (scopeOrMessage != null) {
+				message = `${scopeOrMessage.prefix} ${message ?? ''}`;
+			}
+		}
+
+		if (this.isDebugging) {
+			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
+		}
+
+		if (this.output == null || this.level < OrderedLevel.Info) return;
+		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
+	}
+
+	warn(message: string, ...params: any[]): void;
+	warn(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
+	warn(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
+		if (this.level < OrderedLevel.Warn && !this.isDebugging) return;
+
+		let message;
+		if (typeof scopeOrMessage === 'string') {
+			message = scopeOrMessage;
+		} else {
+			message = params.shift();
+
+			if (scopeOrMessage != null) {
+				message = `${scopeOrMessage.prefix} ${message ?? ''}`;
+			}
+		}
+
+		if (this.isDebugging) {
+			console.warn(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
+		}
+
+		if (this.output == null || this.level < OrderedLevel.Warn) return;
+		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
 
 	error(ex: Error | unknown, message?: string, ...params: any[]): void;
-	error(ex: Error | unknown, scope?: LogScope, message?: string, ...params: any[]): void;
-	error(ex: Error | unknown, scopeOrMessage: LogScope | string | undefined, ...params: any[]): void {
+	error(ex: Error | unknown, scope?: ScopedLogger, message?: string, ...params: any[]): void;
+	error(ex: Error | unknown, scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
 		if (this.level < OrderedLevel.Error && !this.isDebugging) return;
 
 		let message;
@@ -151,54 +224,6 @@ export const Logger = new (class Logger {
 				ex != null ? `\n${String(ex)}` : ''
 			}`,
 		);
-	}
-
-	log(message: string, ...params: any[]): void;
-	log(scope: LogScope | undefined, message: string, ...params: any[]): void;
-	log(scopeOrMessage: LogScope | string | undefined, ...params: any[]): void {
-		if (this.level < OrderedLevel.Info && !this.isDebugging) return;
-
-		let message;
-		if (typeof scopeOrMessage === 'string') {
-			message = scopeOrMessage;
-		} else {
-			message = params.shift();
-
-			if (scopeOrMessage != null) {
-				message = `${scopeOrMessage.prefix} ${message ?? ''}`;
-			}
-		}
-
-		if (this.isDebugging) {
-			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
-		}
-
-		if (this.output == null || this.level < OrderedLevel.Info) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
-	}
-
-	warn(message: string, ...params: any[]): void;
-	warn(scope: LogScope | undefined, message: string, ...params: any[]): void;
-	warn(scopeOrMessage: LogScope | string | undefined, ...params: any[]): void {
-		if (this.level < OrderedLevel.Warn && !this.isDebugging) return;
-
-		let message;
-		if (typeof scopeOrMessage === 'string') {
-			message = scopeOrMessage;
-		} else {
-			message = params.shift();
-
-			if (scopeOrMessage != null) {
-				message = `${scopeOrMessage.prefix} ${message ?? ''}`;
-			}
-		}
-
-		if (this.isDebugging) {
-			console.warn(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
-		}
-
-		if (this.output == null || this.level < OrderedLevel.Warn) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
 
 	showOutputChannel(preserveFocus?: boolean): void {
@@ -314,6 +339,8 @@ function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 			return OrderedLevel.Info;
 		case 'debug':
 			return OrderedLevel.Debug;
+		case 'trace':
+			return OrderedLevel.Trace;
 		default:
 			return OrderedLevel.Off;
 	}
@@ -352,12 +379,12 @@ export function getLoggableName(instance: object): string {
 
 export interface LogProvider {
 	enabled(logLevel: Exclude<LogLevel, 'off'>): boolean;
-	log(logLevel: LogLevel, scope: LogScope | undefined, message: string, ...params: any[]): void;
+	log(logLevel: LogLevel, scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
 }
 
 export const defaultLogProvider: LogProvider = {
 	enabled: (logLevel: Exclude<LogLevel, 'off'>) => Logger.enabled(logLevel),
-	log: (logLevel: LogLevel, scope: LogScope | undefined, message: string, ...params: any[]) => {
+	log: (logLevel: LogLevel, scope: ScopedLogger | undefined, message: string, ...params: any[]) => {
 		switch (logLevel) {
 			case 'error':
 				Logger.error(undefined, scope, message, ...params);
@@ -366,7 +393,13 @@ export const defaultLogProvider: LogProvider = {
 				Logger.warn(scope, message, ...params);
 				break;
 			case 'info':
-				Logger.log(scope, message, ...params);
+				Logger.info(scope, message, ...params);
+				break;
+			case 'debug':
+				Logger.debug(scope, message, ...params);
+				break;
+			case 'trace':
+				Logger.trace(scope, message, ...params);
 				break;
 			default:
 				Logger.debug(scope, message, ...params);

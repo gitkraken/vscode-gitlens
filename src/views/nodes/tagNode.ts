@@ -7,7 +7,7 @@ import type { GitTagReference } from '../../git/models/reference.js';
 import type { GitTag } from '../../git/models/tag.js';
 import { shortenRevision } from '../../git/utils/revision.utils.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { map } from '../../system/iterable.js';
 import { pad } from '../../system/string.js';
 import type { ViewsWithTags } from '../viewBase.js';
@@ -102,7 +102,7 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		return item;
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;

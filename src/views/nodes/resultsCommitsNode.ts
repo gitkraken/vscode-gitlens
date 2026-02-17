@@ -7,7 +7,7 @@ import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResu
 import { getChangesForChangelog } from '../../git/utils/-webview/log.utils.js';
 import type { AIGenerateChangelogChanges } from '../../plus/ai/actions/generateChangelog.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { map } from '../../system/iterable.js';
 import { getLoggableName, Logger } from '../../system/logger.js';
 import { getNewLogScope } from '../../system/logger.scope.js';
@@ -219,7 +219,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 		return item;
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset: boolean = false): void {
 		if (reset) {
 			this._commitsQueryResultsPromise = undefined;

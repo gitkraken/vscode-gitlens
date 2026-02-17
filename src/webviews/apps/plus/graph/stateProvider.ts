@@ -1,6 +1,6 @@
 import { ContextProvider } from '@lit/context';
 import { debounce } from '../../../../system/function/debounce.js';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../../../system/logger.scope.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
@@ -241,7 +241,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	protected onMessageReceived(msg: IpcMessage): void {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const updates: Partial<State> = {};
 		switch (true) {
@@ -312,7 +312,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					let previousRowsLength = previousRows.length;
 					const newRowsLength = msg.params.rows.length;
 
-					this.logger.log(
+					this.logger.debug(
 						scope,
 						`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${msg.params.paging.startingCursor} (last existing row: ${lastId})`,
 					);
@@ -321,14 +321,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					rows = new Array(previousRowsLength + newRowsLength);
 
 					if (msg.params.paging.startingCursor !== lastId) {
-						this.logger.log(scope, `searching for ${msg.params.paging.startingCursor} in existing rows`);
+						this.logger.debug(scope, `searching for ${msg.params.paging.startingCursor} in existing rows`);
 
 						let i = 0;
 						let row;
 						for (row of previousRows) {
 							rows[i++] = row;
 							if (row.sha === msg.params.paging.startingCursor) {
-								this.logger.log(scope, `found ${msg.params.paging.startingCursor} in existing rows`);
+								this.logger.debug(scope, `found ${msg.params.paging.startingCursor} in existing rows`);
 
 								previousRowsLength = i;
 
@@ -350,7 +350,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						rows[previousRowsLength + i] = msg.params.rows[i];
 					}
 				} else {
-					this.logger.log(scope, `setting to ${msg.params.rows.length} rows`);
+					this.logger.debug(scope, `setting to ${msg.params.rows.length} rows`);
 
 					if (msg.params.rows.length === 0) {
 						rows = this._state.rows;

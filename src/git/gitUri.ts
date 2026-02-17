@@ -8,7 +8,7 @@ import { configuration } from '../system/-webview/configuration.js';
 import { formatPath } from '../system/-webview/formatPath.js';
 import { getBestPath, relativeDir, splitPath } from '../system/-webview/path.js';
 import { isVirtualUri } from '../system/-webview/vscode/uris.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { memoize } from '../system/decorators/memoize.js';
 import { arePathsEqual, basename, normalizePath } from '../system/path.js';
 import type { UriComponents } from '../system/uri.js';
@@ -250,7 +250,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		return new GitUri(uri);
 	}
 
-	@debug({ exit: true })
+	@trace({ exit: true })
 	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (isGitUri(uri)) return uri;
 

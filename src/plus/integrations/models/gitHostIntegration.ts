@@ -10,10 +10,10 @@ import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug } from '../../../system/decorators/log.js';
+import { trace } from '../../../system/decorators/log.js';
 import { first } from '../../../system/iterable.js';
 import { Logger } from '../../../system/logger.js';
-import { getLogScope } from '../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type {
 	GetIssuesOptions,
@@ -42,9 +42,9 @@ export abstract class GitHostIntegration<
 	readonly type: IntegrationType = 'git';
 
 	@gate()
-	@debug()
+	@trace()
 	async getAccountForEmail(repo: T, email: string, options?: { avatarSize?: number }): Promise<Account | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -69,13 +69,13 @@ export abstract class GitHostIntegration<
 	): Promise<Account | undefined>;
 
 	@gate()
-	@debug()
+	@trace()
 	async getAccountForCommit(
 		repo: T,
 		rev: string,
 		options?: { avatarSize?: number },
 	): Promise<Account | UnidentifiedAuthor | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -99,12 +99,12 @@ export abstract class GitHostIntegration<
 		options?: { avatarSize?: number },
 	): Promise<Account | UnidentifiedAuthor | undefined>;
 
-	@debug()
+	@trace()
 	async getDefaultBranch(
 		repo: T,
 		options?: { cancellation?: CancellationToken; expiryOverride?: boolean | number },
 	): Promise<DefaultBranch | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -139,12 +139,12 @@ export abstract class GitHostIntegration<
 		cancellation?: CancellationToken,
 	): Promise<DefaultBranch | undefined>;
 
-	@debug()
+	@trace()
 	async getRepositoryMetadata(
 		repo: T,
 		options?: { cancellation?: CancellationToken; expiryOverride?: boolean | number },
 	): Promise<RepositoryMetadata | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -182,7 +182,7 @@ export abstract class GitHostIntegration<
 	): Promise<RepositoryMetadata | undefined>;
 
 	async mergePullRequest(pr: PullRequest, options?: { mergeMethod?: PullRequestMergeMethod }): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return false;
@@ -205,13 +205,13 @@ export abstract class GitHostIntegration<
 		options?: { mergeMethod?: PullRequestMergeMethod },
 	): Promise<boolean>;
 
-	@debug()
+	@trace()
 	async getPullRequestForBranch(
 		repo: T,
 		branch: string,
 		options?: { avatarSize?: number; expiryOverride?: boolean | number; include?: PullRequestState[] },
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -248,13 +248,13 @@ export abstract class GitHostIntegration<
 		options?: { avatarSize?: number; include?: PullRequestState[] },
 	): Promise<PullRequest | undefined>;
 
-	@debug()
+	@trace()
 	async getPullRequestForCommit(
 		repo: T,
 		rev: string,
 		options?: { expiryOverride?: boolean | number },
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -292,7 +292,7 @@ export abstract class GitHostIntegration<
 		reposOrRepoIds: ProviderReposInput,
 		options?: { filters?: IssueFilter[]; cursor?: string; customUrl?: string },
 	): Promise<PagedResult<ProviderIssue> | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -495,7 +495,7 @@ export abstract class GitHostIntegration<
 		reposOrRepoIds: ProviderReposInput,
 		options?: { filters?: PullRequestFilter[]; cursor?: string; customUrl?: string },
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -650,13 +650,13 @@ export abstract class GitHostIntegration<
 		cancellation?: CancellationToken,
 		silent?: boolean,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
-	@debug()
+	@trace()
 	async searchMyPullRequests(
 		repos?: T | T[],
 		cancellation?: CancellationToken,
 		silent?: boolean,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
@@ -701,13 +701,13 @@ export abstract class GitHostIntegration<
 		repos?: T[],
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[] | undefined>;
-	@debug()
+	@trace()
 	async searchPullRequests(
 		searchQuery: string,
 		repos?: T | T[],
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 

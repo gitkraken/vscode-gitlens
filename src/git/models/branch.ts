@@ -3,7 +3,7 @@ import type { CancellationToken } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import type { Container } from '../../container.js';
 import { formatDate, fromNow } from '../../system/date.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { getLoggableName } from '../../system/logger.js';
 import type { MaybePausedResult } from '../../system/promise.js';
@@ -127,7 +127,7 @@ export class GitBranch implements GitBranchReference {
 		return this.date != null ? fromNow(this.date) : '';
 	}
 
-	@debug()
+	@trace()
 	async getAssociatedPullRequest(options?: {
 		avatarSize?: number;
 		include?: PullRequestState[];
@@ -204,7 +204,7 @@ export class GitBranch implements GitBranchReference {
 		return getUpstreamStatus(this.upstream, options);
 	}
 
-	@debug()
+	@trace()
 	async getWorktree(cancellation?: CancellationToken): Promise<GitWorktree | undefined> {
 		if (this.worktree === false) return undefined;
 		if (this.worktree == null) {

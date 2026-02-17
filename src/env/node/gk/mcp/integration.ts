@@ -4,11 +4,11 @@ import type { Container } from '../../../../container.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
 import { getHostAppName } from '../../../../system/-webview/vscode.js';
-import { debug, log } from '../../../../system/decorators/log.js';
+import { debug, trace } from '../../../../system/decorators/log.js';
 import type { Deferrable } from '../../../../system/function/debounce.js';
 import { debounce } from '../../../../system/function/debounce.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { runCLICommand, toMcpInstallProvider } from '../cli/utils.js';
 
 const CLIProxyMCPConfigOutputs = {
@@ -97,7 +97,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		}
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	async provideMcpServerDefinitions(): Promise<McpServerDefinition[]> {
 		const { environmentVariableCollection: envVars } = this.container.context;
 		const discoveryFilePath = envVars.get('GK_GL_PATH')?.value;
@@ -138,15 +138,15 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		return [serverDefinition];
 	}
 
-	@log()
+	@debug()
 	private getMcpConfigurationFromCLI(): Promise<McpConfiguration | undefined> {
 		this._getMcpConfigurationFromCLIPromise ??= this.getMcpConfigurationFromCLICore();
 		return this._getMcpConfigurationFromCLIPromise;
 	}
 
-	@debug()
+	@trace()
 	private async getMcpConfigurationFromCLICore(): Promise<McpConfiguration | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		const cliPath = this.container.storage.getScoped('gk:cli:path');

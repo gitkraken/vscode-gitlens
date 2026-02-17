@@ -142,7 +142,7 @@ export class GitQueue implements Disposable {
 		const waitTime = Date.now() - cmd.queuedAt;
 		if (waitTime > 1000) {
 			const stats = this.getStats();
-			Logger.debug(`GitQueue: ${cmd.priority} command waited ${waitTime}ms`);
+			Logger.trace(`GitQueue: ${cmd.priority} command waited ${waitTime}ms`);
 			this._container.telemetry.sendEvent('op/git/queueWait', {
 				priority: cmd.priority,
 				waitTime: waitTime,

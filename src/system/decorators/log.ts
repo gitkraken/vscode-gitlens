@@ -3,7 +3,7 @@ import { hrtime } from '@env/hrtime.js';
 import { getParameters } from '../function.js';
 import { slowCallWarningThreshold } from '../logger.constants.js';
 import { customLoggableNameFns, getLoggableName, Logger } from '../logger.js';
-import type { LogScope } from '../logger.scope.js';
+import type { ScopedLogger } from '../logger.scope.js';
 import { clearLogScope, getLoggableScopeBlock, logScopeIdGenerator, setLogScope } from '../logger.scope.js';
 import { isPromise } from '../promise.js';
 import { getDurationMilliseconds } from '../string.js';
@@ -41,15 +41,27 @@ export function logName<T>(fn: (c: T, name: string) => string) {
 	return (target: any): void => void customLoggableNameFns.set(target, fn);
 }
 
+export function info<T extends (...arg: any) => any>(
+	options?: LogOptions<T>,
+): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
+	return _log<T>(options);
+}
+
 export function debug<T extends (...arg: any) => any>(
 	options?: LogOptions<T>,
 ): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
-	return log<T>(options, true);
+	return _log<T>(options);
+}
+
+export function trace<T extends (...arg: any) => any>(
+	options?: LogOptions<T>,
+): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
+	return _log<T>(options, true);
 }
 
 type PromiseType<T> = T extends Promise<infer U> ? U : T;
 
-export function log<T extends (...arg: any) => any>(
+function _log<T extends (...arg: any) => any>(
 	options?: LogOptions<T>,
 	debug = false,
 ): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
@@ -85,7 +97,7 @@ export function log<T extends (...arg: any) => any>(
 		scoped = true;
 	}
 
-	const logFn: (message: string, ...params: any[]) => void = debug ? Logger.debug : Logger.log;
+	const logFn: (message: string, ...params: any[]) => void = debug ? Logger.trace : Logger.debug;
 	const logLevel = Logger.isDebugging ? 'debug' : 'info';
 
 	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
@@ -132,7 +144,7 @@ export function log<T extends (...arg: any) => any>(
 				);
 			}
 
-			let scope: LogScope | undefined;
+			let scope: ScopedLogger | undefined;
 			if (scoped) {
 				scope = setLogScope(scopeId, { scopeId: scopeId, prevScopeId: prevScopeId, prefix: prefix });
 			}

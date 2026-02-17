@@ -34,9 +34,9 @@ import { createRevisionRange, shortenRevision } from '../../../../git/utils/revi
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { ensureArray, filterMap } from '../../../../system/array.js';
 import { debounce } from '../../../../system/decorators/debounce.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { PageableResult } from '../../../../system/paging.js';
 import { normalizePath } from '../../../../system/path.js';
 import { getSettledValue } from '../../../../system/promise.js';
@@ -63,7 +63,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		private readonly provider: LocalGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async getBranch(repoPath: string, name?: string, cancellation?: CancellationToken): Promise<GitBranch | undefined> {
 		if (name != null) {
 			const {
@@ -150,7 +150,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return branch;
 	}
 
-	@log({ args: { 1: false } })
+	@debug({ args: { 1: false } })
 	async getBranches(
 		repoPath: string,
 		options?: {
@@ -162,7 +162,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const getCore = async (commonPath: string, cacheable?: CacheController): Promise<PagedResult<GitBranch>> => {
 			try {
@@ -343,13 +343,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return result;
 	}
 
-	@log()
+	@debug()
 	async getBranchContributionsOverview(
 		repoPath: string,
 		ref: string,
 		cancellation?: CancellationToken,
 	): Promise<BranchContributionsOverview | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const branch = await this.getBranch(repoPath, ref, cancellation);
@@ -434,7 +434,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getBranchesWithCommits(
 		repoPath: string,
 		commits: string[],
@@ -466,7 +466,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return filterMap(result.stdout.split('\n'), b => b.trim() || undefined);
 	}
 
-	@log()
+	@debug()
 	async getCurrentBranchReference(
 		repoPath: string,
 		cancellation?: CancellationToken,
@@ -601,7 +601,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		});
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	async getDefaultBranchName(
 		repoPath: string | undefined,
 		remote?: string,
@@ -662,7 +662,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		});
 	}
 
-	@log()
+	@debug()
 	async createBranch(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void> {
 		const args = ['branch', name, sha];
 		if (options?.noTracking) {
@@ -688,7 +688,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async deleteLocalBranch(repoPath: string, names: string | string[], options?: { force?: boolean }): Promise<void> {
 		const branches = ensureArray(names);
 		const args = ['branch', options?.force ? '-D' : '-d', ...branches];
@@ -715,7 +715,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async deleteRemoteBranch(repoPath: string, names: string | string[], remote: string): Promise<void> {
 		const branches = ensureArray(names);
 		const args = ['push', '-d', remote, ...branches];
@@ -738,7 +738,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getBranchMergedStatus(
 		repoPath: string,
 		branch: GitBranchReference,
@@ -776,7 +776,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		into: GitBranchReference,
 		cancellation?: CancellationToken,
 	): Promise<Exclude<GitBranchMergedStatus, 'localBranchOnly'>> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			// Check if branch is direct ancestor (handles FF merges)
@@ -862,7 +862,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getLocalBranchByUpstream(
 		repoPath: string,
 		remoteBranchName: string,
@@ -875,7 +875,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/** Detects potential conflicts when applying commits onto a target branch (git rebase and cherry-pick) */
-	@log()
+	@debug()
 	async getPotentialApplyConflicts(
 		repoPath: string,
 		targetBranch: string,
@@ -913,14 +913,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/** Detects potential conflict when merge a branch into a target branch (git merge) */
-	@log()
+	@debug()
 	async getPotentialMergeConflicts(
 		repoPath: string,
 		branch: string,
 		targetBranch: string,
 		cancellation?: CancellationToken,
 	): Promise<ConflictDetectionResult> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const cacheKey: ConflictDetectionCacheKey = `merge:${branch}:${targetBranch}`;
 		return this.cache.conflictDetection.getOrCreate(repoPath, cacheKey, async () => {
@@ -994,7 +994,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		cancellation?: CancellationToken,
 		options?: { stopOnFirstConflict?: boolean },
 	): Promise<ConflictDetectionResult> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// Requires Git v2.38+ for --write-tree with 3-arg form
 		if (!(await this.git.supports('git:merge-tree:write-tree'))) {
@@ -1120,7 +1120,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return { status: 'clean' };
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	async getBaseBranchName(
 		repoPath: string,
 		ref: string,
@@ -1218,7 +1218,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return undefined;
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	async getStoredMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target =
 			(await this.getStoredUserMergeTargetBranchName?.(repoPath, ref)) ??
@@ -1226,7 +1226,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return target?.trim() || undefined;
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	async getStoredDetectedMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target =
 			(await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target`)) ??
@@ -1234,7 +1234,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return target?.trim() || undefined;
 	}
 
-	@log()
+	@debug()
 	async getStoredUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target = await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target-user`);
 		return target?.trim() || undefined;
@@ -1242,7 +1242,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	/** Updates the last accessed timestamp for the current branch */
 	@debounce(2.5 * 60 * 1000)
-	@log()
+	@debug()
 	async onCurrentBranchAccessed(repoPath: string): Promise<void> {
 		const branch = await this.getBranch(repoPath);
 		if (branch == null || branch.remote || branch.detached) return;
@@ -1252,7 +1252,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	/** Updates the last accessed and modified timestamp for the current branch */
 	@debounce(2.5 * 60 * 1000)
-	@log()
+	@debug()
 	async onCurrentBranchModified(repoPath: string): Promise<void> {
 		const branch = await this.getBranch(repoPath);
 		if (branch == null || branch.remote || branch.detached) return;
@@ -1262,7 +1262,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		await this.storeBranchDateMetadata(repoPath, 'gk-last-modified', branch.name, now);
 	}
 
-	@log()
+	@debug()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		const args = ['branch', '-m', oldName, newName];
 		try {
@@ -1285,7 +1285,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async setUpstreamBranch(repoPath: string, name: string, upstream: string | undefined): Promise<void> {
 		const args =
 			upstream == null ? ['branch', '--unset-upstream', name] : ['branch', '--set-upstream-to', upstream, name];
@@ -1309,17 +1309,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async storeBaseBranchName(repoPath: string, ref: string, base: string): Promise<void> {
 		await this.provider.config.setGkConfig(repoPath, `branch.${ref}.gk-merge-base`, base);
 	}
 
-	@log()
+	@debug()
 	async storeMergeTargetBranchName(repoPath: string, ref: string, target: string): Promise<void> {
 		await this.provider.config.setGkConfig(repoPath, `branch.${ref}.gk-merge-target`, target);
 	}
 
-	@log()
+	@debug()
 	async storeUserMergeTargetBranchName(repoPath: string, ref: string, target: string | undefined): Promise<void> {
 		await this.provider.config.setGkConfig(repoPath, `branch.${ref}.gk-merge-target-user`, target);
 	}
@@ -1329,7 +1329,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 * @returns A map of branch name to date metadata.
 	 */
 	private async getBranchDateMetadataMap(repoPath: string): Promise<Map<string, BranchDateMetadata>> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const dateMetadataMap = new Map<string, BranchDateMetadata>();
 
 		try {

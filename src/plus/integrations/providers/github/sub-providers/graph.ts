@@ -36,7 +36,7 @@ import { createReference } from '../../../../../git/utils/reference.utils.js';
 import { isUncommitted } from '../../../../../git/utils/revision.utils.js';
 import { getTagId } from '../../../../../git/utils/tag.utils.js';
 import { configuration } from '../../../../../system/-webview/configuration.js';
-import { log } from '../../../../../system/decorators/log.js';
+import { debug } from '../../../../../system/decorators/log.js';
 import { first, map } from '../../../../../system/iterable.js';
 import { getSettledValue } from '../../../../../system/promise.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
@@ -58,7 +58,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async getGraph(
 		repoPath: string,
 		rev: string | undefined,
@@ -500,7 +500,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		};
 	}
 
-	@log<GraphGitSubProvider['searchGraph']>({
+	@debug<GraphGitSubProvider['searchGraph']>({
 		args: {
 			1: s =>
 				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${
@@ -518,7 +518,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return yield* this.searchGraphCore(repoPath, search, undefined, undefined, options, cancellation);
 	}
 
-	@log<GraphGitSubProvider['continueSearchGraph']>({
+	@debug<GraphGitSubProvider['continueSearchGraph']>({
 		args: {
 			1: c =>
 				`[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${

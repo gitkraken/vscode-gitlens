@@ -2,9 +2,9 @@ import { getScopedCounter } from './counter.js';
 
 export const logScopeIdGenerator = getScopedCounter();
 
-const scopes = new Map<number, LogScope>();
+const scopes = new Map<number, ScopedLogger>();
 
-export interface LogScope {
+export interface ScopedLogger {
 	readonly scopeId?: number;
 	readonly prevScopeId?: number;
 	readonly prefix: string;
@@ -28,11 +28,11 @@ export function getLoggableScopeBlockOverride(prefix: string, suffix?: string): 
 	return `[${prefix}${suffix.padStart(13 - prefix.length)}]`;
 }
 
-export function getLogScope(): LogScope | undefined {
+export function getScopedLogger(): ScopedLogger | undefined {
 	return scopes.get(logScopeIdGenerator.current);
 }
 
-export function getNewLogScope(prefix: string, scope: LogScope | boolean | undefined): LogScope {
+export function getNewLogScope(prefix: string, scope: ScopedLogger | boolean | undefined): ScopedLogger {
 	if (scope != null && typeof scope !== 'boolean') {
 		return {
 			scopeId: scope.scopeId,
@@ -50,7 +50,10 @@ export function getNewLogScope(prefix: string, scope: LogScope | boolean | undef
 	};
 }
 
-export function startLogScope(prefix: string, scope: LogScope | boolean | undefined): LogScope & Disposable {
+export function startScopedLogger(
+	prefix: string,
+	scope: ScopedLogger | boolean | undefined,
+): ScopedLogger & Disposable {
 	const newScope = getNewLogScope(prefix, scope);
 	scopes.set(newScope.scopeId!, newScope);
 	return {
@@ -59,13 +62,13 @@ export function startLogScope(prefix: string, scope: LogScope | boolean | undefi
 	};
 }
 
-export function setLogScope(scopeId: number, scope: LogScope): LogScope {
+export function setLogScope(scopeId: number, scope: ScopedLogger): ScopedLogger {
 	scope = { prevScopeId: logScopeIdGenerator.current, ...scope };
 	scopes.set(scopeId, scope);
 	return scope;
 }
 
-export function setLogScopeExit(scope: LogScope | undefined, details: string | undefined, failed?: string): void {
+export function setLogScopeExit(scope: ScopedLogger | undefined, details: string | undefined, failed?: string): void {
 	if (scope == null) return;
 
 	if (scope.exitDetails != null && details != null) {

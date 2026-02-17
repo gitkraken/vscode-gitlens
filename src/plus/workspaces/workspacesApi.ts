@@ -1,6 +1,6 @@
 import type { RequestInit } from '@env/fetch.js';
 import type { Container } from '../../container.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import { Logger } from '../../system/logger.js';
 import type { GraphQLRequest, ServerConnection } from '../gk/serverConnection.js';
 import type { CloudWorkspaceData } from './models/cloudWorkspace.js';
@@ -25,7 +25,7 @@ export class WorkspacesApi {
 		private readonly connection: ServerConnection,
 	) {}
 
-	@log()
+	@debug()
 	async getWorkspace(
 		id: string,
 		options?: {
@@ -96,7 +96,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
-	@log()
+	@debug()
 	async getWorkspaces(options?: {
 		count?: number;
 		cursor?: string;
@@ -206,7 +206,7 @@ export class WorkspacesApi {
 		return outputData;
 	}
 
-	@log()
+	@debug()
 	async getWorkspaceRepositories(
 		workspaceId: string,
 		options?: {
@@ -263,7 +263,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
-	@log()
+	@debug()
 	async createWorkspace(options: {
 		name: string;
 		description: string;
@@ -331,7 +331,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
-	@log()
+	@debug()
 	async deleteWorkspace(workspaceId: string): Promise<DeleteWorkspaceResponse | undefined> {
 		const rsp = await this.fetch({
 			query: `
@@ -362,7 +362,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
-	@log()
+	@debug()
 	async addReposToWorkspace(
 		workspaceId: string,
 		repos: AddWorkspaceRepoDescriptor[],
@@ -426,7 +426,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
-	@log()
+	@debug()
 	async removeReposFromWorkspace(
 		workspaceId: string,
 		repos: RemoveWorkspaceRepoDescriptor[],

@@ -5,7 +5,7 @@ import { Schemes } from '../constants.js';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { once } from '../system/event.js';
 import { Logger } from '../system/logger.js';
 import type { Deferred } from '../system/promise.js';
@@ -184,7 +184,7 @@ export class VslsController implements Disposable {
 		return this._guest;
 	}
 
-	@debug()
+	@trace()
 	async getContact(email: string | undefined): Promise<Contact | undefined> {
 		if (email == null) return undefined;
 
@@ -195,7 +195,7 @@ export class VslsController implements Disposable {
 		return contacts.contacts[email];
 	}
 
-	@debug<VslsController['getContacts']>({ args: { 0: emails => emails.length } })
+	@trace<VslsController['getContacts']>({ args: { 0: emails => emails.length } })
 	private async getContacts(emails: string[]) {
 		const api = await this._api;
 		if (api == null) return undefined;
@@ -204,7 +204,7 @@ export class VslsController implements Disposable {
 		return Object.values(contacts.contacts);
 	}
 
-	@debug()
+	@trace()
 	async getContactPresence(email: string | undefined): Promise<ContactPresence | undefined> {
 		const contact = await this.getContact(email);
 		if (contact == null) return undefined;
@@ -212,7 +212,7 @@ export class VslsController implements Disposable {
 		return contactStatusToPresence(contact.status);
 	}
 
-	@debug<VslsController['getContactsPresence']>({ args: { 0: emails => emails.length } })
+	@trace<VslsController['getContactsPresence']>({ args: { 0: emails => emails.length } })
 	async getContactsPresence(emails: string[]): Promise<Map<string, ContactPresence> | undefined> {
 		const contacts = await this.getContacts(emails);
 		if (contacts == null) return undefined;

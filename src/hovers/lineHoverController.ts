@@ -3,7 +3,7 @@ import { Disposable, Hover, languages, Range, window } from 'vscode';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { once } from '../system/event.js';
 import { Logger } from '../system/logger.js';
 import { areUrisEqual } from '../system/uri.js';
@@ -54,7 +54,7 @@ export class LineHoverController implements Disposable {
 		}
 	}
 
-	@debug<LineHoverController['onActiveLinesChanged']>({
+	@trace<LineHoverController['onActiveLinesChanged']>({
 		args: {
 			0: e =>
 				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
@@ -76,7 +76,7 @@ export class LineHoverController implements Disposable {
 		this.register(e.editor);
 	}
 
-	@debug<LineHoverController['provideDetailsHover']>({
+	@trace<LineHoverController['provideDetailsHover']>({
 		args: {
 			0: document => Logger.toLoggable(document.uri),
 			1: position => `${position.line}:${position.character}`,
@@ -139,7 +139,7 @@ export class LineHoverController implements Disposable {
 		return new Hover(message, range);
 	}
 
-	@debug<LineHoverController['provideChangesHover']>({
+	@trace<LineHoverController['provideChangesHover']>({
 		args: {
 			0: document => Logger.toLoggable(document.uri),
 			1: position => `${position.line}:${position.character}`,

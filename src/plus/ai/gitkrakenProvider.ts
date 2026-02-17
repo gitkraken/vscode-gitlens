@@ -2,9 +2,9 @@ import type { Response } from '@env/fetch.js';
 import { fetch } from '@env/fetch.js';
 import { gitKrakenProviderDescriptor as provider } from '../../constants.ai.js';
 import { AIError, AIErrorReason, AuthenticationRequiredError } from '../../errors.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 import { ensureAccount, getReducedMaxInputTokens } from './utils/-webview/ai.utils.js';
@@ -29,9 +29,9 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		return session?.accessToken;
 	}
 
-	@debug()
+	@trace()
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const url = this.container.urls.getGkAIApiUrl('providers/message-prompt');

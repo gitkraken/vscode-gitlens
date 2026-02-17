@@ -7,10 +7,10 @@ import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../..
 import { isBranchReference } from '../../../../git/utils/reference.utils.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { getHostEditorCommand } from '../../../../system/-webview/vscode.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { sequentialize } from '../../../../system/decorators/sequentialize.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import type { Git, PushForceOptions } from '../git.js';
 import { getGitCommandError } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
@@ -23,13 +23,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		private readonly provider: LocalGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async checkout(
 		repoPath: string,
 		ref: string,
 		options?: { createBranch?: string } | { path?: string },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			await this.git.checkout(repoPath, ref, options);
@@ -40,13 +40,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async cherryPick(
 		repoPath: string,
 		revs: string[],
 		options?: { edit?: boolean; noCommit?: boolean },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const args = ['cherry-pick'];
 		if (options?.edit) {
@@ -95,12 +95,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	}
 
 	@sequentialize<OperationsGitSubProvider['fetch']>({ getQueueKey: rp => rp })
-	@log()
+	@debug()
 	async fetch(
 		repoPath: string,
 		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const { branch, ...opts } = options ?? {};
 		try {
@@ -125,13 +125,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async merge(
 		repoPath: string,
 		ref: string,
 		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const args = ['merge'];
 
@@ -174,9 +174,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	}
 
 	@sequentialize<OperationsGitSubProvider['pull']>({ getQueueKey: rp => rp })
-	@log()
+	@debug()
 	async pull(repoPath: string, options?: { rebase?: boolean; tags?: boolean }): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			await this.git.pull(repoPath, {
@@ -192,12 +192,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	}
 
 	@sequentialize<OperationsGitSubProvider['push']>({ getQueueKey: rp => rp })
-	@log()
+	@debug()
 	async push(
 		repoPath: string,
 		options?: { reference?: GitReference; force?: boolean; publish?: { remote: string } },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		let branchName: string;
 		let remoteName: string | undefined;
@@ -288,13 +288,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async rebase(
 		repoPath: string,
 		upstream: string,
 		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string; updateRefs?: boolean },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const args = ['rebase'];
 		let configs;
@@ -348,13 +348,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async reset(
 		repoPath: string,
 		rev: string,
 		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			await this.git.reset(repoPath, [], { ...options, rev: rev });
@@ -364,9 +364,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const args = ['revert'];
 

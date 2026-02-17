@@ -5,17 +5,17 @@ import type { Container } from '../container.js';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports -- Allowed since it is a type import
 import type {} from '../env/node/git/git.js';
 import type { GitExecOptions, GitResult } from '../git/execTypes.js';
-import { debug, log } from '../system/decorators/log.js';
+import { debug, trace } from '../system/decorators/log.js';
 import { Logger } from '../system/logger.js';
-import { getLogScope } from '../system/logger.scope.js';
+import { getScopedLogger } from '../system/logger.scope.js';
 import { VslsHostService } from './host.js';
 import type { RepositoryProxy, RequestType } from './protocol.js';
 import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol.js';
 
 export class VslsGuestService implements Disposable {
-	@log()
+	@debug()
 	static async connect(api: LiveShare, container: Container): Promise<VslsGuestService | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const service = await api.getSharedService(VslsHostService.ServiceId);
@@ -43,7 +43,7 @@ export class VslsGuestService implements Disposable {
 		// nothing to dispose
 	}
 
-	@log()
+	@debug()
 	private onAvailabilityChanged(available: boolean) {
 		if (available) {
 			void this.container.git.setEnabledContext(true);
@@ -57,7 +57,7 @@ export class VslsGuestService implements Disposable {
 		);
 	}
 
-	@log()
+	@debug()
 	async git<TOut extends string | Buffer>(options: GitExecOptions, ...args: any[]): Promise<GitResult<TOut>> {
 		const response = await this.sendRequest(GitCommandRequestType, {
 			__type: 'gitlens',
@@ -71,7 +71,7 @@ export class VslsGuestService implements Disposable {
 		};
 	}
 
-	@log()
+	@debug()
 	async getRepositoriesForUri(uri: Uri): Promise<RepositoryProxy[]> {
 		const response = await this.sendRequest(GetRepositoriesForUriRequestType, {
 			__type: 'gitlens',
@@ -81,7 +81,7 @@ export class VslsGuestService implements Disposable {
 		return response.repositories;
 	}
 
-	@debug()
+	@trace()
 	private sendRequest<TRequest, TResponse>(
 		requestType: RequestType<TRequest, TResponse>,
 		request: TRequest & { __type: string },

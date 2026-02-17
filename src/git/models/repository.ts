@@ -14,13 +14,13 @@ import { UriSet } from '../../system/-webview/uriMap.js';
 import { exists } from '../../system/-webview/vscode/uris.js';
 import { getScopedCounter } from '../../system/counter.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, log, logName } from '../../system/decorators/log.js';
+import { debug, logName, trace } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { filter, groupByMap, join, map, min, some } from '../../system/iterable.js';
 import { getLoggableName, Logger } from '../../system/logger.js';
-import { getLogScope, setLogScopeExit, startLogScope } from '../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit, startScopedLogger } from '../../system/logger.scope.js';
 import { updateRecordValue } from '../../system/object.js';
 import { basename, normalizePath } from '../../system/path.js';
 import { CheckoutError, FetchError, PullError, PushError } from '../errors.js';
@@ -277,8 +277,8 @@ export class Repository implements Disposable {
 		const changed = this._closed !== value;
 		this._closed = value;
 		if (changed) {
-			using scope = startLogScope(`${getLoggableName(this)}.closed`, false);
-			Logger.debug(scope, `setting closed=${value}`);
+			using scope = startScopedLogger(`${getLoggableName(this)}.closed`, false);
+			Logger.trace(scope, `setting closed=${value}`);
 			this.setupRepoWatchers(this._gitDir);
 
 			if (this._closed) {
@@ -392,7 +392,7 @@ export class Repository implements Disposable {
 		this.fireFileSystemChange(uri);
 	}
 
-	@debug()
+	@trace()
 	private onGitIgnoreChanged(_uri: Uri) {
 		// Refresh the ignore filter if FS watching is active
 		if (this._fsWatcherDisposable != null) {
@@ -402,7 +402,7 @@ export class Repository implements Disposable {
 		this.fireChange(RepositoryChange.Ignores);
 	}
 
-	@debug()
+	@trace()
 	private onRepositoryChanged(uri: Uri | undefined, base: Uri, _reason: 'create' | 'change' | 'delete') {
 		// VS Code won't work with negative glob pattern match when creating the watcher, so we have to ignore it here
 		if (uri?.path.includes('/fsmonitor--daemon/')) {
@@ -501,12 +501,12 @@ export class Repository implements Disposable {
 		this.fireChange(RepositoryChange.Unknown);
 	}
 
-	@log()
+	@debug()
 	access(feature?: PlusFeatures): Promise<FeatureAccess> {
 		return this.container.git.access(feature, this.uri);
 	}
 
-	@log()
+	@debug()
 	async branchDelete(
 		branches: GitBranchReference | GitBranchReference[],
 		options?: { force?: boolean; remote?: boolean },
@@ -557,7 +557,7 @@ export class Repository implements Disposable {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async fetch(options?: {
 		all?: boolean;
 		branch?: GitBranchReference;
@@ -603,7 +603,7 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	getCommonRepository(): Repository | undefined {
 		const { commonUri } = this;
 		if (commonUri == null) return this;
@@ -612,7 +612,7 @@ export class Repository implements Disposable {
 	}
 
 	@gate()
-	@log({ exit: true })
+	@debug({ exit: true })
 	async getOrOpenCommonRepository(): Promise<Repository | undefined> {
 		const { commonUri } = this;
 		if (commonUri == null) return this;
@@ -641,7 +641,7 @@ export class Repository implements Disposable {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async pull(options?: { progress?: boolean; rebase?: boolean }): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.pullCore(opts);
@@ -708,7 +708,7 @@ export class Repository implements Disposable {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async push(options?: {
 		force?: boolean;
 		progress?: boolean;
@@ -757,7 +757,7 @@ export class Repository implements Disposable {
 	 * Resumes the repository, optionally after a delay.
 	 * Delayed resumes are automatically cancelled if suspend() is called.
 	 */
-	@debug({ singleLine: true })
+	@trace({ singleLine: true })
 	resume(delayMs?: number): void {
 		// If a delay is specified, schedule the resume and return
 		if (delayMs) {
@@ -772,7 +772,7 @@ export class Repository implements Disposable {
 			return;
 		}
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!this._suspended) {
 			setLogScopeExit(scope, ' \u2022 ignored; not suspended');
@@ -784,12 +784,12 @@ export class Repository implements Disposable {
 		// If we've come back into focus and we are dirty, fire the change events
 
 		if (this._pendingRepoChange != null) {
-			Logger.debug(scope, `Firing pending repo ${this._pendingRepoChange.toString(true)}`);
+			Logger.trace(scope, `Firing pending repo ${this._pendingRepoChange.toString(true)}`);
 			this.fireChangeCore();
 		}
 
 		if (this._pendingFileSystemChange != null) {
-			Logger.debug(scope, `Firing pending file system changes`);
+			Logger.trace(scope, `Firing pending file system changes`);
 			this.fireFileSystemChangeCore();
 		}
 	}
@@ -799,13 +799,13 @@ export class Repository implements Disposable {
 		return starred?.[this.id] === true;
 	}
 
-	@log<Repository['star']>({ args: { 0: b => b?.name } })
+	@debug<Repository['star']>({ args: { 0: b => b?.name } })
 	star(branch?: GitBranch): Promise<void> {
 		return this.updateStarred(true, branch);
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.switchCore(ref, opts);
@@ -843,7 +843,7 @@ export class Repository implements Disposable {
 		return rev != null ? this.git.getBestRevisionUri(path, rev) : undefined;
 	}
 
-	@log<Repository['unstar']>({ args: { 0: b => b?.name } })
+	@debug<Repository['unstar']>({ args: { 0: b => b?.name } })
 	unstar(branch?: GitBranch): Promise<void> {
 		return this.updateStarred(false, branch);
 	}
@@ -876,7 +876,7 @@ export class Repository implements Disposable {
 		return this._pendingRepoChange != null;
 	}
 
-	@debug({ singleLine: true })
+	@trace({ singleLine: true })
 	suspend(): void {
 		this._suspended = true;
 
@@ -941,7 +941,7 @@ export class Repository implements Disposable {
 		});
 	}
 
-	@debug({ singleLine: true })
+	@trace({ singleLine: true })
 	watchFileSystem(delay: number = defaultFileSystemChangeDelay): Disposable {
 		const id = uuid();
 		this._fsWatchers.set(id, delay);
@@ -994,9 +994,9 @@ export class Repository implements Disposable {
 
 	private fireChange(...changes: RepositoryChange[]): void;
 	private fireChange(change: RepositoryChange, force: boolean): void;
-	@debug()
+	@trace()
 	private fireChange(...args: RepositoryChange[] | [RepositoryChange, boolean]): void {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// Extract force flag if present (last argument is boolean)
 		const lastArg = args[args.length - 1];
@@ -1025,7 +1025,7 @@ export class Repository implements Disposable {
 		this.providerService.onRepositoryChanged(this, this._pendingRepoChange);
 
 		if (this._suspended) {
-			Logger.debug(scope, `SUSPENDED: queueing repo ${this._pendingRepoChange.toString(true)}`);
+			Logger.trace(scope, `SUSPENDED: queueing repo ${this._pendingRepoChange.toString(true)}`);
 			return;
 		}
 
@@ -1033,17 +1033,17 @@ export class Repository implements Disposable {
 	}
 
 	private fireChangeCore() {
-		using scope = startLogScope(`${getLoggableName(this)}.fireChangeCore`, false);
+		using scope = startScopedLogger(`${getLoggableName(this)}.fireChangeCore`, false);
 
 		const e = this._pendingRepoChange;
 		if (e == null) {
-			Logger.debug(scope, 'No pending repo changes');
+			Logger.trace(scope, 'No pending repo changes');
 			return;
 		}
 
 		this._pendingRepoChange = undefined;
 
-		Logger.debug(scope, `firing repo ${e.toString(true)}`);
+		Logger.trace(scope, `firing repo ${e.toString(true)}`);
 		try {
 			this._onDidChange.fire(e);
 		} finally {
@@ -1051,9 +1051,9 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@debug()
+	@trace()
 	private fireFileSystemChange(uri: Uri) {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		this._updatedAt = Date.now();
 
@@ -1064,7 +1064,7 @@ export class Repository implements Disposable {
 		e.uris.add(uri);
 
 		if (this._suspended) {
-			Logger.debug(
+			Logger.trace(
 				scope,
 				`SUSPENDED: queueing fs changes=${join(
 					map(e.uris, u => u.fsPath),
@@ -1078,17 +1078,17 @@ export class Repository implements Disposable {
 	}
 
 	private fireFileSystemChangeCore() {
-		using scope = startLogScope(`${getLoggableName(this)}.fireFileSystemChangeCore`, false);
+		using scope = startScopedLogger(`${getLoggableName(this)}.fireFileSystemChangeCore`, false);
 
 		const e = this._pendingFileSystemChange;
 		if (e == null) {
-			Logger.debug(scope, 'No pending fs changes');
+			Logger.trace(scope, 'No pending fs changes');
 			return;
 		}
 
 		this._pendingFileSystemChange = undefined;
 
-		Logger.debug(
+		Logger.trace(
 			scope,
 			`firing fs changes=${join(
 				map(e.uris, u => u.fsPath),
@@ -1101,16 +1101,16 @@ export class Repository implements Disposable {
 		this._onDidChangeFileSystem.fire(e);
 	}
 
-	@debug({ singleLine: true })
+	@trace({ singleLine: true })
 	private setupRepoWatchers(gitDir: GitDir | undefined): void {
 		if (gitDir == null) return;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (this.closed) {
 			if (this._repoWatchersDisposable != null) {
-				Logger.debug(
-					getLogScope(),
+				Logger.trace(
+					getScopedLogger(),
 					`(closed) stop watching '${this.uri.toString(true)}' for repository changes`,
 				);
 				this._repoWatchersDisposable.dispose();
@@ -1125,7 +1125,7 @@ export class Repository implements Disposable {
 		const disposables: Disposable[] = [];
 
 		// Limit watching to only the .gitignore file at the root of the repository for performance reasons
-		Logger.debug(scope, `watching '${this.uri.toString(true)}/${gitIgnoreGlob}' for .gitignore changes`);
+		Logger.trace(scope, `watching '${this.uri.toString(true)}/${gitIgnoreGlob}' for .gitignore changes`);
 
 		const ignoreWatcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, gitIgnoreGlob));
 		disposables.push(
@@ -1136,7 +1136,7 @@ export class Repository implements Disposable {
 		);
 
 		function watch(this: Repository, uri: Uri, pattern: string) {
-			Logger.debug(scope, `watching '${uri.toString(true)}/${pattern}' for repository changes`);
+			Logger.trace(scope, `watching '${uri.toString(true)}/${pattern}' for repository changes`);
 
 			const watcher = workspace.createFileSystemWatcher(new RelativePattern(uri, pattern));
 

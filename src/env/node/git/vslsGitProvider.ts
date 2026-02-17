@@ -6,9 +6,9 @@ import type { GitProviderDescriptor } from '../../../git/gitProvider.js';
 import type { Repository } from '../../../git/models/repository.js';
 import { isFolderUri } from '../../../system/-webview/path.js';
 import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls.js';
-import { debug } from '../../../system/decorators/log.js';
+import { trace } from '../../../system/decorators/log.js';
 import { Logger } from '../../../system/logger.js';
-import { getLogScope } from '../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../system/logger.scope.js';
 import { Git } from './git.js';
 import { LocalGitProvider } from './localGitProvider.js';
 
@@ -57,11 +57,11 @@ export class VslsGitProvider extends LocalGitProvider {
 	};
 	override readonly supportedSchemes = new Set<string>([Schemes.Vsls, Schemes.VslsScc]);
 
-	@debug({ exit: true })
+	@trace({ exit: true })
 	override async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const guest = await this.container.vsls.guest();
@@ -106,7 +106,7 @@ export class VslsGitProvider extends LocalGitProvider {
 	}
 
 	override async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		let repoPath: string | undefined;
 		try {

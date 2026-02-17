@@ -8,9 +8,9 @@ import { CommitFormatter } from '../git/formatters/commitFormatter.js';
 import type { GitCommit } from '../git/models/commit.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { filterMap } from '../system/array.js';
-import { log } from '../system/decorators/log.js';
+import { debug } from '../system/decorators/log.js';
 import { first } from '../system/iterable.js';
-import { getLogScope } from '../system/logger.scope.js';
+import { getScopedLogger } from '../system/logger.scope.js';
 import { maybeStopWatch } from '../system/stopwatch.js';
 import type { TokenOptions } from '../system/string.js';
 import { getTokensFromTemplate, getWidth } from '../system/string.js';
@@ -49,9 +49,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		}
 	}
 
-	@log()
+	@debug()
 	override async onProvideAnnotation(_context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const blame = await this.getBlame(state?.recompute);
 		if (blame == null) return false;
@@ -209,7 +209,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		return true;
 	}
 
-	@log({ args: false })
+	@debug({ args: false })
 	override async selection(selection?: AnnotationContext['selection']): Promise<void> {
 		if (selection === false || Decorations.gutterBlameHighlight == null) return;
 

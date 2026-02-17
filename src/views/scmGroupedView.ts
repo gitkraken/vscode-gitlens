@@ -3,12 +3,12 @@ import { CancellationTokenSource, EventEmitter, TreeItem, TreeItemCollapsibleSta
 import type { GroupableTreeViewTypes } from '../constants.views.js';
 import type { Container } from '../container.js';
 import { setContext } from '../system/-webview/context.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { once } from '../system/function.js';
 import { first } from '../system/iterable.js';
 import { lazy } from '../system/lazy.js';
 import { getLoggableName, Logger } from '../system/logger.js';
-import { startLogScope } from '../system/logger.scope.js';
+import { startScopedLogger } from '../system/logger.scope.js';
 import type { Deferred } from '../system/promise.js';
 import { defer, isPromise } from '../system/promise.js';
 import { BranchesView } from './branchesView.js';
@@ -130,7 +130,7 @@ export class ScmGroupedView implements Disposable {
 		}
 	}
 
-	@debug({ singleLine: true })
+	@trace({ singleLine: true })
 	setView<T extends GroupableTreeViewTypes>(
 		type: T,
 		options?: { focus?: boolean; preventReveal?: boolean },
@@ -238,7 +238,7 @@ export class ScmGroupedView implements Disposable {
 								return emptyTreeItem;
 							}
 
-							using scope = startLogScope(
+							using scope = startScopedLogger(
 								`${getLoggableName(this)}.ensureGroupedContext.getTreeItem`,
 								false,
 							);
@@ -274,7 +274,7 @@ export class ScmGroupedView implements Disposable {
 								return emptyArray;
 							}
 
-							using scope = startLogScope(
+							using scope = startScopedLogger(
 								`${getLoggableName(this)}.ensureGroupedContext.getChildren`,
 								false,
 							);
@@ -305,7 +305,7 @@ export class ScmGroupedView implements Disposable {
 						resolveTreeItem: (item, node, token) => {
 							if (this._view == null) return item;
 
-							using scope = startLogScope(
+							using scope = startScopedLogger(
 								`${getLoggableName(this)}.ensureGroupedContext.resolveTreeItem`,
 								false,
 							);

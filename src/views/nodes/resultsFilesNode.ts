@@ -4,7 +4,7 @@ import { GitUri } from '../../git/gitUri.js';
 import type { GitFile } from '../../git/models/file.js';
 import type { FilesQueryResults } from '../../git/queryResults.js';
 import { makeHierarchical } from '../../system/array.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { map } from '../../system/iterable.js';
 import { joinPaths, normalizePath } from '../../system/path.js';
 import { cancellable, PromiseCancelledError } from '../../system/promise.js';
@@ -196,7 +196,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		return item;
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset: boolean = false): void {
 		if (!reset) return;
 

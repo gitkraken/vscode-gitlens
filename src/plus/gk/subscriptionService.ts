@@ -51,13 +51,13 @@ import { setContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { createFromDateDelta, fromNow } from '../../system/date.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { take } from '../../system/event.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { once } from '../../system/function.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../system/logger.scope.js';
 import { flatten } from '../../system/object.js';
 import { pauseOnCancelOrTimeout } from '../../system/promise.js';
 import { pluralize } from '../../system/string.js';
@@ -375,7 +375,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async continueFeaturePreview(feature: FeaturePreviews): Promise<void> {
 		const preview = this.getStoredFeaturePreview(feature);
 		const status = getFeaturePreviewStatus(preview);
@@ -423,7 +423,7 @@ export class SubscriptionService implements Disposable {
 		return featurePreviews.map(f => this.getStoredFeaturePreview(f));
 	}
 
-	@debug()
+	@trace()
 	async learnAboutPro(source: Source, originalSource: Source | undefined): Promise<void> {
 		if (originalSource != null) {
 			source.detail = {
@@ -540,7 +540,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async loginOrSignUp(signUp: boolean, source: Source | undefined): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
@@ -593,7 +593,7 @@ export class SubscriptionService implements Disposable {
 		return loggedIn;
 	}
 
-	@log()
+	@debug()
 	async logout(source: Source | undefined): Promise<void> {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-out' }, source);
@@ -624,9 +624,9 @@ export class SubscriptionService implements Disposable {
 		this.changeSubscription(getCommunitySubscription(this._subscription), source);
 	}
 
-	@log()
+	@debug()
 	async manageAccount(source: Source | undefined): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'manage' }, source);
 		}
@@ -640,7 +640,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async manageSubscription(source: Source | undefined): Promise<boolean> {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'manage-subscription' }, source);
@@ -650,9 +650,9 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@gate(() => '')
-	@log()
+	@debug()
 	async reactivateProTrial(source: Source | undefined): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
@@ -729,7 +729,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async referFriend(source: Source | undefined): Promise<void> {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'refer-friend' }, source);
@@ -739,11 +739,11 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@gate(() => '')
-	@log()
+	@debug()
 	async resendVerification(source: Source | undefined): Promise<boolean> {
 		if (this._subscription.account?.verified) return true;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'resend-verification' }, source);
@@ -810,7 +810,7 @@ export class SubscriptionService implements Disposable {
 		void configuration.updateEffective('plusFeatures.enabled', visible);
 	}
 
-	@log()
+	@debug()
 	async showAccountView(silent: boolean = false): Promise<void> {
 		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
 
@@ -819,7 +819,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	private showPlans(source: Source | undefined): void {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'pricing' }, source);
@@ -828,9 +828,9 @@ export class SubscriptionService implements Disposable {
 		void openUrl(urls.pricing);
 	}
 
-	@log()
+	@debug()
 	async upgrade(plan: PaidSubscriptionPlanIds | undefined, source: Source | undefined): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
@@ -956,9 +956,9 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
-	@log()
+	@debug()
 	async validate(options?: { force?: boolean }, source?: Source | undefined): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const session = await this.ensureSession(false, source);
 		if (session == null) {
@@ -976,13 +976,13 @@ export class SubscriptionService implements Disposable {
 
 	private _lastValidatedDate: Date | undefined;
 
-	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account?.label } })
+	@trace<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account?.label } })
 	private async checkInAndValidate(
 		session: AuthenticationSession,
 		source: Source | undefined,
 		options?: { force?: boolean; showSlowProgress?: boolean; organizationId?: string },
 	): Promise<GKCheckInResponse | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// Only check in if we haven't in the last 12 hours
 		if (
@@ -1011,14 +1011,14 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@gate<SubscriptionService['checkInAndValidateCore']>((s, _, orgId) => `${s.account.id}:${orgId}`)
-	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account?.label } })
+	@trace<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account?.label } })
 	private async checkInAndValidateCore(
 		session: AuthenticationSession,
 		source: Source | undefined,
 		organizationId?: string,
 		force?: boolean,
 	): Promise<GKCheckInResponse | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		this._lastValidatedDate = undefined;
 
 		try {
@@ -1100,7 +1100,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async loadStoredCheckInData(userId: string): Promise<GKCheckInResponse | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const storedCheckIn = this.container.storage.get(`gk:${userId}:checkin`);
 		// If more than a day old, ignore
 		if (storedCheckIn?.timestamp == null || Date.now() - storedCheckIn.timestamp > 24 * 60 * 60 * 1000) {
@@ -1119,13 +1119,13 @@ export class SubscriptionService implements Disposable {
 		return storedCheckIn?.data;
 	}
 
-	@debug()
+	@trace()
 	private async validateAndUpdateSubscriptions(
 		data: GKCheckInResponse,
 		session: AuthenticationSession,
 		source: Source | undefined,
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		let organizations: Organization[];
 		try {
 			organizations =
@@ -1161,7 +1161,7 @@ export class SubscriptionService implements Disposable {
 	private _session: AuthenticationSession | null | undefined;
 
 	@gate()
-	@debug()
+	@trace()
 	private async ensureSession(
 		createIfNeeded: boolean,
 		source: Source | undefined,
@@ -1202,13 +1202,13 @@ export class SubscriptionService implements Disposable {
 		return session ?? undefined;
 	}
 
-	@debug()
+	@trace()
 	private async getOrCreateSession(
 		createIfNeeded: boolean,
 		source: Source | undefined,
 		options?: { signUp?: boolean; signIn?: { code: string; state?: string }; context?: TrackingContext },
 	): Promise<AuthenticationSession | null> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		let session: AuthenticationSession | null | undefined;
 		try {
@@ -1314,7 +1314,7 @@ export class SubscriptionService implements Disposable {
 		return session;
 	}
 
-	@debug()
+	@trace()
 	private changeSubscription(
 		subscription: Optional<Subscription, 'state'> | undefined,
 		source: Source | undefined,
@@ -1565,7 +1565,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	async switchOrganization(source: Source | undefined): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		if (this._session == null) return;
 
 		let organizations;
@@ -1627,7 +1627,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private onLoginUri(uri: Uri): void {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const queryParams = new URLSearchParams(uri.query);
 		const code = queryParams.get('code');
 		const state = queryParams.get('state');
@@ -1652,7 +1652,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	async checkUpdatedSubscription(source: Source | undefined): Promise<SubscriptionState | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		if (this._session == null) return undefined;
 		const oldSubscriptionState = this._subscription.state;
 		try {
@@ -1670,9 +1670,9 @@ export class SubscriptionService implements Disposable {
 		return this._subscription.state;
 	}
 
-	@log()
+	@debug()
 	async aiAllAccessOptIn(source: Source | undefined): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 

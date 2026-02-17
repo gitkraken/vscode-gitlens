@@ -11,7 +11,7 @@ import { createRevisionRange } from '../../git/utils/revision.utils.js';
 import { getUpstreamStatus } from '../../git/utils/status.utils.js';
 import { fromNow } from '../../system/date.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { first, last, map } from '../../system/iterable.js';
 import { pluralize } from '../../system/string.js';
 import type { ViewsWithCommits } from '../viewBase.js';
@@ -331,7 +331,7 @@ export class BranchTrackingStatusNode
 		return item;
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;

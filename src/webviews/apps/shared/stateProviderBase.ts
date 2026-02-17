@@ -51,7 +51,7 @@ export abstract class StateProviderBase<
 	) {
 		// Deserialize bootstrap from base64
 		this._state = this.ipc.deserializeIpcData<State>(fromBase64ToString(bootstrap));
-		this.logger?.log(`bootstrap duration=${Date.now() - this._state.timestamp}ms`);
+		this.logger?.debug(`bootstrap duration=${Date.now() - this._state.timestamp}ms`);
 
 		this.provider = this.createContextProvider(this._state);
 		this.onPersistState?.(this._state);

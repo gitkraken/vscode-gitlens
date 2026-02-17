@@ -1,21 +1,21 @@
 import { hrtime } from '@env/hrtime.js';
 import { Logger } from './logger.js';
-import type { LogScope } from './logger.scope.js';
-import { setLogScopeExit, startLogScope } from './logger.scope.js';
+import type { ScopedLogger } from './logger.scope.js';
+import { setLogScopeExit, startScopedLogger } from './logger.scope.js';
 import { getDurationMilliseconds } from './string.js';
 
 export class LoggableScope implements Disposable {
-	private readonly scope: LogScope & Disposable;
+	private readonly scope: ScopedLogger & Disposable;
 	private readonly start: [number, number];
 
 	constructor(
 		prefix: string,
 		private readonly options?: { debug?: boolean; enter?: string },
 	) {
-		this.scope = startLogScope(prefix, true);
+		this.scope = startScopedLogger(prefix, true);
 		this.start = hrtime();
 
-		(options?.debug ? Logger.debug : Logger.log).call(Logger, this.scope, options?.enter ?? '');
+		(options?.debug ? Logger.trace : Logger.debug).call(Logger, this.scope, options?.enter ?? '');
 	}
 
 	[Symbol.dispose](): void {
@@ -26,7 +26,7 @@ export class LoggableScope implements Disposable {
 		if (this.scope.exitFailed != null) {
 			Logger.error(null, this.scope, `${exit}${this.scope.exitDetails ?? ''}${timing}`);
 		} else {
-			(this.options?.debug ? Logger.debug : Logger.log).call(
+			(this.options?.debug ? Logger.trace : Logger.debug).call(
 				Logger,
 				this.scope,
 				`${exit}${this.scope.exitDetails ?? ''}${timing}`,
@@ -45,7 +45,7 @@ export class LoggableScope implements Disposable {
 	}
 
 	log(message: string, ...params: any[]): void {
-		(this.options?.debug ? Logger.debug : Logger.log).call(Logger, this.scope, message, ...params);
+		(this.options?.debug ? Logger.trace : Logger.debug).call(Logger, this.scope, message, ...params);
 	}
 
 	warn(message: string, ...params: any[]): void {

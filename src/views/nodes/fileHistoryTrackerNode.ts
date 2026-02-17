@@ -9,12 +9,12 @@ import { showReferencePicker } from '../../quickpicks/referencePicker.js';
 import { setContext } from '../../system/-webview/context.js';
 import { isVirtualUri } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../system/logger.scope.js';
 import { areUrisEqual } from '../../system/uri.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
@@ -114,9 +114,9 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	@gate()
-	@debug({ exit: true })
+	@trace({ exit: true })
 	override async refresh(reset: boolean = false): Promise<{ cancel: boolean }> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!this.canSubscribe) return { cancel: false };
 
@@ -133,7 +133,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		return { cancel: !updated };
 	}
 
-	@debug()
+	@trace()
 	protected async subscribe(): Promise<Disposable | undefined> {
 		await this.updateUri(this._selectSha);
 
@@ -141,7 +141,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
-	@debug({ args: false })
+	@trace({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
 		// If we are losing the active editor, give more time before assuming its really gone
 		// For virtual repositories the active editor event takes a while to fire
@@ -155,7 +155,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async changeBase(): Promise<void> {
 		const pick = await showReferencePicker(
 			this.uri.repoPath!,
@@ -181,7 +181,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		await this.triggerChange();
 	}
 
-	@log()
+	@debug()
 	setEditorFollowing(enabled: boolean): void {
 		if (enabled) {
 			this.setUri();
@@ -194,14 +194,14 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		}
 	}
 
-	@debug()
+	@trace()
 	setUri(uri?: GitUri, sha?: string): void {
 		this._uri = uri ?? unknownGitUri;
 		this._selectSha = sha ?? uri?.sha;
 		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
 	}
 
-	@log()
+	@debug()
 	async showHistoryForUri(uri: GitUri): Promise<void> {
 		this.setUri(uri);
 		await this.triggerChange();

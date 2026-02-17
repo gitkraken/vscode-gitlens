@@ -9,12 +9,12 @@ import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getFolderGlobUri } from '../../system/-webview/path.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { weakEvent } from '../../system/event.js';
 import { filterMap, flatMap, map, some, uniqueBy } from '../../system/iterable.js';
 import { getLoggableName, Logger } from '../../system/logger.js';
-import { startLogScope } from '../../system/logger.scope.js';
+import { startScopedLogger } from '../../system/logger.scope.js';
 import { basename } from '../../system/path.js';
 import { getSettledValue } from '../../system/promise.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
@@ -100,7 +100,7 @@ export class FileHistoryNode
 		}`;
 	}
 
-	@debug()
+	@trace()
 	protected subscribe(): Disposable | undefined {
 		const repo = this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
@@ -141,8 +141,8 @@ export class FileHistoryNode
 			return;
 		}
 
-		using scope = startLogScope(`${getLoggableName(this)}.onRepositoryChanged(e=${e.toString()})`, false);
-		Logger.debug(scope, 'triggering node refresh');
+		using scope = startScopedLogger(`${getLoggableName(this)}.onRepositoryChanged(e=${e.toString()})`, false);
+		Logger.trace(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
@@ -154,16 +154,16 @@ export class FileHistoryNode
 			return;
 		}
 
-		using scope = startLogScope(
+		using scope = startScopedLogger(
 			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,
 			false,
 		);
-		Logger.debug(scope, 'triggering node refresh');
+		Logger.trace(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset: boolean = false): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._log = undefined;

@@ -24,7 +24,7 @@ import { configuration } from '../../system/-webview/configuration.js';
 import { closeTab } from '../../system/-webview/vscode/tabs.js';
 import { exists } from '../../system/-webview/vscode/uris.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { concat, filterMap, find, first, join, last, map } from '../../system/iterable.js';
@@ -237,7 +237,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(AbortCommand)
-	@log()
+	@debug()
 	private async onAbort(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/abort', {
 			'context.session.duration': this.getSessionDuration(),
@@ -255,7 +255,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(ContinueCommand)
-	@log()
+	@debug()
 	private async onContinue(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/continue');
 
@@ -267,7 +267,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(RecomposeCommand)
-	@log()
+	@debug()
 	private async onRecompose(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/recompose', {
 			'context.session.duration': this.getSessionDuration(),
@@ -310,7 +310,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@command('gitlens.pausedOperation.showConflicts:')
-	@log()
+	@debug()
 	private async onShowConflicts(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/showConflicts');
 		await showPausedOperationStatus(this.container, this.repoPath);
@@ -322,7 +322,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(SkipCommand)
-	@log()
+	@debug()
 	private async onSkip(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/skip');
 		const svc = this.container.git.getRepositoryService(this.repoPath);
@@ -330,7 +330,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(StartCommand)
-	@log()
+	@debug()
 	private async onStart(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/start', {
 			'context.session.duration': this.getSessionDuration(),
@@ -343,7 +343,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(ReorderCommand)
-	@log()
+	@debug()
 	private async onSwapOrdering(params: IpcParams<typeof ReorderCommand>): Promise<void> {
 		const oldOrdering = this.ascending ? 'asc' : 'desc';
 		const newOrdering = (params.ascending ?? false) ? 'asc' : 'desc';
@@ -358,7 +358,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(SwitchCommand)
-	@log()
+	@debug()
 	private onSwitchToText(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/switchToText', {
 			'context.session.duration': this.getSessionDuration(),
@@ -858,13 +858,13 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(ChangeEntryCommand)
-	@log()
+	@debug()
 	private async onEntryChanged(params: IpcParams<typeof ChangeEntryCommand>): Promise<void> {
 		return this.onEntriesChanged({ entries: [params] });
 	}
 
 	@ipcCommand(ChangeEntriesCommand)
-	@log()
+	@debug()
 	private async onEntriesChanged(params: IpcParams<typeof ChangeEntriesCommand>): Promise<void> {
 		if (!params.entries.length) return;
 
@@ -878,7 +878,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(MoveEntryCommand)
-	@log()
+	@debug()
 	private async onEntryMoved(params: IpcParams<typeof MoveEntryCommand>): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/entries/moved', { count: 1, method: 'drag' });
 
@@ -915,7 +915,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	@ipcCommand(MoveEntriesCommand)
-	@log()
+	@debug()
 	private async onEntriesMoved(params: IpcParams<typeof MoveEntriesCommand>): Promise<void> {
 		if (!params.ids.length) return;
 
@@ -957,7 +957,7 @@ export class RebaseWebviewProvider implements Disposable {
 	 * Each selected entry swaps with the adjacent non-selected entry in the shift direction
 	 */
 	@ipcCommand(ShiftEntriesCommand)
-	@log()
+	@debug()
 	private async onEntriesShifted(params: IpcParams<typeof ShiftEntriesCommand>): Promise<void> {
 		if (!params.ids.length) return;
 

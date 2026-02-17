@@ -95,7 +95,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the cherry-pick
 			if (CherryPickError.is(ex, 'aborted')) {
-				Logger.log(ex.message, this.title);
+				Logger.debug(ex.message, this.title);
 				return;
 			}
 

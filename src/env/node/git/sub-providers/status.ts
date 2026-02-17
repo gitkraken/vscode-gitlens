@@ -13,9 +13,9 @@ import { parseGitStatus } from '../../../../git/parsers/statusParser.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { splitPath } from '../../../../system/-webview/path.js';
 import { gate } from '../../../../system/decorators/gate.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../../../system/logger.scope.js';
 import { stripFolderGlob } from '../../../../system/path.js';
 import { iterateByDelimiter } from '../../../../system/string.js';
 import { createDisposable } from '../../../../system/unifiedDisposable.js';
@@ -31,7 +31,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	) {}
 
 	@gate<StatusGitSubProvider['getStatus']>(rp => rp ?? '')
-	@log()
+	@debug()
 	async getStatus(repoPath: string | undefined, cancellation?: CancellationToken): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -62,7 +62,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return status;
 	}
 
-	@log()
+	@debug()
 	async getStatusForFile(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -73,7 +73,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return files?.[0];
 	}
 
-	@log()
+	@debug()
 	async getStatusForPath(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -120,13 +120,13 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	@gate<StatusGitSubProvider['hasWorkingChanges']>(
 		(rp, o) => `${rp ?? ''}:${o?.staged ?? true}:${o?.unstaged ?? true}:${o?.untracked ?? true}`,
 	)
-	@log()
+	@debug()
 	async hasWorkingChanges(
 		repoPath: string,
 		options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean; throwOnError?: boolean },
 		cancellation?: CancellationToken,
 	): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const staged = options?.staged ?? true;
@@ -175,9 +175,9 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	}
 
 	@gate<StatusGitSubProvider['getWorkingChangesState']>(rp => rp ?? '')
-	@log()
+	@debug()
 	async getWorkingChangesState(repoPath: string, cancellation?: CancellationToken): Promise<GitWorkingChangesState> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const [stagedResult, unstagedResult, untrackedResult] = await Promise.allSettled([
@@ -239,9 +239,9 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	}
 
 	@gate<StatusGitSubProvider['getConflictingFiles']>(rp => rp ?? '')
-	@log()
+	@debug()
 	async getConflictingFiles(repoPath: string, cancellation?: CancellationToken): Promise<GitConflictFile[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const result = await this.git.exec(
@@ -297,9 +297,9 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	}
 
 	@gate<StatusGitSubProvider['getUntrackedFiles']>(rp => rp ?? '')
-	@log()
+	@debug()
 	async getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<GitFile[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const result = await this.git.exec(

@@ -367,10 +367,10 @@ export async function showMessage(
 	dontShowAgain: MessageItem | null = { title: "Don't Show Again" },
 	...actions: MessageItem[]
 ): Promise<MessageItem | undefined> {
-	Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)})`);
+	Logger.debug(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)})`);
 
 	if (suppressionKey != null && configuration.get(`advanced.messages.${suppressionKey}` as const)) {
-		Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) skipped`);
+		Logger.debug(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) skipped`);
 		return undefined;
 	}
 
@@ -394,7 +394,7 @@ export async function showMessage(
 	}
 
 	if (suppressionKey != null && (dontShowAgain === null || result === dontShowAgain)) {
-		Logger.log(
+		Logger.debug(
 			`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(
 				dontShowAgain,
 			)}) don't show again requested`,
@@ -404,7 +404,7 @@ export async function showMessage(
 		if (result === dontShowAgain) return undefined;
 	}
 
-	Logger.log(
+	Logger.debug(
 		`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) returned ${
 			result != null ? result.title : result
 		}`,

@@ -20,7 +20,7 @@ import {
 } from '../plus/integrations/utils/-webview/integration.utils.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { fromNow } from '../system/date.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { encodeUrl } from '../system/encoding.js';
 import { join, map } from '../system/iterable.js';
 import { Logger } from '../system/logger.js';
@@ -166,7 +166,7 @@ export class AutolinksProvider implements Disposable {
 		return getBranchAutolinks(branchName, refsets);
 	}
 
-	@debug<AutolinksProvider['getAutolinks']>({ args: { 0: '<message>', 1: false } })
+	@trace<AutolinksProvider['getAutolinks']>({ args: { 0: '<message>', 1: false } })
 	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>> {
 		const refsets = await this.getRefSets(remote);
 		if (!refsets.length) return emptyAutolinkMap;
@@ -186,7 +186,7 @@ export class AutolinksProvider implements Disposable {
 		autolinks: Map<string, Autolink>,
 		remote: GitRemote | undefined,
 	): Promise<Map<string, EnrichedAutolink> | undefined>;
-	@debug<AutolinksProvider['getEnrichedAutolinks']>({
+	@trace<AutolinksProvider['getEnrichedAutolinks']>({
 		args: {
 			0: messageOrAutolinks =>
 				typeof messageOrAutolinks === 'string' ? '<message>' : `autolinks=${messageOrAutolinks.size}`,
@@ -267,7 +267,7 @@ export class AutolinksProvider implements Disposable {
 		return enrichedAutolinks;
 	}
 
-	@debug<AutolinksProvider['linkify']>({
+	@trace<AutolinksProvider['linkify']>({
 		args: {
 			0: '<text>',
 			2: remotes => remotes?.length,

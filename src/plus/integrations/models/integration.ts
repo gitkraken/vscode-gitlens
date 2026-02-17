@@ -15,10 +15,10 @@ import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor.
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../../messages.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug, log } from '../../../system/decorators/log.js';
+import { debug, trace } from '../../../system/decorators/log.js';
 import { Logger } from '../../../system/logger.js';
-import type { LogScope } from '../../../system/logger.scope.js';
-import { getLogScope } from '../../../system/logger.scope.js';
+import type { ScopedLogger } from '../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../system/logger.scope.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../gk/utils/subscription.utils.js';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
@@ -143,7 +143,7 @@ export abstract class IntegrationBase<
 		return this._session ?? undefined;
 	}
 
-	@log()
+	@debug()
 	async connect(source: Sources): Promise<boolean> {
 		try {
 			return Boolean(await this.ensureSession({ createIfNeeded: true, source: source }));
@@ -155,7 +155,7 @@ export abstract class IntegrationBase<
 	protected providerOnConnect?(): void | Promise<void>;
 
 	@gate()
-	@log()
+	@debug()
 	async disconnect(options?: { silent?: boolean; currentSessionOnly?: boolean }): Promise<void> {
 		if (options?.currentSessionOnly && this._session === null) return;
 
@@ -217,7 +217,7 @@ export abstract class IntegrationBase<
 
 	protected providerOnDisconnect?(): void | Promise<void>;
 
-	@log()
+	@debug()
 	async reauthenticate(): Promise<void> {
 		if (this._session === undefined) return;
 
@@ -262,7 +262,7 @@ export abstract class IntegrationBase<
 	}
 
 	private skippedNonCloudReported = false;
-	@log()
+	@debug()
 	async syncCloudConnection(state: 'connected' | 'disconnected', forceSync: boolean): Promise<void> {
 		// Initially the condition on `this._session.cloud` has been added here: https://github.com/gitkraken/vscode-gitlens/commit/e95e70c430bd162924cc3bd5c1e8ab90e6293449#diff-4213141a45cccaab7aa2e40028b155a87eb913b07388485831403e60ce5555e4R237
 		// I'm not sure about reasons, but it seems we want to replace it with the cloud session if it's connected.
@@ -322,7 +322,7 @@ export abstract class IntegrationBase<
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
-		options?: { scope?: LogScope | undefined; silent?: boolean },
+		options?: { scope?: ScopedLogger | undefined; silent?: boolean },
 	): void {
 		if (ex instanceof CancellationError) return;
 
@@ -345,7 +345,7 @@ export abstract class IntegrationBase<
 
 	private missingExpirityReported = false;
 	@gate()
-	protected async refreshSessionIfExpired(scope?: LogScope): Promise<void> {
+	protected async refreshSessionIfExpired(scope?: ScopedLogger): Promise<void> {
 		if (this._session?.expiresAt != null && this._session.expiresAt < new Date()) {
 			// The current session is expired, so get the latest from the cloud and refresh if needed
 			try {
@@ -367,7 +367,7 @@ export abstract class IntegrationBase<
 		}
 	}
 
-	@debug()
+	@trace()
 	trackRequestException(options?: { silent?: boolean }): void {
 		this.requestExceptionCount++;
 
@@ -380,7 +380,7 @@ export abstract class IntegrationBase<
 	}
 
 	@gate()
-	@debug({ exit: true })
+	@trace({ exit: true })
 	async isConnected(): Promise<boolean> {
 		return (await this.getSession('integrations')) != null;
 	}
@@ -470,12 +470,12 @@ export abstract class IntegrationBase<
 		resources?: ResourceDescriptor[],
 		cancellation?: CancellationToken,
 	): Promise<IssueShape[] | undefined>;
-	@debug()
+	@trace()
 	async searchMyIssues(
 		resources?: ResourceDescriptor | ResourceDescriptor[],
 		cancellation?: CancellationToken,
 	): Promise<IssueShape[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
@@ -501,13 +501,13 @@ export abstract class IntegrationBase<
 		cancellation?: CancellationToken,
 	): Promise<IssueShape[] | undefined>;
 
-	@debug()
+	@trace()
 	async getLinkedIssueOrPullRequest(
 		resource: T,
 		link: { id: string; key: string },
 		options?: { expiryOverride?: boolean | number; type?: IssueOrPullRequestType },
 	): Promise<IssueOrPullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -548,13 +548,13 @@ export abstract class IntegrationBase<
 		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined>;
 
-	@debug()
+	@trace()
 	async getIssue(
 		resource: T,
 		id: string,
 		options?: { expiryOverride?: boolean | number },
 	): Promise<Issue | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -592,7 +592,7 @@ export abstract class IntegrationBase<
 		avatarSize?: number;
 		expiryOverride?: boolean | number;
 	}): Promise<Account | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -625,9 +625,9 @@ export abstract class IntegrationBase<
 		options?: { avatarSize?: number },
 	): Promise<Account | undefined>;
 
-	@debug()
+	@trace()
 	async getPullRequest(resource: T, id: string): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
