@@ -2,7 +2,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri.js';
 import type { GitReflog } from '../../git/models/reflog.js';
 import type { Repository } from '../../git/models/repository.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import type { RepositoriesView } from '../repositoriesView.js';
 import type { WorkspacesView } from '../workspacesView.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
@@ -67,7 +67,7 @@ export class ReflogNode
 		return item;
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._reflog = undefined;

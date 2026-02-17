@@ -19,7 +19,7 @@ import { createCommand, executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
 import { gate } from '../system/decorators/gate.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { disposableInterval } from '../system/function.js';
 import type { UsageChangeEvent } from '../telemetry/usageTracker.js';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode.js';
@@ -70,7 +70,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	override async refresh(reset: boolean = false): Promise<void> {
 		if (reset) {
 			this.child = undefined;
@@ -81,7 +81,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		await this.ensureSubscription();
 	}
 
-	@debug()
+	@trace()
 	protected override async subscribe(): Promise<Disposable> {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 

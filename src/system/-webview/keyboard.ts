@@ -1,9 +1,9 @@
 import { Disposable } from 'vscode';
 import type { Keys } from '../../constants.js';
 import { extensionPrefix, keys } from '../../constants.js';
-import { log } from '../decorators/log.js';
+import { debug } from '../decorators/log.js';
 import { Logger } from '../logger.js';
-import { getLogScope, setLogScopeExit } from '../logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../logger.scope.js';
 import { registerCommand } from './command.js';
 import { setContext } from './context.js';
 
@@ -30,14 +30,14 @@ export class KeyboardScope implements Disposable {
 		mappings.push(this._mapping);
 	}
 
-	@log({
+	@debug({
 		args: false,
 		prefix: context => `${context.prefix}[${mappings.length}]`,
 	})
 	async dispose(): Promise<void> {
 		const index = mappings.indexOf(this._mapping);
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		setLogScopeExit(scope, ` \u2022 index=${index}`);
 
 		if (index === mappings.length - 1) {
@@ -53,12 +53,12 @@ export class KeyboardScope implements Disposable {
 		return this._paused;
 	}
 
-	@log<KeyboardScope['clearKeyCommand']>({
+	@debug<KeyboardScope['clearKeyCommand']>({
 		args: false,
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
 	async clearKeyCommand(key: Keys): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping || mapping[key] == null) {
@@ -71,7 +71,7 @@ export class KeyboardScope implements Disposable {
 		await setContext(`${extensionPrefix}:key:${key}`, false);
 	}
 
-	@log({
+	@debug({
 		args: false,
 		prefix: context => `${context.prefix}(paused=${context.instance._paused})`,
 	})
@@ -87,7 +87,7 @@ export class KeyboardScope implements Disposable {
 		await this.updateKeyCommandsContext(mapping);
 	}
 
-	@log({
+	@debug({
 		args: false,
 		prefix: context => `${context.prefix}(paused=${context.instance._paused})`,
 	})
@@ -102,12 +102,12 @@ export class KeyboardScope implements Disposable {
 		await this.resume();
 	}
 
-	@log<KeyboardScope['setKeyCommand']>({
+	@debug<KeyboardScope['setKeyCommand']>({
 		args: false,
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
 	async setKeyCommand(key: Keys, command: KeyCommand | (() => Promise<KeyCommand>)): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping) {
@@ -143,7 +143,7 @@ export class Keyboard implements Disposable {
 		this._disposable.dispose();
 	}
 
-	@log<Keyboard['createScope']>({
+	@debug<Keyboard['createScope']>({
 		args: false,
 		prefix: (context, mapping) =>
 			`${context.prefix}[${mappings.length}](${mapping === undefined ? '' : Object.keys(mapping).join(',')})`,
@@ -152,7 +152,7 @@ export class Keyboard implements Disposable {
 		return new KeyboardScope({ ...mapping });
 	}
 
-	@log<Keyboard['beginScope']>({
+	@debug<Keyboard['beginScope']>({
 		args: false,
 		prefix: (context, mapping) =>
 			`${context.prefix}[${mappings.length}](${mapping === undefined ? '' : Object.keys(mapping).join(',')})`,
@@ -163,9 +163,9 @@ export class Keyboard implements Disposable {
 		return scope;
 	}
 
-	@log()
+	@debug()
 	async execute(key: Keys): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!mappings.length) {
 			setLogScopeExit(scope, ' \u2022 skipped, no mappings');

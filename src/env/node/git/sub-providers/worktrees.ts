@@ -10,9 +10,9 @@ import type { GitWorktreesSubProvider } from '../../../../git/gitProvider.js';
 import type { GitWorktree } from '../../../../git/models/worktree.js';
 import { parseGitWorktrees } from '../../../../git/parsers/worktreeParser.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { joinPaths, normalizePath } from '../../../../system/path.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import { interpolate } from '../../../../system/string.js';
@@ -29,13 +29,13 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		private readonly provider: LocalGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async createWorktree(
 		repoPath: string,
 		path: string,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const args = ['worktree', 'add'];
 		if (options?.force) {
@@ -80,7 +80,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		return this.getWorktree(repoPath, w => normalizePath(w.uri.fsPath) === normalized);
 	}
 
-	@log()
+	@debug()
 	async getWorktree(
 		repoPath: string,
 		predicate: (w: GitWorktree) => boolean,
@@ -89,7 +89,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		return (await this.getWorktrees(repoPath, cancellation)).find(predicate);
 	}
 
-	@log()
+	@debug()
 	async getWorktrees(repoPath: string, cancellation?: CancellationToken): Promise<GitWorktree[]> {
 		await this.git.ensureSupports(
 			'git:worktrees',
@@ -114,7 +114,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		});
 	}
 
-	@log()
+	@debug()
 	getWorktreesDefaultUri(repoPath: string): Uri | undefined {
 		let defaultUri = this.getWorktreesDefaultUriCore(repoPath);
 		if (defaultUri != null) return defaultUri;
@@ -146,9 +146,9 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		return this.provider.getAbsoluteUri(location, repoPath);
 	}
 
-	@log()
+	@debug()
 	async deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		await this.git.ensureSupports(
 			'git:worktrees',

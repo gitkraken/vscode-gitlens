@@ -23,7 +23,7 @@ import type {
 } from '../../plus/workspaces/models/localWorkspace.js';
 import { findLastIndex } from '../../system/array.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import { disposableInterval } from '../../system/function.js';
 import { join, map, slice } from '../../system/iterable.js';
@@ -325,23 +325,23 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		return item;
 	}
 
-	@log()
+	@debug()
 	fetch(options: { all?: boolean; progress?: boolean; prune?: boolean; remote?: string }): Promise<void> {
 		return this.repo.fetch(options);
 	}
 
-	@log()
+	@debug()
 	pull(options: { progress?: boolean; rebase?: boolean }): Promise<void> {
 		return this.repo.pull(options);
 	}
 
-	@log()
+	@debug()
 	push(options: { force?: boolean; progress?: boolean }): Promise<void> {
 		return this.repo.push(options);
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	override async refresh(reset?: boolean): Promise<void | { cancel: boolean }> {
 		await super.refresh(reset);
 
@@ -352,19 +352,19 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		await this.ensureSubscription();
 	}
 
-	@log()
+	@debug()
 	async star(): Promise<void> {
 		await this.repo.star();
 		void this.parent!.triggerChange();
 	}
 
-	@log()
+	@debug()
 	async unstar(): Promise<void> {
 		await this.repo.unstar();
 		void this.parent!.triggerChange();
 	}
 
-	@debug()
+	@trace()
 	protected async subscribe(): Promise<Disposable> {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
@@ -407,7 +407,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		return this.repo.etag;
 	}
 
-	@debug<RepositoryNode['onFileSystemChanged']>({
+	@trace<RepositoryNode['onFileSystemChanged']>({
 		args: {
 			0: e =>
 				`{ repository: ${e.repository.name ?? ''}, uris(${e.uris.size}): [${join(
@@ -441,7 +441,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		void this.triggerChange(false);
 	}
 
-	@debug<RepositoryNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
+	@trace<RepositoryNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();

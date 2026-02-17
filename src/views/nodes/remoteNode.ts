@@ -5,7 +5,7 @@ import type { GitRemote } from '../../git/models/remote.js';
 import type { Repository } from '../../git/models/repository.js';
 import { getRemoteUpstreamDescription } from '../../git/utils/remote.utils.js';
 import { makeHierarchical } from '../../system/array.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import type { ViewsWithRemotes } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
@@ -145,7 +145,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		return item;
 	}
 
-	@log()
+	@debug()
 	async setAsDefault(state: boolean = true): Promise<void> {
 		await this.remote.setAsDefault(state);
 		void this.triggerChange();

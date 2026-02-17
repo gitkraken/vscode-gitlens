@@ -7,7 +7,7 @@ import type { GitBlame } from '../git/models/blame.js';
 import type { GitCommit } from '../git/models/commit.js';
 import { changesMessage, detailsMessage } from '../hovers/hovers.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { log } from '../system/decorators/log.js';
+import { debug } from '../system/decorators/log.js';
 import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
 import type { DidChangeStatusCallback } from './annotationProvider.js';
 import { AnnotationProviderBase } from './annotationProvider.js';
@@ -59,7 +59,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		return blame;
 	}
 
-	@log({ args: false })
+	@debug({ args: false })
 	protected getComputedHeatmap(blame: GitBlame): ComputedHeatmap {
 		const dates: Date[] = [];
 

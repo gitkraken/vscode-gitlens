@@ -28,12 +28,12 @@ import { setContext } from '../system/-webview/context.js';
 import { getBestPath } from '../system/-webview/path.js';
 import { joinUnique } from '../system/array.js';
 import { gate } from '../system/decorators/gate.js';
-import { debug, log } from '../system/decorators/log.js';
+import { debug, trace } from '../system/decorators/log.js';
 import type { Deferrable } from '../system/function/debounce.js';
 import { debounce } from '../system/function/debounce.js';
 import { count, filter, first, flatMap, groupByMap, join, map, some, sum } from '../system/iterable.js';
 import { getLoggableName, Logger } from '../system/logger.js';
-import { getLogScope, setLogScopeExit, startLogScope } from '../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit, startScopedLogger } from '../system/logger.scope.js';
 import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path.js';
 import type { Deferred } from '../system/promise.js';
 import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise.js';
@@ -89,7 +89,7 @@ export class GitProviderService implements Disposable {
 		return this._onDidChangeProviders.event;
 	}
 
-	@debug<GitProviderService['fireProvidersChanged']>({
+	@trace<GitProviderService['fireProvidersChanged']>({
 		args: {
 			0: added => `(${added?.length ?? 0}) ${added?.map(p => p.descriptor.id).join(', ')}`,
 			1: removed => `(${removed?.length ?? 0}) ${removed?.map(p => p.descriptor.id).join(', ')}`,
@@ -111,7 +111,7 @@ export class GitProviderService implements Disposable {
 		return this._onDidChangeRepositories.event;
 	}
 
-	@debug<GitProviderService['fireRepositoriesChanged']>({
+	@trace<GitProviderService['fireRepositoriesChanged']>({
 		args: {
 			0: added => `(${added?.length ?? 0}) ${added?.map(r => r.id).join(', ')}`,
 			1: removed => `(${removed?.length ?? 0}) ${removed?.map(r => r.id).join(', ')}`,
@@ -333,13 +333,13 @@ export class GitProviderService implements Disposable {
 		return [registerCommand('gitlens.plus.refreshRepositoryAccess', () => this.clearAllOpenRepoVisibilityCaches())];
 	}
 
-	@debug()
+	@trace()
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		this.clearAccessCache();
 		this._subscription = e.current;
 	}
 
-	@debug<GitProviderService['onWindowStateChanged']>({ args: { 0: e => `focused=${e.focused}` } })
+	@trace<GitProviderService['onWindowStateChanged']>({ args: { 0: e => `focused=${e.focused}` } })
 	private onWindowStateChanged(e: WindowState) {
 		if (!e.focused) {
 			this._repositories.forEach(r => r.suspend());
@@ -368,7 +368,7 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	@debug<GitProviderService['onWorkspaceFoldersChanged']>({
+	@trace<GitProviderService['onWorkspaceFoldersChanged']>({
 		args: { 0: e => `added=${e.added.length}, removed=${e.removed.length}` },
 		singleLine: true,
 	})
@@ -457,7 +457,7 @@ export class GitProviderService implements Disposable {
 	 * @param provider A provider for handling git operations
 	 * @returns A disposable to unregister the {@link GitProvider}
 	 */
-	@log({ args: { 1: false }, singleLine: true })
+	@debug({ args: { 1: false }, singleLine: true })
 	register(id: GitProviderId, provider: GitProvider): Disposable {
 		if (id !== provider.descriptor.id) {
 			throw new Error(`Id '${id}' must match provider id '${provider.descriptor.id}'`);
@@ -489,8 +489,8 @@ export class GitProviderService implements Disposable {
 			...disposables,
 			provider.onDidChange(() => {
 				this._etag = Date.now();
-				using scope = startLogScope(`${getLoggableName(provider)}.onDidChange`, false);
-				Logger.debug(scope, '');
+				using scope = startScopedLogger(`${getLoggableName(provider)}.onDidChange`, false);
+				Logger.trace(scope, '');
 
 				const { workspaceFolders } = workspace;
 				if (workspaceFolders?.length) {
@@ -499,11 +499,11 @@ export class GitProviderService implements Disposable {
 			}),
 			provider.onDidChangeRepository(async e => {
 				this._etag = Date.now();
-				using scope = startLogScope(
+				using scope = startScopedLogger(
 					`${getLoggableName(provider)}.onDidChangeRepository(e=${e.repository.toString()})`,
 					false,
 				);
-				Logger.debug(scope, '');
+				Logger.trace(scope, '');
 
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 					this.updateContext();
@@ -531,11 +531,11 @@ export class GitProviderService implements Disposable {
 			provider.onDidCloseRepository(e => {
 				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
-				using scope = startLogScope(
+				using scope = startScopedLogger(
 					`${getLoggableName(provider)}.onDidCloseRepository(e=${e.uri.toString()})`,
 					false,
 				);
-				Logger.debug(scope, `repository=${repository?.toString()}`);
+				Logger.trace(scope, `repository=${repository?.toString()}`);
 
 				if (repository != null) {
 					repository.closed = true;
@@ -544,11 +544,11 @@ export class GitProviderService implements Disposable {
 			provider.onDidOpenRepository(e => {
 				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
-				using scope = startLogScope(
+				using scope = startScopedLogger(
 					`${getLoggableName(provider)}.onDidOpenRepository(e=${e.uri.toString()})`,
 					false,
 				);
-				Logger.debug(scope, `repository=${repository?.toString()}`);
+				Logger.trace(scope, `repository=${repository?.toString()}`);
 
 				if (repository != null) {
 					repository.closed = false;
@@ -603,9 +603,9 @@ export class GitProviderService implements Disposable {
 		};
 	}
 
-	@log({ singleLine: true })
+	@debug({ singleLine: true })
 	async registrationComplete(): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		let { workspaceFolders } = workspace;
 		if (workspaceFolders?.length) {
@@ -670,7 +670,7 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@log<GitProviderService['discoverRepositories']>({ args: { 0: folders => folders.length } })
+	@debug<GitProviderService['discoverRepositories']>({ args: { 0: folders => folders.length } })
 	async discoverRepositories(folders: readonly WorkspaceFolder[], options?: { force?: boolean }): Promise<void> {
 		if (this._discoveringRepositories?.pending) {
 			await this._discoveringRepositories.promise;
@@ -730,7 +730,7 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	@debug({ exit: true })
+	@trace({ exit: true })
 	private async discoverRepositoriesCore(folder: WorkspaceFolder): Promise<Repository[]> {
 		const { provider } = this.getProvider(folder.uri);
 
@@ -750,7 +750,7 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async findRepositories(
 		uri: Uri,
 		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
@@ -773,7 +773,7 @@ export class GitProviderService implements Disposable {
 
 	async access(feature: PlusFeatures | undefined, repoPath: string | Uri): Promise<RepoFeatureAccess>;
 	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess>;
-	@debug({ exit: true })
+	@trace({ exit: true })
 	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess> {
 		if (repoPath == null) {
 			let access = this._accessCache.get(feature);
@@ -801,7 +801,7 @@ export class GitProviderService implements Disposable {
 		feature?: PlusFeatures,
 		repoPath?: string | Uri,
 	): Promise<FeatureAccess | RepoFeatureAccess>;
-	@debug({ exit: true })
+	@trace({ exit: true })
 	private async accessCore(
 		feature?: PlusFeatures,
 		repoPath?: string | Uri,
@@ -932,7 +932,7 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	@debug<GitProviderService['getVisibilityInfoFromCache']>({ exit: r => `returned ${r?.visibility}` })
+	@trace<GitProviderService['getVisibilityInfoFromCache']>({ exit: r => `returned ${r?.visibility}` })
 	private getVisibilityInfoFromCache(key: string): RepositoryVisibilityInfo | undefined {
 		this.ensureRepoVisibilityCache();
 		const visibilityInfo = this._repoVisibilityCache?.get(key);
@@ -977,12 +977,12 @@ export class GitProviderService implements Disposable {
 		void this.container.storage.store('repoVisibility', Array.from(this._repoVisibilityCache!.entries())).catch();
 	}
 
-	@debug()
+	@trace()
 	clearAllRepoVisibilityCaches(): Promise<void> {
 		return this.clearRepoVisibilityCache();
 	}
 
-	@debug()
+	@trace()
 	clearAllOpenRepoVisibilityCaches(): Promise<void> {
 		const openRepoProviderPaths = this.openRepositories.map(r => this.getProvider(r.path).path);
 		return this.clearRepoVisibilityCache(openRepoProviderPaths);
@@ -990,7 +990,7 @@ export class GitProviderService implements Disposable {
 
 	visibility(): Promise<RepositoriesVisibility>;
 	visibility(repoPath: string | Uri): Promise<RepositoryVisibility>;
-	@debug({ exit: true })
+	@trace({ exit: true })
 	async visibility(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
 		if (repoPath == null) {
 			let visibility = this._reposVisibilityCache;
@@ -1031,7 +1031,7 @@ export class GitProviderService implements Disposable {
 
 	private visibilityCore(): Promise<RepositoriesVisibility>;
 	private visibilityCore(repoPath: string | Uri): Promise<RepositoryVisibility>;
-	@debug({ exit: true })
+	@trace({ exit: true })
 	private async visibilityCore(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
 		async function getRepoVisibility(
 			this: GitProviderService,
@@ -1100,7 +1100,7 @@ export class GitProviderService implements Disposable {
 
 	private _context: { enabled: boolean; disabled: boolean } = { enabled: false, disabled: false };
 
-	@debug()
+	@trace()
 	async setEnabledContext(enabled: boolean): Promise<void> {
 		let disabled = !enabled;
 		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
@@ -1304,7 +1304,7 @@ export class GitProviderService implements Disposable {
 		return provider.getRelativePath(pathOrUri, base);
 	}
 
-	@log()
+	@debug()
 	getRevisionUriFromGitUri(uri: GitUri): Uri {
 		const path = getBestPath(uri);
 
@@ -1312,7 +1312,7 @@ export class GitProviderService implements Disposable {
 		return provider.getRevisionUri(rp, uri.sha!, provider.getRelativePath(path, rp));
 	}
 
-	@log()
+	@debug()
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const { provider } = this.getProvider(uri);
 		if (provider.applyChangesToWorkingFile == null) throw new ProviderNotSupportedError(provider.descriptor.name);
@@ -1320,13 +1320,13 @@ export class GitProviderService implements Disposable {
 		return provider.applyChangesToWorkingFile(uri, ref1, ref2);
 	}
 
-	@log()
+	@debug()
 	async clone(url: string, parentPath: string): Promise<string | undefined> {
 		const { provider } = this.getProvider(parentPath);
 		return provider.clone?.(url, parentPath);
 	}
 
-	@log({ singleLine: true })
+	@debug({ singleLine: true })
 	resetCaches(...types: CachedGitTypes[]): void {
 		this.container.events.fire('git:cache:reset', { types: types });
 	}
@@ -1334,7 +1334,7 @@ export class GitProviderService implements Disposable {
 	@gate<GitProviderService['fetchAll']>(
 		(repos, opts) => `${repos == null ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`,
 	)
-	@log<GitProviderService['fetchAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
+	@debug<GitProviderService['fetchAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
 	async fetchAll(repositories?: Repository[], options?: { all?: boolean; prune?: boolean }): Promise<void> {
 		if (repositories == null) {
 			repositories = this.openRepositories;
@@ -1359,7 +1359,7 @@ export class GitProviderService implements Disposable {
 	@gate<GitProviderService['pullAll']>(
 		(repos, opts) => `${repos == null ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`,
 	)
-	@log<GitProviderService['pullAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
+	@debug<GitProviderService['pullAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
 	async pullAll(repositories?: Repository[], options?: { rebase?: boolean }): Promise<void> {
 		if (repositories == null) {
 			repositories = this.openRepositories;
@@ -1382,7 +1382,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@gate<GitProviderService['pushAll']>(repos => (repos == null ? '' : repos.map(r => r.id).join(',')))
-	@log<GitProviderService['pushAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
+	@debug<GitProviderService['pushAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
 	async pushAll(
 		repositories?: Repository[],
 		options?: {
@@ -1413,7 +1413,7 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@log<GitProviderService['getBlame']>({ args: { 1: d => d?.isDirty } })
+	@debug<GitProviderService['getBlame']>({ args: { 1: d => d?.isDirty } })
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame
@@ -1424,7 +1424,7 @@ export class GitProviderService implements Disposable {
 		return provider.getBlame(uri, document);
 	}
 
-	@log<GitProviderService['getBlameContents']>({ args: { 1: '<contents>' } })
+	@debug<GitProviderService['getBlameContents']>({ args: { 1: '<contents>' } })
 	/**
 	 * Returns the blame of a file, using the editor contents (for dirty editors)
 	 * @param uri Uri of the file to blame
@@ -1435,7 +1435,7 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameContents(uri, contents);
 	}
 
-	@log<GitProviderService['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
+	@debug<GitProviderService['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
 	/**
 	 * Returns the blame of a single line
 	 * @param uri Uri of the file to blame
@@ -1453,7 +1453,7 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameForLine(uri, editorLine, document, options);
 	}
 
-	@log<GitProviderService['getBlameForLineContents']>({ args: { 2: '<contents>' } })
+	@debug<GitProviderService['getBlameForLineContents']>({ args: { 2: '<contents>' } })
 	/**
 	 * Returns the blame of a single line, using the editor contents (for dirty editors)
 	 * @param uri Uri of the file to blame
@@ -1471,25 +1471,25 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameForLineContents(uri, editorLine, contents, options);
 	}
 
-	@log()
+	@debug()
 	async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameForRange(uri, range);
 	}
 
-	@log<GitProviderService['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
+	@debug<GitProviderService['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameForRangeContents(uri, range, contents);
 	}
 
-	@log<GitProviderService['getBlameRange']>({ args: { 0: '<blame>' } })
+	@debug<GitProviderService['getBlameRange']>({ args: { 0: '<blame>' } })
 	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameRange(blame, uri, range);
 	}
 
-	@log()
+	@debug()
 	/**
 	 * Returns a file diff between two commits
 	 * @param uri Uri of the file to diff
@@ -1501,7 +1501,7 @@ export class GitProviderService implements Disposable {
 		return provider.getDiffForFile(uri, ref1, ref2);
 	}
 
-	@log<GitProviderService['getDiffForFileContents']>({ args: { 2: '<contents>' } })
+	@debug<GitProviderService['getDiffForFileContents']>({ args: { 2: '<contents>' } })
 	/**
 	 * Returns a file diff between a commit and the specified contents
 	 * @param uri Uri of the file to diff
@@ -1513,7 +1513,7 @@ export class GitProviderService implements Disposable {
 		return provider.getDiffForFileContents(uri, ref, contents);
 	}
 
-	@log()
+	@debug()
 	/**
 	 * Returns a line diff between two commits
 	 * @param uri Uri of the file to diff
@@ -1536,7 +1536,7 @@ export class GitProviderService implements Disposable {
 	getBestRepository(uri?: Uri, editor?: TextEditor): Repository | undefined;
 	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	getBestRepository(editor?: TextEditor): Repository | undefined;
-	@log({ exit: true })
+	@debug({ exit: true })
 	getBestRepository(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
 		const count = this.repositoryCount;
 		if (count === 0) return undefined;
@@ -1558,7 +1558,7 @@ export class GitProviderService implements Disposable {
 	getBestRepositoryOrFirst(uri?: Uri, editor?: TextEditor): Repository | undefined;
 	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	getBestRepositoryOrFirst(editor?: TextEditor): Repository | undefined;
-	@log({ exit: true })
+	@debug({ exit: true })
 	getBestRepositoryOrFirst(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
 		const count = this.repositoryCount;
 		if (count === 0) return undefined;
@@ -1577,7 +1577,7 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@log()
+	@debug()
 	async getOpenScmRepositories(): Promise<ScmRepository[]> {
 		const results = await Promise.allSettled([...this._providers.values()].map(p => p.getOpenScmRepositories()));
 		const repositories = flatMap<PromiseFulfilledResult<ScmRepository[]>, ScmRepository>(
@@ -1602,14 +1602,14 @@ export class GitProviderService implements Disposable {
 		pathOrUri: string | Uri,
 		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
 	): Promise<Repository | undefined>;
-	@log({ exit: true })
+	@debug({ exit: true })
 	async getOrOpenRepository(
 		pathOrUri?: string | Uri,
 		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
 	): Promise<Repository | undefined> {
 		if (pathOrUri == null) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		try {
 			let uri: Uri;
 			if (typeof pathOrUri === 'string') {
@@ -1636,7 +1636,7 @@ export class GitProviderService implements Disposable {
 			} else if (!options?.force) {
 				// Check if we've seen this path before
 				if (this._searchedRepositoryPaths.has(path)) {
-					Logger.debug(scope, `Skipped search as path is known; returning ${repository?.toString()}`);
+					Logger.trace(scope, `Skipped search as path is known; returning ${repository?.toString()}`);
 					return repository;
 				}
 
@@ -1646,7 +1646,7 @@ export class GitProviderService implements Disposable {
 					if ((stats.type & FileType.Directory) !== FileType.Directory) {
 						// Check if we've seen it's parent before, since a file can't be a nested repository
 						if (this._searchedRepositoryPaths.hasParent(path)) {
-							Logger.debug(
+							Logger.trace(
 								scope,
 								`Skipped search as path is a file and parent is known; returning ${repository?.toString()}`,
 							);
@@ -1694,13 +1694,13 @@ export class GitProviderService implements Disposable {
 						} else {
 							const filteredUris = await provider.excludeIgnoredUris(repoUri.fsPath, [uri]);
 							if (!filteredUris.length) {
-								Logger.debug(scope, `File is gitignored; treating repository as closed`);
+								Logger.trace(scope, `File is gitignored; treating repository as closed`);
 								closed = true;
 							}
 						}
 					}
 
-					Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
+					Logger.debug(scope, `Repository found in '${repoUri.toString(true)}'`);
 					const gitDir = await provider.config.getGitDir?.(repoUri.fsPath);
 					if (gitDir == null) {
 						Logger.warn(scope, `Unable to get gitDir for '${repoUri.toString(true)}'`);
@@ -1747,12 +1747,12 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async getOrOpenRepositoryForEditor(editor?: TextEditor): Promise<Repository | undefined> {
 		editor = editor ?? window.activeTextEditor;
 		if (editor == null) return this.highlander;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		try {
 			return await this.getOrOpenRepository(editor.document.uri);
 		} catch (ex) {
@@ -1764,7 +1764,7 @@ export class GitProviderService implements Disposable {
 	getRepository(uri: Uri): Repository | undefined;
 	getRepository(path: string): Repository | undefined;
 	getRepository(pathOrUri: string | Uri): Repository | undefined;
-	@log({ exit: true })
+	@debug({ exit: true })
 	getRepository(pathOrUri?: string | Uri): Repository | undefined {
 		if (this.repositoryCount === 0) return undefined;
 		if (pathOrUri == null) return undefined;
@@ -1796,7 +1796,7 @@ export class GitProviderService implements Disposable {
 		return service;
 	}
 
-	@log()
+	@debug()
 	async getLocalInfoFromRemoteUri(uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined> {
 		for (const repo of this.openRepositories) {
 			for (const remote of await repo.git.remotes.getRemotes()) {
@@ -1808,7 +1808,7 @@ export class GitProviderService implements Disposable {
 		return undefined;
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	hasUnsafeRepositories(): boolean {
 		for (const provider of this._providers.values()) {
 			if (provider.hasUnsafeRepositories?.()) return true;
@@ -1819,7 +1819,7 @@ export class GitProviderService implements Disposable {
 	isRepositoryPathOrUri(uri: Uri): boolean;
 	isRepositoryPathOrUri(path: string): boolean;
 	isRepositoryPathOrUri(pathOrUri: string | Uri): boolean;
-	@log({ exit: true })
+	@debug({ exit: true })
 	isRepositoryPathOrUri(pathOrUri: string | Uri): boolean {
 		if (typeof pathOrUri === 'string') {
 			return this.getRepository(pathOrUri)?.path === pathOrUri;
@@ -1827,7 +1827,7 @@ export class GitProviderService implements Disposable {
 		return areUrisEqual(pathOrUri, this.getRepository(pathOrUri)?.uri);
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	isRepositoryForEditor(repository: Repository, editor?: TextEditor): boolean {
 		editor = editor ?? window.activeTextEditor;
 		if (editor == null) return false;
@@ -1850,9 +1850,9 @@ export class GitProviderService implements Disposable {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async storeRepositoriesLocation(repos: Repository[]): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			await this.container.repositoryIdentity.storeRepositoryLocations(repos);

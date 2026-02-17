@@ -5,7 +5,7 @@ import type { GitContributor } from '../../git/models/contributor.js';
 import type { Repository } from '../../git/models/repository.js';
 import { sortContributors } from '../../git/utils/-webview/sorting.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import type { ViewsWithContributorsNode } from '../viewBase.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -85,7 +85,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		}
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private async getPresenceMap(contributors: GitContributor[]) {
 		// Only get presence for the current user, because it is far too slow otherwise
 		const email = contributors.find(c => c.current)?.email;

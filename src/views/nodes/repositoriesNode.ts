@@ -3,7 +3,7 @@ import { Disposable, TreeItem, TreeItemCollapsibleState, window, workspace } fro
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
 import { GitUri, unknownGitUri } from '../../git/gitUri.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import { debounce } from '../../system/function/debounce.js';
 import { szudzikPairing } from '../../system/function.js';
@@ -68,7 +68,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	override async refresh(reset: boolean = false): Promise<void> {
 		const hasChildren = this.children != null;
 		await super.refresh(reset);
@@ -106,7 +106,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 		void this.ensureSubscription();
 	}
 
-	@debug()
+	@trace()
 	protected subscribe(): Disposable {
 		const subscriptions = [
 			weakEvent(this.view.container.git.onDidChangeRepositories, this.onRepositoriesChanged, this),
@@ -125,7 +125,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 		return szudzikPairing(this.view.container.git.etag, this.view.container.subscription.etag);
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
 		if (editor == null || this.children == null || this.children.length === 1) {
 			return;
@@ -152,7 +152,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 		}
 	}
 
-	@debug()
+	@trace()
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
 		void this.triggerChange(true);
 	}

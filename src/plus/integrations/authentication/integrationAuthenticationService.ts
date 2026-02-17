@@ -7,7 +7,7 @@ import {
 } from '../../../constants.integrations.js';
 import type { Container } from '../../../container.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { log } from '../../../system/decorators/log.js';
+import { debug } from '../../../system/decorators/log.js';
 import { supportedIntegrationIds } from '../utils/-webview/integration.utils.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type { IntegrationAuthenticationProvider } from './integrationAuthenticationProvider.js';
@@ -31,7 +31,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		return this.ensureProvider(providerId);
 	}
 
-	@log()
+	@debug()
 	async reset(): Promise<void> {
 		// TODO: This really isn't ideal, since it will only work for "cloud" providers as we won't have any more specific descriptors
 		await Promise.allSettled(

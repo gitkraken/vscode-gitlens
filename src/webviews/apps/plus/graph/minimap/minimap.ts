@@ -2,7 +2,7 @@ import type { Chart, DataItem, RegionOptions } from 'billboard.js';
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb.d.js';
-import { debug } from '../../../../../system/decorators/log.js';
+import { trace } from '../../../../../system/decorators/log.js';
 import { debounce } from '../../../../../system/function/debounce.js';
 import { first, flatMap, groupByMap, map, union } from '../../../../../system/iterable.js';
 import { capitalize, pluralize } from '../../../../../system/string.js';
@@ -550,7 +550,7 @@ export class GlGraphMinimap extends GlElement {
 		this._chart = undefined!;
 	}
 
-	@debug({ singleLine: true })
+	@trace({ singleLine: true })
 	private handleDataChanged(markerChanged: boolean) {
 		if (this._loadTimer) {
 			clearTimeout(this._loadTimer);
@@ -724,7 +724,7 @@ export class GlGraphMinimap extends GlElement {
 		this._loading ??= this.loadChartCore().finally(() => (this._loading = undefined));
 	}
 
-	@debug({ singleLine: true })
+	@trace({ singleLine: true })
 	private async loadChartCore() {
 		if (!this.data?.size) {
 			// Hide spinner if data is an empty Map (no commits), show if data is undefined (still loading)

@@ -5,7 +5,7 @@ import { Container } from '../../container.js';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { KeyMapping } from '../../system/-webview/keyboard.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import { isPromise } from '../../system/promise.js';
 import { GlCommandBase } from '../commandBase.js';
 import type { QuickWizardCommandArgsWithCompletion } from './models/quickWizard.js';
@@ -38,7 +38,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 		super(command);
 	}
 
-	@log({ args: false, scoped: true, singleLine: true, timed: false })
+	@debug({ args: false, scoped: true, singleLine: true, timed: false })
 	async execute(args?: QuickWizardCommandArgsWithCompletion, waitUntil?: Promise<unknown>): Promise<void> {
 		const rootStep = new QuickWizardRootStep(this.container, args);
 

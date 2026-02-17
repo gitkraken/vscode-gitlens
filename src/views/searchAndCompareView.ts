@@ -13,7 +13,7 @@ import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { filterMap } from '../system/array.js';
 import { gate } from '../system/decorators/gate.js';
-import { debug, log } from '../system/decorators/log.js';
+import { debug, trace } from '../system/decorators/log.js';
 import { updateRecordValue } from '../system/object.js';
 import { isPromise } from '../system/promise.js';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode.js';
@@ -87,7 +87,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		this.view.triggerNodeChange();
 	}
 
-	@log()
+	@debug()
 	async clear(): Promise<void> {
 		if (this.children.length === 0) return;
 
@@ -98,7 +98,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		this.view.triggerNodeChange();
 	}
 
-	@log<SearchAndCompareViewNode['dismiss']>({ args: { 0: n => n.toString() } })
+	@debug<SearchAndCompareViewNode['dismiss']>({ args: { 0: n => n.toString() } })
 	dismiss(node: CompareResultsNode | SearchResultsNode): void {
 		node.dismiss();
 
@@ -115,7 +115,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	override async refresh(reset: boolean = false): Promise<void> {
 		const children = this.children;
 		if (children.length === 0) return;
@@ -210,7 +210,7 @@ export class SearchAndCompareView extends ViewBase<
 		this.root.dismiss(node);
 	}
 
-	@log()
+	@debug()
 	async compare(
 		repoPath: string,
 		ref1: string | StoredNamedRef,
@@ -234,7 +234,7 @@ export class SearchAndCompareView extends ViewBase<
 		);
 	}
 
-	@log()
+	@debug()
 	private async selectForCompare(repoPath?: string, ref1?: string | StoredNamedRef): Promise<void> {
 		const result = await showComparisonPicker(this.container, repoPath, {
 			head: ref1 != null ? createReference(typeof ref1 === 'string' ? ref1 : ref1.ref, repoPath!) : undefined,

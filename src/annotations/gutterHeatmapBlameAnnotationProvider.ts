@@ -2,8 +2,8 @@ import type { TextEditor } from 'vscode';
 import { Range } from 'vscode';
 import type { Container } from '../container.js';
 import type { GitCommit } from '../git/models/commit.js';
-import { log } from '../system/decorators/log.js';
-import { getLogScope } from '../system/logger.scope.js';
+import { debug } from '../system/decorators/log.js';
+import { getScopedLogger } from '../system/logger.scope.js';
 import { maybeStopWatch } from '../system/stopwatch.js';
 import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
 import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider.js';
@@ -21,9 +21,9 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 		super(container, onDidChangeStatus, 'heatmap', editor, trackedDocument);
 	}
 
-	@log()
+	@debug()
 	override async onProvideAnnotation(_context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const blame = await this.getBlame(state?.recompute);
 		if (blame == null) return false;

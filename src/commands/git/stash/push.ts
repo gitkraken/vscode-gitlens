@@ -11,7 +11,7 @@ import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { formatPath } from '../../../system/-webview/formatPath.js';
 import { getLoggableName, Logger } from '../../../system/logger.js';
-import { startLogScope } from '../../../system/logger.scope.js';
+import { startScopedLogger } from '../../../system/logger.scope.js';
 import { defer } from '../../../system/promise.js';
 import { pad } from '../../../system/string.js';
 import type {
@@ -208,7 +208,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 		state: StepState<State<Repository>>,
 		context: Context,
 	): AsyncStepResultGenerator<string> {
-		using scope = startLogScope(`${getLoggableName(this)}.inputMessageStep`, false);
+		using scope = startScopedLogger(`${getLoggableName(this)}.inputMessageStep`, false);
 
 		const generateMessageButton: QuickInputButton = {
 			iconPath: new ThemeIcon('sparkle'),

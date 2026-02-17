@@ -18,9 +18,9 @@ import {
 } from '../../git/utils/-webview/rebase.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar.js';
 import { WebviewController } from '../webviewController.js';
 import type { CustomEditorDescriptor } from '../webviewDescriptors.js';
@@ -107,7 +107,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		void setContext('gitlens:rebase:editor:enabled', this.enabled);
 	}
 
-	@log()
+	@debug()
 	private async onRebaseChanged(repoPath: string): Promise<void> {
 		const openOnPausedRebase = configuration.get('rebaseEditor.openOnPausedRebase');
 		if (!openOnPausedRebase || !isRebaseTodoEditorEnabled()) return;
@@ -122,13 +122,13 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		}
 	}
 
-	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 1: false, 2: false } })
+	@trace<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 1: false, 2: false } })
 	async resolveCustomTextEditor(
 		document: TextDocument,
 		panel: WebviewPanel,
 		_token: CancellationToken,
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		void this.container.usage.track(`${descriptor.trackingFeature}:shown`).catch();
 
@@ -137,7 +137,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		// Dispose any existing controller for this document, (shouldn't happen due to supportsMultipleEditorsPerDocument being false)
 		const existing = this._controllers.get(key);
 		if (existing != null) {
-			Logger.debug(scope, `Disposing existing rebase editor controller for ${key}:${existing.instanceId}`);
+			Logger.trace(scope, `Disposing existing rebase editor controller for ${key}:${existing.instanceId}`);
 			existing.dispose();
 			this._controllers.delete(key);
 		}
@@ -174,7 +174,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const subscriptions: Disposable[] = [
 			controller.onDidDispose(() => {
-				Logger.debug(scope, `Disposing rebase editor controller (${key}:${controller.instanceId})`);
+				Logger.trace(scope, `Disposing rebase editor controller (${key}:${controller.instanceId})`);
 
 				this._controllers.delete(key);
 				Disposable.from(...subscriptions).dispose();

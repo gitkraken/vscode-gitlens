@@ -3,7 +3,7 @@ import { ContextProvider } from '@lit/context';
 import type { GlWebviewCommands } from '../../../constants.commands.js';
 import type { CustomEditorIds, WebviewIds, WebviewTypes } from '../../../constants.views.js';
 import { debounce } from '../../../system/function/debounce.js';
-import type { LogScope } from '../../../system/logger.scope.js';
+import type { ScopedLogger } from '../../../system/logger.scope.js';
 import { createWebviewCommandLink } from '../../../system/webview.js';
 import type {
 	IpcCallParamsType,
@@ -213,9 +213,9 @@ export abstract class App<
 	}
 
 	protected log(message: string, ...optionalParams: any[]): void;
-	protected log(scope: LogScope | undefined, message: string, ...optionalParams: any[]): void;
-	protected log(scopeOrMessage: LogScope | string | undefined, ...optionalParams: any[]): void {
-		this._logger.log(scopeOrMessage, ...optionalParams);
+	protected log(scope: ScopedLogger | undefined, message: string, ...optionalParams: any[]): void;
+	protected log(scopeOrMessage: ScopedLogger | string | undefined, ...optionalParams: any[]): void {
+		this._logger.debug(scopeOrMessage, ...optionalParams);
 	}
 
 	protected getState(): State | undefined {

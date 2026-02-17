@@ -41,7 +41,7 @@ import { executeCommand, registerCommand } from '../../../system/-webview/comman
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug } from '../../../system/decorators/log.js';
+import { trace } from '../../../system/decorators/log.js';
 import type { Deferrable } from '../../../system/function/debounce.js';
 import { debounce } from '../../../system/function/debounce.js';
 import { find, some } from '../../../system/iterable.js';
@@ -939,7 +939,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		this._notifyDidChangeStateDebounced();
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	protected async getState(current: Context): Promise<Serialized<State>> {
 		let create;
 		if (current.mode === 'create' && current.create != null) {

@@ -8,11 +8,11 @@ import { isSha } from '../../git/utils/revision.utils.js';
 import { showReferencePicker } from '../../quickpicks/referencePicker.js';
 import { setContext } from '../../system/-webview/context.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import { debounce } from '../../system/function/debounce.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../system/logger.scope.js';
 import { areUrisEqual } from '../../system/uri.js';
 import type { LinesChangeEvent } from '../../trackers/lineTracker.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
@@ -121,9 +121,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	}
 
 	@gate()
-	@debug({ exit: true })
+	@trace({ exit: true })
 	override async refresh(reset: boolean = false): Promise<{ cancel: boolean }> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!this.canSubscribe) return { cancel: false };
 
@@ -140,7 +140,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		return { cancel: !updated };
 	}
 
-	@debug()
+	@trace()
 	protected async subscribe(): Promise<Disposable | undefined> {
 		await this.updateUri();
 		if (this.view.container.lineTracker.subscribed(this)) return undefined;
@@ -161,7 +161,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		);
 	}
 
-	@debug<LineHistoryTrackerNode['onActiveLinesChanged']>({
+	@trace<LineHistoryTrackerNode['onActiveLinesChanged']>({
 		args: {
 			0: e =>
 				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
@@ -174,7 +174,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async changeBase(): Promise<void> {
 		const pick = await showReferencePicker(
 			this.uri.repoPath!,
@@ -200,12 +200,12 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		await this.triggerChange();
 	}
 
-	@log()
+	@debug()
 	setEditorFollowing(enabled: boolean): void {
 		this.canSubscribe = enabled;
 	}
 
-	@debug()
+	@trace()
 	setUri(uri?: GitUri): void {
 		this._uri = uri ?? unknownGitUri;
 		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);

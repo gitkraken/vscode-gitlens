@@ -3,8 +3,8 @@ import type { Account } from '../../../git/models/author.js';
 import type { IssueShape } from '../../../git/models/issue.js';
 import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug } from '../../../system/decorators/log.js';
-import { getLogScope } from '../../../system/logger.scope.js';
+import { trace } from '../../../system/decorators/log.js';
+import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IssueFilter } from '../providers/models.js';
 import type { Integration, IntegrationType } from './integration.js';
@@ -21,9 +21,9 @@ export abstract class IssuesIntegration<
 	readonly type: IntegrationType = 'issues';
 
 	@gate()
-	@debug()
+	@trace()
 	async getAccountForResource(resource: T): Promise<Account | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
@@ -45,9 +45,9 @@ export abstract class IssuesIntegration<
 	): Promise<Account | undefined>;
 
 	@gate()
-	@debug()
+	@trace()
 	async getResourcesForUser(): Promise<T[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
@@ -65,9 +65,9 @@ export abstract class IssuesIntegration<
 
 	protected abstract getProviderResourcesForUser(session: ProviderAuthenticationSession): Promise<T[] | undefined>;
 
-	@debug()
+	@trace()
 	async getProjectsForResources(resources: T[]): Promise<T[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
@@ -95,12 +95,12 @@ export abstract class IssuesIntegration<
 		resources: T[],
 	): Promise<T[] | undefined>;
 
-	@debug()
+	@trace()
 	async getIssuesForProject(
 		project: T,
 		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 

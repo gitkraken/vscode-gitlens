@@ -3,10 +3,10 @@ import { Disposable, EventEmitter, window } from 'vscode';
 import type { Container } from '../container.js';
 import type { GitCommit } from '../git/models/commit.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import type { Deferrable } from '../system/function/debounce.js';
 import { debounce } from '../system/function/debounce.js';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../system/logger.scope.js';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,
@@ -71,7 +71,7 @@ export class LineTracker {
 		}
 	}
 
-	@debug<LineTracker['onBlameStateChanged']>({
+	@trace<LineTracker['onBlameStateChanged']>({
 		args: {
 			0: e => `editor/doc=${e.editor?.document.uri.toString(true)}, blameable=${e.blameable}`,
 		},
@@ -80,7 +80,7 @@ export class LineTracker {
 		this.notifyLinesChanged('editor');
 	}
 
-	@debug<LineTracker['onContentChanged']>({
+	@trace<LineTracker['onContentChanged']>({
 		args: {
 			0: e => `editor/doc=${e.editor.document.uri.toString(true)}`,
 		},
@@ -100,7 +100,7 @@ export class LineTracker {
 		}
 	}
 
-	@debug<LineTracker['onDirtyIdleTriggered']>({
+	@trace<LineTracker['onDirtyIdleTriggered']>({
 		args: {
 			0: e => `editor/doc=${e.editor.document.uri.toString(true)}`,
 		},
@@ -109,7 +109,7 @@ export class LineTracker {
 		this.resume();
 	}
 
-	@debug<LineTracker['onDirtyStateChanged']>({
+	@trace<LineTracker['onDirtyStateChanged']>({
 		args: {
 			0: e => `editor/doc=${e.editor.document.uri.toString(true)}, dirty=${e.dirty}`,
 		},
@@ -191,7 +191,7 @@ export class LineTracker {
 		this.notifyLinesChanged('editor');
 	}
 
-	@debug()
+	@trace()
 	resume(options?: { force?: boolean; silent?: boolean }): void {
 		if (!options?.force && !this._suspended) return;
 
@@ -203,7 +203,7 @@ export class LineTracker {
 		}
 	}
 
-	@debug()
+	@trace()
 	suspend(options?: { force?: boolean; silent?: boolean }): void {
 		if (!options?.force && this._suspended) return;
 
@@ -220,9 +220,9 @@ export class LineTracker {
 		return this._subscriptions.has(subscriber);
 	}
 
-	@debug({ args: false, singleLine: true })
+	@trace({ args: false, singleLine: true })
 	subscribe(subscriber: unknown, subscription: Disposable): Disposable {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const disposable = {
 			dispose: () => this.unsubscribe(subscriber),
@@ -260,7 +260,7 @@ export class LineTracker {
 		return disposable;
 	}
 
-	@debug({ args: false, singleLine: true })
+	@trace({ args: false, singleLine: true })
 	unsubscribe(subscriber: unknown): void {
 		const subs = this._subscriptions.get(subscriber);
 		if (subs == null) return;
@@ -326,12 +326,12 @@ export class LineTracker {
 		this._fireLinesChangedDebounced(e);
 	}
 
-	@debug<LineTracker['updateState']>({
+	@trace<LineTracker['updateState']>({
 		args: { 0: selections => selections?.map(s => s.active).join(','), 1: e => e.document.uri.toString(true) },
 		exit: true,
 	})
 	private async updateState(selections: LineSelection[], editor: TextEditor): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!this.includes(selections)) {
 			setLogScopeExit(scope, ` \u2022 lines no longer match`);

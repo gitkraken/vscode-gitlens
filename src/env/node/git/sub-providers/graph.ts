@@ -52,10 +52,10 @@ import { getTagId } from '../../../../git/utils/tag.utils.js';
 import { isUserMatch } from '../../../../git/utils/user.utils.js';
 import { getWorktreeId } from '../../../../git/utils/worktree.utils.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { find, first, join, last } from '../../../../system/iterable.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import { createDisposable, mixinDisposable } from '../../../../system/unifiedDisposable.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
@@ -81,7 +81,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		private readonly provider: LocalGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async getGraph(
 		repoPath: string,
 		rev: string | undefined,
@@ -89,7 +89,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		options?: { include?: { stats?: boolean }; limit?: number },
 		cancellation?: CancellationToken,
 	): Promise<GitGraph> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
@@ -666,7 +666,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
 	}
 
-	@log<GraphGitSubProvider['searchGraph']>({
+	@debug<GraphGitSubProvider['searchGraph']>({
 		args: {
 			1: s =>
 				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
@@ -684,7 +684,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return yield* this.searchGraphCore(repoPath, search, undefined, undefined, options, cancellation);
 	}
 
-	@log<GraphGitSubProvider['continueSearchGraph']>({
+	@debug<GraphGitSubProvider['continueSearchGraph']>({
 		args: {
 			1: c =>
 				`[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${c.search.matchWholeWord ? 'W' : ''}]: ${

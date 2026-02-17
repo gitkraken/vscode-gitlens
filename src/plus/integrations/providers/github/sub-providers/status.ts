@@ -5,7 +5,7 @@ import type { GitFile } from '../../../../../git/models/file.js';
 import type { GitConflictFile } from '../../../../../git/models/index.js';
 import { GitStatus } from '../../../../../git/models/status.js';
 import { gate } from '../../../../../system/decorators/gate.js';
-import { log } from '../../../../../system/decorators/log.js';
+import { debug } from '../../../../../system/decorators/log.js';
 import { HeadType } from '../../../../remotehub.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
@@ -16,7 +16,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	) {}
 
 	@gate()
-	@log()
+	@debug()
 	async getStatus(repoPath: string | undefined, _cancellation?: CancellationToken): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
 

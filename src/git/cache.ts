@@ -2,7 +2,7 @@ import type { Uri } from 'vscode';
 import { Disposable } from 'vscode';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { log } from '../system/decorators/log.js';
+import { debug } from '../system/decorators/log.js';
 import { invalidateMemoized } from '../system/decorators/memoize.js';
 import type { PromiseOrValue } from '../system/promise.js';
 import type { RepoPromiseMap } from '../system/promiseCache.js';
@@ -305,7 +305,7 @@ export class GitCache implements Disposable {
 		return (this._caches.worktrees ??= new PromiseMap<RepoPath, GitWorktree[]>());
 	}
 
-	@log({ singleLine: true })
+	@debug({ singleLine: true })
 	clearCaches(repoPath: string | undefined, ...types: CachedGitTypes[]): void {
 		type CacheType =
 			| Map<string, unknown>
@@ -456,7 +456,7 @@ export class GitCache implements Disposable {
 		this._commonPathRegistry.set(repoPath, commonPath);
 	}
 
-	@log({ singleLine: true })
+	@debug({ singleLine: true })
 	reset(): void {
 		this._commonPathRegistry.clear();
 
@@ -468,7 +468,7 @@ export class GitCache implements Disposable {
 	 * Handles repository change events by invalidating appropriate caches.
 	 * Encapsulates all cache invalidation logic for repository changes.
 	 */
-	@log({ singleLine: true })
+	@debug({ singleLine: true })
 	onRepositoryChanged(repoPath: string, e: RepositoryChangeEvent): void {
 		if (e.changed(RepositoryChange.Unknown, RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.clearCaches(repoPath);

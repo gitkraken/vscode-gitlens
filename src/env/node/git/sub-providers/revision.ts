@@ -19,7 +19,7 @@ import {
 } from '../../../../git/utils/revision.utils.js';
 import { splitPath } from '../../../../system/-webview/path.js';
 import { gate } from '../../../../system/decorators/gate.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { first } from '../../../../system/iterable.js';
 import type { Git } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
@@ -64,13 +64,13 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 		return this.git.show__content<Buffer>(root, relativePath, rev, { encoding: 'buffer', errors: 'throw' });
 	}
 
-	@log()
+	@debug()
 	async getSubmoduleHead(repoPath: string, submodulePath: string): Promise<string | undefined> {
 		// Verify the path is a submodule (gitlink commit) in the parent tree, not just a regular directory
 		const treeEntry = await this.getTreeEntryForRevision(repoPath, 'HEAD', submodulePath);
@@ -85,7 +85,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined> {
 		if (!repoPath || !path) return undefined;
 
@@ -114,7 +114,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return entry;
 	}
 
-	@log()
+	@debug()
 	async getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]> {
 		return repoPath ? this.getTreeForRevisionCore(repoPath, rev) : [];
 	}
@@ -130,7 +130,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return parseGitTree(data, rev, hasPath);
 	}
 
-	@log()
+	@debug()
 	async resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision> {
 		if (!ref || ref === deletedOrMissing) return { sha: ref, revision: ref };
 

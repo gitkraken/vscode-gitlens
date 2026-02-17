@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import { GlyphChars, Schemes } from '../constants.js';
 import type { Features } from '../features.js';
-import { debug, log } from '../system/decorators/log.js';
+import { debug, trace } from '../system/decorators/log.js';
 import { groupByFilterMap } from '../system/iterable.js';
 import { getSettledValue } from '../system/promise.js';
 import type {
@@ -75,19 +75,19 @@ export class GitRepositoryService implements IGitRepositoryService {
 		this.getRepository = svc.getRepository.bind(svc, path);
 	}
 
-	@log<GitRepositoryService['excludeIgnoredUris']>({ args: { 0: uris => uris.length } })
+	@debug<GitRepositoryService['excludeIgnoredUris']>({ args: { 0: uris => uris.length } })
 	excludeIgnoredUris(uris: Uri[]): Promise<Uri[]> {
 		return this._provider.excludeIgnoredUris(this.path, uris);
 	}
 
-	@debug()
+	@trace()
 	getIgnoredUrisFilter(): Promise<(uri: Uri) => boolean> {
 		return this._provider.getIgnoredUrisFilter(this.path);
 	}
 
 	getAbsoluteUri: IGitRepositoryService['getAbsoluteUri'];
 
-	@log()
+	@debug()
 	async getBestRevisionUri(pathOrUri: string | Uri, rev: string | undefined): Promise<Uri | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
@@ -100,7 +100,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 		return this._provider.getBestRevisionUri(this.path, this._provider.getRelativePath(path, this.path), rev);
 	}
 
-	@log()
+	@debug()
 	async getBranchesAndTagsTipsLookup(
 		suppressName?: string,
 	): Promise<
@@ -192,7 +192,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 		};
 	}
 
-	@debug({ exit: true })
+	@trace({ exit: true })
 	getLastFetchedTimestamp(): Promise<number | undefined> {
 		return this._provider.getLastFetchedTimestamp(this.path);
 	}
@@ -200,33 +200,33 @@ export class GitRepositoryService implements IGitRepositoryService {
 	getRelativePath: IGitRepositoryService['getRelativePath'];
 	getRepository: IGitRepositoryService['getRepository'];
 
-	@log()
+	@debug()
 	getRevisionUri(rev: string, pathOrFile: string | GitFile, options?: RevisionUriOptions): Uri {
 		const path = typeof pathOrFile === 'string' ? pathOrFile : (pathOrFile?.originalPath ?? pathOrFile?.path ?? '');
 		return this._provider.getRevisionUri(this.path, rev, this._provider.getRelativePath(path, this.path), options);
 	}
 
-	@log()
+	@debug()
 	getScmRepository(): Promise<ScmRepository | undefined> {
 		return this._provider.getScmRepository(this.path);
 	}
 
-	@log()
+	@debug()
 	getOrOpenScmRepository(): Promise<ScmRepository | undefined> {
 		return this._provider.getOrOpenScmRepository(this.path);
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	async getUniqueRepositoryId(): Promise<string | undefined> {
 		return this.commits.getInitialCommitSha?.();
 	}
 
-	@log()
+	@debug()
 	getWorkingUri(uri: Uri): Promise<Uri | undefined> {
 		return this._provider.getWorkingUri(this.path, uri);
 	}
 
-	@debug({ exit: true })
+	@trace({ exit: true })
 	isFolderUri(uri: Uri): Promise<boolean> {
 		return this._provider.isFolderUri(this.path, uri);
 	}
@@ -260,7 +260,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 		};
 	}
 
-	@debug({ exit: true })
+	@trace({ exit: true })
 	supports(feature: Features): Promise<boolean> {
 		return this._provider.supports(feature);
 	}

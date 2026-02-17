@@ -375,7 +375,7 @@ export class Git implements Disposable {
 				.catch(() => {});
 		} else {
 			waiting = true;
-			Logger.debug(`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} waiting...`);
+			Logger.trace(`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} waiting...`);
 		}
 
 		let exception: Error | undefined;
@@ -1276,7 +1276,7 @@ export class Git implements Disposable {
 					'--show-cdup',
 				);
 				if (!result.stdout.trim()) {
-					Logger.log(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
+					Logger.debug(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
 					return emptyArray as [];
 				}
 			} catch {
@@ -1345,7 +1345,7 @@ export class Git implements Disposable {
 					ex.stderr,
 				);
 			if (unsafeMatch != null) {
-				Logger.log(
+				Logger.debug(
 					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
 						unsafeMatch[3]
 					}' to allow it`,
@@ -1396,7 +1396,7 @@ export class Git implements Disposable {
 					'--show-cdup',
 				);
 				if (!result.stdout.trim()) {
-					Logger.log(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
+					Logger.debug(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
 					return emptyArray as [];
 				}
 			} catch {
@@ -1419,7 +1419,7 @@ export class Git implements Disposable {
 					ex.stderr,
 				);
 			if (unsafeMatch != null) {
-				Logger.log(
+				Logger.debug(
 					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
 						unsafeMatch[3]
 					}' to allow it`,
@@ -1655,7 +1655,7 @@ export class Git implements Disposable {
 		}
 	}
 	private logGitCommandStart(command: string, id: number): void {
-		Logger.log(`${getLoggableScopeBlockOverride(`GIT:→${id}`)} ${command} ${GlyphChars.Dot} starting...`);
+		Logger.debug(`${getLoggableScopeBlockOverride(`GIT:→${id}`)} ${command} ${GlyphChars.Dot} starting...`);
 		this.logCore(`${getLoggableScopeBlockOverride(`→${id}`, '')} ${command} ${GlyphChars.Dot} starting...`);
 	}
 
@@ -1686,7 +1686,7 @@ export class Git implements Disposable {
 				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
 			);
 		} else {
-			Logger.log(
+			Logger.debug(
 				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`,
 			);
 		}

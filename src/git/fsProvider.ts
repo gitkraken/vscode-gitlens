@@ -4,10 +4,10 @@ import { isLinux } from '@env/platform.js';
 import { Schemes } from '../constants.js';
 import type { Container } from '../container.js';
 import { relative } from '../system/-webview/path.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { map } from '../system/iterable.js';
 import { Logger } from '../system/logger.js';
-import { getLogScope } from '../system/logger.scope.js';
+import { getScopedLogger } from '../system/logger.scope.js';
 import { normalizePath } from '../system/path.js';
 import { TernarySearchTree } from '../system/searchTree.js';
 import { ShowError } from './errors.js';
@@ -61,7 +61,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		throw FileSystemError.NoPermissions(uri);
 	}
 
-	@debug()
+	@trace()
 	async readDirectory(uri: Uri): Promise<[string, FileType][]> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
@@ -77,9 +77,9 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		return items;
 	}
 
-	@debug()
+	@trace()
 	async readFile(uri: Uri): Promise<Uint8Array> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const { path, ref, repoPath, submoduleSha } = fromGitLensFSUri(uri);
 
 		if (ref === deletedOrMissing) return emptyArray;
@@ -119,7 +119,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		throw FileSystemError.NoPermissions(oldUri);
 	}
 
-	@debug()
+	@trace()
 	async stat(uri: Uri): Promise<FileStat> {
 		const { path, ref, repoPath, submoduleSha } = fromGitLensFSUri(uri);
 

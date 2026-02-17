@@ -7,9 +7,9 @@ import { ApplyPatchCommitError, CherryPickError, SigningError } from '../../../.
 import type { GitPatchSubProvider } from '../../../../git/gitProvider.js';
 import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit.js';
 import type { SigningFormat } from '../../../../git/models/signature.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import type { Git } from '../git.js';
 import { gitConfigsLog } from '../git.js';
@@ -22,7 +22,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		private readonly provider: LocalGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async applyUnreachableCommitForPatch(
 		repoPath: string,
 		rev: string,
@@ -33,7 +33,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			stash?: boolean | 'prompt';
 		},
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (options?.stash) {
 			// Stash any changes first
@@ -128,7 +128,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		}
 	}
 
-	@log({ args: { 2: '<message>', 3: '<patch>' } })
+	@debug({ args: { 2: '<message>', 3: '<patch>' } })
 	async createUnreachableCommitForPatch(
 		repoPath: string,
 		base: string,
@@ -153,7 +153,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		return await this.provider.commits.getCommit(repoPath, sha);
 	}
 
-	@log<PatchGitSubProvider['createUnreachableCommitsFromPatches']>({ args: { 2: p => p.length } })
+	@debug<PatchGitSubProvider['createUnreachableCommitsFromPatches']>({ args: { 2: p => p.length } })
 	async createUnreachableCommitsFromPatches(
 		repoPath: string,
 		base: string | undefined,
@@ -194,7 +194,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		author?: GitCommitIdentityShape,
 		options?: { sign?: boolean; source?: Source },
 	): Promise<string> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!patch.endsWith('\n')) {
 			patch += '\n';
@@ -308,7 +308,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		return result.stdout.trim();
 	}
 
-	@log({ args: { 1: false } })
+	@debug({ args: { 1: false } })
 	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
 		try {
 			await this.git.exec({ cwd: repoPath, configs: gitConfigsLog, stdin: contents }, 'apply', '--check', '-');

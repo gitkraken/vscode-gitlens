@@ -21,10 +21,10 @@ import type { PullRequest } from '../../../../git/models/pullRequest.js';
 import type { Provider } from '../../../../git/models/remoteProvider.js';
 import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { debug } from '../../../../system/decorators/log.js';
+import { trace } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import type { LogScope } from '../../../../system/logger.scope.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import type { ScopedLogger } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { TokenInfo, TokenWithInfo } from '../../authentication/models.js';
 import type {
@@ -80,7 +80,7 @@ export class AzureDevOpsApi implements Disposable {
 		this._workItemStates.clear();
 	}
 
-	@debug<AzureDevOpsApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<AzureDevOpsApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -91,7 +91,7 @@ export class AzureDevOpsApi implements Disposable {
 			baseUrl: string;
 		},
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const [projectName, _, repoName] = repo.split('/');
 
 		try {
@@ -134,7 +134,7 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
-	@debug<AzureDevOpsApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<AzureDevOpsApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -147,7 +147,7 @@ export class AzureDevOpsApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const [projectName, _, repoName] = repo.split('/');
 		try {
 			const prResult = await this.request<{ results: Record<string, AzurePullRequest[]>[] }>(
@@ -191,7 +191,7 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
-	@debug<AzureDevOpsApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<AzureDevOpsApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -203,7 +203,7 @@ export class AzureDevOpsApi implements Disposable {
 			type?: IssueOrPullRequestType;
 		},
 	): Promise<IssueOrPullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const [projectName, _, repoName] = repo.split('/');
 
 		if (options?.type === undefined || options?.type === 'issue') {
@@ -293,7 +293,7 @@ export class AzureDevOpsApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<AzureDevOpsApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<AzureDevOpsApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -303,7 +303,7 @@ export class AzureDevOpsApi implements Disposable {
 			baseUrl: string;
 		},
 	): Promise<Issue | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			// Try to get the Work item (wit) first with specific fields
@@ -342,7 +342,7 @@ export class AzureDevOpsApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<AzureDevOpsApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<AzureDevOpsApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -354,7 +354,7 @@ export class AzureDevOpsApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<UnidentifiedAuthor | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const [projectName, _, repoName] = repo.split('/');
 
 		try {
@@ -392,13 +392,13 @@ export class AzureDevOpsApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<AzureDevOpsApi['getCurrentUserOnServer']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<AzureDevOpsApi['getCurrentUserOnServer']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getCurrentUserOnServer(
 		provider: Provider,
 		token: TokenWithInfo,
 		baseUrl: string,
 	): Promise<{ id: string; name?: string; email?: string; username?: string; avatarUrl?: string } | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const connectionData = await this.request<{
@@ -478,7 +478,7 @@ export class AzureDevOpsApi implements Disposable {
 			baseUrl: string;
 		},
 	): Promise<AzureWorkItemState[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const issueResult = await this.request<{ value: AzureWorkItemState[]; count: number }>(
@@ -505,7 +505,7 @@ export class AzureDevOpsApi implements Disposable {
 		baseUrl: string | undefined,
 		route: string,
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
 		const { accessToken, ...tokenInfo } = token;
@@ -561,7 +561,7 @@ export class AzureDevOpsApi implements Disposable {
 		provider: Provider | undefined,
 		tokenInfo: TokenInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 	): void {
 		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
 

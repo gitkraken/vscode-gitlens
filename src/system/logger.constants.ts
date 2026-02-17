@@ -1,3 +1,3 @@
 export const slowCallWarningThreshold = 500;
 
-export type LogLevel = 'off' | 'error' | 'warn' | 'info' | 'debug';
+export type LogLevel = 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace';

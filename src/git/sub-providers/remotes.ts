@@ -2,7 +2,7 @@ import type { CancellationToken } from 'vscode';
 import type { Container } from '../../container.js';
 import { CancellationError } from '../../errors.js';
 import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import { sortCompare } from '../../system/string.js';
 import type { GitCache } from '../cache.js';
 import type { GitProvider, GitRemotesSubProvider } from '../gitProvider.js';
@@ -24,7 +24,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		_cancellation?: CancellationToken,
 	): Promise<GitRemote[]>;
 
-	@log()
+	@debug()
 	async getRemote(
 		repoPath: string | undefined,
 		name: string,
@@ -36,13 +36,13 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return remotes.find(r => r.name === name);
 	}
 
-	@log()
+	@debug()
 	async getDefaultRemote(repoPath: string, _cancellation?: CancellationToken): Promise<GitRemote | undefined> {
 		const remotes = await this.getRemotes(repoPath, undefined, _cancellation);
 		return getDefaultRemoteOrHighlander(remotes);
 	}
 
-	@log()
+	@debug()
 	async getRemotesWithProviders(
 		repoPath: string,
 		options?: { sort?: boolean },
@@ -52,7 +52,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return remotes.filter((r: GitRemote): r is GitRemote<RemoteProvider> => r.provider != null);
 	}
 
-	@log()
+	@debug()
 	async getRemotesWithIntegrations(
 		repoPath: string,
 		options?: { sort?: boolean },
@@ -62,7 +62,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return remotes.filter((r: GitRemote): r is GitRemote<RemoteProvider> => r.supportsIntegration());
 	}
 
-	@log()
+	@debug()
 	async getBestRemoteWithProvider(
 		repoPath: string,
 		cancellation?: CancellationToken,
@@ -71,7 +71,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return remotes[0];
 	}
 
-	@log()
+	@debug()
 	async getBestRemotesWithProviders(
 		repoPath: string,
 		cancellation?: CancellationToken,
@@ -146,7 +146,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return [...(await remotes)];
 	}
 
-	@log()
+	@debug()
 	async getBestRemoteWithIntegration(
 		repoPath: string,
 		options?: {
@@ -175,7 +175,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return undefined;
 	}
 
-	@log()
+	@debug()
 	async setRemoteAsDefault(repoPath: string, name: string, value: boolean = true): Promise<void> {
 		await this.container.storage.storeWorkspace('remote:default', value ? name : undefined);
 		this.container.events.fire('git:repo:change', {

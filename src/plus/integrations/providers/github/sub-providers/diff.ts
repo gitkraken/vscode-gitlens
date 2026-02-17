@@ -22,10 +22,10 @@ import {
 	isRevisionRange,
 } from '../../../../../git/utils/revision.utils.js';
 import { diffRangeToEditorLine } from '../../../../../system/-webview/vscode/editors.js';
-import { log } from '../../../../../system/decorators/log.js';
+import { debug } from '../../../../../system/decorators/log.js';
 import { union } from '../../../../../system/iterable.js';
 import { Logger } from '../../../../../system/logger.js';
-import { getLogScope } from '../../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 import { stripOrigin } from '../githubGitProvider.js';
@@ -38,7 +38,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
 		// TODO@eamodio if there is no ref we can't return anything, until we can get at the change store from RemoteHub
 		if (!ref) return undefined;
@@ -52,7 +52,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		return { additions: stats.additions, deletions: stats.deletions, files: changedFiles };
 	}
 
-	@log()
+	@debug()
 	async getDiffStatus(
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
@@ -61,7 +61,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	): Promise<GitFile[] | undefined> {
 		if (repoPath == null) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
@@ -136,7 +136,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -146,7 +146,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		// If we have no revision there is no next commit
 		if (!rev) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const context = await this.provider.ensureRepositoryContext(repoPath);
@@ -184,7 +184,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -194,7 +194,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (rev === uncommitted) {
 			rev = undefined;
@@ -252,7 +252,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getPreviousComparisonUrisForRange(
 		repoPath: string,
 		uri: Uri,
@@ -262,7 +262,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	): Promise<PreviousRangeComparisonUrisResult | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const context = await this.provider.ensureRepositoryContext(repoPath);

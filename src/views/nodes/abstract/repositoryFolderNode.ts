@@ -8,7 +8,7 @@ import { getRepositoryIconPath } from '../../../git/utils/-webview/icons.js';
 import { formatLastFetched } from '../../../git/utils/-webview/repository.utils.js';
 import { getHighlanderProviders } from '../../../git/utils/remote.utils.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug, log } from '../../../system/decorators/log.js';
+import { debug, trace } from '../../../system/decorators/log.js';
 import { weakEvent } from '../../../system/event.js';
 import { basename } from '../../../system/path.js';
 import { pad } from '../../../system/string.js';
@@ -172,26 +172,26 @@ export abstract class RepositoryFolderNode<
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	override async refresh(reset: boolean = false): Promise<void> {
 		await super.refresh(reset);
 		await this.child?.triggerChange(reset, false, this);
 		await this.ensureSubscription();
 	}
 
-	@log()
+	@debug()
 	async star(): Promise<void> {
 		await this.repo.star();
 		// void this.parent!.triggerChange();
 	}
 
-	@log()
+	@debug()
 	async unstar(): Promise<void> {
 		await this.repo.unstar();
 		// void this.parent!.triggerChange();
 	}
 
-	@debug()
+	@trace()
 	protected subscribe(): Disposable | Promise<Disposable> {
 		return weakEvent(this.repo.onDidChange, this.onRepositoryChanged, this);
 	}
@@ -202,7 +202,7 @@ export abstract class RepositoryFolderNode<
 
 	protected abstract changed(e: RepositoryChangeEvent): boolean;
 
-	@debug<RepositoryFolderNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
+	@trace<RepositoryFolderNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();

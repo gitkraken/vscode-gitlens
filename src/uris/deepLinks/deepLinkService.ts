@@ -28,10 +28,10 @@ import { configuration } from '../../system/-webview/configuration.js';
 import { getOrOpenTextEditor } from '../../system/-webview/vscode/editors.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { once } from '../../system/event.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import { maybeUri, normalizePath } from '../../system/path.js';
 import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider.js';
 import { showInspectView } from '../../webviews/commitDetails/actions.js';
@@ -313,9 +313,9 @@ export class DeepLinkService implements Disposable {
 		}
 	}
 
-	@debug()
+	@trace()
 	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext | undefined) {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (pendingDeepLink == null) return;
 
@@ -598,7 +598,7 @@ export class DeepLinkService implements Disposable {
 	// TODO @axosoft-ramint: Move all the logic for matching a repo, prompting to add repo, matching remote, etc. for a target (branch, PR, etc.)
 	// to a separate service where it can be used outside of the context of deep linking. Then the deep link service should leverage it,
 	// and we should stop using deep links to process things like Launchpad switch actions, Open in Worktree command, etc.
-	@debug()
+	@trace()
 	private async processDeepLink(
 		initialAction: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired,
 		useProgress: boolean = true,

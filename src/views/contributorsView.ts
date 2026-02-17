@@ -11,7 +11,7 @@ import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
 import { gate } from '../system/decorators/gate.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode.js';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode.js';
 import type { ViewNode } from './nodes/abstract/viewNode.js';
@@ -31,7 +31,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 		return this.child.getChildren();
 	}
 
-	@debug()
+	@trace()
 	protected override async subscribe(): Promise<Disposable> {
 		return Disposable.from(
 			await super.subscribe(),

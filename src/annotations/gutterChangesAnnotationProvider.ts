@@ -5,8 +5,8 @@ import type { GitCommit } from '../git/models/commit.js';
 import type { ParsedGitDiffHunks } from '../git/models/diff.js';
 import { localChangesMessage } from '../hovers/hovers.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { log } from '../system/decorators/log.js';
-import { getLogScope } from '../system/logger.scope.js';
+import { debug } from '../system/decorators/log.js';
+import { getScopedLogger } from '../system/logger.scope.js';
 import { getSettledValue } from '../system/promise.js';
 import { maybeStopWatch } from '../system/stopwatch.js';
 import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
@@ -98,9 +98,9 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 	}
 
-	@log()
+	@debug()
 	override async onProvideAnnotation(context?: ChangesAnnotationContext, state?: AnnotationState): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		let rev1 = this.trackedDocument.uri.sha;
 		let rev2 = context?.sha != null && context.sha !== rev1 ? `${context.sha}^` : undefined;

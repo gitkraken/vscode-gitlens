@@ -11,10 +11,10 @@ import { createCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { once } from '../system/event.js';
 import { Logger } from '../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../system/logger.scope.js';
 import type { MaybePausedResult } from '../system/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise.js';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker.js';
@@ -126,7 +126,7 @@ export class StatusBarController implements Disposable {
 		}
 	}
 
-	@debug<StatusBarController['onActiveLinesChanged']>({
+	@trace<StatusBarController['onActiveLinesChanged']>({
 		args: {
 			0: e =>
 				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
@@ -206,9 +206,9 @@ export class StatusBarController implements Disposable {
 		this._statusBarBlame?.hide();
 	}
 
-	@debug<StatusBarController['updateBlame']>({ args: { 1: s => s.commit?.sha } })
+	@trace<StatusBarController['updateBlame']>({ args: { 1: s => s.commit?.sha } })
 	private async updateBlame(editor: TextEditor, state: LineState) {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const cfg = configuration.get('statusBar');
 		if (!cfg.enabled || this._statusBarBlame == null || !isTrackableTextEditor(editor)) {
@@ -427,7 +427,7 @@ export class StatusBarController implements Disposable {
 
 					// If the PR is taking too long, refresh the status bar once it completes
 
-					Logger.debug(scope, `${GlyphChars.Dot} pull request query took too long (over ${timeout} ms)`);
+					Logger.trace(scope, `${GlyphChars.Dot} pull request query took too long (over ${timeout} ms)`);
 
 					const [getBranchAndTagTipsResult, prResult] = await Promise.allSettled([
 						getBranchAndTagTipsPromise,
@@ -439,7 +439,7 @@ export class StatusBarController implements Disposable {
 					const pr = getSettledValue(prResult);
 					const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
 
-					Logger.debug(scope, `${GlyphChars.Dot} pull request query completed; updating...`);
+					Logger.trace(scope, `${GlyphChars.Dot} pull request query completed; updating...`);
 
 					setBlameText(this._statusBarBlame, getBranchAndTagTips, pr);
 

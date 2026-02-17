@@ -2,9 +2,9 @@ import type { IncomingMessage, Server, ServerResponse } from 'http';
 import { createServer } from 'http';
 import type { Disposable } from 'vscode';
 import { uuid } from '@env/crypto.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { createDisposable } from '../../../../system/unifiedDisposable.js';
 
 export interface IpcHandler<Request = unknown, Response = void> {
@@ -53,7 +53,7 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 	) {
 		server
 			.on('listening', () => {
-				Logger.debug(`Cli Integration IPC server listening on ${this.ipcAddress}`);
+				Logger.trace(`Cli Integration IPC server listening on ${this.ipcAddress}`);
 			})
 			.on('request', this.onRequest.bind(this));
 	}
@@ -68,9 +68,9 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 		return createDisposable(() => this.handlers.delete(`/${name}`));
 	}
 
-	@log({ args: false })
+	@debug({ args: false })
 	private onRequest(req: IncomingMessage, res: ServerResponse): void {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// Parse URL to extract pathname for routing, separating from query parameters
 		let pathname: string | undefined;

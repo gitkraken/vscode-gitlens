@@ -9,9 +9,9 @@ import { GitContributor } from '../../../../../git/models/contributor.js';
 import { getChangedFilesCount } from '../../../../../git/utils/commit.utils.js';
 import { calculateContributionScore } from '../../../../../git/utils/contributor.utils.js';
 import { isUserMatch } from '../../../../../git/utils/user.utils.js';
-import { log } from '../../../../../system/decorators/log.js';
+import { debug } from '../../../../../system/decorators/log.js';
 import { Logger } from '../../../../../system/logger.js';
-import { getLogScope } from '../../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import type { CacheController } from '../../../../../system/promiseCache.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
@@ -23,7 +23,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async getContributors(
 		repoPath: string,
 		rev?: string | undefined,
@@ -39,7 +39,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	): Promise<GitContributorsResult> {
 		if (repoPath == null) return { contributors: [] };
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const getCore = async (cacheable?: CacheController): Promise<GitContributorsResult> => {
 			const contributors: GitContributor[] = [];
@@ -234,7 +234,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		);
 	}
 
-	@log()
+	@debug()
 	async getContributorsLite(
 		repoPath: string,
 		_rev?: string | undefined,
@@ -243,7 +243,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
@@ -284,7 +284,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getContributorsStats(
 		repoPath: string,
 		_options?: { merges?: boolean | 'first-parent'; since?: string },
@@ -293,7 +293,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	): Promise<GitContributorsStats | undefined> {
 		if (repoPath == null) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);

@@ -8,9 +8,9 @@ import {
 import type { Container } from '../../container.js';
 import { AuthenticationRequiredError, CancellationError } from '../../errors.js';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import { ensureAccount } from '../gk/utils/-webview/acount.utils.js';
 import type { EnrichableItem, EnrichedItem, EnrichedItemResponse } from './models/enrichedItem.js';
@@ -32,7 +32,7 @@ export class EnrichmentService implements Disposable {
 	dispose(): void {}
 
 	private async delete(id: string, context: 'unpin' | 'unsnooze'): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const rsp = await this.connection.fetchGkApi(`v1/enrich-items/${id}`, { method: 'DELETE' });
@@ -45,9 +45,9 @@ export class EnrichmentService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async get(type?: EnrichedItemResponse['type'], cancellation?: CancellationToken): Promise<EnrichedItem[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			type Result = { data: EnrichedItemResponse[] };
@@ -68,19 +68,19 @@ export class EnrichmentService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	getPins(cancellation?: CancellationToken): Promise<EnrichedItem[]> {
 		return this.get('pin', cancellation);
 	}
 
-	@log()
+	@debug()
 	getSnoozed(cancellation?: CancellationToken): Promise<EnrichedItem[]> {
 		return this.get('snooze', cancellation);
 	}
 
-	@log<EnrichmentService['pinItem']>({ args: { 0: i => `${i.id} (${i.provider} ${i.type})` } })
+	@debug<EnrichmentService['pinItem']>({ args: { 0: i => `${i.id} (${i.provider} ${i.type})` } })
 	async pinItem(item: EnrichableItem): Promise<EnrichedItem> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			if (
@@ -121,14 +121,14 @@ export class EnrichmentService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	unpinItem(id: string): Promise<void> {
 		return this.delete(id, 'unpin');
 	}
 
-	@log<EnrichmentService['snoozeItem']>({ args: { 0: i => `${i.id} (${i.provider} ${i.type})` } })
+	@debug<EnrichmentService['snoozeItem']>({ args: { 0: i => `${i.id} (${i.provider} ${i.type})` } })
 	async snoozeItem(item: EnrichableItem): Promise<EnrichedItem> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			if (
@@ -172,7 +172,7 @@ export class EnrichmentService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	unsnoozeItem(id: string): Promise<void> {
 		return this.delete(id, 'unsnooze');
 	}

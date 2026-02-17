@@ -103,7 +103,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the merge
 			if (MergeError.is(ex, 'aborted')) {
-				Logger.log(ex.message, this.title);
+				Logger.debug(ex.message, this.title);
 				return;
 			}
 

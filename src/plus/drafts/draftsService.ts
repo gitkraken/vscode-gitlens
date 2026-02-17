@@ -17,10 +17,10 @@ import type {
 import type { GitUser } from '../../git/models/user.js';
 import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders.js';
 import { isSha, isUncommitted, shortenRevision } from '../../git/utils/revision.utils.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import { Logger } from '../../system/logger.js';
-import type { LogScope } from '../../system/logger.scope.js';
-import { getLogScope } from '../../system/logger.scope.js';
+import type { ScopedLogger } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import { getSettledValue } from '../../system/promise.js';
 import type { OrganizationMember } from '../gk/models/organization.js';
 import type { SubscriptionAccount } from '../gk/models/subscription.js';
@@ -64,14 +64,14 @@ export class DraftService implements Disposable {
 
 	dispose(): void {}
 
-	@log({ args: { 2: false } })
+	@debug({ args: { 2: false } })
 	async createDraft(
 		type: DraftType,
 		title: string,
 		changes: CreateDraftChange[],
 		options?: { description?: string; visibility?: DraftVisibility; prEntityId?: string },
 	): Promise<Draft> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const results = await Promise.allSettled(changes.map(c => this.getCreateDraftPatchRequestFromChange(c)));
@@ -321,14 +321,14 @@ export class DraftService implements Disposable {
 		};
 	}
 
-	@log()
+	@debug()
 	async deleteDraft(id: string): Promise<void> {
 		await this.connection.fetchGkApi(`v1/drafts/${id}`, { method: 'DELETE' });
 	}
 
-	@log<DraftService['archiveDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
+	@debug<DraftService['archiveDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
 	async archiveDraft(draft: Draft, options?: { providerAuth?: ProviderAuth; archiveReason?: string }): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			let providerAuth = options?.providerAuth;
@@ -366,9 +366,9 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log<DraftService['getDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
+	@debug<DraftService['getDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
 	async getDraft(id: string, options?: { providerAuth?: ProviderAuth }): Promise<Draft> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		type Result = { data: DraftResponse };
 
@@ -423,7 +423,7 @@ export class DraftService implements Disposable {
 		return newDraft;
 	}
 
-	@log()
+	@debug()
 	async getDrafts(isArchived?: boolean): Promise<Draft[]> {
 		return this.getDraftsCore(isArchived ? { isArchived: isArchived } : undefined);
 	}
@@ -433,7 +433,7 @@ export class DraftService implements Disposable {
 		providerAuth?: ProviderAuth;
 		isArchived?: boolean;
 	}): Promise<Draft[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		type Result = { data: DraftResponse[] };
 
 		const queryStrings = [];
@@ -487,9 +487,9 @@ export class DraftService implements Disposable {
 		);
 	}
 
-	@log()
+	@debug()
 	async getChangesets(id: string): Promise<DraftChangeset[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		type Result = { data: DraftChangesetResponse[] };
 
@@ -515,7 +515,7 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async getPatch(id: string): Promise<DraftPatch> {
 		const patch = await this.getPatchCore(id);
 
@@ -528,7 +528,7 @@ export class DraftService implements Disposable {
 	}
 
 	private async getPatchCore(id: string): Promise<DraftPatch> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		type Result = { data: DraftPatchResponse };
 
 		// GET /v1/patches/:patchId
@@ -547,7 +547,7 @@ export class DraftService implements Disposable {
 
 	async getPatchDetails(id: string): Promise<DraftPatchDetails>;
 	async getPatchDetails(patch: DraftPatch): Promise<DraftPatchDetails>;
-	@log<DraftService['getPatchDetails']>({
+	@debug<DraftService['getPatchDetails']>({
 		args: { 0: idOrPatch => (typeof idOrPatch === 'string' ? idOrPatch : idOrPatch.id) },
 	})
 	async getPatchDetails(idOrPatch: string | DraftPatch): Promise<DraftPatchDetails> {
@@ -597,9 +597,9 @@ export class DraftService implements Disposable {
 		return contentsRsp.text();
 	}
 
-	@log()
+	@debug()
 	async updateDraftVisibility(id: string, visibility: DraftVisibility): Promise<Draft> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		type Result = { data: Draft };
 
@@ -623,9 +623,9 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async getDraftUsers(id: string): Promise<DraftUser[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		type Result = { data: DraftUser[] };
 
@@ -646,9 +646,9 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log({ args: { 1: false } })
+	@debug({ args: { 1: false } })
 	async addDraftUsers(id: string, pendingUsers: DraftPendingUser[]): Promise<DraftUser[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		type Result = { data: DraftUser[] };
 		type Request = { id: string; users: DraftPendingUser[] };
@@ -680,9 +680,9 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async removeDraftUser(id: string, userId: DraftUser['userId']): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		try {
 			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/users/${userId}`, { method: 'DELETE' });
 
@@ -698,7 +698,7 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log()
+	@debug()
 	async getRepositoryOrIdentity(
 		draftId: Draft['id'],
 		repoId: GkRepositoryId,
@@ -708,7 +708,7 @@ export class DraftService implements Disposable {
 		return (await this.container.repositoryIdentity.getRepository(identity, options)) ?? identity;
 	}
 
-	@log()
+	@debug()
 	async getRepositoryIdentity(draftId: Draft['id'], repoId: GkRepositoryId): Promise<RepositoryIdentity> {
 		type Result = { data: RepositoryIdentityResponse };
 
@@ -818,7 +818,7 @@ export class DraftService implements Disposable {
 		integrationId: IntegrationIds,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
-	@log<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
+	@debug<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
 	async getCodeSuggestions(
 		item: PullRequest | LaunchpadItem,
 		repositoryOrIntegrationId: Repository | IntegrationIds,
@@ -843,9 +843,9 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@log<DraftService['getCodeSuggestionCounts']>({ args: { 0: prs => prs.map(pr => pr.id).join(',') } })
+	@debug<DraftService['getCodeSuggestionCounts']>({ args: { 0: prs => prs.map(pr => pr.id).join(',') } })
 	async getCodeSuggestionCounts(pullRequests: PullRequest[]): Promise<CodeSuggestionCounts> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		type Result = { data: CodeSuggestionCountsResponse };
 
@@ -891,7 +891,7 @@ export class DraftService implements Disposable {
 	}
 }
 
-async function handleBadDraftResponse(message: string, rsp?: any, scope?: LogScope) {
+async function handleBadDraftResponse(message: string, rsp?: any, scope?: ScopedLogger) {
 	let json: { error?: { message?: string } } | { error?: string } | undefined;
 	try {
 		json = (await rsp?.json()) as { error?: { message?: string } } | { error?: string } | undefined;

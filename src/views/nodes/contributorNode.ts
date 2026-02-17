@@ -8,7 +8,7 @@ import type { GitLog } from '../../git/models/log.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { formatNumeric } from '../../system/date.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { map } from '../../system/iterable.js';
 import { pluralize } from '../../system/string.js';
 import type { ContactPresence } from '../../vsls/vsls.js';
@@ -188,7 +188,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		return item;
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;

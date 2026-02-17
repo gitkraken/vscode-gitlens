@@ -4,7 +4,7 @@ import type { Container } from '../container.js';
 import { AuthenticationUriPathPrefix, LoginUriPathPrefix } from '../plus/gk/authenticationConnection.js';
 import { AiAllAccessOptInPathPrefix, SubscriptionUpdatedUriPathPrefix } from '../plus/gk/utils/subscription.utils.js';
 import { CloudIntegrationAuthenticationUriPathPrefix } from '../plus/integrations/authentication/models.js';
-import { log } from '../system/decorators/log.js';
+import { debug } from '../system/decorators/log.js';
 
 // This service is in charge of registering a URI handler and handling/emitting URI events received by GitLens.
 // URI events to GitLens take the form of: vscode://eamodio.gitlens/... and are handled by the UriEventHandler.
@@ -58,7 +58,7 @@ export class UriService implements Disposable, UriHandler {
 		this._disposable.dispose();
 	}
 
-	@log<UriHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
+	@debug<UriHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
 	handleUri(uri: Uri): void {
 		const [, type] = uri.path.split('/');
 		if (type === AuthenticationUriPathPrefix) {

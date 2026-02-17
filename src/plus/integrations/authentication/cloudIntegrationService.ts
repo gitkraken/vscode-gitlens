@@ -1,7 +1,7 @@
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import type { Container } from '../../../container.js';
 import { Logger } from '../../../system/logger.js';
-import { getLogScope } from '../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { ServerConnection } from '../../gk/serverConnection.js';
 import type { CloudIntegrationAuthenticationSession, CloudIntegrationConnection } from './models.js';
 import { toCloudIntegrationType } from './models.js';
@@ -13,7 +13,7 @@ export class CloudIntegrationService {
 	) {}
 
 	async getConnections(): Promise<CloudIntegrationConnection[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const providersRsp = await this.connection.fetchGkApi(
 			'v1/provider-tokens',
@@ -42,7 +42,7 @@ export class CloudIntegrationService {
 		id: IntegrationIds,
 		refreshToken?: string,
 	): Promise<CloudIntegrationAuthenticationSession | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const refresh = Boolean(refreshToken);
 		const cloudIntegrationType = toCloudIntegrationType[id];
@@ -108,7 +108,7 @@ export class CloudIntegrationService {
 	}
 
 	async disconnect(id: IntegrationIds): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const cloudIntegrationType = toCloudIntegrationType[id];
 		if (cloudIntegrationType == null) {

@@ -25,10 +25,10 @@ import {
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { debug } from '../../../../system/decorators/log.js';
+import { trace } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import type { LogScope } from '../../../../system/logger.scope.js';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import type { ScopedLogger } from '../../../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import { equalsIgnoreCase } from '../../../../system/string.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
@@ -92,7 +92,7 @@ export class GitLabApi implements Disposable {
 		return proxyAgent ?? undefined;
 	}
 
-	@debug<GitLabApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -105,7 +105,7 @@ export class GitLabApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<Account | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
@@ -161,7 +161,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForEmail(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -173,7 +173,7 @@ export class GitLabApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const [user] = await this.findUser(provider, token, email, options);
@@ -194,7 +194,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getDefaultBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -205,7 +205,7 @@ export class GitLabApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<DefaultBranch | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			data: {
@@ -254,7 +254,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -266,7 +266,7 @@ export class GitLabApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<IssueOrPullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			data: {
@@ -374,7 +374,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -388,7 +388,7 @@ export class GitLabApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			data: {
@@ -529,7 +529,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -542,7 +542,7 @@ export class GitLabApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
@@ -578,7 +578,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -590,7 +590,7 @@ export class GitLabApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			data: {
@@ -666,7 +666,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoryMetadata(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -677,7 +677,7 @@ export class GitLabApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
@@ -717,14 +717,14 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@debug<GitLabApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitLabApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const search = options?.search;
 		if (!search) {
 			return [];
@@ -837,7 +837,7 @@ export class GitLabApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<GitLabUser[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			data: {
@@ -940,7 +940,7 @@ $search: String!
 		baseUrl: string | undefined,
 		cancellation: CancellationToken | undefined,
 	): Promise<string | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			data: { project: { id: string } };
@@ -991,7 +991,7 @@ $search: String!
 		query: string,
 		variables: Record<string, any>,
 		cancellation: CancellationToken | undefined,
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 	): Promise<T | undefined> {
 		const { accessToken } = token;
 		let rsp: Response;
@@ -1050,7 +1050,7 @@ $search: String!
 		route: string,
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
 		cancellation: CancellationToken | undefined,
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 	): Promise<T> {
 		const { accessToken } = token;
 		const url = `${baseUrl ?? 'https://gitlab.com/api'}/${route}`;
@@ -1102,7 +1102,7 @@ $search: String!
 		provider: Provider | undefined,
 		token: TokenWithInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 	): void {
 		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
 
@@ -1165,7 +1165,7 @@ $search: String!
 		}
 	}
 
-	private handleException(ex: Error, provider: Provider, scope: LogScope | undefined): Error {
+	private handleException(ex: Error, provider: Provider, scope: ScopedLogger | undefined): Error {
 		Logger.error(ex, scope);
 		// debugger;
 

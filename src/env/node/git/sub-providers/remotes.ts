@@ -8,9 +8,9 @@ import { getRemoteProviderMatcher, loadRemoteProvidersFromConfig } from '../../.
 import { RemotesGitProviderBase } from '../../../../git/sub-providers/remotes.js';
 import { sortRemotes } from '../../../../git/utils/-webview/sorting.js';
 import { gate } from '../../../../system/decorators/gate.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import type { Git } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
@@ -24,7 +24,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 		super(container, cache, provider);
 	}
 
-	@log({ args: { 1: false } })
+	@debug({ args: { 1: false } })
 	async getRemotes(
 		repoPath: string | undefined,
 		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
@@ -32,7 +32,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		let remotes = await this.cache.getRemotes(repoPath, async (commonPath, cacheable) => {
 			const providers = loadRemoteProvidersFromConfig(
@@ -72,14 +72,14 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'remote', 'add', options?.fetch ? '-f' : undefined, name, url);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['remotes'] });
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async addRemoteWithResult(
 		repoPath: string,
 		name: string,
@@ -92,14 +92,14 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async pruneRemote(repoPath: string, name: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'remote', 'prune', name);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['remotes'] });
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async removeRemote(repoPath: string, name: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'remote', 'remove', name);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['remotes'] });

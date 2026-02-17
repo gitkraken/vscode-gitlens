@@ -24,10 +24,10 @@ import {
 	showIntegrationRequestFailed500WarningMessage,
 } from '../../../../messages.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { debug } from '../../../../system/decorators/log.js';
+import { trace } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import type { LogScope } from '../../../../system/logger.scope.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import type { ScopedLogger } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { TokenInfo, TokenWithInfo } from '../../authentication/models.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
@@ -73,7 +73,7 @@ export class BitbucketApi implements Disposable {
 		this._proxyAgent = null;
 	}
 
-	@debug<BitbucketApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -82,7 +82,7 @@ export class BitbucketApi implements Disposable {
 		branch: string,
 		baseUrl: string,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const response = await this.request<{
 			values: BitbucketPullRequest[];
@@ -106,7 +106,7 @@ export class BitbucketApi implements Disposable {
 		return fromBitbucketPullRequest(response.values[0], provider);
 	}
 
-	@debug<BitbucketApi['getServerPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getServerPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getServerPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -115,7 +115,7 @@ export class BitbucketApi implements Disposable {
 		branch: string,
 		baseUrl: string,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const response = await this.request<{
 			values: BitbucketServerPullRequest[];
@@ -142,7 +142,7 @@ export class BitbucketApi implements Disposable {
 		return gitlensPr;
 	}
 
-	@debug<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getUsersIssuesForRepo(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -151,7 +151,7 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		baseUrl: string,
 	): Promise<Issue[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const query = encodeURIComponent(`assignee.uuid="${userUuid}" OR reporter.uuid="${userUuid}"`);
 
 		const response = await this.request<{
@@ -176,7 +176,7 @@ export class BitbucketApi implements Disposable {
 		return response.values.map(issue => fromBitbucketIssue(issue, provider));
 	}
 
-	@debug<BitbucketApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -185,7 +185,7 @@ export class BitbucketApi implements Disposable {
 		id: string,
 		baseUrl: string,
 	): Promise<Issue | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const response = await this.request<BitbucketIssue>(
@@ -209,7 +209,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -221,7 +221,7 @@ export class BitbucketApi implements Disposable {
 			type?: IssueOrPullRequestType;
 		},
 	): Promise<IssueOrPullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (options?.type === undefined || options?.type === 'pullrequest') {
 			try {
@@ -283,7 +283,7 @@ export class BitbucketApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<BitbucketApi['getServerPullRequestById']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getServerPullRequestById']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getServerPullRequestById(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -292,7 +292,7 @@ export class BitbucketApi implements Disposable {
 		id: string,
 		baseUrl: string,
 	): Promise<IssueOrPullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const prResponse = await this.request<BitbucketServerPullRequest>(
@@ -321,7 +321,7 @@ export class BitbucketApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoriesForWorkspace(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -330,7 +330,7 @@ export class BitbucketApi implements Disposable {
 			baseUrl: string;
 		},
 	): Promise<RepositoryMetadata[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			interface BitbucketRepositoriesResponse {
@@ -376,7 +376,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getServerPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getServerPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getServerPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -389,7 +389,7 @@ export class BitbucketApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const response = await this.request<{ values: BitbucketServerPullRequest[] }>(
@@ -417,7 +417,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -430,7 +430,7 @@ export class BitbucketApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const fields = [
@@ -476,7 +476,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -489,7 +489,7 @@ export class BitbucketApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<Account | UnidentifiedAuthor | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const commit = await this.request<BitbucketCommit>(
@@ -533,7 +533,7 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getServerAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<BitbucketApi['getServerAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getServerAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -546,7 +546,7 @@ export class BitbucketApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<Account | UnidentifiedAuthor | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const commit = await this.request<BitbucketServerCommit>(
@@ -593,7 +593,7 @@ export class BitbucketApi implements Disposable {
 		baseUrl: string,
 		route: string,
 		options?: { method: RequestInit['method'] } & Record<string, unknown>,
-		scope?: LogScope | undefined,
+		scope?: ScopedLogger | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
 		const { accessToken, ...tokenInfo } = token;
@@ -646,7 +646,7 @@ export class BitbucketApi implements Disposable {
 		provider: Provider | undefined,
 		tokenInfo: TokenInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 	): void {
 		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
 

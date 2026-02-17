@@ -5,9 +5,9 @@ import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../..
 import { GitTag } from '../../../../../git/models/tag.js';
 import type { TagSortOptions } from '../../../../../git/utils/-webview/sorting.js';
 import { sortTags } from '../../../../../git/utils/-webview/sorting.js';
-import { log } from '../../../../../system/decorators/log.js';
+import { debug } from '../../../../../system/decorators/log.js';
 import { Logger } from '../../../../../system/logger.js';
-import { getLogScope } from '../../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 import { stripOrigin } from '../githubGitProvider.js';
@@ -21,7 +21,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async getTag(repoPath: string, name: string, cancellation?: CancellationToken): Promise<GitTag | undefined> {
 		const {
 			values: [tag],
@@ -29,7 +29,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		return tag;
 	}
 
-	@log({ args: { 1: false } })
+	@debug({ args: { 1: false } })
 	async getTags(
 		repoPath: string | undefined,
 		options?: {
@@ -41,7 +41,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const tagsPromise = options?.paging?.cursor
 			? undefined
@@ -120,7 +120,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		return result;
 	}
 
-	@log()
+	@debug()
 	async getTagsWithCommit(
 		repoPath: string,
 		sha: string,
@@ -129,7 +129,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);

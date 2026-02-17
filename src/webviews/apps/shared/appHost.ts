@@ -80,7 +80,7 @@ export abstract class GlAppHost<
 		super.connectedCallback?.();
 
 		this._logger = new LoggerContext(this.name);
-		this._logger.log('connected');
+		this._logger.debug('connected');
 
 		this._ipc = new HostIpc(this.name);
 
@@ -154,7 +154,7 @@ export abstract class GlAppHost<
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 
-		this._logger.log('disconnected');
+		this._logger.debug('disconnected');
 
 		document.removeEventListener('focusin', this.onFocusIn);
 		document.removeEventListener('focusout', this.onFocusOut);

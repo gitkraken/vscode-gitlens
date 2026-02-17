@@ -20,7 +20,7 @@ import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
 import { UriSet } from '../system/-webview/uriMap.js';
 import { getOpenTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents.js';
-import { debug } from '../system/decorators/log.js';
+import { trace } from '../system/decorators/log.js';
 import { once } from '../system/event.js';
 import type { Deferrable } from '../system/function/debounce.js';
 import { debounce } from '../system/function/debounce.js';
@@ -323,7 +323,7 @@ export class GitDocumentTracker implements Disposable {
 		return doc;
 	}
 
-	@debug()
+	@trace()
 	private async addCore(document: TextDocument, visible?: boolean): Promise<TrackedGitDocument> {
 		const doc = createTrackedGitDocument(
 			this.container,
@@ -340,7 +340,7 @@ export class GitDocumentTracker implements Disposable {
 		return doc;
 	}
 
-	@debug()
+	@trace()
 	async clear(): Promise<void> {
 		for (const d of this._documentMap.values()) {
 			(await d).dispose();
@@ -352,7 +352,7 @@ export class GitDocumentTracker implements Disposable {
 	get(document: TextDocument): Promise<TrackedGitDocument> | undefined;
 	get(uri: Uri): Promise<TrackedGitDocument> | undefined;
 	get(documentOrUri: TextDocument | Uri): Promise<TrackedGitDocument> | undefined;
-	@debug()
+	@trace()
 	get(documentOrUri: TextDocument | Uri): Promise<TrackedGitDocument> | undefined {
 		if (documentOrUri instanceof Uri) {
 			const document = getOpenTextDocument(documentOrUri);
@@ -385,7 +385,7 @@ export class GitDocumentTracker implements Disposable {
 
 	resetCache(document: TextDocument, affects: 'blame' | 'diff' | 'log'): Promise<void>;
 	resetCache(uri: Uri, affects: 'blame' | 'diff' | 'log'): Promise<void>;
-	@debug()
+	@trace()
 	async resetCache(documentOrUri: TextDocument | Uri, affects: 'blame' | 'diff' | 'log'): Promise<void> {
 		const doc = this.get(documentOrUri);
 		if (doc == null) return;
@@ -403,7 +403,7 @@ export class GitDocumentTracker implements Disposable {
 		}
 	}
 
-	@debug({ args: { 1: false } })
+	@trace({ args: { 1: false } })
 	private async remove(document: TextDocument, tracked?: TrackedGitDocument): Promise<void> {
 		let docPromise;
 		if (tracked != null) {

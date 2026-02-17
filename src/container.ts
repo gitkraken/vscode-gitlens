@@ -56,7 +56,7 @@ import { executeCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
 import { Keyboard } from './system/-webview/keyboard.js';
 import type { Storage } from './system/-webview/storage.js';
-import { log } from './system/decorators/log.js';
+import { debug } from './system/decorators/log.js';
 import { memoize } from './system/decorators/memoize.js';
 import { Logger } from './system/logger.js';
 import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider.js';
@@ -337,7 +337,7 @@ export class Container {
 		queueMicrotask(() => this._onReady.fire());
 	}
 
-	@log()
+	@debug()
 	private async registerGitProviders(): Promise<void> {
 		const providers = await getSupportedGitProviders(this);
 		for (const provider of providers) {
@@ -348,7 +348,7 @@ export class Container {
 		void this._git.registrationComplete();
 	}
 
-	@log()
+	@debug()
 	private async registerMcpProviders(): Promise<void> {
 		const mcpProviders = await getMcpProviders(this);
 		if (mcpProviders != null) {

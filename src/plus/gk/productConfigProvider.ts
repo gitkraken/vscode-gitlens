@@ -5,7 +5,7 @@ import { deviceCohortGroup } from '../../system/-webview/vscode.js';
 import type { Lazy } from '../../system/lazy.js';
 import { lazy } from '../../system/lazy.js';
 import { getLoggableName, Logger } from '../../system/logger.js';
-import { startLogScope } from '../../system/logger.scope.js';
+import { startScopedLogger } from '../../system/logger.scope.js';
 import type { Validator } from '../../system/validation.js';
 import { createValidator, Is } from '../../system/validation.js';
 import type { Promo, PromoLocation, PromoPlans } from './models/promo.js';
@@ -70,7 +70,7 @@ export class ProductConfigProvider {
 
 	constructor(container: Container, connection: ServerConnection) {
 		this._lazyConfig = lazy(async () => {
-			using scope = startLogScope(`${getLoggableName(this)}.load`, false);
+			using scope = startScopedLogger(`${getLoggableName(this)}.load`, false);
 
 			let data;
 			const failed = {

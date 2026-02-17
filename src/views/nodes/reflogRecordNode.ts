@@ -4,7 +4,7 @@ import { GitUri } from '../../git/gitUri.js';
 import type { GitLog } from '../../git/models/log.js';
 import type { GitReflogRecord } from '../../git/models/reflog.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { map } from '../../system/iterable.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import type { PageableViewNode } from './abstract/viewNode.js';
@@ -68,7 +68,7 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 		return item;
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;

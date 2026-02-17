@@ -40,11 +40,11 @@ import {
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { debug } from '../../../../system/decorators/log.js';
+import { trace } from '../../../../system/decorators/log.js';
 import { uniqueBy } from '../../../../system/iterable.js';
 import { Logger } from '../../../../system/logger.js';
-import type { LogScope } from '../../../../system/logger.scope.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import type { ScopedLogger } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { Version } from '../../../../system/version.js';
 import { fromString, satisfies } from '../../../../system/version.js';
@@ -257,7 +257,7 @@ export class GitHubApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			viewer: {
@@ -308,7 +308,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -320,7 +320,7 @@ export class GitHubApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<Account | UnidentifiedAuthor | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -419,7 +419,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForEmail(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -431,7 +431,7 @@ export class GitHubApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			search:
@@ -510,7 +510,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getDefaultBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -520,7 +520,7 @@ export class GitHubApi implements Disposable {
 			baseUrl?: string;
 		},
 	): Promise<DefaultBranch | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -569,7 +569,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -580,7 +580,7 @@ export class GitHubApi implements Disposable {
 			baseUrl?: string;
 		},
 	): Promise<IssueOrPullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest };
@@ -641,7 +641,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -654,7 +654,7 @@ export class GitHubApi implements Disposable {
 			includeBody?: boolean;
 		},
 	): Promise<Issue | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -708,7 +708,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -720,7 +720,7 @@ export class GitHubApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -768,7 +768,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -781,7 +781,7 @@ export class GitHubApi implements Disposable {
 			include?: GitHubPullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -857,7 +857,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -870,7 +870,7 @@ export class GitHubApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -942,7 +942,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoryMetadata(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -953,7 +953,7 @@ export class GitHubApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -1031,9 +1031,9 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getBlame']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getBlame']>({ args: { 0: '<token>' } })
 	async getBlame(token: TokenWithInfo, owner: string, repo: string, ref: string, path: string): Promise<GitHubBlame> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			viewer: { name: string };
@@ -1114,14 +1114,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getBranches']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getBranches']>({ args: { 0: '<token>' } })
 	async getBranches(
 		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		options?: { query?: string; cursor?: string; limit?: number },
 	): Promise<PagedResult<GitHubBranch>> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -1198,14 +1198,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommit']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getCommit']>({ args: { 0: '<token>' } })
 	async getCommit(
 		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		ref: string,
 	): Promise<(GitHubCommit & { viewer?: string }) | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const rsp = await this.request(
@@ -1256,7 +1256,7 @@ export class GitHubApi implements Disposable {
 		// return { ...results.values[0], viewer: results.viewer };
 	}
 
-	@debug<GitHubApi['getCommitForFile']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getCommitForFile']>({ args: { 0: '<token>' } })
 	async getCommitForFile(
 		token: TokenWithInfo,
 		owner: string,
@@ -1274,7 +1274,7 @@ export class GitHubApi implements Disposable {
 		return { ...(commit ?? results.values[0]), viewer: results.viewer };
 	}
 
-	@debug<GitHubApi['getBranchesWithCommits']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getBranchesWithCommits']>({ args: { 0: '<token>' } })
 	async getBranchesWithCommits(
 		token: TokenWithInfo,
 		owner: string,
@@ -1283,7 +1283,7 @@ export class GitHubApi implements Disposable {
 		mode: 'contains' | 'pointsAt',
 		date?: Date,
 	): Promise<string[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository: {
@@ -1359,9 +1359,9 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommitCount']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getCommitCount']>({ args: { 0: '<token>' } })
 	async getCommitCount(token: TokenWithInfo, owner: string, repo: string, ref: string): Promise<number | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository: {
@@ -1413,7 +1413,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getBranchWithCommit']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getBranchWithCommit']>({ args: { 0: '<token>' } })
 	async getBranchWithCommit(
 		token: TokenWithInfo,
 		owner: string,
@@ -1423,7 +1423,7 @@ export class GitHubApi implements Disposable {
 		mode: 'contains' | 'pointsAt',
 		date?: Date,
 	): Promise<string[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository: {
@@ -1493,7 +1493,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommits']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getCommits']>({ args: { 0: '<token>' } })
 	async getCommits(
 		token: TokenWithInfo,
 		owner: string,
@@ -1510,7 +1510,7 @@ export class GitHubApi implements Disposable {
 			until?: string | Date;
 		},
 	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (options?.limit === 1 && options?.path == null) {
 			return this.getCommitsCoreSingle(token, owner, repo, ref);
@@ -1648,7 +1648,7 @@ export class GitHubApi implements Disposable {
 		repo: string,
 		range: GitRevisionRange,
 	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const result = await this.getComparison(token, owner, repo, range);
@@ -1687,7 +1687,7 @@ export class GitHubApi implements Disposable {
 		repo: string,
 		ref: string,
 	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			viewer: { name: string };
@@ -1748,7 +1748,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommitRefs']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getCommitRefs']>({ args: { 0: '<token>' } })
 	async getCommitRefs(
 		token: TokenWithInfo,
 		owner: string,
@@ -1764,7 +1764,7 @@ export class GitHubApi implements Disposable {
 			until?: string;
 		},
 	): Promise<GitHubPagedResult<GitHubCommitRef> | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -1843,7 +1843,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getTagsWithCommit']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getTagsWithCommit']>({ args: { 0: '<token>' } })
 	async getTagsWithCommit(
 		token: TokenWithInfo,
 		owner: string,
@@ -1851,7 +1851,7 @@ export class GitHubApi implements Disposable {
 		ref: string,
 		date: Date,
 	): Promise<string[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository: {
@@ -1925,7 +1925,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getNextCommitRefs']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getNextCommitRefs']>({ args: { 0: '<token>' } })
 	async getNextCommitRefs(
 		token: TokenWithInfo,
 		owner: string,
@@ -1971,7 +1971,7 @@ export class GitHubApi implements Disposable {
 		repo: string,
 		sha: string,
 	): Promise<string | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -2015,9 +2015,9 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getContributors']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getContributors']>({ args: { 0: '<token>' } })
 	async getContributors(token: TokenWithInfo, owner: string, repo: string): Promise<GitHubContributor[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// TODO@eamodio implement pagination
 
@@ -2045,9 +2045,9 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getDefaultBranchName']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getDefaultBranchName']>({ args: { 0: '<token>' } })
 	async getDefaultBranchName(token: TokenWithInfo, owner: string, repo: string): Promise<string | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -2090,9 +2090,9 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCurrentUser']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getCurrentUser']>({ args: { 0: '<token>' } })
 	async getCurrentUser(token: TokenWithInfo, owner: string, repo: string): Promise<GitUser | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			viewer: {
@@ -2138,14 +2138,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getComparison']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getComparison']>({ args: { 0: '<token>' } })
 	async getComparison(
 		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		range: GitRevisionRange,
 	): Promise<Endpoints['GET /repos/{owner}/{repo}/compare/{basehead}']['response']['data'] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (!isRevisionRange(range, 'qualified-triple-dot')) {
 			// GitHub doesn't support the `..` range notation, so convert it to `...` since it will work for many of our usages
@@ -2177,13 +2177,13 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getRepositoryVisibility']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getRepositoryVisibility']>({ args: { 0: '<token>' } })
 	async getRepositoryVisibility(
 		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 	): Promise<RepositoryVisibility | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -2224,14 +2224,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getTags']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['getTags']>({ args: { 0: '<token>' } })
 	async getTags(
 		token: TokenWithInfo,
 		owner: string,
 		repo: string,
 		options?: { query?: string; cursor?: string; limit?: number },
 	): Promise<PagedResult<GitHubTag>> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface QueryResult {
 			repository:
@@ -2316,7 +2316,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['resolveReference']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['resolveReference']>({ args: { 0: '<token>' } })
 	async resolveReference(
 		token: TokenWithInfo,
 		owner: string,
@@ -2324,7 +2324,7 @@ export class GitHubApi implements Disposable {
 		ref: string,
 		path?: string,
 	): Promise<string | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			if (!path) {
@@ -2408,7 +2408,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchCommits']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['searchCommits']>({ args: { 0: '<token>' } })
 	async searchCommits(
 		token: TokenWithInfo,
 		query: string,
@@ -2419,7 +2419,7 @@ export class GitHubApi implements Disposable {
 			sort?: 'author-date' | 'committer-date' | undefined;
 		},
 	): Promise<GitHubPagedResult<GitHubCommit> | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const limit = Math.min(100, options?.limit ?? 100);
 
@@ -2493,7 +2493,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchCommitShas']>({ args: { 0: '<token>' } })
+	@trace<GitHubApi['searchCommitShas']>({ args: { 0: '<token>' } })
 	async searchCommitShas(
 		token: TokenWithInfo,
 		query: string,
@@ -2504,7 +2504,7 @@ export class GitHubApi implements Disposable {
 			sort?: 'author-date' | 'committer-date' | undefined;
 		},
 	): Promise<GitHubPagedResult<{ sha: string; authorDate: number; committerDate: number }> | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const limit = Math.min(100, options?.limit ?? 100);
 
@@ -2567,7 +2567,7 @@ export class GitHubApi implements Disposable {
 
 	private _enterpriseVersions = new Map<string, Version | null>();
 
-	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: p => p?.name, 1: '<token>' } })
+	@trace<GitHubApi['getEnterpriseVersion']>({ args: { 0: p => p?.name, 1: '<token>' } })
 	private async getEnterpriseVersion(
 		provider: Provider | undefined,
 		token: TokenWithInfo,
@@ -2578,7 +2578,7 @@ export class GitHubApi implements Disposable {
 		if (version != null) return version;
 		if (version === null) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const rsp = await this.request(provider, token, 'GET /meta', options, scope);
@@ -2598,7 +2598,7 @@ export class GitHubApi implements Disposable {
 		token: TokenWithInfo,
 		query: string,
 		variables: RequestParameters,
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
 		const { accessToken, ...tokenInfo } = token;
@@ -2659,7 +2659,7 @@ export class GitHubApi implements Disposable {
 		token: TokenWithInfo,
 		route: R,
 		options: (Endpoints[R]['parameters'] & RequestParameters) | undefined,
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<Endpoints[R]['response']> {
 		const { accessToken } = token;
@@ -2751,7 +2751,7 @@ export class GitHubApi implements Disposable {
 		provider: Provider | undefined,
 		token: TokenWithInfo,
 		ex: RequestError | (Error & { name: 'AbortError' }),
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 	): void {
 		if (ex.name === 'AbortError') throw new CancellationError(ex);
 
@@ -2828,7 +2828,7 @@ export class GitHubApi implements Disposable {
 	private handleException(
 		ex: Error,
 		provider: Provider | undefined,
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 		silent?: boolean,
 	): Error {
 		Logger.error(ex, scope);
@@ -2904,7 +2904,7 @@ export class GitHubApi implements Disposable {
 		return `https://avatars.githubusercontent.com/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
 	}
 
-	@debug<GitHubApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchMyPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -2918,7 +2918,7 @@ export class GitHubApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const limit = Math.min(100, configuration.get('launchpad.experimental.queryLimit') ?? 100);
 
@@ -3019,7 +3019,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchMyIssues']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['searchMyIssues']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchMyIssues(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -3033,7 +3033,7 @@ export class GitHubApi implements Disposable {
 		},
 		cancellation?: CancellationToken,
 	): Promise<IssueShape[] | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface SearchResult {
 			authored: {
@@ -3129,14 +3129,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		interface SearchResult {
 			search: {
@@ -3190,7 +3190,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['mergePullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace<GitHubApi['mergePullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async mergePullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -3199,7 +3199,7 @@ export class GitHubApi implements Disposable {
 		options?: { mergeMethod?: PullRequestMergeMethod; baseUrl?: string },
 		cancellation?: CancellationToken,
 	): Promise<boolean> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		interface QueryResult {
 			pullRequest: GitHubPullRequestLite | null | undefined;
 		}

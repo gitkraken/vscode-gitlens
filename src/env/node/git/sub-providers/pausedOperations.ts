@@ -17,9 +17,9 @@ import type { GitBranchReference, GitTagReference } from '../../../../git/models
 import { createReference } from '../../../../git/utils/reference.utils.js';
 import { exists } from '../../../../system/-webview/vscode/uris.js';
 import { gate } from '../../../../system/decorators/gate.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../../../../system/logger.scope.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import type { Git } from '../git.js';
 import { getGitCommandError } from '../git.js';
@@ -39,12 +39,12 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		private readonly provider: LocalGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async getPausedOperationStatus(
 		repoPath: string,
 		cancellation?: CancellationToken,
 	): Promise<GitPausedOperationStatus | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const status = this.cache.pausedOperationStatus.getOrCreate(repoPath, async _cancellable => {
 			const gitDir = await this.provider.config.getGitDir(repoPath);
@@ -103,7 +103,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			const sortedOperations = [...operations].sort(
 				(a, b) => orderedOperations.indexOf(a) - orderedOperations.indexOf(b),
 			);
-			Logger.log(`Detected paused operations: ${sortedOperations.join(', ')}`);
+			Logger.debug(`Detected paused operations: ${sortedOperations.join(', ')}`);
 
 			const operation = sortedOperations[0];
 			switch (operation) {
@@ -406,7 +406,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	}
 
 	@gate<PausedOperationsGitSubProvider['abortPausedOperation']>((rp, o) => `${rp ?? ''}:${o?.quit ?? false}`)
-	@log()
+	@debug()
 	async abortPausedOperation(repoPath: string, options?: { quit?: boolean }): Promise<void> {
 		const status = await this.getPausedOperationStatus(repoPath);
 		if (status == null) return;
@@ -435,7 +435,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	}
 
 	@gate<PausedOperationsGitSubProvider['continuePausedOperation']>((rp, o) => `${rp ?? ''}:${o?.skip ?? false}`)
-	@log()
+	@debug()
 	async continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void> {
 		const status = await this.getPausedOperationStatus(repoPath);
 		if (status == null) return;

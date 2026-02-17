@@ -16,7 +16,7 @@ import { shortenRevision } from '../../git/utils/revision.utils.js';
 import { getContext } from '../../system/-webview/context.js';
 import { getBestPath } from '../../system/-webview/path.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, log } from '../../system/decorators/log.js';
+import { debug, trace } from '../../system/decorators/log.js';
 import { map } from '../../system/iterable.js';
 import type { Lazy } from '../../system/lazy.js';
 import { lazy } from '../../system/lazy.js';
@@ -466,7 +466,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		return item;
 	}
 
-	@debug()
+	@trace()
 	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._log = undefined;
@@ -475,7 +475,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		return super.refresh(reset);
 	}
 
-	@log()
+	@debug()
 	async star(): Promise<void> {
 		if (this.worktree.branch == null) return;
 
@@ -483,7 +483,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		void this.view.refresh(true);
 	}
 
-	@log()
+	@debug()
 	async unstar(): Promise<void> {
 		if (this.worktree.branch == null) return;
 

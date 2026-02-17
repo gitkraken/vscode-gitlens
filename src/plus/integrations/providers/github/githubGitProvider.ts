@@ -52,10 +52,10 @@ import { configuration } from '../../../../system/-webview/configuration.js';
 import { setContext } from '../../../../system/-webview/context.js';
 import { getBestPath, relative } from '../../../../system/-webview/path.js';
 import { gate } from '../../../../system/decorators/gate.js';
-import { debug, log } from '../../../../system/decorators/log.js';
+import { debug, trace } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import type { LogScope } from '../../../../system/logger.scope.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import type { ScopedLogger } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { isAbsolute, maybeUri, normalizePath } from '../../../../system/path.js';
 import { asSettled, getSettledValue } from '../../../../system/promise.js';
 import type { CachedBlame, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
@@ -337,7 +337,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return Uri.joinPath(base, relativePath);
 	}
 
-	@log()
+	@debug()
 	async getBestRevisionUri(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -392,12 +392,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return rev === deletedOrMissing ? uri.with({ query: '~' }) : uri;
 	}
 
-	@log()
+	@debug()
 	async getWorkingUri(repoPath: string, uri: Uri): Promise<Uri> {
 		return this.createVirtualUri(repoPath, undefined, uri.path);
 	}
 
-	@log({ exit: true })
+	@debug({ exit: true })
 	async isFolderUri(repoPath: string, uri: Uri): Promise<boolean> {
 		// Check if it's a directory via the tree entry
 		const relativePath = this.getRelativePath(uri, repoPath);
@@ -405,7 +405,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return tree?.type === 'tree';
 	}
 
-	@log<GitHubGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
+	@debug<GitHubGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
 	async excludeIgnoredUris(_repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		return uris;
 	}
@@ -415,9 +415,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@gate()
-	@debug()
+	@trace()
 	async findRepositoryUri(uri: Uri, _isDirectory?: boolean): Promise<Uri | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const remotehub = await this.ensureRemoteHubApi();
@@ -436,9 +436,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@gate<GitHubGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
-	@log<GitHubGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
+	@debug<GitHubGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
 		if (document?.isDirty) return undefined; //this.getBlameContents(uri, document.getText());
@@ -452,12 +452,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (doc.state != null) {
 			const cachedBlame = doc.state.getBlame(key);
 			if (cachedBlame != null) {
-				Logger.debug(scope, `Cache hit: '${key}'`);
+				Logger.trace(scope, `Cache hit: '${key}'`);
 				return cachedBlame.item;
 			}
 		}
 
-		Logger.debug(scope, `Cache miss: '${key}'`);
+		Logger.trace(scope, `Cache miss: '${key}'`);
 
 		if (doc.state == null) {
 			doc.state = new GitDocumentState();
@@ -466,7 +466,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const promise = this.getBlameCore(uri, doc, key, scope);
 
 		if (doc.state != null) {
-			Logger.debug(scope, `Cache add: '${key}'`);
+			Logger.trace(scope, `Cache add: '${key}'`);
 
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
@@ -481,7 +481,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		uri: GitUri,
 		document: TrackedGitDocument,
 		key: string,
-		scope: LogScope | undefined,
+		scope: ScopedLogger | undefined,
 	): Promise<GitBlame | undefined> {
 		try {
 			const context = await this.ensureRepositoryContext(uri.repoPath!);
@@ -590,7 +590,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected blame errors
 			if (document.state != null && !String(ex).includes('No provider registered with')) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
+				Logger.trace(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
@@ -607,7 +607,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log<GitHubGitProvider['getBlameContents']>({ args: { 1: '<contents>' } })
+	@debug<GitHubGitProvider['getBlameContents']>({ args: { 1: '<contents>' } })
 	async getBlameContents(_uri: GitUri, _contents: string): Promise<GitBlame | undefined> {
 		// TODO@eamodio figure out how to actually generate a blame given the contents (need to generate a diff)
 		return undefined; //this.getBlame(uri);
@@ -616,14 +616,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@gate<GitHubGitProvider['getBlameForLine']>(
 		(u, l, d, o) => `${u.toString()}|${l}|${d?.isDirty}|${o?.forceSingleLine}`,
 	)
-	@log<GitHubGitProvider['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
+	@debug<GitHubGitProvider['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number, // 0-based, Git is 1-based
 		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
 		if (document?.isDirty) return undefined; //this.getBlameForLineContents(uri, editorLine, document.getText(), options);
@@ -726,7 +726,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log<GitHubGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
+	@debug<GitHubGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
 	async getBlameForLineContents(
 		_uri: GitUri,
 		_editorLine: number, // 0-based, Git is 1-based
@@ -737,7 +737,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined; //this.getBlameForLine(uri, editorLine);
 	}
 
-	@log()
+	@debug()
 	async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlame | undefined> {
 		const blame = await this.getBlame(uri);
 		if (blame == null) return undefined;
@@ -745,7 +745,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this.getBlameRange(blame, uri, range);
 	}
 
-	@log<GitHubGitProvider['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
+	@debug<GitHubGitProvider['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlame | undefined> {
 		const blame = await this.getBlameContents(uri, contents);
 		if (blame == null) return undefined;
@@ -753,7 +753,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this.getBlameRange(blame, uri, range);
 	}
 
-	@log<GitHubGitProvider['getBlameRange']>({ args: { 0: '<blame>' } })
+	@debug<GitHubGitProvider['getBlameRange']>({ args: { 0: '<blame>' } })
 	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined {
 		if (blame.lines.length === 0) return blame;
 
@@ -800,7 +800,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		};
 	}
 
-	@log()
+	@debug()
 	async getDiffForFile(
 		_uri: GitUri,
 		_ref1: string | undefined,
@@ -809,7 +809,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log<GitHubGitProvider['getDiffForFileContents']>({ args: { 2: '<contents>' } })
+	@debug<GitHubGitProvider['getDiffForFileContents']>({ args: { 2: '<contents>' } })
 	async getDiffForFileContents(
 		_uri: GitUri,
 		_ref: string,
@@ -818,7 +818,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log()
+	@debug()
 	async getDiffForLine(
 		_uri: GitUri,
 		_editorLine: number, // 0-based, Git is 1-based

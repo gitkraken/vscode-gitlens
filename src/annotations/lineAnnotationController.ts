@@ -7,11 +7,11 @@ import type { PullRequest } from '../git/models/pullRequest.js';
 import { detailsMessage } from '../hovers/hovers.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
-import { debug, log } from '../system/decorators/log.js';
+import { debug, trace } from '../system/decorators/log.js';
 import { once } from '../system/event.js';
 import { debounce } from '../system/function/debounce.js';
 import { Logger } from '../system/logger.js';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit } from '../system/logger.scope.js';
 import type { MaybePausedResult } from '../system/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeoutMap } from '../system/promise.js';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker.js';
@@ -76,7 +76,7 @@ export class LineAnnotationController implements Disposable {
 		return !this._enabled || this._suspended;
 	}
 
-	@log()
+	@debug()
 	resume(): boolean {
 		this.setLineTracker(true);
 
@@ -88,7 +88,7 @@ export class LineAnnotationController implements Disposable {
 		return false;
 	}
 
-	@log()
+	@debug()
 	suspend(): boolean {
 		this.setLineTracker(false);
 
@@ -100,7 +100,7 @@ export class LineAnnotationController implements Disposable {
 		return false;
 	}
 
-	@debug({
+	@trace({
 		args: {
 			0: (e: LinesChangeEvent) =>
 				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
@@ -122,7 +122,7 @@ export class LineAnnotationController implements Disposable {
 		void this.refresh(window.activeTextEditor);
 	}
 
-	@debug({ args: false, singleLine: true })
+	@trace({ args: false, singleLine: true })
 	clear(editor: TextEditor | undefined): void {
 		this._cancellation?.cancel();
 		if (this._editor !== editor && this._editor != null) {
@@ -131,7 +131,7 @@ export class LineAnnotationController implements Disposable {
 		this.clearAnnotations(editor);
 	}
 
-	@log({ args: false })
+	@debug({ args: false })
 	async toggle(editor: TextEditor | undefined): Promise<void> {
 		this._enabled = !(this._enabled && !this.suspended);
 
@@ -172,11 +172,11 @@ export class LineAnnotationController implements Disposable {
 		return prs;
 	}
 
-	@debug()
+	@trace()
 	private async refresh(editor: TextEditor | undefined) {
 		if (editor == null && this._editor == null) return;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const selections = this.container.lineTracker.selections;
 		if (editor == null || selections == null || !isTrackableTextEditor(editor)) {
@@ -258,7 +258,7 @@ export class LineAnnotationController implements Disposable {
 		for (const selection of selections) {
 			const state = this.container.lineTracker.getState(selection.active);
 			if (state?.commit == null) {
-				Logger.debug(scope, `Line ${selection.active} returned no commit`);
+				Logger.trace(scope, `Line ${selection.active} returned no commit`);
 				continue;
 			}
 
@@ -368,7 +368,7 @@ export class LineAnnotationController implements Disposable {
 
 						// If the PRs are taking too long, refresh the decorations once they complete
 
-						Logger.debug(
+						Logger.trace(
 							scope,
 							`${GlyphChars.Dot} pull request queries took too long (over ${timeout} ms)`,
 						);
@@ -383,7 +383,7 @@ export class LineAnnotationController implements Disposable {
 						const prs = getSettledValue(prsResult);
 						const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
 
-						Logger.debug(scope, `${GlyphChars.Dot} pull request queries completed; updating...`);
+						Logger.trace(scope, `${GlyphChars.Dot} pull request queries completed; updating...`);
 
 						void updateDecorations(this.container, editor, getBranchAndTagTips, prs);
 					},

@@ -9,9 +9,9 @@ import { uuid } from '@env/crypto.js';
 import type { TrackingContext } from '../../constants.telemetry.js';
 import type { Container, Environment } from '../../container.js';
 import { CancellationError } from '../../errors.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { getLoggableName, Logger } from '../../system/logger.js';
-import { getLogScope, setLogScopeExit, startLogScope } from '../../system/logger.scope.js';
+import { getScopedLogger, setLogScopeExit, startScopedLogger } from '../../system/logger.scope.js';
 import { AuthenticationConnection } from './authenticationConnection.js';
 import type { ServerConnection } from './serverConnection.js';
 
@@ -83,9 +83,9 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		this._optionsByScope?.delete(getScopesKey(scopes));
 	}
 
-	@debug()
+	@trace()
 	public async createSession(scopes: string[]): Promise<AuthenticationSession> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const options = this._optionsByScope?.get(getScopesKey(scopes));
 		if (options != null) {
@@ -128,9 +128,9 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		}
 	}
 
-	@debug()
+	@trace()
 	async getSessions(scopes?: string[]): Promise<AuthenticationSession[]> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		scopes = scopes?.sort();
 		const scopesKey = getScopesKey(scopes);
@@ -143,15 +143,15 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		return filtered;
 	}
 
-	@debug()
+	@trace()
 	public async removeSession(id: string): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			const sessions = await this._sessionsPromise;
 			const sessionIndex = sessions.findIndex(session => session.id === id);
 			if (sessionIndex === -1) {
-				Logger.log(`Unable to remove session ${id}; Not found`);
+				Logger.debug(`Unable to remove session ${id}; Not found`);
 				return;
 			}
 
@@ -168,9 +168,9 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		}
 	}
 
-	@debug()
+	@trace()
 	public async removeSessionsByScopes(scopes?: string[]): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			scopes = scopes?.sort();
@@ -205,7 +205,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	}
 
 	private async checkForUpdates() {
-		using scope = startLogScope(`${getLoggableName(this)}.checkForUpdates`, false);
+		using scope = startScopedLogger(`${getLoggableName(this)}.checkForUpdates`, false);
 
 		const previousSessions = await this._sessionsPromise;
 		this._sessionsPromise = this.getSessionsFromStorage();
@@ -229,7 +229,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		}
 
 		if (added.length || removed.length) {
-			Logger.debug(scope, `firing sessions changed event; added=${added.length}, removed=${removed.length}`);
+			Logger.trace(scope, `firing sessions changed event; added=${added.length}, removed=${removed.length}`);
 			this._onDidChangeSessions.fire({ added: added, removed: removed, changed: [] });
 		}
 	}
@@ -259,7 +259,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	}
 
 	private async getSessionsFromStorage(): Promise<AuthenticationSession[]> {
-		using scope = startLogScope(`${getLoggableName(this)}.getSessionsFromStorage`, false);
+		using scope = startScopedLogger(`${getLoggableName(this)}.getSessionsFromStorage`, false);
 
 		let storedSessions: StoredSession[];
 
@@ -284,13 +284,13 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		const sessionPromises = storedSessions.map(async (session: StoredSession) => {
 			const scopesKey = getScopesKey(session.scopes);
 
-			Logger.debug(scope, `read session from storage with scopes=${scopesKey}`);
+			Logger.trace(scope, `read session from storage with scopes=${scopesKey}`);
 
 			let userInfo: { id: string; accountName: string } | undefined;
 			if (session.account == null) {
 				try {
 					userInfo = await this._authConnection.getAccountInfo(session.accessToken);
-					Logger.debug(scope, `verified session with scopes=${scopesKey}`);
+					Logger.trace(scope, `verified session with scopes=${scopesKey}`);
 				} catch (ex) {
 					// Remove sessions that return unauthorized response
 					if (ex.message === 'Unauthorized') return undefined;
@@ -316,7 +316,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			.map(p => (p as PromiseFulfilledResult<AuthenticationSession | undefined>).value)
 			.filter(<T>(p?: T): p is T => Boolean(p));
 
-		Logger.debug(scope, `found ${verifiedSessions.length} verified sessions`);
+		Logger.trace(scope, `found ${verifiedSessions.length} verified sessions`);
 		if (verifiedSessions.length !== storedSessions.length) {
 			await this.storeSessions(verifiedSessions);
 		}

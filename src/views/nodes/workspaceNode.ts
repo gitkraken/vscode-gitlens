@@ -4,7 +4,7 @@ import { GitUri } from '../../git/gitUri.js';
 import type { CloudWorkspace } from '../../plus/workspaces/models/cloudWorkspace.js';
 import type { LocalWorkspace } from '../../plus/workspaces/models/localWorkspace.js';
 import { createCommand } from '../../system/-webview/command.js';
-import { debug } from '../../system/decorators/log.js';
+import { trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import type { WorkspacesView } from '../workspacesView.js';
@@ -140,7 +140,7 @@ export class WorkspaceNode extends SubscribeableViewNode<
 		return this.view.container.git.etag;
 	}
 
-	@debug()
+	@trace()
 	protected subscribe(): Disposable | Promise<Disposable> {
 		return Disposable.from(
 			weakEvent(this.view.container.git.onDidChangeRepositories, this.onRepositoriesChanged, this),

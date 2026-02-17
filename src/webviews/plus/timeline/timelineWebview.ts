@@ -45,7 +45,7 @@ import { isDescendant } from '../../../system/-webview/path.js';
 import { openTextEditor } from '../../../system/-webview/vscode/editors.js';
 import { getTabUri } from '../../../system/-webview/vscode/tabs.js';
 import { createFromDateDelta } from '../../../system/date.js';
-import { debug } from '../../../system/decorators/log.js';
+import { trace } from '../../../system/decorators/log.js';
 import type { Deferrable } from '../../../system/function/debounce.js';
 import { debounce } from '../../../system/function/debounce.js';
 import { map, some } from '../../../system/iterable.js';
@@ -520,7 +520,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	private _tabCloseDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private async onTabsChanged(_e: TabGroupChangeEvent | TabChangeEvent) {
 		if (this._tabCloseDebounceTimer != null) {
 			clearTimeout(this._tabCloseDebounceTimer);
@@ -546,7 +546,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private async onFileSelected(e: FileSelectedEvent) {
 		if (e.data == null) return;
 
@@ -572,13 +572,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		);
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
 		if (this._context.etags.repositories === e.etag) return;
 		void this.updateScope(this._context.scope);
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (!e.changed(RepositoryChange.Heads, RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
 			return;
@@ -588,7 +588,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		void this.updateScope(this._context.scope);
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private onRepositoryWipChanged(e: RepositoryFileSystemChangeEvent) {
 		if (e.repository.id !== this._repositorySubscription?.source?.id) return;
 
@@ -602,13 +602,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		if (this._context.etags.subscription === e.etag) return;
 		void this.updateScope(this._context.scope);
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private async getState(context: Context, includeDataset: boolean): Promise<State> {
 		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
 		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
@@ -1010,7 +1010,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
 
-	@debug()
+	@trace()
 	private updateState(immediate: boolean = false) {
 		if (immediate) {
 			void this.notifyDidChangeState();
@@ -1021,7 +1021,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		this._notifyDidChangeStateDebounced();
 	}
 
-	@debug()
+	@trace()
 	private async notifyDidChangeState() {
 		this._notifyDidChangeStateDebounced?.cancel();
 

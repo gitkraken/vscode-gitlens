@@ -31,10 +31,10 @@ import {
 import { showGenericErrorMessage } from '../../../../messages.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { splitPath } from '../../../../system/-webview/path.js';
-import { log } from '../../../../system/decorators/log.js';
+import { debug } from '../../../../system/decorators/log.js';
 import { first } from '../../../../system/iterable.js';
 import { Logger } from '../../../../system/logger.js';
-import { getLogScope } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import type { Git } from '../git.js';
 import { gitConfigsDiff, gitConfigsLog, GitErrors } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
@@ -47,14 +47,14 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		private readonly provider: LocalGitProviderInternal,
 	) {}
 
-	@log()
+	@debug()
 	async getChangedFilesCount(
 		repoPath: string,
 		to?: string,
 		from?: string,
 		options?: { uris?: Uri[] },
 	): Promise<GitDiffShortStat | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const args: string[] = [];
 		if (to != null) {
@@ -90,7 +90,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getDiff(
 		repoPath: string,
 		to: string,
@@ -102,7 +102,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			uris?: Uri[];
 		},
 	): Promise<GitDiff | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const args = [`-U${options?.context ?? 3}`];
 
 		if (to != null && isRevisionRange(to)) {
@@ -140,7 +140,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		return diff;
 	}
 
-	@log({ args: { 1: false } })
+	@debug({ args: { 1: false } })
 	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
 		const result = await this.git.exec(
 			{ cwd: repoPath, configs: gitConfigsLog, stdin: contents },
@@ -158,7 +158,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		};
 	}
 
-	@log()
+	@debug()
 	async getDiffStatus(
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
@@ -190,7 +190,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getDiffTool(repoPath?: string): Promise<string | undefined> {
 		return (
 			(await this.provider.config.getConfig(repoPath, 'diff.guitool', { runGitLocally: true })) ??
@@ -198,7 +198,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		);
 	}
 
-	@log()
+	@debug()
 	async getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -208,7 +208,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		// If we have no revision there is no next commit
 		if (!rev) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		let relativePath = this.provider.getRelativePath(uri, repoPath);
 
@@ -333,7 +333,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -343,7 +343,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (rev === uncommitted) {
 			rev = undefined;
@@ -515,7 +515,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async getPreviousComparisonUrisForRange(
 		repoPath: string,
 		uri: Uri,
@@ -525,7 +525,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	): Promise<PreviousRangeComparisonUrisResult | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		if (rev === uncommitted) {
 			rev = undefined;
@@ -652,24 +652,24 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async openDiffTool(
 		repoPath: string,
 		uri: Uri,
 		options?: { ref1?: string; ref2?: string; staged?: boolean; tool?: string },
 	): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const [relativePath, root] = splitPath(uri, repoPath);
 
 		try {
 			let tool = options?.tool;
 			if (!tool) {
-				const scope = getLogScope();
+				const scope = getScopedLogger();
 
 				tool = configuration.get('advanced.externalDiffTool') || (await this.getDiffTool(root));
 				if (tool == null) throw new Error('No diff tool found');
 
-				Logger.log(scope, `Using tool=${tool}`);
+				Logger.debug(scope, `Using tool=${tool}`);
 			}
 
 			await this.git.exec(
@@ -705,18 +705,18 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@log()
+	@debug()
 	async openDirectoryCompare(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		try {
 			if (!tool) {
-				const scope = getLogScope();
+				const scope = getScopedLogger();
 
 				tool = configuration.get('advanced.externalDirectoryDiffTool') || (await this.getDiffTool(repoPath));
 				if (tool == null) throw new Error('No diff tool found');
 
-				Logger.log(scope, `Using tool=${tool}`);
+				Logger.debug(scope, `Using tool=${tool}`);
 			}
 
 			await this.git.exec({ cwd: repoPath }, 'difftool', '--dir-diff', `--tool=${tool}`, ref1, ref2);

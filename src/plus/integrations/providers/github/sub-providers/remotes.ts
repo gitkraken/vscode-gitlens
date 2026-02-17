@@ -2,10 +2,10 @@ import { Uri } from 'vscode';
 import { GitRemote } from '../../../../../git/models/remote.js';
 import { getRemoteProviderMatcher, loadRemoteProvidersFromConfig } from '../../../../../git/remotes/remoteProviders.js';
 import { RemotesGitProviderBase } from '../../../../../git/sub-providers/remotes.js';
-import { log } from '../../../../../system/decorators/log.js';
+import { debug } from '../../../../../system/decorators/log.js';
 
 export class RemotesGitSubProvider extends RemotesGitProviderBase {
-	@log({ args: { 1: false } })
+	@debug({ args: { 1: false } })
 	async getRemotes(
 		repoPath: string | undefined,
 		_options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },

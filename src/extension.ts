@@ -292,7 +292,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 }
 
 export function deactivate(): void {
-	Logger.log('GitLens deactivating...');
+	Logger.debug('GitLens deactivating...');
 	Container.instance.deactivate();
 }
 
@@ -364,13 +364,15 @@ async function showWhatsNew(
 	previousVersion: string | undefined,
 ) {
 	if (previousVersion == null) {
-		Logger.log(`GitLens first-time install; window.focused=${window.state.focused}`);
+		Logger.debug(`GitLens first-time install; window.focused=${window.state.focused}`);
 
 		return;
 	}
 
 	if (previousVersion !== version) {
-		Logger.log(`GitLens upgraded from v${previousVersion} to v${version}; window.focused=${window.state.focused}`);
+		Logger.debug(
+			`GitLens upgraded from v${previousVersion} to v${version}; window.focused=${window.state.focused}`,
+		);
 	}
 
 	const current = fromString(version);

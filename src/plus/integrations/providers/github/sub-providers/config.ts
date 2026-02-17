@@ -3,9 +3,9 @@ import type { GitCache } from '../../../../../git/cache.js';
 import type { GitConfigSubProvider } from '../../../../../git/gitProvider.js';
 import type { GitUser } from '../../../../../git/models/user.js';
 import { gate } from '../../../../../system/decorators/gate.js';
-import { log } from '../../../../../system/decorators/log.js';
+import { debug } from '../../../../../system/decorators/log.js';
 import { Logger } from '../../../../../system/logger.js';
-import { getLogScope } from '../../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
@@ -17,11 +17,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	) {}
 
 	@gate()
-	@log()
+	@debug()
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		if (!repoPath) return undefined;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const cached = this.cache.currentUser.get(repoPath);
 		if (cached != null) return cached;

@@ -31,11 +31,11 @@ import {
 } from '../system/-webview/context.js';
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
 import { getScopedCounter } from '../system/counter.js';
-import { debug, logName } from '../system/decorators/log.js';
+import { logName, trace } from '../system/decorators/log.js';
 import { sequentialize } from '../system/decorators/sequentialize.js';
 import { serializeIpcData } from '../system/ipcSerialize.js';
 import { getLoggableName, Logger } from '../system/logger.js';
-import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope.js';
+import { getNewLogScope, getScopedLogger, setLogScopeExit } from '../system/logger.scope.js';
 import { pauseOnCancelOrTimeout } from '../system/promise.js';
 import { maybeStopWatch, Stopwatch } from '../system/stopwatch.js';
 import type { WebviewContext } from '../system/webview.js';
@@ -408,7 +408,7 @@ export class WebviewController<
 		return this.provider.getSplitArgs?.() ?? [];
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	async show(
 		loading: boolean,
 		options?: WebviewShowOptions,
@@ -490,7 +490,7 @@ export class WebviewController<
 		return this.webview.asWebviewUri(uri);
 	}
 
-	@debug()
+	@trace()
 	async refresh(force?: boolean): Promise<void> {
 		this.cancellation?.cancel();
 		this.cancellation = new CancellationTokenSource();
@@ -532,18 +532,18 @@ export class WebviewController<
 		this.webview.html = html;
 	}
 
-	@debug()
+	@trace()
 	private onParentDisposed() {
 		this.dispose();
 	}
 
-	@debug<WebviewController<ID, State>['onMessageReceivedCore']>({
+	@trace<WebviewController<ID, State>['onMessageReceivedCore']>({
 		args: { 0: e => (e != null ? `${e.id}, method=${e.method}` : '<undefined>') },
 	})
 	private async onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		setLogScopeExit(scope, ` \u2022 ipc (webview -> host) duration=${Date.now() - e.timestamp}ms`);
 
 		switch (true) {
@@ -597,7 +597,7 @@ export class WebviewController<
 		}
 	}
 
-	@debug<WebviewController<ID, State>['onViewFocusChanged']>({
+	@trace<WebviewController<ID, State>['onViewFocusChanged']>({
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
 	onViewFocusChanged(e: WebviewFocusChangedParams): void {
@@ -605,7 +605,7 @@ export class WebviewController<
 		this.handleFocusChanged(e.focused);
 	}
 
-	@debug()
+	@trace()
 	private onParentVisibilityChanged(visible: boolean, active?: boolean, forceReload?: boolean) {
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
@@ -683,9 +683,9 @@ export class WebviewController<
 		return this._webRootUri;
 	}
 
-	@debug({ args: false })
+	@trace({ args: false })
 	private async getHtml(webview: Webview): Promise<string> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 
 		const webRootUri = this.getWebRootUri();
 		const uri = Uri.joinPath(webRootUri, this.descriptor.fileName);
@@ -833,13 +833,13 @@ export class WebviewController<
 	}
 
 	@sequentialize()
-	@debug<WebviewController<ID, State>['postMessage']>({
+	@trace<WebviewController<ID, State>['postMessage']>({
 		args: { 0: m => `${m.id}|${m.method}${m.completionId ? `+${m.completionId}` : ''}` },
 	})
 	private async postMessage(message: IpcMessage): Promise<boolean> {
 		if (!this._ready) return Promise.resolve(false);
 
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		let timeout: ReturnType<typeof setTimeout> | undefined;
 
 		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang forever

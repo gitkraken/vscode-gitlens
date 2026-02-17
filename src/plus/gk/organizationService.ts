@@ -2,10 +2,10 @@ import { Disposable, window } from 'vscode';
 import type { Container } from '../../container.js';
 import { setContext } from '../../system/-webview/context.js';
 import { gate } from '../../system/decorators/gate.js';
-import { log } from '../../system/decorators/log.js';
+import { debug } from '../../system/decorators/log.js';
 import { once } from '../../system/function.js';
 import { Logger } from '../../system/logger.js';
-import { getLogScope } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import type {
 	Organization,
 	OrganizationMember,
@@ -45,13 +45,13 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
-	@log<OrganizationService['getOrganizations']>({ args: { 0: o => `force=${o?.force}, userId=${o?.userId}` } })
+	@debug<OrganizationService['getOrganizations']>({ args: { 0: o => `force=${o?.force}, userId=${o?.userId}` } })
 	async getOrganizations(options?: {
 		force?: boolean;
 		accessToken?: string;
 		userId?: string;
 	}): Promise<Organization[] | null | undefined> {
-		const scope = getLogScope();
+		const scope = getScopedLogger();
 		const userId = options?.userId ?? (await this.container.subscription.getSubscription(true))?.account?.id;
 		if (userId == null) {
 			this.updateOrganizations(undefined);
@@ -181,7 +181,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async getMembers(id?: string | undefined, options?: { force?: boolean }): Promise<OrganizationMember[]> {
 		if (id == null) {
 			id = await this.getActiveOrganizationId();
@@ -196,7 +196,7 @@ export class OrganizationService implements Disposable {
 			if (!rsp.ok) {
 				Logger.error(
 					'',
-					getLogScope(),
+					getScopedLogger(),
 					`Unable to get organization members; status=(${rsp.status}): ${rsp.statusText}`,
 				);
 				return [];
@@ -212,12 +212,12 @@ export class OrganizationService implements Disposable {
 		return this._organizationMembers.get(id) ?? [];
 	}
 
-	@log()
+	@debug()
 	async getMemberById(id: string, organizationId: string): Promise<OrganizationMember | undefined> {
 		return (await this.getMembers(organizationId)).find(m => m.id === id);
 	}
 
-	@log()
+	@debug()
 	async getMembersByIds(ids: string[], organizationId: string): Promise<OrganizationMember[]> {
 		return (await this.getMembers(organizationId)).filter(m => ids.includes(m.id));
 	}
@@ -228,7 +228,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
-	@log()
+	@debug()
 	async getOrganizationSettings(
 		orgId: string | undefined,
 		options?: { force?: boolean },
@@ -266,7 +266,7 @@ export class OrganizationService implements Disposable {
 			if (!rsp.ok) {
 				Logger.error(
 					'',
-					getLogScope(),
+					getScopedLogger(),
 					`Unable to get organization settings; status=(${rsp.status}): ${rsp.statusText}`,
 				);
 				return undefined;
@@ -276,7 +276,7 @@ export class OrganizationService implements Disposable {
 			if (organizationResponse.error != null) {
 				Logger.error(
 					'',
-					getLogScope(),
+					getScopedLogger(),
 					`Unable to get organization settings; status=(${rsp.status}): ${organizationResponse.error}`,
 				);
 				return undefined;
