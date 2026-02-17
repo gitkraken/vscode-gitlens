@@ -15,4 +15,7 @@ jobs:
               with:
                   ai-provider: gitkraken
                   ai-api-key: ${{ secrets.GK_AI_PROVISIONER_TOKEN }}
-                  pr-filter: 'target-branches: ["main"], updated: "<7d"'
+                  pr-filter: |
+                      target-branches:
+                          - "main"
+                      updated: "<7d"
