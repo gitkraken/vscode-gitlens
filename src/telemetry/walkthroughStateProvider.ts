@@ -112,6 +112,12 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			],
 		},
 	],
+	[
+		'homeView',
+		{
+			usage: ['homeView:shown', 'command:gitlens.showHomeView:executed'],
+		},
+	],
 ]);
 
 export class WalkthroughStateProvider implements Disposable {
