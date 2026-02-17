@@ -173,11 +173,23 @@ export function debounce<F extends (...args: any[]) => ReturnType<F>>(
 	function timerExpired() {
 		const time = Date.now();
 
-		if (shouldInvoke(time) && trailing) {
-			invoke();
+		if (shouldInvoke(time)) {
+			if (trailing) {
+				invoke();
+			}
+			cancel();
+			return;
 		}
 
-		cancel();
+		// Timer fired early (setTimeout is not guaranteed to be precise) —
+		// reschedule for the remaining time instead of dropping the pending call
+		timer = setTimeout(
+			() => {
+				timer = undefined;
+				timerExpired();
+			},
+			wait - (time - (lastCallTime ?? 0)),
+		);
 	}
 
 	function schedule() {
@@ -194,6 +206,12 @@ export function debounce<F extends (...args: any[]) => ReturnType<F>>(
 
 		// Set up maxWait timer if needed
 		if (maxWait != null && !maxTimer) {
+			// Initialize lastInvokeTime on the first call of a new cycle
+			// (0 = initial state or after cancel). Without this, the maxWait
+			// calculation uses epoch 0 and triggers immediate invocation.
+			if (lastInvokeTime === 0) {
+				lastInvokeTime = time;
+			}
 			const timeWaiting = maxWait - (time - lastInvokeTime);
 
 			if (timeWaiting > 0) {
