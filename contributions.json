@@ -1998,8 +1998,8 @@
 			]
 		},
 		"gitlens.disableDebugLogging": {
-			"label": "Disable Debug Logging",
-			"commandPalette": "config.gitlens.outputLevel == debug"
+			"label": "Disable Debug (Trace) Logging",
+			"commandPalette": true
 		},
 		"gitlens.disconnectRemoteProvider": {
 			"label": "Disconnect Remote Integration",
@@ -2021,8 +2021,8 @@
 			}
 		},
 		"gitlens.enableDebugLogging": {
-			"label": "Enable Debug Logging",
-			"commandPalette": "config.gitlens.outputLevel != debug"
+			"label": "Enable Debug (Trace) Logging",
+			"commandPalette": true
 		},
 		"gitlens.externalDiff": {
 			"label": "Open Changes (difftool)",

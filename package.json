@@ -5588,26 +5588,7 @@
 					},
 					"gitlens.outputLevel": {
 						"type": "string",
-						"default": "warn",
-						"enum": [
-							"off",
-							"error",
-							"warn",
-							"info",
-							"debug",
-							"trace"
-						],
-						"enumDescriptions": [
-							"Logs nothing",
-							"Logs only errors",
-							"Logs errors and warnings",
-							"Logs errors, warnings, and important messages",
-							"Logs errors, warnings, and most messages",
-							"Logs errors, warnings, and all messages"
-						],
-						"markdownDescription": "Specifies how much (if any) output will be sent to the GitLens output channel",
-						"scope": "window",
-						"order": 30
+						"markdownDeprecationMessage": "This setting is deprecated. Use the **GitLens: Enable Debug Logging** and **GitLens: Disable Debug Logging** commands, or the **Developer: Set Log Level...** command to control logging."
 					},
 					"gitlens.defaultGravatarsStyle": {
 						"type": "string",
@@ -7042,7 +7023,7 @@
 			},
 			{
 				"command": "gitlens.disableDebugLogging",
-				"title": "Disable Debug Logging",
+				"title": "Disable Debug (Trace) Logging",
 				"category": "GitLens"
 			},
 			{
@@ -7053,7 +7034,7 @@
 			},
 			{
 				"command": "gitlens.enableDebugLogging",
-				"title": "Enable Debug Logging",
+				"title": "Enable Debug (Trace) Logging",
 				"category": "GitLens"
 			},
 			{
@@ -12324,16 +12305,8 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.disableDebugLogging",
-					"when": "config.gitlens.outputLevel == debug"
-				},
-				{
 					"command": "gitlens.disconnectRemoteProvider",
 					"when": "config.gitlens.integrations.enabled && gitlens:repos:withHostingIntegrationsConnected"
-				},
-				{
-					"command": "gitlens.enableDebugLogging",
-					"when": "config.gitlens.outputLevel != debug"
 				},
 				{
 					"command": "gitlens.externalDiff",

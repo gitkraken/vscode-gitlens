@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import { accessSync } from 'fs';
 import { join as joinPath } from 'path';
 import * as process from 'process';
-import type { CancellationToken, Disposable, OutputChannel } from 'vscode';
+import type { CancellationToken, Disposable, LogOutputChannel } from 'vscode';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime.js';
 import type { Container } from '../../../container.js';
@@ -1698,16 +1698,16 @@ export class Git implements Disposable {
 		);
 	}
 
-	private _gitOutput: OutputChannel | undefined;
-	private get gitOutput(): OutputChannel {
+	private _gitOutput: LogOutputChannel | undefined;
+	private get gitOutput(): LogOutputChannel {
 		return (this._gitOutput ??= window.createOutputChannel('GitLens (Git)', { log: true }));
 	}
 
 	private logCore(message: string, ex?: Error | undefined): void {
 		if (ex != null) {
-			this.gitOutput.appendLine(`${Logger.timestamp} ${message} \u2022 FAILED\n${String(ex)}`);
+			this.gitOutput.error(`${message} \u2022 FAILED\n${String(ex)}`);
 		} else {
-			this.gitOutput.appendLine(`${Logger.timestamp} ${message}`);
+			this.gitOutput.info(message);
 		}
 	}
 }
