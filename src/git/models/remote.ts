@@ -6,8 +6,8 @@ import {
 	getIntegrationConnectedKey,
 	getIntegrationIdForRemote,
 } from '../../plus/integrations/utils/-webview/integration.utils.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
-import { getLoggableName } from '../../system/logger.js';
 import { equalsIgnoreCase } from '../../system/string.js';
 import { parseGitRemoteUrl } from '../parsers/remoteParser.js';
 import type { RemoteProvider } from '../remotes/remoteProvider.js';
@@ -16,6 +16,7 @@ export function isRemote(remote: unknown): remote is GitRemote {
 	return remote instanceof GitRemote;
 }
 
+@loggable(i => i.id)
 export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProvider | undefined> {
 	constructor(
 		private readonly container: Container,
@@ -27,10 +28,6 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		public readonly provider: TProvider,
 		public readonly urls: { type: GitRemoteType; url: string }[],
 	) {}
-
-	toString(): string {
-		return `${getLoggableName(this)}(${this.id})`;
-	}
 
 	get default(): boolean {
 		const defaultRemote = this.container.storage.getWorkspace('remote:default');

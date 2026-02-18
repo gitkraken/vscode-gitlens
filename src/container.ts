@@ -132,6 +132,10 @@ export class Container {
 		return this._onReady.event;
 	}
 
+	toLoggable(): string {
+		return '<container>';
+	}
+
 	readonly BranchDateFormatting = {
 		dateFormat: undefined! as string | null,
 		dateStyle: undefined! as DateStyle,

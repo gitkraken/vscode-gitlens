@@ -1,5 +1,6 @@
 import type { Uri } from 'vscode';
 import type { Container } from '../../container.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { pluralize } from '../../system/string.js';
 import type { DiffRange } from '../gitProvider.js';
@@ -24,6 +25,7 @@ export interface GitFileChangeShape {
 	readonly submodule?: { readonly oid: string; readonly previousOid?: string } | undefined;
 }
 
+@loggable(i => i.path)
 export class GitFileChange implements GitFileChangeShape {
 	constructor(
 		private readonly container: Container,
@@ -39,11 +41,6 @@ export class GitFileChange implements GitFileChangeShape {
 		public readonly submodule?: { readonly oid: string; readonly previousOid?: string } | undefined,
 	) {}
 
-	/** Indicates this is a submodule (gitlink) rather than a regular file */
-	get isSubmodule(): boolean {
-		return this.submodule != null;
-	}
-
 	get hasConflicts(): boolean {
 		switch (this.status) {
 			case GitFileConflictStatus.AddedByThem:
@@ -58,6 +55,11 @@ export class GitFileChange implements GitFileChangeShape {
 			default:
 				return false;
 		}
+	}
+
+	/** Indicates this is a submodule (gitlink) rather than a regular file */
+	get isSubmodule(): boolean {
+		return this.submodule != null;
 	}
 
 	@memoize()

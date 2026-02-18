@@ -1,4 +1,5 @@
 import type { Container } from '../../container.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from '../utils/branch.utils.js';
 import { getFormattedDiffStatus, getUpstreamStatus } from '../utils/status.utils.js';
@@ -8,6 +9,7 @@ import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } f
 import type { GitRemote } from './remote.js';
 import type { GitStatusFile } from './statusFile.js';
 
+@loggable(i => `${i.repoPath}|${i.branch}`)
 export class GitStatus {
 	readonly detached: boolean;
 

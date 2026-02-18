@@ -32,7 +32,7 @@ import { debug, trace } from '../system/decorators/log.js';
 import type { Deferrable } from '../system/function/debounce.js';
 import { debounce } from '../system/function/debounce.js';
 import { count, filter, first, flatMap, groupByMap, join, map, some, sum } from '../system/iterable.js';
-import { getLoggableName } from '../system/logger.js';
+import { getLoggableName, Logger } from '../system/logger.js';
 import { getScopedLogger, maybeStartLoggableScope } from '../system/logger.scope.js';
 import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path.js';
 import type { Deferred } from '../system/promise.js';
@@ -500,7 +500,7 @@ export class GitProviderService implements Disposable {
 			provider.onDidChangeRepository(async e => {
 				this._etag = Date.now();
 				using scope = maybeStartLoggableScope(
-					`${getLoggableName(provider)}.onDidChangeRepository(e=${e.repository.toString()})`,
+					`${getLoggableName(provider)}.onDidChangeRepository(e=${Logger.toLoggable(e.repository)})`,
 				);
 				scope?.trace('');
 
@@ -533,7 +533,7 @@ export class GitProviderService implements Disposable {
 				using scope = maybeStartLoggableScope(
 					`${getLoggableName(provider)}.onDidCloseRepository(e=${e.uri.toString()})`,
 				);
-				scope?.trace(`repository=${repository?.toString()}`);
+				scope?.trace(`repository=${Logger.toLoggable(repository)}`);
 
 				if (repository != null) {
 					repository.closed = true;
@@ -545,7 +545,7 @@ export class GitProviderService implements Disposable {
 				using scope = maybeStartLoggableScope(
 					`${getLoggableName(provider)}.onDidOpenRepository(e=${e.uri.toString()})`,
 				);
-				scope?.trace(`repository=${repository?.toString()}`);
+				scope?.trace(`repository=${Logger.toLoggable(repository)}`);
 
 				if (repository != null) {
 					repository.closed = false;
@@ -1633,7 +1633,7 @@ export class GitProviderService implements Disposable {
 			} else if (!options?.force) {
 				// Check if we've seen this path before
 				if (this._searchedRepositoryPaths.has(path)) {
-					scope?.trace(`Skipped search as path is known; returning ${repository?.toString()}`);
+					scope?.trace(`Skipped search as path is known; returning ${Logger.toLoggable(repository)}`);
 					return repository;
 				}
 
@@ -1644,7 +1644,7 @@ export class GitProviderService implements Disposable {
 						// Check if we've seen it's parent before, since a file can't be a nested repository
 						if (this._searchedRepositoryPaths.hasParent(path)) {
 							scope?.trace(
-								`Skipped search as path is a file and parent is known; returning ${repository?.toString()}`,
+								`Skipped search as path is a file and parent is known; returning ${Logger.toLoggable(repository)}`,
 							);
 							return repository;
 						}

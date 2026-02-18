@@ -1,7 +1,7 @@
 import type { Container } from '../../container.js';
 import { formatDate, fromNow } from '../../system/date.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
-import { getLoggableName } from '../../system/logger.js';
 import { getTagId, parseRefName } from '../utils/tag.utils.js';
 import type { GitTagReference } from './reference.js';
 
@@ -9,6 +9,7 @@ export function isTag(tag: unknown): tag is GitTag {
 	return tag instanceof GitTag;
 }
 
+@loggable(i => i.id)
 export class GitTag implements GitTagReference {
 	readonly refType = 'tag';
 	readonly id: string;
@@ -30,10 +31,6 @@ export class GitTag implements GitTagReference {
 		({ name: this._name } = parseRefName(refName));
 
 		this.id = getTagId(repoPath, this._name);
-	}
-
-	toString(): string {
-		return `${getLoggableName(this)}(${this.id})`;
 	}
 
 	get formattedDate(): string {

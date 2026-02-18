@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { Uri } from 'vscode';
 import type { Container } from '../../container.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { getGitFileFormattedDirectory, getGitFileFormattedPath } from '../utils/-webview/file.utils.js';
 import { getPseudoCommits } from '../utils/-webview/statusFile.utils.js';
@@ -13,6 +14,7 @@ import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } f
 import { uncommittedStaged } from './revision.js';
 import type { GitUser } from './user.js';
 
+@loggable(i => i.path)
 export class GitStatusFile implements GitFile {
 	public readonly conflictStatus: GitFileConflictStatus | undefined;
 	public readonly indexStatus: GitFileIndexStatus | undefined;

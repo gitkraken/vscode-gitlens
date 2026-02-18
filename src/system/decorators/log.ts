@@ -37,8 +37,31 @@ interface LogOptions<T extends (...arg: any) => any> {
 	timing?: boolean | { warnAfter: number };
 }
 
-export function logName<T>(fn: (c: T, name: string) => string) {
-	return (target: any): void => void customLoggableNameFns.set(target, fn);
+// Using Function type to support classes with private/protected constructors
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+export function logName<T>(fn: (c: T, name: string) => string): (target: Function & { prototype: T }) => void {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	return (target: (abstract new (...args: any[]) => T) | (Function & { prototype: T })): void =>
+		void customLoggableNameFns.set(target, fn);
+}
+
+/**
+ * Class decorator that adds a `toLoggable()` method to the prototype at runtime,
+ * making instances compatible with the `Loggable` interface without requiring the
+ * method to appear in the class's structural type.
+ *
+ * @param fn Optional function returning the content inside the parentheses.
+ * Defaults to `id` if the instance has one, otherwise just `ClassName`.
+ */
+export function loggable<T extends object>(fn?: (instance: T) => string) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	return (target: (abstract new (...args: any[]) => T) | (Function & { prototype: T })): void => {
+		target.prototype.toLoggable = function (this: T): string {
+			const name = getLoggableName(this);
+			if (fn != null) return `${name}(${fn(this)})`;
+			return name;
+		};
+	};
 }
 
 export function info<T extends (...arg: any) => any>(

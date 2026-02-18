@@ -8,9 +8,9 @@ import type { Container } from '../../container.js';
 import { ensureArray } from '../../system/array.js';
 import { formatDate, fromNow } from '../../system/date.js';
 import { gate } from '../../system/decorators/gate.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { Lazy } from '../../system/lazy.js';
-import { getLoggableName } from '../../system/logger.js';
 import { getSettledValue } from '../../system/promise.js';
 import { pluralize } from '../../system/string.js';
 import type { DiffRange, PreviousRangeComparisonUrisResult } from '../gitProvider.js';
@@ -55,6 +55,7 @@ export interface GitCommitFileset {
 		| undefined;
 }
 
+@loggable(i => `${i.repoPath}|${i.shortSha}`)
 export class GitCommit implements GitRevisionReference {
 	private _stashUntrackedFilesLoaded = false;
 	private _recomputeStats = false;
@@ -129,10 +130,6 @@ export class GitCommit implements GitRevisionReference {
 		}
 
 		this.lines = ensureArray(lines) ?? [];
-	}
-
-	toString(): string {
-		return `${getLoggableName(this)}(${this.repoPath}|${this.shortSha})`;
 	}
 
 	get date(): Date {
@@ -787,6 +784,7 @@ export interface GitCommitIdentityShape {
 	readonly date: Date;
 }
 
+@loggable<GitCommitIdentity>(i => i.name)
 export class GitCommitIdentity implements GitCommitIdentityShape {
 	constructor(
 		public readonly name: string,

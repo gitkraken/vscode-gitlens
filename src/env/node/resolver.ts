@@ -1,13 +1,6 @@
 import { Uri } from 'vscode';
-import { isContainer } from '../../container.js';
-import { isBranch } from '../../git/models/branch.js';
-import { isCommit } from '../../git/models/commit.js';
-import { isRemote } from '../../git/models/remote.js';
-import { isRepository } from '../../git/models/repository.js';
-import { isTag } from '../../git/models/tag.js';
-import { isWorktree } from '../../git/models/worktree.js';
 import { getCancellationTokenId, isCancellationToken } from '../../system/-webview/cancellation.js';
-import { isViewNode } from '../../views/nodes/utils/-webview/node.utils.js';
+import { isLoggable } from '../../system/loggable.js';
 import { loggingJsonReplacer } from './json.js';
 
 export function defaultResolver(...args: unknown[]): string {
@@ -36,19 +29,9 @@ export function defaultResolver(...args: unknown[]): string {
 				}
 				return arg.toString();
 			}
-			if (
-				isRepository(arg) ||
-				isBranch(arg) ||
-				isCommit(arg) ||
-				isRemote(arg) ||
-				isTag(arg) ||
-				isWorktree(arg) ||
-				isViewNode(arg)
-			) {
-				return arg.toString();
-			}
-			if (isContainer(arg)) return '<container>';
 			if (isCancellationToken(arg)) return getCancellationTokenId(arg);
+
+			if (isLoggable(arg)) return arg.toLoggable();
 
 			return JSON.stringify(arg, loggingJsonReplacer);
 	}

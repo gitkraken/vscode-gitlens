@@ -3,6 +3,7 @@ import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars.js';
 import type { GravatarDefaultStyle } from '../../config.js';
 import { formatDate, fromNow } from '../../system/date.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import type { GitCommitStats } from './commit.js';
 
@@ -10,6 +11,7 @@ export function isContributor(contributor: unknown): contributor is GitContribut
 	return contributor instanceof GitContributor;
 }
 
+@loggable(i => i.name)
 export class GitContributor {
 	constructor(
 		public readonly repoPath: string,

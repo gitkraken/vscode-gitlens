@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import { Container } from '../../container.js';
 import { formatDate, fromNow } from '../../system/date.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import type { IssueProject, IssueRepository } from './issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issueOrPullRequest.js';
@@ -27,6 +28,7 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly project?: IssueProject;
 }
 
+@loggable(i => i.id)
 export class PullRequest implements PullRequestShape {
 	readonly type = 'pullrequest';
 

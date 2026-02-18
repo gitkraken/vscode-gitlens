@@ -1,3 +1,4 @@
+import { isLoggable } from '../../system/loggable.js';
 import { loggingJsonReplacer } from './json.js';
 
 export function defaultResolver(...args: unknown[]): string {
@@ -21,23 +22,7 @@ export function defaultResolver(...args: unknown[]): string {
 		default:
 			if (arg instanceof Error) return String(arg);
 
-			// In webview context, we can't import VSCode modules or complex GitLens models
-			// So we provide a simplified resolver that handles basic types
-			if (arg && typeof arg === 'object') {
-				// Check for common object patterns without importing specific types
-				if ('toString' in arg && typeof arg.toString === 'function') {
-					try {
-						// eslint-disable-next-line @typescript-eslint/no-base-to-string
-						const stringified = String(arg);
-						// Avoid circular references and overly long strings
-						if (stringified !== '[object Object]' && stringified.length < 1000) {
-							return stringified;
-						}
-					} catch {
-						// Fall through to JSON.stringify
-					}
-				}
-			}
+			if (isLoggable(arg)) return arg.toLoggable();
 
 			return JSON.stringify(arg, loggingJsonReplacer);
 	}

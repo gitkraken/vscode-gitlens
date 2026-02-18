@@ -1,5 +1,6 @@
 import type { Container } from '../../container.js';
 import { formatDate, fromNow } from '../../system/date.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { shortenRevision } from '../utils/revision.utils.js';
 
@@ -14,6 +15,7 @@ export interface GitReflog {
 	more?(limit: number | undefined): Promise<GitReflog | undefined>;
 }
 
+@loggable(i => `${shortenRevision(i.sha)}|${i.command}`)
 export class GitReflogRecord {
 	private _previousSha: string | undefined;
 
