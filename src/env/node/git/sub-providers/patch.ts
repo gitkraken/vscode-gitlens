@@ -2,7 +2,7 @@ import { window } from 'vscode';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import { CancellationError } from '../../../../errors.js';
-import type { SigningErrorReason } from '../../../../git/errors.js';
+import type { GitCommandContext, SigningErrorReason } from '../../../../git/errors.js';
 import { ApplyPatchCommitError, CherryPickError, SigningError } from '../../../../git/errors.js';
 import type { GitPatchSubProvider } from '../../../../git/gitProvider.js';
 import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit.js';
@@ -265,30 +265,31 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			// Handle signing-specific errors
 			if (shouldSign && ex instanceof Error) {
 				const errorMessage = ex.message.toLowerCase();
+				const gitCommand: GitCommandContext = { repoPath: repoPath, args: ['commit-tree'] };
 				let signingError: SigningError | undefined;
 
 				if (errorMessage.includes('gpg failed to sign') || errorMessage.includes('error: gpg')) {
-					signingError = new SigningError('passphraseFailed', ex, ex.message);
+					signingError = new SigningError({ reason: 'passphraseFailed', gitCommand: gitCommand }, ex);
 				} else if (
 					errorMessage.includes('secret key not available') ||
 					errorMessage.includes('no secret key') ||
 					errorMessage.includes('no signing key')
 				) {
-					signingError = new SigningError('noKey', ex, ex.message);
+					signingError = new SigningError({ reason: 'noKey', gitCommand: gitCommand }, ex);
 				} else if (
 					errorMessage.includes('gpg: command not found') ||
 					(errorMessage.includes('gpg') && errorMessage.includes('not found'))
 				) {
-					signingError = new SigningError('gpgNotFound', ex, ex.message);
+					signingError = new SigningError({ reason: 'gpgNotFound', gitCommand: gitCommand }, ex);
 				} else if (errorMessage.includes('ssh-keygen') && errorMessage.includes('not found')) {
-					signingError = new SigningError('sshNotFound', ex, ex.message);
+					signingError = new SigningError({ reason: 'sshNotFound', gitCommand: gitCommand }, ex);
 				}
 
 				if (signingError != null) {
 					// Send telemetry for signing failure
 					this.container.telemetry.sendEvent(
 						'commit/signing/failed',
-						{ reason: this.getSigningFailureReason(signingError.reason), format: signingFormat },
+						{ reason: this.getSigningFailureReason(signingError.details.reason), format: signingFormat },
 						options?.source,
 					);
 					throw signingError;
