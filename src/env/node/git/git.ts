@@ -1143,11 +1143,7 @@ export class Git implements Disposable {
 						ex,
 					);
 				}
-				if (
-					options.force.ifIncludes &&
-					ex.stderr &&
-					GitErrors.pushRejectedRemoteRefUpdated.test(ex.stderr)
-				) {
+				if (options.force.ifIncludes && ex.stderr && GitErrors.pushRejectedRemoteRefUpdated.test(ex.stderr)) {
 					throw new PushError(
 						{
 							reason: 'rejectedWithLeaseIfIncludes',

@@ -26,8 +26,7 @@ const newModeRegex = /new mode (\d+)/;
 const similarityRegex = /similarity index (\d+)%/;
 const diffGitSplitRegex = /^diff --git /m;
 const diffGitLookaheadRegex = /^(?=diff --git )/m;
-const applyRenameSummaryRegex =
-	/(rename) (.*?)\{?([^{]+?)\s+=>\s+(.+?)\}?(?: \(\d+%\))|(create|delete) mode \d+ (.+)/;
+const applyRenameSummaryRegex = /(rename) (.*?)\{?([^{]+?)\s+=>\s+(.+?)\}?(?: \(\d+%\))|(create|delete) mode \d+ (.+)/;
 
 interface ParsedGitDiffFileResult {
 	status: GitFileStatus;
