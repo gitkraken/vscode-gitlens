@@ -1101,8 +1101,9 @@ export class GitProviderService implements Disposable {
 	@debug()
 	async setEnabledContext(enabled: boolean): Promise<void> {
 		let disabled = !enabled;
-		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
-		if (!enabled && this._initializing != null) {
+		// If we think we should be disabled during startup (or while still discovering repositories),
+		// check if we have a saved value from the last time this repo was loaded
+		if (!enabled && (this._initializing != null || this._discoveringRepositories?.pending)) {
 			disabled = !(this.container.storage.getWorkspace('assumeRepositoriesOnStartup') ?? false);
 		}
 
@@ -1124,7 +1125,7 @@ export class GitProviderService implements Disposable {
 
 		await Promise.allSettled(promises);
 
-		if (this._initializing == null) {
+		if (this._initializing == null && !this._discoveringRepositories?.pending) {
 			void this.container.storage.storeWorkspace('assumeRepositoriesOnStartup', enabled).catch();
 		}
 	}

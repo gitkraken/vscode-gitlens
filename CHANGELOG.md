@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes an issue where unsigned commits could incorrectly show a signature badge in tree view tooltips ([#4984](https://github.com/gitkraken/vscode-gitlens/issues/4984))
+- Fixes CLI version checking and updating
+- Fixes an issue where the GitLens panel view container flickers during startup when an integration connects before repository discovery completes ([#4990](https://github.com/gitkraken/vscode-gitlens/issues/4990))
+
 ## [17.10.0] - 2026-02-11
 
 ### Added
