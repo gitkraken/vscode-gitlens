@@ -183,9 +183,7 @@ export abstract class App<
 
 		this.bindDisposables?.forEach(d => d.dispose());
 		this.bindDisposables = this.onBind?.();
-		if (this.bindDisposables == null) {
-			this.bindDisposables = [];
-		}
+		this.bindDisposables ??= [];
 
 		// Reduces event jankiness when only moving focus
 		const sendWebviewFocusChangedCommand = debounce((params: WebviewFocusChangedParams) => {

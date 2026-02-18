@@ -27,7 +27,7 @@ export function parseGitTree(data: string | undefined, ref: string, singleEntry:
 		line = line.trim();
 		if (!line) continue;
 
-		[metadata, path] = line.split(/\t/);
+		[metadata, path] = line.split('\t');
 
 		// Skip mode
 		startIndex = metadata.indexOf(' ');

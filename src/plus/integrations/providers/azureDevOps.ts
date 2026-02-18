@@ -383,9 +383,9 @@ export abstract class AzureDevOpsIntegrationBase<
 		const projects = await this.getProviderProjectsForResources(session, orgs);
 		if (projects == null || projects.length === 0) return undefined;
 
-		const repoDescriptors = Array.from(
-			((await this.getRepoDescriptorsForProjects(session, projects)) ?? new Map()).values(),
-		)
+		const repoDescriptors = [
+			...((await this.getRepoDescriptorsForProjects(session, projects)) ?? new Map()).values(),
+		]
 			.filter(r => r != null)
 			.flat();
 
@@ -415,7 +415,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			}
 		}
 
-		return Array.from(prsById.values());
+		return [...prsById.values()];
 	}
 
 	protected override async searchProviderMyIssues(
@@ -470,7 +470,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			}
 		}
 
-		return Array.from(issuesById.values());
+		return [...issuesById.values()];
 	}
 
 	protected override async providerOnConnect(): Promise<void> {

@@ -7,6 +7,7 @@ import type { LeftRightCommitCountResult } from '../../gitProvider.js';
 import type { PullRequest, PullRequestComparisonRefs } from '../../models/pullRequest.js';
 import type { CreatePullRequestRemoteResource } from '../../models/remoteResource.js';
 import type { Repository } from '../../models/repository.js';
+import { gitSuffixRegex } from '../../parsers/remoteParser.js';
 import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../pullRequest.utils.js';
 import { createRevisionRange } from '../revision.utils.js';
 
@@ -77,7 +78,7 @@ export async function ensurePullRequestRemote(
 	const identity = getRepositoryIdentityForPullRequest(pr);
 	if (identity.remote.url == null) return false;
 
-	const prRemoteUrl = identity.remote.url.replace(/\.git$/, '');
+	const prRemoteUrl = identity.remote.url.replace(gitSuffixRegex, '');
 
 	let found = false;
 	for (const remote of await repo.git.remotes.getRemotes()) {

@@ -180,7 +180,7 @@ function getMarkdownRenderer(): RendererObject {
 				attributes.push(`title="${escapeDoubleQuotes(title)}"`);
 			}
 			if (dimensions.length) {
-				attributes = attributes.concat(dimensions);
+				attributes = [...attributes, ...dimensions];
 			}
 			return `<img ${attributes.join(' ')}>`;
 		},
@@ -344,6 +344,7 @@ function renderThemeIcon(icon: ThemeIcon): string {
 	return /*html*/ `<code-icon icon="${id}"${modifier ? ` modifier="${modifier}"` : ''}></code-icon>`;
 }
 
+const quoteRegex = /"/g;
 function escapeDoubleQuotes(input: string) {
-	return input.replace(/"/g, '&quot;');
+	return input.replace(quoteRegex, '&quot;');
 }

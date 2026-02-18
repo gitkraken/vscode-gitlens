@@ -154,7 +154,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 		);
 
 		if (log.hasMore) {
-			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+			children.push(new LoadMoreNode(this.view, this, children.at(-1)!));
 		}
 
 		this._onChildrenCompleted?.fulfill();

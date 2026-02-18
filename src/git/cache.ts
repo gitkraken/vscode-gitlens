@@ -770,7 +770,7 @@ export class GitCache implements Disposable {
 		return this.getSharedOrCreate(this.stashes, repoPath, factory, (data, newRepoPath) => ({
 			repoPath: newRepoPath,
 			stashes: new Map(
-				[...data.stashes.entries()].map(([sha, s]) => [sha, s.withRepoPath<GitStashCommit>(newRepoPath)]),
+				Array.from(data.stashes.entries(), ([sha, s]) => [sha, s.withRepoPath<GitStashCommit>(newRepoPath)]),
 			),
 		}));
 	}

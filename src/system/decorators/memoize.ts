@@ -54,7 +54,7 @@ export function memoize<T extends (...arg: any) => any>(options?: MemoizeOptions
 			const versionPrefix = opts.version != null ? `v${getMemoizeVersion(opts.version)}$` : '';
 			const prop = versionPrefix + resolveProp(memoizeKey, opts.resolver, ...(args as Parameters<T>));
 
-			if (Object.prototype.hasOwnProperty.call(this, prop)) {
+			if (Object.hasOwn(this, prop)) {
 				result = this[prop];
 
 				return result;

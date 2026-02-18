@@ -38,7 +38,7 @@ export async function showRemotePicker(
 		for (const r of remotes) {
 			items.push(createRemoteQuickPickItem(r, undefined, pickOpts));
 			if (r.name === options?.picked) {
-				picked = items[items.length - 1];
+				picked = items.at(-1);
 			}
 		}
 	}

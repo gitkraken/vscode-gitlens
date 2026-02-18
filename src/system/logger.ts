@@ -2,6 +2,10 @@ import type { LogLevel } from './logger.constants.js';
 import type { ScopedLogger } from './logger.scope.js';
 import { padOrTruncateEnd } from './string.js';
 
+const isoTRegex = /T/;
+const stackCallerRegex = /.*\s*?at\s(.+?)\s/;
+const leadingUnderscoreRegex = /^_+/;
+
 const enum OrderedLevel {
 	Off = 0,
 	Error = 1,
@@ -79,7 +83,7 @@ export const Logger = new (class Logger {
 	}
 
 	get timestamp(): string {
-		return `[${new Date().toISOString().replace(/T/, ' ').slice(0, -1)}]`;
+		return `[${new Date().toISOString().replace(isoTRegex, ' ').slice(0, -1)}]`;
 	}
 
 	trace(message: string, ...params: any[]): void;
@@ -185,7 +189,7 @@ export const Logger = new (class Logger {
 		if (message == null) {
 			const stack = ex instanceof Error ? ex.stack : undefined;
 			if (stack) {
-				const match = /.*\s*?at\s(.+?)\s/.exec(stack);
+				const match = stackCallerRegex.exec(stack);
 				if (match != null) {
 					message = match[1];
 				}
@@ -265,7 +269,7 @@ export const Logger = new (class Logger {
 		if (value == null) return undefined;
 
 		// Strip leading underscores so `_token` matches `token` in sanitizeKeys
-		const sanitizeKey = key.replace(/^_+/, '') || key;
+		const sanitizeKey = key.replace(leadingUnderscoreRegex, '') || key;
 		if (!this.provider?.sanitizeKeys?.has(sanitizeKey)) return undefined;
 
 		if (this.provider.hash != null) {

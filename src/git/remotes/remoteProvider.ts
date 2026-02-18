@@ -150,7 +150,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 			case RemoteResourceType.File:
 				return this.getUrlForFile(
 					resource.fileName,
-					resource.branchOrTag != null ? resource.branchOrTag : undefined,
+					resource.branchOrTag ?? undefined,
 					undefined,
 					resource.range,
 				);
@@ -159,8 +159,8 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 			case RemoteResourceType.Revision:
 				return this.getUrlForFile(
 					resource.fileName,
-					resource.branchOrTag != null ? resource.branchOrTag : undefined,
-					resource.sha != null ? resource.sha : undefined,
+					resource.branchOrTag ?? undefined,
+					resource.sha ?? undefined,
 					resource.range,
 				);
 			// TODO@axosoft-ramint needs to be implemented to support remote urls for tags

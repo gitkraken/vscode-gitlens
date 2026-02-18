@@ -141,6 +141,9 @@ importers:
       '@custom-elements-manifest/analyzer':
         specifier: 0.11.0
         version: 0.11.0
+      '@e18e/eslint-plugin':
+        specifier: 0.2.0
+        version: 0.2.0(eslint@9.39.2(jiti@2.4.0))
       '@eamodio/eslint-lite-webpack-plugin':
         specifier: 0.4.2
         version: 0.4.2(eslint@9.39.2(jiti@2.4.0))(webpack@5.105.2)
@@ -560,6 +563,17 @@ packages:
   '@discoveryjs/json-ext@0.6.3':
     resolution: {integrity: sha512-4B4OijXeVNOPZlYA2oEwWOTkzyltLao+xbotHQeqN++Rv27Y6s818+n2Qkp8q+Fxhn0t/5lA5X1Mxktud8eayQ==}
     engines: {node: '>=14.17.0'}
+
+  '@e18e/eslint-plugin@0.2.0':
+    resolution: {integrity: sha512-mXgODVwhuDjTJ+UT+XSvmMmCidtGKfrV5nMIv1UtpWex2pYLsIM3RSpT8HWIMAebS9qANbXPKlSX4BE7ZvuCgA==}
+    peerDependencies:
+      eslint: ^9.0.0 || ^10.0.0
+      oxlint: ^1.41.0
+    peerDependenciesMeta:
+      eslint:
+        optional: true
+      oxlint:
+        optional: true
 
   '@eamodio/eslint-lite-webpack-plugin@0.4.2':
     resolution: {integrity: sha512-IzaK3Gk3vvw6zY6nUiuersJdK38HquJCdti9BFCBD+ELpGbjpyLHDOmxCm/FwK3KvEnqkdLUEheKXgwuO5WaWQ==}
@@ -3281,6 +3295,10 @@ packages:
     resolution: {integrity: sha512-/kyM18EfinwXZbno9FyUGeFh87KC8HRQBQGildHZbEuRyWFOmv1U10o9BBp8XVZDVNNuQKyIGIu5ZYAAXJ0V2Q==}
     engines: {node: '>= 4'}
 
+  empathic@2.0.0:
+    resolution: {integrity: sha512-i6UzDscO/XfAcNYD75CfICkmfLedpyPDdozrLMmQc5ORaQcdMoc21OnlEylMIqI7U8eniKrPMxxtj8k0vhmJhA==}
+    engines: {node: '>=14'}
+
   encodeurl@2.0.0:
     resolution: {integrity: sha512-Q0n9HRi4m6JuGIV1eFlmvJB7ZEVxu93IrMyiMsGC0lrMJMWzRgx6WGquyfQgZVb31vhGgXnfmPNNXmxnOkRBrg==}
     engines: {node: '>= 0.8'}
@@ -3451,6 +3469,9 @@ packages:
 
   eslint-plugin-anti-trojan-source@1.1.2:
     resolution: {integrity: sha512-nFpOvnLedNiTM6U8x+tjP8IX8EzyGrp9niCZV1QoAWEBBn5cbK08lhkm1Anb4/40cn4JFDer8N0VkblH8laVEw==}
+
+  eslint-plugin-depend@1.4.0:
+    resolution: {integrity: sha512-MQs+m4nHSfgAO9bJDsBzqw0ofK/AOA0vfeY/6ahofqcUMLeM6/D1sTYs21fOhc17kNU/gn58YCtj20XaAssh2A==}
 
   eslint-plugin-import-x@4.16.1:
     resolution: {integrity: sha512-vPZZsiOKaBAIATpFE2uMI4w5IRwdv/FpQ+qZZMR4E+PeOcM4OeoEbqxRMnywdxP19TyB/3h6QBB0EWon7letSQ==}
@@ -4705,6 +4726,9 @@ packages:
     resolution: {integrity: sha512-mTT6RgopEYABzXWFx+GcJ+ZQ32kp4fMf0xvpZIIfSq9Z8lC/++MtcCnQ9t5FP2veYEP95FIYSvW+U9fV4xrlig==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
     hasBin: true
+
+  module-replacements@2.11.0:
+    resolution: {integrity: sha512-j5sNQm3VCpQQ7nTqGeOZtoJtV3uKERgCBm9QRhmGRiXiqkf7iRFOkfxdJRZWLkqYY8PNf4cDQF/WfXUYLENrRA==}
 
   morgan@1.10.1:
     resolution: {integrity: sha512-223dMRJtI/l25dJKWpgij2cMtywuG/WiUKXdvwfbhGKBhy1puASqXwFzmWZ7+K73vUPoR7SS2Qz2cI/g9MKw0A==}
@@ -6886,6 +6910,12 @@ snapshots:
   '@discoveryjs/json-ext@0.5.7': {}
 
   '@discoveryjs/json-ext@0.6.3': {}
+
+  '@e18e/eslint-plugin@0.2.0(eslint@9.39.2(jiti@2.4.0))':
+    dependencies:
+      eslint-plugin-depend: 1.4.0
+    optionalDependencies:
+      eslint: 9.39.2(jiti@2.4.0)
 
   '@eamodio/eslint-lite-webpack-plugin@0.4.2(eslint@9.39.2(jiti@2.4.0))(webpack@5.105.2)':
     dependencies:
@@ -9499,6 +9529,8 @@ snapshots:
 
   emojis-list@3.0.0: {}
 
+  empathic@2.0.0: {}
+
   encodeurl@2.0.0: {}
 
   encoding@0.1.13:
@@ -9747,6 +9779,12 @@ snapshots:
   eslint-plugin-anti-trojan-source@1.1.2:
     dependencies:
       anti-trojan-source: 1.8.1
+
+  eslint-plugin-depend@1.4.0:
+    dependencies:
+      empathic: 2.0.0
+      module-replacements: 2.11.0
+      semver: 7.7.4
 
   eslint-plugin-import-x@4.16.1(@typescript-eslint/utils@8.56.0(eslint@9.39.2(jiti@2.4.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint@9.39.2(jiti@2.4.0)):
     dependencies:
@@ -11184,6 +11222,8 @@ snapshots:
       yargs: 17.7.2
       yargs-parser: 21.1.1
       yargs-unparser: 2.0.0
+
+  module-replacements@2.11.0: {}
 
   morgan@1.10.1:
     dependencies:

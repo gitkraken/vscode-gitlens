@@ -43,7 +43,7 @@ export async function addToContextDelimitedString<T extends keyof ContextKeys>(
 		return setContext(key, values.join(delimiter) as ContextKeys[T]);
 	}
 
-	const merged = Array.from(new Set([...currentArray, ...values]));
+	const merged = [...new Set([...currentArray, ...values])];
 	return setContext(key, merged.join(delimiter) as ContextKeys[T]);
 }
 

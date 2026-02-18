@@ -135,7 +135,7 @@ export function cancellable<T>(
 		disposeCancellation = cancellation?.onCancellationRequested(() => resolver('cancelled'));
 		if (timeout != null) {
 			if (typeof timeout === 'number') {
-				const timer = setTimeout(() => resolver('timedout'), timeout);
+				const timer = setTimeout(resolver, timeout, 'timedout');
 				disposeTimeout = { dispose: () => clearTimeout(timer) };
 			} else {
 				disposeTimeout = timeout.onCancellationRequested(() => resolver('timedout'));
@@ -315,7 +315,7 @@ export function pauseOnCancelOrTimeout<T>(
 		? result
 		: result.then(r => {
 				if (r.paused) {
-					setTimeout(() => continuation(r), 0);
+					setTimeout(continuation, 0, r);
 				}
 				return r;
 			});

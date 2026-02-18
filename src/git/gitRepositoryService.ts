@@ -34,10 +34,8 @@ import type {
 import { createSubProviderProxyForRepo } from './gitProvider.js';
 import type { GitProviderService } from './gitProviderService.js';
 import { GitUri } from './gitUri.js';
-import type { GitBranch } from './models/branch.js';
 import type { GitFile } from './models/file.js';
 import { deletedOrMissing } from './models/revision.js';
-import type { GitTag } from './models/tag.js';
 import { getRemoteThemeIconString } from './utils/remote.utils.js';
 
 type GitSubProvidersForRepo = {
@@ -124,7 +122,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 		const remotes = getSettledValue(remotesResult) ?? [];
 
 		const branchesAndTagsBySha = groupByFilterMap(
-			(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
+			[...branches, ...tags],
 			bt => bt.sha,
 			bt => {
 				let icon;

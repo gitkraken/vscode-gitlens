@@ -1,5 +1,6 @@
 import * as process from 'process';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+// eslint-disable-next-line e18e/ban-dependencies
 import fetch from 'node-fetch';
 import { configuration } from '../../system/-webview/configuration.js';
 import { Logger } from '../../system/logger.js';

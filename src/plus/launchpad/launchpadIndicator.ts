@@ -345,7 +345,7 @@ export class LaunchpadIndicator implements Disposable {
 		let priorityItem: { item: LaunchpadItem; groupLabel: string } | undefined;
 
 		const groupedItems = groupAndSortLaunchpadItems(categorizedItems);
-		const totalGroupedItems = Array.from(groupedItems.values()).reduce((total, group) => total + group.length, 0);
+		const totalGroupedItems = [...groupedItems.values()].reduce((total, group) => total + group.length, 0);
 
 		const hasImportantGroupsWithItems = groups.some(group => groupedItems.get(group)?.length);
 		if (totalGroupedItems === 0) {
@@ -654,7 +654,7 @@ export function generateLaunchpadSummary(
 	groups: LaunchpadGroup[],
 ): LaunchpadSummaryResult {
 	const groupedItems = groupAndSortLaunchpadItems(items);
-	const total = Array.from(groupedItems.values()).reduce((total, group) => total + group.length, 0);
+	const total = [...groupedItems.values()].reduce((total, group) => total + group.length, 0);
 	const hasGroupedItems = groups.some(group => groupedItems.get(group)?.length);
 
 	if (total === 0 || !hasGroupedItems) {

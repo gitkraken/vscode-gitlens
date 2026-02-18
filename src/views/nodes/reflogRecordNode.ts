@@ -40,7 +40,7 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 		];
 
 		if (log.hasMore) {
-			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+			children.push(new LoadMoreNode(this.view, this, children.at(-1)!));
 		}
 		return children;
 	}

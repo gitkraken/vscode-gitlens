@@ -41,7 +41,7 @@ export class KeyboardScope implements Disposable {
 
 		if (index === mappings.length - 1) {
 			mappings.pop();
-			await this.updateKeyCommandsContext(mappings[mappings.length - 1]);
+			await this.updateKeyCommandsContext(mappings.at(-1)!);
 		} else {
 			mappings.splice(index, 1);
 		}
@@ -59,7 +59,7 @@ export class KeyboardScope implements Disposable {
 	async clearKeyCommand(key: Keys): Promise<void> {
 		const scope = getScopedLogger();
 
-		const mapping = mappings[mappings.length - 1];
+		const mapping = mappings.at(-1);
 		if (mapping !== this._mapping || mapping[key] == null) {
 			scope?.addExitInfo('skipped');
 
@@ -108,7 +108,7 @@ export class KeyboardScope implements Disposable {
 	async setKeyCommand(key: Keys, command: KeyCommand | (() => Promise<KeyCommand>)): Promise<void> {
 		const scope = getScopedLogger();
 
-		const mapping = mappings[mappings.length - 1];
+		const mapping = mappings.at(-1);
 		if (mapping !== this._mapping) {
 			scope?.addExitInfo('skipped');
 
@@ -173,7 +173,7 @@ export class Keyboard implements Disposable {
 		}
 
 		try {
-			const mapping = mappings[mappings.length - 1];
+			const mapping = mappings.at(-1)!;
 
 			let command = mapping[key] as KeyCommand | (() => Promise<KeyCommand>);
 			if (typeof command === 'function') {

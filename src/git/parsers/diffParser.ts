@@ -21,6 +21,13 @@ export const diffHunkRegex = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 const diffStatusRegex =
 	/^(?:(new file mode)|(deleted file mode)|(rename (?:from|to))|(copy (?:from|to))|(old mode|new mode)|(@@ -)|(Binary files .+ differ))/m;
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
+const oldModeRegex = /old mode (\d+)/;
+const newModeRegex = /new mode (\d+)/;
+const similarityRegex = /similarity index (\d+)%/;
+const diffGitSplitRegex = /^diff --git /m;
+const diffGitLookaheadRegex = /^(?=diff --git )/m;
+const applyRenameSummaryRegex =
+	/(rename) (.*?)\{?([^{]+?)\s+=>\s+(.+?)\}?(?: \(\d+%\))|(create|delete) mode \d+ (.+)/;
 
 interface ParsedGitDiffFileResult {
 	status: GitFileStatus;
@@ -75,8 +82,8 @@ function parseFileStatusAndMetadata(
 
 	// Extract mode information if we detected a mode change
 	if (modeChanged) {
-		const oldModeMatch = content.match(/old mode (\d+)/);
-		const newModeMatch = content.match(/new mode (\d+)/);
+		const oldModeMatch = content.match(oldModeRegex);
+		const newModeMatch = content.match(newModeRegex);
 		if (oldModeMatch) {
 			oldMode = oldModeMatch[1];
 		}
@@ -87,7 +94,7 @@ function parseFileStatusAndMetadata(
 
 	// Extract similarity for renames/copies
 	if (status === GitFileIndexStatus.Renamed || status === GitFileIndexStatus.Copied) {
-		const similarityMatch = content.match(/similarity index (\d+)%/);
+		const similarityMatch = content.match(similarityRegex);
 		if (similarityMatch) {
 			similarity = parseInt(similarityMatch[1], 10);
 		}
@@ -118,7 +125,7 @@ export function parseGitDiff(data: string, includeRawContent = false): ParsedGit
 	const parsed: ParsedGitDiff = { files: [], rawContent: includeRawContent ? data : undefined };
 
 	// Split the diff data into file chunks
-	const files = data.split(/^diff --git /m).filter(Boolean);
+	const files = data.split(diffGitSplitRegex).filter(Boolean);
 	if (!files.length) {
 		sw?.stop({ suffix: ` parsed no files` });
 		return parsed;
@@ -183,7 +190,7 @@ export async function filterDiffFiles(
 	if (!diff) return diff;
 
 	// Split into file chunks at "diff --git" boundaries (lookahead keeps the delimiter)
-	const chunks = diff.split(/^(?=diff --git )/m).filter(Boolean);
+	const chunks = diff.split(diffGitLookaheadRegex).filter(Boolean);
 	if (!chunks.length) return diff;
 
 	// Extract path from each chunk's header line
@@ -413,7 +420,7 @@ export function parseGitApplyFiles(container: Container, data: string, repoPath:
 		line = line.trim();
 		if (!line) continue;
 
-		const match = /(rename) (.*?)\{?([^{]+?)\s+=>\s+(.+?)\}?(?: \(\d+%\))|(create|delete) mode \d+ (.+)/.exec(line);
+		const match = applyRenameSummaryRegex.exec(line);
 		if (match == null) continue;
 
 		let [, rename, renameRoot, renameOriginalPath, renamePath, createOrDelete, createOrDeletePath] = match;

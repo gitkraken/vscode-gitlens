@@ -153,7 +153,7 @@ export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[
 	let num;
 	let match;
 	// Sort refsets so that issue integrations are checked first for matches
-	const sortedRefSets = [...refsets].sort((a, b) => {
+	const sortedRefSets = refsets.toSorted((a, b) => {
 		if (a[0]?.id && Object.values<string>(IssuesCloudHostIntegrationId).includes(a[0].id)) {
 			return -1;
 		}

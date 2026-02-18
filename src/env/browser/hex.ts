@@ -1,5 +1,6 @@
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
+const hexPairRegex = /(\w{2})/g;
 
 // const precomputedByteToHex: string[] = [];
 // for (let i = 0; i <= 0xff; ++i) {
@@ -37,7 +38,7 @@ export function encodeUtf8Hex(s: string): string {
 }
 
 export function decodeUtf8Hex(hex: string): string {
-	const matches = hex.match(/(\w{2})/g);
+	const matches = hex.match(hexPairRegex);
 	if (matches === null) return '';
 
 	const bytes = new Uint8Array(matches.map(c => parseInt(c, 16)));

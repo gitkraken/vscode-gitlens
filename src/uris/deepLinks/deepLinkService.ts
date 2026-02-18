@@ -855,14 +855,12 @@ export class DeepLinkService implements Disposable {
 						}
 					}
 
-					if (repoOpenType == null) {
-						repoOpenType = await this.showOpenTypePrompt({
-							customMessage:
-								chosenRepoPath === 'Choose a different location'
-									? 'Please choose an option to open the repository'
-									: undefined,
-						});
-					}
+					repoOpenType ??= await this.showOpenTypePrompt({
+						customMessage:
+							chosenRepoPath === 'Choose a different location'
+								? 'Please choose an option to open the repository'
+								: undefined,
+					});
 
 					if (!repoOpenType) {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
@@ -876,21 +874,19 @@ export class DeepLinkService implements Disposable {
 					}
 					this._context.repoOpenLocation = repoOpenLocation;
 
-					if (this._context.repoOpenUri == null) {
-						this._context.repoOpenUri = (
-							await window.showOpenDialog({
-								title: `Choose a ${repoOpenType === 'workspace' ? 'workspace' : 'folder'} to ${
-									repoOpenType === 'clone' ? 'clone the repository to' : 'open the repository'
-								}`,
-								canSelectFiles: repoOpenType === 'workspace',
-								canSelectFolders: repoOpenType !== 'workspace',
-								canSelectMany: false,
-								...(repoOpenType === 'workspace' && {
-									filters: { Workspaces: ['code-workspace'] },
-								}),
-							})
-						)?.[0];
-					}
+					this._context.repoOpenUri ??= (
+						await window.showOpenDialog({
+							title: `Choose a ${repoOpenType === 'workspace' ? 'workspace' : 'folder'} to ${
+								repoOpenType === 'clone' ? 'clone the repository to' : 'open the repository'
+							}`,
+							canSelectFiles: repoOpenType === 'workspace',
+							canSelectFolders: repoOpenType !== 'workspace',
+							canSelectMany: false,
+							...(repoOpenType === 'workspace' && {
+								filters: { Workspaces: ['code-workspace'] },
+							}),
+						})
+					)?.[0];
 
 					if (!this._context.repoOpenUri) {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
@@ -1457,7 +1453,7 @@ export class DeepLinkService implements Disposable {
 						// Only proceed if the branch switch occurred in the current window. This is necessary because the switch flow may
 						// open a new window, and if it does, we need to end things here.
 						const didChangeBranch = await Promise.race([
-							new Promise<boolean>(resolve => setTimeout(() => resolve(false), 10000)),
+							new Promise<boolean>(resolve => setTimeout(resolve, 10000, false)),
 							new Promise<boolean>(resolve =>
 								once(repo.onDidChange)(async (e: RepositoryChangeEvent) => {
 									if (e.changed('head', 'any')) {

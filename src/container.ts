@@ -659,9 +659,7 @@ export class Container {
 
 	private _mode: Mode | undefined;
 	get mode(): Mode | undefined {
-		if (this._mode == null) {
-			this._mode = configuration.get('modes')?.[configuration.get('mode.active')];
-		}
+		this._mode ??= configuration.get('modes')?.[configuration.get('mode.active')];
 		return this._mode;
 	}
 

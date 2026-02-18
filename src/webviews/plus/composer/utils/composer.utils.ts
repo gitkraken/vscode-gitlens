@@ -8,6 +8,9 @@ import { parseGitDiff } from '../../../../git/parsers/diffParser.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import type { ComposerCommit, ComposerHunk, ComposerSafetyState } from '../protocol.js';
 
+const hunkOldRangeRegex = /@@ -(\d+),(\d+)/;
+const hunkNewRangeRegex = /@@ -\d+,\d+ \+(\d+),(\d+)/;
+
 export function getHunksForCommit(commit: ComposerCommit, hunks: ComposerHunk[]): ComposerHunk[] {
 	return hunks.filter(hunk => commit.hunkIndices.includes(hunk.index));
 }
@@ -176,10 +179,10 @@ function overlap(range1: { start: number; count: number }, range2: { start: numb
 
 // Calculates a similarity score between two hunks that touch the same file, based on the overlap between the lines in their hunk headers
 function getHunkSimilarityValue(hunk1: ComposerHunk, hunk2: ComposerHunk): number {
-	const oldRange1 = hunk1.hunkHeader.match(/@@ -(\d+),(\d+)/);
-	const newRange1 = hunk1.hunkHeader.match(/@@ -\d+,\d+ \+(\d+),(\d+)/);
-	const oldRange2 = hunk2.hunkHeader.match(/@@ -(\d+),(\d+)/);
-	const newRange2 = hunk2.hunkHeader.match(/@@ -\d+,\d+ \+(\d+),(\d+)/);
+	const oldRange1 = hunk1.hunkHeader.match(hunkOldRangeRegex);
+	const newRange1 = hunk1.hunkHeader.match(hunkNewRangeRegex);
+	const oldRange2 = hunk2.hunkHeader.match(hunkOldRangeRegex);
+	const newRange2 = hunk2.hunkHeader.match(hunkNewRangeRegex);
 	if (oldRange1 == null || newRange1 == null || oldRange2 == null || newRange2 == null) {
 		return 0;
 	}
@@ -658,8 +661,9 @@ export async function getBranchCommits(
 		}
 
 		// Convert Map to Array and keep in reverse chronological order (newest first, then reverse to oldest first for processing)
-		const commits = Array.from(log.commits.values()).reverse();
-		const headCommit = commits[commits.length - 1];
+		// eslint-disable-next-line e18e/prefer-array-to-reversed
+		const commits = [...log.commits.values()].reverse();
+		const headCommit = commits.at(-1)!;
 
 		return {
 			commits: commits,

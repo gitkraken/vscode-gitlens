@@ -308,15 +308,17 @@ function getShowRepositoryStatusStepItems<
 
 	if (context.status.files.length) {
 		items.push(
-			new OpenChangedFilesCommandQuickPickItem(
-				computed.stagedAddsAndChanges.concat(computed.unstagedAddsAndChanges),
-			),
+			new OpenChangedFilesCommandQuickPickItem([
+				...computed.stagedAddsAndChanges,
+				...computed.unstagedAddsAndChanges,
+			]),
 		);
 
 		items.push(
-			new OpenOnlyChangedFilesCommandQuickPickItem(
-				computed.stagedAddsAndChanges.concat(computed.unstagedAddsAndChanges),
-			),
+			new OpenOnlyChangedFilesCommandQuickPickItem([
+				...computed.stagedAddsAndChanges,
+				...computed.unstagedAddsAndChanges,
+			]),
 		);
 	}
 

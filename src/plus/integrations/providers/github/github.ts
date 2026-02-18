@@ -3050,9 +3050,7 @@ export class GitHubApi implements Disposable {
 				}
 			}
 
-			if (url == null) {
-				url = `${baseUrl}/enterprise/avatars/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
-			}
+			url ??= `${baseUrl}/enterprise/avatars/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
 
 			const rsp = await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
 				fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${accessToken}` } }),

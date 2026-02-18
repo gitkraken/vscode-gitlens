@@ -310,7 +310,7 @@ export class FileHistoryNode
 			);
 
 			if (log.hasMore) {
-				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+				children.push(new LoadMoreNode(this.view, this, children.at(-1)!));
 			}
 		}
 

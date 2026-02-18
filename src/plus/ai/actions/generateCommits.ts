@@ -241,9 +241,9 @@ function validateCommitsResponse(
 		const inputHunkIndices = new Set(inputHunks.map(h => h.index));
 		const previouslyAssignedHunkIndices = new Set(existingCommits.flatMap(c => c.hunkIndices));
 		const unassignedHunkIndices = new Set([...inputHunkIndices].filter(i => !previouslyAssignedHunkIndices.has(i)));
-		const illegallyAssignedHunkIndices = Array.from(usedHunkIndices).filter(i => !inputHunkIndices.has(i));
-		const missingHunkIndices = Array.from(unassignedHunkIndices).filter(i => !usedHunkIndices.has(i));
-		const extraHunkIndices = Array.from(usedHunkIndices).filter(index => !inputHunkIndices.has(index));
+		const illegallyAssignedHunkIndices = [...usedHunkIndices].filter(i => !inputHunkIndices.has(i));
+		const missingHunkIndices = [...unassignedHunkIndices].filter(i => !usedHunkIndices.has(i));
+		const extraHunkIndices = [...usedHunkIndices].filter(index => !inputHunkIndices.has(index));
 
 		// Check for missing hunks
 		if (missingHunkIndices.length > 0) {

@@ -23,6 +23,8 @@ import '../code-icon.js';
 import './tree-item.js';
 import type { GlTreeItem } from './tree-item.js';
 
+const filterableCharRegex = /^[a-zA-Z0-9\s\-_.]$/;
+
 @customElement('gl-tree-generator')
 export class GlTreeGenerator extends GlElement {
 	static override styles = [
@@ -562,9 +564,9 @@ export class GlTreeGenerator extends GlElement {
 				if (virtualizer) {
 					// Query all gl-tree-items and find by ID
 					// (virtualizer renders items as direct children)
-					const allTreeItems = Array.from(virtualizer.querySelectorAll('gl-tree-item'));
+					const allTreeItems = [...virtualizer.querySelectorAll('gl-tree-item')];
 					const focusedTreeItem = allTreeItems.find(
-						item => (item as any).id === `tree-item-${this._focusedItemPath}`,
+						item => item.id === `tree-item-${this._focusedItemPath}`,
 					) as HTMLElement;
 
 					if (focusedTreeItem) {
@@ -887,6 +889,7 @@ export class GlTreeGenerator extends GlElement {
 
 		return -1;
 	}
+
 	/**
 	 * Checks if a character is printable (for type-ahead search)
 	 * @param char The character to check
@@ -894,7 +897,7 @@ export class GlTreeGenerator extends GlElement {
 	 */
 	private isPrintableCharacter(char: string): boolean {
 		// Check if it's a single character and is alphanumeric or common punctuation
-		return char.length === 1 && /^[a-zA-Z0-9\s\-_.]$/.test(char);
+		return char.length === 1 && filterableCharRegex.test(char);
 	}
 }
 

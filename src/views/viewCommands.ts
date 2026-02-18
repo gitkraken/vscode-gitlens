@@ -270,7 +270,7 @@ export class ViewCommands implements Disposable {
 			node.view.resetNodeLastKnownLimit(node);
 		}
 
-		return node.view.refreshNode(node, reset == null ? true : reset);
+		return node.view.refreshNode(node, reset ?? true);
 	}
 
 	@command('gitlens.views.addAuthors')
@@ -1351,9 +1351,7 @@ export class ViewCommands implements Disposable {
 		rhsUri: Uri | undefined,
 		rhsRef: string,
 	) {
-		if (rhsUri == null) {
-			rhsUri = await this.container.git.getRepositoryService(repoPath).getWorkingUri(lhsUri);
-		}
+		rhsUri ??= await this.container.git.getRepositoryService(repoPath).getWorkingUri(lhsUri);
 
 		return executeCommand<DiffWithCommandArgs, void>('gitlens.diffWith', {
 			repoPath: repoPath,

@@ -111,7 +111,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			Array.isArray(lookupTable)
 				? lookupTable
 				: unified
-					? lookupTable.hot.concat(lookupTable.cold)
+					? [...lookupTable.hot, ...lookupTable.cold]
 					: date.getTime() < coldThresholdTimestamp
 						? lookupTable.cold
 						: lookupTable.hot;
@@ -220,7 +220,7 @@ function getRelativeAgeLookupTable(dates: Date[]) {
 	const half = Math.floor(dates.length / 2);
 	const median = dates.length % 2 ? dates[half].getTime() : (dates[half - 1].getTime() + dates[half].getTime()) / 2.0;
 
-	const newest = dates[dates.length - 1].getTime();
+	const newest = dates.at(-1)!.getTime();
 	let step = (newest - median) / 5;
 	for (let i = 5; i > 0; i--) {
 		lookup.push(median + step * i);

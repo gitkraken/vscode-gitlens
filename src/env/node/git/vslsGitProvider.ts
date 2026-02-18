@@ -112,9 +112,7 @@ export class VslsGitProvider extends LocalGitProvider {
 
 		let repoPath: string | undefined;
 		try {
-			if (isDirectory == null) {
-				isDirectory = await isFolderUri(uri);
-			}
+			isDirectory ??= await isFolderUri(uri);
 
 			// If the uri isn't a directory, go up one level
 			if (!isDirectory) {

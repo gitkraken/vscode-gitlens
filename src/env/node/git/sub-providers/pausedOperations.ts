@@ -24,6 +24,8 @@ import type { Git } from '../git.js';
 import { getGitCommandError } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
+const todoCommitRegex = /^(?:p(?:ick)?|revert)\s+([a-f0-9]+)/i;
+
 type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert' | 'sequencer';
 
 // Note: 'sequencer' is checked after specific HEAD files since those take precedence
@@ -371,7 +373,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					}
 
 					// Parse the commit sha being applied from the todo file
-					const match = firstLine.match(/^(?:p(?:ick)?|revert)\s+([a-f0-9]+)/i);
+					const match = firstLine.match(todoCommitRegex);
 					const currentCommitSha = match?.[1];
 					if (!currentCommitSha) {
 						scope?.addExitInfo('Could not parse commit sha from sequencer/todo');

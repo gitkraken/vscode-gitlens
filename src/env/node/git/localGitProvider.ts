@@ -179,9 +179,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _gitLocator: Promise<GitLocation> | undefined;
 	private async ensureGit(): Promise<GitLocation> {
-		if (this._gitLocator == null) {
-			this._gitLocator = this.findGit();
-		}
+		this._gitLocator ??= this.findGit();
 
 		return this._gitLocator;
 	}

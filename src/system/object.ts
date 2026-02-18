@@ -179,9 +179,7 @@ export function updateRecordValue<T>(
 	key: string,
 	value: T | undefined,
 ): Record<string, T> {
-	if (o == null) {
-		o = Object.create(null) as Record<string, T>;
-	}
+	o ??= Object.create(null) as Record<string, T>;
 
 	if (value != null && (typeof value !== 'boolean' || value)) {
 		if (typeof value === 'object') {

@@ -278,9 +278,7 @@ export class OrganizationService implements Disposable {
 				return undefined;
 			}
 
-			if (this._organizationSettings == null) {
-				this._organizationSettings = new Map();
-			}
+			this._organizationSettings ??= new Map();
 			this._organizationSettings.set(id, { data: organizationResponse.data, lastValidatedDate: new Date() });
 			await this.storeOrganizationSettings(id, organizationResponse.data, new Date());
 		}

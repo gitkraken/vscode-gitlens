@@ -105,22 +105,20 @@ export function getSubscriptionFromCheckIn(
 		);
 	}
 
-	if (actual == null) {
-		actual = getSubscriptionPlan(
-			'community-with-account',
-			false,
-			0,
-			undefined,
-			data.user.firstGitLensCheckIn != null
-				? new Date(data.user.firstGitLensCheckIn)
-				: data.user.createdDate != null
-					? new Date(data.user.createdDate)
-					: undefined,
-			undefined,
-			undefined,
-			data.nextOptInDate,
-		);
-	}
+	actual ??= getSubscriptionPlan(
+		'community-with-account',
+		false,
+		0,
+		undefined,
+		data.user.firstGitLensCheckIn != null
+			? new Date(data.user.firstGitLensCheckIn)
+			: data.user.createdDate != null
+				? new Date(data.user.createdDate)
+				: undefined,
+		undefined,
+		undefined,
+		data.nextOptInDate,
+	);
 
 	let effective: Subscription['plan']['effective'] | undefined;
 	const chosenEffectiveLicense =

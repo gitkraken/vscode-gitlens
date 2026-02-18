@@ -112,17 +112,11 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 
 		const cfg = configuration.get('codeLens', document);
 		let languageScope = { ...cfg.scopesByLanguage?.find(ll => ll.language?.toLowerCase() === document.languageId) };
-		if (languageScope == null) {
-			languageScope = {
-				language: document.languageId,
-			};
-		}
-		if (languageScope.scopes == null) {
-			languageScope.scopes = cfg.scopes;
-		}
-		if (languageScope.symbolScopes == null) {
-			languageScope.symbolScopes = cfg.symbolScopes;
-		}
+		languageScope ??= {
+			language: document.languageId,
+		};
+		languageScope.scopes ??= cfg.scopes;
+		languageScope.symbolScopes ??= cfg.symbolScopes;
 
 		languageScope.symbolScopes =
 			languageScope.symbolScopes != null
@@ -364,7 +358,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 
 			const line = document.lineAt(getRangeFromSymbol(symbol).start);
 			// Make sure there is only 1 lens per line
-			if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
+			if (lenses.length && lenses.at(-1)!.range.start.line === line.lineNumber) return;
 
 			// Anchor the CodeLens to the start of the line -- so that the range won't change with edits (otherwise the CodeLens will be removed and re-added)
 			let startChar = 0;

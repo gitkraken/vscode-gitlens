@@ -105,24 +105,20 @@ export function fromNow(date: Date | number, short?: boolean): string {
 					return `${value}${shortUnit}`;
 				}
 
-				if (defaultShortRelativeTimeFormat == null) {
-					defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
-						localeMatcher: 'best fit',
-						numeric: 'always',
-						style: 'narrow',
-					});
-				}
+				defaultShortRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
+					localeMatcher: 'best fit',
+					numeric: 'always',
+					style: 'narrow',
+				});
 
 				return defaultShortRelativeTimeFormat.format(Math.trunc(elapsed / divisor), unit);
 			}
 
-			if (defaultRelativeTimeFormat == null) {
-				defaultRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
-					localeMatcher: 'best fit',
-					numeric: 'auto',
-					style: 'long',
-				});
-			}
+			defaultRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
+				localeMatcher: 'best fit',
+				numeric: 'auto',
+				style: 'long',
+			});
 			return defaultRelativeTimeFormat.format(Math.trunc(elapsed / divisor), unit);
 		}
 	}
@@ -373,9 +369,7 @@ export function getNumericFormat(
 	style?: 'decimal' | 'currency' | 'percent' | 'unit' | null | undefined,
 	locale?: string,
 ): Intl.NumberFormat['format'] {
-	if (style == null) {
-		style = 'decimal';
-	}
+	style ??= 'decimal';
 
 	const key = `${locale ?? ''}:${style}`;
 

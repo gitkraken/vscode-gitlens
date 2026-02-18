@@ -161,7 +161,7 @@ export function getFeaturePreviewStatus(preview: FeaturePreview): FeaturePreview
 	const usages = preview?.usages;
 	if (!usages?.length) return 'eligible';
 
-	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - Date.now()) / hoursInMs;
+	const remainingHours = (new Date(usages.at(-1)!.expiresOn).getTime() - Date.now()) / hoursInMs;
 
 	if (
 		usages.length <= proFeaturePreviewUsages &&

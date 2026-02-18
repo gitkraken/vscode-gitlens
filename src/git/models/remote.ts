@@ -93,9 +93,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 				return remoteUrl.url;
 			}
 
-			if (bestUrl == null) {
-				bestUrl = remoteUrl.url;
-			}
+			bestUrl ??= remoteUrl.url;
 		}
 
 		return bestUrl!;

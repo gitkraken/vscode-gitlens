@@ -424,7 +424,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		// Check if we're dragging a multi-selection
 		if (this.selectedIds.has(draggedId) && this.selectedIds.size > 1) {
 			this.clearDragState();
-			this.executeMoveEntriesBySortedIndex(Array.from(this.selectedIds), toSortedIndex, insertAfter);
+			this.executeMoveEntriesBySortedIndex([...this.selectedIds], toSortedIndex, insertAfter);
 		} else {
 			const fromSortedIndex = this._idToSortedIndex.get(draggedId) ?? -1;
 			this.clearDragState();
@@ -861,7 +861,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 		// Check if this entry is part of multi-selection
 		if (this.selectedIds.has(entry.id) && this.selectedIds.size > 1) {
-			const ids = Array.from(this.selectedIds);
+			const ids = [...this.selectedIds];
 
 			// Preserve focus on current entry
 			this.pendingFocusId = entry.id;
@@ -1128,7 +1128,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 			// If in an active rebase, auto-select the last done entry (the paused entry)
 			if (this.isRebasing && this.doneEntries.length > 0) {
-				const lastDoneEntry = this.doneEntries[this.doneEntries.length - 1];
+				const lastDoneEntry = this.doneEntries.at(-1)!;
 				targetId = lastDoneEntry.id;
 			}
 

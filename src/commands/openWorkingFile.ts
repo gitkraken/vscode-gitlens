@@ -30,9 +30,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 
 	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs): Promise<void> {
 		args = { ...args };
-		if (args.line == null) {
-			args.line = editor?.selection.active.line;
-		}
+		args.line ??= editor?.selection.active.line;
 
 		try {
 			if (args.uri == null) {

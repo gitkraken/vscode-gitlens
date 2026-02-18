@@ -364,7 +364,7 @@ export abstract class GitHostIntegration<
 
 			const cursorInfo = JSON.parse(options?.cursor ?? '{}');
 			const cursors: PagedProjectInput[] = cursorInfo.cursors ?? [];
-			let projectInputs: PagedProjectInput[] = Array.from(projects.values()).map(project => ({
+			let projectInputs: PagedProjectInput[] = Array.from(projects.values(), project => ({
 				namespace: organization,
 				project: project,
 				cursor: undefined,

@@ -99,10 +99,7 @@ export function fuzzyMatch(pattern: string, target: string, options?: FuzzyMatch
 			score += 1;
 
 			// Bonus for consecutive matches
-			if (
-				matchedIndices.length > 1 &&
-				matchedIndices[matchedIndices.length - 1] === matchedIndices[matchedIndices.length - 2] + 1
-			) {
+			if (matchedIndices.length > 1 && matchedIndices.at(-1) === matchedIndices[matchedIndices.length - 2] + 1) {
 				consecutiveMatches++;
 				score += opts.consecutiveBonus * consecutiveMatches;
 			} else {

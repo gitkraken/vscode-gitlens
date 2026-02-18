@@ -1367,14 +1367,10 @@ export class ViewNodeState implements Disposable {
 	storeState<T>(id: string, key: string, value: T, sticky?: boolean): void {
 		let store;
 		if (sticky) {
-			if (this._stickyStore == null) {
-				this._stickyStore = new Map();
-			}
+			this._stickyStore ??= new Map();
 			store = this._stickyStore;
 		} else {
-			if (this._store == null) {
-				this._store = new Map();
-			}
+			this._store ??= new Map();
 			store = this._store;
 		}
 

@@ -1,5 +1,9 @@
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 
+const x509EmailRegex = /\/EMail=([^/]+)/i;
+const angleBracketEmailRegex = /<([^>]+)>/;
+const noPublicKeyRegex = /no public key/i;
+
 export type SignatureState = 'trusted' | 'unknown' | 'untrusted';
 
 /**
@@ -13,13 +17,13 @@ export function extractEmailFromSigner(signer: string | undefined): string | und
 	if (!signer) return undefined;
 
 	// X.509 Distinguished Name format: extract from /EMail= field
-	const x509Match = signer.match(/\/EMail=([^/]+)/i);
+	const x509Match = signer.match(x509EmailRegex);
 	if (x509Match) {
 		return x509Match[1];
 	}
 
 	// GPG format: "Name <email@example.com>"
-	const angleMatch = signer.match(/<([^>]+)>/);
+	const angleMatch = signer.match(angleBracketEmailRegex);
 	if (angleMatch) {
 		return angleMatch[1];
 	}
@@ -132,7 +136,7 @@ export function getSignatureStatusInfo(
 						detail: 'Signature was made with a revoked key and should not be trusted',
 					};
 				case 'error': {
-					const isMissingKey = signature.errorMessage ? /no public key/i.test(signature.errorMessage) : false;
+					const isMissingKey = signature.errorMessage ? noPublicKeyRegex.test(signature.errorMessage) : false;
 					if (isMissingKey) {
 						return {
 							icon: icon,

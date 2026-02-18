@@ -91,6 +91,7 @@ export function parseGitRemotes(
 	return [...remotes.values()];
 }
 
+export const gitSuffixRegex = /\.git\/?$/;
 // Test git urls
 /*
 http://host.xz/user/project.git
@@ -138,6 +139,6 @@ export function parseGitRemoteUrl(url: string): [scheme: string, domain: string,
 	return [
 		match[1] || match[3] || match[6],
 		match[2] || match[4] || match[5] || match[7] || match[8],
-		match[9].replace(/\.git\/?$/, ''),
+		match[9].replace(gitSuffixRegex, ''),
 	];
 }

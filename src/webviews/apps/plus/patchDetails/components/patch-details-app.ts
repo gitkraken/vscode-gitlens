@@ -90,7 +90,7 @@ export class GlPatchDetailsApp extends GlElement {
 		// return file length total and repo/branch names
 		return {
 			count: state.files,
-			branches: Array.from(state.on).join(', '),
+			branches: [...state.on].join(', '),
 		};
 	}
 

@@ -478,7 +478,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						if (state.initialGroup == null) {
 							void this.container.storage.store(
 								'launchpad:groups:collapsed',
-								Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
+								[...context.collapsed.keys()].filter(g => context.collapsed.get(g)),
 							);
 						}
 

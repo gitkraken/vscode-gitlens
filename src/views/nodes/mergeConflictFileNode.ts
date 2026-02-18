@@ -64,33 +64,23 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 
 	private _description: string | undefined;
 	get description(): string {
-		if (this._description == null) {
-			this._description = StatusFileFormatter.fromTemplate(
-				this.view.config.formats.files.description,
-				this.file,
-				{
-					relativePath: this.relativePath,
-				},
-			);
-		}
+		this._description ??= StatusFileFormatter.fromTemplate(this.view.config.formats.files.description, this.file, {
+			relativePath: this.relativePath,
+		});
 		return this._description;
 	}
 
 	private _folderName: string | undefined;
 	get folderName(): string {
-		if (this._folderName == null) {
-			this._folderName = relativeDir(this.uri.relativePath);
-		}
+		this._folderName ??= relativeDir(this.uri.relativePath);
 		return this._folderName;
 	}
 
 	private _label: string | undefined;
 	get label(): string {
-		if (this._label == null) {
-			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
-				relativePath: this.relativePath,
-			});
-		}
+		this._label ??= StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
+			relativePath: this.relativePath,
+		});
 		return this._label;
 	}
 

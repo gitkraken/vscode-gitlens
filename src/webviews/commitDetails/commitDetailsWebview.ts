@@ -1147,9 +1147,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 		const wip = current.wip;
 		if (wip == null && this._repositorySubscription) {
-			if (this._cancellationTokenSource == null) {
-				this._cancellationTokenSource = new CancellationTokenSource();
-			}
+			this._cancellationTokenSource ??= new CancellationTokenSource();
 			const cancellation = this._cancellationTokenSource.token;
 			setTimeout(() => {
 				if (cancellation.isCancellationRequested) return;
@@ -1197,9 +1195,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		let inReview = this.inReview;
 
 		if (repository != null) {
-			if (this._wipSubscription == null) {
-				this._wipSubscription = { repo: repository, subscription: this.subscribeToRepositoryWip(repository) };
-			}
+			this._wipSubscription ??= { repo: repository, subscription: this.subscribeToRepositoryWip(repository) };
 
 			const changes = await this.getWipChange(repository);
 			wip = {

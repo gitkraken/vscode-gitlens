@@ -6,6 +6,8 @@ export const previewBadge = 'ᴘʀᴇᴠɪᴇᴡ';
 export const proBadge = 'ᴘʀᴏ';
 export const proBadgeSuperscript = 'ᴾᴿᴼ';
 
+export const whitespaceRegex = /\s/;
+
 export type AnnotationStatus = 'computing' | 'computed';
 
 export const enum CharCode {

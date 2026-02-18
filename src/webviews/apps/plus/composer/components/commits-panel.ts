@@ -479,7 +479,7 @@ export class CommitsPanel extends LitElement {
 
 		this.hasScrolledToFirstNonLocked = true;
 
-		const reversedCommits = this.commits.slice().reverse();
+		const reversedCommits = this.commits.toReversed();
 		const firstNonLockedIndex = reversedCommits.findIndex(c => c.locked !== true);
 		if (firstNonLockedIndex === -1) return;
 
@@ -1429,7 +1429,7 @@ export class CommitsPanel extends LitElement {
 
 						<div class="commits-only">
 							${repeat(
-								this.commits.slice().reverse(), // Reverse order - bottom to top
+								this.commits.toReversed(), // Reverse order - bottom to top
 								commit => commit.id,
 								(commit, i) => {
 									const changes = getCommitChanges(commit, this.hunks);

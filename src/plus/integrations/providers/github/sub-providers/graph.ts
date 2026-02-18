@@ -49,7 +49,7 @@ import type {
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
-const doubleQuoteRegex = /"/g;
+const quoteRegex = /"/g;
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
 	constructor(
@@ -563,7 +563,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const values = operations.get('commit:');
 			if (values != null) {
 				const commitsResults = await Promise.allSettled(
-					map(values, v => this.provider.commits.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
+					map(values, v => this.provider.commits.getCommit(repoPath, v.replace(quoteRegex, ''))),
 				);
 
 				let i = 0;

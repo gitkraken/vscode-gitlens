@@ -14,9 +14,7 @@ export function capitalize(s: string): string {
 
 let compareCollator: Intl.Collator | undefined;
 export function compareIgnoreCase(a: string, b: string): 0 | -1 | 1 {
-	if (compareCollator == null) {
-		compareCollator = new Intl.Collator(undefined, { sensitivity: 'accent' });
-	}
+	compareCollator ??= new Intl.Collator(undefined, { sensitivity: 'accent' });
 
 	const result = compareCollator.compare(a, b);
 	// Intl.Collator.compare isn't guaranteed to always return 1 or -1 on all platforms so normalize it
@@ -47,7 +45,7 @@ export function dedent(template: string): string {
 	while (lines.length > 0 && lines[0].trim() === '') {
 		lines.shift();
 	}
-	while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+	while (lines.length > 0 && lines.at(-1)?.trim() === '') {
 		lines.pop();
 	}
 
@@ -77,9 +75,7 @@ export function equalsIgnoreCase(a: string | null | undefined, b: string | null 
 
 let sortCollator: Intl.Collator | undefined;
 export function sortCompare(x: string, y: string): number {
-	if (sortCollator == null) {
-		sortCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-	}
+	sortCollator ??= new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 	return sortCollator.compare(x, y);
 }
 

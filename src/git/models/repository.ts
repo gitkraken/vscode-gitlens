@@ -32,6 +32,11 @@ import { getReferenceNameWithoutRemote, isBranchReference } from '../utils/refer
 import type { GitBranch } from './branch.js';
 import type { GitBranchReference, GitReference } from './reference.js';
 
+const ignoredFsPathRegex =
+	/(?:(?:\/|\\)node_modules|\.git(?:\/index\.lock)?|\.watchman-cookie-)(?:\/|\\|$)/;
+const repoChangeRegex =
+	/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags))/;
+
 const dotGitWatcherGlobFiles =
 	'index,HEAD,*_HEAD,MERGE_*,rebase-apply,rebase-apply/**,rebase-merge,rebase-merge/**,sequencer,sequencer/**';
 const dotGitWatcherGlobWorktreeFiles =
@@ -88,7 +93,7 @@ export class RepositoryChangeEvent {
 
 	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]): boolean {
 		const affected = args.slice(0, -1) as RepositoryChange[];
-		const mode = args[args.length - 1] as RepositoryChangeComparisonMode;
+		const mode = args.at(-1) as RepositoryChangeComparisonMode;
 
 		if (mode === 'any') {
 			return some(this._changes, c => affected.includes(c));
@@ -343,7 +348,7 @@ export class Repository implements Disposable {
 
 	private onFileSystemChanged(uri: Uri) {
 		// Ignore node_modules, .git, index.lock, and watchman cookie files
-		if (/(?:(?:\/|\\)node_modules|\.git(?:\/index\.lock)?|\.watchman-cookie-)(?:\/|\\|$)/.test(uri.fsPath)) return;
+		if (ignoredFsPathRegex.test(uri.fsPath)) return;
 
 		// If filter not ready yet, buffer the event for later processing
 		if (this._fsBufferedEvents != null) {
@@ -378,7 +383,7 @@ export class Repository implements Disposable {
 		const match =
 			uri != null
 				? // Move worktrees first, since if it is in a worktree it isn't affecting this repo directly
-					/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags))/.exec(
+					repoChangeRegex.exec(
 						this.container.git.getRelativePath(uri, base),
 					)
 				: undefined;

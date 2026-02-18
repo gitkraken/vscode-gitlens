@@ -5,8 +5,6 @@ const emojiRegex = /(^|\s):([-+_a-z0-9]+):($|\s)/g;
 
 let emojis: Record<string, string> | undefined = undefined;
 export function emojify(message: string): string {
-	if (emojis == null) {
-		emojis = JSON.parse(decompressFromBase64LZString(compressed));
-	}
+	emojis ??= JSON.parse(decompressFromBase64LZString(compressed));
 	return message.replace(emojiRegex, (s, $1, code, $3) => (emojis![code] ? `${$1}${emojis![code]}${$3}` : s));
 }

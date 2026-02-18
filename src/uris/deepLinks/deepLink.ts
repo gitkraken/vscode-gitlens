@@ -200,7 +200,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 			};
 		}
 		case DeepLinkType.Draft: {
-			if (mainId == null || mainId.match(/^v\d+$/)) return undefined;
+			if (mainId == null || /^v\d+$/.test(mainId)) return undefined;
 
 			let patchId = urlParams.get('patch') ?? undefined;
 			if (patchId != null) {

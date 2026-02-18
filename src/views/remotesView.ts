@@ -29,9 +29,7 @@ import { registerViewCommand } from './viewCommands.js';
 
 export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, RemotesNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new RemotesNode(this.uri, this.view, this, this.repo);
-		}
+		this.child ??= new RemotesNode(this.uri, this.view, this, this.repo);
 
 		return this.child.getChildren();
 	}

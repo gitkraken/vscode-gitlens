@@ -121,6 +121,8 @@ export const GitErrors = {
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error:\s*failed to push some refs to\b/m,
 	pushRejectedRefDoesNotExists: /error:\s*unable to delete '(.*?)': remote ref does not exist/m,
+	pushRejectedRemoteRefUpdated: /! \[rejected\].*\(remote ref updated since checkout\)/m,
+	pushRejectedStaleInfo: /! \[rejected\].*\(stale info\)/m,
 	rebaseAborted: /Nothing to do|rebase.*aborted/i,
 	rebaseInProgress: /It seems that there is already a rebase-(?:merge|apply) directory/i,
 	rebaseMissingTodo: /error:\s*could not read file .*\/git-rebase-todo': No such file or directory/,
@@ -141,6 +143,8 @@ export const GitErrors = {
 	unmergedChanges: /error:\s*you need to resolve your current index first/i,
 	unmergedFiles: /is not possible because you have unmerged files|You have unmerged files/i,
 	unresolvedConflicts: /You must edit all merge conflicts|Resolve all conflicts/i,
+	unsafeRepository:
+		/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m,
 	unstagedChanges: /You have unstaged changes/i,
 };
 
@@ -163,6 +167,11 @@ export const GitWarnings = {
 	tipBehind: /tip of your current branch is behind/i,
 };
 
+const fatalPrefixRegex = /fatal:\s*/g;
+const newlineOrReturnRegex = /\r?\n|\r/g;
+const ignoreRevsFileArgRegex = /^--ignore-revs-file\s*=?\s*(.*)$/;
+const trailingNewlineRegex = /[\r|\n]+$/;
+
 function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): void {
 	if (isCancellationError(ex)) throw ex;
 
@@ -174,8 +183,8 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 				Logger.warn(
 					`[${cwd}] Git ${msg
 						.trim()
-						.replace(/fatal:\s*/g, '')
-						.replace(/\r?\n|\r/g, ` \u2022 `)}${duration}`,
+						.replace(fatalPrefixRegex, '')
+						.replace(newlineOrReturnRegex, ` \u2022 `)}${duration}`,
 				);
 				return;
 			}
@@ -336,13 +345,7 @@ export class Git implements Disposable {
 
 			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-			args.unshift(
-				'-c',
-				'core.quotepath=false',
-				'-c',
-				'color.ui=false',
-				...(configs != null ? configs : emptyArray),
-			);
+			args.unshift('-c', 'core.quotepath=false', '-c', 'color.ui=false', ...(configs ?? emptyArray));
 
 			if (process.platform === 'win32') {
 				args.unshift('-c', 'core.longpaths=true');
@@ -618,9 +621,7 @@ export class Git implements Disposable {
 	private _gitLocationPromise: Promise<GitLocation> | undefined;
 	private async getLocation(): Promise<GitLocation> {
 		if (this._gitLocation == null) {
-			if (this._gitLocationPromise == null) {
-				this._gitLocationPromise = this._gitLocator();
-			}
+			this._gitLocationPromise ??= this._gitLocator();
 			this._gitLocation = await this._gitLocationPromise;
 		}
 		return this._gitLocation;
@@ -712,7 +713,7 @@ export class Git implements Disposable {
 				arg => arg !== '--ignore-revs-file' && arg.startsWith('--ignore-revs-file'),
 			);
 			if (argIndex !== -1) {
-				const match = /^--ignore-revs-file\s*=?\s*(.*)$/.exec(options.args[argIndex]);
+				const match = ignoreRevsFileArgRegex.exec(options.args[argIndex]);
 				if (match != null) {
 					options.args.splice(argIndex, 1, '--ignore-revs-file', match[1]);
 				}
@@ -1131,7 +1132,7 @@ export class Git implements Disposable {
 			);
 
 			if (options?.force?.withLease && error.details.reason === 'rejected') {
-				if (ex.stderr && /! \[rejected\].*\(stale info\)/m.test(ex.stderr)) {
+				if (ex.stderr && GitErrors.pushRejectedStaleInfo.test(ex.stderr)) {
 					throw new PushError(
 						{
 							reason: 'rejectedWithLease',
@@ -1145,7 +1146,7 @@ export class Git implements Disposable {
 				if (
 					options.force.ifIncludes &&
 					ex.stderr &&
-					/! \[rejected\].*\(remote ref updated since checkout\)/m.test(ex.stderr)
+					GitErrors.pushRejectedRemoteRefUpdated.test(ex.stderr)
 				) {
 					throw new PushError(
 						{
@@ -1305,7 +1306,7 @@ export class Git implements Disposable {
 			if (!repoPath) return emptyArray as [];
 
 			// Normalize repo path: https://github.com/git-for-windows/git/issues/2478
-			const normalizedRepoPath = normalizePath(repoPath.replace(/[\r|\n]+$/, ''));
+			const normalizedRepoPath = normalizePath(repoPath.replace(trailingNewlineRegex, ''));
 
 			// Normalize git dir paths (may be relative)
 			let gitDir = dotGitPath;
@@ -1329,7 +1330,7 @@ export class Git implements Disposable {
 
 			// Normalize superproject path if present (4th line only exists for submodules)
 			const normalizedSuperprojectPath = superprojectPath
-				? normalizePath(superprojectPath.replace(/[\r|\n]+$/, ''))
+				? normalizePath(superprojectPath.replace(trailingNewlineRegex, ''))
 				: undefined;
 
 			return {
@@ -1341,10 +1342,7 @@ export class Git implements Disposable {
 		} catch (ex) {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 
-			const unsafeMatch =
-				/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
-					ex.stderr,
-				);
+			const unsafeMatch = GitErrors.unsafeRepository.exec(ex.stderr);
 			if (unsafeMatch != null) {
 				Logger.warn(
 					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
@@ -1354,7 +1352,7 @@ export class Git implements Disposable {
 				return [false];
 			}
 
-			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
+			const inDotGit = GitWarnings.mustRunInWorkTree.test(ex.stderr);
 			// Check if we are in a bare clone
 			if (inDotGit && workspace.isTrusted) {
 				result = await this.exec({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
@@ -1411,14 +1409,11 @@ export class Git implements Disposable {
 			// Keep trailing spaces which are part of the directory name
 			return !result.stdout
 				? (emptyArray as [])
-				: [true, normalizePath(result.stdout.trimStart().replace(/[\r|\n]+$/, ''))];
+				: [true, normalizePath(result.stdout.trimStart().replace(trailingNewlineRegex, ''))];
 		} catch (ex) {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 
-			const unsafeMatch =
-				/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
-					ex.stderr,
-				);
+			const unsafeMatch = GitErrors.unsafeRepository.exec(ex.stderr);
 			if (unsafeMatch != null) {
 				Logger.warn(
 					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
@@ -1428,7 +1423,7 @@ export class Git implements Disposable {
 				return [false];
 			}
 
-			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
+			const inDotGit = GitWarnings.mustRunInWorkTree.test(ex.stderr);
 			// Check if we are in a bare clone
 			if (inDotGit && workspace.isTrusted) {
 				result = await this.exec({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
@@ -1678,8 +1673,8 @@ export class Git implements Disposable {
 						? 'cancelled'
 						: (ex.message || String(ex) || '')
 								.trim()
-								.replace(/fatal:\s*/g, '')
-								.replace(/\r?\n|\r/g, ` \u2022 `)
+								.replace(fatalPrefixRegex, '')
+								.replace(newlineOrReturnRegex, ` \u2022 `)
 				} [${duration}ms]${status}`,
 			);
 		} else if (slow) {

@@ -1,13 +1,17 @@
+const summaryTagRegex = /<summary>([\s\S]*?)(?:<\/summary>|$)/;
+const bodyTagRegex = /<body>([\s\S]*?)(?:<\/body>|$)/;
+const codeBlockRegex = /```([\s\S]*?)```/;
+
 export function parseSummarizeResult(result: string): { readonly summary: string; readonly body: string } {
 	result = result.trim();
-	const summary = result.match(/<summary>([\s\S]*?)(?:<\/summary>|$)/)?.[1]?.trim() ?? undefined;
+	const summary = result.match(summaryTagRegex)?.[1]?.trim() ?? undefined;
 	if (summary != null) {
-		result = result.replace(/<summary>[\s\S]*?(?:<\/summary>|$)/, '').trim();
+		result = result.replace(summaryTagRegex, '').trim();
 	}
 
-	let body = result.match(/<body>([\s\S]*?)(?:<\/body>|$)/)?.[1]?.trim() ?? undefined;
+	let body = result.match(bodyTagRegex)?.[1]?.trim() ?? undefined;
 	if (body != null) {
-		result = result.replace(/<body>[\s\S]*?(?:<\/body>|$)/, '').trim();
+		result = result.replace(bodyTagRegex, '').trim();
 	}
 
 	// Check for self-closing body tag
@@ -33,8 +37,9 @@ export function parseSummarizeResult(result: string): { readonly summary: string
 
 	return { summary: summary ?? '', body: body ?? '' };
 }
+
 export function splitMessageIntoSummaryAndBody(message: string): { readonly summary: string; readonly body: string } {
-	message = message.replace(/```([\s\S]*?)```/, '$1').trim();
+	message = message.replace(codeBlockRegex, '$1').trim();
 	const index = message.indexOf('\n');
 	if (index === -1) return { summary: message, body: '' };
 

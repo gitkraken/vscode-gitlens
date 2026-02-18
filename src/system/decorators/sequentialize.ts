@@ -59,7 +59,7 @@ export function sequentialize<T extends (...arg: any) => any>(
 			const queueKey = getQueueKey?.(...(args as Parameters<T>)) ?? '';
 			const prop = queueKey ? `${serializeKey}$${queueKey}` : serializeKey;
 
-			if (!Object.prototype.hasOwnProperty.call(this, prop)) {
+			if (!Object.hasOwn(this, prop)) {
 				Object.defineProperty(this, prop, {
 					configurable: false,
 					enumerable: false,

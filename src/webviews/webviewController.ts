@@ -669,17 +669,13 @@ export class WebviewController<
 
 	private _webRoot: string | undefined;
 	getWebRoot(): string {
-		if (this._webRoot == null) {
-			this._webRoot = this.asWebviewUri(this.getWebRootUri()).toString();
-		}
+		this._webRoot ??= this.asWebviewUri(this.getWebRootUri()).toString();
 		return this._webRoot;
 	}
 
 	private _webRootUri: Uri | undefined;
 	getWebRootUri(): Uri {
-		if (this._webRootUri == null) {
-			this._webRootUri = Uri.joinPath(this.getRootUri(), 'dist', 'webviews');
-		}
+		this._webRootUri ??= Uri.joinPath(this.getRootUri(), 'dist', 'webviews');
 		return this._webRootUri;
 	}
 
@@ -947,6 +943,9 @@ export class WebviewController<
 	}
 }
 
+const htmlTokensRegex =
+	/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot|state)}/g;
+
 export function replaceWebviewHtmlTokens<SerializedState>(
 	html: string,
 	webviewId: string,
@@ -961,45 +960,42 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	body?: string,
 	endOfBody?: string,
 ): string {
-	return html.replace(
-		/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot|state)}/g,
-		(_substring: string, token: string) => {
-			switch (token) {
-				case 'head':
-					return head ?? '';
-				case 'body':
-					return body ?? '';
-				case 'state':
-					return bootstrap != null
-						? base64(typeof bootstrap === 'string' ? bootstrap : JSON.stringify(bootstrap))
-						: '';
-				case 'endOfBody':
-					return `${
-						bootstrap != null
-							? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${
-									typeof bootstrap === 'string' ? bootstrap : JSON.stringify(bootstrap)
-								};</script>`
-							: ''
-					}${endOfBody ?? ''}`;
-				case 'webviewId':
-					return webviewId;
-				case 'webviewInstanceId':
-					return webviewInstanceId ?? '';
-				case 'placement':
-					return placement;
-				case 'cspSource':
-					return cspSource;
-				case 'cspNonce':
-					return cspNonce;
-				case 'root':
-					return root;
-				case 'webroot':
-					return webRoot;
-				default:
-					return '';
-			}
-		},
-	);
+	return html.replace(htmlTokensRegex, (_substring: string, token: string) => {
+		switch (token) {
+			case 'head':
+				return head ?? '';
+			case 'body':
+				return body ?? '';
+			case 'state':
+				return bootstrap != null
+					? base64(typeof bootstrap === 'string' ? bootstrap : JSON.stringify(bootstrap))
+					: '';
+			case 'endOfBody':
+				return `${
+					bootstrap != null
+						? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${
+								typeof bootstrap === 'string' ? bootstrap : JSON.stringify(bootstrap)
+							};</script>`
+						: ''
+				}${endOfBody ?? ''}`;
+			case 'webviewId':
+				return webviewId;
+			case 'webviewInstanceId':
+				return webviewInstanceId ?? '';
+			case 'placement':
+				return placement;
+			case 'cspSource':
+				return cspSource;
+			case 'cspNonce':
+				return cspNonce;
+			case 'root':
+				return root;
+			case 'webroot':
+				return webRoot;
+			default:
+				return '';
+		}
+	});
 }
 
 export function resetContextKeys(

@@ -21,30 +21,26 @@ export class Emitter<T> {
 	 * to events from this Emitter
 	 */
 	get event(): Event<T> {
-		if (this._event == null) {
-			this._event = (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: Disposable[]) => {
-				if (this.listeners == null) {
-					this.listeners = new LinkedList();
-				}
+		this._event ??= (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: Disposable[]) => {
+			this.listeners ??= new LinkedList();
 
-				const remove = this.listeners.push(thisArgs == null ? listener : [listener, thisArgs]);
+			const remove = this.listeners.push(thisArgs == null ? listener : [listener, thisArgs]);
 
-				const result = {
-					dispose: () => {
-						result.dispose = Emitter._noop;
-						if (!this._disposed) {
-							remove();
-						}
-					},
-				};
-
-				if (Array.isArray(disposables)) {
-					disposables.push(result);
-				}
-
-				return result;
+			const result = {
+				dispose: () => {
+					result.dispose = Emitter._noop;
+					if (!this._disposed) {
+						remove();
+					}
+				},
 			};
-		}
+
+			if (Array.isArray(disposables)) {
+				disposables.push(result);
+			}
+
+			return result;
+		};
 		return this._event;
 	}
 
@@ -58,9 +54,7 @@ export class Emitter<T> {
 			// then emit all event. an inner/nested event might be
 			// the driver of this
 
-			if (this._deliveryQueue == null) {
-				this._deliveryQueue = new LinkedList();
-			}
+			this._deliveryQueue ??= new LinkedList();
 
 			for (let iter = this.listeners.iterator(), e = iter.next(); !e.done; e = iter.next()) {
 				this._deliveryQueue.push([e.value, event]);

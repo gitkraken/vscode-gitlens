@@ -1139,9 +1139,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			id: string,
 			missingTypes: GraphMissingRefsMetadataType[],
 		) {
-			if (this._refsMetadata == null) {
-				this._refsMetadata = new Map();
-			}
+			this._refsMetadata ??= new Map();
 
 			const branch = (
 				await this.container.git
@@ -1264,7 +1262,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 							return (
 								await Promise.all(
-									[...enrichedAutolinks.values()].map(async ([issueOrPullRequestPromise]) =>
+									Array.from(enrichedAutolinks.values(), async ([issueOrPullRequestPromise]) =>
 										// eslint-disable-next-line no-return-await
 										issueOrPullRequestPromise != null ? await issueOrPullRequestPromise : undefined,
 									),
@@ -1908,9 +1906,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this.repository == null) return undefined;
 
 		let branch = find(this._graph!.branches.values(), b => b.current);
-		if (branch == null) {
-			branch = await this.repository.git.branches.getBranch();
-		}
+		branch ??= await this.repository.git.branches.getBranch();
 
 		return branch?.sha != null
 			? {
@@ -2017,10 +2013,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		if (this._notifyDidChangeAvatarsDebounced == null) {
-			this._notifyDidChangeAvatarsDebounced = debounce(this.notifyDidChangeAvatars.bind(this), 100);
-		}
-
+		this._notifyDidChangeAvatarsDebounced ??= debounce(this.notifyDidChangeAvatars.bind(this), 100);
 		void this._notifyDidChangeAvatarsDebounced();
 	}
 
@@ -2052,10 +2045,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		if (this._notifyDidChangeRefsMetadataDebounced == null) {
-			this._notifyDidChangeRefsMetadataDebounced = debounce(this.notifyDidChangeRefsMetadata.bind(this), 100);
-		}
-
+		this._notifyDidChangeRefsMetadataDebounced ??= debounce(this.notifyDidChangeRefsMetadata.bind(this), 100);
 		void this._notifyDidChangeRefsMetadataDebounced();
 	}
 
@@ -4781,7 +4771,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		let scrollMarkers = configuration.get('graph.scrollMarkers.additionalTypes');
 		let updated = false;
 		if (enabled && !scrollMarkers.includes(type)) {
-			scrollMarkers = scrollMarkers.concat(type);
+			scrollMarkers = [...scrollMarkers, type];
 			updated = true;
 		} else if (!enabled && scrollMarkers.includes(type)) {
 			scrollMarkers = scrollMarkers.filter(marker => marker !== type);

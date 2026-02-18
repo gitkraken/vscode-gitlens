@@ -226,7 +226,7 @@ export class RebaseTodoDocument {
 		if (sortedLines.length === 0) return;
 
 		const firstLine = sortedLines[0];
-		const lastLine = sortedLines[sortedLines.length - 1];
+		const lastLine = sortedLines.at(-1)!;
 
 		// Build new content with entries in new order, each followed by its update-refs
 		const newLines: string[] = [];

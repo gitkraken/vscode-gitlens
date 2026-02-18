@@ -55,9 +55,7 @@ export class UsageTracker implements Disposable {
 
 	async track(key: TrackedUsageKeys): Promise<void> {
 		let usages = this.storage.get('usages');
-		if (usages == null) {
-			usages = Object.create(null) as NonNullable<typeof usages>;
-		}
+		usages ??= Object.create(null) as NonNullable<typeof usages>;
 
 		const usedAt = Date.now();
 

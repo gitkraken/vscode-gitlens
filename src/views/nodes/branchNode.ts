@@ -370,7 +370,7 @@ export class BranchNode
 
 				if (log.hasMore) {
 					children.push(
-						new LoadMoreNode(this.view, this, children[children.length - 1], {
+						new LoadMoreNode(this.view, this, children.at(-1)!, {
 							getCount: () =>
 								this.view.container.git
 									.getRepositoryService(branch.repoPath)
