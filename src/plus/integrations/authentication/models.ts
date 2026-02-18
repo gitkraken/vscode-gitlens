@@ -1,5 +1,4 @@
 import type { AuthenticationSession } from 'vscode';
-import { md5 } from '@env/crypto.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
@@ -9,6 +8,7 @@ import {
 	supportedOrderedCloudIssuesIntegrationIds,
 } from '../../../constants.integrations.js';
 import { configuration } from '../../../system/-webview/configuration.js';
+import { fnv1aHash } from '../../../system/hash.js';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly cloud: boolean;
@@ -70,7 +70,7 @@ function microhash(token: undefined): undefined;
 function microhash(token: string): string;
 function microhash(token: string | undefined): string | undefined;
 function microhash(token: string | undefined): string | undefined {
-	return !token ? undefined : `@${md5(token, 'hex').substring(0, 3)}`;
+	return !token ? undefined : `@${(fnv1aHash(token) >>> 0).toString(16).padStart(8, '0').substring(0, 3)}`;
 }
 
 export type TokenOptInfo<T extends IntegrationIds = IntegrationIds> =
