@@ -1,6 +1,5 @@
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, ExtensionMode, LogLevel, Uri, window, workspace } from 'vscode';
-import { md5 } from '@env/crypto.js';
 import { hrtime } from '@env/hrtime.js';
 import { isWeb } from '@env/platform.js';
 import { Api } from './api/api.js';
@@ -36,6 +35,7 @@ import { isWorkspaceFolder } from './system/-webview/vscode/workspaces.js';
 import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode.js';
 import { setDefaultDateLocales } from './system/date.js';
 import { once } from './system/event.js';
+import { fnv1aHash } from './system/hash.js';
 import { isLoggable } from './system/loggable.js';
 import { getLoggableName, Logger } from './system/logger.js';
 import { flatten } from './system/object.js';
@@ -97,7 +97,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 				return undefined;
 			},
 			hash: function (data: string) {
-				return md5(data).slice(0, 4);
+				return (fnv1aHash(data) >>> 0).toString(16).padStart(8, '0').slice(0, 4);
 			},
 		},
 		context.extensionMode === ExtensionMode.Development,
