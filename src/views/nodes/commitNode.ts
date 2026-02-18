@@ -316,7 +316,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				outputFormat: 'markdown',
 				remotes: remotes,
 				unpublished: this.unpublished,
-				signed: signature?.value != null,
+				signed: signature?.value === true,
 			},
 		);
 
