@@ -4,8 +4,7 @@ import type { Stats } from 'fs';
 import { access, constants, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import { Logger } from '../../../system/logger.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
+import { getScopedLogger, maybeStartLoggableScope } from '../../../system/logger.scope.js';
 import { normalizePath } from '../../../system/path.js';
 import { CancelledRunError, RunError } from './shell.errors.js';
 
@@ -180,12 +179,14 @@ export function run<T extends number | string>(
 	encoding: BufferEncoding | string,
 	options?: RunOptions<BufferEncoding> & { exitCodeOnly?: boolean },
 ): Promise<T> {
+	const scope = getScopedLogger() ?? maybeStartLoggableScope('Shell.run');
+
 	const { stdin, stdinEncoding, ...opts }: RunOptions<BufferEncoding> & ExecFileOptions = {
 		maxBuffer: 1000 * 1024 * 1024,
 		...options,
 	};
 
-	return new Promise<T>((resolve, reject) => {
+	const promise = new Promise<T>((resolve, reject) => {
 		const proc = execFile(command, args, opts, async (error: ExecFileException | null, stdout, stderr) => {
 			if (options?.exitCodeOnly) {
 				resolve((error?.code ?? proc.exitCode) as T);
@@ -229,8 +230,8 @@ export function run<T extends number | string>(
 				return;
 			}
 
-			if (stderr && Logger.enabled('debug')) {
-				Logger.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
+			if (stderr && scope?.enabled('debug')) {
+				scope?.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 			}
 
 			if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
@@ -245,6 +246,8 @@ export function run<T extends number | string>(
 			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
 		}
 	});
+
+	return promise.finally(() => scope?.[Symbol.dispose]());
 }
 
 export interface RunExitResult {
@@ -274,11 +277,11 @@ export function runSpawn<T extends string | Buffer>(
 	encoding: BufferEncoding | 'buffer' | string,
 	options: RunOptions & { exitCodeOnly?: boolean },
 ): Promise<RunExitResult | RunResult<T>> {
-	const scope = getScopedLogger();
+	const scope = getScopedLogger() ?? maybeStartLoggableScope('Shell.runSpawn');
 
 	const { stdin, stdinEncoding, ...opts }: RunOptions = options;
 
-	return new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
+	const promise = new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
 		const proc = spawn(command, args, opts);
 
 		const stdoutBuffers: Buffer[] = [];
@@ -327,8 +330,8 @@ export function runSpawn<T extends string | Buffer>(
 			if (code !== 0 || signal) {
 				const stdio = getStdio<string>('utf8');
 				const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
-				if (stderr.length && Logger.enabled('debug')) {
-					Logger.warn(scope, `[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
+				if (stderr.length && scope?.enabled('debug')) {
+					scope?.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 				}
 
 				if (signal === 'SIGTERM') {
@@ -354,9 +357,8 @@ export function runSpawn<T extends string | Buffer>(
 
 			const stdio = getStdio<T>(encoding);
 			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
-			if (stderr.length && Logger.enabled('debug')) {
-				Logger.warn(
-					scope,
+			if (stderr.length && scope?.enabled('debug')) {
+				scope?.warn(
 					`[SHELL] '${command} ${args.join(' ')}' \u2022 ${typeof stderr === 'string' ? stderr : stderr.toString()}`,
 				);
 			}
@@ -372,6 +374,8 @@ export function runSpawn<T extends string | Buffer>(
 			}
 		}
 	});
+
+	return promise.finally(() => scope?.[Symbol.dispose]());
 }
 
 export async function fsExists(path: string): Promise<boolean> {

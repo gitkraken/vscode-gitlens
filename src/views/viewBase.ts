@@ -915,11 +915,11 @@ export abstract class ViewBase<
 		return this.tree?.visible ?? false;
 	}
 
-	@debug<ViewBase<Type, RootNode, ViewConfig>['findNode']>({
-		args: {
-			0: '<function>',
-			1: opts => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`,
-		},
+	@debug({
+		args: (_predicate, options) => ({
+			predicate: '<function>',
+			options: `options=${JSON.stringify({ ...options, canTraverse: undefined, token: undefined })}`,
+		}),
 	})
 	async findNode(
 		predicate: (node: ViewNode) => boolean,
@@ -945,7 +945,7 @@ export abstract class ViewBase<
 
 				return node;
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				return undefined;
 			}
 		}
@@ -1057,7 +1057,7 @@ export abstract class ViewBase<
 		this.triggerNodeChange();
 	}
 
-	@trace<ViewBase<Type, RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
+	@trace()
 	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false): Promise<void> {
 		const result = await node.refresh?.(reset);
 		if (!force && result?.cancel === true) return;
@@ -1065,7 +1065,7 @@ export abstract class ViewBase<
 		this.triggerNodeChange(node);
 	}
 
-	@debug<ViewBase<Type, RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
+	@debug()
 	async reveal(node: ViewNode, options?: RevealOptions): Promise<void> {
 		if (this.initialized.pending) {
 			await this.initialized.promise;
@@ -1076,11 +1076,8 @@ export abstract class ViewBase<
 
 	async revealDeep(node: ViewNode, options?: RevealOptions): Promise<void>;
 	async revealDeep(node: ViewNode, parents: ViewNode[], options?: RevealOptions): Promise<void>;
-	@debug<ViewBase<Type, RootNode, ViewConfig>['revealDeep']>({
-		args: {
-			0: n => n.toString(),
-			1: false,
-		},
+	@debug({
+		args: (node, _parents, options) => ({ node: node, options: options }),
 	})
 	async revealDeep(
 		node: ViewNode,
@@ -1125,7 +1122,7 @@ export abstract class ViewBase<
 			await this.tree?.reveal(node, options);
 		} catch (ex) {
 			if (!node.id || root == null) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				debugger;
 			}
 		}
@@ -1145,18 +1142,16 @@ export abstract class ViewBase<
 
 			void (await executeCoreCommand(command, options));
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 
-	// @trace({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
+	// @debug({ args: { 0: (n: ViewNode) => n.toString() }, onlyExit: true })
 	getNodeLastKnownLimit(node: PageableViewNode): number | undefined {
 		return this._lastKnownLimits.get(node.id);
 	}
 
-	@trace<ViewBase<Type, RootNode, ViewConfig>['loadMoreNodeChildren']>({
-		args: { 0: n => n.toString(), 2: n => n?.toString() },
-	})
+	@trace()
 	async loadMoreNodeChildren(
 		node: ViewNode & PageableViewNode,
 		limit: number | { until: string | undefined } | undefined,
@@ -1171,10 +1166,7 @@ export abstract class ViewBase<
 		this._lastKnownLimits.set(node.id, node.limit);
 	}
 
-	@trace<ViewBase<Type, RootNode, ViewConfig>['resetNodeLastKnownLimit']>({
-		args: { 0: n => n.toString() },
-		singleLine: true,
-	})
+	@trace({ onlyExit: true })
 	resetNodeLastKnownLimit(node: PageableViewNode): void {
 		this._lastKnownLimits.delete(node.id);
 	}
@@ -1182,7 +1174,7 @@ export abstract class ViewBase<
 	private _pendingNodeChanges = new Set<ViewNode | undefined>();
 	private _processingNodeChanges = false;
 
-	@trace<ViewBase<Type, RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
+	@trace()
 	triggerNodeChange(node?: ViewNode): void {
 		// Since the root node won't actually refresh, force everything
 		const target = node != null && node !== this.root ? node : undefined;

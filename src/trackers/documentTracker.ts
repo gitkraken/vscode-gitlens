@@ -403,7 +403,7 @@ export class GitDocumentTracker implements Disposable {
 		}
 	}
 
-	@trace({ args: { 1: false } })
+	@trace({ args: (document, _tracked) => ({ document: document }) })
 	private async remove(document: TextDocument, tracked?: TrackedGitDocument): Promise<void> {
 		let docPromise;
 		if (tracked != null) {

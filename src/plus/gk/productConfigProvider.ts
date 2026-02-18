@@ -4,8 +4,8 @@ import type { Container } from '../../container.js';
 import { deviceCohortGroup } from '../../system/-webview/vscode.js';
 import type { Lazy } from '../../system/lazy.js';
 import { lazy } from '../../system/lazy.js';
-import { getLoggableName, Logger } from '../../system/logger.js';
-import { startScopedLogger } from '../../system/logger.scope.js';
+import { getLoggableName } from '../../system/logger.js';
+import { maybeStartLoggableScope } from '../../system/logger.scope.js';
 import type { Validator } from '../../system/validation.js';
 import { createValidator, Is } from '../../system/validation.js';
 import type { Promo, PromoLocation, PromoPlans } from './models/promo.js';
@@ -70,7 +70,7 @@ export class ProductConfigProvider {
 
 	constructor(container: Container, connection: ServerConnection) {
 		this._lazyConfig = lazy(async () => {
-			using scope = startScopedLogger(`${getLoggableName(this)}.load`, false);
+			using scope = maybeStartLoggableScope(`${getLoggableName(this)}.load`);
 
 			let data;
 			const failed = {
@@ -113,7 +113,7 @@ export class ProductConfigProvider {
 				}
 			} catch (ex) {
 				failed.exception = ex;
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				debugger;
 			}
 

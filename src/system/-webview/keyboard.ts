@@ -2,8 +2,7 @@ import { Disposable } from 'vscode';
 import type { Keys } from '../../constants.js';
 import { extensionPrefix, keys } from '../../constants.js';
 import { debug } from '../decorators/log.js';
-import { Logger } from '../logger.js';
-import { getScopedLogger, setLogScopeExit } from '../logger.scope.js';
+import { getScopedLogger } from '../logger.scope.js';
 import { registerCommand } from './command.js';
 import { setContext } from './context.js';
 
@@ -38,7 +37,7 @@ export class KeyboardScope implements Disposable {
 		const index = mappings.indexOf(this._mapping);
 
 		const scope = getScopedLogger();
-		setLogScopeExit(scope, ` \u2022 index=${index}`);
+		scope?.addExitInfo(`index=${index}`);
 
 		if (index === mappings.length - 1) {
 			mappings.pop();
@@ -53,7 +52,7 @@ export class KeyboardScope implements Disposable {
 		return this._paused;
 	}
 
-	@debug<KeyboardScope['clearKeyCommand']>({
+	@debug({
 		args: false,
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
@@ -62,7 +61,7 @@ export class KeyboardScope implements Disposable {
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping || mapping[key] == null) {
-			setLogScopeExit(scope, ' \u2022 skipped');
+			scope?.addExitInfo('skipped');
 
 			return;
 		}
@@ -102,7 +101,7 @@ export class KeyboardScope implements Disposable {
 		await this.resume();
 	}
 
-	@debug<KeyboardScope['setKeyCommand']>({
+	@debug({
 		args: false,
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
@@ -111,7 +110,7 @@ export class KeyboardScope implements Disposable {
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping) {
-			setLogScopeExit(scope, ' \u2022 skipped');
+			scope?.addExitInfo('skipped');
 
 			return;
 		}
@@ -143,7 +142,7 @@ export class Keyboard implements Disposable {
 		this._disposable.dispose();
 	}
 
-	@debug<Keyboard['createScope']>({
+	@debug({
 		args: false,
 		prefix: (context, mapping) =>
 			`${context.prefix}[${mappings.length}](${mapping === undefined ? '' : Object.keys(mapping).join(',')})`,
@@ -152,7 +151,7 @@ export class Keyboard implements Disposable {
 		return new KeyboardScope({ ...mapping });
 	}
 
-	@debug<Keyboard['beginScope']>({
+	@debug({
 		args: false,
 		prefix: (context, mapping) =>
 			`${context.prefix}[${mappings.length}](${mapping === undefined ? '' : Object.keys(mapping).join(',')})`,
@@ -168,7 +167,7 @@ export class Keyboard implements Disposable {
 		const scope = getScopedLogger();
 
 		if (!mappings.length) {
-			setLogScopeExit(scope, ' \u2022 skipped, no mappings');
+			scope?.addExitInfo('skipped, no mappings');
 
 			return;
 		}
@@ -181,14 +180,14 @@ export class Keyboard implements Disposable {
 				command = await command();
 			}
 			if (typeof command?.onDidPressKey !== 'function') {
-				setLogScopeExit(scope, ' \u2022 skipped, no callback');
+				scope?.addExitInfo('skipped, no callback');
 
 				return;
 			}
 
 			await command.onDidPressKey(key);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 }

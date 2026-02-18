@@ -13,7 +13,7 @@ export async function getRemoteHubApi(silent?: boolean): Promise<RemoteHubApi | 
 			extensions.getExtension<RemoteHubApi>('ms-vscode.remote-repositories') ??
 			extensions.getExtension<RemoteHubApi>('GitHub.remotehub');
 		if (extension == null) {
-			Logger.debug('GitHub Repositories extension is not installed or enabled');
+			Logger.info('GitHub Repositories extension is not installed or enabled');
 			throw new ExtensionNotFoundError('GitHub Repositories', 'GitHub.remotehub');
 		}
 

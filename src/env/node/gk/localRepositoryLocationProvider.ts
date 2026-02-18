@@ -8,7 +8,6 @@ import type {
 import type { LocalRepoDataMap } from '../../../git/models/pathMapping.js';
 import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider.js';
 import { debug, trace } from '../../../system/decorators/log.js';
-import { Logger } from '../../../system/logger.js';
 import { getScopedLogger } from '../../../system/logger.scope.js';
 
 export class LocalRepositoryLocationProvider implements RepositoryLocationProvider, Disposable {
@@ -71,7 +70,7 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 			const data = await workspace.fs.readFile(localFileUri);
 			this._localRepoDataMap = (JSON.parse(data.toString()) ?? {}) as LocalRepoDataMap;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 
@@ -91,7 +90,7 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 		}
 	}
 
-	@debug<LocalRepositoryLocationProvider['storeLocations']>({ args: { 0: entries => entries.length } })
+	@debug({ args: entries => ({ entries: entries.length }) })
 	async storeLocations(entries: RepositoryLocationEntry[]): Promise<void> {
 		if (!entries.length) return;
 
@@ -126,7 +125,7 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 
@@ -149,7 +148,7 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 

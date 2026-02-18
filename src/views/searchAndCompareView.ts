@@ -98,7 +98,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		this.view.triggerNodeChange();
 	}
 
-	@debug<SearchAndCompareViewNode['dismiss']>({ args: { 0: n => n.toString() } })
+	@debug()
 	dismiss(node: CompareResultsNode | SearchResultsNode): void {
 		node.dismiss();
 

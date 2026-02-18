@@ -407,14 +407,13 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		return this.repo.etag;
 	}
 
-	@trace<RepositoryNode['onFileSystemChanged']>({
-		args: {
-			0: e =>
-				`{ repository: ${e.repository.name ?? ''}, uris(${e.uris.size}): [${join(
-					map(slice(e.uris, 0, 1), u => u.fsPath),
-					', ',
-				)}${e.uris.size > 1 ? ', ...' : ''}] }`,
-		},
+	@trace({
+		args: e => ({
+			e: `{ repository: ${e.repository.name ?? ''}, uris(${e.uris.size}): [${join(
+				map(slice(e.uris, 0, 1), u => u.fsPath),
+				', ',
+			)}${e.uris.size > 1 ? ', ...' : ''}] }`,
+		}),
 	})
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
 		this._status = this.repo.git.status.getStatus();
@@ -441,7 +440,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		void this.triggerChange(false);
 	}
 
-	@trace<RepositoryNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
+	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();

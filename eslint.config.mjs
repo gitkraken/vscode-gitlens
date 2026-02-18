@@ -11,6 +11,7 @@ import { configs as litConfigs } from 'eslint-plugin-lit';
 import { configs as wcConfigs } from 'eslint-plugin-wc';
 import noSrcImports from './scripts/eslint-rules/no-src-imports.mjs';
 import noEnvWithoutJs from './scripts/eslint-rules/no-env-without-js.mjs';
+import logScopeUsage from './scripts/eslint-rules/scoped-logger-usage.mjs';
 import reactCompiler from 'eslint-plugin-react-compiler';
 import { fileURLToPath } from 'node:url';
 
@@ -167,12 +168,19 @@ export default defineConfig(
 			// @ts-ignore
 			'anti-trojan-source': antiTrojanSource,
 			// @ts-ignore
-			'@gitlens': { rules: { 'no-src-imports': noSrcImports, 'no-env-without-js': noEnvWithoutJs } },
+			'@gitlens': {
+				rules: {
+					'no-src-imports': noSrcImports,
+					'no-env-without-js': noEnvWithoutJs,
+					'scoped-logger-usage': logScopeUsage,
+				},
+			},
 		},
 		rules: {
 			// Custom rules
 			'@gitlens/no-src-imports': 'error',
 			'@gitlens/no-env-without-js': 'error',
+			'@gitlens/scoped-logger-usage': 'error',
 			'anti-trojan-source/no-bidi': 'error',
 
 			// Core JavaScript rules

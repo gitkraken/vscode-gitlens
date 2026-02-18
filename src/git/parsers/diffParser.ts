@@ -113,7 +113,7 @@ function parseHunkHeaderPart(headerPart: string) {
 }
 
 export function parseGitDiff(data: string, includeRawContent = false): ParsedGitDiff {
-	using sw = maybeStopWatch('Git.parseDiffFiles', { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch('Git.parseDiffFiles', { log: { onlyExit: true, level: 'debug' } });
 
 	const parsed: ParsedGitDiff = { files: [], rawContent: includeRawContent ? data : undefined };
 
@@ -224,7 +224,7 @@ export function countDiffLines(file: ParsedGitDiffFile): number {
 }
 
 export function parseGitFileDiff(data: string, includeRawContent = false): ParsedGitDiffHunks | undefined {
-	using sw = maybeStopWatch('Git.parseFileDiff', { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch('Git.parseFileDiff', { log: { onlyExit: true, level: 'debug' } });
 	if (!data) {
 		sw?.stop({ suffix: ` no data` });
 		return undefined;
@@ -349,7 +349,7 @@ export function parseGitFileDiff(data: string, includeRawContent = false): Parse
 }
 
 export function parseGitDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
-	using sw = maybeStopWatch('Git.parseDiffNameStatusFiles', { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch('Git.parseDiffNameStatusFiles', { log: { onlyExit: true, level: 'debug' } });
 	if (!data) {
 		sw?.stop({ suffix: ` no data` });
 		return undefined;
@@ -382,7 +382,7 @@ export function parseGitDiffNameStatusFiles(data: string, repoPath: string): Git
 }
 
 export function parseGitApplyFiles(container: Container, data: string, repoPath: string): GitFileChange[] {
-	using sw = maybeStopWatch('Git.parseApplyFiles', { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch('Git.parseApplyFiles', { log: { onlyExit: true, level: 'debug' } });
 	if (!data) {
 		sw?.stop({ suffix: ` no data` });
 		return [];
@@ -458,7 +458,7 @@ export function parseGitApplyFiles(container: Container, data: string, repoPath:
 }
 
 export function parseGitDiffShortStat(data: string): GitDiffShortStat | undefined {
-	using sw = maybeStopWatch('Git.parseDiffShortStat', { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch('Git.parseDiffShortStat', { log: { onlyExit: true, level: 'debug' } });
 	if (!data) {
 		sw?.stop({ suffix: ` no data` });
 		return undefined;

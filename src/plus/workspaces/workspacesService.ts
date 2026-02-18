@@ -442,7 +442,7 @@ export class WorkspacesService implements Disposable {
 		// eslint-disable-next-line @typescript-eslint/unified-signatures
 		repository: Repository,
 	): Promise<void>;
-	@debug({ args: { 1: false, 2: false } })
+	@debug({ args: (workspaceId: string) => ({ workspaceId: workspaceId }) })
 	async locateWorkspaceRepo(
 		workspaceId: string,
 		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
@@ -798,7 +798,7 @@ export class WorkspacesService implements Disposable {
 		return repos.filter(repo => !workspaceRepos.find(r => r.id === repo.id));
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: (workspaceId: string) => ({ workspaceId: workspaceId }) })
 	async addCloudWorkspaceRepos(
 		workspaceId: string,
 		options?: { repos?: Repository[]; suppressNotifications?: boolean },
@@ -970,7 +970,7 @@ export class WorkspacesService implements Disposable {
 		);
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: (workspaceId: string) => ({ workspaceId: workspaceId }) })
 	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
@@ -1013,7 +1013,11 @@ export class WorkspacesService implements Disposable {
 			usePathMapping?: boolean;
 		},
 	): Promise<WorkspaceRepositoriesByName>;
-	@debug({ args: { 1: false } })
+	@debug({
+		args: (workspaceOrId: CloudWorkspace | LocalWorkspace | string) => ({
+			workspaceOrId: typeof workspaceOrId === 'string' ? workspaceOrId : workspaceOrId.id,
+		}),
+	})
 	async resolveWorkspaceRepositoriesByName(
 		workspaceOrId: CloudWorkspace | LocalWorkspace | string,
 		options?: {

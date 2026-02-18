@@ -10,7 +10,6 @@ import { getChangedFilesCount } from '../../../../../git/utils/commit.utils.js';
 import { calculateContributionScore } from '../../../../../git/utils/contributor.utils.js';
 import { isUserMatch } from '../../../../../git/utils/user.utils.js';
 import { debug } from '../../../../../system/decorators/log.js';
-import { Logger } from '../../../../../system/logger.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import type { CacheController } from '../../../../../system/promiseCache.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
@@ -197,7 +196,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				};
 			} catch (ex) {
 				cacheable?.invalidate();
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				debugger;
 
 				if (!isCancellationError(ex)) return { contributors: [] };
@@ -278,7 +277,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			}
 			return contributors;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			return [];
 		}
@@ -312,7 +311,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			};
 			return result;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			return undefined;
 		}

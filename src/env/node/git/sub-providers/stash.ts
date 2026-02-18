@@ -341,7 +341,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['stashes'] });
 	}
 
-	@debug<StashGitSubProvider['saveStash']>({ args: { 2: uris => uris?.length } })
+	@debug({ args: (repoPath, message, uris) => ({ repoPath: repoPath, message: message, uris: uris?.length }) })
 	async saveStash(
 		repoPath: string,
 		message?: string,

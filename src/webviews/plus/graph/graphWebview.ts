@@ -765,7 +765,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.container.subscription.getFeaturePreview('graph');
 	}
 
-	@trace<GraphWebviewProvider['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
+	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (
 			!e.changed(

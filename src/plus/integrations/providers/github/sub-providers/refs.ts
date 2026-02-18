@@ -9,7 +9,6 @@ import type { GitTag } from '../../../../../git/models/tag.js';
 import { createReference } from '../../../../../git/utils/reference.utils.js';
 import { createRevisionRange, isShaWithOptionalRevisionSuffix } from '../../../../../git/utils/revision.utils.js';
 import { debug } from '../../../../../system/decorators/log.js';
-import { Logger } from '../../../../../system/logger.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
@@ -54,7 +53,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			);
 			return result?.merge_base_commit?.sha;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			return undefined;
 		}

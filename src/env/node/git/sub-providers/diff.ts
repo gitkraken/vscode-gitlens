@@ -33,7 +33,6 @@ import { configuration } from '../../../../system/-webview/configuration.js';
 import { splitPath } from '../../../../system/-webview/path.js';
 import { debug } from '../../../../system/decorators/log.js';
 import { first } from '../../../../system/iterable.js';
-import { Logger } from '../../../../system/logger.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
 import type { Git } from '../git.js';
 import { gitConfigsDiff, gitConfigsLog, GitErrors } from '../git.js';
@@ -85,7 +84,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				return undefined;
 			}
 
-			Logger.error(scope, ex);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -132,7 +131,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			);
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 
@@ -140,7 +139,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		return diff;
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: repoPath => ({ repoPath: repoPath }) })
 	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
 		const result = await this.git.exec(
 			{ cwd: repoPath, configs: gitConfigsLog, stdin: contents },
@@ -328,7 +327,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				next: GitUri.fromFile(nextPath ?? currentPath, repoPath, (nextSha ?? deletedOrMissing) || undefined),
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -510,7 +509,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				previous: GitUri.fromFile(previousPath ?? currentPath, repoPath, previousSha ?? deletedOrMissing),
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -647,7 +646,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				range: currentRange ?? range,
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -669,7 +668,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				tool = configuration.get('advanced.externalDiffTool') || (await this.getDiffTool(root));
 				if (tool == null) throw new Error('No diff tool found');
 
-				Logger.debug(scope, `Using tool=${tool}`);
+				scope?.debug(`Using tool=${tool}`);
 			}
 
 			await this.git.exec(
@@ -700,7 +699,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				return;
 			}
 
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
@@ -716,7 +715,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				tool = configuration.get('advanced.externalDirectoryDiffTool') || (await this.getDiffTool(repoPath));
 				if (tool == null) throw new Error('No diff tool found');
 
-				Logger.debug(scope, `Using tool=${tool}`);
+				scope?.debug(`Using tool=${tool}`);
 			}
 
 			await this.git.exec({ cwd: repoPath }, 'difftool', '--dir-diff', `--tool=${tool}`, ref1, ref2);
@@ -737,7 +736,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				return;
 			}
 
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			void showGenericErrorMessage('Unable to open directory compare');
 		}
 	}

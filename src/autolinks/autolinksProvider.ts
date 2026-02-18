@@ -166,7 +166,7 @@ export class AutolinksProvider implements Disposable {
 		return getBranchAutolinks(branchName, refsets);
 	}
 
-	@trace<AutolinksProvider['getAutolinks']>({ args: { 0: '<message>', 1: false } })
+	@trace({ args: () => ({ message: '<message>' }) })
 	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>> {
 		const refsets = await this.getRefSets(remote);
 		if (!refsets.length) return emptyAutolinkMap;
@@ -186,12 +186,12 @@ export class AutolinksProvider implements Disposable {
 		autolinks: Map<string, Autolink>,
 		remote: GitRemote | undefined,
 	): Promise<Map<string, EnrichedAutolink> | undefined>;
-	@trace<AutolinksProvider['getEnrichedAutolinks']>({
-		args: {
-			0: messageOrAutolinks =>
+	@trace({
+		args: (messageOrAutolinks, remote) => ({
+			messageOrAutolinks:
 				typeof messageOrAutolinks === 'string' ? '<message>' : `autolinks=${messageOrAutolinks.size}`,
-			1: remote => remote?.remoteKey,
-		},
+			remote: remote?.remoteKey,
+		}),
 	})
 	async getEnrichedAutolinks(
 		messageOrAutolinks: string | Map<string, Autolink>,
@@ -267,13 +267,14 @@ export class AutolinksProvider implements Disposable {
 		return enrichedAutolinks;
 	}
 
-	@trace<AutolinksProvider['linkify']>({
-		args: {
-			0: '<text>',
-			2: remotes => remotes?.length,
-			3: issuesAndPullRequests => issuesAndPullRequests?.size,
-			4: footnotes => footnotes?.size,
-		},
+	@trace({
+		args: (_text, outputFormat, remotes, enrichedAutolinks, prs) => ({
+			text: '<text>',
+			outputFormat: outputFormat,
+			remotes: remotes?.length,
+			enrichedAutolinks: enrichedAutolinks?.size,
+			prs: prs?.size,
+		}),
 	})
 	linkify(
 		text: string,

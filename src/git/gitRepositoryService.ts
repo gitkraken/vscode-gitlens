@@ -75,7 +75,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 		this.getRepository = svc.getRepository.bind(svc, path);
 	}
 
-	@debug<GitRepositoryService['excludeIgnoredUris']>({ args: { 0: uris => uris.length } })
+	@debug({ args: uris => ({ uris: uris.length }) })
 	excludeIgnoredUris(uris: Uri[]): Promise<Uri[]> {
 		return this._provider.excludeIgnoredUris(this.path, uris);
 	}
@@ -226,7 +226,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 		return this._provider.getWorkingUri(this.path, uri);
 	}
 
-	@trace({ exit: true })
+	@debug({ exit: true })
 	isFolderUri(uri: Uri): Promise<boolean> {
 		return this._provider.isFolderUri(this.path, uri);
 	}
@@ -235,6 +235,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 	 * For submodule URIs, extracts the working SHA and looks up the base SHA to construct diff URIs.
 	 * Returns undefined for regular file URIs.
 	 */
+	@debug()
 	async getSubmoduleDiffUris(
 		workingUri: Uri,
 		relativePath: string,

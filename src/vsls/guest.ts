@@ -6,7 +6,6 @@ import type { Container } from '../container.js';
 import type {} from '../env/node/git/git.js';
 import type { GitExecOptions, GitResult } from '../git/execTypes.js';
 import { debug, trace } from '../system/decorators/log.js';
-import { Logger } from '../system/logger.js';
 import { getScopedLogger } from '../system/logger.scope.js';
 import { VslsHostService } from './host.js';
 import type { RepositoryProxy, RequestType } from './protocol.js';
@@ -25,7 +24,7 @@ export class VslsGuestService implements Disposable {
 
 			return new VslsGuestService(api, service, container);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}

@@ -11,7 +11,7 @@ export function parseGitRemotes(
 	repoPath: string,
 	remoteProviderMatcher: Awaited<ReturnType<typeof getRemoteProviderMatcher>>,
 ): GitRemote[] {
-	using sw = maybeStopWatch(`Git.parseRemotes(${repoPath})`, { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch(`Git.parseRemotes(${repoPath})`, { log: { onlyExit: true, level: 'debug' } });
 	if (!data) {
 		sw?.stop({ suffix: ` no data` });
 		return [];

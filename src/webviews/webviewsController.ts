@@ -10,8 +10,7 @@ import { addToContextDelimitedString, getContext } from '../system/-webview/cont
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
 import { trace } from '../system/decorators/log.js';
 import { find, first, map } from '../system/iterable.js';
-import { Logger } from '../system/logger.js';
-import { startScopedLogger } from '../system/logger.scope.js';
+import { maybeStartLoggableScope } from '../system/logger.scope.js';
 import type { WebviewCommandRegistrar } from './webviewCommandRegistrar.js';
 import { WebviewController } from './webviewController.js';
 import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors.js';
@@ -102,13 +101,9 @@ export class WebviewsController implements Disposable {
 		this.disposables.forEach(d => void d.dispose());
 	}
 
-	@trace<WebviewsController['registerWebviewView']>({
-		args: {
-			0: d => d.id,
-			1: false,
-			2: false,
-		},
-		singleLine: true,
+	@trace({
+		args: descriptor => ({ descriptor: descriptor.id }),
+		onlyExit: true,
 	})
 	registerWebviewView<
 		ID extends WebviewViewIds,
@@ -123,7 +118,7 @@ export class WebviewsController implements Disposable {
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 		onBeforeShow?: (...args: WebviewShowingArgs<ShowingArgs, SerializedState>) => void | Promise<void>,
 	): WebviewViewProxy<ID, ShowingArgs, SerializedState> {
-		using scope = startScopedLogger(`WebviewView(${descriptor.id})`, false);
+		using scope = maybeStartLoggableScope(`WebviewView(${descriptor.id})`);
 
 		const registration: WebviewViewRegistration<ID, State, SerializedState, ShowingArgs> = {
 			descriptor: descriptor,
@@ -144,7 +139,7 @@ export class WebviewsController implements Disposable {
 
 						const instanceId = uuid();
 
-						Logger.trace(scope, `Resolving view (${instanceId})`);
+						scope?.trace(`Resolving view (${instanceId})`);
 
 						webviewView.webview.options = {
 							enableCommandUris: true,
@@ -169,7 +164,7 @@ export class WebviewsController implements Disposable {
 
 						disposables.push(
 							controller.onDidDispose(() => {
-								Logger.trace(scope, `Disposing view (${instanceId})`);
+								scope?.trace(`Disposing view (${instanceId})`);
 
 								registration.pendingShowArgs = undefined;
 								registration.controller = undefined;
@@ -183,11 +178,11 @@ export class WebviewsController implements Disposable {
 							args = [{ state: context.state }];
 						}
 
-						Logger.trace(scope, `Showing view (${instanceId})`);
+						scope?.trace(`Showing view (${instanceId})`);
 						try {
 							await controller.show(true, options, ...(args ?? []));
 						} catch (ex) {
-							Logger.error(ex, scope, `Failed to show view (${instanceId})`);
+							scope?.error(ex, `Failed to show view (${instanceId})`);
 						}
 					},
 				},
@@ -215,7 +210,7 @@ export class WebviewsController implements Disposable {
 				options?: WebviewViewShowOptions,
 				...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 			) {
-				Logger.trace(scope, 'Showing view');
+				scope?.trace('Showing view');
 
 				if (registration.controller != null) {
 					return registration.controller.show(false, options, ...args);
@@ -236,14 +231,9 @@ export class WebviewsController implements Disposable {
 		} satisfies WebviewViewProxy<ID, ShowingArgs, SerializedState>;
 	}
 
-	@trace<WebviewsController['registerWebviewPanel']>({
-		args: {
-			0: c => c.id,
-			1: d => d.id,
-			2: false,
-			3: false,
-		},
-		singleLine: true,
+	@trace({
+		args: (command, descriptor) => ({ command: command.id, descriptor: descriptor.id }),
+		onlyExit: true,
 	})
 	registerWebviewPanel<
 		ID extends WebviewPanelIds,
@@ -261,7 +251,7 @@ export class WebviewsController implements Disposable {
 			host: WebviewHost<ID>,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): WebviewPanelsProxy<ID, ShowingArgs, SerializedState> {
-		using scope = startScopedLogger(`WebviewPanel(${descriptor.id})`, false);
+		using scope = maybeStartLoggableScope(`WebviewPanel(${descriptor.id})`);
 
 		const registration: WebviewPanelRegistration<ID, State, SerializedState, ShowingArgs> = {
 			descriptor: descriptor,
@@ -290,12 +280,12 @@ export class WebviewsController implements Disposable {
 			if (controller == null) {
 				let panel: WebviewPanel;
 				if (serializedPanel != null) {
-					Logger.trace(scope, 'Restoring panel');
+					scope?.trace('Restoring panel');
 
 					panel = serializedPanel;
 					serializedPanel = undefined;
 				} else {
-					Logger.trace(scope, 'Creating panel');
+					scope?.trace('Creating panel');
 
 					panel = window.createWebviewPanel(
 						descriptor.id,
@@ -327,25 +317,25 @@ export class WebviewsController implements Disposable {
 
 				disposables.push(
 					controller.onDidDispose(() => {
-						Logger.trace(scope, `Disposing panel (${controller!.instanceId})`);
+						scope?.trace(`Disposing panel (${controller!.instanceId})`);
 
 						registration.controllers?.delete(controller!.instanceId);
 					}),
 					controller,
 				);
 
-				Logger.trace(scope, `Showing panel (${controller.instanceId})`);
+				scope?.trace(`Showing panel (${controller.instanceId})`);
 				try {
 					await controller.show(true, options, ...args);
 				} catch (ex) {
-					Logger.error(ex, scope, `Failed to show panel (${controller.instanceId})`);
+					scope?.error(ex, `Failed to show panel (${controller.instanceId})`);
 				}
 			} else {
-				Logger.trace(scope, `Showing existing panel (${controller.instanceId})`);
+				scope?.trace(`Showing existing panel (${controller.instanceId})`);
 				try {
 					await controller.show(false, options, ...args);
 				} catch (ex) {
-					Logger.error(ex, scope, `Failed to show existing panel (${controller.instanceId})`);
+					scope?.error(ex, `Failed to show existing panel (${controller.instanceId})`);
 				}
 			}
 		}
@@ -355,7 +345,7 @@ export class WebviewsController implements Disposable {
 			// Where as right now our webviews are only saving "client" state, e.g. the entire state sent to the webview, rather than key pieces of state
 			// We probably need to separate state into actual "state" and all the data that is sent to the webview, e.g. for the Graph state might be the selected repo, selected sha, etc vs the entire data set to render the Graph
 			serializedPanel = panel;
-			Logger.trace(scope, `Deserializing panel state=${state != null ? '<state>' : 'undefined'}`);
+			scope?.trace(`Deserializing panel state=${state != null ? '<state>' : 'undefined'}`);
 			await show(
 				{ column: panel.viewColumn, preserveFocus: true, preserveInstance: false },
 				...(state != null ? [{ state: state }] : []),

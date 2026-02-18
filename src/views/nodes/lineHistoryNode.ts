@@ -15,8 +15,8 @@ import { trace } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import { weakEvent } from '../../system/event.js';
 import { filterMap, find } from '../../system/iterable.js';
-import { getLoggableName, Logger } from '../../system/logger.js';
-import { startScopedLogger } from '../../system/logger.scope.js';
+import { getLoggableName } from '../../system/logger.js';
+import { maybeStartLoggableScope } from '../../system/logger.scope.js';
 import { getSettledValue } from '../../system/promise.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import type { LineHistoryView } from '../lineHistoryView.js';
@@ -213,8 +213,8 @@ export class LineHistoryNode
 			return;
 		}
 
-		using scope = startScopedLogger(`${getLoggableName(this)}.onRepositoryChanged(e=${e.toString()})`, false);
-		Logger.trace(scope, 'triggering node refresh');
+		using scope = maybeStartLoggableScope(`${getLoggableName(this)}.onRepositoryChanged(e=${e.toString()})`);
+		scope?.trace('triggering node refresh');
 
 		void this.triggerChange(true);
 	}
@@ -222,11 +222,10 @@ export class LineHistoryNode
 	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
 		if (!e.uris.has(this.uri)) return;
 
-		using scope = startScopedLogger(
+		using scope = maybeStartLoggableScope(
 			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,
-			false,
 		);
-		Logger.trace(scope, 'triggering node refresh');
+		scope?.trace('triggering node refresh');
 
 		void this.triggerChange(true);
 	}

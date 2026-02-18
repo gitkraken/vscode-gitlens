@@ -7,7 +7,7 @@ import { fetch, getProxyAgent } from '@env/fetch.js';
 import { hrtime } from '@env/hrtime.js';
 import { isLinux, isWindows } from '@env/platform.js';
 import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git.d.js';
-import { GlyphChars, Schemes } from '../../../constants.js';
+import { Schemes } from '../../../constants.js';
 import type { Container } from '../../../container.js';
 import type { Features } from '../../../features.js';
 import { gitMinimumVersion } from '../../../features.js';
@@ -61,7 +61,7 @@ import { debounce } from '../../../system/function/debounce.js';
 import { first } from '../../../system/iterable.js';
 import { Logger } from '../../../system/logger.js';
 import type { ScopedLogger } from '../../../system/logger.scope.js';
-import { getScopedLogger, setLogScopeExit } from '../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../system/logger.scope.js';
 import { arePathsEqual, commonBaseIndex, dirname, isAbsolute, maybeUri, normalizePath } from '../../../system/path.js';
 import { any, asSettled, getSettledValue } from '../../../system/promise.js';
 import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/string.js';
@@ -191,7 +191,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const scope = getScopedLogger();
 
 		if (!configuration.getCore('git.enabled', null, true)) {
-			Logger.debug(scope, 'Built-in Git is disabled ("git.enabled": false)');
+			scope?.warn('Built-in Git is disabled ("git.enabled": false)');
 			void showGitDisabledErrorMessage();
 
 			throw new UnableToFindGitError();
@@ -205,14 +205,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Find env to pass to Git
 			if ('env' in scmGit.git) {
-				Logger.trace(scope, 'Found built-in Git env');
+				scope?.trace('Found built-in Git env');
 				this.git.setEnv(scmGit.git.env as Record<string, unknown>);
 			} else {
 				for (const v of Object.values(scmGit.git)) {
 					if (v != null && typeof v === 'object' && 'git' in v) {
 						for (const vv of Object.values(v.git)) {
 							if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
-								Logger.trace(scope, 'Found built-in Git env');
+								scope?.trace('Found built-in Git env');
 
 								this.git.setEnv(vv);
 								break;
@@ -300,25 +300,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			1000,
 		);
 
-		if (scope != null) {
-			setLogScopeExit(
-				scope,
-				` ${GlyphChars.Dot} Git (${location.version}) found in ${
-					location.path === 'git' ? 'PATH' : location.path
-				}`,
-			);
-		} else {
-			Logger.debug(
-				scope,
-				`Git (${location.version}) found in ${
-					location.path === 'git' ? 'PATH' : location.path
-				} [${getDurationMilliseconds(start)}ms]`,
-			);
-		}
+		scope?.addExitInfo(`Git (${location.version}) found in ${location.path === 'git' ? 'PATH' : location.path}`);
+		scope?.info(
+			`Git (${location.version}) found in ${
+				location.path === 'git' ? 'PATH' : location.path
+			} [${getDurationMilliseconds(start)}ms]`,
+		);
 
 		// Warn if git is less than our minimum (v2.7.2)
 		if (compare(fromString(location.version), fromString(gitMinimumVersion)) === -1) {
-			Logger.debug(scope, `Git version (${location.version}) is outdated`);
+			scope?.warn(`Git version (${location.version}) is outdated`);
 			void showGitVersionUnsupportedErrorMessage(location.version, gitMinimumVersion);
 		}
 
@@ -434,7 +425,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return opened;
 	}
 
-	@trace({ singleLine: true })
+	@trace({ onlyExit: true })
 	openRepositoryInitWatcher(): RepositoryInitWatcher {
 		const watcher = workspace.createFileSystemWatcher('**/.git', false, true, true);
 		return { onDidCreate: watcher.onDidCreate, dispose: watcher.dispose };
@@ -464,7 +455,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return supported;
 	}
 
-	@trace<LocalGitProvider['visibility']>({ exit: r => `returned ${r[0]}` })
+	@trace({ exit: r => `returned ${r[0]}` })
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
 		const remotes = await this.remotes.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return ['local', undefined];
@@ -485,7 +476,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	private _pendingRemoteVisibility = new Map<string, ReturnType<typeof fetch>>();
-	@trace<LocalGitProvider['getRemoteVisibility']>({ args: { 0: r => r.url }, exit: r => `returned ${r[0]}` })
+	@trace({ args: remote => ({ remote: remote.url }), exit: r => `returned ${r[0]}` })
 	private async getRemoteVisibility(
 		remote: GitRemote,
 	): Promise<[visibility: RepositoryVisibility, remote: GitRemote]> {
@@ -533,19 +524,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const rsp = await promise;
 			if (rsp.ok) return ['public', remote];
 
-			Logger.trace(scope, `Response=${rsp.status}`);
+			scope?.trace(`Response=${rsp.status}`);
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		} finally {
 			this._pendingRemoteVisibility.delete(url);
 		}
 		return ['private', remote];
 	}
 
-	@debug<LocalGitProvider['repositorySearch']>({
+	@debug({
 		args: false,
-		singleLine: true,
+		onlyExit: true,
 		prefix: (context, folder) => `${context.prefix}(${(folder instanceof Uri ? folder : folder.uri).fsPath})`,
 		exit: r => `returned ${r.length} repositories ${r.length !== 0 ? Logger.toLoggable(r) : ''}`,
 	})
@@ -571,7 +562,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			configuration.get('advanced.repositorySearchDepth', rootUri) ??
 			configuration.getCore('git.repositoryScanMaxDepth', rootUri, 1);
 
-		Logger.debug(scope, `searching (depth=${depth})...`);
+		scope?.info(`searching (depth=${depth})...`);
 
 		const repositories: Repository[] = [];
 
@@ -581,7 +572,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const maybeAddRepo = async (uri: Uri, folder: WorkspaceFolder | undefined, root: boolean) => {
 			const comparisonId = asRepoComparisonKey(uri);
 			if (repositories.some(r => r.id === comparisonId)) {
-				Logger.debug(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - duplicate`);
+				scope?.info(`found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - duplicate`);
 				return;
 			}
 
@@ -590,14 +581,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				if (repo.closed && silent === false) {
 					repo.closed = false;
 				}
-				Logger.debug(
-					scope,
-					`found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - already open`,
-				);
+				scope?.info(`found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - already open`);
 				return;
 			}
 
-			Logger.debug(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'`);
+			scope?.info(`found ${root ? 'root ' : ''}repository in '${uri.fsPath}'`);
 			const gitDir = await this.config.getGitDir(uri.fsPath);
 			repositories.push(...this.openRepository(folder, uri, gitDir, root, silent));
 		};
@@ -637,9 +625,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (RepoSearchWarnings.doesNotExist.test(msg)) {
-				Logger.debug(scope, `FAILED${msg ? ` Error: ${msg}` : ''}`);
+				scope?.warn(`FAILED${msg ? ` Error: ${msg}` : ''}`);
 			} else {
-				Logger.error(ex, scope, 'FAILED');
+				scope?.error(ex, 'FAILED');
 			}
 
 			return repositories;
@@ -659,9 +647,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				continue;
 			}
 
-			Logger.debug(scope, `searching in '${p}'...`);
-			Logger.trace(
-				scope,
+			scope?.debug(`searching in '${p}'...`);
+			scope?.trace(
 				`normalizedRepoPath=${normalized}, rootPath=${rootPath}, canonicalRootPath=${canonicalRootPath}`,
 			);
 
@@ -674,7 +661,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return repositories;
 	}
 
-	@trace<LocalGitProvider['repositorySearchCore']>({ args: { 2: false, 3: false }, exit: true })
+	@trace({ args: (root, depth) => ({ root: root, depth: depth }), exit: true })
 	private repositorySearchCore(
 		root: string,
 		depth: number,
@@ -716,7 +703,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								repositories,
 							);
 						} catch (ex) {
-							Logger.error(ex, scope, 'FAILED');
+							scope?.error(ex, 'FAILED');
 						}
 					}
 				}
@@ -977,7 +964,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			void showGenericErrorMessage('Unable to apply changes');
 		}
 	}
@@ -989,14 +976,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		try {
 			return await this.git.clone(url, parentPath);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			void showGenericErrorMessage(`Unable to clone '${url}'`);
 		}
 
 		return undefined;
 	}
 
-	@debug<LocalGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
+	@debug({ args: (repoPath, uris) => ({ repoPath: repoPath, uris: uris.length }) })
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		return this.getOrCreateIgnoreCache(repoPath).excludeIgnored(uris);
 	}
@@ -1130,13 +1117,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				[repoPath, symlink] = await new Promise<[string, string | undefined]>(resolve => {
 					realpath(uri.fsPath, { encoding: 'utf8' }, (err, resolvedPath) => {
 						if (err != null) {
-							Logger.trace(scope, `fs.realpath failed; repoPath=${repoPath}`);
+							scope?.warn(`fs.realpath failed; repoPath=${repoPath}`);
 							resolve([repoPath!, undefined]);
 							return;
 						}
 
 						if (arePathsEqual(uri.fsPath, resolvedPath)) {
-							Logger.trace(scope, `No symlink detected; repoPath=${repoPath}`);
+							scope?.trace(`No symlink detected; repoPath=${repoPath}`);
 							resolve([repoPath!, undefined]);
 							return;
 						}
@@ -1150,8 +1137,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							linkPath = uriPath;
 						}
 
-						Logger.trace(
-							scope,
+						scope?.trace(
 							`Symlink detected; repoPath=${repoPath}, path=${uri.fsPath}, resolvedPath=${resolvedPath}`,
 						);
 						resolve([repoPath!, linkPath]);
@@ -1180,13 +1166,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return resultUri;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
 
 	@gate<LocalGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
-	@debug<LocalGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
+	@debug({ args: (uri, document) => ({ uri: uri, document: document?.isDirty }) })
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
 		const scope = getScopedLogger();
 
@@ -1201,19 +1187,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (doc.state != null) {
 			const cachedBlame = doc.state.getBlame(key);
 			if (cachedBlame != null) {
-				Logger.trace(scope, `Cache hit: '${key}'`);
+				scope?.trace(`Cache hit: '${key}'`);
 				return cachedBlame.item;
 			}
 		}
 
-		Logger.trace(scope, `Cache miss: '${key}'`);
+		scope?.trace(`Cache miss: '${key}'`);
 
 		doc.state ??= new GitDocumentState();
 
 		const promise = this.getBlameCore(uri, doc, key, scope);
 
 		if (doc.state != null) {
-			Logger.trace(scope, `Cache add: '${key}'`);
+			scope?.trace(`Cache add: '${key}'`);
 
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
@@ -1232,7 +1218,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitBlame | undefined> {
 		const paths = await this.isTrackedWithDetails(uri);
 		if (paths == null) {
-			Logger.debug(scope, `Skipping blame; '${uri.fsPath}' is not tracked`);
+			scope?.debug(`Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
 		}
 
@@ -1258,12 +1244,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 			return blame;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			// Trap and cache expected blame errors
 			if (document.state != null) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.trace(scope, `Cache replace (with empty promise): '${key}'; reason=${msg}`);
+				scope?.trace(`Cache replace (with empty promise): '${key}'; reason=${msg}`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
@@ -1283,7 +1269,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@debug<LocalGitProvider['getBlameContents']>({ args: { 1: '<contents>' } })
+	@debug({ args: (uri, _contents) => ({ uri: uri, contents: '<contents>' }) })
 	async getBlameContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
 		const scope = getScopedLogger();
 
@@ -1293,19 +1279,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (doc.state != null) {
 			const cachedBlame = doc.state.getBlame(key);
 			if (cachedBlame != null) {
-				Logger.trace(scope, `Cache hit: ${key}`);
+				scope?.trace(`Cache hit: ${key}`);
 				return cachedBlame.item;
 			}
 		}
 
-		Logger.trace(scope, `Cache miss: ${key}`);
+		scope?.trace(`Cache miss: ${key}`);
 
 		doc.state ??= new GitDocumentState();
 
 		const promise = this.getBlameContentsCore(uri, contents, doc, key, scope);
 
 		if (doc.state != null) {
-			Logger.trace(scope, `Cache add: '${key}'`);
+			scope?.trace(`Cache add: '${key}'`);
 
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
@@ -1325,7 +1311,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitBlame | undefined> {
 		const paths = await this.isTrackedWithDetails(uri);
 		if (paths == null) {
-			Logger.debug(scope, `Skipping blame; '${uri.fsPath}' is not tracked`);
+			scope?.debug(`Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
 		}
 
@@ -1352,12 +1338,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 			return blame;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			// Trap and cache expected blame errors
 			if (document.state != null) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.trace(scope, `Cache replace (with empty promise): '${key}'; reason=${msg}`);
+				scope?.trace(`Cache replace (with empty promise): '${key}'; reason=${msg}`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
@@ -1380,7 +1366,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@gate<LocalGitProvider['getBlameForLine']>(
 		(u, l, d, o) => `${u.toString()}|${l}|${d?.isDirty}|${o?.forceSingleLine}`,
 	)
-	@debug<LocalGitProvider['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
+	@debug({ args: (uri, editorLine, document) => ({ uri: uri, editorLine: editorLine, document: document?.isDirty }) })
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number, // 0-based, Git is 1-based
@@ -1443,7 +1429,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				line: blame.lines[editorLine],
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (ex instanceof BlameIgnoreRevsFileError || ex instanceof BlameIgnoreRevsFileBadRevisionError) {
 				void showBlameInvalidIgnoreRevsFileWarningMessage(ex);
 			}
@@ -1452,7 +1438,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@debug<LocalGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
+	@debug({ args: (uri, editorLine, _contents) => ({ uri: uri, editorLine: editorLine, contents: '<contents>' }) })
 	async getBlameForLineContents(
 		uri: GitUri,
 		editorLine: number, // 0-based, Git is 1-based
@@ -1523,7 +1509,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.getBlameRange(blame, uri, range);
 	}
 
-	@debug<LocalGitProvider['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
+	@debug({ args: (uri, range, _contents) => ({ uri: uri, range: range, contents: '<contents>' }) })
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlame | undefined> {
 		const blame = await this.getBlameContents(uri, contents);
 		if (blame == null) return undefined;
@@ -1531,7 +1517,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.getBlameRange(blame, uri, range);
 	}
 
-	@debug<LocalGitProvider['getBlameRange']>({ args: { 0: '<blame>' } })
+	@debug({ args: (_blame, uri, range) => ({ blame: '<blame>', uri: uri, range: range }) })
 	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined {
 		if (blame.lines.length === 0) return blame;
 
@@ -1598,12 +1584,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (doc.state != null) {
 			const cachedDiff = doc.state.getDiff(key);
 			if (cachedDiff != null) {
-				Logger.trace(scope, `Cache hit: '${key}'`);
+				scope?.trace(`Cache hit: '${key}'`);
 				return cachedDiff.item;
 			}
 		}
 
-		Logger.trace(scope, `Cache miss: '${key}'`);
+		scope?.trace(`Cache miss: '${key}'`);
 
 		doc.state ??= new GitDocumentState();
 
@@ -1620,7 +1606,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 
 		if (doc.state != null) {
-			Logger.trace(scope, `Cache add: '${key}'`);
+			scope?.trace(`Cache add: '${key}'`);
 
 			const value: CachedDiff = {
 				item: promise as Promise<ParsedGitDiffHunks>,
@@ -1658,7 +1644,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.trace(scope, `Cache replace (with empty promise): '${key}'`);
+				scope?.trace(`Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
 					item: emptyPromise as Promise<ParsedGitDiffHunks>,
@@ -1673,7 +1659,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@debug<LocalGitProvider['getDiffForFileContents']>({ args: { 1: '<contents>' } })
+	@debug({ args: (uri, ref, _contents) => ({ uri: uri, ref: ref, contents: '<contents>' }) })
 	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<ParsedGitDiffHunks | undefined> {
 		const scope = getScopedLogger();
 
@@ -1683,12 +1669,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (doc.state != null) {
 			const cachedDiff = doc.state.getDiff(key);
 			if (cachedDiff != null) {
-				Logger.trace(scope, `Cache hit: ${key}`);
+				scope?.trace(`Cache hit: ${key}`);
 				return cachedDiff.item;
 			}
 		}
 
-		Logger.trace(scope, `Cache miss: ${key}`);
+		scope?.trace(`Cache miss: ${key}`);
 
 		doc.state ??= new GitDocumentState();
 
@@ -1705,7 +1691,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 
 		if (doc.state != null) {
-			Logger.trace(scope, `Cache add: '${key}'`);
+			scope?.trace(`Cache add: '${key}'`);
 
 			const value: CachedDiff = {
 				item: promise as Promise<ParsedGitDiffHunks>,
@@ -1741,7 +1727,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.trace(scope, `Cache replace (with empty promise): '${key}'`);
+				scope?.trace(`Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
 					item: emptyPromise as Promise<ParsedGitDiffHunks>,
@@ -1817,7 +1803,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath?: string,
 		ref?: string,
 	): Promise<[string, string] | undefined>;
-	@debug<LocalGitProvider['isTrackedWithDetails']>({
+	@debug({
 		exit: tracked => `returned ${tracked != null ? `[${tracked[0]},[${tracked[1]}]` : 'false'}`,
 	})
 	private async isTrackedWithDetails(
@@ -1938,7 +1924,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return [relativePath, repoPath];
 			}
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
@@ -2146,7 +2132,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const gitApi = await this.getScmGitApi();
 			return gitApi?.repositories ?? [];
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return [];
 		}
 	}
@@ -2158,7 +2144,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const gitApi = await this.getScmGitApi();
 			return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
@@ -2166,6 +2152,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@debug({ exit: true })
 	async getOrOpenScmRepository(repoPath: string | Uri): Promise<ScmRepository | undefined> {
 		const scope = getScopedLogger();
+
 		try {
 			const uri = repoPath instanceof Uri ? repoPath : Uri.file(repoPath);
 			const gitApi = await this.getScmGitApi();
@@ -2174,8 +2161,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// `getRepository` will return an opened repository that "contains" that path, so for nested repositories, we need to force the opening of the nested path, otherwise we will only get the root repository
 			let repo = gitApi.getRepository(uri);
 			if (repo == null || (repo != null && repo.rootUri.toString() !== uri.toString())) {
-				Logger.trace(
-					scope,
+				scope?.trace(
 					repo == null
 						? '\u2022 no existing repository found, opening repository...'
 						: `\u2022 existing, non-matching repository '${repo.rootUri.toString(
@@ -2186,7 +2172,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 			return repo ?? undefined;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}

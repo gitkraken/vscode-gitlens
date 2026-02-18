@@ -54,13 +54,12 @@ export class LineHoverController implements Disposable {
 		}
 	}
 
-	@trace<LineHoverController['onActiveLinesChanged']>({
-		args: {
-			0: e =>
-				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
-					?.map(s => `[${s.anchor}-${s.active}]`)
-					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
-		},
+	@trace({
+		args: e => ({
+			e: `editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
+				?.map(s => `[${s.anchor}-${s.active}]`)
+				.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
+		}),
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		if (e.pending) return;
@@ -76,14 +75,13 @@ export class LineHoverController implements Disposable {
 		this.register(e.editor);
 	}
 
-	@trace<LineHoverController['provideDetailsHover']>({
-		args: {
-			0: document => Logger.toLoggable(document.uri),
-			1: position => `${position.line}:${position.character}`,
-			2: false,
-		},
+	@trace({
+		args: (document, position) => ({
+			document: Logger.toLoggable(document.uri),
+			position: `${position.line}:${position.character}`,
+		}),
 		exit: r => (r != null ? 'provided' : 'skipped'),
-		singleLine: true,
+		onlyExit: true,
 	})
 	async provideDetailsHover(
 		document: TextDocument,
@@ -139,14 +137,13 @@ export class LineHoverController implements Disposable {
 		return new Hover(message, range);
 	}
 
-	@trace<LineHoverController['provideChangesHover']>({
-		args: {
-			0: document => Logger.toLoggable(document.uri),
-			1: position => `${position.line}:${position.character}`,
-			2: false,
-		},
+	@trace({
+		args: (document, position) => ({
+			document: Logger.toLoggable(document.uri),
+			position: `${position.line}:${position.character}`,
+		}),
 		exit: r => (r != null ? 'provided' : 'skipped'),
-		singleLine: true,
+		onlyExit: true,
 	})
 	async provideChangesHover(
 		document: TextDocument,

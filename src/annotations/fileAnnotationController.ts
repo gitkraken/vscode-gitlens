@@ -280,7 +280,7 @@ export class FileAnnotationController implements Disposable {
 		return this._toggleModes.get(annotationType) ?? 'file';
 	}
 
-	@debug<FileAnnotationController['clear']>({ args: { 0: e => e?.document.uri.toString(true) } })
+	@debug({ args: e => ({ editor: e }) })
 	clear(editor: TextEditor | undefined): Promise<void> | undefined {
 		if (this.isInWindowToggle()) return this.clearAll();
 		if (editor == null) return;
@@ -424,12 +424,7 @@ export class FileAnnotationController implements Disposable {
 
 	async show(editor: TextEditor | undefined, type: FileAnnotationType, context?: AnnotationContext): Promise<boolean>;
 	async show(editor: TextEditor | undefined, type: 'changes', context?: ChangesAnnotationContext): Promise<boolean>;
-	@debug<FileAnnotationController['show']>({
-		args: {
-			0: e => e?.document.uri.toString(true),
-			2: false,
-		},
-	})
+	@debug({ args: (editor, type) => ({ editor: editor, type: type }) })
 	async show(
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
@@ -502,12 +497,7 @@ export class FileAnnotationController implements Disposable {
 		context?: ChangesAnnotationContext,
 		on?: boolean,
 	): Promise<boolean>;
-	@debug<FileAnnotationController['toggle']>({
-		args: {
-			0: e => e?.document.uri.toString(true),
-			2: false,
-		},
-	})
+	@debug({ args: (editor, type, _, on) => ({ editor: editor, type: type, on: on }) })
 	async toggle(
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
@@ -702,8 +692,8 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@trace({
-		singleLine: true,
-		if: function () {
+		onlyExit: true,
+		when: function (this: FileAnnotationController) {
 			return this._annotationsDisposable == null;
 		},
 	})
@@ -723,8 +713,8 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@trace({
-		singleLine: true,
-		if: function () {
+		onlyExit: true,
+		when: function (this: FileAnnotationController) {
 			return this._annotationsDisposable != null;
 		},
 	})

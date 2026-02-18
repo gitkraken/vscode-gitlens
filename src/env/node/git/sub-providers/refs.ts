@@ -10,7 +10,6 @@ import type { GitTag } from '../../../../git/models/tag.js';
 import { createReference } from '../../../../git/utils/reference.utils.js';
 import { isShaWithOptionalRevisionSuffix, isUncommitted } from '../../../../git/utils/revision.utils.js';
 import { debug, trace } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
 import type { Git } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
@@ -55,7 +54,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 			return result.stdout.split('\n')[0].trim() || undefined;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (isCancellationError(ex)) throw ex;
 
 			return undefined;
@@ -118,7 +117,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		return result.stdout.trim() || undefined;
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: repoPath => ({ repoPath: repoPath }) })
 	async hasBranchOrTag(
 		repoPath: string | undefined,
 		options?: {
@@ -185,7 +184,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		try {
 			await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'update-ref', ref, newRef);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (isCancellationError(ex)) throw ex;
 		}
 	}

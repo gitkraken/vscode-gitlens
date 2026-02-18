@@ -18,8 +18,7 @@ import { createReference } from '../../../../git/utils/reference.utils.js';
 import { exists } from '../../../../system/-webview/vscode/uris.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { debug } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
-import { getScopedLogger, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import type { Git } from '../git.js';
 import { getGitCommandError } from '../git.js';
@@ -103,7 +102,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			const sortedOperations = [...operations].sort(
 				(a, b) => orderedOperations.indexOf(a) - orderedOperations.indexOf(b),
 			);
-			Logger.debug(`Detected paused operations: ${sortedOperations.join(', ')}`);
+			scope?.info(`Detected paused operations: ${sortedOperations.join(', ')}`);
 
 			const operation = sortedOperations[0];
 			switch (operation) {
@@ -121,7 +120,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 					const cherryPickHead = result.stdout.trim();
 					if (!cherryPickHead) {
-						setLogScopeExit(scope, 'No CHERRY_PICK_HEAD found');
+						scope?.addExitInfo('No CHERRY_PICK_HEAD found');
 						return undefined;
 					}
 
@@ -149,7 +148,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 					const mergeHead = result.stdout.trim();
 					if (!mergeHead) {
-						setLogScopeExit(scope, 'No MERGE_HEAD found');
+						scope?.addExitInfo('No MERGE_HEAD found');
 						return undefined;
 					}
 
@@ -201,7 +200,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 					const revertHead = result.stdout.trim();
 					if (!revertHead) {
-						setLogScopeExit(scope, 'No REVERT_HEAD found');
+						scope?.addExitInfo('No REVERT_HEAD found');
 						return undefined;
 					}
 
@@ -219,7 +218,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 				case 'rebase-merge': {
 					let branch = await this.git.readDotGitFile(gitDir, [operation, 'head-name']);
 					if (!branch) {
-						setLogScopeExit(scope, `No '${operation}/head-name' found`);
+						scope?.addExitInfo(`No '${operation}/head-name' found`);
 						return undefined;
 					}
 
@@ -254,7 +253,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					const origHead = getSettledValue(origHeadResult);
 					const onto = getSettledValue(ontoResult);
 					if (origHead == null || onto == null) {
-						setLogScopeExit(scope, `Neither '${operation}/orig-head' nor '${operation}/onto' found`);
+						scope?.addExitInfo(`Neither '${operation}/orig-head' nor '${operation}/onto' found`);
 						return undefined;
 					}
 
@@ -350,14 +349,14 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					// Used for multi-commit cherry-picks/reverts when CHERRY_PICK_HEAD/REVERT_HEAD don't exist
 					const todoContent = await this.git.readDotGitFile(gitDir, ['sequencer', 'todo']);
 					if (!todoContent) {
-						setLogScopeExit(scope, 'No sequencer/todo file found');
+						scope?.addExitInfo('No sequencer/todo file found');
 						return undefined;
 					}
 
 					// Get the first line and determine if it's a cherry-pick or revert
 					const firstLine = todoContent.split('\n')[0]?.trim();
 					if (!firstLine) {
-						setLogScopeExit(scope, 'Empty sequencer/todo file');
+						scope?.addExitInfo('Empty sequencer/todo file');
 						return undefined;
 					}
 
@@ -367,7 +366,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					const isRevert = /^revert\s/.test(firstLine);
 
 					if (!isCherryPick && !isRevert) {
-						setLogScopeExit(scope, `Unknown sequencer command: ${firstLine}`);
+						scope?.addExitInfo(`Unknown sequencer command: ${firstLine}`);
 						return undefined;
 					}
 
@@ -375,7 +374,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					const match = firstLine.match(/^(?:p(?:ick)?|revert)\s+([a-f0-9]+)/i);
 					const currentCommitSha = match?.[1];
 					if (!currentCommitSha) {
-						setLogScopeExit(scope, 'Could not parse commit sha from sequencer/todo');
+						scope?.addExitInfo('Could not parse commit sha from sequencer/todo');
 						return undefined;
 					}
 
@@ -408,6 +407,8 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	@gate<PausedOperationsGitSubProvider['abortPausedOperation']>((rp, o) => `${rp ?? ''}:${o?.quit ?? false}`)
 	@debug()
 	async abortPausedOperation(repoPath: string, options?: { quit?: boolean }): Promise<void> {
+		const scope = getScopedLogger();
+
 		const status = await this.getPausedOperationStatus(repoPath);
 		if (status == null) return;
 
@@ -417,7 +418,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 		} catch (ex) {
 			debugger;
-			Logger.error(ex);
+			scope?.error(ex);
 			throw getGitCommandError(
 				'paused-operation-abort',
 				ex,
@@ -437,6 +438,8 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	@gate<PausedOperationsGitSubProvider['continuePausedOperation']>((rp, o) => `${rp ?? ''}:${o?.skip ?? false}`)
 	@debug()
 	async continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void> {
+		const scope = getScopedLogger();
+
 		const status = await this.getPausedOperationStatus(repoPath);
 		if (status == null) return;
 
@@ -450,7 +453,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 		} catch (ex) {
 			debugger;
-			Logger.error(ex);
+			scope?.error(ex);
 			throw getGitCommandError(
 				'paused-operation-continue',
 				ex,

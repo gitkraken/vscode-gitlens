@@ -4,8 +4,7 @@ import { window } from 'vscode';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
 import { openUrl } from '../../../../system/-webview/vscode/uris.js';
-import { maybeStartLoggableScope } from '../../../../system/loggable.js';
-import { getLoggableScopeBlockOverride } from '../../../../system/logger.scope.js';
+import { getLoggableScopeBlockOverride, maybeStartLoggableScope } from '../../../../system/logger.scope.js';
 import { joinPaths } from '../../../../system/path.js';
 import { run } from '../../git/shell.js';
 import { getPlatform } from '../../platform.js';
@@ -97,13 +96,11 @@ export async function runCLICommand(args: string[], options?: { cwd?: string }):
 	const command = cwd == null ? undefined : joinPaths(cwd, getPlatform() === 'windows' ? 'gk.exe' : 'gk');
 	using scope = maybeStartLoggableScope(
 		`${getLoggableScopeBlockOverride('CLI')} ${command} ${args[0] === 'auth' ? '[auth]' : args.join(' ')}`,
-		{
-			debug: true,
-		},
+		{ level: 'trace' },
 	);
 
 	if (command == null) {
-		scope?.setExit(undefined, 'CLI is not installed');
+		scope?.setFailed('CLI is not installed');
 		debugger;
 		throw new Error('CLI is not installed');
 	}

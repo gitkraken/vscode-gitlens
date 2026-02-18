@@ -8,7 +8,6 @@ import type { GitPatchSubProvider } from '../../../../git/gitProvider.js';
 import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit.js';
 import type { SigningFormat } from '../../../../git/models/signature.js';
 import { debug } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import type { Git } from '../git.js';
@@ -55,7 +54,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 				try {
 					await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
 				} catch (ex) {
-					Logger.error(ex, scope);
+					scope?.error(ex);
 					throw new ApplyPatchCommitError({ reason: 'stashFailed' }, ex);
 				}
 			}
@@ -94,7 +93,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 				targetPath = worktree.uri.fsPath;
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				throw new ApplyPatchCommitError({ reason: 'createWorktreeFailed' }, ex);
 			}
 		}
@@ -106,7 +105,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 					createBranch: shouldCreate ? options.branchName : undefined,
 				});
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				throw new ApplyPatchCommitError({ reason: 'checkoutFailed', branch: options.branchName }, ex);
 			}
 		}
@@ -115,7 +114,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		try {
 			await this.provider.ops.cherryPick(targetPath, [rev], { noCommit: true });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (CherryPickError.is(ex, 'conflicts')) {
 				throw new ApplyPatchCommitError({ reason: 'appliedWithConflicts' }, ex);
 			}
@@ -128,7 +127,14 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		}
 	}
 
-	@debug({ args: { 2: '<message>', 3: '<patch>' } })
+	@debug({
+		args: (repoPath, base, _message, _patch) => ({
+			repoPath: repoPath,
+			base: base,
+			message: '<message>',
+			patch: '<patch>',
+		}),
+	})
 	async createUnreachableCommitForPatch(
 		repoPath: string,
 		base: string,
@@ -153,7 +159,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		return await this.provider.commits.getCommit(repoPath, sha);
 	}
 
-	@debug<PatchGitSubProvider['createUnreachableCommitsFromPatches']>({ args: { 2: p => p.length } })
+	@debug({ args: (repoPath, base, patches) => ({ repoPath: repoPath, base: base, patches: patches.length }) })
 	async createUnreachableCommitsFromPatches(
 		repoPath: string,
 		base: string | undefined,
@@ -254,7 +260,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 			return sha;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			// Handle signing-specific errors
 			if (shouldSign && ex instanceof Error) {
@@ -308,7 +314,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		return result.stdout.trim();
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: repoPath => ({ repoPath: repoPath }) })
 	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
 		try {
 			await this.git.exec({ cwd: repoPath, configs: gitConfigsLog, stdin: contents }, 'apply', '--check', '-');

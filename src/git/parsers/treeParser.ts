@@ -3,7 +3,7 @@ import { iterateByDelimiter } from '../../system/string.js';
 import type { GitTreeEntry, GitTreeType } from '../models/tree.js';
 
 export function parseGitTree(data: string | undefined, ref: string, singleEntry: boolean): GitTreeEntry[] {
-	using sw = maybeStopWatch(`Git.parseTree`, { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch(`Git.parseTree`, { log: { onlyExit: true, level: 'debug' } });
 
 	const trees: GitTreeEntry[] = [];
 	if (!data) {

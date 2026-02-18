@@ -82,7 +82,7 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 
 		const handler = this.handlers.get(pathname);
 		if (handler == null) {
-			Logger.warn(scope, `IPC handler for ${pathname} not found`);
+			scope?.warn(`IPC handler for ${pathname} not found`);
 			res.writeHead(404);
 			res.end();
 			return;
@@ -118,7 +118,7 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 					res.end(JSON.stringify(result));
 				}
 			} catch (ex) {
-				Logger.error(ex, 'IPC handler error', data);
+				scope?.error(ex, 'IPC handler error', data);
 				res.writeHead(500);
 				res.end();
 			}

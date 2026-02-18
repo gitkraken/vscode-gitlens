@@ -51,13 +51,13 @@ import { setContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { createFromDateDelta, fromNow } from '../../system/date.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, trace } from '../../system/decorators/log.js';
+import { debug, info, trace } from '../../system/decorators/log.js';
 import { take } from '../../system/event.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { once } from '../../system/function.js';
 import { Logger } from '../../system/logger.js';
-import { getScopedLogger, setLogScopeExit } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import { flatten } from '../../system/object.js';
 import { pauseOnCancelOrTimeout } from '../../system/promise.js';
 import { pluralize } from '../../system/string.js';
@@ -141,7 +141,7 @@ export class SubscriptionService implements Disposable {
 			}),
 			container.uri.onDidReceiveSubscriptionUpdatedUri(() => this.checkUpdatedSubscription(undefined), this),
 			container.uri.onDidReceiveAiAllAccessOptInUri(this.onAiAllAccessOptInUri, this),
-			container.uri.onDidReceiveLoginUri(this.onLoginUri, this),
+			container.uri.onDidReceiveLoginUri(this.onLoginUriReceived, this),
 		);
 
 		const subscription = this.getStoredSubscription();
@@ -635,7 +635,7 @@ export class SubscriptionService implements Disposable {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
 			return await openUrl(this.container.urls.getGkDevUrl('account', `token=${exchangeToken}`));
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return openUrl(this.container.urls.getGkDevUrl('account'));
 		}
 	}
@@ -697,7 +697,7 @@ export class SubscriptionService implements Disposable {
 				`Unable to reactivate trial. Please try again. If this issue persists, please contact support.`,
 				'OK',
 			);
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return;
 		}
 
@@ -724,7 +724,7 @@ export class SubscriptionService implements Disposable {
 				}
 			}
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 		}
 	}
@@ -789,7 +789,7 @@ export class SubscriptionService implements Disposable {
 				return true;
 			}
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 
 			void window.showErrorMessage('Unable to resend verification email', 'OK');
@@ -900,7 +900,7 @@ export class SubscriptionService implements Disposable {
 					);
 					query.set('token', token);
 				} catch (ex) {
-					Logger.error(ex, scope);
+					scope?.error(ex);
 				}
 			}
 
@@ -911,7 +911,7 @@ export class SubscriptionService implements Disposable {
 				query.set('success_uri', successUri.toString(true));
 			}
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 
 		aborted = !(await openUrl(this.container.urls.getGkDevUrl('purchase/checkout', query)));
@@ -969,14 +969,14 @@ export class SubscriptionService implements Disposable {
 		try {
 			await this.checkInAndValidate(session, source, options);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 		}
 	}
 
 	private _lastValidatedDate: Date | undefined;
 
-	@trace<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account?.label } })
+	@trace({ args: session => ({ session: session?.account?.label }) })
 	private async checkInAndValidate(
 		session: AuthenticationSession,
 		source: Source | undefined,
@@ -991,7 +991,7 @@ export class SubscriptionService implements Disposable {
 			Date.now() - this._lastValidatedDate.getTime() < 12 * 60 * 60 * 1000 &&
 			!isSubscriptionExpired(this._subscription)
 		) {
-			setLogScopeExit(scope, ` (${fromNow(this._lastValidatedDate.getTime(), true)})...`, 'skipped');
+			scope?.addExitInfo(fromNow(this._lastValidatedDate.getTime(), true), 'skipped');
 			return;
 		}
 
@@ -1011,7 +1011,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@gate<SubscriptionService['checkInAndValidateCore']>((s, _, orgId) => `${s.account.id}:${orgId}`)
-	@trace<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account?.label } })
+	@trace({ args: session => ({ session: session?.account?.label }) })
 	private async checkInAndValidateCore(
 		session: AuthenticationSession,
 		source: Source | undefined,
@@ -1058,7 +1058,7 @@ export class SubscriptionService implements Disposable {
 		} catch (ex) {
 			this._getCheckInData = () => Promise.resolve(undefined);
 
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 
 			// If we cannot check in, validate stored subscription
@@ -1099,8 +1099,10 @@ export class SubscriptionService implements Disposable {
 			.catch();
 	}
 
+	@trace()
 	private async loadStoredCheckInData(userId: string): Promise<GKCheckInResponse | undefined> {
 		const scope = getScopedLogger();
+
 		const storedCheckIn = this.container.storage.get(`gk:${userId}:checkin`);
 		// If more than a day old, ignore
 		if (storedCheckIn?.timestamp == null || Date.now() - storedCheckIn.timestamp > 24 * 60 * 60 * 1000) {
@@ -1111,7 +1113,7 @@ export class SubscriptionService implements Disposable {
 			try {
 				return await this.checkInAndValidate(session, undefined, { force: true });
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				return undefined;
 			}
 		}
@@ -1135,7 +1137,7 @@ export class SubscriptionService implements Disposable {
 					userId: session.account.id,
 				})) ?? [];
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			organizations = [];
 		}
 		let chosenOrganizationId = getConfiguredActiveOrganizationId();
@@ -1226,16 +1228,16 @@ export class SubscriptionService implements Disposable {
 			}
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
-				setLogScopeExit(scope, ' \u2022 User declined authentication');
+				scope?.addExitInfo('User declined authentication');
 				await this.logoutCore(source);
 				return null;
 			}
 
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 
 		if (session == null) {
-			setLogScopeExit(scope, ' \u2022 No valid session was found');
+			scope?.addExitInfo('No valid session was found');
 			await this.logoutCore(source);
 			return session ?? null;
 		}
@@ -1243,7 +1245,7 @@ export class SubscriptionService implements Disposable {
 		try {
 			await this.checkInAndValidate(session, source, { showSlowProgress: createIfNeeded, force: createIfNeeded });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 
 			this.container.telemetry.sendEvent('account/validation/failed', {
@@ -1253,11 +1255,8 @@ export class SubscriptionService implements Disposable {
 				statusCode: ex.statusCode,
 			});
 
-			setLogScopeExit(
-				scope,
-				` \u2022 Account validation failed (${ex.statusCode ?? ex.original?.code})`,
-				'FAILED',
-			);
+			scope?.addExitInfo(`Account validation failed (${ex.statusCode ?? ex.original?.code})`);
+			scope?.setFailed('FAILED');
 
 			if (ex instanceof AccountValidationError) {
 				const name = session.account.label;
@@ -1564,6 +1563,7 @@ export class SubscriptionService implements Disposable {
 		this._statusBarSubscription.show();
 	}
 
+	@debug()
 	async switchOrganization(source: Source | undefined): Promise<void> {
 		const scope = getScopedLogger();
 		if (this._session == null) return;
@@ -1573,7 +1573,7 @@ export class SubscriptionService implements Disposable {
 			organizations = await this.container.organizations.getOrganizations();
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return;
 		}
 
@@ -1603,7 +1603,7 @@ export class SubscriptionService implements Disposable {
 			await this.checkInAndValidate(this._session, source, { force: true, organizationId: pick.org.id });
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return;
 		}
 
@@ -1626,8 +1626,10 @@ export class SubscriptionService implements Disposable {
 		);
 	}
 
-	private onLoginUri(uri: Uri): void {
+	@info()
+	private onLoginUriReceived(uri: Uri): void {
 		const scope = getScopedLogger();
+
 		const queryParams = new URLSearchParams(uri.query);
 		const code = queryParams.get('code');
 		const state = queryParams.get('state');
@@ -1641,7 +1643,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (code == null) {
-			Logger.error(undefined, scope, `No code provided. Link: ${uri.toString(true)}`);
+			scope?.error(undefined, `No code provided. Link: ${uri.toString(true)}`);
 			void window.showErrorMessage(
 				`Unable to ${contextMessage} with that link. Please try clicking the link again. If this issue persists, please contact support.`,
 			);
@@ -1659,7 +1661,7 @@ export class SubscriptionService implements Disposable {
 			await this.checkInAndValidate(this._session, source, { force: true });
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 
@@ -1689,7 +1691,7 @@ export class SubscriptionService implements Disposable {
 						await this.container.accountAuthentication.getExchangeToken(AiAllAccessOptInPathPrefix);
 					query.set('token', token);
 				} catch (ex) {
-					Logger.error(ex, scope);
+					scope?.error(ex);
 				}
 			} else {
 				const callbackUri = await env.asExternalUri(
@@ -1708,7 +1710,7 @@ export class SubscriptionService implements Disposable {
 				return false;
 			}
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return false;
 		}
 

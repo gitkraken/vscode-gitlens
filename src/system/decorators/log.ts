@@ -1,10 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { hrtime } from '@env/hrtime.js';
 import { getParameters } from '../function.js';
-import { slowCallWarningThreshold } from '../logger.constants.js';
+import type { LogLevel } from '../logger.constants.js';
+import { slowCallWarningThreshold as defaultSlowCallWarningThreshold } from '../logger.constants.js';
 import { customLoggableNameFns, getLoggableName, Logger } from '../logger.js';
-import type { ScopedLogger } from '../logger.scope.js';
-import { clearLogScope, getLoggableScopeBlock, logScopeIdGenerator, setLogScope } from '../logger.scope.js';
+import {
+	createLogScope,
+	getLoggableScopeBlock,
+	getScopedLogger,
+	logScopeIdGenerator,
+	runInScope,
+} from '../logger.scope.js';
 import { isPromise } from '../promise.js';
 import { getDurationMilliseconds } from '../string.js';
 
@@ -17,24 +23,18 @@ export interface LogContext {
 }
 
 interface LogOptions<T extends (...arg: any) => any> {
-	args?:
-		| false
-		| {
-				0?: ((arg: Parameters<T>[0]) => unknown) | string | false;
-				1?: ((arg: Parameters<T>[1]) => unknown) | string | false;
-				2?: ((arg: Parameters<T>[2]) => unknown) | string | false;
-				3?: ((arg: Parameters<T>[3]) => unknown) | string | false;
-				4?: ((arg: Parameters<T>[4]) => unknown) | string | false;
-				[key: number]: (((arg: any) => unknown) | string | false) | undefined;
-		  };
-	if?(this: any, ...args: Parameters<T>): boolean;
-	enter?(...args: Parameters<T>): string;
-	exit?: ((result: PromiseType<ReturnType<T>>) => string) | boolean;
+	/** Controls parameter formatting in log output. `false` suppresses all params. A function receives the method args and returns named fields to log (or `false` to suppress). When omitted, params are auto-formatted from parameter names. */
+	args?: false | ((...args: Parameters<T>) => Record<string, unknown> | false);
+	/** Conditionally skips logging entirely (scope, timing, everything). Must use a `function` expression (not arrow) — `this` is bound to the class instance via `.apply()`. Annotate `this` with the class type for type safety. */
+	when?(this: unknown, ...args: Parameters<T>): boolean;
+	/** Controls exit/result logging. `true` logs the return value. A function receives the result and returns a custom exit string. */
+	exit?: ((result: PromiseType<ReturnType<T>>) => string) | true;
+	/** Overrides the log line prefix. Receives a {@link LogContext} and the method args. */
 	prefix?(context: LogContext, ...args: Parameters<T>): string;
-	logThreshold?: number;
-	scoped?: boolean;
-	singleLine?: boolean;
-	timed?: boolean;
+	/** Suppresses the entry log line and only logs on exit. `{ after: N }` further suppresses exit unless duration exceeds N ms. */
+	onlyExit?: true | { after: number };
+	/** Controls duration timing. `false` disables timing. `{ warnAfter: N }` overrides the slow call warning threshold (default 500ms). */
+	timing?: boolean | { warnAfter: number };
 }
 
 export function logName<T>(fn: (c: T, name: string) => string) {
@@ -43,62 +43,43 @@ export function logName<T>(fn: (c: T, name: string) => string) {
 
 export function info<T extends (...arg: any) => any>(
 	options?: LogOptions<T>,
-): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
-	return _log<T>(options);
+): (_target: any, key: string, descriptor: TypedPropertyDescriptor<T>) => void {
+	return log<T>('info', options);
 }
 
 export function debug<T extends (...arg: any) => any>(
 	options?: LogOptions<T>,
-): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
-	return _log<T>(options);
+): (_target: any, key: string, descriptor: TypedPropertyDescriptor<T>) => void {
+	return log<T>('debug', options);
 }
 
 export function trace<T extends (...arg: any) => any>(
 	options?: LogOptions<T>,
-): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
-	return _log<T>(options, true);
+): (_target: any, key: string, descriptor: TypedPropertyDescriptor<T>) => void {
+	return log<T>('trace', options);
 }
 
 type PromiseType<T> = T extends Promise<infer U> ? U : T;
 
-function _log<T extends (...arg: any) => any>(
+function log<T extends (...arg: any) => any>(
+	logLevel: Exclude<LogLevel, 'off' | 'error' | 'warn'>,
 	options?: LogOptions<T>,
-	debug = false,
-): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
-	let overrides: LogOptions<T>['args'] | undefined;
-	let ifFn: LogOptions<T>['if'] | undefined;
-	let enterFn: LogOptions<T>['enter'] | undefined;
+): (_target: any, key: string, descriptor: TypedPropertyDescriptor<T>) => void {
+	let argsFn: LogOptions<T>['args'] | undefined;
+	let whenFn: LogOptions<T>['when'] | undefined;
 	let exitFn: LogOptions<T>['exit'] | undefined;
 	let prefixFn: LogOptions<T>['prefix'] | undefined;
-	let logThreshold: NonNullable<LogOptions<T>['logThreshold']> = 0;
-	let scoped: NonNullable<LogOptions<T>['scoped']> = false;
-	let singleLine: NonNullable<LogOptions<T>['singleLine']> = false;
-	let timed: NonNullable<LogOptions<T>['timed']> = true;
+	let onlyExit: NonNullable<LogOptions<T>['onlyExit']> | false = false;
+	let timing: NonNullable<LogOptions<T>['timing']> = true;
 	if (options != null) {
-		({
-			args: overrides,
-			if: ifFn,
-			enter: enterFn,
-			exit: exitFn,
-			prefix: prefixFn,
-			logThreshold = 0,
-			scoped = true,
-			singleLine = false,
-			timed = true,
-		} = options);
+		({ args: argsFn, when: whenFn, exit: exitFn, prefix: prefixFn, onlyExit = false, timing = true } = options);
 	}
 
-	if (logThreshold > 0) {
-		singleLine = true;
-		timed = true;
-	}
+	const slowThreshold = typeof timing === 'object' ? timing.warnAfter : defaultSlowCallWarningThreshold;
+	const timed = timing !== false || (typeof onlyExit === 'object' && onlyExit.after > 0);
 
-	if (timed) {
-		scoped = true;
-	}
-
-	const logFn: (message: string, ...params: any[]) => void = debug ? Logger.trace : Logger.debug;
-	const logLevel = Logger.isDebugging ? 'debug' : 'info';
+	const logFn: (message: string, ...params: any[]) => void =
+		logLevel === 'trace' ? Logger.trace : logLevel === 'debug' ? Logger.debug : Logger.info;
 
 	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -113,23 +94,28 @@ function _log<T extends (...arg: any) => any>(
 		}
 		if (fn == null || fnKey == null) throw new Error('Not supported');
 
-		const parameters = overrides !== false ? getParameters(fn) : [];
+		// Only extract parameter names for default formatting (when no args option provided)
+		const parameters = argsFn == null ? getParameters(fn) : [];
 
 		descriptor[fnKey] = function (this: any, ...args: Parameters<T>) {
-			if (!Logger.enabled(logLevel) || (ifFn != null && !ifFn.apply(this, args))) {
+			// Always create scope unless logging is completely off (or condition fails)
+			// This ensures scope is available for error logging even at lower log levels
+			if (!Logger.enabled() || (whenFn != null && !whenFn.apply(this, args))) {
 				return fn.apply(this, args);
 			}
 
-			const prevScopeId = logScopeIdGenerator.current;
+			const shouldLog = Logger.enabled(logLevel);
+
+			// Get parent scope
+			const parentScope = getScopedLogger();
+			const prevScopeId = parentScope?.scopeId;
 			const scopeId = logScopeIdGenerator.next();
 
 			const instanceName = this != null ? getLoggableName(this) : undefined;
 
 			let prefix = instanceName
-				? scoped
-					? `${getLoggableScopeBlock(scopeId, prevScopeId)} ${instanceName}.${key}`
-					: `${instanceName}.${key}`
-				: key;
+				? `${getLoggableScopeBlock(scopeId, prevScopeId)} ${instanceName}.${key}`
+				: `${getLoggableScopeBlock(scopeId, prevScopeId)} ${key}`;
 
 			if (prefixFn != null) {
 				prefix = prefixFn(
@@ -144,112 +130,67 @@ function _log<T extends (...arg: any) => any>(
 				);
 			}
 
-			let scope: ScopedLogger | undefined;
-			if (scoped) {
-				scope = setLogScope(scopeId, { scopeId: scopeId, prevScopeId: prevScopeId, prefix: prefix });
+			const scope = createLogScope(scopeId, prevScopeId, prefix);
+
+			// Lazy parameter formatting — deferred until first use to avoid
+			// expensive Logger.toLoggable() calls when the log won't be emitted
+			let loggableParams: string | undefined;
+			let paramsResolved = false;
+			const resolveParams = (): string | undefined => {
+				if (!paramsResolved) {
+					paramsResolved = true;
+					loggableParams = formatParams(argsFn, args, parameters);
+				}
+				return loggableParams;
+			};
+
+			// For non-onlyExit mode, log entry immediately
+			if (!onlyExit && shouldLog) {
+				const params = resolveParams();
+				logFn.call(Logger, params ? `${prefix}(${params})` : prefix);
 			}
 
-			const enter = enterFn != null ? enterFn(...args) : '';
-
-			let loggableParams: string;
-			if (overrides === false || args.length === 0) {
-				loggableParams = '';
-
-				if (!singleLine) {
-					logFn.call(Logger, `${prefix}${enter}`);
-				}
-			} else {
-				loggableParams = '';
-
-				let paramOverride;
-				let paramIndex = -1;
-				let paramName;
-				let paramLogValue;
-				let paramValue;
-
-				for (paramValue of args as unknown[]) {
-					paramName = parameters[++paramIndex];
-
-					paramOverride = overrides?.[paramIndex];
-					if (paramOverride != null) {
-						if (typeof paramOverride === 'boolean') continue;
-
-						if (loggableParams.length > 0) {
-							loggableParams += ', ';
-						}
-
-						if (typeof paramOverride === 'string') {
-							loggableParams += paramOverride;
-							continue;
-						}
-
-						paramLogValue = String(paramOverride(paramValue));
-					} else {
-						if (loggableParams.length > 0) {
-							loggableParams += ', ';
-						}
-
-						paramLogValue = Logger.toLoggable(paramValue);
-					}
-
-					loggableParams += paramName ? `${paramName}=${paramLogValue}` : paramLogValue;
-				}
-
-				if (!singleLine) {
-					logFn.call(Logger, loggableParams ? `${prefix}${enter}(${loggableParams})` : `${prefix}${enter}`);
-				}
-			}
-
-			if (singleLine || timed || exitFn != null) {
+			if (onlyExit || timed || exitFn != null) {
 				const start = timed ? hrtime() : undefined;
 
 				const logError = (ex: unknown) => {
-					const timing = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
-					if (singleLine) {
+					const duration = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
+					const exitInfo = scope.getExitInfo();
+					if (onlyExit) {
+						const params = resolveParams();
 						Logger.error(
 							ex,
-							loggableParams ? `${prefix}${enter}(${loggableParams})` : `${prefix}${enter}`,
-							scope?.exitDetails ? `failed${scope.exitDetails}${timing}` : `failed${timing}`,
+							params ? `${prefix}(${params})` : prefix,
+							exitInfo?.details ? `failed${exitInfo.details}${duration}` : `failed${duration}`,
 						);
 					} else {
 						Logger.error(
 							ex,
 							prefix,
-							scope?.exitDetails ? `failed${scope.exitDetails}${timing}` : `failed${timing}`,
+							exitInfo?.details ? `failed${exitInfo.details}${duration}` : `failed${duration}`,
 						);
 					}
-
-					if (scoped) {
-						clearLogScope(scopeId);
-					}
 				};
-
-				let result;
-				try {
-					result = fn.apply(this, args);
-				} catch (ex) {
-					logError(ex);
-					throw ex;
-				}
 
 				const logResult = (r: any) => {
 					let duration: number | undefined;
 					let exitLogFn: typeof logFn;
-					let timing;
+					let durationSuffix;
 					if (start != null) {
 						duration = getDurationMilliseconds(start);
-						if (duration > slowCallWarningThreshold) {
+						if (duration > slowThreshold) {
 							exitLogFn = Logger.warn;
-							timing = ` [*${duration}ms] (slow)`;
+							durationSuffix = ` [*${duration}ms] (slow)`;
 						} else {
 							exitLogFn = logFn;
-							timing = ` [${duration}ms]`;
+							durationSuffix = ` [${duration}ms]`;
 						}
 					} else {
-						timing = '';
+						durationSuffix = '';
 						exitLogFn = logFn;
 					}
 
+					const exitInfo = scope.getExitInfo();
 					let exit;
 					if (exitFn != null) {
 						if (typeof exitFn === 'function') {
@@ -261,46 +202,96 @@ function _log<T extends (...arg: any) => any>(
 						} else if (exitFn === true) {
 							exit = `returned ${Logger.toLoggable(r)}`;
 						}
-					} else if (scope?.exitFailed) {
-						exit = scope.exitFailed;
+					} else if (exitInfo?.failed) {
+						exit = exitInfo.failed;
 						exitLogFn = (message: string, ...params: any[]) => Logger.error(null, message, ...params);
 					} else {
 						exit = 'completed';
 					}
 
-					if (singleLine) {
-						if (logThreshold === 0 || duration! > logThreshold) {
+					// Only log if: logging at this level, or slow call warning, or error
+					if (shouldLog || exitLogFn !== logFn) {
+						const params = resolveParams();
+						if (onlyExit) {
+							if (onlyExit === true || onlyExit.after === 0 || duration! > onlyExit.after) {
+								exitLogFn.call(
+									Logger,
+									params
+										? `${prefix}(${params}) ${exit}${exitInfo?.details || ''}${durationSuffix}`
+										: `${prefix} ${exit}${exitInfo?.details || ''}${durationSuffix}`,
+								);
+							}
+						} else {
 							exitLogFn.call(
 								Logger,
-								loggableParams
-									? `${prefix}${enter}(${loggableParams}) ${exit}${scope?.exitDetails || ''}${timing}`
-									: `${prefix}${enter} ${exit}${scope?.exitDetails || ''}${timing}`,
+								params
+									? `${prefix}(${params}) ${exit}${exitInfo?.details || ''}${durationSuffix}`
+									: `${prefix} ${exit}${exitInfo?.details || ''}${durationSuffix}`,
 							);
 						}
-					} else {
-						exitLogFn.call(
-							Logger,
-							loggableParams
-								? `${prefix}(${loggableParams}) ${exit}${scope?.exitDetails || ''}${timing}`
-								: `${prefix} ${exit}${scope?.exitDetails || ''}${timing}`,
-						);
-					}
-
-					if (scoped) {
-						clearLogScope(scopeId);
 					}
 				};
 
-				if (result != null && isPromise(result)) {
-					result.then(logResult, logError);
-				} else {
-					logResult(result);
-				}
+				const execute = () => {
+					let result;
+					try {
+						result = fn.apply(this, args);
+					} catch (ex) {
+						logError(ex);
+						throw ex;
+					}
 
-				return result;
+					if (result != null && isPromise(result)) {
+						result.then(logResult, logError);
+					} else {
+						logResult(result);
+					}
+
+					return result;
+				};
+
+				// Run within scope context
+				return runInScope(scope, execute);
 			}
 
-			return fn.apply(this, args);
+			return runInScope(scope, () => fn.apply(this, args));
 		};
 	};
+}
+
+function formatParams<T extends (...arg: any) => any>(
+	argsFn: LogOptions<T>['args'] | undefined,
+	args: Parameters<T>,
+	parameters: string[],
+): string | undefined {
+	if (argsFn === false || !args.length) return undefined;
+
+	// Function form: call it and format the returned Record
+	if (typeof argsFn === 'function') {
+		const result = argsFn(...args);
+		if (result === false) return undefined;
+
+		let formatted = '';
+		for (const [name, value] of Object.entries(result)) {
+			if (formatted.length) {
+				formatted += ', ';
+			}
+			formatted += `${name}=${Logger.toLoggable(value, name)}`;
+		}
+		return formatted || undefined;
+	}
+
+	// Default: use parameter names from getParameters()
+	let formatted = '';
+	let paramIndex = -1;
+	for (const paramValue of args as unknown[]) {
+		const paramName = parameters[++paramIndex];
+		if (formatted.length) {
+			formatted += ', ';
+		}
+		formatted += paramName
+			? `${paramName}=${Logger.toLoggable(paramValue, paramName)}`
+			: Logger.toLoggable(paramValue);
+	}
+	return formatted || undefined;
 }

@@ -58,7 +58,7 @@ export class UriService implements Disposable, UriHandler {
 		this._disposable.dispose();
 	}
 
-	@debug<UriHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
+	@debug({ args: uri => ({ uri: uri.with({ query: '' }).toString(true) }) })
 	handleUri(uri: Uri): void {
 		const [, type] = uri.path.split('/');
 		if (type === AuthenticationUriPathPrefix) {

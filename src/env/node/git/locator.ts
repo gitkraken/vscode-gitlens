@@ -1,6 +1,6 @@
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import { GlyphChars } from '../../../constants.js';
+import { getLoggableScopeBlockOverride } from '../../../system/logger.scope.js';
 import { any } from '../../../system/promise.js';
 import { maybeStopWatch } from '../../../system/stopwatch.js';
 import { findExecutable, run } from './shell.js';
@@ -27,13 +27,15 @@ export interface GitLocation {
 }
 
 async function findSpecificGit(path: string): Promise<GitLocation> {
-	const sw = maybeStopWatch(`findSpecificGit(${path})`, { logLevel: 'debug' });
+	const sw = maybeStopWatch(`${getLoggableScopeBlockOverride('GIT')} findSpecificGit(${path})`, {
+		log: { level: 'debug' },
+	});
 
 	let version;
 	try {
 		version = await run(path, ['--version'], 'utf8');
 	} catch (ex) {
-		sw?.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
+		sw?.stop({ message: `\u2022 Unable to find git: ${ex}` });
 
 		if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 		throw ex;
@@ -47,7 +49,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		try {
 			version = await run(foundPath, ['--version'], 'utf8');
 		} catch (ex) {
-			sw?.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
+			sw?.stop({ message: `\u2022 Unable to find git: ${ex}` });
 
 			if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 			throw ex;
@@ -61,7 +63,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		.replace(/^git version /, '')
 		.trim();
 
-	sw?.stop({ message: ` ${GlyphChars.Dot} Found ${parsed} in ${path}; ${version}` });
+	sw?.stop({ message: `\u2022 Found ${parsed} in ${path}; ${version}` });
 
 	return {
 		path: path,

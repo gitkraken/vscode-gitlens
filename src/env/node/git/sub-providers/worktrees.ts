@@ -11,7 +11,6 @@ import type { GitWorktree } from '../../../../git/models/worktree.js';
 import { parseGitWorktrees } from '../../../../git/parsers/worktreeParser.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { debug } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { joinPaths, normalizePath } from '../../../../system/path.js';
 import { getSettledValue } from '../../../../system/promise.js';
@@ -60,7 +59,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				types: options?.createBranch ? ['branches', 'worktrees'] : ['worktrees'],
 			});
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw getGitCommandError(
 				'worktree-create',
 				ex,
@@ -167,7 +166,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		try {
 			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			const gitError = getGitCommandError(
 				'worktree-delete',
 				ex,
@@ -176,10 +175,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			);
 
 			if (gitError.details.reason === 'directoryNotEmpty') {
-				Logger.warn(
-					scope,
+				scope?.warn(
 					`Failed to fully delete worktree '${path}' because it is not empty. Attempting to delete it manually.`,
-					scope,
 				);
 				try {
 					await fs.rm(path, { force: true, recursive: true });
@@ -188,10 +185,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 					if (isWindows) {
 						const match = /EPERM: operation not permitted, unlink '(.*?)'/i.exec(ex.message);
 						if (match != null) {
-							Logger.warn(
-								scope,
+							scope?.warn(
 								`Failed to manually delete '${path}' because it is in use. Attempting to forcefully delete it.`,
-								scope,
 							);
 
 							function deleteInUseSymlink(symlink: string) {
@@ -214,12 +209,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 								await fs.rm(path, { force: true, recursive: true, maxRetries: 1, retryDelay: 1 });
 								return;
 							} catch (ex) {
-								Logger.error(
-									ex,
-									scope,
-									`Failed to forcefully delete '${path}' because it is in use.`,
-									scope,
-								);
+								scope?.error(ex, `Failed to forcefully delete '${path}' because it is in use.`);
 							}
 						}
 					}

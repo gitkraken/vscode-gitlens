@@ -6,10 +6,9 @@ import type { DisposableTemporaryGitIndex, GitStagingSubProvider } from '../../.
 import { splitPath } from '../../../../system/-webview/path.js';
 import { chunk, countStringLength } from '../../../../system/array.js';
 import { debug } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { joinPaths } from '../../../../system/path.js';
 import { mixinAsyncDisposable } from '../../../../system/unifiedDisposable.js';
-import { scope } from '../../../../webviews/commitDetails/protocol.js';
 import type { Git } from '../git.js';
 import { maxGitCliLength } from '../git.js';
 import type { LocalGitProviderInternal } from '../localGitProvider.js';
@@ -27,6 +26,8 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		from: 'empty' | 'current' | 'ref',
 		ref?: string,
 	): Promise<DisposableTemporaryGitIndex> {
+		const scope = getScopedLogger();
+
 		// Create a temporary index file
 		const tempDir = await fs.mkdtemp(joinPaths(tmpdir(), 'gl-'));
 		const tempIndex = joinPaths(tempDir, 'index');
@@ -84,7 +85,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 			return mixinAsyncDisposable({ path: tempIndex, env: { GIT_INDEX_FILE: tempIndex } }, dispose);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 
 			void dispose();

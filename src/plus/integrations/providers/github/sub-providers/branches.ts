@@ -13,7 +13,6 @@ import { sortBranches, sortContributors } from '../../../../../git/utils/-webvie
 import { createRevisionRange } from '../../../../../git/utils/revision.utils.js';
 import { configuration } from '../../../../../system/-webview/configuration.js';
 import { debug } from '../../../../../system/decorators/log.js';
-import { Logger } from '../../../../../system/logger.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { HeadType } from '../../../../remotehub.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
@@ -32,6 +31,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	@debug()
 	async getBranch(repoPath: string, name?: string, cancellation?: CancellationToken): Promise<GitBranch | undefined> {
+		const scope = getScopedLogger();
+
 		if (name != null) {
 			const {
 				values: [branch],
@@ -72,7 +73,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					return undefined;
 				} catch (ex) {
 					debugger;
-					Logger.error(ex, getScopedLogger());
+					scope?.error(ex);
 					return undefined;
 				}
 			}
@@ -84,7 +85,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return branchPromise;
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: repoPath => ({ repoPath: repoPath }) })
 	async getBranches(
 		repoPath: string | undefined,
 		options?: {
@@ -180,7 +181,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						cursor = result.paging.cursor;
 					}
 				} catch (ex) {
-					Logger.error(ex, scope);
+					scope?.error(ex);
 					debugger;
 
 					this.cache.branches.delete(repoPath!);
@@ -278,7 +279,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				contributors: result.contributors,
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
@@ -325,7 +326,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			return branches;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			return [];
 		}
@@ -349,7 +350,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				metadata.repo.name,
 			);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			return undefined;
 		}

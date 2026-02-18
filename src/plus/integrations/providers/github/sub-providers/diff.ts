@@ -24,7 +24,6 @@ import {
 import { diffRangeToEditorLine } from '../../../../../system/-webview/vscode/editors.js';
 import { debug } from '../../../../../system/decorators/log.js';
 import { union } from '../../../../../system/iterable.js';
-import { Logger } from '../../../../../system/logger.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
@@ -130,7 +129,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 					),
 			);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			return undefined;
 		}
@@ -177,7 +176,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				next: new GitUri(await this.provider.getBestRevisionUri(repoPath, relativePath, refs[skip])),
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 
 			throw ex;
@@ -245,7 +244,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				),
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 
 			throw ex;
@@ -314,7 +313,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				range: { startLine: line, endLine: line, active: range.active },
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 
 			throw ex;

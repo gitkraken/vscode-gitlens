@@ -3,7 +3,6 @@ import type { SearchQuery } from '../../constants.search.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { CancellationError } from '../../errors.js';
-import { Logger } from '../../system/logger.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 
 export interface NaturalLanguageSearchOptions {
@@ -47,7 +46,7 @@ export class NaturalLanguageSearchProcessor {
 				naturalLanguage: { query: searchQuery.query, processedQuery: result.result },
 			};
 		} catch (ex) {
-			Logger.error(ex, scope, `Failed to convert to search query: "${searchQuery.query}"`);
+			scope?.error(ex, `Failed to convert to search query: "${searchQuery.query}"`);
 
 			return {
 				...searchQuery,

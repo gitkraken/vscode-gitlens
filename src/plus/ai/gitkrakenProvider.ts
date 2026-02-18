@@ -3,7 +3,6 @@ import { fetch } from '@env/fetch.js';
 import { gitKrakenProviderDescriptor as provider } from '../../constants.ai.js';
 import { AIError, AIErrorReason, AuthenticationRequiredError } from '../../errors.js';
 import { trace } from '../../system/decorators/log.js';
-import { Logger } from '../../system/logger.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
@@ -77,7 +76,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		} catch (ex) {
 			if (!(ex instanceof AuthenticationRequiredError)) {
 				debugger;
-				Logger.error(ex, scope, `Unable to get models`);
+				scope?.error(ex, `Unable to get models`);
 			}
 		}
 

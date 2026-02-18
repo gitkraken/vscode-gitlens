@@ -14,7 +14,7 @@ import { weakEvent } from '../../system/event.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { Logger } from '../../system/logger.js';
-import { getScopedLogger, setLogScopeExit } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import { areUrisEqual } from '../../system/uri.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
@@ -129,7 +129,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		}
 
 		const updated = await this.updateUri(this._selectSha);
-		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
+		scope?.addExitInfo(`uri=${Logger.toLoggable(this._uri)}`);
 		return { cancel: !updated };
 	}
 

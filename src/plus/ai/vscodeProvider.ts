@@ -4,8 +4,8 @@ import { uuid } from '@env/crypto.js';
 import { vscodeProviderDescriptor } from '../../constants.ai.js';
 import type { Container } from '../../container.js';
 import { AIError, AIErrorReason, CancellationError } from '../../errors.js';
-import { getLoggableName, Logger } from '../../system/logger.js';
-import { startScopedLogger } from '../../system/logger.scope.js';
+import { getLoggableName } from '../../system/logger.js';
+import { maybeStartLoggableScope } from '../../system/logger.scope.js';
 import { capitalize } from '../../system/string.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import type { AIActionType, AIModel } from './models/model.js';
@@ -73,7 +73,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIProviderResponse<void> | undefined> {
-		using scope = startScopedLogger(`${getLoggableName(this)}.sendRequest`, false);
+		using scope = maybeStartLoggableScope(`${getLoggableName(this)}.sendRequest`);
 
 		const chatModel = await this.getChatModel(model);
 		if (chatModel == null) return undefined;
@@ -127,7 +127,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 				} satisfies AIProviderResponse<void>;
 			} catch (ex) {
 				if (ex instanceof CancellationError) {
-					Logger.error(ex, scope, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
+					scope?.error(ex, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
 					throw ex;
 				}
 
@@ -136,7 +136,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 				let message = ex instanceof Error ? ex.message : String(ex);
 
 				if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
-					Logger.error(ex, scope, `User denied access to ${model.provider.name}`);
+					scope?.error(ex, `User denied access to ${model.provider.name}`);
 					throw new AIError(AIErrorReason.DeniedByUser, ex);
 				}
 
@@ -150,11 +150,11 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						continue;
 					}
 
-					Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
+					scope?.error(ex, `Unable to ${getActionName(action)}: (${model.provider.name})`);
 					throw new AIError(AIErrorReason.RequestTooLarge, ex);
 				}
 
-				Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
+				scope?.error(ex, `Unable to ${getActionName(action)}: (${model.provider.name})`);
 
 				if (message.includes('Model is not supported for this request')) {
 					throw new AIError(AIErrorReason.ModelNotSupported, ex);

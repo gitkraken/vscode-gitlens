@@ -19,7 +19,6 @@ import {
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
 import { debug, trace } from '../../system/decorators/log.js';
-import { Logger } from '../../system/logger.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar.js';
 import { WebviewController } from '../webviewController.js';
@@ -122,7 +121,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		}
 	}
 
-	@trace<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 1: false, 2: false } })
+	@trace({ args: document => ({ document: document }) })
 	async resolveCustomTextEditor(
 		document: TextDocument,
 		panel: WebviewPanel,
@@ -137,7 +136,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		// Dispose any existing controller for this document, (shouldn't happen due to supportsMultipleEditorsPerDocument being false)
 		const existing = this._controllers.get(key);
 		if (existing != null) {
-			Logger.trace(scope, `Disposing existing rebase editor controller for ${key}:${existing.instanceId}`);
+			scope?.trace(`Disposing existing rebase editor controller for ${key}:${existing.instanceId}`);
 			existing.dispose();
 			this._controllers.delete(key);
 		}
@@ -174,7 +173,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const subscriptions: Disposable[] = [
 			controller.onDidDispose(() => {
-				Logger.trace(scope, `Disposing rebase editor controller (${key}:${controller.instanceId})`);
+				scope?.trace(`Disposing rebase editor controller (${key}:${controller.instanceId})`);
 
 				this._controllers.delete(key);
 				Disposable.from(...subscriptions).dispose();

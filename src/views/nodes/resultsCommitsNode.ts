@@ -9,7 +9,7 @@ import type { AIGenerateChangelogChanges } from '../../plus/ai/actions/generateC
 import { configuration } from '../../system/-webview/configuration.js';
 import { trace } from '../../system/decorators/log.js';
 import { map } from '../../system/iterable.js';
-import { getLoggableName, Logger } from '../../system/logger.js';
+import { getLoggableName } from '../../system/logger.js';
 import { getNewLogScope } from '../../system/logger.scope.js';
 import type { Deferred } from '../../system/promise.js';
 import { defer, pauseOnCancelOrTimeout } from '../../system/promise.js';
@@ -189,7 +189,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 						if (this._onChildrenCompleted?.promise != null) {
 							const timeout = new Promise<void>(resolve => {
 								setTimeout(() => {
-									Logger.error(undefined, scope, 'onChildrenCompleted promise timed out after 30s');
+									scope?.error(undefined, 'onChildrenCompleted promise timed out after 30s');
 									resolve();
 								}, 30000); // 30 second timeout
 							});
@@ -200,7 +200,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 						void (await result.value);
 						this.view.triggerNodeChange(this.parent);
 					} catch (ex) {
-						Logger.error(ex, scope, 'Failed awaiting children completion');
+						scope?.error(ex, 'Failed awaiting children completion');
 					}
 				});
 

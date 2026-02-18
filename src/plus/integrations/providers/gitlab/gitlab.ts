@@ -28,7 +28,7 @@ import { configuration } from '../../../../system/-webview/configuration.js';
 import { trace } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
 import type { ScopedLogger } from '../../../../system/logger.scope.js';
-import { getScopedLogger, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import { equalsIgnoreCase } from '../../../../system/string.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
@@ -92,7 +92,15 @@ export class GitLabApi implements Disposable {
 		return proxyAgent ?? undefined;
 	}
 
-	@trace<GitLabApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, rev) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+		}),
+	})
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -161,7 +169,13 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@trace<GitLabApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, _owner, _repo, email) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			email: email,
+		}),
+	})
 	async getAccountForEmail(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -194,7 +208,14 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@trace<GitLabApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
 	async getDefaultBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -254,7 +275,15 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@trace<GitLabApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, number) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			number: number,
+		}),
+	})
 	async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -374,7 +403,15 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@trace<GitLabApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, branch) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+		}),
+	})
 	async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -529,7 +566,15 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@trace<GitLabApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, rev) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+		}),
+	})
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -578,7 +623,15 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@trace<GitLabApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, id) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			id: id,
+		}),
+	})
 	async getPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -666,7 +719,14 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@trace<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
 	async getRepositoryMetadata(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -717,7 +777,7 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
-	@trace<GitLabApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -974,7 +1034,7 @@ $search: String!
 
 			const projectId = match[1];
 
-			setLogScopeExit(scope, ` \u2022 projectId=${projectId}`);
+			scope?.addExitInfo(`projectId=${projectId}`);
 			return projectId;
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
@@ -996,7 +1056,7 @@ $search: String!
 		const { accessToken } = token;
 		let rsp: Response;
 		try {
-			const sw = maybeStopWatch(`[GITLAB] POST ${baseUrl}`, { log: false });
+			const sw = maybeStopWatch(`[GITLAB] POST ${baseUrl}`, { log: { onlyExit: true } });
 			const agent = this.getProxyAgent(provider);
 
 			try {
@@ -1057,7 +1117,7 @@ $search: String!
 
 		let rsp: Response;
 		try {
-			const sw = maybeStopWatch(`[GITLAB] ${options?.method ?? 'GET'} ${url}`, { log: false });
+			const sw = maybeStopWatch(`[GITLAB] ${options?.method ?? 'GET'} ${url}`, { log: { onlyExit: true } });
 			const agent = this.getProxyAgent(provider);
 
 			try {
@@ -1131,7 +1191,7 @@ $search: String!
 				}
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				if (ex.response != null) {
 					provider?.trackRequestException();
 					void showIntegrationRequestFailed500WarningMessage(
@@ -1144,7 +1204,7 @@ $search: String!
 				}
 				return;
 			case 502: // Bad Gateway
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
 					provider?.trackRequestException();
@@ -1157,7 +1217,7 @@ $search: String!
 				break;
 		}
 
-		Logger.error(ex, scope);
+		scope?.error(ex);
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
 				`GitLab request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
@@ -1166,7 +1226,7 @@ $search: String!
 	}
 
 	private handleException(ex: Error, provider: Provider, scope: ScopedLogger | undefined): Error {
-		Logger.error(ex, scope);
+		scope?.error(ex);
 		// debugger;
 
 		if (ex instanceof AuthenticationError) {

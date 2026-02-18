@@ -22,7 +22,7 @@ export function parseGitWorktrees(
 	repoPath: string,
 	branches: GitBranch[],
 ): GitWorktree[] {
-	using sw = maybeStopWatch(`Git.parseWorktrees(${repoPath})`, { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch(`Git.parseWorktrees(${repoPath})`, { log: { onlyExit: true, level: 'debug' } });
 
 	const worktrees: GitWorktree[] = [];
 	if (!data) {

@@ -10,7 +10,6 @@ import type { TagSortOptions } from '../../../../git/utils/-webview/sorting.js';
 import { sortTags } from '../../../../git/utils/-webview/sorting.js';
 import { filterMap } from '../../../../system/array.js';
 import { debug } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { Git } from '../git.js';
@@ -33,7 +32,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		return tag;
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: repoPath => ({ repoPath: repoPath }) })
 	async getTags(
 		repoPath: string,
 		options?: {
@@ -59,7 +58,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 				);
 				if (!result.stdout) return emptyPagedResult;
 
-				using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+				using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
 
 				const tags: GitTag[] = [];
 
@@ -81,7 +80,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 				return { values: tags };
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				if (isCancellationError(ex)) throw ex;
 
 				return emptyPagedResult;

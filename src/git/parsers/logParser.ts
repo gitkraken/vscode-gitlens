@@ -286,7 +286,7 @@ function createLogParser<T extends Record<string, string>>(mapping: ExtractAll<T
 	const args = [`--format=${format}`];
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntry<T>> {
-		using sw = maybeStopWatch('Git.LogParser.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParser.parse', { log: { onlyExit: true, level: 'debug' } });
 
 		if (!data) {
 			sw?.stop({ suffix: ` no data` });
@@ -324,7 +324,7 @@ function createLogParser<T extends Record<string, string>>(mapping: ExtractAll<T
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntry<T>> {
-		using sw = maybeStopWatch('Git.LogParser.parseAsync', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParser.parseAsync', { log: { onlyExit: true, level: 'debug' } });
 
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
@@ -517,7 +517,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithFilesAndStats<T>> {
-		using sw = maybeStopWatch('Git.LogParserWithFilesAndStats.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithFilesAndStats.parse', { log: { onlyExit: true, level: 'debug' } });
 
 		if (!data) {
 			sw?.stop({ suffix: ` no data` });
@@ -586,7 +586,9 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFilesAndStats<T>> {
-		using sw = maybeStopWatch('Git.LogParserWithFilesAndStats.parseAsync', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithFilesAndStats.parseAsync', {
+			log: { onlyExit: true, level: 'debug' },
+		});
 
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
@@ -720,7 +722,7 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithFiles<T>> {
-		using sw = maybeStopWatch('Git.LogParserWithFileSummary.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithFileSummary.parse', { log: { onlyExit: true, level: 'debug' } });
 
 		if (!data) {
 			sw?.stop({ suffix: ` no data` });
@@ -830,7 +832,7 @@ function createLogParserSingle(field: string): Parser<string> {
 	const args = ['-z', `--format=${field}`];
 
 	function parse(data: string | Iterable<string> | undefined): Iterable<string> {
-		using _sw = maybeStopWatch('Git.LogParserSingle.parse', { log: false, logLevel: 'debug' });
+		using _sw = maybeStopWatch('Git.LogParserSingle.parse', { log: { onlyExit: true, level: 'debug' } });
 
 		return data ? iterateByDelimiter(data, '\0') : [];
 	}
@@ -888,7 +890,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithFiles<T>> {
-		using sw = maybeStopWatch('Git.LogParserWithPatch.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithPatch.parse', { log: { onlyExit: true, level: 'debug' } });
 
 		if (!data) {
 			sw?.stop({ suffix: ` no data` });
@@ -937,7 +939,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFiles<T>> {
-		using sw = maybeStopWatch('Git.LogParserWithPatch.parseAsync', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithPatch.parseAsync', { log: { onlyExit: true, level: 'debug' } });
 
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
@@ -1046,7 +1048,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithStats<T>> {
-		using sw = maybeStopWatch('Git.LogParserWithStats.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithStats.parse', { log: { onlyExit: true, level: 'debug' } });
 
 		if (!data) {
 			sw?.stop({ suffix: ` no data` });
@@ -1094,7 +1096,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithStats<T>> {
-		using sw = maybeStopWatch('Git.LogParserWithStats.parseAsync', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithStats.parseAsync', { log: { onlyExit: true, level: 'debug' } });
 
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
@@ -1171,7 +1173,7 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithFiles<T>> {
-		using sw = maybeStopWatch('Git.createLogParserWithFiles.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.createLogParserWithFiles.parse', { log: { onlyExit: true, level: 'debug' } });
 
 		if (!data) {
 			sw?.stop({ suffix: ` no data` });
@@ -1219,7 +1221,9 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFiles<T>> {
-		using sw = maybeStopWatch('Git.createLogParserWithFiles.parseAsync', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.createLogParserWithFiles.parseAsync', {
+			log: { onlyExit: true, level: 'debug' },
+		});
 
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 

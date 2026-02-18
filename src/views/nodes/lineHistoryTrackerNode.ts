@@ -12,7 +12,7 @@ import { debug, trace } from '../../system/decorators/log.js';
 import { weakEvent } from '../../system/event.js';
 import { debounce } from '../../system/function/debounce.js';
 import { Logger } from '../../system/logger.js';
-import { getScopedLogger, setLogScopeExit } from '../../system/logger.scope.js';
+import { getScopedLogger } from '../../system/logger.scope.js';
 import { areUrisEqual } from '../../system/uri.js';
 import type { LinesChangeEvent } from '../../trackers/lineTracker.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
@@ -136,7 +136,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		}
 
 		const updated = await this.updateUri();
-		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
+		scope?.addExitInfo(`uri=${Logger.toLoggable(this._uri)}`);
 		return { cancel: !updated };
 	}
 
@@ -161,13 +161,12 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		);
 	}
 
-	@trace<LineHistoryTrackerNode['onActiveLinesChanged']>({
-		args: {
-			0: e =>
-				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
-					?.map(s => `[${s.anchor}-${s.active}]`)
-					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
-		},
+	@trace({
+		args: e => ({
+			e: `editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
+				?.map(s => `[${s.anchor}-${s.active}]`)
+				.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
+		}),
 	})
 	private onActiveLinesChanged(_e: LinesChangeEvent) {
 		void this.triggerChange();
