@@ -1,45 +1,16 @@
 import { hrtime } from '@env/hrtime.js';
+import { enterScope, exitScope, getCurrentScope, runInScope } from '@env/logScope.js';
 import { getScopedCounter } from './counter.js';
 import type { LogLevel } from './logger.constants.js';
 import { Logger } from './logger.js';
 import { getDurationMilliseconds } from './string.js';
 
-// Inline counter-based scope tracking
-const scopes = new Map<number, ScopedLogger>();
-let currentScopeId: number | undefined;
-
 /**
  * Runs a function within a log scope context.
- * Note: Counter-based scope tracking may be incorrect after await if other scoped methods run concurrently.
+ * In Node.js, the scope will be available via getScopedLogger() throughout async execution.
+ * In browser, the scope is tracked best-effort.
  */
-export function runInScope<T>(scope: ScopedLogger, fn: () => T): T {
-	const prevId = currentScopeId;
-	currentScopeId = scope.scopeId;
-	scopes.set(scope.scopeId!, scope);
-	try {
-		return fn();
-	} finally {
-		currentScopeId = prevId;
-		scopes.delete(scope.scopeId!);
-	}
-}
-
-function getCurrentScope(): ScopedLogger | undefined {
-	return currentScopeId != null ? scopes.get(currentScopeId) : undefined;
-}
-
-function enterScope(scope: ScopedLogger): void {
-	currentScopeId = scope.scopeId;
-	scopes.set(scope.scopeId!, scope);
-}
-
-function exitScope(prevScope: ScopedLogger | undefined, scopeToExit?: ScopedLogger): void {
-	const scopeIdToDelete = scopeToExit?.scopeId ?? currentScopeId;
-	if (scopeIdToDelete != null) {
-		scopes.delete(scopeIdToDelete);
-	}
-	currentScopeId = prevScope?.scopeId;
-}
+export { runInScope };
 
 export const logScopeIdGenerator = getScopedCounter();
 
