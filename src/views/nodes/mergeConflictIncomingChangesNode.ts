@@ -6,6 +6,7 @@ import { GitUri } from '../../git/gitUri.js';
 import type { GitCommit } from '../../git/models/commit.js';
 import type { GitFile } from '../../git/models/file.js';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import { getConflictIncomingRef } from '../../git/utils/pausedOperationStatus.utils.js';
 import { getReferenceLabel } from '../../git/utils/reference.utils.js';
 import { createCommand, createCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -20,19 +21,24 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 	'conflict-incoming-changes',
 	ViewsWithCommits | FileHistoryView | LineHistoryView
 > {
+	private _incomingRef: string | undefined;
+
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		protected override readonly parent: ViewNode,
 		private readonly status: GitPausedOperationStatus,
 		private readonly file: GitFile,
 	) {
-		super('conflict-incoming-changes', GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
+		const incomingRef = getConflictIncomingRef(status);
+		super('conflict-incoming-changes', GitUri.fromFile(file, status.repoPath, incomingRef), view, parent);
+
+		this._incomingRef = incomingRef;
 	}
 
 	private _commit: Promise<GitCommit | undefined> | undefined;
 	private async getCommit(): Promise<GitCommit | undefined> {
 		if (this._commit == null) {
-			const ref = this.status.type === 'rebase' ? this.status.steps.current.commit?.ref : this.status.HEAD.ref;
+			const ref = this._incomingRef;
 			if (ref == null) return undefined;
 
 			this._commit = this.view.container.git.getRepositoryService(this.status.repoPath).commits.getCommit(ref);
@@ -49,14 +55,16 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 
 		const item = new TreeItem('Incoming changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictIncomingChanges;
-		item.description = `${getReferenceLabel(this.status.incoming, { expand: false, icon: false })}${
-			this.status.type === 'rebase'
-				? ` (${getReferenceLabel(this.status.steps.current.commit, {
-						expand: false,
-						icon: false,
-					})})`
-				: ` (${getReferenceLabel(this.status.HEAD, { expand: false, icon: false })})`
-		}`;
+		item.description = getReferenceLabel(this.status.incoming, { expand: false, icon: false });
+		// Show the specific commit SHA in parens when it adds info beyond the incoming label
+		if (this.status.type === 'rebase') {
+			item.description += ` (${getReferenceLabel(this.status.steps.current.commit, {
+				expand: false,
+				icon: false,
+			})})`;
+		} else if (this.status.incoming.refType === 'branch') {
+			item.description += ` (${getReferenceLabel(this.status.HEAD, { expand: false, icon: false })})`;
+		}
 		item.iconPath = this.view.config.avatars
 			? ((await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
 				new ThemeIcon('diff'))
@@ -67,13 +75,14 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 	}
 
 	override getCommand(): Command | undefined {
+		const ref = this._incomingRef;
+		if (ref == null) return undefined;
+
 		if (this.status.mergeBase == null) {
 			return createCoreCommand(
 				'vscode.open',
 				'Open Revision',
-				this.view.container.git
-					.getRepositoryService(this.status.repoPath)
-					.getRevisionUri(this.status.HEAD.ref, this.file.path),
+				this.view.container.git.getRepositoryService(this.status.repoPath).getRevisionUri(ref, this.file.path),
 			);
 		}
 
@@ -84,7 +93,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 				title: `${this.file.path} (merge-base)`,
 			},
 			rhs: {
-				sha: this.status.HEAD.ref,
+				sha: ref,
 				uri: GitUri.fromFile(this.file, this.status.repoPath),
 				title: `${this.file.path} (${
 					this.status.incoming != null

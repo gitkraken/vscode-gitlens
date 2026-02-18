@@ -6,6 +6,7 @@ import { GitUri } from '../../git/gitUri.js';
 import type { GitCommit } from '../../git/models/commit.js';
 import type { GitFile } from '../../git/models/file.js';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import { getConflictCurrentRef } from '../../git/utils/pausedOperationStatus.utils.js';
 import { getReferenceLabel } from '../../git/utils/reference.utils.js';
 import { createCommand, createCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -39,12 +40,16 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 		return [];
 	}
 
+	private get currentRef() {
+		return getConflictCurrentRef(this.status);
+	}
+
 	async getTreeItem(): Promise<TreeItem> {
 		const commit = await this.getCommit();
 
 		const item = new TreeItem('Current changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictCurrentChanges;
-		item.description = `${getReferenceLabel(this.status.current, { expand: false, icon: false })}${
+		item.description = `${getReferenceLabel(this.currentRef, { expand: false, icon: false })}${
 			commit != null ? ` (${getReferenceLabel(commit, { expand: false, icon: false })})` : ' (HEAD)'
 		}`;
 		item.iconPath = this.view.config.avatars
@@ -76,7 +81,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 			rhs: {
 				sha: 'HEAD',
 				uri: GitUri.fromFile(this.file, this.status.repoPath),
-				title: `${this.file.path} (${getReferenceLabel(this.status.current, {
+				title: `${this.file.path} (${getReferenceLabel(this.currentRef, {
 					expand: false,
 					icon: false,
 				})})`,
@@ -97,7 +102,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 		if (cancellation.isCancellationRequested) return undefined;
 
 		const markdown = new MarkdownString(
-			`Current changes on ${getReferenceLabel(this.status.current, { label: false })}\\\n$(file)${
+			`Current changes on ${getReferenceLabel(this.currentRef, { label: false })}\\\n$(file)${
 				GlyphChars.Space
 			}${this.file.path}`,
 			true,
