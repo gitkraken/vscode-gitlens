@@ -14,7 +14,7 @@ import { UriSet } from '../../system/-webview/uriMap.js';
 import { exists } from '../../system/-webview/vscode/uris.js';
 import { getScopedCounter } from '../../system/counter.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, logName, trace } from '../../system/decorators/log.js';
+import { debug, loggable, logName, trace } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
@@ -162,7 +162,8 @@ export interface RepositoryFileSystemChangeEvent {
 
 const instanceCounter = getScopedCounter();
 
-@logName<Repository>(r => `Repository(${r.id}|${r.instance})`)
+@logName(r => `Repository(${r.id}|${r.instance})`)
+@loggable()
 export class Repository implements Disposable {
 	private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChange(): Event<RepositoryChangeEvent> {
@@ -263,10 +264,6 @@ export class Repository implements Disposable {
 		this.unWatchFileSystem(true);
 		this._repoWatchersDisposable?.dispose();
 		this._disposable.dispose();
-	}
-
-	toString(): string {
-		return getLoggableName(this);
 	}
 
 	private _closed: boolean = false;

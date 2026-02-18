@@ -96,7 +96,7 @@ export interface TrackedGitDocumentStatus {
 	dirtyIdle?: boolean;
 }
 
-@logName<TrackedGitDocument>(c => `TrackedGitDocument(${Logger.toLoggable(c.document)})`)
+@logName(c => `TrackedGitDocument(${Logger.toLoggable(c.document)})`)
 export class TrackedGitDocument implements Disposable {
 	static async create(
 		container: Container,

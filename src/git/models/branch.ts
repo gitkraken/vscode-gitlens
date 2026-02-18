@@ -3,9 +3,8 @@ import type { CancellationToken } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import type { Container } from '../../container.js';
 import { formatDate, fromNow } from '../../system/date.js';
-import { trace } from '../../system/decorators/log.js';
+import { loggable, trace } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
-import { getLoggableName } from '../../system/logger.js';
 import type { MaybePausedResult } from '../../system/promise.js';
 import { isBranchStarred } from '../utils/-webview/branch.utils.js';
 import {
@@ -27,6 +26,7 @@ export function isBranch(branch: unknown): branch is GitBranch {
 	return branch instanceof GitBranch;
 }
 
+@loggable(i => i.id)
 export class GitBranch implements GitBranchReference {
 	readonly refType = 'branch';
 	readonly detached: boolean;
@@ -69,10 +69,6 @@ export class GitBranch implements GitBranchReference {
 		}
 
 		this.upstream = upstream?.name ? upstream : undefined;
-	}
-
-	toString(): string {
-		return `${getLoggableName(this)}(${this.id})`;
 	}
 
 	/** @returns The most recent date among lastModifiedDate, lastAccessedDate, and branch.date */

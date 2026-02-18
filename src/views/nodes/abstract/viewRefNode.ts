@@ -2,10 +2,12 @@ import type { TreeViewRefFileNodeTypes, TreeViewRefNodeTypes } from '../../../co
 import type { GitUri } from '../../../git/gitUri.js';
 import type { GitReference, GitRevisionReference } from '../../../git/models/reference.js';
 import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
+import { loggable } from '../../../system/decorators/log.js';
 import type { View } from '../../viewBase.js';
 import { ViewFileNode } from './viewFileNode.js';
 import { ViewNode } from './viewNode.js';
 
+@loggable(i => getReferenceLabel(i.ref, false))
 export abstract class ViewRefNode<
 	Type extends TreeViewRefNodeTypes = TreeViewRefNodeTypes,
 	TView extends View = View,
@@ -26,20 +28,13 @@ export abstract class ViewRefNode<
 	get repoPath(): string {
 		return this.uri.repoPath!;
 	}
-
-	override toString(): string {
-		return `${super.toString()}:${getReferenceLabel(this.ref, false)}`;
-	}
 }
 
+@loggable(i => i.file.path)
 export abstract class ViewRefFileNode<
 	Type extends TreeViewRefFileNodeTypes = TreeViewRefFileNodeTypes,
 	TView extends View = View,
 	State extends object = any,
 > extends ViewFileNode<Type, TView, State> {
 	abstract get ref(): GitRevisionReference;
-
-	override toString(): string {
-		return `${super.toString()}:${this.file.path}`;
-	}
 }

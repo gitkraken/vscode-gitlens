@@ -1,3 +1,4 @@
+import { loggable } from '../../system/decorators/log.js';
 import type { IssueOrPullRequest, IssueOrPullRequestState } from './issueOrPullRequest.js';
 import type { ProviderReference } from './remoteProvider.js';
 import type { RepositoryIdentityDescriptor } from './repositoryIdentities.js';
@@ -15,6 +16,7 @@ export interface IssueShape extends IssueOrPullRequest {
 	project?: IssueProject;
 }
 
+@loggable(i => i.id)
 export class Issue implements IssueShape {
 	readonly type = 'issue';
 

@@ -5,14 +5,15 @@ import type { Container } from '../../container.js';
 import { relative } from '../../system/-webview/path.js';
 import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode/workspaces.js';
 import { formatDate, fromNow } from '../../system/date.js';
+import { loggable } from '../../system/decorators/log.js';
 import { memoize } from '../../system/decorators/memoize.js';
-import { getLoggableName } from '../../system/logger.js';
 import { basename, normalizePath } from '../../system/path.js';
 import { getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils.js';
 import { shortenRevision } from '../utils/revision.utils.js';
 import type { GitBranch } from './branch.js';
 import type { GitStatus } from './status.js';
 
+@loggable(i => i.uri.toString())
 export class GitWorktree {
 	constructor(
 		private readonly container: Container,
@@ -25,10 +26,6 @@ export class GitWorktree {
 		public readonly sha?: string,
 		public readonly branch?: GitBranch,
 	) {}
-
-	toString(): string {
-		return `${getLoggableName(this)}(${this.uri.toString()})`;
-	}
 
 	get date(): Date | undefined {
 		return this.branch?.date;

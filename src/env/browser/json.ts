@@ -1,13 +1,23 @@
 import { URI } from 'vscode-uri';
+import { isLoggable } from '../../system/loggable.js';
 import type { IpcDate, IpcPromise } from '../../webviews/ipc/models/dataTypes.js';
 import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc/utils/ipc.utils.js';
 import { IpcPromiseSettled } from '../../webviews/protocol.js';
 
 export function loggingJsonReplacer(key: string, value: unknown): unknown {
 	if (key === '' || value == null || typeof value !== 'object') return value;
+	// Filter out properties starting with '_' to avoid logging private/internal properties
 	if (key.charCodeAt(0) === 95) return undefined; // '_' = 95
 
+	if (value instanceof URI) {
+		if ('sha' in value && typeof value.sha === 'string' && value.sha) {
+			return `${value.sha}:${value.toString()}`;
+		}
+		return value.toString();
+	}
 	if (value instanceof Error) return String(value);
+
+	if (isLoggable(value)) return value.toLoggable();
 
 	return value;
 }
@@ -16,7 +26,7 @@ export function serializeJsonReplacer(this: any, key: string, value: unknown): u
 	if (typeof value === 'object' && value != null) {
 		// Dates and Uris are automatically converted by JSON.stringify, so we check the original below
 		// if (value instanceof Date) return value.getTime();
-		// if (value instanceof RegExp) return value.toString();
+		if (value instanceof RegExp) return value.toString();
 		if (value instanceof Map || value instanceof Set) return [...value.entries()];
 		if (value instanceof Function || value instanceof Error) return undefined;
 	}

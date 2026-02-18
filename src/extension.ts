@@ -18,10 +18,6 @@ import { trackableSchemes } from './constants.js';
 import { SyncedStorageKeys } from './constants.storage.js';
 import { Container } from './container.js';
 import { isGitUri } from './git/gitUri.js';
-import { isBranch } from './git/models/branch.js';
-import { isCommit } from './git/models/commit.js';
-import { isRepository } from './git/models/repository.js';
-import { isTag } from './git/models/tag.js';
 import { getBranchNameWithoutRemote } from './git/utils/branch.utils.js';
 import { setAbbreviatedShaLength } from './git/utils/revision.utils.js';
 import {
@@ -41,11 +37,11 @@ import { isWorkspaceFolder } from './system/-webview/vscode/workspaces.js';
 import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode.js';
 import { setDefaultDateLocales } from './system/date.js';
 import { once } from './system/event.js';
+import { isLoggable } from './system/loggable.js';
 import { BufferedLogChannel, getLoggableName, Logger } from './system/logger.js';
 import { flatten } from './system/object.js';
 import { Stopwatch } from './system/stopwatch.js';
 import { compare, fromString, satisfies } from './system/version.js';
-import { isViewNode } from './views/nodes/utils/-webview/node.utils.js';
 import './commands.js';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
@@ -75,8 +71,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 					})`;
 				}
 				if (o instanceof Uri) return `Uri(${o.toString(true)})`;
-
-				if (isRepository(o) || isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
+				if (isLoggable(o)) return o.toLoggable();
 
 				if ('rootUri' in o && o.rootUri instanceof Uri) {
 					return `ScmRepository(${o.rootUri.toString(true)})`;

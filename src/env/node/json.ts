@@ -1,18 +1,13 @@
 import { Uri } from 'vscode';
 import { isContainer } from '../../container.js';
-import { isBranch } from '../../git/models/branch.js';
-import { isCommit } from '../../git/models/commit.js';
-import { isRemote } from '../../git/models/remote.js';
-import { isRepository } from '../../git/models/repository.js';
-import { isTag } from '../../git/models/tag.js';
-import { isWorktree } from '../../git/models/worktree.js';
-import { isViewNode } from '../../views/nodes/utils/-webview/node.utils.js';
+import { isLoggable } from '../../system/loggable.js';
 import type { IpcDate, IpcPromise, IpcUri } from '../../webviews/ipc/models/dataTypes.js';
 import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc/utils/ipc.utils.js';
 import { IpcPromiseSettled } from '../../webviews/protocol.js';
 
 export function loggingJsonReplacer(key: string, value: unknown): unknown {
 	if (key === '' || value == null || typeof value !== 'object') return value;
+	// Filter out properties starting with '_' to avoid logging private/internal properties
 	if (key.charCodeAt(0) === 95) return undefined; // '_' = 95
 
 	if (value instanceof Uri) {
@@ -23,21 +18,7 @@ export function loggingJsonReplacer(key: string, value: unknown): unknown {
 	}
 	if (value instanceof Error) return String(value);
 
-	// Checks for toString first to avoid function calls if possible
-	if (
-		'toString' in value &&
-		typeof value.toString === 'function' &&
-		(isRepository(value) ||
-			isBranch(value) ||
-			isCommit(value) ||
-			isRemote(value) ||
-			isTag(value) ||
-			isWorktree(value) ||
-			isViewNode(value))
-	) {
-		return value.toString();
-	}
-	if (isContainer(value)) return '<container>';
+	if (isLoggable(value)) return value.toLoggable();
 
 	return value;
 }
