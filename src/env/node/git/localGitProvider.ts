@@ -164,12 +164,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
 		this._cache.onRepositoryChanged(repo.path, e);
 
-		if (!e.changed('unknown', 'closed', 'any')) {
-			if (e.changed('head', 'any')) {
+		if (!e.changed('unknown', 'closed')) {
+			if (e.changed('head')) {
 				queueMicrotask(() => this.branches.onCurrentBranchAccessed(repo.path));
 			}
 
-			if (e.changed('index', 'any')) {
+			if (e.changed('index')) {
 				queueMicrotask(() => this.branches.onCurrentBranchModified(repo.path));
 			}
 		}

@@ -52,7 +52,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			}),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			container.git.onDidChangeRepository(e => {
-				if (e.changed('rebase', 'any')) {
+				if (e.changed('rebase')) {
 					void this.onRebaseChanged(e.repository.path);
 				}
 			}),

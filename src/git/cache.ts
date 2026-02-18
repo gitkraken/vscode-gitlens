@@ -469,34 +469,34 @@ export class GitCache implements Disposable {
 	 */
 	@debug({ onlyExit: true })
 	onRepositoryChanged(repoPath: string, e: RepositoryChangeEvent): void {
-		if (e.changed('unknown', 'closed', 'any')) {
+		if (e.changed('unknown', 'closed')) {
 			this.clearCaches(repoPath);
 			return;
 		}
 
 		const types = new Set<CachedGitTypes>();
 
-		if (e.changed('head', 'any')) {
+		if (e.changed('head')) {
 			this.currentBranchReference.delete(repoPath);
 		}
 
-		if (e.changed('index', 'any')) {
+		if (e.changed('index')) {
 			this._caches.fileExistence?.delete(repoPath);
 			this._caches.trackedPaths?.delete(repoPath);
 		}
 
-		if (e.changed('config', 'any')) {
+		if (e.changed('config')) {
 			types.add('config');
 		}
 
-		if (e.changed('heads', 'any')) {
+		if (e.changed('heads')) {
 			// Clear branches cache (includes sharedBranches, logShas, reachability, gitResults, etc.)
 			types.add('branches');
 			types.add('contributors');
 			types.add('worktrees');
 		}
 
-		if (e.changed('remotes', 'any')) {
+		if (e.changed('remotes')) {
 			// Clear branches cache for upstream tracking state (ahead/behind counts) that changes on push
 			types.add('branches');
 			types.add('contributors');
@@ -504,33 +504,33 @@ export class GitCache implements Disposable {
 			types.add('worktrees');
 		}
 
-		if (e.changed('ignores', 'any')) {
+		if (e.changed('ignores')) {
 			types.add('gitignore');
 		}
 
-		if (e.changed('gkConfig', 'any')) {
+		if (e.changed('gkConfig')) {
 			types.add('gkConfig');
 		}
 
-		if (e.changed('remoteProviders', 'any')) {
+		if (e.changed('remoteProviders')) {
 			// RemoteProviders change only affects parsed remotes, not raw git output
 			types.add('providers');
 		}
 
-		if (e.changed('cherryPick', 'merge', 'rebase', 'revert', 'pausedOp', 'any')) {
+		if (e.changed('cherryPick', 'merge', 'rebase', 'revert', 'pausedOp')) {
 			this.branch.delete(repoPath);
 			types.add('status');
 		}
 
-		if (e.changed('stash', 'any')) {
+		if (e.changed('stash')) {
 			types.add('stashes');
 		}
 
-		if (e.changed('tags', 'any')) {
+		if (e.changed('tags')) {
 			types.add('tags');
 		}
 
-		if (e.changed('worktrees', 'any')) {
+		if (e.changed('worktrees')) {
 			types.add('worktrees');
 		}
 

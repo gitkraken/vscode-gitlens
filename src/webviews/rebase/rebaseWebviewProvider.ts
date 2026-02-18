@@ -157,7 +157,7 @@ export class RebaseWebviewProvider implements Disposable {
 		if (repo != null) {
 			this._disposables.push(
 				repo.onDidChange(async e => {
-					if (e.changed('rebase', 'any')) {
+					if (e.changed('rebase')) {
 						// Check if the rebase todo file still exists, if not close the editor
 						if (await exists(this._todoDocument.uri)) {
 							this.updateState();
@@ -165,7 +165,7 @@ export class RebaseWebviewProvider implements Disposable {
 							this._closing = true;
 							void closeTab(this._todoDocument.uri);
 						}
-					} else if (e.changed('index', 'any')) {
+					} else if (e.changed('index')) {
 						// Refresh when index changes to update conflict state during paused rebase
 						this.updateState();
 					}

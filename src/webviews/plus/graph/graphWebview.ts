@@ -780,14 +780,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'pausedOp',
 				'tags',
 				'unknown',
-				'any',
 			)
 		) {
 			this._etagRepository = e.repository.etag;
 			return;
 		}
 
-		if (e.changed('config', 'any')) {
+		if (e.changed('config')) {
 			if (this._refsMetadata != null) {
 				// Clear out any associated issue metadata
 				for (const [, value] of this._refsMetadata) {
@@ -797,12 +796,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		if (e.changed('head', 'any')) {
+		if (e.changed('head')) {
 			this.setSelectedRows(undefined);
 		}
 
 		// Unless we don't know what changed, update the state immediately
-		this.updateState(!e.changed('unknown', 'exclusive'));
+		this.updateState(!e.changedExclusive('unknown'));
 	}
 
 	@trace({ args: false })

@@ -126,7 +126,7 @@ export class FileHistoryNode
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (!e.changed('index', 'heads', 'remotes', 'remoteProviders', 'pausedOp', 'unknown', 'any')) {
+		if (!e.changed('index', 'heads', 'remotes', 'remoteProviders', 'pausedOp', 'unknown')) {
 			return;
 		}
 

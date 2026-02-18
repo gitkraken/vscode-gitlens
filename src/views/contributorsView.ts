@@ -39,7 +39,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		return e.changed('config', 'heads', 'remotes', 'unknown', 'any');
+		return e.changed('config', 'heads', 'remotes', 'unknown');
 	}
 }
 

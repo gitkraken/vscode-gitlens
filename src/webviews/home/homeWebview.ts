@@ -1117,7 +1117,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						'starred',
 						'worktrees',
 						'unknown',
-						'any',
 					)
 				) {
 					this.onOverviewRepoChanged(repo);

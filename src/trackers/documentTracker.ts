@@ -161,7 +161,7 @@ export class GitDocumentTracker implements Disposable {
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (e.changed('index', 'heads', 'pausedOp', 'unknown', 'any')) {
+		if (e.changed('index', 'heads', 'pausedOp', 'unknown')) {
 			void this.refreshDocuments({ addedOrChangedRepoPaths: new Set([e.repository.path]) });
 		}
 	}

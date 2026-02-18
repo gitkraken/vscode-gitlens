@@ -1456,7 +1456,7 @@ export class DeepLinkService implements Disposable {
 							new Promise<boolean>(resolve => setTimeout(resolve, 10000, false)),
 							new Promise<boolean>(resolve =>
 								once(repo.onDidChange)(async (e: RepositoryChangeEvent) => {
-									if (e.changed('head', 'any')) {
+									if (e.changed('head')) {
 										if (
 											(await repo.git.branches.getBranch())?.name !== this._context.currentBranch
 										) {

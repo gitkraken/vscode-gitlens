@@ -198,7 +198,7 @@ export class LineHistoryNode
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (!e.changed('index', 'heads', 'remotes', 'remoteProviders', 'pausedOp', 'unknown', 'any')) {
+		if (!e.changed('index', 'heads', 'remotes', 'remoteProviders', 'pausedOp', 'unknown')) {
 			return;
 		}
 

@@ -29,21 +29,11 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		if (this.view.config.showStashes && e.changed('stash', 'any')) {
+		if (this.view.config.showStashes && e.changed('stash')) {
 			return true;
 		}
 
-		return e.changed(
-			'config',
-			'heads',
-			'index',
-			'remotes',
-			'remoteProviders',
-			'pausedOp',
-			'worktrees',
-			'unknown',
-			'any',
-		);
+		return e.changed('config', 'heads', 'index', 'remotes', 'remoteProviders', 'pausedOp', 'worktrees', 'unknown');
 	}
 }
 

@@ -35,7 +35,7 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		return e.changed('config', 'remotes', 'remoteProviders', 'unknown', 'any');
+		return e.changed('config', 'remotes', 'remoteProviders', 'unknown');
 	}
 }
 

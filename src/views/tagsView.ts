@@ -28,7 +28,7 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		return e.changed('tags', 'unknown', 'any');
+		return e.changed('tags', 'unknown');
 	}
 }
 

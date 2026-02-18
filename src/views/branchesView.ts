@@ -31,7 +31,7 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		if (this.view.config.showStashes && e.changed('stash', 'any')) {
+		if (this.view.config.showStashes && e.changed('stash')) {
 			return true;
 		}
 
@@ -45,7 +45,6 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 			'starred',
 			'worktrees',
 			'unknown',
-			'any',
 		);
 	}
 }

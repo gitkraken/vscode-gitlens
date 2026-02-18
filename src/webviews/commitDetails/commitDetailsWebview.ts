@@ -1422,7 +1422,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			repo.watchFileSystem(1000),
 			repo.onDidChangeFileSystem(() => this.onWipChanged(repo)),
 			repo.onDidChange(e => {
-				if (e.changed('index', 'any')) {
+				if (e.changed('index')) {
 					this.onWipChanged(repo);
 				}
 			}),

@@ -441,7 +441,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (e.changed('closed', 'any')) {
+		if (e.changed('closed')) {
 			this.dispose();
 
 			return;
@@ -449,28 +449,28 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 		if (
 			this.children == null ||
-			e.changed('config', 'index', 'heads', 'opened', 'pausedOp', 'starred', 'worktrees', 'unknown', 'any')
+			e.changed('config', 'index', 'heads', 'opened', 'pausedOp', 'starred', 'worktrees', 'unknown')
 		) {
 			void this.triggerChange(true);
 
 			return;
 		}
 
-		if (e.changed('remotes', 'remoteProviders', 'any')) {
+		if (e.changed('remotes', 'remoteProviders')) {
 			const node = this.children.find(c => c.type === 'remotes');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed('stash', 'any')) {
+		if (e.changed('stash')) {
 			const node = this.children.find(c => c.type === 'stashes');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed('tags', 'any')) {
+		if (e.changed('tags')) {
 			const node = this.children.find(c => c.type === 'tags');
 			if (node != null) {
 				this.view.triggerNodeChange(node);

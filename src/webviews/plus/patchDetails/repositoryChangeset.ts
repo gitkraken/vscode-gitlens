@@ -193,7 +193,7 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 			this.repository.watchFileSystem(1000),
 			this.repository.onDidChangeFileSystem(() => this.onDidChangeWip(), this),
 			this.repository.onDidChange(e => {
-				if (e.changed('index', 'any')) {
+				if (e.changed('index')) {
 					this.onDidChangeWip();
 				}
 			}),

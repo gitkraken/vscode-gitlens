@@ -503,19 +503,19 @@ export class GitProviderService implements Disposable {
 				);
 				scope?.trace('');
 
-				if (e.changed('closed', 'any')) {
+				if (e.changed('closed')) {
 					this.updateContext();
 
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged([], [e.repository]));
-				} else if (e.changed('opened', 'any')) {
+				} else if (e.changed('opened')) {
 					this.updateContext();
 
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged([e.repository], []));
 				}
 
-				if (e.changed('remotes', 'any')) {
+				if (e.changed('remotes')) {
 					const visibilityInfo = this.getVisibilityInfoFromCache(e.repository.path);
 					if (visibilityInfo != null) {
 						await this.checkVisibilityCachedRemotes(e.repository.path, visibilityInfo, () =>

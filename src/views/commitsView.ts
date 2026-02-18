@@ -111,7 +111,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		if (this.view.config.showStashes && e.changed('stash', 'any')) {
+		if (this.view.config.showStashes && e.changed('stash')) {
 			return true;
 		}
 
@@ -125,7 +125,6 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 			'pausedOp',
 			'worktrees',
 			'unknown',
-			'any',
 		);
 	}
 }

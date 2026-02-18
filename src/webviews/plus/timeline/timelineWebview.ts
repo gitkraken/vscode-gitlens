@@ -579,7 +579,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	@trace({ args: false })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (!e.changed('heads', 'index', 'any')) {
+		if (!e.changed('heads', 'index')) {
 			return;
 		}
 

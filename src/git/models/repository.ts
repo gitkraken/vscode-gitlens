@@ -70,8 +70,6 @@ export type RepositoryChange =
 	| 'opened'
 	| 'gkConfig';
 
-export type RepositoryChangeComparisonMode = 'any' | 'exclusive';
-
 const defaultFileSystemChangeDelay = 2500;
 const defaultRepositoryChangeDelay = 250;
 
@@ -91,37 +89,32 @@ export class RepositoryChangeEvent {
 			: `{ repository: ${this.repository?.name ?? ''}, changes: ${join(this._changes, ', ')} }`;
 	}
 
-	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]): boolean {
-		const affected = args.slice(0, -1) as RepositoryChange[];
-		const mode = args.at(-1) as RepositoryChangeComparisonMode;
+	changed(...affected: RepositoryChange[]): boolean {
+		return some(this._changes, c => affected.includes(c));
+	}
 
-		if (mode === 'any') {
-			return some(this._changes, c => affected.includes(c));
-		}
-
+	changedExclusive(...affected: RepositoryChange[]): boolean {
 		let changes = this._changes;
 
-		if (mode === 'exclusive') {
-			if (
-				affected.includes('cherryPick') ||
-				affected.includes('merge') ||
-				affected.includes('rebase') ||
-				affected.includes('revert')
-			) {
-				if (!affected.includes('pausedOp')) {
-					affected.push('pausedOp');
-				}
-			} else if (affected.includes('pausedOp')) {
-				changes = new Set(changes);
-				changes.delete('cherryPick');
-				changes.delete('merge');
-				changes.delete('rebase');
-				changes.delete('revert');
+		if (
+			affected.includes('cherryPick') ||
+			affected.includes('merge') ||
+			affected.includes('rebase') ||
+			affected.includes('revert')
+		) {
+			if (!affected.includes('pausedOp')) {
+				affected.push('pausedOp');
 			}
+		} else if (affected.includes('pausedOp')) {
+			changes = new Set(changes);
+			changes.delete('cherryPick');
+			changes.delete('merge');
+			changes.delete('rebase');
+			changes.delete('revert');
 		}
 
 		const intersection = [...filter(changes, c => affected.includes(c))];
-		return mode === 'exclusive' ? intersection.length === changes.size : intersection.length === affected.length;
+		return intersection.length === changes.size;
 	}
 
 	with(changes: RepositoryChange[]): RepositoryChangeEvent {

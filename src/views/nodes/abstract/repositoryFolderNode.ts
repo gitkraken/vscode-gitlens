@@ -203,14 +203,14 @@ export abstract class RepositoryFolderNode<
 
 	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (e.changed('closed', 'any')) {
+		if (e.changed('closed')) {
 			this.dispose();
 			void this.parent?.triggerChange(true);
 
 			return;
 		}
 
-		if (e.changed('opened', 'any') || e.changed('starred', 'any')) {
+		if (e.changed('opened', 'starred')) {
 			void this.parent?.triggerChange(true);
 
 			return;

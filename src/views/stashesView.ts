@@ -25,7 +25,7 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		return e.changed('stash', 'unknown', 'any');
+		return e.changed('stash', 'unknown');
 	}
 }
 

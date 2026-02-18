@@ -1059,7 +1059,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const ignoreIndexChange = this._ignoreIndexChange;
 		this._ignoreIndexChange = false;
 		// Only care about index changes (staged/unstaged changes)
-		if (!e.changed('index', 'any') || (ignoreIndexChange && e.changed('index', 'exclusive'))) {
+		if (!e.changed('index') || (ignoreIndexChange && e.changedExclusive('index'))) {
 			return;
 		}
 
