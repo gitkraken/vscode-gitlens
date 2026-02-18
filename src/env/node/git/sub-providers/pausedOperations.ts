@@ -449,7 +449,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			throw new Error('Skipping a merge is not supported');
 		}
 
-		const args = [status.type, options?.skip ? '--skip' : status.type === 'revert' ? '--abort' : '--continue'];
+		const args = [status.type, options?.skip ? '--skip' : '--continue'];
 
 		try {
 			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);

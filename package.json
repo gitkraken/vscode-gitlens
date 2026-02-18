@@ -20106,7 +20106,7 @@
 				},
 				{
 					"command": "gitlens.views.pausedOperation.continue",
-					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase|revert)\\b/ && !listMultiSelection",
 					"group": "inline@1"
 				},
 				{
@@ -20116,7 +20116,7 @@
 				},
 				{
 					"command": "gitlens.views.pausedOperation.continue",
-					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase|revert)\\b/ && !listMultiSelection",
 					"group": "1_gitlens_actions@1"
 				},
 				{
