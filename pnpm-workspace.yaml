@@ -22,7 +22,8 @@ minimumReleaseAgeExclude:
     - '@vscode/*'
     - '@typescript-eslint/*'
     - 'typescript-eslint'
-    - '@e18e/eslint-plugin@"0.2.0'
+    - '@e18e/eslint-plugin@0.2.0'
+    - 'webpack@5.105.2'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch
