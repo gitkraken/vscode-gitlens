@@ -88,7 +88,7 @@ import type {
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository.js';
-import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { isRepository } from '../../../git/models/repository.js';
 import { uncommitted } from '../../../git/models/revision.js';
 import type {
 	GitCommitSearchContext,
@@ -769,25 +769,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (
 			!e.changed(
-				RepositoryChange.Config,
-				RepositoryChange.Head,
-				RepositoryChange.Heads,
-				// RepositoryChange.Index,
-				RepositoryChange.Remotes,
-				// RepositoryChange.RemoteProviders,
-				RepositoryChange.Starred,
-				RepositoryChange.Stash,
-				RepositoryChange.PausedOperationStatus,
-				RepositoryChange.Tags,
-				RepositoryChange.Unknown,
-				RepositoryChangeComparisonMode.Any,
+				'config',
+				'head',
+				'heads',
+				// 'index',
+				'remotes',
+				// 'remoteProviders',
+				'starred',
+				'stash',
+				'pausedOp',
+				'tags',
+				'unknown',
+				'any',
 			)
 		) {
 			this._etagRepository = e.repository.etag;
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('config', 'any')) {
 			if (this._refsMetadata != null) {
 				// Clear out any associated issue metadata
 				for (const [, value] of this._refsMetadata) {
@@ -797,12 +797,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('head', 'any')) {
 			this.setSelectedRows(undefined);
 		}
 
 		// Unless we don't know what changed, update the state immediately
-		this.updateState(!e.changed(RepositoryChange.Unknown, RepositoryChangeComparisonMode.Exclusive));
+		this.updateState(!e.changed('unknown', 'exclusive'));
 	}
 
 	@trace({ args: false })

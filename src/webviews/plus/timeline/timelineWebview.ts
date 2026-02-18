@@ -20,7 +20,6 @@ import type {
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
 import { uncommitted } from '../../../git/models/revision.js';
 import { getReference } from '../../../git/utils/-webview/reference.utils.js';
 import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils.js';
@@ -580,7 +579,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	@trace({ args: false })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (!e.changed(RepositoryChange.Heads, RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+		if (!e.changed('heads', 'index', 'any')) {
 			return;
 		}
 

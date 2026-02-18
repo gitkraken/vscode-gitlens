@@ -6,7 +6,6 @@ import type { GitFile } from '../../git/models/file.js';
 import { GitFileIndexStatus } from '../../git/models/fileStatus.js';
 import type { GitLog } from '../../git/models/log.js';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import { deletedOrMissing } from '../../git/models/revision.js';
 import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils.js';
 import { isUncommitted } from '../../git/utils/revision.utils.js';
@@ -199,17 +198,7 @@ export class LineHistoryNode
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (
-			!e.changed(
-				RepositoryChange.Index,
-				RepositoryChange.Heads,
-				RepositoryChange.Remotes,
-				RepositoryChange.RemoteProviders,
-				RepositoryChange.PausedOperationStatus,
-				RepositoryChange.Unknown,
-				RepositoryChangeComparisonMode.Any,
-			)
-		) {
+		if (!e.changed('index', 'heads', 'remotes', 'remoteProviders', 'pausedOp', 'unknown', 'any')) {
 			return;
 		}
 

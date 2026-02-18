@@ -3,7 +3,6 @@ import type { Container } from '../../../container.js';
 import type { GitFileChangeShape } from '../../../git/models/fileChange.js';
 import type { PatchRevisionRange } from '../../../git/models/patch.js';
 import type { Repository } from '../../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
 import type { Change, ChangeType, RevisionChange } from './protocol.js';
 
 export interface RepositoryChangeset extends Disposable {
@@ -196,7 +195,7 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 			this.repository.watchFileSystem(1000),
 			this.repository.onDidChangeFileSystem(() => this.onDidChangeWip(), this),
 			this.repository.onDidChange(e => {
-				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+				if (e.changed('index', 'any')) {
 					this.onDidChangeWip();
 				}
 			}),

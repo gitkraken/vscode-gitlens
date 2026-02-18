@@ -43,58 +43,29 @@ const dotGitWatcherGlobCombined = `{${dotGitWatcherGlobFiles},config,gk/config,r
 
 const gitIgnoreGlob = '.gitignore';
 
-export type RepositoryType = 'repository' | 'submodule' | 'worktree';
+export type RepositoryChange =
+	| 'unknown'
+	| 'index'
+	| 'head'
+	| 'heads'
+	| 'tags'
+	| 'stash'
+	| 'remotes'
+	| 'worktrees'
+	| 'config'
+	| 'pausedOp'
+	| 'cherryPick'
+	| 'merge'
+	| 'rebase'
+	| 'revert'
+	| 'closed'
+	| 'ignores'
+	| 'remoteProviders'
+	| 'starred'
+	| 'opened'
+	| 'gkConfig';
 
-export const enum RepositoryChange {
-	Unknown = -1,
-
-	// File watching required
-
-	/** Changes to the index */
-	Index = 0,
-	/** Changes to the HEAD */
-	Head = 1,
-	/** Changes to branches */
-	Heads = 2,
-	/** Changes to tags */
-	Tags = 3,
-	/** Changes to the stash */
-	Stash = 4,
-	/** Changes to remotes */
-	Remotes = 5,
-	/** Changes to worktrees */
-	Worktrees = 6,
-	/** Changes to config */
-	Config = 7,
-
-	/** Effectively a union of Cherry, Merge, Rebase, and Revert */
-	PausedOperationStatus = 8,
-
-	/** Changes to cherry-pick operations */
-	CherryPick = 9,
-	/** Changes to merge operations */
-	Merge = 10,
-	/** Changes to rebase operations */
-	Rebase = 11,
-	/** Changes to revert operations */
-	Revert = 12,
-
-	// No file watching required
-	Closed = 100,
-	Ignores = 101,
-	RemoteProviders = 102,
-	Starred = 103,
-	Opened = 104,
-	/** Changes to GitKraken-specific config (.git/gk/config) */
-	GkConfig = 105,
-}
-
-export const enum RepositoryChangeComparisonMode {
-	/** Any of the changes */
-	Any,
-	/** All of the changes */
-	Exclusive,
-}
+export type RepositoryChangeComparisonMode = 'any' | 'exclusive';
 
 const defaultFileSystemChangeDelay = 2500;
 const defaultRepositoryChangeDelay = 250;
@@ -119,35 +90,33 @@ export class RepositoryChangeEvent {
 		const affected = args.slice(0, -1) as RepositoryChange[];
 		const mode = args[args.length - 1] as RepositoryChangeComparisonMode;
 
-		if (mode === RepositoryChangeComparisonMode.Any) {
+		if (mode === 'any') {
 			return some(this._changes, c => affected.includes(c));
 		}
 
 		let changes = this._changes;
 
-		if (mode === RepositoryChangeComparisonMode.Exclusive) {
+		if (mode === 'exclusive') {
 			if (
-				affected.includes(RepositoryChange.CherryPick) ||
-				affected.includes(RepositoryChange.Merge) ||
-				affected.includes(RepositoryChange.Rebase) ||
-				affected.includes(RepositoryChange.Revert)
+				affected.includes('cherryPick') ||
+				affected.includes('merge') ||
+				affected.includes('rebase') ||
+				affected.includes('revert')
 			) {
-				if (!affected.includes(RepositoryChange.PausedOperationStatus)) {
-					affected.push(RepositoryChange.PausedOperationStatus);
+				if (!affected.includes('pausedOp')) {
+					affected.push('pausedOp');
 				}
-			} else if (affected.includes(RepositoryChange.PausedOperationStatus)) {
+			} else if (affected.includes('pausedOp')) {
 				changes = new Set(changes);
-				changes.delete(RepositoryChange.CherryPick);
-				changes.delete(RepositoryChange.Merge);
-				changes.delete(RepositoryChange.Rebase);
-				changes.delete(RepositoryChange.Revert);
+				changes.delete('cherryPick');
+				changes.delete('merge');
+				changes.delete('rebase');
+				changes.delete('revert');
 			}
 		}
 
 		const intersection = [...filter(changes, c => affected.includes(c))];
-		return mode === RepositoryChangeComparisonMode.Exclusive
-			? intersection.length === changes.size
-			: intersection.length === affected.length;
+		return mode === 'exclusive' ? intersection.length === changes.size : intersection.length === affected.length;
 	}
 
 	with(changes: RepositoryChange[]): RepositoryChangeEvent {
@@ -238,7 +207,7 @@ export class Repository implements Disposable {
 			this.container.events.on('git:cache:reset', e => {
 				if (!e.data.repoPath || e.data.repoPath === this.path) {
 					if (e.data.types?.includes('providers')) {
-						this.fireChange(RepositoryChange.RemoteProviders);
+						this.fireChange('remoteProviders');
 					}
 				}
 			}),
@@ -281,12 +250,12 @@ export class Repository implements Disposable {
 			if (this._closed) {
 				// When closing, fire the event immediately even if suspended
 				// This ensures views can clean up nodes for closed repositories before VS Code tries to render them
-				this.fireChange(RepositoryChange.Closed, true);
+				this.fireChange('closed', true);
 			} else {
 				// Track access when repository is reopened
 				queueMicrotask(() => void this.git.branches.onCurrentBranchAccessed?.());
 
-				this.fireChange(RepositoryChange.Opened);
+				this.fireChange('opened');
 			}
 		}
 	}
@@ -368,7 +337,7 @@ export class Repository implements Disposable {
 		}
 
 		if (e != null && configuration.changed(e, 'remotes', this.folder?.uri)) {
-			this.fireChange(RepositoryChange.Remotes);
+			this.fireChange('remotes');
 		}
 	}
 
@@ -396,7 +365,7 @@ export class Repository implements Disposable {
 			this.ensureIgnoredUrisFilter();
 		}
 
-		this.fireChange(RepositoryChange.Ignores);
+		this.fireChange('ignores');
 	}
 
 	@trace()
@@ -417,11 +386,11 @@ export class Repository implements Disposable {
 		if (match != null) {
 			switch (match[1]) {
 				case 'config':
-					this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
+					this.fireChange('config', 'remotes');
 					return;
 
 				case 'gk/config':
-					this.fireChange(RepositoryChange.GkConfig);
+					this.fireChange('gkConfig');
 					return;
 
 				case 'info/exclude':
@@ -429,11 +398,11 @@ export class Repository implements Disposable {
 					if (this._fsWatcherDisposable != null) {
 						this.ensureIgnoredUrisFilter();
 					}
-					this.fireChange(RepositoryChange.Ignores);
+					this.fireChange('ignores');
 					return;
 
 				case 'index':
-					this.fireChange(RepositoryChange.Index);
+					this.fireChange('index');
 					return;
 
 				case 'FETCH_HEAD':
@@ -444,58 +413,58 @@ export class Repository implements Disposable {
 					return;
 
 				case 'HEAD':
-					this.fireChange(RepositoryChange.Head, RepositoryChange.Heads);
+					this.fireChange('head', 'heads');
 					return;
 
 				case 'ORIG_HEAD':
-					this.fireChange(RepositoryChange.Heads);
+					this.fireChange('heads');
 					return;
 
 				case 'CHERRY_PICK_HEAD':
-					this.fireChange(RepositoryChange.CherryPick, RepositoryChange.PausedOperationStatus);
+					this.fireChange('cherryPick', 'pausedOp');
 					return;
 
 				case 'MERGE_HEAD':
-					this.fireChange(RepositoryChange.Merge, RepositoryChange.PausedOperationStatus);
+					this.fireChange('merge', 'pausedOp');
 					return;
 
 				case 'REBASE_HEAD':
 				case 'rebase-merge':
 				case 'rebase-apply':
-					this.fireChange(RepositoryChange.Rebase, RepositoryChange.PausedOperationStatus);
+					this.fireChange('rebase', 'pausedOp');
 					return;
 
 				case 'REVERT_HEAD':
-					this.fireChange(RepositoryChange.Revert, RepositoryChange.PausedOperationStatus);
+					this.fireChange('revert', 'pausedOp');
 					return;
 
 				case 'sequencer':
-					this.fireChange(RepositoryChange.PausedOperationStatus);
+					this.fireChange('pausedOp');
 					return;
 
 				case 'refs/heads':
-					this.fireChange(RepositoryChange.Heads);
+					this.fireChange('heads');
 					return;
 
 				case 'refs/remotes':
-					this.fireChange(RepositoryChange.Remotes);
+					this.fireChange('remotes');
 					return;
 
 				case 'refs/stash':
-					this.fireChange(RepositoryChange.Stash);
+					this.fireChange('stash');
 					return;
 
 				case 'refs/tags':
-					this.fireChange(RepositoryChange.Tags);
+					this.fireChange('tags');
 					return;
 
 				case 'worktrees':
-					this.fireChange(RepositoryChange.Worktrees);
+					this.fireChange('worktrees');
 					return;
 			}
 		}
 
-		this.fireChange(RepositoryChange.Unknown);
+		this.fireChange('unknown');
 	}
 
 	@debug()
@@ -588,7 +557,7 @@ export class Repository implements Disposable {
 		try {
 			await this.git.ops?.fetch(options);
 
-			this.fireChange(RepositoryChange.Unknown);
+			this.fireChange('unknown');
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -661,7 +630,7 @@ export class Repository implements Disposable {
 
 			await this.git.ops?.pull({ ...options, tags: withTags });
 
-			this.fireChange(RepositoryChange.Unknown);
+			this.fireChange('unknown');
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -738,7 +707,7 @@ export class Repository implements Disposable {
 				void this.showCreatePullRequestPrompt(options.publish.remote, options.reference);
 			}
 
-			this.fireChange(RepositoryChange.Unknown);
+			this.fireChange('unknown');
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -821,7 +790,7 @@ export class Repository implements Disposable {
 		try {
 			await this.git.ops?.checkout(ref, options);
 
-			this.fireChange(RepositoryChange.Unknown);
+			this.fireChange('unknown');
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -852,7 +821,7 @@ export class Repository implements Disposable {
 			await this.updateStarredCore('repositories', this.id, star);
 		}
 
-		this.fireChange(RepositoryChange.Starred);
+		this.fireChange('starred');
 	}
 
 	private async updateStarredCore(key: 'branches' | 'repositories', id: string, star: boolean) {
@@ -861,7 +830,7 @@ export class Repository implements Disposable {
 		starred = updateRecordValue(starred, id, star);
 		await this.container.storage.storeWorkspace(storageKey, starred);
 
-		this.fireChange(RepositoryChange.Starred);
+		this.fireChange('starred');
 	}
 
 	private _etagFileSystem: number | undefined;

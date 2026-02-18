@@ -7,7 +7,6 @@ import type {
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
 } from '../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import type { GitStatus } from '../../git/models/status.js';
 import { getRepositoryStatusIconPath } from '../../git/utils/-webview/icons.js';
 import { formatLastFetched } from '../../git/utils/-webview/repository.utils.js';
@@ -442,7 +441,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('closed', 'any')) {
 			this.dispose();
 
 			return;
@@ -450,38 +449,28 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 		if (
 			this.children == null ||
-			e.changed(
-				RepositoryChange.Config,
-				RepositoryChange.Index,
-				RepositoryChange.Heads,
-				RepositoryChange.Opened,
-				RepositoryChange.PausedOperationStatus,
-				RepositoryChange.Starred,
-				RepositoryChange.Worktrees,
-				RepositoryChange.Unknown,
-				RepositoryChangeComparisonMode.Any,
-			)
+			e.changed('config', 'index', 'heads', 'opened', 'pausedOp', 'starred', 'worktrees', 'unknown', 'any')
 		) {
 			void this.triggerChange(true);
 
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('remotes', 'remoteProviders', 'any')) {
 			const node = this.children.find(c => c.type === 'remotes');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('stash', 'any')) {
 			const node = this.children.find(c => c.type === 'stashes');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('tags', 'any')) {
 			const node = this.children.find(c => c.type === 'tags');
 			if (node != null) {
 				this.view.triggerNodeChange(node);

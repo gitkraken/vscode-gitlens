@@ -24,7 +24,6 @@ import type { GitPausedOperationStatus } from './models/pausedOperationStatus.js
 import type { GitBranchReference } from './models/reference.js';
 import type { GitRemote } from './models/remote.js';
 import type { RepositoryChangeEvent } from './models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from './models/repository.js';
 import type { GitStash } from './models/stash.js';
 import type { GitTag } from './models/tag.js';
 import type { GitUser } from './models/user.js';
@@ -470,34 +469,34 @@ export class GitCache implements Disposable {
 	 */
 	@debug({ onlyExit: true })
 	onRepositoryChanged(repoPath: string, e: RepositoryChangeEvent): void {
-		if (e.changed(RepositoryChange.Unknown, RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('unknown', 'closed', 'any')) {
 			this.clearCaches(repoPath);
 			return;
 		}
 
 		const types = new Set<CachedGitTypes>();
 
-		if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('head', 'any')) {
 			this.currentBranchReference.delete(repoPath);
 		}
 
-		if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('index', 'any')) {
 			this._caches.fileExistence?.delete(repoPath);
 			this._caches.trackedPaths?.delete(repoPath);
 		}
 
-		if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('config', 'any')) {
 			types.add('config');
 		}
 
-		if (e.changed(RepositoryChange.Heads, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('heads', 'any')) {
 			// Clear branches cache (includes sharedBranches, logShas, reachability, gitResults, etc.)
 			types.add('branches');
 			types.add('contributors');
 			types.add('worktrees');
 		}
 
-		if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('remotes', 'any')) {
 			// Clear branches cache for upstream tracking state (ahead/behind counts) that changes on push
 			types.add('branches');
 			types.add('contributors');
@@ -505,42 +504,33 @@ export class GitCache implements Disposable {
 			types.add('worktrees');
 		}
 
-		if (e.changed(RepositoryChange.Ignores, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('ignores', 'any')) {
 			types.add('gitignore');
 		}
 
-		if (e.changed(RepositoryChange.GkConfig, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('gkConfig', 'any')) {
 			types.add('gkConfig');
 		}
 
-		if (e.changed(RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('remoteProviders', 'any')) {
 			// RemoteProviders change only affects parsed remotes, not raw git output
 			types.add('providers');
 		}
 
-		if (
-			e.changed(
-				RepositoryChange.CherryPick,
-				RepositoryChange.Merge,
-				RepositoryChange.Rebase,
-				RepositoryChange.Revert,
-				RepositoryChange.PausedOperationStatus,
-				RepositoryChangeComparisonMode.Any,
-			)
-		) {
+		if (e.changed('cherryPick', 'merge', 'rebase', 'revert', 'pausedOp', 'any')) {
 			this.branch.delete(repoPath);
 			types.add('status');
 		}
 
-		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('stash', 'any')) {
 			types.add('stashes');
 		}
 
-		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('tags', 'any')) {
 			types.add('tags');
 		}
 
-		if (e.changed(RepositoryChange.Worktrees, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('worktrees', 'any')) {
 			types.add('worktrees');
 		}
 

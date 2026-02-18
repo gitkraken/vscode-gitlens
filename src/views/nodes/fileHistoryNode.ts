@@ -3,7 +3,6 @@ import type { GitUri } from '../../git/gitUri.js';
 import type { GitBranch } from '../../git/models/branch.js';
 import type { GitLog } from '../../git/models/log.js';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import { deletedOrMissing } from '../../git/models/revision.js';
 import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -127,17 +126,7 @@ export class FileHistoryNode
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (
-			!e.changed(
-				RepositoryChange.Index,
-				RepositoryChange.Heads,
-				RepositoryChange.Remotes,
-				RepositoryChange.RemoteProviders,
-				RepositoryChange.PausedOperationStatus,
-				RepositoryChange.Unknown,
-				RepositoryChangeComparisonMode.Any,
-			)
-		) {
+		if (!e.changed('index', 'heads', 'remotes', 'remoteProviders', 'pausedOp', 'unknown', 'any')) {
 			return;
 		}
 

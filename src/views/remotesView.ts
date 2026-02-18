@@ -8,7 +8,6 @@ import { isCommit } from '../git/models/commit.js';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference.js';
 import type { GitRemote } from '../git/models/remote.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository.js';
 import { getRemoteNameFromBranchName } from '../git/utils/branch.utils.js';
 import { getReferenceLabel } from '../git/utils/reference.utils.js';
 import { executeCommand } from '../system/-webview/command.js';
@@ -38,13 +37,7 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		return e.changed(
-			RepositoryChange.Config,
-			RepositoryChange.Remotes,
-			RepositoryChange.RemoteProviders,
-			RepositoryChange.Unknown,
-			RepositoryChangeComparisonMode.Any,
-		);
+		return e.changed('config', 'remotes', 'remoteProviders', 'unknown', 'any');
 	}
 }
 

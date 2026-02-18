@@ -5,7 +5,6 @@ import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
 import type { GitStashReference } from '../git/models/reference.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository.js';
 import { getReferenceLabel } from '../git/utils/reference.utils.js';
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
@@ -26,7 +25,7 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		return e.changed(RepositoryChange.Stash, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any);
+		return e.changed('stash', 'unknown', 'any');
 	}
 }
 
