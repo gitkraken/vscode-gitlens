@@ -307,7 +307,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				let rows;
 				if (msg.params.rows.length && msg.params.paging?.startingCursor != null && this._state.rows != null) {
 					const previousRows = this._state.rows;
-					const lastId = previousRows[previousRows.length - 1]?.sha;
+					const lastId = previousRows.at(-1)?.sha;
 
 					let previousRowsLength = previousRows.length;
 					const newRowsLength = msg.params.rows.length;

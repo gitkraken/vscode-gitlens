@@ -44,7 +44,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 	async getFilesComparison(): Promise<FilesComparison> {
 		const grouped = await this.getGroupedFiles();
 		return {
-			files: [...map(grouped, ([, files]) => files[files.length - 1])],
+			files: [...map(grouped, ([, files]) => files.at(-1)!)],
 			repoPath: this.repoPath,
 			ref1: this.ref1,
 			ref2: this.ref2,

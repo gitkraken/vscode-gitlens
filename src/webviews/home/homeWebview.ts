@@ -1325,9 +1325,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			return;
 		}
 
-		if (this._notifyDidChangeRepositoriesDebounced == null) {
-			this._notifyDidChangeRepositoriesDebounced = debounce(this.notifyDidChangeRepositoriesCore.bind(this), 500);
-		}
+		this._notifyDidChangeRepositoriesDebounced ??= debounce(this.notifyDidChangeRepositoriesCore.bind(this), 500);
 
 		this._notifyDidChangeRepositoriesDebounced();
 	}

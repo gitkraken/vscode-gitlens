@@ -22,9 +22,7 @@ import { registerViewCommand } from './viewCommands.js';
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new TagsNode(this.uri, this.view, this, this.repo);
-		}
+		this.child ??= new TagsNode(this.uri, this.view, this, this.repo);
 
 		return this.child.getChildren();
 	}

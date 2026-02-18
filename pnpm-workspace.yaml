@@ -20,10 +20,9 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - '@types/react'
     - '@typescript-eslint/*'
     - 'typescript-eslint'
-    - 'webpack'
+    - '@e18e/eslint-plugin@"0.2.0'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

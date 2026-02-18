@@ -100,7 +100,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 	private sendPendingCommitRequests(): void {
 		if (!this._pendingCommitShas.size) return;
 
-		const shas = Array.from(this._pendingCommitShas);
+		const shas = [...this._pendingCommitShas];
 		this._pendingCommitShas.clear();
 
 		this.ipc.sendCommand(GetMissingCommitsCommand, { shas: shas });

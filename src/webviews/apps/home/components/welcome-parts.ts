@@ -268,7 +268,7 @@ export class GlFeatureCard extends LitElement {
 			this.dispatchEvent(
 				new CustomEvent('gl-feature-appeared', {
 					detail: {
-						changedProperties: Array.from(changedProperties.keys()),
+						changedProperties: [...changedProperties.keys()],
 						visibility: {
 							isVisible: isVisible,
 							isInViewport: isInViewport,

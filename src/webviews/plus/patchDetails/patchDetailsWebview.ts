@@ -509,9 +509,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				selection.change = undefined;
 			}
 
-			updatedSelections.push(
-				selection != null ? selection : toDraftUserSelection(member, undefined, 'editor', 'add'),
-			);
+			updatedSelections.push(selection ?? toDraftUserSelection(member, undefined, 'editor', 'add'));
 		}
 
 		if (updatedSelections.length) {
@@ -932,9 +930,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			return;
 		}
 
-		if (this._notifyDidChangeStateDebounced == null) {
-			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
-		}
+		this._notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 500);
 
 		this._notifyDidChangeStateDebounced();
 	}

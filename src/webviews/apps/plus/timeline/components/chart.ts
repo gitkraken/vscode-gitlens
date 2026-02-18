@@ -509,7 +509,7 @@ export class GlTimelineChart extends GlElement {
 	private calculateChangeMetrics(dataset: TimelineDatum[]): { q1: number; q3: number; maxChanges: number } {
 		const sortedChanges = dataset.map(c => (c.additions ?? 0) + (c.deletions ?? 0)).sort((a, b) => a - b);
 		return {
-			maxChanges: sortedChanges[sortedChanges.length - 1],
+			maxChanges: sortedChanges.at(-1)!,
 			q1: sortedChanges[Math.floor(sortedChanges.length * 0.25)],
 			q3: sortedChanges[Math.floor(sortedChanges.length * 0.75)],
 		};
@@ -691,9 +691,7 @@ export class GlTimelineChart extends GlElement {
 			return;
 		}
 
-		this.range = data.length
-			? [new Date(data[data.length - 1].date), new Date(data[0].date)]
-			: [new Date(), new Date()];
+		this.range = data.length ? [new Date(data.at(-1)!.date), new Date(data[0].date)] : [new Date(), new Date()];
 
 		// Initialize plugins
 		bar();

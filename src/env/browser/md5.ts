@@ -1,4 +1,6 @@
 // Adapted from http://www.myersdaily.org/joseph/javascript/md5-text.html
+const hexLengthRegex = /(.*?)(.{0,8})$/;
+
 function md5cycle(x: number[], k: number[]) {
 	let [a, b, c, d] = x;
 
@@ -174,7 +176,7 @@ function md51(s: string) {
 	}
 
 	// Beware that the final length might not fit in 32 bits so we take care of that
-	const tmp = (n * 8).toString(16).match(/(.*?)(.{0,8})$/)!;
+	const tmp = (n * 8).toString(16).match(hexLengthRegex)!;
 	const lo = parseInt(tmp[2], 16);
 	const hi = parseInt(tmp[1], 16) || 0;
 

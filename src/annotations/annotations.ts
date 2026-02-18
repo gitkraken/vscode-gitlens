@@ -40,6 +40,8 @@ interface RenderOptions
 	uncommittedColor?: string | ThemeColor;
 }
 
+const spaceRegex = / /g;
+
 const defaultHeatmapHotColor = '#f66a0a';
 const defaultHeatmapColdColor = '#0a60f6';
 const defaultHeatmapColors = [
@@ -161,7 +163,7 @@ export function getGutterDecoration(
 	}
 
 	const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
-	decoration.renderOptions!.before!.contentText = pad(message.replace(/ /g, GlyphChars.Space), 1, 1);
+	decoration.renderOptions!.before!.contentText = pad(message.replace(spaceRegex, GlyphChars.Space), 1, 1);
 
 	return decoration;
 }
@@ -259,7 +261,7 @@ export function getInlineDecoration(
 			after: {
 				backgroundColor: new ThemeColor('gitlens.trailingLineBackgroundColor' satisfies Colors),
 				color: new ThemeColor('gitlens.trailingLineForegroundColor' satisfies Colors),
-				contentText: pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
+				contentText: pad(message.replace(spaceRegex, GlyphChars.Space), 1, 1),
 				fontWeight: fontOptions?.weight ?? 'normal',
 				fontStyle: fontOptions?.style ?? 'normal',
 				// Pull the decoration out of the document flow if we want to be scrollable

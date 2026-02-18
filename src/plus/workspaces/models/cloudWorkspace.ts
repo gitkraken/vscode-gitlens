@@ -83,7 +83,7 @@ export class CloudWorkspace {
 		if (this._repositoryDescriptors == null) {
 			this._repositoryDescriptors = repositories;
 		} else {
-			this._repositoryDescriptors = this._repositoryDescriptors.concat(repositories);
+			this._repositoryDescriptors = [...this._repositoryDescriptors, ...repositories];
 		}
 
 		this.resetRepositoriesByName();

@@ -82,9 +82,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		)?.path;
 		if (!repoPath) return;
 
-		if (gitUri == null) {
-			gitUri = GitUri.fromRepoPath(repoPath);
-		}
+		gitUri ??= GitUri.fromRepoPath(repoPath);
 
 		args = { ...args };
 

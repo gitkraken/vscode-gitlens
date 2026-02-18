@@ -6,49 +6,49 @@ suite('String Delimiter Iteration Test Suite', () => {
 	suite('iterateByDelimiter - Basic Functionality', () => {
 		test('handles string input', () => {
 			const data = 'line1\nline2\nline3';
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2', 'line3']);
 		});
 
 		test('handles string with no delimiter', () => {
 			const data = 'single line';
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['single line']);
 		});
 
 		test('handles empty string', () => {
 			const data = '';
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, []);
 		});
 
 		test('handles string ending with delimiter', () => {
 			const data = 'line1\nline2\n';
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2']);
 		});
 
 		test('handles string starting with delimiter', () => {
 			const data = '\nline1\nline2';
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['', 'line1', 'line2']);
 		});
 
 		test('handles consecutive delimiters', () => {
 			const data = 'line1\n\n\nline2';
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', '', '', 'line2']);
 		});
 
 		test('handles multi-character delimiter', () => {
 			const data = 'item1||item2||item3';
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['item1', 'item2', 'item3']);
 		});
 
 		test('handles null byte delimiter (git log format)', () => {
 			const data = 'commit1\x00author\x00commit2\x00author2';
-			const result = Array.from(iterateByDelimiter(data, '\x00'));
+			const result = [...iterateByDelimiter(data, '\x00')];
 			assert.deepStrictEqual(result, ['commit1', 'author', 'commit2', 'author2']);
 		});
 	});
@@ -56,43 +56,43 @@ suite('String Delimiter Iteration Test Suite', () => {
 	suite('iterateByDelimiter - Array Input', () => {
 		test('handles simple array input', () => {
 			const data = ['line1\nline', '2\nline3'];
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2', 'line3']);
 		});
 
 		test('handles array with delimiter spanning chunks', () => {
 			const data = ['item1||it', 'em2||item3'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['item1', 'item2', 'item3']);
 		});
 
 		test('handles array with empty chunks', () => {
 			const data = ['line1\n', '', 'line2\n', '', 'line3'];
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2', 'line3']);
 		});
 
 		test('handles array with single chunk', () => {
 			const data = ['line1\nline2\nline3'];
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2', 'line3']);
 		});
 
 		test('handles array with delimiter at chunk boundaries', () => {
 			const data = ['line1\n', 'line2\n', 'line3'];
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2', 'line3']);
 		});
 
 		test('handles array with partial delimiter at end', () => {
 			const data = ['line1\nline2\nli', 'ne3'];
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2', 'line3']);
 		});
 
 		test('handles empty array', () => {
 			const data: string[] = [];
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, []);
 		});
 	});
@@ -104,7 +104,7 @@ suite('String Delimiter Iteration Test Suite', () => {
 				yield 'ne2\n';
 				yield 'line3';
 			}
-			const result = Array.from(iterateByDelimiter(gen(), '\n'));
+			const result = [...iterateByDelimiter(gen(), '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2', 'line3']);
 		});
 
@@ -116,13 +116,13 @@ suite('String Delimiter Iteration Test Suite', () => {
 					yield '\nd';
 				},
 			};
-			const result = Array.from(iterateByDelimiter(customIterable, '\n'));
+			const result = [...iterateByDelimiter(customIterable, '\n')];
 			assert.deepStrictEqual(result, ['a', 'b', 'c', 'd']);
 		});
 
 		test('handles Set as iterable', () => {
 			const data = new Set(['line1\nli', 'ne2\nline', '3']);
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['line1', 'line2', 'line3']);
 		});
 	});
@@ -130,49 +130,49 @@ suite('String Delimiter Iteration Test Suite', () => {
 	suite('iterateByDelimiter - Chunking Edge Cases', () => {
 		test('delimiter split exactly across two chunks', () => {
 			const data = ['abc|', '|def'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['abc', 'def'], 'Should handle delimiter split across chunks');
 		});
 
 		test('delimiter split across three chunks', () => {
 			const data = ['a|', '|', 'b'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['a', 'b'], 'Should handle 3-chunk delimiter');
 		});
 
 		test('partial delimiter at end then different delimiter', () => {
 			const data = ['a||b|', 'c||d'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['a', 'b|c', 'd'], 'Single | should not be treated as delimiter');
 		});
 
 		test('delimiter character appears but not complete delimiter', () => {
 			const data = ['item1|item', '2||item3'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['item1|item2', 'item3']);
 		});
 
 		test('multiple delimiters spanning chunks', () => {
 			const data = ['a||b|', '|c||d|', '|e'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['a', 'b', 'c', 'd', 'e']);
 		});
 
 		test('chunk boundaries align with delimiter boundaries', () => {
 			const data = ['a||', 'b||', 'c'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['a', 'b', 'c']);
 		});
 
 		test('first chunk is just delimiter', () => {
 			const data = ['||', 'a||b'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['', 'a', 'b']);
 		});
 
 		test('last chunk is just delimiter', () => {
 			const data = ['a||b', '||'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['a', 'b']);
 		});
 
@@ -183,7 +183,7 @@ suite('String Delimiter Iteration Test Suite', () => {
 				'4-01-01\x00message Fix crit',
 				'ical bug\x00M\x00src/file.ts\x00',
 			];
-			const result = Array.from(iterateByDelimiter(data, '\x00'));
+			const result = [...iterateByDelimiter(data, '\x00')];
 			assert.deepStrictEqual(result, [
 				'commit abc123',
 				'author John Doe <john@example.com>',
@@ -198,43 +198,43 @@ suite('String Delimiter Iteration Test Suite', () => {
 	suite('iterateByDelimiter - Edge Cases', () => {
 		test('handles very long strings', () => {
 			const data = Array(1000).fill('line').join('\n');
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.strictEqual(result.length, 1000);
 		});
 
 		test('handles delimiter longer than chunks', () => {
 			const data = ['a', '|', '|', 'b'];
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['a', 'b']);
 		});
 
 		test('handles single character chunks', () => {
 			const data = ['a', '\n', 'b', '\n', 'c'];
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['a', 'b', 'c']);
 		});
 
 		test('handles only delimiters', () => {
 			const data = '\n\n\n';
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['', '', '']);
 		});
 
 		test('handles no matching delimiter', () => {
 			const data = 'no delimiter here';
-			const result = Array.from(iterateByDelimiter(data, '||'));
+			const result = [...iterateByDelimiter(data, '||')];
 			assert.deepStrictEqual(result, ['no delimiter here']);
 		});
 
 		test('handles unicode characters', () => {
 			const data = '🎉\n✨\n🚀';
-			const result = Array.from(iterateByDelimiter(data, '\n'));
+			const result = [...iterateByDelimiter(data, '\n')];
 			assert.deepStrictEqual(result, ['🎉', '✨', '🚀']);
 		});
 
 		test('handles tab delimiter', () => {
 			const data = 'col1\tcol2\tcol3';
-			const result = Array.from(iterateByDelimiter(data, '\t'));
+			const result = [...iterateByDelimiter(data, '\t')];
 			assert.deepStrictEqual(result, ['col1', 'col2', 'col3']);
 		});
 	});

@@ -3,6 +3,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import '../../../shared/components/code-icon.js';
 
+const hunkHeaderRegex = /@@ -(\d+),(\d+) \+(\d+),(\d+) @@/;
+
 @customElement('gl-hunk-item')
 export class HunkItem extends LitElement {
 	static override styles = css`
@@ -307,7 +309,7 @@ export class HunkItem extends LitElement {
 		let hunkHeader = this.hunkHeader;
 		// Convert hunk header to a more readable format. E.g., "@@ -1,5 +1,7 @@" to "Lines 1-7"
 		if (hunkHeader.startsWith('@@')) {
-			const match = hunkHeader.match(/@@ -(\d+),(\d+) \+(\d+),(\d+) @@/);
+			const match = hunkHeader.match(hunkHeaderRegex);
 			if (match) {
 				const [_, _oldStart, _oldLines, newStart, newLines] = match;
 				const startLine = parseInt(newStart, 10);

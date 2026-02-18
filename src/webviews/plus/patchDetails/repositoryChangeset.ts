@@ -167,9 +167,7 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 	async getChange(): Promise<Change> {
 		let filesResult;
 		if (this.expanded) {
-			if (this._files == null) {
-				this._files = this.getFiles();
-			}
+			this._files ??= this.getFiles();
 
 			filesResult = await this._files;
 		}

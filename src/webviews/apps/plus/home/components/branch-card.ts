@@ -545,9 +545,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.eventController?.abort();
 		this.eventController = undefined;
 		if (this.expandable) {
-			if (this.eventController == null) {
-				this.eventController = new AbortController();
-			}
+			this.eventController ??= new AbortController();
 			this.addEventListener('focusin', this.onFocus, { signal: this.eventController.signal });
 		}
 	}

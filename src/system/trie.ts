@@ -360,9 +360,7 @@ export class PathEntryTrie<T> {
 
 			let n = node.children?.get(key);
 			if (n == null) {
-				if (node.children == null) {
-					node.children = new Map<string, PathNode<T>>();
-				}
+				node.children ??= new Map<string, PathNode<T>>();
 
 				n = new PathNode(segment);
 				node.children.set(key, n);
@@ -547,9 +545,7 @@ export class PathTrie<T> {
 
 			let n = node.children?.get(key);
 			if (n == null) {
-				if (node.children == null) {
-					node.children = new Map<string, PathNode<T>>();
-				}
+				node.children ??= new Map<string, PathNode<T>>();
 
 				n = new PathNode(segment);
 				node.children.set(key, n);
@@ -726,9 +722,7 @@ export class VisitedPathsTrie {
 
 			let n = node.children?.get(key);
 			if (n == null) {
-				if (node.children == null) {
-					node.children = new Map<string, VisitedPathNode>();
-				}
+				node.children ??= new Map<string, VisitedPathNode>();
 
 				n = new VisitedPathNode(segment);
 				node.children.set(key, n);

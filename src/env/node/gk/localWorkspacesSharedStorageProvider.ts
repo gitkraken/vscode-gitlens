@@ -99,17 +99,11 @@ export class LocalGkWorkspacesSharedStorageProvider implements GkWorkspacesShare
 
 		await this.loadCloudWorkspacePathMap();
 
-		if (this._cloudWorkspacePathMap == null) {
-			this._cloudWorkspacePathMap = {};
-		}
+		this._cloudWorkspacePathMap ??= {};
 
-		if (this._cloudWorkspacePathMap[cloudWorkspaceId] == null) {
-			this._cloudWorkspacePathMap[cloudWorkspaceId] = { repoPaths: {}, externalLinks: {} };
-		}
+		this._cloudWorkspacePathMap[cloudWorkspaceId] ??= { repoPaths: {}, externalLinks: {} };
 
-		if (this._cloudWorkspacePathMap[cloudWorkspaceId].repoPaths == null) {
-			this._cloudWorkspacePathMap[cloudWorkspaceId].repoPaths = {};
-		}
+		this._cloudWorkspacePathMap[cloudWorkspaceId].repoPaths ??= {};
 
 		this._cloudWorkspacePathMap[cloudWorkspaceId].repoPaths[repoId] = repoLocalPath;
 
@@ -134,17 +128,11 @@ export class LocalGkWorkspacesSharedStorageProvider implements GkWorkspacesShare
 
 		await this.loadCloudWorkspacePathMap();
 
-		if (this._cloudWorkspacePathMap == null) {
-			this._cloudWorkspacePathMap = {};
-		}
+		this._cloudWorkspacePathMap ??= {};
 
-		if (this._cloudWorkspacePathMap[cloudWorkspaceId] == null) {
-			this._cloudWorkspacePathMap[cloudWorkspaceId] = { repoPaths: {}, externalLinks: {} };
-		}
+		this._cloudWorkspacePathMap[cloudWorkspaceId] ??= { repoPaths: {}, externalLinks: {} };
 
-		if (this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks == null) {
-			this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks = {};
-		}
+		this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks ??= {};
 
 		this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks['.code-workspace'] = codeWorkspaceFilePath;
 

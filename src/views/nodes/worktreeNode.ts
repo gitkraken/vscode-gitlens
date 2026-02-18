@@ -196,7 +196,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				);
 
 				if (log.hasMore) {
-					children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+					children.push(new LoadMoreNode(this.view, this, children.at(-1)!));
 				}
 
 				const { hasChanges } = await this.hasWorkingChanges();
@@ -515,14 +515,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		if (this._log == null) {
-			this._log = await this.view.container.git
-				.getRepositoryService(this.uri.repoPath!)
-				.commits.getLog(this.worktree.sha, {
-					limit: this.limit ?? this.view.config.defaultItemLimit,
-					stashes: this.view.config.showStashes,
-				});
-		}
+		this._log ??= await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.commits.getLog(this.worktree.sha, {
+				limit: this.limit ?? this.view.config.defaultItemLimit,
+				stashes: this.view.config.showStashes,
+			});
 
 		return this._log;
 	}

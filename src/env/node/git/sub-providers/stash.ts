@@ -117,7 +117,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 						{
 							cwd: repoPath,
 							cancellation: cancellation,
-							stdin: Array.from(parentShas).join('\n'),
+							stdin: [...parentShas].join('\n'),
 						},
 						'log',
 						...datesParser.arguments,

@@ -15,7 +15,7 @@ export interface FormatOptions {
 type Constructor<T = Record<string, unknown>> = new (...args: any[]) => T;
 
 const hasTokenRegexMap = new Map<string, RegExp>();
-const spaceReplacementRegex = / /g;
+const spaceRegex = / /g;
 
 export declare type RequiredTokenOptions<Options extends FormatOptions> = Options &
 	Required<Pick<Options, 'tokenOptions'>>;
@@ -42,17 +42,11 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 
 		if (options == null && this._options != null) return;
 
-		if (options == null) {
-			options = {} as unknown as Options;
-		}
+		options ??= {} as unknown as Options;
 
-		if (options.dateFormat == null) {
-			options.dateFormat = 'MMMM Do, YYYY h:mma';
-		}
+		options.dateFormat ??= 'MMMM Do, YYYY h:mma';
 
-		if (options.tokenOptions == null) {
-			options.tokenOptions = {};
-		}
+		options.tokenOptions ??= {};
 
 		this._options = options as RequiredTokenOptions<Options>;
 	}
@@ -120,7 +114,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		dateFormatOrOptions?: string | null | Options,
 	): string {
 		// Preserve spaces
-		template = template.replace(spaceReplacementRegex, '\u00a0');
+		template = template.replace(spaceRegex, '\u00a0');
 		if (formatter instanceof Formatter) return interpolate(template, formatter);
 
 		let options: Options | undefined = undefined;
@@ -164,7 +158,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		dateFormatOrOptions?: string | null | Options,
 	): Promise<string> {
 		// Preserve spaces
-		template = template.replace(spaceReplacementRegex, '\u00a0');
+		template = template.replace(spaceRegex, '\u00a0');
 		if (formatter instanceof Formatter) return interpolateAsync(template, formatter);
 
 		let options: Options | undefined = undefined;

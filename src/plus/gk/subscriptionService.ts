@@ -922,7 +922,7 @@ export class SubscriptionService implements Disposable {
 
 		telemetry?.dispose();
 
-		const completionPromises = [new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000))];
+		const completionPromises = [new Promise<boolean>(resolve => setTimeout(resolve, 5 * 60 * 1000, false))];
 
 		if (hasAccount) {
 			completionPromises.push(
@@ -1319,16 +1319,14 @@ export class SubscriptionService implements Disposable {
 		source: Source | undefined,
 		options?: { silent?: boolean; store?: boolean },
 	): void {
-		if (subscription == null) {
-			subscription = {
-				plan: {
-					actual: getSubscriptionPlan('community', false, 0, undefined),
-					effective: getSubscriptionPlan('community', false, 0, undefined),
-				},
-				account: undefined,
-				state: SubscriptionState.Community,
-			};
-		}
+		subscription ??= {
+			plan: {
+				actual: getSubscriptionPlan('community', false, 0, undefined),
+				effective: getSubscriptionPlan('community', false, 0, undefined),
+			},
+			account: undefined,
+			state: SubscriptionState.Community,
+		};
 
 		// If the effective plan has expired, then replace it with the actual plan
 		if (isSubscriptionExpired(subscription)) {
@@ -1441,9 +1439,7 @@ export class SubscriptionService implements Disposable {
 
 	private updateContext(): void {
 		this._updateAccessContextDebounced?.cancel();
-		if (this._updateAccessContextDebounced == null) {
-			this._updateAccessContextDebounced = debounce(this.updateAccessContext.bind(this), 500);
-		}
+		this._updateAccessContextDebounced ??= debounce(this.updateAccessContext.bind(this), 500);
 
 		if (this._cancellationSource != null) {
 			this._cancellationSource.cancel();
@@ -1519,12 +1515,10 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		if (this._statusBarSubscription == null) {
-			this._statusBarSubscription = window.createStatusBarItem(
-				'gitlens.plus.subscription',
-				StatusBarAlignment.Right,
-			);
-		}
+		this._statusBarSubscription ??= window.createStatusBarItem(
+			'gitlens.plus.subscription',
+			StatusBarAlignment.Right,
+		);
 
 		this._statusBarSubscription.name = 'GitLens Pro';
 		this._statusBarSubscription.text = '$(gitlens-gitlens)';
@@ -1715,7 +1709,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		const completionPromises = [
-			new Promise<string>(resolve => setTimeout(() => resolve('cancel'), 5 * 60 * 1000)),
+			new Promise<string>(resolve => setTimeout(resolve, 5 * 60 * 1000, 'cancel')),
 			new Promise<string>(resolve =>
 				once(this.container.uri.onDidReceiveAiAllAccessOptInUri)(() =>
 					resolve(hasAccount ? 'update' : 'login'),

@@ -3,6 +3,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
+import { whitespaceRegex } from '../../../../../constants.js';
 import type { SearchOperators, SearchQuery } from '../../../../../constants.search.js';
 import { searchOperatorsToLongFormMap } from '../../../../../constants.search.js';
 import { parseSearchQuery, rebuildSearchQueryFromParsed } from '../../../../../git/search.js';
@@ -536,14 +537,14 @@ export class GlSearchInput extends GlElement {
 		// Find the word/operator being typed at cursor position
 		// Find the start of the current word/token
 		let start = cursor - 1;
-		while (start >= 0 && !/\s/.test(value[start])) {
+		while (start >= 0 && !whitespaceRegex.test(value[start])) {
 			start--;
 		}
 		start++; // Move to first non-whitespace character
 
 		// Find the end of the current word/token (for detecting if cursor is within an operator)
 		let end = cursor;
-		while (end < value.length && !/\s/.test(value[end])) {
+		while (end < value.length && !whitespaceRegex.test(value[end])) {
 			end++;
 		}
 

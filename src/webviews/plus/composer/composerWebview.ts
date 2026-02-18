@@ -508,7 +508,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					// Ensure that if commitShas is provided, error out if any of the commit shas are not found in the commits
 					if (commitShas) {
 						const commitShasSet = new Set(commitShas);
-						const missingShas = [...commitShasSet].filter(sha => !commits.find(c => c.sha === sha));
+						const missingShas = [...commitShasSet].filter(sha => !commits.some(c => c.sha === sha));
 						if (missingShas.length > 0) {
 							return {
 								...this.initialState,
@@ -632,7 +632,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 
 		// Convert Map to Array and reverse to oldest first for processing
-		const branchCommits = Array.from(log.commits.values()).reverse();
+		// eslint-disable-next-line e18e/prefer-array-to-reversed
+		const branchCommits = [...log.commits.values()].reverse();
 
 		// Create composer commits and hunks from branch commits
 		const composerData = await createComposerCommitsFromGitCommits(repo, branchCommits);
@@ -650,7 +651,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		// Validate that all provided commitShas are found in the commits (if provided)
 		if (commitShas && commitShas.length > 0) {
 			const commitShasSet = new Set(commitShas);
-			const missingShas = [...commitShasSet].filter(sha => !commits.find(c => c.sha === sha));
+			const missingShas = [...commitShasSet].filter(sha => !commits.some(c => c.sha === sha));
 			if (missingShas.length > 0) {
 				return {
 					...this.initialState,
@@ -1120,9 +1121,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				const baseSha = params.commitsToReplace?.baseShaForNewDiff ?? this._safetyState.baseSha!;
 				let headSha = this._safetyState.headSha!;
 				if (params.commitsToReplace?.commits?.length) {
-					headSha =
-						params.commitsToReplace.commits[params.commitsToReplace.commits.length - 1].sha ??
-						this._safetyState.headSha!;
+					headSha = params.commitsToReplace.commits.at(-1)!.sha ?? this._safetyState.headSha!;
 				}
 
 				const shouldSkipDiffCalculation =
@@ -1564,7 +1563,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			const baseRef = params.baseCommit?.sha ?? ((await repo.git.commits.getCommit('HEAD')) ? 'HEAD' : rootSha);
 			const resultingDiff = (
-				await repo.git.diff.getDiff?.(shas[shas.length - 1], baseRef, {
+				await repo.git.diff.getDiff?.(shas.at(-1)!, baseRef, {
 					notation: params.baseCommit?.sha ? '...' : undefined,
 				})
 			)?.contents;
@@ -1640,10 +1639,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (this._recompose?.enabled && this._recompose.branchName) {
 				// Branch mode: update the specific branch to point to the new commits
 				// Use git update-ref to update the branch reference directly
-				await repo.git.refs.updateReference(`refs/heads/${this._recompose.branchName}`, shas[shas.length - 1]);
+				await repo.git.refs.updateReference(`refs/heads/${this._recompose.branchName}`, shas.at(-1)!);
 			} else {
 				// Working directory mode: reset the current branch to the new shas
-				await svc.ops?.reset(shas[shas.length - 1], { mode: 'hard' });
+				await svc.ops?.reset(shas.at(-1)!, { mode: 'hard' });
 			}
 
 			// Pop the stash we created to restore what is left in the working tree

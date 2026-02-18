@@ -90,9 +90,7 @@ export class AsyncComputedState<T, R = unknown> {
 			return;
 		}
 
-		if (this._runDebounced == null) {
-			this._runDebounced = debounce(this._runCore.bind(this), this._debounce);
-		}
+		this._runDebounced ??= debounce(this._runCore.bind(this), this._debounce);
 
 		this._runDebounced();
 	}

@@ -187,7 +187,7 @@ export class GitProviderService implements Disposable {
 		// Group by commonPath and pick one repo per group (prefer main repo over worktrees)
 		const grouped = groupByMap(repos, r => r.commonUri?.path ?? r.path);
 
-		const reposAndCounts = [...grouped.values()].map(group => {
+		const reposAndCounts = Array.from(grouped.values(), group => {
 			const repo = group.find(r => !r.isWorktree) ?? group[0];
 			return {
 				repo: repo,
@@ -919,7 +919,7 @@ export class GitProviderService implements Disposable {
 		} else {
 			keys?.forEach(key => this._repoVisibilityCache?.delete(key));
 
-			const repoVisibility = Array.from(this._repoVisibilityCache?.entries() ?? []);
+			const repoVisibility = [...(this._repoVisibilityCache?.entries() ?? [])];
 			if (repoVisibility.length === 0) {
 				await this.container.storage.delete('repoVisibility');
 			} else {
@@ -970,7 +970,7 @@ export class GitProviderService implements Disposable {
 	private updateVisibilityCache(key: string, visibilityInfo: RepositoryVisibilityInfo): void {
 		this.ensureRepoVisibilityCache();
 		this._repoVisibilityCache?.set(key, visibilityInfo);
-		void this.container.storage.store('repoVisibility', Array.from(this._repoVisibilityCache!.entries())).catch();
+		void this.container.storage.store('repoVisibility', [...this._repoVisibilityCache!.entries()]).catch();
 	}
 
 	@trace()
@@ -1207,12 +1207,10 @@ export class GitProviderService implements Disposable {
 
 					'repositories.remoteProviders': join(remoteProviders, ','),
 				});
-				if (this._sendProviderContextTelemetryDebounced == null) {
-					this._sendProviderContextTelemetryDebounced = debounce(
-						() => this.container.telemetry.sendEvent('providers/context'),
-						2500,
-					);
-				}
+				this._sendProviderContextTelemetryDebounced ??= debounce(
+					() => this.container.telemetry.sendEvent('providers/context'),
+					2500,
+				);
 				this._sendProviderContextTelemetryDebounced();
 			}
 
@@ -1332,10 +1330,8 @@ export class GitProviderService implements Disposable {
 	)
 	@debug({ args: repositories => ({ repositories: repositories?.map(r => r.name).join(', ') }) })
 	async fetchAll(repositories?: Repository[], options?: { all?: boolean; prune?: boolean }): Promise<void> {
-		if (repositories == null) {
-			repositories = this.openRepositories;
-		}
-		if (repositories.length === 0) return;
+		repositories ??= this.openRepositories;
+		if (!repositories.length) return;
 
 		if (repositories.length === 1) {
 			await repositories[0].fetch(options);
@@ -1357,10 +1353,8 @@ export class GitProviderService implements Disposable {
 	)
 	@debug({ args: repositories => ({ repositories: repositories?.map(r => r.name).join(', ') }) })
 	async pullAll(repositories?: Repository[], options?: { rebase?: boolean }): Promise<void> {
-		if (repositories == null) {
-			repositories = this.openRepositories;
-		}
-		if (repositories.length === 0) return;
+		repositories ??= this.openRepositories;
+		if (!repositories.length) return;
 
 		if (repositories.length === 1) {
 			await repositories[0].pull(options);
@@ -1389,10 +1383,8 @@ export class GitProviderService implements Disposable {
 			};
 		},
 	): Promise<void> {
-		if (repositories == null) {
-			repositories = this.openRepositories;
-		}
-		if (repositories.length === 0) return;
+		repositories ??= this.openRepositories;
+		if (!repositories.length) return;
 
 		if (repositories.length === 1) {
 			await repositories[0].push(options);
@@ -1575,7 +1567,7 @@ export class GitProviderService implements Disposable {
 
 	@debug()
 	async getOpenScmRepositories(): Promise<ScmRepository[]> {
-		const results = await Promise.allSettled([...this._providers.values()].map(p => p.getOpenScmRepositories()));
+		const results = await Promise.allSettled(Array.from(this._providers.values(), p => p.getOpenScmRepositories()));
 		const repositories = flatMap<PromiseFulfilledResult<ScmRepository[]>, ScmRepository>(
 			filter<PromiseSettledResult<ScmRepository[]>, PromiseFulfilledResult<ScmRepository[]>>(
 				results,

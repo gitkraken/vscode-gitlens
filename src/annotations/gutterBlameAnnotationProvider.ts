@@ -130,9 +130,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 				if (cfg.compact && !compacted) {
 					// Since the line length is the same just generate a single new empty line
-					if (emptyLine == null) {
-						emptyLine = GlyphChars.Space.repeat(getWidth(gutter.renderOptions!.before!.contentText!));
-					}
+					emptyLine ??= GlyphChars.Space.repeat(getWidth(gutter.renderOptions!.before!.contentText!));
 
 					// Since we are wiping out the contextText make sure to copy the objects
 					gutter.renderOptions = {

@@ -118,7 +118,7 @@ export class BranchTrackingStatusNode
 		if (this.upstreamType === 'ahead') {
 			// Since the last commit when we are looking 'ahead' can have no previous (because of the range given) -- look it up
 			commits = [...log.commits.values()];
-			const commit = commits[commits.length - 1];
+			const commit = commits.at(-1)!;
 			const previousSha = await commit.getPreviousSha();
 			if (previousSha == null) {
 				const previousLog = await this.view.container.git
@@ -157,7 +157,7 @@ export class BranchTrackingStatusNode
 			);
 
 			if (log.hasMore) {
-				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+				children.push(new LoadMoreNode(this.view, this, children.at(-1)!));
 			}
 		}
 

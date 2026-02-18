@@ -828,6 +828,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		if (log == null) return [];
 
 		const shas = map(log.commits.values(), c => c.ref);
+		// eslint-disable-next-line e18e/prefer-array-to-reversed
 		return options?.reverse ? [...shas].reverse() : shas;
 	}
 

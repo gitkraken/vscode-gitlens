@@ -1,5 +1,8 @@
 import type { CommitSignature, SignatureStatus, SigningFormat, TrustLevel } from '../models/signature.js';
 
+const hexFingerprintRegex = /^[0-9A-Fa-f]{16,40}$/;
+const hexKeyIdRegex = /^[0-9A-Fa-f]{8,16}$/;
+
 /**
  * Git format specifiers for signature information:
  * - %G?: Signature status (G/B/U/X/Y/R/E/N)
@@ -72,7 +75,7 @@ function inferSigningFormat(
 
 	// GPG/OpenPGP: fingerprints are hex strings (typically 16-40 chars)
 	// Signer format is "Name <email@example.com>"
-	if (fingerprint && /^[0-9A-Fa-f]{16,40}$/.test(fingerprint)) {
+	if (fingerprint && hexFingerprintRegex.test(fingerprint)) {
 		return 'gpg';
 	}
 
@@ -82,7 +85,7 @@ function inferSigningFormat(
 	}
 
 	// If keyId looks like a hex GPG key ID (8-16 hex chars)
-	if (keyId && /^[0-9A-Fa-f]{8,16}$/.test(keyId)) {
+	if (keyId && hexKeyIdRegex.test(keyId)) {
 		return 'gpg';
 	}
 

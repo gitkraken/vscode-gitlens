@@ -95,9 +95,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 	}
 
 	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
-		if (this._disposable == null) {
-			this._disposable = Disposable.from(this.container.subscription.onDidChange(() => this.refresh(true), this));
-		}
+		this._disposable ??= Disposable.from(this.container.subscription.onDidChange(() => this.refresh(true), this));
 
 		super.onVisibilityChanged(e);
 	}

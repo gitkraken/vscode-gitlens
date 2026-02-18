@@ -37,7 +37,7 @@ export class StepController<StepNames extends string> implements UnifiedDisposab
 			return this._navContext.startedFrom === 'menu';
 		}
 
-		const currentHistory = this._navContext.history[this._navContext.history.length - 1];
+		const currentHistory = this._navContext.history.at(-1)!;
 
 		// We can go back if, we have 2+ steps in current generator, or we have 1 step in current generator but came from an outer generator
 		if (currentHistory.length > 1 || (currentHistory.length === 1 && this._navContext.history.length > 1)) {
@@ -49,7 +49,7 @@ export class StepController<StepNames extends string> implements UnifiedDisposab
 	goBack(): StepNames | undefined {
 		this._wentBack = true;
 
-		const currentHistory = this._navContext.history[this._navContext.history.length - 1];
+		const currentHistory = this._navContext.history.at(-1)!;
 		if (!currentHistory.length) return undefined;
 
 		// Pop current step
@@ -57,7 +57,7 @@ export class StepController<StepNames extends string> implements UnifiedDisposab
 
 		// If we have a previous step in this generator, go to it
 		if (currentHistory.length > 0) {
-			const previousStep = currentHistory[currentHistory.length - 1];
+			const previousStep = currentHistory.at(-1);
 			this._navContext.currentStep = previousStep;
 			return previousStep;
 		}
@@ -67,7 +67,7 @@ export class StepController<StepNames extends string> implements UnifiedDisposab
 			// Note: We don't remove the current generator's history array since it will be removed by the dispose() call
 			const outerHistory = this._navContext.history[this._navContext.history.length - 2];
 			if (outerHistory.length > 0) {
-				const outerStep = outerHistory[outerHistory.length - 1];
+				const outerStep = outerHistory.at(-1);
 				this._navContext.currentStep = outerStep;
 				return undefined;
 			}
@@ -84,9 +84,9 @@ export class StepController<StepNames extends string> implements UnifiedDisposab
 	 * so that "back" navigation doesn't return to a step the user never actually saw
 	 */
 	skip(): void {
-		const currentHistory = this._navContext.history[this._navContext.history.length - 1];
+		const currentHistory = this._navContext.history.at(-1)!;
 		// Only remove if this step is still the last in history
-		if (currentHistory.length > 0 && currentHistory[currentHistory.length - 1] === this._step) {
+		if (currentHistory.length > 0 && currentHistory.at(-1) === this._step) {
 			currentHistory.pop();
 		}
 	}
@@ -141,9 +141,9 @@ export class StepsController<StepNames extends string> implements UnifiedDisposa
 		// Reset currentStep to the outer generator's current step (if any)
 		// This prevents the outer generator from re-triggering steps based on
 		// a currentStep value that was set by this nested generator
-		const outerHistory = this._navContext.history[this._navContext.history.length - 1];
+		const outerHistory = this._navContext.history.at(-1);
 		if (outerHistory?.length) {
-			this._navContext.currentStep = outerHistory[outerHistory.length - 1];
+			this._navContext.currentStep = outerHistory.at(-1);
 		} else {
 			this._navContext.currentStep = undefined;
 		}
@@ -175,7 +175,7 @@ export class StepsController<StepNames extends string> implements UnifiedDisposa
 	 */
 	enterStep(step: StepNames): StepController<StepNames> {
 		// Add step to the current generator's history (last array)
-		const currentHistory = this._navContext.history[this._navContext.history.length - 1];
+		const currentHistory = this._navContext.history.at(-1)!;
 
 		// If the step already exists in history, remove it from its current position
 		// This prevents duplicate entries when toggling between steps
@@ -185,7 +185,7 @@ export class StepsController<StepNames extends string> implements UnifiedDisposa
 		}
 
 		// Add to history if not already the last item
-		if (currentHistory[currentHistory.length - 1] !== step) {
+		if (currentHistory.at(-1) !== step) {
 			currentHistory.push(step);
 		}
 
@@ -212,7 +212,7 @@ export class StepsController<StepNames extends string> implements UnifiedDisposa
 	 * @param step The step to go back to
 	 */
 	goBackToStep(step: StepNames): void {
-		const currentHistory = this._navContext.history[this._navContext.history.length - 1];
+		const currentHistory = this._navContext.history.at(-1)!;
 
 		// Find the step in history
 		const index = currentHistory.lastIndexOf(step);

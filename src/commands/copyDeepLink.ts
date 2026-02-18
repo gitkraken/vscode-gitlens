@@ -190,9 +190,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 	}
 
 	protected override preExecute(context: CommandContext, args?: CopyFileDeepLinkCommandArgs): Promise<void> {
-		if (args == null) {
-			args = {};
-		}
+		args ??= {};
 
 		if (args.ref == null && context.command === 'gitlens.copyDeepLinkToFileAtRevision') {
 			args.chooseRef = true;
@@ -228,13 +226,9 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 			if (gitUri?.path == null || gitUri?.repoPath == null) return;
 
-			if (repoPath == null) {
-				repoPath = gitUri.repoPath;
-			}
+			repoPath ??= gitUri.repoPath;
 
-			if (filePath == null) {
-				filePath = gitUri?.fsPath;
-			}
+			filePath ??= gitUri?.fsPath;
 
 			if (args?.chooseRef !== true && ref == null && repoPath != null && gitUri?.sha != null) {
 				ref = createReference(gitUri.sha, repoPath, { refType: 'revision' });

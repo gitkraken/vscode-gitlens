@@ -369,7 +369,7 @@ export class DetailsPanel extends LitElement {
 				onStart: evt => {
 					const draggedHunkId = evt.item.dataset.hunkId;
 					if (draggedHunkId && this.selectedHunkIds.has(draggedHunkId) && this.selectedHunkIds.size > 1) {
-						this.dispatchHunkDragStart(Array.from(this.selectedHunkIds));
+						this.dispatchHunkDragStart([...this.selectedHunkIds]);
 					} else {
 						this.dispatchHunkDragStart(draggedHunkId ? [draggedHunkId] : []);
 					}
@@ -607,7 +607,7 @@ export class DetailsPanel extends LitElement {
 	private renderFileHierarchy(hunks: ComposerHunk[]) {
 		const fileGroups = groupHunksByFile(hunks);
 
-		return Array.from(fileGroups.entries())
+		return [...fileGroups.entries()]
 			.filter(([, fileHunks]) => fileHunks.length > 0) // Only show files that have hunks
 			.map(([fileName, fileHunks]) => {
 				return this.renderFile(fileName, fileHunks);

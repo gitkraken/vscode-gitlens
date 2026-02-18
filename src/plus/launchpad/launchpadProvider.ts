@@ -19,6 +19,7 @@ import type { GitRemote } from '../../git/models/remote.js';
 import type { ProviderReference } from '../../git/models/remoteProvider.js';
 import type { Repository } from '../../git/models/repository.js';
 import type { RepositoryDescriptor } from '../../git/models/resourceDescriptor.js';
+import { gitSuffixRegex } from '../../git/parsers/remoteParser.js';
 import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils.js';
 import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils.js';
 import {
@@ -587,7 +588,7 @@ export class LaunchpadProvider implements Disposable {
 		const uniqueRemoteUrls = new Set<string>();
 		for (const item of actionableItems) {
 			if (item.repoIdentity.remote.url != null) {
-				uniqueRemoteUrls.add(item.repoIdentity.remote.url.replace(/\.git$/, ''));
+				uniqueRemoteUrls.add(item.repoIdentity.remote.url.replace(gitSuffixRegex, ''));
 			}
 		}
 
@@ -602,7 +603,7 @@ export class LaunchpadProvider implements Disposable {
 			for (const remote of remotes) {
 				if (uniqueRemoteUrls.size === 0) return;
 
-				const remoteUrl = remote.url.replace(/\.git$/, '');
+				const remoteUrl = remote.url.replace(gitSuffixRegex, '');
 				if (uniqueRemoteUrls.has(remoteUrl)) {
 					repoRemotes.set(remoteUrl, [repo, remote]);
 					uniqueRemoteUrls.delete(remoteUrl);

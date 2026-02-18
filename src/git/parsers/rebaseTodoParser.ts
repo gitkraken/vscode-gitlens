@@ -34,6 +34,7 @@ const rebaseActionsMap = new Map<string, RebaseTodoAction>([
 ]);
 
 const rebaseHeaderRegex = /^\s?#\s?Rebase\s([0-9a-f]+)(?:\.\.([0-9a-f]+))?\sonto\s([0-9a-f]+)\s.*$/im;
+const mergeCommentSplitRegex = /\s*#\s*/;
 
 // Optimized: Single regex that matches all command types
 // Groups: (action)(sha?)(message/command/ref?)(merge-sha?)(merge-message?)
@@ -159,7 +160,7 @@ export function parseRebaseTodo(data: string | undefined): ParsedRebaseTodo {
 				// Format: merge [-C sha] ref [# message]
 				if (mergeFlag && arg1 && arg2) {
 					// merge -C sha ref [# message]
-					const parts = arg2.split(/\s*#\s*/);
+					const parts = arg2.split(mergeCommentSplitRegex);
 					entry = {
 						line: count,
 						action: action,
@@ -170,7 +171,7 @@ export function parseRebaseTodo(data: string | undefined): ParsedRebaseTodo {
 					};
 				} else if (arg1) {
 					// merge ref [# message]
-					const parts = arg1.split(/\s*#\s*/);
+					const parts = arg1.split(mergeCommentSplitRegex);
 					entry = {
 						line: count,
 						action: action,

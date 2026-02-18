@@ -134,6 +134,7 @@ export class GlSnow extends LitElement {
 	}
 
 	private createSnowflakes(): void {
+		// eslint-disable-next-line e18e/prefer-array-fill
 		this._snowflakes = Array.from({ length: window.innerWidth / 4 }, () => new Snowflake());
 	}
 

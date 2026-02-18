@@ -167,8 +167,8 @@ function createOrUpdateAvatar(
 			retries: 0,
 		};
 		avatarCache!.set(key, avatar);
-	} else if (avatar.fallback == null) {
-		avatar.fallback = getAvatarUriFromGravatar(hash, size, defaultStyle);
+	} else {
+		avatar.fallback ??= getAvatarUriFromGravatar(hash, size, defaultStyle);
 	}
 	return avatar;
 }
@@ -323,9 +323,7 @@ export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback'): void {
 
 let defaultGravatarsStyle: GravatarDefaultStyle | undefined = undefined;
 function getDefaultGravatarStyle() {
-	if (defaultGravatarsStyle == null) {
-		defaultGravatarsStyle = configuration.get('defaultGravatarsStyle', undefined, 'robohash');
-	}
+	defaultGravatarsStyle ??= configuration.get('defaultGravatarsStyle', undefined, 'robohash');
 	return defaultGravatarsStyle;
 }
 

@@ -86,7 +86,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 
 		if (previousLine === -1) {
-			previousLine = this.sortedHunkStarts[this.sortedHunkStarts.length - 1];
+			previousLine = this.sortedHunkStarts.at(-1)!;
 		}
 
 		if (previousLine > 0) {
@@ -214,9 +214,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 					this.sortedHunkStarts.push(range.start.line);
 
-					if (selection == null) {
-						selection = new Selection(range.start, range.end);
-					}
+					selection ??= new Selection(range.start, range.end);
 
 					let decoration = decorationsMap.get(hunkLine.state);
 					if (decoration == null) {

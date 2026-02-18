@@ -299,31 +299,29 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 	private _customSettings: Map<CustomConfigPath, CustomSetting> | undefined;
 	private get customSettings() {
-		if (this._customSettings == null) {
-			this._customSettings = new Map<CustomConfigPath, CustomSetting>([
-				[
-					'rebaseEditor.enabled',
-					{
-						name: 'workbench.editorAssociations',
-						enabled: () => this.container.rebaseEditor.enabled,
-						update: this.container.rebaseEditor.setEnabled,
-					},
-				],
-				[
-					'currentLine.useUncommittedChangesFormat',
-					{
-						name: 'currentLine.uncommittedChangesFormat',
-						enabled: () => configuration.get('currentLine.uncommittedChangesFormat') != null,
-						update: async enabled =>
-							configuration.updateEffective(
-								'currentLine.uncommittedChangesFormat',
-								// eslint-disable-next-line no-template-curly-in-string
-								enabled ? '\u270F\ufe0f ${ago}' : null,
-							),
-					},
-				],
-			]);
-		}
+		this._customSettings ??= new Map<CustomConfigPath, CustomSetting>([
+			[
+				'rebaseEditor.enabled',
+				{
+					name: 'workbench.editorAssociations',
+					enabled: () => this.container.rebaseEditor.enabled,
+					update: this.container.rebaseEditor.setEnabled,
+				},
+			],
+			[
+				'currentLine.useUncommittedChangesFormat',
+				{
+					name: 'currentLine.uncommittedChangesFormat',
+					enabled: () => configuration.get('currentLine.uncommittedChangesFormat') != null,
+					update: async enabled =>
+						configuration.updateEffective(
+							'currentLine.uncommittedChangesFormat',
+							// eslint-disable-next-line no-template-curly-in-string
+							enabled ? '\u270F\ufe0f ${ago}' : null,
+						),
+				},
+			],
+		]);
 		return this._customSettings;
 	}
 

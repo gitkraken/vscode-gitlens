@@ -305,18 +305,16 @@ export class LineTracker {
 			return;
 		}
 
-		if (this._fireLinesChangedDebounced == null) {
-			this._fireLinesChangedDebounced = debounce((e: LinesChangeEvent) => {
-				if (e.editor !== window.activeTextEditor) return;
+		this._fireLinesChangedDebounced ??= debounce((e: LinesChangeEvent) => {
+			if (e.editor !== window.activeTextEditor) return;
 
-				// Make sure we are still on the same lines
-				if (!isIncluded(e.selections, toLineSelections(e.editor?.selections))) {
-					return;
-				}
+			// Make sure we are still on the same lines
+			if (!isIncluded(e.selections, toLineSelections(e.editor?.selections))) {
+				return;
+			}
 
-				void this.fireLinesChanged(e);
-			}, 250);
-		}
+			void this.fireLinesChanged(e);
+		}, 250);
 
 		// If we have no pending moves, then fire an immediate pending event, and defer the real event
 		if (!this._fireLinesChangedDebounced.pending()) {

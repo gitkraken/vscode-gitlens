@@ -515,7 +515,7 @@ export class ComposerApp extends LitElement {
 						this.isDragging = true;
 						const draggedHunkId = evt.item.dataset.hunkId;
 						if (draggedHunkId && this.selectedHunkIds.has(draggedHunkId) && this.selectedHunkIds.size > 1) {
-							evt.item.dataset.multiDragHunkIds = Array.from(this.selectedHunkIds).join(',');
+							evt.item.dataset.multiDragHunkIds = [...this.selectedHunkIds].join(',');
 						}
 						this.startAutoScroll();
 					},
@@ -963,7 +963,7 @@ export class ComposerApp extends LitElement {
 			if (this.selectedHunkIds.size > 1) {
 				this.selectedHunkId = null;
 			} else if (this.selectedHunkIds.size === 1) {
-				this.selectedHunkId = Array.from(this.selectedHunkIds)[0];
+				this.selectedHunkId = [...this.selectedHunkIds][0];
 				this.selectedHunkIds = new Set(); // Clear multi-selection when back to single
 			} else {
 				this.selectedHunkId = null;
@@ -1022,7 +1022,7 @@ export class ComposerApp extends LitElement {
 				if (this.selectedCommitIds.size > 1) {
 					this.selectedCommitId = null;
 				} else if (this.selectedCommitIds.size === 1) {
-					this.selectedCommitId = Array.from(this.selectedCommitIds)[0];
+					this.selectedCommitId = [...this.selectedCommitIds][0];
 					this.selectedCommitIds = new Set();
 				} else {
 					this.selectedCommitId = null;
@@ -1647,9 +1647,9 @@ export class ComposerApp extends LitElement {
 		if (this.selectedCommitId && !this.selectedUnassignedSection) {
 			selectedCommitIds.add(this.selectedCommitId);
 		}
-		const selectedCommits = Array.from(selectedCommitIds)
-			.map(id => this.state.commits.find(c => c.id === id))
-			.filter(Boolean) as ComposerCommit[];
+		const selectedCommits = Array.from(selectedCommitIds, id => this.state.commits.find(c => c.id === id)).filter(
+			Boolean,
+		) as ComposerCommit[];
 
 		// Get hunks with updated assignments
 		const hunks = this.hunksWithAssignments;

@@ -1,3 +1,4 @@
+import { whitespaceRegex } from '../constants.js';
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../constants.search.js';
 import { searchOperators, searchOperatorsToLongFormMap } from '../constants.search.js';
 import type { StoredSearchQuery } from '../constants.storage.js';
@@ -136,7 +137,7 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 
 	while (pos < query.length) {
 		// Skip whitespace
-		if (/\s/.test(query[pos])) {
+		if (whitespaceRegex.test(query[pos])) {
 			pos++;
 			continue;
 		}
@@ -484,6 +485,8 @@ export interface SearchQueryGitHubCommand {
 	operations: Map<SearchOperatorsLongForm, Set<string>>;
 }
 
+const spaceRegex = / /g;
+
 export function parseSearchQueryGitHubCommand(
 	search: SearchQuery,
 	currentUser: GitUser | undefined,
@@ -508,7 +511,7 @@ export function parseSearchQueryGitHubCommand(
 						value = `\\b${value}\\b`;
 					}
 
-					queryArgs.push(value.replace(/ /g, '+'));
+					queryArgs.push(value.replace(spaceRegex, '+'));
 				}
 				break;
 
@@ -527,7 +530,7 @@ export function parseSearchQueryGitHubCommand(
 						value = `@${currentUser.username}`;
 					}
 
-					value = value.replace(/ /g, '+');
+					value = value.replace(spaceRegex, '+');
 					if (value.startsWith('@')) {
 						value = value.slice(1);
 						queryArgs.push(`author:${value.slice(1)}`);

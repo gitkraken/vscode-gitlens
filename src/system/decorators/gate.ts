@@ -42,7 +42,7 @@ export function gate<T extends (...arg: any) => any>(
 
 		descriptor.value = function (this: any, ...args: any[]) {
 			const prop = resolveProp(gateKey, getGroupingKey, ...(args as Parameters<T>));
-			if (!Object.prototype.hasOwnProperty.call(this, prop)) {
+			if (!Object.hasOwn(this, prop)) {
 				Object.defineProperty(this, prop, {
 					configurable: false,
 					enumerable: false,

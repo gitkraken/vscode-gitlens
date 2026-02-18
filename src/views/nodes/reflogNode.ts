@@ -46,7 +46,7 @@ export class ReflogNode
 			children.push(...reflog.records.map(r => new ReflogRecordNode(this.view, this, r)));
 
 			if (reflog.hasMore) {
-				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+				children.push(new LoadMoreNode(this.view, this, children.at(-1)!));
 			}
 
 			this.children = children;

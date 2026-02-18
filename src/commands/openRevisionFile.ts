@@ -31,9 +31,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		const gitUri = await GitUri.fromUri(uri);
 
 		args = { ...args };
-		if (args.line == null) {
-			args.line = editor?.selection.active.line ?? 0;
-		}
+		args.line ??= editor?.selection.active.line ?? 0;
 
 		try {
 			if (args.revisionUri == null) {

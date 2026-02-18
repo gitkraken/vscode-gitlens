@@ -552,19 +552,17 @@ export class FileAnnotationController implements Disposable {
 		if (!configuration.get('fileAnnotations.dismissOnEscape')) return;
 
 		// Allows pressing escape to exit the annotations
-		if (this._keyboardScope == null) {
-			this._keyboardScope = await this.container.keyboard.beginScope({
-				escape: {
-					onDidPressKey: async () => {
-						const e = this._editor;
-						if (e == null) return undefined;
+		this._keyboardScope ??= await this.container.keyboard.beginScope({
+			escape: {
+				onDidPressKey: async () => {
+					const e = this._editor;
+					if (e == null) return undefined;
 
-						await this.clear(e);
-						return undefined;
-					},
+					await this.clear(e);
+					return undefined;
 				},
-			});
-		}
+			},
+		});
 	}
 
 	@debug()

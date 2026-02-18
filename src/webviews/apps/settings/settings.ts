@@ -347,7 +347,7 @@ export class SettingsApp extends App<State> {
 				if (element.checked) {
 					this._changes[element.name] = fromCheckboxValue(element.value);
 				} else {
-					this._changes[element.name] = element.dataset.valueOff == null ? false : element.dataset.valueOff;
+					this._changes[element.name] = element.dataset.valueOff ?? false;
 				}
 
 				break;
@@ -634,9 +634,7 @@ export class SettingsApp extends App<State> {
 					if (lookup != null) {
 						value = this.getSettingValue<string>(lookup);
 					}
-					if (value == null) {
-						value = el.dataset.settingPreviewDefault;
-					}
+					value ??= el.dataset.settingPreviewDefault;
 				}
 
 				el.innerText = value == null ? '' : formatDate(date, value, undefined, false);

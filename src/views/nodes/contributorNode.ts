@@ -91,7 +91,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		];
 
 		if (log.hasMore) {
-			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+			children.push(new LoadMoreNode(this.view, this, children.at(-1)!));
 		}
 		return children;
 	}
@@ -174,7 +174,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			? ` to \`${this.view.container.git.getRelativePath(this.options?.pathspec?.uri, this.uri.repoPath!)}\``
 			: '';
 		const markdown = new MarkdownString(
-			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
+			`${avatarMarkdown ?? ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
 				this.contributor.contributionCount,
 			)}${pathContext}${stats}`,

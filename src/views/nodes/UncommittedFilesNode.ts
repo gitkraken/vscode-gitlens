@@ -58,7 +58,7 @@ export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWit
 		const groups = groupBy(files, f => f.path);
 
 		let children: FileNode[] = Object.values(groups).map(
-			files => new UncommittedFileNode(this.view, this, repoPath, files[files.length - 1]),
+			files => new UncommittedFileNode(this.view, this, repoPath, files.at(-1)!),
 		);
 
 		if (this.view.config.files.layout !== 'list') {

@@ -97,7 +97,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 		);
 		const psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', exe];
 
-		return { cmd: cmd, args: psargs.concat(args) };
+		return { cmd: cmd, args: [...psargs, ...args] };
 	}
 
 	if (batOrCmdRegex.test(exe)) {
@@ -111,7 +111,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 		const cmd = process.execPath;
 		const nodeArgs = [exe];
 
-		return { cmd: cmd, args: nodeArgs.concat(args) };
+		return { cmd: cmd, args: [...nodeArgs, ...args] };
 	}
 
 	return { cmd: exe, args: args };

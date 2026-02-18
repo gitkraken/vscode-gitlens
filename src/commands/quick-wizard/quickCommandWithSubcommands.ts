@@ -137,7 +137,7 @@ export abstract class QuickCommandWithSubcommands<
 	}
 
 	protected *pickSubcommandStep(state: PartialStepState<TState>): StepResultGenerator<TSubcommand> {
-		const items: QuickPickItemOfT<TSubcommand>[] = [...this.subcommands].map(([name, command]) => ({
+		const items: QuickPickItemOfT<TSubcommand>[] = Array.from(this.subcommands, ([name, command]) => ({
 			label: name,
 			description: command.description,
 			picked: state.subcommand === name,

@@ -160,7 +160,7 @@ export class VslsHostService implements Disposable {
 			if (this._localPathsRegex != null && data.length > 0) {
 				data = data.replace(this._localPathsRegex, (_match, local: string) => {
 					const shared = this._localToSharedPaths.get(normalizePath(local));
-					return shared != null ? shared : local;
+					return shared ?? local;
 				});
 			}
 
@@ -238,7 +238,7 @@ export class VslsHostService implements Disposable {
 					}
 
 					const local = this._sharedToLocalPaths.get(shared);
-					return local != null ? local : shared;
+					return local ?? shared;
 				});
 			} else if (leadingSlashRegex.test(cwd)) {
 				const localCwd = this._sharedToLocalPaths.get('vsls:/~0');
@@ -276,7 +276,7 @@ export class VslsHostService implements Disposable {
 						1,
 						normalizePath(arg).replace(this._sharedPathsRegex, (_match, shared: string) => {
 							const local = this._sharedToLocalPaths.get(shared);
-							return local != null ? local : shared;
+							return local ?? shared;
 						}),
 					);
 				}

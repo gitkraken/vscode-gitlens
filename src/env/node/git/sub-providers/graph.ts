@@ -353,9 +353,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										group = { remotes: [] };
 										groupedRefs.set(branchName, group);
 									}
-									if (group.remotes == null) {
-										group.remotes = [];
-									}
+									group.remotes ??= [];
 									group.remotes.push(context.webviewItemValue.ref);
 
 									continue;
@@ -433,9 +431,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								group.remotes != null &&
 								((group.local != null && group.remotes.length > 0) || group.remotes.length > 1)
 							) {
-								if (contexts.refGroups == null) {
-									contexts.refGroups = {};
-								}
+								contexts.refGroups ??= {};
 								contexts.refGroups[groupName] = serializeWebviewItemContext<GraphItemRefGroupContext>({
 									webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
 									webviewItemGroupValue: {
@@ -508,7 +504,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							remotes: refRemoteHeads,
 							tags: refTags,
 							contexts: contexts,
-							reachableFromBranches: branches ? Array.from(branches) : undefined,
+							reachableFromBranches: branches ? [...branches] : undefined,
 						});
 
 						if (stash.stats != null) {
@@ -567,7 +563,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							remotes: refRemoteHeads,
 							tags: refTags,
 							contexts: contexts,
-							reachableFromBranches: branches ? Array.from(branches) : undefined,
+							reachableFromBranches: branches ? [...branches] : undefined,
 						});
 
 						if (commit.stats != null) {

@@ -1106,7 +1106,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					repoPath: repoPath,
 					branch: conflictingShas[0],
 					target: targetBranch,
-					files: [...conflictingFilePaths].map(path => ({ path: path })),
+					files: Array.from(conflictingFilePaths, path => ({ path: path })),
 					shas: conflictingShas,
 				},
 				stoppedOnFirstConflict: false,
@@ -1196,7 +1196,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			entries = result.stdout.split('\n').filter(entry => Boolean(entry));
 			if (!entries.length) return undefined;
 
-			match = entries[entries.length - 1].match(/checkout: moving from ([^\s]+)\s/);
+			match = entries.at(-1)!.match(/checkout: moving from ([^\s]+)\s/);
 			if (match?.length === 2) {
 				let name: string | undefined = match[1];
 				if (options?.upstream) {
@@ -1345,7 +1345,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (keyParts.length < 3) continue;
 
 				// Branch name is everything between "branch." and the last ".gk-*"
-				const dateKey = keyParts[keyParts.length - 1];
+				const dateKey = keyParts.at(-1);
 				const branchName = keyParts.slice(1, -1).join('.');
 
 				let dates = dateMetadataMap.get(branchName);

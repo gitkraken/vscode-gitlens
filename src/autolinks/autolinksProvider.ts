@@ -46,6 +46,8 @@ import {
 } from './utils/-webview/autolinks.utils.js';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
+const tokenRegex = /(\x00\d+\x00)/g; // eslint-disable-line no-control-regex
+const quoteRegex = /"/g;
 
 export class AutolinksProvider implements Disposable {
 	private _disposable: Disposable | undefined;
@@ -224,11 +226,9 @@ export class AutolinksProvider implements Disposable {
 							// Either way, this converting/casting hackery needs to go away.
 							(getIntegrationIdForRemote(link.provider as RemoteProvider) ??
 							convertRemoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId));
-				if (integrationId == null) {
-					// Fall back to the old logic assuming that integration id might be saved as provider id.
-					// TODO: it should be removed when we put providers and integrations in order. Conversation: https://github.com/gitkraken/vscode-gitlens/pull/3996#discussion_r1936422826
-					integrationId = link.provider.id as IntegrationIds;
-				}
+				// Fall back to the old logic assuming that integration id might be saved as provider id.
+				// TODO: it should be removed when we put providers and integrations in order. Conversation: https://github.com/gitkraken/vscode-gitlens/pull/3996#discussion_r1936422826
+				integrationId ??= link.provider.id as IntegrationIds;
 				try {
 					linkIntegration = await this.container.integrations.get(integrationId);
 				} catch (e) {
@@ -326,7 +326,7 @@ export class AutolinksProvider implements Disposable {
 			}
 
 			if (remotes?.length) {
-				remotes = [...remotes].sort((a, b) => {
+				remotes = remotes.toSorted((a, b) => {
 					const aConnected = a.maybeIntegrationConnected;
 					const bConnected = b.maybeIntegrationConnected;
 					return aConnected !== bConnected ? (aConnected ? -1 : bConnected ? 1 : 0) : 0;
@@ -354,8 +354,7 @@ export class AutolinksProvider implements Disposable {
 		}
 
 		if (tokenMapping.size) {
-			// eslint-disable-next-line no-control-regex
-			text = text.replace(/(\x00\d+\x00)/g, (_, t: string) => tokenMapping.get(t) ?? t);
+			text = text.replace(tokenRegex, (_, t: string) => tokenMapping.get(t) ?? t);
 		}
 
 		if (includeFootnotesInText && footnotes?.size) {
@@ -429,7 +428,7 @@ export class AutolinksProvider implements Disposable {
 										} else {
 											const issue = issueResult.value;
 											const issueTitle = escapeMarkdown(issue.title.trim());
-											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '\\"');
+											const issueTitleQuoteEscaped = issueTitle.replace(quoteRegex, '\\"');
 
 											urlCommandContext.provider = issue.provider && {
 												id: issue.provider.id,
@@ -517,7 +516,7 @@ export class AutolinksProvider implements Disposable {
 										} else {
 											const issue = issueResult.value;
 											const issueTitle = encodeHtmlWeak(issue.title.trim());
-											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '&quot;');
+											const issueTitleQuoteEscaped = issueTitle.replace(quoteRegex, '&quot;');
 
 											if (footnotes != null && !prs?.has(num)) {
 												footnoteIndex = footnotes.size + 1;

@@ -81,9 +81,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	confirm(override?: boolean): boolean {
 		if (!this.canConfirm || !this.canSkipConfirm) return true;
 
-		return override != null
-			? override
-			: !configuration.get('gitCommands.skipConfirmations').includes(this.skipConfirmKey);
+		return override ?? !configuration.get('gitCommands.skipConfirmations').includes(this.skipConfirmKey);
 	}
 
 	isMatch(key: string): boolean {

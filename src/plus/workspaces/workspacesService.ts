@@ -292,14 +292,15 @@ export class WorkspacesService implements Disposable {
 
 		if (!(await currentWorkspace.getRepositoryDescriptors())?.length) return;
 
-		const repositories = [
-			...(
+		const repositories = Array.from(
+			(
 				await this.resolveWorkspaceRepositoriesByName(currentWorkspace, {
 					resolveFromPath: true,
 					usePathMapping: true,
 				})
 			).values(),
-		].map(r => r.repository);
+			r => r.repository,
+		);
 		const currentWorkspaceRepositoryIdMap = new Map<string, Repository>();
 		for (const repository of this.container.git.openRepositories) {
 			currentWorkspaceRepositoryIdMap.set(repository.id, repository);
@@ -451,16 +452,14 @@ export class WorkspacesService implements Disposable {
 		let repo;
 		if (uriOrRepository == null || uriOrRepository instanceof Uri) {
 			let repoLocatedUri = uriOrRepository;
-			if (repoLocatedUri == null) {
-				repoLocatedUri = (
-					await window.showOpenDialog({
-						title: `Choose a location for ${descriptor.name}`,
-						canSelectFiles: false,
-						canSelectFolders: true,
-						canSelectMany: false,
-					})
-				)?.[0];
-			}
+			repoLocatedUri ??= (
+				await window.showOpenDialog({
+					title: `Choose a location for ${descriptor.name}`,
+					canSelectFiles: false,
+					canSelectFolders: true,
+					canSelectMany: false,
+				})
+			)?.[0];
 
 			if (repoLocatedUri == null) return;
 
@@ -598,23 +597,21 @@ export class WorkspacesService implements Disposable {
 
 			if (!workspaceDescription) return;
 
-			if (workspaceProvider == null) {
-				workspaceProvider = await new Promise<CloudWorkspaceProviderInputType | undefined>(resolve => {
-					disposables.push(
-						quickpick.onDidHide(() => resolve(undefined)),
-						quickpick.onDidAccept(() => {
-							if (quickpick.activeItems.length !== 0) {
-								resolve(quickpickLabelToProviderType[quickpick.activeItems[0].label]);
-							}
-						}),
-					);
+			workspaceProvider ??= await new Promise<CloudWorkspaceProviderInputType | undefined>(resolve => {
+				disposables.push(
+					quickpick.onDidHide(() => resolve(undefined)),
+					quickpick.onDidAccept(() => {
+						if (quickpick.activeItems.length !== 0) {
+							resolve(quickpickLabelToProviderType[quickpick.activeItems[0].label]);
+						}
+					}),
+				);
 
-					quickpick.placeholder = 'Please select a provider for the new workspace';
-					quickpick.items = Object.keys(quickpickLabelToProviderType).map(label => ({ label: label }));
-					quickpick.canSelectMany = false;
-					quickpick.show();
-				});
-			}
+				quickpick.placeholder = 'Please select a provider for the new workspace';
+				quickpick.items = Object.keys(quickpickLabelToProviderType).map(label => ({ label: label }));
+				quickpick.canSelectMany = false;
+				quickpick.show();
+			});
 
 			if (!workspaceProvider) return;
 
@@ -716,9 +713,7 @@ export class WorkspacesService implements Disposable {
 
 		if (createdProjectData != null) {
 			// Add the new workspace to cloud workspaces
-			if (this._cloudWorkspaces == null) {
-				this._cloudWorkspaces = [];
-			}
+			this._cloudWorkspaces ??= [];
 
 			const localPath = await this._sharedStorage?.getCloudWorkspaceCodeWorkspaceFileLocation(
 				createdProjectData.id,
@@ -794,8 +789,11 @@ export class WorkspacesService implements Disposable {
 	private async filterReposForCloudWorkspace(repos: Repository[], workspaceId: string): Promise<Repository[]> {
 		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
 		if (workspace == null) return repos;
-		const workspaceRepos = [...(await workspace.getRepositoriesByName()).values()].map(match => match.repository);
-		return repos.filter(repo => !workspaceRepos.find(r => r.id === repo.id));
+		const workspaceRepos = Array.from(
+			(await workspace.getRepositoriesByName()).values(),
+			match => match.repository,
+		);
+		return repos.filter(repo => !workspaceRepos.some(r => r.id === repo.id));
 	}
 
 	@debug({ args: (workspaceId: string) => ({ workspaceId: workspaceId }) })
@@ -1317,15 +1315,13 @@ export class WorkspacesService implements Disposable {
 		descriptor: CloudWorkspaceRepositoryDescriptor,
 	): Promise<string | undefined> {
 		let repoLocalPath = await this.getCloudWorkspaceRepoPath(descriptor.workspaceId, descriptor.id);
-		if (repoLocalPath == null) {
-			repoLocalPath = (
-				await this._repositoryLocator?.getLocation(descriptor.url ?? undefined, {
-					repoName: descriptor.name,
-					provider: descriptor.provider ?? undefined,
-					owner: descriptor.provider_organization_id,
-				})
-			)?.[0];
-		}
+		repoLocalPath ??= (
+			await this._repositoryLocator?.getLocation(descriptor.url ?? undefined, {
+				repoName: descriptor.name,
+				provider: descriptor.provider ?? undefined,
+				owner: descriptor.provider_organization_id,
+			})
+		)?.[0];
 
 		return repoLocalPath;
 	}

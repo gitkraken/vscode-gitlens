@@ -39,9 +39,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 		}
 
 		args = { ...args };
-		if (args.line == null) {
-			args.line = editor?.selection.active.line ?? 0;
-		}
+		args.line ??= editor?.selection.active.line ?? 0;
 
 		const svc = this.container.git.getRepositoryService(gitUri.repoPath);
 

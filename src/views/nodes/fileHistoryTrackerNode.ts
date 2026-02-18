@@ -278,8 +278,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				n.is('file-commit') || n.is('commit') ? (n.commit?.sha?.startsWith(sha) ?? false) : false,
 			);
 			if (!node) {
-				node = children[children.length - 1];
-				if (!node.is('pager')) {
+				node = children.at(-1);
+				if (!node?.is('pager')) {
 					node = undefined;
 				}
 			}

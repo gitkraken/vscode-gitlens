@@ -459,9 +459,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		scope?.trace(`Cache miss: '${key}'`);
 
-		if (doc.state == null) {
-			doc.state = new GitDocumentState();
-		}
+		doc.state ??= new GitDocumentState();
 
 		const promise = this.getBlameCore(uri, doc, key, scope);
 

@@ -85,9 +85,7 @@ export class DraftService implements Disposable {
 					// Don't include empty patches -- happens when there are changes in a range that undo each other
 					if (r.value.contents) {
 						patchRequests.push(r.value);
-						if (user == null) {
-							user = r.value.user;
-						}
+						user ??= r.value.user;
 					}
 				} else {
 					failed.push(r.reason);
