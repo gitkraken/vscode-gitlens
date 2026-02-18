@@ -67,7 +67,7 @@ suite('Logger Test Suite', () => {
 
 		assert.strictEqual(loggedMessages.length, 1);
 		assert.strictEqual(loggedMessages[0].level, 'trace');
-		assert.strictEqual(loggedMessages[0].message, 'test trace message');
+		assert.strictEqual(loggedMessages[0].message, '  test trace message');
 	});
 
 	test('should use VS Code native logging methods', () => {

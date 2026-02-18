@@ -144,7 +144,9 @@ suite('LogScope Test Suite', () => {
 
 			runInScope(testScope, () => {
 				const currentScope = getScopedLogger();
-				assert.strictEqual(currentScope, testScope);
+				// getScopedLogger() returns a prototype wrapper, so check properties not reference
+				assert.strictEqual(currentScope?.scopeId, testScope.scopeId);
+				assert.strictEqual(currentScope?.prefix, testScope.prefix);
 				assert.strictEqual(currentScope?.scopeId, 42);
 			});
 		});
@@ -154,14 +156,14 @@ suite('LogScope Test Suite', () => {
 			const innerScope = createLogScope(2, 1, 'Inner');
 
 			runInScope(outerScope, () => {
-				assert.strictEqual(getScopedLogger(), outerScope);
+				assert.strictEqual(getScopedLogger()?.scopeId, outerScope.scopeId);
 
 				runInScope(innerScope, () => {
-					assert.strictEqual(getScopedLogger(), innerScope);
+					assert.strictEqual(getScopedLogger()?.scopeId, innerScope.scopeId);
 				});
 
 				// After inner scope exits, should be back to outer
-				assert.strictEqual(getScopedLogger(), outerScope);
+				assert.strictEqual(getScopedLogger()?.scopeId, outerScope.scopeId);
 			});
 
 			// After outer scope exits, should be undefined
@@ -186,7 +188,7 @@ suite('LogScope Test Suite', () => {
 				// After await, scope should still be correct
 				const scopeAfterAwait = getScopedLogger();
 				assert.strictEqual(scopeAfterAwait?.scopeId, 100);
-				assert.strictEqual(scopeAfterAwait, testScope);
+				assert.strictEqual(scopeAfterAwait?.prefix, testScope.prefix);
 			});
 		});
 
