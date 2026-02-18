@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes an issue in the _Start Review_ command where it opens the wrong branch with GitLab repos ([#4975](https://github.com/gitkraken/vscode-gitlens/issues/4975))
+- Fixes an issue where unsigned commits could incorrectly show a signature badge in tree view tooltips ([#4984](https://github.com/gitkraken/vscode-gitlens/issues/4984))
 - Fixes CLI version checking and updating
 
 ## [17.10.0] - 2026-02-11
