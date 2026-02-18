@@ -1,5 +1,5 @@
 import { consume } from '@lit/context';
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { walkthroughProgressSteps } from '../../../../constants.walkthroughs.js';
 import { createCommandLink } from '../../../../system/commands.js';
@@ -52,17 +52,24 @@ export class GlOnboarding extends LitElement {
 	@state()
 	private _ipc!: HostIpc;
 
+	private get isWalkthroughComplete(): boolean {
+		const progress = this._state.walkthroughProgress;
+		return progress != null && progress.doneCount === progress.allCount;
+	}
+
 	override render(): unknown {
 		if (this._state.walkthroughProgress == null) return undefined;
 
-		return html`<gl-button
-				@click=${this.onDismissWalkthrough}
-				class="walkthrough-progress__button"
-				appearance="toolbar"
-				tooltip="Dismiss"
-				aria-label="Dismiss"
-				><code-icon icon="x"></code-icon
-			></gl-button>
+		return html`${this.isWalkthroughComplete
+				? html`<gl-button
+						@click=${this.onDismissWalkthrough}
+						class="walkthrough-progress__button"
+						appearance="toolbar"
+						tooltip="Dismiss"
+						aria-label="Dismiss"
+						><code-icon icon="x"></code-icon
+					></gl-button>`
+				: nothing}
 			<gl-tooltip placement="bottom">
 				<a class="walkthrough-progress" href=${createCommandLink('gitlens.showWelcomeView')}>
 					<header class="walkthrough-progress__title">
