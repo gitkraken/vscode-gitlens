@@ -181,7 +181,7 @@ export function parseGitBlame(
 		if (!c.author.name) continue;
 
 		const author = authors.get(c.author.name);
-		if (author == null) return undefined;
+		if (author == null) continue;
 
 		author.lineCount += c.lines.length;
 	}
