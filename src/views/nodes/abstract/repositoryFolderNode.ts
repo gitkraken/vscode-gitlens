@@ -3,7 +3,6 @@ import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../../constants.js';
 import type { GitUri } from '../../../git/gitUri.js';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
 import { getRepositoryIconPath } from '../../../git/utils/-webview/icons.js';
 import { formatLastFetched } from '../../../git/utils/-webview/repository.utils.js';
 import { getHighlanderProviders } from '../../../git/utils/remote.utils.js';
@@ -204,17 +203,14 @@ export abstract class RepositoryFolderNode<
 
 	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed('closed', 'any')) {
 			this.dispose();
 			void this.parent?.triggerChange(true);
 
 			return;
 		}
 
-		if (
-			e.changed(RepositoryChange.Opened, RepositoryChangeComparisonMode.Any) ||
-			e.changed(RepositoryChange.Starred, RepositoryChangeComparisonMode.Any)
-		) {
+		if (e.changed('opened', 'any') || e.changed('starred', 'any')) {
 			void this.parent?.triggerChange(true);
 
 			return;

@@ -36,7 +36,7 @@ import type { GitLog } from '../../../git/models/log.js';
 import type { GitRemote } from '../../../git/models/remote.js';
 import { RemoteResourceType } from '../../../git/models/remoteResource.js';
 import type { RepositoryChangeEvent } from '../../../git/models/repository.js';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { Repository } from '../../../git/models/repository.js';
 import { deletedOrMissing, uncommitted } from '../../../git/models/revision.js';
 import { parseGitBlame } from '../../../git/parsers/blameParser.js';
 import { parseGitFileDiff } from '../../../git/parsers/diffParser.js';
@@ -164,12 +164,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
 		this._cache.onRepositoryChanged(repo.path, e);
 
-		if (!e.changed(RepositoryChange.Unknown, RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
-			if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+		if (!e.changed('unknown', 'closed', 'any')) {
+			if (e.changed('head', 'any')) {
 				queueMicrotask(() => this.branches.onCurrentBranchAccessed(repo.path));
 			}
 
-			if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+			if (e.changed('index', 'any')) {
 				queueMicrotask(() => this.branches.onCurrentBranchModified(repo.path));
 			}
 		}

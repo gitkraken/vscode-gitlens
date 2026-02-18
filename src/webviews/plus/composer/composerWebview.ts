@@ -14,7 +14,6 @@ import type {
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
 import { rootSha } from '../../../git/models/revision.js';
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils.js';
@@ -1059,10 +1058,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const ignoreIndexChange = this._ignoreIndexChange;
 		this._ignoreIndexChange = false;
 		// Only care about index changes (staged/unstaged changes)
-		if (
-			!e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any) ||
-			(ignoreIndexChange && e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Exclusive))
-		) {
+		if (!e.changed('index', 'any') || (ignoreIndexChange && e.changed('index', 'exclusive'))) {
 			return;
 		}
 

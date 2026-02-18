@@ -55,7 +55,6 @@ import type { GitLineDiff, ParsedGitDiffHunks } from './models/diff.js';
 import type { GitReference } from './models/reference.js';
 import type { GitRemote } from './models/remote.js';
 import type { Repository, RepositoryChangeEvent } from './models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from './models/repository.js';
 import type { LocalInfoFromRemoteUriResult } from './remotes/remoteProvider.js';
 import { sortRepositories } from './utils/-webview/sorting.js';
 import { calculateDistribution } from './utils/contributor.utils.js';
@@ -504,19 +503,19 @@ export class GitProviderService implements Disposable {
 				);
 				scope?.trace('');
 
-				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
+				if (e.changed('closed', 'any')) {
 					this.updateContext();
 
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged([], [e.repository]));
-				} else if (e.changed(RepositoryChange.Opened, RepositoryChangeComparisonMode.Any)) {
+				} else if (e.changed('opened', 'any')) {
 					this.updateContext();
 
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged([e.repository], []));
 				}
 
-				if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
+				if (e.changed('remotes', 'any')) {
 					const visibilityInfo = this.getVisibilityInfoFromCache(e.repository.path);
 					if (visibilityInfo != null) {
 						await this.checkVisibilityCachedRemotes(e.repository.path, visibilityInfo, () =>

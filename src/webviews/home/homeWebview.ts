@@ -39,7 +39,6 @@ import type { PullRequest } from '../../git/models/pullRequest.js';
 import type { GitRemote } from '../../git/models/remote.js';
 import { RemoteResourceType } from '../../git/models/remoteResource.js';
 import type { Repository, RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import { uncommitted } from '../../git/models/revision.js';
 import type { GitStatus } from '../../git/models/status.js';
 import type { GitWorktree } from '../../git/models/worktree.js';
@@ -1109,16 +1108,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			repo.onDidChange(e => {
 				if (
 					e.changed(
-						RepositoryChange.Config,
-						RepositoryChange.Head,
-						RepositoryChange.Heads,
-						// RepositoryChange.Index,
-						RepositoryChange.Remotes,
-						RepositoryChange.PausedOperationStatus,
-						RepositoryChange.Starred,
-						RepositoryChange.Worktrees,
-						RepositoryChange.Unknown,
-						RepositoryChangeComparisonMode.Any,
+						'config',
+						'head',
+						'heads',
+						// 'index',
+						'remotes',
+						'pausedOp',
+						'starred',
+						'worktrees',
+						'unknown',
+						'any',
 					)
 				) {
 					this.onOverviewRepoChanged(repo);

@@ -6,7 +6,6 @@ import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
 import type { GitContributor } from '../git/models/contributor.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository.js';
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
@@ -40,13 +39,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		return e.changed(
-			RepositoryChange.Config,
-			RepositoryChange.Heads,
-			RepositoryChange.Remotes,
-			RepositoryChange.Unknown,
-			RepositoryChangeComparisonMode.Any,
-		);
+		return e.changed('config', 'heads', 'remotes', 'unknown', 'any');
 	}
 }
 

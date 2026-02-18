@@ -12,7 +12,6 @@ import type { GitBranch } from '../../git/models/branch.js';
 import type { GitCommit } from '../../git/models/commit.js';
 import type { GitReference } from '../../git/models/reference.js';
 import type { Repository, RepositoryChangeEvent } from '../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import type { RepositoryIdentity } from '../../git/models/repositoryIdentities.js';
 import { missingRepositoryId } from '../../git/models/repositoryIdentities.js';
 import type { GitTag } from '../../git/models/tag.js';
@@ -1461,7 +1460,7 @@ export class DeepLinkService implements Disposable {
 							new Promise<boolean>(resolve => setTimeout(() => resolve(false), 10000)),
 							new Promise<boolean>(resolve =>
 								once(repo.onDidChange)(async (e: RepositoryChangeEvent) => {
-									if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+									if (e.changed('head', 'any')) {
 										if (
 											(await repo.git.branches.getBranch())?.name !== this._context.currentBranch
 										) {

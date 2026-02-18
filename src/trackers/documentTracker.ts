@@ -15,7 +15,6 @@ import type { RepositoriesChangeEvent } from '../git/gitProviderService.js';
 import type { GitUri } from '../git/gitUri.js';
 import { isGitUri } from '../git/gitUri.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
 import { UriSet } from '../system/-webview/uriMap.js';
@@ -162,15 +161,7 @@ export class GitDocumentTracker implements Disposable {
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (
-			e.changed(
-				RepositoryChange.Index,
-				RepositoryChange.Heads,
-				RepositoryChange.PausedOperationStatus,
-				RepositoryChange.Unknown,
-				RepositoryChangeComparisonMode.Any,
-			)
-		) {
+		if (e.changed('index', 'heads', 'pausedOp', 'unknown', 'any')) {
 			void this.refreshDocuments({ addedOrChangedRepoPaths: new Set([e.repository.path]) });
 		}
 	}

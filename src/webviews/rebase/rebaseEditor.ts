@@ -8,7 +8,6 @@ import type {
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto.js';
 import type { Container } from '../../container.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import {
 	getRepoUriFromRebaseTodo,
 	isRebaseTodoEditorEnabled,
@@ -53,7 +52,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			}),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			container.git.onDidChangeRepository(e => {
-				if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
+				if (e.changed('rebase', 'any')) {
 					void this.onRebaseChanged(e.repository.path);
 				}
 			}),

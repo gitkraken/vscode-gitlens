@@ -46,7 +46,6 @@ import type { GitRevisionReference } from '../../git/models/reference.js';
 import type { GitRemote } from '../../git/models/remote.js';
 import { RemoteResourceType } from '../../git/models/remoteResource.js';
 import type { Repository } from '../../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
 import type { CommitSignature } from '../../git/models/signature.js';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
@@ -1427,7 +1426,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			repo.watchFileSystem(1000),
 			repo.onDidChangeFileSystem(() => this.onWipChanged(repo)),
 			repo.onDidChange(e => {
-				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+				if (e.changed('index', 'any')) {
 					this.onWipChanged(repo);
 				}
 			}),

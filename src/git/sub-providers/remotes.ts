@@ -7,7 +7,6 @@ import { sortCompare } from '../../system/string.js';
 import type { GitCache } from '../cache.js';
 import type { GitProvider, GitRemotesSubProvider } from '../gitProvider.js';
 import type { GitRemote } from '../models/remote.js';
-import { RepositoryChange } from '../models/repository.js';
 import type { RemoteProvider } from '../remotes/remoteProvider.js';
 import { getDefaultRemoteOrHighlander } from '../utils/remote.utils.js';
 
@@ -180,7 +179,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		await this.container.storage.storeWorkspace('remote:default', value ? name : undefined);
 		this.container.events.fire('git:repo:change', {
 			repoPath: repoPath,
-			changes: [RepositoryChange.Remotes, RepositoryChange.RemoteProviders],
+			changes: ['remotes', 'remoteProviders'],
 		});
 	}
 }

@@ -8,7 +8,6 @@ import type { GitCommit } from '../git/models/commit.js';
 import { isCommit } from '../git/models/commit.js';
 import type { GitRevisionReference } from '../git/models/reference.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository.js';
 import type { GitUser } from '../git/models/user.js';
 import { matchContributor } from '../git/utils/contributor.utils.js';
 import { getLastFetchedUpdateInterval } from '../git/utils/fetch.utils.js';
@@ -112,21 +111,21 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	protected changed(e: RepositoryChangeEvent): boolean {
-		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+		if (this.view.config.showStashes && e.changed('stash', 'any')) {
 			return true;
 		}
 
 		return e.changed(
-			RepositoryChange.Config,
-			RepositoryChange.Head,
-			RepositoryChange.Heads,
-			RepositoryChange.Index,
-			RepositoryChange.Remotes,
-			RepositoryChange.RemoteProviders,
-			RepositoryChange.PausedOperationStatus,
-			RepositoryChange.Worktrees,
-			RepositoryChange.Unknown,
-			RepositoryChangeComparisonMode.Any,
+			'config',
+			'head',
+			'heads',
+			'index',
+			'remotes',
+			'remoteProviders',
+			'pausedOp',
+			'worktrees',
+			'unknown',
+			'any',
 		);
 	}
 }
