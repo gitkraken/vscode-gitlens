@@ -83,7 +83,6 @@ import { debug, trace } from '../../system/decorators/log.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { filterMap, map } from '../../system/iterable.js';
-import { Logger } from '../../system/logger.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 import { MRU } from '../../system/mru.js';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise.js';
@@ -1609,7 +1608,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 					state: await this.getState(this._context),
 				});
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				debugger;
 			}
 		});

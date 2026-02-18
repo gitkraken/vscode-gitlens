@@ -206,7 +206,7 @@ export class TrackedGitDocument implements Disposable {
 
 		if (this.state != null) {
 			this.state = undefined;
-			Logger.debug(scope, `Reset state, reason=${reason}`);
+			scope?.debug(`Reset state, reason=${reason}`);
 		}
 
 		switch (reason) {

@@ -9,7 +9,7 @@ export interface GitMergeConflict {
 }
 
 export function parseMergeTreeConflict(data: string): GitMergeConflict {
-	using sw = maybeStopWatch(`Git.parseMergeTreeConflict`, { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch(`Git.parseMergeTreeConflict`, { log: { onlyExit: true, level: 'debug' } });
 
 	const lines = iterateByDelimiter(data, '\0');
 	const treeOid = lines.next();

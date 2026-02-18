@@ -8,7 +8,6 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { trace } from '../../system/decorators/log.js';
 import type { DeferredEvent, DeferredEventExecutor } from '../../system/event.js';
 import { promisifyDeferred } from '../../system/event.js';
-import { Logger } from '../../system/logger.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 import type { ServerConnection } from './serverConnection.js';
 
@@ -41,7 +40,7 @@ export class AuthenticationConnection implements Disposable {
 		return new Promise<void>(resolve => setTimeout(resolve, 50));
 	}
 
-	@trace<AuthenticationConnection['getAccountInfo']>({ args: false, exit: r => `returned ${r.id}` })
+	@trace({ args: false, exit: r => `returned ${r.id}` })
 	async getAccountInfo(token: string): Promise<AccountInfo> {
 		const scope = getScopedLogger();
 
@@ -49,12 +48,12 @@ export class AuthenticationConnection implements Disposable {
 		try {
 			rsp = await this.connection.fetchGkApi('user', undefined, { token: token });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 
 		if (!rsp.ok) {
-			Logger.error(undefined, `Getting account info failed: (${rsp.status}) ${rsp.statusText}`);
+			scope?.error(undefined, `Getting account info failed: (${rsp.status}) ${rsp.statusText}`);
 			throw new Error(rsp.statusText);
 		}
 
@@ -93,9 +92,9 @@ export class AuthenticationConnection implements Disposable {
 			const clipboard = await env.clipboard.readText();
 			if (clipboard === url) {
 				// If the clipboard contains the URL, we can assume the user has copied it (via the copy button on the dialog as vscode will just say the url failed to open, e.g `false`)
-				Logger.warn(scope, 'Looks like the user copied login URL');
+				scope?.warn('Looks like the user copied login URL');
 			} else {
-				Logger.error(undefined, scope, 'Opening login URL failed');
+				scope?.error(undefined, 'Opening login URL failed');
 
 				this._pendingStates.delete(scopeKey);
 				this.updateStatusBarItem(false);
@@ -132,7 +131,7 @@ export class AuthenticationConnection implements Disposable {
 			const token = await this.getTokenFromCodeAndState(code, gkstate, scopeKey);
 			return token;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		} finally {
 			this._cancellationSource?.cancel();

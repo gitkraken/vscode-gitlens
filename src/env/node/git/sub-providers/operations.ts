@@ -9,7 +9,6 @@ import { configuration } from '../../../../system/-webview/configuration.js';
 import { getHostEditorCommand } from '../../../../system/-webview/vscode.js';
 import { debug } from '../../../../system/decorators/log.js';
 import { sequentialize } from '../../../../system/decorators/sequentialize.js';
-import { Logger } from '../../../../system/logger.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
 import type { Git, PushForceOptions } from '../git.js';
 import { getGitCommandError } from '../git.js';
@@ -35,7 +34,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			await this.git.checkout(repoPath, ref, options);
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['branches', 'status'] });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -81,7 +80,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw getGitCommandError(
 				'cherry-pick',
 				ex,
@@ -120,7 +119,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -160,7 +159,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw getGitCommandError(
 				'merge',
 				ex,
@@ -186,7 +185,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -283,7 +282,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -331,7 +330,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				...args,
 			);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw getGitCommandError(
 				'rebase',
 				ex,
@@ -359,7 +358,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.reset(repoPath, [], { ...options, rev: rev });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			throw ex;
 		}
 	}
@@ -387,7 +386,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw getGitCommandError(
 				'revert',

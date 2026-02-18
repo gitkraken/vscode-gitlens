@@ -31,7 +31,7 @@ import { isVirtualUri } from '../system/-webview/vscode/uris.js';
 import { is, once } from '../system/function.js';
 import { filterMap, find, first, join, map } from '../system/iterable.js';
 import { getLoggableName, Logger } from '../system/logger.js';
-import { startScopedLogger } from '../system/logger.scope.js';
+import { maybeStartLoggableScope } from '../system/logger.scope.js';
 import { pluralize } from '../system/string.js';
 
 class GitRecentChangeCodeLens extends CodeLens {
@@ -96,9 +96,8 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 		// Since we can't currently blame edited virtual documents, don't even attempt anything if dirty
 		if (document.isDirty && isVirtualUri(document.uri)) return [];
 
-		using scope = startScopedLogger(
+		using scope = maybeStartLoggableScope(
 			`${getLoggableName(this)}.provideCodeLenses(${Logger.toLoggable(document)})`,
-			false,
 		);
 
 		const trackedDocument = await this.container.documentTracker.getOrAdd(document);
@@ -172,7 +171,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 			: undefined;
 
 		if (symbols !== undefined) {
-			Logger.debug(scope, `${symbols.length} symbol(s) found`);
+			scope?.debug(`${symbols.length} symbol(s) found`);
 			for (const sym of symbols) {
 				this.provideCodeLens(
 					lenses,

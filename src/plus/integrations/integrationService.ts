@@ -27,7 +27,6 @@ import { gate } from '../../system/decorators/gate.js';
 import { debug, trace } from '../../system/decorators/log.js';
 import { promisifyDeferred, take } from '../../system/event.js';
 import { filterMap, flatten, join } from '../../system/iterable.js';
-import { Logger } from '../../system/logger.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService.js';
 import type {
@@ -144,7 +143,7 @@ export class IntegrationService implements Disposable {
 						connectedIntegrations.add(integrationId);
 					}
 				} catch (ex) {
-					Logger.debug(
+					scope?.warn(
 						`Failed to get integration ${integrationId} by its ID. Consider it as not-connected and ignore. Error message: ${ex.message}`,
 						scope,
 					);
@@ -173,9 +172,8 @@ export class IntegrationService implements Disposable {
 			for (const integrationId of integrationIds) {
 				const cloudIntegrationType = toCloudIntegrationType[integrationId];
 				if (cloudIntegrationType == null) {
-					Logger.error(
+					scope?.error(
 						undefined,
-						scope,
 						`Attempting to connect unsupported cloud integration type: ${integrationId}`,
 					);
 				} else {
@@ -211,7 +209,7 @@ export class IntegrationService implements Disposable {
 				return false;
 			}
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (!(await openUrl(this.container.urls.getGkDevUrl('connect', baseQuery)))) {
 				return false;
 			}
@@ -602,8 +600,8 @@ export class IntegrationService implements Disposable {
 		return this.configuredIntegrationService.getConfiguredLite(id, options);
 	}
 
-	@debug<IntegrationService['getMyIssues']>({
-		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
+	@debug({
+		args: integrationIds => ({ integrationIds: integrationIds?.length ? integrationIds.join(',') : '<undefined>' }),
 	})
 	async getMyIssues(
 		integrationIds?: (GitCloudHostIntegrationId | IssuesCloudHostIntegrationId | GitSelfManagedHostIntegrationId)[],
@@ -695,8 +693,10 @@ export class IntegrationService implements Disposable {
 
 	async getMyIssuesForRemotes(remote: GitRemote): Promise<IssueShape[] | undefined>;
 	async getMyIssuesForRemotes(remotes: GitRemote[]): Promise<IssueShape[] | undefined>;
-	@trace<IntegrationService['getMyIssuesForRemotes']>({
-		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
+	@trace({
+		args: (remoteOrRemotes: GitRemote | GitRemote[]) => ({
+			remoteOrRemotes: Array.isArray(remoteOrRemotes) ? remoteOrRemotes.map(rp => rp.name) : remoteOrRemotes.name,
+		}),
 	})
 	async getMyIssuesForRemotes(remoteOrRemotes: GitRemote | GitRemote[]): Promise<IssueShape[] | undefined> {
 		if (!Array.isArray(remoteOrRemotes)) {
@@ -731,8 +731,8 @@ export class IntegrationService implements Disposable {
 		return this.getMyIssuesCore(integrations);
 	}
 
-	@debug<IntegrationService['getMyCurrentAccounts']>({
-		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>') },
+	@debug({
+		args: integrationIds => ({ integrationIds: integrationIds?.length ? integrationIds.join(',') : '<undefined>' }),
 	})
 	async getMyCurrentAccounts(
 		integrationIds: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[],
@@ -752,8 +752,8 @@ export class IntegrationService implements Disposable {
 		return accounts;
 	}
 
-	@debug<IntegrationService['getMyPullRequests']>({
-		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
+	@debug({
+		args: integrationIds => ({ integrationIds: integrationIds?.length ? integrationIds.join(',') : '<undefined>' }),
 	})
 	async getMyPullRequests(
 		integrationIds?: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[],
@@ -821,8 +821,10 @@ export class IntegrationService implements Disposable {
 
 	async getMyPullRequestsForRemotes(remote: GitRemote): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	async getMyPullRequestsForRemotes(remotes: GitRemote[]): Promise<IntegrationResult<PullRequest[] | undefined>>;
-	@trace<IntegrationService['getMyPullRequestsForRemotes']>({
-		args: { 0: (r: GitRemote | GitRemote[]) => (Array.isArray(r) ? r.map(rp => rp.name) : r.name) },
+	@trace({
+		args: (remoteOrRemotes: GitRemote | GitRemote[]) => ({
+			remoteOrRemotes: Array.isArray(remoteOrRemotes) ? remoteOrRemotes.map(rp => rp.name) : remoteOrRemotes.name,
+		}),
 	})
 	async getMyPullRequestsForRemotes(
 		remoteOrRemotes: GitRemote | GitRemote[],
@@ -899,7 +901,7 @@ export class IntegrationService implements Disposable {
 				return;
 			}
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations')))) {
 				return;
 			}
@@ -1091,7 +1093,7 @@ export class IntegrationService implements Disposable {
 						const host = new URL(p.domain).host;
 						domainsById.set(integrationId, host);
 					} catch {
-						Logger.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`, scope);
+						scope?.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`);
 					}
 				}
 			});

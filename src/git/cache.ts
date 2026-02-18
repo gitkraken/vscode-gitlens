@@ -305,7 +305,7 @@ export class GitCache implements Disposable {
 		return (this._caches.worktrees ??= new PromiseMap<RepoPath, GitWorktree[]>());
 	}
 
-	@debug({ singleLine: true })
+	@debug({ onlyExit: true })
 	clearCaches(repoPath: string | undefined, ...types: CachedGitTypes[]): void {
 		type CacheType =
 			| Map<string, unknown>
@@ -456,7 +456,7 @@ export class GitCache implements Disposable {
 		this._commonPathRegistry.set(repoPath, commonPath);
 	}
 
-	@debug({ singleLine: true })
+	@debug({ onlyExit: true })
 	reset(): void {
 		this._commonPathRegistry.clear();
 
@@ -468,7 +468,7 @@ export class GitCache implements Disposable {
 	 * Handles repository change events by invalidating appropriate caches.
 	 * Encapsulates all cache invalidation logic for repository changes.
 	 */
-	@debug({ singleLine: true })
+	@debug({ onlyExit: true })
 	onRepositoryChanged(repoPath: string, e: RepositoryChangeEvent): void {
 		if (e.changed(RepositoryChange.Unknown, RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.clearCaches(repoPath);

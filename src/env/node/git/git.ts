@@ -6,7 +6,6 @@ import * as process from 'process';
 import type { CancellationToken, Disposable, OutputChannel } from 'vscode';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime.js';
-import { GlyphChars } from '../../../constants.js';
 import type { Container } from '../../../container.js';
 import { CancellationError, isCancellationError } from '../../../errors.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features.js';
@@ -176,7 +175,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 					`[${cwd}] Git ${msg
 						.trim()
 						.replace(/fatal:\s*/g, '')
-						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)}${duration}`,
+						.replace(/\r?\n|\r/g, ` \u2022 `)}${duration}`,
 				);
 				return;
 			}
@@ -375,7 +374,9 @@ export class Git implements Disposable {
 				.catch(() => {});
 		} else {
 			waiting = true;
-			Logger.trace(`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} waiting...`);
+			Logger.trace(
+				`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} \u2022 awaiting existing call in progress...`,
+			);
 		}
 
 		let exception: Error | undefined;
@@ -398,7 +399,7 @@ export class Git implements Disposable {
 							? 'cancellation'
 							: 'unknown';
 				Logger.warn(
-					`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} ABORTED after ${duration}ms (${reason})`,
+					`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} \u2022 ABORTED after ${duration}ms (${reason})`,
 				);
 				this.container.telemetry.sendEvent('op/git/aborted', {
 					operation: gitCommand,
@@ -1276,7 +1277,7 @@ export class Git implements Disposable {
 					'--show-cdup',
 				);
 				if (!result.stdout.trim()) {
-					Logger.debug(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
+					Logger.warn(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
 					return emptyArray as [];
 				}
 			} catch {
@@ -1345,7 +1346,7 @@ export class Git implements Disposable {
 					ex.stderr,
 				);
 			if (unsafeMatch != null) {
-				Logger.debug(
+				Logger.warn(
 					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
 						unsafeMatch[3]
 					}' to allow it`,
@@ -1396,7 +1397,7 @@ export class Git implements Disposable {
 					'--show-cdup',
 				);
 				if (!result.stdout.trim()) {
-					Logger.debug(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
+					Logger.warn(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
 					return emptyArray as [];
 				}
 			} catch {
@@ -1419,7 +1420,7 @@ export class Git implements Disposable {
 					ex.stderr,
 				);
 			if (unsafeMatch != null) {
-				Logger.debug(
+				Logger.warn(
 					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
 						unsafeMatch[3]
 					}' to allow it`,
@@ -1655,8 +1656,8 @@ export class Git implements Disposable {
 		}
 	}
 	private logGitCommandStart(command: string, id: number): void {
-		Logger.debug(`${getLoggableScopeBlockOverride(`GIT:→${id}`)} ${command} ${GlyphChars.Dot} starting...`);
-		this.logCore(`${getLoggableScopeBlockOverride(`→${id}`, '')} ${command} ${GlyphChars.Dot} starting...`);
+		Logger.info(`${getLoggableScopeBlockOverride(`GIT:→${id}`)} ${command} \u2022 starting...`);
+		this.logCore(`${getLoggableScopeBlockOverride(`→${id}`, '')} ${command} \u2022 starting...`);
 	}
 
 	private logGitCommandComplete(
@@ -1672,13 +1673,13 @@ export class Git implements Disposable {
 		if (ex != null) {
 			Logger.error(
 				undefined,
-				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT')} ${command} ${GlyphChars.Dot} ${
+				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT')} ${command} \u2022 ${
 					isCancellationError(ex)
 						? 'cancelled'
 						: (ex.message || String(ex) || '')
 								.trim()
 								.replace(/fatal:\s*/g, '')
-								.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)
+								.replace(/\r?\n|\r/g, ` \u2022 `)
 				} [${duration}ms]${status}`,
 			);
 		} else if (slow) {
@@ -1686,7 +1687,7 @@ export class Git implements Disposable {
 				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
 			);
 		} else {
-			Logger.debug(
+			Logger.info(
 				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`,
 			);
 		}
@@ -1698,14 +1699,15 @@ export class Git implements Disposable {
 	}
 
 	private _gitOutput: OutputChannel | undefined;
+	private get gitOutput(): OutputChannel {
+		return (this._gitOutput ??= window.createOutputChannel('GitLens (Git)', { log: true }));
+	}
 
 	private logCore(message: string, ex?: Error | undefined): void {
-		if (!Logger.enabled(ex != null ? 'error' : 'debug')) return;
-
-		this._gitOutput ??= window.createOutputChannel('GitLens (Git)', { log: true });
-		this._gitOutput.appendLine(`${Logger.timestamp} ${message}${ex != null ? ` ${GlyphChars.Dot} FAILED` : ''}`);
 		if (ex != null) {
-			this._gitOutput.appendLine(`\n${String(ex)}\n`);
+			this.gitOutput.appendLine(`${Logger.timestamp} ${message} \u2022 FAILED\n${String(ex)}`);
+		} else {
+			this.gitOutput.appendLine(`${Logger.timestamp} ${message}`);
 		}
 	}
 }

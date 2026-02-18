@@ -500,14 +500,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		};
 	}
 
-	@debug<GraphGitSubProvider['searchGraph']>({
-		args: {
-			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${
-					s.matchWholeWord ? 'W' : ''
-				}]: ${s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query}`,
-			2: o => `limit=${o?.limit}, ordering=${o?.ordering}`,
-		},
+	@debug({
+		args: (repoPath, s, o) => ({
+			repoPath: repoPath,
+			search: `[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${
+				s.matchWholeWord ? 'W' : ''
+			}]: ${s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query}`,
+			options: `limit=${o?.limit}, ordering=${o?.ordering}`,
+		}),
 	})
 	async *searchGraph(
 		repoPath: string,
@@ -518,15 +518,15 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return yield* this.searchGraphCore(repoPath, search, undefined, undefined, options, cancellation);
 	}
 
-	@debug<GraphGitSubProvider['continueSearchGraph']>({
-		args: {
-			1: c =>
-				`[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${
-					c.search.matchWholeWord ? 'W' : ''
-				}]: ${c.search.query.length > 500 ? `${c.search.query.substring(0, 500)}...` : c.search.query} (continue)`,
-			2: r => `results=${r.size}`,
-			3: o => `limit=${o?.limit}`,
-		},
+	@debug({
+		args: (repoPath, c, r, o) => ({
+			repoPath: repoPath,
+			cursor: `[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${
+				c.search.matchWholeWord ? 'W' : ''
+			}]: ${c.search.query.length > 500 ? `${c.search.query.substring(0, 500)}...` : c.search.query} (continue)`,
+			existingResults: `results=${r.size}`,
+			options: `limit=${o?.limit}`,
+		}),
 	})
 	async *continueSearchGraph(
 		repoPath: string,
@@ -548,7 +548,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 		cancellation?: CancellationToken,
 	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
-		// const scope = getLogScope();
 		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
 
 		const comparisonKey = getSearchQueryComparisonKey(search);

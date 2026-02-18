@@ -5,8 +5,8 @@ import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
 import { debug } from '../system/decorators/log.js';
 import { once } from '../system/event.js';
-import { getLoggableName, Logger } from '../system/logger.js';
-import { getScopedLogger, setLogScopeExit, startScopedLogger } from '../system/logger.scope.js';
+import { getLoggableName } from '../system/logger.js';
+import { getScopedLogger, maybeStartLoggableScope } from '../system/logger.scope.js';
 import type { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent } from '../trackers/documentTracker.js';
 import type { GitCodeLensProvider } from './codeLensProvider.js';
 
@@ -33,11 +33,11 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		using scope = startScopedLogger(`${getLoggableName(this)}.onConfigurationChanged`, false);
+		using scope = maybeStartLoggableScope(`${getLoggableName(this)}.onConfigurationChanged`);
 
 		if (configuration.changed(e, ['codeLens', 'defaultDateFormat', 'defaultDateSource', 'defaultDateStyle'])) {
 			if (e != null) {
-				Logger.debug(scope, 'resetting CodeLens provider');
+				scope?.debug('resetting CodeLens provider');
 			}
 
 			const cfg = configuration.get('codeLens');
@@ -57,21 +57,21 @@ export class GitCodeLensController implements Disposable {
 		// Only reset if we have saved, since the CodeLens won't naturally be re-rendered
 		if (this._provider == null || !e.blameable) return;
 
-		using scope = startScopedLogger(`${getLoggableName(this)}.onBlameStateChanged`, false);
+		using scope = maybeStartLoggableScope(`${getLoggableName(this)}.onBlameStateChanged`);
 
-		Logger.debug(scope, 'resetting CodeLens provider');
+		scope?.debug('resetting CodeLens provider');
 		this._provider.reset();
 	}
 
 	private async onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent) {
 		if (this._provider == null) return;
 
-		using scope = startScopedLogger(`${getLoggableName(this)}.onDirtyIdleTriggered`, false);
+		using scope = maybeStartLoggableScope(`${getLoggableName(this)}.onDirtyIdleTriggered`);
 
 		const status = await e.document.getStatus();
 		if (!status.blameable) return;
 
-		Logger.debug(scope, 'resetting CodeLens provider');
+		scope?.debug('resetting CodeLens provider');
 		this._provider.reset();
 	}
 
@@ -81,7 +81,7 @@ export class GitCodeLensController implements Disposable {
 
 		if (!this._canToggle) {
 			if (scope != null) {
-				setLogScopeExit(scope, ' \u2022 skipped, disabled');
+				scope?.addExitInfo('skipped, disabled');
 			}
 			return;
 		}

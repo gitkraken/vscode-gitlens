@@ -405,7 +405,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return tree?.type === 'tree';
 	}
 
-	@debug<GitHubGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
+	@debug({ args: (_repoPath, uris) => ({ uris: uris.length }) })
 	async excludeIgnoredUris(_repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		return uris;
 	}
@@ -429,14 +429,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (!(ex instanceof ExtensionNotFoundError)) {
 				debugger;
 			}
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			return undefined;
 		}
 	}
 
 	@gate<GitHubGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
-	@debug<GitHubGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
+	@debug({ args: (uri, document) => ({ uri: uri, document: document?.isDirty }) })
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
 		const scope = getScopedLogger();
 
@@ -452,12 +452,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (doc.state != null) {
 			const cachedBlame = doc.state.getBlame(key);
 			if (cachedBlame != null) {
-				Logger.trace(scope, `Cache hit: '${key}'`);
+				scope?.trace(`Cache hit: '${key}'`);
 				return cachedBlame.item;
 			}
 		}
 
-		Logger.trace(scope, `Cache miss: '${key}'`);
+		scope?.trace(`Cache miss: '${key}'`);
 
 		if (doc.state == null) {
 			doc.state = new GitDocumentState();
@@ -466,7 +466,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const promise = this.getBlameCore(uri, doc, key, scope);
 
 		if (doc.state != null) {
-			Logger.trace(scope, `Cache add: '${key}'`);
+			scope?.trace(`Cache add: '${key}'`);
 
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
@@ -590,7 +590,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected blame errors
 			if (document.state != null && !String(ex).includes('No provider registered with')) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.trace(scope, `Cache replace (with empty promise): '${key}'`);
+				scope?.trace(`Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
@@ -607,7 +607,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@debug<GitHubGitProvider['getBlameContents']>({ args: { 1: '<contents>' } })
+	@debug({ args: (_uri, _contents) => ({ contents: '<contents>' }) })
 	async getBlameContents(_uri: GitUri, _contents: string): Promise<GitBlame | undefined> {
 		// TODO@eamodio figure out how to actually generate a blame given the contents (need to generate a diff)
 		return undefined; //this.getBlame(uri);
@@ -616,7 +616,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@gate<GitHubGitProvider['getBlameForLine']>(
 		(u, l, d, o) => `${u.toString()}|${l}|${d?.isDirty}|${o?.forceSingleLine}`,
 	)
-	@debug<GitHubGitProvider['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
+	@debug({ args: (uri, editorLine, document) => ({ uri: uri, editorLine: editorLine, document: document?.isDirty }) })
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number, // 0-based, Git is 1-based
@@ -721,12 +721,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			};
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
 
-	@debug<GitHubGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
+	@debug({ args: (_uri, _editorLine, _contents) => ({ contents: '<contents>' }) })
 	async getBlameForLineContents(
 		_uri: GitUri,
 		_editorLine: number, // 0-based, Git is 1-based
@@ -745,7 +745,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this.getBlameRange(blame, uri, range);
 	}
 
-	@debug<GitHubGitProvider['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
+	@debug({ args: (uri, range, _contents) => ({ uri: uri, range: range, contents: '<contents>' }) })
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlame | undefined> {
 		const blame = await this.getBlameContents(uri, contents);
 		if (blame == null) return undefined;
@@ -753,7 +753,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this.getBlameRange(blame, uri, range);
 	}
 
-	@debug<GitHubGitProvider['getBlameRange']>({ args: { 0: '<blame>' } })
+	@debug({ args: (_blame, uri, range) => ({ blame: '<blame>', uri: uri, range: range }) })
 	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined {
 		if (blame.lines.length === 0) return blame;
 
@@ -809,7 +809,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@debug<GitHubGitProvider['getDiffForFileContents']>({ args: { 2: '<contents>' } })
+	@debug({ args: (_uri, _ref, _contents) => ({ contents: '<contents>' }) })
 	async getDiffForFileContents(
 		_uri: GitUri,
 		_ref: string,

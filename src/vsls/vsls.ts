@@ -195,7 +195,7 @@ export class VslsController implements Disposable {
 		return contacts.contacts[email];
 	}
 
-	@trace<VslsController['getContacts']>({ args: { 0: emails => emails.length } })
+	@trace({ args: emails => ({ emails: emails.length }) })
 	private async getContacts(emails: string[]) {
 		const api = await this._api;
 		if (api == null) return undefined;
@@ -212,7 +212,7 @@ export class VslsController implements Disposable {
 		return contactStatusToPresence(contact.status);
 	}
 
-	@trace<VslsController['getContactsPresence']>({ args: { 0: emails => emails.length } })
+	@trace({ args: emails => ({ emails: emails.length }) })
 	async getContactsPresence(emails: string[]): Promise<Map<string, ContactPresence> | undefined> {
 		const contacts = await this.getContacts(emails);
 		if (contacts == null) return undefined;

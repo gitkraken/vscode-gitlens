@@ -54,7 +54,6 @@ import { getWorktreeId } from '../../../../git/utils/worktree.utils.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { debug } from '../../../../system/decorators/log.js';
 import { find, first, join, last } from '../../../../system/iterable.js';
-import { Logger } from '../../../../system/logger.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { getSettledValue } from '../../../../system/promise.js';
 import { createDisposable, mixinDisposable } from '../../../../system/unifiedDisposable.js';
@@ -656,7 +655,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						getCommitsForGraphCore.call(this, limit, sha, cursor, cancellation),
 				};
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				debugger;
 
 				throw ex;
@@ -666,14 +665,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
 	}
 
-	@debug<GraphGitSubProvider['searchGraph']>({
-		args: {
-			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
-					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
-				}`,
-			2: o => `limit=${o?.limit}, ordering=${o?.ordering}`,
-		},
+	@debug({
+		args: (repoPath, s, o) => ({
+			repoPath: repoPath,
+			search: `[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
+				s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
+			}`,
+			options: `limit=${o?.limit}, ordering=${o?.ordering}`,
+		}),
 	})
 	async *searchGraph(
 		repoPath: string,
@@ -684,15 +683,15 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return yield* this.searchGraphCore(repoPath, search, undefined, undefined, options, cancellation);
 	}
 
-	@debug<GraphGitSubProvider['continueSearchGraph']>({
-		args: {
-			1: c =>
-				`[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${c.search.matchWholeWord ? 'W' : ''}]: ${
-					c.search.query.length > 500 ? `${c.search.query.substring(0, 500)}...` : c.search.query
-				} (continue)`,
-			2: r => `results=${r.size}`,
-			3: o => `limit=${o?.limit}`,
-		},
+	@debug({
+		args: (repoPath, c, r, o) => ({
+			repoPath: repoPath,
+			cursor: `[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${c.search.matchWholeWord ? 'W' : ''}]: ${
+				c.search.query.length > 500 ? `${c.search.query.substring(0, 500)}...` : c.search.query
+			} (continue)`,
+			existingResults: `results=${r.size}`,
+			options: `limit=${o?.limit}`,
+		}),
 	})
 	async *continueSearchGraph(
 		repoPath: string,

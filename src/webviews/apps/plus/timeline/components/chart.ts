@@ -573,7 +573,7 @@ export class GlTimelineChart extends GlElement {
 		};
 	}
 
-	@debug<GlTimelineChart['prepareChartData']>({ args: { 0: d => d?.length } })
+	@debug({ args: dataset => ({ dataset: dataset?.length }) })
 	private prepareChartData(
 		dataset: TimelineDatum[],
 		metrics: { minRadius: number; maxRadius: number; q1: number; q3: number; maxChanges: number },

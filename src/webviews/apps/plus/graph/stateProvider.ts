@@ -1,6 +1,6 @@
 import { ContextProvider } from '@lit/context';
 import { debounce } from '../../../../system/function/debounce.js';
-import { getScopedLogger, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../../system/logger.scope.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
@@ -380,7 +380,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				}
 
 				this.updateState(updates);
-				setLogScopeExit(scope, ` \u2022 rows=${this._state.rows?.length ?? 0}`);
+				scope?.addExitInfo(`rows=${this._state.rows?.length ?? 0}`);
 				break;
 			}
 			case DidChangeRowsStatsNotification.is(msg):

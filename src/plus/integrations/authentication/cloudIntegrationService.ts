@@ -1,6 +1,5 @@
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import type { Container } from '../../../container.js';
-import { Logger } from '../../../system/logger.js';
 import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { ServerConnection } from '../../gk/serverConnection.js';
 import type { CloudIntegrationAuthenticationSession, CloudIntegrationConnection } from './models.js';
@@ -25,7 +24,7 @@ export class CloudIntegrationService {
 			const errorMessage =
 				typeof error === 'string' ? error : ((error?.message as string) ?? providersRsp.statusText);
 			if (error != null) {
-				Logger.error(undefined, scope, `Failed to get connected providers from cloud: ${errorMessage}`);
+				scope?.error(undefined, `Failed to get connected providers from cloud: ${errorMessage}`);
 			}
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cloudIntegrations/getConnections/failed', {
@@ -47,7 +46,7 @@ export class CloudIntegrationService {
 		const refresh = Boolean(refreshToken);
 		const cloudIntegrationType = toCloudIntegrationType[id];
 		if (cloudIntegrationType == null) {
-			Logger.error(undefined, scope, `Unsupported cloud integration type: ${id}`);
+			scope?.error(undefined, `Unsupported cloud integration type: ${id}`);
 			return undefined;
 		}
 		const reqInitOptions = refreshToken
@@ -69,9 +68,8 @@ export class CloudIntegrationService {
 			const errorMessage =
 				typeof error === 'string' ? error : ((error?.message as string) ?? tokenRsp.statusText);
 			if (error != null) {
-				Logger.error(
+				scope?.error(
 					undefined,
-					scope,
 					`Failed to ${refresh ? 'refresh' : 'get'} ${id} token from cloud: ${errorMessage}`,
 				);
 			}
@@ -112,7 +110,7 @@ export class CloudIntegrationService {
 
 		const cloudIntegrationType = toCloudIntegrationType[id];
 		if (cloudIntegrationType == null) {
-			Logger.error(undefined, scope, `Unsupported cloud integration type: ${id}`);
+			scope?.error(undefined, `Unsupported cloud integration type: ${id}`);
 			return false;
 		}
 
@@ -126,7 +124,7 @@ export class CloudIntegrationService {
 			const errorMessage =
 				typeof error === 'string' ? error : ((error?.message as string) ?? tokenRsp.statusText);
 			if (error != null) {
-				Logger.error(undefined, scope, `Failed to disconnect ${id} token from cloud: ${errorMessage}`);
+				scope?.error(undefined, `Failed to disconnect ${id} token from cloud: ${errorMessage}`);
 			}
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cloudIntegrations/disconnect/failed', {

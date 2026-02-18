@@ -3,8 +3,7 @@ import { wrapForForcedInsecureSSL } from '@env/fetch.js';
 import type { IntegrationIds } from '../../../../constants.integrations.js';
 import type { Container } from '../../../../container.js';
 import { sequentialize } from '../../../../system/function.js';
-import { Logger } from '../../../../system/logger.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
+import { getScopedLogger, maybeStartLoggableScope } from '../../../../system/logger.scope.js';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../../integrations/authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../../../integrations/authentication/models.js';
 
@@ -25,13 +24,13 @@ export const getBuiltInIntegrationSession = sequentialize(
 			async () => {
 				if (failedAuthProviderIds.has(id)) return undefined;
 
-				const scope = getScopedLogger();
+				using scope = getScopedLogger() ?? maybeStartLoggableScope(`getBuiltInIntegrationSession(${id})`);
 
 				if (id === 'github') {
 					const extension = extensions.getExtension('vscode.github-authentication');
 					if (extension == null) {
 						failedAuthProviderIds.add(id);
-						Logger.warn(scope, `Authentication provider '${id}' is not registered; User has disabled it`);
+						scope?.warn(`Authentication provider '${id}' is not registered; User has disabled it`);
 						return undefined;
 					}
 				}
@@ -53,14 +52,11 @@ export const getBuiltInIntegrationSession = sequentialize(
 				} catch (ex) {
 					if (typeof ex === 'string' && ex === 'Timed out waiting for authentication provider to register') {
 						failedAuthProviderIds.add(id);
-						Logger.warn(
-							scope,
-							`Authentication provider '${id}' is not registered; User likely has disabled it`,
-						);
+						scope?.warn(`Authentication provider '${id}' is not registered; User likely has disabled it`);
 						return undefined;
 					}
 
-					Logger.error(ex, scope, 'getBuiltInIntegrationSession');
+					scope?.error(ex);
 					throw ex;
 				}
 			},

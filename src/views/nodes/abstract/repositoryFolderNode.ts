@@ -202,7 +202,7 @@ export abstract class RepositoryFolderNode<
 
 	protected abstract changed(e: RepositoryChangeEvent): boolean;
 
-	@trace<RepositoryFolderNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
+	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();

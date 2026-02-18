@@ -69,7 +69,7 @@ export class LocalGkWorkspacesSharedStorageProvider implements GkWorkspacesShare
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 
@@ -118,7 +118,7 @@ export class LocalGkWorkspacesSharedStorageProvider implements GkWorkspacesShare
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 
@@ -153,7 +153,7 @@ export class LocalGkWorkspacesSharedStorageProvider implements GkWorkspacesShare
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 

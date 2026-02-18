@@ -12,7 +12,7 @@ import type {
 import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform.js';
 import { resetAvatarCache } from '../avatars.js';
-import { GlyphChars, Schemes } from '../constants.js';
+import { Schemes } from '../constants.js';
 import type { Container } from '../container.js';
 import { AccessDeniedError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors.js';
 import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features.js';
@@ -32,8 +32,8 @@ import { debug, trace } from '../system/decorators/log.js';
 import type { Deferrable } from '../system/function/debounce.js';
 import { debounce } from '../system/function/debounce.js';
 import { count, filter, first, flatMap, groupByMap, join, map, some, sum } from '../system/iterable.js';
-import { getLoggableName, Logger } from '../system/logger.js';
-import { getScopedLogger, setLogScopeExit, startScopedLogger } from '../system/logger.scope.js';
+import { getLoggableName } from '../system/logger.js';
+import { getScopedLogger, maybeStartLoggableScope } from '../system/logger.scope.js';
 import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path.js';
 import type { Deferred } from '../system/promise.js';
 import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise.js';
@@ -89,11 +89,11 @@ export class GitProviderService implements Disposable {
 		return this._onDidChangeProviders.event;
 	}
 
-	@trace<GitProviderService['fireProvidersChanged']>({
-		args: {
-			0: added => `(${added?.length ?? 0}) ${added?.map(p => p.descriptor.id).join(', ')}`,
-			1: removed => `(${removed?.length ?? 0}) ${removed?.map(p => p.descriptor.id).join(', ')}`,
-		},
+	@trace({
+		args: (added, removed) => ({
+			added: `(${added?.length ?? 0}) ${added?.map(p => p.descriptor.id).join(', ')}`,
+			removed: `(${removed?.length ?? 0}) ${removed?.map(p => p.descriptor.id).join(', ')}`,
+		}),
 	})
 	private fireProvidersChanged(added?: GitProvider[], removed?: GitProvider[]) {
 		if (this.container.telemetry.enabled) {
@@ -111,11 +111,11 @@ export class GitProviderService implements Disposable {
 		return this._onDidChangeRepositories.event;
 	}
 
-	@trace<GitProviderService['fireRepositoriesChanged']>({
-		args: {
-			0: added => `(${added?.length ?? 0}) ${added?.map(r => r.id).join(', ')}`,
-			1: removed => `(${removed?.length ?? 0}) ${removed?.map(r => r.id).join(', ')}`,
-		},
+	@trace({
+		args: (added, removed) => ({
+			added: `(${added?.length ?? 0}) ${added?.map(r => r.id).join(', ')}`,
+			removed: `(${removed?.length ?? 0}) ${removed?.map(r => r.id).join(', ')}`,
+		}),
 	})
 	private fireRepositoriesChanged(added?: Repository[], removed?: Repository[]) {
 		if (this.container.telemetry.enabled) {
@@ -339,7 +339,7 @@ export class GitProviderService implements Disposable {
 		this._subscription = e.current;
 	}
 
-	@trace<GitProviderService['onWindowStateChanged']>({ args: { 0: e => `focused=${e.focused}` } })
+	@trace({ args: e => ({ e: `focused=${e.focused}` }) })
 	private onWindowStateChanged(e: WindowState) {
 		if (!e.focused) {
 			this._repositories.forEach(r => r.suspend());
@@ -368,9 +368,9 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	@trace<GitProviderService['onWorkspaceFoldersChanged']>({
-		args: { 0: e => `added=${e.added.length}, removed=${e.removed.length}` },
-		singleLine: true,
+	@trace({
+		args: e => ({ e: `added=${e.added.length}, removed=${e.removed.length}` }),
+		onlyExit: true,
 	})
 	private onWorkspaceFoldersChanged(e: WorkspaceFoldersChangeEvent) {
 		if (this.container.telemetry.enabled) {
@@ -457,7 +457,7 @@ export class GitProviderService implements Disposable {
 	 * @param provider A provider for handling git operations
 	 * @returns A disposable to unregister the {@link GitProvider}
 	 */
-	@debug({ args: { 1: false }, singleLine: true })
+	@debug({ args: (id: GitProviderId) => ({ id: id }), onlyExit: true })
 	register(id: GitProviderId, provider: GitProvider): Disposable {
 		if (id !== provider.descriptor.id) {
 			throw new Error(`Id '${id}' must match provider id '${provider.descriptor.id}'`);
@@ -489,8 +489,8 @@ export class GitProviderService implements Disposable {
 			...disposables,
 			provider.onDidChange(() => {
 				this._etag = Date.now();
-				using scope = startScopedLogger(`${getLoggableName(provider)}.onDidChange`, false);
-				Logger.trace(scope, '');
+				using scope = maybeStartLoggableScope(`${getLoggableName(provider)}.onDidChange`);
+				scope?.trace('');
 
 				const { workspaceFolders } = workspace;
 				if (workspaceFolders?.length) {
@@ -499,11 +499,10 @@ export class GitProviderService implements Disposable {
 			}),
 			provider.onDidChangeRepository(async e => {
 				this._etag = Date.now();
-				using scope = startScopedLogger(
+				using scope = maybeStartLoggableScope(
 					`${getLoggableName(provider)}.onDidChangeRepository(e=${e.repository.toString()})`,
-					false,
 				);
-				Logger.trace(scope, '');
+				scope?.trace('');
 
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 					this.updateContext();
@@ -531,11 +530,10 @@ export class GitProviderService implements Disposable {
 			provider.onDidCloseRepository(e => {
 				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
-				using scope = startScopedLogger(
+				using scope = maybeStartLoggableScope(
 					`${getLoggableName(provider)}.onDidCloseRepository(e=${e.uri.toString()})`,
-					false,
 				);
-				Logger.trace(scope, `repository=${repository?.toString()}`);
+				scope?.trace(`repository=${repository?.toString()}`);
 
 				if (repository != null) {
 					repository.closed = true;
@@ -544,11 +542,10 @@ export class GitProviderService implements Disposable {
 			provider.onDidOpenRepository(e => {
 				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
-				using scope = startScopedLogger(
+				using scope = maybeStartLoggableScope(
 					`${getLoggableName(provider)}.onDidOpenRepository(e=${e.uri.toString()})`,
-					false,
 				);
-				Logger.trace(scope, `repository=${repository?.toString()}`);
+				scope?.trace(`repository=${repository?.toString()}`);
 
 				if (repository != null) {
 					repository.closed = false;
@@ -603,7 +600,7 @@ export class GitProviderService implements Disposable {
 		};
 	}
 
-	@debug({ singleLine: true })
+	@debug({ onlyExit: true })
 	async registrationComplete(): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -639,9 +636,8 @@ export class GitProviderService implements Disposable {
 			);
 		}
 
-		setLogScopeExit(
-			scope,
-			` ${GlyphChars.Dot} repositories=${this.repositoryCount}, workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`,
+		scope?.addExitInfo(
+			`repositories=${this.repositoryCount}, workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`,
 		);
 	}
 
@@ -670,7 +666,7 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@debug<GitProviderService['discoverRepositories']>({ args: { 0: folders => folders.length } })
+	@debug({ args: folders => ({ folders: folders.length }) })
 	async discoverRepositories(folders: readonly WorkspaceFolder[], options?: { force?: boolean }): Promise<void> {
 		if (this._discoveringRepositories?.pending) {
 			await this._discoveringRepositories.promise;
@@ -732,6 +728,7 @@ export class GitProviderService implements Disposable {
 
 	@trace({ exit: true })
 	private async discoverRepositoriesCore(folder: WorkspaceFolder): Promise<Repository[]> {
+		const scope = getScopedLogger();
 		const { provider } = this.getProvider(folder.uri);
 
 		try {
@@ -739,7 +736,7 @@ export class GitProviderService implements Disposable {
 		} catch (ex) {
 			this._discoveredWorkspaceFolders.delete(folder);
 
-			Logger.error(
+			scope?.error(
 				ex,
 				`${provider.descriptor.name} Provider(${
 					provider.descriptor.id
@@ -932,7 +929,7 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	@trace<GitProviderService['getVisibilityInfoFromCache']>({ exit: r => `returned ${r?.visibility}` })
+	@trace({ exit: r => `returned ${r?.visibility}` })
 	private getVisibilityInfoFromCache(key: string): RepositoryVisibilityInfo | undefined {
 		this.ensureRepoVisibilityCache();
 		const visibilityInfo = this._repoVisibilityCache?.get(key);
@@ -1326,7 +1323,7 @@ export class GitProviderService implements Disposable {
 		return provider.clone?.(url, parentPath);
 	}
 
-	@debug({ singleLine: true })
+	@debug({ onlyExit: true })
 	resetCaches(...types: CachedGitTypes[]): void {
 		this.container.events.fire('git:cache:reset', { types: types });
 	}
@@ -1334,7 +1331,7 @@ export class GitProviderService implements Disposable {
 	@gate<GitProviderService['fetchAll']>(
 		(repos, opts) => `${repos == null ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`,
 	)
-	@debug<GitProviderService['fetchAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
+	@debug({ args: repositories => ({ repositories: repositories?.map(r => r.name).join(', ') }) })
 	async fetchAll(repositories?: Repository[], options?: { all?: boolean; prune?: boolean }): Promise<void> {
 		if (repositories == null) {
 			repositories = this.openRepositories;
@@ -1359,7 +1356,7 @@ export class GitProviderService implements Disposable {
 	@gate<GitProviderService['pullAll']>(
 		(repos, opts) => `${repos == null ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`,
 	)
-	@debug<GitProviderService['pullAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
+	@debug({ args: repositories => ({ repositories: repositories?.map(r => r.name).join(', ') }) })
 	async pullAll(repositories?: Repository[], options?: { rebase?: boolean }): Promise<void> {
 		if (repositories == null) {
 			repositories = this.openRepositories;
@@ -1382,7 +1379,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@gate<GitProviderService['pushAll']>(repos => (repos == null ? '' : repos.map(r => r.id).join(',')))
-	@debug<GitProviderService['pushAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
+	@debug({ args: repositories => ({ repositories: repositories?.map(r => r.name).join(', ') }) })
 	async pushAll(
 		repositories?: Repository[],
 		options?: {
@@ -1413,7 +1410,7 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@debug<GitProviderService['getBlame']>({ args: { 1: d => d?.isDirty } })
+	@debug({ args: (uri, document) => ({ uri: uri, document: document?.isDirty }) })
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame
@@ -1424,7 +1421,7 @@ export class GitProviderService implements Disposable {
 		return provider.getBlame(uri, document);
 	}
 
-	@debug<GitProviderService['getBlameContents']>({ args: { 1: '<contents>' } })
+	@debug({ args: uri => ({ uri: uri, contents: '<contents>' }) })
 	/**
 	 * Returns the blame of a file, using the editor contents (for dirty editors)
 	 * @param uri Uri of the file to blame
@@ -1435,7 +1432,7 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameContents(uri, contents);
 	}
 
-	@debug<GitProviderService['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
+	@debug({ args: (uri, editorLine, document) => ({ uri: uri, editorLine: editorLine, document: document?.isDirty }) })
 	/**
 	 * Returns the blame of a single line
 	 * @param uri Uri of the file to blame
@@ -1453,7 +1450,7 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameForLine(uri, editorLine, document, options);
 	}
 
-	@debug<GitProviderService['getBlameForLineContents']>({ args: { 2: '<contents>' } })
+	@debug({ args: (uri, editorLine) => ({ uri: uri, editorLine: editorLine, contents: '<contents>' }) })
 	/**
 	 * Returns the blame of a single line, using the editor contents (for dirty editors)
 	 * @param uri Uri of the file to blame
@@ -1477,13 +1474,13 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameForRange(uri, range);
 	}
 
-	@debug<GitProviderService['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
+	@debug({ args: (uri, range) => ({ uri: uri, range: range, contents: '<contents>' }) })
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameForRangeContents(uri, range, contents);
 	}
 
-	@debug<GitProviderService['getBlameRange']>({ args: { 0: '<blame>' } })
+	@debug({ args: (_blame, uri, range) => ({ blame: '<blame>', uri: uri, range: range }) })
 	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameRange(blame, uri, range);
@@ -1501,7 +1498,7 @@ export class GitProviderService implements Disposable {
 		return provider.getDiffForFile(uri, ref1, ref2);
 	}
 
-	@debug<GitProviderService['getDiffForFileContents']>({ args: { 2: '<contents>' } })
+	@debug({ args: (uri, ref) => ({ uri: uri, ref: ref, contents: '<contents>' }) })
 	/**
 	 * Returns a file diff between a commit and the specified contents
 	 * @param uri Uri of the file to diff
@@ -1636,7 +1633,7 @@ export class GitProviderService implements Disposable {
 			} else if (!options?.force) {
 				// Check if we've seen this path before
 				if (this._searchedRepositoryPaths.has(path)) {
-					Logger.trace(scope, `Skipped search as path is known; returning ${repository?.toString()}`);
+					scope?.trace(`Skipped search as path is known; returning ${repository?.toString()}`);
 					return repository;
 				}
 
@@ -1646,8 +1643,7 @@ export class GitProviderService implements Disposable {
 					if ((stats.type & FileType.Directory) !== FileType.Directory) {
 						// Check if we've seen it's parent before, since a file can't be a nested repository
 						if (this._searchedRepositoryPaths.hasParent(path)) {
-							Logger.trace(
-								scope,
+							scope?.trace(
 								`Skipped search as path is a file and parent is known; returning ${repository?.toString()}`,
 							);
 							return repository;
@@ -1694,16 +1690,16 @@ export class GitProviderService implements Disposable {
 						} else {
 							const filteredUris = await provider.excludeIgnoredUris(repoUri.fsPath, [uri]);
 							if (!filteredUris.length) {
-								Logger.trace(scope, `File is gitignored; treating repository as closed`);
+								scope?.trace(`File is gitignored; treating repository as closed`);
 								closed = true;
 							}
 						}
 					}
 
-					Logger.debug(scope, `Repository found in '${repoUri.toString(true)}'`);
+					scope?.info(`Repository found in '${repoUri.toString(true)}'`);
 					const gitDir = await provider.config.getGitDir?.(repoUri.fsPath);
 					if (gitDir == null) {
-						Logger.warn(scope, `Unable to get gitDir for '${repoUri.toString(true)}'`);
+						scope?.warn(`Unable to get gitDir for '${repoUri.toString(true)}'`);
 					}
 					const repositories = provider.openRepository(root?.folder, repoUri, gitDir, false, closed);
 
@@ -1739,7 +1735,7 @@ export class GitProviderService implements Disposable {
 
 			return await promise;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (ex instanceof ProviderNotFoundError) return undefined;
 
 			debugger;
@@ -1756,7 +1752,7 @@ export class GitProviderService implements Disposable {
 		try {
 			return await this.getOrOpenRepository(editor.document.uri);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
@@ -1857,7 +1853,7 @@ export class GitProviderService implements Disposable {
 		try {
 			await this.container.repositoryIdentity.storeRepositoryLocations(repos);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 	}
 }

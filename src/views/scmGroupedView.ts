@@ -7,8 +7,8 @@ import { trace } from '../system/decorators/log.js';
 import { once } from '../system/function.js';
 import { first } from '../system/iterable.js';
 import { lazy } from '../system/lazy.js';
-import { getLoggableName, Logger } from '../system/logger.js';
-import { startScopedLogger } from '../system/logger.scope.js';
+import { getLoggableName } from '../system/logger.js';
+import { maybeStartLoggableScope } from '../system/logger.scope.js';
 import type { Deferred } from '../system/promise.js';
 import { defer, isPromise } from '../system/promise.js';
 import { BranchesView } from './branchesView.js';
@@ -130,7 +130,7 @@ export class ScmGroupedView implements Disposable {
 		}
 	}
 
-	@trace({ singleLine: true })
+	@trace({ onlyExit: true })
 	setView<T extends GroupableTreeViewTypes>(
 		type: T,
 		options?: { focus?: boolean; preventReveal?: boolean },
@@ -238,9 +238,8 @@ export class ScmGroupedView implements Disposable {
 								return emptyTreeItem;
 							}
 
-							using scope = startScopedLogger(
+							using scope = maybeStartLoggableScope(
 								`${getLoggableName(this)}.ensureGroupedContext.getTreeItem`,
-								false,
 							);
 
 							try {
@@ -252,7 +251,7 @@ export class ScmGroupedView implements Disposable {
 
 								const promise = new Promise<TreeItem>(resolve => {
 									result.then(resolve, (ex: unknown) => {
-										Logger.error(ex, scope);
+										scope?.error(ex);
 										resolve(emptyTreeItem);
 									});
 									this._cancellationSource?.token.onCancellationRequested(() =>
@@ -262,7 +261,7 @@ export class ScmGroupedView implements Disposable {
 								void promise.finally(() => this._loaded?.fulfill());
 								return promise;
 							} catch (ex) {
-								Logger.error(ex, scope);
+								scope?.error(ex);
 								this._loaded?.fulfill();
 								return emptyTreeItem;
 							}
@@ -274,9 +273,8 @@ export class ScmGroupedView implements Disposable {
 								return emptyArray;
 							}
 
-							using scope = startScopedLogger(
+							using scope = maybeStartLoggableScope(
 								`${getLoggableName(this)}.ensureGroupedContext.getChildren`,
-								false,
 							);
 
 							try {
@@ -288,7 +286,7 @@ export class ScmGroupedView implements Disposable {
 
 								const promise = new Promise<ViewNode[]>(resolve => {
 									result.then(resolve, (ex: unknown) => {
-										Logger.error(ex, scope);
+										scope?.error(ex);
 										resolve(emptyArray);
 									});
 									this._cancellationSource?.token.onCancellationRequested(() => resolve(emptyArray));
@@ -296,7 +294,7 @@ export class ScmGroupedView implements Disposable {
 								void promise.finally(() => this._loaded?.fulfill());
 								return promise;
 							} catch (ex) {
-								Logger.error(ex, scope);
+								scope?.error(ex);
 								this._loaded?.fulfill();
 								return emptyArray;
 							}
@@ -305,15 +303,14 @@ export class ScmGroupedView implements Disposable {
 						resolveTreeItem: (item, node, token) => {
 							if (this._view == null) return item;
 
-							using scope = startScopedLogger(
+							using scope = maybeStartLoggableScope(
 								`${getLoggableName(this)}.ensureGroupedContext.resolveTreeItem`,
-								false,
 							);
 
 							try {
 								return this._view.resolveTreeItem(item, node, token);
 							} catch (ex) {
-								Logger.error(ex, scope);
+								scope?.error(ex);
 								return item;
 							}
 						},

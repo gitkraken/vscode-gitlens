@@ -89,7 +89,7 @@ import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { filterMap } from '../../system/iterable.js';
 import { getLoggableName, Logger } from '../../system/logger.js';
-import { startScopedLogger } from '../../system/logger.scope.js';
+import { maybeStartLoggableScope } from '../../system/logger.scope.js';
 import { hasKeys } from '../../system/object.js';
 import { getSettledValue } from '../../system/promise.js';
 import { SubscriptionManager } from '../../system/subscriptionManager.js';
@@ -481,8 +481,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	@ipcCommand(OpenInGraphCommand)
 	@command('gitlens.showInCommitGraph:')
-	@debug<HomeWebviewProvider['showInCommitGraph']>({
-		args: { 0: p => `${p?.type}, repoPath=${p?.repoPath}, branchId=${p?.branchId}` },
+	@debug({
+		args: params => ({ params: `${params?.type}, repoPath=${params?.repoPath}, branchId=${params?.branchId}` }),
 	})
 	private showInCommitGraph(params: IpcParams<typeof OpenInGraphCommand>) {
 		const repoInfo = params != null ? this._repositoryBranches.get(params.repoPath) : undefined;
@@ -507,8 +507,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	@command('gitlens.visualizeHistory.branch:')
 	@command('gitlens.visualizeHistory.repo:')
-	@debug<HomeWebviewProvider['openInTimeline']>({
-		args: { 0: p => `${p?.type}, repoPath=${p?.repoPath}, branchId=${p?.branchId}` },
+	@debug({
+		args: params => ({ params: `${params?.type}, repoPath=${params?.repoPath}, branchId=${params?.branchId}` }),
 	})
 	private openInTimeline(params: OpenInTimelineParams) {
 		const repo = params == null ? this.getSelectedRepository() : this.container.git.getRepository(params.repoPath);
@@ -534,8 +534,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.openInView.branch:')
-	@debug<HomeWebviewProvider['openInView']>({
-		args: { 0: p => `repoPath=${p?.repoPath}, branchId=${p?.branchId}` },
+	@debug({
+		args: params => ({ params: `repoPath=${params?.repoPath}, branchId=${params?.branchId}` }),
 	})
 	private async openInView(params: BranchRef) {
 		const { repo, branch } = await this.getRepoInfoFromRef(params);
@@ -565,7 +565,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.git.branch.setMergeTarget:')
-	@debug<HomeWebviewProvider['changeBranchMergeTarget']>()
+	@debug()
 	private changeBranchMergeTarget(ref: BranchAndTargetRefs) {
 		this.container.telemetry.sendEvent('home/changeBranchMergeTarget');
 		void executeCommand<BranchGitCommandArgs>('gitlens.git.branch.setMergeTarget', {
@@ -580,7 +580,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.mergeIntoCurrent:')
-	@debug<HomeWebviewProvider['mergeIntoCurrent']>({ args: { 0: r => r.branchId } })
+	@debug({ args: ref => ({ ref: ref.branchId }) })
 	private async mergeIntoCurrent(ref: BranchRef) {
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
@@ -589,7 +589,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.rebaseCurrentOnto:')
-	@debug<HomeWebviewProvider['rebaseCurrentOnto']>({ args: { 0: r => r.branchId } })
+	@debug({ args: ref => ({ ref: ref.branchId }) })
 	private async rebaseCurrentOnto(ref: BranchRef) {
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
@@ -598,7 +598,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.ai.explainBranch:')
-	@debug<HomeWebviewProvider['explainBranch']>({ args: { 0: r => r.branchId } })
+	@debug({ args: ref => ({ ref: ref.branchId }) })
 	private async explainBranch(ref: BranchRef) {
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
@@ -611,7 +611,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.ai.explainWip:')
-	@debug<HomeWebviewProvider['explainWip']>({ args: { 0: r => r.branchId } })
+	@debug({ args: ref => ({ ref: ref.branchId }) })
 	private async explainWip(ref: BranchRef) {
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
@@ -626,7 +626,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.composeCommits:')
-	@debug<HomeWebviewProvider['composeCommits']>({ args: { 0: r => r.branchId } })
+	@debug({ args: ref => ({ ref: ref.branchId }) })
 	private async composeCommits(ref: BranchRef) {
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
@@ -648,13 +648,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.pausedOperation.abort:')
-	@debug<HomeWebviewProvider['abortPausedOperation']>({ args: { 0: op => op.type } })
+	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async abortPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
 		await abortPausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@command('gitlens.pausedOperation.continue:')
-	@debug<HomeWebviewProvider['continuePausedOperation']>({ args: { 0: op => op.type } })
+	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async continuePausedOperation(pausedOpArgs: GitPausedOperationStatus) {
 		if (pausedOpArgs.type === 'revert') return;
 
@@ -662,13 +662,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.pausedOperation.skip:')
-	@debug<HomeWebviewProvider['skipPausedOperation']>({ args: { 0: op => op.type } })
+	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async skipPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
 		await skipPausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@command('gitlens.pausedOperation.open:')
-	@debug<HomeWebviewProvider['openRebaseEditor']>({ args: { 0: op => op.type } })
+	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async openRebaseEditor(pausedOpArgs: GitPausedOperationStatus) {
 		if (pausedOpArgs.type !== 'rebase') return;
 
@@ -682,13 +682,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.pausedOperation.showConflicts:')
-	@debug<HomeWebviewProvider['showConflicts']>({ args: { 0: op => op.type } })
+	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
 		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, { openRebaseEditor: true });
 	}
 
 	@command('gitlens.createCloudPatch:')
-	@debug<HomeWebviewProvider['createCloudPatch']>({ args: { 0: r => r.branchId } })
+	@debug({ args: ref => ({ ref: ref.branchId }) })
 	private async createCloudPatch(ref: BranchRef) {
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
@@ -883,11 +883,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (subscriptionResult.status === 'fulfilled') {
 			subscriptionState = subscriptionResult.value;
 		} else {
-			using scope = startScopedLogger(
+			using scope = maybeStartLoggableScope(
 				`${getLoggableName(this)}.getState(${Logger.toLoggable(subscription)})`,
-				false,
 			);
-			Logger.error(subscriptionResult.reason, scope, 'Failed to get subscription state');
+			scope?.error(subscriptionResult.reason, 'Failed to get subscription state');
 
 			this.container.telemetry.sendEvent('home/failed', {
 				reason: 'subscription',
@@ -1128,7 +1127,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		);
 	}
 
-	@trace({ args: { 0: false } })
+	@trace({ args: (_e, repository) => ({ repository: repository.id }) })
 	private onOverviewWipChanged(e: RepositoryFileSystemChangeEvent, repository: Repository) {
 		if (e.repository.id !== repository.id) return;
 		if (this._etagFileSystem === repository.etagFileSystem) return;
@@ -1409,8 +1408,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.deleteBranchOrWorktree:')
-	@debug<HomeWebviewProvider['deleteBranchOrWorktree']>({
-		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}`, 1: mt => mt?.branchId },
+	@debug({
+		args: (ref, mergeTarget) => ({
+			ref: `${ref.branchId}, upstream: ${ref.branchUpstreamName}`,
+			mergeTarget: mergeTarget?.branchId,
+		}),
 	})
 	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
@@ -1491,8 +1493,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.pushBranch:')
-	@debug<HomeWebviewProvider['pushBranch']>({
-		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
+	@debug({
+		args: ref => ({ ref: `${ref.branchId}, upstream: ${ref.branchUpstreamName}` }),
 	})
 	private async pushBranch(ref: BranchRef) {
 		try {
@@ -1521,16 +1523,18 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.openMergeTargetComparison:')
-	@debug<HomeWebviewProvider['mergeTargetCompare']>({
-		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}, mergeTargetId: ${r.mergeTargetId}` },
+	@debug({
+		args: ref => ({
+			ref: `${ref.branchId}, upstream: ${ref.branchUpstreamName}, mergeTargetId: ${ref.mergeTargetId}`,
+		}),
 	})
 	private mergeTargetCompare(ref: BranchAndTargetRefs) {
 		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.branchName, ref.mergeTargetName);
 	}
 
 	@command('gitlens.openPullRequestComparison:')
-	@debug<HomeWebviewProvider['pullRequestCompare']>({
-		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
+	@debug({
+		args: ref => ({ ref: `${ref.branchId}, upstream: ${ref.branchUpstreamName}` }),
 	})
 	private async pullRequestCompare(ref: BranchRef) {
 		const pr = await this.getPullRequestFromRef(ref);
@@ -1548,8 +1552,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.openPullRequestChanges:')
-	@debug<HomeWebviewProvider['pullRequestChanges']>({
-		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
+	@debug({
+		args: ref => ({ ref: `${ref.branchId}, upstream: ${ref.branchUpstreamName}` }),
 	})
 	private async pullRequestChanges(ref: BranchRef) {
 		const pr = await this.getPullRequestFromRef(ref);
@@ -1571,7 +1575,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	// @command('gitlens.openPullRequestOnRemote:')
-	// @debug<HomeWebviewProvider['pullRequestViewOnRemote']>({
+	// @log<HomeWebviewProvider['pullRequestViewOnRemote']>({
 	// 	args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
 	// })
 	// private async pullRequestViewOnRemote(ref: BranchRef, clipboard?: boolean) {
@@ -1588,8 +1592,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	// }
 
 	@command('gitlens.openPullRequestDetails:')
-	@debug<HomeWebviewProvider['pullRequestDetails']>({
-		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
+	@debug({
+		args: ref => ({ ref: `${ref.branchId}, upstream: ${ref.branchUpstreamName}` }),
 	})
 	private async pullRequestDetails(ref: BranchRef) {
 		const pr = await this.getPullRequestFromRef(ref);
@@ -1602,8 +1606,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.createPullRequest:')
-	@debug<HomeWebviewProvider['pullRequestCreate']>({
-		args: { 0: a => `${a.ref.branchId}, upstream: ${a.ref.branchUpstreamName}` },
+	@debug({
+		args: a => ({ a: `${a.ref.branchId}, upstream: ${a.ref.branchUpstreamName}` }),
 	})
 	private async pullRequestCreate({ ref, describeWithAI, source }: CreatePullRequestCommandArgs) {
 		const { branch } = await this.getRepoInfoFromRef(ref);
@@ -1648,8 +1652,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.openWorktree:')
-	@debug<HomeWebviewProvider['worktreeOpen']>({
-		args: { 0: r => `${r.branchId}, worktree: ${r.worktree?.name}` },
+	@debug({
+		args: args => ({ args: `${args.branchId}, worktree: ${args.worktree?.name}` }),
 	})
 	private async worktreeOpen(args: OpenWorktreeCommandArgs) {
 		const { location, ...ref } = args;
@@ -1661,14 +1665,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@command('gitlens.switchToBranch:')
-	@debug<HomeWebviewProvider['switchToBranch']>({ args: { 0: r => r?.branchId } })
+	@debug({ args: ref => ({ ref: ref?.branchId }) })
 	private async switchToBranch(ref: BranchRef | { repoPath: string; branchName?: never; branchId?: never }) {
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		void RepoActions.switchTo(repo, branch ? getReferenceFromBranch(branch) : undefined);
 	}
 
 	@command('gitlens.fetch:')
-	@debug<HomeWebviewProvider['fetch']>({ args: { 0: r => r?.branchId } })
+	@debug({ args: ref => ({ ref: ref?.branchId }) })
 	private async fetch(ref?: BranchRef) {
 		if (ref == null) {
 			const repo = this.getSelectedRepository();

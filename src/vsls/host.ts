@@ -6,7 +6,6 @@ import type { Container } from '../container.js';
 import { isVslsRoot } from '../system/-webview/path.vsls.js';
 import { debug, trace } from '../system/decorators/log.js';
 import { join } from '../system/iterable.js';
-import { Logger } from '../system/logger.js';
 import { getScopedLogger } from '../system/logger.scope.js';
 import { normalizePath } from '../system/path.js';
 import type {
@@ -125,7 +124,7 @@ export class VslsHostService implements Disposable {
 			localPath = normalizePath(f.uri.fsPath);
 			sharedPath = normalizePath(this.convertLocalUriToShared(f.uri).toString());
 
-			Logger.trace(scope, `shared='${sharedPath}' \u2194 local='${localPath}'`);
+			scope?.trace(`shared='${sharedPath}' \u2194 local='${localPath}'`);
 			this._localToSharedPaths.set(localPath, sharedPath);
 			this._sharedToLocalPaths.set(sharedPath, localPath);
 		}
@@ -200,10 +199,7 @@ export class VslsHostService implements Disposable {
 		const scope = getScopedLogger();
 
 		let sharedUri = this._api.convertLocalUriToShared(localUri);
-		Logger.trace(
-			scope,
-			`LiveShare.convertLocalUriToShared(${localUri.toString(true)}) returned ${sharedUri.toString(true)}`,
-		);
+		scope?.addExitInfo(`returned ${sharedUri.toString(true)}`);
 
 		const localPath = localUri.path;
 		let sharedPath = sharedUri.path;

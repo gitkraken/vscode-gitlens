@@ -15,9 +15,9 @@ export interface LogChannelProvider {
 	readonly name: string;
 	createChannel(name: string): LogChannel;
 	toLoggable?(o: unknown): string | undefined;
+	hash?(data: string): string;
 
 	sanitizeKeys?: Set<string>;
-	sanitizer?: (key: string, value: unknown) => unknown;
 }
 
 export interface LogChannel {
@@ -230,11 +230,19 @@ export const Logger = new (class Logger {
 		this.output?.show?.(preserveFocus);
 	}
 
-	toLoggable(o: any, sanitizer?: ((key: string, value: unknown) => unknown) | undefined): string {
-		if (typeof o !== 'object') return String(o);
+	toLoggable(o: any, name?: string): string {
+		if (name != null) {
+			const sanitized = this.sanitize(name, o);
+			if (sanitized != null) return sanitized;
+		}
+
+		if (typeof o === 'function') return '<function>';
+		if (o == null || typeof o !== 'object') return String(o);
+
+		if (o instanceof Error) return String(o);
 
 		if (Array.isArray(o)) {
-			return `[${o.map(i => this.toLoggable(i, sanitizer)).join(', ')}]`;
+			return `[${o.map(i => this.toLoggable(i)).join(', ')}]`;
 		}
 
 		const loggable = this.provider!.toLoggable?.(o);
@@ -242,20 +250,34 @@ export const Logger = new (class Logger {
 
 		try {
 			return JSON.stringify(o, (key: string, value: unknown): unknown => {
-				if (this.provider!.sanitizeKeys.has(key)) return `<${key}>`;
+				if (key.charCodeAt(0) === 95) return undefined; // skip '_'-prefixed keys
+				if (this.provider!.sanitizeKeys.has(key)) return this.sanitize(key, value);
 
-				if (sanitizer != null) {
-					value = sanitizer(key, value);
+				if (key !== '' && typeof value === 'object' && value != null && !Array.isArray(value)) {
+					if (value instanceof Error) return String(value);
+					return this.provider!.toLoggable?.(value) ?? value;
 				}
-				if (this.provider?.sanitizer != null) {
-					value = this.provider.sanitizer(key, value);
-				}
+
 				return value;
 			});
 		} catch {
 			debugger;
 			return '<error>';
 		}
+	}
+
+	sanitize(key: string, value: unknown): string | undefined {
+		// Nothing to redact if the value is null/undefined
+		if (value == null) return undefined;
+
+		// Strip leading underscores so `_token` matches `token` in sanitizeKeys
+		const sanitizeKey = key.replace(/^_+/, '') || key;
+		if (!this.provider?.sanitizeKeys?.has(sanitizeKey)) return undefined;
+
+		if (this.provider.hash != null) {
+			return `<${sanitizeKey}:${this.provider.hash(typeof value === 'string' ? value : JSON.stringify(value))}>`;
+		}
+		return `<${sanitizeKey}>`;
 	}
 
 	private toLoggableParams(debugOnly: boolean, params: any[]) {
@@ -390,19 +412,19 @@ export const defaultLogProvider: LogProvider = {
 				Logger.error(undefined, scope, message, ...params);
 				break;
 			case 'warn':
-				Logger.warn(scope, message, ...params);
+				scope?.warn(message, ...params);
 				break;
 			case 'info':
-				Logger.info(scope, message, ...params);
+				scope?.info(message, ...params);
 				break;
 			case 'debug':
-				Logger.debug(scope, message, ...params);
+				scope?.debug(message, ...params);
 				break;
 			case 'trace':
-				Logger.trace(scope, message, ...params);
+				scope?.trace(message, ...params);
 				break;
 			default:
-				Logger.debug(scope, message, ...params);
+				scope?.debug(message, ...params);
 				break;
 		}
 	},

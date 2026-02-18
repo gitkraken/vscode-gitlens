@@ -18,7 +18,6 @@ import type { GitUser } from '../../git/models/user.js';
 import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders.js';
 import { isSha, isUncommitted, shortenRevision } from '../../git/utils/revision.utils.js';
 import { debug } from '../../system/decorators/log.js';
-import { Logger } from '../../system/logger.js';
 import type { ScopedLogger } from '../../system/logger.scope.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 import { getSettledValue } from '../../system/promise.js';
@@ -64,7 +63,7 @@ export class DraftService implements Disposable {
 
 	dispose(): void {}
 
-	@debug({ args: { 2: false } })
+	@debug({ args: (type: DraftType, title: string) => ({ type: type, title: title }) })
 	async createDraft(
 		type: DraftType,
 		title: string,
@@ -240,7 +239,7 @@ export class DraftService implements Disposable {
 			return newDraft;
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw ex;
 		}
@@ -326,7 +325,12 @@ export class DraftService implements Disposable {
 		await this.connection.fetchGkApi(`v1/drafts/${id}`, { method: 'DELETE' });
 	}
 
-	@debug<DraftService['archiveDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
+	@debug({
+		args: (draft, options) => ({
+			draft: draft.id,
+			options: JSON.stringify({ ...options, providerAuth: undefined }),
+		}),
+	})
 	async archiveDraft(draft: Draft, options?: { providerAuth?: ProviderAuth; archiveReason?: string }): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -360,13 +364,13 @@ export class DraftService implements Disposable {
 			}
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw ex;
 		}
 	}
 
-	@debug<DraftService['getDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
+	@debug({ args: (id, options) => ({ id: id, options: JSON.stringify({ ...options, providerAuth: undefined }) }) })
 	async getDraft(id: string, options?: { providerAuth?: ProviderAuth }): Promise<Draft> {
 		const scope = getScopedLogger();
 
@@ -385,14 +389,13 @@ export class DraftService implements Disposable {
 		]);
 
 		if (rspResult.status === 'rejected') {
-			Logger.error(rspResult.reason, scope, `Unable to open draft '${id}': ${rspResult.reason}`);
+			scope?.error(rspResult.reason, `Unable to open draft '${id}': ${rspResult.reason}`);
 			throw new Error(`Unable to open draft '${id}': ${rspResult.reason}`);
 		}
 
 		if (changesetsResult.status === 'rejected') {
-			Logger.error(
+			scope?.error(
 				changesetsResult.reason,
-				scope,
 				`Unable to open changeset for draft '${id}': ${changesetsResult.reason}`,
 			);
 			throw new Error(`Unable to open changesets for draft '${id}': ${changesetsResult.reason}`);
@@ -509,7 +512,7 @@ export class DraftService implements Disposable {
 
 			return changesets;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw ex;
 		}
@@ -547,8 +550,8 @@ export class DraftService implements Disposable {
 
 	async getPatchDetails(id: string): Promise<DraftPatchDetails>;
 	async getPatchDetails(patch: DraftPatch): Promise<DraftPatchDetails>;
-	@debug<DraftService['getPatchDetails']>({
-		args: { 0: idOrPatch => (typeof idOrPatch === 'string' ? idOrPatch : idOrPatch.id) },
+	@debug({
+		args: idOrPatch => ({ idOrPatch: typeof idOrPatch === 'string' ? idOrPatch : idOrPatch.id }),
 	})
 	async getPatchDetails(idOrPatch: string | DraftPatch): Promise<DraftPatchDetails> {
 		const patch = typeof idOrPatch === 'string' ? await this.getPatchCore(idOrPatch) : idOrPatch;
@@ -617,7 +620,7 @@ export class DraftService implements Disposable {
 
 			return draft;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw ex;
 		}
@@ -640,13 +643,13 @@ export class DraftService implements Disposable {
 
 			return users;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw ex;
 		}
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: (id: string) => ({ id: id }) })
 	async addDraftUsers(id: string, pendingUsers: DraftPendingUser[]): Promise<DraftUser[]> {
 		const scope = getScopedLogger();
 
@@ -674,7 +677,7 @@ export class DraftService implements Disposable {
 
 			return users;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw ex;
 		}
@@ -692,7 +695,7 @@ export class DraftService implements Disposable {
 
 			return true;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw ex;
 		}
@@ -818,7 +821,14 @@ export class DraftService implements Disposable {
 		integrationId: IntegrationIds,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
-	@debug<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
+	@debug({
+		args: (item, repositoryOrIntegrationId) => ({
+			item: item.id,
+			repositoryOrIntegrationId: isRepository(repositoryOrIntegrationId)
+				? repositoryOrIntegrationId.id
+				: repositoryOrIntegrationId,
+		}),
+	})
 	async getCodeSuggestions(
 		item: PullRequest | LaunchpadItem,
 		repositoryOrIntegrationId: Repository | IntegrationIds,
@@ -843,7 +853,7 @@ export class DraftService implements Disposable {
 		}
 	}
 
-	@debug<DraftService['getCodeSuggestionCounts']>({ args: { 0: prs => prs.map(pr => pr.id).join(',') } })
+	@debug({ args: pullRequests => ({ pullRequests: pullRequests.map(pr => pr.id).join(',') }) })
 	async getCodeSuggestionCounts(pullRequests: PullRequest[]): Promise<CodeSuggestionCounts> {
 		const scope = getScopedLogger();
 
@@ -877,7 +887,7 @@ export class DraftService implements Disposable {
 			return ((await rsp.json()) as Result).data.counts;
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 
 			throw ex;
 		}
@@ -898,7 +908,7 @@ async function handleBadDraftResponse(message: string, rsp?: any, scope?: Scoped
 	} catch {}
 	const rspErrorMessage = typeof json?.error === 'string' ? json.error : (json?.error?.message ?? rsp?.statusText);
 	const errorMessage = rsp != null ? `${message}: (${rsp?.status}) ${rspErrorMessage}` : message;
-	Logger.error(undefined, scope, errorMessage);
+	scope?.error(undefined, errorMessage);
 	throw new Error(errorMessage);
 }
 

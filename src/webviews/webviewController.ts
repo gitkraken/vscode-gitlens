@@ -34,8 +34,8 @@ import { getScopedCounter } from '../system/counter.js';
 import { logName, trace } from '../system/decorators/log.js';
 import { sequentialize } from '../system/decorators/sequentialize.js';
 import { serializeIpcData } from '../system/ipcSerialize.js';
-import { getLoggableName, Logger } from '../system/logger.js';
-import { getNewLogScope, getScopedLogger, setLogScopeExit } from '../system/logger.scope.js';
+import { getLoggableName } from '../system/logger.js';
+import { getNewLogScope, getScopedLogger } from '../system/logger.scope.js';
 import { pauseOnCancelOrTimeout } from '../system/promise.js';
 import { maybeStopWatch, Stopwatch } from '../system/stopwatch.js';
 import type { WebviewContext } from '../system/webview.js';
@@ -537,14 +537,14 @@ export class WebviewController<
 		this.dispose();
 	}
 
-	@trace<WebviewController<ID, State>['onMessageReceivedCore']>({
-		args: { 0: e => (e != null ? `${e.id}, method=${e.method}` : '<undefined>') },
+	@trace({
+		args: e => ({ e: e != null ? `${e.id}, method=${e.method}` : '<undefined>' }),
 	})
 	private async onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
 		const scope = getScopedLogger();
-		setLogScopeExit(scope, ` \u2022 ipc (webview -> host) duration=${Date.now() - e.timestamp}ms`);
+		scope?.addExitInfo(`ipc (webview -> host) duration=${Date.now() - e.timestamp}ms`);
 
 		switch (true) {
 			case WebviewReadyRequest.is(e):
@@ -597,8 +597,8 @@ export class WebviewController<
 		}
 	}
 
-	@trace<WebviewController<ID, State>['onViewFocusChanged']>({
-		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
+	@trace({
+		args: e => ({ e: `focused=${e.focused}, inputFocused=${e.inputFocused}` }),
 	})
 	onViewFocusChanged(e: WebviewFocusChangedParams): void {
 		setContextKeys(this.descriptor.contextKeyPrefix);
@@ -698,7 +698,7 @@ export class WebviewController<
 			this.provider.includeEndOfBody?.(),
 		]);
 
-		const sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+		const sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
 		const serialized = this.serializeIpcData(bootstrap);
 		sw?.stop({ message: `\u2022 serialized bootstrap; length=${serialized.length}` });
 
@@ -732,7 +732,7 @@ export class WebviewController<
 		const timestamp = Date.now();
 
 		const scope = getNewLogScope(`${getLoggableName(this)}.notify(${id}|${notificationType.method})`, true);
-		const sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+		const sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
 
 		const serializedParams = params != null ? this.serializeIpcData(params) : undefined;
 
@@ -756,7 +756,7 @@ export class WebviewController<
 			} catch (ex) {
 				debugger;
 				// Compression failed, keep uncompressed data
-				Logger.error(ex, scope, 'IPC deflate compression failed');
+				scope?.error(ex, 'IPC deflate compression failed');
 				sw?.stop({
 					message: `\u2022 failed deflate compression, using uncompressed data`,
 					suffix: `failed`,
@@ -833,8 +833,10 @@ export class WebviewController<
 	}
 
 	@sequentialize()
-	@trace<WebviewController<ID, State>['postMessage']>({
-		args: { 0: m => `${m.id}|${m.method}${m.completionId ? `+${m.completionId}` : ''}` },
+	@trace({
+		args: message => ({
+			message: `${message.id}|${message.method}${message.completionId ? `+${message.completionId}` : ''}`,
+		}),
 	})
 	private async postMessage(message: IpcMessage): Promise<boolean> {
 		if (!this._ready) return Promise.resolve(false);
@@ -851,7 +853,7 @@ export class WebviewController<
 				},
 				(ex: unknown) => {
 					clearTimeout(timeout);
-					Logger.error(ex, scope);
+					scope?.error(ex);
 					debugger;
 					return false;
 				},
@@ -859,7 +861,7 @@ export class WebviewController<
 			new Promise<boolean>(resolve => {
 				timeout = setTimeout(() => {
 					debugger;
-					setLogScopeExit(scope, undefined, 'TIMEDOUT');
+					scope?.setFailed('TIMEDOUT');
 					resolve(false);
 				}, 30000);
 			}),

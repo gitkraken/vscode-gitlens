@@ -4,7 +4,7 @@ import { GitFileConflictStatus } from '../models/fileStatus.js';
 import type { GitConflictFile, GitConflictRevision, GitIndexFile, GitIndexVersion } from '../models/index.js';
 
 export function parseGitLsFilesStaged(data: string | undefined, singleEntry: boolean): GitIndexFile[] {
-	using sw = maybeStopWatch(`Git.parseLsFiles`, { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch(`Git.parseLsFiles`, { log: { onlyExit: true, level: 'debug' } });
 
 	const files: GitIndexFile[] = [];
 	if (!data) {
@@ -64,7 +64,7 @@ export function parseGitLsFilesStaged(data: string | undefined, singleEntry: boo
 }
 
 export function parseGitConflictFiles(data: string | undefined, repoPath: string): GitConflictFile[] {
-	using sw = maybeStopWatch(`Git.parseConflictFiles`, { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch(`Git.parseConflictFiles`, { log: { onlyExit: true, level: 'debug' } });
 
 	if (!data) {
 		sw?.stop({ suffix: ` no data` });

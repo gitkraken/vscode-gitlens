@@ -14,8 +14,7 @@ export function parseGitStatus(
 	porcelainVersion: number,
 ): GitStatus | undefined {
 	using sw = maybeStopWatch(`Git.parseStatus(${repoPath}, v=${porcelainVersion})`, {
-		log: false,
-		logLevel: 'debug',
+		log: { onlyExit: true, level: 'debug' },
 	});
 	if (!data) {
 		sw?.stop({ suffix: ` no data` });

@@ -48,7 +48,7 @@ export class BitbucketApi implements Disposable {
 		this._disposable = configuration.onDidChangeAny(e => {
 			if (
 				configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
-				configuration.changed(e, ['outputLevel', 'proxy'])
+				configuration.changed(e, 'proxy')
 			) {
 				this.resetCaches();
 			}
@@ -73,7 +73,16 @@ export class BitbucketApi implements Disposable {
 		this._proxyAgent = null;
 	}
 
-	@trace<BitbucketApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, branch, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+			baseUrl: baseUrl,
+		}),
+	})
 	public async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -106,7 +115,16 @@ export class BitbucketApi implements Disposable {
 		return fromBitbucketPullRequest(response.values[0], provider);
 	}
 
-	@trace<BitbucketApi['getServerPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, branch, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+			baseUrl: baseUrl,
+		}),
+	})
 	public async getServerPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -142,7 +160,16 @@ export class BitbucketApi implements Disposable {
 		return gitlensPr;
 	}
 
-	@trace<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, userUuid, owner, repo, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			userUuid: userUuid,
+			owner: owner,
+			repo: repo,
+			baseUrl: baseUrl,
+		}),
+	})
 	async getUsersIssuesForRepo(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -176,7 +203,16 @@ export class BitbucketApi implements Disposable {
 		return response.values.map(issue => fromBitbucketIssue(issue, provider));
 	}
 
-	@trace<BitbucketApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, id, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			id: id,
+			baseUrl: baseUrl,
+		}),
+	})
 	async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -204,12 +240,21 @@ export class BitbucketApi implements Disposable {
 			}
 			return undefined;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
 
-	@trace<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, id, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			id: id,
+			baseUrl: baseUrl,
+		}),
+	})
 	public async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -241,7 +286,7 @@ export class BitbucketApi implements Disposable {
 				}
 			} catch (ex) {
 				if (ex.original?.status !== 404) {
-					Logger.error(ex, scope);
+					scope?.error(ex);
 					return undefined;
 				}
 			}
@@ -275,7 +320,7 @@ export class BitbucketApi implements Disposable {
 					};
 				}
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				return undefined;
 			}
 		}
@@ -283,7 +328,16 @@ export class BitbucketApi implements Disposable {
 		return undefined;
 	}
 
-	@trace<BitbucketApi['getServerPullRequestById']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, id, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			id: id,
+			baseUrl: baseUrl,
+		}),
+	})
 	public async getServerPullRequestById(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -313,7 +367,7 @@ export class BitbucketApi implements Disposable {
 			}
 		} catch (ex) {
 			if (ex.original?.status !== 404) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				return undefined;
 			}
 		}
@@ -321,7 +375,13 @@ export class BitbucketApi implements Disposable {
 		return undefined;
 	}
 
-	@trace<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, workspace) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			workspace: workspace,
+		}),
+	})
 	async getRepositoriesForWorkspace(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -371,12 +431,21 @@ export class BitbucketApi implements Disposable {
 			}
 			return undefined;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
 
-	@trace<BitbucketApi['getServerPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, rev, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+			baseUrl: baseUrl,
+		}),
+	})
 	async getServerPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -412,12 +481,21 @@ export class BitbucketApi implements Disposable {
 			const gitlensPr = fromProviderPullRequest(providersPr, provider);
 			return gitlensPr;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
 
-	@trace<BitbucketApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, rev, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+			baseUrl: baseUrl,
+		}),
+	})
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -471,12 +549,21 @@ export class BitbucketApi implements Disposable {
 					return undefined;
 				}
 			}
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
 
-	@trace<BitbucketApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, rev, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+			baseUrl: baseUrl,
+		}),
+	})
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -528,12 +615,21 @@ export class BitbucketApi implements Disposable {
 				username: undefined,
 			} satisfies UnidentifiedAuthor;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
 
-	@trace<BitbucketApi['getServerAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, rev, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+			baseUrl: baseUrl,
+		}),
+	})
 	async getServerAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -582,7 +678,7 @@ export class BitbucketApi implements Disposable {
 				avatarUrl: undefined,
 			} satisfies UnidentifiedAuthor;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}
@@ -601,7 +697,7 @@ export class BitbucketApi implements Disposable {
 
 		let rsp: Response;
 		try {
-			const sw = maybeStopWatch(`[BITBUCKET] ${options?.method ?? 'GET'} ${url}`, { log: false });
+			const sw = maybeStopWatch(`[BITBUCKET] ${options?.method ?? 'GET'} ${url}`, { log: { onlyExit: true } });
 			const agent = this.proxyAgent;
 
 			try {
@@ -674,7 +770,7 @@ export class BitbucketApi implements Disposable {
 				// 	}
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				if (ex.response != null) {
 					provider?.trackRequestException();
 					void showIntegrationRequestFailed500WarningMessage(
@@ -687,7 +783,7 @@ export class BitbucketApi implements Disposable {
 				}
 				return;
 			case 502: // Bad Gateway
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				// TODO: Learn the Bitbucket API docs and put it in order:
 				// if (ex.message.includes('timeout')) {
 				// 	provider?.trackRequestException();
@@ -700,7 +796,7 @@ export class BitbucketApi implements Disposable {
 				break;
 		}
 
-		Logger.error(ex, scope);
+		scope?.error(ex);
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
 				`Bitbucket request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,

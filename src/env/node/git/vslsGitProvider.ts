@@ -6,8 +6,8 @@ import type { GitProviderDescriptor } from '../../../git/gitProvider.js';
 import type { Repository } from '../../../git/models/repository.js';
 import { isFolderUri } from '../../../system/-webview/path.js';
 import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls.js';
+import { gate } from '../../../system/decorators/gate.js';
 import { trace } from '../../../system/decorators/log.js';
-import { Logger } from '../../../system/logger.js';
 import { getScopedLogger } from '../../../system/logger.scope.js';
 import { Git } from './git.js';
 import { LocalGitProvider } from './localGitProvider.js';
@@ -74,14 +74,14 @@ export class VslsGitProvider extends LocalGitProvider {
 
 				const gitDir = await this.config.getGitDir(repoUri.fsPath);
 				if (gitDir == null) {
-					Logger.warn(scope, `Unable to get gitDir for '${repoUri.toString(true)}'`);
+					scope?.warn(`Unable to get gitDir for '${repoUri.toString(true)}'`);
 				}
 
 				result.push(...this.openRepository(undefined, repoUri, gitDir, r.root, r.closed));
 			}
 			return result;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 
 			return [];
@@ -105,6 +105,8 @@ export class VslsGitProvider extends LocalGitProvider {
 		return super.getAbsoluteUri(pathOrUri, base).with({ scheme: scheme });
 	}
 
+	@gate()
+	@trace({ exit: true })
 	override async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
 		const scope = getScopedLogger();
 
@@ -130,7 +132,7 @@ export class VslsGitProvider extends LocalGitProvider {
 
 			return repoPath ? Uri.parse(repoPath, true) : undefined;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			return undefined;
 		}
 	}

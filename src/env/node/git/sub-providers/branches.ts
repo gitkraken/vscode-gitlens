@@ -150,7 +150,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return branch;
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: repoPath => ({ repoPath: repoPath }) })
 	async getBranches(
 		repoPath: string,
 		options?: {
@@ -191,7 +191,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					return current != null ? { values: [current] } : emptyPagedResult;
 				}
 
-				using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+				using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
 
 				const branches: GitBranch[] = [];
 
@@ -427,7 +427,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				contributors: result.contributors,
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (isCancellationError(ex)) throw ex;
 
 			return undefined;
@@ -853,8 +853,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			return { merged: false };
 		} catch (ex) {
-			if (Logger.enabled('debug')) {
-				Logger.error(ex, scope);
+			if (Logger.enabled('trace')) {
+				scope?.error(ex);
 			}
 			if (isCancellationError(ex)) throw ex;
 
@@ -946,26 +946,24 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 				const msg: string = ex?.toString() ?? '';
 				if (GitErrors.notAValidObjectName.test(msg)) {
-					Logger.error(
+					scope?.error(
 						ex,
-						scope,
 						`'${targetBranch}' or '${branch}' not found - ensure the branches exist and are fully qualified (e.g. 'refs/heads/main')`,
 					);
 					return createConflictDetectionError('refNotFound');
 				} else if (GitErrors.badRevision.test(msg)) {
-					Logger.error(ex, scope, `Invalid branch name: ${msg.slice(msg.indexOf("'"))}`);
+					scope?.error(ex, `Invalid branch name: ${msg.slice(msg.indexOf("'"))}`);
 					return createConflictDetectionError('refNotFound');
 				} else if (GitErrors.noMergeBase.test(msg)) {
-					Logger.error(
+					scope?.error(
 						ex,
-						scope,
 						`Unable to merge '${branch}' and '${targetBranch}' as they have no common ancestor`,
 					);
 					return createConflictDetectionError('noMergeBase');
 				} else if (ex instanceof GitError) {
 					data = ex.stdout;
 				} else {
-					Logger.error(ex, scope);
+					scope?.error(ex);
 					return createConflictDetectionError('other');
 				}
 			}
@@ -1012,7 +1010,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			currentTreeOid = treeResult.stdout.trim();
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
-			Logger.error(ex, scope, `Failed to resolve target branch '${targetBranch}'`);
+			scope?.error(ex, `Failed to resolve target branch '${targetBranch}'`);
 			return createConflictDetectionError('refNotFound');
 		}
 
@@ -1047,26 +1045,24 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 				const msg: string = ex?.toString() ?? '';
 				if (GitErrors.notAValidObjectName.test(msg)) {
-					Logger.error(
+					scope?.error(
 						ex,
-						scope,
 						`'${targetBranch}' or '${commit.sha}' not found - ensure the branches/commits exist`,
 					);
 					return createConflictDetectionError('refNotFound');
 				} else if (GitErrors.badRevision.test(msg)) {
-					Logger.error(ex, scope, `Invalid revision: ${msg.slice(msg.indexOf("'"))}`);
+					scope?.error(ex, `Invalid revision: ${msg.slice(msg.indexOf("'"))}`);
 					return createConflictDetectionError('refNotFound');
 				} else if (GitErrors.noMergeBase.test(msg)) {
-					Logger.error(
+					scope?.error(
 						ex,
-						scope,
 						`Unable to merge '${commit.sha}' and '${targetBranch}' as they have no common ancestor`,
 					);
 					return createConflictDetectionError('noMergeBase');
 				} else if (ex instanceof GitError) {
 					data = ex.stdout;
 				} else {
-					Logger.error(ex, scope, 'Failed to execute merge-tree for conflict check');
+					scope?.error(ex, 'Failed to execute merge-tree for conflict check');
 					return createConflictDetectionError('other');
 				}
 			}
@@ -1366,7 +1362,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope);
+			scope?.error(ex);
 		}
 
 		return dateMetadataMap;

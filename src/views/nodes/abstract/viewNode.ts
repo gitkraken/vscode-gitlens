@@ -271,7 +271,7 @@ export abstract class ViewNode<
 
 	protected _disposed = false;
 	// NOTE: @eamodio uncomment to track node leaks
-	// @trace()
+	// @debug()
 	dispose(): void {
 		this._disposed = true;
 		// NOTE: @eamodio uncomment to track node leaks

@@ -7,7 +7,6 @@ import { getHostAppName } from '../../../../system/-webview/vscode.js';
 import { debug, trace } from '../../../../system/decorators/log.js';
 import type { Deferrable } from '../../../../system/function/debounce.js';
 import { debounce } from '../../../../system/function/debounce.js';
-import { Logger } from '../../../../system/logger.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { runCLICommand, toMcpInstallProvider } from '../cli/utils.js';
 
@@ -181,7 +180,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			};
 		} catch (ex) {
 			debugger;
-			Logger.error(ex, scope, `Error getting MCP configuration`);
+			scope?.error(ex, `Error getting MCP configuration`);
 			this.onRegistrationFailed('Error getting MCP configuration', String(ex), cliInstall.version);
 		}
 

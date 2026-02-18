@@ -8,13 +8,17 @@ import { getNewLogScope } from './logger.scope.js';
 (Symbol as any).dispose ??= Symbol('Symbol.dispose');
 (Symbol as any).asyncDispose ??= Symbol('Symbol.asyncDispose');
 
-type StopwatchLogOptions = { message?: string; suffix?: string };
+type StopwatchLogLevel = Exclude<LogLevel, 'off'>;
+type StopwatchLogOptions = {
+	level?: StopwatchLogLevel;
+	message?: string;
+	suffix?: string;
+	onlyExit?: true;
+};
 type StopwatchOptions = {
 	log?: boolean | StopwatchLogOptions;
-	logLevel?: StopwatchLogLevel;
 	provider?: LogProvider;
 };
-type StopwatchLogLevel = Exclude<LogLevel, 'off'>;
 
 export class Stopwatch implements Disposable {
 	private readonly logScope: ScopedLogger;
@@ -31,33 +35,32 @@ export class Stopwatch implements Disposable {
 	constructor(scope: string | ScopedLogger | undefined, options?: StopwatchOptions, ...params: any[]) {
 		this.logScope = scope != null && typeof scope !== 'string' ? scope : getNewLogScope(scope ?? '', false);
 
-		let logOptions: StopwatchLogOptions | undefined;
-		if (typeof options?.log === 'boolean') {
-			logOptions = options.log ? {} : undefined;
+		const log = options?.log;
+		let logEntry: { message?: string; suffix?: string } | undefined;
+		if (log == null || log === true) {
+			logEntry = {};
+		} else if (log === false) {
+			logEntry = undefined;
 		} else {
-			logOptions = options?.log ?? {};
+			logEntry = log.onlyExit ? undefined : log;
 		}
 
-		this.logLevel = options?.logLevel ?? 'info';
+		this.logLevel = (typeof log === 'object' ? log.level : undefined) ?? 'debug';
 		this.logProvider = options?.provider ?? defaultLogProvider;
 		this._time = hrtime();
 
-		if (logOptions != null) {
+		if (logEntry != null) {
 			if (!this.logProvider.enabled(this.logLevel)) return;
 
 			if (params.length) {
 				this.logProvider.log(
 					this.logLevel,
 					this.logScope,
-					`${logOptions.message ?? ''}${logOptions.suffix ?? ''}`,
+					`${logEntry.message ?? ''}${logEntry.suffix ?? ''}`,
 					...params,
 				);
 			} else {
-				this.logProvider.log(
-					this.logLevel,
-					this.logScope,
-					`${logOptions.message ?? ''}${logOptions.suffix ?? ''}`,
-				);
+				this.logProvider.log(this.logLevel, this.logScope, `${logEntry.message ?? ''}${logEntry.suffix ?? ''}`);
 			}
 		}
 	}
@@ -71,24 +74,24 @@ export class Stopwatch implements Disposable {
 		return secs * 1000 + Math.floor(nanosecs / 1000000);
 	}
 
-	log(options?: StopwatchLogOptions): void {
+	log(options?: { message?: string; suffix?: string }): void {
 		this.logCore(options, false);
 	}
 
-	restart(options?: StopwatchLogOptions): void {
+	restart(options?: { message?: string; suffix?: string }): void {
 		this.logCore(options, true);
 		this._time = hrtime();
 		this._stopped = false;
 	}
 
-	stop(options?: StopwatchLogOptions): void {
+	stop(options?: { message?: string; suffix?: string }): void {
 		if (this._stopped) return;
 
 		this.restart(options);
 		this._stopped = true;
 	}
 
-	private logCore(options: StopwatchLogOptions | undefined, logTotalElapsed: boolean): void {
+	private logCore(options: { message?: string; suffix?: string } | undefined, logTotalElapsed: boolean): void {
 		if (!this.logProvider.enabled(this.logLevel)) return;
 
 		if (!logTotalElapsed) {
@@ -114,7 +117,8 @@ export function maybeStopWatch(
 	options?: StopwatchOptions,
 	...params: any[]
 ): Stopwatch | undefined {
-	return (options?.provider ?? defaultLogProvider).enabled(options?.logLevel ?? 'info')
+	const level = (typeof options?.log === 'object' ? options.log.level : undefined) ?? 'info';
+	return (options?.provider ?? defaultLogProvider).enabled(level)
 		? new Stopwatch(scope, options, ...params)
 		: undefined;
 }

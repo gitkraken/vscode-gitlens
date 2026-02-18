@@ -4,7 +4,6 @@ import { setContext } from '../../system/-webview/context.js';
 import { gate } from '../../system/decorators/gate.js';
 import { debug } from '../../system/decorators/log.js';
 import { once } from '../../system/function.js';
-import { Logger } from '../../system/logger.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 import type {
 	Organization,
@@ -45,7 +44,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
-	@debug<OrganizationService['getOrganizations']>({ args: { 0: o => `force=${o?.force}, userId=${o?.userId}` } })
+	@debug({ args: options => ({ options: `force=${options?.force}, userId=${options?.userId}` }) })
 	async getOrganizations(options?: {
 		force?: boolean;
 		accessToken?: string;
@@ -75,7 +74,7 @@ export class OrganizationService implements Disposable {
 				);
 			} catch (ex) {
 				debugger;
-				Logger.error(ex, scope);
+				scope?.error(ex);
 
 				void window.showErrorMessage(`Unable to get organizations due to error: ${ex}`, 'OK');
 				this.updateOrganizations(undefined);
@@ -84,11 +83,7 @@ export class OrganizationService implements Disposable {
 
 			if (!rsp.ok) {
 				debugger;
-				Logger.error(
-					undefined,
-					scope,
-					`Unable to get organizations; status=(${rsp.status}): ${rsp.statusText}`,
-				);
+				scope?.error(undefined, `Unable to get organizations; status=(${rsp.status}): ${rsp.statusText}`);
 
 				void window.showErrorMessage(`Unable to get organizations; Status: ${rsp.statusText}`, 'OK');
 
@@ -183,6 +178,7 @@ export class OrganizationService implements Disposable {
 	@gate()
 	@debug()
 	async getMembers(id?: string | undefined, options?: { force?: boolean }): Promise<OrganizationMember[]> {
+		const scope = getScopedLogger();
 		if (id == null) {
 			id = await this.getActiveOrganizationId();
 			if (id == null) return [];
@@ -194,9 +190,8 @@ export class OrganizationService implements Disposable {
 			};
 			const rsp = await this.connection.fetchGkApi(`organization/${id}/members`, { method: 'GET' });
 			if (!rsp.ok) {
-				Logger.error(
-					'',
-					getScopedLogger(),
+				scope?.error(
+					undefined,
 					`Unable to get organization members; status=(${rsp.status}): ${rsp.statusText}`,
 				);
 				return [];
@@ -237,6 +232,9 @@ export class OrganizationService implements Disposable {
 			data: OrganizationSettings;
 			error: string | undefined;
 		};
+
+		const scope = getScopedLogger();
+
 		// TODO: maybe getActiveOrganizationId(false) when force is true
 		const id = orgId ?? (await this.getActiveOrganizationId());
 		if (id == null) return undefined;
@@ -264,9 +262,8 @@ export class OrganizationService implements Disposable {
 				{ organizationId: id },
 			);
 			if (!rsp.ok) {
-				Logger.error(
-					'',
-					getScopedLogger(),
+				scope?.error(
+					undefined,
 					`Unable to get organization settings; status=(${rsp.status}): ${rsp.statusText}`,
 				);
 				return undefined;
@@ -274,9 +271,8 @@ export class OrganizationService implements Disposable {
 
 			const organizationResponse = (await rsp.json()) as OrganizationSettingsResponse;
 			if (organizationResponse.error != null) {
-				Logger.error(
+				scope?.error(
 					'',
-					getScopedLogger(),
 					`Unable to get organization settings; status=(${rsp.status}): ${organizationResponse.error}`,
 				);
 				return undefined;

@@ -43,7 +43,7 @@ export function parseGitBlame(
 	currentUser: GitUser | undefined,
 	modifiedTime?: number,
 ): GitBlame | undefined {
-	using sw = maybeStopWatch(`Git.parseBlame(${repoPath})`, { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch(`Git.parseBlame(${repoPath})`, { log: { onlyExit: true, level: 'debug' } });
 	if (!data) {
 		sw?.stop({ suffix: ` no data` });
 		return undefined;

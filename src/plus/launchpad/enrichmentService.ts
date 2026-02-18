@@ -9,7 +9,6 @@ import type { Container } from '../../container.js';
 import { AuthenticationRequiredError, CancellationError } from '../../errors.js';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
 import { debug } from '../../system/decorators/log.js';
-import { Logger } from '../../system/logger.js';
 import { getScopedLogger } from '../../system/logger.scope.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import { ensureAccount } from '../gk/utils/-webview/acount.utils.js';
@@ -39,7 +38,7 @@ export class EnrichmentService implements Disposable {
 
 			if (!rsp.ok) throw new Error(`Unable to ${context} item '${id}':  (${rsp.status}) ${rsp.statusText}`);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			throw ex;
 		}
@@ -62,7 +61,7 @@ export class EnrichmentService implements Disposable {
 		} catch (ex) {
 			if (ex instanceof AuthenticationRequiredError) return [];
 
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			throw ex;
 		}
@@ -78,7 +77,7 @@ export class EnrichmentService implements Disposable {
 		return this.get('snooze', cancellation);
 	}
 
-	@debug<EnrichmentService['pinItem']>({ args: { 0: i => `${i.id} (${i.provider} ${i.type})` } })
+	@debug({ args: item => ({ item: `${item.id} (${item.provider} ${item.type})` }) })
 	async pinItem(item: EnrichableItem): Promise<EnrichedItem> {
 		const scope = getScopedLogger();
 
@@ -115,7 +114,7 @@ export class EnrichmentService implements Disposable {
 			const result = (await rsp.json()) as Result;
 			return result.data;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			throw ex;
 		}
@@ -126,7 +125,7 @@ export class EnrichmentService implements Disposable {
 		return this.delete(id, 'unpin');
 	}
 
-	@debug<EnrichmentService['snoozeItem']>({ args: { 0: i => `${i.id} (${i.provider} ${i.type})` } })
+	@debug({ args: item => ({ item: `${item.id} (${item.provider} ${item.type})` }) })
 	async snoozeItem(item: EnrichableItem): Promise<EnrichedItem> {
 		const scope = getScopedLogger();
 
@@ -166,7 +165,7 @@ export class EnrichmentService implements Disposable {
 			const result = (await rsp.json()) as Result;
 			return result.data;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			throw ex;
 		}

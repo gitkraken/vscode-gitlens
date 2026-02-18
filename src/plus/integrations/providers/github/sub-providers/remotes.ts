@@ -5,7 +5,7 @@ import { RemotesGitProviderBase } from '../../../../../git/sub-providers/remotes
 import { debug } from '../../../../../system/decorators/log.js';
 
 export class RemotesGitSubProvider extends RemotesGitProviderBase {
-	@debug({ args: { 1: false } })
+	@debug({ args: repoPath => ({ repoPath: repoPath }) })
 	async getRemotes(
 		repoPath: string | undefined,
 		_options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },

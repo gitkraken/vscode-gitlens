@@ -805,7 +805,7 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 		return undefined;
 	}
 
-	@trace<CommitsCurrentBranchNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
+	@trace()
 	private onRepositoryChanged(_e: RepositoryChangeEvent) {
 		this.view.triggerNodeChange(this);
 	}

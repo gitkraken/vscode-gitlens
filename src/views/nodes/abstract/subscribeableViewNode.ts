@@ -5,7 +5,7 @@ import type { GitUri } from '../../../git/gitUri.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { trace } from '../../../system/decorators/log.js';
 import { weakEvent } from '../../../system/event.js';
-import { getScopedLogger, setLogScopeExit } from '../../../system/logger.scope.js';
+import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { View } from '../../viewBase.js';
 import { CacheableChildrenViewNode } from './cacheableChildrenViewNode.js';
 import type { ViewNode } from './viewNode.js';
@@ -67,7 +67,7 @@ export abstract class SubscribeableViewNode<
 
 		// If the node has been disposed, nothing to do
 		if (this._disposed) {
-			setLogScopeExit(scope, ' \u2022 ignored; disposed');
+			scope?.addExitInfo('ignored; disposed');
 			return;
 		}
 
@@ -75,14 +75,14 @@ export abstract class SubscribeableViewNode<
 		// If this is a reset, record it so it will be applied when the node becomes loaded/visible.
 		if (!this.loaded) {
 			if (reset) {
-				setLogScopeExit(scope, ' \u2022 ignored; pending reset');
+				scope?.addExitInfo('ignored; pending reset');
 				// If the view isn't visible, we'll persist the pending reset for application on visible.
 				// If the view is visible but the node isn't loaded, it's still safer to record the reset
 				// and let the normal load/visibility logic apply it rather than firing tree updates for
 				// a node that doesn't exist yet in the tree.
 				this._pendingReset = reset;
 			} else {
-				setLogScopeExit(scope, ' \u2022 ignored; not loaded');
+				scope?.addExitInfo('ignored; not loaded');
 			}
 			return;
 		}
@@ -91,7 +91,7 @@ export abstract class SubscribeableViewNode<
 			this._pendingReset = reset;
 		}
 
-		setLogScopeExit(scope, ' \u2022 refreshing view');
+		scope?.addExitInfo('refreshing view');
 		await super.triggerChange(reset, force);
 	}
 
@@ -175,16 +175,16 @@ export abstract class SubscribeableViewNode<
 			// after the tree became visible, the refresh would be redundant.
 			const timeSinceLoad = Date.now() - this._loadedAt;
 			if (timeSinceLoad > 500) {
-				setLogScopeExit(scope, ` \u2022 triggering refresh; timeSinceLoad=${timeSinceLoad}ms`);
+				scope?.addExitInfo(`triggering refresh; timeSinceLoad=${timeSinceLoad}ms`);
 				void this.triggerChange(this.requiresResetOnVisible);
 			} else {
-				setLogScopeExit(scope, ` \u2022 skipped refresh; timeSinceLoad=${timeSinceLoad}ms`);
+				scope?.addExitInfo(`skipped refresh; timeSinceLoad=${timeSinceLoad}ms`);
 			}
 		}
 	}
 
 	@gate(undefined, { timeout: 30000, rejectOnTimeout: false }) // 30 second timeout to prevent indefinite hangs
-	@trace({ singleLine: true })
+	@trace({ onlyExit: true })
 	async ensureSubscription(force?: boolean, visible?: boolean): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -197,9 +197,8 @@ export abstract class SubscribeableViewNode<
 		const autoRefreshDisabled = canAutoRefreshView(this.view) && !this.view.autoRefresh;
 
 		if (!canSubscribe || (!force && !isVisible) || autoRefreshDisabled) {
-			setLogScopeExit(
-				scope,
-				` \u2022 unsubscribed (subscription=${this.subscription != null}); canSubscribe=${canSubscribe}, viewVisible=${isVisible}, force=${force}, autoRefreshDisabled=${autoRefreshDisabled}`,
+			scope?.addExitInfo(
+				`unsubscribed (subscription=${this.subscription != null}); canSubscribe=${canSubscribe}, viewVisible=${isVisible}, force=${force}, autoRefreshDisabled=${autoRefreshDisabled}`,
 			);
 			await this.unsubscribe();
 
@@ -208,13 +207,12 @@ export abstract class SubscribeableViewNode<
 
 		// If we already have a subscription, just kick out
 		if (this.subscription != null) {
-			setLogScopeExit(scope, ' \u2022 already subscribed');
+			scope?.addExitInfo('already subscribed');
 			return;
 		}
 
-		setLogScopeExit(
-			scope,
-			` \u2022 subscribed; canSubscribe=${canSubscribe}, viewVisible=${isVisible}, force=${force}, autoRefreshDisabled=${autoRefreshDisabled}`,
+		scope?.addExitInfo(
+			`subscribed; canSubscribe=${canSubscribe}, viewVisible=${isVisible}, force=${force}, autoRefreshDisabled=${autoRefreshDisabled}`,
 		);
 
 		this.subscription = Promise.resolve(this.subscribe());

@@ -6,7 +6,6 @@ import { GitTag } from '../../../../../git/models/tag.js';
 import type { TagSortOptions } from '../../../../../git/utils/-webview/sorting.js';
 import { sortTags } from '../../../../../git/utils/-webview/sorting.js';
 import { debug } from '../../../../../system/decorators/log.js';
-import { Logger } from '../../../../../system/logger.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
@@ -29,7 +28,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		return tag;
 	}
 
-	@debug({ args: { 1: false } })
+	@debug({ args: repoPath => ({ repoPath: repoPath }) })
 	async getTags(
 		repoPath: string | undefined,
 		options?: {
@@ -94,7 +93,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 						}
 					} catch (ex) {
 						cancellable.invalidate();
-						Logger.error(ex, scope);
+						scope?.error(ex);
 						debugger;
 
 						return emptyPagedResult;
@@ -144,7 +143,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 			return tags;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			debugger;
 			return [];
 		}

@@ -1,7 +1,7 @@
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
+import { md5 } from '@env/crypto.js';
 import { hrtime } from '@env/hrtime.js';
-import { loggingJsonReplacer } from '@env/json.js';
 import { isWeb } from '@env/platform.js';
 import { Api } from './api/api.js';
 import type {
@@ -63,18 +63,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				if (logLevel === 'error' || logLevel === 'warn') {
 					channel.appendLine(
-						`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion} activating in ${
-							env.appName
-						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
-							context.extensionMode,
-						)}, language='${
-							env.language
-						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
-							env.sessionId
-						})`,
-					);
-					channel.appendLine(
-						'To enable debug logging, set `"gitlens.outputLevel": "debug"` or run "GitLens: Enable Debug Logging" from the Command Palette',
+						'To enable debug logging, run "GitLens: Enable Debug Logging" or "Developer: Set Log Level..." from the Command Palette',
 					);
 				}
 				return channel;
@@ -113,7 +102,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				return undefined;
 			},
-			sanitizer: loggingJsonReplacer,
+			hash: function (data: string) {
+				return md5(data).slice(0, 4);
+			},
 		},
 		logLevel,
 		context.extensionMode === ExtensionMode.Development,
@@ -121,11 +112,12 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
 		log: {
+			level: 'error',
 			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
 				context.extensionMode,
 			)},language='${
 				env.language
-			}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
+			}', logLevel='${Logger.logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 				env.sessionId
 			})`,
 		},
@@ -177,7 +169,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	}
 
 	let exitMessage;
-	if (Logger.enabled('debug')) {
+	if (Logger.enabled('trace')) {
 		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}`;
 	}
 
@@ -223,9 +215,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			void storage.store(prerelease ? 'synced:preVersion' : 'synced:version', gitlensVersion).catch();
 		}
 
-		if (logLevel === 'debug') {
+		if (Logger.enabled('trace')) {
 			setTimeout(async () => {
-				if (fromOutputLevel(configuration.get('outputLevel')) !== 'debug') return;
+				if (!Logger.enabled('trace')) return;
 
 				if (!container.prereleaseOrDebugging) {
 					if (await showDebugLoggingWarningMessage()) {
@@ -292,7 +284,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 }
 
 export function deactivate(): void {
-	Logger.debug('GitLens deactivating...');
+	Logger.info('GitLens deactivating...');
 	Container.instance.deactivate();
 }
 
@@ -364,15 +356,13 @@ async function showWhatsNew(
 	previousVersion: string | undefined,
 ) {
 	if (previousVersion == null) {
-		Logger.debug(`GitLens first-time install; window.focused=${window.state.focused}`);
+		Logger.info(`GitLens first-time install; window.focused=${window.state.focused}`);
 
 		return;
 	}
 
 	if (previousVersion !== version) {
-		Logger.debug(
-			`GitLens upgraded from v${previousVersion} to v${version}; window.focused=${window.state.focused}`,
-		);
+		Logger.info(`GitLens upgraded from v${previousVersion} to v${version}; window.focused=${window.state.focused}`);
 	}
 
 	const current = fromString(version);

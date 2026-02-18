@@ -66,7 +66,7 @@ function createRefParser<T extends Record<string, string | undefined>>(
 	const args = [`--format=${format}`];
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<T> {
-		using sw = maybeStopWatch('Git.RefParser.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.RefParser.parse', { log: { onlyExit: true, level: 'debug' } });
 
 		if (!data) {
 			sw?.stop({ suffix: ` no data` });

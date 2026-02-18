@@ -68,12 +68,11 @@ export class ServerConnection implements Disposable {
 				: 'gitlens-vsc';
 	}
 
-	@trace<ServerConnection['fetch']>({
-		args: {
-			0: u => (typeof u === 'string' ? u : 'href' in u ? u.href : 'url' in u ? u.url : 'unknown'),
-			1: false,
-			2: false,
-		},
+	@trace({
+		args: (url, _, options) => ({
+			url: typeof url === 'string' ? url : 'href' in url ? url.href : 'url' in url ? url.url : 'unknown',
+			options: options,
+		}),
 	})
 	async fetch(url: RequestInfo, init?: RequestInit, options?: FetchOptions): Promise<Response> {
 		const scope = getScopedLogger();
@@ -105,19 +104,23 @@ export class ServerConnection implements Disposable {
 			void promise.finally(() => clearTimeout(timer));
 			return await promise;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			scope?.error(ex);
 			if (ex.name === 'AbortError') throw new CancellationError(ex);
 
 			throw ex;
 		}
 	}
 
-	@trace({ args: { 1: false, 2: false } })
+	@trace({
+		args: (path, _, options) => ({ path: path, token: options?.token, organizationId: options?.organizationId }),
+	})
 	async fetchGkApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
 		return this.gkFetch(this.urls.getGkApiUrl(path), init, options);
 	}
 
-	@trace({ args: { 1: false, 2: false } })
+	@trace({
+		args: (path, _, options) => ({ path: path, options: options }),
+	})
 	async fetchGkConfig(path: string, init?: RequestInit, options?: FetchOptions): Promise<Response> {
 		return this.fetch(this.urls.getGkConfigUrl(path), init, options);
 	}
@@ -158,10 +161,16 @@ export class ServerConnection implements Disposable {
 		return headers;
 	}
 
+	@trace({
+		args: (url, _, options) => ({
+			url: typeof url === 'string' ? url : 'href' in url ? url.href : 'url' in url ? url.url : 'unknown',
+			token: options?.token,
+			organizationId: options?.organizationId,
+		}),
+	})
 	private async gkFetch(url: RequestInfo, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
-		if (this.requestsAreBlocked) {
-			throw new RequestsAreBlockedTemporarilyError();
-		}
+		if (this.requestsAreBlocked) throw new RequestsAreBlockedTemporarilyError();
+
 		const scope = getScopedLogger();
 
 		try {
@@ -230,7 +239,7 @@ export class ServerConnection implements Disposable {
 				// Be sure to clone the response so we don't impact any upstream consumers
 				content = await rsp.clone().text();
 
-				Logger.error(undefined, scope, `GitKraken request failed: ${content} (${rsp.statusText})`);
+				scope?.error(undefined, `GitKraken request failed: ${content} (${rsp.statusText})`);
 				if (content.includes('timeout')) {
 					this.trackRequestException();
 					void showGkRequestTimedOutWarningMessage();
@@ -242,7 +251,7 @@ export class ServerConnection implements Disposable {
 				// Be sure to clone the response so we don't impact any upstream consumers
 				content = await rsp.clone().text();
 
-				Logger.error(undefined, scope, `GitKraken request failed: ${content} (${rsp.statusText})`);
+				scope?.error(undefined, `GitKraken request failed: ${content} (${rsp.statusText})`);
 				this.trackRequestException();
 				void showGkRequestFailed500WarningMessage(
 					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
@@ -293,7 +302,7 @@ export class ServerConnection implements Disposable {
 				}
 				throw new AuthenticationError(gitkrakenTokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				if (ex.response != null) {
 					this.trackRequestException();
 					void showGkRequestFailed500WarningMessage(
@@ -302,14 +311,14 @@ export class ServerConnection implements Disposable {
 				}
 				return;
 			case 502: // Bad Gateway
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				if (ex.message.includes('timeout')) {
 					this.trackRequestException();
 					void showGkRequestTimedOutWarningMessage();
 				}
 				break;
 			case 503: // Service Unavailable
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				this.trackRequestException();
 				void showGkRequestFailed500WarningMessage(
 					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',

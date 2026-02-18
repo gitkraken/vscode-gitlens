@@ -16,7 +16,6 @@ import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '
 import { configuration } from '../../../system/-webview/configuration.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { debug, trace } from '../../../system/decorators/log.js';
-import { Logger } from '../../../system/logger.js';
 import type { ScopedLogger } from '../../../system/logger.scope.js';
 import { getScopedLogger } from '../../../system/logger.scope.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../gk/utils/subscription.utils.js';
@@ -326,7 +325,7 @@ export abstract class IntegrationBase<
 	): void {
 		if (ex instanceof CancellationError) return;
 
-		Logger.error(ex, options?.scope);
+		options?.scope?.error(ex);
 
 		if (ex instanceof AuthenticationError && this._session?.cloud) {
 			if (!this.hasSessionSyncRequests()) {
@@ -351,7 +350,7 @@ export abstract class IntegrationBase<
 			try {
 				await this.syncCloudConnection('connected', true);
 			} catch (ex) {
-				Logger.error(ex, scope);
+				scope?.error(ex);
 			}
 		} else if (
 			this._session?.expiresAt == null &&

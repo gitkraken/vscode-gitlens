@@ -80,7 +80,7 @@ const commandRegex =
  * ```
  */
 export function parseRebaseTodo(data: string | undefined): ParsedRebaseTodo {
-	using sw = maybeStopWatch('Git.parseRebaseTodo', { log: false, logLevel: 'debug' });
+	using sw = maybeStopWatch('Git.parseRebaseTodo', { log: { onlyExit: true, level: 'debug' } });
 
 	if (!data) {
 		sw?.stop({ suffix: ' no data' });

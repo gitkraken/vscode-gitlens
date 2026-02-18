@@ -221,7 +221,7 @@ export class GitHubApi implements Disposable {
 			configuration.onDidChangeAny(e => {
 				if (
 					configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
-					configuration.changed(e, ['outputLevel', 'proxy'])
+					configuration.changed(e, 'proxy')
 				) {
 					this.resetCaches();
 				}
@@ -308,7 +308,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, rev) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+		}),
+	})
 	async getAccountForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -419,7 +427,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, email) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			email: email,
+		}),
+	})
 	async getAccountForEmail(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -510,7 +526,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
 	async getDefaultBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -569,7 +592,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, number) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			number: number,
+		}),
+	})
 	async getIssueOrPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -641,7 +672,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, number) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			number: number,
+		}),
+	})
 	async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -708,7 +747,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, number) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			number: number,
+		}),
+	})
 	async getPullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -768,7 +815,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, branch) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+		}),
+	})
 	async getPullRequestForBranch(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -857,7 +912,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo, rev) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+		}),
+	})
 	async getPullRequestForCommit(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -942,7 +1005,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
 	async getRepositoryMetadata(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -1031,7 +1101,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getBlame']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref, path) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+			path: path,
+		}),
+	})
 	async getBlame(token: TokenWithInfo, owner: string, repo: string, ref: string, path: string): Promise<GitHubBlame> {
 		const scope = getScopedLogger();
 
@@ -1114,7 +1192,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getBranches']>({ args: { 0: '<token>' } })
+	@trace({ args: (token, owner, repo) => ({ token: `<token:${token.microHash}>`, owner: owner, repo: repo }) })
 	async getBranches(
 		token: TokenWithInfo,
 		owner: string,
@@ -1198,7 +1276,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getCommit']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+		}),
+	})
 	async getCommit(
 		token: TokenWithInfo,
 		owner: string,
@@ -1256,7 +1341,15 @@ export class GitHubApi implements Disposable {
 		// return { ...results.values[0], viewer: results.viewer };
 	}
 
-	@trace<GitHubApi['getCommitForFile']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref, path) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+			path: path,
+		}),
+	})
 	async getCommitForFile(
 		token: TokenWithInfo,
 		owner: string,
@@ -1274,7 +1367,16 @@ export class GitHubApi implements Disposable {
 		return { ...(commit ?? results.values[0]), viewer: results.viewer };
 	}
 
-	@trace<GitHubApi['getBranchesWithCommits']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, refs, mode, date) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			refs: refs,
+			mode: mode,
+			date: date,
+		}),
+	})
 	async getBranchesWithCommits(
 		token: TokenWithInfo,
 		owner: string,
@@ -1359,7 +1461,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getCommitCount']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+		}),
+	})
 	async getCommitCount(token: TokenWithInfo, owner: string, repo: string, ref: string): Promise<number | undefined> {
 		const scope = getScopedLogger();
 
@@ -1413,7 +1522,17 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getBranchWithCommit']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, branch, refs, mode, date) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+			refs: refs,
+			mode: mode,
+			date: date,
+		}),
+	})
 	async getBranchWithCommit(
 		token: TokenWithInfo,
 		owner: string,
@@ -1493,7 +1612,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getCommits']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+		}),
+	})
 	async getCommits(
 		token: TokenWithInfo,
 		owner: string,
@@ -1748,7 +1874,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getCommitRefs']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+		}),
+	})
 	async getCommitRefs(
 		token: TokenWithInfo,
 		owner: string,
@@ -1843,7 +1976,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getTagsWithCommit']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref, date) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+			date: date,
+		}),
+	})
 	async getTagsWithCommit(
 		token: TokenWithInfo,
 		owner: string,
@@ -1925,7 +2066,16 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getNextCommitRefs']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref, path, sha) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+			path: path,
+			sha: sha,
+		}),
+	})
 	async getNextCommitRefs(
 		token: TokenWithInfo,
 		owner: string,
@@ -2015,7 +2165,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getContributors']>({ args: { 0: '<token>' } })
+	@trace({ args: (token, owner, repo) => ({ token: `<token:${token.microHash}>`, owner: owner, repo: repo }) })
 	async getContributors(token: TokenWithInfo, owner: string, repo: string): Promise<GitHubContributor[]> {
 		const scope = getScopedLogger();
 
@@ -2045,7 +2195,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getDefaultBranchName']>({ args: { 0: '<token>' } })
+	@trace({ args: (token, owner, repo) => ({ token: `<token:${token.microHash}>`, owner: owner, repo: repo }) })
 	async getDefaultBranchName(token: TokenWithInfo, owner: string, repo: string): Promise<string | undefined> {
 		const scope = getScopedLogger();
 
@@ -2090,7 +2240,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getCurrentUser']>({ args: { 0: '<token>' } })
+	@trace({ args: (token, owner, repo) => ({ token: `<token:${token.microHash}>`, owner: owner, repo: repo }) })
 	async getCurrentUser(token: TokenWithInfo, owner: string, repo: string): Promise<GitUser | undefined> {
 		const scope = getScopedLogger();
 
@@ -2138,7 +2288,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getComparison']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, range) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			range: range,
+		}),
+	})
 	async getComparison(
 		token: TokenWithInfo,
 		owner: string,
@@ -2177,7 +2334,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getRepositoryVisibility']>({ args: { 0: '<token>' } })
+	@trace({ args: (token, owner, repo) => ({ token: `<token:${token.microHash}>`, owner: owner, repo: repo }) })
 	async getRepositoryVisibility(
 		token: TokenWithInfo,
 		owner: string,
@@ -2224,7 +2381,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['getTags']>({ args: { 0: '<token>' } })
+	@trace({ args: (token, owner, repo) => ({ token: `<token:${token.microHash}>`, owner: owner, repo: repo }) })
 	async getTags(
 		token: TokenWithInfo,
 		owner: string,
@@ -2316,7 +2473,15 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['resolveReference']>({ args: { 0: '<token>' } })
+	@trace({
+		args: (token, owner, repo, ref, path) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+			path: path,
+		}),
+	})
 	async resolveReference(
 		token: TokenWithInfo,
 		owner: string,
@@ -2408,7 +2573,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['searchCommits']>({ args: { 0: '<token>' } })
+	@trace({ args: (token, query) => ({ token: `<token:${token.microHash}>`, query: query }) })
 	async searchCommits(
 		token: TokenWithInfo,
 		query: string,
@@ -2493,7 +2658,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['searchCommitShas']>({ args: { 0: '<token>' } })
+	@trace({ args: (token, query) => ({ token: `<token:${token.microHash}>`, query: query }) })
 	async searchCommitShas(
 		token: TokenWithInfo,
 		query: string,
@@ -2567,7 +2732,7 @@ export class GitHubApi implements Disposable {
 
 	private _enterpriseVersions = new Map<string, Version | null>();
 
-	@trace<GitHubApi['getEnterpriseVersion']>({ args: { 0: p => p?.name, 1: '<token>' } })
+	@trace({ args: (provider, token) => ({ provider: provider?.name, token: `<token:${token.microHash}>` }) })
 	private async getEnterpriseVersion(
 		provider: Provider | undefined,
 		token: TokenWithInfo,
@@ -2720,10 +2885,10 @@ export class GitHubApi implements Disposable {
 							}
 						: fetch,
 					hook:
-						Logger.logLevel === 'debug' || Logger.isDebugging
+						Logger.enabled('trace') || Logger.isDebugging
 							? async (rqst: typeof request, options: any) => {
 									const sw = maybeStopWatch(`[GITHUB] ${options.method} ${options.url}`, {
-										log: false,
+										log: { onlyExit: true },
 									});
 									try {
 										return await rqst(options);
@@ -2780,7 +2945,7 @@ export class GitHubApi implements Disposable {
 				}
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				if (ex.response != null) {
 					provider?.trackRequestException();
 					void showIntegrationRequestFailed500WarningMessage(
@@ -2793,7 +2958,7 @@ export class GitHubApi implements Disposable {
 				}
 				return;
 			case 502: // Bad Gateway
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
 					provider?.trackRequestException();
@@ -2802,7 +2967,7 @@ export class GitHubApi implements Disposable {
 				}
 				break;
 			case 503: // Service Unavailable
-				Logger.error(ex, scope);
+				scope?.error(ex);
 				provider?.trackRequestException();
 				void showIntegrationRequestFailed500WarningMessage(
 					`${provider?.name ?? 'GitHub'} failed to respond and might be experiencing issues.${
@@ -2817,7 +2982,7 @@ export class GitHubApi implements Disposable {
 				break;
 		}
 
-		Logger.error(ex, scope);
+		scope?.error(ex);
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
 				`GitHub request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
@@ -2831,7 +2996,7 @@ export class GitHubApi implements Disposable {
 		scope: ScopedLogger | undefined,
 		silent?: boolean,
 	): Error {
-		Logger.error(ex, scope);
+		scope?.error(ex);
 		// debugger;
 
 		if (ex instanceof AuthenticationError && !silent) {
@@ -2904,7 +3069,7 @@ export class GitHubApi implements Disposable {
 		return `https://avatars.githubusercontent.com/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
 	}
 
-	@trace<GitHubApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchMyPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -3019,7 +3184,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['searchMyIssues']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchMyIssues(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -3129,7 +3294,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -3190,7 +3355,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@trace<GitHubApi['mergePullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	@trace({
+		args: (provider, token, nodeId, expectedSourceSha) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			nodeId: nodeId,
+			expectedSourceSha: expectedSourceSha,
+		}),
+	})
 	async mergePullRequest(
 		provider: Provider,
 		token: TokenWithInfo,
