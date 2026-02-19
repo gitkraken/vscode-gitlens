@@ -14,7 +14,8 @@ import type { ServerConnection } from './serverConnection.js';
 type Config = {
 	promos: Promo[];
 	cli: {
-		minimumVersion: string;
+		minimumCoreVersion: string;
+		minimumProxyVersion: string;
 	};
 };
 
@@ -24,7 +25,8 @@ type ConfigJson = {
 	promos?: PromoJson[];
 	promosV2?: PromoV2Json[];
 	cli?: {
-		minimumVersion: string;
+		minimumCoreVersion: string;
+		minimumProxyVersion: string;
 	};
 };
 type PromoJson = Replace<Promo, 'plan' | 'expiresOn' | 'startsOn', string | undefined> & {
@@ -61,7 +63,8 @@ const fallbackConfig: Config = {
 		} satisfies Promo,
 	],
 	cli: {
-		minimumVersion: '3.1.52',
+		minimumCoreVersion: '3.1.52',
+		minimumProxyVersion: '3.1.53',
 	},
 } as const;
 
@@ -149,8 +152,12 @@ export class ProductConfigProvider {
 		return getApplicablePromo(promos, state, plan, location);
 	}
 
-	async getCliMinimumVersion(): Promise<string> {
-		return (await this.getConfig()).cli.minimumVersion;
+	async getCliMinimumVersions(): Promise<{ core: string; proxy: string }> {
+		const cli = (await this.getConfig()).cli;
+		return {
+			core: cli.minimumCoreVersion,
+			proxy: cli.minimumProxyVersion,
+		};
 	}
 
 	private getConfig(): Promise<Config> {
@@ -242,7 +249,8 @@ function createConfigValidator(): Validator<ConfigJson> {
 	});
 
 	const cliValidator = createValidator({
-		minimumVersion: Is.String,
+		minimumCoreVersion: Is.String,
+		minimumProxyVersion: Is.String,
 	});
 
 	return createValidator<ConfigJson>({

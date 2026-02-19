@@ -178,10 +178,12 @@ export class GkCliIntegrationProvider implements Disposable {
 		let forceInstall = false;
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		if (cliInstall?.status === 'completed') {
-			let currentCoreVersion = await this.getCliCoreVersion();
-			const minimumVersion = await this.container.productConfig.getCliMinimumVersion();
-			if (!currentCoreVersion || satisfies(fromString(currentCoreVersion), `< ${minimumVersion}`)) {
-				Logger.info(`CLI core version ${currentCoreVersion ?? 'unknown'} is outdated, forcing reinstall`);
+			const { needsUpdate, core, proxy } = await this.checkCliUpdateRequired();
+			let currentCoreVersion = core;
+			if (needsUpdate !== undefined) {
+				Logger.info(
+					`CLI ${needsUpdate} version ${(needsUpdate === 'core' ? currentCoreVersion : proxy) ?? 'unknown'} is outdated, forcing reinstall`,
+				);
 				forceInstall = true;
 			} else {
 				// Only update if GitLens extension version has changed since last check, to avoid unnecessary update checks
@@ -883,20 +885,61 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@debug()
-	private async getCliCoreVersion(force = false): Promise<string | undefined> {
+	private async checkCliUpdateRequired(): Promise<{
+		needsUpdate: 'core' | 'proxy' | undefined;
+		core: string | undefined;
+		proxy: string | undefined;
+	}> {
 		const scope = getScopedLogger();
 
-		if (force || this._cliCoreVersion == null) {
-			try {
-				const versions = await getCLIVersions();
-				this._cliCoreVersion = versions?.core;
-			} catch (ex) {
-				scope?.error(ex, 'Failed to get CLI version');
+		try {
+			const currentVersions = await getCLIVersions();
+			if (currentVersions == null) {
 				this._cliCoreVersion = undefined;
+				return {
+					needsUpdate: 'proxy',
+					core: undefined,
+					proxy: undefined,
+				};
 			}
+
+			const { core: currentCoreVersion, proxy: currentProxyVersion } = currentVersions;
+			this._cliCoreVersion = currentCoreVersion;
+
+			const { core: minimumCoreVersion, proxy: minimumProxyVersion } =
+				await this.container.productConfig.getCliMinimumVersions();
+
+			if (satisfies(fromString(currentProxyVersion), `< ${minimumProxyVersion}`)) {
+				return {
+					needsUpdate: 'proxy',
+					core: currentCoreVersion,
+					proxy: currentProxyVersion,
+				};
+			}
+
+			if (satisfies(fromString(currentCoreVersion), `< ${minimumCoreVersion}`)) {
+				return {
+					needsUpdate: 'core',
+					core: currentCoreVersion,
+					proxy: currentProxyVersion,
+				};
+			}
+
+			return {
+				needsUpdate: undefined,
+				core: currentCoreVersion,
+				proxy: currentProxyVersion,
+			};
+		} catch (ex) {
+			scope?.error(ex, 'Failed to get CLI version');
+			this._cliCoreVersion = undefined;
 		}
 
-		return this._cliCoreVersion;
+		return {
+			needsUpdate: 'proxy',
+			core: undefined,
+			proxy: undefined,
+		};
 	}
 }
 
