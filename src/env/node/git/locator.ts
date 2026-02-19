@@ -1,6 +1,5 @@
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import { getLoggableScopeBlockOverride } from '../../../system/logger.scope.js';
 import { any } from '../../../system/promise.js';
 import { maybeStopWatch } from '../../../system/stopwatch.js';
 import { findExecutable, run } from './shell.js';
@@ -27,8 +26,9 @@ export interface GitLocation {
 }
 
 async function findSpecificGit(path: string): Promise<GitLocation> {
-	const sw = maybeStopWatch(`${getLoggableScopeBlockOverride('GIT')} findSpecificGit(${path})`, {
+	const sw = maybeStopWatch(`findSpecificGit(path=${path})`, {
 		log: { level: 'debug' },
+		scopeLabel: 'GIT',
 	});
 
 	let version;
@@ -63,7 +63,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		.replace(/^git version /, '')
 		.trim();
 
-	sw?.stop({ message: `\u2022 Found ${parsed} in ${path}; ${version}` });
+	sw?.stop({ message: `\u2022 Found git v${parsed} in ${path}` });
 
 	return {
 		path: path,

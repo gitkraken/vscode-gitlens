@@ -18,6 +18,7 @@ type StopwatchLogOptions = {
 type StopwatchOptions = {
 	log?: boolean | StopwatchLogOptions;
 	provider?: LogProvider;
+	scopeLabel?: string;
 };
 
 export class Stopwatch implements Disposable {
@@ -33,7 +34,10 @@ export class Stopwatch implements Disposable {
 	private _stopped = false;
 
 	constructor(scope: string | ScopedLogger | undefined, options?: StopwatchOptions, ...params: any[]) {
-		this.logScope = scope != null && typeof scope !== 'string' ? scope : getNewLogScope(scope ?? '', false);
+		this.logScope =
+			scope != null && typeof scope !== 'string'
+				? scope
+				: getNewLogScope(scope ?? '', false, options?.scopeLabel);
 
 		const log = options?.log;
 		let logEntry: { message?: string; suffix?: string } | undefined;

@@ -18,7 +18,7 @@ import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode
 import { gate } from '../../../../system/decorators/gate.js';
 import { debug, trace } from '../../../../system/decorators/log.js';
 import { Logger } from '../../../../system/logger.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
+import { formatLoggableScopeBlock, getScopedLogger } from '../../../../system/logger.scope.js';
 import { compare, fromString, satisfies } from '../../../../system/version.js';
 import { getPlatform, isOffline, isWeb } from '../../platform.js';
 import { CliCommandHandlers } from './commands.js';
@@ -110,7 +110,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			if (cliInstall?.status === 'completed') {
 				// Force reinstall to switch between production and insiders
 				Logger.info(
-					`Forcing CLI reinstall on settings change (insiders = ${configuration.get('gitkraken.cli.insiders.enabled')})`,
+					`${formatLoggableScopeBlock('CLI')} Forcing CLI reinstall on settings change (insiders = ${configuration.get('gitkraken.cli.insiders.enabled')})`,
 				);
 				void this.setupMCPCore('settings', true, true).catch(() => {});
 			}
@@ -149,14 +149,14 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 		} catch (error) {
 			// Discovery file creation failure should not prevent IPC server startup
-			Logger.warn(`Failed to create discovery file: ${error}`);
+			Logger.warn(`${formatLoggableScopeBlock('IPC')} Failed to create discovery file: ${error}`);
 		}
 
 		this._runningDisposable = Disposable.from(new CliCommandHandlers(this.container, server), server);
 
 		// Notify that the IPC server is ready so MCP providers can refresh
 		this.container.events.fire('gk:cli:ipc:started', undefined);
-		Logger.info(`IPC server started on ${server.ipcAddress}`);
+		Logger.info(`${formatLoggableScopeBlock('IPC')} Server started on ${server.ipcAddress}`);
 	}
 
 	private stop() {
@@ -170,7 +170,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		if (this._runningDisposable != null) {
 			this._runningDisposable.dispose();
 			this._runningDisposable = undefined;
-			Logger.info('IPC server stopped');
+			Logger.info(`${formatLoggableScopeBlock('IPC')} Server stopped`);
 		}
 	}
 
@@ -182,7 +182,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			let currentCoreVersion = core;
 			if (needsUpdate !== undefined) {
 				Logger.info(
-					`CLI ${needsUpdate} version ${(needsUpdate === 'core' ? currentCoreVersion : proxy) ?? 'unknown'} is outdated, forcing reinstall`,
+					`${formatLoggableScopeBlock('CLI')} CLI ${needsUpdate} version ${(needsUpdate === 'core' ? currentCoreVersion : proxy) ?? 'unknown'} is outdated, forcing reinstall`,
 				);
 				forceInstall = true;
 			} else {
@@ -195,7 +195,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				}
 
 				if (currentCoreVersion != null) {
-					Logger.debug(`CLI core version is ${currentCoreVersion}`);
+					Logger.info(`${formatLoggableScopeBlock('CLI')} CLI core version is ${currentCoreVersion}`);
 					void setContext('gitlens:gk:cli:installed', true);
 					return;
 				}
@@ -222,6 +222,8 @@ export class GkCliIntegrationProvider implements Disposable {
 	@gate()
 	@debug({ exit: true })
 	private async setupMCP(source?: Sources, force = false): Promise<void> {
+		const scope = getScopedLogger();
+
 		await this.container.storage.store('mcp:banner:dismissed', true);
 
 		try {
@@ -231,9 +233,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					title: 'Setting up the GitKraken MCP...',
 					cancellable: false,
 				},
-				async () => {
-					return this.setupMCPCore(source, force);
-				},
+				async () => this.setupMCPCore(source, force),
 			);
 
 			if (result.requiresUserCompletion) {
@@ -256,6 +256,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					});
 			}
 		} catch (ex) {
+			scope?.error(ex, `Error during MCP setup: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
 			if (ex instanceof McpSetupError) {
 				switch (ex.reason) {
 					case McpSetupErrorReason.WebUnsupported:
@@ -383,7 +384,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				);
 			}
 
-			Logger.trace(scope, `Running MCP install command for ${mcpInstallAppName}`);
+			scope?.trace(`Running MCP install command for ${mcpInstallAppName}`);
 			let output = await runCLICommand(
 				['mcp', 'install', mcpInstallAppName, '--source=gitlens', `--scheme=${env.uriScheme}`],
 				{
@@ -541,7 +542,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					if (await exists(cliExecutable)) {
 						return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
 					}
-					Logger.warn(scope, `CLI binary not found at expected path: ${cliExecutable.fsPath}`);
+					scope?.warn(`CLI binary not found at expected path: ${cliExecutable.fsPath}`);
 				}
 
 				cliInstallStatus = 'attempted';
@@ -549,7 +550,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			} else if (cliInstallStatus === 'unsupported') {
 				return { cliVersion: undefined, cliPath: undefined, status: 'unsupported' };
 			} else if (autoInstall && reachedMaxAttempts({ status: cliInstallStatus, attempts: cliInstallAttempts })) {
-				Logger.warn(scope, `Skipping auto-install, reached max attempts (${cliInstallAttempts})`);
+				scope?.warn(`Skipping auto-install, reached max attempts (${cliInstallAttempts})`);
 				return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
 			}
 		}
@@ -651,7 +652,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					'active',
 				); */
 
-				Logger.trace(scope, `Fetching CLI proxy: platform=${platformName}, arch=${architecture}`);
+				scope?.trace(`Fetching CLI proxy: platform=${platformName}, arch=${architecture}`);
 				let response = await fetch(proxyUrl);
 				if (!response.ok) {
 					throw new CLIInstallError(
@@ -683,7 +684,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					);
 				}
 
-				Logger.trace(scope, `Downloading CLI proxy (version: ${cliVersion})`);
+				scope?.trace(`Downloading CLI proxy (version: ${cliVersion})`);
 				response = await fetch(downloadUrl);
 				if (!response.ok) {
 					throw new CLIInstallError(
@@ -1089,7 +1090,7 @@ async function createDiscoveryFile(
 async function cleanupDiscoveryFile(filePath: string): Promise<void> {
 	try {
 		await unlink(filePath);
-	} catch (error) {
-		Logger.warn(`Failed to delete discovery file: ${error}`);
+	} catch (ex) {
+		Logger.warn(`${formatLoggableScopeBlock('IPC')} Failed to delete discovery file: ${ex}`);
 	}
 }

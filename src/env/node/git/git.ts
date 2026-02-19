@@ -55,7 +55,7 @@ import { splitPath } from '../../../system/-webview/path.js';
 import { getScopedCounter } from '../../../system/counter.js';
 import { slowCallWarningThreshold } from '../../../system/logger.constants.js';
 import { Logger } from '../../../system/logger.js';
-import { getLoggableScopeBlockOverride } from '../../../system/logger.scope.js';
+import { formatLoggableScopeBlock } from '../../../system/logger.scope.js';
 import { dirname, isAbsolute, joinPaths, normalizePath } from '../../../system/path.js';
 import { defer, isPromise } from '../../../system/promise.js';
 import { getDurationMilliseconds } from '../../../system/string.js';
@@ -378,7 +378,7 @@ export class Git implements Disposable {
 		} else {
 			waiting = true;
 			Logger.trace(
-				`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} \u2022 awaiting existing call in progress...`,
+				`${formatLoggableScopeBlock('GIT')} ${gitCommand} \u2022 awaiting existing call in progress...`,
 			);
 		}
 
@@ -402,7 +402,7 @@ export class Git implements Disposable {
 							? 'cancellation'
 							: 'unknown';
 				Logger.warn(
-					`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} \u2022 ABORTED after ${duration}ms (${reason})`,
+					`${formatLoggableScopeBlock('GIT')} ${gitCommand} \u2022 ABORTED after ${duration}ms (${reason})`,
 				);
 				this.container.telemetry.sendEvent('op/git/aborted', {
 					operation: gitCommand,
@@ -1647,8 +1647,8 @@ export class Git implements Disposable {
 		}
 	}
 	private logGitCommandStart(command: string, id: number): void {
-		Logger.info(`${getLoggableScopeBlockOverride(`GIT:→${id}`)} ${command} \u2022 starting...`);
-		this.logCore(`${getLoggableScopeBlockOverride(`→${id}`, '')} ${command} \u2022 starting...`);
+		Logger.info(`${formatLoggableScopeBlock(`GIT →${id}`)} ${command} \u2022 starting...`);
+		this.logCore(`${formatLoggableScopeBlock(`→${id}`, '')} ${command} \u2022 starting...`);
 	}
 
 	private logGitCommandComplete(
@@ -1664,7 +1664,7 @@ export class Git implements Disposable {
 		if (ex != null) {
 			Logger.error(
 				undefined,
-				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT')} ${command} \u2022 ${
+				`${formatLoggableScopeBlock(id ? `GIT ←${id}` : 'GIT')} ${command} \u2022 ${
 					isCancellationError(ex)
 						? 'cancelled'
 						: (ex.message || String(ex) || '')
@@ -1675,16 +1675,16 @@ export class Git implements Disposable {
 			);
 		} else if (slow) {
 			Logger.warn(
-				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
+				`${formatLoggableScopeBlock(id ? `GIT ←${id}` : 'GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
 			);
 		} else {
 			Logger.info(
-				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`,
+				`${formatLoggableScopeBlock(id ? `GIT ←${id}` : 'GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`,
 			);
 		}
 
 		this.logCore(
-			`${getLoggableScopeBlockOverride(`${id ? `←${id}` : ''}${slow ? '*' : ''}`, `${duration}ms`)} ${command}${status}`,
+			`${formatLoggableScopeBlock(`${id ? `←${id}` : ''}${slow ? '*' : ''}`, `${duration}ms`)} ${command}${status}`,
 			ex,
 		);
 	}

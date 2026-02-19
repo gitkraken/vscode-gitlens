@@ -16,7 +16,12 @@ export class LoggerContext {
 					const appendLine = Logger.isDebugging
 						? function (_message: string, ..._args: any[]) {} // if debugging, don't log to the console, because the logger already will
 						: function (message: string, ...args: any[]) {
-								console.log(`[${padOrTruncateEnd(name, 13)}] ${message}`, ...args);
+								console.log(
+									`[${padOrTruncateEnd(name, 13)}]`,
+									Logger.timestamp,
+									message ?? '',
+									...args,
+								);
 							};
 
 					return {

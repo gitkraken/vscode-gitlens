@@ -100,16 +100,24 @@ function defineLazyBoundErrorMethod(scope: ScopedLogger): void {
 	});
 }
 
-export function getLoggableScopeBlock(scopeId: number, prevScopeId?: number): string {
-	return prevScopeId == null
-		? `[${scopeId.toString(16).padStart(13)}]`
-		: `[${prevScopeId.toString(16).padStart(5)} \u2192 ${scopeId.toString(16).padStart(5)}]`;
-}
-
-export function getLoggableScopeBlockOverride(prefix: string, suffix?: string): string {
+export function formatLoggableScopeBlock(prefix: string, suffix?: string): string {
 	if (suffix == null) return `[${prefix.padEnd(13)}]`;
 
 	return `[${prefix}${suffix.padStart(13 - prefix.length)}]`;
+}
+
+export function getLoggableScopeBlock(scopeId: number, prevScopeId?: number, label?: string): string {
+	if (label != null) {
+		const suffix =
+			prevScopeId == null
+				? scopeId.toString(16)
+				: `${prevScopeId.toString(16)} \u2192 ${scopeId.toString(16)}`;
+		return formatLoggableScopeBlock(label, suffix);
+	}
+
+	return prevScopeId == null
+		? `[${scopeId.toString(16).padStart(13)}]`
+		: `[${prevScopeId.toString(16).padStart(5)} \u2192 ${scopeId.toString(16).padStart(5)}]`;
 }
 
 /** Gets the current log scope */
@@ -123,20 +131,28 @@ export function getScopedLogger(): (ScopedLogger & Disposable) | undefined {
 	return wrapper;
 }
 
-export function getNewLogScope(prefix: string, scope: ScopedLogger | boolean | undefined): ScopedLogger {
+export function getNewLogScope(
+	prefix: string,
+	scope: ScopedLogger | boolean | undefined,
+	label?: string,
+): ScopedLogger {
 	if (scope != null && typeof scope !== 'boolean') {
 		return createLogScope(scope.scopeId!, scope.prevScopeId, `${scope.prefix}${prefix}`);
 	}
 
 	const prevScopeId = scope ? getCurrentScope()?.scopeId : undefined;
 	const scopeId = logScopeIdGenerator.next();
-	return createLogScope(scopeId, prevScopeId, `${getLoggableScopeBlock(scopeId, prevScopeId)} ${prefix}`);
+	return createLogScope(scopeId, prevScopeId, `${getLoggableScopeBlock(scopeId, prevScopeId, label)} ${prefix}`);
 }
 
 /** Starts a scoped logger for use with the `using` keyword */
-function startScopedLogger(prefix: string, scope: ScopedLogger | boolean | undefined): ScopedLogger & Disposable {
+function startScopedLogger(
+	prefix: string,
+	scope: ScopedLogger | boolean | undefined,
+	label?: string,
+): ScopedLogger & Disposable {
 	const prevScope = getCurrentScope();
-	const newScope = getNewLogScope(prefix, scope) as ScopedLogger & Disposable;
+	const newScope = getNewLogScope(prefix, scope, label) as ScopedLogger & Disposable;
 	enterScope(newScope);
 
 	// Add dispose method directly to preserve lazy-bound logger methods
@@ -163,10 +179,11 @@ function startScopedLogger(prefix: string, scope: ScopedLogger | boolean | undef
 export function maybeStartLoggableScope(
 	prefix: string,
 	log?: boolean | { level?: Exclude<LogLevel, 'off' | 'error' | 'warn'>; message?: string; onlyExit?: true },
+	scopeLabel?: string,
 ): (ScopedLogger & Disposable) | undefined {
 	if (!Logger.enabled()) return undefined;
 
-	const scope = startScopedLogger(prefix, true);
+	const scope = startScopedLogger(prefix, true, scopeLabel);
 
 	if (!log) return scope;
 

@@ -103,7 +103,7 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
+			console.debug(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
 		this.output?.trace(`  ${message ?? ''}${this.toLoggableParams(true, params)}`);
 	}
@@ -125,7 +125,7 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
+			console.debug(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
 		this.output?.debug(`  ${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
@@ -147,7 +147,7 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
+			console.info(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
 		this.output?.info(`   ${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
@@ -169,7 +169,7 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.warn(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
+			console.warn(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
 		this.output?.warn(`${message ?? ''}${this.toLoggableParams(false, params)}`);
 	}
