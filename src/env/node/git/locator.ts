@@ -27,7 +27,7 @@ export interface GitLocation {
 
 async function findSpecificGit(path: string): Promise<GitLocation> {
 	const sw = maybeStopWatch(`findSpecificGit(path=${path})`, {
-		log: { level: 'debug' },
+		log: { level: 'debug', onlyExit: true },
 		scopeLabel: 'GIT',
 	});
 
