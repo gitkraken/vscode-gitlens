@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds support for Claude Sonnet 4.6, Claude Opus 4.6, and Gemini 3.1 Pro AI models ([#4991](https://github.com/gitkraken/vscode-gitlens/issues/4991))
+
 ### Changed
 
 - Shows additional info in Authentication errors to help us investigate issues ([#4880](https://github.com/gitkraken/vscode-gitlens/issues/4880))

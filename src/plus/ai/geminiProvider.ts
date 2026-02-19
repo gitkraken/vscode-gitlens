@@ -7,14 +7,20 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
+		id: 'gemini-3.1-pro-preview',
+		name: 'Gemini 3.1 Pro Preview',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+	},
+	{
 		id: 'gemini-3-pro-preview',
-		name: 'Gemini 3 Pro (Preview)',
+		name: 'Gemini 3 Pro Preview',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
 	},
 	{
 		id: 'gemini-3-flash-preview',
-		name: 'Gemini 3 Flash (Preview)',
+		name: 'Gemini 3 Flash Preview',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
 	},

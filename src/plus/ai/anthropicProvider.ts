@@ -23,6 +23,18 @@ const models: AnthropicModel[] = [
 		hidden: true,
 	},
 	{
+		id: 'claude-sonnet-4-6',
+		name: 'Claude Sonnet 4.6',
+		maxTokens: { input: 204800, output: 64000 },
+		provider: provider,
+	},
+	{
+		id: 'claude-opus-4-6',
+		name: 'Claude Opus 4.6',
+		maxTokens: { input: 204800, output: 128000 },
+		provider: provider,
+	},
+	{
 		id: 'claude-sonnet-4-5',
 		name: 'Claude Sonnet 4.5',
 		maxTokens: { input: 204800, output: 64000 },
