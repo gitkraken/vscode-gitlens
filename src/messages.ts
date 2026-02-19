@@ -227,13 +227,16 @@ export async function showPreReleaseExpiredErrorMessage(version: string): Promis
 		undefined,
 		null,
 		upgrade,
+		switchToRelease,
 	);
 
 	if (result === upgrade) {
 		void executeCoreCommand('workbench.extensions.installExtension', 'eamodio.gitlens', {
 			installPreReleaseVersion: true,
 		});
+		void executeCoreCommand('workbench.extensions.action.extensionUpdates');
 	} else if (result === switchToRelease) {
+		void executeCoreCommand('workbench.extensions.action.installExtensions');
 		void executeCoreCommand('workbench.extensions.action.switchToRelease', 'eamodio.gitlens');
 	}
 }

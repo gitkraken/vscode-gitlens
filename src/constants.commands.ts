@@ -217,6 +217,8 @@ export type CoreCommands =
 	| 'workbench.action.toggleMaximizedPanel'
 	| 'workbench.action.focusPanel'
 	| 'workbench.action.togglePanel'
+	| 'workbench.extensions.action.extensionUpdates'
+	| 'workbench.extensions.action.installExtensions'
 	| 'workbench.extensions.action.switchToRelease'
 	| 'workbench.extensions.installExtension'
 	| 'workbench.extensions.uninstallExtension'
