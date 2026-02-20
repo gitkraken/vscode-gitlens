@@ -169,7 +169,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 				throw new Error(`Invalid MCP configuration: missing required properties (${output})`);
 			}
 
-			this.onRegistrationCompleted(cliInstall.version);
+			void this.onRegistrationCompleted(cliPath, appName, cliInstall.version);
 
 			return {
 				name: config.name ?? 'GitKraken',
@@ -187,10 +187,12 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		return undefined;
 	}
 
-	private onRegistrationCompleted(_cliVersion?: string | undefined) {
-		if (!this.container.telemetry.enabled) return;
+	private async onRegistrationCompleted(cliPath: string, appName: string, _cliVersion?: string) {
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.setGlobalAttribute('gk.mcp.registrationCompleted', true);
+		}
 
-		this.container.telemetry.setGlobalAttribute('gk.mcp.registrationCompleted', true);
+		await this.uninstallExternalMcp(cliPath, appName);
 	}
 
 	private onRegistrationFailed(reason: string, message?: string | undefined, cliVersion?: string | undefined) {
@@ -202,5 +204,18 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			source: 'gk-mcp-provider',
 			'cli.version': cliVersion,
 		});
+	}
+
+	@debug()
+	private async uninstallExternalMcp(cliPath: string, appName: string): Promise<void> {
+		try {
+			Logger.log(`Uninstalling external MCP configuration for ${appName}...`);
+			const output = await runCLICommand(['mcp', 'uninstall', appName], {
+				cwd: cliPath,
+			});
+			Logger.log(`External MCP configuration uninstalled successfully: ${output}`);
+		} catch (ex) {
+			Logger.warn(`Failed to uninstall external MCP configuration: ${ex}`);
+		}
 	}
 }

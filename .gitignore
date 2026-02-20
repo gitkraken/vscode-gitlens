@@ -15,3 +15,8 @@ product.json
 tsconfig*.tsbuildinfo
 *.code-workspace
 localdev*.instructions.md
+*localdev.instructions.md
+localdev*.prompt.md
+*localdev.prompt.md
+localdev*.chatmode.md
+*localdev.chatmode.md
