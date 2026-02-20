@@ -1474,6 +1474,7 @@ type WelcomeActionNames =
 	| 'dismiss'
 	| 'open/composer'
 	| 'open/graph'
+	| 'open/home-view'
 	| 'open/help-center'
 	| 'open/help-center/community-vs-pro'
 	| 'open/launchpad'

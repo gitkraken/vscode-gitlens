@@ -128,6 +128,23 @@ export class WelcomeCloseCommand extends GlCommandBase {
 }
 
 @command()
+export class WelcomeShowHomeViewCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.welcome.showHomeView');
+	}
+
+	async execute(): Promise<void> {
+		this.container.telemetry.sendEvent('welcome/action', {
+			type: 'command',
+			name: 'open/home-view',
+			command: 'gitlens.welcome.showHomeView',
+		});
+		await this.container.views.home.show();
+		void executeCommand('gitlens.views.home.enablePreview');
+	}
+}
+
+@command()
 export class WelcomeShowGraphCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super('gitlens.welcome.showGraph');
