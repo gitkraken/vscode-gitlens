@@ -109,9 +109,7 @@ export function formatLoggableScopeBlock(prefix: string, suffix?: string): strin
 export function getLoggableScopeBlock(scopeId: number, prevScopeId?: number, label?: string): string {
 	if (label != null) {
 		const suffix =
-			prevScopeId == null
-				? scopeId.toString(16)
-				: `${prevScopeId.toString(16)} \u2192 ${scopeId.toString(16)}`;
+			prevScopeId == null ? scopeId.toString(16) : `${prevScopeId.toString(16)} \u2192 ${scopeId.toString(16)}`;
 		return formatLoggableScopeBlock(label, suffix);
 	}
 
