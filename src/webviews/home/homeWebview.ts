@@ -734,13 +734,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			isEnabled = !this.getPreviewEnabled();
 		}
 
-		if (!this.getPreviewCollapsed()) {
-			this.onCollapseSection({
-				section: 'newHomePreview',
-				collapsed: true,
-			});
-		}
-
 		this.container.telemetry.sendEvent('home/preview/toggled', { enabled: isEnabled, version: 'v16' });
 		configuration.updateEffective('home.preview.enabled', isEnabled);
 	}
@@ -786,10 +779,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private getWelcomeOverlayCollapsed() {
 		return this.container.storage.get('home:sections:collapsed')?.includes('welcomeOverlay') ?? false;
-	}
-
-	private getPreviewCollapsed() {
-		return this.container.storage.get('home:sections:collapsed')?.includes('newHomePreview') ?? false;
 	}
 
 	private getAiEnabled() {
@@ -914,7 +903,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			orgSettings: this.getOrgSettings(),
 			aiEnabled: this.getAiEnabled(),
 			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
-			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			aiAllAccessBannerCollapsed: getSettledValue(aiAllAccessBannerCollapsed, false),
 			integrations: integrations,
@@ -1353,7 +1341,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private notifyDidChangeConfig() {
 		void this.host.notify(DidChangePreviewEnabled, {
 			previewEnabled: this.getPreviewEnabled(),
-			previewCollapsed: this.getPreviewCollapsed(),
 			aiEnabled: this.getAiEnabled(),
 			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
 		});

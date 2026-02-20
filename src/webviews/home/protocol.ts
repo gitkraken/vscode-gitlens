@@ -33,7 +33,6 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 	};
 	aiEnabled: boolean;
 	experimentalComposerEnabled: boolean;
-	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
 	aiAllAccessBannerCollapsed: boolean;
 	mcpBannerCollapsed: boolean;
@@ -297,7 +296,6 @@ export const DidCompleteDiscoveringRepositories = new IpcNotification<DidComplet
 
 export interface DidChangePreviewEnabledParams {
 	previewEnabled: boolean;
-	previewCollapsed: boolean;
 	aiEnabled: boolean;
 	experimentalComposerEnabled: boolean;
 }
