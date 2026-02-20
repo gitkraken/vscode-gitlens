@@ -19,6 +19,7 @@ export interface StashSaveCommandArgs {
 	message?: string;
 	repoPath?: string;
 	uris?: Uri[];
+	confirm?: boolean;
 	includeUntracked?: boolean;
 	keepStaged?: boolean;
 	onlyStaged?: boolean;
@@ -86,6 +87,7 @@ export class StashSaveCommand extends GlCommandBase {
 			args?.keepStaged,
 			args?.onlyStaged,
 			args?.onlyStagedUris,
+			args?.confirm,
 		);
 	}
 }
@@ -298,6 +300,7 @@ async function getStashSaveArgsForUnstagedScmGroup(
 		args.keepStaged = true;
 	}
 	args.includeUntracked = hasUntracked;
+	args.confirm = false;
 
 	return args;
 }
