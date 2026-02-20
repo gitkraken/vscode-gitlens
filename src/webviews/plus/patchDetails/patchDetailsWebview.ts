@@ -1099,7 +1099,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 	private async updateViewDraftState(draft: LocalDraft | Draft | undefined) {
 		this._context.draft = draft;
 		if (draft?.draftType === 'cloud') {
-			this._context.draftGkDevUrl = this.container.drafts.generateWebUrl(draft);
+			this._context.draftGkDevUrl = await this.container.drafts.generateWebUrl(draft);
 			await this.createDraftUserState(draft, { force: true });
 		}
 		this.setMode('view', true);

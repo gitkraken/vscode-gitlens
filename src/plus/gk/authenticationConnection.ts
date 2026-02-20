@@ -62,12 +62,7 @@ export class AuthenticationConnection implements Disposable {
 	}
 
 	@trace()
-	async login(
-		scopes: string[],
-		scopeKey: string,
-		signUp: boolean = false,
-		context?: TrackingContext,
-	): Promise<string> {
+	async login(scopeKey: string, signUp: boolean = false, context?: TrackingContext): Promise<string> {
 		const scope = getScopedLogger();
 
 		this.updateStatusBarItem(true);
@@ -81,9 +76,9 @@ export class AuthenticationConnection implements Disposable {
 			Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${AuthenticationUriPathPrefix}`),
 		);
 
-		const url = this.container.urls.getGkDevUrl(
+		const url = await this.container.urls.getGkDevUrl(
 			signUp ? 'register' : 'login',
-			`${scopes.includes('gitlens') ? 'source=gitlens&' : ''}${
+			`${
 				context != null ? `context=${context}&` : ''
 			}state=${encodeURIComponent(gkstate)}&redirect_uri=${encodeURIComponent(callbackUri.toString(true))}`,
 		);
