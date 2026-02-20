@@ -127,6 +127,7 @@ type InternalWelcomeCommands =
 	| 'gitlens.welcome.plus.upgrade'
 	| 'gitlens.welcome.showComposer'
 	| 'gitlens.welcome.showGraph'
+	| 'gitlens.welcome.showHomeView'
 	| 'gitlens.welcome.showLaunchpad';
 
 type InternalGlCommands =

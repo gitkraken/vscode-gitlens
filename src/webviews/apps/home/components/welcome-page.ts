@@ -170,7 +170,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				requests, all in one intuitive hub.
 			</p>
 			<div class="card-part--centered">
-				<gl-button href="command:gitlens.showHomeView">Open Home View</gl-button>
+				<gl-button href="command:gitlens.welcome.showHomeView">Open Home View</gl-button>
 			</div>
 		`,
 	},
