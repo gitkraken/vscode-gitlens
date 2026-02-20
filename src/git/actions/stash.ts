@@ -43,9 +43,11 @@ export function push(
 	keepStaged: boolean = false,
 	onlyStaged: boolean = false,
 	onlyStagedUris?: Uri[],
+	confirm?: boolean,
 ): Promise<void> {
 	return executeGitCommand({
 		command: 'stash',
+		confirm: confirm,
 		state: {
 			subcommand: 'push',
 			repo: repo,
