@@ -19,7 +19,7 @@ const emptyArray = Object.freeze(new Uint8Array(0));
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string; submoduleSha?: string } {
-	const gitUri = isGitUri(uri) ? uri : GitUri.fromRevisionUri(uri);
+	const gitUri = isGitUri(uri) ? uri : new GitUri(uri);
 	return {
 		path: gitUri.relativePath,
 		ref: gitUri.sha!,

@@ -200,7 +200,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 						gitUri.fileName,
 						SymbolKind.File,
 						'',
-						new Location(gitUri.documentUri(), new Range(0, 0, 0, blameRange.start.character)),
+						new Location(gitUri.documentUri, new Range(0, 0, 0, blameRange.start.character)),
 					);
 					lenses.push(
 						new GitRecentChangeCodeLens(
@@ -226,7 +226,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 						gitUri.fileName,
 						SymbolKind.File,
 						'',
-						new Location(gitUri.documentUri(), new Range(0, 1, 0, blameRange.start.character)),
+						new Location(gitUri.documentUri, new Range(0, 1, 0, blameRange.start.character)),
 					);
 					lenses.push(
 						new GitAuthorsCodeLens(
@@ -613,7 +613,7 @@ function applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAut
 		undefined,
 		{
 			commit: commit,
-			uri: lens.uri!.toFileUri(),
+			uri: lens.uri!.workingFileUri,
 		},
 	);
 	return lens;
@@ -662,7 +662,7 @@ function applyRevealCommitInViewCommand<T extends GitRecentChangeCodeLens | GitA
 	lens.command = createCommand<[Uri, ShowQuickCommitCommandArgs]>(
 		commit?.isUncommitted ? ('' as CodeLensCommands) : 'gitlens.revealCommitInView',
 		title,
-		lens.uri!.toFileUri(),
+		lens.uri!.workingFileUri,
 		{
 			commit: commit,
 			sha: commit === undefined ? undefined : commit.sha,
@@ -703,7 +703,7 @@ function applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | 
 	lens.command = createCommand<[Uri, ShowQuickCommitCommandArgs]>(
 		commit?.isUncommitted ? ('' as CodeLensCommands) : 'gitlens.showQuickCommitDetails',
 		title,
-		lens.uri!.toFileUri(),
+		lens.uri!.workingFileUri,
 		{
 			commit: commit,
 			sha: commit === undefined ? undefined : commit.sha,
@@ -720,7 +720,7 @@ function applyShowQuickCommitFileDetailsCommand<T extends GitRecentChangeCodeLen
 	lens.command = createCommand<[Uri, ShowQuickCommitFileCommandArgs]>(
 		commit?.isUncommitted ? ('' as CodeLensCommands) : 'gitlens.showQuickCommitFileDetails',
 		title,
-		lens.uri!.toFileUri(),
+		lens.uri!.workingFileUri,
 		{
 			commit: commit,
 			sha: commit === undefined ? undefined : commit.sha,
@@ -733,7 +733,7 @@ function applyShowQuickCurrentBranchHistoryCommand<T extends GitRecentChangeCode
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>('gitlens.showQuickRepoHistory', title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>('gitlens.showQuickRepoHistory', title, lens.uri!.workingFileUri);
 	return lens;
 }
 
@@ -744,7 +744,7 @@ function applyShowQuickFileHistoryCommand<T extends GitRecentChangeCodeLens | Gi
 	lens.command = createCommand<[Uri, ShowQuickFileHistoryCommandArgs]>(
 		'gitlens.showQuickFileHistory',
 		title,
-		lens.uri!.toFileUri(),
+		lens.uri!.workingFileUri,
 		{
 			range: lens.isFullRange ? undefined : lens.blameRange,
 		},
@@ -756,7 +756,7 @@ function applyToggleFileBlameCommand<T extends GitRecentChangeCodeLens | GitAuth
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>('gitlens.toggleFileBlame:codelens', title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>('gitlens.toggleFileBlame:codelens', title, lens.uri!.workingFileUri);
 	return lens;
 }
 
@@ -769,7 +769,7 @@ function applyToggleFileChangesCommand<T extends GitRecentChangeCodeLens | GitAu
 	lens.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
 		'gitlens.toggleFileChanges:codelens',
 		title,
-		lens.uri!.toFileUri(),
+		lens.uri!.workingFileUri,
 		{
 			type: 'changes',
 			context: { sha: commit.sha, only: only, selection: false },
@@ -782,7 +782,7 @@ function applyToggleFileHeatmapCommand<T extends GitRecentChangeCodeLens | GitAu
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>('gitlens.toggleFileHeatmap:codelens', title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>('gitlens.toggleFileHeatmap:codelens', title, lens.uri!.workingFileUri);
 	return lens;
 }
 

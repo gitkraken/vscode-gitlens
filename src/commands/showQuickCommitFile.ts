@@ -65,7 +65,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 		let gitUri;
 		if (args.revisionUri != null) {
-			gitUri = GitUri.fromRevisionUri(Uri.parse(args.revisionUri, true));
+			gitUri = new GitUri(Uri.parse(args.revisionUri, true));
 			args.sha = gitUri.sha;
 		} else {
 			gitUri = await GitUri.fromUri(uri);

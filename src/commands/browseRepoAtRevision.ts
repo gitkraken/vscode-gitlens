@@ -62,7 +62,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 
 			const sha = args?.before ? (await svc.revision.resolveRevision(`${gitUri.sha}^`)).sha : gitUri.sha;
 			uri = svc.getRevisionUri(sha, gitUri.repoPath);
-			gitUri = GitUri.fromRevisionUri(uri);
+			gitUri = new GitUri(uri);
 
 			openWorkspace(uri, {
 				location: args.openInNewWindow ? 'newWindow' : 'addToWorkspace',

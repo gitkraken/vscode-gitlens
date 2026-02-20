@@ -149,7 +149,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		} else if (typeof pathOrUri !== 'string' && pathOrUri.scheme === Schemes.GitLens) {
 			// If this is a gitlens:// URI with a submoduleSha, return it directly without looking it up
 			// (the sha is a submodule commit that doesn't exist in the parent repo)
-			const gitUri = GitUri.fromRevisionUri(pathOrUri);
+			const gitUri = new GitUri(pathOrUri);
 			if (gitUri.submoduleSha) {
 				return { sha: gitUri.submoduleSha, revision: gitUri.submoduleSha };
 			}

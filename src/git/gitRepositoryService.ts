@@ -241,7 +241,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 	): Promise<{ lhsUri: Uri; rhsUri: Uri; lhsSha: string; rhsSha: string } | undefined> {
 		if (workingUri.scheme !== Schemes.GitLens) return undefined;
 
-		const workingGitUri = GitUri.fromRevisionUri(workingUri);
+		const workingGitUri = new GitUri(workingUri);
 		if (!workingGitUri.submoduleSha) return undefined;
 
 		const rhsSha = workingGitUri.submoduleSha;

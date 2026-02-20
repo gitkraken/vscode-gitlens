@@ -276,7 +276,7 @@ export class GitDocumentTracker implements Disposable {
 		let document;
 		if (isGitUri(documentOrUri)) {
 			try {
-				document = await workspace.openTextDocument(documentOrUri.documentUri());
+				document = await workspace.openTextDocument(documentOrUri.documentUri);
 			} catch (ex) {
 				const msg: string = ex?.toString() ?? '';
 				if (env.language.startsWith('en')) {
@@ -514,7 +514,7 @@ class EmptyTextDocument implements TextDocument {
 	readonly version: number;
 
 	constructor(public readonly gitUri: GitUri) {
-		this.uri = gitUri.documentUri();
+		this.uri = gitUri.documentUri;
 
 		this.eol = EndOfLine.LF;
 		this.fileName = this.uri.fsPath;

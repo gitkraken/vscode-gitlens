@@ -73,11 +73,11 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.previous.sha ?? '',
-					uri: diffUris.previous.documentUri(),
+					uri: diffUris.previous.documentUri,
 				},
 				rhs: {
 					sha: diffUris.current.sha ?? '',
-					uri: diffUris.current.documentUri(),
+					uri: diffUris.current.documentUri,
 				},
 				range: diffUris.range,
 				showOptions: args.showOptions,

@@ -85,8 +85,8 @@ export async function changesMessage(
 		if (compareUris?.previous == null) return undefined;
 
 		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
-			lhs: { sha: compareUris.previous.sha ?? '', uri: compareUris.previous.documentUri() },
-			rhs: { sha: compareUris.current.sha ?? '', uri: compareUris.current.documentUri() },
+			lhs: { sha: compareUris.previous.sha ?? '', uri: compareUris.previous.documentUri },
+			rhs: { sha: compareUris.current.sha ?? '', uri: compareUris.current.documentUri },
 			repoPath: commit.repoPath,
 			range: compareUris.range,
 			source: telemetrySource,
@@ -157,9 +157,9 @@ export async function localChangesMessage(
 		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 			lhs: {
 				sha: fromCommit.sha,
-				uri: GitUri.fromFile(file, uri.repoPath!, undefined, true).toFileUri(),
+				uri: GitUri.fromFile(file, uri.repoPath!, undefined, true).workingFileUri,
 			},
-			rhs: { sha: '', uri: uri.toFileUri() },
+			rhs: { sha: '', uri: uri.workingFileUri },
 			repoPath: uri.repoPath!,
 			range: editorLineToDiffRange(editorLine),
 			source: telemetrySource,

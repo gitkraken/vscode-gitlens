@@ -138,8 +138,8 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: diffUris.current.repoPath,
-				lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri() },
-				rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri() },
+				lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri },
+				rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri },
 				range: args.range,
 				showOptions: args.showOptions,
 			}));

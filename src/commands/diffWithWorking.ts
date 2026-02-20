@@ -97,8 +97,8 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			if (status?.indexStatus != null) {
 				void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 					repoPath: gitUri.repoPath,
-					lhs: { sha: uncommittedStaged, uri: gitUri.documentUri() },
-					rhs: { sha: '', uri: gitUri.documentUri() },
+					lhs: { sha: uncommittedStaged, uri: gitUri.documentUri },
+					rhs: { sha: '', uri: gitUri.documentUri },
 					range: args.range,
 					showOptions: args.showOptions,
 				}));
@@ -107,7 +107,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			}
 		}
 
-		uri = gitUri.toFileUri();
+		uri = gitUri.workingFileUri;
 
 		let workingUri = await svc.getWorkingUri(uri);
 		if (workingUri == null) {

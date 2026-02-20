@@ -479,8 +479,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)} "Inspect Commit Details")`;
 
 				commands += ` &nbsp;[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
-					lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri() },
-					rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri() },
+					lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri },
+					rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri },
 					repoPath: this._item.repoPath,
 					range: editorLineToDiffRange(this._options.editor?.line),
 					source: editorHoverSource,

@@ -195,7 +195,7 @@ export async function openTextEditor(
 
 	try {
 		if (isGitUri(uri)) {
-			uri = uri.documentUri();
+			uri = uri.documentUri;
 		}
 
 		if (background || title || (uri.scheme === Schemes.GitLens && imageMimetypes[extname(uri.fsPath)])) {
