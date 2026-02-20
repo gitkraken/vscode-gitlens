@@ -264,7 +264,7 @@ function parseBlameEntry(
 	for (let i = 0, len = entry.lineCount; i < len; i++) {
 		const line: GitCommitLine = {
 			sha: entry.sha,
-			previousSha: commit.file!.previousSha,
+			previousSha: entry.previousSha ?? commit.file!.previousSha,
 			originalLine: entry.originalLine + i,
 			line: entry.line + i,
 		};

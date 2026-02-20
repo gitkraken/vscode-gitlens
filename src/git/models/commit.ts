@@ -665,6 +665,7 @@ export class GitCommit implements GitRevisionReference {
 						this.file.uri,
 						rev ?? (this.sha === uncommitted ? undefined : this.sha),
 						range,
+						this.isUncommitted ? { skipFirstRev: false } : undefined,
 					)
 			: Promise.resolve(undefined);
 	}
