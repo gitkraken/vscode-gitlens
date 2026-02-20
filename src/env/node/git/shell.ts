@@ -1,7 +1,8 @@
 import type { ExecFileException, ExecFileOptions } from 'child_process';
 import { exec, execFile, spawn } from 'child_process';
 import type { Stats } from 'fs';
-import { access, constants, existsSync, statSync } from 'fs';
+import { access, constants } from 'fs';
+import { stat } from 'fs/promises';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { getScopedLogger, maybeStartLoggableScope } from '../../../system/logger.scope.js';
@@ -24,7 +25,7 @@ const jsRegex = /\.(js)$/i;
  *
  * @private
  */
-function runDownPath(exe: string): string {
+async function runDownPath(exe: string): Promise<string> {
 	// NB: Windows won't search PATH looking for executables in spawn like
 	// Posix does
 
@@ -33,18 +34,17 @@ function runDownPath(exe: string): string {
 
 	const target = joinPaths('.', exe);
 	try {
-		const stats = statSync(target);
+		const stats = await stat(target);
 		if (stats?.isFile() && isExecutable(stats)) return target;
 	} catch {}
 
 	const path = process.env.PATH;
 	if (path != null && path.length !== 0) {
 		const haystack = path.split(isWindows ? ';' : ':');
-		let stats;
 		for (const p of haystack) {
 			const needle = joinPaths(p, exe);
 			try {
-				stats = statSync(needle);
+				const stats = await stat(needle);
 				if (stats?.isFile() && isExecutable(stats)) return needle;
 			} catch {}
 		}
@@ -71,19 +71,19 @@ function isExecutable(stats: Stats) {
  * This method also does the work of running down PATH, which spawn on Windows
  * also doesn't do, unlike on POSIX.
  */
-export function findExecutable(exe: string, args: string[]): { cmd: string; args: string[] } {
+export async function findExecutable(exe: string, args: string[]): Promise<{ cmd: string; args: string[] }> {
 	// POSIX can just execute scripts directly, no need for silly goosery
-	if (!isWindows) return { cmd: runDownPath(exe), args: args };
+	if (!isWindows) return { cmd: await runDownPath(exe), args: args };
 
-	if (!existsSync(exe)) {
+	if (!(await fsExists(exe))) {
 		// NB: When you write something like `surf-client ... -- surf-build` on Windows,
 		// a shell would normally convert that to surf-build.cmd, but since it's passed
 		// in as an argument, it doesn't happen
 		const possibleExts = ['.exe', '.bat', '.cmd', '.ps1'];
 		for (const ext of possibleExts) {
-			const possibleFullPath = runDownPath(`${exe}${ext}`);
+			const possibleFullPath = await runDownPath(`${exe}${ext}`);
 
-			if (existsSync(possibleFullPath)) return findExecutable(possibleFullPath, args);
+			if (await fsExists(possibleFullPath)) return findExecutable(possibleFullPath, args);
 		}
 	}
 

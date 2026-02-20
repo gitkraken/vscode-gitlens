@@ -43,7 +43,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 
 	// If needed, let's update our path to avoid the search on every command
 	if (!path || path === 'git') {
-		const foundPath = findExecutable(path, ['--version']).cmd;
+		const foundPath = (await findExecutable(path, ['--version'])).cmd;
 
 		// Ensure that the path we found works
 		try {

@@ -1,6 +1,5 @@
 import type { SpawnOptions } from 'child_process';
 import { spawn } from 'child_process';
-import { accessSync } from 'fs';
 import { join as joinPath } from 'path';
 import * as process from 'process';
 import type { CancellationToken, Disposable, LogOutputChannel } from 'vscode';
@@ -1266,19 +1265,20 @@ export class Git implements Disposable {
 
 		if (!workspace.isTrusted) {
 			// Check if the folder is a bare clone: if it has a file named HEAD && `rev-parse --show-cdup` is empty
-			try {
-				accessSync(joinPaths(cwd, 'HEAD'));
-				result = await this.exec(
-					{ cwd: cwd, errors: 'throw', configs: ['-C', cwd] },
-					'rev-parse',
-					'--show-cdup',
-				);
-				if (!result.stdout.trim()) {
-					Logger.warn(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
-					return emptyArray as [];
+			if (await fsExists(joinPaths(cwd, 'HEAD'))) {
+				try {
+					result = await this.exec(
+						{ cwd: cwd, errors: 'throw', configs: ['-C', cwd] },
+						'rev-parse',
+						'--show-cdup',
+					);
+					if (!result.stdout.trim()) {
+						Logger.warn(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
+						return emptyArray as [];
+					}
+				} catch {
+					// If this throw, we should be good to open the repo (e.g. HEAD doesn't exist)
 				}
-			} catch {
-				// If this throw, we should be good to open the repo (e.g. HEAD doesn't exist)
 			}
 		}
 
@@ -1383,19 +1383,20 @@ export class Git implements Disposable {
 
 		if (!workspace.isTrusted) {
 			// Check if the folder is a bare clone: if it has a file named HEAD && `rev-parse --show-cdup` is empty
-			try {
-				accessSync(joinPaths(cwd, 'HEAD'));
-				result = await this.exec(
-					{ cwd: cwd, errors: 'throw', configs: ['-C', cwd] },
-					'rev-parse',
-					'--show-cdup',
-				);
-				if (!result.stdout.trim()) {
-					Logger.warn(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
-					return emptyArray as [];
+			if (await fsExists(joinPaths(cwd, 'HEAD'))) {
+				try {
+					result = await this.exec(
+						{ cwd: cwd, errors: 'throw', configs: ['-C', cwd] },
+						'rev-parse',
+						'--show-cdup',
+					);
+					if (!result.stdout.trim()) {
+						Logger.warn(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
+						return emptyArray as [];
+					}
+				} catch {
+					// If this throw, we should be good to open the repo (e.g. HEAD doesn't exist)
 				}
-			} catch {
-				// If this throw, we should be good to open the repo (e.g. HEAD doesn't exist)
 			}
 		}
 
