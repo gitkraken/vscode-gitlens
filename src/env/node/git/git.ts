@@ -1530,7 +1530,18 @@ export class Git implements Disposable {
 			params.push('--include-untracked');
 		}
 
-		if (options?.keepIndex && !options?.includeUntracked) {
+		// "--keep-index --include-untracked -- <pathspec>" hits a bug in git in some circumstances.
+		// Don't allow these flags together.
+		//
+		// $ mkdir stash-test && cd stash-test && git init
+		// $ echo a > a.txt
+		// $ git add a.txt
+		// $ git commit -m init
+		// $ echo b > b.txt
+		// $ git stash push --keep-index --include-untracked -- b.txt
+		// Saved working directory and index state WIP on main: 8a280fe init
+		// error: pathspec ':(prefix:0)b.txt' did not match any file(s) known to git
+		if (options?.keepIndex && !(params.includes('--include-untracked') && options?.pathspecs?.length)) {
 			params.push('--keep-index');
 		}
 
