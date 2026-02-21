@@ -6,7 +6,7 @@
 	"engines": {
 		"node": ">= 22.12.0",
 		"pnpm": ">= 10.0.0",
-		"vscode": "^1.95.0"
+		"vscode": "^1.101.0"
 	},
 	"license": "SEE LICENSE IN LICENSE",
 	"publisher": "eamodio",
@@ -27425,7 +27425,7 @@
 		"@types/sinon": "21.0.0",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.9",
-		"@types/vscode": "1.95.0",
+		"@types/vscode": "1.101.0",
 		"@typescript-eslint/parser": "8.56.0",
 		"@vscode/test-cli": "0.0.12",
 		"@vscode/test-electron": "2.5.2",
@@ -27486,7 +27486,7 @@
 		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
-		"@types/vscode": "1.95.0",
+		"@types/vscode": "1.101.0",
 		"esbuild": "0.27.3",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",

@@ -101,8 +101,8 @@ export abstract class CommitFileNodeBase<
 			item.resourceUri = createViewDecorationUri('commit-file', { status: this.file.status });
 			const icon = getGitFileStatusIcon(this.file.status);
 			item.iconPath = {
-				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
-				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
+				dark: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon))),
+				light: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon))),
 			};
 		}
 		item.tooltip = getFileTooltipMarkdown(this.file);

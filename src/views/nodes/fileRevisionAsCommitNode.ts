@@ -1,5 +1,5 @@
-import type { CancellationToken, Command, Selection, Uri } from 'vscode';
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { CancellationToken, Command, Selection } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import type { Colors } from '../../constants.colors.js';
@@ -117,8 +117,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		if (item.iconPath == null) {
 			const icon = getGitFileStatusIcon(this.file.status);
 			item.iconPath = {
-				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
-				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
+				dark: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon))),
+				light: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon))),
 			};
 		}
 
