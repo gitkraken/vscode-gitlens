@@ -1,8 +1,7 @@
 import type { RequestError } from '@octokit/request-error';
 import type { CancellationToken } from 'vscode';
 import { version as codeVersion, env, Uri, window } from 'vscode';
-import type { RequestInfo, RequestInit, Response } from '@env/fetch.js';
-import { fetch as _fetch, getProxyAgent } from '@env/fetch.js';
+import { fetch as _fetch } from '@env/fetch.js';
 import { getPlatform } from '@env/platform.js';
 import type { Disposable } from '../../api/gitlens.d.js';
 import type { Container } from '../../container.js';
@@ -74,7 +73,7 @@ export class ServerConnection implements Disposable {
 			options: options,
 		}),
 	})
-	async fetch(url: RequestInfo, init?: RequestInit, options?: FetchOptions): Promise<Response> {
+	async fetch(url: string | URL | Request, init?: RequestInit, options?: FetchOptions): Promise<Response> {
 		const scope = getScopedLogger();
 
 		if (options?.cancellation?.isCancellationRequested) throw new CancellationError();
@@ -93,7 +92,6 @@ export class ServerConnection implements Disposable {
 
 		try {
 			const promise = _fetch(url, {
-				agent: getProxyAgent(),
 				...init,
 				headers: {
 					'User-Agent': this.userAgent,
@@ -168,7 +166,11 @@ export class ServerConnection implements Disposable {
 			organizationId: options?.organizationId,
 		}),
 	})
-	private async gkFetch(url: RequestInfo, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
+	private async gkFetch(
+		url: string | URL | Request,
+		init?: RequestInit,
+		options?: GKFetchOptions,
+	): Promise<Response> {
 		if (this.requestsAreBlocked) throw new RequestsAreBlockedTemporarilyError();
 
 		const scope = getScopedLogger();

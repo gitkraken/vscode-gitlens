@@ -1,8 +1,7 @@
 import ProviderApis from '@gitkraken/provider-apis';
 import { version as codeVersion, env } from 'vscode';
 import { base64 } from '@env/base64.js';
-import type { Response as FetchResponse } from '@env/fetch.js';
-import { fetch as _fetch, getProxyAgent } from '@env/fetch.js';
+import { fetch as _fetch } from '@env/fetch.js';
 import { getPlatform } from '@env/platform.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import {
@@ -70,6 +69,8 @@ import type {
 } from './models.js';
 import { providersMetadata } from './models.js';
 
+type FetchResponse = Response;
+
 export class ProvidersApi {
 	private readonly providers: Providers;
 
@@ -77,7 +78,6 @@ export class ProvidersApi {
 		private readonly container: Container,
 		private readonly authenticationService: IntegrationAuthenticationService,
 	) {
-		const proxyAgent = getProxyAgent();
 		const userAgent = `${
 			container.debugging ? 'GitLens-Debug' : container.prerelease ? 'GitLens-Pre' : 'GitLens'
 		}/${container.version} (${env.appName}/${codeVersion}; ${getPlatform()})`;
@@ -86,7 +86,6 @@ export class ProvidersApi {
 			...options
 		}: ProviderRequestOptions): Promise<ProviderRequestResponse<T>> => {
 			const response = await _fetch(url, {
-				agent: proxyAgent,
 				...options,
 				headers: {
 					'User-Agent': userAgent,

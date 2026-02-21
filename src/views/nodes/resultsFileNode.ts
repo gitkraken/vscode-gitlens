@@ -1,5 +1,5 @@
 import type { Command } from 'vscode';
-import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -65,8 +65,8 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 
 		const statusIcon = getGitFileStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', statusIcon)),
-			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', statusIcon)),
+			dark: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', statusIcon))),
+			light: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'light', statusIcon))),
 		};
 
 		item.command = this.getCommand();

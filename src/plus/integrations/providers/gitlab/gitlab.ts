@@ -1,9 +1,6 @@
-import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
-import type { RequestInit, Response } from '@env/fetch.js';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
-import { isWeb } from '@env/platform.js';
+import { fetch, wrapForForcedInsecureSSL } from '@env/fetch.js';
 import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
@@ -62,7 +59,7 @@ export class GitLabApi implements Disposable {
 		this._disposable = configuration.onDidChangeAny(e => {
 			if (
 				configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
-				configuration.changed(e, ['proxy', 'remotes'])
+				configuration.changed(e, 'remotes')
 			) {
 				this.resetCaches();
 			}
@@ -75,21 +72,6 @@ export class GitLabApi implements Disposable {
 
 	private resetCaches(): void {
 		this._projectIds.clear();
-		this._proxyAgents.clear();
-	}
-
-	private _proxyAgents = new Map<string, HttpsProxyAgent | null | undefined>();
-	private getProxyAgent(provider: Provider): HttpsProxyAgent | undefined {
-		if (isWeb) return undefined;
-
-		let proxyAgent = this._proxyAgents.get(provider.id);
-		if (proxyAgent === undefined) {
-			const ignoreSSLErrors = provider.getIgnoreSSLErrors();
-			proxyAgent = getProxyAgent(ignoreSSLErrors === true || ignoreSSLErrors === 'force' ? false : undefined);
-			this._proxyAgents.set(provider.id, proxyAgent ?? null);
-		}
-
-		return proxyAgent ?? undefined;
 	}
 
 	@trace({
@@ -1057,7 +1039,6 @@ $search: String!
 		let rsp: Response;
 		try {
 			const sw = maybeStopWatch(`[GITLAB] POST ${baseUrl}`, { log: { onlyExit: true } });
-			const agent = this.getProxyAgent(provider);
 
 			try {
 				let aborter: AbortController | undefined;
@@ -1072,14 +1053,13 @@ $search: String!
 					fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 						method: 'POST',
 						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-						agent: agent,
 						signal: aborter?.signal,
 						body: JSON.stringify({ query: query, variables: variables }),
 					}),
 				);
 
 				if (rsp.ok) {
-					const data: T | { errors: { message: string }[] } = await rsp.json();
+					const data = (await rsp.json()) as T | { errors: { message: string }[] };
 
 					if ('errors' in data) throw new ProviderFetchError('GitLab', rsp, data.errors);
 					return data;
@@ -1118,7 +1098,6 @@ $search: String!
 		let rsp: Response;
 		try {
 			const sw = maybeStopWatch(`[GITLAB] ${options?.method ?? 'GET'} ${url}`, { log: { onlyExit: true } });
-			const agent = this.getProxyAgent(provider);
 
 			try {
 				let aborter: AbortController | undefined;
@@ -1132,15 +1111,13 @@ $search: String!
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(url, {
 						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-						agent: agent,
 						signal: aborter?.signal,
 						...options,
 					}),
 				);
 
 				if (rsp.ok) {
-					const data: T = await rsp.json();
-					return data;
+					return (await rsp.json()) as T;
 				}
 
 				throw new ProviderFetchError('GitLab', rsp);

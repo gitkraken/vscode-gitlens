@@ -6,7 +6,7 @@
 	"engines": {
 		"node": ">= 22.12.0",
 		"pnpm": ">= 10.0.0",
-		"vscode": "^1.95.0"
+		"vscode": "^1.101.0"
 	},
 	"license": "SEE LICENSE IN LICENSE",
 	"publisher": "eamodio",
@@ -23,7 +23,7 @@
 		"url": "https://github.com/gitkraken/vscode-gitlens.git"
 	},
 	"customElements": "custom-elements.json",
-	"main": "./dist/gitlens.js",
+	"main": "./dist/gitlens.mjs",
 	"browser": "./dist/browser/gitlens.js",
 	"icon": "images/gitlens-icon.png",
 	"preview": false,
@@ -5612,40 +5612,6 @@
 						"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
 						"scope": "window",
 						"order": 40
-					},
-					"gitlens.proxy": {
-						"type": [
-							"object",
-							"null"
-						],
-						"default": null,
-						"items": {
-							"type": "object",
-							"required": [
-								"url",
-								"strictSSL"
-							],
-							"properties": {
-								"url": {
-									"type": [
-										"string",
-										"null"
-									],
-									"default": null,
-									"description": "Specifies the URL of the proxy server to use"
-								},
-								"strictSSL": {
-									"type": "boolean",
-									"description": "Specifies whether the proxy server certificate should be verified against the list of supplied CAs",
-									"default": true
-								}
-							},
-							"additionalProperties": false
-						},
-						"uniqueItems": true,
-						"description": "Specifies the proxy configuration to use. If not specified, the proxy configuration will be determined based on VS Code or OS settings",
-						"scope": "window",
-						"order": 55
 					},
 					"gitlens.plusFeatures.enabled": {
 						"type": "boolean",
@@ -27393,12 +27359,9 @@
 		"dragula": "3.7.3",
 		"driver.js": "1.4.0",
 		"fflate": "0.8.2",
-		"https-proxy-agent": "5.0.1",
-		"iconv-lite": "0.6.3",
 		"ignore": "7.0.5",
 		"lit": "3.3.2",
 		"marked": "17.0.1",
-		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
 		"react": "19.2.4",
@@ -27425,7 +27388,7 @@
 		"@types/sinon": "21.0.0",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.9",
-		"@types/vscode": "1.95.0",
+		"@types/vscode": "1.101.0",
 		"@typescript-eslint/parser": "8.56.0",
 		"@vscode/test-cli": "0.0.12",
 		"@vscode/test-electron": "2.5.2",
@@ -27486,11 +27449,8 @@
 		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
-		"@types/vscode": "1.95.0",
-		"esbuild": "0.27.3",
-		"https-proxy-agent": "5.0.1",
-		"iconv-lite": "0.6.3",
-		"node-fetch": "2.7.0"
+		"@types/vscode": "1.101.0",
+		"esbuild": "0.27.3"
 	},
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "prettier --write --experimental-cli --cache"

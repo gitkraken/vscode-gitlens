@@ -1,5 +1,5 @@
 import type { Command } from 'vscode';
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
@@ -180,8 +180,8 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 
 			const icon = getGitFileStatusIcon(this.file.status);
 			item.iconPath = {
-				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
-				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
+				dark: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon))),
+				light: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon))),
 			};
 		}
 

@@ -311,10 +311,15 @@ export class Git implements Disposable {
 		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, runLocally, ...opts } = options;
 
 		const defaultTimeout = (configuration.get('advanced.git.timeout') ?? 60) * 1000;
+		const isNonStandardEncoding =
+			encoding != null && encoding !== 'utf8' && encoding !== 'buffer' && encoding !== 'binary';
 		const runOpts: Mutable<RunOptions> = {
 			...opts,
 			timeout: opts.timeout === 0 || defaultTimeout === 0 ? undefined : (opts.timeout ?? defaultTimeout),
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
+			decode: isNonStandardEncoding
+				? (buffer: Uint8Array) => Promise.resolve(workspace.decode(buffer, { encoding: encoding }))
+				: undefined,
 			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
 			// Shouldn't *really* be needed but better safe than sorry
 			env: {

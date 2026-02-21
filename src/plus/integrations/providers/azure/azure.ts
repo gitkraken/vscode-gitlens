@@ -1,10 +1,7 @@
-import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Disposable } from 'vscode';
 import { window } from 'vscode';
 import { base64 } from '@env/base64.js';
-import type { RequestInit, Response } from '@env/fetch.js';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
-import { isWeb } from '@env/platform.js';
+import { fetch, wrapForForcedInsecureSSL } from '@env/fetch.js';
 import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
@@ -52,10 +49,7 @@ export class AzureDevOpsApi implements Disposable {
 
 	constructor(_container: Container) {
 		this._disposable = configuration.onDidChangeAny(e => {
-			if (
-				configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
-				configuration.changed(e, 'proxy')
-			) {
+			if (configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL'])) {
 				this.resetCaches();
 			}
 		});
@@ -65,18 +59,7 @@ export class AzureDevOpsApi implements Disposable {
 		this._disposable.dispose();
 	}
 
-	private _proxyAgent: HttpsProxyAgent | null | undefined = null;
-	private get proxyAgent(): HttpsProxyAgent | undefined {
-		if (isWeb) return undefined;
-
-		if (this._proxyAgent === null) {
-			this._proxyAgent = getProxyAgent();
-		}
-		return this._proxyAgent;
-	}
-
 	private resetCaches(): void {
-		this._proxyAgent = null;
 		this._workItemStates.clear();
 	}
 
@@ -561,7 +544,6 @@ export class AzureDevOpsApi implements Disposable {
 		let rsp: Response;
 		try {
 			const sw = maybeStopWatch(`[AZURE] ${options?.method ?? 'GET'} ${url}`, { log: { onlyExit: true } });
-			const agent = this.proxyAgent;
 
 			try {
 				let aborter: AbortController | undefined;
@@ -578,15 +560,13 @@ export class AzureDevOpsApi implements Disposable {
 							Authorization: `Basic ${base64(`PAT:${accessToken}`)}`,
 							'Content-Type': 'application/json',
 						},
-						agent: agent,
 						signal: aborter?.signal,
 						...options,
 					}),
 				);
 
 				if (rsp.ok) {
-					const data: T = await rsp.json();
-					return data;
+					return (await rsp.json()) as T;
 				}
 
 				throw new ProviderFetchError('AzureDevOps', rsp);

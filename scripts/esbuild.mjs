@@ -56,7 +56,7 @@ async function buildExtension(target, mode) {
 
 	const alias = {
 		'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
-		// Stupid dependency that is used by `http[s]-proxy-agent`
+		// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),
 		// This dependency is very large, and isn't needed for our use-case
 		tr46: path.resolve(__dirname, 'patches', 'tr46.js'),
@@ -86,6 +86,7 @@ async function buildExtension(target, mode) {
 		metafile: true,
 		minify: mode === 'production',
 		outdir: out,
+		...(target !== 'webworker' ? { outExtension: { '.js': '.mjs' } } : {}),
 		platform: target === 'webworker' ? 'browser' : target,
 		sourcemap: mode !== 'production',
 		// splitting: target !== 'webworker',
@@ -106,7 +107,7 @@ async function buildExtension(target, mode) {
 	);
 
 	if (mode === 'production') {
-		const file = path.join(out, 'gitlens.js');
+		const file = path.join(out, target === 'webworker' ? 'gitlens.js' : 'gitlens.mjs');
 		console.log(`Minifying ${file}...`);
 
 		const code = fs.readFileSync(file, 'utf8');

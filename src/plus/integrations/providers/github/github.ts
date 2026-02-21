@@ -2,11 +2,10 @@ import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import { request } from '@octokit/request';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, RequestParameters } from '@octokit/types';
-import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Event } from 'vscode';
 import { Disposable, EventEmitter, Uri, window } from 'vscode';
 import { base64 } from '@env/base64.js';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
+import { fetch, wrapForForcedInsecureSSL } from '@env/fetch.js';
 import { isWeb } from '@env/platform.js';
 import type { Container } from '../../../../container.js';
 import {
@@ -219,10 +218,7 @@ export class GitHubApi implements Disposable {
 		this._disposable = Disposable.from(
 			this._onDidReauthenticate,
 			configuration.onDidChangeAny(e => {
-				if (
-					configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
-					configuration.changed(e, 'proxy')
-				) {
+				if (configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL'])) {
 					this.resetCaches();
 				}
 			}),
@@ -234,19 +230,8 @@ export class GitHubApi implements Disposable {
 	}
 
 	private resetCaches(): void {
-		this._proxyAgent = null;
 		this._defaults.clear();
 		this._enterpriseVersions.clear();
-	}
-
-	private _proxyAgent: HttpsProxyAgent | null | undefined = null;
-	private get proxyAgent(): HttpsProxyAgent | undefined {
-		if (isWeb) return undefined;
-
-		if (this._proxyAgent === null) {
-			this._proxyAgent = getProxyAgent();
-		}
-		return this._proxyAgent;
 	}
 
 	async getCurrentAccount(
@@ -2871,7 +2856,6 @@ export class GitHubApi implements Disposable {
 					authorization: `token ${token}`,
 				},
 				request: {
-					agent: this.proxyAgent,
 					fetch: isWeb
 						? (url: string, options: { headers?: Record<string, string> }) => {
 								if (options.headers != null) {

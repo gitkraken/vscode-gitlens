@@ -1,5 +1,5 @@
 import type { Command } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -90,8 +90,8 @@ export class UncommittedFileNode extends ViewRefFileNode<'uncommitted-file', Vie
 
 		const icon = getGitFileStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
-			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
+			dark: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon))),
+			light: Uri.file(this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon))),
 		};
 
 		item.tooltip = getFileTooltipMarkdown(this.file);

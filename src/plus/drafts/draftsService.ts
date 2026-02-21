@@ -1,7 +1,6 @@
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { Disposable } from 'vscode';
-import type { HeadersInit } from '@env/fetch.js';
 import { getAvatarUri } from '../../avatars.js';
 import type { IntegrationIds } from '../../constants.integrations.js';
 import type { Container } from '../../container.js';
@@ -99,7 +98,7 @@ export class DraftService implements Disposable {
 
 			type DraftResult = { data: CreateDraftResponse };
 
-			let providerAuthHeader: HeadersInit | undefined;
+			let providerAuthHeader: RequestInit['headers'] | undefined;
 			let prEntityIdBody: { prEntityId: string } | undefined;
 			if (type === 'suggested_pr_change') {
 				if (options?.prEntityId == null) {

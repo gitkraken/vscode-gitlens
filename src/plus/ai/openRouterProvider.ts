@@ -44,7 +44,7 @@ export class OpenRouterProvider extends OpenAICompatibleProviderBase<typeof prov
 			}[];
 		};
 
-		const results: ModelsResponse = await rsp.json();
+		const results: ModelsResponse = (await rsp.json()) as ModelsResponse;
 		return results.data.map<OpenRouterModel>(
 			m =>
 				({
