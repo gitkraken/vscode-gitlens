@@ -2,6 +2,15 @@
 
 This workspace contains **GitLens** - a powerful VS Code extension that supercharges Git functionality. It provides blame annotations, commit history visualization, repository exploration, and many advanced Git workflows. The codebase supports both desktop VS Code (Node.js) and VS Code for Web (browser/webworker) environments.
 
+## Working Style Expectations
+
+1. **Accuracy over speed** — Read the actual code before proposing changes. Do not guess at method names, decorator behaviors, or class interfaces. Verify they exist first by searching the codebase.
+2. **Simplicity over abstraction** — Prefer the simplest correct solution. Do not introduce new types, enums, marker interfaces, migration flags, or wrapper abstractions unless they serve multiple consumers. When the user simplifies your approach, adopt it immediately.
+3. **Completeness over iteration** — Before presenting a multi-file change as complete, audit ALL affected locations: call sites, subclass overrides, both Node.js and browser code paths, and sub-providers.
+4. **Fixing over disabling** — When asked to fix a feature, fix the root cause. Do not disable, remove, or work around it unless explicitly asked. "Fix" and "disable" are different instructions.
+5. **Confirming over assuming** — When debugging, present your hypothesis with evidence before implementing. If a request is ambiguous, ask for clarification. Do not silently start editing on non-trivial changes without stating your approach.
+6. **Purposeful changes** — Refactoring and renaming to improve clarity, maintainability, and codebase health are encouraged. Explain what you're changing and why. Do not make silent drive-by changes unrelated to the task at hand.
+
 ## Development Environment
 
 ### Prerequisites
@@ -247,6 +256,48 @@ As an expert software developer with deep expert-level knowledge of TypeScript, 
 - Verify that there are no new lint violations
 - Review commit messages for clarity and adherence to guidelines
 - Ensure CHANGELOG entries are added for user-facing changes
+
+## Debugging & Investigation Methodology
+
+When diagnosing bugs or unexpected behavior, follow this structured process. Do NOT guess at root causes — gather evidence first.
+
+### Step 1: Understand the Symptom
+
+- Read the exact error message, stack trace, or behavioral description
+- Identify WHICH component is failing (extension host vs webview, Node.js vs browser)
+- Determine if the issue is a regression (was it working before?)
+
+### Step 2: Trace the Code Path
+
+- Start from the symptom and trace BACKWARDS through the call chain
+- Read the ACTUAL implementation of every function in the chain, including decorators
+- Do NOT assume what a function does based on its name alone
+- For decorated methods: understand that `@gate()`, `@debug()`, `@memoize()`, and `@sequentialize()` wrap the method and alter its behavior (see Decorator System section below)
+
+### Step 3: Verify Your Hypothesis Before Implementing
+
+- Form at least 2 possible root causes
+- For each hypothesis, identify what evidence would confirm or refute it
+- For non-trivial or ambiguous issues, state your diagnosis explicitly and wait for confirmation before making changes
+
+### Step 4: Audit All Affected Locations
+
+Before implementing a fix:
+
+- Search for ALL call sites of the function being modified
+- Search for ALL overrides of the method (in subclasses, sub-providers)
+- Check both Node.js AND browser code paths (`src/env/node/` and `src/env/browser/`)
+- Check both LocalGitProvider AND GitHubGitProvider sub-providers if modifying git operations
+- For error handling changes, check all catch blocks that handle the error type
+
+### Common Misdiagnosis Patterns to Avoid
+
+1. **Blaming logging decorators for hangs**: When a method hangs, the issue is almost never in `@info()`/`@debug()`/`@trace()`. Check `@gate()` (promise never resolving) or the actual async operation first.
+2. **Confusing `@gate()` and `@sequentialize()`**: `@gate()` returns the SAME promise to concurrent callers. `@sequentialize()` QUEUES calls. These solve different problems.
+3. **Wrong error type handling**: Use the error's `.is()` static method with reason discriminator: `PushError.is(ex, 'noUpstream')`, not `instanceof` + `ex.message.includes(...)`.
+4. **Platform-specific bugs**: Something working in Node.js may fail in browser (and vice versa). Always check the `@env/` abstraction layer.
+5. **Scope/context bugs**: `getScopedLogger()` returns stale scope after `await` in browser. Capture the scope before the first `await`.
+6. **Suppressing errors instead of fixing them**: Do NOT silence errors by catching and ignoring them. Fix the root cause or propagate them properly (e.g., use `errors: throw` so catch blocks handle them).
 
 ## High-Level Architecture
 
@@ -564,21 +615,62 @@ import { configuration } from './system/configuration';
 
 ### Error Handling
 
-- Use custom error types extending `Error`
+The codebase uses a discriminated error type pattern with static `.is()` type guards.
+
+**Error files:**
+
+- `src/errors.ts` — General extension errors (Auth, Cancellation, Provider, Request)
+- `src/git/errors.ts` — 20+ Git operation errors (Push, Pull, Merge, Branch, Checkout, Stash, Worktree, etc.)
+- `src/env/node/git/shell.errors.ts` — Shell execution errors (RunError)
+
+**Static `.is()` type guard pattern:**
+Every custom error class has a static `is()` method with optional reason filtering:
+
+```typescript
+// Check if error is a PushError of any kind
+if (PushError.is(ex)) { ... }
+
+// Check if error is specifically a PushError with 'noUpstream' reason
+if (PushError.is(ex, 'noUpstream')) { ... }
+```
+
+This is the PREFERRED pattern. Do NOT use:
+
+- `instanceof` alone (misses reason discrimination)
+- `ex.message.includes(...)` (fragile, breaks on message changes)
+- `ex.constructor.name` (breaks with minification)
+
+**Error wrapping pattern:**
+Errors commonly wrap an `original` error and carry typed `details` with a `reason` discriminator:
+
+```typescript
+throw new PushError({ reason: 'rejected', branch: 'main', remote: 'origin' }, originalGitError);
+```
+
+**`CancellationError`**: Special case — extends VS Code's `CancellationError`. Used by `@gate()` timeout, user cancellation, and operation abort. Check with `isCancellationError(ex)`.
+
+**General rules:**
+
 - Log errors with context using `Logger.error()`
 - Graceful degradation for network/API failures
-- Validate external data with schema validators
-- Provide user-friendly error messages
+- Do NOT suppress or ignore errors — fix the root cause or propagate them properly
 
-### Decorators
+### Decorator System
 
-Common decorators used throughout the codebase:
+The codebase uses method decorators (`src/system/decorators/`) that significantly alter runtime behavior:
 
-- `@memoize()` - Cache function results
-- `@debug()` - Add debug logging
-- `@log()` - Add logging
-- `@gate()` - Throttle concurrent calls
-- `@command()` - Register VS Code commands
+| Decorator | Purpose | Key Gotcha |
+|-----------|---------|------------|
+| `@info()` / `@debug()` / `@trace()` | Logging with scope tracking | `getScopedLogger()` must be called BEFORE any `await` (browser limitation) |
+| `@gate()` | Deduplicates concurrent calls (returns same promise) | 5-min timeout; most common cause of method hangs |
+| `@memoize()` | Caches return value permanently on instance | Caches rejected Promises too; use `invalidateMemoized()` to clear |
+| `@sequentialize()` | Queues calls to execute one at a time | Different from `@gate()` — queues instead of deduplicating |
+| `@debounce()` | Debounces method calls per-instance | |
+| `@command()` | Registers VS Code command class | Class decorator, not method decorator |
+
+Stacking executes bottom-up (outermost runs first). When debugging: check `@gate()` first for hangs, `@memoize()` for stale data, logging decorators last.
+
+For detailed decorator behavior and investigation methodology, use `/investigate`.
 
 ### Webview Development
 
@@ -589,6 +681,56 @@ Common decorators used throughout the codebase:
 - Webview UI code in `src/webviews/apps/{webviewName}/`
 - Use IPC protocol for communication: `postMessage()` → `onIpc()`
 - Refresh webview without restarting extension during development
+
+#### Accessibility Requirements
+
+When creating or modifying Lit web components:
+
+- **Focus management**: Ensure keyboard navigation works. Tab order must be logical. Custom interactive elements need `tabindex="0"` and keyboard event handlers (Enter/Space for activation).
+- **Focus traps**: Modal/overlay components must trap focus inside when open and restore focus on close. Use a tested focus-trap utility rather than implementing from scratch.
+- **ARIA attributes**: Interactive elements must have appropriate `role` and `aria-*` attributes. Custom widgets need `aria-expanded`, `aria-selected`, `aria-disabled` as appropriate.
+- **Tooltips**: Must appear on both hover AND keyboard focus. Must be dismissible with Escape.
+- **Visual indicators**: Focus outlines must be visible. Do NOT use `outline: none` without providing an alternative visible indicator. Avoid double outlines from both `:focus` and `:focus-visible`.
+- **Color contrast**: Use VS Code theme CSS custom properties (`--vscode-*`). Do not hardcode colors.
+
+#### Common Webview Bugs to Avoid
+
+- Double event handlers from Lit's `@event` syntax combined with `addEventListener`
+- Stale state in signal-based components after rapid updates
+- Missing `disconnectedCallback()` cleanup for event listeners and observers
+- Popover/overlay components that don't handle Escape key or click-outside
+
+### Implementation Quality Rules
+
+#### Minimize Complexity
+
+- Prefer the SIMPLEST solution that correctly solves the problem
+- Do NOT introduce new types, enums, or abstractions unless they serve multiple consumers
+- Do NOT add migration flags, compatibility layers, or marker types for single-use scenarios
+- If a solution requires more than 2-3 new types/interfaces, reconsider the approach
+
+#### Scope of Changes
+
+- Refactoring and renaming to improve clarity, maintainability, and codebase health are welcome — just explain what and why
+- Do NOT make silent, unrelated drive-by changes alongside a bug fix or feature
+- If you notice something nearby that could be improved, go ahead — but call it out so the user knows
+
+#### Completeness Checklist
+
+Before considering a multi-file change complete:
+
+- [ ] All call sites of modified functions reviewed
+- [ ] All subclass overrides of modified methods updated
+- [ ] Both Node.js (`src/env/node/`) and browser (`src/env/browser/`) code paths work
+- [ ] Error handling covers the new code path
+- [ ] No existing behavior broken (especially adjacent features)
+- [ ] Edge cases considered: empty/null/undefined inputs, concurrent calls, error states
+
+#### Fix vs. Disable
+
+- "Fix" means make the feature work correctly — do NOT disable or remove it
+- "Fix" means address the root cause — do NOT add a workaround that hides symptoms
+- If the correct fix is complex, explain the complexity and propose options — do NOT silently simplify by removing functionality
 
 ## Important Patterns and Conventions
 
@@ -626,58 +768,6 @@ Strongly typed Git entities throughout the codebase (located in `src/git/models/
 
 ## Common Development Tasks
 
-### Adding a New Command
-
-1. Create command file in `src/commands/` (e.g., `myCommand.ts`)
-2. Register command in `src/commands.ts`:
-   ```typescript
-   registerCommand(Commands.MyCommand, () => new MyCommand(container));
-   ```
-3. Add to `contributions.json` for package.json generation:
-   ```json
-   {
-   	"command": "gitlens.myCommand",
-   	"title": "My Command",
-   	"category": "GitLens"
-   }
-   ```
-4. Run `pnpm run generate:contributions` to update package.json
-5. Run `pnpm run generate:commandTypes` to update command constants
-
-### Adding a New Webview
-
-1. Create webview provider in `src/webviews/` (e.g., `myWebviewProvider.ts`)
-2. Create Lit app in appropriate location:
-   - For Pro features: `src/webviews/apps/plus/my-webview/`
-   - For community features: `src/webviews/apps/my-webview/`
-   - Create `my-webview.ts` (main app component with Lit Elements)
-   - Add HTML template
-   - Add CSS styles
-3. Register in `WebviewsController` (in `src/webviews/webviewsController.ts`)
-4. Add protocol definitions for IPC in `src/webviews/protocol.ts`:
-   ```typescript
-   export interface MyWebviewShowingArgs { ... }
-   ```
-5. Add webpack entry point in `webpack.config.mjs`
-6. Register webview in extension activation
-
-### Adding a New Tree View
-
-1. Create tree provider in `src/views/` (e.g., `myTreeView.ts`)
-   - Extend `ViewBase` or `RepositoryFolderNode`
-   - Implement `getChildren()` method
-2. Define node types for the tree hierarchy
-3. Add to `contributions.json`:
-   ```json
-   {
-   	"id": "gitlens.views.myView",
-   	"name": "My View",
-   	"when": "..."
-   }
-   ```
-4. Register in extension activation (`src/extension.ts`)
-5. Run `pnpm run generate:contributions`
-
 ### Modifying Git Operations
 
 1. Find the relevant Git provider:
@@ -694,40 +784,27 @@ Strongly typed Git entities throughout the codebase (located in `src/git/models/
 6. Consider caching implications (update `GitCache` if needed)
 7. Add tests in `__tests__/` directory
 
-### Working with Icons (GL Icons Font)
-
-1. Add SVG icons to `images/icons/` folder
-2. Append entries to `images/icons/template/mapping.json`:
-   ```json
-   "icon-name": 1234
-   ```
-3. Run icon build commands:
-   ```bash
-   pnpm run icons:svgo        # Optimize SVGs
-   pnpm run build:icons       # Generate font
-   ```
-4. Copy new `glicons.woff2?<uuid>` URL from `src/webviews/apps/shared/glicons.scss`
-5. Search and replace old font URL with new one across the codebase
-
-### Adding New AI Provider
-
-1. Create new AI provider in `src/plus/ai/` extending base classes (e.g., `openAICompatibleProviderBase.ts`)
-2. Add to `AIProviderService` registry in `src/plus/ai/aiProviderService.ts`
-3. Handle authentication and rate limiting
-4. Add provider constants to `src/constants.ai.ts`
-5. Update configuration in `package.json` contributions
-
-### Adding Git Provider Integration
-
-1. Implement `GitProvider` interface (e.g., `gitLabGitProvider.ts`)
-2. Register with `GitProviderService`
-3. Handle provider-specific authentication
-4. Add integration constants to `src/constants.integrations.ts`
-5. Consider adding rich integration features (PRs, issues, avatars)
-
 ## Quick Lookup
 
 Reference examples and critical rules for common tasks.
+
+### Available Skills
+
+Skills provide detailed, step-by-step workflows for common tasks. Invoke with `/{skill-name}`.
+
+| Skill | Purpose |
+|-------|---------|
+| `/investigate` | Structured bug investigation with root cause analysis |
+| `/analyze` | Deep design/implementation analysis, devil's advocate |
+| `/review` | Code review against standards + impact completeness audit |
+| `/commit` | Git commit with GitLens conventions |
+| `/create-issue` | Create GitHub issues from code changes |
+| `/audit-commits` | Audit commit range for issues and CHANGELOG entries |
+| `/add-command` | Scaffold a new VS Code command |
+| `/add-webview` | Scaffold a new webview with IPC, Lit app, registration |
+| `/add-test` | Generate unit or E2E test files |
+| `/add-icon` | Add icon to GL Icons font |
+| `/add-ai-provider` | Add a new AI provider integration |
 
 ### Canonical Examples
 
