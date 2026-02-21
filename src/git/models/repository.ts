@@ -227,6 +227,7 @@ export class Repository implements Disposable {
 	}
 
 	dispose(): void {
+		clearTimeout(this._pendingResumeTimer);
 		this.unWatchFileSystem(true);
 		this._repoWatchersDisposable?.dispose();
 		this._disposable.dispose();
