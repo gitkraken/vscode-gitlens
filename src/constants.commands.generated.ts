@@ -392,6 +392,7 @@ export type ContributedCommands =
 	| 'gitlens.views.closeRepository'
 	| 'gitlens.views.collapseNode'
 	| 'gitlens.views.commitDetails.refresh'
+	| 'gitlens.views.commitFixup'
 	| 'gitlens.views.commits.attach'
 	| 'gitlens.views.commits.filterRepositories'
 	| 'gitlens.views.commits.refresh'
