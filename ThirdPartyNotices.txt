@@ -25,19 +25,18 @@ This project incorporates components from the projects listed below.
 20. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
 21. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
 22. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
-23. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-24. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
-25. lit version 3.3.2 (https://github.com/lit/lit)
-26. marked version 17.0.1 (https://github.com/markedjs/marked)
-27. microsoft/vscode (https://github.com/microsoft/vscode)
-28. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-29. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-30. react-dom version 19.2.4 (https://github.com/facebook/react)
-31. react version 19.2.4 (https://github.com/facebook/react)
-32. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
-33. slug version 11.0.1 (https://github.com/Trott/slug)
-34. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
-35. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+23. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
+24. lit version 3.3.2 (https://github.com/lit/lit)
+25. marked version 17.0.1 (https://github.com/markedjs/marked)
+26. microsoft/vscode (https://github.com/microsoft/vscode)
+27. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+28. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+29. react-dom version 19.2.4 (https://github.com/facebook/react)
+30. react version 19.2.4 (https://github.com/facebook/react)
+31. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
+32. slug version 11.0.1 (https://github.com/Trott/slug)
+33. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
+34. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
 
 %% @gk-nzaytsev/fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1904,33 +1903,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 =========================================
 END OF  fflate NOTICES AND INFORMATION
-
-%% iconv-lite NOTICES AND INFORMATION BEGIN HERE
-=========================================
-Copyright (c) 2011 Alexander Shtuchkin
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-=========================================
-END OF  iconv-lite NOTICES AND INFORMATION
 
 %% ignore NOTICES AND INFORMATION BEGIN HERE
 =========================================

@@ -135,6 +135,11 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	readonly env?: Record<string, any>;
 	readonly encoding?: TEncoding;
 	/**
+	 * Decodes buffer output using a non-standard encoding.
+	 * Called instead of `Buffer.toString()` when provided.
+	 */
+	readonly decode?: (buffer: Uint8Array) => string | Promise<string>;
+	/**
 	 * The size the output buffer to allocate to the spawned process. Set this
 	 * if you are anticipating a large amount of output.
 	 *
@@ -164,24 +169,17 @@ type ExitCodeOnlyRunOptions<TEncoding = BufferEncoding | 'buffer'> = RunOptions<
 export function run(
 	command: string,
 	args: readonly string[],
-	encoding: BufferEncoding | string,
 	options: ExitCodeOnlyRunOptions<BufferEncoding>,
 ): Promise<number>;
-export function run(
-	command: string,
-	args: readonly string[],
-	encoding: BufferEncoding | string,
-	options?: RunOptions<BufferEncoding>,
-): Promise<string>;
+export function run(command: string, args: readonly string[], options?: RunOptions<BufferEncoding>): Promise<string>;
 export function run<T extends number | string>(
 	command: string,
 	args: readonly string[],
-	encoding: BufferEncoding | string,
 	options?: RunOptions<BufferEncoding> & { exitCodeOnly?: boolean },
 ): Promise<T> {
 	const scope = getScopedLogger() ?? maybeStartLoggableScope('Shell.run');
 
-	const { stdin, stdinEncoding, ...opts }: RunOptions<BufferEncoding> & ExecFileOptions = {
+	const { stdin, stdinEncoding, decode, ...opts }: RunOptions<BufferEncoding> & ExecFileOptions = {
 		maxBuffer: 1000 * 1024 * 1024,
 		...options,
 	};
@@ -214,16 +212,15 @@ export function run<T extends number | string>(
 
 				let stdoutDecoded: string;
 				let stderrDecoded: string;
-				if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
+				if (decode) {
+					stdoutDecoded = await decode(Buffer.from(stdout, 'binary'));
+					stderrDecoded = await decode(Buffer.from(stderr, 'binary'));
+				} else {
 					// stdout & stderr can be `Buffer` or `string
 					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 					stdoutDecoded = stdout.toString();
 					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 					stderrDecoded = stderr.toString();
-				} else {
-					const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
-					stdoutDecoded = decode(Buffer.from(stdout, 'binary'), encoding);
-					stderrDecoded = decode(Buffer.from(stderr, 'binary'), encoding);
 				}
 				reject(new RunError(error, stdoutDecoded, stderrDecoded));
 
@@ -234,11 +231,10 @@ export function run<T extends number | string>(
 				scope?.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 			}
 
-			if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
-				resolve(stdout as T);
+			if (decode) {
+				resolve((await decode(Buffer.from(stdout, 'binary'))) as T);
 			} else {
-				const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
-				resolve(decode(Buffer.from(stdout, 'binary'), encoding) as T);
+				resolve(stdout as T);
 			}
 		});
 
@@ -279,7 +275,7 @@ export function runSpawn<T extends string | Buffer>(
 ): Promise<RunExitResult | RunResult<T>> {
 	const scope = getScopedLogger() ?? maybeStartLoggableScope('Shell.runSpawn');
 
-	const { stdin, stdinEncoding, ...opts }: RunOptions = options;
+	const { stdin, stdinEncoding, decode, ...opts }: RunOptions = options;
 
 	const promise = new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
 		const proc = spawn(command, args, opts);
@@ -302,9 +298,14 @@ export function runSpawn<T extends string | Buffer>(
 				return { stdout: stdout as T, stderr: stderr as T };
 			}
 
-			return import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite').then(iconv => {
-				return { stdout: iconv.decode(stdout, encoding) as T, stderr: iconv.decode(stderr, encoding) as T };
-			});
+			if (decode) {
+				return Promise.all([decode(stdout), decode(stderr)]).then(([decodedStdout, decodedStderr]) => ({
+					stdout: decodedStdout as T,
+					stderr: decodedStderr as T,
+				}));
+			}
+
+			return { stdout: stdout.toString('utf8') as T, stderr: stderr.toString('utf8') as T };
 		}
 
 		proc.once('error', async ex => {

@@ -7,7 +7,6 @@ settings:
 overrides:
   '@types/vscode': 1.101.0
   esbuild: 0.27.3
-  iconv-lite: 0.6.3
 
 patchedDependencies:
   fantasticon@4.1.0:
@@ -93,9 +92,6 @@ importers:
       fflate:
         specifier: 0.8.2
         version: 0.8.2
-      iconv-lite:
-        specifier: 0.6.3
-        version: 0.6.3
       ignore:
         specifier: 7.0.5
         version: 7.0.5

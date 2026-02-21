@@ -27359,7 +27359,6 @@
 		"dragula": "3.7.3",
 		"driver.js": "1.4.0",
 		"fflate": "0.8.2",
-		"iconv-lite": "0.6.3",
 		"ignore": "7.0.5",
 		"lit": "3.3.2",
 		"marked": "17.0.1",
@@ -27451,8 +27450,7 @@
 	},
 	"resolutions": {
 		"@types/vscode": "1.101.0",
-		"esbuild": "0.27.3",
-		"iconv-lite": "0.6.3"
+		"esbuild": "0.27.3"
 	},
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "prettier --write --experimental-cli --cache"

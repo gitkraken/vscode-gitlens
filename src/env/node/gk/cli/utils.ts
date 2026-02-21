@@ -107,7 +107,7 @@ export async function runCLICommand(args: string[], options?: { cwd?: string }):
 	}
 
 	// eslint-disable-next-line no-return-await -- await is needed for the scope to be properly disposed
-	return await run(command, args, 'utf8', { cwd: cwd });
+	return await run(command, args, { cwd: cwd });
 }
 
 const CLIVersionOutputs = {
