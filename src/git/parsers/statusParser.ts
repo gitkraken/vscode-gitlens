@@ -71,7 +71,7 @@ function parseStatusV1(container: Container, lines: string[], repoPath: string):
 			const rawStatus = line.substring(0, 2);
 			const fileName = line.substring(3);
 			if (rawStatus.startsWith('R') || rawStatus.startsWith('C')) {
-				const [file1, file2] = fileName.replace(quoteRegex, '').split('->');
+				const [file1, file2] = fileName.replace(quoteRegex, '').split(' -> ');
 				files.push(parseStatusFile(container, repoPath, rawStatus, file2.trim(), file1.trim()));
 			} else {
 				files.push(parseStatusFile(container, repoPath, rawStatus, fileName));
