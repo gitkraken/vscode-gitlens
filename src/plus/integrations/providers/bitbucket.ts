@@ -209,7 +209,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			const resources = await api.getBitbucketResourcesForUser(toTokenWithInfo(this.id, session), account.id);
 			this._workspaces.set(
 				accessToken,
-				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
+				resources != null ? resources.map(r => ({ ...r, key: r.id, name: r.name ?? r.slug })) : undefined,
 			);
 		}
 
