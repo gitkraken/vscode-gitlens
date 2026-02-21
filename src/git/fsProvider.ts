@@ -9,6 +9,7 @@ import { map } from '../system/iterable.js';
 import { Logger } from '../system/logger.js';
 import { getScopedLogger } from '../system/logger.scope.js';
 import { normalizePath } from '../system/path.js';
+import { PromiseCache } from '../system/promiseCache.js';
 import { TernarySearchTree } from '../system/searchTree.js';
 import { ShowError } from './errors.js';
 import { GitUri, isGitUri } from './gitUri.js';
@@ -35,7 +36,10 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	}
 
 	private readonly _disposable: Disposable;
-	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<string, GitTreeEntry>>>();
+	private readonly _searchTreeMap = new PromiseCache<string, TernarySearchTree<string, GitTreeEntry>>({
+		capacity: 50,
+		accessTTL: 1000 * 60 * 10, // 10 minutes idle
+	});
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -180,13 +184,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	}
 
 	private getOrCreateSearchTree(ref: string, repoPath: string) {
-		let searchTree = this._searchTreeMap.get(ref);
-		if (searchTree == null) {
-			searchTree = this.createSearchTree(ref, repoPath);
-			this._searchTreeMap.set(ref, searchTree);
-		}
-
-		return searchTree;
+		return this._searchTreeMap.getOrCreate(ref, () => this.createSearchTree(ref, repoPath));
 	}
 
 	private async getTree(path: string, ref: string, repoPath: string) {
