@@ -27343,8 +27343,8 @@
 		"package-pre": "pnpm run patch-pre && pnpm run package --pre-release",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.mjs",
 		"prep-release": "node ./scripts/prep-release.mjs",
-		"pretty": "prettier --write . --experimental-cli",
-		"pretty:check": "prettier --check . --experimental-cli",
+		"pretty": "prettier --write . --experimental-cli --cache",
+		"pretty:check": "prettier --check . --experimental-cli --cache",
 		"pub": "vsce publish --no-dependencies",
 		"pub-pre": "vsce publish --no-dependencies --pre-release",
 		"rebuild": "pnpm run reset && pnpm run build",
@@ -27364,7 +27364,8 @@
 		"update-dts": "pushd \"src/@types\" && pnpx  @vscode/dts dev && popd",
 		"update-dts:main": "pushd \"src/@types\" && pnpx  @vscode/dts main && popd",
 		"pretest": "pnpm run build:tests",
-		"vscode:prepublish": "pnpm run bundle"
+		"vscode:prepublish": "pnpm run bundle",
+		"prepare": "husky"
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "13.0.0-vnext.27",
@@ -27430,7 +27431,7 @@
 		"@vscode/test-electron": "2.5.2",
 		"@vscode/test-web": "0.0.79",
 		"@vscode/vsce": "3.7.1",
-		"@wc-toolkit/cem-sorter": "^1.0.1",
+		"@wc-toolkit/cem-sorter": "1.0.1",
 		"cheerio": "1.0.0-rc.12",
 		"circular-dependency-plugin": "5.2.2",
 		"copy-webpack-plugin": "13.0.1",
@@ -27456,8 +27457,10 @@
 		"globals": "17.3.0",
 		"html-loader": "5.1.0",
 		"html-webpack-plugin": "5.6.6",
+		"husky": "9.1.7",
 		"image-minimizer-webpack-plugin": "4.1.4",
 		"license-checker-rseidelsohn": "4.4.2",
+		"lint-staged": "16.2.7",
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.10.0",
 		"ovsx": "0.10.9",
@@ -27488,6 +27491,9 @@
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0"
+	},
+	"lint-staged": {
+		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "prettier --write --experimental-cli --cache"
 	},
 	"packageManager": "pnpm@10.30.0"
 }
