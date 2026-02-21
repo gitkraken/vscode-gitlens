@@ -11,6 +11,7 @@ import type { ResourceDescriptor } from './git/models/resourceDescriptor.js';
 import type { GitHostIntegration } from './plus/integrations/models/gitHostIntegration.js';
 import type { IntegrationBase } from './plus/integrations/models/integration.js';
 import { isPromise } from './system/promise.js';
+import { CacheController } from './system/promiseCache.js';
 
 type Caches = {
 	defaultBranch: { key: `repo:${string}`; value: DefaultBranch };
@@ -31,7 +32,7 @@ type CacheKey<T extends Cache> = Caches[T]['key'];
 type CacheValue<T extends Cache> = Caches[T]['value'];
 type CacheResult<T> = Promise<T | undefined> | T | undefined;
 
-type Cacheable<T> = () => { value: CacheResult<T>; expiresAt?: number };
+type Cacheable<T> = (cacheable: CacheController) => { value: CacheResult<T>; expiresAt?: number };
 type Cached<T> =
 	| {
 			value: T | undefined;
@@ -45,6 +46,8 @@ type Cached<T> =
 			expiresAt?: never; // Don't set an expiration on promises as they will resolve to a value with the desired expiration
 			etag?: string;
 	  };
+
+type ExpiryOptions = { expiryOverride?: boolean | number; expireOnError?: boolean };
 
 export class CacheProvider implements Disposable {
 	private readonly _cache = new Map<`${Cache}:${CacheKey<Cache>}`, Cached<CacheResult<CacheValue<Cache>>>>();
@@ -65,7 +68,7 @@ export class CacheProvider implements Disposable {
 		key: CacheKey<T>,
 		etag: string | undefined,
 		cacheable: Cacheable<CacheValue<T>>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<CacheValue<T>> {
 		const item = this._cache.get(`${cache}:${key}`);
 
@@ -85,8 +88,15 @@ export class CacheProvider implements Disposable {
 			(expiry != null && expiry > 0 && expiry < Date.now()) ||
 			(item.etag != null && item.etag !== etag)
 		) {
-			const { value, expiresAt } = cacheable();
-			return this.set<T>(cache, key, value, etag, expiresAt)?.value as CacheResult<CacheValue<T>>;
+			const cacheController = new CacheController();
+			const { value, expiresAt } = cacheable(cacheController);
+			const setResult = this.set<T>(cache, key, value, etag, expiresAt, options?.expireOnError);
+			void setResult?.promise?.finally(() => {
+				if (cacheController.invalidated) {
+					this.delete(cache, key);
+				}
+			});
+			return setResult?.item.value as CacheResult<CacheValue<T>>;
 		}
 
 		return item.value as CacheResult<CacheValue<T>>;
@@ -95,7 +105,7 @@ export class CacheProvider implements Disposable {
 	getCurrentAccount(
 		integration: IntegrationBase,
 		cacheable: Cacheable<Account>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<Account> {
 		const { key, etag } = getIntegrationKeyAndEtag(integration);
 		return this.get('currentAccount', `id:${key}`, etag, cacheable, options);
@@ -117,7 +127,7 @@ export class CacheProvider implements Disposable {
 		resource: ResourceDescriptor,
 		integration: IntegrationBase | undefined,
 		cacheable: Cacheable<IssueOrPullRequest>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<IssueOrPullRequest> {
 		const { key, etag } = getResourceKeyAndEtag(resource, integration);
 
@@ -138,7 +148,7 @@ export class CacheProvider implements Disposable {
 		resource: ResourceDescriptor,
 		integration: IntegrationBase | undefined,
 		cacheable: Cacheable<Issue>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<Issue> {
 		const { key, etag } = getResourceKeyAndEtag(resource, integration);
 
@@ -165,7 +175,7 @@ export class CacheProvider implements Disposable {
 		resource: ResourceDescriptor,
 		integration: IntegrationBase | undefined,
 		cacheable: Cacheable<PullRequest>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
 		const { key, etag } = getResourceKeyAndEtag(resource, integration);
 
@@ -192,7 +202,7 @@ export class CacheProvider implements Disposable {
 		repo: ResourceDescriptor,
 		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
 		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
@@ -210,7 +220,7 @@ export class CacheProvider implements Disposable {
 		repo: ResourceDescriptor,
 		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
 		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
@@ -227,7 +237,7 @@ export class CacheProvider implements Disposable {
 		repo: ResourceDescriptor,
 		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<DefaultBranch>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<DefaultBranch> {
 		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		return this.get('defaultBranch', `repo:${key}`, etag, cacheable, options);
@@ -237,7 +247,7 @@ export class CacheProvider implements Disposable {
 		repo: ResourceDescriptor,
 		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<RepositoryMetadata>,
-		options?: { expiryOverride?: boolean | number },
+		options?: ExpiryOptions,
 	): CacheResult<RepositoryMetadata> {
 		const { key, etag } = getResourceKeyAndEtag(repo, integration);
 		return this.get('repoMetadata', `repo:${key}`, etag, cacheable, options);
@@ -249,17 +259,19 @@ export class CacheProvider implements Disposable {
 		value: CacheResult<CacheValue<T>>,
 		etag: string | undefined,
 		expiresAt?: number,
-	): Cached<CacheResult<CacheValue<T>>> {
+		expireOnError?: boolean,
+	): { item: Cached<CacheResult<CacheValue<T>>>; promise: undefined | Promise<void> } {
 		let item: Cached<CacheResult<CacheValue<T>>>;
+		let promise: undefined | Promise<void>;
 		if (isPromise(value)) {
-			void value.then(
-				v => {
-					this.set(cache, key, v, etag, expiresAt);
-				},
-				() => {
-					this.delete(cache, key);
-				},
-			);
+			promise = value.then(v => {
+				if (this._cache.get(`${cache}:${key}`)?.value === value) {
+					this.set(cache, key, v, etag, expiresAt, expireOnError);
+				}
+			});
+			if (expireOnError !== false) {
+				promise = promise.catch(() => this.delete(cache, key));
+			}
 
 			item = { value: value, etag: etag, cachedAt: Date.now() };
 		} else {
@@ -272,7 +284,7 @@ export class CacheProvider implements Disposable {
 		}
 
 		this._cache.set(`${cache}:${key}`, item);
-		return item;
+		return { item: item, promise: promise };
 	}
 
 	private wrapPullRequestCacheable(
@@ -280,8 +292,8 @@ export class CacheProvider implements Disposable {
 		key: string,
 		etag: string | undefined,
 	): Cacheable<PullRequest> {
-		return () => {
-			const item = cacheable();
+		return cacheController => {
+			const item = cacheable(cacheController);
 			if (isPromise(item.value)) {
 				void item.value.then(v => {
 					if (v != null) {
