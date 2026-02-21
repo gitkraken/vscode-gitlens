@@ -190,6 +190,7 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 		id: pr.id.toString(),
 		number: pr.id,
 		title: pr.title,
+		description: pr.description ?? null,
 		url: pr.links.self[0].href,
 		state: bitbucketStateToGitState[pr.state],
 		isDraft: false,
