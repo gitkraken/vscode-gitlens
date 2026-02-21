@@ -390,8 +390,13 @@ export class GitProviderService implements Disposable {
 			const removed: Repository[] = [];
 
 			for (const folder of e.removed) {
-				const repository = this._repositories.getClosest(folder.uri);
-				if (repository != null) {
+				// Remove the closest repo and any nested repos under the removed folder
+				const closest = this._repositories.getClosest(folder.uri);
+				if (closest != null) {
+					this._repositories.remove(closest.uri, false);
+					removed.push(closest);
+				}
+				for (const repository of this._repositories.getDescendants(folder.uri)) {
 					this._repositories.remove(repository.uri, false);
 					removed.push(repository);
 				}

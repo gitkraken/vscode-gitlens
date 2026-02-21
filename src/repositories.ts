@@ -138,6 +138,10 @@ export class Repositories {
 		return this._trie.getClosest(uri);
 	}
 
+	getDescendants(uri: Uri): Generator<Repository> {
+		return this._trie.getDescendants(uri);
+	}
+
 	has(uri: Uri): boolean {
 		return this._trie.has(uri);
 	}
