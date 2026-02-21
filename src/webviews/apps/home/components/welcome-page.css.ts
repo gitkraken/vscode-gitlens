@@ -4,6 +4,7 @@ const colorScheme = css`
 	:host {
 		--accent-color: #cb64ff;
 		--text-color: var(--vscode-descriptionForeground);
+		--heading-color: var(--vscode-tab-activeForeground);
 		--em-color: var(--vscode-sideBar-foreground);
 		--link-color: var(--vscode-textLink-foreground);
 		--card-background: var(--vscode-textBlockQuote-background);
@@ -39,7 +40,7 @@ const colorScheme = css`
 
 const typography = css`
 	:host {
-		font-size: var(--vscode-font-size);
+		font-size: var(--vscode-editor-font-size);
 
 		--h1-font-size: 1.7em;
 		--p-font-size: 1.23em;
@@ -49,7 +50,7 @@ const typography = css`
 	@media (max-width: 640px) {
 		:host {
 			font-size: var(--vscode-editor-font-size);
-			--h1-font-size: 1em;
+			--h1-font-size: 1.2em;
 			--p-font-size: 1em;
 			--card-font-size: 1em;
 		}
@@ -108,20 +109,42 @@ const section = css`
 		display: flex;
 		flex-flow: column;
 		justify-content: center;
-		align-items: center;
 		text-align: center;
+		gap: 0.7em;
+		margin: 0 auto;
+		padding: 1em;
+		max-width: 620px;
+	}
+	.section.section--centered {
+		align-items: center;
 	}
 	.section h1 {
-		color: var(--em-color);
+		color: var(--heading-color);
 	}
 	.section h2 {
-		color: var(--em-color);
+		color: var(--heading-color);
 		font-weight: normal;
 		font-size: var(--p-font-size);
 	}
+	.section em {
+		color: var(--em-color);
+		font-style: normal;
+	}
+
 	.section p {
 		color: var(--text-color);
+		font-size: var(--p-font-size);
 	}
+	.section > p {
+		max-width: 30em;
+	}
+	.section > p:first-child {
+		margin-top: 0;
+	}
+	.section > p:last-child {
+		margin-bottom: 0;
+	}
+
 	.section .accent {
 		color: var(--accent-color);
 	}
@@ -130,95 +153,105 @@ const section = css`
 		text-decoration: none;
 	}
 
-	.section.plain p {
-		max-width: 30em;
+	.section ul {
 		font-size: var(--p-font-size);
 	}
 
-	.section.start-trial {
-		display: flex;
-		gap: 0.5em;
-		margin: 2em 3.1em 1.5em;
-	}
-	.section.start-trial p {
-		width: 100%;
-	}
-	.section.start-trial gl-button.start-trial-button {
+	.section gl-button.start-trial-button {
 		background: var(--trial-button-gradient);
 		border: var(--trial-button-border);
 		color: var(--trial-button-text-color);
 	}
-	.section.start-trial gl-button {
-		width: 100%;
+	.section gl-button {
+		--button-width: 100%;
 	}
 
-	@media (min-width: 640px) {
-		.section.start-trial gl-button {
-			width: initial;
+	@media (min-width: 400px) {
+		.section gl-button {
+			--button-width: initial;
 		}
-		.section.start-trial gl-button.start-trial-button {
+		.section gl-button {
 			--button-padding: 0.4em 4em;
 		}
-	}
-
-	@media (max-width: 400px) {
-		.section.start-trial {
-			margin: 2em 0 1.5em;
-		}
-	}
-
-	.section.wide {
-		margin-left: calc(-1 * var(--page-margin-left));
-		margin-right: calc(-1 * var(--page-margin-right));
 	}
 `;
 
 const header = css`
-	.logo {
-		transform: scale(0.7);
+	.section.header {
+		align-items: center;
 	}
-
 	.header {
-		margin-top: 3em;
 		max-width: 620px;
 		margin-left: auto;
 		margin-right: auto;
 	}
-	.header gitlens-logo {
-		transform: translateX(-0.75rem);
+	.header gitlens-logo-circle {
+		height: calc(46px * 0.6);
+		width: 0;
+		transform: scale(0.6) translate(calc(-46px), calc(-46px * 0.2));
+		margin-right: 0.4em;
+		vertical-align: top;
 	}
 	.header h1 {
-		margin-bottom: 0;
+		margin: 0;
 		font-size: var(--h1-font-size);
+	}
+	.header h1 + p {
+		margin-top: 0;
 	}
 
 	@media (max-width: 640px) {
-		.logo {
-			transform: scale(0.5);
+		.header gitlens-logo-circle {
+			height: calc(46px * 0.5);
+			transform: scale(0.5) translate(calc(-46px), calc(-46px * 0.25 - 2px));
+			margin-right: 0.3em;
 		}
-		.header {
-			margin-top: 1.5em;
+	}
+
+	@media (max-width: 300px) {
+		.header gitlens-logo-circle {
+			height: calc(46px * 0.4);
+			transform: scale(0.4) translate(calc(-46px), calc(-46px * 0.3 - 4px));
+			margin-right: 0.2em;
 		}
 	}
 `;
 
 const cards = css`
 	.card {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7em;
 		border-radius: 0.63em;
 		background-color: var(--card-background);
-		padding: 1.8em;
+		padding: 1.5em;
 		text-align: initial;
 	}
 
-	@media (max-width: 640px) {
-		.card {
-			padding: 1em;
+	.card-part--centered {
+		margin: auto;
+		align-items: center;
+		text-align: center;
+	}
+
+	gl-walkthrough-step.card::part(header) {
+		padding: 1.5em;
+		margin: -1.5em;
+	}
+
+	@media (max-width: 400px) {
+		.card-part--centered {
+			margin: 0;
 		}
 	}
 
 	@media (max-width: 300px) {
 		.card {
-			padding: 0.5em 0.5em 1em;
+			padding: 1em;
+		}
+		gl-walkthrough-step.card::part(header) {
+			padding: 1em;
+			margin: -1em;
 		}
 	}
 
@@ -236,8 +269,20 @@ const cards = css`
 		margin: 1em 0 0;
 	}
 
+	.card ul {
+		color: var(--text-color);
+		text-align: initial;
+		padding-inline-start: 1em;
+		margin: 0.5em 0 0;
+		font-size: var(--card-font-size);
+	}
+
 	.card img {
 		max-width: 100%;
+	}
+
+	gl-walkthrough-step.card {
+		text-align: left;
 	}
 `;
 

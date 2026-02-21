@@ -8582,6 +8582,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showWelcomeView",
+				"title": "Show Welcome View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showWorkspacesView",
 				"title": "Show Cloud Workspaces View",
 				"category": "GitLens"
@@ -11056,6 +11061,16 @@
 				"command": "gitlens.views.unstageFile:graphDetails",
 				"title": "Unstage Changes",
 				"icon": "$(remove)"
+			},
+			{
+				"command": "gitlens.views.welcome.close",
+				"title": "Close Welcome",
+				"icon": "$(x)"
+			},
+			{
+				"command": "gitlens.views.welcome.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.workspaces.addRepos",
@@ -15522,6 +15537,14 @@
 				},
 				{
 					"command": "gitlens.views.unstageFile:graphDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.welcome.close",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.welcome.refresh",
 					"when": "false"
 				},
 				{
@@ -25157,6 +25180,16 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.welcome.refresh",
+					"when": "view == gitlens.views.welcome",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.welcome.close",
+					"when": "view == gitlens.views.welcome",
+					"group": "navigation@100"
+				},
+				{
 					"command": "gitlens.views.workspaces.create",
 					"when": "view == gitlens.views.workspaces && gitlens:plus",
 					"group": "navigation@1"
@@ -27106,6 +27139,15 @@
 				}
 			],
 			"gitlens": [
+				{
+					"type": "webview",
+					"id": "gitlens.views.welcome",
+					"name": "Welcome",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-gitlens)",
+					"initialSize": 1,
+					"visibility": "visible"
+				},
 				{
 					"type": "webview",
 					"id": "gitlens.views.home",

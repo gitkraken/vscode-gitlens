@@ -100,6 +100,24 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			],
 		},
 	],
+	[
+		'mcpFeatures',
+		{
+			usage: [
+				'command:gitlens.ai.mcp.install:executed',
+				'command:gitlens.ai.mcp.reinstall:executed',
+				'action:gitlens.mcp.ipcRequest:happened',
+				'action:gitlens.mcp.chatInteraction:happened',
+				'action:gitlens.mcp.bundledMcpDefinitionProvided:happened',
+			],
+		},
+	],
+	[
+		'homeView',
+		{
+			usage: ['homeView:shown', 'command:gitlens.showHomeView:executed'],
+		},
+	],
 ]);
 
 export class WalkthroughStateProvider implements Disposable {

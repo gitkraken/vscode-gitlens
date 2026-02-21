@@ -734,13 +734,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			isEnabled = !this.getPreviewEnabled();
 		}
 
-		if (!this.getPreviewCollapsed()) {
-			this.onCollapseSection({
-				section: 'newHomePreview',
-				collapsed: true,
-			});
-		}
-
 		this.container.telemetry.sendEvent('home/preview/toggled', { enabled: isEnabled, version: 'v16' });
 		configuration.updateEffective('home.preview.enabled', isEnabled);
 	}
@@ -786,10 +779,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private getWelcomeOverlayCollapsed() {
 		return this.container.storage.get('home:sections:collapsed')?.includes('welcomeOverlay') ?? false;
-	}
-
-	private getPreviewCollapsed() {
-		return this.container.storage.get('home:sections:collapsed')?.includes('newHomePreview') ?? false;
 	}
 
 	private getAiEnabled() {
@@ -903,6 +892,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const anyConnected = integrations.some(i => i.connected);
 		const ai = { model: getSettledValue(aiModelResult) };
 
+		const newInstall = !configuration.get('advanced.skipOnboarding') && getContext('gitlens:install:new', false);
+
 		return {
 			...this.host.baseWebviewState,
 			discovering: this._discovering != null,
@@ -914,7 +905,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			orgSettings: this.getOrgSettings(),
 			aiEnabled: this.getAiEnabled(),
 			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
-			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			aiAllAccessBannerCollapsed: getSettledValue(aiAllAccessBannerCollapsed, false),
 			integrations: integrations,
@@ -923,7 +913,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			walkthroughSupported: this.container.walkthrough.isWalkthroughSupported,
 			walkthroughProgress: this.getWalkthroughProgress(),
 			previewEnabled: this.getPreviewEnabled(),
-			newInstall: !configuration.get('advanced.skipOnboarding') && getContext('gitlens:install:new', false),
+			newInstall: newInstall,
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
@@ -1353,7 +1343,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private notifyDidChangeConfig() {
 		void this.host.notify(DidChangePreviewEnabled, {
 			previewEnabled: this.getPreviewEnabled(),
-			previewCollapsed: this.getPreviewCollapsed(),
 			aiEnabled: this.getAiEnabled(),
 			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
 		});

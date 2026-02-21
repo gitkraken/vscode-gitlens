@@ -30,8 +30,6 @@ import './components/ai-all-access-banner.js';
 import './components/ama-banner.js';
 import './components/integration-banner.js';
 import './components/preview-banner.js';
-import './components/welcome-overlay.js';
-import '../shared/components/mcp-banner.js';
 import './components/repo-alerts.js';
 import '../shared/components/banner/banner.js';
 
@@ -101,29 +99,16 @@ export class GlHomeApp extends GlAppHost<State> {
 						() => html`
 							<gl-preview-banner></gl-preview-banner>
 							<gl-ai-all-access-banner></gl-ai-all-access-banner>
-							<gl-mcp-banner
-								.layout=${'responsive'}
-								.source=${'home'}
-								.canAutoRegister=${this.state?.mcpCanAutoRegister ?? false}
-								.collapsed=${this.state?.mcpBannerCollapsed ?? true}
-							></gl-mcp-banner>
 							<gl-active-work></gl-active-work>
 							<gl-launchpad></gl-launchpad>
 							<gl-overview></gl-overview>
 						`,
 						() => html`
 							<gl-ai-all-access-banner></gl-ai-all-access-banner>
-							<gl-mcp-banner
-								.layout=${'responsive'}
-								.source=${'home'}
-								.canAutoRegister=${this.state?.mcpCanAutoRegister ?? false}
-								.collapsed=${this.state?.mcpBannerCollapsed ?? true}
-							></gl-mcp-banner>
 							<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
 						`,
 					)}
 				</main>
-				<gl-welcome-overlay .isLightTheme=${this.isLightTheme} .webroot=${this.webroot}></gl-welcome-overlay>
 			</div>
 		`;
 	}

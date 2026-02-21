@@ -2,7 +2,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import type { State } from '../../../home/protocol.js';
-import { CollapseSectionCommand, TogglePreviewEnabledCommand } from '../../../home/protocol.js';
+import { TogglePreviewEnabledCommand } from '../../../home/protocol.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { linkBase } from '../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
@@ -23,10 +23,6 @@ export class GlPreviewBanner extends LitElement {
 	static override styles = [
 		linkBase,
 		css`
-			.title {
-				margin-block-end: 0.4em;
-			}
-
 			.text-button {
 				padding: 0.4rem 0.8rem;
 			}
@@ -48,14 +44,6 @@ export class GlPreviewBanner extends LitElement {
 				${focusOutline}
 			}
 
-			gl-card::part(base) {
-				margin-block-end: 1.2rem;
-			}
-
-			.feedback {
-				white-space: nowrap;
-			}
-
 			p {
 				margin-block: 0;
 			}
@@ -70,15 +58,8 @@ export class GlPreviewBanner extends LitElement {
 	@state()
 	private _ipc!: HostIpc;
 
-	@state()
-	private closed = false;
-
 	@query('button')
 	private _button!: HTMLButtonElement;
-
-	get isNewInstall(): boolean {
-		return this._state.newInstall;
-	}
 
 	override render(): unknown {
 		if (this._state.previewEnabled !== true) {
@@ -96,40 +77,11 @@ export class GlPreviewBanner extends LitElement {
 			`;
 		}
 
-		if (this.closed || this._state.previewCollapsed === true) {
-			return nothing;
-		}
-
-		return html`
-			<gl-card>
-				<h4 class="title">Welcome to the GitLens Home View</h4>
-				<p>
-					Streamline your workflow — effortlessly track, manage, and collaborate on your branches and pull
-					requests, all in one intuitive hub.
-					<a class="feedback" href="https://help.gitkraken.com/gitlens/home-view/">Learn more</a>
-				</p>
-				<gl-button slot="actions" appearance="toolbar" tooltip="Dismiss Welcome" @click=${() => this.onClose()}
-					><code-icon icon="close"></code-icon
-				></gl-button>
-			</gl-card>
-		`;
+		return nothing;
 	}
 
-	private togglePreview(dismiss = false) {
+	private togglePreview() {
 		this._ipc.sendCommand(TogglePreviewEnabledCommand);
-
-		if (dismiss) {
-			this.closed = true;
-		}
-	}
-
-	private onClose() {
-		this.closed = true;
-
-		this._ipc.sendCommand(CollapseSectionCommand, {
-			section: 'newHomePreview',
-			collapsed: true,
-		});
 	}
 
 	override focus(): void {

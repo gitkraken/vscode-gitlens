@@ -426,6 +426,7 @@ function getWebviewsConfigs(mode, env) {
 		settings: { entry: './settings/settings.ts' },
 		timeline: { entry: './plus/timeline/timeline.ts', plus: true },
 		patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
+		welcome: { entry: './welcome/welcome.ts' },
 	};
 
 	if (env.webviews) {

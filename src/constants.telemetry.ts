@@ -1470,13 +1470,24 @@ interface WalkthroughCompletionEvent {
 	'context.key': WalkthroughContextKeys;
 }
 
-type WelcomeActionNames = 'plus/sign-up' | 'dismiss' | 'shown';
+type WelcomeActionNames =
+	| 'dismiss'
+	| 'open/composer'
+	| 'open/graph'
+	| 'open/home-view'
+	| 'open/help-center'
+	| 'open/help-center/community-vs-pro'
+	| 'open/launchpad'
+	| 'plus/login'
+	| 'plus/reactivate'
+	| 'plus/sign-up'
+	| 'plus/upgrade'
+	| 'shown';
 
-type WelcomeActionEvent = {
-	name: WelcomeActionNames;
-	viewedCarouselPages?: number;
-	proButtonClicked?: boolean;
-};
+type WelcomeActionEvent =
+	| { name: 'shown' | 'dismiss'; viewedCarouselPages?: number; proButtonClicked?: boolean }
+	| { type: 'command'; name: WelcomeActionNames; command: string }
+	| { type: 'url'; name: WelcomeActionNames; url: string };
 
 type WebviewContextEventData = {
 	'context.webview.id': string;
@@ -1589,7 +1600,11 @@ export type TrackedUsage = {
 /**
  * Actions that happen without a command
  */
-export type TrackedGlActions = `gitlens.ai.generateCommits`;
+export type TrackedGlActions =
+	| 'gitlens.ai.generateCommits'
+	| 'gitlens.mcp.ipcRequest'
+	| 'gitlens.mcp.chatInteraction'
+	| 'gitlens.mcp.bundledMcpDefinitionProvided';
 
 export type TrackedUsageFeatures =
 	| `${WebviewPanelTypes}Webview`
