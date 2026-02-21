@@ -23,7 +23,7 @@
 		"url": "https://github.com/gitkraken/vscode-gitlens.git"
 	},
 	"customElements": "custom-elements.json",
-	"main": "./dist/gitlens.js",
+	"main": "./dist/gitlens.mjs",
 	"browser": "./dist/browser/gitlens.js",
 	"icon": "images/gitlens-icon.png",
 	"preview": false,

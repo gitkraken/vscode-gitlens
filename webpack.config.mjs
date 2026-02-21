@@ -291,9 +291,9 @@ function getExtensionConfig(target, mode, env) {
 		target: target,
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
 		output: {
-			chunkFilename: '[name].js',
-			filename: 'gitlens.js',
-			libraryTarget: 'commonjs2',
+			chunkFilename: target === 'webworker' ? '[name].js' : '[name].mjs',
+			filename: target === 'webworker' ? 'gitlens.js' : 'gitlens.mjs',
+			libraryTarget: target === 'webworker' ? 'commonjs2' : 'module',
 			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
 			// Clean output directory, but preserve other build targets' output directories
 			// node target (dist/) needs to preserve webviews/, browser/, and glicons font files; webworker target (dist/browser/) can clean freely
@@ -339,7 +339,8 @@ function getExtensionConfig(target, mode, env) {
 							cacheGroups: { default: false, vendors: false },
 						},
 		},
-		externals: { vscode: 'commonjs vscode' },
+		...(target !== 'webworker' ? { experiments: { outputModule: true }, externalsType: 'module' } : {}),
+		externals: target === 'webworker' ? { vscode: 'commonjs vscode' } : { vscode: 'vscode' },
 		module: {
 			rules: [
 				{
