@@ -8,6 +8,7 @@ description: Create well-formatted git commits following GitLens conventions
 Create a well-formatted git commit following GitLens conventions.
 
 ## Usage
+
 ```
 /commit [message]
 ```
@@ -19,6 +20,7 @@ Create a well-formatted git commit following GitLens conventions.
 - Reference issues with `#123` syntax
 
 Examples:
+
 ```
 Adds support for custom autolinks for Jira - fixes #1234
 Fixes graph not rendering when switching repositories

@@ -8,6 +8,7 @@ description: Audit commits for issues and CHANGELOG entries
 Compare HEAD against a tag, identify user-facing commits, ensure they have linked issues and CHANGELOG entries.
 
 ## Usage
+
 ```
 /audit-commits [tag]
 ```
@@ -28,12 +29,12 @@ No tag: suggest the most recent (`git tag --sort=-creatordate | head -10`).
 
 ## Impact Assessment
 
-| Impact | Criteria |
-|--------|----------|
-| High | New feature, breaking change, significant bugfix |
+| Impact | Criteria                                           |
+| ------ | -------------------------------------------------- |
+| High   | New feature, breaking change, significant bugfix   |
 | Medium | Enhancement, minor bugfix, performance improvement |
-| Low | Edge case fix, minor polish |
-| None | Refactor, internal cleanup, tests, docs-only |
+| Low    | Edge case fix, minor polish                        |
+| None   | Refactor, internal cleanup, tests, docs-only       |
 
 User-facing (High/Medium/Low) require issue + CHANGELOG. None = skip.
 
@@ -44,6 +45,7 @@ Same workflow as `/create-issue`: duplicate detection, user confirmation, no aut
 After creating: `gh issue comment <num> --body "Closed by <commit_sha>"`
 
 ## Progress Display
+
 ```
 Auditing commits: <tag>..HEAD
 
@@ -56,6 +58,7 @@ Summary:
 Then ask: "Process these commits? (create issues / update CHANGELOG / both / skip)"
 
 ## Safety
+
 1. NEVER include code snippets or implementation details in issues
 2. NEVER create labels without user confirmation
 3. **NEVER auto-create issues or edit CHANGELOG without user confirmation**

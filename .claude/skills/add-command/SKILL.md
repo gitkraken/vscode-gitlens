@@ -8,11 +8,13 @@ description: Create new VS Code commands with all required boilerplate
 Scaffold a new VS Code command with all required boilerplate.
 
 ## Usage
+
 ```
 /add-command [name]
 ```
 
 ## Information Needed
+
 1. **Command ID** — e.g., `myNewFeature` (becomes `gitlens.myNewFeature`)
 2. **Label** — Display name in command palette
 3. **Base class**:
@@ -51,6 +53,7 @@ export class {CommandName}Command extends {BaseClass} {
 ```
 
 ### 2. Import in `src/commands.ts`
+
 ```typescript
 import './commands/{commandName}.js';
 ```
@@ -58,6 +61,7 @@ import './commands/{commandName}.js';
 ### 3. Add to `contributions.json`
 
 Under `"commands"` key:
+
 ```json
 "gitlens.{commandId}": {
     "label": "{Label}",
@@ -67,6 +71,7 @@ Under `"commands"` key:
 ```
 
 For `:views` variant:
+
 ```json
 "gitlens.{commandId}:views": {
     "label": "{Label}",
@@ -81,11 +86,13 @@ For `:views` variant:
 ```
 
 ### 4. Run Generation
+
 ```bash
 pnpm run generate:contributions && pnpm run generate:commandTypes
 ```
 
 ## Common `when` Clauses
+
 - `gitlens:enabled` — Extension is enabled
 - `!gitlens:readonly` — Not in readonly mode
 - `!gitlens:untrusted` — Workspace is trusted

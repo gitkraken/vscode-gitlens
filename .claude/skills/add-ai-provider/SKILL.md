@@ -8,11 +8,13 @@ description: Add a new AI provider integration to GitLens
 Add a new AI provider to GitLens with all required boilerplate.
 
 ## Usage
+
 ```
 /add-ai-provider [provider-name]
 ```
 
 ## Information Needed
+
 1. **Provider ID** — camelCase (e.g., `myProvider`), becomes part of `AIProviders` union type
 2. **Display name** — e.g., "My Provider"
 3. **OpenAI-compatible?** — Yes (extend base class) or No (implement interface directly)
@@ -23,11 +25,13 @@ Add a new AI provider to GitLens with all required boilerplate.
 ### 1. Provider Constants: `src/constants.ai.ts`
 
 Add to `AIProviders` union type:
+
 ```typescript
 export type AIProviders = 'anthropic' | 'openai' | ... | '{providerId}';
 ```
 
 Add descriptor to the descriptors object:
+
 ```typescript
 export const aiProviderDescriptors = {
     // ... existing providers
@@ -130,6 +134,7 @@ Add settings for the provider's API key and default model:
 - `OpenAICompatibleProviderBase<T>` — `src/plus/ai/openAICompatibleProviderBase.ts` — Base class for OpenAI-compatible APIs
 
 ## Build & Test
+
 ```bash
 pnpm run build:extension    # Build to verify compilation
 ```

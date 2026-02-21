@@ -8,11 +8,13 @@ description: Create new webviews with IPC protocol, Lit app, and registration
 Scaffold a new webview with all required boilerplate.
 
 ## Usage
+
 ```
 /add-webview [name]
 ```
 
 ## Information Needed
+
 1. **Webview name** — camelCase (e.g., `myFeature`)
 2. **Display title** — e.g., "My Feature"
 3. **Type** — `view` (sidebar) or `panel` (editor panel)
@@ -30,20 +32,28 @@ import type { WebviewState } from '../protocol.js';
 export const scope: IpcScope = '{name}';
 
 export interface State extends WebviewState<'gitlens.views.{name}'> {
-    loading: boolean;
+	loading: boolean;
 }
 
 // Commands (fire-and-forget)
-export interface DoSomethingParams { id: string; }
+export interface DoSomethingParams {
+	id: string;
+}
 export const DoSomethingCommand = new IpcCommand<DoSomethingParams>(scope, 'doSomething');
 
 // Requests (with response)
-export interface GetDataParams { filter?: string; }
-export interface GetDataResponse { items: unknown[]; }
+export interface GetDataParams {
+	filter?: string;
+}
+export interface GetDataResponse {
+	items: unknown[];
+}
 export const GetDataRequest = new IpcRequest<GetDataParams, GetDataResponse>(scope, 'getData');
 
 // Notifications (host → webview)
-export interface DidChangeDataParams { items: unknown[]; }
+export interface DidChangeDataParams {
+	items: unknown[];
+}
 export const DidChangeDataNotification = new IpcNotification<DidChangeDataParams>(scope, 'data/didChange');
 ```
 
@@ -192,7 +202,7 @@ export const styles = css`
 
 ## File Locations
 
-| Component | Community | Pro |
-|-----------|-----------|-----|
-| Protocol/Provider | `src/webviews/{name}/` | `src/webviews/plus/{name}/` |
-| App | `src/webviews/apps/{name}/` | `src/webviews/apps/plus/{name}/` |
+| Component         | Community                   | Pro                              |
+| ----------------- | --------------------------- | -------------------------------- |
+| Protocol/Provider | `src/webviews/{name}/`      | `src/webviews/plus/{name}/`      |
+| App               | `src/webviews/apps/{name}/` | `src/webviews/apps/plus/{name}/` |

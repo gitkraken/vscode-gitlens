@@ -659,14 +659,14 @@ throw new PushError({ reason: 'rejected', branch: 'main', remote: 'origin' }, or
 
 The codebase uses method decorators (`src/system/decorators/`) that significantly alter runtime behavior:
 
-| Decorator | Purpose | Key Gotcha |
-|-----------|---------|------------|
-| `@info()` / `@debug()` / `@trace()` | Logging with scope tracking | `getScopedLogger()` must be called BEFORE any `await` (browser limitation) |
-| `@gate()` | Deduplicates concurrent calls (returns same promise) | 5-min timeout; most common cause of method hangs |
-| `@memoize()` | Caches return value permanently on instance | Caches rejected Promises too; use `invalidateMemoized()` to clear |
-| `@sequentialize()` | Queues calls to execute one at a time | Different from `@gate()` — queues instead of deduplicating |
-| `@debounce()` | Debounces method calls per-instance | |
-| `@command()` | Registers VS Code command class | Class decorator, not method decorator |
+| Decorator                           | Purpose                                              | Key Gotcha                                                                 |
+| ----------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------- |
+| `@info()` / `@debug()` / `@trace()` | Logging with scope tracking                          | `getScopedLogger()` must be called BEFORE any `await` (browser limitation) |
+| `@gate()`                           | Deduplicates concurrent calls (returns same promise) | 5-min timeout; most common cause of method hangs                           |
+| `@memoize()`                        | Caches return value permanently on instance          | Caches rejected Promises too; use `invalidateMemoized()` to clear          |
+| `@sequentialize()`                  | Queues calls to execute one at a time                | Different from `@gate()` — queues instead of deduplicating                 |
+| `@debounce()`                       | Debounces method calls per-instance                  |                                                                            |
+| `@command()`                        | Registers VS Code command class                      | Class decorator, not method decorator                                      |
 
 Stacking executes bottom-up (outermost runs first). When debugging: check `@gate()` first for hangs, `@memoize()` for stale data, logging decorators last.
 
@@ -792,19 +792,19 @@ Reference examples and critical rules for common tasks.
 
 Skills provide detailed, step-by-step workflows for common tasks. Invoke with `/{skill-name}`.
 
-| Skill | Purpose |
-|-------|---------|
-| `/investigate` | Structured bug investigation with root cause analysis |
-| `/analyze` | Deep design/implementation analysis, devil's advocate |
-| `/review` | Code review against standards + impact completeness audit |
-| `/commit` | Git commit with GitLens conventions |
-| `/create-issue` | Create GitHub issues from code changes |
-| `/audit-commits` | Audit commit range for issues and CHANGELOG entries |
-| `/add-command` | Scaffold a new VS Code command |
-| `/add-webview` | Scaffold a new webview with IPC, Lit app, registration |
-| `/add-test` | Generate unit or E2E test files |
-| `/add-icon` | Add icon to GL Icons font |
-| `/add-ai-provider` | Add a new AI provider integration |
+| Skill              | Purpose                                                   |
+| ------------------ | --------------------------------------------------------- |
+| `/investigate`     | Structured bug investigation with root cause analysis     |
+| `/analyze`         | Deep design/implementation analysis, devil's advocate     |
+| `/review`          | Code review against standards + impact completeness audit |
+| `/commit`          | Git commit with GitLens conventions                       |
+| `/create-issue`    | Create GitHub issues from code changes                    |
+| `/audit-commits`   | Audit commit range for issues and CHANGELOG entries       |
+| `/add-command`     | Scaffold a new VS Code command                            |
+| `/add-webview`     | Scaffold a new webview with IPC, Lit app, registration    |
+| `/add-test`        | Generate unit or E2E test files                           |
+| `/add-icon`        | Add icon to GL Icons font                                 |
+| `/add-ai-provider` | Add a new AI provider integration                         |
 
 ### Canonical Examples
 

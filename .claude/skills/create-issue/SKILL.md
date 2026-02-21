@@ -8,6 +8,7 @@ description: Create GitHub issues from uncommitted changes or commits
 Analyze changes and create GitHub issues with CHANGELOG entries.
 
 ## Usage
+
 ```
 /create-issue [source]
 ```
@@ -25,6 +26,7 @@ Analyze changes and create GitHub issues with CHANGELOG entries.
 ## Duplicate Detection
 
 Score matches 0-1:
+
 - Title similarity (>75% token overlap): +0.5
 - Body keyword overlap: +0.3
 - Same component: +0.15
@@ -32,32 +34,36 @@ Score matches 0-1:
 Thresholds: >= 0.7 likely duplicate, 0.45-0.69 possibly related, < 0.45 ignore.
 
 ## Issue Title
-- Describe the *problem/need* from user's perspective, not the solution
+
+- Describe the _problem/need_ from user's perspective, not the solution
 - Be specific with context ("when switching repositories", "in large repos")
 - Concise, no trailing punctuation
 
 ## Issue Body
 
-| Section | Content |
-|---------|---------|
-| Summary | One-line description |
-| Impact | Who/what benefits |
-| Validation | Steps to verify |
-| Risk | Potential regressions |
+| Section    | Content               |
+| ---------- | --------------------- |
+| Summary    | One-line description  |
+| Impact     | Who/what benefits     |
+| Validation | Steps to verify       |
+| Risk       | Potential regressions |
 
 ```bash
 gh issue create --title "<title>" --body "<body>" --assignee @me --label "<labels>"
 ```
 
 ## Labels
+
 - Fetch existing: `gh label list --limit 100`
 - ONLY use existing labels
 - Confirm with user before applying
 
 ## CHANGELOG Entry
+
 Format per `/changelog` skill. Map: Feature→Added, Enhancement→Changed, Bugfix→Fixed, Removal→Removed.
 
 ## Safety
+
 1. NEVER include code snippets, diffs, or implementation details in issues
 2. NEVER include credentials or secrets
 3. NEVER create labels without user confirmation
