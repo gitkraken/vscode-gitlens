@@ -1,4 +1,3 @@
-import type { Response } from '@env/fetch.js';
 import { fetch } from '@env/fetch.js';
 import { gitKrakenProviderDescriptor as provider } from '../../constants.ai.js';
 import { AIError, AIErrorReason, AuthenticationRequiredError } from '../../errors.js';
@@ -56,7 +55,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 				error?: null;
 			}
 
-			const result: ModelsResponse = await rsp.json();
+			const result: ModelsResponse = (await rsp.json()) as ModelsResponse;
 			if (result.error != null) {
 				throw new Error(`Getting models (${url}) failed: ${String(result.error)}`);
 			}

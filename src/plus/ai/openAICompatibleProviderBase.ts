@@ -1,6 +1,5 @@
 import type { CancellationToken } from 'vscode';
 import { uuid } from '@env/crypto.js';
-import type { Response } from '@env/fetch.js';
 import { fetch } from '@env/fetch.js';
 import type { Role } from '../../@types/vsls.d.js';
 import type { AIProviders } from '../../constants.ai.js';
@@ -151,7 +150,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				}
 			}
 
-			const data: ChatCompletionResponse = await rsp.json();
+			const data: ChatCompletionResponse = (await rsp.json()) as ChatCompletionResponse;
 			const result: AIProviderResponse<void> = {
 				id: data.id ?? uuid(),
 				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',

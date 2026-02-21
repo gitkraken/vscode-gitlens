@@ -1,7 +1,6 @@
 import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto.js';
-import type { Response } from '@env/fetch.js';
 import type { TrackingContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
@@ -57,7 +56,7 @@ export class AuthenticationConnection implements Disposable {
 			throw new Error(rsp.statusText);
 		}
 
-		const json: { id: string; username: string } = await rsp.json();
+		const json: { id: string; username: string } = (await rsp.json()) as { id: string; username: string };
 		return { id: json.id, accountName: json.username };
 	}
 
@@ -217,7 +216,7 @@ export class AuthenticationConnection implements Disposable {
 			throw new Error(`Getting token failed: (${rsp.status}) ${rsp.statusText}`);
 		}
 
-		const json: { access_token: string } = await rsp.json();
+		const json: { access_token: string } = (await rsp.json()) as { access_token: string };
 		if (json.access_token == null) {
 			throw new Error('Getting token failed: No access token returned');
 		}
@@ -272,7 +271,7 @@ export class AuthenticationConnection implements Disposable {
 			throw new Error(`Failed to get exchange token: (${rsp.status}) ${rsp.statusText}`);
 		}
 
-		const json: { data: { exchangeToken: string } } = await rsp.json();
+		const json: { data: { exchangeToken: string } } = (await rsp.json()) as { data: { exchangeToken: string } };
 		return json.data.exchangeToken;
 	}
 }

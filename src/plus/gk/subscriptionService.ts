@@ -1049,7 +1049,7 @@ export class SubscriptionService implements Disposable {
 
 			this._onDidCheckIn.fire({ force: force });
 
-			const data: GKCheckInResponse = await rsp.json();
+			const data: GKCheckInResponse = (await rsp.json()) as GKCheckInResponse;
 			this._getCheckInData = () => Promise.resolve(data);
 			this.storeCheckInData(data);
 

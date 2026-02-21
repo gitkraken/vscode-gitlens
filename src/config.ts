@@ -38,7 +38,6 @@ export interface Config {
 	readonly modes: ModesConfig | null;
 	readonly partners: PartnersConfig | null;
 	readonly plusFeatures: PlusFeaturesConfig;
-	readonly proxy: ProxyConfig | null;
 	readonly rebaseEditor: RebaseEditorConfig;
 	readonly remotes: RemotesConfig[] | null;
 	readonly showWhatsNewAfterUpgrades: boolean;
@@ -660,11 +659,6 @@ interface PartnersConfig {
 
 interface PlusFeaturesConfig {
 	readonly enabled: boolean;
-}
-
-interface ProxyConfig {
-	readonly url: string | null;
-	readonly strictSSL: boolean;
 }
 
 interface RebaseEditorConfig {

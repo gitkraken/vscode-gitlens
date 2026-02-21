@@ -1,5 +1,4 @@
 import type { CancellationToken } from 'vscode';
-import type { Response } from '@env/fetch.js';
 import { anthropicProviderDescriptor as provider } from '../../constants.ai.js';
 import { AIError, AIErrorReason } from '../../errors.js';
 import type { AIActionType, AIModel } from './models/model.js';

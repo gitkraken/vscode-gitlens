@@ -1,4 +1,3 @@
-import type { Response } from '@env/fetch.js';
 import { fetch } from '@env/fetch.js';
 import { githubProviderDescriptor as provider } from '../../constants.ai.js';
 import { AIError, AIErrorReason } from '../../errors.js';
@@ -37,7 +36,7 @@ export class GitHubModelsProvider extends OpenAICompatibleProviderBase<typeof pr
 			}[];
 		}
 
-		const result: ModelsResponse = await rsp.json();
+		const result: ModelsResponse = (await rsp.json()) as ModelsResponse;
 		const models = result.results.map<GitHubModelsModel>(
 			m =>
 				({

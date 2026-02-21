@@ -31,7 +31,7 @@ export class HuggingFaceProvider extends OpenAICompatibleProviderBase<typeof pro
 
 		type ModelsResponse = { id: string }[];
 
-		const results: ModelsResponse = await rsp.json();
+		const results: ModelsResponse = (await rsp.json()) as ModelsResponse;
 		const models = results.map<HuggingFaceModel>(
 			r =>
 				({
