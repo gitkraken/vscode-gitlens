@@ -1730,7 +1730,12 @@ export class GitProviderService implements Disposable {
 				this._pendingRepositories.set(key, promise);
 			}
 
-			return await promise;
+			try {
+				return await promise;
+			} catch (ex) {
+				this._pendingRepositories.delete(key);
+				throw ex;
+			}
 		} catch (ex) {
 			scope?.error(ex);
 			if (ex instanceof ProviderNotFoundError) return undefined;
