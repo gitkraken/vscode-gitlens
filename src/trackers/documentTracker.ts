@@ -503,6 +503,7 @@ export class GitDocumentTracker implements Disposable {
 }
 
 class EmptyTextDocument implements TextDocument {
+	readonly encoding: string;
 	readonly eol: EndOfLine;
 	readonly fileName: string;
 	readonly isClosed: boolean;
@@ -516,6 +517,7 @@ class EmptyTextDocument implements TextDocument {
 	constructor(public readonly gitUri: GitUri) {
 		this.uri = gitUri.documentUri;
 
+		this.encoding = 'utf-8';
 		this.eol = EndOfLine.LF;
 		this.fileName = this.uri.fsPath;
 		this.isClosed = false;

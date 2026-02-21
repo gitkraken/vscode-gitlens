@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GlyphChars } from '../../constants.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { GitRemote } from '../../git/models/remote.js';
@@ -101,11 +101,13 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 					: provider.icon === 'remote'
 						? new ThemeIcon('cloud')
 						: {
-								dark: this.view.container.context.asAbsolutePath(
-									`images/dark/icon-${provider.icon}.svg`,
+								dark: Uri.file(
+									this.view.container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
 								),
-								light: this.view.container.context.asAbsolutePath(
-									`images/light/icon-${provider.icon}.svg`,
+								light: Uri.file(
+									this.view.container.context.asAbsolutePath(
+										`images/light/icon-${provider.icon}.svg`,
+									),
 								),
 							};
 

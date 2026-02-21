@@ -1,4 +1,4 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitUri } from '../../git/gitUri.js';
 import type { GitReflog } from '../../git/models/reflog.js';
 import type { Repository } from '../../git/models/repository.js';
@@ -60,8 +60,8 @@ export class ReflogNode
 		item.contextValue = ContextValues.Reflog;
 		item.description = 'experimental';
 		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath('images/dark/icon-activity.svg'),
-			light: this.view.container.context.asAbsolutePath('images/light/icon-activity.svg'),
+			dark: Uri.file(this.view.container.context.asAbsolutePath('images/dark/icon-activity.svg')),
+			light: Uri.file(this.view.container.context.asAbsolutePath('images/light/icon-activity.svg')),
 		};
 
 		return item;
