@@ -24,8 +24,8 @@ importers:
         specifier: 13.0.0-vnext.27
         version: 13.0.0-vnext.27(@types/react@19.2.14)(dragula@3.7.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@gitkraken/provider-apis':
-        specifier: 0.29.7
-        version: 0.29.7(encoding@0.1.13)
+        specifier: 0.40.0
+        version: 0.40.0(encoding@0.1.13)
       '@gitkraken/shared-web-components':
         specifier: 0.1.1-rc.15
         version: 0.1.1-rc.15
@@ -824,9 +824,9 @@ packages:
       react: 19.2.3
       react-dom: 19.2.3
 
-  '@gitkraken/provider-apis@0.29.7':
-    resolution: {integrity: sha512-i1StvQ0L5UPnVNnnud6vN+E80SAIXp/iX1UxlCIXXibYiw088x+cGBsfvzopx6rtkacuDd0rJTN75CMbEKsGwA==}
-    engines: {node: '>= 14'}
+  '@gitkraken/provider-apis@0.40.0':
+    resolution: {integrity: sha512-OEQkUVAOONyEANVLQhDrIzskbON56RBPxet0R+m8CQXmiND5CpvNON0f1GUfEsI2vomWZr/UkcB4Nj8NCowIAg==}
+    engines: {node: '>= 20'}
 
   '@gitkraken/shared-web-components@0.1.1-rc.15':
     resolution: {integrity: sha512-BXGWoZoFzWftJC3BgEEPm/cU2qYasoGveGiG8oL8cWydl2TCkRCxddsiDswsMQaZDZIeTYLwbUPwA2PBeAAg4A==}
@@ -7169,11 +7169,10 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
-  '@gitkraken/provider-apis@0.29.7(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.40.0(encoding@0.1.13)':
     dependencies:
       '@linear/sdk': 58.1.0(encoding@0.1.13)
       js-base64: 3.7.5
-      node-fetch: 2.7.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
 

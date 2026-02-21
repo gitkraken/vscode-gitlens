@@ -211,7 +211,7 @@ export class ProvidersApi {
 				getCurrentUserFn: providerApis.bitbucket.getCurrentUser.bind(
 					providerApis.bitbucket,
 				) as GetCurrentUserFn,
-				getBitbucketResourcesForUserFn: providerApis.bitbucket.getWorkspacesForUser.bind(
+				getBitbucketResourcesForUserFn: providerApis.bitbucket.getWorkspacesForCurrentUser.bind(
 					providerApis.bitbucket,
 				) as GetBitbucketResourcesForUserFn,
 				getBitbucketPullRequestsAuthoredByUserForWorkspaceFn:

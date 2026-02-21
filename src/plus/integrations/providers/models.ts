@@ -865,6 +865,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		graphQLId: pr.nodeId,
 		number: Number.parseInt(pr.id, 10),
 		title: pr.title,
+		description: null,
 		url: pr.url,
 		state: toProviderPullRequestState(pr.state),
 		isDraft: pr.isDraft ?? false,
