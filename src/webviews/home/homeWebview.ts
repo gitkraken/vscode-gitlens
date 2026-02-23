@@ -777,10 +777,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:walkthrough:dismissed') ?? false;
 	}
 
-	private getWelcomeOverlayCollapsed() {
-		return this.container.storage.get('home:sections:collapsed')?.includes('welcomeOverlay') ?? false;
-	}
-
 	private getAiEnabled() {
 		return this.container.ai.enabled;
 	}
@@ -915,7 +911,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
-			welcomeOverlayCollapsed: this.getWelcomeOverlayCollapsed(),
 			hostAppName: env.appName,
 		};
 	}

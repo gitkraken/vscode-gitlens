@@ -10,7 +10,7 @@ import type { HostIpc } from '../shared/ipc.js';
 import type { ThemeChangeEvent } from '../shared/theme.js';
 import { WelcomeStateProvider } from './stateProvider.js';
 import { welcomeBaseStyles } from './welcome.css.js';
-import '../home/components/welcome-page.js';
+import './components/welcome-page.js';
 
 @customElement('gl-welcome-app')
 export class GlWelcomeApp extends GlAppHost<State> {

@@ -52,7 +52,6 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 	previewEnabled: boolean;
 	newInstall: boolean;
 	amaBannerCollapsed: boolean;
-	welcomeOverlayCollapsed: boolean;
 	hostAppName: string;
 }
 

@@ -11,7 +11,7 @@ import { scrollableBase } from '../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
-import { stateContext } from '../../welcome/context.js';
+import { stateContext } from '../context.js';
 import { welcomeStyles } from './welcome-page.css.js';
 import '../../shared/components/gitlens-logo-circle.js';
 import '../../shared/components/button.js';
