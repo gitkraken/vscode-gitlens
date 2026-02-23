@@ -276,9 +276,6 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;
 
-		const workspaces = await this.getProviderResourcesForCurrentUser(session);
-		if (workspaces == null || workspaces.length === 0) return undefined;
-
 		const api = await this.container.bitbucket;
 		if (!api) return undefined;
 		const issueResult = await flatSettled(
