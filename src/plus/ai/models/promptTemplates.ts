@@ -67,6 +67,7 @@ interface StashMessagePromptTemplateContext {
 interface GenerateCommitsPromptTemplateContext {
 	hunks: string;
 	existingCommits: string;
+	commitMessages: string;
 	hunkMap: string;
 	context?: string;
 	instructions?: string;
