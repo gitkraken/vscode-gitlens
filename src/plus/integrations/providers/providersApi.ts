@@ -27,7 +27,7 @@ import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
 	GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn,
-	GetBitbucketResourcesForUserFn,
+	GetBitbucketResourcesForCurrentUserFn,
 	GetCurrentUserFn,
 	GetCurrentUserForInstanceFn,
 	GetIssueFn,
@@ -211,9 +211,9 @@ export class ProvidersApi {
 				getCurrentUserFn: providerApis.bitbucket.getCurrentUser.bind(
 					providerApis.bitbucket,
 				) as GetCurrentUserFn,
-				getBitbucketResourcesForUserFn: providerApis.bitbucket.getWorkspacesForCurrentUser.bind(
+				getBitbucketResourcesForCurrentUserFn: providerApis.bitbucket.getWorkspacesForCurrentUser.bind(
 					providerApis.bitbucket,
-				) as GetBitbucketResourcesForUserFn,
+				) as GetBitbucketResourcesForCurrentUserFn,
 				getBitbucketPullRequestsAuthoredByUserForWorkspaceFn:
 					providerApis.bitbucket.getPullRequestsForUserAndWorkspace.bind(
 						providerApis.bitbucket,
@@ -726,18 +726,17 @@ export class ProvidersApi {
 		}
 	}
 
-	async getBitbucketResourcesForUser(
+	async getBitbucketResourcesForCurrentUser(
 		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
-		userId: string,
 	): Promise<ProviderBitbucketResource[] | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
-			'getBitbucketResourcesForUserFn',
+			'getBitbucketResourcesForCurrentUserFn',
 		);
 		const token = tokenWithInfo.accessToken;
 
 		try {
-			return (await provider.getBitbucketResourcesForUserFn?.({ userId: userId }, { token: token }))?.data;
+			return (await provider.getBitbucketResourcesForCurrentUserFn?.({}, { token: token }))?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderBitbucketResource[] | undefined>(tokenWithInfo, e);
 		}

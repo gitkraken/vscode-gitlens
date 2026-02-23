@@ -193,7 +193,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	private _workspaces: Map<string, BitbucketWorkspaceDescriptor[] | undefined> | undefined;
-	private async getProviderResourcesForUser(
+	private async getProviderResourcesForCurrentUser(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<BitbucketWorkspaceDescriptor[] | undefined> {
@@ -203,10 +203,8 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 		if (cachedResources == null || force) {
 			const api = await this.getProvidersApi();
-			const account = await this.getProviderCurrentAccount(session);
-			if (account?.id == null) return undefined;
 
-			const resources = await api.getBitbucketResourcesForUser(toTokenWithInfo(this.id, session), account.id);
+			const resources = await api.getBitbucketResourcesForCurrentUser(toTokenWithInfo(this.id, session));
 			this._workspaces.set(
 				accessToken,
 				resources != null ? resources.map(r => ({ ...r, key: r.id, name: r.name ?? r.slug })) : undefined,
@@ -242,7 +240,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;
 
-		const workspaces = await this.getProviderResourcesForUser(session);
+		const workspaces = await this.getProviderResourcesForCurrentUser(session);
 		if (workspaces == null || workspaces.length === 0) return undefined;
 
 		const authoredPrs = workspaces.map(async ws => {
@@ -278,7 +276,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;
 
-		const workspaces = await this.getProviderResourcesForUser(session);
+		const workspaces = await this.getProviderResourcesForCurrentUser(session);
 		if (workspaces == null || workspaces.length === 0) return undefined;
 
 		const api = await this.container.bitbucket;
@@ -332,7 +330,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		this._accounts.set(this._session.accessToken, account);
 
 		if (storedWorkspaces == null) {
-			workspaces = await this.getProviderResourcesForUser(this._session, true);
+			workspaces = await this.getProviderResourcesForCurrentUser(this._session, true);
 			await this.container.storage.store(`${this.storagePrefix}:${accountStorageKey}:workspaces`, {
 				v: 1,
 				timestamp: Date.now(),
