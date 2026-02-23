@@ -311,7 +311,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 		}
 
-		const messages = commitShas
+		const messages = commitShas?.length
 			? commits.filter(c => c.sha && commitShas.includes(c.sha)).map(c => c.message.content)
 			: commits.map(c => c.message.content);
 
