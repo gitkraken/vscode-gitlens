@@ -56,6 +56,10 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 	}
 }
 
+export interface ResolvePromptOptions {
+	suppressLargePromptWarning?: boolean;
+}
+
 // Overload: when model is provided, all parameters can be provided
 export async function resolvePrompt<T extends PromptTemplateType>(
 	model: AIModel,
@@ -65,6 +69,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 	retries: number | undefined,
 	reporting: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
 	truncationHandler?: TruncationHandler<T>,
+	options?: ResolvePromptOptions,
 ): Promise<{ prompt: string; truncated: boolean }>;
 
 // Overload: when model is undefined, other parameters must be undefined
@@ -76,6 +81,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 	retries?: undefined,
 	reporting?: undefined,
 	truncationHandler?: undefined,
+	options?: undefined,
 ): Promise<{ prompt: string; truncated: boolean }>;
 
 // Implementation
@@ -87,6 +93,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 	retries?: number | undefined,
 	reporting?: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
 	truncationHandler?: TruncationHandler<T>,
+	options?: ResolvePromptOptions,
 ): Promise<{ prompt: string; truncated: boolean }> {
 	let currentContext = templateContext;
 	let truncated = false;
@@ -152,11 +159,13 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 			if (estimatedTokens > warningThreshold) {
 				reporting!['warning.exceededLargePromptThreshold'] = true;
 
-				if (!(await showLargePromptWarning(Math.ceil(estimatedTokens / 100) * 100, warningThreshold))) {
-					reporting!['failed.reason'] = 'user-cancelled';
-					reporting!['failed.cancelled.reason'] = 'large-prompt';
+				if (!options?.suppressLargePromptWarning) {
+					if (!(await showLargePromptWarning(Math.ceil(estimatedTokens / 100) * 100, warningThreshold))) {
+						reporting!['failed.reason'] = 'user-cancelled';
+						reporting!['failed.cancelled.reason'] = 'large-prompt';
 
-					throw new CancellationError();
+						throw new CancellationError();
+					}
 				}
 			}
 		}

@@ -23,6 +23,7 @@ export async function generateCommitMessage(
 		customInstructions?: string;
 		generating?: Deferred<AIModel>;
 		progress?: ProgressOptions;
+		suppressLargePromptWarning?: boolean;
 	},
 ): Promise<AIResponse<AISummarizedResult> | 'cancelled' | undefined> {
 	const result = await service.sendRequest(
@@ -46,6 +47,7 @@ export async function generateCommitMessage(
 					retries,
 					reporting,
 					truncatePromptWithDiff,
+					options?.suppressLargePromptWarning ? { suppressLargePromptWarning: true } : undefined,
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
