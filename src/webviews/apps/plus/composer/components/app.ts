@@ -1202,12 +1202,22 @@ export class ComposerApp extends LitElement {
 		window.close();
 	}
 
+	private _hunksWithAssignmentsCache?: { hunks: ComposerHunk[]; commits: ComposerCommit[]; result: ComposerHunk[] };
+
 	private get hunksWithAssignments(): ComposerHunk[] {
 		if (!this.state?.hunks || !this.state?.commits) {
 			return [];
 		}
 
-		return updateHunkAssignments(this.state.hunks, this.state.commits);
+		const { hunks, commits } = this.state;
+		const cached = this._hunksWithAssignmentsCache;
+		if (cached?.hunks === hunks && cached?.commits === commits) {
+			return cached.result;
+		}
+
+		const result = updateHunkAssignments(hunks, commits);
+		this._hunksWithAssignmentsCache = { hunks: hunks, commits: commits, result: result };
+		return result;
 	}
 
 	private get aiEnabled(): boolean {
