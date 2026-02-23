@@ -54,6 +54,7 @@ interface State<Repo = string | Repository> {
 	uris?: Uri[];
 	onlyStagedUris?: Uri[];
 	flags: Flags[];
+	singleConfirm?: boolean;
 }
 export type StashPushState = State;
 
@@ -158,7 +159,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (StashPushError.is(ex, 'nothingToSave')) {
+				if (StashPushError.is(ex, 'nothingToSave') && !state.singleConfirm) {
 					if (!state.flags.includes('--include-untracked')) {
 						confirmOverride = true;
 						void window.showWarningMessage(
@@ -315,7 +316,25 @@ export class StashPushGitCommand extends QuickCommand<State> {
 		type StepType = FlagsQuickPickItem<Flags>;
 
 		const confirmations: StepType[] = [];
-		if (state.uris?.length) {
+		// Show a single confirmation option with the pre-determined flags (e.g. from the "Stash Unstaged" SCM action)
+		if (state.singleConfirm) {
+			const descriptionFlags = state.flags.filter(f => f !== '--snapshot');
+			const details: string[] = [];
+			if (state.flags.includes('--keep-index')) {
+				details.push('keeping staged files intact');
+			}
+			if (state.flags.includes('--include-untracked')) {
+				details.push('including untracked files');
+			}
+
+			confirmations.push(
+				createFlagsQuickPickItem<Flags>(state.flags, [...state.flags], {
+					label: context.title,
+					description: descriptionFlags.length ? descriptionFlags.join(' ') : undefined,
+					detail: `Will stash unstaged changes${details.length ? `, ${details.join(' and ')}` : ''}`,
+				}),
+			);
+		} else if (state.uris?.length) {
 			if (state.flags.includes('--include-untracked')) {
 				baseFlags.push('--include-untracked');
 			}
