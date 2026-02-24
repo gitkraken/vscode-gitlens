@@ -1,11 +1,9 @@
 import { consume } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import type { GlCommands } from '../../../../constants.commands.js';
 import { urls } from '../../../../constants.js';
 import { SubscriptionState } from '../../../../constants.subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import { ExecuteCommand } from '../../../protocol.js';
 import type { State } from '../../../welcome/protocol.js';
 import { scrollableBase } from '../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
@@ -24,11 +22,6 @@ declare global {
 		'gl-welcome-page': GlWelcomePage;
 	}
 }
-
-type TelemetryData = {
-	viewedCarouselPages: number;
-	proButtonClicked: boolean;
-};
 
 const walkthroughSteps: WalkthroughStep[] = [
 	{
@@ -301,11 +294,6 @@ const walkthroughSteps: WalkthroughStep[] = [
 export class GlWelcomePage extends LitElement {
 	static override styles = [scrollableBase, welcomeStyles];
 
-	private telemetryData: TelemetryData = {
-		viewedCarouselPages: 0,
-		proButtonClicked: false,
-	};
-
 	@property({ type: Boolean })
 	closeable = false;
 
@@ -361,41 +349,6 @@ export class GlWelcomePage extends LitElement {
 		super.disconnectedCallback?.();
 		window.removeEventListener('gl-walkthrough-focus-command', this.handleWalkthroughFocusCommand);
 		this.removeEventListener('click', this.handleClick);
-	}
-
-	private onStartTrial() {
-		this.telemetryData.proButtonClicked = true;
-		const command: GlCommands = 'gitlens.plus.signUp';
-		this._telemetry.sendEvent({
-			name: 'welcome/action',
-			data: {
-				name: 'plus/sign-up',
-				viewedCarouselPages: this.telemetryData.viewedCarouselPages,
-			},
-			source: { source: 'welcome' },
-		});
-		this._ipc.sendCommand(ExecuteCommand, { command: command, args: [{ source: 'welcome' }] });
-	}
-
-	private onClose() {
-		this._telemetry.sendEvent({
-			name: 'welcome/action',
-			data: {
-				name: 'dismiss',
-				viewedCarouselPages: this.telemetryData.viewedCarouselPages,
-				proButtonClicked: this.telemetryData.proButtonClicked,
-			},
-			source: { source: 'welcome', detail: 'dismiss-in-body' },
-		});
-		this.dispatchEvent(new CustomEvent('close'));
-	}
-
-	private onFeatureAppeared() {
-		this.telemetryData.viewedCarouselPages++;
-	}
-
-	getTelemetryData(): TelemetryData {
-		return { ...this.telemetryData };
 	}
 
 	override render(): unknown {
