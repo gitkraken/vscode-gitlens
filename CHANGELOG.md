@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Improves tracking for connecting flow actions by adding ide attributes to gk.dev links ([#4905](https://github.com/gitkraken/vscode-gitlens/issues/4905))
+- Refactors the Welcome view to be a standalone view separate from the _Home_ view, improving modularity and allowing the Welcome walkthrough to be displayed independently without requiring the Welcome Overlay ([#4970](https://github.com/gitkraken/vscode-gitlens/issues/4970))
 - Shows additional info in Authentication errors to help us investigate issues ([#4880](https://github.com/gitkraken/vscode-gitlens/issues/4880))
 
 ### Fixed
