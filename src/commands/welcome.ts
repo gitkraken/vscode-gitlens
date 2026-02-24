@@ -123,7 +123,7 @@ export class WelcomeCloseCommand extends GlCommandBase {
 
 	execute(): void {
 		void executeCoreCommand('gitlens.views.welcome.toggleVisibility');
-		void this.container.views.home.show();
+		void executeCommand('gitlens.showHomeView');
 	}
 }
 
@@ -139,7 +139,7 @@ export class WelcomeShowHomeViewCommand extends GlCommandBase {
 			name: 'open/home-view',
 			command: 'gitlens.welcome.showHomeView',
 		});
-		await this.container.views.home.show();
+		await executeCommand('gitlens.showHomeView');
 		void executeCommand('gitlens.views.home.enablePreview');
 	}
 }
