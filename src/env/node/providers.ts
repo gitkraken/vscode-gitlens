@@ -1,9 +1,13 @@
-import type { Disposable, McpServerDefinitionProvider } from 'vscode';
+import type { Disposable } from 'vscode';
 import type { Container } from '../../container.js';
 import type { GitExecOptions, GitResult } from '../../git/execTypes.js';
 import type { GitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
-import { mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
+import {
+	mcpRegistrationEnabled,
+	supportsCursorMcpRegistration,
+	supportsMcpExtensionRegistration,
+} from '../../plus/gk/utils/-webview/mcp.utils.js';
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider.js';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -74,15 +78,21 @@ export function getGkCliIntegrationProvider(container: Container): GkCliIntegrat
 	return new GkCliIntegrationProvider(container);
 }
 
-export async function getMcpProviders(
-	container: Container,
-): Promise<(McpServerDefinitionProvider & Disposable)[] | undefined> {
-	if (!mcpExtensionRegistrationAllowed(container)) return undefined;
+export async function getMcpProviders(container: Container): Promise<Disposable[] | undefined> {
+	if (mcpRegistrationEnabled(container)) {
+		if (supportsMcpExtensionRegistration()) {
+			// Older versions of VS Code do not support the classes used in the MCP integration, so we need to dynamically import
+			const mcpModule = await import(/* webpackChunkName: "mcp" */ './gk/mcp/vscodeIntegration.js');
+			return [new mcpModule.VSCodeGkMcpProvider(container)];
+		}
 
-	// Older versions of VS Code do not support the classes used in the MCP integration, so we need to dynamically import
-	const mcpModule = await import(/* webpackChunkName: "mcp" */ './gk/mcp/integration.js');
+		if (supportsCursorMcpRegistration()) {
+			const mcpModule = await import(/* webpackChunkName: "mcp-cursor" */ './gk/mcp/cursorIntegration.js');
+			return [new mcpModule.CursorGkMcpProvider(container)];
+		}
+	}
 
-	return [new mcpModule.GkMcpProvider(container)];
+	return undefined;
 }
 
 let _telemetryService: TelemetryService | undefined;

@@ -7,7 +7,7 @@ import type { Container } from './container.js';
 import type { BlameIgnoreRevsFileError, GitCommandContext } from './git/errors.js';
 import { BlameIgnoreRevsFileBadRevisionError, GitCommandError } from './git/errors.js';
 import type { GitCommit } from './git/models/commit.js';
-import { mcpExtensionRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils.js';
+import { mcpRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils.js';
 import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
 import { openUrl } from './system/-webview/vscode/uris.js';
@@ -327,7 +327,7 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 }
 
 export async function showMcpMessage(container: Container, _current: string): Promise<void> {
-	const isAutoInstallable = mcpExtensionRegistrationAllowed(container);
+	const isAutoInstallable = mcpRegistrationAllowed(container);
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const learnMore = { title: 'Learn More' };
 	const install = { title: 'Install GitKraken MCP' };
