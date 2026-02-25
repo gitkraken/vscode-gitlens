@@ -4,7 +4,7 @@ import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
-import { mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
+import { mcpRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
 import { registerCommand } from '../../system/-webview/command.js';
 import { getContext } from '../../system/-webview/context.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
@@ -91,7 +91,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 	}
 
 	private getMcpCanAutoRegister(): boolean {
-		return mcpExtensionRegistrationAllowed(this.container);
+		return mcpRegistrationAllowed(this.container);
 	}
 
 	private isCliInstalled(): boolean {
