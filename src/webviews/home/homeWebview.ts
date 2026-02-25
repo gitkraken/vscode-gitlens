@@ -56,7 +56,7 @@ import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService.js';
 import { showPatchesView } from '../../plus/drafts/actions.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
-import { isMcpBannerEnabled, mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
+import { isMcpBannerEnabled, mcpRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
 import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils.js';
 import {
 	getCommunitySubscription,
@@ -803,7 +803,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getMcpCanAutoRegister() {
-		return mcpExtensionRegistrationAllowed(this.container);
+		return mcpRegistrationAllowed(this.container);
 	}
 
 	private getIntegrationBannerCollapsed() {

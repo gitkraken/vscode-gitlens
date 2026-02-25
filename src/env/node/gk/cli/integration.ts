@@ -9,7 +9,7 @@ import type { StoredGkCLIInstallInfo } from '../../../../constants.storage.js';
 import type { Source, Sources } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService.js';
-import { mcpExtensionRegistrationAllowed } from '../../../../plus/gk/utils/-webview/mcp.utils.js';
+import { mcpRegistrationAllowed } from '../../../../plus/gk/utils/-webview/mcp.utils.js';
 import { registerCommand } from '../../../../system/-webview/command.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { setContext } from '../../../../system/-webview/context.js';
@@ -219,7 +219,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			void this.container.storage.storeScoped('gk:cli:install', undefined);
 		}
 
-		const shouldAutoInstall = mcpExtensionRegistrationAllowed(this.container) && !didReachMaxAttempts;
+		const shouldAutoInstall = mcpRegistrationAllowed(this.container) && !didReachMaxAttempts;
 		if (!forceInstall && !shouldAutoInstall) {
 			return;
 		}
@@ -326,7 +326,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 
 			const hostAppName = await getHostAppName();
-			const usingExtensionRegistration = mcpExtensionRegistrationAllowed(this.container);
+			const usingExtensionRegistration = mcpRegistrationAllowed(this.container);
 
 			if (!usingExtensionRegistration && isHostVSCode(hostAppName) && compare(codeVersion, '1.102') < 0) {
 				throw new McpSetupError(
