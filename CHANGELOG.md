@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Updates provider-apis to switch out deprecated Bitbucket methods ([#4967](https://github.com/gitkraken/vscode-gitlens/issues/4967))
 - Shows additional info in Authentication errors to help us investigate issues ([#4880](https://github.com/gitkraken/vscode-gitlens/issues/4880))
 
 ## [17.10.1] - 2026-02-19
