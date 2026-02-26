@@ -677,11 +677,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				placeholder: 'Choose a pull request or paste a pull request URL to act on',
 				items: isFiltering
 					? [...(errorItem != null ? [errorItem] : []), ...items, onItem]
-					: [
-							onItem,
-							...(errorItem != null ? [errorItem] : []),
-							...getLaunchpadQuickPickItems(result.items, isFiltering),
-						],
+					: [onItem, ...(errorItem != null ? [errorItem] : []), ...items],
 			};
 		}
 
