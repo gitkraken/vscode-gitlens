@@ -28,6 +28,8 @@ import type {
 } from '../../../config.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../constants.commands.js';
 import type { ContextKeys } from '../../../constants.context.js';
+import type { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
+import { supportedOrderedCloudIssuesIntegrationIds } from '../../../constants.integrations.js';
 import { GlyphChars } from '../../../constants.js';
 import type { SearchQuery } from '../../../constants.search.js';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage.js';
@@ -337,6 +339,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidFetchNotification, this.notifyDidFetch],
 		[DidStartFeaturePreviewNotification, this.notifyDidStartFeaturePreview],
 	]);
+	private _issueIntegrationConnectionState: 'connected' | 'not-connected' | 'not-checked' = 'not-checked';
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
 	private _search: GitGraphSearch | undefined;
 	private _searchIdCounter = getScopedCounter();
@@ -1123,12 +1126,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcCommand(GetMissingRefsMetadataCommand)
 	private async onGetMissingRefMetadata(params: IpcParams<typeof GetMissingRefsMetadataCommand>) {
-		if (
-			this._graph == null ||
-			this._refsMetadata === null ||
-			!getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(this._graph.repoPath)
-		) {
+		if (this._graph == null || this._refsMetadata === null) {
 			return;
+		}
+
+		// Check if we have connected integrations that can provide the requested metadata
+		const hasHostingIntegration = getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(
+			this._graph.repoPath,
+		);
+
+		if (!hasHostingIntegration) {
+			// If no hosting integration, check if we at least have issue integrations connected
+			const hasIssueIntegration =
+				this._issueIntegrationConnectionState !== 'not-checked'
+					? this._issueIntegrationConnectionState === 'connected'
+					: await this.checkIssueIntegrations();
+			if (!hasIssueIntegration) return;
 		}
 
 		const repoPath = this._graph.repoPath;
@@ -2310,8 +2323,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 	}
 
-	private onIntegrationConnectionChanged(_e: ConnectionStateChangeEvent) {
+	private onIntegrationConnectionChanged(e: ConnectionStateChangeEvent) {
 		void this.notifyDidChangeRepoConnection();
+
+		// If an issue integration connected/disconnected, update metadata state
+		if (supportedOrderedCloudIssuesIntegrationIds.includes(e.key as IssuesCloudHostIntegrationId)) {
+			void this.onIssueIntegrationConnectionChanged(e.reason === 'connected');
+		}
+	}
+
+	private async onIssueIntegrationConnectionChanged(connected: boolean) {
+		if (connected) {
+			this._issueIntegrationConnectionState = 'connected';
+		} else {
+			// Recheck since another issue integration might still be connected
+			await this.checkIssueIntegrations();
+		}
+
+		this.resetRefsMetadata();
+		this.updateRefsMetadata();
+	}
+
+	private async checkIssueIntegrations(): Promise<boolean> {
+		const results = await Promise.allSettled(
+			supportedOrderedCloudIssuesIntegrationIds.map(async id => {
+				const integration = await this.container.integrations.get(id);
+				return integration?.maybeConnected ?? (await integration?.isConnected()) ?? false;
+			}),
+		);
+		const connected = results.map(r => (r.status === 'fulfilled' ? r.value : false));
+		this._issueIntegrationConnectionState = connected.some(Boolean) ? 'connected' : 'not-connected';
+		return this._issueIntegrationConnectionState === 'connected';
 	}
 
 	private async notifyDidChangeRepoConnection() {
@@ -3240,7 +3282,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private resetRefsMetadata(): null | undefined {
-		this._refsMetadata = getContext('gitlens:repos:withHostingIntegrationsConnected') ? undefined : null;
+		this._refsMetadata =
+			getContext('gitlens:repos:withHostingIntegrationsConnected') ||
+			this._issueIntegrationConnectionState !== 'not-connected'
+				? undefined
+				: null;
 		return this._refsMetadata;
 	}
 
