@@ -69,6 +69,29 @@ export type RepositoryChange =
 	| 'opened'
 	| 'gkConfig';
 
+export const repositoryChanges = [
+	'unknown',
+	'index',
+	'head',
+	'heads',
+	'tags',
+	'stash',
+	'remotes',
+	'worktrees',
+	'config',
+	'pausedOp',
+	'cherryPick',
+	'merge',
+	'rebase',
+	'revert',
+	'closed',
+	'ignores',
+	'remoteProviders',
+	'starred',
+	'opened',
+	'gkConfig',
+] as const satisfies readonly RepositoryChange[];
+
 const defaultFileSystemChangeDelay = 2500;
 const defaultRepositoryChangeDelay = 250;
 

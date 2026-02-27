@@ -20,6 +20,9 @@ importers:
 
   .:
     dependencies:
+      '@eamodio/supertalk':
+        specifier: 0.0.7
+        version: 0.0.7
       '@gitkraken/gitkraken-components':
         specifier: 13.0.0-vnext.27
         version: 13.0.0-vnext.27(@types/react@19.2.14)(dragula@3.7.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -77,6 +80,12 @@ importers:
       '@shoelace-style/shoelace':
         specifier: 2.20.1
         version: 2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.14)
+      '@supertalk/core':
+        specifier: link:/home/eric/code/justinfagnani/supertalk/packages/core
+        version: link:../../../../justinfagnani/supertalk/packages/core
+      '@supertalk/signals':
+        specifier: link:/home/eric/code/justinfagnani/supertalk/packages/signals
+        version: link:../../../../justinfagnani/supertalk/packages/signals
       '@vscode/codicons':
         specifier: 0.0.44
         version: 0.0.44
@@ -125,6 +134,9 @@ importers:
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
+      signal-polyfill:
+        specifier: 0.2.2
+        version: 0.2.2
       signal-utils:
         specifier: 0.21.1
         version: 0.21.1(signal-polyfill@0.2.2)
@@ -587,6 +599,12 @@ packages:
     peerDependencies:
       eslint: ^9.23.0
       webpack: ^5.98.0
+
+  '@eamodio/supertalk-core@0.0.6':
+    resolution: {integrity: sha512-/oUUsQdPfzD10WGxAfp6rFAhkja1YD++inmraBTk3PJl9VQMdSYtOKr052NufhQDNiEPcQIlJqU+Of//WMa6EQ==}
+
+  '@eamodio/supertalk@0.0.7':
+    resolution: {integrity: sha512-NNPb6XTYH+d97F+866ZPra1yGL1m1qMN85GCNhAMoFkPLRfZQopgKuUDXvs4LOvKJTwETUhovPE3DVK+0EeH3Q==}
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -6993,6 +7011,12 @@ snapshots:
       picomatch: 4.0.3
       tinyglobby: 0.2.15
       webpack: 5.105.3(@swc/core@1.15.17(@swc/helpers@0.5.19))(esbuild@0.27.3)(webpack-cli@6.0.1)
+
+  '@eamodio/supertalk-core@0.0.6': {}
+
+  '@eamodio/supertalk@0.0.7':
+    dependencies:
+      '@eamodio/supertalk-core': 0.0.6
 
   '@emnapi/core@1.8.1':
     dependencies:

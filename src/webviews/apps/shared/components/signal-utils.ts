@@ -114,6 +114,10 @@ export class AsyncComputedState<T, R = unknown> {
 	}): R | undefined {
 		return renderAsyncComputed(this.computed, config);
 	}
+
+	dispose(): void {
+		this._runDebounced?.cancel?.();
+	}
 }
 
 export function signalState<T>(initialValue?: T, options?: { afterChange?: (target: any, value: T) => void }) {

@@ -34,7 +34,7 @@ import { getScopedCounter } from '../system/counter.js';
 import { logName, trace } from '../system/decorators/log.js';
 import { sequentialize } from '../system/decorators/sequentialize.js';
 import { serializeIpcData } from '../system/ipcSerialize.js';
-import { getLoggableName } from '../system/logger.js';
+import { getLoggableName, Logger } from '../system/logger.js';
 import { getScopedLogger, maybeStartScopedLogger } from '../system/logger.scope.js';
 import { pauseOnCancelOrTimeout } from '../system/promise.js';
 import { maybeStopWatch, Stopwatch } from '../system/stopwatch.js';
@@ -57,10 +57,15 @@ import {
 	DidChangeWebviewVisibilityNotification,
 	ExecuteCommand,
 	IpcPromiseSettled,
+	RpcConnectCommand,
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyRequest,
 } from './protocol.js';
+import { isRpcMessage } from './rpc/constants.js';
+import { EventVisibilityBuffer, SubscriptionTracker } from './rpc/eventVisibilityBuffer.js';
+import { RpcHost } from './rpc/rpcHost.js';
+
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar.js';
 import type { CustomEditorDescriptor, WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider.js';
@@ -187,6 +192,8 @@ export class WebviewController<
 	private disposable: Disposable | undefined;
 	private _isInEditor: boolean;
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
+	private _eventBuffer: EventVisibilityBuffer | undefined;
+	private _rpcHost: RpcHost<object> | undefined;
 	private readonly webview: Webview;
 
 	private _viewColumn: ViewColumn | undefined;
@@ -220,6 +227,24 @@ export class WebviewController<
 				return;
 			}
 
+			// Set up RPC services if the provider exposes them.
+			// The RpcHost creates a Connection but defers expose() until the
+			// webview sends "rpc/connect" (handled in onMessageReceivedCore).
+			const eventBuffer = this.descriptor.webviewHostOptions?.retainContextWhenHidden
+				? new EventVisibilityBuffer()
+				: undefined;
+			this._eventBuffer = eventBuffer;
+			const tracker = new SubscriptionTracker();
+			const rpcServices = this.provider.getRpcServices?.(eventBuffer, tracker);
+			if (rpcServices != null) {
+				try {
+					this._rpcHost = new RpcHost(this.webview, rpcServices, undefined, tracker);
+					Logger.debug(`WebviewController(${this.id}): RPC host created, awaiting connect`);
+				} catch (ex) {
+					Logger.error(ex, `WebviewController(${this.id}): Failed to create RPC host`);
+				}
+			}
+
 			this.disposable = Disposable.from(
 				this._onDidDispose,
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
@@ -238,6 +263,7 @@ export class WebviewController<
 				parent.onDidDispose(this.onParentDisposed, this),
 				...(this.provider.registerCommands?.() ?? []),
 				this.provider,
+				...(this._rpcHost != null ? [this._rpcHost] : []),
 			);
 		});
 	}
@@ -542,6 +568,8 @@ export class WebviewController<
 	})
 	private async onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
+		// Skip RPC transport messages — these are handled by the Supertalk endpoint
+		if (isRpcMessage(e)) return;
 
 		const scope = getScopedLogger();
 		scope?.addExitInfo(`ipc (webview -> host) duration=${Date.now() - e.timestamp}ms`);
@@ -560,6 +588,20 @@ export class WebviewController<
 			case WebviewFocusChangedCommand.is(e):
 				this.onViewFocusChanged(e.params);
 
+				break;
+
+			case RpcConnectCommand.is(e):
+				// Webview's RPC Connection is ready - expose services and send the ready signal.
+				// This deferred handshake avoids the timing issue where expose()'s ready signal
+				// is sent before the webview scripts have loaded.
+				this._rpcHost?.expose();
+
+				// Treat the RPC connection as the webview readiness signal — same as
+				// WebviewReadyRequest — so that IPC still works for unmigrated child
+				// components during the RPC migration.
+				this._ready = true;
+				this.sendPendingIpcNotifications();
+				void this.provider.onReady?.();
 				break;
 
 			case ExecuteCommand.is(e):
@@ -648,6 +690,7 @@ export class WebviewController<
 		}
 
 		void this.notify(DidChangeWebviewVisibilityNotification, { visible: visible });
+		this._eventBuffer?.setVisible(visible);
 		this.provider.onVisibilityChanged?.(visible);
 	}
 

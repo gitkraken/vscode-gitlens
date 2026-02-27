@@ -366,6 +366,9 @@ function getExtensionConfig(target, mode, env) {
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+				// Deduplicate signal-polyfill: linked @supertalk/* packages resolve to their
+				// own node_modules copy, breaking instanceof checks in SignalHandler.canHandle().
+				'signal-polyfill': path.resolve(__dirname, 'node_modules', 'signal-polyfill'),
 				// Stupid dependency that is used by `http[s]-proxy-agent`
 				debug: path.resolve(__dirname, 'patches', 'debug.js'),
 				// This dependency is very large, and isn't needed for our use-case
@@ -727,6 +730,9 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
+				// Deduplicate signal-polyfill: linked @supertalk/* packages resolve to their
+				// own node_modules copy, breaking instanceof checks in SignalHandler.canHandle().
+				'signal-polyfill': path.resolve(__dirname, 'node_modules', 'signal-polyfill'),
 				react: path.resolve(__dirname, 'node_modules', 'react'),
 				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
 				...overrides.alias,

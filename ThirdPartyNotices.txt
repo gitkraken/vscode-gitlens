@@ -3,43 +3,1347 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @gk-nzaytsev/fast-string-truncated-width version 1.1.0 (https://github.com/nzaytsev/fast-string-truncated-width)
-2. @lit-labs/signals version 0.2.0 (https://github.com/lit/lit)
-3. @lit-labs/virtualizer version 2.1.1 (https://github.com/lit/lit)
-4. @lit/context version 1.1.6 (https://github.com/lit/lit)
-5. @lit/react version 1.0.8 (https://github.com/lit/lit)
-6. @lit/task version 1.0.3 (https://github.com/lit/lit)
-7. @octokit/graphql version 9.0.3 (https://github.com/octokit/graphql.js)
-8. @octokit/request-error version 7.1.0 (https://github.com/octokit/request-error.js)
-9. @octokit/request version 10.0.7 (https://github.com/octokit/request.js)
-10. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
-11. @opentelemetry/api version 1.9.0 (https://github.com/open-telemetry/opentelemetry-js)
-12. @opentelemetry/exporter-trace-otlp-http version 0.211.0 (https://github.com/open-telemetry/opentelemetry-js)
-13. @opentelemetry/resources version 2.5.0 (https://github.com/open-telemetry/opentelemetry-js)
-14. @opentelemetry/sdk-trace-base version 2.5.0 (https://github.com/open-telemetry/opentelemetry-js)
-15. @opentelemetry/semantic-conventions version 1.39.0 (https://github.com/open-telemetry/opentelemetry-js)
-16. @shoelace-style/shoelace version 2.20.1 (https://github.com/shoelace-style/shoelace)
-17. @vscode/codicons version 0.0.44 (https://github.com/microsoft/vscode-codicons)
-18. billboard.js version 3.18.0 (https://github.com/naver/billboard.js)
-19. diff2html version 3.4.56 (https://github.com/rtfpessoa/diff2html)
-20. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
-21. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
-22. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
-23. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-24. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-25. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
-26. lit version 3.3.2 (https://github.com/lit/lit)
-27. marked version 17.0.1 (https://github.com/markedjs/marked)
-28. microsoft/vscode (https://github.com/microsoft/vscode)
-29. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
-30. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-31. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-32. react-dom version 19.2.4 (https://github.com/facebook/react)
-33. react version 19.2.4 (https://github.com/facebook/react)
-34. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
-35. slug version 11.0.1 (https://github.com/Trott/slug)
-36. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
-37. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+1. @eamodio/supertalk-core version 0.0.5 (https://github.com/eamodio/supertalk)
+2. @eamodio/supertalk-signals version 0.0.5 (https://github.com/eamodio/supertalk)
+3. @eamodio/supertalk version 0.0.7 (https://github.com/eamodio/supertalk)
+4. @gk-nzaytsev/fast-string-truncated-width version 1.1.0 (https://github.com/nzaytsev/fast-string-truncated-width)
+5. @lit-labs/signals version 0.2.0 (https://github.com/lit/lit)
+6. @lit-labs/virtualizer version 2.1.1 (https://github.com/lit/lit)
+7. @lit/context version 1.1.6 (https://github.com/lit/lit)
+8. @lit/react version 1.0.8 (https://github.com/lit/lit)
+9. @lit/task version 1.0.3 (https://github.com/lit/lit)
+10. @octokit/graphql version 9.0.3 (https://github.com/octokit/graphql.js)
+11. @octokit/request-error version 7.1.0 (https://github.com/octokit/request-error.js)
+12. @octokit/request version 10.0.7 (https://github.com/octokit/request.js)
+13. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
+14. @opentelemetry/api version 1.9.0 (https://github.com/open-telemetry/opentelemetry-js)
+15. @opentelemetry/exporter-trace-otlp-http version 0.211.0 (https://github.com/open-telemetry/opentelemetry-js)
+16. @opentelemetry/resources version 2.5.0 (https://github.com/open-telemetry/opentelemetry-js)
+17. @opentelemetry/sdk-trace-base version 2.5.0 (https://github.com/open-telemetry/opentelemetry-js)
+18. @opentelemetry/semantic-conventions version 1.39.0 (https://github.com/open-telemetry/opentelemetry-js)
+19. @shoelace-style/shoelace version 2.20.1 (https://github.com/shoelace-style/shoelace)
+20. @vscode/codicons version 0.0.44 (https://github.com/microsoft/vscode-codicons)
+21. billboard.js version 3.18.0 (https://github.com/naver/billboard.js)
+22. diff2html version 3.4.56 (https://github.com/rtfpessoa/diff2html)
+23. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
+24. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
+25. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
+26. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+27. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+28. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
+29. lit version 3.3.2 (https://github.com/lit/lit)
+30. marked version 17.0.1 (https://github.com/markedjs/marked)
+31. microsoft/vscode (https://github.com/microsoft/vscode)
+32. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+33. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+34. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+35. react-dom version 19.2.4 (https://github.com/facebook/react)
+36. react version 19.2.4 (https://github.com/facebook/react)
+37. signal-polyfill version 0.2.2 (https://github.com/proposal-signals/signal-polyfill)
+38. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
+39. slug version 11.0.1 (https://github.com/Trott/slug)
+40. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
+41. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+
+%% @eamodio/supertalk-core NOTICES AND INFORMATION BEGIN HERE
+=========================================
+# @supertalk/core
+
+[![CI](https://github.com/eamodio/supertalk/actions/workflows/ci.yml/badge.svg)](https://github.com/eamodio/supertalk/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@eamodio/supertalk-core.svg)](https://www.npmjs.com/package/@eamodio/supertalk-core)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+> [!WARNING]
+> This is a pre-release package under active development. APIs may change without
+> notice between versions.
+
+A type-safe, unified communication library for Web Workers, Iframes, and Node.js
+worker threads.
+
+## Overview
+
+**Supertalk turns workers' low-level message passing into a high-level,
+type-safe RPC layer—so you can call methods, pass callbacks, and await promises
+as if they were local.**
+
+Supertalk is built to be a joy to use and deploy:
+
+- **Type-safe:** Your IDE knows exactly what's proxied vs cloned
+- **Ergonomic:** Callbacks, promises, and classes just work
+- **Bidirectional:** The same types and patterns work in both directions
+- **Fast & small:** ~2.4 kB brotli-compressed, zero dependencies
+- **Composable & extendable:** Non-global configuration, nested objects,
+  services are just classes, composable transport handlers
+- **Standard modules:** Some people call them "ESM". We don't publish CJS.
+- **Modern JavaScript:** Published as ES2024, targeting current browsers and
+  Node.js 20+
+
+## Installation
+
+```bash
+npm install @supertalk/core
+```
+
+## Quick Start
+
+`worker.ts` (exposed side):
+
+```ts
+import {expose} from '@supertalk/core';
+
+const service = {
+  add(a: number, b: number): number {
+    return a + b;
+  },
+  async fetchData(url: string): Promise<string> {
+    const res = await fetch(url);
+    return res.text();
+  },
+};
+
+expose(service, self);
+```
+
+`main.ts` (wrapped side):
+
+```ts
+import {wrap} from '@supertalk/core';
+
+const worker = new Worker('./worker.ts');
+const remote = await wrap<typeof service>(worker);
+
+// Methods become async
+const result = await remote.add(1, 2); // 3
+```
+
+## Core Features
+
+### Automatic proxying of functions and promises
+
+Functions and promises passed as **top-level arguments or return values** are
+always proxied:
+
+```ts
+// Exposed side
+const service = {
+  forEach(items: number[], callback: (item: number) => void) {
+    for (const item of items) {
+      callback(item); // Calls back to wrapped side
+    }
+  },
+};
+```
+
+```ts
+// Wrapped side
+await remote.forEach([1, 2, 3], (item) => {
+  console.log(item); // Runs locally
+});
+```
+
+All functions are transformed into promise-returning async functions on the
+wrapped side. Proxies are released from memory when they're no longer in use by
+the wrapped side.
+
+### Object proxying with `proxy()`
+
+Objects are cloned by default. This works well for immutable data objects, but
+not for all cases. The `proxy()` function marks an object as needing to be
+proxied instead of cloned.
+
+**Use `proxy()` when returning:**
+
+1. **Mutable objects** — The remote side should see updates
+2. **Large graphs** — Avoid cloning expensive data structures
+3. **Class instances with methods** — Preserve the prototype API
+
+`worker.ts`:
+
+```ts
+import {expose, proxy} from '@supertalk/core';
+
+export class Widget {
+  count = 42;
+  sayHello() {
+    return 'hello';
+  }
+}
+
+expose(
+  {
+    createWidget() {
+      return proxy(new Widget()); // Explicitly proxied
+    },
+  },
+  self,
+);
+```
+
+`main.ts`:
+
+```ts
+const service = await wrap(worker);
+const widget = await service.createWidget();
+
+// The proxy provides async access to properties and methods
+const count = await widget.count;
+const hello = await widget.sayHello();
+```
+
+### Opaque Handles with `handle()`
+
+When you need to pass a reference without exposing any remote interface, use
+`handle()`. Handles are opaque tokens — they can be passed around and back, but
+provide no way to access properties or methods remotely.
+
+```ts
+import {expose, handle, getHandleValue} from '@supertalk/core';
+
+class Session {
+  constructor(public id: string) {}
+}
+
+const service = {
+  createSession(id: string) {
+    return handle(new Session(id)); // Opaque handle
+  },
+  getSessionId(session: Handle<Session>) {
+    // Extract the value on the owning side
+    return getHandleValue(session).id;
+  },
+};
+```
+
+```ts
+// Client side
+const session = await remote.createSession('abc'); // Handle<Session>
+// session is opaque — no property access
+const id = await remote.getSessionId(session); // Pass it back
+```
+
+### Extracting Values from Proxies and Handles
+
+Both `proxy()` and `handle()` create wrappers that work the same on both sides.
+On the side that created the proxy/handle, you can extract the underlying value:
+
+```ts
+import {proxy, getProxyValue, handle, getHandleValue} from '@supertalk/core';
+
+const service = {
+  // Return a proxied widget
+  createWidget() {
+    return proxy(new Widget());
+  },
+
+  // Accept a proxy and extract its value
+  updateWidget(widget: AsyncProxy<Widget>) {
+    const w = getProxyValue(widget); // Only works on owning side
+    w.refresh();
+  },
+
+  // Same pattern works for handles
+  processSession(session: Handle<Session>) {
+    const s = getHandleValue(session);
+    return s.data;
+  },
+};
+```
+
+### Nested Objects & Proxies
+
+Supertalk supports two modes for handling nested values:
+
+- **Shallow mode** (default): Maximum performance, only top-level function
+  arguments and return values are proxied. Nested functions/promises fail with
+  `DataCloneError`.
+- **Nested mode** (`nestedProxies: true`): Full payload traversal. Functions and
+  promises anywhere in the graph are auto-proxied.
+
+```ts
+// On exposed side
+expose(service, self, {nestedProxies: true});
+
+const service = {
+  getData() {
+    return {
+      process: (x) => x * 2, // auto-proxied (function)
+      widget: proxy(new Widget()), // explicitly proxied (class)
+    };
+  },
+};
+
+// On wrapped side
+const remote = await wrap<typeof service>(worker, {nestedProxies: true});
+const data = await remote.getData();
+await data.process(5); // 10
+```
+
+### Transferables with `transfer()`
+
+Use `transfer()` to mark values like `ArrayBuffer`, `MessagePort`, or streams to
+be transferred rather than cloned.
+
+```ts
+import {transfer} from '@supertalk/core';
+
+const service = {
+  getBuffer(): ArrayBuffer {
+    const buf = new ArrayBuffer(1024);
+    return transfer(buf); // Zero-copy transfer
+  },
+};
+```
+
+### Value Handling Reference
+
+When values cross the communication boundary:
+
+| Value Type                                       | Shallow Mode   | Nested Mode    |
+| ------------------------------------------------ | -------------- | -------------- |
+| Primitives                                       | ✅ Cloned      | ✅ Cloned      |
+| Plain objects `{...}`                            | ✅ Cloned      | ✅ Cloned      |
+| Arrays                                           | ✅ Cloned      | ✅ Cloned      |
+| Functions (top-level)                            | 🛜 Proxied     | 🛜 Proxied     |
+| Functions (nested)                               | ❌ Error       | 🛜 Proxied     |
+| Promises (top-level return)                      | 🛜 Proxied     | 🛜 Proxied     |
+| Promises (nested)                                | ❌ Error       | 🛜 Proxied     |
+| `proxy()` wrapped values (top-level)             | 🛜 Proxied     | 🛜 Proxied     |
+| `proxy()` wrapped values (nested)                | ❌ Error       | 🛜 Proxied     |
+| `handle()` wrapped values (top-level)            | 🔒 Handle      | 🔒 Handle      |
+| `handle()` wrapped values (nested)               | ❌ Error       | 🔒 Handle      |
+| `transfer()` wrapped values (top-level)          | 📦 Transferred | 📦 Transferred |
+| `transfer()` wrapped values (nested)             | ❌ Error       | 📦 Transferred |
+| Class instances & objects with custom prototypes | ⚠️ Cloned\*    | ⚠️ Cloned\*    |
+| Other structured cloneable objects               | ✅ Cloned      | ✅ Cloned      |
+
+\* _Class instances are cloned via structured clone (losing methods) unless
+wrapped in `proxy()`._
+
+## API Reference
+
+### Core Functions
+
+#### `expose(target, endpoint, options?)`
+
+Exposes an object or function to the other side.
+
+- `target`: The service object or function to expose.
+- `endpoint`: The `Worker`, `MessagePort`, `Window`, or compatible interface.
+- `options`: Connection options (see below).
+
+#### `wrap<T>(endpoint, options?)`
+
+Connects to an exposed service and returns a proxy.
+
+- `endpoint`: The `Worker`, `MessagePort`, `Window`, or compatible interface.
+- `options`: Connection options (see below).
+- Returns: `Promise<Remote<T>>`
+
+#### `proxy(value)`
+
+Marks an object to be proxied rather than cloned. Returns an `AsyncProxy<T>`
+that provides async access on both sides. Use this for:
+
+- Class instances with methods
+- Mutable objects that should be shared
+- Large objects to avoid cloning costs
+
+#### `handle(value)`
+
+Marks an object as an opaque handle. Returns a `Handle<T>` that can be passed
+around but provides no remote interface. Use this for:
+
+- Session tokens or identifiers
+- References to expensive objects
+- Graph nodes where you don't want to expose internals
+
+#### `getProxyValue(proxy)` / `getHandleValue(handle)`
+
+Extracts the underlying value from an `AsyncProxy` or `Handle`. Only works on
+the side that created the proxy/handle — throws `TypeError` on the remote side.
+
+#### `transfer(value, transferables?)`
+
+Marks a value to be transferred (zero-copy) rather than cloned.
+
+- `value`: The value to send (e.g. `ArrayBuffer`, `MessagePort`).
+- `transferables`: Optional array of transferables. If omitted, `value` is assumed to be the transferable.
+
+### Options
+
+```ts
+interface Options {
+  /** Enable nested proxy handling (default: false) */
+  nestedProxies?: boolean;
+  /**
+   * Enable debug mode for better error messages.
+   * Throws NonCloneableError with the exact path for nested functions,
+   * promises, proxy() markers, and transfer() markers that would fail
+   * without nestedProxies: true.
+   */
+  debug?: boolean;
+  /** Custom handlers for serializing/deserializing specific types */
+  handlers?: Array<Handler>;
+}
+```
+
+### Handlers
+
+Handlers provide pluggable serialization for custom types or streams.
+
+**Stream Handler Example:**
+
+```ts
+import {streamHandler} from '@supertalk/core/handlers/streams.js';
+
+expose(service, self, {handlers: [streamHandler]});
+const remote = await wrap<typeof service>(worker, {handlers: [streamHandler]});
+```
+
+**Custom Handlers:**
+
+Handlers let you control how specific types are serialized. Each handler implements:
+
+- `wireType` — Unique identifier (e.g., `'app:my-type'`)
+- `canHandle(value)` — Returns `true` if this handler should process the value
+- `toWire(value, ctx)` — Serialize the value, using `ctx.toWire()` for nested values
+- `fromWire(wire, ctx)` — Deserialize, using `ctx.fromWire()` for nested values
+
+```ts
+import {WIRE_TYPE, type Handler} from '@supertalk/core';
+
+// Handler that clones Maps by converting to/from arrays
+const mapHandler: Handler<Map<unknown, unknown>, {entries: unknown[]}> = {
+  wireType: 'app:map',
+
+  canHandle: (v): v is Map<unknown, unknown> => v instanceof Map,
+
+  toWire(map, ctx) {
+    return {
+      [WIRE_TYPE]: 'app:map',
+      entries: [...map.entries()].map(([k, v]) => [
+        ctx.toWire(k),
+        ctx.toWire(v),
+      ]),
+    };
+  },
+
+  fromWire(wire, ctx) {
+    return new Map(
+      wire.entries.map(([k, v]) => [ctx.fromWire(k), ctx.fromWire(v)]),
+    );
+  },
+};
+```
+
+**Subscription Handlers:**
+
+For handlers that need to send updates outside of RPC calls (like signals or observables), the handler lifecycle provides messaging support:
+
+- `connect(ctx)` — Called when attached; provides `ctx.sendMessage()` for sending updates
+- `onMessage(payload)` — Called when a message arrives for this handler's wireType
+- `disconnect()` — Called when the connection closes; clean up resources
+
+See [@supertalk/signals](../signals) for a complete example.
+
+### TypeScript Types
+
+#### `Remote<T>`
+
+The primary type for service proxies returned by `wrap()`. Transforms all
+methods to async and properties to `Promise<T>`.
+
+```ts
+const remote = await wrap<MyService>(worker);
+// remote has type Remote<MyService>
+```
+
+#### `AsyncProxy<T>`
+
+The unified proxy type returned by `proxy()`. Works the same on both sides of a
+connection — the remote side gets async access to properties and methods, while
+the owning side can extract the underlying value with `getProxyValue()`.
+
+```ts
+// Service returns an AsyncProxy
+createWidget(): AsyncProxy<Widget> {
+  return proxy(new Widget());
+}
+
+// Client receives the same type
+const widget = await remote.createWidget(); // AsyncProxy<Widget>
+await widget.name;       // Property access is async
+await widget.activate(); // Method calls are async
+```
+
+#### `Handle<T>`
+
+An opaque reference type returned by `handle()`. Provides no remote interface —
+useful for session tokens, expensive objects, or graph nodes that shouldn't
+expose their internals.
+
+```ts
+// Service returns a Handle
+createSession(): Handle<Session> {
+  return handle(new Session());
+}
+
+// Client can only pass it back
+const session = await remote.createSession(); // Handle<Session>
+// session.foo — not allowed, handles are opaque
+await remote.useSession(session); // Pass it back
+```
+
+## Advanced Usage
+
+### Debugging
+
+Debugging `DataCloneError` can be tricky. Supertalk provides a `debug` option
+that traverses your data before sending and throws a `NonCloneableError` with
+the exact path to the problematic value.
+
+```ts
+const remote = await wrap<Service>(endpoint, {debug: true});
+```
+
+### Memory Management
+
+Proxied objects are tracked with registries on both sides.
+
+- **Source side**: Holds strong references until released.
+- **Consumer side**: Holds weak references; when GC'd, notifies source to
+  release.
+
+### Node.js Worker Threads
+
+For Node.js `worker_threads`, use the `nodeEndpoint` adapter to convert the
+Node-style event API (`on`/`off`) to the browser-style API
+(`addEventListener`/`removeEventListener`).
+
+**main.ts:**
+
+```ts
+import {wrap} from '@supertalk/core';
+import {nodeEndpoint} from '@supertalk/core/node.js';
+import {Worker} from 'node:worker_threads';
+
+const worker = new Worker('./worker.js');
+const remote = await wrap<MyService>(nodeEndpoint(worker));
+
+const result = await remote.add(1, 2);
+worker.terminate();
+```
+
+**worker.ts:**
+
+```ts
+import {expose} from '@supertalk/core';
+import {parentPort} from 'node:worker_threads';
+
+const service = {
+  add(a: number, b: number) {
+    return a + b;
+  },
+};
+
+// parentPort is a MessagePort which has addEventListener/removeEventListener
+expose(service, parentPort!);
+```
+
+## Benchmarks
+
+Supertalk vs Comlink vs Supertalk with `nestedProxies: true`, measured in
+ops/sec (higher is better). Node.js `worker_threads` with `MessageChannel`.
+
+| Benchmark                    | Supertalk | Comlink | ST vs Comlink | Supertalk w/ <br> nestedProxies | nested vs <br> shallow |
+| ---------------------------- | --------: | ------: | ------------: | ------------------------------: | ---------------------: |
+| Simple String Echo           |   168,597 |  94,543 |         1.78x |                         173,684 |                  1.03x |
+| Multiple Arguments (4 nums)  |   163,503 |  84,546 |         1.93x |                         163,420 |                     1x |
+| Large Object (~10KB)         |    26,257 |  23,714 |         1.11x |                          12,886 |                  0.49x |
+| Large Array (10,000 items)   |       313 |     309 |         1.01x |                             163 |                  0.52x |
+| Callback (proxy function)    |     3,742 |   3,469 |         1.08x |                           3,607 |                  0.96x |
+| Multiple Callbacks (3 funcs) |     1,748 |   1,576 |         1.11x |                           1,856 |                  1.06x |
+| Rapid Sequential (20x burst) |   190,164 | 103,191 |         1.84x |                         179,378 |                  0.94x |
+
+**Notes:**
+
+- Supertalk appears to have lower per-call and per-object overhead, which makes
+  it faster in the multiple call and multiple argument cases, and similar in the
+  one large object or array cases.
+- For simple calls and bursts, Supertalk is ~1.8-1.9x faster than Comlink
+- `nestedProxies` mode adds traversal overhead for large payloads. The
+  performance impact ranges from negligible for small objects to 2x slower for
+  large graphs and arrays.
+- Run the benchmarks with: `npm run bench -w @supertalk/core`
+
+## Background
+
+### Why Supertalk?
+
+Workers are great for offloading work, but the raw `postMessage` API is
+difficult:
+
+- No built-in request/response (one-way only)
+- No error propagation
+- No functions or promises (DataCloneError)
+- Manual lifetime management
+- Manual transfer lists
+
+Supertalk handles all of this: RPC layer, transparent proxying, automatic
+lifetime management, and deep traversal.
+
+### Comparison to Comlink
+
+Supertalk is inspired by Comlink but differs in key ways:
+
+- **Automatic proxying:** Functions/promises are auto-proxied.
+- **Nested support:** `nestedProxies` mode allows proxies anywhere in the
+  payload.
+- **Debug mode:** Reports exactly where non-serializable values are.
+- **Symmetric:** Both ends use the same `Connection` class.
+- **No MessagePorts:** Uses the worker/window directly, making it lighter.
+
+## License
+
+MIT
+
+=========================================
+END OF  @eamodio/supertalk-core NOTICES AND INFORMATION
+
+%% @eamodio/supertalk-signals NOTICES AND INFORMATION BEGIN HERE
+=========================================
+# @supertalk/signals
+
+[![CI](https://github.com/eamodio/supertalk/actions/workflows/ci.yml/badge.svg)](https://github.com/eamodio/supertalk/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@eamodio/supertalk-signals.svg)](https://www.npmjs.com/package/@eamodio/supertalk-signals)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+> [!WARNING]
+> This is a pre-release package under active development. APIs may change without
+> notice between versions.
+
+TC39 Signals integration for Supertalk. Synchronize reactive state across
+workers with automatic batched updates.
+
+## Features
+
+- **Reactive across boundaries:** Signals on the sender side become
+  `RemoteSignal`s on the receiver that trigger local effects
+- **Synchronous reads:** Initial values are available immediately via `get()`
+- **Batched updates:** Multiple signal changes are coalesced into a single
+  message
+- **Lazy watching:** Source signals are only watched when the receiver observes
+  reactively, respecting `[Signal.subtle.watched]` callbacks
+- **Works with `Signal.State` and `Signal.Computed`**
+- **Modern JavaScript:** Published as ES2024, targeting current browsers and
+  Node.js 20+
+
+## Installation
+
+```bash
+npm install @supertalk/signals signal-polyfill
+```
+
+> **Note:** This package requires `signal-polyfill` for the TC39 Signals API.
+
+## Quick Start
+
+**worker.ts** (exposed side):
+
+```ts
+import {expose} from '@supertalk/core';
+import {Signal} from 'signal-polyfill';
+import {SignalHandler} from '@supertalk/signals';
+
+const count = new Signal.State(0);
+const doubled = new Signal.Computed(() => count.get() * 2);
+
+const service = {
+  getCount: () => count,
+  getDoubled: () => doubled,
+  increment: () => count.set(count.get() + 1),
+};
+
+expose(service, self, {handlers: [new SignalHandler()]});
+```
+
+**main.ts** (wrapped side):
+
+```ts
+import {wrap} from '@supertalk/core';
+import {Signal} from 'signal-polyfill';
+import {SignalHandler} from '@supertalk/signals';
+
+const worker = new Worker('./worker.ts');
+const remote = await wrap<typeof service>(worker, {
+  handlers: [new SignalHandler()],
+});
+
+// Get the remote signal (initial value available synchronously)
+const count = await remote.getCount();
+console.log(count.get()); // 0
+
+// Set up reactive observation with a Watcher
+const watcher = new Signal.subtle.Watcher(() => {
+  // Handle updates
+});
+const quadrupled = new Signal.Computed(() => count.get() * 4);
+watcher.watch(quadrupled);
+quadrupled.get(); // Establish the subscription chain
+
+// Mutate on worker side
+await remote.increment();
+// After microtask, updates propagate (because watcher is watching quadrupled)
+console.log(count.get()); // 1
+console.log(quadrupled.get()); // 4
+```
+
+## API
+
+### `SignalHandler`
+
+Coordinates signal synchronization across a connection. Create one per endpoint.
+
+```ts
+const signalHandler = new SignalHandler(options);
+
+// Options:
+interface SignalHandlerOptions {
+  /**
+   * Whether to automatically watch signals when sent (default: false).
+   *
+   * - false: Lazy watching. Signals are only watched when the receiver
+   *   observes them reactively. Respects [Signal.subtle.watched] callbacks.
+   *
+   * - true: Eager watching. Signals are watched immediately when sent.
+   *   Updates always flow regardless of whether receiver is observing.
+   */
+  autoWatch?: boolean;
+}
+```
+
+#### Lazy vs Eager Watching
+
+By default (`autoWatch: false`), signals are watched lazily:
+
+```ts
+// Sender has a signal with a watched callback
+const data = new Signal.State(initialData, {
+  [Signal.subtle.watched]: () => startExpensiveDataFetch(),
+  [Signal.subtle.unwatched]: () => stopExpensiveDataFetch(),
+});
+
+// Sending the signal does NOT trigger the watched callback
+const remoteData = await remote.getData();
+
+// Only when something observes the RemoteSignal reactively...
+const computed = new Signal.Computed(() => remoteData.get());
+// ...does the sender start watching (and the callback fires)
+```
+
+Use `autoWatch: true` when you want updates to always flow:
+
+```ts
+const signalHandler = new SignalHandler({autoWatch: true});
+```
+
+### `RemoteSignal<T>`
+
+A read-only signal that receives updates from the sender side. You don't create
+these directly—they're returned when you access a signal property on a remote
+service.
+
+```ts
+const count = await remote.getCount(); // RemoteSignal<number>
+
+count.get(); // Read current value (reactive)
+count.set(42); // Throws! RemoteSignals are read-only
+```
+
+RemoteSignals integrate with the TC39 Signals reactivity system:
+
+```ts
+import {Signal} from 'signal-polyfill';
+
+// Local computeds can depend on remote signals
+const doubled = new Signal.Computed(() => count.get() * 2);
+
+// Effects track remote signals too
+const watcher = new Signal.subtle.Watcher(() => {
+  console.log('count changed!');
+});
+watcher.watch(new Signal.Computed(() => count.get()));
+```
+
+## How It Works
+
+1. When a `Signal.State` or `Signal.Computed` is sent across the boundary, the
+   `SignalHandler` assigns it an ID and sends the current value
+2. The receiver creates a `RemoteSignal` with that initial value
+3. When something observes the `RemoteSignal` reactively, a watch message is
+   sent to the sender
+4. The sender starts monitoring the signal for changes via a `Watcher`
+5. When signals change, updates are batched via `queueMicrotask` and sent as a
+   single message
+6. When the receiver stops observing, an unwatch message is sent and the sender
+   stops monitoring
+
+With `autoWatch: true`, steps 3-4 happen immediately when the signal is sent.
+
+## Limitations
+
+- **One-way sync:** Signals flow from sender to receiver. `RemoteSignal`s are
+  read-only.
+- **Requires handler on both sides:** Both `expose()` and `wrap()` need a
+  `SignalHandler` in their handlers array.
+- **Lazy watching requires reactive observation:** With the default
+  `autoWatch: false`, calling `.get()` outside a reactive context (computed,
+  effect, watcher) won't trigger updates. Use `autoWatch: true` if you need
+  updates without reactive observation.
+
+=========================================
+END OF  @eamodio/supertalk-signals NOTICES AND INFORMATION
+
+%% @eamodio/supertalk NOTICES AND INFORMATION BEGIN HERE
+=========================================
+# Supertalk
+
+[![CI](https://github.com/eamodio/supertalk/actions/workflows/ci.yml/badge.svg)](https://github.com/eamodio/supertalk/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@eamodio/supertalk.svg)](https://www.npmjs.com/package/@eamodio/supertalk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+> [!WARNING]
+> This is a pre-release package under active development. APIs may change without
+> notice between versions.
+
+A type-safe, unified communication library for Web Workers, Iframes, and Node.js
+worker threads.
+
+**Supertalk turns workers' low-level message passing into a high-level,
+type-safe RPC layer—so you can call methods, pass callbacks, and await promises
+as if they were local.**
+
+Supertalk is built to be a joy to use and deploy:
+
+- **Type-safe:** Your IDE knows exactly what's proxied vs cloned
+- **Ergonomic:** Callbacks, promises, and classes just work
+- **Bidirectional:** The same types and patterns work in both directions
+- **Fast & small:** ~2.4 kB brotli-compressed, zero dependencies
+- **Composable & extendable:** Non-global configuration, nested objects,
+  services are just classes, composable transport handlers
+- **Standard modules:** ESM-only, no CommonJS
+- **Modern JavaScript:** Published as ES2024, targeting current browsers and
+  Node.js 20+
+
+## Installation
+
+```bash
+npm install supertalk
+```
+
+This package re-exports `@supertalk/core`. As additional packages are added to
+the Supertalk ecosystem, they may be included here as well.
+
+## Quick Start
+
+**worker.ts** (exposed side):
+
+```ts
+import {expose} from 'supertalk';
+
+const service = {
+  add(a: number, b: number): number {
+    return a + b;
+  },
+  async fetchData(url: string): Promise<string> {
+    const res = await fetch(url);
+    return res.text();
+  },
+};
+
+expose(service, self);
+```
+
+**main.ts** (wrapped side):
+
+```ts
+import {wrap} from 'supertalk';
+
+const worker = new Worker('./worker.ts');
+const remote = await wrap<typeof service>(worker);
+
+// Methods become async
+const result = await remote.add(1, 2); // 3
+```
+
+## Core Concepts
+
+### Requests and Responses
+
+Most cross-worker communication follows a request/response pattern, but
+`postMessage()` only sends one-way messages. Matching responses to requests is
+left as an exercise to the developer. Supertalk builds a request/response
+protocol on top of `postMessage()`, so you can call methods and await results
+naturally.
+
+### Clones vs Proxies
+
+`postMessage()` copies payloads via the structured clone algorithm, which only
+supports a limited set of types. Functions are completely unsupported, and class
+instances lose their prototypes—so things like Promises don't survive the trip.
+
+Supertalk addresses this by _proxying_ values that can't be cloned. A proxied
+object stays on its original side; the other side gets a lightweight proxy that
+forwards calls back. This is how functions, promises, and class instances work
+across the message boundary.
+
+### Shallow vs Deep Proxying
+
+By default, Supertalk only proxies objects passed directly to or returned from
+method calls. This keeps messages fast. If you need proxies nested anywhere in a
+payload, set `nestedProxies: true` to traverse the full object graph.
+
+## Core Features
+
+### Automatic proxying of functions and promises
+
+Functions and promises passed as **top-level arguments or return values** are
+always proxied:
+
+```ts
+// Exposed side
+const service = {
+  forEach(items: number[], callback: (item: number) => void) {
+    for (const item of items) {
+      callback(item); // Calls back to wrapped side
+    }
+  },
+};
+```
+
+```ts
+// Wrapped side
+await remote.forEach([1, 2, 3], (item) => {
+  console.log(item); // Runs locally
+});
+```
+
+All functions are transformed into promise-returning async functions on the
+wrapped side. Proxies are released from memory when they're no longer in use by
+the wrapped side.
+
+### Object proxying with `proxy()`
+
+Objects are cloned by default. This works well for immutable data objects, but
+not for all cases. The `proxy()` function marks an object as needing to be
+proxied instead of cloned.
+
+**Use `proxy()` when returning:**
+
+1. **Mutable objects** — The remote side should see updates
+2. **Large graphs** — Avoid cloning expensive data structures
+3. **Class instances with methods** — Preserve the prototype API
+
+`worker.ts`:
+
+```ts
+import {expose, proxy} from 'supertalk';
+
+export class Widget {
+  count = 42;
+  sayHello() {
+    return 'hello';
+  }
+}
+
+expose(
+  {
+    createWidget() {
+      return proxy(new Widget()); // Explicitly proxied
+    },
+  },
+  self,
+);
+```
+
+`main.ts`:
+
+```ts
+const service = await wrap(worker);
+const widget = await service.createWidget();
+
+// The proxy provides async access to properties and methods
+const count = await widget.count;
+const hello = await widget.sayHello();
+```
+
+### Opaque Handles with `handle()`
+
+When you need to pass a reference without exposing any remote interface, use
+`handle()`. Handles are opaque tokens — they can be passed around and back, but
+provide no way to access properties or methods remotely.
+
+```ts
+import {expose, handle, getHandleValue, type Handle} from 'supertalk';
+
+class Session {
+  constructor(public id: string) {}
+}
+
+const service = {
+  createSession(id: string) {
+    return handle(new Session(id)); // Opaque handle
+  },
+  getSessionId(session: Handle<Session>) {
+    // Extract the value on the owning side
+    return getHandleValue(session).id;
+  },
+};
+```
+
+```ts
+// Client side
+const session = await remote.createSession('abc'); // Handle<Session>
+// session is opaque — no property access
+const id = await remote.getSessionId(session); // Pass it back
+```
+
+### Extracting Values from Proxies and Handles
+
+Both `proxy()` and `handle()` create wrappers that work the same on both sides.
+On the side that created the proxy/handle, you can extract the underlying value:
+
+```ts
+import {
+  proxy,
+  getProxyValue,
+  handle,
+  getHandleValue,
+  type AsyncProxy,
+  type Handle,
+} from 'supertalk';
+
+const service = {
+  // Return a proxied widget
+  createWidget() {
+    return proxy(new Widget());
+  },
+
+  // Accept a proxy and extract its value
+  updateWidget(widget: AsyncProxy<Widget>) {
+    const w = getProxyValue(widget); // Only works on owning side
+    w.refresh();
+  },
+
+  // Same pattern works for handles
+  processSession(session: Handle<Session>) {
+    const s = getHandleValue(session);
+    return s.data;
+  },
+};
+```
+
+### Nested Objects & Proxies
+
+Supertalk supports two modes for handling nested values:
+
+- **Shallow mode** (default): Maximum performance, only top-level function
+  arguments and return values are proxied. Nested functions/promises fail with
+  `DataCloneError`.
+- **Nested mode** (`nestedProxies: true`): Full payload traversal. Functions and
+  promises anywhere in the graph are auto-proxied.
+
+```ts
+// On exposed side
+expose(service, self, {nestedProxies: true});
+
+const service = {
+  getData() {
+    return {
+      process: (x) => x * 2, // auto-proxied (function)
+      widget: proxy(new Widget()), // explicitly proxied (class)
+    };
+  },
+};
+
+// On wrapped side
+const remote = await wrap<typeof service>(worker, {nestedProxies: true});
+const data = await remote.getData();
+await data.process(5); // 10
+```
+
+### Transferables with `transfer()`
+
+Use `transfer()` to mark values like `ArrayBuffer`, `MessagePort`, or streams to
+be transferred rather than cloned.
+
+```ts
+import {transfer} from 'supertalk';
+
+const service = {
+  getBuffer(): ArrayBuffer {
+    const buf = new ArrayBuffer(1024);
+    return transfer(buf); // Zero-copy transfer
+  },
+};
+```
+
+### Value Handling Reference
+
+When values cross the communication boundary:
+
+| Value Type                                       | Shallow Mode   | Nested Mode    |
+| ------------------------------------------------ | -------------- | -------------- |
+| Primitives                                       | ✅ Cloned      | ✅ Cloned      |
+| Plain objects `{...}`                            | ✅ Cloned      | ✅ Cloned      |
+| Arrays                                           | ✅ Cloned      | ✅ Cloned      |
+| Functions (top-level)                            | 🛜 Proxied     | 🛜 Proxied     |
+| Functions (nested)                               | ❌ Error       | 🛜 Proxied     |
+| Promises (top-level return)                      | 🛜 Proxied     | 🛜 Proxied     |
+| Promises (nested)                                | ❌ Error       | 🛜 Proxied     |
+| `proxy()` wrapped values (top-level)             | 🛜 Proxied     | 🛜 Proxied     |
+| `proxy()` wrapped values (nested)                | ❌ Error       | 🛜 Proxied     |
+| `handle()` wrapped values (top-level)            | 🔒 Handle      | 🔒 Handle      |
+| `handle()` wrapped values (nested)               | ❌ Error       | 🔒 Handle      |
+| `transfer()` wrapped values (top-level)          | 📦 Transferred | 📦 Transferred |
+| `transfer()` wrapped values (nested)             | ❌ Error       | 📦 Transferred |
+| Class instances & objects with custom prototypes | ⚠️ Cloned\*    | ⚠️ Cloned\*    |
+| Other structured cloneable objects               | ✅ Cloned      | ✅ Cloned      |
+
+\* _Class instances are cloned via structured clone (losing methods) unless
+wrapped in `proxy()`._
+
+## API Reference
+
+### Core Functions
+
+#### `expose(target, endpoint, options?)`
+
+Exposes an object or function to the other side.
+
+- `target`: The service object or function to expose.
+- `endpoint`: The `Worker`, `MessagePort`, `Window`, or compatible interface.
+- `options`: Connection options (see below).
+
+#### `wrap<T>(endpoint, options?)`
+
+Connects to an exposed service and returns a proxy.
+
+- `endpoint`: The `Worker`, `MessagePort`, `Window`, or compatible interface.
+- `options`: Connection options (see below).
+- Returns: `Promise<Remote<T>>`
+
+#### `proxy(value)`
+
+Marks an object to be proxied rather than cloned. Returns an `AsyncProxy<T>`
+that provides async access on both sides. Use this for:
+
+- Class instances with methods
+- Mutable objects that should be shared
+- Large objects to avoid cloning costs
+
+#### `handle(value)`
+
+Marks an object as an opaque handle. Returns a `Handle<T>` that can be passed
+around but provides no remote interface. Use this for:
+
+- Session tokens or identifiers
+- References to expensive objects
+- Graph nodes where you don't want to expose internals
+
+#### `getProxyValue(proxy)` / `getHandleValue(handle)`
+
+Extracts the underlying value from an `AsyncProxy` or `Handle`. Only works on
+the side that created the proxy/handle — throws `TypeError` on the remote side.
+
+#### `transfer(value, transferables?)`
+
+Marks a value to be transferred (zero-copy) rather than cloned.
+
+- `value`: The value to send (e.g. `ArrayBuffer`, `MessagePort`).
+- `transferables`: Optional array of transferables. If omitted, `value` is
+  assumed to be the transferable.
+
+### Options
+
+```ts
+interface Options {
+  /** Enable nested proxy handling (default: false) */
+  nestedProxies?: boolean;
+  /**
+   * Enable debug mode for better error messages.
+   * Throws NonCloneableError with the exact path for nested functions,
+   * promises, proxy() markers, and transfer() markers that would fail
+   * without nestedProxies: true.
+   */
+  debug?: boolean;
+  /** Custom handlers for serializing/deserializing specific types */
+  handlers?: Array<Handler>;
+}
+```
+
+### Handlers
+
+Handlers provide pluggable serialization for custom types or streams.
+
+**Stream Handler Example:**
+
+```ts
+import {streamHandler} from 'supertalk/handlers/streams.js';
+
+expose(service, self, {handlers: [streamHandler]});
+const remote = await wrap<typeof service>(worker, {handlers: [streamHandler]});
+```
+
+**Custom Handlers:** You can create handlers for types like `Map`, `Set`, or
+domain objects. See `Handler`, `ToWireContext`, and `FromWireContext` types.
+
+### TypeScript Types
+
+#### `Remote<T>`
+
+The primary type for service proxies returned by `wrap()`. Transforms all
+methods to async and properties to `Promise<T>`.
+
+```ts
+const remote = await wrap<MyService>(worker);
+// remote has type Remote<MyService>
+```
+
+#### `AsyncProxy<T>`
+
+The unified proxy type returned by `proxy()`. Works the same on both sides of a
+connection — the remote side gets async access to properties and methods, while
+the owning side can extract the underlying value with `getProxyValue()`.
+
+```ts
+// Service returns an AsyncProxy
+createWidget(): AsyncProxy<Widget> {
+  return proxy(new Widget());
+}
+
+// Client receives the same type
+const widget = await remote.createWidget(); // AsyncProxy<Widget>
+await widget.name;       // Property access is async
+await widget.activate(); // Method calls are async
+```
+
+#### `Handle<T>`
+
+An opaque reference type returned by `handle()`. Provides no remote interface —
+useful for session tokens, expensive objects, or graph nodes that shouldn't
+expose their internals.
+
+```ts
+// Service returns a Handle
+createSession(): Handle<Session> {
+  return handle(new Session());
+}
+
+// Client can only pass it back
+const session = await remote.createSession(); // Handle<Session>
+// session.foo — not allowed, handles are opaque
+await remote.useSession(session); // Pass it back
+```
+
+## Advanced Usage
+
+### Debugging
+
+Debugging `DataCloneError` can be tricky. Supertalk provides a `debug` option
+that traverses your data before sending and throws a `NonCloneableError` with
+the exact path to the problematic value.
+
+```ts
+const remote = await wrap<Service>(endpoint, {debug: true});
+```
+
+### Memory Management
+
+Proxied objects are tracked with registries on both sides.
+
+- **Source side**: Holds strong references until released.
+- **Consumer side**: Holds weak references; when GC'd, notifies source to
+  release.
+
+### Node.js Worker Threads
+
+For Node.js `worker_threads`, use the `nodeEndpoint` adapter to convert the
+Node-style event API (`on`/`off`) to the browser-style API
+(`addEventListener`/`removeEventListener`).
+
+**main.ts:**
+
+```ts
+import {wrap} from 'supertalk';
+import {nodeEndpoint} from 'supertalk/node.js';
+import {Worker} from 'node:worker_threads';
+
+const worker = new Worker('./worker.js');
+const remote = await wrap<MyService>(nodeEndpoint(worker));
+
+const result = await remote.add(1, 2);
+worker.terminate();
+```
+
+**worker.ts:**
+
+```ts
+import {expose} from 'supertalk';
+import {parentPort} from 'node:worker_threads';
+
+const service = {
+  add(a: number, b: number) {
+    return a + b;
+  },
+};
+
+// parentPort is a MessagePort which has addEventListener/removeEventListener
+expose(service, parentPort!);
+```
+
+## Ecosystem
+
+This package re-exports `@supertalk/core`. Additional packages are available for
+extended functionality:
+
+| Package                                                                | Description                                      |
+| ---------------------------------------------------------------------- | ------------------------------------------------ |
+| [@supertalk/signals](https://www.npmjs.com/package/@supertalk/signals) | TC39 Signals integration for reactive state sync |
+
+## Why Supertalk?
+
+Workers are great for offloading work, but the raw `postMessage` API is
+difficult:
+
+- No built-in request/response (one-way only)
+- No error propagation
+- No functions or promises (DataCloneError)
+- Manual lifetime management
+- Manual transfer lists
+
+Supertalk handles all of this: RPC layer, transparent proxying, automatic
+lifetime management, and deep traversal.
+
+### Comparison to Comlink
+
+Supertalk is inspired by [Comlink](https://github.com/GoogleChromeLabs/comlink)
+but improves on it:
+
+- **Automatic proxying:** Functions/promises are auto-proxied without special
+  wrappers
+- **Nested support:** `nestedProxies` mode allows proxies anywhere in the
+  payload
+- **Debug mode:** Reports exactly where non-serializable values are
+- **Symmetric:** Both ends use the same internal architecture
+- **Type-safe:** Better TypeScript inference for what's proxied vs cloned
+
+## License
+
+MIT
+
+=========================================
+END OF  @eamodio/supertalk NOTICES AND INFORMATION
 
 %% @gk-nzaytsev/fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -2347,6 +3651,212 @@ SOFTWARE.
 
 =========================================
 END OF  react NOTICES AND INFORMATION
+
+%% signal-polyfill NOTICES AND INFORMATION BEGIN HERE
+=========================================
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+=========================================
+END OF  signal-polyfill NOTICES AND INFORMATION
 
 %% signal-utils NOTICES AND INFORMATION BEGIN HERE
 =========================================

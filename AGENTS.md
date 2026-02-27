@@ -485,7 +485,57 @@ Git Execution (Node: child_process | Browser: APIs (GitHub))
   - **Pro** (`apps/plus/`): Home (includes Launchpad), Commit Graph, Timeline, Patch Details, Commit Composer
 - Webviews bundled separately from extension (separate webpack config)
 
-**5. Caching Strategy**
+**5. Webview RPC (Supertalk)**
+
+Migrated webviews (Commit Details, Timeline, Home) use [Supertalk](https://github.com/nicolo-ribaudo/supertalk) RPC instead of the legacy IPC protocol. Non-migrated webviews (Rebase, Settings, Graph, Patch Details, Composer) continue to use IPC. The two systems coexist — RPC messages are namespaced with `__supertalk_rpc__` and the controller skips them in the IPC handler.
+
+**Handshake Protocol:**
+
+1. Controller creates `RpcHost` with services (defers `expose()`) — `src/webviews/webviewController.ts`
+2. Webview creates `Connection`, sends `RpcConnectCommand` IPC message — `src/webviews/apps/shared/rpcClient.ts`
+3. Controller receives `RpcConnectCommand`, calls `expose()` — `src/webviews/webviewController.ts`
+4. Supertalk sends ready signal, webview resolves service proxies
+5. App resolves sub-services, creates Actions, sets up event subscriptions
+
+**Per-Webview File Structure:**
+| File | Purpose |
+|------|---------|
+| `state.ts` | Signal definitions + computed state (module-level singletons, safe due to iframe isolation) |
+| `actions.ts` | RPC calls + signal mutations (single source of writes) |
+| `events.ts` | Host event subscription wiring via `subscribeAll()` |
+| `*Service.ts` (host) | RPC service interface — class in `src/webviews/rpc/services/` |
+
+**Shared Action Modules** (`src/webviews/apps/shared/actions/`):
+
+- Use structural typing (accept `{ methodName(...): Promise<T> }` rather than concrete service types)
+- Reusable across webviews without coupling
+
+**RPC Utilities** (`src/webviews/apps/shared/rpcUtils.ts`):
+
+- `noop` — rejection handler for `.then(onFulfilled, noop)` fire-and-forget
+- `fireAndForget` / `fireRpc` — with/without error signal
+- `optimisticFireAndForget` / `optimisticBatchFireAndForget` — optimistic signal updates with rollback
+- `subscribeAll` — bulk event subscriptions with cleanup
+
+**Key Infrastructure:**
+
+- `RpcHost` (`src/webviews/rpc/rpcHost.ts`) — host-side: deferred handshake, reconnection support, timeout diagnostics
+- `EventVisibilityBuffer` (`src/webviews/rpc/eventVisibilityBuffer.ts`) — coalesces events while webview is hidden
+- `SubscriptionTracker` — tracks subscriptions for cleanup on reconnect
+- `CancellableRequest` (`src/webviews/apps/shared/cancellableRequest.ts`) — auto-cancels previous in-flight request
+- Custom handlers (`src/system/rpc/handlers.ts`) — Date, Map, Set, RegExp serialization
+- Logging proxy (`src/webviews/rpc/rpcLogging.ts`) — trace-level per-call logging with duration
+
+**Migrating a New Webview:**
+
+1. Define service interfaces in `src/webviews/{view}/protocol.ts` (pure types, no IPC types)
+2. Implement services using shared classes from `src/webviews/rpc/services/` + view-specific methods
+3. Add `getRpcServices()` to the webview provider — return the service object
+4. On the webview side, create `state.ts` (signals), `actions.ts` (RPC + mutations), `events.ts` (subscriptions)
+5. In the Lit component, use `RpcController` or `wrapServices()` from `src/webviews/apps/shared/rpcClient.ts`
+6. Remove legacy IPC protocol types, `stateProvider.ts`, and notification handlers
+
+**6. Caching Strategy**
 
 - Multiple caching layers for performance:
   - `GitCache`: Repository-level Git data caching
@@ -700,7 +750,8 @@ For detailed decorator behavior and investigation methodology, use `/investigate
 - **Signal patterns** - For reactive state management
 - **CSS custom properties** - For VS Code theming support
 - Webview UI code in `src/webviews/apps/{webviewName}/`
-- Use IPC protocol for communication: `postMessage()` → `onIpc()`
+- **Migrated webviews** (Commit Details, Timeline, Home): Use Supertalk RPC — see "Webview RPC (Supertalk)" section above
+- **Legacy webviews** (Rebase, Settings, Graph, Patch Details, Composer): Use IPC protocol (`postMessage()` → `onIpc()`)
 - Refresh webview without restarting extension during development
 
 #### Accessibility Requirements

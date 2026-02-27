@@ -27420,6 +27420,7 @@
 		"prepare": "husky"
 	},
 	"dependencies": {
+		"@eamodio/supertalk": "0.0.7",
 		"@gitkraken/gitkraken-components": "13.0.0-vnext.27",
 		"@gitkraken/provider-apis": "0.40.0",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
@@ -27439,6 +27440,8 @@
 		"@opentelemetry/sdk-trace-base": "2.5.0",
 		"@opentelemetry/semantic-conventions": "1.39.0",
 		"@shoelace-style/shoelace": "2.20.1",
+		"@supertalk/core": "link:/home/eric/code/justinfagnani/supertalk/packages/core",
+		"@supertalk/signals": "link:/home/eric/code/justinfagnani/supertalk/packages/signals",
 		"@vscode/codicons": "0.0.44",
 		"billboard.js": "3.18.0",
 		"diff2html": "3.4.56",
@@ -27455,6 +27458,7 @@
 		"path-browserify": "1.0.1",
 		"react": "19.2.4",
 		"react-dom": "19.2.4",
+		"signal-polyfill": "0.2.2",
 		"signal-utils": "0.21.1",
 		"slug": "11.0.1",
 		"sortablejs": "1.15.6",
