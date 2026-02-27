@@ -54,7 +54,10 @@ export class AuthenticationError extends Error {
 	readonly id: string;
 	readonly original?: Error;
 	readonly reason: AuthenticationErrorReason | undefined;
+	/** Token details for debugging (included in `.message` for logging) */
 	readonly authInfo: string;
+	/** User-friendly message without token details */
+	readonly userMessage: string;
 
 	constructor(info: TokenInfo, reason?: AuthenticationErrorReason, original?: Error);
 	constructor(info: TokenInfo, message?: string, original?: Error);
@@ -70,38 +73,38 @@ export class AuthenticationError extends Error {
 			.filter(v => v)
 			.join(', ');
 		const authInfo = `(token details: ${tokenDetails})`;
-		let message;
+		let userMessage: string;
 		let reason: AuthenticationErrorReason | undefined;
 		if (messageOrReason == null) {
-			message = `Unable to get required authentication session for '${id}'`;
+			userMessage = `Unable to get required authentication session for '${id}'`;
 		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
+			userMessage = messageOrReason;
 			reason = undefined;
 		} else {
 			reason = messageOrReason;
 			switch (reason) {
 				case AuthenticationErrorReason.UserDidNotConsent:
-					message = `'${id}' authentication is required for this operation`;
+					userMessage = `'${id}' authentication is required for this operation`;
 					break;
 				case AuthenticationErrorReason.Unauthorized:
-					message = `Your '${id}' credentials are either invalid or expired`;
+					userMessage = `Your '${id}' credentials are either invalid or expired`;
 					break;
 				case AuthenticationErrorReason.Forbidden:
-					message = `Your '${id}' credentials do not have the required access`;
+					userMessage = `Your '${id}' credentials do not have the required access`;
+					break;
+				default:
+					userMessage = `Unable to get required authentication session for '${id}'`;
 					break;
 			}
 		}
-		super(message);
+		super(`${userMessage} ${authInfo}`);
 
 		this.id = id;
 		this.original = original;
 		this.reason = reason;
 		this.authInfo = authInfo;
+		this.userMessage = userMessage;
 		Error.captureStackTrace?.(this, new.target);
-	}
-
-	override toString(): string {
-		return `${super.toString()} ${this.authInfo}`;
 	}
 }
 
