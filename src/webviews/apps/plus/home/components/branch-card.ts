@@ -1,4 +1,5 @@
 import { consume } from '@lit/context';
+import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -22,13 +23,15 @@ import type {
 	OpenInGraphParams,
 	OpenInTimelineParams,
 	OpenWorktreeCommandArgs,
-	State,
 } from '../../../../home/protocol.js';
-import { stateContext } from '../../../home/context.js';
+import type { HomeState } from '../../../home/state.js';
+import { homeStateContext } from '../../../home/state.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { GlCard } from '../../../shared/components/card/card.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
@@ -253,12 +256,31 @@ declare global {
 	}
 }
 
-export abstract class GlBranchCardBase extends GlElement {
+// Cast needed because SignalWatcher's Constructor<T> type excludes abstract classes,
+// but GlBranchCardBase is abstract itself and only concrete subclasses are instantiated.
+const SignalWatcherGlElement = SignalWatcher(
+	GlElement as unknown as new (...args: any[]) => GlElement,
+) as unknown as typeof GlElement;
+
+export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	static override styles = [linkStyles, branchCardStyles];
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	protected _homeState!: State;
+	@consume({ context: subscriptionContext, subscribe: true })
+	protected _subscription!: SubscriptionContextState;
+
+	@consume({ context: homeStateContext })
+	protected _homeCtx!: HomeState;
+
+	/** Signal-backed proxy that matches the shape child code expects. */
+	protected get _homeState() {
+		const preview = this._homeCtx.previewState.get();
+		const sub = this._subscription.subscription.get();
+		return {
+			orgSettings: this._subscription.orgSettings.get(),
+			aiEnabled: preview.aiEnabled,
+			subscription: { state: sub?.state },
+		};
+	}
 
 	@consume({ context: webviewContext })
 	protected _webview!: WebviewContext;

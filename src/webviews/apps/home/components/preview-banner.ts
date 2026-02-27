@@ -1,20 +1,21 @@
 import { consume } from '@lit/context';
+import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
-import type { State } from '../../../home/protocol.js';
-import { TogglePreviewEnabledCommand } from '../../../home/protocol.js';
+import { customElement, query } from 'lit/decorators.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { linkBase } from '../../shared/components/styles/lit/base.css.js';
-import { ipcContext } from '../../shared/contexts/ipc.js';
-import type { HostIpc } from '../../shared/ipc.js';
-import { stateContext } from '../context.js';
+import type { HomeState } from '../state.js';
+import { homeStateContext } from '../state.js';
 import '../../shared/components/button-container.js';
 import '../../shared/components/overlays/tooltip.js';
 
 export const previewBannerTagName = 'gl-preview-banner';
 
 @customElement(previewBannerTagName)
-export class GlPreviewBanner extends LitElement {
+export class GlPreviewBanner extends SignalWatcher(LitElement) {
+	@consume({ context: homeStateContext })
+	private _homeCtx!: HomeState;
+
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
@@ -50,19 +51,13 @@ export class GlPreviewBanner extends LitElement {
 		`,
 	];
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _state!: State;
-
-	@consume<HostIpc>({ context: ipcContext, subscribe: true })
-	@state()
-	private _ipc!: HostIpc;
-
 	@query('button')
 	private _button!: HTMLButtonElement;
 
 	override render(): unknown {
-		if (this._state.previewEnabled !== true) {
+		const preview = this._homeCtx.previewState.get();
+
+		if (preview.previewEnabled !== true) {
 			return html`
 				<gl-tooltip placement="bottom">
 					<button class="text-button text-button--end" @click=${() => this.togglePreview()}>
@@ -81,7 +76,7 @@ export class GlPreviewBanner extends LitElement {
 	}
 
 	private togglePreview() {
-		this._ipc.sendCommand(TogglePreviewEnabledCommand);
+		void this._homeCtx.homeService?.togglePreviewEnabled();
 	}
 
 	override focus(): void {

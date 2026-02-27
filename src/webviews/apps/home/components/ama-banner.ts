@@ -1,18 +1,19 @@
 import { consume } from '@lit/context';
+import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import type { State } from '../../../home/protocol.js';
-import { CollapseSectionCommand } from '../../../home/protocol.js';
 import { linkBase } from '../../shared/components/styles/lit/base.css.js';
-import { ipcContext } from '../../shared/contexts/ipc.js';
-import type { HostIpc } from '../../shared/ipc.js';
-import { stateContext } from '../context.js';
+import type { OnboardingState } from '../../shared/contexts/onboarding.js';
+import { onboardingContext } from '../../shared/contexts/onboarding.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/card/card.js';
 
 @customElement('gl-ama-banner')
-export class GlAmaBanner extends LitElement {
+export class GlAmaBanner extends SignalWatcher(LitElement) {
+	@consume({ context: onboardingContext })
+	private _onboarding!: OnboardingState;
+
 	static override styles = [
 		linkBase,
 		css`
@@ -31,19 +32,11 @@ export class GlAmaBanner extends LitElement {
 		`,
 	];
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _state!: State;
-
-	@consume<HostIpc>({ context: ipcContext, subscribe: true })
-	@state()
-	private _ipc!: HostIpc;
-
 	@state()
 	private closed = false;
 
 	override render() {
-		if (this.closed || this._state.amaBannerCollapsed === true) return nothing;
+		if (this.closed || this._onboarding.banners.amaBanner === true) return nothing;
 
 		const url =
 			'https://www.gitkraken.com/lp/gitlensama?utm_source=githubdiscussion&utm_medium=hyperlink&utm_campaign=GLAMA&utm_id=GLAMA';
@@ -60,11 +53,8 @@ export class GlAmaBanner extends LitElement {
 
 	private onClose() {
 		this.closed = true;
-		this._state.amaBannerCollapsed = true;
+		this._onboarding.banners.amaBanner = true;
 
-		this._ipc.sendCommand(CollapseSectionCommand, {
-			section: 'feb2025AmaBanner',
-			collapsed: true,
-		});
+		this._onboarding.dismiss('amaBanner');
 	}
 }

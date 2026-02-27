@@ -12,12 +12,14 @@ import type {
 	GetOverviewBranch,
 	OpenInGraphParams,
 	OpenInTimelineParams,
-	State,
 } from '../../../../home/protocol.js';
-import { ExecuteCommand } from '../../../../protocol.js';
-import { stateContext } from '../../../home/context.js';
+import type { HomeState } from '../../../home/state.js';
+import { homeStateContext } from '../../../home/state.js';
 import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { CommandsState } from '../../../shared/contexts/commands.js';
+import { commandsContext } from '../../../shared/contexts/commands.js';
+import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { linkStyles, ruleStyles } from '../../shared/components/vscode.css.js';
@@ -45,6 +47,15 @@ export const activeWorkTagName = 'gl-active-work';
 
 @customElement(activeWorkTagName)
 export class GlActiveWork extends SignalWatcher(LitElement) {
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
+	@consume({ context: homeStateContext })
+	private _homeCtx!: HomeState;
+
+	@consume({ context: commandsContext })
+	private _commands!: CommandsState;
+
 	static override styles = [
 		linkStyles,
 		branchCardStyles,
@@ -105,13 +116,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	@consume({ context: activeOverviewStateContext })
 	private _activeOverviewState!: ActiveOverviewState;
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _homeState!: State;
-
-	@consume({ context: ipcContext })
-	private _ipc!: typeof ipcContext.__context__;
-
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
 
@@ -119,38 +123,58 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	private repoCollapsed = true;
 
 	get isPro() {
-		return isSubscriptionTrialOrPaidFromState(this._homeState.subscription.state);
+		const sub = this._subscription.subscription.get();
+		return sub != null && isSubscriptionTrialOrPaidFromState(sub.state);
 	}
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		if (this._homeState.repositories.openCount > 0) {
-			this._activeOverviewState.run();
+		if (this._homeCtx.repositories.get().openCount > 0) {
+			this._activeOverviewState.fetch();
 		}
 	}
 
 	private onBranchSelectorClicked() {
-		this._ipc.sendCommand(ExecuteCommand, {
-			command: 'gitlens.switchToBranch:home',
-			args: [{ repoPath: this._activeOverviewState.state?.active.repoPath }],
+		void this._commands.service?.executeScoped('gitlens.switchToBranch:home', {
+			repoPath: this._activeOverviewState.value.get()?.active.repoPath,
 		});
 	}
 
 	override render(): unknown {
-		if (this._homeState.discovering) {
+		if (this._homeCtx.discovering.get()) {
 			return this.renderLoader();
 		}
 
-		if (this._homeState.repositories.openCount === 0) {
+		if (this._homeCtx.repositories.get().openCount === 0) {
 			return nothing;
 		}
 
-		return this._activeOverviewState.render({
-			pending: () => this.renderPending(),
-			complete: overview => this.renderComplete(overview),
-			error: () => html`<span>Error</span>`,
-		});
+		if (this._activeOverviewState.error.get() != null) {
+			return html`
+				<gl-section>
+					<span slot="heading">Active Branch</span>
+					<span
+						>Unable to load branch data.
+						<a
+							href="#"
+							@click=${(e: Event) => {
+								e.preventDefault();
+								this._activeOverviewState.fetch();
+							}}
+							>Retry</a
+						>
+					</span>
+				</gl-section>
+			`;
+		}
+
+		const overview = this._activeOverviewState.value.get();
+		if (overview == null) {
+			return this.renderLoader();
+		}
+
+		return this.renderComplete(overview, this._activeOverviewState.loading.get());
 	}
 
 	private renderLoader() {
@@ -162,18 +186,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		`;
 	}
 
-	private renderPending() {
-		if (this._activeOverviewState.state == null) {
-			return this.renderLoader();
-		}
-		return this.renderComplete(this._activeOverviewState.state, true);
-	}
-
 	private renderComplete(overview: GetActiveOverviewResponse, isFetching = false) {
 		const repo = overview?.repository;
 		const activeBranch = overview?.active;
 		if (!repo || !activeBranch) return html`<span>None</span>`;
-		const hasMultipleRepositories = this._homeState.repositories.openCount > 1;
+		const hasMultipleRepositories = this._homeCtx.repositories.get().openCount > 1;
 
 		return html`
 			<gl-section ?loading=${isFetching}>
@@ -217,7 +234,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						tooltip="Visualize Repo History"
 						href=${this._webview.createCommandLink<OpenInTimelineParams>('gitlens.visualizeHistory.repo:', {
 							type: 'repo',
-							repoPath: this._activeOverviewState.state!.repository.path,
+							repoPath: repo.path,
 						})}
 						><code-icon icon="graph-scatter"></code-icon></gl-button
 					><gl-button
@@ -228,7 +245,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						tooltip="Open in Commit Graph"
 						href=${this._webview.createCommandLink<OpenInGraphParams>('gitlens.showInCommitGraph:', {
 							type: 'repo',
-							repoPath: this._activeOverviewState.state!.repository.path,
+							repoPath: repo.path,
 						})}
 						><code-icon icon="gl-graph"></code-icon
 					></gl-button>

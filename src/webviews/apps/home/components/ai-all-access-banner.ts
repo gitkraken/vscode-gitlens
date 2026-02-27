@@ -1,19 +1,25 @@
 import { consume } from '@lit/context';
+import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import { compareSubscriptionPlans } from '../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import type { State } from '../../../home/protocol.js';
-import { DismissAiAllAccessBannerCommand } from '../../../home/protocol.js';
-import { ipcContext } from '../../shared/contexts/ipc.js';
-import type { HostIpc } from '../../shared/ipc.js';
-import { stateContext } from '../context.js';
+import type { OnboardingState } from '../../shared/contexts/onboarding.js';
+import { onboardingContext } from '../../shared/contexts/onboarding.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import '../../shared/components/banner/banner.js';
 
 export const aiAllAccessBannerTagName = 'gl-ai-all-access-banner';
 
 @customElement(aiAllAccessBannerTagName)
-export class GlAiAllAccessBanner extends LitElement {
+export class GlAiAllAccessBanner extends SignalWatcher(LitElement) {
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
+	@consume({ context: onboardingContext })
+	private _onboarding!: OnboardingState;
+
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
@@ -31,17 +37,8 @@ export class GlAiAllAccessBanner extends LitElement {
 		`,
 	];
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _state!: State;
-
-	@consume<HostIpc>({ context: ipcContext, subscribe: true })
-	@state()
-	private _ipc!: HostIpc;
-
 	private get shouldShow(): boolean {
-		// Don't show if dismissed or closed
-		return !this._state.aiAllAccessBannerCollapsed;
+		return !this._onboarding.banners.aiAllAccessBanner;
 	}
 
 	private get bodyLabel(): string {
@@ -55,10 +52,10 @@ export class GlAiAllAccessBanner extends LitElement {
 	}
 
 	private get hasAdvancedOrHigher(): boolean {
+		const sub = this._subscription.subscription.get();
 		return (
-			(this._state.subscription.plan &&
-				compareSubscriptionPlans(this._state.subscription.plan.actual.id, 'advanced') >= 0) ||
-			compareSubscriptionPlans(this._state.subscription.plan.effective.id, 'advanced') >= 0
+			(sub?.plan != null && compareSubscriptionPlans(sub.plan.actual.id, 'advanced') >= 0) ||
+			(sub?.plan != null && compareSubscriptionPlans(sub.plan.effective.id, 'advanced') >= 0)
 		);
 	}
 
@@ -81,6 +78,6 @@ export class GlAiAllAccessBanner extends LitElement {
 	}
 
 	private onSecondaryClick() {
-		this._ipc.sendCommand(DismissAiAllAccessBannerCommand, undefined);
+		this._onboarding.dismiss('aiAllAccessBanner');
 	}
 }

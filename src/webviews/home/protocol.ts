@@ -17,10 +17,14 @@ import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
+import { IpcNotification } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
 
 export const scope: IpcScope = 'home';
+
+// ============================================================
+// Bootstrap State (used by includeBootstrap / legacy getState)
+// ============================================================
 
 export interface State extends WebviewState<'gitlens.views.home'> {
 	discovering: boolean;
@@ -65,6 +69,17 @@ export interface IntegrationState extends IntegrationDescriptor {
 	connected: boolean;
 }
 
+// ============================================================
+// Shared Data Types (used by components, services, backend)
+// ============================================================
+
+export interface DidChangeRepositoriesParams {
+	count: number;
+	openCount: number;
+	hasUnsafe: boolean;
+	trusted: boolean;
+}
+
 export type OverviewRecentThreshold = 'OneDay' | 'OneWeek' | 'OneMonth';
 export type OverviewStaleThreshold = 'OneYear';
 
@@ -75,16 +90,7 @@ export interface OverviewFilters {
 	stale: { threshold: OverviewStaleThreshold; show: boolean; limit: number };
 }
 
-// REQUESTS
-
-export interface GetLaunchpadSummaryRequest {
-	[key: string]: unknown;
-}
 export type GetLaunchpadSummaryResponse = LaunchpadSummaryResult | { error: Error } | undefined;
-export const GetLaunchpadSummary = new IpcRequest<GetLaunchpadSummaryRequest, GetLaunchpadSummaryResponse>(
-	scope,
-	'launchpad/summary',
-);
 
 export interface GetOverviewBranch {
 	reference: GitBranchReference;
@@ -229,8 +235,6 @@ export type GetActiveOverviewResponse =
 	  }
 	| undefined;
 
-export const GetActiveOverview = new IpcRequest<undefined, GetActiveOverviewResponse>(scope, 'overview/active');
-
 // TODO: look at splitting off selected repo
 export type GetInactiveOverviewResponse =
 	| {
@@ -240,123 +244,20 @@ export type GetInactiveOverviewResponse =
 	  }
 	| undefined;
 
-export const GetInactiveOverview = new IpcRequest<undefined, GetInactiveOverviewResponse>(scope, 'overview/inactive');
-
-export type GetOverviewFilterStateResponse = OverviewFilters;
-export const GetOverviewFilterState = new IpcRequest<void, GetOverviewFilterStateResponse>(scope, 'overviewFilter');
-
-export const ChangeOverviewRepositoryCommand = new IpcCommand<undefined>(scope, 'overview/repository/change');
-export const DidChangeOverviewRepository = new IpcNotification<undefined>(scope, 'overview/repository/didChange');
-
-// COMMANDS
-
-export const TogglePreviewEnabledCommand = new IpcCommand<void>(scope, 'previewEnabled/toggle');
-
 export interface CollapseSectionParams {
 	section: string;
 	collapsed: boolean;
 }
-export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scope, 'section/collapse');
-
-export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthrough/dismiss');
-
-export const DidChangeAiAllAccessBanner = new IpcNotification<boolean>(scope, 'ai/allAccess/didChange');
-export interface DidChangeMcpBannerParams {
-	mcpBannerCollapsed: boolean;
-	mcpCanAutoRegister: boolean;
-}
-export const DidChangeMcpBanner = new IpcNotification<DidChangeMcpBannerParams>(scope, 'mcp/didChange');
-export const DismissAiAllAccessBannerCommand = new IpcCommand<void>(scope, 'ai/allAccess/dismiss');
-
-export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');
 
 export type OpenInGraphParams =
 	| { type: 'repo'; repoPath: string; branchId?: never }
 	| { type: 'branch'; repoPath: string; branchId: string }
 	| undefined;
-export const OpenInGraphCommand = new IpcCommand<OpenInGraphParams>(scope, 'openInGraph');
 
 export type OpenInTimelineParams =
 	| { type: 'repo'; repoPath: string; branchId?: never }
 	| { type: 'branch'; repoPath: string; branchId: string }
 	| undefined;
-
-// NOTIFICATIONS
-
-export interface DidCompleteDiscoveringRepositoriesParams {
-	discovering: boolean;
-	repositories: DidChangeRepositoriesParams;
-}
-
-export const DidCompleteDiscoveringRepositories = new IpcNotification<DidCompleteDiscoveringRepositoriesParams>(
-	scope,
-	'repositories/didCompleteDiscovering',
-);
-
-export interface DidChangePreviewEnabledParams {
-	previewEnabled: boolean;
-	aiEnabled: boolean;
-	experimentalComposerEnabled: boolean;
-}
-export const DidChangePreviewEnabled = new IpcNotification<DidChangePreviewEnabledParams>(
-	scope,
-	'previewEnabled/didChange',
-);
-
-export const DidChangeRepositoryWip = new IpcNotification<undefined>(scope, 'repository/wip/didChange');
-
-export interface DidChangeRepositoriesParams {
-	count: number;
-	openCount: number;
-	hasUnsafe: boolean;
-	trusted: boolean;
-}
-export const DidChangeRepositories = new IpcNotification<DidChangeRepositoriesParams>(scope, 'repositories/didChange');
-
-export interface DidChangeProgressParams {
-	progress: number;
-	doneCount: number;
-	allCount: number;
-	state: Record<WalkthroughContextKeys, boolean>;
-}
-export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeProgressParams>(
-	scope,
-	'walkthroughProgress/didChange',
-);
-
-export interface DidChangeIntegrationsParams {
-	hasAnyIntegrationConnected: boolean;
-	integrations: IntegrationState[];
-	ai: { model: AIModel | undefined };
-}
-export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeIntegrationsParams>(
-	scope,
-	'integrations/didChange',
-);
-
-export const DidChangeLaunchpad = new IpcNotification<undefined>(scope, 'launchpad/didChange');
-
-export interface DidChangeSubscriptionParams {
-	subscription: Subscription;
-	avatar: string;
-	organizationsCount: number;
-}
-export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');
-
-export interface DidChangeOrgSettingsParams {
-	orgSettings: State['orgSettings'];
-}
-export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
-
-export interface DidChangeOwnerFilterParams {
-	filter: OverviewFilters;
-}
-export const DidChangeOverviewFilter = new IpcNotification<DidChangeOwnerFilterParams>(
-	scope,
-	'home/ownerFilter/didChange',
-);
-
-export const DidFocusAccount = new IpcNotification<undefined>(scope, 'account/didFocus');
 
 export interface BranchRef {
 	repoPath: string;
@@ -383,3 +284,14 @@ export interface CreatePullRequestCommandArgs {
 	describeWithAI?: boolean;
 	source?: Source;
 }
+
+// ============================================================
+// Legacy IPC (kept for shared contexts like promos.ts)
+// ============================================================
+
+export interface DidChangeSubscriptionParams {
+	subscription: Subscription;
+	avatar: string;
+	organizationsCount: number;
+}
+export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');

@@ -1,16 +1,19 @@
 import { consume } from '@lit/context';
-import { css, html } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement, nothing } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { State } from '../../../home/protocol.js';
-import { GlElement } from '../../shared/components/element.js';
 import { linkBase } from '../../shared/components/styles/lit/base.css.js';
-import { stateContext } from '../context.js';
 import { alertStyles, homeBaseStyles } from '../home.css.js';
+import type { HomeState } from '../state.js';
+import { homeStateContext } from '../state.js';
 import '../../shared/components/button.js';
 
 @customElement('gl-repo-alerts')
-export class GlRepoAlerts extends GlElement {
+export class GlRepoAlerts extends SignalWatcher(LitElement) {
+	@consume({ context: homeStateContext })
+	private _homeCtx!: HomeState;
+
 	static override styles = [
 		linkBase,
 		homeBaseStyles,
@@ -43,10 +46,6 @@ export class GlRepoAlerts extends GlElement {
 		return this.alertVisibility.header !== true ? undefined : true;
 	}
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _state!: State;
-
 	get alertVisibility() {
 		const sections = {
 			header: false,
@@ -54,17 +53,18 @@ export class GlRepoAlerts extends GlElement {
 			noRepo: false,
 			unsafeRepo: false,
 		};
-		if (this._state == null || this._state.discovering) {
+		if (this._homeCtx.discovering.get()) {
 			return sections;
 		}
 
-		if (!this._state.repositories.trusted) {
+		const repos = this._homeCtx.repositories.get();
+		if (!repos.trusted) {
 			sections.header = true;
 			sections.untrusted = true;
-		} else if (this._state.repositories.openCount === 0) {
+		} else if (repos.openCount === 0) {
 			sections.header = true;
 			sections.noRepo = true;
-		} else if (this._state.repositories.hasUnsafe) {
+		} else if (repos.hasUnsafe) {
 			sections.header = true;
 			sections.unsafeRepo = true;
 		}
@@ -73,7 +73,13 @@ export class GlRepoAlerts extends GlElement {
 	}
 
 	override render(): unknown {
-		if (this._state == null || !this.alertVisibility.header) {
+		// Don't show alerts until initial data has loaded —
+		// repositories defaults to openCount:0 which would flash "No repository detected"
+		if (this._homeCtx.initialContext.get() == null) {
+			return nothing;
+		}
+
+		if (!this.alertVisibility.header) {
 			return;
 		}
 

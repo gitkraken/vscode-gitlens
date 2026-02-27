@@ -1,6 +1,7 @@
 import { consume } from '@lit/context';
-import { css, html } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type {
 	ConnectCloudIntegrationsCommandArgs,
@@ -8,37 +9,41 @@ import type {
 } from '../../../../commands/cloudIntegrations.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import type { State } from '../../../home/protocol.js';
-import { GlElement } from '../../shared/components/element.js';
 import { linkBase } from '../../shared/components/styles/lit/base.css.js';
-import { stateContext } from '../context.js';
+import type { IntegrationsState } from '../../shared/contexts/integrations.js';
+import { integrationsContext } from '../../shared/contexts/integrations.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import { homeBaseStyles, navListStyles } from '../home.css.js';
+import type { HomeState } from '../state.js';
+import { homeStateContext } from '../state.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-feature-nav')
-export class GlFeatureNav extends GlElement {
+export class GlFeatureNav extends SignalWatcher(LitElement) {
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
+	@consume({ context: homeStateContext })
+	private _homeCtx!: HomeState;
+
+	@consume({ context: integrationsContext })
+	private _integrations!: IntegrationsState;
+
 	static override styles = [linkBase, homeBaseStyles, navListStyles, css``];
 
 	@property({ type: Object })
 	private badgeSource: Source = { source: 'home', detail: 'badge' };
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _state!: State;
-
 	get orgAllowsDrafts(): boolean {
-		return this._state.orgSettings.drafts;
+		return this._subscription.orgSettings.get().drafts;
 	}
 
 	private get blockRepoFeatures() {
-		if (!this._state) return true;
-
-		const {
-			repositories: { openCount, hasUnsafe, trusted },
-		} = this._state;
-		return !trusted || openCount === 0 || hasUnsafe;
+		const repos = this._homeCtx.repositories.get();
+		return !repos.trusted || repos.openCount === 0 || repos.hasUnsafe;
 	}
 
 	private onRepoFeatureClicked(e: MouseEvent) {
@@ -73,7 +78,7 @@ export class GlFeatureNav extends GlElement {
 					</a>
 				</div>
 				${when(
-					!this._state.hasAnyIntegrationConnected,
+					!this._integrations.hasAnyIntegrationConnected.get(),
 					() => html`
 						<div class="nav-list__item" data-integrations="none">
 							<a
@@ -144,7 +149,7 @@ export class GlFeatureNav extends GlElement {
 					</a>
 					<gl-feature-badge
 						.source=${this.badgeSource}
-						.subscription=${this._state.subscription}
+						.subscription=${this._subscription.subscription.get()}
 						placement="left"
 						class="nav-list__access"
 					></gl-feature-badge>
@@ -162,7 +167,7 @@ export class GlFeatureNav extends GlElement {
 					</a>
 					<gl-feature-badge
 						.source=${this.badgeSource}
-						.subscription=${this._state.subscription}
+						.subscription=${this._subscription.subscription.get()}
 						placement="left"
 						class="nav-list__access"
 						cloud
@@ -198,7 +203,7 @@ export class GlFeatureNav extends GlElement {
 						<div class="nav-list__item">
 							<gl-feature-badge
 								.source=${this.badgeSource}
-								.subscription=${this._state.subscription}
+								.subscription=${this._subscription.subscription.get()}
 								placement="left"
 								class="nav-list__access"
 								cloud
@@ -220,7 +225,7 @@ export class GlFeatureNav extends GlElement {
 							</a>
 							<gl-feature-badge
 								.source=${this.badgeSource}
-								.subscription=${this._state.subscription}
+								.subscription=${this._subscription.subscription.get()}
 								placement="left"
 								class="nav-list__access"
 								cloud
@@ -254,7 +259,7 @@ export class GlFeatureNav extends GlElement {
 					</a>
 					<gl-feature-badge
 						.source=${this.badgeSource}
-						.subscription=${this._state.subscription}
+						.subscription=${this._subscription.subscription.get()}
 						placement="left"
 						class="nav-list__access"
 					></gl-feature-badge>
@@ -296,7 +301,7 @@ export class GlFeatureNav extends GlElement {
 					</a>
 					<gl-feature-badge
 						.source=${this.badgeSource}
-						.subscription=${this._state.subscription}
+						.subscription=${this._subscription.subscription.get()}
 						placement="left"
 						class="nav-list__access"
 						cloud
@@ -316,7 +321,7 @@ export class GlFeatureNav extends GlElement {
 					</a>
 					<gl-feature-badge
 						.source=${this.badgeSource}
-						.subscription=${this._state.subscription}
+						.subscription=${this._subscription.subscription.get()}
 						placement="left"
 						class="nav-list__access"
 					></gl-feature-badge>
