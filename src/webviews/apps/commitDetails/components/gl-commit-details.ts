@@ -10,7 +10,12 @@ import type { PullRequestShape } from '../../../../git/models/pullRequest.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { IpcSerialized } from '../../../../system/ipcSerialize.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
-import type { State as _State, DetailsItemContext, DetailsItemTypedContext } from '../../../commitDetails/protocol.js';
+import type {
+	State as _State,
+	CommitSignatureShape,
+	DetailsItemContext,
+	DetailsItemTypedContext,
+} from '../../../commitDetails/protocol.js';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { uncommittedSha } from '../commitDetails.js';
@@ -39,16 +44,26 @@ export class GlCommitDetails extends GlDetailsBase {
 	override readonly tab = 'commit';
 
 	@property({ type: Object })
-	state?: State;
+	commit?: State['commit'];
+
+	@property({ type: Boolean })
+	autolinksEnabled = false;
+
+	@property({ type: Array })
+	autolinkedIssues?: IssueOrPullRequest[];
+
+	@property({ type: Object })
+	pullRequest?: PullRequestShape;
+
+	@property({ type: Boolean })
+	hasAccount = false;
+
+	@property({ type: Boolean })
+	hasIntegrationsConnected = false;
 
 	@state()
 	get isStash(): boolean {
-		return this.state?.commit?.stashNumber != null;
-	}
-
-	@state()
-	get shortSha(): string {
-		return this.state?.commit?.shortSha ?? '';
+		return this.commit?.stashNumber != null;
 	}
 
 	@state()
@@ -63,90 +78,31 @@ export class GlCommitDetails extends GlDetailsBase {
 	@property({ type: String })
 	reachabilityState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
 
-	private _commit: State['commit'];
-	get commit(): State['commit'] {
-		return this._commit;
-	}
-	set commit(value: State['commit']) {
-		this._commit = value;
-		this.enrichedPromise = value?.enriched;
-	}
+	@property({ type: Array })
+	autolinks?: Autolink[];
 
-	@state()
-	private _enriched!: Awaited<NonNullable<State['commit']>['enriched']>;
-	get enriched(): Awaited<NonNullable<State['commit']>['enriched']> {
-		return this._enriched;
-	}
+	@property({ type: String })
+	formattedMessage?: string;
 
-	private _enrichedPromise!: NonNullable<State['commit']>['enriched'];
-	get enrichedPromise(): NonNullable<State['commit']>['enriched'] {
-		return this._enrichedPromise;
-	}
-	set enrichedPromise(value: NonNullable<State['commit']>['enriched']) {
-		if (this._enrichedPromise === value) return;
-
-		this._enrichedPromise = value;
-		void this._enrichedPromise?.then(
-			r => (this._enriched = r),
-			() => (this._enriched = undefined),
-		);
-	}
-
-	get navigation() {
-		if (this.state?.navigationStack == null) {
-			return {
-				back: false,
-				forward: false,
-			};
-		}
-
-		const actions = {
-			back: true,
-			forward: true,
-		};
-
-		if (this.state.navigationStack.count <= 1) {
-			actions.back = false;
-			actions.forward = false;
-		} else if (this.state.navigationStack.position === 0) {
-			actions.back = true;
-			actions.forward = false;
-		} else if (this.state.navigationStack.position === this.state.navigationStack.count - 1) {
-			actions.back = false;
-			actions.forward = true;
-		}
-
-		return actions;
-	}
+	@property({ type: Object })
+	signature?: CommitSignatureShape;
 
 	override updated(changedProperties: Map<string, any>): void {
 		if (changedProperties.has('explain')) {
 			this.explainBusy = false;
 			this.querySelector('[data-region="commit-explanation"]')?.scrollIntoView();
 		}
-
-		if (changedProperties.has('state')) {
-			this.commit = this.state?.commit;
-			// Reset reachability when commit changes (different commit sha)
-			if (changedProperties.get('state')?.commit?.sha !== this.state?.commit?.sha) {
-				this.reachabilityState = 'idle';
-				this.reachability = undefined;
-			}
-		}
 	}
 
 	override render(): unknown {
-		if (this.state?.commit == null) {
+		if (this.commit == null) {
 			return this.renderEmptyContent();
 		}
 
 		return html`
 			${this.renderHiddenNotice()} ${this.renderCommitMessage()}
 			<webview-pane-group flexible>
-				${this.renderChangedFiles(
-					this.isStash ? 'stash' : 'commit',
-					this.renderCommitStats(this.state.commit.stats),
-				)}
+				${this.renderChangedFiles(this.isStash ? 'stash' : 'commit', this.renderCommitStats(this.commit.stats))}
 			</webview-pane-group>
 		`;
 	}
@@ -201,7 +157,7 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderExplainChanges() {
-		if (this.state?.orgSettings.ai === false) return undefined;
+		if (this.orgSettings?.ai === false) return undefined;
 
 		return html`
 			<gl-action-chip
@@ -220,11 +176,11 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderCommitMessage() {
-		const details = this.state?.commit;
+		const details = this.commit;
 		if (details == null) return undefined;
 
-		// Use formatted message from promise if available, otherwise use basic message
-		const message = this._enriched?.formattedMessage ?? details.message;
+		// Use progressively enhanced message: enriched → basic autolinks → raw
+		const message = this.formattedMessage ?? details.message;
 		const index = message.indexOf(messageHeadlineSplitterToken);
 		return html`
 			<div class="section section--message">
@@ -240,7 +196,7 @@ export class GlCommitDetails extends GlDetailsBase {
 									name="${details.author.name}"
 									.showAvatar="${this.preferences?.avatars ?? true}"
 									.showSignature="${this.preferences?.showSignatureBadges ?? true}"
-									.signature="${this._enriched?.signature}"
+									.signature="${this.signature}"
 								></gl-commit-author>
 							</div>
 						`,
@@ -284,7 +240,7 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private get autolinkState() {
-		if (!this.state?.autolinksEnabled || this.isUncommitted) return undefined;
+		if (!this.autolinksEnabled || this.isUncommitted) return undefined;
 
 		const deduped = new Map<
 			string,
@@ -295,15 +251,15 @@ export class GlCommitDetails extends GlDetailsBase {
 
 		const autolinkIdsByUrl = new Map<string, string>();
 
-		if (this.state?.commit?.autolinks != null) {
-			for (const autolink of this.state.commit.autolinks) {
+		if (this.autolinks != null) {
+			for (const autolink of this.autolinks) {
 				deduped.set(autolink.id, { type: 'autolink', value: autolink });
 				autolinkIdsByUrl.set(autolink.url, autolink.id);
 			}
 		}
 
-		// Use resolved enriched autolinks from promise
-		const enrichedAutolinks = this._enriched?.autolinkedIssues ?? this.state?.autolinkedIssues;
+		// Enriched autolinks (resolved issues) override basic autolinks by URL
+		const enrichedAutolinks = this.autolinkedIssues;
 		if (enrichedAutolinks != null) {
 			for (const issue of enrichedAutolinks) {
 				if (issue.url != null) {
@@ -316,8 +272,7 @@ export class GlCommitDetails extends GlDetailsBase {
 			}
 		}
 
-		// Use resolved pull request from promise
-		const pullRequest = this._enriched?.associatedPullRequest ?? this.state?.pullRequest;
+		const pullRequest = this.pullRequest;
 		if (pullRequest != null) {
 			if (pullRequest.url != null) {
 				const autoLinkId = autolinkIdsByUrl.get(pullRequest.url);
@@ -360,10 +315,9 @@ export class GlCommitDetails extends GlDetailsBase {
 			showOptions: { preserveFocus: true },
 		});
 
-		const hasIntegrationsConnected = this.state?.hasIntegrationsConnected ?? false;
 		let label =
 			'Configure autolinks to linkify external references, like Jira or Zendesk tickets, in commit messages.';
-		if (!hasIntegrationsConnected) {
+		if (!this.hasIntegrationsConnected) {
 			label = `<a href="${autolinkSettingsLink}">Configure autolinks</a> to linkify external references, like Jira or Zendesk tickets, in commit messages.`;
 			label += `\n\n<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
 				'gitlens.plus.cloudIntegrations.connect',
@@ -377,7 +331,7 @@ export class GlCommitDetails extends GlDetailsBase {
 				},
 			)}">Connect an Integration</a> &mdash;`;
 
-			if (!this.state?.hasAccount) {
+			if (!this.hasAccount) {
 				label += ' sign up and';
 			}
 
@@ -389,7 +343,7 @@ export class GlCommitDetails extends GlDetailsBase {
 			data-action="autolink-settings"
 			icon="info"
 			.label=${label}
-			overlay=${hasIntegrationsConnected ? 'tooltip' : 'popover'}
+			overlay=${this.hasIntegrationsConnected ? 'tooltip' : 'popover'}
 			>${chipLabel}</gl-action-chip
 		>`;
 	}
@@ -430,8 +384,8 @@ export class GlCommitDetails extends GlDetailsBase {
 							identifier="#${pr.id}"
 							status="${pr.state}"
 							.date=${pr.updatedDate}
-							.dateFormat="${this.state!.preferences.dateFormat}"
-							.dateStyle="${this.state!.preferences.dateStyle}"
+							.dateFormat="${this.preferences?.dateFormat}"
+							.dateStyle="${this.preferences?.dateStyle}"
 						></gl-autolink-chip>`,
 				),
 			)}
@@ -445,8 +399,8 @@ export class GlCommitDetails extends GlDetailsBase {
 							identifier="${issue.id}"
 							status="${issue.state}"
 							.date=${issue.closed ? issue.closedDate : issue.createdDate}
-							.dateFormat="${this.state!.preferences.dateFormat}"
-							.dateStyle="${this.state!.preferences.dateStyle}"
+							.dateFormat="${this.preferences?.dateFormat}"
+							.dateStyle="${this.preferences?.dateStyle}"
 						></gl-autolink-chip>`,
 				),
 			)}
@@ -583,7 +537,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		this.explainBusy = true;
 	}
 
-	private renderCommitStats(stats?: NonNullable<NonNullable<typeof this.state>['commit']>['stats']) {
+	private renderCommitStats(stats?: NonNullable<State['commit']>['stats']) {
 		if (stats?.files == null) return undefined;
 
 		if (typeof stats.files === 'number') {
@@ -630,11 +584,11 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	override getFileContextData(file: File): string | undefined {
-		if (!this.state?.commit) return undefined;
+		if (!this.commit) return undefined;
 
 		// Build webviewItem with modifiers matching view context values
 		// Pattern: gitlens:file+committed[+current][+HEAD][+unpublished][+submodule]
-		const commit = this.state.commit;
+		const commit = this.commit;
 		const isStash = commit.stashNumber != null;
 		const submodule = file.submodule != null ? '+submodule' : '';
 

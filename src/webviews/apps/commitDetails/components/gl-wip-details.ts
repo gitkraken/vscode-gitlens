@@ -4,7 +4,9 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { PullRequestShape } from '../../../../git/models/pullRequest.js';
 import { uncommitted } from '../../../../git/models/revision.js';
+import type { Draft } from '../../../../plus/drafts/models/drafts.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import { equalsIgnoreCase } from '../../../../system/string.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
@@ -35,6 +37,12 @@ export class GlWipDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	wip?: Wip;
+
+	@property({ type: Object })
+	pullRequest?: PullRequestShape;
+
+	@property({ type: Array })
+	codeSuggestions?: Omit<Draft, 'changesets'>[];
 
 	@property({ type: Object })
 	draftState?: DraftState;
@@ -105,10 +113,6 @@ export class GlWipDetails extends GlDetailsBase {
 		};
 	}
 
-	get codeSuggestions() {
-		return this.wip?.codeSuggestions ?? [];
-	}
-
 	constructor() {
 		super();
 
@@ -159,7 +163,7 @@ export class GlWipDetails extends GlDetailsBase {
 
 		let label = 'Share as Cloud Patch';
 		let action = 'create-patch';
-		const pr = this.wip?.pullRequest;
+		const pr = this.pullRequest;
 		if (pr?.state === 'opened' && equalsIgnoreCase(pr.provider.domain, 'github.com')) {
 			// const isMe = pr.author.name.endsWith('(you)');
 			// if (isMe) {
@@ -277,7 +281,7 @@ export class GlWipDetails extends GlDetailsBase {
 	}
 
 	private renderSuggestedChanges() {
-		if (this.codeSuggestions.length === 0) return nothing;
+		if (!this.codeSuggestions?.length) return nothing;
 		// src="${this.issue!.author.avatarUrl}"
 		// title="${this.issue!.author.name} (author)"
 		return html`
@@ -312,7 +316,7 @@ export class GlWipDetails extends GlDetailsBase {
 	}
 
 	private renderPullRequest() {
-		if (this.wip?.pullRequest == null) return nothing;
+		if (this.pullRequest == null) return nothing;
 
 		return html`
 			<webview-pane
@@ -321,7 +325,7 @@ export class GlWipDetails extends GlDetailsBase {
 				?expanded=${this.preferences?.pullRequestExpanded ?? true}
 				data-region="pullrequest-pane"
 			>
-				<span slot="title">Pull Request #${this.wip?.pullRequest?.id}</span>
+				<span slot="title">Pull Request #${this.pullRequest?.id}</span>
 				<action-nav slot="actions">
 					<action-item
 						label="Open Pull Request Changes"
@@ -342,11 +346,11 @@ export class GlWipDetails extends GlDetailsBase {
 				<div class="section">
 					<issue-pull-request
 						type="pr"
-						name="${this.wip.pullRequest.title}"
-						url="${this.wip.pullRequest.url}"
-						identifier="#${this.wip.pullRequest.id}"
-						status="${this.wip.pullRequest.state}"
-						.date=${this.wip.pullRequest.updatedDate}
+						name="${this.pullRequest.title}"
+						url="${this.pullRequest.url}"
+						identifier="#${this.pullRequest.id}"
+						status="${this.pullRequest.state}"
+						.date=${this.pullRequest.updatedDate}
 						.dateFormat="${this.preferences?.dateFormat}"
 						.dateStyle="${this.preferences?.dateStyle}"
 						details
