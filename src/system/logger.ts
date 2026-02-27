@@ -217,8 +217,15 @@ export const Logger = new (class Logger {
 
 		const errorMessage = `  ${message ?? ''}${this.toLoggableParams(false, params)}`;
 		if (ex != null) {
-			// eslint-disable-next-line @typescript-eslint/no-base-to-string
-			this.output?.error(String(ex), errorMessage);
+			if (ex instanceof Error) {
+				// Use String(ex) to capture custom toString() output (e.g. AuthenticationError.authInfo),
+				// then append the stack frames so stack traces aren't lost
+				const stackFrames = ex.stack?.replace(/^[^\n]*\n?/, '');
+				this.output?.error(stackFrames ? `${String(ex)}\n${stackFrames}` : String(ex), errorMessage);
+			} else {
+				// eslint-disable-next-line @typescript-eslint/no-base-to-string
+				this.output?.error(String(ex), errorMessage);
+			}
 		} else {
 			this.output?.error(errorMessage);
 		}
