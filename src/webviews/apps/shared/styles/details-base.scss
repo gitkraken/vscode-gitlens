@@ -125,6 +125,10 @@ ul {
 	}
 }
 
+.section--message {
+	padding: 0 var(--gitlens-scrollbar-gutter-width) 1rem var(--gitlens-scrollbar-gutter-width);
+}
+
 .section--empty {
 	> :last-child {
 		margin-top: 0.5rem;

@@ -17,7 +17,7 @@ export function registerCommitDetailsWebviewView(
 			type: 'commitDetails',
 			plusFeature: false,
 			webviewHostOptions: {
-				retainContextWhenHidden: false,
+				retainContextWhenHidden: true,
 			},
 		},
 		async (container, host) => {
@@ -42,7 +42,7 @@ export function registerGraphDetailsWebviewView(
 			type: 'graphDetails',
 			plusFeature: false,
 			webviewHostOptions: {
-				retainContextWhenHidden: false,
+				retainContextWhenHidden: true,
 			},
 		},
 		async (container, host) => {

@@ -1,12 +1,11 @@
 import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { TextDocumentShowOptions } from 'vscode';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../config.js';
-import type { Preferences, State } from '../../../commitDetails/protocol.js';
+import type { FileShowOptions, Preferences, State } from '../../../commitDetails/protocol.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -29,7 +28,7 @@ type Mode = 'commit' | 'stash' | 'wip';
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
 export interface FileChangeListItemDetail extends File {
-	showOptions?: TextDocumentShowOptions;
+	showOptions?: FileShowOptions;
 }
 
 export class GlDetailsBase extends LitElement {
@@ -594,7 +593,7 @@ export class GlDetailsBase extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	private getEventDetail(file: File, showOptions?: TextDocumentShowOptions): FileChangeListItemDetail {
+	private getEventDetail(file: File, showOptions?: FileShowOptions): FileChangeListItemDetail {
 		return {
 			path: file.path,
 			repoPath: file.repoPath,
