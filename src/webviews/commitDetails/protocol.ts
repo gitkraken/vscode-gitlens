@@ -1,8 +1,5 @@
-import type { TextDocumentShowOptions } from 'vscode';
-import type { Autolink } from '../../autolinks/models/autolinks.js';
 import type { Config, DateStyle } from '../../config.js';
 import type { Sources } from '../../constants.telemetry.js';
-import type { GitCommitReachability } from '../../git/gitProvider.js';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit.js';
 import type { GitFileChangeShape } from '../../git/models/fileChange.js';
 import type { GitFileStatus } from '../../git/models/fileStatus.js';
@@ -10,19 +7,18 @@ import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest.js'
 import type { PullRequestShape } from '../../git/models/pullRequest.js';
 import type { Repository } from '../../git/models/repository.js';
 import type { GitCommitSearchContext } from '../../git/search.js';
-import type { Draft, DraftVisibility } from '../../plus/drafts/models/drafts.js';
 import type { DateTimeFormat } from '../../system/date.js';
 import type { WebviewItemContext } from '../../system/webview.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
-import type { Change, DraftUserSelection } from '../plus/patchDetails/protocol.js';
 import type { WebviewState } from '../protocol.js';
+import type { FileShowOptions, WipChange } from '../rpc/services/types.js';
+
+export type { FileShowOptions } from '../rpc/services/types.js';
+// Re-export from shared types — canonical definition is in rpc/services/types.ts
+export type { CommitSignatureShape, WipChange } from '../rpc/services/types.js';
 
 export const scope: IpcScope = 'commitDetails';
-
 export const messageHeadlineSplitterToken = '\x00\n\x00';
-
-export type FileShowOptions = TextDocumentShowOptions;
 
 export interface CommitSummary {
 	sha: string;
@@ -36,27 +32,9 @@ export interface CommitSummary {
 	stashNumber?: string;
 }
 
-export interface CommitSignatureShape {
-	status: 'good' | 'bad' | 'unknown' | 'expired' | 'revoked' | 'error';
-	format?: 'gpg' | 'ssh' | 'x509' | 'openpgp';
-	signer?: string;
-	keyId?: string;
-	fingerprint?: string;
-	trustLevel?: 'ultimate' | 'full' | 'marginal' | 'never' | 'unknown';
-	errorMessage?: string;
-}
-
 export interface CommitDetails extends CommitSummary {
-	autolinks?: Autolink[];
 	files?: readonly GitFileChangeShape[];
 	stats?: GitCommitStats;
-
-	enriched?: Promise<{
-		formattedMessage: string;
-		associatedPullRequest: PullRequestShape | undefined;
-		autolinkedIssues: IssueOrPullRequest[];
-		signature?: CommitSignatureShape;
-	}>;
 }
 
 export interface Preferences {
@@ -71,12 +49,6 @@ export interface Preferences {
 	showSignatureBadges: boolean;
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
-
-export interface WipChange {
-	branchName: string;
-	repository: { name: string; path: string; uri: string };
-	files: GitFileChangeShape[];
-}
 
 export type Mode = 'commit' | 'wip';
 
@@ -94,8 +66,6 @@ export interface Wip {
 	changes: WipChange | undefined;
 	repositoryCount: number;
 	branch?: GitBranchShape;
-	pullRequest?: PullRequestShape;
-	codeSuggestions?: Omit<Draft, 'changesets'>[];
 	repo: {
 		uri: string;
 		name: string;
@@ -145,148 +115,18 @@ export interface ShowWipArgs {
 
 // COMMANDS
 
-export interface SuggestChangesParams {
-	title: string;
-	description?: string;
-	visibility: DraftVisibility;
-	changesets: Record<string, Change>;
-	userSelections: DraftUserSelection[] | undefined;
-}
-export const SuggestChangesCommand = new IpcCommand<SuggestChangesParams>(scope, 'commit/suggestChanges');
+// Param types for RPC methods (kept for backwards compatibility)
 
 export interface ExecuteCommitActionsParams {
 	action: 'graph' | 'more' | 'scm' | 'sha';
 	alt?: boolean;
 }
-export const ExecuteCommitActionCommand = new IpcCommand<ExecuteCommitActionsParams>(scope, 'commit/actions/execute');
 
 export interface ExecuteFileActionParams extends GitFileChangeShape {
-	showOptions?: TextDocumentShowOptions;
+	/** Commit ref (SHA) for this file action. Required for committed files. */
+	ref?: string;
+	showOptions?: FileShowOptions;
 }
-export const ExecuteFileActionCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/actions/execute');
-export const OpenFileCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/open');
-export const OpenFileOnRemoteCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/openOnRemote');
-export const OpenFileCompareWorkingCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/compareWorking');
-export const OpenFileComparePreviousCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/comparePrevious');
-
-export const StageFileCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/stage');
-export const UnstageFileCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/unstage');
-
-export const PickCommitCommand = new IpcCommand(scope, 'pickCommit');
-export const SearchCommitCommand = new IpcCommand(scope, 'searchCommit');
-
-export interface SwitchModeParams {
-	repoPath?: string;
-	mode: Mode;
-}
-export const SwitchModeCommand = new IpcCommand<SwitchModeParams>(scope, 'switchMode');
-
-export const AutolinkSettingsCommand = new IpcCommand(scope, 'autolinkSettings');
-
-export interface PinParams {
-	pin: boolean;
-}
-export const PinCommand = new IpcCommand<PinParams>(scope, 'pin');
-
-export interface NavigateParams {
-	direction: 'back' | 'forward';
-}
-export const NavigateCommand = new IpcCommand<NavigateParams>(scope, 'navigate');
-
-export type UpdatePreferenceParams = UpdateablePreferences;
-export const UpdatePreferencesCommand = new IpcCommand<UpdatePreferenceParams>(scope, 'preferences/update');
-
-export interface CreatePatchFromWipParams {
-	changes: WipChange;
-	checked: boolean | 'staged';
-}
-export const CreatePatchFromWipCommand = new IpcCommand<CreatePatchFromWipParams>(scope, 'wip/createPatch');
-
-export interface ChangeReviewModeParams {
-	inReview: boolean;
-}
-export const ChangeReviewModeCommand = new IpcCommand<ChangeReviewModeParams>(scope, 'wip/changeReviewMode');
-
-export interface ShowCodeSuggestionParams {
-	id: string;
-}
-export const ShowCodeSuggestionCommand = new IpcCommand<ShowCodeSuggestionParams>(scope, 'wip/showCodeSuggestion');
-
-export const FetchCommand = new IpcCommand(scope, 'fetch');
-export const PublishCommand = new IpcCommand(scope, 'publish');
-export const PushCommand = new IpcCommand(scope, 'push');
-export const PullCommand = new IpcCommand(scope, 'pull');
-export const SwitchCommand = new IpcCommand(scope, 'switch');
-
-export const OpenPullRequestChangesCommand = new IpcCommand(scope, 'openPullRequestChanges');
-export const OpenPullRequestComparisonCommand = new IpcCommand(scope, 'openPullRequestComparison');
-export const OpenPullRequestOnRemoteCommand = new IpcCommand(scope, 'openPullRequestOnRemote');
-export const OpenPullRequestDetailsCommand = new IpcCommand(scope, 'openPullRequestDetails');
-
-// REQUESTS
-
-export type DidExplainParams =
-	| {
-			result: { summary: string; body: string };
-			error?: never;
-	  }
-	| { error: { message: string } };
-export const ExplainRequest = new IpcRequest<void, DidExplainParams>(scope, 'explain');
-
-export type DidGenerateParams =
-	| {
-			title: string | undefined;
-			description: string | undefined;
-			error?: undefined;
-	  }
-	| { error: { message: string } };
-export const GenerateRequest = new IpcRequest<void, DidGenerateParams>(scope, 'generate');
-
-export type DidReachabilityParams =
-	| {
-			readonly refs: GitCommitReachability['refs'];
-			duration: number;
-			error?: never;
-	  }
-	| { error: { message: string }; duration: number };
-export const ReachabilityRequest = new IpcRequest<void, DidReachabilityParams>(scope, 'reachability');
-
-// NOTIFICATIONS
-
-export interface DidChangeParams {
-	state: State;
-}
-export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
-
-export type DidChangeWipStateParams = Pick<State, 'wip' | 'inReview'>;
-export const DidChangeWipStateNotification = new IpcNotification<DidChangeWipStateParams>(scope, 'didChange/wip');
-
-export type DidChangeOrgSettings = Pick<State, 'orgSettings'>;
-export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrgSettings>(
-	scope,
-	'org/settings/didChange',
-);
-
-export interface DidChangeHasAccountParams {
-	hasAccount: boolean;
-}
-export const DidChangeHasAccountNotification = new IpcNotification<DidChangeHasAccountParams>(
-	scope,
-	'didChange/account',
-);
-
-export interface DidChangeDraftStateParams {
-	inReview: boolean;
-}
-export const DidChangeDraftStateNotification = new IpcNotification<DidChangeDraftStateParams>(scope, 'didChange/patch');
-
-export interface DidChangeIntegrationsParams {
-	hasIntegrationsConnected: boolean;
-}
-export const DidChangeIntegrationsNotification = new IpcNotification<DidChangeIntegrationsParams>(
-	scope,
-	'didChange/integrations',
-);
 
 // Context menu types
 

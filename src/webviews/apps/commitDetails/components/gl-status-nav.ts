@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { PullRequestShape } from '../../../../git/models/pullRequest.js';
 import type { State } from '../../../commitDetails/protocol.js';
 import { commitActionStyles } from './commit-action.css.js';
 import '../../shared/components/overlays/popover.js';
@@ -73,6 +74,9 @@ export class GlStatusNav extends LitElement {
 	wip?: State['wip'];
 
 	@property({ type: Object })
+	pullRequest?: PullRequestShape;
+
+	@property({ type: Object })
 	preferences?: State['preferences'];
 
 	override render(): unknown {
@@ -83,8 +87,8 @@ export class GlStatusNav extends LitElement {
 		if (changes == null || branch == null) return nothing;
 
 		let prIcon = 'git-pull-request';
-		if (this.wip.pullRequest?.state) {
-			switch (this.wip.pullRequest?.state) {
+		if (this.pullRequest?.state) {
+			switch (this.pullRequest.state) {
 				case 'merged':
 					prIcon = 'git-merge';
 					break;
@@ -97,21 +101,21 @@ export class GlStatusNav extends LitElement {
 		return html`
 			<div class="group">
 				${when(
-					this.wip.pullRequest != null,
+					this.pullRequest != null,
 					() =>
 						html`<gl-popover hoist>
 							<a href="#" class="commit-action" slot="anchor"
-								><code-icon icon=${prIcon} class="pr pr--${this.wip!.pullRequest!.state}"></code-icon
-								><span>#${this.wip!.pullRequest!.id}</span></a
+								><code-icon icon=${prIcon} class="pr pr--${this.pullRequest!.state}"></code-icon
+								><span>#${this.pullRequest!.id}</span></a
 							>
 							<div slot="content">
 								<issue-pull-request
 									type="pr"
-									name="${this.wip!.pullRequest!.title}"
-									url="${this.wip!.pullRequest!.url}"
-									identifier="#${this.wip!.pullRequest!.id}"
-									status="${this.wip!.pullRequest!.state}"
-									.date=${this.wip!.pullRequest!.updatedDate}
+									name="${this.pullRequest!.title}"
+									url="${this.pullRequest!.url}"
+									identifier="#${this.pullRequest!.id}"
+									status="${this.pullRequest!.state}"
+									.date=${this.pullRequest!.updatedDate}
 									.dateFormat="${this.preferences?.dateFormat}"
 									.dateStyle="${this.preferences?.dateStyle}"
 									details
@@ -125,10 +129,10 @@ export class GlStatusNav extends LitElement {
 						class="commit-action commit-action--overflowed"
 						@click=${(e: MouseEvent) => this.handleAction(e, 'switch')}
 					>
-						${when(
-							this.wip.pullRequest == null,
-							() => html`<code-icon icon="git-branch"></code-icon>`,
-						)}<span class="branch">${branch.name}</span><code-icon icon="chevron-down" size="10"></code-icon
+						${when(this.pullRequest == null, () => html`<code-icon icon="git-branch"></code-icon>`)}<span
+							class="branch"
+							>${branch.name}</span
+						><code-icon icon="chevron-down" size="10"></code-icon
 					></a>
 					<div slot="content">
 						Switch to Another Branch...

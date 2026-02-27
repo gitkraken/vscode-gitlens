@@ -895,6 +895,11 @@ type InspectShownEventData = InspectContextEventData & FlattenedContextConfig<Co
 export type InspectTelemetryContext = InspectContextEventData;
 export type InspectShownTelemetryContext = InspectShownEventData;
 
+/** Telemetry context fields pushed from the Inspect webview to the host via RPC. */
+export type InspectWebviewTelemetryContext =
+	| Pick<InspectWipContextEventData, 'context.autolinks' | 'context.codeSuggestions'>
+	| Pick<InspectCommitContextEventData, 'context.autolinks' | 'context.type' | 'context.uncommitted'>;
+
 export type ComposerTelemetryContext = ComposerContextEventData;
 type ComposerContextEventData = WebviewTelemetryContext & ComposerSessionContextEventData;
 type ComposerContextSessionData = {
