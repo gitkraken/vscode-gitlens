@@ -43,7 +43,7 @@ export function push(
 	keepStaged: boolean = false,
 	onlyStaged: boolean = false,
 	onlyStagedUris?: Uri[],
-	singleConfirm?: boolean,
+	reducedConfirm?: boolean,
 ): Promise<void> {
 	return executeGitCommand({
 		command: 'stash',
@@ -58,7 +58,7 @@ export function push(
 				...(keepStaged ? ['--keep-index' as const] : []),
 				...(onlyStaged ? ['--staged' as const] : []),
 			],
-			singleConfirm: singleConfirm,
+			reducedConfirm: reducedConfirm,
 		},
 	});
 }

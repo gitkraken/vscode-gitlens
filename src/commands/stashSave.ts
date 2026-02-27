@@ -23,7 +23,7 @@ export interface StashSaveCommandArgs {
 	keepStaged?: boolean;
 	onlyStaged?: boolean;
 	onlyStagedUris?: Uri[];
-	singleConfirm?: boolean;
+	reducedConfirm?: boolean;
 }
 
 @command()
@@ -94,7 +94,7 @@ export class StashSaveCommand extends GlCommandBase {
 			args?.keepStaged,
 			args?.onlyStaged,
 			args?.onlyStagedUris,
-			args?.singleConfirm,
+			args?.reducedConfirm,
 		);
 	}
 }
@@ -307,7 +307,7 @@ async function getStashSaveArgsForUnstagedScmGroup(
 		args.keepStaged = true;
 	}
 	args.includeUntracked = hasUntracked;
-	args.singleConfirm = true;
+	args.reducedConfirm = true;
 
 	return args;
 }

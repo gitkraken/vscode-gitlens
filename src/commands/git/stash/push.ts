@@ -54,7 +54,7 @@ interface State<Repo = string | Repository> {
 	uris?: Uri[];
 	onlyStagedUris?: Uri[];
 	flags: Flags[];
-	singleConfirm?: boolean;
+	reducedConfirm?: boolean;
 }
 export type StashPushState = State;
 
@@ -159,8 +159,8 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (StashPushError.is(ex, 'nothingToSave') && !state.singleConfirm) {
-					if (!state.flags.includes('--include-untracked')) {
+				if (StashPushError.is(ex, 'nothingToSave')) {
+					if (!state.flags.includes('--include-untracked') && !state.reducedConfirm) {
 						confirmOverride = true;
 						void window.showWarningMessage(
 							'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
@@ -316,24 +316,52 @@ export class StashPushGitCommand extends QuickCommand<State> {
 		type StepType = FlagsQuickPickItem<Flags>;
 
 		const confirmations: StepType[] = [];
-		// Show a single confirmation option with the pre-determined flags (e.g. from the "Stash Unstaged" SCM action)
-		if (state.singleConfirm) {
-			const descriptionFlags = state.flags.filter(f => f !== '--snapshot');
-			const details: string[] = [];
-			if (state.flags.includes('--keep-index')) {
-				details.push('keeping staged files intact');
-			}
+		// Show confirmation options with the pre-determined flags (e.g. from the "Stash Unstaged" SCM action)
+		if (state.reducedConfirm) {
 			if (state.flags.includes('--include-untracked')) {
-				details.push('including untracked files');
-			}
+				const withUntrackedFlags = [...state.flags];
+				const withoutUntrackedFlags = state.flags.filter(f => f !== '--include-untracked');
 
-			confirmations.push(
-				createFlagsQuickPickItem<Flags>(state.flags, [...state.flags], {
-					label: context.title,
-					description: descriptionFlags.length ? descriptionFlags.join(' ') : undefined,
-					detail: `Will stash unstaged changes${details.length ? `, ${details.join(' and ')}` : ''}`,
-				}),
-			);
+				const withUntrackedDescFlags = withUntrackedFlags.filter(f => f !== '--snapshot');
+				const withUntrackedDetails: string[] = [];
+				if (state.flags.includes('--keep-index')) {
+					withUntrackedDetails.push('keeping staged files intact');
+				}
+				withUntrackedDetails.push('including untracked files');
+
+				const withoutUntrackedDescFlags = withoutUntrackedFlags.filter(f => f !== '--snapshot');
+				const withoutUntrackedDetails: string[] = [];
+				if (state.flags.includes('--keep-index')) {
+					withoutUntrackedDetails.push('keeping staged files intact');
+				}
+
+				confirmations.push(
+					createFlagsQuickPickItem<Flags>(state.flags, withUntrackedFlags, {
+						label: `${context.title} & Include Untracked`,
+						description: withUntrackedDescFlags.length ? withUntrackedDescFlags.join(' ') : undefined,
+						detail: `Will stash unstaged changes${withUntrackedDetails.length ? `, ${withUntrackedDetails.join(' and ')}` : ''}`,
+					}),
+					createFlagsQuickPickItem<Flags>(state.flags, withoutUntrackedFlags, {
+						label: context.title,
+						description: withoutUntrackedDescFlags.length ? withoutUntrackedDescFlags.join(' ') : undefined,
+						detail: `Will stash unstaged changes${withoutUntrackedDetails.length ? `, ${withoutUntrackedDetails.join(' and ')}` : ''}`,
+					}),
+				);
+			} else {
+				const descriptionFlags = state.flags.filter(f => f !== '--snapshot');
+				const details: string[] = [];
+				if (state.flags.includes('--keep-index')) {
+					details.push('keeping staged files intact');
+				}
+
+				confirmations.push(
+					createFlagsQuickPickItem<Flags>(state.flags, [...state.flags], {
+						label: context.title,
+						description: descriptionFlags.length ? descriptionFlags.join(' ') : undefined,
+						detail: `Will stash unstaged changes${details.length ? `, ${details.join(' and ')}` : ''}`,
+					}),
+				);
+			}
 		} else if (state.uris?.length) {
 			if (state.flags.includes('--include-untracked')) {
 				baseFlags.push('--include-untracked');
