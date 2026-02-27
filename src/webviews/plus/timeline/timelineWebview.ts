@@ -1,7 +1,11 @@
 import type { TabChangeEvent, TabGroupChangeEvent } from 'vscode';
-import { Disposable, Uri, ViewColumn, window } from 'vscode';
+import { Disposable, EventEmitter, Uri, ViewColumn, window } from 'vscode';
 import { proBadge } from '../../../constants.js';
-import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry.js';
+import type {
+	TimelineShownTelemetryContext,
+	TimelineTelemetryContext,
+	TimelineWebviewTelemetryContext,
+} from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type { FileSelectedEvent } from '../../../eventBus.js';
 import type { FeatureAccess, RepoFeatureAccess } from '../../../features.js';
@@ -11,15 +15,10 @@ import {
 	openCommitChanges,
 	openCommitChangesWithWorking,
 } from '../../../git/actions/commit.js';
-import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
 import { ensureWorkingUri } from '../../../git/gitUri.utils.js';
 import type { GitCommit } from '../../../git/models/commit.js';
 import type { GitFileChange } from '../../../git/models/fileChange.js';
-import type {
-	Repository,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../../git/models/repository.js';
+import type { Repository } from '../../../git/models/repository.js';
 import { uncommitted } from '../../../git/models/revision.js';
 import { getReference } from '../../../git/utils/-webview/reference.utils.js';
 import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils.js';
@@ -32,7 +31,6 @@ import {
 	isUncommittedStaged,
 	shortenRevision,
 } from '../../../git/utils/revision.utils.js';
-import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { Directive } from '../../../quickpicks/items/directive.js';
 import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
@@ -45,37 +43,38 @@ import { openTextEditor } from '../../../system/-webview/vscode/editors.js';
 import { getTabUri } from '../../../system/-webview/vscode/tabs.js';
 import { createFromDateDelta } from '../../../system/date.js';
 import { trace } from '../../../system/decorators/log.js';
-import type { Deferrable } from '../../../system/function/debounce.js';
 import { debounce } from '../../../system/function/debounce.js';
-import { map, some } from '../../../system/iterable.js';
+import { map } from '../../../system/iterable.js';
 import { flatten } from '../../../system/object.js';
 import { basename } from '../../../system/path.js';
 import { batch, getSettledValue } from '../../../system/promise.js';
-import { PromiseCache } from '../../../system/promiseCache.js';
 import { SubscriptionManager } from '../../../system/subscriptionManager.js';
 import { areUrisEqual } from '../../../system/uri.js';
-import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
-import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
+import { createEventSubscription } from '../../rpc/eventVisibilityBuffer.js';
+import { createSharedServices, proxyServices } from '../../rpc/services/common.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
 import type {
+	ChoosePathParams,
+	ChooseRefParams,
+	DidChoosePathParams,
+	DidChooseRefParams,
+	ScopeChangedEvent,
 	SelectDataPointParams,
 	State,
+	TimelineConfig,
+	TimelineDatasetResult,
 	TimelineDatum,
+	TimelineInitialContext,
 	TimelinePeriod,
 	TimelineScope,
+	TimelineScopeSerialized,
 	TimelineScopeType,
-	TimelineSliceBy,
+	TimelineServices,
 } from './protocol.js';
-import {
-	ChoosePathRequest,
-	ChooseRefRequest,
-	DidChangeNotification,
-	SelectDataPointCommand,
-	UpdateConfigCommand,
-	UpdateScopeCommand,
-} from './protocol.js';
+import { DidChangeNotification } from './protocol.js';
 import type { TimelineWebviewShowingArgs } from './registration.js';
 import {
 	areTimelineScopesEqual,
@@ -85,56 +84,68 @@ import {
 	serializeTimelineScope,
 } from './utils/-webview/timeline.utils.js';
 
-interface Context {
-	config: {
-		period: TimelinePeriod;
-		showAllBranches: boolean;
-		sliceBy: TimelineSliceBy;
-	};
-	scope: TimelineScope | undefined;
-	etags: {
-		repositories: number | undefined;
-		repository: number | undefined;
-		repositoryWip: number | undefined;
-		subscription: number | undefined;
-	};
-}
-
-const defaultPeriod: TimelinePeriod = '3|M';
-
 export class TimelineWebviewProvider implements WebviewProvider<State, State, TimelineWebviewShowingArgs> {
-	private _context: Context;
+	// --- Showing context (set in onShowing, consumed by getInitialContext) ---
+	private _showingScope: TimelineScope | undefined;
+	private _showingConfigOverrides: Partial<TimelineConfig> | undefined;
+	/** Captured in onShowing (before panel takes focus) so getInitialContext can use it. */
+	private _showingActiveTabUri: Uri | undefined;
+
+	// --- Operational tracking (for canReuseInstance, getSplitArgs, telemetry) ---
+	private _currentScope: TimelineScope | undefined;
+
+	// --- Telemetry context pushed from the webview via RPC ---
+	private _telemetryContext: TimelineWebviewTelemetryContext | undefined;
+
+	// --- Events ---
+	private readonly _onScopeChanged = new EventEmitter<ScopeChangedEvent | undefined>();
+
+	// --- Disposables & subscriptions ---
 	private _disposable: Disposable | undefined;
-	private _cache = new PromiseCache<'bootstrap' | 'state', State>({ accessTTL: 1000 * 60 * 5 });
+	private _repositorySubscription: SubscriptionManager<Repository> | undefined;
+	private _tabCloseDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// --- Data point opening guard ---
+	private _openingDataPoint: SelectDataPointParams | undefined;
+	private _pendingOpenDataPoint: SelectDataPointParams | undefined;
 
 	private get activeTabUri() {
 		return getTabUri(window.tabGroups.activeTabGroup.activeTab);
 	}
 
+	/** Subscription listener — fires legacy IPC notification for PromosContext cache invalidation */
+	private readonly _subscriptionDisposable: Disposable;
+
 	constructor(
 		private readonly container: Container,
 		private readonly host: WebviewHost<'gitlens.views.timeline' | 'gitlens.timeline'>,
 	) {
-		this._context = {
-			config: { period: defaultPeriod, showAllBranches: false, sliceBy: 'author' },
-			scope: undefined,
-			etags: {
-				repositories: this.container.git.etag,
-				repository: undefined,
-				repositoryWip: undefined,
-				subscription: this.container.subscription.etag,
-			},
-		};
-
 		if (this.host.is('view')) {
 			this.host.description = proBadge;
 		}
+
+		// Bridge: fire legacy DidChangeNotification on subscription changes so
+		// PromosContext (which listens for IPC, not RPC) can clear its cache
+		this._subscriptionDisposable = this.container.subscription.onDidChange(() => {
+			const state: Partial<State> = {
+				webviewId: this.host.id,
+				webviewInstanceId: this.host.instanceId,
+				timestamp: Date.now(),
+			};
+			void this.host.notify(DidChangeNotification, { state: state as State });
+		});
 	}
 
 	dispose(): void {
-		this._cache.clear();
+		this._subscriptionDisposable.dispose();
+		this._onScopeChanged.dispose();
 		this._disposable?.dispose();
+		this._repositorySubscription?.dispose();
 	}
+
+	// ============================================================
+	// WebviewProvider interface
+	// ============================================================
 
 	canReuseInstance(...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>): boolean | undefined {
 		let scope: TimelineScope | undefined;
@@ -153,30 +164,32 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 		}
 
-		return areTimelineScopesEquivalent(scope, this._context.scope);
+		return areTimelineScopesEquivalent(scope, this._currentScope);
 	}
 
 	getSplitArgs(): WebviewShowingArgs<TimelineWebviewShowingArgs, State> {
-		return this._context.scope != null ? [this._context.scope] : [];
+		return this._currentScope != null ? [this._currentScope] : [];
 	}
 
 	getTelemetryContext(): TimelineTelemetryContext {
-		return {
+		const context: TimelineTelemetryContext = {
 			...this.host.getTelemetryContext(),
-			'context.period': this._context.config.period,
-			'context.scope.hasHead': this._context.scope?.head != null,
-			'context.scope.hasBase': this._context.scope?.base != null,
-			'context.scope.type': this._context.scope?.type,
-			'context.showAllBranches': this._context.config.showAllBranches,
-			'context.sliceBy': this._context.config.sliceBy,
+			'context.period': undefined,
+			'context.scope.hasHead': this._currentScope?.head != null,
+			'context.scope.hasBase': this._currentScope?.base != null,
+			'context.scope.type': this._currentScope?.type,
+			'context.showAllBranches': undefined,
+			'context.sliceBy': undefined,
+			...this._telemetryContext,
 		};
+		return context;
 	}
 
-	async onShowing(
+	onShowing(
 		loading: boolean,
 		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>
-	): Promise<[boolean, TimelineShownTelemetryContext]> {
+	): [boolean, TimelineShownTelemetryContext] {
 		let scope: TimelineScope | undefined;
 
 		const [arg] = args;
@@ -184,8 +197,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			if (isTimelineScope(arg)) {
 				scope = arg;
 			} else if (isSerializedState<State>(arg) && arg.state.scope != null) {
-				this._context.config = { ...this._context.config, ...arg.state.config };
-				// Only re-use the serialized state if we are in an editor (as the view alwaysfollows the active tab)
+				this._showingConfigOverrides = arg.state.config;
+				// Only re-use the serialized state if we are in an editor (the view always follows the active tab)
 				if (this.host.is('editor')) {
 					scope = {
 						type: arg.state.scope.type,
@@ -196,30 +209,31 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 		}
 
-		if (scope == null) {
-			let uri = await ensureWorkingUri(this.container, this.activeTabUri);
-			if (uri != null) {
-				scope = { type: 'file', uri: uri };
-			} else if (this.host.is('editor')) {
-				uri = this.container.git.getBestRepositoryOrFirst()?.uri;
-				if (uri != null) {
-					scope = { type: 'repo', uri: uri };
-				}
-			}
+		this._showingScope = scope;
+		// Capture active tab URI now, before the timeline panel takes focus
+		this._showingActiveTabUri = scope == null ? this.activeTabUri : undefined;
+		if (scope != null) {
+			this._currentScope = scope;
 		}
 
-		const changed = await this.updateScope(scope, true, true);
-		if (!loading && (changed || !this.host.visible)) {
-			this.updateState();
+		// If the webview is already live (reused panel, preserveInstance: true), fire
+		// a scope changed event so it navigates to the new scope. When loading=true,
+		// the webview will call populateInitialState() which reads _showingScope.
+		if (!loading && scope != null) {
+			this._onScopeChanged.fire({ uri: scope.uri.toString(), type: scope.type });
 		}
 
 		const cfg = flatten(configuration.get('visualHistory'), 'context.config', { joinArrays: true });
-
 		return [true, { ...this.getTelemetryContext(), ...cfg }];
 	}
 
-	includeBootstrap(_deferrable?: boolean): Promise<State> {
-		return this._cache.getOrCreate('bootstrap', () => this.getState(this._context, false));
+	includeBootstrap(): Promise<State> {
+		// Webview fetches all data via RPC — bootstrap only provides metadata
+		return Promise.resolve({
+			webviewId: this.host.id,
+			webviewInstanceId: this.host.instanceId,
+			timestamp: Date.now(),
+		} as State);
 	}
 
 	registerCommands(): Disposable[] {
@@ -231,14 +245,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				registerCommand(
 					`${this.host.id}.openInTab`,
 					() => {
-						// Only allow files in the timeline view
-						if (this._context.scope?.type !== 'file') return;
+						if (this._currentScope?.type !== 'file') return;
 
-						void executeCommand<TimelineScope>('gitlens.visualizeHistory', this._context.scope);
+						void executeCommand<TimelineScope>('gitlens.visualizeHistory', this._currentScope);
 						this.host.sendTelemetryEvent('timeline/action/openInEditor', {
-							'scope.type': this._context.scope.type,
-							'scope.hasHead': this._context.scope.head != null,
-							'scope.hasBase': this._context.scope.base != null,
+							'scope.type': this._currentScope.type,
+							'scope.hasHead': this._currentScope.head != null,
+							'scope.hasBase': this._currentScope.base != null,
 						});
 					},
 					this,
@@ -255,16 +268,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	async onReady(): Promise<void> {
-		await this.updateScope(this._context.scope, true);
-		this.updateState(true);
-	}
-
 	onRefresh(_force?: boolean): void {
-		this._cache.clear();
+		// No cache to clear — the webview refetches via RPC
 	}
 
-	async onVisibilityChanged(visible: boolean): Promise<void> {
+	onVisibilityChanged(visible: boolean): void {
 		if (!visible) {
 			this._disposable?.dispose();
 			this._repositorySubscription?.pause();
@@ -274,106 +282,198 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		this._repositorySubscription?.resume();
 
-		if (this.host.is('editor')) {
+		// View mode (sidebar): listen for tab/file changes to fire onScopeChanged
+		// (subscription and repository changes are handled by generic factory events)
+		if (!this.host.is('editor')) {
 			this._disposable = Disposable.from(
-				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			);
-		} else {
-			this._disposable = Disposable.from(
-				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-				this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 				window.tabGroups.onDidChangeTabGroups(this.onTabsChanged, this),
 				window.tabGroups.onDidChangeTabs(this.onTabsChanged, this),
 				this.container.events.on('file:selected', debounce(this.onFileSelected, 250), this),
 			);
 
-			const uri = await ensureWorkingUri(this.container, this.activeTabUri);
-			void this.updateScope(uri ? { type: 'file', uri: uri } : undefined);
+			// Re-derive scope from active tab on re-show (active tab may have changed while hidden)
+			void this.fireScopeForActiveTab();
 		}
 	}
 
-	private _openingDataPoint: SelectDataPointParams | undefined;
-	private _pendingOpenDataPoint: SelectDataPointParams | undefined;
+	// ============================================================
+	// RPC
+	// ============================================================
 
-	@ipcRequest(ChoosePathRequest)
-	private async onChoosePath(
-		params: IpcParams<typeof ChoosePathRequest>,
-	): Promise<IpcResponse<typeof ChoosePathRequest>> {
-		const { repoUri: repoPath, ref, title, initialPath } = params;
-		const repo = this.container.git.getRepository(repoPath);
-		if (repo == null) {
-			return { picked: undefined };
+	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): TimelineServices {
+		const base = createSharedServices(
+			this.container,
+			this.host,
+			context => {
+				this._telemetryContext = context as TimelineWebviewTelemetryContext;
+			},
+			buffer,
+			tracker,
+		);
+
+		return proxyServices({
+			...base,
+
+			timeline: {
+				// --- Lifecycle ---
+				getInitialContext: () => this.getInitialContext(),
+
+				// --- View-specific data ---
+				getDataset: (scope, config, signal) => this.getDatasetForRpc(scope, config, signal),
+
+				// --- View-specific event (host-driven, requires VS Code API) ---
+				onScopeChanged: createEventSubscription<ScopeChangedEvent | undefined>(
+					buffer,
+					'scopeChanged',
+					'save-last',
+					buffered => this._onScopeChanged.event(buffered),
+					undefined,
+					tracker,
+				),
+
+				// --- User actions ---
+				selectDataPoint: params => this.onSelectDataPoint(params),
+				chooseRef: params => this.onChooseRef(params),
+				choosePath: params => this.onChoosePath(params),
+				chooseRepo: () => this.chooseRepo(),
+				openInEditor: scope => this.openInEditor(scope),
+			},
+		} satisfies TimelineServices);
+	}
+
+	// ============================================================
+	// RPC service methods
+	// ============================================================
+
+	private async getInitialContext(): Promise<TimelineInitialContext> {
+		let scope = this._showingScope;
+
+		// If no scope from showing args, derive from the active tab captured at onShowing time
+		// (by the time getInitialContext runs, the timeline panel may have taken focus)
+		if (scope == null) {
+			const uri = await ensureWorkingUri(this.container, this._showingActiveTabUri ?? this.activeTabUri);
+			if (uri != null) {
+				scope = { type: 'file', uri: uri };
+			} else if (this.host.is('editor')) {
+				const repoUri = this.container.git.getBestRepositoryOrFirst()?.uri;
+				if (repoUri != null) {
+					scope = { type: 'repo', uri: repoUri };
+				}
+			}
 		}
 
-		const picked = await showRevisionFilesPicker(this.container, createReference(ref?.ref ?? 'HEAD', repo.path), {
-			allowFolders: true,
-			initialPath: initialPath,
-			title: title,
-		});
+		let serialized: TimelineScopeSerialized | undefined;
+		if (scope != null) {
+			const { git } = this.container;
+			if (git.isDiscoveringRepositories) {
+				await git.isDiscoveringRepositories;
+			}
+
+			const repo =
+				git.getRepository(scope.uri) ?? (await git.getOrOpenRepository(scope.uri, { closeOnOpen: true }));
+			if (repo != null) {
+				if (areUrisEqual(scope.uri, repo.uri)) {
+					scope.type = 'repo';
+				}
+
+				scope.head ??= getReference(await repo.git.branches.getBranch());
+				scope.base ??= scope.head;
+
+				const relativePath = git.getRelativePath(scope.uri, repo.uri);
+				serialized = serializeTimelineScope(scope as Required<TimelineScope>, relativePath);
+
+				// Side-effects
+				this.ensureRepoWatching(repo);
+				this.updateViewTitle(scope, repo);
+			}
+		}
+
+		this._currentScope = scope;
+		this.fireFileSelected();
+
+		const configOverrides = this._showingConfigOverrides;
+		this._showingConfigOverrides = undefined;
 
 		return {
-			picked:
-				picked != null
-					? {
-							type: picked.type,
-							relativePath: this.container.git.getRelativePath(picked.uri, repo.uri),
-						}
-					: undefined,
+			scope: serialized,
+			configOverrides: configOverrides,
+			displayConfig: {
+				abbreviatedShaLength: configuration.get('advanced.abbreviatedShaLength'),
+				dateFormat: configuration.get('defaultDateFormat') ?? '',
+				shortDateFormat: configuration.get('defaultDateShortFormat') ?? '',
+			},
 		};
 	}
 
-	@ipcRequest(ChooseRefRequest)
-	private async onChooseRef(
-		params: IpcParams<typeof ChooseRefRequest>,
-	): Promise<IpcResponse<typeof ChooseRefRequest>> {
-		const { scope } = this._context;
-		if (scope == null || params.scope == null) return undefined;
+	private async getDatasetForRpc(
+		scopeSerialized: TimelineScopeSerialized,
+		config: TimelineConfig,
+		signal?: AbortSignal,
+	): Promise<TimelineDatasetResult> {
+		const scope = deserializeTimelineScope(scopeSerialized);
 
-		const repo = this.container.git.getRepository(params.scope.uri);
-		if (repo == null) return undefined;
+		const { git } = this.container;
+		if (git.isDiscoveringRepositories) {
+			await git.isDiscoveringRepositories;
+		}
+		signal?.throwIfAborted();
 
-		if (!areTimelineScopesEqual(params.scope, scope)) {
-			debugger;
-			await this.updateScope(deserializeTimelineScope(params.scope));
+		const repo = git.getRepository(scope.uri) ?? (await git.getOrOpenRepository(scope.uri, { closeOnOpen: true }));
+		if (repo == null) {
+			const access = await this.container.subscription.getSubscription();
+			return {
+				dataset: [],
+				scope: scopeSerialized,
+				repository: undefined,
+				access: { allowed: false, subscription: { current: access } },
+			};
 		}
 
-		let ref = params.type === 'base' ? scope.base : scope.head;
-
-		const include: ReferencesQuickPickIncludes[] = ['branches', 'tags', 'HEAD'];
-		if (!repo.virtual && !this._context.config.showAllBranches && params.type !== 'base') {
-			include.push('allBranches');
+		// Reconstruct the correct scope URI from the repo URI + relativePath.
+		// The webview may have changed relativePath (via choosePath/changeScope) without
+		// updating the serialized URI, so we must rebuild it here.
+		if (scopeSerialized.relativePath && scope.type !== 'repo') {
+			scope.uri = Uri.joinPath(repo.uri, scopeSerialized.relativePath);
 		}
 
-		const pick = await showReferencePicker2(
-			repo.path,
-			params.type === 'base' ? 'Choose a Base Reference' : 'Choose a Head Reference',
-			params.type === 'base'
-				? 'Choose a reference (branch, tag, etc) as the base to view history from'
-				: 'Choose a reference (branch, tag, etc) as the head to view history for',
-			{
-				allowedAdditionalInput: { rev: true /*, range: true */ },
-				picked: ref?.ref,
-				include: include,
-				sort: true,
-			},
-		);
-
-		// All branches case
-		if (pick.directive === Directive.RefsAllBranches) {
-			return { type: params.type, ref: null };
+		// Enrich scope: resolve type, head, base, relativePath
+		if (areUrisEqual(scope.uri, repo.uri)) {
+			scope.type = 'repo';
 		}
-		if (pick.value == null) return undefined;
+		scope.head ??= getReference(await repo.git.branches.getBranch());
+		scope.base ??= scope.head;
+		const relativePath = git.getRelativePath(scope.uri, repo.uri);
+		const enrichedScope = serializeTimelineScope(scope as Required<TimelineScope>, relativePath);
+		signal?.throwIfAborted();
 
-		if (pick.value.ref === 'HEAD') {
-			ref = getReference(pick.value);
-		} else {
-			ref = getReference(pick.value);
+		// Track scope for operational methods
+		const prevScope = this._currentScope;
+		this._currentScope = scope;
+		if (!areTimelineScopesEqual(scope, prevScope)) {
+			this.host.sendTelemetryEvent('timeline/scope/changed');
 		}
-		return { type: params.type, ref: ref };
+
+		// Side-effects
+		this.ensureRepoWatching(repo);
+		this.updateViewTitle(scope, repo);
+
+		const access = await git.access('timeline', repo.uri);
+		signal?.throwIfAborted();
+		const dataset = await this.computeDataset(scope, repo, config, access);
+
+		return {
+			dataset: dataset,
+			scope: enrichedScope,
+			repository: { ...toRepositoryShape(repo), ref: scope.head },
+			access: access,
+		};
 	}
 
-	@ipcCommand(SelectDataPointCommand)
-	private async onSelectDataPoint(params: IpcParams<typeof SelectDataPointCommand>) {
+	// ============================================================
+	// User action methods (called via RPC)
+	// ============================================================
+
+	private async onSelectDataPoint(params: SelectDataPointParams) {
 		if (params.scope == null || params.id == null) return;
 
 		// If already processing a change, store this request and return
@@ -402,122 +502,105 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	@ipcCommand(UpdateConfigCommand)
-	private onUpdateConfig(params: IpcParams<typeof UpdateConfigCommand>) {
-		const { config } = this._context;
+	private async onChooseRef(params: ChooseRefParams): Promise<DidChooseRefParams> {
+		if (params.scope == null) return undefined;
 
-		let changed = false;
-
-		const { changes } = params;
-		if (changes.period != null && changes.period !== config.period) {
-			changed = true;
-			config.period = changes.period;
-		}
-
-		if (changes.showAllBranches != null && changes.showAllBranches !== config.showAllBranches) {
-			changed = true;
-			config.showAllBranches = changes.showAllBranches;
-
-			if (config.sliceBy === 'branch' && !config.showAllBranches) {
-				config.sliceBy = 'author';
-			}
-		}
-
-		if (changes.sliceBy != null && changes.sliceBy !== config.sliceBy) {
-			changed = true;
-			config.sliceBy = changes.sliceBy;
-
-			if (config.sliceBy === 'branch' && !config.showAllBranches) {
-				config.showAllBranches = true;
-			}
-		}
-
-		if (changed) {
-			this.host.sendTelemetryEvent('timeline/config/changed', {
-				period: config.period,
-				showAllBranches: config.showAllBranches,
-				sliceBy: config.sliceBy,
-			});
-
-			this._cache.clear();
-			this.updateState(true);
-		}
-	}
-
-	@ipcCommand(UpdateScopeCommand)
-	private async onUpdateScopeHandler(params: IpcParams<typeof UpdateScopeCommand>) {
-		if (params.scope == null) return;
-
-		let repo = this.container.git.getRepository(params.scope.uri);
-		if (repo == null) return;
+		const repo = this.container.git.getRepository(params.scope.uri);
+		if (repo == null) return undefined;
 
 		const scope = deserializeTimelineScope(params.scope);
+		const ref = params.type === 'base' ? scope.base : scope.head;
 
-		const {
-			changes: { type, head, base, relativePath },
-		} = params;
-
-		let changed = false;
-		if (type != null && type !== scope.type) {
-			changed = true;
-			scope.type = type;
-			if (type === 'repo') {
-				scope.uri = repo.uri;
-			}
-		} else if (type === 'repo' && scope.type === 'repo') {
-			const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
-				this.container.git.openRepositories,
-				'Switch',
-				repo?.name,
-			);
-			const result = await showRepositoryPicker2(
-				this.container,
-				title,
-				placeholder,
-				this.container.git.openRepositories,
-				{ picked: repo },
-			);
-			if (result.value != null && !areUrisEqual(result.value.uri, scope.uri)) {
-				repo = result.value;
-				changed = true;
-				scope.uri = result.value.uri;
-				scope.head = undefined;
-				scope.base = undefined;
-			}
+		const include: ReferencesQuickPickIncludes[] = ['branches', 'tags', 'HEAD'];
+		if (!repo.virtual && !params.showAllBranches && params.type !== 'base') {
+			include.push('allBranches');
 		}
 
-		if (head !== undefined) {
-			changed = true;
-			scope.head = head ?? undefined;
+		const pick = await showReferencePicker2(
+			repo.path,
+			params.type === 'base' ? 'Choose a Base Reference' : 'Choose a Head Reference',
+			params.type === 'base'
+				? 'Choose a reference (branch, tag, etc) as the base to view history from'
+				: 'Choose a reference (branch, tag, etc) as the head to view history for',
+			{
+				allowedAdditionalInput: { rev: true /*, range: true */ },
+				picked: ref?.ref,
+				include: include,
+				sort: true,
+			},
+		);
+
+		// All branches case
+		if (pick.directive === Directive.RefsAllBranches) {
+			return { type: params.type, ref: null };
 		}
+		if (pick.value == null) return undefined;
 
-		if (base !== undefined) {
-			changed = true;
-			scope.base = base ?? undefined;
-		}
-
-		if (relativePath != null) {
-			changed = true;
-			scope.uri = this.container.git.getAbsoluteUri(relativePath, repo.uri);
-		}
-
-		// If we are changing the type, and in the view, open it in the editor
-		if (this.host.is('view') || params.altOrShift) {
-			void executeCommand<TimelineScope>('gitlens.visualizeHistory', scope);
-			this.host.sendTelemetryEvent('timeline/action/openInEditor', {
-				'scope.type': scope.type,
-				'scope.hasHead': scope.head != null,
-				'scope.hasBase': scope.base != null,
-			});
-			return;
-		}
-
-		if (!changed) return;
-
-		void this.updateScope(scope);
+		return { type: params.type, ref: getReference(pick.value) };
 	}
 
-	private _tabCloseDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+	private async onChoosePath(params: ChoosePathParams): Promise<DidChoosePathParams> {
+		const { repoUri: repoPath, ref, title, initialPath } = params;
+		const repo = this.container.git.getRepository(repoPath);
+		if (repo == null) {
+			return { picked: undefined };
+		}
+
+		const picked = await showRevisionFilesPicker(this.container, createReference(ref?.ref ?? 'HEAD', repo.path), {
+			allowFolders: true,
+			initialPath: initialPath,
+			title: title,
+		});
+
+		return {
+			picked:
+				picked != null
+					? {
+							type: picked.type,
+							relativePath: this.container.git.getRelativePath(picked.uri, repo.uri),
+						}
+					: undefined,
+		};
+	}
+
+	private async chooseRepo(): Promise<ScopeChangedEvent | undefined> {
+		const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
+			this.container.git.openRepositories,
+			'Switch',
+		);
+
+		const result = await showRepositoryPicker2(
+			this.container,
+			title,
+			placeholder,
+			this.container.git.openRepositories,
+		);
+
+		if (result.value == null) return undefined;
+		return { uri: result.value.uri.toString(), type: 'repo' };
+	}
+
+	private openInEditor(scopeSerialized: TimelineScopeSerialized): void {
+		const scope = deserializeTimelineScope(scopeSerialized);
+		// Reconstruct URI from relativePath — the webview may have changed
+		// relativePath (via choosePath/changeScope) without updating the URI
+		if (scopeSerialized.relativePath && scope.type !== 'repo') {
+			const repo = this.container.git.getRepository(scope.uri);
+			if (repo != null) {
+				scope.uri = Uri.joinPath(repo.uri, scopeSerialized.relativePath);
+			}
+		}
+		void executeCommand<TimelineScope>('gitlens.visualizeHistory', scope);
+		this.host.sendTelemetryEvent('timeline/action/openInEditor', {
+			'scope.type': scope.type,
+			'scope.hasHead': scope.head != null,
+			'scope.hasBase': scope.base != null,
+		});
+	}
+
+	// ============================================================
+	// Internal event handlers
+	// ============================================================
 
 	@trace({ args: false })
 	private async onTabsChanged(_e: TabGroupChangeEvent | TabChangeEvent) {
@@ -528,21 +611,18 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const uri = await ensureWorkingUri(this.container, this.activeTabUri);
 		if (uri == null) {
-			this._tabCloseDebounceTimer = setTimeout(async () => {
+			// Tab closed — debounce before firing scope cleared
+			this._tabCloseDebounceTimer = setTimeout(() => {
 				this._tabCloseDebounceTimer = undefined;
-				const changed = await this.updateScope(uri, undefined, true);
-				if (changed) {
-					this.host.sendTelemetryEvent('timeline/editor/changed');
-				}
+				this._onScopeChanged.fire(undefined);
+				this.host.sendTelemetryEvent('timeline/editor/changed');
 			}, 1000);
 
 			return;
 		}
 
-		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined, undefined, true);
-		if (changed) {
-			this.host.sendTelemetryEvent('timeline/editor/changed');
-		}
+		this._onScopeChanged.fire({ uri: uri.toString(), type: 'file' });
+		this.host.sendTelemetryEvent('timeline/editor/changed');
 	}
 
 	@trace({ args: false })
@@ -555,131 +635,85 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		uri = await ensureWorkingUri(this.container, uri ?? this.activeTabUri);
-		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined, undefined, true);
-		if (changed) {
+		if (uri != null) {
+			this._onScopeChanged.fire({ uri: uri.toString(), type: 'file' });
 			this.host.sendTelemetryEvent('timeline/editor/changed');
 		}
 	}
 
+	// ============================================================
+	// Internal helpers
+	// ============================================================
+
+	private async fireScopeForActiveTab(): Promise<void> {
+		const uri = await ensureWorkingUri(this.container, this.activeTabUri);
+		if (uri != null) {
+			this._onScopeChanged.fire({ uri: uri.toString(), type: 'file' });
+		} else {
+			this._onScopeChanged.fire(undefined);
+		}
+	}
+
 	private fireFileSelected() {
-		if (this._context.scope?.type !== 'file' || !this.host.is('editor')) return;
+		if (this._currentScope?.type !== 'file' || !this.host.is('editor')) return;
 
 		this.container.events.fire(
 			'file:selected',
-			{ uri: this._context.scope.uri, preserveFocus: true, preserveVisibility: false },
+			{ uri: this._currentScope.uri, preserveFocus: true, preserveVisibility: false },
 			{ source: this.host.id },
 		);
 	}
 
-	@trace({ args: false })
-	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
-		if (this._context.etags.repositories === e.etag) return;
-		void this.updateScope(this._context.scope);
+	private ensureRepoWatching(repo: Repository): void {
+		if (this._repositorySubscription?.source === repo) return;
+
+		this._repositorySubscription?.dispose();
+		this._repositorySubscription = new SubscriptionManager(repo, r => this.subscribeToRepository(r));
+		if (this.host.visible) {
+			this._repositorySubscription.start();
+		}
 	}
 
-	@trace({ args: false })
-	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (!e.changed('heads', 'index')) {
-			return;
+	private subscribeToRepository(repo: Repository): Disposable {
+		// Start file system watching so the repo detects changes promptly.
+		// Repo state changes flow through container.git.onDidChangeRepository,
+		// which the generic factory events relay to the webview.
+		return repo.watchFileSystem(1000);
+	}
+
+	private updateViewTitle(scope: TimelineScope | undefined, repo: Repository | undefined): void {
+		let title = '';
+
+		if (scope != null && repo != null) {
+			if (scope.type === 'file' || scope.type === 'folder') {
+				title = basename(this.container.git.getRelativePath(scope.uri, repo.uri));
+				if (scope.head) {
+					title += ` (${scope.head.ref})`;
+				}
+				if (this.container.git.repositoryCount > 1) {
+					title += ` \u2022 ${repo.name}`;
+				}
+			} else if (scope.head) {
+				title += scope.head.name;
+				if (this.container.git.repositoryCount > 1) {
+					title += ` \u2022 ${repo.name}`;
+				}
+			} else {
+				title = repo.name;
+			}
 		}
 
-		if (this._context.etags.repository === e.repository.etag) return;
-		void this.updateScope(this._context.scope);
-	}
-
-	@trace({ args: false })
-	private onRepositoryWipChanged(e: RepositoryFileSystemChangeEvent) {
-		if (e.repository.id !== this._repositorySubscription?.source?.id) return;
-
-		if (this._context.etags.repositoryWip === e.repository.etagFileSystem) return;
-
-		const uri = this._context.scope?.uri;
-		if (uri != null && (e.uris.has(uri) || some(e.uris, u => isDescendant(u, uri)))) {
-			void this.updateScope(this._context.scope);
+		if (this.host.is('editor')) {
+			this.host.title = title || 'Visual History';
 		} else {
-			this._context.etags.repositoryWip = e.repository.etagFileSystem;
+			this.host.description = title || proBadge;
 		}
 	}
 
-	@trace({ args: false })
-	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
-		if (this._context.etags.subscription === e.etag) return;
-		void this.updateScope(this._context.scope);
-	}
-
-	@trace({ args: false })
-	private async getState(context: Context, includeDataset: boolean): Promise<State> {
-		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
-		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
-
-		const { git } = this.container;
-		const { scope } = context;
-
-		const config: State['config'] = {
-			...context.config,
-			abbreviatedShaLength: this.container.CommitShaFormatting.length,
-			dateFormat: dateFormat,
-			shortDateFormat: shortDateFormat,
-		};
-
-		if (git.isDiscoveringRepositories) {
-			await git.isDiscoveringRepositories;
-		}
-
-		const repo =
-			scope?.uri != null
-				? (git.getRepository(scope.uri) ?? (await git.getOrOpenRepository(scope.uri, { closeOnOpen: true })))
-				: undefined;
-		const access = await git.access('timeline', repo?.uri);
-
-		if (scope == null || repo == null) {
-			return {
-				...this.host.baseWebviewState,
-				dataset: undefined,
-				config: config,
-				scope: undefined,
-				repository: undefined,
-				repositories: { count: 0, openCount: 0 },
-				access: access,
-			};
-		}
-
-		const { uri } = scope;
-		const relativePath = git.getRelativePath(uri, repo.uri);
-		const ref = getReference(await repo.git.branches.getBranch());
-		const repository: State['repository'] = repo != null ? { ...toRepositoryShape(repo), ref: ref } : undefined;
-
-		scope.head ??= ref;
-		if (scope.base == null) {
-			// const mergeTarget = await repo.git2.branches.getBestMergeTargetBranchName?.(scope.head!.ref);
-			// if (mergeTarget != null) {
-			// 	const mergeBase = await repo.git2.refs.getMergeBase?.(scope.head!.ref, mergeTarget);
-			// 	if (mergeBase != null) {
-			// 		scope.base = createReference(mergeBase, repo.path, { refType: 'revision' });
-			// 	}
-			// }
-
-			scope.base ??= scope.head;
-		}
-
-		return {
-			...this.host.baseWebviewState,
-			dataset: includeDataset ? this.getDataset(scope, repo, context.config, access) : undefined,
-			config: config,
-			scope: serializeTimelineScope(scope as Required<TimelineScope>, relativePath),
-			repository: repository,
-			repositories: {
-				count: this.container.git.repositoryCount,
-				openCount: this.container.git.openRepositoryCount,
-			},
-			access: access,
-		};
-	}
-
-	private async getDataset(
+	private async computeDataset(
 		scope: TimelineScope,
 		repo: Repository,
-		config: Context['config'],
+		config: TimelineConfig,
 		access: RepoFeatureAccess | FeatureAccess,
 	): Promise<TimelineDatum[]> {
 		if (access.allowed === false) {
@@ -897,136 +931,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				break;
 		}
 	}
-
-	private _repositorySubscription: SubscriptionManager<Repository> | undefined;
-
-	private async updateScope(
-		scope: TimelineScope | undefined,
-		silent?: boolean,
-		allowEquivalent?: boolean,
-	): Promise<boolean> {
-		if (this._tabCloseDebounceTimer != null) {
-			clearTimeout(this._tabCloseDebounceTimer);
-			this._tabCloseDebounceTimer = undefined;
-		}
-
-		const etags: Context['etags'] = {
-			repositories: this.container.git.etag,
-			repository: undefined,
-			repositoryWip: undefined,
-			subscription: this.container.subscription.etag,
-		};
-		let title = '';
-
-		if (scope != null) {
-			if (this.container.git.isDiscoveringRepositories) {
-				await this.container.git.isDiscoveringRepositories;
-			}
-
-			const repo = this.container.git.getRepository(scope.uri);
-
-			if (this._repositorySubscription?.source !== repo) {
-				this._repositorySubscription?.dispose();
-				this._repositorySubscription = undefined;
-			}
-
-			if (repo != null) {
-				if (areUrisEqual(scope.uri, repo.uri)) {
-					scope.type = 'repo';
-					scope.head ??= getReference(await repo.git.branches.getBranch());
-				}
-
-				this._repositorySubscription ??= new SubscriptionManager(repo, r => this.subscribeToRepository(r));
-
-				if (scope.type === 'file' || scope.type === 'folder') {
-					title = basename(this.container.git.getRelativePath(scope.uri, repo.uri));
-					if (scope.head) {
-						title += ` (${scope.head.ref})`;
-					}
-					if (this.container.git.repositoryCount > 1) {
-						title += ` \u2022 ${repo.name}`;
-					}
-				} else if (scope.head) {
-					title += scope.head.name;
-					if (this.container.git.repositoryCount > 1) {
-						title += ` \u2022 ${repo.name}`;
-					}
-				} else {
-					title = repo.name;
-				}
-			}
-
-			etags.repository = repo?.etag ?? 0;
-			etags.repositoryWip = repo?.etagFileSystem ?? 0;
-		} else {
-			this._repositorySubscription?.dispose();
-			this._repositorySubscription = undefined;
-
-			etags.repository = 0;
-			etags.repositoryWip = 0;
-		}
-
-		if (this.host.visible) {
-			this._repositorySubscription?.start();
-		}
-
-		if (
-			areEtagsEqual(this._context.etags, etags) &&
-			(allowEquivalent
-				? areTimelineScopesEquivalent(scope, this._context.scope)
-				: areTimelineScopesEqual(scope, this._context.scope))
-		) {
-			return false;
-		}
-
-		this._cache.clear();
-		this._context.scope = scope;
-		this._context.etags = etags;
-
-		if (this.host.is('editor')) {
-			this.host.title = title || 'Visual History';
-		} else {
-			this.host.description = title || proBadge;
-		}
-
-		this.fireFileSelected();
-		this.host.sendTelemetryEvent('timeline/scope/changed');
-
-		if (!silent) {
-			this.updateState();
-		}
-		return true;
-	}
-
-	private subscribeToRepository(repo: Repository): Disposable {
-		return Disposable.from(
-			// TODO: advanced configuration for the watchFileSystem timing
-			repo.watchFileSystem(1000),
-			repo.onDidChangeFileSystem(this.onRepositoryWipChanged, this),
-			repo.onDidChange(this.onRepositoryChanged, this),
-		);
-	}
-
-	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
-
-	@trace()
-	private updateState(immediate: boolean = false) {
-		if (immediate) {
-			void this.notifyDidChangeState();
-			return;
-		}
-
-		this._notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 500);
-		this._notifyDidChangeStateDebounced();
-	}
-
-	@trace()
-	private async notifyDidChangeState() {
-		this._notifyDidChangeStateDebounced?.cancel();
-
-		const state = await this._cache.getOrCreate('state', () => this.getState(this._context, true));
-		return this.host.notify(DidChangeNotification, { state: state });
-	}
 }
 
 function createDatum(commit: GitCommit, scopeType: TimelineScopeType, currentUserName: string): TimelineDatum {
@@ -1124,13 +1028,4 @@ function generateRandomTimelineDataset(itemType: TimelineScopeType): TimelineDat
 	}
 
 	return dataset.sort((a, b) => b.sort - a.sort);
-}
-
-function areEtagsEqual(a: Context['etags'], b: Context['etags']): boolean {
-	return (
-		a.repositories === b.repositories &&
-		a.repository === b.repository &&
-		a.repositoryWip === b.repositoryWip &&
-		a.subscription === b.subscription
-	);
 }
