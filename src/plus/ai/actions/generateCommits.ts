@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { md5 } from '@env/crypto.js';
 import type { Source } from '../../../constants.telemetry.js';
 import { CancellationError } from '../../../errors.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -99,6 +100,26 @@ export async function generateCommits(
 
 					const customInstructions =
 						customInstructionParts.length > 0 ? customInstructionParts.join('\n\n') : undefined;
+
+					// Report diff and custom instruction details for telemetry
+					reporting['diff.files.count'] = new Set(hunks.map(h => h.fileName)).size;
+					reporting['diff.hunks.count'] = hunks.length;
+					reporting['diff.lines.count'] = hunks.reduce(
+						(total, h) =>
+							total + h.content.split('\n').filter(l => l.startsWith('+') || l.startsWith('-')).length,
+						0,
+					);
+					reporting['diff.hash'] = md5(hunks.map(h => h.content).join('\n'));
+
+					reporting['customInstructions.commitMessage.setting.used'] = Boolean(
+						generateCommitMessageCustomInstructions,
+					);
+					reporting['customInstructions.commitMessage.setting.length'] =
+						generateCommitMessageCustomInstructions?.length ?? 0;
+					reporting['customInstructions.setting.used'] = Boolean(generateCommitsCustomInstructions);
+					reporting['customInstructions.setting.length'] = generateCommitsCustomInstructions?.length ?? 0;
+					reporting['customInstructions.used'] = Boolean(options?.customInstructions);
+					reporting['customInstructions.length'] = options?.customInstructions?.length ?? 0;
 
 					const { prompt } = await service.getPrompt(
 						'generate-commits',

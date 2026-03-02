@@ -137,6 +137,10 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 
 			steps.markStepsComplete();
 
+			this.container.telemetry.sendEvent('gitCommand/run', {
+				command: state.mode === 'pop' ? 'stash-pop' : 'stash-apply',
+			});
+
 			try {
 				await state.repo.git.stash?.applyStash(
 					state.mode === 'pop' ? `stash@{${state.reference.stashNumber}}` : state.reference.ref,

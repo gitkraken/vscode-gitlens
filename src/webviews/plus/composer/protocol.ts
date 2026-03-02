@@ -165,6 +165,7 @@ export interface ComposerContext {
 		files: number;
 		hunks: number;
 		lines: number;
+		hash: string;
 		staged: boolean;
 		unstaged: boolean;
 		commits: boolean;
@@ -238,6 +239,7 @@ export const baseContext: ComposerContext = {
 		files: 0,
 		hunks: 0,
 		lines: 0,
+		hash: '',
 		staged: false,
 		unstaged: false,
 		commits: false,

@@ -98,6 +98,8 @@ export class MergeGitCommand extends QuickCommand<State> {
 			options.noCommit = true;
 		}
 
+		this.container.telemetry.sendEvent('gitCommand/run', { command: 'merge' });
+
 		try {
 			await state.repo.git.ops?.merge(state.reference.ref, options);
 		} catch (ex) {
@@ -117,6 +119,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 			}
 
 			if (MergeError.is(ex, 'conflicts')) {
+				this.container.telemetry.sendEvent('gitCommand/conflict', { command: 'merge' });
 				void window.showWarningMessage(
 					'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
 				);

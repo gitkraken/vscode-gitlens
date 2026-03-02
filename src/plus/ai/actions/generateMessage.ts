@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { md5 } from '@env/crypto.js';
 import type { Source } from '../../../constants.telemetry.js';
 import { AINoRequestDataError, CancellationError } from '../../../errors.js';
 import type { Repository } from '../../../git/models/repository.js';
@@ -35,13 +36,24 @@ export async function generateCommitMessage(
 				if (changes == null) throw new AINoRequestDataError('No changes to generate a commit message from.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
+				const customInstructions = configuration.get('ai.generateCommitMessage.customInstructions');
+
+				// Report diff and custom instruction details for telemetry
+				reporting['diff.files.count'] = (changes.match(/^diff --git /gm) ?? []).length;
+				reporting['diff.hunks.count'] = (changes.match(/^@@ /gm) ?? []).length;
+				reporting['diff.lines.count'] = (changes.match(/^[+-](?![+-]{2} )/gm) ?? []).length;
+				reporting['diff.hash'] = md5(changes);
+
+				reporting['customInstructions.setting.used'] = Boolean(customInstructions);
+				reporting['customInstructions.setting.length'] = customInstructions?.length ?? 0;
+
 				const { prompt } = await service.getPrompt(
 					'generate-commitMessage',
 					model,
 					{
 						diff: changes,
 						context: options?.context,
-						instructions: configuration.get('ai.generateCommitMessage.customInstructions'),
+						instructions: customInstructions,
 					},
 					maxInputTokens,
 					retries,
