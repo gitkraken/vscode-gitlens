@@ -34,6 +34,7 @@ export const composerItemStyles = css`
 		--composer-item-background: var(--vscode-list-activeSelectionBackground, var(--color-background));
 		--composer-item-icon-color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
 		--composer-item-color: var(--vscode-list-activeSelectionForeground);
+		transition: none;
 	}
 
 	:host-context(.vscode-high-contrast) .composer-item.is-selected,

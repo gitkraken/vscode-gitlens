@@ -47,7 +47,6 @@ export class GlDiffFile extends LitElement {
 	@query('#diff')
 	targetElement!: HTMLDivElement;
 
-	@state()
 	private diffText?: string;
 
 	@state()
@@ -79,6 +78,7 @@ export class GlDiffFile extends LitElement {
 	private diff2htmlUi?: Diff2HtmlUI;
 	private intersectionObserver?: IntersectionObserver;
 	private detailsToggleListener?: () => void;
+	private _processingTimer?: ReturnType<typeof setTimeout>;
 
 	override connectedCallback() {
 		super.connectedCallback?.();
@@ -87,20 +87,20 @@ export class GlDiffFile extends LitElement {
 
 	override disconnectedCallback() {
 		super.disconnectedCallback?.();
+		this.cancelScheduledProcessing();
 		this.intersectionObserver?.disconnect();
 		this.intersectionObserver = undefined;
-	}
-
-	override firstUpdated() {
-		this.processDiff();
-		this.renderDiff();
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
 
-		if (changedProperties.has('diffText') || changedProperties.has('filename') || changedProperties.has('hunks')) {
-			this.processDiff();
+		if (changedProperties.has('filename') || changedProperties.has('hunks')) {
+			// Invalidate stale parsed data so that if the element is offscreen
+			// (and scheduleProcessing no-ops), the isVisible handler will know
+			// reprocessing is needed when the element scrolls back into view.
+			this.parsedDiff = undefined;
+			this.scheduleProcessing();
 		}
 
 		if (changedProperties.has('parsedDiff') || changedProperties.has('sideBySide')) {
@@ -109,7 +109,33 @@ export class GlDiffFile extends LitElement {
 			this.userExpandedState = undefined;
 			this.renderDiff();
 		} else if (changedProperties.has('isVisible')) {
+			if (this.isVisible && !this.parsedDiff && this.hunks?.length) {
+				// Element became visible but hasn't been processed yet — schedule it
+				this.scheduleProcessing();
+			}
 			this.renderDiff();
+		}
+	}
+
+	/**
+	 * Defers diff processing to a macrotask so it doesn't block the browser's
+	 * paint. Without this, selecting a commit with many files causes all
+	 * `parseDiff()` calls to run synchronously in Lit's microtask batch,
+	 * delaying the commits panel's selection highlight until every diff is parsed.
+	 */
+	private scheduleProcessing() {
+		this.cancelScheduledProcessing();
+		this._processingTimer = setTimeout(() => {
+			this._processingTimer = undefined;
+			if (!this.isConnected || !this.isVisible) return;
+			this.processDiff();
+		}, 0);
+	}
+
+	private cancelScheduledProcessing() {
+		if (this._processingTimer != null) {
+			clearTimeout(this._processingTimer);
+			this._processingTimer = undefined;
 		}
 	}
 
