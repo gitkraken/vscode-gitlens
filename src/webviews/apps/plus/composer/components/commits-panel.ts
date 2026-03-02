@@ -852,13 +852,34 @@ export class CommitsPanel extends LitElement {
 
 		const multiSelect = e?.shiftKey ?? false;
 
+		// Immediately update local visual selection for instant highlight.
+		// For shift-click in recompose mode, range selection depends on parent
+		// state (anchorCommitId) so we let the parent handle it.
 		if (!multiSelect) {
-			// Immediately update local visual selection for instant highlight
 			this._selectedCommitId = commitId;
 			this._selectedCommitIds = new Set();
-			this._selectedUnassignedSection = null;
-			this._compositionSummarySelected = false;
+		} else if (!this.recompose?.enabled) {
+			// Toggle-style multi-select: replicate parent logic locally
+			const newSelection = new Set(this._selectedCommitIds);
+			if (this._selectedCommitId && newSelection.size === 0) {
+				newSelection.add(this._selectedCommitId);
+			}
+			if (newSelection.has(commitId)) {
+				newSelection.delete(commitId);
+			} else {
+				newSelection.add(commitId);
+			}
+
+			if (newSelection.size === 1) {
+				this._selectedCommitId = [...newSelection][0];
+				this._selectedCommitIds = new Set();
+			} else {
+				this._selectedCommitId = null;
+				this._selectedCommitIds = newSelection;
+			}
 		}
+		this._selectedUnassignedSection = null;
+		this._compositionSummarySelected = false;
 
 		this.dispatchAfterPaint(
 			new CustomEvent('commit-select', {
@@ -1011,7 +1032,7 @@ export class CommitsPanel extends LitElement {
 		const gen = ++this._pendingDispatch;
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
-				if (gen !== this._pendingDispatch) return;
+				if (gen !== this._pendingDispatch || !this.isConnected) return;
 				this.dispatchEvent(event);
 			});
 		});
