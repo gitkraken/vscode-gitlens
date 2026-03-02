@@ -461,7 +461,9 @@ export class CommitsPanel extends LitElement {
 			this._selectedCommitId = this.selectedCommitId;
 		}
 		if (changedProperties.has('selectedCommitIds')) {
-			this._selectedCommitIds = this.selectedCommitIds;
+			// Defensive copy: isolates internal state from in-place mutations
+			// on the parent's Set (e.g. clear()/add() without creating a new Set)
+			this._selectedCommitIds = new Set(this.selectedCommitIds);
 		}
 		if (changedProperties.has('selectedUnassignedSection')) {
 			this._selectedUnassignedSection = this.selectedUnassignedSection;

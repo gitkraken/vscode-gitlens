@@ -96,6 +96,10 @@ export class GlDiffFile extends LitElement {
 		super.updated(changedProperties);
 
 		if (changedProperties.has('filename') || changedProperties.has('hunks')) {
+			// Invalidate stale parsed data so that if the element is offscreen
+			// (and scheduleProcessing no-ops), the isVisible handler will know
+			// reprocessing is needed when the element scrolls back into view.
+			this.parsedDiff = undefined;
 			this.scheduleProcessing();
 		}
 
