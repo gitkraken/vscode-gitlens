@@ -1024,20 +1024,16 @@ export class CommitsPanel extends LitElement {
 
 	/**
 	 * Dispatches an event after the browser has painted the current frame.
-	 * Uses double `requestAnimationFrame`: the first fires before the current
-	 * frame's paint, the second fires before the NEXT frame's paint — by which
-	 * point the current frame has been painted. This guarantees that local
-	 * selection state is visually rendered before the parent starts heavy work
-	 * (e.g. rendering diffs in the details panel).
+	 * Uses `setTimeout(0)` — per the spec the browser runs the rendering
+	 * step (style, layout, paint) between the current macrotask and the
+	 * next, so local DOM changes are painted before this callback fires.
 	 */
 	private dispatchAfterPaint(event: Event) {
 		const gen = ++this._pendingDispatch;
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				if (gen !== this._pendingDispatch || !this.isConnected) return;
-				this.dispatchEvent(event);
-			});
-		});
+		setTimeout(() => {
+			if (gen !== this._pendingDispatch || !this.isConnected) return;
+			this.dispatchEvent(event);
+		}, 0);
 	}
 
 	private handleCompositionFeedbackHelpful() {
