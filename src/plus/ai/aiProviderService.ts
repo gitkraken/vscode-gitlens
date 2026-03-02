@@ -78,6 +78,7 @@ import type {
 } from './models/promptTemplates.js';
 import type { AIChatMessage, AIProvider, AIProviderResponse, AIProviderResult } from './models/provider.js';
 import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils.js';
+import type { ResolvePromptOptions } from './utils/-webview/prompt.utils.js';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils.js';
 
 export interface AIResponse<T = void> extends AIProviderResponse<T> {
@@ -1079,6 +1080,7 @@ export class AIProviderService implements AIService, Disposable {
 		retries: number | undefined,
 		reporting: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
 		truncationHandler?: TruncationHandler<T>,
+		options?: ResolvePromptOptions,
 	): Promise<{ prompt: string; truncated: boolean }>;
 
 	async getPrompt<T extends PromptTemplateType>(
@@ -1089,6 +1091,7 @@ export class AIProviderService implements AIService, Disposable {
 		retries?: undefined,
 		reporting?: undefined,
 		truncationHandler?: undefined,
+		options?: undefined,
 	): Promise<{ prompt: string; truncated: boolean }>;
 
 	async getPrompt<T extends PromptTemplateType>(
@@ -1099,6 +1102,7 @@ export class AIProviderService implements AIService, Disposable {
 		retries?: number | undefined,
 		reporting?: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
 		truncationHandler?: TruncationHandler<T>,
+		options?: ResolvePromptOptions,
 	): Promise<{ prompt: string; truncated: boolean }> {
 		const promptTemplate = await this.getPromptTemplate(templateType, model);
 		if (promptTemplate == null) {
@@ -1115,7 +1119,16 @@ export class AIProviderService implements AIService, Disposable {
 			return resolvePrompt(undefined, promptTemplate, context, undefined, undefined, undefined, undefined);
 		}
 
-		return resolvePrompt(model, promptTemplate, context, maxInputTokens, retries, reporting, truncationHandler);
+		return resolvePrompt(
+			model,
+			promptTemplate,
+			context,
+			maxInputTokens,
+			retries,
+			reporting,
+			truncationHandler,
+			options,
+		);
 	}
 
 	@trace({

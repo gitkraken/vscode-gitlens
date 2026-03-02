@@ -20,6 +20,7 @@ export type GenerateCommitsOptions = {
 	progress?: ProgressOptions;
 	customInstructions?: string;
 	conversation?: AIConversation;
+	suppressLargePromptWarning?: boolean;
 };
 
 /**
@@ -112,6 +113,8 @@ export async function generateCommits(
 						maxInputTokens,
 						retries,
 						reporting,
+						undefined,
+						options?.suppressLargePromptWarning ? { suppressLargePromptWarning: true } : undefined,
 					);
 
 					conversation.addMessage({ role: 'user', content: prompt });

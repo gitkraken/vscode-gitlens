@@ -129,6 +129,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	// AI conversation map for generate commits (keyed by hunks hash)
 	private _generateCommitsConversations = new Map<string, AIConversation>();
 
+	// Suppress the large prompt warning after the first successful AI action in this session
+	private _suppressLargePromptWarning = false;
+
 	constructor(
 		protected readonly container: Container,
 		protected readonly host: WebviewHost<'gitlens.composer'>,
@@ -296,6 +299,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		isReload?: boolean,
 	): Promise<State> {
 		this._generateCommitsConversations.clear();
+		this._suppressLargePromptWarning = false;
 		this._currentRepository = repo;
 		this._hunks = hunks;
 
@@ -746,6 +750,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private onReset(): void {
 		this._context.operations.reset.count++;
 		this._generateCommitsConversations.clear();
+		this._suppressLargePromptWarning = false;
 		this.host.sendTelemetryEvent('composer/action/reset');
 	}
 
@@ -778,6 +783,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Clear cache to force fresh data on reload
 			this._cache.clear();
 			this._generateCommitsConversations.clear();
+			this._suppressLargePromptWarning = false;
 
 			let repo = this._currentRepository;
 			if (!repo || (params.repoPath != null && repo?.path !== params.repoPath)) {
@@ -929,6 +935,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private resetContext(): void {
 		this._context = { ...baseContext };
+		this._suppressLargePromptWarning = false;
 	}
 
 	onShowing(
@@ -1203,6 +1210,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					cancellation: this._generateCommitsCancellation.token,
 					customInstructions: params.customInstructions,
 					conversation: conversation,
+					suppressLargePromptWarning: this._suppressLargePromptWarning,
 				},
 			);
 
@@ -1220,6 +1228,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			if (result && result !== 'cancelled') {
+				// Suppress the large prompt warning for the rest of this session
+				this._suppressLargePromptWarning = true;
+
 				if (result.commits.length === 0) {
 					this._context.operations.generateCommits.errorCount++;
 					this._context.errors.operation.count++;
@@ -1371,6 +1382,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				{ source: 'composer', correlationId: this.host.instanceId },
 				{
 					cancellation: this._generateCommitMessageCancellation.token,
+					suppressLargePromptWarning: this._suppressLargePromptWarning,
 				},
 			);
 
