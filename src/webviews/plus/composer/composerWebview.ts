@@ -116,6 +116,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		branchName?: string;
 		locked: boolean;
 		commitShas?: string[];
+		messages?: string[];
 		range?: { base: string; head: string };
 	} | null = null;
 
@@ -300,14 +301,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const safetyState = await createSafetyState(repo, diffs, baseCommit?.sha, headCommitSha, branchName);
 		this._safetyState = safetyState;
-		if (branchName || (baseCommit && headCommitSha)) {
-			this._recompose = {
-				enabled: true,
-				branchName: branchName,
-				locked: true,
-				commitShas: commitShas,
-			};
-		}
 
 		if (commitShas && commitShas.length > 0) {
 			const recomposeSet = new Set(commitShas);
@@ -316,6 +309,20 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					commit.locked = true;
 				}
 			}
+		}
+
+		const messages = commitShas?.length
+			? commits.filter(c => c.sha && commitShas.includes(c.sha)).map(c => c.message.content)
+			: commits.map(c => c.message.content);
+
+		if (branchName || (baseCommit && headCommitSha)) {
+			this._recompose = {
+				enabled: true,
+				branchName: branchName,
+				locked: true,
+				commitShas: commitShas,
+				messages: messages,
+			};
 		}
 
 		const aiEnabled = this.getAiEnabled();
@@ -1189,6 +1196,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			const result = await this.container.ai.actions.generateCommits(
 				hunks,
 				existingCommits,
+				this._recompose?.enabled ? (this._recompose.messages ?? []) : [],
 				hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
 				{ source: 'composer', correlationId: this.host.instanceId },
 				{

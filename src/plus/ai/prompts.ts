@@ -376,7 +376,7 @@ Convert the user's natural language query into the appropriate search operators.
 
 export const generateCommits: PromptTemplate<'generate-commits'> = {
 	id: 'generate-commits_v2',
-	variables: ['hunks', 'existingCommits', 'hunkMap', 'instructions'],
+	variables: ['hunks', 'existingCommits', 'commitMessages', 'hunkMap', 'instructions'],
 	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a complete set of commits that are related, grouped logically, atomic, and easy to review. You will be working with individual code hunks and may have some existing commits that already have hunks assigned.
 
 First, examine the following JSON array of code hunks that need to be organized:
@@ -391,6 +391,12 @@ Next, examine the following JSON array of existing commits (if any) that already
 \${existingCommits}
 </existing_commits>
 
+Next, examine the following JSON array of commit messages from the commits that the hunks came from:
+
+<commit_messages>
+\${commitMessages}
+</commit_messages>
+
 Finally, examine the following JSON array which represents a mapping of hunk indices to hunk headers for reference:
 
 <hunk_map>
@@ -404,17 +410,18 @@ Your task is to create a complete commit organization that includes:
 Follow these guidelines:
 
 1. Preserve all existing commits exactly as they are - do not modify their messages, explanations, or assigned hunks
-2. For unassigned hunks, group them into logical units that make sense together and can be applied atomically
-3. Use each hunk only once. Ensure all hunks are assigned to exactly one commit
-4. Ensure each new commit is self-contained and atomic
-5. Order commits logically (existing commits first, then new commits in dependency order)
-6. Write a commit message for each new commit using these detailed steps:
+2. Use the commit messages, if provided, as context to help you understand the source of the hunks. These were commits that are being reorganized, so you do not need to reuse the messages, but they can help you understand the original intent of the changes in the hunks
+3. For unassigned hunks, group them into logical units that make sense together and can be applied atomically
+4. Use each hunk only once. Ensure all hunks are assigned to exactly one commit
+5. Ensure each new commit is self-contained and atomic
+6. Order commits logically (existing commits first, then new commits in dependency order)
+7. Write a commit message for each new commit using these detailed steps:
 
-6a. Carefully analyze the hunks assigned to each commit, focusing on:
+7a. Carefully analyze the hunks assigned to each commit, focusing on:
    - The purpose and rationale of the changes
    - Any problems addressed or benefits introduced
    - Any significant logic changes or algorithmic improvements
-6b. Ensure the following when composing each commit message:
+7b. Ensure the following when composing each commit message:
    - Emphasize the 'why' of the change, its benefits, or the problem it addresses
    - Use an informal yet professional tone
    - Use a future-oriented manner, third-person singular present tense (e.g., 'Fixes', 'Updates', 'Improves', 'Adds', 'Removes')
@@ -422,16 +429,16 @@ Follow these guidelines:
    - Synthesize only meaningful information from the code changes
    - Avoid outputting code, specific code identifiers, names, or file names unless crucial for understanding
    - Avoid repeating information, broad generalities, and unnecessary phrases like "this", "this commit", or "this change"
-6c. Summarize the main purpose of the changes in a single, concise sentence for the first line of the commit message you generate:
+7c. Summarize the main purpose of the changes in a single, concise sentence for the first line of the commit message you generate:
    - Start with a third-person singular present tense verb
    - Limit to 50 characters if possible
-6d. Then add a blank line followed by some details of the changes, completed as follows:
+7d. Then add a blank line followed by some details of the changes, completed as follows:
    - Add line breaks for readability and to separate independent ideas
    - Focus on the "why" rather than the "what" of the changes
    - Explain the rationale and benefits of the changes
-6e. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the commit message
+7e. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the commit message
 
-7. Write a detailed explanation for each commit (separate from the commit message), walking through the changes in further detail as if explaining them to a reviewer.
+8. Write a detailed explanation for each commit (separate from the commit message), walking through the changes in further detail as if explaining them to a reviewer.
 
 Output your complete commit organization as a JSON array. Each commit in the array should be an object with the following properties:
 - "message": A string containing the commit message

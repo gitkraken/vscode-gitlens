@@ -46,6 +46,7 @@ export async function generateCommits(
 		source: string;
 	}[],
 	existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
+	commitMessages: string[],
 	hunkMap: { index: number; hunkHeader: string }[],
 	source: Source,
 	options?: GenerateCommitsOptions,
@@ -62,6 +63,7 @@ export async function generateCommits(
 				if (conversation.isEmpty) {
 					const hunksJson = JSON.stringify(hunks);
 					const existingCommitsJson = JSON.stringify(existingCommits);
+					const commitMessagesJson = JSON.stringify(commitMessages);
 					const hunkMapJson = JSON.stringify(hunkMap);
 
 					const customInstructionParts: string[] = [];
@@ -103,6 +105,7 @@ export async function generateCommits(
 						{
 							hunks: hunksJson,
 							existingCommits: existingCommitsJson,
+							commitMessages: commitMessagesJson,
 							hunkMap: hunkMapJson,
 							instructions: customInstructions,
 						},
