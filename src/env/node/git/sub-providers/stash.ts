@@ -55,6 +55,9 @@ export class StashGitSubProvider implements GitStashSubProvider {
 						((ex.stdout?.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
 							ex.stdout?.includes('needs merge')))
 				) {
+					this.container.telemetry.sendEvent('gitCommand/conflict', {
+						command: options?.deleteAfter ? 'stash-pop' : 'stash-apply',
+					});
 					void window.showInformationMessage('Stash applied with conflicts');
 					return;
 				}

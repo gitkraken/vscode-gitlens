@@ -192,6 +192,11 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user is warned that the index has changed in the Commit Composer */
 	'composer/warning/indexChanged': ComposerEvent;
 
+	/** Sent when a conflict-prone git command (merge, rebase, cherry-pick, revert, stash apply/pop) is run */
+	'gitCommand/run': GitCommandRunEvent;
+	/** Sent when a conflict occurs while running a conflict-prone git command */
+	'gitCommand/conflict': GitCommandConflictEvent;
+
 	/** Sent when the Commit Graph is shown */
 	'graph/shown': GraphShownEvent;
 	/** Sent when a Commit Graph command is executed */
@@ -493,6 +498,18 @@ interface AIEventDataSendBase extends AIEventDataBase {
 	'config.largePromptThreshold'?: number;
 	'config.usedCustomInstructions'?: boolean;
 
+	'diff.files.count'?: number;
+	'diff.hunks.count'?: number;
+	'diff.lines.count'?: number;
+	'diff.hash'?: string;
+
+	'customInstructions.used'?: boolean;
+	'customInstructions.length'?: number;
+	'customInstructions.setting.used'?: boolean;
+	'customInstructions.setting.length'?: number;
+	'customInstructions.commitMessage.setting.used'?: boolean;
+	'customInstructions.commitMessage.setting.length'?: number;
+
 	'warning.exceededLargePromptThreshold'?: boolean;
 	'warning.promptTruncated'?: boolean;
 
@@ -773,6 +790,16 @@ export type FeaturePreviewActionEventData = {
 	action: `start-preview-trial:${FeaturePreviews}`;
 } & FeaturePreviewEventData;
 
+type GitCommandType = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'stash-apply' | 'stash-pop';
+
+interface GitCommandRunEvent {
+	command: GitCommandType;
+}
+
+interface GitCommandConflictEvent {
+	command: GitCommandType;
+}
+
 type GraphContextEventData = WebviewTelemetryContext & Partial<RepositoryContext>;
 export type GraphTelemetryContext = GraphContextEventData;
 
@@ -887,6 +914,7 @@ type ComposerContextDiffData = {
 	'context.diff.files.count': number;
 	'context.diff.hunks.count': number;
 	'context.diff.lines.count': number;
+	'context.diff.hash': string;
 	'context.diff.staged.exists': boolean;
 	'context.diff.unstaged.exists': boolean;
 	'context.diff.unstaged.included': boolean;

@@ -174,6 +174,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			'context.diff.files.count': this._context.diff.files,
 			'context.diff.hunks.count': this._context.diff.hunks,
 			'context.diff.lines.count': this._context.diff.lines,
+			'context.diff.hash': this._context.diff.hash,
 			'context.diff.staged.exists': this._context.diff.staged,
 			'context.diff.unstaged.exists': this._context.diff.unstaged,
 			'context.diff.unstaged.included': this._context.diff.unstagedIncluded,
@@ -342,6 +343,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._context.diff.files = new Set(hunks.map(h => h.fileName)).size;
 		this._context.diff.hunks = hunks.length;
 		this._context.diff.lines = hunks.reduce((total, hunk) => total + hunk.content.split('\n').length - 1, 0);
+		this._context.diff.hash = md5(hunks.map(h => h.content).join('\n'));
 		this._context.commits.initialCount = 0;
 		this._context.ai.enabled.org = aiEnabled.org;
 		this._context.ai.enabled.config = aiEnabled.config;

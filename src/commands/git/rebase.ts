@@ -102,6 +102,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		using _ = createDisposable(() => void disposable?.dispose());
 
+		this.container.telemetry.sendEvent('gitCommand/run', { command: 'rebase' });
+
 		try {
 			await state.repo.git.ops?.rebase?.(state.destination.ref, {
 				interactive: interactive,
@@ -124,6 +126,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			if (RebaseError.is(ex, 'conflicts')) {
+				this.container.telemetry.sendEvent('gitCommand/conflict', { command: 'rebase' });
 				void window.showWarningMessage(
 					'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
 				);
