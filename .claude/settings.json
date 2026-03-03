@@ -1,0 +1,32 @@
+{
+	"enabledPlugins": {
+		"claude-code-setup@claude-plugins-official": true
+	},
+	"hooks": {
+		"PostToolUse": [
+			{
+				"matcher": "Edit|Write|NotebookEdit",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "fp=$(jq -r '.tool_input.file_path // empty') && [ -n \"$fp\" ] && pnpm exec prettier --write --ignore-unknown \"$fp\" 2>/dev/null; exit 0",
+						"timeout": 30,
+						"statusMessage": "Formatting with Prettier..."
+					}
+				]
+			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "Edit|Write",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "input=$(cat); fp=$(echo \"$input\" | jq -r '.tool_input.file_path // empty'); if [[ \"$fp\" == */package.json ]]; then text=$(echo \"$input\" | jq -r '(.tool_input.old_string // .tool_input.content) // empty'); if echo \"$text\" | grep -qE '\"(commands|menus|submenus|keybindings|views)\"'; then echo 'These contributes sections are auto-generated from contributions.json. Edit contributions.json instead, then run: pnpm run generate:contributions' >&2; exit 2; fi; fi",
+						"timeout": 5
+					}
+				]
+			}
+		]
+	}
+}
