@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves tracking for connecting flow actions by adding ide attributes to gk.dev links ([#4905](https://github.com/gitkraken/vscode-gitlens/issues/4905))
 - Refactors the Welcome view to be a standalone view separate from the _Home_ view, improving modularity and allowing the Welcome walkthrough to be displayed independently without requiring the Welcome Overlay ([#4970](https://github.com/gitkraken/vscode-gitlens/issues/4970))
 - Shows additional info in Authentication errors to help us investigate issues ([#4880](https://github.com/gitkraken/vscode-gitlens/issues/4880))
+- Improves the quality of output when recomposing branches in the _Commit Composer_ by including commit messages of the previous commits as context ([#4874](https://github.com/gitkraken/vscode-gitlens/issues/4874))
 
 ### Fixed
 
@@ -25,6 +26,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where stashing only unstaged changes could incorrectly stash everything ([#4503](https://github.com/gitkraken/vscode-gitlens/issues/4503))
 - Fixes an issue where the GitLens panel view container flickers during startup when an integration connects before repository discovery completes ([#4990](https://github.com/gitkraken/vscode-gitlens/issues/4990))
 - Fixes an issue where Jira and Linear issues were not shown on the _Commit Graph_ unless a Git hosting integration (e.g. GitHub) was also connected ([#4640](https://github.com/gitkraken/vscode-gitlens/issues/4640))
+- Fixes highlighting delays that can occur in _Commit Composer_ when selecting large commits ([#4872](https://github.com/gitkraken/vscode-gitlens/issues/4872))
+- Fixes repeated warnings about large token usage in the same session in _Commit Composer_ ([#4800](https://github.com/gitkraken/vscode-gitlens/issues/4800))
 
 ## [17.10.0] - 2026-02-11
 
