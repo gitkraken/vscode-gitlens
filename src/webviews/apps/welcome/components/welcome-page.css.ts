@@ -8,7 +8,7 @@ const colorScheme = css`
 		--heading-color: var(--vscode-tab-activeForeground);
 		--em-color: var(--vscode-sideBar-foreground);
 		--link-color: var(--vscode-textLink-foreground);
-		--card-background: var(--vscode-textBlockQuote-background);
+		--card-background: color-mix(in srgb, var(--vscode-descriptionForeground) 13%, var(--color-view-background));
 
 		--hero-gradient: radial-gradient(76.32% 76.32% at 50% 7.24%, #7b00ff 29.72%, rgba(255, 0, 242, 0) 100%);
 		--trial-button-gradient: linear-gradient(90deg, #7900c9 0%, #196fff 100%);
