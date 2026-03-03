@@ -13,6 +13,12 @@ const models: GeminiModel[] = [
 		provider: provider,
 	},
 	{
+		id: 'gemini-3.1-flash-lite-preview',
+		name: 'Gemini 3.1 Flash-Lite Preview',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+	},
+	{
 		id: 'gemini-3-pro-preview',
 		name: 'Gemini 3 Pro Preview',
 		maxTokens: { input: 1048576, output: 65536 },
@@ -23,6 +29,7 @@ const models: GeminiModel[] = [
 		name: 'Gemini 3 Flash Preview',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		default: true,
 	},
 	{
 		id: 'gemini-2.5-pro',
@@ -35,7 +42,6 @@ const models: GeminiModel[] = [
 		name: 'Gemini 2.5 Flash',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
-		default: true,
 	},
 	{
 		id: 'gemini-2.5-flash-lite',
@@ -83,6 +89,7 @@ const models: GeminiModel[] = [
 		name: 'Gemini 2.0 Flash',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.0-flash-001',
@@ -96,6 +103,7 @@ const models: GeminiModel[] = [
 		name: 'Gemini 2.0 Flash-Lite',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.0-flash-lite-001',
@@ -151,18 +159,21 @@ const models: GeminiModel[] = [
 		name: 'Gemini 1.5 Pro',
 		maxTokens: { input: 2097152, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-1.5-flash',
 		name: 'Gemini 1.5 Flash',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-1.5-flash-8b',
 		name: 'Gemini 1.5 Flash 8B',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 ];
 
