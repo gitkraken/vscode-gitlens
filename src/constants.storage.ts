@@ -127,8 +127,6 @@ export type GlobalStorage = GlobalStorageCore & GlobalStorageDynamic;
  */
 export interface GlobalScopedStorage {
 	'gk:cli:install': StoredGkCLIInstallInfo;
-	'gk:cli:corePath': string;
-	'gk:cli:path': string;
 }
 
 export interface StoredGkCLIInstallInfo {

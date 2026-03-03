@@ -1,11 +1,10 @@
 import { chmod, mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, resolve, sep } from 'path';
-import { window } from 'vscode';
+import { Uri, window } from 'vscode';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
-import { openUrl } from '../../../../system/-webview/vscode/uris.js';
+import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { maybeStartScopedLogger } from '../../../../system/logger.scope.js';
-import { joinPaths } from '../../../../system/path.js';
 import { run } from '../../git/shell.js';
 import { getPlatform } from '../../platform.js';
 
@@ -78,6 +77,18 @@ export async function extractZipFile(
 	}
 }
 
+export function getCLIExecutable(cliPath?: string | null): Uri {
+	return Uri.joinPath(
+		Uri.file(cliPath ?? Container.instance.context.globalStorageUri.fsPath),
+		getPlatform() === 'windows' ? 'gk.exe' : 'gk',
+	);
+}
+
+export async function resolveCLIExecutable(cliPath?: string | null): Promise<Uri | undefined> {
+	const uri = getCLIExecutable(cliPath);
+	return (await exists(uri)) ? uri : undefined;
+}
+
 export function toMcpInstallProvider<T extends string | undefined>(appHostName: T): T {
 	switch (appHostName) {
 		case 'code':
@@ -92,8 +103,8 @@ export function toMcpInstallProvider<T extends string | undefined>(appHostName: 
 }
 
 export async function runCLICommand(args: string[], options?: { cwd?: string }): Promise<string> {
-	const cwd = options?.cwd ?? Container.instance.storage.getScoped('gk:cli:path');
-	const command = cwd == null ? undefined : joinPaths(cwd, getPlatform() === 'windows' ? 'gk.exe' : 'gk');
+	const cwd = options?.cwd ?? Container.instance.context.globalStorageUri.fsPath;
+	const command = (await resolveCLIExecutable(cwd))?.fsPath;
 	using scope = maybeStartScopedLogger(
 		`${command} ${args[0] === 'auth' ? '[auth]' : args.join(' ')}`,
 		{ level: 'trace' },

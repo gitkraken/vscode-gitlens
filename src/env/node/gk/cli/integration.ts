@@ -13,7 +13,7 @@ import { mcpExtensionRegistrationAllowed } from '../../../../plus/gk/utils/-webv
 import { registerCommand } from '../../../../system/-webview/command.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { setContext } from '../../../../system/-webview/context.js';
-import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
+import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { debug, trace } from '../../../../system/decorators/log.js';
@@ -26,7 +26,9 @@ import type { IpcServer } from './ipcServer.js';
 import { createIpcServer } from './ipcServer.js';
 import {
 	extractZipFile,
+	getCLIExecutable,
 	getCLIVersions,
+	resolveCLIExecutable,
 	runCLICommand,
 	showManualMcpSetupPrompt,
 	toMcpInstallProvider,
@@ -176,41 +178,48 @@ export class GkCliIntegrationProvider implements Disposable {
 
 	private async ensureUpdateOrInstall() {
 		let forceInstall = false;
+		const versionDidChange = this.container.version !== this.container.previousVersion;
+
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		if (cliInstall?.status === 'completed') {
-			const { needsUpdate, core, proxy } = await this.checkCliUpdateRequired();
-			let currentCoreVersion = core;
-			if (needsUpdate !== undefined) {
-				Logger.info(
-					`${formatLoggableScopeBlock('CLI')} CLI ${needsUpdate} version ${(needsUpdate === 'core' ? currentCoreVersion : proxy) ?? 'unknown'} is outdated, forcing reinstall`,
-				);
+			// Verify the binary exists before spawning `gk version`.
+			if (!(await resolveCLIExecutable())) {
+				Logger.warn(`${formatLoggableScopeBlock('CLI')} CLI binary missing at startup — forcing reinstall`);
 				forceInstall = true;
 			} else {
-				// Only update if GitLens extension version has changed since last check, to avoid unnecessary update checks
-				if (this.container.version !== this.container.previousVersion) {
-					const updateResult = await this.updateCliCore();
-					if (updateResult?.current != null) {
-						currentCoreVersion = updateResult.current;
+				const { needsUpdate, core, proxy } = await this.checkCliUpdateRequired();
+				let currentCoreVersion = core;
+				if (needsUpdate !== undefined) {
+					Logger.info(
+						`${formatLoggableScopeBlock('CLI')} CLI ${needsUpdate} version ${(needsUpdate === 'core' ? currentCoreVersion : proxy) ?? 'unknown'} is outdated, forcing reinstall`,
+					);
+					forceInstall = true;
+				} else {
+					// Only update if GitLens extension version has changed since last check, to avoid unnecessary update checks
+					if (versionDidChange) {
+						const updateResult = await this.updateCliCore();
+						if (updateResult?.current != null) {
+							currentCoreVersion = updateResult.current;
+						}
 					}
-				}
 
-				if (currentCoreVersion != null) {
-					Logger.info(`${formatLoggableScopeBlock('CLI')} CLI core version is ${currentCoreVersion}`);
-					void setContext('gitlens:gk:cli:installed', true);
-					return;
+					if (currentCoreVersion != null) {
+						Logger.info(`${formatLoggableScopeBlock('CLI')} CLI core version is ${currentCoreVersion}`);
+						void setContext('gitlens:gk:cli:installed', true);
+						return;
+					}
 				}
 			}
 		}
 
+		const didReachMaxAttempts = reachedMaxAttempts(cliInstall);
+
 		// Reset the attempts count if GitLens extension version has changed
-		if (
-			forceInstall ||
-			(reachedMaxAttempts(cliInstall) && this.container.version !== this.container.previousVersion)
-		) {
+		if (forceInstall || (didReachMaxAttempts && versionDidChange)) {
 			void this.container.storage.storeScoped('gk:cli:install', undefined);
 		}
 
-		const shouldAutoInstall = mcpExtensionRegistrationAllowed(this.container) && !reachedMaxAttempts(cliInstall);
+		const shouldAutoInstall = mcpExtensionRegistrationAllowed(this.container) && !didReachMaxAttempts;
 		if (!forceInstall && !shouldAutoInstall) {
 			return;
 		}
@@ -534,19 +543,16 @@ export class GkCliIntegrationProvider implements Disposable {
 		let cliInstallAttempts = force ? 0 : (cliInstall?.attempts ?? 0);
 		let cliInstallStatus = cliInstall?.status ?? 'attempted';
 		let cliVersion = cliInstall?.version;
-		let cliPath = this.container.storage.getScoped('gk:cli:path');
+		const cliPath = this.container.context.globalStorageUri.fsPath;
 		const platform = getPlatform();
 
 		if (!force) {
 			if (cliInstallStatus === 'completed') {
-				if (cliPath != null) {
-					cliVersion = cliInstall?.version;
-					const cliExecutable = Uri.joinPath(Uri.file(cliPath), platform === 'windows' ? 'gk.exe' : 'gk');
-					if (await exists(cliExecutable)) {
-						return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
-					}
-					scope?.warn(`CLI binary not found at expected path: ${cliExecutable.fsPath}`);
+				cliVersion = cliInstall?.version;
+				if (await resolveCLIExecutable(cliPath)) {
+					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
 				}
+				scope?.warn(`CLI binary not found at expected path: ${getCLIExecutable(cliPath).fsPath}`);
 
 				cliInstallStatus = 'attempted';
 				cliVersion = undefined;
@@ -745,8 +751,6 @@ export class GkCliIntegrationProvider implements Disposable {
 
 					// This will throw if the file doesn't exist
 					await workspace.fs.stat(cliExtractedProxyFilePath);
-					void this.container.storage.storeScoped('gk:cli:path', globalStorageUri.fsPath).catch();
-					cliPath = globalStorageUri.fsPath;
 				} catch (ex) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyExtract,
@@ -761,12 +765,7 @@ export class GkCliIntegrationProvider implements Disposable {
 						installArgs.push('--insiders');
 					}
 					const coreInstallOutput = await runCLICommand(installArgs, { cwd: globalStorageUri.fsPath });
-					const directory = coreInstallOutput.match(/Directory: (.*)/);
-					let directoryPath;
-					if (directory != null && directory.length > 1) {
-						directoryPath = directory[1];
-						void this.container.storage.storeScoped('gk:cli:corePath', directoryPath).catch();
-					} else {
+					if (!/Directory: (.*)/.test(coreInstallOutput)) {
 						throw new Error(`Failed to find core directory in install output: ${coreInstallOutput}`);
 					}
 
@@ -839,8 +838,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		const scope = getScopedLogger();
 
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
-		const cliPath = this.container.storage.getScoped('gk:cli:path');
-		if (cliInstall?.status !== 'completed' || cliPath == null) return;
+		if (cliInstall?.status !== 'completed') return;
 
 		const currentSessionToken = (await this.container.subscription.getAuthenticationSession())?.accessToken;
 		if (currentSessionToken == null) return;
