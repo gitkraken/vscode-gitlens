@@ -3,6 +3,17 @@ on:
     push:
         branches: [main]
     workflow_dispatch:
+        inputs:
+            apply-policy:
+                description: 'Apply policy'
+                required: true
+                type: choice
+                options:
+                    - resolved-only
+                    - auto
+                    - hidden-only
+                    - dry-run
+                default: hidden-only
 permissions:
     contents: write
     pull-requests: write
@@ -11,11 +22,19 @@ jobs:
     sync:
         runs-on: ubuntu-latest
         steps:
-            - uses: gitkraken/merge-mate-action/sync@v0.1
+            - uses: gitkraken/merge-mate-action/sync@v0.2
               with:
                   ai-provider: gitkraken
                   ai-api-key: ${{ secrets.GK_AI_PROVISIONER_TOKEN }}
+                  apply-policy: ${{ inputs.apply-policy || 'hidden-only' }}
                   pr-filter: |
                       target-branches:
                           - "main"
                       updated: "<7d"
+                      authors:
+                          - eamodio
+                          - d13
+                          - axosoft-ramint
+                          - sergeibbb
+                          - justinrobots
+                          - ianhattendorf
