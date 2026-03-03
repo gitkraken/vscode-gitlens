@@ -33,7 +33,7 @@ jobs:
             )
         runs-on: ubuntu-latest
         steps:
-            - uses: gitkraken/merge-mate-action/review@v0.1
+            - uses: gitkraken/merge-mate-action/review@v0.2
               with:
                   pr-number: ${{ inputs.pr-number }}
                   action: ${{ inputs.action }}
