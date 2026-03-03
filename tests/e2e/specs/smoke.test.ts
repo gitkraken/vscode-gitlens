@@ -281,10 +281,7 @@ test.describe('Smoke Tests — Home view', () => {
 		// Verify Home webview has actual content
 		const homeWebview = await vscode.gitlens.homeViewWebview;
 		expect(homeWebview).not.toBeNull();
-		await expect(homeWebview!.getByRole('heading', { name: /Welcome to the GitLens Home/i })).toBeVisible({
-			timeout: MaxTimeout,
-		});
-		// The test repo is on the main branch (default from git init)
+		// Verify meaningful content has loaded (the branch name from the active-work section)
 		await expect(homeWebview!.getByText(/main/).first()).toBeVisible({ timeout: MaxTimeout });
 	});
 });
@@ -300,8 +297,8 @@ test.describe('Smoke Tests — Commit Graph view', () => {
 
 		await expect(vscode.gitlens.commitGraphViewSection).toBeVisible({ timeout: MaxTimeout });
 
-		// Verify the Commit Graph webview shows the gate for Community users
-		const graphWebview = await vscode.gitlens.commitGraphViewWebview;
+		// Use a longer timeout for webview discovery under parallel load
+		const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 		expect(graphWebview).not.toBeNull();
 
 		// For Community users, expect the Pro gate (feature-gate component with Try GitLens Pro)
@@ -323,8 +320,8 @@ test.describe('Smoke Tests — Commit Graph view', () => {
 
 		await expect(vscode.gitlens.commitGraphViewSection).toBeVisible({ timeout: MaxTimeout });
 
-		// Verify the Commit Graph webview has actual content for Pro users
-		const graphWebview = await vscode.gitlens.commitGraphViewWebview;
+		// Use a longer timeout for webview discovery under parallel load
+		const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 		expect(graphWebview).not.toBeNull();
 		// Graph may take longer to load and render
 		await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });

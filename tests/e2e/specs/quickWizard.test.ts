@@ -71,8 +71,20 @@ const test = base.extend({
 
 				// Create a worktree for testing worktree-linked branch scenarios
 				// Use a unique path inside the repo's temp directory to avoid conflicts
+				// Retry to handle transient lock file conflicts from VS Code's background git operations
 				const worktreeDir = path.join(repoDir, '..', `worktree-${Date.now()}`);
-				await git.worktree(worktreeDir, 'feature-with-worktree');
+				for (let attempt = 0; attempt < 3; attempt++) {
+					try {
+						await git.worktree(worktreeDir, 'feature-with-worktree');
+						break;
+					} catch (ex) {
+						if (attempt < 2 && String(ex).includes('index.lock')) {
+							await new Promise(resolve => setTimeout(resolve, 1000));
+							continue;
+						}
+						throw ex;
+					}
+				}
 
 				// Create stashes for testing stash commands
 				// Stash 1: Working tree changes (must include untracked since file is new)
@@ -1881,8 +1893,8 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Select "Choose a Specific Folder..." option
-			await quickPick.selectItem(/Choose a Specific Folder/i);
+			// Select "Choose Specific Folder..." option
+			await quickPick.selectItem(/Choose Specific Folder/i);
 
 			// The folder picker dialog should appear - press Escape to cancel it
 			await page.waitForTimeout(ShortTimeout);

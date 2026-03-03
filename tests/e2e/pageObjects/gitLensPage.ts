@@ -207,7 +207,6 @@ export class GitLensPage extends VSCodePage {
 
 	/** Commit Graph webview in the panel */
 	get commitGraphViewWebview(): Promise<FrameLocator | null> {
-		// Find the GitLens webview with title "Graph"
 		return this.getGitLensWebview('Graph', 'webviewView');
 	}
 
@@ -222,7 +221,6 @@ export class GitLensPage extends VSCodePage {
 
 	/** Commit Graph Details webview in the panel */
 	get commitGraphDetailsViewWebview(): Promise<FrameLocator | null> {
-		// Find the GitLens webview with title "Graph Details"
 		return this.getGitLensWebview('Graph Details', 'webviewView');
 	}
 
@@ -357,10 +355,23 @@ export class GitLensPage extends VSCodePage {
 				for (let i = 0; i < count; i++) {
 					try {
 						const outerFrame = iframes.nth(i).contentFrame();
-						// Use partial match for title to handle cases where branch name is appended (e.g. "Interactive Rebase (main)")
+						// CSS title*= is a substring match, so do a precise check on the actual
+						// title attribute to avoid false positives (e.g. "Graph" matching both
+						// "Commit Graph" and "Commit Graph Inspect")
 						const activeFrame = outerFrame.locator(`iframe#active-frame[title*="${title}"]`);
 						if ((await activeFrame.count()) > 0) {
-							return activeFrame.contentFrame();
+							const actualTitle = await activeFrame.getAttribute('title');
+							// Accept exact match or title with branch suffix, e.g. "Interactive Rebase (main)"
+							if (
+								actualTitle != null &&
+								(actualTitle === title ||
+									actualTitle.startsWith(`${title} (`) ||
+									actualTitle.startsWith(`${title},`))
+							) {
+								return activeFrame.contentFrame();
+							}
+							// Substring matched but title doesn't match precisely — skip
+							continue;
 						}
 					} catch {
 						continue;
