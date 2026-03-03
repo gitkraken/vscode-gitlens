@@ -1,5 +1,5 @@
 import type { Event, McpServerDefinition, McpServerDefinitionProvider } from 'vscode';
-import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition } from 'vscode';
+import { commands, Disposable, env, EventEmitter, lm, McpStdioServerDefinition } from 'vscode';
 import type { Container } from '../../../../container.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
@@ -8,6 +8,7 @@ import { debug, trace } from '../../../../system/decorators/log.js';
 import type { Deferrable } from '../../../../system/function/debounce.js';
 import { debounce } from '../../../../system/function/debounce.js';
 import { getScopedLogger } from '../../../../system/logger.scope.js';
+import { RunError } from '../../git/shell.errors.js';
 import { runCLICommand, toMcpInstallProvider } from '../cli/utils.js';
 
 const CLIProxyMCPConfigOutputs = {
@@ -154,12 +155,9 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		const scope = getScopedLogger();
 
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
-		const cliPath = this.container.storage.getScoped('gk:cli:path');
 
-		if (cliInstall?.status !== 'completed' || !cliPath) {
-			scope?.warn(
-				`CLI not ready — install.status=${cliInstall?.status ?? 'undefined'}, cliPath=${cliPath ? 'set' : 'missing'}`,
-			);
+		if (cliInstall?.status !== 'completed') {
+			scope?.warn(`CLI not ready — install.status=${cliInstall?.status ?? 'undefined'}`);
 			return undefined;
 		}
 
@@ -175,10 +173,21 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 				args.push('--insiders');
 			}
 
-			let output = await runCLICommand(args, { cwd: cliPath });
+			let output = await runCLICommand(args);
 			output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
 
-			const config: McpConfiguration = JSON.parse(output);
+			let config: McpConfiguration;
+			try {
+				config = JSON.parse(output) as McpConfiguration;
+			} catch (parseEx) {
+				// The CLI returned non-JSON output. Log the raw output so the real error is visible.
+				scope?.error(
+					parseEx,
+					`MCP config command returned non-JSON output (CLI ${cliInstall.version}): ${output.slice(0, 500)}`,
+				);
+				throw new Error(`Invalid MCP config output from CLI ${cliInstall.version}: ${String(parseEx)}`);
+			}
+
 			if (!config.type || !config.command || !Array.isArray(config.args)) {
 				throw new Error(`Invalid MCP configuration: missing required properties (${output})`);
 			}
@@ -195,7 +204,14 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		} catch (ex) {
 			debugger;
 			scope?.error(ex, `Error getting MCP configuration`);
-			this.onRegistrationFailed('Error getting MCP configuration', String(ex), cliInstall.version);
+
+			// If the CLI binary is missing mid-session, automatically reinstall it.
+			if (ex instanceof RunError && ex.code === 'ENOENT') {
+				void commands.executeCommand('gitlens.ai.mcp.reinstall', { source: 'gk-mcp-provider' });
+			}
+
+			const errorDetail = ex instanceof RunError && ex.stderr ? ex.stderr.trim() : String(ex);
+			this.onRegistrationFailed('Error getting MCP configuration', errorDetail, cliInstall.version);
 		}
 
 		return undefined;
