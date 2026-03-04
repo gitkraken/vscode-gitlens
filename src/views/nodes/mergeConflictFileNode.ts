@@ -4,15 +4,16 @@ import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { GitFile } from '../../git/models/file.js';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import { getConflictIncomingRef, resolveConflictFilePaths } from '../../git/utils/pausedOperationStatus.utils.js';
 import { createCoreCommand } from '../../system/-webview/command.js';
 import { relativeDir } from '../../system/-webview/path.js';
+import { getSettledValue } from '../../system/promise.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
 import { ContextValues } from './abstract/viewNode.js';
 import type { FileNode } from './folderNode.js';
-import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode.js';
-import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode.js';
+import { MergeConflictChangesNode } from './mergeConflictChangesNode.js';
 
 export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWithCommits> implements FileNode {
 	constructor(
@@ -36,11 +37,51 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 		return this.file.path;
 	}
 
-	getChildren(): ViewNode[] {
+	async getChildren(): Promise<ViewNode[]> {
+		const incomingRef = getConflictIncomingRef(this.status);
+
+		let currentPaths: { lhsPath: string; rhsPath: string } | undefined;
+		let incomingPaths: { lhsPath: string; rhsPath: string } | undefined;
+
+		if (this.status.mergeBase != null) {
+			const svc = this.view.container.git.getRepositoryService(this.status.repoPath);
+
+			const [currentFilesResult, incomingFilesResult] = await Promise.allSettled([
+				svc.diff.getDiffStatus(this.status.mergeBase, 'HEAD', { renameLimit: 0 }),
+				incomingRef != null
+					? svc.diff.getDiffStatus(this.status.mergeBase, incomingRef, { renameLimit: 0 })
+					: undefined,
+			]);
+
+			const currentFiles = getSettledValue(currentFilesResult);
+			const incomingFiles = getSettledValue(incomingFilesResult);
+
+			currentPaths = resolveConflictFilePaths(currentFiles, incomingFiles, this.file.path);
+			incomingPaths =
+				incomingRef != null ? resolveConflictFilePaths(incomingFiles, currentFiles, this.file.path) : undefined;
+		}
+
+		// Create side-specific file objects with the correct path for each side's ref
+		const currentFile = this.createResolvedFile(currentPaths);
+		const incomingFile = this.createResolvedFile(incomingPaths);
+
 		return [
-			new MergeConflictCurrentChangesNode(this.view, this, this.status, this.file),
-			new MergeConflictIncomingChangesNode(this.view, this, this.status, this.file),
+			new MergeConflictChangesNode(this.view, this, this.status, currentFile, 'current', currentPaths?.lhsPath),
+			new MergeConflictChangesNode(
+				this.view,
+				this,
+				this.status,
+				incomingFile,
+				'incoming',
+				incomingPaths?.lhsPath,
+			),
 		];
+	}
+
+	private createResolvedFile(paths: { lhsPath: string; rhsPath: string } | undefined): GitFile {
+		if (paths == null || paths.rhsPath === this.file.path) return this.file;
+
+		return { ...this.file, path: paths.rhsPath, originalPath: paths.lhsPath };
 	}
 
 	getTreeItem(): TreeItem {

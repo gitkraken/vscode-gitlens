@@ -162,13 +162,17 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
+		options?: { filters?: GitDiffFilter[]; path?: string; renameLimit?: number; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		try {
 			const similarityThreshold =
 				options?.similarityThreshold ?? configuration.get('advanced.similarityThreshold') ?? undefined;
+			const configs =
+				options?.renameLimit != null
+					? [...gitConfigsDiff, '-c', `diff.renameLimit=${options.renameLimit}`]
+					: gitConfigsDiff;
 			const result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsDiff },
+				{ cwd: repoPath, configs: configs },
 				'diff',
 				'--name-status',
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,

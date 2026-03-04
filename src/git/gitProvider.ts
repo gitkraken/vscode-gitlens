@@ -577,7 +577,7 @@ export interface GitDiffSubProvider {
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
+		options?: { filters?: GitDiffFilter[]; path?: string; renameLimit?: number; similarityThreshold?: number },
 		cancellation?: CancellationToken,
 	): Promise<GitFile[] | undefined>;
 	getDiffTool?(repoPath?: string): Promise<string | undefined>;

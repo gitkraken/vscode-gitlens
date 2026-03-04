@@ -41,7 +41,13 @@ import { deletedOrMissing, uncommitted } from '../../../git/models/revision.js';
 import { parseGitBlame } from '../../../git/parsers/blameParser.js';
 import { parseGitFileDiff } from '../../../git/parsers/diffParser.js';
 import { getVisibilityCacheKey } from '../../../git/utils/remote.utils.js';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils.js';
+import {
+	getRevisionRangeParts,
+	isRevisionRange,
+	isUncommitted,
+	isUncommittedStaged,
+	shortenRevision,
+} from '../../../git/utils/revision.utils.js';
 import {
 	showBlameInvalidIgnoreRevsFileWarningMessage,
 	showGenericErrorMessage,
@@ -1862,6 +1868,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const scope = getScopedLogger();
 
+		const existsInRev = async (repoPath: string, relativePath: string, ref?: string) => {
+			let exists = await this.revision.exists(repoPath, relativePath, ref);
+			// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
+			if (!exists && ref) {
+				exists = await this.revision.exists(repoPath, relativePath, `${ref}^`);
+			}
+			return exists;
+		};
+
 		try {
 			while (true) {
 				if (!repoPath) {
@@ -1869,14 +1884,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				// Even if we have a ref, check first to see if the file exists (that way the cache will be better reused)
-				let tracked = await this.revision.exists(repoPath, relativePath);
+				let tracked = await existsInRev(repoPath, relativePath);
 				if (tracked) return [relativePath, repoPath];
 
 				if (repoPath) {
 					const [newRelativePath, newRepoPath] = splitPath(path, '', true);
 					if (newRelativePath !== relativePath) {
 						// If we didn't find it, check it as close to the file as possible (will find nested repos)
-						tracked = await this.revision.exists(newRepoPath, newRelativePath);
+						tracked = await existsInRev(newRepoPath, newRelativePath);
 						if (tracked) {
 							repository = await this.container.git.getOrOpenRepository(Uri.file(path), {
 								detectNested: true,
@@ -1891,10 +1906,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				if (!tracked && ref && !isUncommitted(ref)) {
-					tracked = await this.revision.exists(repoPath, relativePath, ref);
-					// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
-					if (!tracked) {
-						tracked = await this.revision.exists(repoPath, relativePath, `${ref}^`);
+					if (isRevisionRange(ref)) {
+						const { left, right } = getRevisionRangeParts(ref) ?? {};
+						tracked =
+							(right ? await existsInRev(repoPath, relativePath, right) : false) ||
+							(left ? await existsInRev(repoPath, relativePath, left) : false);
+					} else {
+						tracked = await existsInRev(repoPath, relativePath, ref);
 					}
 				}
 

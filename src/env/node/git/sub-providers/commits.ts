@@ -182,7 +182,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			let commit;
 			if (rev) {
-				const commit = log.commits.get(rev);
+				commit = log.commits.get(rev);
 				if (commit == null && !options?.firstIfNotFound) {
 					// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
 					if (isSha(rev) || isUncommitted(rev)) return undefined;

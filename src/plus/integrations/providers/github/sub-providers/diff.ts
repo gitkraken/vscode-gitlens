@@ -56,7 +56,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
-		_options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
+		_options?: { filters?: GitDiffFilter[]; path?: string; renameLimit?: number; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		if (repoPath == null) return undefined;
 

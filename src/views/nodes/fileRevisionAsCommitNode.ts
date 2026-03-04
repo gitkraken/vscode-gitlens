@@ -11,8 +11,10 @@ import { GitUri } from '../../git/gitUri.js';
 import type { GitBranch } from '../../git/models/branch.js';
 import type { GitCommit } from '../../git/models/commit.js';
 import type { GitFile } from '../../git/models/file.js';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
 import type { GitRevisionReference } from '../../git/models/reference.js';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils.js';
+import { getConflictIncomingRef, resolveConflictFilePaths } from '../../git/utils/pausedOperationStatus.utils.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { editorLineToDiffRange, selectionToDiffRange } from '../../system/-webview/vscode/editors.js';
@@ -25,8 +27,7 @@ import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import type { ViewNode } from './abstract/viewNode.js';
 import { ContextValues } from './abstract/viewNode.js';
 import { ViewRefFileNode } from './abstract/viewRefNode.js';
-import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode.js';
-import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode.js';
+import { MergeConflictChangesNode } from './mergeConflictChangesNode.js';
 
 export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	'file-commit',
@@ -59,18 +60,85 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		return this.commit;
 	}
 
+	private _pausedStatus: Promise<GitPausedOperationStatus | undefined> | undefined;
+	private getPausedStatus(): Promise<GitPausedOperationStatus | undefined> {
+		this._pausedStatus ??=
+			this.view.container.git
+				.getRepositoryService(this.commit.repoPath)
+				.pausedOps?.getPausedOperationStatus?.() ?? Promise.resolve(undefined);
+		return this._pausedStatus;
+	}
+
+	private _conflictPaths:
+		| { mergeBasePath: string; headPath: string; incomingPath: string; incomingRef: string }
+		| undefined;
+	private async resolveConflictPaths(): Promise<typeof this._conflictPaths> {
+		if (this._conflictPaths != null) return this._conflictPaths;
+
+		const status = await this.getPausedStatus();
+		if (status?.mergeBase == null) return undefined;
+
+		const svc = this.view.container.git.getRepositoryService(this.repoPath);
+		const incomingRef = getConflictIncomingRef(status);
+
+		const [currentFilesResult, incomingFilesResult] = await Promise.allSettled([
+			svc.diff.getDiffStatus(status.mergeBase, 'HEAD', { renameLimit: 0 }),
+			incomingRef != null ? svc.diff.getDiffStatus(status.mergeBase, incomingRef, { renameLimit: 0 }) : undefined,
+		]);
+
+		const currentFiles = getSettledValue(currentFilesResult);
+		const incomingFiles = getSettledValue(incomingFilesResult);
+
+		const currentPaths = resolveConflictFilePaths(currentFiles, incomingFiles, this.file.path);
+		const incomingPaths = resolveConflictFilePaths(incomingFiles, currentFiles, this.file.path);
+
+		this._conflictPaths = {
+			mergeBasePath: currentPaths.lhsPath,
+			headPath: currentPaths.rhsPath,
+			incomingPath: incomingPaths.rhsPath,
+			incomingRef: incomingRef ?? 'MERGE_HEAD',
+		};
+		return this._conflictPaths;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.file?.hasConflicts) return [];
 
-		const pausedOpStatus = await this.view.container.git
-			.getRepositoryService(this.commit.repoPath)
-			.pausedOps?.getPausedOperationStatus?.();
+		const pausedOpStatus = await this.getPausedStatus();
 		if (pausedOpStatus == null) return [];
 
+		const paths = await this.resolveConflictPaths();
+
+		const currentPaths = paths != null ? { lhsPath: paths.mergeBasePath, rhsPath: paths.headPath } : undefined;
+		const incomingPaths = paths != null ? { lhsPath: paths.mergeBasePath, rhsPath: paths.incomingPath } : undefined;
+
+		const currentFile = this.createResolvedFile(currentPaths);
+		const incomingFile = this.createResolvedFile(incomingPaths);
+
 		return [
-			new MergeConflictCurrentChangesNode(this.view, this, pausedOpStatus, this.file),
-			new MergeConflictIncomingChangesNode(this.view, this, pausedOpStatus, this.file),
+			new MergeConflictChangesNode(
+				this.view,
+				this,
+				pausedOpStatus,
+				currentFile,
+				'current',
+				currentPaths?.lhsPath,
+			),
+			new MergeConflictChangesNode(
+				this.view,
+				this,
+				pausedOpStatus,
+				incomingFile,
+				'incoming',
+				incomingPaths?.lhsPath,
+			),
 		];
+	}
+
+	private createResolvedFile(paths: { lhsPath: string; rhsPath: string } | undefined): GitFile {
+		if (paths == null || paths.rhsPath === this.file.path) return this.file;
+
+		return { ...this.file, path: paths.rhsPath, originalPath: paths.lhsPath };
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -152,14 +220,18 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		}
 
 		if (this.commit.file?.hasConflicts) {
+			const incomingRef = this._conflictPaths?.incomingRef ?? 'MERGE_HEAD';
+			const incomingPath = this._conflictPaths?.incomingPath ?? this.file.path;
+			const headPath = this._conflictPaths?.headPath ?? this.file.path;
+
 			return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
 				lhs: {
-					sha: 'MERGE_HEAD',
-					uri: GitUri.fromFile(this.file, this.repoPath, undefined, true),
+					sha: incomingRef,
+					uri: GitUri.fromFile(incomingPath, this.repoPath, undefined, true),
 				},
 				rhs: {
 					sha: 'HEAD',
-					uri: GitUri.fromFile(this.file, this.repoPath),
+					uri: GitUri.fromFile(headPath, this.repoPath),
 				},
 				repoPath: this.repoPath,
 				range: editorLineToDiffRange(0),
@@ -181,6 +253,11 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
+		if (this.commit.file?.hasConflicts) {
+			await this.resolveConflictPaths();
+			if (token.isCancellationRequested) return item;
+			item.command = this.getCommand();
+		}
 		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
@@ -188,10 +265,14 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getConflictBaseUri(): Promise<Uri | undefined> {
 		if (!this.commit.file?.hasConflicts) return undefined;
 
-		const mergeBase = await this.view.container.git
-			.getRepositoryService(this.repoPath)
-			.refs.getMergeBase('MERGE_HEAD', 'HEAD');
-		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
+		const paths = await this.resolveConflictPaths();
+		const status = await this.getPausedStatus();
+		const mergeBase =
+			status?.mergeBase ??
+			(await this.view.container.git.getRepositoryService(this.repoPath).refs.getMergeBase('MERGE_HEAD', 'HEAD'));
+
+		const filePath = paths?.mergeBasePath ?? this.file.path;
+		return GitUri.fromFile(filePath, this.repoPath, mergeBase ?? 'HEAD');
 	}
 
 	private async getTooltip(cancellation: CancellationToken) {
