@@ -99,6 +99,7 @@ import type { FileHistoryNode } from './nodes/fileHistoryNode.js';
 import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode.js';
 import type { FolderNode } from './nodes/folderNode.js';
 import type { LineHistoryNode } from './nodes/lineHistoryNode.js';
+import type { MergeConflictChangesNode } from './nodes/mergeConflictChangesNode.js';
 import type { MergeConflictFileNode } from './nodes/mergeConflictFileNode.js';
 import type { PausedOperationStatusNode } from './nodes/pausedOperationStatusNode.js';
 import type { PullRequestNode } from './nodes/pullRequestNode.js';
@@ -1569,7 +1570,22 @@ export class ViewCommands implements Disposable {
 
 	@command('gitlens.views.openChangesWithWorking')
 	@debug()
-	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode) {
+	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | MergeConflictChangesNode) {
+		if (node.isAny('conflict-current-changes', 'conflict-incoming-changes')) {
+			if (node.workingFilePath != null) {
+				return void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
+					repoPath: node.uri.repoPath!,
+					lhs: {
+						sha: node.uri.sha!,
+						uri: node.uri,
+					},
+					rhs: { sha: '', uri: GitUri.fromFile(node.workingFilePath, node.uri.repoPath!) },
+					showOptions: { preserveFocus: true, preview: true },
+				});
+			}
+			return;
+		}
+
 		if (node.isAny('status-file', 'uncommitted-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.uri,
@@ -1584,13 +1600,32 @@ export class ViewCommands implements Disposable {
 			});
 		}
 
-		if (node.is('file-commit') && node.commit.file?.hasConflicts) {
-			const baseUri = await node.getConflictBaseUri();
-			if (baseUri != null) {
-				return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
-					uri: baseUri,
-					showOptions: { preserveFocus: true, preview: true },
-				});
+		if (node.is('file-commit')) {
+			if (node.commit.file?.hasConflicts) {
+				const baseUri = await node.getConflictBaseUri();
+				if (baseUri != null) {
+					return executeEditorCommand<DiffWithWorkingCommandArgs>(
+						'gitlens.diffWithWorking:views',
+						undefined,
+						{
+							uri: baseUri,
+							showOptions: { preserveFocus: true, preview: true },
+						},
+					);
+				}
+			} else if (node.parent?.isAny('conflict-current-changes', 'conflict-incoming-changes')) {
+				const workingFilePath = node.parent.workingFilePath;
+				if (workingFilePath != null) {
+					return void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
+						repoPath: node.repoPath,
+						lhs: {
+							sha: node.ref.ref,
+							uri: GitUri.fromFile(node.file, node.repoPath, node.ref.ref),
+						},
+						rhs: { sha: '', uri: GitUri.fromFile(workingFilePath, node.repoPath) },
+						showOptions: { preserveFocus: true, preview: true },
+					});
+				}
 			}
 		}
 

@@ -11471,6 +11471,16 @@
 						"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+(conflicted|unstaged)\\b)/",
 						"group": "inline",
 						"order": 96
+					},
+					{
+						"when": "viewItem =~ /gitlens:merge-conflict:(current|incoming)\\b/",
+						"group": "inline",
+						"order": 96
+					},
+					{
+						"when": "viewItem =~ /gitlens:merge-conflict:(current|incoming)\\b/",
+						"group": "2_gitlens_quickopen",
+						"order": 1
 					}
 				]
 			}

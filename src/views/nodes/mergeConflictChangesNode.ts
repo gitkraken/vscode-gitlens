@@ -33,6 +33,7 @@ export class MergeConflictChangesNode extends ViewNode<
 		private readonly file: GitFile,
 		private readonly side: 'current' | 'incoming',
 		private readonly mergeBasePath?: string,
+		readonly workingFilePath?: string,
 	) {
 		const ref = side === 'current' ? 'HEAD' : getConflictIncomingRef(status);
 		super(

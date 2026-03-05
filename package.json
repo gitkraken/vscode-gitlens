@@ -20103,6 +20103,16 @@
 					"group": "4_gitlens_compare@1"
 				},
 				{
+					"command": "gitlens.views.openChangesWithWorking",
+					"when": "viewItem =~ /gitlens:merge-conflict:(current|incoming)\\b/",
+					"group": "inline@96"
+				},
+				{
+					"command": "gitlens.views.openChangesWithWorking",
+					"when": "viewItem =~ /gitlens:merge-conflict:(current|incoming)\\b/",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
 					"command": "gitlens.plus.login",
 					"when": "viewItem == gitlens:message:signin",
 					"group": "inline@1"

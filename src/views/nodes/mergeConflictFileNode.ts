@@ -66,7 +66,15 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 		const incomingFile = this.createResolvedFile(incomingPaths);
 
 		return [
-			new MergeConflictChangesNode(this.view, this, this.status, currentFile, 'current', currentPaths?.lhsPath),
+			new MergeConflictChangesNode(
+				this.view,
+				this,
+				this.status,
+				currentFile,
+				'current',
+				currentPaths?.lhsPath,
+				this.file.path,
+			),
 			new MergeConflictChangesNode(
 				this.view,
 				this,
@@ -74,6 +82,7 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 				incomingFile,
 				'incoming',
 				incomingPaths?.lhsPath,
+				this.file.path,
 			),
 		];
 	}

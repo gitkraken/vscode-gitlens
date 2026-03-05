@@ -123,6 +123,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 				currentFile,
 				'current',
 				currentPaths?.lhsPath,
+				this.file.path,
 			),
 			new MergeConflictChangesNode(
 				this.view,
@@ -131,6 +132,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 				incomingFile,
 				'incoming',
 				incomingPaths?.lhsPath,
+				this.file.path,
 			),
 		];
 	}
