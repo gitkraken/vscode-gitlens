@@ -29,7 +29,7 @@ jobs:
             (
                 github.event.issue.pull_request &&
                 github.event.comment.user.login == 'github-actions[bot]' &&
-                contains(fromJSON('["eamodio", "d13", "axosoft-ramint", "sergeibbb", "justinrobots", "ianhattendorf"]'), github.event.sender.login)
+                contains(fromJSON('["eamodio", "d13", "ramin-t", "sergeibbb", "justinrobots", "ianhattendorf"]'), github.event.sender.login)
             )
         runs-on: ubuntu-latest
         steps:
