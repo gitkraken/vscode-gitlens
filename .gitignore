@@ -1,4 +1,5 @@
-.claude/settings.local.json
+!.claude/settings.json
+.claude/worktrees/**
 .DS_Store
 .eslintcache*
 **/.vscode-clean/**
