@@ -64,6 +64,12 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		};
 	}
 
+	@debug()
+	async getTrackedFiles(repoPath: string): Promise<string[]> {
+		const tree = await this.getTreeForRevision(repoPath, 'HEAD');
+		return tree.filter(f => f.type === 'blob').map(f => f.path);
+	}
+
 	@gate()
 	@debug()
 	async getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]> {

@@ -167,10 +167,12 @@ export async function revealInFileExplorer(uri: Uri): Promise<void> {
 	void (await executeCoreCommand('revealFileInOS', uri));
 }
 
-export function supportedInVSCodeVersion(feature: 'language-models'): boolean {
+export function supportedInVSCodeVersion(feature: 'language-models' | 'quickpick-resourceuri'): boolean {
 	switch (feature) {
 		case 'language-models':
 			return satisfies(codeVersion, '>= 1.90-insider');
+		case 'quickpick-resourceuri':
+			return satisfies(codeVersion, '>= 1.108');
 		default:
 			return false;
 	}

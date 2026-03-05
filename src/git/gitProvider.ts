@@ -788,6 +788,8 @@ export interface GitRevisionSubProvider {
 	getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined>;
 	/** Gets the current HEAD SHA of a submodule in the working tree */
 	getSubmoduleHead?(repoPath: string, submodulePath: string): Promise<string | undefined>;
+	/** Gets tracked file paths from the index (reflects working tree state, even during rebase) */
+	getTrackedFiles(repoPath: string): Promise<string[]>;
 	getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]>;
 	resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision>;

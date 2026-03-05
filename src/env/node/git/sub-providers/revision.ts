@@ -115,6 +115,17 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@debug()
+	async getTrackedFiles(repoPath: string): Promise<string[]> {
+		if (!repoPath) return [];
+
+		const result = await this.git.exec({ cwd: repoPath, errors: 'ignore' }, 'ls-files', '-z');
+		const data = result.stdout;
+		if (!data) return [];
+
+		return [...new Set(data.split('\0').filter(Boolean))];
+	}
+
+	@debug()
 	async getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]> {
 		return repoPath ? this.getTreeForRevisionCore(repoPath, rev) : [];
 	}

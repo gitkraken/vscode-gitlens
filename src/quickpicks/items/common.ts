@@ -8,6 +8,8 @@ declare module 'vscode' {
 	interface QuickPickItem {
 		onDidSelect?(quickpick: QuickPick<QuickPickItem>): void | Promise<void>;
 		onDidPressKey?(key: Keys): Promise<void>;
+		/** Available in VS Code >= 1.108. When set with `iconPath: ThemeIcon.File`, derives file icons from the icon theme. */
+		resourceUri?: Uri;
 	}
 }
 

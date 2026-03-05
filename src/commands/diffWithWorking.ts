@@ -4,10 +4,9 @@ import type { Container } from '../container.js';
 import type { DiffRange } from '../git/gitProvider.js';
 import { GitUri } from '../git/gitUri.js';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../git/models/revision.js';
-import { createReference } from '../git/utils/reference.utils.js';
 import { shortenRevision } from '../git/utils/revision.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
-import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker.js';
+import { showWorkingFilesPicker } from '../quickpicks/workingFilesPicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { getOrOpenTextEditor, selectionToDiffRange } from '../system/-webview/vscode/editors.js';
 import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs.js';
@@ -111,7 +110,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		let workingUri = await svc.getWorkingUri(uri);
 		if (workingUri == null) {
-			const picked = await showRevisionFilesPicker(this.container, createReference('HEAD', gitUri.repoPath!), {
+			const picked = await showWorkingFilesPicker(this.container, gitUri.repoPath!, {
 				ignoreFocusOut: true,
 				initialPath: gitUri.relativePath,
 				title: `Open File \u2022 Unable to open '${gitUri.relativePath}'`,
@@ -125,7 +124,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			});
 			if (picked == null) return;
 
-			workingUri = picked?.uri;
+			workingUri = picked.uri;
 		}
 
 		// For submodules, getWorkingUri returns a gitlens:// URI with the working submodule SHA
