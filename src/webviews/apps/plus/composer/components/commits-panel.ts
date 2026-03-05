@@ -381,7 +381,10 @@ export class CommitsPanel extends LitElement {
 	repoName: string | null = null;
 
 	@property({ type: String })
-	customInstructions: string = '';
+	initialCustomInstructions: string = '';
+
+	@state()
+	private customInstructions: string = '';
 
 	@property({ type: Boolean })
 	hasUsedAutoCompose: boolean = false;
@@ -470,6 +473,9 @@ export class CommitsPanel extends LitElement {
 		}
 		if (changedProperties.has('compositionSummarySelected')) {
 			this._compositionSummarySelected = this.compositionSummarySelected;
+		}
+		if (changedProperties.has('initialCustomInstructions')) {
+			this.customInstructions = this.initialCustomInstructions;
 		}
 
 		// Recompute per-commit stats only when the underlying data changes,
@@ -1087,14 +1093,6 @@ export class CommitsPanel extends LitElement {
 	private handleCustomInstructionsChange(e: Event) {
 		const input = e.target as HTMLInputElement;
 		this.customInstructions = input.value;
-
-		// Dispatch event to notify app component of custom instructions change
-		this.dispatchEvent(
-			new CustomEvent('custom-instructions-change', {
-				detail: { customInstructions: this.customInstructions },
-				bubbles: true,
-			}),
-		);
 	}
 
 	private getIncludeButtonText(sectionKey: string): string {
