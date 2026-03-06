@@ -59,26 +59,11 @@ export function groupRepositories(repositories: Iterable<Repository>): Map<Repos
 		reposByUri.set(repo.uri, repo);
 	}
 
-	// Group worktree and submodule repos under the common/parent repo when that repo is also in the list
+	// Group worktree repos under the common repo when that repo is also in the list
+	// Note: Submodules are NOT grouped — they are independent repos with their own branches/remotes
 	const result = new Map<string, { repo: Repository; children: Map<string, Repository> }>();
 	for (const repo of repos.values()) {
-		const { commonUri, parentUri } = repo;
-
-		// Check if this is a submodule with a parent in our list
-		if (repo.isSubmodule && parentUri != null) {
-			const parentRepo = reposByUri.get(parentUri);
-			if (parentRepo != null) {
-				// Add the submodule to its parent repo's children map
-				let r = result.get(parentRepo.id);
-				if (r == null) {
-					r = { repo: parentRepo, children: new Map() };
-					result.set(parentRepo.id, r);
-				}
-				r.children.set(repo.path, repo);
-				continue;
-			}
-			// Parent repo not in the list, treat this submodule as standalone (fall through)
-		}
+		const { commonUri } = repo;
 
 		// If no common URI, this is a main repo (or standalone)
 		if (commonUri == null) {
