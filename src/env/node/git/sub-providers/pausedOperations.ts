@@ -437,7 +437,6 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		}
 	}
 
-	@gate<PausedOperationsGitSubProvider['continuePausedOperation']>((rp, o) => `${rp ?? ''}:${o?.skip ?? false}`)
 	@debug()
 	async continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void> {
 		const scope = getScopedLogger();
