@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes regression in 17.11.0 that breaks git submodule support in Branches and Remotes views ([#5024](https://github.com/gitkraken/vscode-gitlens/issues/5024))
+
 ## [17.11.0] - 2026-03-04
 
 ### Added
