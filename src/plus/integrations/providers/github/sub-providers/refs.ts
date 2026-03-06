@@ -7,12 +7,15 @@ import type { GitReference } from '../../../../../git/models/reference.js';
 import { deletedOrMissing } from '../../../../../git/models/revision.js';
 import type { GitTag } from '../../../../../git/models/tag.js';
 import { createReference } from '../../../../../git/utils/reference.utils.js';
-import { createRevisionRange, isShaWithOptionalRevisionSuffix } from '../../../../../git/utils/revision.utils.js';
+import {
+	createRevisionRange,
+	isShaWithOptionalRevisionSuffix,
+	stripOrigin,
+} from '../../../../../git/utils/revision.utils.js';
 import { debug } from '../../../../../system/decorators/log.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
-import { stripOrigin } from '../githubGitProvider.js';
 
 // Since negative lookbehind isn't supported in all browsers, this leaves out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
 // eslint-disable-next-line no-control-regex

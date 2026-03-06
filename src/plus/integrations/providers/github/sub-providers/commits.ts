@@ -26,7 +26,7 @@ import type { GitUser } from '../../../../../git/models/user.js';
 import { parseSearchQueryGitHubCommand } from '../../../../../git/search.js';
 import { processNaturalLanguageToSearchQuery } from '../../../../../git/search.naturalLanguage.js';
 import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils.js';
-import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils.js';
+import { createRevisionRange, isUncommitted, stripOrigin } from '../../../../../git/utils/revision.utils.js';
 import { debug } from '../../../../../system/decorators/log.js';
 import { filterMap, first, last, map, some } from '../../../../../system/iterable.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
@@ -35,7 +35,6 @@ import type { CachedLog, TrackedGitDocument } from '../../../../../trackers/trac
 import { GitDocumentState } from '../../../../../trackers/trackedDocument.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
-import { stripOrigin } from '../githubGitProvider.js';
 import { fromCommitFileStatus } from '../models.js';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);

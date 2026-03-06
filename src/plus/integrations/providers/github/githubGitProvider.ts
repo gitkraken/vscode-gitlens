@@ -44,7 +44,6 @@ import type { GitReference } from '../../../../git/models/reference.js';
 import type { GitRemote } from '../../../../git/models/remote.js';
 import type { RepositoryChangeEvent } from '../../../../git/models/repository.js';
 import { Repository } from '../../../../git/models/repository.js';
-import type { GitRevisionRange } from '../../../../git/models/revision.js';
 import { deletedOrMissing } from '../../../../git/models/revision.js';
 import { getVisibilityCacheKey } from '../../../../git/utils/remote.utils.js';
 import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils.js';
@@ -1293,9 +1292,4 @@ async function ensureProviderLoaded<T extends (uri: Uri) => any>(
 			throw ex;
 		}
 	}
-}
-
-//** Strips `origin/` from a reference or range, because we "fake" origin as the default remote */
-export function stripOrigin<T extends string | GitRevisionRange | undefined>(ref: T): T {
-	return ref?.replace(/(?:^|(?<=..))origin\//, '') as T;
 }

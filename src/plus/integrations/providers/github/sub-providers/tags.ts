@@ -5,11 +5,11 @@ import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../..
 import { GitTag } from '../../../../../git/models/tag.js';
 import type { TagSortOptions } from '../../../../../git/utils/-webview/sorting.js';
 import { sortTags } from '../../../../../git/utils/-webview/sorting.js';
+import { stripOrigin } from '../../../../../git/utils/revision.utils.js';
 import { debug } from '../../../../../system/decorators/log.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
-import { stripOrigin } from '../githubGitProvider.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 

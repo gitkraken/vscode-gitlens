@@ -60,7 +60,6 @@ import {
 import { AIActions } from './aiActions.js';
 import { AIIgnoreCache } from './aiIgnoreCache.js';
 import type { AIService } from './aiService.js';
-import { GitKrakenProvider } from './gitkrakenProvider.js';
 import type {
 	AIActionType,
 	AIModel,
@@ -1329,7 +1328,9 @@ export class AIProviderService implements AIService, Disposable {
 	private async allAccessOptIn(usingGkProvider?: boolean): Promise<void> {
 		const optIn = await this.container.subscription.aiAllAccessOptIn({ source: 'notification' });
 		if (optIn && !usingGkProvider && isProviderEnabledByOrg('gitkraken')) {
-			const gkProvider = new GitKrakenProvider(this.container, this.connection);
+			const gkProvider = new (
+				await import(/* webpackChunkName: "ai" */ './gitkrakenProvider.js')
+			).GitKrakenProvider(this.container, this.connection);
 			const defaultModel = (await gkProvider.getModels()).find(m => m.default);
 			if (defaultModel != null) {
 				this._provider = gkProvider;

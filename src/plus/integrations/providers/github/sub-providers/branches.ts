@@ -10,14 +10,13 @@ import type {
 import { GitBranch } from '../../../../../git/models/branch.js';
 import type { BranchSortOptions } from '../../../../../git/utils/-webview/sorting.js';
 import { sortBranches, sortContributors } from '../../../../../git/utils/-webview/sorting.js';
-import { createRevisionRange } from '../../../../../git/utils/revision.utils.js';
+import { createRevisionRange, stripOrigin } from '../../../../../git/utils/revision.utils.js';
 import { configuration } from '../../../../../system/-webview/configuration.js';
 import { debug } from '../../../../../system/decorators/log.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { HeadType } from '../../../../remotehub.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
-import { stripOrigin } from '../githubGitProvider.js';
 import type { GitHubBranch } from '../models.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });

@@ -136,4 +136,8 @@ export function isRevisionRange(
 		default:
 			return rangeRegex.test(rev);
 	}
+} //** Strips `origin/` from a reference or range, because we "fake" origin as the default remote */
+
+export function stripOrigin<T extends string | GitRevisionRange | undefined>(ref: T): T {
+	return ref?.replace(/(?:^|(?<=..))origin\//, '') as T;
 }

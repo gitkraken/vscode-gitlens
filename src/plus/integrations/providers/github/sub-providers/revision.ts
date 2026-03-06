@@ -9,12 +9,12 @@ import {
 	isSha,
 	isUncommitted,
 	isUncommittedWithParentSuffix,
+	stripOrigin,
 } from '../../../../../git/utils/revision.utils.js';
 import { gate } from '../../../../../system/decorators/gate.js';
 import { debug } from '../../../../../system/decorators/log.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
-import { stripOrigin } from '../githubGitProvider.js';
 
 export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	constructor(

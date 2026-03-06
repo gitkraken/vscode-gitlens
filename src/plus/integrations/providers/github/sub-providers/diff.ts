@@ -20,6 +20,7 @@ import {
 	createRevisionRange,
 	getRevisionRangeParts,
 	isRevisionRange,
+	stripOrigin,
 } from '../../../../../git/utils/revision.utils.js';
 import { diffRangeToEditorLine } from '../../../../../system/-webview/vscode/editors.js';
 import { debug } from '../../../../../system/decorators/log.js';
@@ -27,7 +28,6 @@ import { union } from '../../../../../system/iterable.js';
 import { getScopedLogger } from '../../../../../system/logger.scope.js';
 import { toTokenWithInfo } from '../../../authentication/models.js';
 import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
-import { stripOrigin } from '../githubGitProvider.js';
 import { fromCommitFileStatus } from '../models.js';
 
 export class DiffGitSubProvider implements GitDiffSubProvider {
