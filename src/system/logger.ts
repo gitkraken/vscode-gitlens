@@ -6,14 +6,15 @@ const isoTRegex = /T/;
 const stackCallerRegex = /.*\s*?at\s(.+?)\s/;
 const leadingUnderscoreRegex = /^_+/;
 
-const enum OrderedLevel {
-	Off = 0,
-	Error = 1,
-	Warn = 2,
-	Info = 3,
-	Debug = 4,
-	Trace = 5,
-}
+export const OrderedLevel = {
+	Off: 0,
+	Trace: 1,
+	Debug: 2,
+	Info: 3,
+	Warn: 4,
+	Error: 5,
+} as const;
+export type OrderedLevel = (typeof OrderedLevel)[keyof typeof OrderedLevel];
 
 export interface LogChannelProvider {
 	readonly name: string;
@@ -26,8 +27,8 @@ export interface LogChannelProvider {
 
 export interface LogChannel {
 	readonly name: string;
-	readonly logLevel: number;
-	readonly onDidChangeLogLevel?: (listener: (level: number) => void) => { dispose(): void };
+	readonly logLevel: OrderedLevel;
+	readonly onDidChangeLogLevel?: (listener: (level: OrderedLevel) => void) => { dispose(): void };
 
 	dispose?(): void;
 	show?(preserveFocus?: boolean): void;
@@ -41,7 +42,7 @@ export interface LogChannel {
 
 const defaultSanitizeKeys = ['accessToken', 'password', 'token'];
 
-export const Logger = new (class Logger {
+class Logger {
 	private output: LogChannel | undefined;
 	private provider: RequireSome<LogChannelProvider, 'sanitizeKeys'> | undefined;
 
@@ -57,19 +58,20 @@ export const Logger = new (class Logger {
 
 		this._isDebugging = debugging;
 
-		// Create output channel and sync with VS Code's log level
+		// Create output channel and sync with the host's log level
 		this.output = provider.createChannel(provider.name);
-		this.level = fromVSCodeLogLevel(this.output.logLevel);
-		this.output.onDidChangeLogLevel?.(vsCodeLevel => {
-			this.level = fromVSCodeLogLevel(vsCodeLevel);
+		this.level = this.output.logLevel;
+		this.output.onDidChangeLogLevel?.(level => {
+			this.level = level;
 		});
 	}
 
 	enabled(level?: Exclude<LogLevel, 'off'>): boolean {
 		if (this.isDebugging) return true;
-		if (level == null) return this.level > OrderedLevel.Off;
+		if (this.level === OrderedLevel.Off) return false;
+		if (level == null) return true;
 
-		return this.level >= toOrderedLevel(level);
+		return this.level <= toOrderedLevel(level);
 	}
 
 	private _isDebugging = false;
@@ -79,7 +81,7 @@ export const Logger = new (class Logger {
 
 	private level: OrderedLevel = OrderedLevel.Off;
 	get logLevel(): LogLevel {
-		return toLogLevel(this.level);
+		return toFriendlyLogLevel(this.level);
 	}
 
 	get timestamp(): string {
@@ -89,7 +91,7 @@ export const Logger = new (class Logger {
 	trace(message: string, ...params: any[]): void;
 	trace(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
 	trace(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
-		if (this.level < OrderedLevel.Trace && !this.isDebugging) return;
+		if ((this.level === OrderedLevel.Off || this.level > OrderedLevel.Trace) && !this.isDebugging) return;
 
 		let message;
 		if (typeof scopeOrMessage === 'string') {
@@ -111,7 +113,7 @@ export const Logger = new (class Logger {
 	debug(message: string, ...params: any[]): void;
 	debug(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
 	debug(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
-		if (this.level < OrderedLevel.Debug && !this.isDebugging) return;
+		if ((this.level === OrderedLevel.Off || this.level > OrderedLevel.Debug) && !this.isDebugging) return;
 
 		let message;
 		if (typeof scopeOrMessage === 'string') {
@@ -133,7 +135,7 @@ export const Logger = new (class Logger {
 	info(message: string, ...params: any[]): void;
 	info(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
 	info(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
-		if (this.level < OrderedLevel.Info && !this.isDebugging) return;
+		if ((this.level === OrderedLevel.Off || this.level > OrderedLevel.Info) && !this.isDebugging) return;
 
 		let message;
 		if (typeof scopeOrMessage === 'string') {
@@ -155,7 +157,7 @@ export const Logger = new (class Logger {
 	warn(message: string, ...params: any[]): void;
 	warn(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
 	warn(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
-		if (this.level < OrderedLevel.Warn && !this.isDebugging) return;
+		if ((this.level === OrderedLevel.Off || this.level > OrderedLevel.Warn) && !this.isDebugging) return;
 
 		let message;
 		if (typeof scopeOrMessage === 'string') {
@@ -177,7 +179,7 @@ export const Logger = new (class Logger {
 	error(ex: Error | unknown, message?: string, ...params: any[]): void;
 	error(ex: Error | unknown, scope?: ScopedLogger, message?: string, ...params: any[]): void;
 	error(ex: Error | unknown, scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
-		if (this.level < OrderedLevel.Error && !this.isDebugging) return;
+		if ((this.level === OrderedLevel.Off || this.level > OrderedLevel.Error) && !this.isDebugging) return;
 
 		let message;
 		if (scopeOrMessage == null || typeof scopeOrMessage === 'string') {
@@ -279,73 +281,56 @@ export const Logger = new (class Logger {
 	}
 
 	private toLoggableParams(debugOnly: boolean, params: any[]) {
-		if (params.length === 0 || (debugOnly && this.level < OrderedLevel.Debug && !this.isDebugging)) {
+		if (
+			params.length === 0 ||
+			(debugOnly && (this.level === OrderedLevel.Off || this.level > OrderedLevel.Debug) && !this.isDebugging)
+		) {
 			return '';
 		}
 
 		const loggableParams = params.map(p => this.toLoggable(p)).join(', ');
 		return loggableParams.length !== 0 ? ` \u2014 ${loggableParams}` : '';
 	}
-})();
+}
+
+const _logger = new Logger();
+export { _logger as Logger };
 
 function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 	switch (logLevel) {
 		case 'off':
 			return OrderedLevel.Off;
-		case 'error':
-			return OrderedLevel.Error;
-		case 'warn':
-			return OrderedLevel.Warn;
-		case 'info':
-			return OrderedLevel.Info;
-		case 'debug':
-			return OrderedLevel.Debug;
 		case 'trace':
 			return OrderedLevel.Trace;
+		case 'debug':
+			return OrderedLevel.Debug;
+		case 'info':
+			return OrderedLevel.Info;
+		case 'warn':
+			return OrderedLevel.Warn;
+		case 'error':
+			return OrderedLevel.Error;
 		default:
 			return OrderedLevel.Off;
 	}
 }
 
-function toLogLevel(level: OrderedLevel): LogLevel {
+function toFriendlyLogLevel(level: OrderedLevel): LogLevel {
 	switch (level) {
 		case OrderedLevel.Off:
 			return 'off';
-		case OrderedLevel.Error:
-			return 'error';
-		case OrderedLevel.Warn:
-			return 'warn';
-		case OrderedLevel.Info:
-			return 'info';
-		case OrderedLevel.Debug:
-			return 'debug';
 		case OrderedLevel.Trace:
 			return 'trace';
+		case OrderedLevel.Debug:
+			return 'debug';
+		case OrderedLevel.Info:
+			return 'info';
+		case OrderedLevel.Warn:
+			return 'warn';
+		case OrderedLevel.Error:
+			return 'error';
 		default:
 			return 'off';
-	}
-}
-
-/**
- * Converts VS Code's LogLevel enum value to OrderedLevel.
- * VS Code LogLevel: Off=0, Trace=1, Debug=2, Info=3, Warning=4, Error=5
- */
-function fromVSCodeLogLevel(vsCodeLevel: number): OrderedLevel {
-	switch (vsCodeLevel) {
-		case 0: // LogLevel.Off
-			return OrderedLevel.Off;
-		case 1: // LogLevel.Trace
-			return OrderedLevel.Trace;
-		case 2: // LogLevel.Debug
-			return OrderedLevel.Debug;
-		case 3: // LogLevel.Info
-			return OrderedLevel.Info;
-		case 4: // LogLevel.Warning
-			return OrderedLevel.Warn;
-		case 5: // LogLevel.Error
-			return OrderedLevel.Error;
-		default:
-			return OrderedLevel.Off;
 	}
 }
 
@@ -386,11 +371,11 @@ export interface LogProvider {
 }
 
 export const defaultLogProvider: LogProvider = {
-	enabled: (logLevel: Exclude<LogLevel, 'off'>) => Logger.enabled(logLevel),
+	enabled: (logLevel: Exclude<LogLevel, 'off'>) => _logger.enabled(logLevel),
 	log: (logLevel: LogLevel, scope: ScopedLogger | undefined, message: string, ...params: any[]) => {
 		switch (logLevel) {
 			case 'error':
-				Logger.error(undefined, scope, message, ...params);
+				_logger.error(undefined, scope, message, ...params);
 				break;
 			case 'warn':
 				scope?.warn(message, ...params);
