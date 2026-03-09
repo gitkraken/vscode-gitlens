@@ -21,7 +21,6 @@ minimumReleaseAgeExclude:
     - '@gitkraken/*'
     - '@vscode/*'
     - 'lint-staged@16.3.2'
-    - 'typescript@6.0.1-rc'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

@@ -27529,7 +27529,7 @@
 		"terser-webpack-plugin": "5.3.16",
 		"tinybench": "6.0.0",
 		"ts-loader": "9.5.4",
-		"typescript": "6.0.1-rc",
+		"typescript": "5.9.3",
 		"typescript-eslint": "8.56.1",
 		"webpack": "5.105.3",
 		"webpack-bundle-analyzer": "5.2.0",
