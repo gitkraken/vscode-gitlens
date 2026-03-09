@@ -644,6 +644,14 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			if (currentSha == null || currentPath == null) return undefined;
 
+			// If we have no previous SHA but have a real current SHA, resolve the parent commit.
+			// This handles the case where a line is newly added — the line has no prior history,
+			// but the file likely existed at the parent commit
+			if (previousSha == null && currentSha) {
+				previousSha =
+					(await this.provider.refs.validateReference(repoPath, `${currentSha}^`)) ?? deletedOrMissing;
+			}
+
 			return {
 				current: GitUri.fromFile(currentPath, repoPath, currentSha || undefined),
 				previous: GitUri.fromFile(previousPath ?? currentPath, repoPath, previousSha ?? deletedOrMissing),
