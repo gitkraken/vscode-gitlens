@@ -113,7 +113,7 @@ export class ProvidersApi {
 				) as GetIssuesForReposFn,
 			},
 			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
-				...providersMetadata[GitSelfManagedHostIntegrationId.GitHubEnterprise],
+				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise],
 				provider: providerApis.github,
 				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github) as GetCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
@@ -164,7 +164,7 @@ export class ProvidersApi {
 				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
 			},
 			[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
-				...providersMetadata[GitCloudHostIntegrationId.GitLab],
+				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted],
 				provider: providerApis.gitlab,
 				getCurrentUserFn: providerApis.gitlab.getCurrentUser.bind(providerApis.gitlab) as GetCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
