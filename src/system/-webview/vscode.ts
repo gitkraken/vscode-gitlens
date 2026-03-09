@@ -82,6 +82,13 @@ export async function getHostExecutablePath(): Promise<string> {
 
 	switch (platform) {
 		case 'windows':
+			_hostExecutablePath =
+				// VS Code 1.110+ restructured its install directory, adding a commit-hash directory level (Windows only)
+				(await checkPath(joinPaths(env.appRoot, '..', '..', '..', 'bin', app))) ??
+				(await checkPath(joinPaths(env.appRoot, '..', '..', 'bin', app))) ??
+				(await checkPath(joinPaths(env.appRoot, 'bin', app))) ??
+				app;
+			break;
 		case 'linux':
 			_hostExecutablePath =
 				(await checkPath(joinPaths(env.appRoot, '..', '..', 'bin', app))) ??
