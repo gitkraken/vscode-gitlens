@@ -1,26 +1,16 @@
 import * as assert from 'assert';
 import type { LogChannel, LogChannelProvider } from '../logger.js';
-import { Logger } from '../logger.js';
-
-// VS Code LogLevel enum values
-const VSCodeLogLevel = {
-	Off: 0,
-	Trace: 1,
-	Debug: 2,
-	Info: 3,
-	Warning: 4,
-	Error: 5,
-} as const;
+import { Logger, OrderedLevel } from '../logger.js';
 
 suite('Logger Test Suite', () => {
 	let mockChannel: LogChannel;
 	let mockProvider: LogChannelProvider;
 	let loggedMessages: Array<{ level: string; message: string; args?: any[] }>;
 
-	function createMockChannel(vsCodeLogLevel: number): LogChannel {
+	function createMockChannel(logLevel: OrderedLevel): LogChannel {
 		return {
 			name: 'test-channel',
-			logLevel: vsCodeLogLevel,
+			logLevel: logLevel,
 			trace: (message: string, ...args: any[]) => {
 				loggedMessages.push({ level: 'trace', message: message, args: args });
 			},
@@ -43,9 +33,9 @@ suite('Logger Test Suite', () => {
 		};
 	}
 
-	function setupMockLogger(vsCodeLogLevel: number = VSCodeLogLevel.Trace) {
+	function setupMockLogger(logLevel: OrderedLevel = OrderedLevel.Trace) {
 		loggedMessages = [];
-		mockChannel = createMockChannel(vsCodeLogLevel);
+		mockChannel = createMockChannel(logLevel);
 		mockProvider = {
 			name: 'test-provider',
 			createChannel: () => mockChannel,
@@ -55,12 +45,12 @@ suite('Logger Test Suite', () => {
 
 	// Reset logger state before each test
 	setup(() => {
-		setupMockLogger(VSCodeLogLevel.Off);
+		setupMockLogger(OrderedLevel.Off);
 		Logger.configure(mockProvider, false);
 	});
 
 	test('should support trace level logging', () => {
-		setupMockLogger(VSCodeLogLevel.Trace);
+		setupMockLogger(OrderedLevel.Trace);
 		Logger.configure(mockProvider, false);
 
 		Logger.trace('test trace message');
@@ -71,7 +61,7 @@ suite('Logger Test Suite', () => {
 	});
 
 	test('should use VS Code native logging methods', () => {
-		setupMockLogger(VSCodeLogLevel.Trace);
+		setupMockLogger(OrderedLevel.Trace);
 		Logger.configure(mockProvider, false);
 
 		Logger.trace('trace message');
@@ -89,7 +79,7 @@ suite('Logger Test Suite', () => {
 	});
 
 	test('should respect log levels', () => {
-		setupMockLogger(VSCodeLogLevel.Warning);
+		setupMockLogger(OrderedLevel.Warn);
 		Logger.configure(mockProvider, false);
 
 		Logger.trace('trace message');
@@ -105,7 +95,7 @@ suite('Logger Test Suite', () => {
 	});
 
 	test('should enable all levels when debugging', () => {
-		setupMockLogger(VSCodeLogLevel.Off);
+		setupMockLogger(OrderedLevel.Off);
 		Logger.configure(mockProvider, true); // debugging = true
 
 		Logger.trace('trace message');
@@ -124,7 +114,7 @@ suite('Logger Test Suite', () => {
 	});
 
 	test('should check if level is enabled', () => {
-		setupMockLogger(VSCodeLogLevel.Info);
+		setupMockLogger(OrderedLevel.Info);
 		Logger.configure(mockProvider, false);
 
 		assert.strictEqual(Logger.enabled('trace'), false);
@@ -135,7 +125,7 @@ suite('Logger Test Suite', () => {
 	});
 
 	test('should return correct logLevel string', () => {
-		setupMockLogger(VSCodeLogLevel.Debug);
+		setupMockLogger(OrderedLevel.Debug);
 		Logger.configure(mockProvider, false);
 
 		assert.strictEqual(Logger.logLevel, 'debug');
