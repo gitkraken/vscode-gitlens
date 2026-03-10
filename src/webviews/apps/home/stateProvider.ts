@@ -70,6 +70,7 @@ export class HomeStateProvider extends StateProviderBase<State['webviewId'], Sta
 				this._state.previewEnabled = msg.params.previewEnabled;
 				this._state.aiEnabled = msg.params.aiEnabled;
 				this._state.experimentalComposerEnabled = msg.params.experimentalComposerEnabled;
+				this._state.dateFormat = msg.params.dateFormat;
 				this._state.timestamp = Date.now();
 
 				this.provider.setValue(this._state, true);

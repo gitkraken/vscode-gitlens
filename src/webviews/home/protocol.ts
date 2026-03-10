@@ -49,6 +49,7 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 		progress: number;
 		state: Record<WalkthroughContextKeys, boolean>;
 	};
+	dateFormat: string | null;
 	previewEnabled: boolean;
 	newInstall: boolean;
 	amaBannerCollapsed: boolean;
@@ -93,7 +94,11 @@ export interface GetOverviewBranch {
 	id: string;
 	name: string;
 	opened: boolean;
-	timestamp?: number;
+	timestamps?: {
+		lastCommit?: number;
+		lastAccessed?: number;
+		lastModified?: number;
+	};
 	status: GitBranchStatus;
 	upstream: GitTrackingUpstream | undefined;
 
@@ -297,6 +302,7 @@ export interface DidChangePreviewEnabledParams {
 	previewEnabled: boolean;
 	aiEnabled: boolean;
 	experimentalComposerEnabled: boolean;
+	dateFormat: string | null;
 }
 export const DidChangePreviewEnabled = new IpcNotification<DidChangePreviewEnabledParams>(
 	scope,

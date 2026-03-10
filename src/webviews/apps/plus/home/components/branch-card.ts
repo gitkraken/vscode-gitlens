@@ -13,7 +13,7 @@ import {
 	launchpadGroupLabelMap,
 } from '../../../../../plus/launchpad/models/launchpad.js';
 import { createCommandLink } from '../../../../../system/commands.js';
-import { fromNow } from '../../../../../system/date.js';
+import { formatDate, fromNow } from '../../../../../system/date.js';
 import { interpolate, pluralize } from '../../../../../system/string.js';
 import type {
 	BranchRef,
@@ -136,7 +136,7 @@ export const branchCardStyles = css`
 		white-space: nowrap;
 	}
 
-	.branch-item__changes formatted-date {
+	.branch-item__date {
 		margin-inline-end: auto;
 	}
 
@@ -701,14 +701,52 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderTimestamp(): TemplateResult | NothingType {
-		const { timestamp } = this.branch;
-		if (timestamp == null) return nothing;
+		const { timestamps } = this.branch;
+		if (timestamps == null) return nothing;
 
-		return html`<formatted-date
-			tooltip="Last commit on "
-			.date=${new Date(timestamp)}
-			class="branch-item__date"
-		></formatted-date>`;
+		const { lastCommit, lastAccessed, lastModified } = timestamps;
+
+		// Compute effective date (most recent)
+		const effectiveTimestamp = Math.max(lastCommit ?? 0, lastAccessed ?? 0, lastModified ?? 0);
+		if (effectiveTimestamp === 0) return nothing;
+
+		// Determine which date is the most recent for labeling (bias modified over accessed)
+		let effectiveLabel: string;
+		if (lastModified != null && lastModified >= (lastAccessed ?? 0) && lastModified >= (lastCommit ?? 0)) {
+			effectiveLabel = 'Modified';
+		} else if (lastAccessed != null && lastAccessed >= (lastModified ?? 0) && lastAccessed >= (lastCommit ?? 0)) {
+			effectiveLabel = 'Accessed';
+		} else {
+			effectiveLabel = 'Committed';
+		}
+
+		// Build tooltip lines in fixed order: modified, accessed, committed
+		// Collapse accessed+modified into just "Modified" when they're within the same second
+		const dateFormat = this._homeState?.dateFormat ?? undefined;
+		const fmtLine = (label: string, ts: number) =>
+			html`${label} ${fromNow(new Date(ts))} <i>(${formatDate(new Date(ts), dateFormat)})</i>`;
+		const sameAccessedModified =
+			lastAccessed != null && lastModified != null && Math.abs(lastAccessed - lastModified) < 30000;
+		const tooltipLines: TemplateResult[] = [];
+		if (sameAccessedModified) {
+			tooltipLines.push(fmtLine('Modified', lastModified));
+		} else {
+			if (lastAccessed != null) {
+				tooltipLines.push(fmtLine('Accessed', lastAccessed));
+			}
+			if (lastModified != null) {
+				tooltipLines.push(fmtLine('Modified', lastModified));
+			}
+		}
+		if (lastCommit != null) {
+			tooltipLines.push(fmtLine('Committed', lastCommit));
+		}
+
+		const effectiveDate = new Date(effectiveTimestamp);
+		return html`<gl-tooltip class="branch-item__date">
+			<time datetime="${effectiveDate.toISOString()}">${effectiveLabel} ${fromNow(effectiveDate)}</time>
+			<span slot="content">${tooltipLines.map((line, i) => (i > 0 ? html`<br />${line}` : line))}</span>
+		</gl-tooltip>`;
 	}
 
 	protected abstract renderBranchIndicator?(): TemplateResult | undefined;

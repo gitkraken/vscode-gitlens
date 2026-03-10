@@ -315,7 +315,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onDidChangeConfig(e?: ConfigurationChangeEvent) {
-		if (configuration.changed(e, ['home.preview.enabled', 'ai.enabled', 'ai.experimental.composer.enabled'])) {
+		if (
+			configuration.changed(e, [
+				'home.preview.enabled',
+				'ai.enabled',
+				'ai.experimental.composer.enabled',
+				'defaultDateFormat',
+			])
+		) {
 			this.notifyDidChangeConfig();
 		}
 	}
@@ -906,6 +913,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			hasAnyIntegrationConnected: anyConnected,
 			walkthroughSupported: this.container.walkthrough.isWalkthroughSupported,
 			walkthroughProgress: this.getWalkthroughProgress(),
+			dateFormat: configuration.get('defaultDateFormat'),
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: !configuration.get('advanced.skipOnboarding') && getContext('gitlens:install:new', false),
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
@@ -994,6 +1002,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const recentBranches = branches.filter(
 			branch => this.getBranchOverviewType(branch, worktreesByBranch) === 'recent',
 		);
+		recentBranches.sort((a, b) => (b.effectiveDate?.getTime() ?? 0) - (a.effectiveDate?.getTime() ?? 0));
 		const isPro = getSettledValue(proSubscriptionResult)!;
 
 		let staleBranches: GitBranch[] | undefined;
@@ -1092,6 +1101,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				if (
 					e.changed(
 						'config',
+						'gkConfig',
 						'head',
 						'heads',
 						// 'index',
@@ -1338,6 +1348,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			aiEnabled: this.getAiEnabled(),
 			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
+			dateFormat: configuration.get('defaultDateFormat'),
 		});
 	}
 
@@ -1672,7 +1683,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			return 'active';
 		}
 
-		const timestamp = branch.date?.getTime();
+		const timestamp = branch.effectiveDate?.getTime();
 		if (timestamp != null) {
 			const now = Date.now();
 
@@ -1745,7 +1756,14 @@ function getOverviewBranchesCore(
 
 		const wt = worktreesByBranch.get(branch.id);
 
-		const timestamp = branch.date?.getTime();
+		const timestamps =
+			branch.date != null || branch.lastAccessedDate != null || branch.lastModifiedDate != null
+				? {
+						lastCommit: branch.date?.getTime(),
+						lastAccessed: branch.lastAccessedDate?.getTime(),
+						lastModified: branch.lastModifiedDate?.getTime(),
+					}
+				: undefined;
 
 		if (isPro === true) {
 			prPromises.set(branch.id, getPullRequestInfo(container, branch, launchpadPromise));
@@ -1778,7 +1796,7 @@ function getOverviewBranchesCore(
 			id: branch.id,
 			name: branch.name,
 			opened: isActive,
-			timestamp: timestamp,
+			timestamps: timestamps,
 			status: branch.status,
 			upstream: branch.upstream,
 			worktree: wt ? { name: wt.name, uri: wt.uri.toString(), isDefault: wt.isDefault } : undefined,

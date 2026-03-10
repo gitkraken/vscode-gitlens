@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds branch activity dates to the _Home_ view recents &mdash; sorts by most recent activity and displays the most relevant activity label ([#5034](https://github.com/gitkraken/vscode-gitlens/issues/5034))
+
 ### Fixed
 
 - Fixes regression in 17.11.0 that breaks git submodule support in Branches and Remotes views ([#5024](https://github.com/gitkraken/vscode-gitlens/issues/5024))
