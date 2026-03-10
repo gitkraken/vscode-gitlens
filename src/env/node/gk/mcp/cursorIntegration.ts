@@ -15,10 +15,7 @@ export class CursorGkMcpProvider extends GkMcpProviderBase {
 	}
 
 	protected override onDispose(): void {
-		if (this._registeredServerName != null) {
-			cursor.mcp.unregisterServer(this._registeredServerName);
-			this._registeredServerName = undefined;
-		}
+		this.tryUnregister();
 	}
 
 	protected override fireChangeCore(): void {
@@ -51,9 +48,7 @@ export class CursorGkMcpProvider extends GkMcpProviderBase {
 
 		try {
 			// Unregister the previous registration before re-registering (e.g. on CLI update)
-			if (this._registeredServerName != null) {
-				cursor.mcp.unregisterServer(this._registeredServerName);
-			}
+			this.tryUnregister();
 
 			this._registeredServerName = config.name;
 			cursor.mcp.registerServer({
@@ -66,6 +61,21 @@ export class CursorGkMcpProvider extends GkMcpProviderBase {
 			});
 		} catch (ex) {
 			scope?.error(ex, `Failed to register MCP server: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
+		}
+	}
+
+	@debug()
+	private tryUnregister(): void {
+		const scope = getScopedLogger();
+
+		if (this._registeredServerName == null) return;
+
+		try {
+			cursor.mcp.unregisterServer(this._registeredServerName);
+		} catch (ex) {
+			scope?.error(ex, `Failed to unregister MCP server: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
+		} finally {
+			this._registeredServerName = undefined;
 		}
 	}
 }
