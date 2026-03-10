@@ -41,3 +41,13 @@ export function mcpRegistrationAllowed(container: Container): boolean {
 
 	return supportsMcpExtensionRegistration() || supportsCursorMcpRegistration();
 }
+
+export function needsCursorMcpCleanupNotice(container: Container): boolean {
+	return (
+		mcpRegistrationEnabled(container) &&
+		supportsCursorMcpRegistration() &&
+		container.previousVersion != null &&
+		satisfies(container.previousVersion, '< 17.11.1') &&
+		container.storage.getScoped('gk:cli:install')?.status === 'completed'
+	);
+}

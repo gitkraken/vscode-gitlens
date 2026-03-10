@@ -363,6 +363,24 @@ export async function showMcpMessage(container: Container, _current: string): Pr
 	}
 }
 
+export async function showCursorMcpCleanupMessage(): Promise<void> {
+	const learnMore = { title: 'Learn More' };
+	const confirm = { title: 'OK', isCloseAffordance: true };
+
+	const result = await showMessage(
+		'info',
+		`GitLens now registers the GitKraken MCP automatically in Cursor. You may have a duplicate entry in your Cursor \`mcp.json\` — remove \`mcpServers.GitKraken\` to clean it up.`,
+		undefined,
+		null,
+		learnMore,
+		confirm,
+	);
+
+	if (result === learnMore) {
+		void openUrl(urls.helpCenterMCP);
+	}
+}
+
 export async function showMessage(
 	type: 'info' | 'warn' | 'error',
 	message: string,

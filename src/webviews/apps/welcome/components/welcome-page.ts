@@ -268,7 +268,24 @@ const walkthroughSteps: WalkthroughStep[] = [
 			</p>
 			<p><a href="${urls.helpCenterMCP}">Learn more in the Help Center</a></p>
 		`,
-		condition: state => state.mcpNeedsInstall === false,
+		condition: state => state.mcpNeedsInstall === false && !state.mcpShowCleanupNotice,
+	},
+	{
+		id: 'mcp-bundled-cleanup',
+		walkthroughKey: 'mcpFeatures',
+		title: 'GitKraken MCP',
+		body: html`
+			<p>
+				GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and
+				perform actions.
+			</p>
+			<p>
+				<strong>Note:</strong> You may have a duplicate entry in your Cursor <code>mcp.json</code> from a
+				previous install. Remove <code>mcpServers.GitKraken</code> to clean it up.
+			</p>
+			<p><a href="${urls.helpCenterMCP}">Learn more in the Help Center</a></p>
+		`,
+		condition: state => state.mcpNeedsInstall === false && state.mcpShowCleanupNotice,
 	},
 
 	{
