@@ -119,16 +119,18 @@ export async function showWorkingFilesPicker(
 					resolve(item);
 				}),
 				quickpick.onDidChangeValue(value => {
-					if (scope == null) return;
-
-					// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
-					if (value.length !== 0) {
-						void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
-					} else {
-						void scope.resume();
+					if (scope != null) {
+						// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
+						if (value.length !== 0) {
+							void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
+						} else {
+							void scope.resume();
+						}
 					}
 
 					for (const item of items) {
+						if (item.item == null) continue; // Skip ".." entry (keeps alwaysShow: true)
+
 						if (
 							item.item.path.includes(value) &&
 							!item.label.includes(value) &&

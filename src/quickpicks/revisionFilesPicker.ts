@@ -6,7 +6,7 @@ import type { GitRevisionReference } from '../git/models/reference.js';
 import type { GitTreeEntry } from '../git/models/tree.js';
 import type { KeyboardScope } from '../system/-webview/keyboard.js';
 import { splitPath } from '../system/-webview/path.js';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
+import { getQuickPickIgnoreFocusOut, supportedInVSCodeVersion } from '../system/-webview/vscode.js';
 import { filterMap } from '../system/iterable.js';
 import { dirname } from '../system/path.js';
 import type { QuickPickItemOfT } from './items/common.js';
@@ -85,8 +85,10 @@ export async function showRevisionFilesPicker(
 
 		const allowFolders = options?.allowFolders ?? false;
 		const pickFolder: QuickInputButton = { iconPath: new ThemeIcon('folder-opened'), tooltip: 'Choose Folder' };
+		const supportsFileIcons = supportedInVSCodeVersion('quickpick-resourceuri');
 
-		const tree = await container.git.getRepositoryService(repoPath).revision.getTreeForRevision(ref);
+		const svc = container.git.getRepositoryService(repoPath);
+		const tree = await svc.revision.getTreeForRevision(ref);
 		const items: RevisionQuickPickItem[] = [
 			{ label: `..`, alwaysShow: true, item: undefined! } satisfies RevisionQuickPickItem,
 			...filterMap(tree, file => {
@@ -96,7 +98,16 @@ export async function showRevisionFilesPicker(
 				return {
 					label: label,
 					description: description === '.' ? '' : description,
-					iconPath: allowFolders ? (file.type === 'tree' ? ThemeIcon.Folder : ThemeIcon.File) : undefined,
+					iconPath: supportsFileIcons
+						? file.type === 'tree'
+							? ThemeIcon.Folder
+							: ThemeIcon.File
+						: allowFolders
+							? file.type === 'tree'
+								? ThemeIcon.Folder
+								: ThemeIcon.File
+							: undefined,
+					resourceUri: supportsFileIcons ? svc.getAbsoluteUri(file.path, repoPath) : undefined,
 					buttons: file.type === 'tree' ? [pickFolder] : [],
 					item: file,
 				} satisfies RevisionQuickPickItem;
@@ -128,16 +139,18 @@ export async function showRevisionFilesPicker(
 					resolve(item);
 				}),
 				quickpick.onDidChangeValue(value => {
-					if (scope == null) return;
-
-					// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
-					if (value.length !== 0) {
-						void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
-					} else {
-						void scope.resume();
+					if (scope != null) {
+						// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
+						if (value.length !== 0) {
+							void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
+						} else {
+							void scope.resume();
+						}
 					}
 
 					for (const item of items) {
+						if (item.item == null) continue; // Skip ".." entry (keeps alwaysShow: true)
+
 						if (
 							item.item.path.includes(value) &&
 							!item.label.includes(value) &&
