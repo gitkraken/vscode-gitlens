@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds bundled MCP registration in Cursor, eliminating the need for a manual `mcp.json` entry ([#4985](https://github.com/gitkraken/vscode-gitlens/issues/4985))
 - Adds branch activity dates to the _Home_ view recents &mdash; sorts by most recent activity and displays the most relevant activity label ([#5034](https://github.com/gitkraken/vscode-gitlens/issues/5034))
 
 ### Fixed
