@@ -16,6 +16,7 @@ import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '
 import { configuration } from '../../../system/-webview/configuration.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { debug, trace } from '../../../system/decorators/log.js';
+import { fnv1aHash64 } from '../../../system/hash.js';
 import type { ScopedLogger } from '../../../system/logger.scope.js';
 import { getScopedLogger } from '../../../system/logger.scope.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../gk/utils/subscription.utils.js';
@@ -125,6 +126,16 @@ export abstract class IntegrationBase<
 
 	get maybeConnected(): boolean | undefined {
 		return this._session === undefined ? undefined : this._session !== null;
+	}
+
+	/** Hash of the current session's access token. Changes on any token change (account switch or refresh). */
+	private _sessionFingerprint: { session: ProviderAuthenticationSession; hash: string } | undefined;
+	get sessionFingerprint(): string | undefined {
+		if (this._session == null) return undefined;
+		if (this._sessionFingerprint?.session !== this._session) {
+			this._sessionFingerprint = { session: this._session, hash: fnv1aHash64(this._session.accessToken) };
+		}
+		return this._sessionFingerprint.hash;
 	}
 
 	get connectionExpired(): boolean | undefined {
