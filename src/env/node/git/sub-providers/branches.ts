@@ -201,7 +201,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 					const upstream = parseUpstream(entry.upstream, entry.upstreamTracking);
 
-					const dates = dateMetadataMap.get(entry.name);
+					const dates = dateMetadataMap.get(parseRefName(entry.name).name);
 					const worktreePath = entry.worktreePath ? normalizePath(entry.worktreePath) : undefined;
 
 					branches.push(
