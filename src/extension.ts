@@ -19,12 +19,14 @@ import { isGitUri } from './git/gitUri.js';
 import { getBranchNameWithoutRemote } from './git/utils/branch.utils.js';
 import { setAbbreviatedShaLength } from './git/utils/revision.utils.js';
 import {
+	showCursorMcpCleanupMessage,
 	showDebugLoggingWarningMessage,
 	showMcpMessage,
 	showPreReleaseExpiredErrorMessage,
 	showWhatsNewMessage,
 } from './messages.js';
 import { registerPartnerActionRunners } from './partners.js';
+import { needsCursorMcpCleanupNotice } from './plus/gk/utils/-webview/mcp.utils.js';
 import { executeCommand, registerCommands } from './system/-webview/command.js';
 import { configuration, Configuration } from './system/-webview/configuration.js';
 import { setContext } from './system/-webview/context.js';
@@ -398,6 +400,11 @@ async function showWhatsNew(
 }
 
 function showMcp(container: Container, version: string, previousVersion: string | undefined): void {
+	if (needsCursorMcpCleanupNotice(container)) {
+		void showCursorMcpCleanupMessage();
+		return;
+	}
+
 	if (
 		isWeb ||
 		previousVersion == null ||

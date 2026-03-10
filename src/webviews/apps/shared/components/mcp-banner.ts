@@ -46,13 +46,19 @@ export class GlMcpBanner extends LitElement {
 	@property({ type: Boolean })
 	private canAutoRegister: boolean = false;
 
+	@property({ type: Boolean, attribute: 'show-cleanup-notice' })
+	showCleanupNotice: boolean = false;
+
 	override render(): unknown {
 		if (this.collapsed) {
 			return nothing;
 		}
 
 		if (this.canAutoRegister) {
-			const bodyHtml = `GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions. <a href="${urls.helpCenterMCP}">Learn more</a>`;
+			const cleanupNote = this.showCleanupNotice
+				? ` &mdash; <strong>Note:</strong> You may have a duplicate entry in your Cursor <code>mcp.json</code>. Remove <code>mcpServers.GitKraken</code> to clean it up.`
+				: '';
+			const bodyHtml = `GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions. <a href="${urls.helpCenterMCP}">Learn more</a>${cleanupNote}`;
 
 			return html`
 				<gl-banner

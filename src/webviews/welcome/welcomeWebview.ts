@@ -4,7 +4,7 @@ import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
-import { mcpRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
+import { mcpRegistrationAllowed, needsCursorMcpCleanupNotice } from '../../plus/gk/utils/-webview/mcp.utils.js';
 import { registerCommand } from '../../system/-webview/command.js';
 import { getContext } from '../../system/-webview/context.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
@@ -102,6 +102,10 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		return !this.getMcpCanAutoRegister() || !this.isCliInstalled();
 	}
 
+	private getMcpShowCleanupNotice(): boolean {
+		return needsCursorMcpCleanupNotice(this.container);
+	}
+
 	private async getState(): Promise<State> {
 		const subscription = await this.container.subscription.getSubscription();
 		const plusState = subscription?.state ?? SubscriptionState.Community;
@@ -113,6 +117,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 			plusState: plusState,
 			walkthroughProgress: this.getWalkthroughProgress(),
 			mcpNeedsInstall: this.getMcpNeedsInstall(),
+			mcpShowCleanupNotice: this.getMcpShowCleanupNotice(),
 		};
 	}
 }
