@@ -19,6 +19,7 @@ export interface State extends WebviewState<'gitlens.views.welcome'> {
 	plusState: SubscriptionState;
 	walkthroughProgress?: WalkthroughProgress;
 	mcpNeedsInstall: boolean;
+	mcpShowCleanupNotice: boolean;
 }
 
 export const DismissWelcomeCommand = new IpcCommand<void>(scope, 'dismiss');
