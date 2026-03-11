@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Interactive rebase fails: `code.exe: bad option: --wait` ([#5028](https://github.com/gitkraken/vscode-gitlens/issues/5028))
 - Fixes an issue where navigating to the line history of a newly added line would incorrectly compare against "missing" instead of the file at the parent commit ([#5030](https://github.com/gitkraken/vscode-gitlens/issues/5030))
 - Fixes provider id mismatch for cloud-connected self-hosted integrations ([#5031](https://github.com/gitkraken/vscode-gitlens/issues/5031))
+- Fixes an issue where the _Launchpad_ would fail to show any pull requests when one integration provider had an authentication failure — now shows partial results with an error indicator ([#4492](https://github.com/gitkraken/vscode-gitlens/issues/4492))
 
 ## [17.11.0] - 2026-03-04
 
