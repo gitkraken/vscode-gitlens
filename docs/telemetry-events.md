@@ -108,6 +108,67 @@
 }
 ```
 
+### agents/hookInstalled
+
+> Sent when an agent hook is installed
+
+```typescript
+{
+  'agent.provider': string
+}
+```
+
+### agents/indicator/hidden
+
+> Sent when the agent status indicator is hidden
+
+```typescript
+void
+```
+
+### agents/permission/resolved
+
+> Sent when a permission request is resolved
+
+```typescript
+{
+  'agent.provider': string,
+  'permission.decision': string,
+  'permission.tool': string
+}
+```
+
+### agents/permission/shown
+
+> Sent when a permission request notification is shown
+
+```typescript
+{
+  'agent.provider': string,
+  'permission.tool': string
+}
+```
+
+### agents/session/ended
+
+> Sent when an agent session ends
+
+```typescript
+{
+  'agent.provider': string
+}
+```
+
+### agents/session/started
+
+> Sent when an agent session starts
+
+```typescript
+{
+  'agent.provider': string
+}
+```
+
 ### ai/enabled
 
 > Sent when AI is enabled

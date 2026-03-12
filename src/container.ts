@@ -330,6 +330,8 @@ export class Container {
 					this._agentStatusIndicator?.dispose();
 					this._agentStatusIndicator = undefined;
 
+					this.telemetry.sendEvent('agents/indicator/hidden');
+
 					if (configuration.get('agents.indicator.enabled') && this._agentStatusService != null) {
 						this._disposables.push(
 							(this._agentStatusIndicator = new AgentStatusIndicator(this, this._agentStatusService)),

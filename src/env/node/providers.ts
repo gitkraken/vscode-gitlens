@@ -97,8 +97,8 @@ export async function getMcpProviders(container: Container): Promise<Disposable[
 	return undefined;
 }
 
-export function getAgentSessionProviders(_container: Container): AgentSessionProvider[] {
-	return [new ClaudeCodeProvider()];
+export function getAgentSessionProviders(container: Container): AgentSessionProvider[] {
+	return [new ClaudeCodeProvider(container)];
 }
 
 let _telemetryService: TelemetryService | undefined;

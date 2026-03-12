@@ -11,6 +11,7 @@ import type {
 	PendingPermission,
 	PermissionSuggestion,
 } from '../../../agents/provider.js';
+import type { Container } from '../../../container.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { Logger } from '../../../system/logger.js';
 import { AgentIpcServer } from './agentIpcServer.js';
@@ -105,6 +106,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private readonly _pendingPermissions = new Map<string, PendingPermissionEntry>();
 	private _workspacePaths: string[] = [];
 	private _staleCheckTimer: ReturnType<typeof setInterval> | undefined;
+
+	constructor(private readonly container: Container) {}
 
 	get sessions(): readonly AgentSession[] {
 		return this._sessions;
@@ -221,6 +224,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					lastActivity: new Date(),
 				};
 				this._onDidChangeSessions.fire();
+				this.container.telemetry.sendEvent('agents/session/started', { 'agent.provider': this.id });
 				break;
 			}
 
@@ -236,6 +240,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					this._sessions.splice(index, 1);
 					this._onDidChangeSessions.fire();
 				}
+				this.container.telemetry.sendEvent('agents/session/ended', { 'agent.provider': this.id });
 				break;
 			}
 

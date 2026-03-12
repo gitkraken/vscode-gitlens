@@ -22,7 +22,7 @@ export class AgentStatusIndicator implements Disposable {
 	private _statusBarItem: StatusBarItem | undefined;
 
 	constructor(
-		container: Container,
+		private readonly container: Container,
 		private readonly service: AgentStatusService,
 	) {
 		this._disposable = Disposable.from(
@@ -225,6 +225,12 @@ export class AgentStatusIndicator implements Disposable {
 		agentName: string,
 		permission: PendingPermission | undefined,
 	): Promise<void> {
+		const toolName = permission?.toolName ?? 'unknown';
+		this.container.telemetry.sendEvent('agents/permission/shown', {
+			'agent.provider': 'claudeCode',
+			'permission.tool': toolName,
+		});
+
 		const desc = permission?.toolDescription ?? 'a tool';
 		const subtext = permission?.toolInputDescription;
 		const message =
@@ -241,9 +247,19 @@ export class AgentStatusIndicator implements Disposable {
 		switch (choice) {
 			case 'Allow':
 				this.service.resolvePermission(sessionId, 'allow');
+				this.container.telemetry.sendEvent('agents/permission/resolved', {
+					'agent.provider': 'claudeCode',
+					'permission.tool': toolName,
+					'permission.decision': 'allow',
+				});
 				break;
 			case 'Deny':
 				this.service.resolvePermission(sessionId, 'deny');
+				this.container.telemetry.sendEvent('agents/permission/resolved', {
+					'agent.provider': 'claudeCode',
+					'permission.tool': toolName,
+					'permission.decision': 'deny',
+				});
 				break;
 			case 'Open Session':
 				void this.openSession(sessionId);
@@ -251,6 +267,11 @@ export class AgentStatusIndicator implements Disposable {
 			default:
 				if (choice === alwaysAllowLabel && permission?.suggestions != null) {
 					this.service.resolvePermission(sessionId, 'allow', [...permission.suggestions]);
+					this.container.telemetry.sendEvent('agents/permission/resolved', {
+						'agent.provider': 'claudeCode',
+						'permission.tool': toolName,
+						'permission.decision': 'alwaysAllow',
+					});
 				}
 				// Dismissed — status bar still shows pending; re-click shows notification again
 				break;
@@ -411,6 +432,7 @@ export class AgentStatusIndicator implements Disposable {
 			registerCommand('gitlens.agents.installClaudeHook', async () => {
 				const { installClaudeHook } = await import('../env/node/agents/installClaudeHook.js');
 				await installClaudeHook();
+				this.container.telemetry.sendEvent('agents/hookInstalled', { 'agent.provider': 'claudeCode' });
 			}),
 		];
 	}
