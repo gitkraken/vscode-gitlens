@@ -74,6 +74,8 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.visualizeHistory.repo:home'
 	| 'gitlens.visualizeHistory.branch:home';
 
+type InternalAgentCommands = 'gitlens.agents.indicator.toggle' | 'gitlens.agents.installClaudeHook';
+
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
 type InternalPlusCommands =
@@ -165,6 +167,7 @@ type InternalGlCommands =
 	| 'gitlens.toggleFileHeatmap:mode'
 	| 'gitlens.toggleFileHeatmap:statusbar'
 	| 'gitlens.visualizeHistory'
+	| InternalAgentCommands
 	| InternalGraphWebviewCommands
 	| InternalHomeWebviewCommands
 	| InternalLaunchPadCommands

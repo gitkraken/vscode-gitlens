@@ -4,6 +4,7 @@ import type { DateTimeFormat } from './system/date.js';
 
 export interface Config {
 	readonly advanced: AdvancedConfig;
+	readonly agents: AgentsConfig;
 	readonly ai: AIConfig;
 	readonly autolinks: AutolinkConfig[] | null;
 	readonly blame: BlameConfig;
@@ -172,6 +173,12 @@ export type TagSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
 export type ViewBranchesLayout = 'list' | 'tree';
 export type ViewFilesLayout = 'auto' | 'list' | 'tree';
 export type ViewShowBranchComparison = 'branch' | 'working';
+
+interface AgentsConfig {
+	readonly indicator: {
+		readonly enabled: boolean;
+	};
+}
 
 export interface AdvancedConfig {
 	readonly abbreviatedShaLength: number;

@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import {
+	getAgentSessionProviders,
 	getGkCliIntegrationProvider,
 	getMcpProviders,
 	getSharedGKStorageLocationProvider,
@@ -9,6 +10,8 @@ import {
 	getSupportedWorkspacesStorageProvider,
 	setTelemetryService,
 } from '@env/providers.js';
+import { AgentStatusIndicator } from './agents/agentStatusIndicator.js';
+import { AgentStatusService } from './agents/agentStatusService.js';
 import { FileAnnotationController } from './annotations/fileAnnotationController.js';
 import { LineAnnotationController } from './annotations/lineAnnotationController.js';
 import { ActionRunners } from './api/actionRunners.js';
@@ -186,6 +189,8 @@ export class Container {
 		},
 	};
 
+	private _agentStatusService: AgentStatusService | undefined;
+	private _agentStatusIndicator: AgentStatusIndicator | undefined;
 	private readonly _connection: ServerConnection;
 	private _disposables: Disposable[];
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
@@ -279,6 +284,16 @@ export class Container {
 			this._disposables.push((this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)));
 		}
 
+		const agentProviders = getAgentSessionProviders(this);
+		if (agentProviders.length > 0) {
+			this._disposables.push((this._agentStatusService = new AgentStatusService(agentProviders)));
+			if (configuration.get('agents.indicator.enabled')) {
+				this._disposables.push(
+					(this._agentStatusIndicator = new AgentStatusIndicator(this, this._agentStatusService)),
+				);
+			}
+		}
+
 		if (configuration.get('terminalLinks.enabled')) {
 			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
@@ -307,6 +322,17 @@ export class Container {
 					if (configuration.get('launchpad.indicator.enabled')) {
 						this._disposables.push(
 							(this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)),
+						);
+					}
+				}
+
+				if (configuration.changed(e, 'agents.indicator.enabled')) {
+					this._agentStatusIndicator?.dispose();
+					this._agentStatusIndicator = undefined;
+
+					if (configuration.get('agents.indicator.enabled') && this._agentStatusService != null) {
+						this._disposables.push(
+							(this._agentStatusIndicator = new AgentStatusIndicator(this, this._agentStatusService)),
 						);
 					}
 				}

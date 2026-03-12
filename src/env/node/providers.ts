@@ -1,4 +1,5 @@
 import type { Disposable } from 'vscode';
+import type { AgentSessionProvider } from '../../agents/provider.js';
 import type { Container } from '../../container.js';
 import type { GitExecOptions, GitResult } from '../../git/execTypes.js';
 import type { GitProvider } from '../../git/gitProvider.js';
@@ -13,6 +14,7 @@ import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/wo
 import { configuration } from '../../system/-webview/configuration.js';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import type { TelemetryService } from '../../telemetry/telemetry.js';
+import { ClaudeCodeProvider } from './agents/claudeCodeProvider.js';
 import { Git } from './git/git.js';
 import { LocalGitProvider } from './git/localGitProvider.js';
 import { VslsGit, VslsGitProvider } from './git/vslsGitProvider.js';
@@ -93,6 +95,10 @@ export async function getMcpProviders(container: Container): Promise<Disposable[
 	}
 
 	return undefined;
+}
+
+export function getAgentSessionProviders(_container: Container): AgentSessionProvider[] {
+	return [new ClaudeCodeProvider()];
 }
 
 let _telemetryService: TelemetryService | undefined;

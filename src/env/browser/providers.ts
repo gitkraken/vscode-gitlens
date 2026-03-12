@@ -1,4 +1,5 @@
 import type { Disposable } from 'vscode';
+import type { AgentSessionProvider } from '../../agents/provider.js';
 import type { Container } from '../../container.js';
 import type { GitExecOptions, GitResult } from '../../git/execTypes.js';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
@@ -42,6 +43,10 @@ export function getSupportedWorkspacesStorageProvider(
 
 export function getGkCliIntegrationProvider(_container: Container): undefined {
 	return undefined;
+}
+
+export function getAgentSessionProviders(_container: Container): AgentSessionProvider[] {
+	return [];
 }
 
 export function getMcpProviders(_container: Container): Promise<Disposable[] | undefined> {
