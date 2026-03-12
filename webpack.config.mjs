@@ -204,6 +204,16 @@ function getExtensionConfig(target, mode, env) {
 		new DefinePlugin({
 			DEBUG: debug || mode === 'development',
 			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
+			...(target !== 'webworker'
+				? {
+						__GITLENS_HOOK_SCRIPT__: JSON.stringify(
+							fs.readFileSync(
+								path.join(__dirname, 'src', 'env', 'node', 'agents', 'gitlens-session-hook.ts'),
+								'utf8',
+							),
+						),
+					}
+				: {}),
 		}),
 	];
 
@@ -377,7 +387,11 @@ function getExtensionConfig(target, mode, env) {
 			fallback: {
 				'../../../product.json': false,
 				...(target === 'webworker'
-					? { path: require.resolve('path-browserify'), os: require.resolve('os-browserify/browser') }
+					? {
+							path: require.resolve('path-browserify'),
+							os: require.resolve('os-browserify/browser'),
+							'fs/promises': false,
+						}
 					: {}),
 			},
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
