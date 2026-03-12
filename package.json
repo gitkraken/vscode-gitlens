@@ -8293,6 +8293,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.setMergeMateApiKey",
+				"title": "Merge Mate: Set API Key...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.setUpstream:graph",
 				"title": "Set Upstream...",
 				"icon": "$(link)",
@@ -13331,6 +13336,10 @@
 				{
 					"command": "gitlens.revealCommitInView",
 					"when": "resource in gitlens:tabs:blameable"
+				},
+				{
+					"command": "gitlens.setMergeMateApiKey",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.setUpstream:graph",

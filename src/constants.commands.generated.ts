@@ -988,6 +988,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.reset'
 	| 'gitlens.resetViewsLayout'
 	| 'gitlens.revealCommitInView'
+	| 'gitlens.setMergeMateApiKey'
 	| 'gitlens.shareAsCloudPatch'
 	| 'gitlens.showAccountView'
 	| 'gitlens.showBranchesView'

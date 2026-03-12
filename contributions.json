@@ -5053,6 +5053,10 @@
 				]
 			}
 		},
+		"gitlens.setMergeMateApiKey": {
+			"label": "Merge Mate: Set API Key...",
+			"commandPalette": "gitlens:enabled"
+		},
 		"gitlens.setUpstream:graph": {
 			"label": "Set Upstream...",
 			"icon": "$(link)",
