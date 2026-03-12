@@ -13804,6 +13804,60 @@
 				]
 			}
 		},
+		"gitlens.views.resolveConflictsWithAI": {
+			"label": "Resolve with AI",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:conflict-files && !listMultiSelection && config.gitlens.mergeMate.enabled",
+						"group": "inline",
+						"order": -1
+					},
+					{
+						"when": "viewItem == gitlens:conflict-files && !listMultiSelection && config.gitlens.mergeMate.enabled",
+						"group": "1_gitlens_actions",
+						"order": -1
+					},
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+conflicted\\b)/ && !listMultiSelection && config.gitlens.mergeMate.enabled",
+						"group": "inline",
+						"order": -1
+					},
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+conflicted\\b)/ && !listMultiSelection && config.gitlens.mergeMate.enabled",
+						"group": "1_gitlens_actions",
+						"order": -1
+					}
+				]
+			}
+		},
+		"gitlens.views.resolveConflictsWithAI:scm": {
+			"label": "Resolve with AI",
+			"icon": "$(sparkle)",
+			"menus": {
+				"scm/resourceState/context": [
+					{
+						"when": "scmResourceGroup == merge && scmProvider == git && gitlens:enabled && config.gitlens.mergeMate.enabled",
+						"group": "1_gitlens_actions",
+						"order": -1
+					}
+				]
+			}
+		},
+		"gitlens.views.resolveConflictsWithAI.multi": {
+			"label": "Resolve with AI",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+conflicted\\b)/ && listMultiSelection && config.gitlens.mergeMate.enabled",
+						"group": "1_gitlens_actions",
+						"order": -1
+					}
+				]
+			}
+		},
 		"gitlens.views.revealRepositoryInExplorer": {
 			"label": "Reveal in File Explorer",
 			"menus": {

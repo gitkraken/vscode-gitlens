@@ -70,6 +70,7 @@ export const enum ContextValues {
 	LaunchpadErrorAuth = 'gitlens:launchpad:error+auth',
 	LineHistory = 'gitlens:history:line',
 	MergeConflictCurrentChanges = 'gitlens:merge-conflict:current',
+	MergeConflictFiles = 'gitlens:conflict-files',
 	MergeConflictIncomingChanges = 'gitlens:merge-conflict:incoming',
 	Message = 'gitlens:message',
 	MessageSignIn = 'gitlens:message:signin',

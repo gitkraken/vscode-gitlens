@@ -6,7 +6,7 @@ import { makeHierarchical } from '../../system/array.js';
 import { joinPaths, normalizePath } from '../../system/path.js';
 import { pluralize, sortCompare } from '../../system/string.js';
 import type { ViewsWithCommits } from '../viewBase.js';
-import { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, ViewNode } from './abstract/viewNode.js';
 import type { FileNode } from './folderNode.js';
 import { FolderNode } from './folderNode.js';
 import { MergeConflictFileNode } from './mergeConflictFileNode.js';
@@ -49,6 +49,7 @@ export class MergeConflictFilesNode extends ViewNode<'conflict-files', ViewsWith
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(pluralize('conflict', this.conflicts.length), TreeItemCollapsibleState.Expanded);
+		item.contextValue = ContextValues.MergeConflictFiles;
 		return item;
 	}
 }

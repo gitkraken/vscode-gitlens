@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
+import type { MergeMateService } from '@env/mergeMate.js';
 import { getTempFile } from '@env/platform.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens.d.js';
 import type { DiffWithCommandArgs } from '../commands/diffWith.js';
@@ -45,6 +46,7 @@ import {
 import { createReference } from '../git/utils/reference.utils.js';
 import { shortenRevision } from '../git/utils/revision.utils.js';
 import { showPatchesView } from '../plus/drafts/actions.js';
+import { isSubscriptionTrialOrPaidFromState } from '../plus/gk/utils/subscription.utils.js';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/associateIssueWithBranch.js';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker.js';
@@ -58,6 +60,7 @@ import {
 } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { getContext, setContext } from '../system/-webview/context.js';
+import { getScmResourceUri } from '../system/-webview/scm.js';
 import type { MergeEditorInputs } from '../system/-webview/vscode/editors.js';
 import { editorLineToDiffRange, openMergeEditor } from '../system/-webview/vscode/editors.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
@@ -101,6 +104,7 @@ import type { FolderNode } from './nodes/folderNode.js';
 import type { LineHistoryNode } from './nodes/lineHistoryNode.js';
 import type { MergeConflictChangesNode } from './nodes/mergeConflictChangesNode.js';
 import type { MergeConflictFileNode } from './nodes/mergeConflictFileNode.js';
+import type { MergeConflictFilesNode } from './nodes/mergeConflictFilesNode.js';
 import type { PausedOperationStatusNode } from './nodes/pausedOperationStatusNode.js';
 import type { PullRequestNode } from './nodes/pullRequestNode.js';
 import type { RemoteNode } from './nodes/remoteNode.js';
@@ -132,6 +136,7 @@ export type CopyNodeCommandArgs = [active: ViewNode | undefined, selection: read
 
 export class ViewCommands implements Disposable {
 	private readonly _disposable: Disposable;
+	private _aiResolutionAbortController: AbortController | undefined;
 
 	constructor(private readonly container: Container) {
 		const subscriptions: Disposable[] = [];
@@ -634,6 +639,126 @@ export class ViewCommands implements Disposable {
 		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return;
 
 		await openRebaseEditor(this.container, node.repoPath);
+	}
+
+	@command('gitlens.views.resolveConflictsWithAI')
+	@command('gitlens.views.resolveConflictsWithAI.multi', { multiselect: true })
+	@debug()
+	private async resolveConflictsWithAI(
+		node: MergeConflictFilesNode | MergeConflictFileNode,
+		nodes?: MergeConflictFileNode[],
+	) {
+		if (!node.is('conflict-files') && !node.is('conflict-file')) return;
+
+		let files: string[] | undefined;
+		let progressTitle: string;
+
+		if (node.is('conflict-file')) {
+			files = nodes?.length ? nodes.map(n => n.file.path) : [node.file.path];
+			progressTitle =
+				files.length === 1
+					? `Resolving conflict in ${basename(files[0])} with AI...`
+					: `Resolving ${files.length} conflicts with AI...`;
+		} else {
+			progressTitle = 'Resolving all conflicts with AI...';
+		}
+
+		return this.runMergeMateResolution(node.repoPath, progressTitle, files);
+	}
+
+	@command('gitlens.views.resolveConflictsWithAI:scm')
+	@debug()
+	private async resolveConflictsWithAIFromScm(...args: unknown[]) {
+		const uri = getScmResourceUri(args);
+		if (uri == null) return;
+
+		const repo = await this.container.git.getOrOpenRepository(uri);
+		if (repo == null) return;
+
+		const relativePath = this.container.git.getRelativePath(uri, repo.uri);
+		if (!relativePath) return;
+
+		return this.runMergeMateResolution(repo.path, `Resolving conflict in ${basename(relativePath)} with AI...`, [
+			relativePath,
+		]);
+	}
+
+	private async ensureMergeMateAvailable(): Promise<MergeMateService | undefined> {
+		const mergeMate = await this.container.mergeMate;
+		if (mergeMate == null || !(await mergeMate.isAvailable())) {
+			const action = await window.showWarningMessage(
+				'Merge Mate CLI is not installed or not enabled. Install it to use AI conflict resolution.',
+				'Learn More',
+			);
+			if (action === 'Learn More') {
+				void env.openExternal(Uri.parse('https://github.com/gitkraken/merge-mate-cli'));
+			}
+			return undefined;
+		}
+		return mergeMate;
+	}
+
+	private async runMergeMateResolution(repoPath: string, progressTitle: string, files?: string[]): Promise<void> {
+		const mergeMate = await this.ensureMergeMateAvailable();
+		if (mergeMate == null) return;
+
+		// Check Pro subscription
+		const subscription = await this.container.subscription.getSubscription();
+		if (!isSubscriptionTrialOrPaidFromState(subscription?.state)) {
+			void window.showWarningMessage('AI conflict resolution requires a GitLens Pro subscription.');
+			return;
+		}
+
+		// Abort any previous in-flight resolution
+		this._aiResolutionAbortController?.abort();
+		const controller = new AbortController();
+		this._aiResolutionAbortController = controller;
+
+		try {
+			await window.withProgress(
+				{ location: ProgressLocation.Notification, title: progressTitle, cancellable: true },
+				async (_progress, token) => {
+					const onCancel = token.onCancellationRequested(() => controller.abort());
+
+					try {
+						const result = await mergeMate.resolveConflicts(repoPath, false, controller.signal, files);
+
+						if (token.isCancellationRequested) return;
+
+						if (result.status === 'failed') {
+							void window.showErrorMessage(
+								`AI conflict resolution failed: ${result.error ?? 'Unknown error'}`,
+							);
+							return;
+						}
+
+						const total = result.resolutions.length;
+						const resolved = result.resolutions.filter(r => r.strategy !== 'skipped');
+						const skipped = result.resolutions.filter(r => r.strategy === 'skipped');
+
+						if (skipped.length === 0 && resolved.length > 0) {
+							void window.showInformationMessage(
+								`${resolved.length}/${total} conflicting ${resolved.length === 1 ? 'file' : 'files'} resolved by AI.`,
+							);
+						} else if (resolved.length > 0) {
+							void window.showInformationMessage(
+								`${resolved.length} ${resolved.length === 1 ? 'file' : 'files'} resolved, ${skipped.length} ${skipped.length === 1 ? 'file needs' : 'files need'} manual review.`,
+							);
+						} else {
+							void window.showWarningMessage(
+								`AI resolution completed — ${skipped.length} ${skipped.length === 1 ? 'file needs' : 'files need'} manual review.`,
+							);
+						}
+					} finally {
+						onCancel.dispose();
+					}
+				},
+			);
+		} finally {
+			if (this._aiResolutionAbortController === controller) {
+				this._aiResolutionAbortController = undefined;
+			}
+		}
 	}
 
 	@command('gitlens.openPullRequest:views')
