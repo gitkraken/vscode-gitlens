@@ -8,7 +8,7 @@ import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { createDisposable } from '../../../../system/unifiedDisposable.js';
 
 export interface IpcHandler<Request = unknown, Response = void> {
-	(request: Request | undefined): Promise<Response>;
+	(request: Request | undefined, signal?: AbortSignal): Promise<Response>;
 }
 
 export async function createIpcServer<Request = unknown, Response = void>(): Promise<IpcServer<Request, Response>> {
@@ -102,8 +102,16 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 		req.on('end', async () => {
 			const body = Buffer.concat(chunks).toString('utf8');
 			const data = body ? (JSON.parse(body) as Request) : undefined;
+
+			const ac = new AbortController();
+			res.on('close', () => {
+				if (!res.writableFinished) {
+					ac.abort();
+				}
+			});
+
 			try {
-				const result = await handler(data);
+				const result = await handler(data, ac.signal);
 				if (result == null) {
 					res.writeHead(200);
 					res.end();
