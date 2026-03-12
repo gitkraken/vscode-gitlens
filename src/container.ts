@@ -1,5 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
+import type { MergeMateService } from '@env/mergeMate.js';
+import { getSupportedMergeMateService } from '@env/mergeMate.js';
 import {
 	getGkCliIntegrationProvider,
 	getMcpProviders,
@@ -371,6 +373,10 @@ export class Container {
 		if (configuration.changed(e, 'mode')) {
 			this.ensureModeApplied();
 		}
+
+		if (configuration.changed(e, 'mergeMate')) {
+			this._mergeMate = undefined;
+		}
 	}
 
 	private _accountAuthentication: AccountAuthenticationProvider;
@@ -655,6 +661,28 @@ export class Container {
 	private readonly _lineTracker: LineTracker;
 	get lineTracker(): LineTracker {
 		return this._lineTracker;
+	}
+
+	private _mergeMate: Promise<MergeMateService | undefined> | undefined;
+	get mergeMate(): Promise<MergeMateService | undefined> {
+		if (this._mergeMate == null) {
+			async function load(this: Container) {
+				try {
+					const mergeMate = await getSupportedMergeMateService(this._storage);
+					if (mergeMate != null) {
+						this._disposables.push(mergeMate);
+					}
+					return mergeMate;
+				} catch (ex) {
+					Logger.error(ex);
+					return undefined;
+				}
+			}
+
+			this._mergeMate = load.call(this);
+		}
+
+		return this._mergeMate;
 	}
 
 	private _mode: Mode | undefined;

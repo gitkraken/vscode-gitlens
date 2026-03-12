@@ -337,6 +337,11 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when conflict detection fails */
 	'rebaseEditor/conflicts/failed': RebaseEditorConflictsFailedEvent;
 
+	/** Sent when the user invokes Merge Mate AI conflict resolution */
+	'rebaseEditor/mergeMate/invoked': RebaseEditorContextEventData;
+	/** Sent when Merge Mate AI conflict resolution completes */
+	'rebaseEditor/mergeMate/resolved': RebaseEditorMergeMateResolvedEvent;
+
 	/** Sent when a local (Git remote-based) hosting provider is connected */
 	'remoteProviders/connected': RemoteProvidersConnectedEvent;
 	/** Sent when a local (Git remote-based) hosting provider is disconnected */
@@ -1235,6 +1240,13 @@ interface RebaseEditorConflictsFailedEvent extends RebaseEditorContextEventData 
 	error?: string;
 }
 
+interface RebaseEditorMergeMateResolvedEvent extends RebaseEditorContextEventData {
+	status: 'resolved' | 'partial' | 'failed';
+	'files.total': number;
+	'files.resolved': number;
+	'confidence.avg': number;
+}
+
 export type RebaseEditorTelemetryEvent =
 	| 'rebaseEditor/action/start'
 	| 'rebaseEditor/action/abort'
@@ -1249,7 +1261,9 @@ export type RebaseEditorTelemetryEvent =
 	| 'rebaseEditor/entries/moved'
 	| 'rebaseEditor/conflicts/detecting'
 	| 'rebaseEditor/conflicts/detected'
-	| 'rebaseEditor/conflicts/failed';
+	| 'rebaseEditor/conflicts/failed'
+	| 'rebaseEditor/mergeMate/invoked'
+	| 'rebaseEditor/mergeMate/resolved';
 
 interface RemoteProvidersConnectedEvent {
 	'hostingProvider.provider': IntegrationIds;

@@ -1455,6 +1455,33 @@
 				}
 			},
 			{
+				"id": "merge-mate",
+				"title": "Merge Mate (ᴘʀᴇᴠɪᴇᴡ)",
+				"order": 66,
+				"tags": [
+					"preview"
+				],
+				"properties": {
+					"gitlens.mergeMate.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to enable AI-powered conflict resolution using [Merge Mate CLI](https://github.com/gitkraken/merge-mate-cli)",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.mergeMate.path": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies an explicit path to the `merge-mate` binary. If not set, the binary is searched in PATH",
+						"scope": "machine",
+						"order": 20
+					}
+				}
+			},
+			{
 				"id": "cloud-patches",
 				"title": "Cloud Patches (ᴘʀᴇᴠɪᴇᴡ)",
 				"order": 70,

@@ -3728,6 +3728,52 @@ void
 }
 ```
 
+### rebaseEditor/mergeMate/invoked
+
+> Sent when the user invokes Merge Mate AI conflict resolution
+
+```typescript
+{
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### rebaseEditor/mergeMate/resolved
+
+> Sent when Merge Mate AI conflict resolution completes
+
+```typescript
+{
+  'confidence.avg': number,
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'files.resolved': number,
+  'files.total': number,
+  'status': 'resolved' | 'partial' | 'failed'
+}
+```
+
 ### rebaseEditor/shown
 
 > Sent when the Rebase Editor is shown

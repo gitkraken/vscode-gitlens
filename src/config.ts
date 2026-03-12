@@ -34,6 +34,7 @@ export interface Config {
 	readonly launchpad: LaunchpadConfig;
 	readonly liveshare: LiveshareConfig;
 	readonly menus: boolean | MenuConfig;
+	readonly mergeMate: MergeMateConfig;
 	readonly mode: ModeConfig;
 	readonly modes: ModesConfig | null;
 	readonly partners: PartnersConfig | null;
@@ -626,6 +627,11 @@ export interface MenuConfig {
 				readonly share: boolean;
 				readonly stash: boolean;
 		  };
+}
+
+interface MergeMateConfig {
+	readonly enabled: boolean;
+	readonly path: string | null;
 }
 
 interface ModeConfig {

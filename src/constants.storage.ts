@@ -15,6 +15,7 @@ import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
 export type SecretKeys =
 	| IntegrationAuthenticationKeys
 	| `gitlens.${AIProviders}.key`
+	| 'gitlens.mergeMate.key'
 	| `gitlens.plus.auth:${Environment}`
 	| 'deepLinks:pending';
 
