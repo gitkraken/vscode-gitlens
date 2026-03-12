@@ -45,9 +45,11 @@ import type {
 } from './protocol.js';
 import {
 	AbortCommand,
+	CancelAIResolutionCommand,
 	ChangeEntriesCommand,
 	ChangeEntryCommand,
 	ContinueCommand,
+	DidChangeAIResolutionNotification,
 	DidChangeAvatarsNotification,
 	DidChangeCommitsNotification,
 	DidChangeNotification,
@@ -59,6 +61,7 @@ import {
 	MoveEntryCommand,
 	RecomposeCommand,
 	ReorderCommand,
+	ResolveConflictsWithAICommand,
 	RevealRefCommand,
 	SearchCommand,
 	ShiftEntriesCommand,
@@ -91,6 +94,7 @@ interface RebaseEditorContext {
 
 export class RebaseWebviewProvider implements Disposable {
 	private _branchName?: string | null;
+	private _aiResolutionAbortController: AbortController | undefined;
 	private _closing: boolean = false;
 	private readonly _disposables: Disposable[] = [];
 	private _enrichment: Enrichment;
@@ -175,6 +179,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	dispose(): void {
+		this.cancelAIResolution();
 		this._disposables.forEach(d => void d.dispose());
 	}
 
@@ -235,9 +240,24 @@ export class RebaseWebviewProvider implements Disposable {
 		void this.host.notify(DidChangeSubscriptionNotification, { subscription: subscription });
 	}
 
+	private cancelAIResolution(): void {
+		if (this._aiResolutionAbortController != null) {
+			this._aiResolutionAbortController.abort();
+			this._aiResolutionAbortController = undefined;
+		}
+	}
+
+	@ipcCommand(CancelAIResolutionCommand)
+	@debug()
+	private onCancelAIResolution(): void {
+		this.cancelAIResolution();
+	}
+
 	@ipcCommand(AbortCommand)
 	@debug()
 	private async onAbort(): Promise<void> {
+		this.cancelAIResolution();
+
 		this.host.sendTelemetryEvent('rebaseEditor/action/abort', {
 			'context.session.duration': this.getSessionDuration(),
 		});
@@ -256,6 +276,8 @@ export class RebaseWebviewProvider implements Disposable {
 	@ipcCommand(ContinueCommand)
 	@debug()
 	private async onContinue(): Promise<void> {
+		this.cancelAIResolution();
+
 		this.host.sendTelemetryEvent('rebaseEditor/action/continue');
 
 		// Save the document first to ensure any changes are persisted
@@ -315,6 +337,88 @@ export class RebaseWebviewProvider implements Disposable {
 		await showPausedOperationStatus(this.container, this.repoPath);
 	}
 
+	@ipcCommand(ResolveConflictsWithAICommand)
+	@debug()
+	private async onResolveConflictsWithAI(): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/mergeMate/invoked');
+
+		const mergeMate = await this.container.mergeMate;
+		if (mergeMate == null || !(await mergeMate.isAvailable())) {
+			void this.host.notify(DidChangeAIResolutionNotification, {
+				status: 'unavailable',
+				error: 'Merge Mate is not installed or not enabled',
+			});
+			return;
+		}
+
+		// Check Pro subscription
+		const subscription = await this.container.subscription.getSubscription();
+		if (!isSubscriptionTrialOrPaidFromState(subscription?.state)) {
+			void this.host.notify(DidChangeAIResolutionNotification, {
+				status: 'unavailable',
+				error: 'This feature requires a GitLens Pro subscription',
+			});
+			return;
+		}
+
+		// Notify webview that resolution is in progress
+		void this.host.notify(DidChangeAIResolutionNotification, { status: 'resolving' });
+
+		// Set up cancellation
+		this._aiResolutionAbortController?.abort();
+		const abortController = new AbortController();
+		this._aiResolutionAbortController = abortController;
+
+		let result;
+		try {
+			// merge-mate resolve detects the in-progress rebase/merge and resolves all
+			// conflicting files in the current step, staging them in the working tree.
+			result = await mergeMate.resolveConflicts(this.repoPath, undefined, abortController.signal);
+		} catch (ex) {
+			if (abortController.signal.aborted) {
+				void this.host.notify(DidChangeAIResolutionNotification, { status: 'cancelled' });
+				return;
+			}
+			void this.host.notify(DidChangeAIResolutionNotification, {
+				status: 'failed',
+				error: ex instanceof Error ? ex.message : String(ex),
+			});
+			return;
+		} finally {
+			if (this._aiResolutionAbortController === abortController) {
+				this._aiResolutionAbortController = undefined;
+			}
+		}
+
+		const resolutions = result.resolutions.map(r => ({
+			path: r.path,
+			confidence: r.confidence,
+			reasoning: r.reasoning,
+			applied: r.strategy !== 'skipped',
+		}));
+
+		const resolvedCount = resolutions.filter(r => r.applied).length;
+
+		this.host.sendTelemetryEvent('rebaseEditor/mergeMate/resolved', {
+			status: result.status,
+			'files.total': result.resolutions.length,
+			'files.resolved': resolvedCount,
+			'confidence.avg':
+				resolutions.length > 0
+					? Math.round(resolutions.reduce((sum, r) => sum + r.confidence, 0) / resolutions.length)
+					: 0,
+		});
+
+		void this.host.notify(DidChangeAIResolutionNotification, {
+			status: result.status,
+			resolutions: resolutions,
+			error: result.error,
+		});
+
+		// Trigger state refresh to update conflict status
+		this.updateState();
+	}
+
 	@ipcCommand(SearchCommand)
 	private onSearch() {
 		void executeCoreCommand('editor.action.webvieweditor.showFind');
@@ -323,6 +427,8 @@ export class RebaseWebviewProvider implements Disposable {
 	@ipcCommand(SkipCommand)
 	@debug()
 	private async onSkip(): Promise<void> {
+		this.cancelAIResolution();
+
 		this.host.sendTelemetryEvent('rebaseEditor/action/skip');
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 		await skipPausedOperation(svc);

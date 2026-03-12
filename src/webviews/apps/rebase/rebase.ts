@@ -10,9 +10,17 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import type { RebaseTodoCommitAction } from '../../../git/models/rebase.js';
 import { filterMap, some } from '../../../system/iterable.js';
 import { pluralize } from '../../../system/string.js';
-import type { RebaseActiveStatus, RebaseCommitEntry, RebaseEntry, State } from '../../rebase/protocol.js';
+import type {
+	AIResolution,
+	DidChangeAIResolutionParams,
+	RebaseActiveStatus,
+	RebaseCommitEntry,
+	RebaseEntry,
+	State,
+} from '../../rebase/protocol.js';
 import {
 	AbortCommand,
+	CancelAIResolutionCommand,
 	ChangeEntriesCommand,
 	ChangeEntryCommand,
 	ContinueCommand,
@@ -22,6 +30,7 @@ import {
 	MoveEntryCommand,
 	RecomposeCommand,
 	ReorderCommand,
+	ResolveConflictsWithAICommand,
 	RevealRefCommand,
 	SearchCommand,
 	ShiftEntriesCommand,
@@ -104,6 +113,14 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	/** Conflict detection stale state - set when commits are dropped */
 	@state() private conflictDetectionStale = false;
 
+	/** AI conflict resolution state */
+	@state() private _aiResolutionStatus: DidChangeAIResolutionParams['status'] | undefined;
+	@state() private _aiResolutions: AIResolution[] | undefined;
+	@state() private _aiResolutionError: string | undefined;
+
+	/** Tracks the rebase step to clear AI state on step change */
+	private _lastRebaseStep: number | undefined;
+
 	/** Cached values computed in willUpdate for performance */
 	private _idToSortedIndex = new Map<string, number>();
 	private _oldestCommitId: string | undefined;
@@ -159,12 +176,20 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		document.addEventListener('keydown', this.onDocumentKeyDown);
+		this.addEventListener('ai-resolution-changed', this.onAIResolutionChanged as EventListener);
 	}
 
 	override disconnectedCallback(): void {
 		document.removeEventListener('keydown', this.onDocumentKeyDown);
+		this.removeEventListener('ai-resolution-changed', this.onAIResolutionChanged as EventListener);
 		super.disconnectedCallback?.();
 	}
+
+	private onAIResolutionChanged = (e: CustomEvent<DidChangeAIResolutionParams>) => {
+		this._aiResolutionStatus = e.detail.status;
+		this._aiResolutions = e.detail.resolutions;
+		this._aiResolutionError = e.detail.error;
+	};
 
 	private onListKeyDown = (e: KeyboardEvent) => {
 		// Ctrl/Cmd+A: select all entries
@@ -980,6 +1005,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private onAbortClicked() {
+		if (this._aiResolutionStatus === 'resolving') {
+			this._ipc.sendCommand(CancelAIResolutionCommand, undefined);
+		}
 		this._ipc.sendCommand(AbortCommand, undefined);
 	}
 
@@ -988,6 +1016,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private onSkipClicked() {
+		if (this._aiResolutionStatus === 'resolving') {
+			this._ipc.sendCommand(CancelAIResolutionCommand, undefined);
+		}
 		this._ipc.sendCommand(SkipCommand, undefined);
 	}
 
@@ -1107,6 +1138,15 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	protected override willUpdate(_changedProperties: PropertyValues): void {
+		// Clear AI resolution state when the rebase step changes
+		const currentStep = this.rebaseStatus?.currentStep;
+		if (this._lastRebaseStep != null && currentStep !== this._lastRebaseStep) {
+			this._aiResolutionStatus = undefined;
+			this._aiResolutions = undefined;
+			this._aiResolutionError = undefined;
+		}
+		this._lastRebaseStep = currentStep;
+
 		// Compute cached values for this render cycle
 		const entries = this.entries;
 
@@ -1305,15 +1345,43 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		}
 
 		return html`<div class="rebase-banner ${pauseReason === 'conflict' ? 'has-conflicts' : ''}">
-			<code-icon icon="${icon}"></code-icon>
-			<span class="rebase-status">${statusContent}</span>
-			${pauseReason === 'conflict'
-				? html`<gl-tooltip hoist content="Show Conflicts">
-						<a class="rebase-action-link" href="${this.showConflictsCommandUrl}">Show conflicts</a>
-					</gl-tooltip>`
-				: nothing}
-			<span class="rebase-progress">(${status.currentStep}/${status.totalSteps})</span>
-			<span class="rebase-remaining">${status.totalSteps - status.currentStep} remaining</span>
+				<code-icon icon="${icon}"></code-icon>
+				<span class="rebase-status">${statusContent}</span>
+				${pauseReason === 'conflict'
+					? html`<gl-tooltip hoist content="Show Conflicts">
+							<a class="rebase-action-link" href="${this.showConflictsCommandUrl}">Show conflicts</a>
+						</gl-tooltip>`
+					: nothing}
+				<span class="rebase-progress">(${status.currentStep}/${status.totalSteps})</span>
+				<span class="rebase-remaining">${status.totalSteps - status.currentStep} remaining</span>
+			</div>
+			${this.renderAIResolutions()}`;
+	}
+
+	private renderAIResolutions() {
+		const resolutions = this._aiResolutions;
+		if (!resolutions?.length) {
+			if (this._aiResolutionStatus === 'failed' || this._aiResolutionStatus === 'unavailable') {
+				return html`<div class="ai-resolution-status ai-resolution-error">
+					<code-icon icon="error"></code-icon>
+					<span>${this._aiResolutionError ?? 'AI conflict resolution failed'}</span>
+				</div>`;
+			}
+			return nothing;
+		}
+
+		return html`<div class="ai-resolution-results">
+			${resolutions.map(
+				r =>
+					html`<div class="ai-resolution-file ${r.applied ? 'resolved' : 'needs-review'}">
+						<code-icon icon=${r.applied ? 'check' : 'warning'}></code-icon>
+						<span class="ai-resolution-path">${r.path}</span>
+						<span class="ai-resolution-confidence">${r.confidence}%</span>
+						${r.applied
+							? html`<span class="ai-resolution-label">resolved</span>`
+							: html`<span class="ai-resolution-label needs-review">needs review</span>`}
+					</div>`,
+			)}
 		</div>`;
 	}
 
@@ -1577,7 +1645,28 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private renderActiveRebaseActions(hasConflicts: boolean) {
+		const isResolving = this._aiResolutionStatus === 'resolving';
+
 		return html`
+			${hasConflicts
+				? isResolving
+					? html`<gl-button
+							appearance="secondary"
+							@click=${this.onCancelAIResolutionClicked}
+							tooltip="Cancel AI conflict resolution"
+						>
+							<code-icon slot="prefix" icon="loading" modifier="spin"></code-icon>
+							Cancel
+						</gl-button>`
+					: html`<gl-button
+							appearance="secondary"
+							@click=${this.onResolveWithAIClicked}
+							tooltip="Resolve conflicts using Merge Mate AI"
+						>
+							<code-icon slot="prefix" icon="sparkle"></code-icon>
+							Resolve with AI
+						</gl-button>`
+				: nothing}
 			<gl-button @click=${this.onContinueClicked} ?disabled=${hasConflicts}>
 				<span>Continue</span>
 				<span slot="suffix" class="button-shortcut">Ctrl+Enter</span>
@@ -1586,4 +1675,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			<gl-button variant="danger" @click=${this.onAbortClicked}>Abort</gl-button>
 		`;
 	}
+
+	private onResolveWithAIClicked = () => {
+		this._ipc.sendCommand(ResolveConflictsWithAICommand, undefined);
+	};
+
+	private onCancelAIResolutionClicked = () => {
+		this._ipc.sendCommand(CancelAIResolutionCommand, undefined);
+	};
 }

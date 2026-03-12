@@ -6,6 +6,7 @@ import type { IpcSerialized } from '../../../system/ipcSerialize.js';
 import type { IpcMessage } from '../../ipc/models/ipc.js';
 import type { State as _State, Commit } from '../../rebase/protocol.js';
 import {
+	DidChangeAIResolutionNotification,
 	DidChangeAvatarsNotification,
 	DidChangeCommitsNotification,
 	DidChangeNotification,
@@ -136,6 +137,12 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 				this.provider.setValue(this._state, true);
 				// Request update to re-render with new subscription state
 				this.host.requestUpdate();
+				break;
+
+			case DidChangeAIResolutionNotification.is(msg):
+				this.host.dispatchEvent(
+					new CustomEvent('ai-resolution-changed', { detail: msg.params, bubbles: true }),
+				);
 				break;
 		}
 	}

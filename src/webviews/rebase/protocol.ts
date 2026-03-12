@@ -179,6 +179,9 @@ export const GetMissingCommitsCommand = new IpcCommand<GetMissingCommitsParams>(
 
 export const RecomposeCommand = new IpcCommand(scope, 'recompose/open');
 
+export const ResolveConflictsWithAICommand = new IpcCommand(scope, 'conflicts/resolveWithAI');
+export const CancelAIResolutionCommand = new IpcCommand(scope, 'conflicts/cancelAIResolution');
+
 // REQUESTS
 
 export interface GetPotentialConflictsParams {
@@ -224,4 +227,21 @@ export interface DidChangeSubscriptionParams {
 export const DidChangeSubscriptionNotification = new IpcNotification<DidChangeSubscriptionParams>(
 	scope,
 	'subscription/didChange',
+);
+
+export interface AIResolution {
+	path: string;
+	confidence: number;
+	reasoning?: string;
+	applied: boolean;
+}
+
+export interface DidChangeAIResolutionParams {
+	status: 'resolving' | 'resolved' | 'partial' | 'failed' | 'unavailable' | 'cancelled';
+	resolutions?: AIResolution[];
+	error?: string;
+}
+export const DidChangeAIResolutionNotification = new IpcNotification<DidChangeAIResolutionParams>(
+	scope,
+	'ai/resolution/didChange',
 );

@@ -308,6 +308,68 @@ export const rebaseStyles = css`
 	}
 
 	/* ==========================================================================
+	   AI Resolution Results
+	   ========================================================================== */
+
+	.ai-resolution-status {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.3rem 0.6rem;
+		font-size: 0.85em;
+
+		&.ai-resolution-error {
+			color: var(--vscode-errorForeground);
+		}
+	}
+
+	.ai-resolution-results {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		padding: 0.3rem 0.6rem;
+		font-size: 0.85em;
+	}
+
+	.ai-resolution-file {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.15rem 0;
+
+		&.resolved code-icon {
+			color: var(--vscode-testing-iconPassed, #73c991);
+		}
+
+		&.needs-review code-icon {
+			color: var(--vscode-editorWarning-foreground, #cca700);
+		}
+	}
+
+	.ai-resolution-path {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.ai-resolution-confidence {
+		flex: none;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.ai-resolution-label {
+		flex: none;
+		font-size: 0.85em;
+		opacity: 0.8;
+
+		&.needs-review {
+			color: var(--vscode-editorWarning-foreground, #cca700);
+		}
+	}
+
+	/* ==========================================================================
 	   Entries
 	   ========================================================================== */
 
