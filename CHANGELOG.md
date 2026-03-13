@@ -8,16 +8,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds bundled MCP registration in Cursor, eliminating the need for a manual `mcp.json` entry ([#4985](https://github.com/gitkraken/vscode-gitlens/issues/4985))
 - Adds branch activity dates to the _Home_ view recents &mdash; sorts by most recent activity and displays the most relevant activity label ([#5034](https://github.com/gitkraken/vscode-gitlens/issues/5034))
+
+### Fixed
+
+- Fixes provider id mismatch for cloud-connected self-hosted integrations ([#5031](https://github.com/gitkraken/vscode-gitlens/issues/5031))
+- Fixes an issue where the _Launchpad_ would fail to show any pull requests when one integration provider had an authentication failure — now shows partial results with an error indicator ([#4492](https://github.com/gitkraken/vscode-gitlens/issues/4492))
+
+## [17.11.1] - 2026-03-11
+
+### Added
+
+- Adds bundled MCP registration in Cursor, eliminating the need for a manual `mcp.json` entry ([#4985](https://github.com/gitkraken/vscode-gitlens/issues/4985))
 
 ### Fixed
 
 - Fixes regression in 17.11.0 that breaks git submodule support in Branches and Remotes views ([#5024](https://github.com/gitkraken/vscode-gitlens/issues/5024))
 - Fixes Interactive rebase fails: `code.exe: bad option: --wait` ([#5028](https://github.com/gitkraken/vscode-gitlens/issues/5028))
 - Fixes an issue where navigating to the line history of a newly added line would incorrectly compare against "missing" instead of the file at the parent commit ([#5030](https://github.com/gitkraken/vscode-gitlens/issues/5030))
-- Fixes provider id mismatch for cloud-connected self-hosted integrations ([#5031](https://github.com/gitkraken/vscode-gitlens/issues/5031))
-- Fixes an issue where the _Launchpad_ would fail to show any pull requests when one integration provider had an authentication failure — now shows partial results with an error indicator ([#4492](https://github.com/gitkraken/vscode-gitlens/issues/4492))
 
 ## [17.11.0] - 2026-03-04
 
@@ -6738,7 +6746,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.1...HEAD
+[17.11.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.0...gitkraken:v17.11.1
 [17.11.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.10.2...gitkraken:v17.11.0
 [17.10.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.10.1...gitkraken:v17.10.2
 [17.10.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.10.0...gitkraken:v17.10.1
