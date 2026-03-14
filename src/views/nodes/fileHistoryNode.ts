@@ -122,7 +122,7 @@ export class FileHistoryNode
 	}
 
 	protected override etag(): number {
-		return Date.now();
+		return this.view.container.git.getRepository(this.uri)?.etag ?? 0;
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
