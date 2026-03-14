@@ -1,6 +1,7 @@
 import { consume } from '@lit/context';
+import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants.js';
@@ -19,14 +20,14 @@ import {
 } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import { pluralize } from '../../../../../system/string.js';
-import type { State } from '../../../../home/protocol.js';
-import { stateContext } from '../../../home/context.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type { GlPromo } from '../../../shared/components/promo.js';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { PromosContext } from '../../../shared/contexts/promos.js';
 import { promosContext } from '../../../shared/contexts/promos.js';
+import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import { chipStyles } from './chipStyles.js';
 import { ruleStyles } from './vscode.css.js';
 import '../../../shared/components/button.js';
@@ -35,7 +36,10 @@ import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
 
 @customElement('gl-account-chip')
-export class GlAccountChip extends LitElement {
+export class GlAccountChip extends SignalWatcher(LitElement) {
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
@@ -232,6 +236,36 @@ export class GlAccountChip extends LitElement {
 				text-transform: uppercase;
 				font-size: 1rem;
 			}
+
+			@keyframes shimmer {
+				100% {
+					transform: translateX(100%);
+				}
+			}
+
+			.chip--skeleton {
+				position: relative;
+				overflow: hidden;
+				width: 8rem;
+				height: 2.4rem;
+				background-color: var(--gl-account-chip-color);
+				cursor: default;
+			}
+
+			.chip--skeleton::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background-image: linear-gradient(
+					to right,
+					transparent 0%,
+					var(--color-background--lighten-15) 20%,
+					var(--color-background--lighten-30) 60%,
+					transparent 100%
+				);
+				transform: translateX(-100%);
+				animation: shimmer 2s ease-in-out infinite;
+			}
 		`,
 	];
 
@@ -250,12 +284,8 @@ export class GlAccountChip extends LitElement {
 	@query('gl-popover')
 	private _popover!: GlPopover;
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _state!: State;
-
 	private get accountAvatar() {
-		return this.hasAccount && this._state.avatar;
+		return this.hasAccount && this._subscription.avatar.get();
 	}
 
 	private get accountName() {
@@ -277,19 +307,24 @@ export class GlAccountChip extends LitElement {
 		);
 	}
 	private get planId() {
-		return this._state.subscription?.plan.actual.id ?? 'pro';
+		return this._subscription.subscription.get()?.plan.actual.id ?? 'pro';
 	}
 	private get effectivePlanId() {
-		return this._state.subscription?.plan.effective.id ?? 'pro';
+		return this._subscription.subscription.get()?.plan.effective.id ?? 'pro';
 	}
 
 	private get planName() {
-		return getSubscriptionProductPlanNameFromState(this.subscriptionState, this.planId, this.effectivePlanId);
+		return getSubscriptionProductPlanNameFromState(
+			this.subscriptionState ?? SubscriptionState.Community,
+			this.planId,
+			this.effectivePlanId,
+		);
 	}
 
 	private get planTier() {
-		if (isSubscriptionTrial(this.subscription)) {
-			return this.subscription.plan.effective.id === 'student' ? 'Student' : 'Pro Trial';
+		const sub = this.subscription;
+		if (sub != null && isSubscriptionTrial(sub)) {
+			return sub.plan.effective.id === 'student' ? 'Student' : 'Pro Trial';
 		}
 
 		return getSubscriptionPlanName(this.planId);
@@ -299,7 +334,7 @@ export class GlAccountChip extends LitElement {
 	private promos!: PromosContext;
 
 	private get subscription() {
-		return this._state.subscription;
+		return this._subscription.subscription.get();
 	}
 
 	private get subscriptionState() {
@@ -317,6 +352,18 @@ export class GlAccountChip extends LitElement {
 	}
 
 	override render(): unknown {
+		// Don't show account state until subscription data has loaded.
+		// subscription starts as undefined; even Community users have a Subscription object.
+		if (this.subscription === undefined) {
+			return html`<span
+				id="chip"
+				class="chip chip--skeleton"
+				tabindex="-1"
+				aria-label="Loading account status"
+				role="status"
+			></span>`;
+		}
+
 		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
 				<span id="chip" slot="anchor" class="chip" tabindex="0">
 					${this.accountAvatar
@@ -371,14 +418,17 @@ export class GlAccountChip extends LitElement {
 	}
 
 	private renderAccountInfo() {
-		const organization = this._state.subscription?.activeOrganization?.name ?? '';
+		const sub = this._subscription.subscription.get();
+		const avatar = this._subscription.avatar.get();
+		const orgCount = this._subscription.organizationsCount.get();
+		const organization = sub?.activeOrganization?.name ?? '';
 		if (!this.hasAccount || !organization) return nothing;
 
 		return html`<div class="account-info">
 			<span class="row">
 				<span class="row__media"
-					>${this._state.avatar
-						? html`<img src=${this._state.avatar} />`
+					>${avatar
+						? html`<img src=${avatar} />`
 						: html`<code-icon icon="gl-gitlens" size="20"></code-icon>`}</span
 				>
 				<span class="details"
@@ -390,7 +440,7 @@ export class GlAccountChip extends LitElement {
 				<span class="row__media"><code-icon icon="organization" size="20"></code-icon></span>
 				<span class="details"><p class="details__title">${organization}</p></span>
 				${when(
-					this._state.organizationsCount! > 1,
+					orgCount > 1,
 					() =>
 						html`<div class="details__button">
 							<gl-button
@@ -398,17 +448,17 @@ export class GlAccountChip extends LitElement {
 								href="${createCommandLink<Source>('gitlens.gk.switchOrganization', {
 									source: 'account',
 									detail: {
-										organization: this._state.subscription?.activeOrganization?.id,
+										organization: sub?.activeOrganization?.id,
 									},
 								})}"
 								aria-label="Switch Active Organization"
-								><span class="org__badge">+${this._state.organizationsCount! - 1}</span
+								><span class="org__badge">+${orgCount - 1}</span
 								><code-icon icon="arrow-swap"></code-icon
 								><span slot="tooltip"
 									>Switch Active Organization
 									<hr />
 									You are in
-									${pluralize('organization', this._state.organizationsCount! - 1, {
+									${pluralize('organization', orgCount - 1, {
 										infix: ' other ',
 									})}</span
 								></gl-button
@@ -417,19 +467,21 @@ export class GlAccountChip extends LitElement {
 				)}
 			</span>
 			${when(
-				isSubscriptionTrialOrPaidFromState(this.subscription.state),
+				isSubscriptionTrialOrPaidFromState(this.subscription?.state ?? SubscriptionState.Community),
 				() =>
 					html`<span class="row">
 						<span class="row__media"><code-icon icon="unlock" size="20"></code-icon></span>
 						<span class="details"
 							><p class="details__title">
-								${isSubscriptionTrial(this.subscription)
+								${this.subscription != null && isSubscriptionTrial(this.subscription)
 									? html`${getSubscriptionPlanName(this.effectivePlanId)} plan
 											<span class="details__subtitle">(trial)</span>`
 									: html`${getSubscriptionPlanName(this.planId)} plan`}
 							</p></span
 						>
-						${isSubscriptionPaid(this.subscription) && compareSubscriptionPlans(this.planId, 'advanced') < 0
+						${this.subscription != null &&
+						isSubscriptionPaid(this.subscription) &&
+						compareSubscriptionPlans(this.planId, 'advanced') < 0
 							? html`<div class="details__button">
 									<gl-button
 										appearance="secondary"
@@ -440,7 +492,7 @@ export class GlAccountChip extends LitElement {
 												source: 'account',
 												detail: {
 													location: 'plan-section:upgrade-button',
-													organization: this._state.subscription?.activeOrganization?.id,
+													organization: sub?.activeOrganization?.id,
 													plan: 'advanced',
 												},
 											},
@@ -465,6 +517,8 @@ export class GlAccountChip extends LitElement {
 	}
 
 	private renderAccountState() {
+		const sub = this._subscription.subscription.get();
+
 		switch (this.subscriptionState) {
 			case SubscriptionState.Paid:
 				return html`<div class="account-status">
@@ -518,7 +572,7 @@ export class GlAccountChip extends LitElement {
 								source: 'account',
 								detail: {
 									location: 'upgrade-button',
-									organization: this._state.subscription?.activeOrganization?.id,
+									organization: sub?.activeOrganization?.id,
 									plan: 'pro',
 								},
 							})}"
@@ -541,7 +595,7 @@ export class GlAccountChip extends LitElement {
 								source: 'account',
 								detail: {
 									location: 'upgrade-button',
-									organization: this._state.subscription?.activeOrganization?.id,
+									organization: sub?.activeOrganization?.id,
 									plan: 'pro',
 								},
 							})}"
@@ -605,7 +659,7 @@ export class GlAccountChip extends LitElement {
 	}
 
 	private renderReferFriend() {
-		if (!isSubscriptionPaid(this.subscription)) return nothing;
+		if (this.subscription == null || !isSubscriptionPaid(this.subscription)) return nothing;
 
 		return html`<p>
 			<a
@@ -619,7 +673,9 @@ export class GlAccountChip extends LitElement {
 	}
 
 	private renderUpgradeContent() {
-		if (isSubscriptionPaid(this.subscription)) {
+		const sub = this._subscription.subscription.get();
+
+		if (sub != null && isSubscriptionPaid(sub)) {
 			this.showUpgrade = false;
 			return nothing;
 		}
@@ -643,7 +699,7 @@ export class GlAccountChip extends LitElement {
 								source: 'account',
 								detail: {
 									location: 'upgrade-chip:upgrade-button',
-									organization: this._state.subscription?.activeOrganization?.id,
+									organization: sub?.activeOrganization?.id,
 									plan: 'pro',
 								},
 							})}"
@@ -670,7 +726,7 @@ export class GlAccountChip extends LitElement {
 								source: 'account',
 								detail: {
 									location: 'upgrade-chip:upgrade-button',
-									organization: this._state.subscription?.activeOrganization?.id,
+									organization: sub?.activeOrganization?.id,
 									plan: 'advanced',
 								},
 							})}"

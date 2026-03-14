@@ -2801,17 +2801,6 @@ void
 }
 ```
 
-### home/preview/toggled
-
-> Sent when the new Home view preview is toggled on/off
-
-```typescript
-{
-  'enabled': boolean,
-  'version': string
-}
-```
-
 ### home/showAborted
 
 ```typescript

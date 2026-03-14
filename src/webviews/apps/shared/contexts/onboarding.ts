@@ -4,13 +4,11 @@ import { signalObject } from 'signal-utils/object';
 import type { WalkthroughContextKeys } from '../../../../constants.walkthroughs.js';
 import { createSignalGroup } from '../state.js';
 
-export type OnboardingKey = 'aiAllAccessBanner' | 'integrationBanner' | 'amaBanner';
+export type OnboardingKey = 'integrationBanner';
 
 export interface OnboardingState {
 	readonly banners: {
-		aiAllAccessBanner: boolean;
 		integrationBanner: boolean;
-		amaBanner: boolean;
 	};
 	readonly walkthroughProgress: Signal.State<WalkthroughProgressState | undefined>;
 	/** Dismiss a banner by key. No-op before RPC connects; wired by root component. */
@@ -36,9 +34,7 @@ export function createOnboardingState(): OnboardingState {
 	const { signal, resetAll } = createSignalGroup();
 	return {
 		banners: signalObject({
-			aiAllAccessBanner: false,
 			integrationBanner: false,
-			amaBanner: false,
 		}),
 		walkthroughProgress: signal<WalkthroughProgressState | undefined>(undefined),
 		dismiss: noop,

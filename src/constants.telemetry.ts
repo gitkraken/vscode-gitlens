@@ -240,8 +240,6 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when a Home command is executed */
 	'home/command': CommandEventData;
-	/** Sent when the new Home view preview is toggled on/off */
-	'home/preview/toggled': HomePreviewToggledEvent;
 	/** Sent when the user chooses to create a branch from the home view */
 	'home/createBranch': void;
 	/** Sent when the user chooses to start work on an issue from the home view */
@@ -865,14 +863,7 @@ interface GraphSearchedEvent extends GraphContextEventData {
 	'failed.error.detail'?: string;
 }
 
-export type HomeTelemetryContext = WebviewTelemetryContext & {
-	'context.preview': string | undefined;
-};
-
-interface HomePreviewToggledEvent {
-	enabled: boolean;
-	version: string;
-}
+export type HomeTelemetryContext = WebviewTelemetryContext;
 
 interface HomeFailedEvent {
 	reason: 'subscription';
