@@ -1,3 +1,5 @@
+import { exhaustiveArray } from '../../../system/array.js';
+
 export const launchpadActionCategories = [
 	'mergeable',
 	'unassigned-reviewers',
@@ -27,12 +29,12 @@ export const launchpadGroups = [
 ] as const;
 export type LaunchpadGroup = (typeof launchpadGroups)[number];
 
-export const launchpadPriorityGroups = [
+export const launchpadPriorityGroups = exhaustiveArray<LaunchpadPriorityGroup>()([
 	'mergeable',
 	'blocked',
 	'follow-up',
 	'needs-review',
-] satisfies readonly LaunchpadPriorityGroup[] as readonly LaunchpadGroup[];
+]) as readonly LaunchpadGroup[];
 export type LaunchpadPriorityGroup = Extract<LaunchpadGroup, 'mergeable' | 'blocked' | 'follow-up' | 'needs-review'>;
 
 export const launchpadGroupIconMap = new Map<LaunchpadGroup, `$(${string})`>([

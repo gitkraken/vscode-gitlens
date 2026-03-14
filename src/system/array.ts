@@ -41,6 +41,12 @@ export function ensureArray<T>(source: NonNullable<T> | NonNullable<T>[] | undef
 	return source == null ? undefined : Array.isArray(source) ? source : [source];
 }
 
+export function exhaustiveArray<T>() {
+	return <const A extends readonly T[]>(
+		...args: [T] extends [A[number]] ? [array: A] : [{ missingMembers: Exclude<T, A[number]> }]
+	): A => args[0] as A;
+}
+
 export function filterMap<T, TMapped>(
 	source: readonly T[],
 	predicateMapper: (item: T, index: number) => TMapped | null | undefined,

@@ -12,6 +12,7 @@ import { executeActionCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { UriSet } from '../../system/-webview/uriMap.js';
 import { exists } from '../../system/-webview/vscode/uris.js';
+import { exhaustiveArray } from '../../system/array.js';
 import { getScopedCounter } from '../../system/counter.js';
 import { gate } from '../../system/decorators/gate.js';
 import { debug, loggable, logName, trace } from '../../system/decorators/log.js';
@@ -68,6 +69,28 @@ export type RepositoryChange =
 	| 'starred'
 	| 'opened'
 	| 'gkConfig';
+export const repositoryChanges = exhaustiveArray<RepositoryChange>()([
+	'unknown',
+	'index',
+	'head',
+	'heads',
+	'tags',
+	'stash',
+	'remotes',
+	'worktrees',
+	'config',
+	'pausedOp',
+	'cherryPick',
+	'merge',
+	'rebase',
+	'revert',
+	'closed',
+	'ignores',
+	'remoteProviders',
+	'starred',
+	'opened',
+	'gkConfig',
+]);
 
 const defaultFileSystemChangeDelay = 2500;
 const defaultRepositoryChangeDelay = 250;
