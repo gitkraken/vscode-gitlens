@@ -140,7 +140,6 @@ export class WelcomeShowHomeViewCommand extends GlCommandBase {
 			command: 'gitlens.welcome.showHomeView',
 		});
 		await executeCommand('gitlens.showHomeView');
-		void executeCommand('gitlens.views.home.enablePreview');
 	}
 }
 

@@ -27,7 +27,6 @@ export interface Config {
 	readonly gitkraken: GitKrakenConfig;
 	readonly graph: GraphConfig;
 	readonly heatmap: HeatmapConfig;
-	readonly home: HomeConfig;
 	readonly hovers: HoversConfig;
 	readonly integrations: IntegrationsConfig;
 	readonly keymap: KeyMap;
@@ -469,12 +468,6 @@ interface HeatmapConfig {
 	readonly fadeLines: boolean;
 	readonly locations: HeatmapLocations[];
 	/*readonly*/ toggleMode: AnnotationsToggleMode;
-}
-
-interface HomeConfig {
-	readonly preview: {
-		readonly enabled: boolean;
-	};
 }
 
 interface HoversConfig {

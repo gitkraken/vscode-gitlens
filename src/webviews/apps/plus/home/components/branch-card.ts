@@ -1,4 +1,5 @@
 import { consume } from '@lit/context';
+import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -22,13 +23,15 @@ import type {
 	OpenInGraphParams,
 	OpenInTimelineParams,
 	OpenWorktreeCommandArgs,
-	State,
 } from '../../../../home/protocol.js';
-import { stateContext } from '../../../home/context.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { GlCard } from '../../../shared/components/card/card.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import type { AIContextState } from '../../../shared/contexts/ai.js';
+import { aiContext } from '../../../shared/contexts/ai.js';
+import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
@@ -253,12 +256,20 @@ declare global {
 	}
 }
 
-export abstract class GlBranchCardBase extends GlElement {
+// Cast needed because SignalWatcher's Constructor<T> type excludes abstract classes,
+// but GlBranchCardBase is abstract itself and only concrete subclasses are instantiated.
+const SignalWatcherGlElement = SignalWatcher(
+	GlElement as unknown as new (...args: any[]) => GlElement,
+) as unknown as typeof GlElement;
+
+export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	static override styles = [linkStyles, branchCardStyles];
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	protected _homeState!: State;
+	@consume({ context: subscriptionContext, subscribe: true })
+	protected _subscription!: SubscriptionContextState;
+
+	@consume({ context: aiContext })
+	protected _aiCtx!: AIContextState;
 
 	@consume({ context: webviewContext })
 	protected _webview!: WebviewContext;
@@ -722,7 +733,7 @@ export abstract class GlBranchCardBase extends GlElement {
 
 		// Build tooltip lines in fixed order: modified, accessed, committed
 		// Collapse accessed+modified into just "Modified" when they're within the same second
-		const dateFormat = this._homeState?.dateFormat ?? undefined;
+		const dateFormat = 'MMMM Do, YYYY h:mma'; // TODO fix this
 		const fmtLine = (label: string, ts: number) =>
 			html`${label} ${fromNow(new Date(ts))} <i>(${formatDate(new Date(ts), dateFormat)})</i>`;
 		const sameAccessedModified =
@@ -826,8 +837,8 @@ export abstract class GlBranchCardBase extends GlElement {
 								<code-icon icon="git-pull-request" slot="prefix"></code-icon>
 								<span>Create a Pull Request</span>
 							</gl-button>
-							${this._homeState.orgSettings.ai &&
-							this._homeState.aiEnabled &&
+							${this._subscription.orgSettings.get().ai &&
+							this._aiCtx.state.get().enabled &&
 							this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
 								? html`<gl-button
 										class="branch-item__missing"
@@ -923,7 +934,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (this.showUpgrade) {
 			return html`<gl-merge-target-upgrade
 				class="branch-item__merge-target"
-				.state=${this._homeState.subscription.state}
+				.state=${this._subscription.subscription.get()?.state}
 			></gl-merge-target-upgrade>`;
 		}
 
@@ -1031,7 +1042,7 @@ export class GlBranchCard extends GlBranchCardBase {
 	protected getBranchActions(): TemplateResult[] {
 		const actions = [];
 
-		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
+		const aiEnabled = this._subscription.orgSettings.get()?.ai && this._aiCtx.state.get().enabled;
 
 		if (this.isWorktree) {
 			actions.push(
