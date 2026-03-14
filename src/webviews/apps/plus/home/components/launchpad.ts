@@ -2,20 +2,19 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import { pluralize } from '../../../../../system/string.js';
-import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol.js';
-import { DidChangeLaunchpad, GetLaunchpadSummary } from '../../../../home/protocol.js';
-import { stateContext } from '../../../home/context.js';
-import { AsyncComputedState } from '../../../shared/components/signal-utils.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { GetLaunchpadSummaryResponse } from '../../../../home/protocol.js';
+import { fetchLaunchpadSummary } from '../../../home/actions.js';
+import type { IntegrationsState } from '../../../shared/contexts/integrations.js';
+import { integrationsContext } from '../../../shared/contexts/integrations.js';
+import type { LaunchpadState } from '../../../shared/contexts/launchpad.js';
+import { launchpadContext } from '../../../shared/contexts/launchpad.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
-import type { Disposable } from '../../../shared/events.js';
-import type { HostIpc } from '../../../shared/ipc.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
@@ -99,24 +98,24 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		`,
 	];
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _homeState!: State;
+	@consume({ context: launchpadContext })
+	private _launchpad!: LaunchpadState;
 
-	@consume({ context: ipcContext })
-	private _ipc!: HostIpc;
+	@consume({ context: integrationsContext })
+	private _integrations!: IntegrationsState;
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
 
-	private _disposable: Disposable[] = [];
+	override connectedCallback(): void {
+		super.connectedCallback?.();
 
-	// private _summary = signal<GetLaunchpadSummaryResponse | undefined>(undefined);
-
-	private _summaryState = new AsyncComputedState<LaunchpadSummary>(async _abortSignal => {
-		const rsp = await this._ipc.sendRequest(GetLaunchpadSummary, {});
-		return rsp;
-	});
+		// Fetch launchpad summary on mount — deferred from initial state load
+		const launchpad = this._launchpad.service;
+		if (launchpad != null) {
+			void fetchLaunchpadSummary(this._launchpad, launchpad);
+		}
+	}
 
 	get startWorkCommand(): string {
 		return this._webview.createCommandLink('gitlens.startWork:');
@@ -126,31 +125,9 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		return this._webview.createCommandLink('gitlens.createBranch:');
 	}
 
-	override connectedCallback(): void {
-		super.connectedCallback?.();
-
-		this._disposable.push(
-			this._ipc.onReceiveMessage(msg => {
-				switch (true) {
-					case DidChangeLaunchpad.is(msg):
-						this._summaryState.run(true);
-						break;
-				}
-			}),
-		);
-
-		this._summaryState.run();
-	}
-
-	override disconnectedCallback(): void {
-		super.disconnectedCallback?.();
-
-		this._disposable.forEach(d => d.dispose());
-	}
-
 	override render(): unknown {
 		return html`
-			<gl-section ?loading=${this._summaryState.computed.status === 'pending'}>
+			<gl-section ?loading=${this._launchpad.launchpadLoading.get()}>
 				<span slot="heading">Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
 				<button-container grouping="gap-wide">
@@ -169,7 +146,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	}
 
 	private renderSummaryResult() {
-		if (this._homeState.hasAnyIntegrationConnected === false) {
+		if (this._integrations.hasAnyIntegrationConnected.get() === false) {
 			return html`<ul class="menu">
 				<li>
 					<a
@@ -186,26 +163,20 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 			</ul>`;
 		}
 
-		return this._summaryState.render({
-			pending: () => this.renderPending(),
-			complete: summary => this.renderSummary(summary),
-			error: () =>
-				html`<ul class="menu">
-					<li>Error loading summary</li>
-				</ul>`,
-		});
+		const summary = this._launchpad.launchpadSummary.get();
+		if (summary == null) {
+			return this.renderPending();
+		}
+		return this.renderSummary(summary);
 	}
 
 	private renderPending() {
-		if (this._summaryState.state == null) {
-			return html`
-				<div class="loader">
-					<skeleton-loader lines="1"></skeleton-loader>
-					<skeleton-loader lines="1"></skeleton-loader>
-				</div>
-			`;
-		}
-		return this.renderSummary(this._summaryState.state);
+		return html`
+			<div class="loader">
+				<skeleton-loader lines="1"></skeleton-loader>
+				<skeleton-loader lines="1"></skeleton-loader>
+			</div>
+		`;
 	}
 
 	private renderSummary(summary: LaunchpadSummary | undefined) {

@@ -1288,20 +1288,6 @@
 				}
 			},
 			{
-				"id": "home",
-				"title": "Home",
-				"order": 55,
-				"properties": {
-					"gitlens.home.preview.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to enable the new home preview",
-						"scope": "window",
-						"order": 10
-					}
-				}
-			},
-			{
 				"id": "launchpad",
 				"title": "Launchpad (ᴘʀᴏ)",
 				"order": 60,
@@ -9633,19 +9619,9 @@
 				"title": "Highlight Changes from this Commit"
 			},
 			{
-				"command": "gitlens.views.home.disablePreview",
-				"title": "Revert to Old Home View",
-				"icon": "$(discard)"
-			},
-			{
 				"command": "gitlens.views.home.discussions",
 				"title": "GitHub Discussions",
 				"icon": "$(comment-discussion)"
-			},
-			{
-				"command": "gitlens.views.home.enablePreview",
-				"title": "Switch to New Home View",
-				"icon": "$(redo)"
 			},
 			{
 				"command": "gitlens.views.home.help",
@@ -9660,11 +9636,6 @@
 			{
 				"command": "gitlens.views.home.issues",
 				"title": "GitHub Issues",
-				"icon": "$(feedback)"
-			},
-			{
-				"command": "gitlens.views.home.previewFeedback",
-				"title": "New Home View Feedback",
 				"icon": "$(feedback)"
 			},
 			{
@@ -14362,15 +14333,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.home.disablePreview",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.home.discussions",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.home.enablePreview",
 					"when": "false"
 				},
 				{
@@ -14383,10 +14346,6 @@
 				},
 				{
 					"command": "gitlens.views.home.issues",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.home.previewFeedback",
 					"when": "false"
 				},
 				{
@@ -21472,21 +21431,6 @@
 					"group": "inline@1"
 				},
 				{
-					"command": "gitlens.views.home.previewFeedback",
-					"when": "viewItem == gitlens:views:home",
-					"group": "inline@96"
-				},
-				{
-					"command": "gitlens.views.home.disablePreview",
-					"when": "viewItem == gitlens:views:home && config.gitlens.home.preview.enabled",
-					"group": "inline@97"
-				},
-				{
-					"command": "gitlens.views.home.enablePreview",
-					"when": "viewItem == gitlens:views:home && !config.gitlens.home.preview.enabled",
-					"group": "inline@97"
-				},
-				{
 					"command": "gitlens.views.home.info",
 					"when": "viewItem == gitlens:views:home",
 					"group": "inline@98"
@@ -23735,21 +23679,6 @@
 					"command": "gitlens.views.home.whatsNew",
 					"when": "view == gitlens.views.home",
 					"group": "navigation@1"
-				},
-				{
-					"command": "gitlens.views.home.previewFeedback",
-					"when": "view == gitlens.views.home",
-					"group": "navigation@96"
-				},
-				{
-					"command": "gitlens.views.home.disablePreview",
-					"when": "view == gitlens.views.home && config.gitlens.home.preview.enabled",
-					"group": "navigation@97"
-				},
-				{
-					"command": "gitlens.views.home.enablePreview",
-					"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
-					"group": "navigation@97"
 				},
 				{
 					"command": "gitlens.views.home.info",
@@ -27449,6 +27378,8 @@
 	},
 	"dependencies": {
 		"@eamodio/supertalk": "0.0.7",
+		"@eamodio/supertalk-core": "0.0.6",
+		"@eamodio/supertalk-signals": "0.0.6",
 		"@gitkraken/gitkraken-components": "13.0.0-vnext.27",
 		"@gitkraken/provider-apis": "0.40.0",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
@@ -27467,8 +27398,6 @@
 		"@opentelemetry/sdk-trace-base": "2.6.0",
 		"@opentelemetry/semantic-conventions": "1.40.0",
 		"@shoelace-style/shoelace": "2.20.1",
-		"@eamodio/supertalk-core": "0.0.6",
-		"@eamodio/supertalk-signals": "0.0.6",
 		"@vscode/codicons": "0.0.44",
 		"billboard.js": "3.18.0",
 		"diff2html": "3.4.56",

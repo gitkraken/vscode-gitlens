@@ -10600,26 +10600,6 @@
 				]
 			}
 		},
-		"gitlens.views.home.disablePreview": {
-			"label": "Revert to Old Home View",
-			"icon": "$(discard)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home && config.gitlens.home.preview.enabled",
-						"group": "inline",
-						"order": 97
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home && config.gitlens.home.preview.enabled",
-						"group": "navigation",
-						"order": 97
-					}
-				]
-			}
-		},
 		"gitlens.views.home.discussions": {
 			"label": "GitHub Discussions",
 			"icon": "$(comment-discussion)",
@@ -10636,26 +10616,6 @@
 						"when": "view == gitlens.views.home",
 						"group": "2_gitlens",
 						"order": 99
-					}
-				]
-			}
-		},
-		"gitlens.views.home.enablePreview": {
-			"label": "Switch to New Home View",
-			"icon": "$(redo)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home && !config.gitlens.home.preview.enabled",
-						"group": "inline",
-						"order": 97
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
-						"group": "navigation",
-						"order": 97
 					}
 				]
 			}
@@ -10716,26 +10676,6 @@
 						"when": "view == gitlens.views.home",
 						"group": "2_gitlens",
 						"order": 98
-					}
-				]
-			}
-		},
-		"gitlens.views.home.previewFeedback": {
-			"label": "New Home View Feedback",
-			"icon": "$(feedback)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "inline",
-						"order": 96
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home",
-						"group": "navigation",
-						"order": 96
 					}
 				]
 			}

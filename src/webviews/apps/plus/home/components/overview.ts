@@ -1,13 +1,11 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { GetInactiveOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol.js';
-import { SetOverviewFilter } from '../../../../home/protocol.js';
-import { stateContext } from '../../../home/context.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
-import type { HostIpc } from '../../../shared/ipc.js';
+import type { GetInactiveOverviewResponse, OverviewRecentThreshold } from '../../../../home/protocol.js';
+import type { HomeState } from '../../../home/state.js';
+import { homeStateContext } from '../../../home/state.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
 import type { InactiveOverviewState } from './overviewState.js';
 import { inactiveOverviewStateContext } from './overviewState.js';
@@ -29,9 +27,8 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		`,
 	];
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _homeState!: State;
+	@consume({ context: homeStateContext })
+	private _homeCtx!: HomeState;
 
 	@consume({ context: inactiveOverviewStateContext })
 	private _inactiveOverviewState!: InactiveOverviewState;
@@ -39,25 +36,45 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		if (this._homeState.repositories.openCount > 0) {
-			this._inactiveOverviewState.run();
+		if (this._homeCtx.repositories.get().openCount > 0) {
+			this._inactiveOverviewState.fetch();
 		}
 	}
 
 	override render(): unknown {
-		if (this._homeState.discovering) {
+		if (this._homeCtx.discovering.get()) {
 			return this.renderLoader();
 		}
 
-		if (this._homeState.repositories.openCount === 0) {
+		if (this._homeCtx.repositories.get().openCount === 0) {
 			return nothing;
 		}
 
-		return this._inactiveOverviewState.render({
-			pending: () => this.renderPending(),
-			complete: summary => this.renderComplete(summary),
-			error: () => html`<span>Error</span>`,
-		});
+		if (this._inactiveOverviewState.error.get() != null) {
+			return html`
+				<gl-section>
+					<span slot="heading">Recent</span>
+					<span
+						>Unable to load branch data.
+						<a
+							href="#"
+							@click=${(e: Event) => {
+								e.preventDefault();
+								this._inactiveOverviewState.fetch();
+							}}
+							>Retry</a
+						>
+					</span>
+				</gl-section>
+			`;
+		}
+
+		const overview = this._inactiveOverviewState.value.get();
+		if (overview == null) {
+			return this.renderLoader();
+		}
+
+		return this.renderComplete(overview, this._inactiveOverviewState.loading.get());
 	}
 
 	private renderLoader() {
@@ -69,21 +86,11 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		`;
 	}
 
-	private renderPending() {
-		if (this._inactiveOverviewState.state == null) {
-			return this.renderLoader();
-		}
-		return this.renderComplete(this._inactiveOverviewState.state, true);
-	}
-
-	@consume({ context: ipcContext })
-	private readonly _ipc!: HostIpc;
-
 	private readonly onChangeRecentThresholdFilter = (e: CustomEvent<{ threshold: OverviewRecentThreshold }>) => {
 		if (!this._inactiveOverviewState.filter.stale || !this._inactiveOverviewState.filter.recent) {
 			return;
 		}
-		this._ipc.sendCommand(SetOverviewFilter, {
+		void this._homeCtx.homeService?.setOverviewFilter({
 			stale: this._inactiveOverviewState.filter.stale,
 			recent: { ...this._inactiveOverviewState.filter.recent, threshold: e.detail.threshold },
 		});
