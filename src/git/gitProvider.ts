@@ -450,6 +450,7 @@ export interface GitOperationsSubProvider {
 		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
 	): Promise<void>;
 	revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<void>;
+	commitFixup?(repoPath: string, ref: string): Promise<void>;
 }
 
 export interface GitPausedOperationsSubProvider {
