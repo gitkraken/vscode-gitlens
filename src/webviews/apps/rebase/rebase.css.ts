@@ -8,7 +8,7 @@ export const rebaseStyles = css`
 
 	:host {
 		/* Layout & Typography */
-		--gk-avatar-size: 2.2rem;
+		--gl-avatar-size: 2.2rem;
 		--font-family: var(--vscode-font-family);
 		--font-size: var(--vscode-font-size);
 

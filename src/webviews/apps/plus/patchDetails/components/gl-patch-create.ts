@@ -1,4 +1,3 @@
-import { Avatar, Button, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
 import { html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
@@ -17,6 +16,7 @@ import type {
 	ExecuteFileActionParams,
 	State,
 } from '../../../../plus/patchDetails/protocol.js';
+import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
@@ -26,9 +26,13 @@ import type {
 } from '../../../shared/components/tree/base.js';
 import { GlTreeBase } from './gl-tree-base.js';
 import '../../../shared/components/actions/action-nav.js';
+import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/menu/menu-item.js';
+import '../../../shared/components/menu/menu-list.js';
+import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/webview-pane.js';
 
 export interface CreatePatchEventDetail {
@@ -140,12 +144,6 @@ export class GlPatchCreate extends GlTreeBase {
 		return this.state?.create?.visibility ?? 'public';
 	}
 
-	constructor() {
-		super();
-
-		defineGkElement(Avatar, Button, Menu, MenuItem, Popover);
-	}
-
 	override updated(changedProperties: Map<string, any>): void {
 		if (changedProperties.has('state')) {
 			this.creationBusy = false;
@@ -173,7 +171,7 @@ export class GlPatchCreate extends GlTreeBase {
 		return html`
 			<div class="user-selection">
 				<div class="user-selection__avatar">
-					<gk-avatar .src=${userSelection.avatarUrl}></gk-avatar>
+					<gl-avatar .src=${userSelection.avatarUrl}></gl-avatar>
 				</div>
 				<div class="user-selection__info">
 					<div class="user-selection__name">
@@ -181,13 +179,13 @@ export class GlPatchCreate extends GlTreeBase {
 					</div>
 				</div>
 				<div class="user-selection__actions">
-					<gk-popover>
-						<gk-button slot="trigger">${roleLabel} <code-icon icon="chevron-down"></code-icon></gk-button>
-						<gk-menu>
+					<gl-popover trigger="click" appearance="menu" ?arrow=${false}>
+						<gl-button slot="anchor">${roleLabel} <code-icon icon="chevron-down"></code-icon></gl-button>
+						<menu-list slot="content">
 							${map(
 								options,
 								([value, label]) =>
-									html`<gk-menu-item
+									html`<menu-item
 										@click=${(e: MouseEvent) =>
 											this.onChangeSelectionRole(
 												e,
@@ -200,10 +198,10 @@ export class GlPatchCreate extends GlTreeBase {
 											class="user-selection__check ${role === value ? 'is-active' : ''}"
 										></code-icon>
 										${label}
-									</gk-menu-item>`,
+									</menu-item>`,
 							)}
-						</gk-menu>
-					</gk-popover>
+						</menu-list>
+					</gl-popover>
 				</div>
 			</div>
 		`;
@@ -641,7 +639,7 @@ export class GlPatchCreate extends GlTreeBase {
 		this.creationBusy = true;
 	}
 
-	private onSelectCreateOption(_e: CustomEvent<{ target: MenuItem }>) {
+	private onSelectCreateOption(_e: CustomEvent) {
 		// const target = e.detail?.target;
 		// const value = target?.dataset?.value as 'staged' | 'unstaged' | undefined;
 		// const currentChange = this.create.[0];
@@ -715,8 +713,8 @@ export class GlPatchCreate extends GlTreeBase {
 	) {
 		this.emit('gl-patch-create-update-selection', { selection: selection, role: role });
 
-		const popoverEl: Popover | null = (e.target as HTMLElement)?.closest('gk-popover');
-		popoverEl?.hidePopover();
+		const popoverEl: GlPopover | null = (e.target as HTMLElement)?.closest('gl-popover');
+		void popoverEl?.hide();
 	}
 
 	private onVisibilityChange(e: Event) {

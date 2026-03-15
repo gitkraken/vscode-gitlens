@@ -1,4 +1,3 @@
-import { Avatar, Button, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -23,6 +22,7 @@ import type {
 	PatchDetails,
 	State,
 } from '../../../../plus/patchDetails/protocol.js';
+import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
@@ -33,11 +33,15 @@ import type {
 import { GlTreeBase } from './gl-tree-base.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
+import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button-container.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/markdown/markdown.js';
+import '../../../shared/components/menu/menu-item.js';
+import '../../../shared/components/menu/menu-list.js';
+import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/webview-pane.js';
 
 // Can only import types from 'vscode'
@@ -122,12 +126,6 @@ export class GlDraftDetails extends GlTreeBase {
 	get canSubmit(): boolean {
 		return this.selectedPatches.length > 0;
 		// return this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
-	}
-
-	constructor() {
-		super();
-
-		defineGkElement(Avatar, Button, Popover, Menu, MenuItem);
 	}
 
 	override updated(changedProperties: Map<string, any>): void {
@@ -331,7 +329,7 @@ export class GlDraftDetails extends GlTreeBase {
 		return html`
 			<div class="user-selection">
 				<div class="user-selection__avatar">
-					<gk-avatar .src=${userSelection.avatarUrl}></gk-avatar>
+					<gl-avatar .src=${userSelection.avatarUrl}></gl-avatar>
 				</div>
 				<div class="user-selection__info">
 					<div class="user-selection__name">
@@ -342,15 +340,15 @@ export class GlDraftDetails extends GlTreeBase {
 					${when(
 						selectionRole !== 'owner' && (role === 'owner' || role === 'admin'),
 						() => html`
-							<gk-popover>
-								<gk-button slot="trigger"
+							<gl-popover trigger="click" appearance="menu" ?arrow=${false}>
+								<gl-button slot="anchor"
 									>${roleLabel} <code-icon icon="chevron-down"></code-icon
-								></gk-button>
-								<gk-menu>
+								></gl-button>
+								<menu-list slot="content">
 									${map(options, ([value, label]) =>
 										value === 'owner'
 											? undefined
-											: html`<gk-menu-item
+											: html`<menu-item
 													@click=${(e: MouseEvent) =>
 														this.onChangeSelectionRole(
 															e,
@@ -365,10 +363,10 @@ export class GlDraftDetails extends GlTreeBase {
 															: ''}"
 													></code-icon>
 													${label}
-												</gk-menu-item>`,
+												</menu-item>`,
 									)}
-								</gk-menu>
-							</gk-popover>
+								</menu-list>
+							</gl-popover>
 						`,
 						() => html`${roleLabel}`,
 					)}
@@ -569,19 +567,21 @@ export class GlDraftDetails extends GlTreeBase {
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
-						<gk-popover placement="top">
+						<gl-popover placement="top" trigger="click" appearance="menu" ?arrow=${false}>
 							<gl-button
-								slot="trigger"
+								slot="anchor"
 								density="compact"
 								aria-label="Apply Patch Options..."
 								title="Apply Patch Options..."
 								><code-icon icon="chevron-down"></code-icon
 							></gl-button>
-							<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
-								<gk-menu-item data-value="branch">Apply to a Branch</gk-menu-item>
-								<!-- <gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item> -->
-							</gk-menu>
-						</gk-popover>
+							<menu-list slot="content" class="mine-menu">
+								<menu-item data-value="branch" @click=${this.onSelectApplyOption}
+									>Apply to a Branch</menu-item
+								>
+								<!-- <menu-item data-value="worktree">Apply to new worktree</menu-item> -->
+							</menu-list>
+						</gl-popover>
 					</span>
 				</p>
 				${this.renderCodeSuggectionActions()}
@@ -680,8 +680,8 @@ export class GlDraftDetails extends GlTreeBase {
 	) {
 		this.emit('gl-patch-details-update-selection', { selection: selection, role: role });
 
-		const popoverEl: Popover | null = (e.target as HTMLElement)?.closest('gk-popover');
-		popoverEl?.hidePopover();
+		const popoverEl: GlPopover | null = (e.target as HTMLElement)?.closest('gl-popover');
+		void popoverEl?.hide();
 	}
 
 	private onVisibilityChange(e: Event) {
@@ -814,13 +814,13 @@ export class GlDraftDetails extends GlTreeBase {
 		this.emit('gl-draft-archive', { reason: reason });
 	}
 
-	private onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {
+	private onSelectApplyOption(e: Event) {
 		if (this.canSubmit === false) {
 			this.validityMessage = 'Please select changes to apply';
 			return;
 		}
 
-		const target = e.detail?.target;
+		const target = (e.target as HTMLElement)?.closest('menu-item') as HTMLElement | null;
 		if (target?.dataset?.value != null) {
 			this.onApplyPatch(undefined, target.dataset.value as 'current' | 'branch' | 'worktree');
 		}
