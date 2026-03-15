@@ -1,4 +1,5 @@
 blockExoticSubdeps: true
+enableGlobalVirtualStore: true
 
 ignoredBuiltDependencies:
     - '@parcel/watcher'

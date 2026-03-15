@@ -11,6 +11,8 @@ overrides:
   iconv-lite: 0.6.3
   node-fetch: 2.7.0
 
+packageExtensionsChecksum: sha256-oUUH57W2guEiOHIxaS9B9dlxLg7gq8yjVomSSMMInHI=
+
 patchedDependencies:
   fantasticon@4.1.0:
     hash: 305553b0f6e028d1e95761a804e3da3f8a572bbe21681ad7b18166ec77c017c7
@@ -22,7 +24,7 @@ importers:
     dependencies:
       '@gitkraken/gitkraken-components':
         specifier: 13.0.0-vnext.27
-        version: 13.0.0-vnext.27(@types/react@19.2.14)(dragula@3.7.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 13.0.0-vnext.27(dragula@3.7.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@gitkraken/provider-apis':
         specifier: 0.40.0
         version: 0.40.0(encoding@0.1.13)
@@ -7157,9 +7159,11 @@ snapshots:
 
   '@github/catalyst@1.8.0': {}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.27(@types/react@19.2.14)(dragula@3.7.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@gitkraken/gitkraken-components@13.0.0-vnext.27(dragula@3.7.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@types/react': 19.2.14
+      '@types/react-dom': 19.2.3(@types/react@19.2.14)
       classnames: 2.5.1
       dragula: 3.7.3
       re-resizable: 6.11.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -7168,8 +7172,6 @@ snapshots:
       react-dom: 19.2.4(react@19.2.4)
       react-dragula: 1.1.17
       react-onclickoutside: 6.13.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-    transitivePeerDependencies:
-      - '@types/react'
 
   '@gitkraken/provider-apis@0.40.0(encoding@0.1.13)':
     dependencies:
@@ -7181,6 +7183,7 @@ snapshots:
   '@gitkraken/shared-web-components@0.1.1-rc.15':
     dependencies:
       '@floating-ui/dom': 1.7.5
+      lit: 3.3.2
       typescript: 4.9.5
 
   '@gk-nzaytsev/fast-string-truncated-width@1.1.0': {}

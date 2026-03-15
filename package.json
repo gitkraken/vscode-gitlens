@@ -27565,6 +27565,21 @@
 		"webpack-node-externals": "3.0.0",
 		"webpack-require-from": "1.8.6"
 	},
+	"pnpm": {
+		"packageExtensions": {
+			"@gitkraken/gitkraken-components": {
+				"dependencies": {
+					"@types/react": "*",
+					"@types/react-dom": "*"
+				}
+			},
+			"@gitkraken/shared-web-components": {
+				"dependencies": {
+					"lit": "*"
+				}
+			}
+		}
+	},
 	"resolutions": {
 		"@types/vscode": "1.95.0",
 		"esbuild": "0.27.3",
