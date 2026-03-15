@@ -27473,7 +27473,6 @@
 		"driver.js": "1.4.0",
 		"fflate": "0.8.2",
 		"https-proxy-agent": "5.0.1",
-		"iconv-lite": "0.6.3",
 		"ignore": "7.0.5",
 		"lit": "3.3.2",
 		"marked": "17.0.4",
@@ -27578,7 +27577,6 @@
 		"@types/vscode": "1.101.0",
 		"esbuild": "0.27.3",
 		"https-proxy-agent": "5.0.1",
-		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0"
 	},
 	"lint-staged": {

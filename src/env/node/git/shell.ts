@@ -135,6 +135,11 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	readonly env?: Record<string, any>;
 	readonly encoding?: TEncoding;
 	/**
+	 * Decodes buffer output using a non-standard encoding.
+	 * Called instead of `Buffer.toString()` when provided.
+	 */
+	readonly decode?: (buffer: Uint8Array, options?: { readonly encoding: string }) => string | Promise<string>;
+	/**
 	 * The size the output buffer to allocate to the spawned process. Set this
 	 * if you are anticipating a large amount of output.
 	 *
@@ -181,7 +186,7 @@ export function run<T extends number | string>(
 ): Promise<T> {
 	const scope = getScopedLogger() ?? maybeStartScopedLogger('Shell.run');
 
-	const { stdin, stdinEncoding, ...opts }: RunOptions<BufferEncoding> & ExecFileOptions = {
+	const { stdin, stdinEncoding, decode, ...opts }: RunOptions<BufferEncoding> & ExecFileOptions = {
 		maxBuffer: 1000 * 1024 * 1024,
 		...options,
 	};
@@ -214,16 +219,21 @@ export function run<T extends number | string>(
 
 				let stdoutDecoded: string;
 				let stderrDecoded: string;
-				if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
+				if (!decode || encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
 					// stdout & stderr can be `Buffer` or `string
 					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 					stdoutDecoded = stdout.toString();
 					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 					stderrDecoded = stderr.toString();
 				} else {
-					const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
-					stdoutDecoded = decode(Buffer.from(stdout, 'binary'), encoding);
-					stderrDecoded = decode(Buffer.from(stderr, 'binary'), encoding);
+					stdoutDecoded = await decode(
+						Buffer.from(stdout, 'binary'),
+						encoding ? { encoding: encoding } : undefined,
+					);
+					stderrDecoded = await decode(
+						Buffer.from(stderr, 'binary'),
+						encoding ? { encoding: encoding } : undefined,
+					);
 				}
 				reject(new RunError(error, stdoutDecoded, stderrDecoded));
 
@@ -234,11 +244,12 @@ export function run<T extends number | string>(
 				scope?.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 			}
 
-			if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
+			if (!decode || encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
 				resolve(stdout as T);
 			} else {
-				const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
-				resolve(decode(Buffer.from(stdout, 'binary'), encoding) as T);
+				resolve(
+					(await decode(Buffer.from(stdout, 'binary'), encoding ? { encoding: encoding } : undefined)) as T,
+				);
 			}
 		});
 
@@ -279,10 +290,11 @@ export function runSpawn<T extends string | Buffer>(
 ): Promise<RunExitResult | RunResult<T>> {
 	const scope = getScopedLogger() ?? maybeStartScopedLogger('Shell.runSpawn');
 
-	const { stdin, stdinEncoding, ...opts }: RunOptions = options;
+	const { stdin, stdinEncoding, decode, ...opts }: RunOptions = options;
 
 	const promise = new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
 		const proc = spawn(command, args, opts);
+		const errorEncoding = encoding === 'buffer' ? 'utf8' : encoding;
 
 		const stdoutBuffers: Buffer[] = [];
 		proc.stdout.on('data', (data: Buffer) => stdoutBuffers.push(data));
@@ -302,9 +314,20 @@ export function runSpawn<T extends string | Buffer>(
 				return { stdout: stdout as T, stderr: stderr as T };
 			}
 
-			return import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite').then(iconv => {
-				return { stdout: iconv.decode(stdout, encoding) as T, stderr: iconv.decode(stderr, encoding) as T };
-			});
+			if (decode) {
+				return Promise.all([
+					decode(stdout, encoding ? { encoding: encoding } : undefined),
+					decode(stderr, encoding ? { encoding: encoding } : undefined),
+				]).then(([decodedStdout, decodedStderr]) => ({
+					stdout: decodedStdout as T,
+					stderr: decodedStderr as T,
+				}));
+			}
+
+			scope?.warn(
+				`[SHELL] Missing decode function for non-standard encoding '${encoding}', falling back to utf8`,
+			);
+			return { stdout: stdout.toString('utf8') as T, stderr: stderr.toString('utf8') as T };
 		}
 
 		proc.once('error', async ex => {
@@ -314,7 +337,7 @@ export function runSpawn<T extends string | Buffer>(
 				return;
 			}
 
-			const stdio = getStdio<string>('utf8');
+			const stdio = getStdio<string>(errorEncoding);
 			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
 
 			reject(new RunError(ex, stdout, stderr));
@@ -328,7 +351,7 @@ export function runSpawn<T extends string | Buffer>(
 			}
 
 			if (code !== 0 || signal) {
-				const stdio = getStdio<string>('utf8');
+				const stdio = getStdio<string>(errorEncoding);
 				const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
 				if (stderr.length && scope?.enabled('debug')) {
 					scope?.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);

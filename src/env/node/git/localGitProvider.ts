@@ -1597,7 +1597,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		doc.state ??= new GitDocumentState();
 
-		const encoding = await getEncoding(uri);
+		const encoding = getEncoding(uri);
 		const promise = this.getDiffForFileCore(
 			uri.repoPath,
 			uri.fsPath,
@@ -1682,7 +1682,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		doc.state ??= new GitDocumentState();
 
-		const encoding = await getEncoding(uri);
+		const encoding = getEncoding(uri);
 		const promise = this.getDiffForFileContentsCore(
 			uri.repoPath,
 			uri.fsPath,
@@ -2198,10 +2198,6 @@ function getTrackedPathsCacheKey(path: string, ref?: string): string {
 	return `${ref ?? ''}:${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-async function getEncoding(uri: Uri): Promise<string> {
-	const encoding = configuration.getCore('files.encoding', uri);
-	if (encoding == null || encoding === 'utf8') return 'utf8';
-
-	const encodingExists = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).encodingExists;
-	return encodingExists(encoding) ? encoding : 'utf8';
+function getEncoding(uri: Uri): string {
+	return configuration.getCore('files.encoding', uri) ?? 'utf8';
 }
