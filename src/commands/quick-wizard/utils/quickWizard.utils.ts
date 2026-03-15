@@ -3,7 +3,6 @@ import type { GlCommands } from '../../../constants.commands.js';
 import type { Container } from '../../../container.js';
 import type { AnyQuickWizardCommandArgs, CrossCommandReference } from '../models/quickWizard.js';
 import type { StepGenerator, StepsContext, StepStartedFrom } from '../models/steps.js';
-import { StepsComplete } from '../models/steps.js';
 import { QuickCommand } from '../quickCommand.js';
 import { QuickWizardRootStep } from '../quickWizardRootStep.js';
 
@@ -24,9 +23,11 @@ export function getSteps(
 
 	rootStep.setCommand(command, startedFrom);
 
-	// Reset currentStep if it was marked complete, since we're starting a new command chain
-	// that should run independently of the parent's complete state
-	if (context.steps?.currentStep === StepsComplete) {
+	// Reset currentStep when starting a nested command chain — the nested command should start
+	// fresh and not inherit the parent command's step name (which would cause all isAtStep/
+	// isAtStepOrUnset checks in the nested command to fail, producing an infinite spin).
+	// The outer generator's step is preserved in history and restored by StepsController.dispose().
+	if (context.steps != null) {
 		context.steps.currentStep = undefined;
 	}
 
