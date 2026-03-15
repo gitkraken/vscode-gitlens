@@ -474,7 +474,14 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			args.push('--follow', rev!, '--', relativePath);
 
-			const result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
+			const result = await this.git.exec(
+				{
+					cwd: repoPath,
+					configs: gitConfigsLog,
+					caching: { cache: this.cache.gitResults, options: { accessTTL: 5 * 60 * 1000 } },
+				},
+				...args,
+			);
 
 			let previousSha;
 			let previousPath;

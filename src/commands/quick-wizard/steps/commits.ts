@@ -178,9 +178,9 @@ export function* pickCommitStep<
 					void revealCommit(item.item, { select: true, focus: false, expand: true });
 					break;
 				case OpenChangesViewQuickInputButton: {
-					const path = item.item.file?.path;
-					if (path != null) {
-						void openChanges(path, item.item);
+					const file = item.item.file;
+					if (file != null) {
+						void openChanges(file, item.item);
 					}
 					break;
 				}

@@ -183,9 +183,11 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			ref = 'HEAD';
 		}
 
+		const resolvedRevisionCaching = { cache: this.cache.gitResults, options: { accessTTL: 5 * 60 * 1000 } };
+
 		const parser = getShaAndFileSummaryLogParser();
 		let result = await this.git.exec(
-			{ cwd: repoPath, errors: 'ignore' },
+			{ cwd: repoPath, errors: 'ignore', caching: resolvedRevisionCaching },
 			'log',
 			...parser.arguments,
 			'-n1',
@@ -217,7 +219,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		if (file.status === 'D') {
 			// If the file was deleted, check if it was moved or renamed
 			result = await this.git.exec(
-				{ cwd: repoPath, errors: 'ignore' },
+				{ cwd: repoPath, errors: 'ignore', caching: resolvedRevisionCaching },
 				'log',
 				...parser.arguments,
 				'-n1',

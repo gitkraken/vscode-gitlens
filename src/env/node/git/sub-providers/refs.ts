@@ -44,7 +44,11 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation },
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					caching: { cache: this.cache.gitResults, options: { accessTTL: 5 * 60 * 1000 } },
+				},
 				'merge-base',
 				options?.forkPoint ? '--fork-point' : undefined,
 				ref1,
@@ -163,7 +167,12 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
 		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+			{
+				cwd: repoPath,
+				cancellation: cancellation,
+				errors: 'ignore',
+				caching: { cache: this.cache.gitResults, options: { accessTTL: 5 * 60 * 1000 } },
+			},
 			'rev-parse',
 			'--verify',
 			supportsEndOfOptions ? '--end-of-options' : undefined,

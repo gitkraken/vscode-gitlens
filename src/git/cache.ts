@@ -233,7 +233,7 @@ export class GitCache implements Disposable {
 
 	/** Generic cache for git command results */
 	get gitResults(): RepoPromiseCacheMap<RepoPath, GitResult> {
-		return (this._caches.gitResults ??= new RepoPromiseCacheMap<RepoPath, GitResult>());
+		return (this._caches.gitResults ??= new RepoPromiseCacheMap<RepoPath, GitResult>({ capacity: 200 }));
 	}
 
 	get initialCommitSha(): PromiseMap<RepoPath, string | undefined> {
@@ -319,7 +319,6 @@ export class GitCache implements Disposable {
 		const sharedCachesToClear = new Set<CacheType>();
 
 		if (!types.length || types.includes('branches')) {
-			sharedCachesToClear.add(this._caches.gitResults);
 			cachesToClear.add(this._caches.branch); // per-worktree: each worktree has its own current branch
 			sharedCachesToClear.add(this._caches.branches);
 			sharedCachesToClear.add(this._caches.sharedBranches);
@@ -332,7 +331,6 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length || types.includes('config')) {
-			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.configKeys);
 			sharedCachesToClear.add(this._caches.configPatterns);
 			cachesToClear.add(this._caches.currentBranchReference);
@@ -341,7 +339,6 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length || types.includes('contributors')) {
-			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.contributors);
 			sharedCachesToClear.add(this._caches.contributorsLite);
 			sharedCachesToClear.add(this._caches.contributorsStats);
@@ -366,14 +363,12 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length || types.includes('remotes')) {
-			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.remotes);
 			cachesToClear.add(this._caches.bestRemotes);
 			sharedCachesToClear.add(this._caches.defaultBranchName);
 		}
 
 		if (!types.length || types.includes('stashes')) {
-			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.stashes);
 		}
 
@@ -382,13 +377,15 @@ export class GitCache implements Disposable {
 		}
 
 		if (!types.length || types.includes('tags')) {
-			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.tags);
 		}
 
 		if (!types.length || types.includes('worktrees')) {
-			sharedCachesToClear.add(this._caches.gitResults);
 			sharedCachesToClear.add(this._caches.worktrees);
+		}
+
+		if (!types.length || types.some(t => t !== 'gitignore' && t !== 'gkConfig' && t !== 'providers')) {
+			sharedCachesToClear.add(this._caches.gitResults);
 		}
 
 		if (!types.length) {
@@ -396,7 +393,6 @@ export class GitCache implements Disposable {
 			cachesToClear.add(this._caches.fileExistence);
 			cachesToClear.add(this._caches.gitDir);
 			cachesToClear.add(this._caches.gitIgnore);
-			sharedCachesToClear.add(this._caches.gitResults);
 			cachesToClear.add(this._caches.trackedPaths);
 		}
 
