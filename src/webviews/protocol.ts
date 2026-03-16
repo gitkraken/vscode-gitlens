@@ -9,6 +9,9 @@ import { IpcCommand, IpcNotification, IpcRequest } from './ipc/models/ipc.js';
 
 // COMMANDS & REQUESTS
 
+/** Sent by RPC-enabled webviews to signal that the Supertalk Connection listener is ready and the host can call expose(). */
+export const RpcConnectCommand = new IpcCommand('core', 'rpc/connect');
+
 export interface WebviewReadyParams {
 	bootstrap?: boolean;
 }

@@ -15,6 +15,7 @@ import type {
 	IpcRequest,
 } from '../../ipc/models/ipc.js';
 import { IpcPromiseSettled } from '../../protocol.js';
+import { isRpcMessage } from '../../rpc/constants.js';
 import { DOM } from './dom.js';
 import type { Disposable, Event } from './events.js';
 import { Emitter } from './events.js';
@@ -28,8 +29,22 @@ export interface HostIpcApi {
 declare function acquireVsCodeApi(): HostIpcApi;
 
 let _api: HostIpcApi | undefined;
+let _factory: (() => HostIpcApi) | undefined;
+
+/**
+ * Sets a custom factory for the host IPC API.
+ * Call this before any other RPC/IPC initialization when hosting
+ * webviews outside of VS Code.
+ *
+ * @param factory - A function that returns a HostIpcApi implementation
+ */
+export function setHostIpcFactory(factory: () => HostIpcApi): void {
+	_factory = factory;
+	_api = undefined; // Reset cached instance so next call uses the new factory
+}
+
 export function getHostIpcApi(): HostIpcApi {
-	return (_api ??= acquireVsCodeApi());
+	return (_api ??= _factory != null ? _factory() : acquireVsCodeApi());
 }
 
 const ipcSequencer = getScopedCounter();
@@ -61,6 +76,9 @@ export class HostIpc implements Disposable {
 
 	@debug({ args: e => ({ e: `${e.data.id}|${e.data.method}` }) })
 	private onMessageReceived(e: MessageEvent) {
+		// Skip RPC transport messages — these are handled by the Supertalk endpoint
+		if (isRpcMessage(e.data)) return;
+
 		const msg = e.data as IpcMessage;
 		using scope = maybeStartScopedLogger(`(e=${msg.id}|${msg.method})`, undefined, {
 			scope: getScopedLogger(),

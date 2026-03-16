@@ -21,6 +21,15 @@ importers:
 
   .:
     dependencies:
+      '@eamodio/supertalk':
+        specifier: 0.0.7
+        version: 0.0.7
+      '@eamodio/supertalk-core':
+        specifier: 0.0.6
+        version: 0.0.6
+      '@eamodio/supertalk-signals':
+        specifier: 0.0.6
+        version: 0.0.6(signal-polyfill@0.2.2)
       '@gitkraken/gitkraken-components':
         specifier: 13.0.0-vnext.27
         version: 13.0.0-vnext.27(dragula@3.7.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -120,6 +129,9 @@ importers:
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
+      signal-polyfill:
+        specifier: 0.2.2
+        version: 0.2.2
       signal-utils:
         specifier: 0.21.1
         version: 0.21.1(signal-polyfill@0.2.2)
@@ -582,6 +594,17 @@ packages:
     peerDependencies:
       eslint: ^9.23.0
       webpack: ^5.98.0
+
+  '@eamodio/supertalk-core@0.0.6':
+    resolution: {integrity: sha512-/oUUsQdPfzD10WGxAfp6rFAhkja1YD++inmraBTk3PJl9VQMdSYtOKr052NufhQDNiEPcQIlJqU+Of//WMa6EQ==}
+
+  '@eamodio/supertalk-signals@0.0.6':
+    resolution: {integrity: sha512-zRlYkEBpWzHekaFoBKOxbXzhVq56p10pPIHphfkzCMI8ZHdHCYWm4pYDSWPT9wh04H2W7L7yHzqBgJ/a8dUccA==}
+    peerDependencies:
+      signal-polyfill: ^0.2.0
+
+  '@eamodio/supertalk@0.0.7':
+    resolution: {integrity: sha512-NNPb6XTYH+d97F+866ZPra1yGL1m1qMN85GCNhAMoFkPLRfZQopgKuUDXvs4LOvKJTwETUhovPE3DVK+0EeH3Q==}
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -6989,6 +7012,17 @@ snapshots:
       picomatch: 4.0.3
       tinyglobby: 0.2.15
       webpack: 5.105.4(@swc/core@1.15.18(@swc/helpers@0.5.19))(esbuild@0.27.3)(webpack-cli@6.0.1)
+
+  '@eamodio/supertalk-core@0.0.6': {}
+
+  '@eamodio/supertalk-signals@0.0.6(signal-polyfill@0.2.2)':
+    dependencies:
+      '@eamodio/supertalk-core': 0.0.6
+      signal-polyfill: 0.2.2
+
+  '@eamodio/supertalk@0.0.7':
+    dependencies:
+      '@eamodio/supertalk-core': 0.0.6
 
   '@emnapi/core@1.8.1':
     dependencies:

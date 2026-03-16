@@ -23,6 +23,7 @@ import type {
 	IpcRequest,
 } from './ipc/models/ipc.js';
 import type { WebviewState } from './protocol.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from './rpc/eventVisibilityBuffer.js';
 import type { WebviewCommandCallback } from './webviewCommandRegistrar.js';
 import type { WebviewShowOptions } from './webviewsController.js';
 
@@ -62,6 +63,25 @@ export interface WebviewProvider<
 	onFocusChanged?(focused: boolean): void;
 	onVisibilityChanged?(visible: boolean): void;
 	onWindowFocusChanged?(focused: boolean): void;
+
+	/**
+	 * Returns services to expose via RPC (Supertalk).
+	 *
+	 * If provided, these services will be exposed to the webview and can be
+	 * called via `wrapServices<T>()` from the webview side. This enables a
+	 * service-oriented architecture alongside or instead of IPC messages.
+	 *
+	 * @example
+	 * ```typescript
+	 * getRpcServices() {
+	 *   return {
+	 *     getCommit: (sha: string) => this.getCommitDetails(sha),
+	 *     search: (query: string) => this.performSearch(query),
+	 *   };
+	 * }
+	 * ```
+	 */
+	getRpcServices?(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): object;
 }
 
 export interface WebviewStateProvier<
