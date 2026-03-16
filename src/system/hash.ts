@@ -6,7 +6,7 @@ export function fnv1aHash(str: string): number {
 	let hash = 0x811c9dc5; // FNV offset basis
 	for (let i = 0; i < str.length; i++) {
 		hash ^= str.charCodeAt(i);
-		hash = (hash * 0x01000193) | 0; // FNV prime, keep 32-bit
+		hash = Math.imul(hash, 0x01000193); // FNV prime, true 32-bit multiply
 	}
 	return hash;
 }
