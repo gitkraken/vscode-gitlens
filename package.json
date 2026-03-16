@@ -27448,6 +27448,7 @@
 		"prepare": "husky"
 	},
 	"dependencies": {
+		"@eamodio/supertalk": "0.0.7",
 		"@gitkraken/gitkraken-components": "13.0.0-vnext.27",
 		"@gitkraken/provider-apis": "0.40.0",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
@@ -27466,6 +27467,8 @@
 		"@opentelemetry/sdk-trace-base": "2.6.0",
 		"@opentelemetry/semantic-conventions": "1.40.0",
 		"@shoelace-style/shoelace": "2.20.1",
+		"@eamodio/supertalk-core": "0.0.6",
+		"@eamodio/supertalk-signals": "0.0.6",
 		"@vscode/codicons": "0.0.44",
 		"billboard.js": "3.18.0",
 		"diff2html": "3.4.56",
@@ -27481,6 +27484,7 @@
 		"path-browserify": "1.0.1",
 		"react": "19.2.4",
 		"react-dom": "19.2.4",
+		"signal-polyfill": "0.2.2",
 		"signal-utils": "0.21.1",
 		"slug": "11.0.1",
 		"sortablejs": "1.15.7",

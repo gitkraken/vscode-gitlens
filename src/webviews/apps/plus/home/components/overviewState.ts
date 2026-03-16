@@ -56,8 +56,9 @@ export class ActiveOverviewState extends AsyncComputedState<ActiveOverview> {
 		});
 	}
 
-	dispose() {
+	override dispose() {
 		this._disposable?.dispose();
+		super.dispose();
 	}
 
 	changeRepository(): void {
@@ -102,8 +103,9 @@ export class InactiveOverviewState extends AsyncComputedState<InactiveOverview> 
 		});
 	}
 
-	dispose(): void {
+	override dispose(): void {
 		this._disposable?.dispose();
+		super.dispose();
 	}
 }
 
