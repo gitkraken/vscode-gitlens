@@ -1,5 +1,9 @@
 /*global window document*/
-import { ContextProvider } from '@lit/context';
+import { ContextProvider, provide } from '@lit/context';
+import { SignalWatcher } from '@lit-labs/signals';
+import { html, LitElement } from 'lit';
+import { property } from 'lit/decorators.js';
+import { fromBase64ToString } from '@env/base64.js';
 import type { GlWebviewCommands } from '../../../constants.commands.js';
 import type { CustomEditorIds, WebviewIds, WebviewTypes } from '../../../constants.views.js';
 import { debounce } from '../../../system/function/debounce.js';
@@ -19,6 +23,7 @@ import {
 	WebviewFocusChangedCommand,
 	WebviewReadyRequest,
 } from '../../protocol.js';
+import { GlElement } from './components/element.js';
 import { ipcContext } from './contexts/ipc.js';
 import { loggerContext, LoggerContext } from './contexts/logger.js';
 import { PromosContext, promosContext } from './contexts/promos.js';
@@ -27,13 +32,169 @@ import type { WebviewContext } from './contexts/webview.js';
 import { webviewContext } from './contexts/webview.js';
 import { DOM } from './dom.js';
 import type { Disposable } from './events.js';
+import { createFocusTracker } from './focus.js';
 import type { HostIpcApi } from './ipc.js';
 import { getHostIpcApi, HostIpc } from './ipc.js';
 import { telemetryEventName } from './telemetry.js';
 import type { ThemeChangeEvent } from './theme.js';
 import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme.js';
 
-/** @deprecated Use GlAppHost instead */
+/**
+ * Base class for webview applications (both legacy and RPC-based).
+ *
+ * Provides all shared infrastructure that webview apps need:
+ * - 5 Lit context providers (ipc, logger, promos, telemetry, webview)
+ * - Focus tracking (debounced notifications to host)
+ * - Theme color computation and change handling
+ * - Host→webview focus/visibility notification dispatch
+ * - Preload class removal
+ *
+ * Subclasses initialize `this._webview` by calling `initWebviewContext()`
+ * in their own `connectedCallback()` after `super.connectedCallback()`.
+ *
+ * Legacy webviews extend {@link GlAppHost} which extends this class.
+ * New RPC webviews extend this class directly.
+ */
+export abstract class GlWebviewApp extends GlElement {
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
+	@property({ type: String }) name!: string;
+	@property({ type: String }) placement: 'editor' | 'view' = 'editor';
+
+	@provide({ context: ipcContext })
+	protected _ipc!: HostIpc;
+
+	@provide({ context: loggerContext })
+	protected _logger!: LoggerContext;
+
+	@provide({ context: promosContext })
+	protected _promos!: PromosContext;
+
+	@provide({ context: telemetryContext })
+	protected _telemetry!: TelemetryContext;
+
+	@provide({ context: webviewContext })
+	protected _webview!: WebviewContext;
+
+	protected onThemeUpdated?(e: ThemeChangeEvent): void;
+	protected onWebviewFocusChanged?(focused: boolean): void;
+	protected onWebviewVisibilityChanged?(visible: boolean): void;
+
+	protected readonly disposables: Disposable[] = [];
+
+	private _focusTracker?: ReturnType<typeof createFocusTracker>;
+
+	/**
+	 * Initializes `_webview` from a base64-encoded context string (the `#{state}` token value).
+	 * Centralizes the `createCommandLink` logic used by all webviews.
+	 *
+	 * RPC webviews pass their `context` attribute; `GlAppHost` passes its `bootstrap` attribute.
+	 */
+	protected initWebviewContext(encodedContext: string): void {
+		const parsed = JSON.parse(fromBase64ToString(encodedContext)) as WebviewState<WebviewIds>;
+		const webviewId = parsed.webviewId;
+		const webviewInstanceId = parsed.webviewInstanceId;
+		this._webview = {
+			webviewId: webviewId,
+			webviewInstanceId: webviewInstanceId,
+			createCommandLink: (command, args) => {
+				if (command.endsWith(':')) {
+					command = `${command}${webviewId.split('.').at(-1) as WebviewTypes}` as GlWebviewCommands;
+				}
+				return createWebviewCommandLink(command as GlWebviewCommands, webviewId, webviewInstanceId, args);
+			},
+		};
+	}
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+
+		this._logger = new LoggerContext(this.name);
+		this._logger.debug('connected');
+
+		this._ipc = new HostIpc(this.name);
+
+		const themeEvent = computeThemeColors();
+		if (this.onThemeUpdated != null) {
+			this.onThemeUpdated(themeEvent);
+			this.disposables.push(watchThemeColors());
+			this.disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
+		}
+
+		this.disposables.push(
+			this._ipc.onReceiveMessage(msg => {
+				switch (true) {
+					case DidChangeWebviewFocusNotification.is(msg):
+						this.onWebviewFocusChanged?.(msg.params.focused);
+						window.dispatchEvent(new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'));
+						break;
+					case DidChangeWebviewVisibilityNotification.is(msg):
+						this.onWebviewVisibilityChanged?.(msg.params.visible);
+						window.dispatchEvent(
+							new CustomEvent(msg.params.visible ? 'webview-visible' : 'webview-hidden'),
+						);
+						break;
+				}
+			}),
+			this._ipc,
+			(this._promos = new PromosContext(this._ipc)),
+			(this._telemetry = new TelemetryContext(this._ipc)),
+		);
+
+		// Focus tracking (sends debounced focus state to host for context keys)
+		this._focusTracker = createFocusTracker();
+		document.addEventListener('focusin', this._focusTracker.onFocusIn);
+		document.addEventListener('focusout', this._focusTracker.onFocusOut);
+
+		// Remove VS Code's default title attributes on <a> tags
+		document.querySelectorAll('a').forEach(a => {
+			if (a.href === a.title) {
+				a.removeAttribute('title');
+			}
+		});
+
+		// Remove preload class after delay to enable CSS transitions
+		if (document.body.classList.contains('preload')) {
+			setTimeout(() => {
+				document.body.classList.remove('preload');
+			}, 500);
+		}
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+
+		this._logger.debug('disconnected');
+
+		if (this._focusTracker != null) {
+			document.removeEventListener('focusin', this._focusTracker.onFocusIn);
+			document.removeEventListener('focusout', this._focusTracker.onFocusOut);
+			this._focusTracker = undefined;
+		}
+
+		this.disposables.forEach(d => d.dispose());
+	}
+
+	override render(): unknown {
+		return html`<slot></slot>`;
+	}
+}
+
+// SignalWatcher mixin loses parent class type information (known TS issue with mixins).
+// `GlWebviewApp` is abstract, so we first cast to a concrete constructor for `SignalWatcher`,
+// then cast the result back to preserve `GlWebviewApp`'s type surface.
+/**
+ * A strongly-typed base class for webviews that use Lit Signals for state management.
+ * Encapsulates the `SignalWatcher` mixin safely.
+ */
+export const SignalWatcherWebviewApp = SignalWatcher(
+	GlWebviewApp as unknown as new (...args: any[]) => GlWebviewApp,
+) as unknown as typeof GlWebviewApp;
+
+/** @deprecated Use GlAppHost or GlWebviewApp instead */
 export abstract class App<
 	State extends WebviewState<CustomEditorIds | WebviewIds> = WebviewState<CustomEditorIds | WebviewIds>,
 > {
