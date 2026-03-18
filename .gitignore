@@ -1,4 +1,5 @@
 !.claude/settings.json
+.claude/settings.local.json
 .claude/worktrees/**
 .DS_Store
 .eslintcache*

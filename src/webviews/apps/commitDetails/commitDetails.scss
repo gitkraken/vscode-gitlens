@@ -152,7 +152,23 @@ webview-pane-group {
 }
 
 :root {
-	--gk-avatar-size: 1.6rem;
+	--gl-avatar-size: 1.6rem;
+	--gl-patch-ghost-color: var(--color-foreground--50);
+}
+
+gl-popover[appearance='menu'] menu-list {
+	background: none;
+	border: none;
+	padding-bottom: 0;
+}
+
+.button-group > gl-popover {
+	display: inline-flex;
+	align-self: stretch;
+}
+
+.button-group > gl-popover > gl-button {
+	height: 100%;
 }
 
 hr {

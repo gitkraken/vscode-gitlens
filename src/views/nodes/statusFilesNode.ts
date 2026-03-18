@@ -1,4 +1,4 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GitUri } from '../../git/gitUri.js';
 import type { GitCommit } from '../../git/models/commit.js';
 import type { GitFileWithCommit } from '../../git/models/file.js';
@@ -134,8 +134,8 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 		item.id = this.id;
 		item.contextValue = ContextValues.StatusFiles;
 		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath('images/dark/icon-diff.svg'),
-			light: this.view.container.context.asAbsolutePath('images/light/icon-diff.svg'),
+			dark: Uri.file(this.view.container.context.asAbsolutePath('images/dark/icon-diff.svg')),
+			light: Uri.file(this.view.container.context.asAbsolutePath('images/light/icon-diff.svg')),
 		};
 
 		return item;

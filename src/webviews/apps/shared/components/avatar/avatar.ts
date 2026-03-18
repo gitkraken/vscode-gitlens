@@ -43,6 +43,10 @@ export class GlAvatar extends LitElement {
 				object-fit: cover;
 				object-position: 50% 50%;
 			}
+
+			.avatar:hover {
+				transform: scale(1.2);
+			}
 		`,
 	];
 

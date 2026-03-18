@@ -1,4 +1,3 @@
-import { Avatar, defineGkElement } from '@gitkraken/shared-web-components';
 import type { PropertyValueMap, TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -19,6 +18,7 @@ import '../../shared/components/button.js';
 import '../../shared/components/button-container.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/panes/pane-group.js';
+import '../../shared/components/avatar/avatar.js';
 import '../../shared/components/pills/tracking.js';
 import './gl-inspect-patch.js';
 
@@ -27,7 +27,7 @@ export class GlWipDetails extends GlDetailsBase {
 	static override styles = [
 		css`
 			:host {
-				--gk-avatar-size: 1.6rem;
+				--gl-avatar-size: 1.6rem;
 			}
 		`,
 	];
@@ -107,12 +107,6 @@ export class GlWipDetails extends GlDetailsBase {
 
 	get codeSuggestions() {
 		return this.wip?.codeSuggestions ?? [];
-	}
-
-	constructor() {
-		super();
-
-		defineGkElement(Avatar);
 	}
 
 	protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
@@ -295,11 +289,11 @@ export class GlWipDetails extends GlDetailsBase {
 							.level=${1}
 							@gl-tree-item-selected=${() => this.onShowCodeSuggestion(draft.id)}
 						>
-							<gk-avatar
+							<gl-avatar
 								class="author-icon"
 								src="${draft.author.avatarUri}"
-								title="${draft.author.name} (author)"
-							></gk-avatar>
+								name="${draft.author.name} (author)"
+							></gl-avatar>
 							${draft.title}
 							<span slot="description"
 								><formatted-date .date=${new Date(draft.updatedAt)}></formatted-date

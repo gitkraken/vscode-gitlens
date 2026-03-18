@@ -300,6 +300,8 @@ export class Git implements Disposable {
 		return this.execCore<T>(options, runArgs, gitCommand);
 	}
 
+	private _decode: RunOptions['decode'];
+
 	private async execCore<T extends string | Buffer>(
 		options: GitExecOptions,
 		args: string[],
@@ -311,10 +313,16 @@ export class Git implements Disposable {
 		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, runLocally, ...opts } = options;
 
 		const defaultTimeout = (configuration.get('advanced.git.timeout') ?? 60) * 1000;
+		if (encoding !== 'utf8' && encoding !== 'buffer' && encoding !== 'binary') {
+			this._decode ??= (buffer, options) =>
+				Promise.resolve(options ? workspace.decode(buffer, options) : workspace.decode(buffer));
+		}
+
 		const runOpts: Mutable<RunOptions> = {
 			...opts,
 			timeout: opts.timeout === 0 || defaultTimeout === 0 ? undefined : (opts.timeout ?? defaultTimeout),
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
+			decode: this._decode,
 			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
 			// Shouldn't *really* be needed but better safe than sorry
 			env: {

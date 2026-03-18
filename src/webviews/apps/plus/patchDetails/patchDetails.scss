@@ -2,27 +2,26 @@
 @use '../../shared/styles/utils';
 
 body {
-	--gk-menu-border-color: var(--vscode-menu-border);
-	--gk-menu-background-color: var(--vscode-menu-background);
-	--gk-menu-item-background-color-hover: var(--vscode-menu-selectionBackground);
-	--gk-menu-item-background-color-active: var(--vscode-menu-background);
-	--gk-focus-border-color: var(--focus-color);
-	--gk-tooltip-padding: 0.4rem 0.8rem;
-	--gk-divider-color: var(--color-background--level-05);
-	--gk-button-ghost-color: var(--color-foreground--50);
+	--gl-patch-ghost-color: var(--color-foreground--50);
 	--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 }
 
-gk-menu {
-	color: var(--vscode-menu-foreground);
+// When menu-list is inside a popover, the popover body provides the visual
+// container (border, background, shadow). Strip menu-list's own chrome to avoid doubling.
+gl-popover[appearance='menu'] menu-list {
+	background: none;
+	border: none;
+	padding-bottom: 0;
 }
 
-gk-menu-item {
-	color: var(--vscode-menu-foreground);
+// Make gl-popover a proper flex child inside button groups
+.button-group > gl-popover {
+	display: inline-flex;
+	align-self: stretch;
+}
 
-	&:hover {
-		color: var(--vscode-menu-selectionForeground);
-	}
+.button-group > gl-popover > gl-button {
+	height: 100%;
 }
 
 .commit-action {
@@ -303,7 +302,7 @@ textarea.message-input__control {
 }
 
 .user-selection {
-	--gk-avatar-size: 2rem;
+	--gl-avatar-size: 2rem;
 	display: flex;
 	flex-direction: row;
 	align-items: center;
@@ -327,14 +326,14 @@ textarea.message-input__control {
 
 	&__actions {
 		flex: none;
-		color: var(--gk-button-ghost-color);
+		color: var(--gl-patch-ghost-color);
 
-		gk-button::part(base) {
+		gl-button::part(base) {
 			padding-right: 0;
 			padding-block: 0.4rem;
 		}
 
-		gk-button code-icon {
+		gl-button code-icon {
 			pointer-events: none;
 		}
 	}

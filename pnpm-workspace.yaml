@@ -1,4 +1,5 @@
 blockExoticSubdeps: true
+enableGlobalVirtualStore: true
 
 ignoredBuiltDependencies:
     - '@parcel/watcher'
@@ -20,7 +21,8 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - 'lint-staged@16.3.2'
+    - 'lint-staged@16.4.0'
+    - 'tinyexec@1.0.4'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

@@ -126,11 +126,19 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						return undefined;
 					}
 
-					const current = (await this.provider.branches.getCurrentBranchReference(repoPath, cancellation))!;
+					const [branchResult, mergeBaseResult] = await Promise.allSettled([
+						this.provider.branches.getCurrentBranchReference(repoPath, cancellation),
+						this.provider.refs.getMergeBase(repoPath, 'CHERRY_PICK_HEAD', 'HEAD', undefined, cancellation),
+					]);
+					if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+					const current = getSettledValue(branchResult)!;
+					const mergeBase = getSettledValue(mergeBaseResult);
 
 					return {
 						type: 'cherry-pick',
 						repoPath: repoPath,
+						mergeBase: mergeBase,
 						HEAD: createReference(cherryPickHead, repoPath, { refType: 'revision' }),
 						current: current,
 						incoming: createReference(cherryPickHead, repoPath, { refType: 'revision' }),
@@ -206,11 +214,19 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						return undefined;
 					}
 
-					const current = (await this.provider.branches.getCurrentBranchReference(repoPath, cancellation))!;
+					const [branchResult, mergeBaseResult] = await Promise.allSettled([
+						this.provider.branches.getCurrentBranchReference(repoPath, cancellation),
+						this.provider.refs.getMergeBase(repoPath, 'REVERT_HEAD', 'HEAD', undefined, cancellation),
+					]);
+					if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+					const current = getSettledValue(branchResult)!;
+					const mergeBase = getSettledValue(mergeBaseResult);
 
 					return {
 						type: 'revert',
 						repoPath: repoPath,
+						mergeBase: mergeBase,
 						HEAD: createReference(revertHead, repoPath, { refType: 'revision' }),
 						current: current,
 						incoming: createReference(revertHead, repoPath, { refType: 'revision' }),
@@ -380,12 +396,20 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						return undefined;
 					}
 
-					const current = (await this.provider.branches.getCurrentBranchReference(repoPath, cancellation))!;
+					const [branchResult, mergeBaseResult] = await Promise.allSettled([
+						this.provider.branches.getCurrentBranchReference(repoPath, cancellation),
+						this.provider.refs.getMergeBase(repoPath, currentCommitSha, 'HEAD', undefined, cancellation),
+					]);
+					if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+					const current = getSettledValue(branchResult)!;
+					const mergeBase = getSettledValue(mergeBaseResult);
 
 					if (isCherryPick) {
 						return {
 							type: 'cherry-pick',
 							repoPath: repoPath,
+							mergeBase: mergeBase,
 							HEAD: createReference(currentCommitSha, repoPath, { refType: 'revision' }),
 							current: current,
 							incoming: createReference(currentCommitSha, repoPath, { refType: 'revision' }),
@@ -395,6 +419,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					return {
 						type: 'revert',
 						repoPath: repoPath,
+						mergeBase: mergeBase,
 						HEAD: createReference(currentCommitSha, repoPath, { refType: 'revision' }),
 						current: current,
 						incoming: createReference(currentCommitSha, repoPath, { refType: 'revision' }),
