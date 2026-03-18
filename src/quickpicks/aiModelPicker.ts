@@ -136,15 +136,25 @@ export async function showAIModelPicker(
 ): Promise<ModelQuickPickItem | Directive | undefined> {
 	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
-	const models = (await container.ai.getModels(provider)) ?? [];
+	let models: readonly AIModel[];
+	let modelsError: string | undefined;
+	try {
+		models = (await container.ai.getModels(provider)) ?? [];
+	} catch (ex) {
+		models = [];
+		modelsError = ex instanceof Error ? ex.message : String(ex);
+	}
 
 	const items: Array<ModelQuickPickItem | DirectiveQuickPickItem> = [];
 
 	if (!models.length) {
 		items.push({
-			label: 'No models found',
-			description:
-				provider === 'ollama' ? 'Please install a model or check your Ollama server configuration' : undefined,
+			label: modelsError ? 'Unable to load models' : 'No models found',
+			description: modelsError
+				? modelsError
+				: provider === 'ollama'
+					? 'Please install a model or check your Ollama server configuration'
+					: undefined,
 			iconPath: new ThemeIcon('error'),
 			directive: Directive.Noop,
 		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);

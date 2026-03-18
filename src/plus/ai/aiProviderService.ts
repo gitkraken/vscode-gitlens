@@ -561,7 +561,10 @@ export class AIProviderService implements AIService, Disposable {
 			} else {
 				changed = true;
 
-				const models = await this._provider.getModels();
+				let models: readonly AIModel[] | undefined;
+				try {
+					models = await this._provider.getModels();
+				} catch {}
 				model = models?.find(m => m.id === modelId);
 				if (model == null) {
 					this._model = undefined;

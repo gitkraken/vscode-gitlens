@@ -32,55 +32,53 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		const scope = getScopedLogger();
 
-		try {
-			const url = this.container.urls.getGkAIApiUrl('providers/message-prompt');
-			const rsp = await fetch(url, {
-				headers: await this.connection.getGkHeaders(undefined, undefined, {
-					Accept: 'application/json',
-				}),
-			});
-			if (!rsp.ok) {
-				throw new Error(`Getting models (${url}) failed: ${rsp.status} (${rsp.statusText})`);
-			}
+		const apiKey = await this.getApiKey(true);
+		if (!apiKey) return [];
 
-			interface ModelsResponse {
-				data: {
-					providerId: string;
-					providerName: string;
-					modelId: string;
-					modelName: string;
-					preferred: boolean;
-					maxInputTokens: number;
-					maxOutputTokens: number;
-				}[];
-				error?: null;
-			}
-
-			const result: ModelsResponse = await rsp.json();
-			if (result.error != null) {
-				throw new Error(`Getting models (${url}) failed: ${String(result.error)}`);
-			}
-
-			const models = result.data.map<GitKrakenModel>(
-				m =>
-					({
-						id: m.modelId,
-						name: m.modelName,
-						maxTokens: { input: m.maxInputTokens, output: m.maxOutputTokens },
-						provider: provider,
-						default: m.preferred,
-						temperature: null,
-					}) satisfies GitKrakenModel,
-			);
-			return models;
-		} catch (ex) {
-			if (!(ex instanceof AuthenticationRequiredError)) {
-				debugger;
-				scope?.error(ex, `Unable to get models`);
-			}
+		const url = this.container.urls.getGkAIApiUrl('providers/message-prompt');
+		const rsp = await fetch(url, {
+			headers: await this.connection.getGkHeaders(apiKey, undefined, {
+				Accept: 'application/json',
+			}),
+		});
+		if (!rsp.ok) {
+			scope?.error(undefined, `Getting models (${url}) failed: ${rsp.status} (${rsp.statusText})`);
+			throw new Error(`Getting models failed: (${rsp.status}) ${rsp.statusText}`);
 		}
 
-		return [];
+		interface ModelsResponse {
+			data: {
+				providerId: string;
+				providerName: string;
+				modelId: string;
+				modelName: string;
+				preferred: boolean;
+				maxInputTokens: number;
+				maxOutputTokens: number;
+			}[];
+			error?: null;
+		}
+
+		const result: ModelsResponse = await rsp.json();
+		if (result.error != null) {
+			scope?.error(undefined, `Getting models (${url}) failed: ${String(result.error)}`);
+			throw new Error(`Getting models failed: ${String(result.error)}`);
+		}
+
+		if (!result.data) return [];
+
+		const models = result.data.map<GitKrakenModel>(
+			m =>
+				({
+					id: m.modelId,
+					name: m.modelName,
+					maxTokens: { input: m.maxInputTokens, output: m.maxOutputTokens },
+					provider: provider,
+					default: m.preferred,
+					temperature: null,
+				}) satisfies GitKrakenModel,
+		);
+		return models;
 	}
 
 	protected getUrl(_model: AIModel<typeof provider.id>): string {

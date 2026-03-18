@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes _GitKraken AI_ model selection showing 'No models found' when switching AI provider/model ([#4963](https://github.com/gitkraken/vscode-gitlens/issues/4963))
 - Fixes provider id mismatch for cloud-connected self-hosted integrations ([#5031](https://github.com/gitkraken/vscode-gitlens/issues/5031))
 - Fixes an issue where the _Launchpad_ would fail to show any pull requests when one integration provider had an authentication failure — now shows partial results with an error indicator ([#4492](https://github.com/gitkraken/vscode-gitlens/issues/4492))
 
