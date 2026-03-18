@@ -14,7 +14,7 @@ export interface GitCherryPickStatus {
 	current: GitBranchReference;
 	incoming: GitRevisionReference;
 
-	mergeBase?: never;
+	mergeBase: string | undefined;
 }
 
 export interface GitMergeStatus {
@@ -59,5 +59,5 @@ export interface GitRevertStatus {
 	current: GitBranchReference;
 	incoming: GitRevisionReference;
 
-	mergeBase?: never;
+	mergeBase: string | undefined;
 }
