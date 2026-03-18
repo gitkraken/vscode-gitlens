@@ -86,6 +86,14 @@ export function switchTo(
 	});
 }
 
+export async function commitFixup(repo: string | Repository, ref: GitRevisionReference): Promise<void> {
+	const repoPath = typeof repo === 'string' ? repo : repo.path;
+	const repository = Container.instance.git.getRepository(repoPath);
+	if (repository == null) return;
+
+	await repository.git.ops?.commitFixup?.(ref.ref);
+}
+
 export function revealRepository(
 	repoPath: string,
 	view?: ViewsWithRepositoryFolders,
