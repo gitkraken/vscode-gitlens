@@ -84,7 +84,15 @@ export async function openRebaseEditor(
 	if (gitDir == null) return;
 
 	const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
-	if (getOpenRebaseEditorTab(rebaseTodoUri) != null) return;
+	const existingTab = getOpenRebaseEditorTab(rebaseTodoUri);
+	if (existingTab != null) {
+		// Focus the existing rebase editor tab
+		await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+			preview: false,
+			viewColumn: existingTab.group.viewColumn,
+		});
+		return;
+	}
 
 	// Ensure the file exists before attempting to open it (avoids race condition during rebase setup)
 	if (!(await exists(rebaseTodoUri))) return;

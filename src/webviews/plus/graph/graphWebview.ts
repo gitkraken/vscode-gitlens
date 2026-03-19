@@ -3801,7 +3801,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@command('gitlens.pausedOperation.showConflicts:')
 	@debug()
 	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
-		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, { openRebaseEditor: true });
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, {
+			openRebaseEditor: pausedOpArgs.type === 'rebase',
+		});
 	}
 
 	@command('gitlens.graph.copyDeepLinkToBranch')

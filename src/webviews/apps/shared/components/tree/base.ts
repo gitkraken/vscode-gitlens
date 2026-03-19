@@ -40,6 +40,8 @@ export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
 
 export interface TreeItemDecorationText extends TreeItemDecorationBase {
 	type: 'text';
+	tooltip?: string;
+	color?: string;
 }
 
 export interface TreeItemDecorationStatus extends TreeItemDecorationBase {

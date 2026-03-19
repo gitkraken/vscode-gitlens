@@ -87,10 +87,11 @@ export async function showPausedOperationStatus(
 	repoPath: string,
 	options?: ShowPausedOperationStatusOptions,
 ): Promise<void> {
-	await container.views.commits.show({ preserveFocus: false });
-	await container.views.commits.revealPausedOperationStatus(repoPath, { focus: true, expand: true, select: true });
-
 	if (options?.openRebaseEditor) {
 		await openRebaseEditor(container, repoPath);
+		return;
 	}
+
+	await container.views.commits.show({ preserveFocus: false });
+	await container.views.commits.revealPausedOperationStatus(repoPath, { focus: true, expand: true, select: true });
 }
