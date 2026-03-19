@@ -1,3 +1,17 @@
+packages:
+    - '.'
+    - 'packages/*'
+    - 'packages/plus/*'
+
+catalog:
+    '@types/mocha': 10.0.10
+    '@types/sinon': 21.0.0
+    mocha: 11.7.5
+    sinon: 21.0.3
+    tinybench: 6.0.0
+    tsx: 4.21.0
+    typescript: 6.0.2
+
 blockExoticSubdeps: true
 enableGlobalVirtualStore: true
 
@@ -21,8 +35,10 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - 'lint-staged@16.4.0'
+    - 'ovsx@0.10.10'
+    - 'picomatch@4.0.4'
     - 'tinyexec@1.0.4'
+    - 'typescript@6.0.2'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

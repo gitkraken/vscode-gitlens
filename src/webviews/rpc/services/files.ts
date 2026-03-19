@@ -10,6 +10,9 @@
  * `src/git/actions/commit.ts`.
  */
 
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Container } from '../../../container.js';
 import {
 	openChanges,
@@ -18,9 +21,7 @@ import {
 	openFileOnRemote,
 	showDetailsQuickPick,
 } from '../../../git/actions/commit.js';
-import type { GitCommit } from '../../../git/models/commit.js';
-import type { GitFileChange, GitFileChangeShape } from '../../../git/models/fileChange.js';
-import { uncommitted } from '../../../git/models/revision.js';
+import { getCommitForFile } from '../../../git/utils/-webview/commit.utils.js';
 import type { FileShowOptions } from './types.js';
 
 export class FilesService {
@@ -121,7 +122,7 @@ export class FilesService {
 			commit = await svc.commits.getCommit(uncommitted);
 		}
 
-		commit = await commit?.getCommitForFile(file.path, file.staged);
+		commit = commit != null ? await getCommitForFile(commit, file.path, file.staged) : undefined;
 		return commit != null ? [commit, commit.file!] : [];
 	}
 }

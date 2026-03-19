@@ -1,10 +1,10 @@
 import { ConfigurationTarget } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../container.js';
 import { showModePicker } from '../quickpicks/modePicker.js';
 import { command } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { debug } from '../system/decorators/log.js';
-import { getScopedLogger } from '../system/logger.scope.js';
 import { GlCommandBase } from './commandBase.js';
 
 @command()

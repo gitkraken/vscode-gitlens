@@ -1,8 +1,8 @@
 import { createContext } from '@lit/context';
-import { Logger } from '../../../../system/logger.js';
-import type { ScopedLogger } from '../../../../system/logger.scope.js';
-import { getNewLogScope } from '../../../../system/logger.scope.js';
-import { padOrTruncateEnd } from '../../../../system/string.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getNewLogScope } from '@gitlens/utils/logger.scoped.js';
+import { padOrTruncateEnd } from '@gitlens/utils/string.js';
 
 export class LoggerContext {
 	private readonly scope: ScopedLogger;

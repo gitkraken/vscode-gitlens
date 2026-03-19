@@ -1,12 +1,12 @@
 import type { Disposable, Uri } from 'vscode';
 import { workspace } from 'vscode';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { filterMap } from '@gitlens/utils/iterable.js';
 import type { AIFeedbackEvent } from '../constants.telemetry.js';
 import type { AIResultContext } from '../plus/ai/aiProviderService.js';
 import { setContext } from '../system/-webview/context.js';
 import { UriMap } from '../system/-webview/uriMap.js';
-import type { Deferrable } from '../system/function/debounce.js';
-import { debounce } from '../system/function/debounce.js';
-import { filterMap } from '../system/iterable.js';
 
 export class AIFeedbackProvider implements Disposable {
 	constructor() {

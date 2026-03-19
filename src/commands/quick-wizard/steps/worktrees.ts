@@ -1,21 +1,21 @@
 import type { QuickInputButton } from 'vscode';
+import { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { revealWorktree } from '../../../git/actions/worktree.js';
-import type { Repository } from '../../../git/models/repository.js';
-import type { GitWorktree } from '../../../git/models/worktree.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { sortWorktrees } from '../../../git/utils/-webview/sorting.js';
 import type { WorktreeQuickPickItem } from '../../../git/utils/-webview/worktree.quickpick.js';
 import { createWorktreeQuickPickItem } from '../../../git/utils/-webview/worktree.quickpick.js';
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
-import { filterMap } from '../../../system/array.js';
-import { Logger } from '../../../system/logger.js';
 import type { PartialStepState, StepResultGenerator, StepsContext, StepSelection } from '../models/steps.js';
 import { StepResultBreak } from '../models/steps.js';
 import { OpenInNewWindowQuickInputButton, RevealInSideBarQuickInputButton } from '../quickButtons.js';
 import { appendReposToTitle, canPickStepContinue, createPickStep } from '../utils/steps.utils.js';
 
 export async function getWorktrees(
-	repoOrWorktrees: Repository | GitWorktree[],
+	repoOrWorktrees: GlRepository | GitWorktree[],
 	options?: {
 		buttons?: QuickInputButton[];
 		excludeOpened?: boolean;
@@ -38,7 +38,7 @@ export async function getWorktrees(
 				let hasChanges;
 				if (options?.includeStatus) {
 					try {
-						hasChanges = await wt.hasWorkingChanges();
+						hasChanges = await GitWorktree.hasWorkingChanges(wt);
 					} catch (ex) {
 						Logger.error(ex, `Worktree status failed: ${wt.uri.toString(true)}`);
 						missing = true;
@@ -68,8 +68,8 @@ export async function getWorktrees(
 }
 
 export function* pickWorktreeStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[]; worktrees?: GitWorktree[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[]; worktrees?: GitWorktree[] },
 >(
 	state: State,
 	context: Context,
@@ -121,8 +121,8 @@ export function* pickWorktreeStep<
 }
 
 export function* pickWorktreesStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[]; worktrees?: GitWorktree[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[]; worktrees?: GitWorktree[] },
 >(
 	state: State,
 	context: Context,

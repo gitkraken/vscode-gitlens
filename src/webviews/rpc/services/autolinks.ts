@@ -12,16 +12,17 @@
  * assumptions (e.g., splitting on first `\n`) produces broken HTML.
  */
 
-import type { Autolink, MaybeEnrichedAutolink } from '../../../autolinks/models/autolinks.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { serializeIssueOrPullRequest } from '@gitlens/git/utils/issueOrPullRequest.utils.js';
+import { map } from '@gitlens/utils/iterable.js';
+import type { Autolink, EnrichedAutolink, MaybeEnrichedAutolink } from '../../../autolinks/models/autolinks.js';
 import { serializeAutolink } from '../../../autolinks/utils/-webview/autolinks.utils.js';
 import type { Container } from '../../../container.js';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter.js';
-import type { GitCommit } from '../../../git/models/commit.js';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest.js';
-import type { GitRemote } from '../../../git/models/remote.js';
-import { serializeIssueOrPullRequest } from '../../../git/utils/issueOrPullRequest.utils.js';
-import { filterMap, map } from '../../../system/iterable.js';
-import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../../system/promise.js';
+import { getCommitEnrichedAutolinks } from '../../../git/utils/-webview/commit.utils.js';
+import { getBestRemoteWithIntegration } from '../../../git/utils/-webview/remote.utils.js';
 
 // ============================================================
 // Result Types
@@ -62,9 +63,7 @@ export class AutolinksService {
 		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha);
 		if (commit == null) return undefined;
 
-		const remote = await this.container.git
-			.getRepositoryService(commit.repoPath)
-			.remotes.getBestRemoteWithIntegration({ includeDisconnected: true });
+		const remote = await getBestRemoteWithIntegration(commit.repoPath, { includeDisconnected: true });
 
 		const autolinks =
 			commit.message != null ? await this.container.autolinks.getAutolinks(commit.message, remote) : undefined;
@@ -91,24 +90,26 @@ export class AutolinksService {
 		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha);
 		if (commit == null) return undefined;
 
-		const remote = await this.container.git
-			.getRepositoryService(commit.repoPath)
-			.remotes.getBestRemoteWithIntegration({ includeDisconnected: true });
+		const remote = await getBestRemoteWithIntegration(commit.repoPath, { includeDisconnected: true });
 		if (remote?.provider == null) return undefined;
 
-		const result = await pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote));
-		const enrichedAutolinks = result?.value;
+		const enrichedAutolinks = await getCommitEnrichedAutolinks(
+			commit.repoPath,
+			commit.message,
+			commit.summary,
+			remote,
+		);
 
-		const issues =
-			enrichedAutolinks != null
-				? [
-						...filterMap(enrichedAutolinks.values(), ([issueOrPullRequest]) =>
-							issueOrPullRequest?.value != null
-								? serializeIssueOrPullRequest(issueOrPullRequest.value)
-								: undefined,
-						),
-					]
-				: [];
+		// Resolve all the inner issue/PR promises from the enriched autolinks
+		const issues: IssueOrPullRequest[] = [];
+		if (enrichedAutolinks != null) {
+			for (const [promise] of enrichedAutolinks.values()) {
+				const issueOrPullRequest = await promise;
+				if (issueOrPullRequest != null) {
+					issues.push(serializeIssueOrPullRequest(issueOrPullRequest));
+				}
+			}
+		}
 
 		return {
 			autolinkedIssues: issues,
@@ -130,7 +131,7 @@ function linkifyMessage(
 	container: Container,
 	commit: GitCommit,
 	remote: GitRemote | undefined,
-	enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+	enrichedAutolinks?: Map<string, EnrichedAutolink | MaybeEnrichedAutolink>,
 	headlineSplitterToken?: string,
 ): string {
 	let message = CommitFormatter.fromTemplate(`\${message}`, commit);
@@ -140,5 +141,10 @@ function linkifyMessage(
 			message = `${message.substring(0, index)}${headlineSplitterToken}${message.substring(index + 1)}`;
 		}
 	}
-	return container.autolinks.linkify(message, 'html', remote != null ? [remote] : undefined, enrichedAutolinks);
+	return container.autolinks.linkify(
+		message,
+		'html',
+		remote != null ? [remote] : undefined,
+		enrichedAutolinks as Map<string, MaybeEnrichedAutolink> | undefined,
+	);
 }

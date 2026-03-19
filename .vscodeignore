@@ -1,5 +1,7 @@
+.claude/**
 .devcontainer/**
 .github/**
+.husky/**
 .vscode/**
 .vscode-clean/**
 .vscode-test/**
@@ -12,6 +14,7 @@ images/icons/**
 images/originals/**
 node_modules/**
 out/**
+packages/**
 patches/**
 resources/**
 scripts/**

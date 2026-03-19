@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { window } from 'vscode';
-import { uuid } from '@env/crypto.js';
+import { uuid } from '@gitlens/utils/crypto.js';
 import { ollamaProviderDescriptor as provider } from '../../constants.ai.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { AIActionType, AIModel } from './models/model.js';

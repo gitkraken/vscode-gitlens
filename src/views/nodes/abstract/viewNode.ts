@@ -1,18 +1,21 @@
 import type { CancellationToken, Command, Disposable, Event, TreeItem } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitContributor } from '@gitlens/git/models/contributor.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitPausedOperation } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitReflogRecord } from '@gitlens/git/models/reflog.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { GitTag } from '@gitlens/git/models/tag.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { loggable, logName, trace } from '@gitlens/utils/decorators/log.js';
+import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
+import { is as isA } from '@gitlens/utils/function.js';
 import type { TreeViewNodeTypes, TreeViewTypes } from '../../../constants.views.js';
 import type { GitUri } from '../../../git/gitUri.js';
 import { unknownGitUri } from '../../../git/gitUri.js';
-import type { GitBranch } from '../../../git/models/branch.js';
-import type { GitCommit } from '../../../git/models/commit.js';
-import type { GitContributor } from '../../../git/models/contributor.js';
-import type { GitFile } from '../../../git/models/file.js';
-import type { GitPausedOperation } from '../../../git/models/pausedOperationStatus.js';
-import type { PullRequest } from '../../../git/models/pullRequest.js';
-import type { GitReflogRecord } from '../../../git/models/reflog.js';
-import type { GitRemote } from '../../../git/models/remote.js';
-import type { Repository } from '../../../git/models/repository.js';
-import type { GitTag } from '../../../git/models/tag.js';
-import type { GitWorktree } from '../../../git/models/worktree.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type { Draft } from '../../../plus/drafts/models/drafts.js';
 import type { LaunchpadItem } from '../../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadGroup } from '../../../plus/launchpad/models/launchpad.js';
@@ -28,9 +31,6 @@ import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../../plus/workspaces/models/localWorkspace.js';
-import { loggable, logName, trace } from '../../../system/decorators/log.js';
-import { sequentialize } from '../../../system/decorators/sequentialize.js';
-import { is as isA } from '../../../system/function.js';
 import type { View } from '../../viewBase.js';
 import type { BranchTrackingStatus } from '../branchTrackingStatusNode.js';
 import type { TreeViewNodesByType } from '../utils/-webview/node.utils.js';
@@ -84,7 +84,7 @@ export const enum ContextValues {
 	Remote = 'gitlens:remote',
 	Remotes = 'gitlens:remotes',
 	Repositories = 'gitlens:repositories',
-	Repository = 'gitlens:repository',
+	GlRepository = 'gitlens:repository',
 	RepositoryFolder = 'gitlens:repo-folder',
 	ResultsFile = 'gitlens:file:results',
 	ResultsFiles = 'gitlens:results:files',
@@ -126,7 +126,7 @@ export interface AmbientContext {
 	readonly pullRequest?: PullRequest;
 	readonly reflog?: GitReflogRecord;
 	readonly remote?: GitRemote;
-	readonly repository?: Repository;
+	readonly repository?: GlRepository;
 	readonly repoPath?: string;
 	readonly root?: boolean;
 	readonly searchId?: string;

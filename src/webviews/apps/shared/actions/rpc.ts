@@ -10,7 +10,7 @@
  * - `entry`: Type-safe factory for OptimisticEntry
  */
 import type { Signal } from '@lit-labs/signals';
-import { Logger } from '../../../../system/logger.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Resource } from '../state/resource.js';
 
 /**

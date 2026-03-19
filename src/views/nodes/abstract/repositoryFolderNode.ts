@@ -1,16 +1,19 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { GitBranch } from '@gitlens/git/models/branch.js';
+import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { basename } from '@gitlens/utils/path.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
 import type { GitUri } from '../../../git/gitUri.js';
-import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository.js';
+import type { RepositoryChangeEvent } from '../../../git/models/repository.js';
+import { GlRepository } from '../../../git/models/repository.js';
+import { getBranchRemote } from '../../../git/utils/-webview/branch.utils.js';
 import { getRepositoryIconPath } from '../../../git/utils/-webview/icons.js';
 import { formatLastFetched } from '../../../git/utils/-webview/repository.utils.js';
-import { getHighlanderProviders } from '../../../git/utils/remote.utils.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug, trace } from '../../../system/decorators/log.js';
-import { weakEvent } from '../../../system/event.js';
-import { basename } from '../../../system/path.js';
-import { pad } from '../../../system/string.js';
 import type { View } from '../../viewBase.js';
 import { SubscribeableViewNode } from './subscribeableViewNode.js';
 import type { ViewNode } from './viewNode.js';
@@ -27,7 +30,7 @@ export abstract class RepositoryFolderNode<
 		uri: GitUri,
 		view: TView,
 		protected override readonly parent: ViewNode,
-		public readonly repo: Repository,
+		public readonly repo: GlRepository,
 		private readonly options?: { expand?: boolean; showBranchAndLastFetched?: boolean },
 	) {
 		super('repo-folder', uri, view, parent);
@@ -100,7 +103,7 @@ export abstract class RepositoryFolderNode<
 			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
 			this._cachedLastFetched = lastFetched;
 
-			const status = branch.getTrackingStatus();
+			const status = GitBranch.getTrackingStatus(branch);
 			if (status) {
 				item.description = status;
 				if (lastFetched) {
@@ -132,7 +135,7 @@ export abstract class RepositoryFolderNode<
 			);
 			providerName = providers?.length ? providers[0].name : undefined;
 		} else {
-			const remote = await branch.getRemote();
+			const remote = await getBranchRemote(this.view.container, branch);
 			providerName = remote?.provider?.name;
 		}
 
@@ -141,7 +144,7 @@ export abstract class RepositoryFolderNode<
 				lastFetched ? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}` : ''
 			}${this.repo.name ? `\\\n$(folder) ${isSubmodule ? '(submodule) ' : isWorktree ? '(worktree) ' : ''}${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
 				branch.upstream != null
-					? ` is ${branch.getTrackingStatus({
+					? ` is ${GitBranch.getTrackingStatus(branch, {
 							empty: branch.upstream.missing
 								? `missing upstream $(git-branch) ${branch.upstream.name}`
 								: `up to date with $(git-branch) ${branch.upstream.name}${
@@ -180,13 +183,13 @@ export abstract class RepositoryFolderNode<
 
 	@debug()
 	async star(): Promise<void> {
-		await this.repo.star();
+		await GlRepository.starRepository(this.view.container, this.repo);
 		// void this.parent!.triggerChange();
 	}
 
 	@debug()
 	async unstar(): Promise<void> {
-		await this.repo.unstar();
+		await GlRepository.unstarRepository(this.view.container, this.repo);
 		// void this.parent!.triggerChange();
 	}
 

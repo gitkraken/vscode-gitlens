@@ -1,0 +1,64 @@
+{
+	"name": "@gitlens/git",
+	"description": "GitLens Git package",
+	"version": "0.0.1",
+	"license": "SEE LICENSE IN LICENSE",
+	"private": true,
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		},
+		"./models/*.js": {
+			"types": "./dist/models/*.d.ts",
+			"default": "./dist/models/*.js"
+		},
+		"./providers/*.js": {
+			"types": "./dist/providers/*.d.ts",
+			"default": "./dist/providers/*.js"
+		},
+		"./providers/shared/*.js": {
+			"types": "./dist/providers/shared/*.d.ts",
+			"default": "./dist/providers/shared/*.js"
+		},
+		"./utils/*.js": {
+			"types": "./dist/utils/*.d.ts",
+			"default": "./dist/utils/*.js"
+		},
+		"./remotes/*.js": {
+			"types": "./dist/remotes/*.d.ts",
+			"default": "./dist/remotes/*.js"
+		},
+		"./parsers/*.js": {
+			"types": "./dist/parsers/*.d.ts",
+			"default": "./dist/parsers/*.js"
+		},
+		"./watching/*.js": {
+			"types": "./dist/watching/*.d.ts",
+			"default": "./dist/watching/*.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -b",
+		"clean": "pnpx rimraf --glob dist out **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean:all": "pnpm run clean && pnpm run clean:deps",
+		"clean:deps": "pnpx rimraf --glob **/node_modules",
+		"clean:lint": "pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 --no-error-on-unmatched-pattern 'src/**/__tests__/**/*.test.ts'"
+	},
+	"dependencies": {
+		"@gitlens/utils": "workspace:*",
+		"ignore": "7.0.5"
+	},
+	"devDependencies": {
+		"@types/mocha": "catalog:",
+		"mocha": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}

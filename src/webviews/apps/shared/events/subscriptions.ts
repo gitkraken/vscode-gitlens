@@ -3,7 +3,7 @@
  *
  * - `subscribeAll`: Bulk event subscription with cleanup and error handling
  */
-import { Logger } from '../../../../system/logger.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
 
 /**

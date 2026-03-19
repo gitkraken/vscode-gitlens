@@ -1,4 +1,4 @@
-import type { SearchQuery } from '../constants.search.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { Container } from '../container.js';
 import { executeGitCommand } from '../git/actions.js';
 import { command } from '../system/-webview/command.js';

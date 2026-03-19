@@ -1,8 +1,8 @@
 import { Disposable } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Keys } from '../../constants.js';
 import { extensionPrefix, keys } from '../../constants.js';
-import { debug } from '../decorators/log.js';
-import { getScopedLogger } from '../logger.scope.js';
 import { registerCommand } from './command.js';
 import { setContext } from './context.js';
 

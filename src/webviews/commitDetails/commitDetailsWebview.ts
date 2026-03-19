@@ -1,6 +1,31 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
+import { CheckoutError } from '@gitlens/git/errors.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { CommitSignature } from '@gitlens/git/models/signature.js';
+import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
+import { serializeIssueOrPullRequest } from '@gitlens/git/utils/issueOrPullRequest.utils.js';
+import { getComparisonRefsForPullRequest, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { areSearchContextsEqual } from '@gitlens/git/utils/search.utils.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { filterMap, map } from '@gitlens/utils/iterable.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { MRU } from '@gitlens/utils/mru.js';
+import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '@gitlens/utils/promise.js';
 import type { MaybeEnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import { serializeAutolink } from '../../autolinks/utils/-webview/autolinks.utils.js';
 import { getAvatarUri } from '../../avatars.js';
@@ -34,29 +59,18 @@ import {
 } from '../../git/actions/commit.js';
 import * as RepoActions from '../../git/actions/repository.js';
 import { executeGitCommand } from '../../git/actions.js';
-import { CheckoutError } from '../../git/errors.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import { isCommit, isStash } from '../../git/models/commit.js';
-import type { GitFileChange, GitFileChangeShape } from '../../git/models/fileChange.js';
-import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
-import type { GitRevisionReference } from '../../git/models/reference.js';
-import type { GitRemote } from '../../git/models/remote.js';
-import { RemoteResourceType } from '../../git/models/remoteResource.js';
-import type { Repository } from '../../git/models/repository.js';
-import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
-import type { CommitSignature } from '../../git/models/signature.js';
-import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
-import type { GitCommitSearchContext } from '../../git/search.js';
+import type { GlRepository } from '../../git/models/repository.js';
+import { getBranchAssociatedPullRequest } from '../../git/utils/-webview/branch.utils.js';
+import {
+	getCommitAssociatedPullRequest,
+	getCommitAuthorAvatarUri,
+	getCommitEnrichedAutolinks,
+	getCommitForFile,
+	getCommitSignature,
+} from '../../git/utils/-webview/commit.utils.js';
 import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils.js';
-import { splitCommitMessage } from '../../git/utils/commit.utils.js';
-import { serializeIssueOrPullRequest } from '../../git/utils/issueOrPullRequest.utils.js';
-import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/utils/pullRequest.utils.js';
-import { createReference } from '../../git/utils/reference.utils.js';
-import { isUncommitted, shortenRevision } from '../../git/utils/revision.utils.js';
-import { areSearchContextsEqual } from '../../git/utils/search.utils.js';
+import { getBestRemoteWithIntegration } from '../../git/utils/-webview/remote.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { showPatchesView } from '../../plus/drafts/actions.js';
 import type { CreateDraftChange, Draft, DraftVisibility } from '../../plus/drafts/models/drafts.js';
@@ -67,6 +81,7 @@ import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils.js';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService.js';
 import { supportsCodeSuggest } from '../../plus/integrations/providers/models.js';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils.js';
+import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import {
 	executeCommand,
 	executeCoreCommand,
@@ -78,13 +93,6 @@ import { getContext, onDidChangeContext, setContext } from '../../system/-webvie
 import type { MergeEditorInputs } from '../../system/-webview/vscode/editors.js';
 import { openMergeEditor } from '../../system/-webview/vscode/editors.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import type { Deferrable } from '../../system/function/debounce.js';
-import { debounce } from '../../system/function/debounce.js';
-import { filterMap, map } from '../../system/iterable.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
-import { MRU } from '../../system/mru.js';
-import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise.js';
 import type { LinesChangeEvent } from '../../trackers/lineTracker.js';
 import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
@@ -156,7 +164,7 @@ import type { CommitDetailsWebviewShowingArgs } from './registration.js';
 const { command, getCommands } =
 	createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'commitDetails' | 'graphDetails'>>();
 
-type RepositorySubscription = { repo: Repository; subscription: Disposable };
+type RepositorySubscription = { repo: GlRepository; subscription: Disposable };
 
 // interface WipContext extends Wip
 interface WipContext {
@@ -164,7 +172,7 @@ interface WipContext {
 	repositoryCount: number;
 	branch?: GitBranch;
 	pullRequest?: PullRequest;
-	repo: Repository;
+	repo: GlRepository;
 	codeSuggestions?: Draft[];
 }
 
@@ -286,7 +294,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 				'context.autolinks':
 					(this._context.pullRequest != null ? 1 : 0) + (this._context.autolinkedIssues?.length ?? 0),
 				'context.pinned': this._context.pinned,
-				'context.type': this.commit == null ? undefined : isStash(this.commit) ? 'stash' : 'commit',
+				'context.type': this.commit == null ? undefined : GitCommit.isStash(this.commit) ? 'stash' : 'commit',
 				'context.uncommitted': this.commit?.isUncommitted ?? false,
 			};
 		}
@@ -980,7 +988,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		return this._context.mode;
 	}
 
-	private async setMode(mode: Mode, repository?: Repository): Promise<void> {
+	private async setMode(mode: Mode, repository?: GlRepository): Promise<void> {
 		this._context.mode = mode;
 		void this.notifyDidChangeState(true);
 		if (mode === 'wip') {
@@ -1019,7 +1027,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 					source: { source: this.getTelemetrySource(), context: { type: 'wip' } },
 				});
 			} else {
-				const isStashCommit = isStash(this.commit);
+				const isStashCommit = GitCommit.isStash(this.commit);
 				await executeCommand<ExplainCommitCommandArgs | ExplainStashCommandArgs>(
 					isStashCommit ? 'gitlens.ai.explainStash' : 'gitlens.ai.explainCommit',
 					{
@@ -1042,7 +1050,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 	@ipcRequest(GenerateRequest)
 	private async onGenerateRequest(): Promise<IpcResponse<typeof GenerateRequest>> {
-		const repo: Repository | undefined = this._context.wip?.repo;
+		const repo: GlRepository | undefined = this._context.wip?.repo;
 
 		if (!repo) {
 			return { error: { message: 'Unable to find changes' } };
@@ -1090,7 +1098,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 			const result = await this.container.git
 				.getRepositoryService(commit.repoPath)
-				.commits.getCommitReachability?.(commit.sha, this._cancellationTokenSource?.token);
+				.commits.getCommitReachability?.(commit.sha, toAbortSignal(this._cancellationTokenSource?.token));
 
 			const duration = Date.now() - startTime;
 
@@ -1180,7 +1188,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@trace({ args: false })
-	private async updateWipState(repository: Repository | undefined, onlyOnRepoChange = false): Promise<void> {
+	private async updateWipState(repository: GlRepository | undefined, onlyOnRepoChange = false): Promise<void> {
 		if (this._wipSubscription != null) {
 			const { repo, subscription } = this._wipSubscription;
 			if (repository?.path !== repo.path) {
@@ -1245,7 +1253,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	private async getWipBranchDetails(
-		repository: Repository,
+		repository: GlRepository,
 		branchName: string,
 	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined; codeSuggestions: Draft[] } | undefined> {
 		const branch = await repository.git.branches.getBranch(branchName);
@@ -1259,7 +1267,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			};
 		}
 
-		const pullRequest = await branch.getAssociatedPullRequest({
+		const pullRequest = await getBranchAssociatedPullRequest(this.container, branch, {
 			expiryOverride: 1000 * 60 * 5, // 5 minutes
 		});
 
@@ -1284,7 +1292,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		return getContext('gitlens:gk:organization:drafts:enabled', false);
 	}
 
-	private async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]> {
+	private async getCodeSuggestions(pullRequest: PullRequest, repository: GlRepository): Promise<Draft[]> {
 		if (!(await this.canAccessDrafts()) || !supportsCodeSuggest(pullRequest.provider)) return [];
 
 		const results = await this.container.drafts.getCodeSuggestions(pullRequest, repository);
@@ -1348,7 +1356,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		}
 
 		let commit: GitCommit | undefined;
-		if (isCommit(commitish)) {
+		if (GitCommit.is(commitish)) {
 			commit = commitish;
 		} else if (commitish != null) {
 			if (commitish.refType === 'stash') {
@@ -1417,10 +1425,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		this.updateTitle();
 	}
 
-	private subscribeToRepositoryWip(repo: Repository) {
+	private subscribeToRepositoryWip(repo: GlRepository) {
 		return Disposable.from(
-			repo.watchFileSystem(1000),
-			repo.onDidChangeFileSystem(() => this.onWipChanged(repo)),
+			repo.watchWorkingTree(1000),
+			repo.onDidChangeWorkingTree(() => this.onWipChanged(repo)),
 			repo.onDidChange(e => {
 				if (e.changed('index')) {
 					this.onWipChanged(repo);
@@ -1429,11 +1437,11 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		);
 	}
 
-	private onWipChanged(repository: Repository) {
+	private onWipChanged(repository: GlRepository) {
 		void this.updateWipState(repository);
 	}
 
-	private async getWipChange(repository: Repository): Promise<WipChange | undefined> {
+	private async getWipChange(repository: GlRepository): Promise<WipChange | undefined> {
 		const status = await this.container.git.getRepositoryService(repository.path).status.getStatus();
 		if (status == null) return undefined;
 
@@ -1646,12 +1654,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails> {
 		const [commitResult, avatarUriResult, remoteResult] = await Promise.allSettled([
 			!commit.hasFullDetails()
-				? commit.ensureFullDetails({ include: { uncommittedFiles: true } }).then(() => commit)
+				? GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } }).then(() => commit)
 				: commit,
-			commit.author.getAvatarUri(commit, { size: 32 }),
-			this.container.git
-				.getRepositoryService(commit.repoPath)
-				.remotes.getBestRemoteWithIntegration({ includeDisconnected: true }),
+			getCommitAuthorAvatarUri(commit, { size: 32 }),
+			getBestRemoteWithIntegration(commit.repoPath, { includeDisconnected: true }),
 		]);
 
 		commit = getSettledValue(commitResult, commit);
@@ -1689,13 +1695,15 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			configuration.get('views.commitDetails.autolinks.enabled') &&
 			configuration.get('views.commitDetails.autolinks.enhanced')
 				? pauseOnCancelOrTimeoutMapTuplePromise(
-						commit.getEnrichedAutolinks(remote as GitRemote<RemoteProvider>),
+						getCommitEnrichedAutolinks(commit.repoPath, commit.message, commit.summary, remote),
 					)
 				: undefined,
 			remote?.provider != null && configuration.get('views.commitDetails.pullRequests.enabled')
-				? commit.getAssociatedPullRequest(remote as GitRemote<RemoteProvider>)
+				? getCommitAssociatedPullRequest(commit.repoPath, commit.sha, remote)
 				: undefined,
-			configuration.get('signing.showSignatureBadges') ? commit.getSignature() : undefined,
+			configuration.get('signing.showSignatureBadges')
+				? getCommitSignature(commit.repoPath, commit.sha)
+				: undefined,
 		]);
 		const enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
 		const pr = getSettledValue(prResult);
@@ -1768,7 +1776,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			commit = this.commit;
 		}
 
-		commit = await commit?.getCommitForFile(params.path, params.staged);
+		commit = commit != null ? await getCommitForFile(commit, params.path, params.staged) : undefined;
 		return commit != null ? [commit, commit.file!] : [];
 	}
 
@@ -1822,7 +1830,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						void executeCommand<CopyMessageToClipboardCommandArgs>('gitlens.copyMessageToClipboard', {
 							message: this.commit.message,
 						});
-					} else if (isStash(this.commit)) {
+					} else if (GitCommit.isStash(this.commit)) {
 						void env.clipboard.writeText(this.commit.stashName);
 					} else {
 						void executeCommand<CopyShaToClipboardCommandArgs>('gitlens.copyShaToClipboard', {
@@ -2017,7 +2025,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			};
 		} else {
 			if (commit.message == null) {
-				await commit.ensureFullDetails();
+				await GitCommit.ensureFullDetails(commit);
 			}
 
 			const { summary: title, body: description } = splitCommitMessage(commit.message);
@@ -2257,7 +2265,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
 
-		const previousSha = await commit.getPreviousSha();
+		const previousSha = await GitCommit.getPreviousSha(commit);
 		const ref1 = isUncommitted(previousSha) ? '' : previousSha;
 		const ref2 = commit.isUncommitted ? '' : commit.sha;
 
@@ -2354,7 +2362,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		if (commit == null) return;
 
 		if (commit.message == null) {
-			await commit.ensureFullDetails();
+			await GitCommit.ensureFullDetails(commit);
 		}
 
 		const { summary: title, body: description } = splitCommitMessage(commit.message);

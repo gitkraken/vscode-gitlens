@@ -1,34 +1,34 @@
 import type { Uri } from 'vscode';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import type { GitStashReference } from '@gitlens/git/models/reference.js';
 import { Container } from '../../container.js';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
 import type { RevealOptions } from '../../views/viewBase.js';
 import { executeGitCommand } from '../actions.js';
-import type { GitStashCommit } from '../models/commit.js';
-import type { GitStashReference } from '../models/reference.js';
-import type { Repository } from '../models/repository.js';
+import type { GlRepository } from '../models/repository.js';
 
-export function apply(repo?: string | Repository, ref?: GitStashReference): Promise<void> {
+export function apply(repo?: string | GlRepository, ref?: GitStashReference): Promise<void> {
 	return executeGitCommand({
 		command: 'stash',
 		state: { subcommand: 'apply', repo: repo, reference: ref },
 	});
 }
 
-export function drop(repo?: string | Repository, refs?: GitStashReference[]): Promise<void> {
+export function drop(repo?: string | GlRepository, refs?: GitStashReference[]): Promise<void> {
 	return executeGitCommand({
 		command: 'stash',
 		state: { subcommand: 'drop', repo: repo, references: refs },
 	});
 }
 
-export function rename(repo?: string | Repository, ref?: GitStashReference, message?: string): Promise<void> {
+export function rename(repo?: string | GlRepository, ref?: GitStashReference, message?: string): Promise<void> {
 	return executeGitCommand({
 		command: 'stash',
 		state: { subcommand: 'rename', repo: repo, reference: ref, message: message },
 	});
 }
 
-export function pop(repo?: string | Repository, ref?: GitStashReference): Promise<void> {
+export function pop(repo?: string | GlRepository, ref?: GitStashReference): Promise<void> {
 	return executeGitCommand({
 		command: 'stash',
 		state: { subcommand: 'pop', repo: repo, reference: ref },
@@ -36,7 +36,7 @@ export function pop(repo?: string | Repository, ref?: GitStashReference): Promis
 }
 
 export function push(
-	repo?: string | Repository,
+	repo?: string | GlRepository,
 	uris?: Uri[],
 	message?: string,
 	includeUntracked: boolean = false,

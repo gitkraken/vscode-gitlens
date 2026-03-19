@@ -1,13 +1,14 @@
 import type { CancellationToken, WorkspaceFoldersChangeEvent } from 'vscode';
 import { Disposable, Uri, workspace } from 'vscode';
 import { git } from '@env/providers.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { join } from '@gitlens/utils/iterable.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { LiveShare, SharedService } from '../@types/vsls.d.js';
 import type { Container } from '../container.js';
+import { toAbortSignal } from '../system/-webview/cancellation.js';
 import { isVslsRoot } from '../system/-webview/path.vsls.js';
-import { debug, trace } from '../system/decorators/log.js';
-import { join } from '../system/iterable.js';
-import { getScopedLogger } from '../system/logger.scope.js';
-import { normalizePath } from '../system/path.js';
 import type {
 	GetRepositoriesForUriRequest,
 	GetRepositoriesForUriResponse,
@@ -151,7 +152,7 @@ export class VslsHostService implements Disposable {
 
 		const result = await git(
 			this.container,
-			{ ...options, cwd: cwd, cancellation: cancellation },
+			{ ...options, cwd: cwd, cancellation: toAbortSignal(cancellation) },
 			...this.convertGitCommandArgs(args, isRootWorkspace),
 		);
 		let data = result.stdout;

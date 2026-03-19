@@ -1,8 +1,8 @@
 ﻿import type { Uri } from 'vscode';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { proBadge, proBadgeSuperscript } from '../../constants.js';
 import type { Container } from '../../container.js';
-import type { Repository } from '../../git/models/repository.js';
-import type { GitWorktree } from '../../git/models/worktree.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type { StepsContext } from '../quick-wizard/models/steps.js';
 import type { SubcommandState } from '../quick-wizard/quickCommandWithSubcommands.js';
@@ -30,7 +30,7 @@ type State =
 type Subcommands = State['subcommand'];
 
 export interface WorktreeContext<TStepNames extends StepNames = StepNames> extends StepsContext<TStepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	defaultUri?: Uri;
 	pickedRootFolder?: Uri;

@@ -1,6 +1,19 @@
 import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions } from 'vscode';
 import { CancellationTokenSource, env, EventEmitter, window } from 'vscode';
 import { fetch } from '@env/fetch.js';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { map } from '@gitlens/utils/iterable.js';
+import type { Lazy } from '@gitlens/utils/lazy.js';
+import { lazy } from '@gitlens/utils/lazy.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { getSettledValue, getSettledValues } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '../../constants.ai.js';
 import {
 	anthropicProviderDescriptor,
@@ -20,34 +33,15 @@ import {
 } from '../../constants.ai.js';
 import type { Source, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import {
-	AIError,
-	AIErrorReason,
-	AINoRequestDataError,
-	AuthenticationRequiredError,
-	CancellationError,
-	isCancellationError,
-} from '../../errors.js';
+import { AIError, AIErrorReason, AINoRequestDataError, AuthenticationRequiredError } from '../../errors.js';
 import type { AIFeatures } from '../../features.js';
 import { isAdvancedFeature } from '../../features.js';
-import type { Repository } from '../../git/models/repository.js';
-import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
-import { filterDiffFiles } from '../../git/parsers/diffParser.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiModelPicker.js';
 import { Directive, isDirective } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
 import type { Storage } from '../../system/-webview/storage.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { debounce } from '../../system/function/debounce.js';
-import { map } from '../../system/iterable.js';
-import type { Lazy } from '../../system/lazy.js';
-import { lazy } from '../../system/lazy.js';
-import { Logger } from '../../system/logger.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
-import type { Deferred } from '../../system/promise.js';
-import { getSettledValue, getSettledValues } from '../../system/promise.js';
-import { PromiseCache } from '../../system/promiseCache.js';
 import type { Serialized } from '../../system/serialize.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils.js';
@@ -772,7 +766,7 @@ export class AIProviderService implements AIService, Disposable {
 
 				return result;
 			} catch (ex) {
-				if (ex instanceof CancellationError) {
+				if (isCancellationError(ex)) {
 					scope?.setFailed('cancelled: user cancelled');
 					this.container.telemetry.sendEvent(
 						telementry.key,
@@ -1040,7 +1034,7 @@ export class AIProviderService implements AIService, Disposable {
 	}
 
 	async getChanges(
-		changesOrRepo: string | string[] | Repository,
+		changesOrRepo: string | string[] | GlRepository,
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined> {
 		let changes: string;

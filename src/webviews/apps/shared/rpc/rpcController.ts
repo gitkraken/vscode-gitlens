@@ -25,7 +25,7 @@
  */
 import type { Remote } from '@eamodio/supertalk';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
-import { Logger } from '../../../../system/logger.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { RpcClientOptions } from '../rpcClient.js';
 import { wrapServices } from '../rpcClient.js';
 

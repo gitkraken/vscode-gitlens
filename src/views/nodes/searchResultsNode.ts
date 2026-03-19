@@ -1,12 +1,12 @@
 import type { TreeItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import { md5 } from '@env/crypto.js';
-import type { SearchQuery } from '../../constants.search.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
+import { md5 } from '@gitlens/utils/crypto.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import { executeGitCommand } from '../../git/actions.js';
-import type { GitLog } from '../../git/models/log.js';
 import type { CommitsQueryResults } from '../../git/queryResults.js';
-import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search.js';
-import { pluralize } from '../../system/string.js';
+import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/utils/-webview/search.utils.js';
 import type { SearchAndCompareView } from '../searchAndCompareView.js';
 import type { ViewNode } from './abstract/viewNode.js';
 import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
@@ -195,7 +195,7 @@ function createSearchQuery(
 		if (log == null) {
 			log = await view.container.git
 				.getRepositoryService(repoPath)
-				.commits.searchCommits(search, { source: 'view', detail: 'search&compare' })
+				.commits.searchCommits(search, { source: { source: 'view', detail: 'search&compare' } })
 				.then(r => r.log);
 		} else if (log instanceof Promise) {
 			log = await log;

@@ -7,15 +7,15 @@ import type {
 	ThemableDecorationRenderOptions,
 } from 'vscode';
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { scale, toRgba } from '@gitlens/utils/color.js';
+import { getWidth, interpolate, pad } from '@gitlens/utils/string.js';
 import type { Config } from '../config.js';
 import type { Colors } from '../constants.colors.js';
 import { GlyphChars } from '../constants.js';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter.js';
 import { CommitFormatter } from '../git/formatters/commitFormatter.js';
-import type { GitCommit } from '../git/models/commit.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { scale, toRgba } from '../system/color.js';
-import { getWidth, interpolate, pad } from '../system/string.js';
 import type { BlameFontOptions } from './gutterBlameAnnotationProvider.js';
 
 export interface ComputedHeatmap {

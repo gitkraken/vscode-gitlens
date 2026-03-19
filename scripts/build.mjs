@@ -20,6 +20,13 @@ const { values } = parseArgs({
 /** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews' | 'unit-tests')[] | undefined; debug: boolean; target: ('node' | 'webworker')[] | undefined; quick: 'true' | 'turbo' | undefined; trace: boolean; webview: string[] | undefined; watch: boolean }} */
 const { mode, build, debug, target, quick, trace, webview: webviews, watch } = values;
 
+const env = {
+	...process.env,
+	...(debug ? { DEBUG: '1' } : {}),
+	NODE_FORCE_COLORS: '1',
+	FORCE_COLOR: '1',
+};
+
 // Build webpack command
 let cmd = `webpack`;
 if (watch) {
@@ -80,6 +87,25 @@ if (trace) {
 	cmd += ` --env trace`;
 }
 
+if (build?.includes('unit-tests')) {
+	const buildPkgsCmd = `pnpm run build:packages`;
+	console.log(`Running: ${buildPkgsCmd}`);
+
+	const pkgsCode = await new Promise(resolve => {
+		const pkgs = spawn(buildPkgsCmd, [], {
+			shell: true,
+			stdio: 'inherit',
+			env: env,
+		});
+
+		pkgs.on('exit', code => resolve(code || 0));
+	});
+
+	if (pkgsCode !== 0) {
+		process.exit(pkgsCode);
+	}
+}
+
 console.log(`Running: ${cmd}`);
 
 if (!quick && !watch) {
@@ -108,12 +134,7 @@ if (!quick && !watch) {
 const child = spawn(cmd, [], {
 	shell: true,
 	stdio: 'inherit',
-	env: {
-		...process.env,
-		...(debug ? { DEBUG: '1' } : {}),
-		NODE_FORCE_COLORS: '1',
-		FORCE_COLOR: '1',
-	},
+	env: env,
 });
 
 child.on('exit', code => {

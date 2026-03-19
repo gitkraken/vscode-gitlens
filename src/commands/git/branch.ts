@@ -1,5 +1,5 @@
 import type { Container } from '../../container.js';
-import type { Repository } from '../../git/models/repository.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type { StepsContext } from '../quick-wizard/models/steps.js';
 import type { SubcommandState } from '../quick-wizard/quickCommandWithSubcommands.js';
@@ -32,7 +32,7 @@ type State =
 type Subcommands = State['subcommand'];
 
 export interface BranchContext<TStepNames extends StepNames = StepNames> extends StepsContext<TStepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	showTags: boolean;
 	title: string;

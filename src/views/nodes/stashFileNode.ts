@@ -1,5 +1,5 @@
-import type { GitStashCommit } from '../../git/models/commit.js';
-import type { GitFile } from '../../git/models/file.js';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
 import type { ViewsWithStashes } from '../viewBase.js';
 import type { ViewNode } from './abstract/viewNode.js';
 import { ContextValues } from './abstract/viewNode.js';

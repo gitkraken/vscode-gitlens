@@ -1,11 +1,11 @@
 import type { Disposable, Uri } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
+import { dirname } from '@gitlens/utils/path.js';
 import type { Keys } from '../constants.js';
 import type { Container } from '../container.js';
 import type { KeyboardScope } from '../system/-webview/keyboard.js';
 import { splitPath } from '../system/-webview/path.js';
 import { getQuickPickIgnoreFocusOut, supportedInVSCodeVersion } from '../system/-webview/vscode.js';
-import { dirname } from '../system/path.js';
 import type { QuickPickItemOfT } from './items/common.js';
 
 interface WorkingFileEntry {

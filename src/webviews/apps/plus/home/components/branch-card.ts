@@ -5,6 +5,8 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
+import { formatDate, fromNow } from '@gitlens/utils/date.js';
+import { interpolate, pluralize } from '@gitlens/utils/string.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import {
@@ -14,8 +16,6 @@ import {
 	launchpadGroupLabelMap,
 } from '../../../../../plus/launchpad/models/launchpad.js';
 import { createCommandLink } from '../../../../../system/commands.js';
-import { formatDate, fromNow } from '../../../../../system/date.js';
-import { interpolate, pluralize } from '../../../../../system/string.js';
 import type {
 	BranchRef,
 	CreatePullRequestCommandArgs,

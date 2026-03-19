@@ -1,18 +1,22 @@
 import type { ConfigurationChangeEvent, DecorationOptions, TextEditor, TextEditorDecorationType } from 'vscode';
 import { CancellationTokenSource, DecorationRangeBehavior, Disposable, Range, window } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { once } from '@gitlens/utils/event.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { MaybePausedResult } from '@gitlens/utils/promise.js';
+import { getSettledValue, pauseOnCancelOrTimeoutMap } from '@gitlens/utils/promise.js';
 import { GlyphChars, Schemes } from '../constants.js';
 import type { Container } from '../container.js';
 import { CommitFormatter } from '../git/formatters/commitFormatter.js';
-import type { PullRequest } from '../git/models/pullRequest.js';
+import { getCommitAssociatedPullRequest } from '../git/utils/-webview/commit.utils.js';
+import { getBestRemoteWithIntegration } from '../git/utils/-webview/remote.utils.js';
 import { detailsMessage } from '../hovers/hovers.js';
+import { toAbortSignal } from '../system/-webview/cancellation.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
-import { debug, trace } from '../system/decorators/log.js';
-import { once } from '../system/event.js';
-import { debounce } from '../system/function/debounce.js';
-import { getScopedLogger } from '../system/logger.scope.js';
-import type { MaybePausedResult } from '../system/promise.js';
-import { getSettledValue, pauseOnCancelOrTimeoutMap } from '../system/promise.js';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker.js';
 import { getInlineDecoration } from './annotations.js';
 import type { BlameFontOptions } from './gutterBlameAnnotationProvider.js';
@@ -158,14 +162,16 @@ export class LineAnnotationController implements Disposable {
 		const prs = new Map<string, Promise<PullRequest | undefined>>();
 		if (lines.size === 0) return prs;
 
-		const remotePromise = this.container.git.getRepositoryService(repoPath).remotes.getBestRemoteWithIntegration();
+		const remotePromise = getBestRemoteWithIntegration(repoPath);
 
 		for (const [, state] of lines) {
 			if (state.commit.isUncommitted) continue;
 
 			let pr = prs.get(state.commit.ref);
 			if (pr == null) {
-				pr = remotePromise.then(remote => state.commit.getAssociatedPullRequest(remote));
+				pr = remotePromise.then(remote =>
+					getCommitAssociatedPullRequest(state.commit.repoPath, state.commit.sha, remote),
+				);
 				prs.set(state.commit.ref, pr);
 			}
 		}
@@ -255,7 +261,7 @@ export class LineAnnotationController implements Disposable {
 
 			// Only ensure the full details if we have to add the hover eagerly (Live Share) and we don't have a message
 			if (hoverOptions != null && state.commit.message == null && !commitPromises.has(state.commit.ref)) {
-				commitPromises.set(state.commit.ref, state.commit.ensureFullDetails());
+				commitPromises.set(state.commit.ref, GitCommit.ensureFullDetails(state.commit));
 			}
 			lines.set(selection.active, state);
 			if (!state.commit.isUncommitted) {
@@ -346,7 +352,7 @@ export class LineAnnotationController implements Disposable {
 			? await pauseOnCancelOrTimeoutMap(
 					this.getPullRequestsForLines(repoPath, lines),
 					true,
-					cancellation,
+					toAbortSignal(cancellation),
 					timeout,
 					async result => {
 						if (

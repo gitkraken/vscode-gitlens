@@ -1,15 +1,15 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { GitTagReference } from '@gitlens/git/models/reference.js';
+import { GitTag } from '@gitlens/git/models/tag.js';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { map } from '@gitlens/utils/iterable.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import { emojify } from '../../emojis.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { GitTagReference } from '../../git/models/reference.js';
-import type { GitTag } from '../../git/models/tag.js';
-import { shortenRevision } from '../../git/utils/revision.utils.js';
 import { gate } from '../../system/decorators/gate.js';
-import { trace } from '../../system/decorators/log.js';
-import { map } from '../../system/iterable.js';
-import { pad } from '../../system/string.js';
 import type { ViewsWithTags } from '../viewBase.js';
 import type { PageableViewNode, ViewNode } from './abstract/viewNode.js';
 import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
@@ -43,7 +43,7 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 	}
 
 	get label(): string {
-		return this.view.config.branches.layout === 'tree' ? this.tag.getBasename() : this.tag.name;
+		return this.view.config.branches.layout === 'tree' ? this.tag.basename : this.tag.name;
 	}
 
 	get ref(): GitTagReference {
@@ -87,13 +87,15 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		item.description = emojify(this.tag.message);
 		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${shortenRevision(this.tag.sha)}${
 			this.tag.date != null
-				? `\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
+				? `\n${GitTag.formatDateFromNow(this.tag)} (${GitTag.formatDate(
+						this.tag,
 						this.view.container.TagDateFormatting.dateFormat,
 					)})`
 				: ''
 		}\n\n${emojify(this.tag.message)}${
 			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
-				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(
+				? `\n${GitTag.formatCommitDateFromNow(this.tag)} (${GitTag.formatCommitDate(
+						this.tag,
 						this.view.container.TagDateFormatting.dateFormat,
 					)})`
 				: ''

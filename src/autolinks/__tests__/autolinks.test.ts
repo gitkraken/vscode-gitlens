@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { map } from '../../system/iterable.js';
+import { map } from '@gitlens/utils/iterable.js';
 import type { Autolink, RefSet } from '../models/autolinks.js';
 import { getAutolinks, getBranchAutolinks } from '../utils/-webview/autolinks.utils.js';
 

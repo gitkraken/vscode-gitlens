@@ -1,6 +1,6 @@
 import { EventEmitter } from 'vscode';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { ContextKeys } from '../../constants.context.js';
-import { maybeStartScopedLogger } from '../logger.scope.js';
 import { executeCoreCommand } from './command.js';
 
 const contextStorage = new Map<keyof ContextKeys, unknown>();

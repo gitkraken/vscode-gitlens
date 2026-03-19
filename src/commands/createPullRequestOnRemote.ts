@@ -1,12 +1,10 @@
 import { window } from 'vscode';
+import type { CreatePullRequestRemoteResource } from '@gitlens/git/models/remoteResource.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
-import type { GitRemote } from '../git/models/remote.js';
-import type { CreatePullRequestRemoteResource } from '../git/models/remoteResource.js';
-import { RemoteResourceType } from '../git/models/remoteResource.js';
-import type { RemoteProvider } from '../git/remotes/remoteProvider.js';
 import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils.js';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils.js';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { GlCommandBase } from './commandBase.js';
@@ -63,10 +61,9 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 		}
 
 		const providerId = compareRemote.provider.id;
-		const remotes = (await repo.git.remotes.getRemotes({
-			filter: r => r.provider?.id === providerId,
-			sort: true,
-		})) as GitRemote<RemoteProvider>[];
+		const remotes = (await repo.git.remotes.getRemotesWithProviders({ sort: true })).filter(
+			r => r.provider.id === providerId,
+		);
 
 		if (args.base == null) {
 			const branch = await repo.git.branches.getBranch(args.compare);

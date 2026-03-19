@@ -1,14 +1,15 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
-import { md5 } from '@env/crypto.js';
+import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import { md5 } from '@gitlens/utils/crypto.js';
+import { uniqueBy } from '@gitlens/utils/iterable.js';
+import { flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
 import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
-import type { Account, UnidentifiedAuthor } from '../../../git/models/author.js';
-import type { DefaultBranch } from '../../../git/models/defaultBranch.js';
-import type { Issue, IssueShape } from '../../../git/models/issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest.js';
-import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata.js';
-import { uniqueBy } from '../../../system/iterable.js';
-import { flatSettled, nonnullSettled } from '../../../system/promise.js';
+import { getRemoteIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -231,7 +232,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const remotes = await flatSettled(this.container.git.openRepositories.map(r => r.git.remotes.getRemotes()));
 		const workspaceRepos = await nonnullSettled(
 			remotes.map(async r => {
-				const integration = await r.getIntegration();
+				const integration = await getRemoteIntegration(r);
 				const [namespace, name] = r.path.split('/');
 				return integration?.id === this.id ? { name: name, namespace: namespace } : undefined;
 			}),

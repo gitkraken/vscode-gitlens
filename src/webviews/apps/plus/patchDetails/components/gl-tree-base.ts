@@ -1,8 +1,8 @@
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
-import type { GitFileChangeShape } from '../../../../../git/models/fileChange.js';
-import type { HierarchicalItem } from '../../../../../system/array.js';
-import { makeHierarchical } from '../../../../../system/array.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { HierarchicalItem } from '@gitlens/utils/array.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
 import { GlElement } from '../../../shared/components/element.js';
 import type {
 	TreeItemAction,

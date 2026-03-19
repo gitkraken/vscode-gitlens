@@ -1,18 +1,15 @@
-import type { Uri } from 'vscode';
-import { Schemes } from '../../../constants.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { millisecondsPerDay } from '@gitlens/git/utils/fetch.utils.js';
+import { formatDate, fromNow } from '@gitlens/utils/date.js';
+import { map } from '@gitlens/utils/iterable.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { UriMap } from '../../../system/-webview/uriMap.js';
-import { formatDate, fromNow } from '../../../system/date.js';
-import { map } from '../../../system/iterable.js';
-import { normalizePath } from '../../../system/path.js';
-import { areUrisEqual } from '../../../system/uri.js';
-import type { GitRemote } from '../../models/remote.js';
-import { RemoteResourceType } from '../../models/remoteResource.js';
-import type { Repository } from '../../models/repository.js';
+import type { GlRepository } from '../../models/repository.js';
 import type { RepositoryShape } from '../../models/repositoryShape.js';
-import type { RemoteProvider } from '../../remotes/remoteProvider.js';
-import { millisecondsPerDay } from '../fetch.utils.js';
+import { getRemoteProviderUrl, isRemoteMaybeIntegrationConnected, remoteSupportsIntegration } from './remote.utils.js';
 
 export function formatLastFetched(lastFetched: number, short: boolean = true): string {
 	const date = new Date(lastFetched);
@@ -33,35 +30,35 @@ export function formatLastFetched(lastFetched: number, short: boolean = true): s
 	return formatDate(date, format);
 }
 
-export function getRepositoryOrWorktreePath(uri: Uri): string {
-	return uri.scheme === Schemes.File ? normalizePath(uri.fsPath) : uri.toString();
-}
+// export function getRepositoryOrWorktreePath(uri: Uri): string {
+// 	return uri.scheme === Schemes.File ? normalizePath(uri.fsPath) : uri.toString();
+// }
 
-export function getCommonRepositoryPath(commonUri: Uri): string {
-	const uri = getCommonRepositoryUri(commonUri);
-	return getRepositoryOrWorktreePath(uri);
-}
+// export function getCommonRepositoryPath(commonUri: Uri): string {
+// 	const uri = getCommonRepositoryUri(commonUri);
+// 	return getRepositoryOrWorktreePath(uri);
+// }
 
-export function getCommonRepositoryUri(commonUri: Uri): Uri {
-	if (commonUri?.path.endsWith('/.git')) {
-		return commonUri.with({ path: commonUri.path.substring(0, commonUri.path.length - 5) });
-	}
-	return commonUri;
-}
+// export function getCommonRepositoryUri(commonUri: Uri): Uri {
+// 	if (commonUri?.path.endsWith('/.git')) {
+// 		return commonUri.with({ path: commonUri.path.substring(0, commonUri.path.length - 5) });
+// 	}
+// 	return commonUri;
+// }
 
-export function groupRepositories(repositories: Iterable<Repository>): Map<Repository, Map<string, Repository>> {
-	const repos = new Map<string, Repository>(map(repositories, r => [r.id, r]));
+export function groupRepositories(repositories: Iterable<GlRepository>): Map<GlRepository, Map<string, GlRepository>> {
+	const repos = new Map<string, GlRepository>(map(repositories, r => [r.id, r]));
 
 	// Build a map of repo uris to repos for quick lookup
 	// We use each repo's own uri as the key, so worktrees and submodules can find their main/parent repo
-	const reposByUri = new UriMap<Repository>();
+	const reposByUri = new UriMap<GlRepository>();
 	for (const repo of repos.values()) {
 		reposByUri.set(repo.uri, repo);
 	}
 
-	// Group worktree repos under the common repo when that repo is also in the list
+	// Group worktree and submodule repos under the common/parent repo when that repo is also in the list
 	// Note: Submodules are NOT grouped — they are independent repos with their own branches/remotes
-	const result = new Map<string, { repo: Repository; children: Map<string, Repository> }>();
+	const result = new Map<string, { repo: GlRepository; children: Map<string, GlRepository> }>();
 	for (const repo of repos.values()) {
 		const { commonUri } = repo;
 
@@ -108,27 +105,27 @@ export function groupRepositories(repositories: Iterable<Repository>): Map<Repos
 	return new Map(map(result, ([, r]) => [r.repo, r.children]));
 }
 
-export function toRepositoryShape(repo: Repository): RepositoryShape {
+export function toRepositoryShape(repo: GlRepository): RepositoryShape {
 	return { id: repo.id, name: repo.name, path: repo.path, uri: repo.uri.toString(), virtual: repo.virtual };
 }
 
 export async function toRepositoryShapeWithProvider(
-	repo: Repository,
-	remote: GitRemote<RemoteProvider> | undefined,
+	repo: GlRepository,
+	remote: GitRemote | undefined,
 ): Promise<RepositoryShape> {
 	let provider: RepositoryShape['provider'] | undefined;
 	if (remote?.provider != null) {
 		provider = {
 			name: remote.provider.name,
 			icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-			integration: remote.supportsIntegration()
+			integration: remoteSupportsIntegration(remote)
 				? {
 						id: getIntegrationIdForRemote(remote.provider)!,
-						connected: remote.maybeIntegrationConnected ?? false,
+						connected: isRemoteMaybeIntegrationConnected(remote) ?? false,
 					}
 				: undefined,
 			supportedFeatures: remote.provider.supportedFeatures,
-			url: await remote.provider.url({ type: RemoteResourceType.Repo }),
+			url: await getRemoteProviderUrl(remote.provider, { type: RemoteResourceType.Repo }),
 			bestRemoteName: remote.name,
 		};
 		if (provider.integration?.id == null) {

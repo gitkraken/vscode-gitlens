@@ -1,13 +1,13 @@
 import { Uri, workspace } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../../container.js';
 import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider.js';
 import type { CloudWorkspacesPathMap } from '../../../plus/workspaces/models/cloudWorkspace.js';
 import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models/localWorkspace.js';
 import type { CodeWorkspaceFileContents, WorkspaceAutoAddSetting } from '../../../plus/workspaces/models/workspaces.js';
 import type { GkWorkspacesSharedStorageProvider } from '../../../plus/workspaces/workspacesSharedStorageProvider.js';
-import { debug } from '../../../system/decorators/log.js';
-import { Logger } from '../../../system/logger.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
 import { getGKDLocalWorkspaceMappingFileUri } from './localSharedGkStorageLocationProvider.js';
 
 export class LocalGkWorkspacesSharedStorageProvider implements GkWorkspacesSharedStorageProvider {

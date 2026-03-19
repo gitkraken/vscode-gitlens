@@ -10,8 +10,8 @@
  */
 
 import { workspace } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { Container } from '../../../container.js';
-import { isCommit } from '../../../git/models/commit.js';
 import type { RepositoryChange } from '../../../git/models/repository.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { createBufferedCallback, createEventSubscription } from '../eventVisibilityBuffer.js';
@@ -63,7 +63,7 @@ export class RepositoriesService {
 				container.events.on('commit:selected', e => {
 					buffered({
 						repoPath: e.data.commit.repoPath,
-						sha: isCommit(e.data.commit) ? e.data.commit.sha : e.data.commit.ref,
+						sha: GitCommit.is(e.data.commit) ? e.data.commit.sha : e.data.commit.ref,
 						interaction: e.data.interaction,
 						preserveFocus: e.data.preserveFocus,
 					});

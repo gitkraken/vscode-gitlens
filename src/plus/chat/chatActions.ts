@@ -1,13 +1,13 @@
 import { env } from 'vscode';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import { serializeIssue } from '@gitlens/git/utils/issue.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { SendToChatCommandArgs } from '../../commands/sendToChat.js';
 import type { Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import type { IssueShape } from '../../git/models/issue.js';
-import type { PullRequestShape } from '../../git/models/pullRequest.js';
-import { serializeIssue } from '../../git/utils/issue.utils.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { Logger } from '../../system/logger.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkCommandType, DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
 

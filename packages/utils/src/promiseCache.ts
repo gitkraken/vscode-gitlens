@@ -1,0 +1,686 @@
+import { AbortAggregate, CancellationError, raceWithSignal } from './cancellation.js';
+
+interface CacheEntry<V> {
+	promise: Promise<V>;
+	accessed: number;
+	created: number;
+
+	createTTL: number | undefined;
+	accessTTL: number | undefined;
+}
+
+export class CacheController {
+	#invalidated = false;
+	get invalidated(): boolean {
+		return this.#invalidated;
+	}
+
+	invalidate(): void {
+		this.#invalidated = true;
+	}
+}
+
+interface PromiseCacheOptions {
+	/** TTL (time-to-live) in milliseconds since creation */
+	createTTL?: number;
+	/** TTL (time-to-live) in milliseconds since last access */
+	accessTTL?: number;
+	/** Whether to expire the entry if the promise fails (default: true) */
+	expireOnError?: boolean;
+	/**
+	 * TTL (time-to-live) in milliseconds for caching errors. When the factory rejects and `errorTTL` is set,
+	 * the cache entry is replaced with `Promise.resolve(undefined)` for subsequent callers, and the error
+	 * is re-thrown to the first caller. After `errorTTL` expires, the next call retries.
+	 * Only used when `onError` is not provided. Mutually exclusive with `expireOnError`.
+	 */
+	errorTTL?: number;
+	/** Maximum number of entries in the cache (LRU eviction when exceeded) */
+	capacity?: number;
+}
+
+export class PromiseCache<K, V> {
+	private readonly cache = new Map<K, CacheEntry<V>>();
+	private readonly aborts = new Map<K, AbortAggregate>();
+	private readonly options: PromiseCacheOptions;
+
+	constructor(options?: PromiseCacheOptions) {
+		this.options = { expireOnError: true, ...options };
+	}
+
+	clear(): void {
+		for (const a of this.aborts.values()) {
+			a.dispose();
+		}
+		this.aborts.clear();
+		this.cache.clear();
+	}
+
+	delete(key: K): void {
+		this.aborts.get(key)?.dispose();
+		this.aborts.delete(key);
+		this.cache.delete(key);
+	}
+
+	keys(): IterableIterator<K> {
+		return this.cache.keys();
+	}
+
+	/**
+	 * Gets a promise from the cache without creating it and updates accessed time
+	 * @param key - The cache key
+	 * @returns The cached promise, or undefined if not cached or expired
+	 */
+	get(key: K): Promise<V> | undefined {
+		const now = Date.now();
+		const entry = this.cache.get(key);
+		if (entry == null || this.expired(entry, now)) {
+			return undefined;
+		}
+		// Update accessed time
+		entry.accessed = now;
+		return entry.promise;
+	}
+
+	/**
+	 * Gets a promise from the cache or creates a new one using the factory function.
+	 *
+	 * When `cancellation` is provided:
+	 * - The factory receives an aggregate `AbortSignal` that only fires when **all** callers cancel
+	 * - The returned promise rejects with `CancellationError` if this caller's signal fires
+	 * - Other callers sharing the same cached promise are unaffected
+	 *
+	 * @param key - The cache key
+	 * @param factory - Factory function to create the value if not cached
+	 * @param cancellation - Optional per-caller AbortSignal
+	 * @param options - Optional TTL and error handling options that override the defaults
+	 */
+	async getOrCreate(
+		key: K,
+		factory: (cacheable: CacheController, cancellation?: AbortSignal) => Promise<V>,
+		options?: {
+			/** Per-caller AbortSignal — the factory receives an aggregate signal that only fires when all callers cancel */
+			cancellation?: AbortSignal;
+			/** TTL (time-to-live) in milliseconds since creation */
+			createTTL?: number;
+			/** TTL (time-to-live) in milliseconds since last access */
+			accessTTL?: number;
+			/** Whether to expire the entry if the promise fails */
+			expireOnError?: boolean;
+			/**
+			 * TTL (time-to-live) in milliseconds for caching errors. When the factory rejects and `errorTTL` is set,
+			 * the cache entry is replaced with `Promise.resolve(undefined)` for subsequent callers, and the error
+			 * is re-thrown to the first caller. After `errorTTL` expires, the next call retries.
+			 * Only used when `onError` is not provided.
+			 */
+			errorTTL?: number;
+			/**
+			 * Called when the factory promise rejects. Return a fallback result to cache
+			 * instead of expiring. The fallback value is cached with the specified `createTTL`
+			 * (defaults to the cache's `createTTL`). By default, the error is re-thrown to the
+			 * first caller after caching the fallback. Set `suppress: true` to return the fallback
+			 * value to the first caller instead. Return `undefined` to expire normally and re-throw.
+			 */
+			onError?: (error: unknown) => { value: V; createTTL?: number; suppress?: boolean } | undefined;
+		},
+	): Promise<V> {
+		const cancellation = options?.cancellation;
+		if (cancellation?.aborted) return Promise.reject(new CancellationError());
+
+		const now = Date.now();
+
+		options = { ...this.options, ...options };
+
+		let entry = this.cache.get(key);
+		if (entry != null && !this.expired(entry, now)) {
+			// Update accessed time
+			entry.accessed = now;
+
+			// Cache hit — register this caller on the existing aggregate
+			this.aborts.get(key)?.add(cancellation);
+			return cancellation != null ? raceWithSignal(entry.promise, cancellation) : entry.promise;
+		}
+
+		const cacheable = new CacheController();
+		let abortAgg: AbortAggregate | undefined;
+		if (cancellation != null) {
+			abortAgg = new AbortAggregate();
+			abortAgg.add(cancellation);
+			this.aborts.set(key, abortAgg);
+		}
+
+		const promise = factory(cacheable, abortAgg?.signal);
+		void promise.finally(() => {
+			if (cacheable.invalidated) {
+				this.cache.delete(key);
+			}
+			abortAgg?.dispose();
+			this.aborts.delete(key);
+		});
+
+		if (options?.onError != null) {
+			// Wrap the promise to handle errors with the onError callback
+			const errorHandled = promise.catch((ex: unknown) => {
+				const result = options.onError!(ex);
+				if (result != null) {
+					// Replace the entry with a resolved fallback value for subsequent callers
+					const errorNow = Date.now();
+					this.cache.set(key, {
+						promise: Promise.resolve(result.value),
+						created: errorNow,
+						accessed: errorNow,
+						createTTL: result.createTTL ?? options.createTTL,
+						accessTTL: options.accessTTL,
+					});
+					// suppress: return fallback to first caller; otherwise re-throw
+					if (result.suppress) return result.value;
+				} else {
+					this.cache.delete(key);
+				}
+				throw ex;
+			});
+
+			entry = {
+				promise: errorHandled,
+				created: now,
+				accessed: now,
+				createTTL: options.createTTL,
+				accessTTL: options.accessTTL,
+			};
+			this.cache.set(key, entry);
+		} else if (options?.errorTTL != null) {
+			// Cache resolved undefined for subsequent callers, re-throw to first caller
+			const errorTTL = options.errorTTL;
+			const errorHandled = promise.catch((ex: unknown) => {
+				const errorNow = Date.now();
+				this.cache.set(key, {
+					promise: Promise.resolve(undefined as V),
+					created: errorNow,
+					accessed: errorNow,
+					createTTL: errorTTL,
+					accessTTL: options.accessTTL,
+				});
+				throw ex;
+			});
+
+			entry = {
+				promise: errorHandled,
+				created: now,
+				accessed: now,
+				createTTL: options.createTTL,
+				accessTTL: options.accessTTL,
+			};
+			this.cache.set(key, entry);
+		} else {
+			entry = {
+				promise: promise,
+				created: now,
+				accessed: now,
+				createTTL: options.createTTL,
+				accessTTL: options.accessTTL,
+			};
+			this.cache.set(key, entry);
+
+			if (options?.expireOnError ?? true) {
+				promise.catch(() => this.cache.delete(key));
+			}
+		}
+
+		// Clean up expired entries and enforce capacity limit in one pass
+		if (this.cache.size > 1) {
+			queueMicrotask(() => this.cleanup());
+		}
+
+		return cancellation != null ? raceWithSignal(entry.promise, cancellation) : entry.promise;
+	}
+
+	private cleanup(): void {
+		const now = Date.now();
+		const capacity = this.options.capacity;
+
+		// If no capacity limit, just remove expired entries
+		if (capacity == null) {
+			for (const [key, entry] of this.cache.entries()) {
+				if (this.expired(entry, now)) {
+					this.cache.delete(key);
+				}
+			}
+			return;
+		}
+
+		// Single pass: collect non-expired entries and find LRU candidates
+		const entries: Array<[K, CacheEntry<V>]> = [];
+		for (const [key, entry] of this.cache.entries()) {
+			if (!this.expired(entry, now)) {
+				entries.push([key, entry]);
+			} else {
+				this.cache.delete(key);
+			}
+		}
+
+		// If still over capacity, remove LRU entries
+		const excess = entries.length - capacity;
+		if (excess > 0) {
+			// Sort by accessed time (oldest first) and remove the excess
+			// Note: O(N log N) sort — acceptable at current cache sizes; replace with a linked-list LRU if capacity grows
+			entries.sort((a, b) => a[1].accessed - b[1].accessed);
+			for (let i = 0; i < excess; i++) {
+				this.cache.delete(entries[i][0]);
+			}
+		}
+	}
+
+	private expired(entry: CacheEntry<V>, now: number): boolean {
+		return (
+			(entry.createTTL != null && now - entry.created >= entry.createTTL) ||
+			(entry.accessTTL != null && now - entry.accessed >= entry.accessTTL)
+		);
+	}
+
+	/**
+	 * Sets a promise in the cache.
+	 * The promise will use the default options from the cache constructor, unless overridden.
+	 *
+	 * @param key - The cache key
+	 * @param promise - The promise to cache
+	 * @param options - Optional TTL options that override the defaults
+	 */
+	set(key: K, promise: Promise<V>, options?: { accessTTL?: number; createTTL?: number }): void {
+		const now = Date.now();
+		const entry: CacheEntry<V> = {
+			promise: promise,
+			created: now,
+			accessed: now,
+			createTTL: options?.createTTL ?? this.options.createTTL,
+			accessTTL: options?.accessTTL ?? this.options.accessTTL,
+		};
+		this.cache.set(key, entry);
+
+		if (this.options.expireOnError ?? true) {
+			promise.catch(() => this.cache.delete(key));
+		}
+	}
+}
+
+/**
+ * A Map-like wrapper for promises that automatically removes failed promises from the cache.
+ * This provides a drop-in replacement for Map<K, Promise<V>> with automatic error cleanup.
+ */
+export class PromiseMap<K, V> {
+	private readonly cache = new Map<K, Promise<V>>();
+	private readonly aborts = new Map<K, AbortAggregate>();
+
+	get [Symbol.toStringTag](): string {
+		return 'PromiseMap';
+	}
+
+	/**
+	 * Gets a promise from the cache or creates a new one using the factory function.
+	 * Failed promises are automatically removed from the cache.
+	 *
+	 * When `cancellation` is provided:
+	 * - The factory receives an aggregate `AbortSignal` that only fires when **all** callers cancel
+	 * - The returned promise rejects with `CancellationError` if this caller's signal fires
+	 * - Other callers sharing the same cached promise are unaffected
+	 */
+	getOrCreate(
+		key: K,
+		factory: (cacheable: CacheController, cancellation?: AbortSignal) => Promise<V>,
+		cancellation?: AbortSignal,
+	): Promise<V> {
+		if (cancellation?.aborted) return Promise.reject(new CancellationError());
+
+		let promise = this.cache.get(key);
+		if (promise != null) {
+			// Cache hit — register this caller on the existing aggregate
+			this.aborts.get(key)?.add(cancellation);
+			return cancellation != null ? raceWithSignal(promise, cancellation) : promise;
+		}
+
+		// Cache miss — create new entry
+		const cacheable = new CacheController();
+		let aborts: AbortAggregate | undefined;
+		if (cancellation != null) {
+			aborts = new AbortAggregate();
+			aborts.add(cancellation);
+			this.aborts.set(key, aborts);
+		}
+
+		promise = factory(cacheable, aborts?.signal);
+
+		// Automatically remove failed promises from the cache
+		promise.catch(() => this.cache.delete(key));
+		void promise.finally(() => {
+			if (cacheable.invalidated) {
+				this.cache.delete(key);
+			}
+			aborts?.dispose();
+			this.aborts.delete(key);
+		});
+
+		this.cache.set(key, promise);
+
+		return cancellation != null ? raceWithSignal(promise, cancellation) : promise;
+	}
+
+	/**
+	 * Gets a promise from the cache, or undefined if not found.
+	 */
+	get(key: K): Promise<V> | undefined {
+		return this.cache.get(key);
+	}
+
+	/**
+	 * Sets a promise in the cache. The promise will be automatically removed if it fails.
+	 */
+	set(key: K, promise: Promise<V>): this {
+		this.cache.set(key, promise);
+
+		// Automatically remove failed promises from the cache
+		promise.catch(() => {
+			this.cache.delete(key);
+		});
+
+		return this;
+	}
+
+	/**
+	 * Checks if a key exists in the cache.
+	 */
+	has(key: K): boolean {
+		return this.cache.has(key);
+	}
+
+	/**
+	 * Removes a key from the cache.
+	 */
+	delete(key: K): boolean {
+		this.aborts.get(key)?.dispose();
+		this.aborts.delete(key);
+		return this.cache.delete(key);
+	}
+
+	/**
+	 * Clears all entries from the cache.
+	 */
+	clear(): void {
+		for (const a of this.aborts.values()) {
+			a.dispose();
+		}
+		this.aborts.clear();
+		this.cache.clear();
+	}
+
+	/**
+	 * Returns the number of entries in the cache.
+	 */
+	get size(): number {
+		return this.cache.size;
+	}
+
+	/**
+	 * Returns an iterator for the cache keys.
+	 */
+	keys(): IterableIterator<K> {
+		return this.cache.keys();
+	}
+
+	/**
+	 * Returns an iterator for the cache values.
+	 */
+	values(): IterableIterator<Promise<V>> {
+		return this.cache.values();
+	}
+
+	/**
+	 * Returns an iterator for the cache entries.
+	 */
+	entries(): IterableIterator<[K, Promise<V>]> {
+		return this.cache.entries();
+	}
+
+	/**
+	 * Executes a provided function once for each cache entry.
+	 */
+	forEach(callbackfn: (value: Promise<V>, key: K, map: Map<K, Promise<V>>) => void, thisArg?: any): void {
+		this.cache.forEach(callbackfn, thisArg);
+	}
+
+	[Symbol.iterator](): IterableIterator<[K, Promise<V>]> {
+		return this.cache[Symbol.iterator]();
+	}
+}
+
+/**
+ * A two-level cache that organizes PromiseCaches by repository path.
+ * Automatically creates and manages inner PromiseCaches per repository.
+ *
+ * This is useful for caching data that varies by both repository and some other key,
+ * with TTL and capacity management provided by PromiseCache.
+ */
+export class RepoPromiseCacheMap<K, V> {
+	private readonly cache = new Map<string, PromiseCache<K, V>>();
+	private readonly options: PromiseCacheOptions;
+
+	constructor(options?: PromiseCacheOptions) {
+		this.options = { expireOnError: true, ...options };
+	}
+
+	get [Symbol.toStringTag](): string {
+		return 'RepoPromiseCacheMap';
+	}
+
+	/**
+	 * Gets a promise from the cache or creates a new one using the factory function.
+	 * Automatically creates the inner PromiseCache for the repository if it doesn't exist.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @param factory - Factory function to create the value if not cached
+	 * @param options - Optional TTL and error handling options that override the defaults
+	 */
+	getOrCreate(
+		repoPath: string,
+		key: K,
+		factory: (cacheable: CacheController, cancellation?: AbortSignal) => Promise<V>,
+		options?: {
+			/** Per-caller AbortSignal — the factory receives an aggregate signal that only fires when all callers cancel */
+			cancellation?: AbortSignal;
+			/** TTL (time-to-live) in milliseconds since creation */
+			createTTL?: number;
+			/** TTL (time-to-live) in milliseconds since last access */
+			accessTTL?: number;
+			/** Whether to expire the entry if the promise fails */
+			expireOnError?: boolean;
+			/**
+			 * TTL (time-to-live) in milliseconds for caching errors. When the factory rejects and `errorTTL` is set,
+			 * the cache entry is replaced with `Promise.resolve(undefined)` for subsequent callers, and the error
+			 * is re-thrown to the first caller. After `errorTTL` expires, the next call retries.
+			 * Only used when `onError` is not provided.
+			 */
+			errorTTL?: number;
+			/**
+			 * Called when the factory promise rejects. Return a fallback result to cache
+			 * instead of expiring. The fallback value is cached with the specified `createTTL`
+			 * (defaults to the cache's `createTTL`). By default, the error is re-thrown to the
+			 * first caller after caching the fallback. Set `suppress: true` to return the fallback
+			 * value to the first caller instead. Return `undefined` to expire normally and re-throw.
+			 */
+			onError?: (error: unknown) => { value: V; createTTL?: number; suppress?: boolean } | undefined;
+		},
+	): Promise<V> {
+		let repoCache = this.cache.get(repoPath);
+		if (repoCache == null) {
+			repoCache = new PromiseCache<K, V>(this.options);
+			this.cache.set(repoPath, repoCache);
+		}
+
+		return repoCache.getOrCreate(key, factory, options);
+	}
+
+	/**
+	 * Gets a promise from the cache without creating it.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @returns The cached promise, or undefined if not cached
+	 */
+	get(repoPath: string, key: K): Promise<V> | undefined {
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return undefined;
+
+		return repoCache.get(key);
+	}
+
+	/**
+	 * Sets a promise in the cache.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @param promise - The promise to cache
+	 * @param options - Optional TTL options that override the defaults
+	 */
+	set(repoPath: string, key: K, promise: Promise<V>, options?: { accessTTL?: number; createTTL?: number }): void {
+		let repoCache = this.cache.get(repoPath);
+		if (repoCache == null) {
+			repoCache = new PromiseCache<K, V>(this.options);
+			this.cache.set(repoPath, repoCache);
+		}
+
+		repoCache.set(key, promise, options);
+	}
+
+	/**
+	 * Deletes a specific key from a repository's cache, or all keys for a repository.
+	 *
+	 * @param repoPath - The repository path
+	 * @param key - Optional specific key to delete. If omitted, deletes the entire repository cache.
+	 * @returns true if something was deleted, false otherwise
+	 */
+	delete(repoPath: string, key?: K): boolean {
+		if (key === undefined) {
+			return this.cache.delete(repoPath);
+		}
+
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return false;
+
+		repoCache.delete(key);
+		return true;
+	}
+
+	/**
+	 * Deletes all keys matching a prefix from a repository's cache.
+	 * @param repoPath - The repository path
+	 * @param prefix - Key prefix to match
+	 * @returns true if something was deleted
+	 */
+	deleteByKeyPrefix(this: RepoPromiseCacheMap<string, V>, repoPath: string, prefix: string): boolean {
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return false;
+
+		let deleted = false;
+		for (const key of repoCache.keys()) {
+			if (key.startsWith(prefix)) {
+				repoCache.delete(key);
+				deleted = true;
+			}
+		}
+		return deleted;
+	}
+
+	/**
+	 * Clears all caches for all repositories.
+	 */
+	clear(): void {
+		this.cache.clear();
+	}
+
+	/**
+	 * Returns the number of repositories in the cache.
+	 */
+	get size(): number {
+		return this.cache.size;
+	}
+}
+
+/**
+ * A two-level cache that organizes PromiseMaps by repository path.
+ * Automatically creates and manages inner PromiseMaps per repository.
+ *
+ * This is useful for caching data that varies by both repository and some other key,
+ * with simple promise deduplication and automatic error cleanup.
+ */
+export class RepoPromiseMap<K, V> {
+	private readonly cache = new Map<string, PromiseMap<K, V>>();
+
+	get [Symbol.toStringTag](): string {
+		return 'RepoPromiseMap';
+	}
+
+	/**
+	 * Gets a promise from the cache or creates a new one using the factory function.
+	 * Automatically creates the inner PromiseMap for the repository if it doesn't exist.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @param factory - Factory function to create the value if not cached
+	 */
+	getOrCreate(
+		repoPath: string,
+		key: K,
+		factory: (cacheable: CacheController, cancellation?: AbortSignal) => Promise<V>,
+		cancellation?: AbortSignal,
+	): Promise<V> {
+		let repoCache = this.cache.get(repoPath);
+		if (repoCache == null) {
+			repoCache = new PromiseMap<K, V>();
+			this.cache.set(repoPath, repoCache);
+		}
+
+		return repoCache.getOrCreate(key, factory, cancellation);
+	}
+
+	/**
+	 * Gets a promise from the cache without creating it.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @returns The cached promise, or undefined if not found
+	 */
+	get(repoPath: string, key: K): Promise<V> | undefined {
+		const repoCache = this.cache.get(repoPath);
+		return repoCache?.get(key);
+	}
+
+	/**
+	 * Deletes a specific key from a repository's cache, or all keys for a repository.
+	 *
+	 * @param repoPath - The repository path
+	 * @param key - Optional specific key to delete. If omitted, deletes the entire repository cache.
+	 * @returns true if something was deleted, false otherwise
+	 */
+	delete(repoPath: string, key?: K): boolean {
+		if (key === undefined) {
+			return this.cache.delete(repoPath);
+		}
+
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return false;
+
+		return repoCache.delete(key);
+	}
+
+	/**
+	 * Clears all caches for all repositories.
+	 */
+	clear(): void {
+		this.cache.clear();
+	}
+
+	/**
+	 * Returns the number of repositories in the cache.
+	 */
+	get size(): number {
+		return this.cache.size;
+	}
+}

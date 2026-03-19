@@ -1,9 +1,9 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import type { Container } from '../container.js';
 import { executeGitCommand } from '../git/actions.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitReference } from '../git/models/reference.js';
-import { createReference } from '../git/utils/reference.utils.js';
 import { command } from '../system/-webview/command.js';
 import { ActiveEditorCachedCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';

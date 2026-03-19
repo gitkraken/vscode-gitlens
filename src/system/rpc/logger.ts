@@ -1,5 +1,5 @@
 import type { Logger as SupertalkLogger } from '@eamodio/supertalk';
-import { Logger } from '../logger.js';
+import { Logger } from '@gitlens/utils/logger.js';
 
 function toMessage(data: unknown[]): [message: string, rest: unknown[]] {
 	if (typeof data[0] === 'string') {

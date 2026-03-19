@@ -4,7 +4,7 @@
  * Standalone functions for PR viewing operations. Each function accepts
  * the relevant commands service method via structural typing.
  */
-import type { PullRequestRefs } from '../../../../git/models/pullRequest.js';
+import type { PullRequestRefs } from '@gitlens/git/models/pullRequest.js';
 import { fireAndForget } from './rpc.js';
 
 export function openPullRequestChanges(

@@ -1,9 +1,12 @@
 import type { Event, TabChangeEvent, TextDocumentContentProvider } from 'vscode';
 import { Disposable, EventEmitter, TabInputCustom, Uri, window, workspace } from 'vscode';
+import {
+	decodeGitLensRevisionUriAuthority,
+	encodeGitLensRevisionUriAuthority,
+} from '@gitlens/git/utils/uriAuthority.js';
 import type { GlCommands } from '../constants.commands.js';
 import { Schemes } from '../constants.js';
 import type { Container } from '../container.js';
-import { decodeGitLensRevisionUriAuthority, encodeGitLensRevisionUriAuthority } from '../git/gitUri.authority.js';
 import type { AIResultContext } from '../plus/ai/aiProviderService.js';
 
 // gitlens-ai-markdown:{explain}/{entity}/{entityID}/{model}[{/friendlyName}].md

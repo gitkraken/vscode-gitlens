@@ -1,11 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { AIFeedbackEvent, Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { UnhelpfulResult } from '../plus/ai/aiFeedbackUtils.js';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../plus/ai/aiFeedbackUtils.js';
 import { extractAIResultContext } from '../plus/ai/utils/-webview/ai.utils.js';
 import { command } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand, GlCommandBase } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';

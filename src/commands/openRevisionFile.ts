@@ -1,12 +1,13 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { FileAnnotationType } from '../config.js';
 import type { Container } from '../container.js';
 import { openFileAtRevision } from '../git/actions/commit.js';
 import { GitUri } from '../git/gitUri.js';
-import { deletedOrMissing } from '../git/models/revision.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 
@@ -41,7 +42,10 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 
 					args.revisionUri =
 						commit?.file?.status === 'D'
-							? svc.getRevisionUri((await commit.getPreviousSha()) ?? deletedOrMissing, commit.file)
+							? svc.getRevisionUri(
+									(await GitCommit.getPreviousSha(commit)) ?? deletedOrMissing,
+									commit.file,
+								)
 							: this.container.git.getRevisionUriFromGitUri(gitUri);
 				} else {
 					args.revisionUri = this.container.git.getRevisionUriFromGitUri(gitUri);

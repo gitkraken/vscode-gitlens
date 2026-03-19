@@ -1,8 +1,8 @@
 import { Signal, signal } from '@lit-labs/signals';
 import { AsyncComputed } from 'signal-utils/async-computed';
 import { signalObject } from 'signal-utils/object';
-import type { Deferrable } from '../../../../system/function/debounce.js';
-import { debounce } from '../../../../system/function/debounce.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 
 export const renderAsyncComputed = <T, R = unknown>(
 	v: AsyncComputed<T>,

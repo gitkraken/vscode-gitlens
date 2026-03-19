@@ -3,8 +3,8 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
-import { splitCommitMessage } from '../../../../../git/utils/commit.utils.js';
-import { debounce } from '../../../../../system/function/debounce.js';
+import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 

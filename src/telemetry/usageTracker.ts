@@ -1,9 +1,9 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
+import { updateRecordValue } from '@gitlens/utils/object.js';
 import type { TrackedUsage, TrackedUsageKeys } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { Storage } from '../system/-webview/storage.js';
-import { updateRecordValue } from '../system/object.js';
 
 export type UsageChangeEvent = {
 	/**

@@ -1,20 +1,21 @@
 import type { Command, Selection } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import type { DiffRange } from '@gitlens/git/providers/types.js';
+import { getGitFileStatusIcon } from '@gitlens/git/utils/fileStatus.utils.js';
+import { joinPaths } from '@gitlens/utils/path.js';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import { Schemes } from '../../constants.js';
 import type { TreeViewRefFileNodeTypes } from '../../constants.views.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
-import type { DiffRange } from '../../git/gitProvider.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { GitFile } from '../../git/models/file.js';
-import type { GitRevisionReference } from '../../git/models/reference.js';
-import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils.js';
+import { getCommitForFile } from '../../git/utils/-webview/commit.utils.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { relativeDir } from '../../system/-webview/path.js';
-import { selectionToDiffRange } from '../../system/-webview/vscode/editors.js';
-import { joinPaths } from '../../system/path.js';
+import { selectionToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode.js';
@@ -67,7 +68,7 @@ export abstract class CommitFileNodeBase<
 	async getTreeItem(): Promise<TreeItem> {
 		if (this.commit.file == null) {
 			// Try to get the commit directly from the multi-file commit
-			const commit = await this.commit.getCommitForFile(this.file);
+			const commit = await getCommitForFile(this.commit, this.file);
 			if (commit == null) {
 				const log = await this.view.container.git
 					.getRepositoryService(this.repoPath)
@@ -164,7 +165,12 @@ export abstract class CommitFileNodeBase<
 		let range: DiffRange;
 		if (this.commit.lines.length) {
 			// TODO@eamodio should the endLine be the last line of the commit?
-			range = { startLine: this.commit.lines[0].line, endLine: this.commit.lines[0].line };
+			range = {
+				startLine: this.commit.lines[0].line,
+				startCharacter: 1,
+				endLine: this.commit.lines[0].line,
+				endCharacter: 1,
+			};
 		} else {
 			range = this.commit.file?.range ?? selectionToDiffRange(this.options?.selection);
 		}

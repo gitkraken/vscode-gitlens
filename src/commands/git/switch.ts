@@ -1,20 +1,20 @@
 import { ProgressLocation, window } from 'vscode';
-import type { Container } from '../../container.js';
-import { MergeError } from '../../git/errors.js';
-import type { GitReference } from '../../git/models/reference.js';
-import type { Repository } from '../../git/models/repository.js';
+import { MergeError } from '@gitlens/git/errors.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	getReferenceTypeLabel,
 	isBranchReference,
-} from '../../git/utils/reference.utils.js';
+} from '@gitlens/git/utils/reference.utils.js';
+import { isStringArray } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { Container } from '../../container.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { showGitErrorMessage } from '../../messages.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import { executeCommand } from '../../system/-webview/command.js';
-import { isStringArray } from '../../system/array.js';
-import { Logger } from '../../system/logger.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
@@ -45,7 +45,7 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	canSwitchToLocalBranch: GitReference | undefined;
 	promptToCreateBranch: boolean;
@@ -53,7 +53,7 @@ interface Context extends StepsContext<StepNames> {
 	title: string;
 }
 
-interface State<Repos = string | string[] | Repository | Repository[]> {
+interface State<Repos = string | string[] | GlRepository | GlRepository[]> {
 	repos: Repos;
 	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
 	reference: GitReference;
@@ -91,7 +91,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		return this._canConfirmOverride ?? true;
 	}
 
-	private async execute(state: StepState<State<Repository[]>>) {
+	private async execute(state: StepState<State<GlRepository[]>>) {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -104,7 +104,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			() =>
 				Promise.all(
 					state.repos.map(r =>
-						r.switch(state.reference.ref, { createBranch: state.createBranch, progress: false }),
+						r.git.switch(state.reference.ref, { createBranch: state.createBranch, progress: false }),
 					),
 				),
 		);
@@ -160,7 +160,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			state.repos = typeof state.repos === 'string' ? [state.repos] : [state.repos];
 		}
 
-		assertStepState<State<Repository[] | string[]>>(state);
+		assertStepState<State<GlRepository[] | string[]>>(state);
 
 		outer: while (!steps.isComplete) {
 			context.title = this.title;
@@ -185,7 +185,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository[]>>(state);
+			assertStepState<State<GlRepository[]>>(state);
 
 			if (steps.isAtStep(Steps.PickBranchOrTag) || state.reference == null) {
 				using step = steps.enterStep(Steps.PickBranchOrTag);
@@ -435,7 +435,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(
-		state: StepState<State<Repository[]>>,
+		state: StepState<State<GlRepository[]>>,
 		context: Context,
 	): StepResultGenerator<ConfirmationChoice> {
 		const isLocalBranch = isBranchReference(state.reference) && !state.reference.remote;

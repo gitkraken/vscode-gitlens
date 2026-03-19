@@ -24,11 +24,18 @@ const defaultLanguageOptions = {
 		sourceType: 'module',
 		ecmaFeatures: { impliedStrict: true },
 		projectService: true,
+		tsconfigRootDir: import.meta.dirname,
 	},
 };
 
 /** File patterns for different environments */
 const filePatterns = {
+	packages: [
+		'packages/utils/src/**/*',
+		'packages/git/src/**/*',
+		'packages/git-cli/src/**/*',
+		'packages/plus/git-github/src/**/*',
+	],
 	src: ['src/**/*'],
 	envNode: ['src/env/node/**/*'],
 	envBrowser: ['src/env/browser/**/*'],
@@ -54,13 +61,13 @@ const filePatterns = {
 		'src/constants.subscription.ts',
 		'src/plus/gk/__debug__accountDebug.ts',
 	],
-	unitTests: ['src/**/__tests__/**/*'],
+	unitTests: ['src/**/__tests__/**/*', 'packages/**/src/**/__tests__/**/*'],
 };
 
 /** Ignore patterns for different contexts */
 const ignorePatterns = {
-	default: ['*.*', 'patches', 'scripts', 'src/@types'],
-	extensionOnly: ['**/-webview/**/*'],
+	default: ['*.*', 'patches', 'scripts', 'src/@types', 'packages/git/test-harness', 'packages/git-cli/test-harness'],
+	extensionOnly: ['**/-webview/**/*', 'src/git/models/fileChange.ts'],
 	webviewOnly: ['src/**/webview/**/*', 'src/webviews/apps/**/*'],
 	nodeOnly: ['src/env/node/**/*'],
 	browserOnly: ['src/env/browser/**/*'],
@@ -161,7 +168,7 @@ export default defineConfig(
 	e18e.configs.recommended,
 	{
 		name: 'all',
-		files: [...filePatterns.src, ...filePatterns.tests],
+		files: [...filePatterns.src, ...filePatterns.tests, ...filePatterns.packages],
 		languageOptions: { ...defaultLanguageOptions },
 		linterOptions: { reportUnusedDisableDirectives: true },
 		plugins: {
@@ -273,6 +280,10 @@ export default defineConfig(
 				{
 					selector: 'ForOfStatement:not(:has(BlockStatement))',
 					message: 'Single-line for-of statements are not allowed.',
+				},
+				{
+					selector: 'BinaryExpression[operator="instanceof"][right.name="CancellationError"]',
+					message: 'Use `isCancellationError(ex)` instead of `instanceof CancellationError`.',
 				},
 			],
 
@@ -487,9 +498,13 @@ export default defineConfig(
 		files: filePatterns.unitTests,
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.node } },
 		rules: {
+			'no-restricted-globals': 'off',
 			'no-restricted-imports': 'off',
+			'@typescript-eslint/no-floating-promises': 'off',
 			'@typescript-eslint/no-restricted-imports': 'off',
 			'@typescript-eslint/no-unused-vars': 'off',
+			'@typescript-eslint/require-await': 'off',
+
 			'no-restricted-syntax': [
 				'error',
 				{
@@ -509,5 +524,31 @@ export default defineConfig(
 		name: 'tests:webview',
 		files: ['src/webviews/apps/**/__tests__/**/*'],
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
+	},
+
+	// Packages boundary enforcement: no vscode or Container imports allowed
+	{
+		name: 'packages',
+		files: filePatterns.packages,
+		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.node } },
+		rules: {
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
+				{
+					paths: [{ name: 'vscode', message: 'Packages must not import vscode' }],
+					patterns: [
+						{
+							group: ['**/container.js', '**/container'],
+							importNames: ['Container'],
+							message: 'Packages must not import Container',
+						},
+						{
+							group: ['**/-webview/**/*'],
+							message: 'Packages must not import -webview modules',
+						},
+					],
+				},
+			],
+		},
 	},
 );

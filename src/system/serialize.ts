@@ -1,28 +1,30 @@
 import type { Uri } from 'vscode';
 import { serializeJsonReplacer } from '@env/json.js';
+import type { Branded } from '@gitlens/utils/brand.js';
 import type { Container } from '../container.js';
-import type { Branded } from './brand.js';
 
 // prettier-ignore
-export type Serialized<T, TDate extends number | string = number> =
+type _Serialized<T, TDate extends number | string = number, TExclude = never, TStringify = never> =
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	T extends Error |Function |  Container
+	T extends Error | Function | TExclude
 	? never
 	: T extends Date
 	? TDate
-	: T extends Uri | RegExp
+	: T extends RegExp | TStringify
 	? string
 	: T extends Map<infer K, infer V>
-	? [Serialized<K, TDate>, Serialized<V, TDate>][]
+	? [_Serialized<K, TDate, TExclude, TStringify>, _Serialized<V, TDate, TExclude, TStringify>][]
 	: T extends Set<infer U>
-	? Serialized<U, TDate>[]
+	? _Serialized<U, TDate, TExclude, TStringify>[]
 	: T extends Branded<infer U, any>
 	? U
 	: T extends any[]
-	? Serialized<T[number], TDate>[]
+	? _Serialized<T[number], TDate, TExclude, TStringify>[]
 	: T extends object
-	? { [K in keyof T]: T[K] extends Date ? TDate : Serialized<T[K], TDate> }
+	? { [K in keyof T]: T[K] extends Date ? TDate : _Serialized<T[K], TDate, TExclude, TStringify> }
 	: T;
+
+export type Serialized<T, TDate extends number | string = number> = _Serialized<T, TDate, Container, Uri>;
 
 export function serialize<T extends object>(obj: T): Serialized<T>;
 export function serialize<T extends object>(obj: T | undefined): Serialized<T> | undefined;

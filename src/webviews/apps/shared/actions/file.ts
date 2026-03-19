@@ -7,7 +7,7 @@
  * Also exports `FileShowOptions` — a portable subset of VS Code's
  * `TextDocumentShowOptions` that crosses the RPC boundary safely.
  */
-import type { GitFileChangeShape } from '../../../../git/models/fileChange.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { FileShowOptions } from '../../../rpc/services/types.js';
 import { fireAndForget } from './rpc.js';
 

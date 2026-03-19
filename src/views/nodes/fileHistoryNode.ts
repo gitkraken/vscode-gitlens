@@ -1,21 +1,23 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { memoize } from '@gitlens/utils/decorators/memoize.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { filterMap, flatMap, map, some, uniqueBy } from '@gitlens/utils/iterable.js';
+import { getLoggableName } from '@gitlens/utils/logger.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { basename } from '@gitlens/utils/path.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
-import { deletedOrMissing } from '../../git/models/revision.js';
+import type { RepositoryChangeEvent, RepositoryWorkingTreeChangeEvent } from '../../git/models/repository.js';
 import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils.js';
+import { getStatusFilePseudoCommits } from '../../git/utils/-webview/statusFile.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getFolderGlobUri } from '../../system/-webview/path.js';
 import { gate } from '../../system/decorators/gate.js';
-import { trace } from '../../system/decorators/log.js';
-import { memoize } from '../../system/decorators/memoize.js';
-import { weakEvent } from '../../system/event.js';
-import { filterMap, flatMap, map, some, uniqueBy } from '../../system/iterable.js';
-import { getLoggableName } from '../../system/logger.js';
-import { maybeStartScopedLogger } from '../../system/logger.scope.js';
-import { basename } from '../../system/path.js';
-import { getSettledValue } from '../../system/promise.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
 import type { PageableViewNode, ViewNode } from './abstract/viewNode.js';
@@ -106,7 +108,7 @@ export class FileHistoryNode
 
 		const subscription = Disposable.from(
 			weakEvent(repo.onDidChange, this.onRepositoryChanged, this),
-			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.watchFileSystem()]),
+			weakEvent(repo.onDidChangeWorkingTree, this.onWorkingTreeChanged, this, [repo.watchWorkingTree()]),
 			weakEvent(
 				configuration.onDidChange,
 				e => {
@@ -136,15 +138,15 @@ export class FileHistoryNode
 		void this.triggerChange(true);
 	}
 
-	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+	private onWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
 		if (this.folder) {
 			if (!some(e.uris, uri => uri.fsPath.startsWith(this.uri.fsPath))) return;
-		} else if (!e.uris.has(this.uri)) {
+		} else if (!some(e.uris, uri => areUrisEqual(uri, this.uri))) {
 			return;
 		}
 
 		using scope = maybeStartScopedLogger(
-			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,
+			`${getLoggableName(this)}.onWorkingTreeChanged(e=${this.uri.toString(true)})`,
 		);
 		scope?.trace('triggering node refresh');
 
@@ -249,10 +251,11 @@ export class FileHistoryNode
 				// Combine all the working/staged changes into single pseudo commits
 				const commits = map(
 					uniqueBy(
-						flatMap(fileStatuses, f => f.getPseudoCommits(this.view.container, currentUser)),
+						flatMap(fileStatuses, f => getStatusFilePseudoCommits(f, currentUser)),
 						c => c.sha,
 						(original, c) =>
-							original.with({
+							// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-arguments -- required for tsc to infer the correct extension GitCommit type
+							original.with<typeof original>({
 								fileset: {
 									files: [...(original.fileset?.files ?? []), ...(c.fileset?.files ?? [])],
 									filtered: {
@@ -270,7 +273,7 @@ export class FileHistoryNode
 				children.push(...commits);
 			} else {
 				const [file] = fileStatuses;
-				const commits = file.getPseudoCommits(this.view.container, currentUser);
+				const commits = getStatusFilePseudoCommits(file, currentUser);
 				if (commits.length) {
 					children.push(
 						...commits.map(commit => new FileRevisionAsCommitNode(this.view, this, file, commit)),

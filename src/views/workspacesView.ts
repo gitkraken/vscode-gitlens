@@ -1,16 +1,17 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { trace } from '@gitlens/utils/decorators/log.js';
 import type { WorkspacesViewConfig } from '../config.js';
 import { previewBadge, urls } from '../constants.js';
 import type { Container } from '../container.js';
 import { unknownGitUri } from '../git/gitUri.js';
-import type { Repository } from '../git/models/repository.js';
+import type { GlRepository } from '../git/models/repository.js';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils.js';
+import { toAbortSignal } from '../system/-webview/cancellation.js';
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
 import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
-import { trace } from '../system/decorators/log.js';
 import { ViewNode } from './nodes/abstract/viewNode.js';
 import { MessageNode } from './nodes/common.js';
 import { RepositoriesNode } from './nodes/repositoriesNode.js';
@@ -164,7 +165,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 			registerViewCommand(
 				this.getQualifiedCommand('convert'),
 				async (node: RepositoriesNode) => {
-					const repos: Repository[] = [];
+					const repos: GlRepository[] = [];
 					for (const child of node.getChildren()) {
 						if (child instanceof RepositoryNode) {
 							repos.push(child.repo);
@@ -239,7 +240,10 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 							cancellable: true,
 						},
 						(_progress, token) =>
-							this.container.workspaces.locateAllCloudWorkspaceRepos(node.workspace.id, token),
+							this.container.workspaces.locateAllCloudWorkspaceRepos(
+								node.workspace.id,
+								toAbortSignal(token),
+							),
 					);
 
 					void node.triggerChange(true);

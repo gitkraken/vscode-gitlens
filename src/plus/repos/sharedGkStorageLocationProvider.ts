@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import type { UnifiedAsyncDisposable } from '../../system/unifiedDisposable.js';
+import type { UnifiedAsyncDisposable } from '@gitlens/utils/disposable.js';
 
 export interface SharedGkStorageLocationProvider {
 	getSharedRepositoryLocationFileUri(): Promise<Uri>;

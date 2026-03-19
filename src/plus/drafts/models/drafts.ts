@@ -1,14 +1,14 @@
 import type { Uri } from 'vscode';
-import type { GitCommit } from '../../../git/models/commit.js';
-import type { GitFileChangeShape } from '../../../git/models/fileChange.js';
-import type { GitPatch, PatchRevisionRange } from '../../../git/models/patch.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitPatch, PatchRevisionRange } from '@gitlens/git/models/patch.js';
 import type {
 	GkRepositoryId,
 	RepositoryIdentity,
 	RepositoryIdentityRequest,
-} from '../../../git/models/repositoryIdentities.js';
-import type { GitUser } from '../../../git/models/user.js';
+} from '@gitlens/git/models/repositoryIdentities.js';
+import type { GitUser } from '@gitlens/git/models/user.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 
 export interface LocalDraft {
 	readonly draftType: 'local';
@@ -96,14 +96,14 @@ export interface DraftPatch {
 	commit?: GitCommit;
 	contents?: string;
 	files?: DraftPatchFileChange[];
-	repository?: Repository | RepositoryIdentity;
+	repository?: GlRepository | RepositoryIdentity;
 }
 
 export interface DraftPatchDetails {
 	id: string;
 	contents: string;
 	files: DraftPatchFileChange[];
-	repository: Repository | RepositoryIdentity;
+	repository: GlRepository | RepositoryIdentity;
 }
 
 export interface DraftPatchFileChange extends GitFileChangeShape {
@@ -113,14 +113,14 @@ export interface DraftPatchFileChange extends GitFileChangeShape {
 export interface CreateDraftChange {
 	revision: PatchRevisionRange;
 	contents?: string;
-	repository: Repository;
+	repository: GlRepository;
 	prEntityId?: string;
 }
 
 export interface CreateDraftPatchRequestFromChange {
 	contents: string;
 	patch: DraftPatchCreateRequest;
-	repository: Repository;
+	repository: GlRepository;
 	user: GitUser | undefined;
 }
 

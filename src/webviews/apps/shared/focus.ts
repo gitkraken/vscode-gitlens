@@ -1,4 +1,4 @@
-import { debounce } from '../../../system/function/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import { WebviewFocusChangedCommand } from '../../protocol.js';
 import { getHostIpcApi } from './ipc.js';
 

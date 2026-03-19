@@ -1,10 +1,12 @@
 import type { Uri } from 'vscode';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { CancellationError as _CancellationError } from 'vscode';
 import type { Response } from '@env/fetch.js';
+import { AuthenticationError } from '@gitlens/git/errors.js';
 import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 import { isSubscriptionPaidPlan } from './plus/gk/utils/subscription.utils.js';
-import type { TokenInfo } from './plus/integrations/authentication/models.js';
+
+export type { AuthTokenInfo } from '@gitlens/git/errors.js';
+export { AuthenticationError, AuthenticationErrorReason } from '@gitlens/git/errors.js';
+export { RequestClientError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;
@@ -44,94 +46,12 @@ export class AccountValidationError extends Error {
 	}
 }
 
-export const enum AuthenticationErrorReason {
-	UserDidNotConsent = 1,
-	Unauthorized = 2,
-	Forbidden = 3,
-}
-
-export class AuthenticationError extends Error {
-	readonly id: string;
-	readonly original?: Error;
-	readonly reason: AuthenticationErrorReason | undefined;
-	readonly authInfo: string;
-
-	constructor(info: TokenInfo, reason?: AuthenticationErrorReason, original?: Error);
-	constructor(info: TokenInfo, message?: string, original?: Error);
-	constructor(info: TokenInfo, messageOrReason: string | AuthenticationErrorReason | undefined, original?: Error) {
-		const { providerId: id, type, cloud, scopes, expiresAt } = info;
-		const tokenDetails = [
-			cloud ? 'cloud' : 'self-managed',
-			type,
-			info.microHash,
-			expiresAt && `expiresAt=${isNaN(expiresAt.getTime()) ? expiresAt.toString() : expiresAt.toISOString()}`,
-			scopes && `[${scopes.join(',')}]`,
-		]
-			.filter(v => v)
-			.join(', ');
-		const authInfo = `(token details: ${tokenDetails})`;
-		let message;
-		let reason: AuthenticationErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = `Unable to get required authentication session for '${id}'`;
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case AuthenticationErrorReason.UserDidNotConsent:
-					message = `'${id}' authentication is required for this operation`;
-					break;
-				case AuthenticationErrorReason.Unauthorized:
-					message = `Your '${id}' credentials are either invalid or expired`;
-					break;
-				case AuthenticationErrorReason.Forbidden:
-					message = `Your '${id}' credentials do not have the required access`;
-					break;
-			}
-		}
-		super(message);
-
-		this.id = id;
-		this.original = original;
-		this.reason = reason;
-		this.authInfo = authInfo;
-		Error.captureStackTrace?.(this, new.target);
-	}
-
-	override toString(): string {
-		return `${super.toString()} ${this.authInfo}`;
-	}
-}
-
 export class AuthenticationRequiredError extends Error {
 	constructor() {
 		super('Authentication required');
 
 		Error.captureStackTrace?.(this, new.target);
 	}
-}
-
-export class CancellationError extends _CancellationError {
-	constructor(public readonly original?: Error) {
-		super();
-
-		if (this.original) {
-			if (this.original.message.startsWith('Operation cancelled')) {
-				this.message = this.original.message;
-			} else {
-				this.message = `Operation cancelled; ${this.original.message}`;
-			}
-		} else {
-			this.message = 'Operation cancelled';
-		}
-		Error.captureStackTrace?.(this, new.target);
-	}
-}
-
-export function isCancellationError(ex: unknown): ex is CancellationError {
-	return ex instanceof CancellationError || ex instanceof _CancellationError;
 }
 
 export class ExtensionNotFoundError extends Error {
@@ -244,34 +164,6 @@ export class ProviderNotFoundError extends Error {
 export class ProviderNotSupportedError extends Error {
 	constructor(provider: string) {
 		super(`Action is not supported on the ${provider} provider.`);
-
-		Error.captureStackTrace?.(this, new.target);
-	}
-}
-
-export class RequestClientError extends Error {
-	constructor(public readonly original: Error) {
-		super(original.message);
-
-		Error.captureStackTrace?.(this, new.target);
-	}
-}
-
-export class RequestNotFoundError extends Error {
-	constructor(public readonly original: Error) {
-		super(original.message);
-
-		Error.captureStackTrace?.(this, new.target);
-	}
-}
-
-export class RequestRateLimitError extends Error {
-	constructor(
-		public readonly original: Error,
-		public readonly token: string | undefined,
-		public readonly resetAt: number | undefined,
-	) {
-		super(original.message);
 
 		Error.captureStackTrace?.(this, new.target);
 	}

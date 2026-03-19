@@ -5,7 +5,7 @@ import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.
 import type { Container } from '../container.js';
 import { push } from '../git/actions/stash.js';
 import { GitUri } from '../git/gitUri.js';
-import type { Repository } from '../git/models/repository.js';
+import type { GlRepository } from '../git/models/repository.js';
 import { command } from '../system/-webview/command.js';
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext, CommandScmGroupsContext, CommandScmStatesContext } from './commandContext.js';
@@ -211,7 +211,7 @@ async function getStashSaveArgsForScmGroups(
 }
 
 async function getStashSaveArgsForStagedScmGroup(
-	repo: Repository,
+	repo: GlRepository,
 	args: StashSaveCommandArgs,
 ): Promise<StashSaveCommandArgs | undefined> {
 	let hasStaged = false;
@@ -269,7 +269,7 @@ async function getStashSaveArgsForStagedScmGroup(
 }
 
 async function getStashSaveArgsForUnstagedScmGroup(
-	repo: Repository,
+	repo: GlRepository,
 	args: StashSaveCommandArgs,
 ): Promise<StashSaveCommandArgs | undefined> {
 	let hasStaged = false;

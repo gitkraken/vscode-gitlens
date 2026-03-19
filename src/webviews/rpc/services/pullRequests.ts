@@ -6,11 +6,13 @@
  * typing expected by `src/webviews/apps/shared/actions/pr.ts`.
  */
 
+import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import { getComparisonRefsForPullRequest, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
 import type { Container } from '../../../container.js';
 import { openComparisonChanges } from '../../../git/actions/commit.js';
-import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest.js';
-import { getComparisonRefsForPullRequest, serializePullRequest } from '../../../git/utils/pullRequest.utils.js';
+import { getBranchAssociatedPullRequest } from '../../../git/utils/-webview/branch.utils.js';
+import { getCommitAssociatedPullRequest } from '../../../git/utils/-webview/commit.utils.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 
 export class PullRequestsService {
@@ -23,9 +25,7 @@ export class PullRequestsService {
 	 * via the remote integration provider.
 	 */
 	async getPullRequestForCommit(repoPath: string, sha: string): Promise<PullRequestShape | undefined> {
-		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha);
-		if (commit == null) return undefined;
-		const pr = await commit.getAssociatedPullRequest();
+		const pr = await getCommitAssociatedPullRequest(repoPath, sha);
 		return pr != null ? serializePullRequest(pr) : undefined;
 	}
 
@@ -44,7 +44,7 @@ export class PullRequestsService {
 		const branch = await repoService.branches.getBranch(status.branch);
 		if (branch == null) return undefined;
 
-		const pr = await branch.getAssociatedPullRequest({ expiryOverride: 1000 * 60 * 5 });
+		const pr = await getBranchAssociatedPullRequest(this.container, branch, { expiryOverride: 1000 * 60 * 5 });
 		return pr != null ? serializePullRequest(pr) : undefined;
 	}
 
@@ -103,7 +103,7 @@ export class PullRequestsService {
 		if (status?.branch == null) return;
 
 		const branch = await repoService.branches.getBranch(status.branch);
-		const pr = await branch?.getAssociatedPullRequest();
+		const pr = branch != null ? await getBranchAssociatedPullRequest(this.container, branch) : undefined;
 		if (pr == null) return;
 
 		void this.container.views.pullRequest.showPullRequest(pr, repoPath);

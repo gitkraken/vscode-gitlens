@@ -1,7 +1,7 @@
 import { ThemeIcon } from 'vscode';
 import { Container } from '../../../container.js';
 import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../../../features.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { getSubscriptionNextPaidPlanId, isSubscriptionPaidPlan } from '../../../plus/gk/utils/subscription.utils.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
@@ -15,7 +15,7 @@ import type { StepController } from '../stepsController.js';
 import { canPickStepContinue, createPickStep } from '../utils/steps.utils.js';
 
 export async function* ensureAccessStep<
-	State extends PartialStepState & { repo?: Repository },
+	State extends PartialStepState & { repo?: GlRepository },
 	Context extends { title: string },
 >(
 	container: Container,

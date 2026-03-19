@@ -1,5 +1,5 @@
+import { getTimeRemaining } from '@gitlens/utils/date.js';
 import { SubscriptionState } from '../../../constants.subscription.js';
-import { getTimeRemaining } from '../../../system/date.js';
 import type {
 	PaidSubscriptionPlanIds,
 	Subscription,

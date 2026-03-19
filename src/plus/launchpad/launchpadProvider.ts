@@ -5,41 +5,41 @@ import type {
 } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
-import { md5 } from '@env/crypto.js';
-import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
-import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../constants.integrations.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
-import type { Container } from '../../container.js';
-import { CancellationError } from '../../errors.js';
-import { openComparisonChanges } from '../../git/actions/commit.js';
-import type { Account } from '../../git/models/author.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
-import type { GitRemote } from '../../git/models/remote.js';
-import type { ProviderReference } from '../../git/models/remoteProvider.js';
-import type { Repository } from '../../git/models/repository.js';
-import type { RepositoryDescriptor } from '../../git/models/resourceDescriptor.js';
-import { gitSuffixRegex } from '../../git/parsers/remoteParser.js';
-import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils.js';
-import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
+import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import {
 	getComparisonRefsForPullRequest,
 	getPullRequestIdentityFromMaybeUrl,
 	getRepositoryIdentityForPullRequest,
 	isMaybeNonSpecificPullRequestSearchUrl,
-} from '../../git/utils/pullRequest.utils.js';
+} from '@gitlens/git/utils/pullRequest.utils.js';
+import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { md5 } from '@gitlens/utils/crypto.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { filterMap, groupByMap, map, some } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { TimedResult } from '@gitlens/utils/promise.js';
+import { getSettledValue, timedWithSlowThreshold } from '@gitlens/utils/promise.js';
+import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
+import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../constants.integrations.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
+import type { Container } from '../../container.js';
+import { openComparisonChanges } from '../../git/actions/commit.js';
+import type { GlRepository } from '../../git/models/repository.js';
+import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils.js';
 import { getCancellationTokenId } from '../../system/-webview/cancellation.js';
 import { executeCommand, registerCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { filterMap, groupByMap, map, some } from '../../system/iterable.js';
-import { Logger } from '../../system/logger.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
-import type { TimedResult } from '../../system/promise.js';
-import { getSettledValue, timedWithSlowThreshold } from '../../system/promise.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
 import { showInspectView } from '../../webviews/commitDetails/actions.js';
@@ -112,7 +112,7 @@ export type LaunchpadItem = LaunchpadPullRequest & {
 };
 
 export type OpenRepository = {
-	repo: Repository;
+	repo: GlRepository;
 	remote?: GitRemote;
 	localBranch?: GitBranch;
 };
@@ -556,7 +556,7 @@ export class LaunchpadProvider implements Disposable {
 
 	private async getMatchingOpenRepository(
 		pr: EnrichablePullRequest,
-		matchingRemoteMap: Map<string, [Repository, GitRemote]>,
+		matchingRemoteMap: Map<string, [GlRepository, GitRemote]>,
 	): Promise<OpenRepository | undefined> {
 		if (pr.repoIdentity.remote.url == null) return undefined;
 
@@ -588,9 +588,9 @@ export class LaunchpadProvider implements Disposable {
 		}
 
 		// Get the repo/remote pairs for the unique remote urls
-		const repoRemotes = new Map<string, [Repository, GitRemote]>();
+		const repoRemotes = new Map<string, [GlRepository, GitRemote]>();
 
-		async function matchRemotes(repo: Repository) {
+		async function matchRemotes(repo: GlRepository) {
 			if (uniqueRemoteUrls.size === 0) return;
 
 			const remotes = await repo.git.remotes.getRemotes();
@@ -648,7 +648,7 @@ export class LaunchpadProvider implements Disposable {
 		return getPullRequestIdentityFromMaybeUrl(search);
 	}
 
-	@gate<LaunchpadProvider['getCategorizedItems']>(
+	@gate(
 		(o, c) =>
 			`${o?.force ?? false}|${
 				o?.search != null && typeof o.search !== 'string' ? o.search.map(pr => pr.url).join(',') : o?.search

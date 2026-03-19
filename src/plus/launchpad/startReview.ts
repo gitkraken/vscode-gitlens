@@ -1,5 +1,12 @@
 import type { QuickPick } from 'vscode';
 import { Uri, window } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { some } from '@gitlens/utils/iterable.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations.js';
 import type {
 	AsyncStepResultGenerator,
@@ -27,9 +34,6 @@ import { GitCloudHostIntegrationId } from '../../constants.integrations.js';
 import { proBadge } from '../../constants.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
-import type { GitWorktree } from '../../git/models/worktree.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -37,10 +41,6 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
-import { getScopedCounter } from '../../system/counter.js';
-import { fromNow } from '../../system/date.js';
-import { some } from '../../system/iterable.js';
-import type { Deferred } from '../../system/promise.js';
 import type { ConnectMoreIntegrationsItem } from '../integrations/utils/-webview/integration.quickPicks.js';
 import {
 	getOpenOnGitProviderQuickInputButtons,

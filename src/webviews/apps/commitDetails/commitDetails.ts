@@ -2,11 +2,11 @@ import './commitDetails.scss';
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../config.js';
 import type { GlCommands } from '../../../constants.commands.js';
-import type { GitCommitReachability } from '../../../git/gitProvider.js';
 import type { IpcSerialized } from '../../../system/ipcSerialize.js';
-import { pluralize } from '../../../system/string.js';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../commitDetails/protocol.js';
 import {
 	ChangeReviewModeCommand,

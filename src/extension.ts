@@ -1,7 +1,19 @@
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, ExtensionMode, LogLevel, Uri, window, workspace } from 'vscode';
-import { hrtime } from '@env/hrtime.js';
 import { isWeb } from '@env/platform.js';
+import { defaultResolver as envDefaultResolver } from '@env/resolver.js';
+import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
+import { setAbbreviatedShaLength } from '@gitlens/git/utils/revision.utils.js';
+import { setDefaultDateLocales } from '@gitlens/utils/date.js';
+import { setDefaultResolver } from '@gitlens/utils/decorators/resolver.js';
+import { once } from '@gitlens/utils/event.js';
+import { microhash } from '@gitlens/utils/hash.js';
+import { hrtime } from '@gitlens/utils/hrtime.js';
+import { isLoggable } from '@gitlens/utils/loggable.js';
+import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
+import { flatten } from '@gitlens/utils/object.js';
+import { Stopwatch } from '@gitlens/utils/stopwatch.js';
+import { compare, fromString, satisfies } from '@gitlens/utils/version.js';
 import { Api } from './api/api.js';
 import type {
 	CreatePullRequestActionContext,
@@ -16,8 +28,6 @@ import { trackableSchemes } from './constants.js';
 import { SyncedStorageKeys } from './constants.storage.js';
 import { Container } from './container.js';
 import { isGitUri } from './git/gitUri.js';
-import { getBranchNameWithoutRemote } from './git/utils/branch.utils.js';
-import { setAbbreviatedShaLength } from './git/utils/revision.utils.js';
 import {
 	showCursorMcpCleanupMessage,
 	showDebugLoggingWarningMessage,
@@ -35,14 +45,6 @@ import { isTextDocument } from './system/-webview/vscode/documents.js';
 import { isTextEditor } from './system/-webview/vscode/editors.js';
 import { isWorkspaceFolder } from './system/-webview/vscode/workspaces.js';
 import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode.js';
-import { setDefaultDateLocales } from './system/date.js';
-import { once } from './system/event.js';
-import { fnv1aHash } from './system/hash.js';
-import { isLoggable } from './system/loggable.js';
-import { getLoggableName, Logger } from './system/logger.js';
-import { flatten } from './system/object.js';
-import { Stopwatch } from './system/stopwatch.js';
-import { compare, fromString, satisfies } from './system/version.js';
 import './commands.js';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
@@ -96,18 +98,21 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 						.join(',')})`;
 				}
 
+				// Use custom toString() if available (covers Repository, Branch, Commit, Tag, Remote, Worktree, ViewNode, Container, etc.)
+				if (o.toString !== Object.prototype.toString) {
+					return o.toString() as string;
+				}
+
 				return undefined;
 			},
-			hash: function (data: string) {
-				return (fnv1aHash(data) >>> 0).toString(16).padStart(8, '0').slice(0, 4);
-			},
+			hash: microhash,
 		},
 		context.extensionMode === ExtensionMode.Development,
 	);
 
 	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
 		log: {
-			level: 'error',
+			level: 'info',
 			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
 				context.extensionMode,
 			)},language='${
@@ -170,6 +175,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	Configuration.configure(context);
 
+	setDefaultResolver(envDefaultResolver);
 	setDefaultDateLocales(defaultDateLocale ?? env.language);
 	context.subscriptions.push(
 		configuration.onDidChange(e => {

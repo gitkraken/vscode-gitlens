@@ -1,22 +1,23 @@
 import type { Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import type {
+	GkProviderId,
+	RepositoryIdentityDescriptor,
+	RepositoryIdentityProviderDescriptor,
+} from '@gitlens/git/models/repositoryIdentities.js';
+import { missingRepositoryId } from '@gitlens/git/models/repositoryIdentities.js';
+import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
 import type {
 	RepositoryLocationEntry,
 	RepositoryLocationProvider,
 } from '../../git/location/repositorylocationProvider.js';
-import { RemoteResourceType } from '../../git/models/remoteResource.js';
-import type { Repository } from '../../git/models/repository.js';
-import type {
-	GkProviderId,
-	RepositoryIdentityDescriptor,
-	RepositoryIdentityProviderDescriptor,
-} from '../../git/models/repositoryIdentities.js';
-import { missingRepositoryId } from '../../git/models/repositoryIdentities.js';
-import { parseGitRemoteUrl } from '../../git/parsers/remoteParser.js';
-import { debug } from '../../system/decorators/log.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
-import { getSettledValue } from '../../system/promise.js';
+import type { GlRepository } from '../../git/models/repository.js';
+import { getRemoteProviderUrl } from '../../git/utils/-webview/remote.utils.js';
 
 export class RepositoryIdentityService implements Disposable {
 	constructor(
@@ -30,13 +31,13 @@ export class RepositoryIdentityService implements Disposable {
 	getRepository<T extends string | GkProviderId>(
 		identity: RepositoryIdentityDescriptor<T>,
 		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
-	): Promise<Repository | undefined> {
+	): Promise<GlRepository | undefined> {
 		return this.locateRepository(identity, options);
 	}
 
 	@debug()
 	async getRepositoryIdentity<T extends string | GkProviderId>(
-		repository: Repository,
+		repository: GlRepository,
 	): Promise<RepositoryIdentityDescriptor<T>> {
 		const [bestRemotePromise, initialCommitShaPromise] = await Promise.allSettled([
 			repository.git.remotes.getBestRemoteWithProvider(),
@@ -56,7 +57,7 @@ export class RepositoryIdentityService implements Disposable {
 	private async locateRepository<T extends string | GkProviderId>(
 		identity: RepositoryIdentityDescriptor<T>,
 		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
-	): Promise<Repository | undefined> {
+	): Promise<GlRepository | undefined> {
 		const hasInitialCommitSha =
 			identity.initialCommitSha != null && identity.initialCommitSha !== missingRepositoryId;
 		const hasRemoteUrl = identity?.remote?.url != null;
@@ -81,7 +82,7 @@ export class RepositoryIdentityService implements Disposable {
 					)
 				: [];
 
-		let foundRepo: Repository | undefined;
+		let foundRepo: GlRepository | undefined;
 		if (matches?.length) {
 			for (const match of matches) {
 				const repo = this.container.git.getRepository(Uri.file(match));
@@ -165,9 +166,9 @@ export class RepositoryIdentityService implements Disposable {
 		return foundRepo;
 	}
 
-	@debug({ args: (repo: Repository) => ({ repo: repo.id }) })
+	@debug({ args: (repo: GlRepository) => ({ repo: repo.id }) })
 	async storeRepositoryLocation<T extends string | GkProviderId>(
-		repo: Repository,
+		repo: GlRepository,
 		identity?: RepositoryIdentityDescriptor<T>,
 	): Promise<void> {
 		if (repo.virtual || this.locator == null) return;
@@ -183,7 +184,10 @@ export class RepositoryIdentityService implements Disposable {
 		const repoPath = repo.uri.fsPath;
 
 		for (const remote of remotes) {
-			const remoteUrl = await remote.provider?.url({ type: RemoteResourceType.Repo });
+			const remoteUrl =
+				remote.provider != null
+					? await getRemoteProviderUrl(remote.provider, { type: RemoteResourceType.Repo })
+					: undefined;
 			if (remoteUrl != null) {
 				await this.locator.storeLocation(repoPath, remoteUrl);
 			}
@@ -203,7 +207,7 @@ export class RepositoryIdentityService implements Disposable {
 	}
 
 	@debug({ args: repos => ({ repos: repos.length }) })
-	async storeRepositoryLocations(repos: Repository[]): Promise<void> {
+	async storeRepositoryLocations(repos: GlRepository[]): Promise<void> {
 		if (!repos.length || this.locator == null) return;
 
 		const scope = getScopedLogger();
@@ -247,9 +251,11 @@ export class RepositoryIdentityService implements Disposable {
 			const repoPath = repo.uri.fsPath;
 
 			// Collect remote URLs in parallel
-			const remoteUrlPromises = remotes.map(async remote => {
+			const remoteUrlPromises = remotes.map(async (remote): Promise<string | undefined> => {
 				try {
-					return await remote.provider?.url({ type: RemoteResourceType.Repo });
+					return remote.provider != null
+						? await getRemoteProviderUrl(remote.provider, { type: RemoteResourceType.Repo })
+						: undefined;
 				} catch {
 					return undefined;
 				}

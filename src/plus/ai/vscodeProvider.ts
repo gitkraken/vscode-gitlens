@@ -1,12 +1,13 @@
 import type { CancellationToken, Event, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
 import { Disposable, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
-import { uuid } from '@env/crypto.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { uuid } from '@gitlens/utils/crypto.js';
+import { getLoggableName } from '@gitlens/utils/logger.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { capitalize } from '@gitlens/utils/string.js';
 import { vscodeProviderDescriptor } from '../../constants.ai.js';
 import type { Container } from '../../container.js';
-import { AIError, AIErrorReason, CancellationError } from '../../errors.js';
-import { getLoggableName } from '../../system/logger.js';
-import { maybeStartScopedLogger } from '../../system/logger.scope.js';
-import { capitalize } from '../../system/string.js';
+import { AIError, AIErrorReason } from '../../errors.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import type { AIChatMessage, AIProvider, AIProviderResponse } from './models/provider.js';
@@ -126,7 +127,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					result: undefined,
 				} satisfies AIProviderResponse<void>;
 			} catch (ex) {
-				if (ex instanceof CancellationError) {
+				if (isCancellationError(ex)) {
 					scope?.error(ex, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
 					throw ex;
 				}

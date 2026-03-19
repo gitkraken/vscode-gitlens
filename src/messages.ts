@@ -1,18 +1,19 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, ThemeIcon, window } from 'vscode';
+import type { BlameIgnoreRevsFileError, GitCommandContext } from '@gitlens/git/errors.js';
+import { BlameIgnoreRevsFileBadRevisionError, GitCommandError } from '@gitlens/git/errors.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { SuppressedMessages } from './config.js';
 import { urls } from './constants.js';
 import type { Source } from './constants.telemetry.js';
 import type { Container } from './container.js';
-import type { BlameIgnoreRevsFileError, GitCommandContext } from './git/errors.js';
-import { BlameIgnoreRevsFileBadRevisionError, GitCommandError } from './git/errors.js';
-import type { GitCommit } from './git/models/commit.js';
+import { getCommitFormattedDate } from './git/utils/-webview/commit.utils.js';
 import { mcpRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils.js';
 import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
 import { openUrl } from './system/-webview/vscode/uris.js';
-import { filterMap } from './system/array.js';
-import { Logger } from './system/logger.js';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,
@@ -38,7 +39,7 @@ export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit):
 	}
 	return showMessage(
 		'info',
-		`Commit ${commit.shortSha} (${commit.author.name}, ${commit.formattedDate}) has no previous commit.`,
+		`Commit ${commit.shortSha} (${commit.author.name}, ${getCommitFormattedDate(commit)}) has no previous commit.`,
 		'suppressCommitHasNoPreviousCommitWarning',
 	);
 }

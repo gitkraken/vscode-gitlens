@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/require-await */
 /* eslint-disable @typescript-eslint/consistent-type-assertions */
 import * as assert from 'assert';
 import * as sinon from 'sinon';
@@ -8,7 +7,7 @@ import type {
 	ProcessedRebaseCommandEntry,
 	ProcessedRebaseCommitEntry,
 	ProcessedRebaseEntry,
-} from '../../../git/models/rebase.js';
+} from '@gitlens/git/models/rebase.js';
 import type { MoveEntryParams } from '../protocol.js';
 import { RebaseTodoDocument } from '../rebaseTodoDocument.js';
 

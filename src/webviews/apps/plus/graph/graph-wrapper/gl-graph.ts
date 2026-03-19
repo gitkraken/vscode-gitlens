@@ -10,7 +10,7 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { debounce } from '../../../../../system/function/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type {
 	GraphAvatars,
 	GraphColumnsConfig,

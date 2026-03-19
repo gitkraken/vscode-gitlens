@@ -1,17 +1,17 @@
 import type { TextDocumentShowOptions } from 'vscode';
+import type { GitCommitIdentityShape, GitCommitStats } from '@gitlens/git/models/commit.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { Autolink } from '../../autolinks/models/autolinks.js';
 import type { Config, DateStyle } from '../../config.js';
 import type { Sources } from '../../constants.telemetry.js';
-import type { GitCommitReachability } from '../../git/gitProvider.js';
-import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit.js';
-import type { GitFileChangeShape } from '../../git/models/fileChange.js';
-import type { GitFileStatus } from '../../git/models/fileStatus.js';
-import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest.js';
-import type { PullRequestShape } from '../../git/models/pullRequest.js';
-import type { Repository } from '../../git/models/repository.js';
-import type { GitCommitSearchContext } from '../../git/search.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import type { Draft, DraftVisibility } from '../../plus/drafts/models/drafts.js';
-import type { DateTimeFormat } from '../../system/date.js';
 import type { WebviewItemContext } from '../../system/webview.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
 import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
@@ -139,7 +139,7 @@ export type ShowCommitDetailsViewCommandArgs = string[];
 export interface ShowWipArgs {
 	type: 'wip';
 	inReview?: boolean;
-	repository?: Repository;
+	repository?: GlRepository;
 	source: Sources;
 }
 

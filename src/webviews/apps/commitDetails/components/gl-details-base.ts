@@ -2,10 +2,10 @@ import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
+import type { HierarchicalItem } from '@gitlens/utils/array.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../config.js';
-import type { HierarchicalItem } from '../../../../system/array.js';
-import { makeHierarchical } from '../../../../system/array.js';
-import { pluralize } from '../../../../system/string.js';
 import type { Preferences, State } from '../../../commitDetails/protocol.js';
 import type {
 	TreeItemAction,

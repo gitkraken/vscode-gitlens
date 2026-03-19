@@ -2,7 +2,7 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import type { FuzzyMatchResult } from '../../../../../system/fuzzy.js';
+import type { FuzzyMatchResult } from '@gitlens/utils/fuzzy.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
 import '../code-icon.js';
 

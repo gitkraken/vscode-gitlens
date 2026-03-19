@@ -1,4 +1,25 @@
 import { Disposable, env, Uri, window, workspace } from 'vscode';
+import { PushError } from '@gitlens/git/errors.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { Issue } from '@gitlens/git/models/issue.js';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { GitStatus } from '@gitlens/git/models/status.js';
+import { GitWorktree } from '@gitlens/git/models/worktree.js';
+import type { BranchContributionsOverview } from '@gitlens/git/providers/branches.js';
+import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
+import { getComparisonRefsForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { sortBranches } from '@gitlens/git/utils/sorting.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { filterMap } from '@gitlens/utils/iterable.js';
+import { hasKeys } from '@gitlens/utils/object.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { SubscriptionManager } from '@gitlens/utils/subscriptionManager.js';
 import { ActionRunnerType } from '../../api/actionRunners.js';
 import type { CreatePullRequestActionContext } from '../../api/gitlens.d.js';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
@@ -27,28 +48,20 @@ import {
 import * as RepoActions from '../../git/actions/repository.js';
 import { revealWorktree } from '../../git/actions/worktree.js';
 import { executeGitCommand } from '../../git/actions.js';
-import { PushError } from '../../git/errors.js';
-import type { BranchContributionsOverview } from '../../git/gitProvider.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitFileChangeShape } from '../../git/models/fileChange.js';
-import type { Issue } from '../../git/models/issue.js';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
-import type { GitRemote } from '../../git/models/remote.js';
-import { RemoteResourceType } from '../../git/models/remoteResource.js';
-import type { Repository } from '../../git/models/repository.js';
-import { uncommitted } from '../../git/models/revision.js';
-import type { GitStatus } from '../../git/models/status.js';
-import type { GitWorktree } from '../../git/models/worktree.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils.js';
-import { getBranchMergeTargetInfo } from '../../git/utils/-webview/branch.utils.js';
+import {
+	getBranchAssociatedPullRequest,
+	getBranchEnrichedAutolinks,
+	getBranchMergeTargetInfo,
+	getBranchRemote,
+	getBranchWorktree,
+} from '../../git/utils/-webview/branch.utils.js';
+import { getContributorAvatarUri } from '../../git/utils/-webview/contributor.utils.js';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils.js';
+import { remoteSupportsIntegration } from '../../git/utils/-webview/remote.utils.js';
 import { toRepositoryShapeWithProvider } from '../../git/utils/-webview/repository.utils.js';
-import { sortBranches } from '../../git/utils/-webview/sorting.js';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils.js';
-import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils.js';
-import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils.js';
-import { createRevisionRange } from '../../git/utils/revision.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { showPatchesView } from '../../plus/drafts/actions.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
@@ -73,11 +86,6 @@ import { getContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { filterMap } from '../../system/iterable.js';
-import { hasKeys } from '../../system/object.js';
-import { getSettledValue } from '../../system/promise.js';
-import { SubscriptionManager } from '../../system/subscriptionManager.js';
 import { isWebviewContext } from '../../system/webview.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
@@ -119,7 +127,7 @@ import { DidChangeSubscription } from './protocol.js';
 import type { HomeWebviewShowingArgs } from './registration.js';
 
 interface RepositoryBranchData {
-	repo: Repository;
+	repo: GlRepository;
 	branches: GitBranch[];
 	worktreesByBranch: Map<string, GitWorktree>;
 }
@@ -523,7 +531,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (repo == null || branch == null) return;
 
 		// Show in the Worktrees or Branches view depending
-		const worktree = await branch.getWorktree();
+		const worktree = await getBranchWorktree(this.container, branch);
 		if (worktree != null && !worktree.isDefault) {
 			await revealWorktree(worktree, { select: true, focus: true, expand: true });
 		} else {
@@ -597,7 +605,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
 
-		const worktree = await branch?.getWorktree();
+		const worktree = branch != null ? await getBranchWorktree(this.container, branch) : undefined;
 
 		void executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 			repoPath: repo.path,
@@ -868,7 +876,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 			const wt = worktreesByBranch.get(branchId);
 			if (wt != null) {
-				statusPromises.set(branchId, wt.getStatus({ force: true }));
+				statusPromises.set(branchId, GitWorktree.getStatus(wt));
 			} else if (branch.current) {
 				repoStatusPromise ??= this.container.git.getRepositoryService(branch.repoPath).status.getStatus();
 				statusPromises.set(branchId, repoStatusPromise);
@@ -897,7 +905,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 				if (status != null || pausedOpStatus != null) {
 					result[branchId] = {
-						workingTreeState: status?.getDiffStatus(),
+						workingTreeState: status?.diffStatus,
 						hasConflicts: status?.hasConflicts,
 						conflictsCount: status?.conflicts.length,
 						pausedOpStatus: pausedOpStatus,
@@ -952,16 +960,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			const promises: BranchEnrichmentPromises = {};
 
 			if (branch.upstream?.missing === false) {
-				promises.remote = branch.getRemote();
+				promises.remote = getBranchRemote(this.container, branch);
 			}
 
 			if (isPro) {
-				promises.pr = getPullRequestInfo(this.container, branch, launchpadPromise);
-				promises.autolinks = branch.getEnrichedAutolinks();
+				const associatedPR = getBranchAssociatedPullRequest(this.container, branch, { avatarSize: 64 });
+				promises.pr = getPullRequestInfo(this.container, branch, launchpadPromise, associatedPR);
+				promises.autolinks = getBranchEnrichedAutolinks(this.container, branch);
 				promises.issues = getAssociatedIssuesForBranch(this.container, branch).then(issues => issues.value);
 				promises.contributors = this.container.git
 					.getRepositoryService(branch.repoPath)
-					.branches.getBranchContributionsOverview(branch.ref);
+					.branches.getBranchContributionsOverview(branch.ref, { associatedPullRequest: associatedPR });
 				if (branch.current) {
 					promises.mergeTarget = getBranchMergeTargetStatusInfo(this.container, branch);
 				}
@@ -1022,14 +1031,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return result;
 	}
 
-	private async formatRepository(repo: Repository, signal?: AbortSignal): Promise<OverviewRepository> {
+	private async formatRepository(repo: GlRepository, signal?: AbortSignal): Promise<OverviewRepository> {
 		const remotes = await repo.git.remotes.getBestRemotesWithProviders();
 		signal?.throwIfAborted();
-		const remote = remotes.find(r => r.supportsIntegration()) ?? remotes[0];
+		const remote = remotes.find(r => remoteSupportsIntegration(r)) ?? remotes[0];
 		return toRepositoryShapeWithProvider(repo, remote);
 	}
 
-	private _repositorySubscription: SubscriptionManager<Repository> | undefined;
+	private _repositorySubscription: SubscriptionManager<GlRepository> | undefined;
 	private selectRepository(repoPath?: string) {
 		const currentRepo = this._repositorySubscription?.source;
 		const repo =
@@ -1074,7 +1083,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private readonly _repositoryBranches: Map<string, RepositoryBranchData> = new Map();
-	private async getBranchesData(repo: Repository, force = false, signal?: AbortSignal) {
+	private async getBranchesData(repo: GlRepository, force = false, signal?: AbortSignal) {
 		if (force || !this._repositoryBranches.has(repo.path) || repo.etag !== this._etagRepository) {
 			signal?.throwIfAborted();
 			const worktrees = (await repo.git.worktrees?.getWorktrees()) ?? [];
@@ -1240,7 +1249,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
 
-		const worktree = branch.worktree === false ? undefined : (branch.worktree ?? (await branch.getWorktree()));
+		const worktree =
+			branch.worktree === false
+				? undefined
+				: (branch.worktree ?? (await getBranchWorktree(this.container, branch)));
 
 		if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
 			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
@@ -1267,7 +1279,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				},
 			});
 		} else if (repo != null && worktree != null && !worktree.isDefault) {
-			const commonRepo = await repo.getOrOpenCommonRepository();
+			const commonRepo = await repo.git.getOrOpenCommonRepository();
 			const defaultWorktree = await repo.git.worktrees?.getWorktree(w => w.isDefault);
 			if (defaultWorktree == null || commonRepo == null) return;
 
@@ -1435,7 +1447,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
 
-		const remote = await branch.getRemote();
+		const remote = await getBranchRemote(this.container, branch);
 
 		// If we are describing with AI, we need to use the built-in action runner only
 		const runnerId = describeWithAI
@@ -1480,7 +1492,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async worktreeOpen(args: OpenWorktreeCommandArgs) {
 		const { location, ...ref } = args;
 		const { branch } = await this.getRepoInfoFromRef(ref);
-		const worktree = await branch?.getWorktree();
+		const worktree = branch != null ? await getBranchWorktree(this.container, branch) : undefined;
 		if (worktree == null) return;
 
 		openWorkspace(worktree.uri, location ? { location: location } : undefined);
@@ -1540,12 +1552,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async getPullRequestFromRef(ref: BranchRef): Promise<PullRequest | undefined> {
 		const { branch } = await this.getRepoInfoFromRef(ref);
-		return branch?.getAssociatedPullRequest();
+		return branch != null ? getBranchAssociatedPullRequest(this.container, branch) : undefined;
 	}
 
 	private async getRepoInfoFromRef(
 		ref: BranchRef | { repoPath: string; branchName?: string },
-	): Promise<{ repo: Repository; branch: GitBranch | undefined } | { repo: undefined; branch: undefined }> {
+	): Promise<{ repo: GlRepository; branch: GitBranch | undefined } | { repo: undefined; branch: undefined }> {
 		const repo = this.container.git.getRepository(ref.repoPath);
 		if (repo == null) return { repo: undefined, branch: undefined };
 		if (!ref.branchName) return { repo: repo, branch: undefined };
@@ -1611,7 +1623,7 @@ async function getContributorsInfo(
 					timestamp: c.latestCommitDate?.getTime(),
 					count: c.contributionCount,
 					stats: c.stats,
-					avatarUrl: (await c.getAvatarUri())?.toString(),
+					avatarUrl: (await getContributorAvatarUri(c))?.toString(),
 				}) satisfies NonNullable<ContributorsInfo>[0],
 		),
 	);
@@ -1623,7 +1635,7 @@ async function getBranchMergeTargetStatusInfo(
 	branch: GitBranch,
 ): Promise<BranchMergeTargetStatusInfo> {
 	const info = await getBranchMergeTargetInfo(container, branch, {
-		associatedPullRequest: branch.getAssociatedPullRequest(),
+		associatedPullRequest: getBranchAssociatedPullRequest(container, branch),
 	});
 
 	let targetResult;
@@ -1714,8 +1726,9 @@ async function getPullRequestInfo(
 	container: Container,
 	branch: GitBranch,
 	launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined,
+	associatedPullRequest?: Promise<PullRequest | undefined>,
 ): Promise<PullRequestInfo> {
-	const pr = await branch.getAssociatedPullRequest({ avatarSize: 64 });
+	const pr = await (associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch, { avatarSize: 64 }));
 	if (pr == null) return undefined;
 
 	return {

@@ -1,5 +1,5 @@
+import { trace } from '@gitlens/utils/decorators/log.js';
 import type { TreeViewNodeTypes } from '../../../constants.views.js';
-import { trace } from '../../../system/decorators/log.js';
 import type { View } from '../../viewBase.js';
 import { disposeChildren } from '../../viewBase.js';
 import { ViewNode } from './viewNode.js';

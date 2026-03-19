@@ -1,11 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
+import type { GitCommit, GitStashCommit } from '@gitlens/git/models/commit.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
-import type { GitCommit, GitStashCommit } from '../git/models/commit.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { showStashPicker } from '../quickpicks/stashPicker.js';
 import { command } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
 import type { CommandContext } from './commandContext.js';
 import { isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
 import type { ExplainBaseArgs } from './explainBase.js';

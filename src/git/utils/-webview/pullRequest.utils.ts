@@ -1,19 +1,22 @@
 import type { ProgressOptions } from 'vscode';
 import { ProgressLocation, Uri, window } from 'vscode';
+import type { PullRequest, PullRequestComparisonRefs } from '@gitlens/git/models/pullRequest.js';
+import type { CreatePullRequestRemoteResource } from '@gitlens/git/models/remoteResource.js';
+import type { LeftRightCommitCountResult } from '@gitlens/git/providers/commits.js';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+} from '@gitlens/git/utils/pullRequest.utils.js';
+import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { Schemes } from '../../../constants.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
-import type { LeftRightCommitCountResult } from '../../gitProvider.js';
-import type { PullRequest, PullRequestComparisonRefs } from '../../models/pullRequest.js';
-import type { CreatePullRequestRemoteResource } from '../../models/remoteResource.js';
-import type { Repository } from '../../models/repository.js';
-import { gitSuffixRegex } from '../../parsers/remoteParser.js';
-import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../pullRequest.utils.js';
-import { createRevisionRange } from '../revision.utils.js';
+import type { GlRepository } from '../../models/repository.js';
 
 export async function describePullRequestWithAI(
 	container: Container,
-	repo: string | Repository,
+	repo: string | GlRepository,
 	{ base, head }: CreatePullRequestRemoteResource,
 	source: Source,
 	options?: { progress?: ProgressOptions },
@@ -51,7 +54,7 @@ export async function describePullRequestWithAI(
 
 export async function ensurePullRequestRefs(
 	pr: PullRequest,
-	repo: Repository,
+	repo: GlRepository,
 	options?: { silent?: true; promptMessage?: never } | { silent?: never; promptMessage?: string },
 	refs?: PullRequestComparisonRefs,
 ): Promise<LeftRightCommitCountResult | undefined> {
@@ -72,7 +75,7 @@ export async function ensurePullRequestRefs(
 
 export async function ensurePullRequestRemote(
 	pr: PullRequest,
-	repo: Repository,
+	repo: GlRepository,
 	options?: { silent?: true; promptMessage?: never } | { silent?: never; promptMessage?: string },
 ): Promise<boolean> {
 	const identity = getRepositoryIdentityForPullRequest(pr);
@@ -117,7 +120,7 @@ export async function getOpenedPullRequestRepo(
 	container: Container,
 	pr: PullRequest,
 	repoPath?: string,
-): Promise<Repository | undefined> {
+): Promise<GlRepository | undefined> {
 	if (repoPath) return container.git.getRepository(repoPath);
 
 	const repo = await getOrOpenPullRequestRepository(container, pr, { promptIfNeeded: true });
@@ -128,7 +131,7 @@ export async function getOrOpenPullRequestRepository(
 	container: Container,
 	pr: PullRequest,
 	options?: { promptIfNeeded?: boolean; skipVirtual?: boolean },
-): Promise<Repository | undefined> {
+): Promise<GlRepository | undefined> {
 	const identity = getRepositoryIdentityForPullRequest(pr);
 	let repo = await container.repositoryIdentity.getRepository(identity, {
 		openIfNeeded: true,

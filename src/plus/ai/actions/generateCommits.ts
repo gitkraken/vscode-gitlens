@@ -1,10 +1,10 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
-import { md5 } from '@env/crypto.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { md5 } from '@gitlens/utils/crypto.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { dedent } from '@gitlens/utils/string.js';
 import type { Source } from '../../../constants.telemetry.js';
-import { CancellationError } from '../../../errors.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { Deferred } from '../../../system/promise.js';
-import { dedent } from '../../../system/string.js';
 import type { AIService } from '../aiService.js';
 import { AIConversation } from '../models/conversation.js';
 import type { AIModel } from '../models/model.js';

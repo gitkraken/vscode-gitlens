@@ -1,9 +1,9 @@
 import { extensions } from 'vscode';
+import { wait } from '@gitlens/utils/promise.js';
 import type { ChatViewOpenOptions } from '../../../../@types/vscode.chat.js';
 import { callUsingClipboard } from '../../../../system/-webview/clipboard.js';
 import { executeCoreCommand } from '../../../../system/-webview/command.js';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
-import { wait } from '../../../../system/promise.js';
 
 export async function openChat(
 	args: string,

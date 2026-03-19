@@ -1,16 +1,14 @@
-import type { GitBranch } from '../../models/branch.js';
-import { isBranch } from '../../models/branch.js';
-import type { GitCommit, GitStashCommit } from '../../models/commit.js';
-import { isCommit } from '../../models/commit.js';
+import { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
 import type {
 	GitBranchReference,
 	GitReference,
 	GitRevisionReference,
 	GitTagReference,
-} from '../../models/reference.js';
-import type { GitTag } from '../../models/tag.js';
-import { isTag } from '../../models/tag.js';
-import { createReference } from '../reference.utils.js';
+} from '@gitlens/git/models/reference.js';
+import { GitTag } from '@gitlens/git/models/tag.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
 
 export function getReference(ref: GitReference): GitReference;
 export function getReference(ref: GitReference | undefined): GitReference | undefined;
@@ -19,11 +17,11 @@ export function getReference(ref: GitReference | undefined): GitReference | unde
 
 	switch (ref.refType) {
 		case 'branch':
-			return isBranch(ref) ? getReferenceFromBranch(ref) : ref;
+			return GitBranch.is(ref) ? getReferenceFromBranch(ref) : ref;
 		case 'tag':
-			return isTag(ref) ? getReferenceFromTag(ref) : ref;
+			return GitTag.is(ref) ? getReferenceFromTag(ref) : ref;
 		default:
-			return isCommit(ref) ? getReferenceFromRevision(ref) : ref;
+			return GitCommit.is(ref) ? getReferenceFromRevision(ref) : ref;
 	}
 }
 

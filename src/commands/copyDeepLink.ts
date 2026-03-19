@@ -1,17 +1,18 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { getBranchNameAndRemote } from '@gitlens/git/utils/branch.utils.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { StoredNamedRef } from '../constants.storage.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitReference } from '../git/models/reference.js';
-import { getBranchNameAndRemote } from '../git/utils/branch.utils.js';
-import { createReference } from '../git/utils/reference.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
 import { showRemotePicker } from '../quickpicks/remotePicker.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
-import { normalizePath } from '../system/path.js';
 import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
@@ -62,7 +63,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 				if (context.command === 'gitlens.copyDeepLinkToRepo') {
 					args = {
 						refOrRepoPath: context.node.branch.repoPath,
-						remote: context.node.branch.getRemoteName(),
+						remote: context.node.branch.remoteName,
 					};
 				} else {
 					args = { refOrRepoPath: context.node.branch };
@@ -133,9 +134,9 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		try {
 			let chosenRemote;
 			const remotes = await this.container.git.getRepositoryService(repoPath).remotes.getRemotes({ sort: true });
-			const defaultRemote = remotes.find(r => r.default);
+			const defaultRemote = remotes.find((r: GitRemote) => r.default);
 			if (args.remote && !args.prePickRemote) {
-				chosenRemote = remotes.find(r => r.name === args?.remote);
+				chosenRemote = remotes.find((r: GitRemote) => r.name === args?.remote);
 			} else if (defaultRemote != null) {
 				chosenRemote = defaultRemote;
 			} else {
@@ -290,9 +291,9 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 		try {
 			let chosenRemote;
 			const remotes = await this.container.git.getRepositoryService(repoPath).remotes.getRemotes({ sort: true });
-			const defaultRemote = remotes.find(r => r.default);
+			const defaultRemote = remotes.find((r: GitRemote) => r.default);
 			if (args.remote && !args.prePickRemote) {
-				chosenRemote = remotes.find(r => r.name === args?.remote);
+				chosenRemote = remotes.find((r: GitRemote) => r.name === args?.remote);
 			} else if (defaultRemote != null) {
 				chosenRemote = defaultRemote;
 			} else {

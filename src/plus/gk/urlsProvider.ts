@@ -1,7 +1,7 @@
 import { Uri } from 'vscode';
+import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import type { Environment } from '../../container.js';
 import { getHostAppName } from '../../system/-webview/vscode.js';
-import { memoize } from '../../system/decorators/memoize.js';
 
 export class UrlsProvider {
 	constructor(private readonly env: Environment) {}

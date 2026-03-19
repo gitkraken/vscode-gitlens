@@ -1,13 +1,14 @@
 import type { CancellationToken } from 'vscode';
-import { uuid } from '@env/crypto.js';
 import type { Response } from '@env/fetch.js';
 import { fetch } from '@env/fetch.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { uuid } from '@gitlens/utils/crypto.js';
+import { getLoggableName } from '@gitlens/utils/logger.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Role } from '../../@types/vsls.d.js';
 import type { AIProviders } from '../../constants.ai.js';
 import type { Container } from '../../container.js';
-import { AIError, AIErrorReason, CancellationError, isCancellationError } from '../../errors.js';
-import { getLoggableName } from '../../system/logger.js';
-import { maybeStartScopedLogger } from '../../system/logger.scope.js';
+import { AIError, AIErrorReason } from '../../errors.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model.js';
 import type { AIChatMessage, AIChatMessageRole, AIProvider, AIProviderResponse } from './models/provider.js';
@@ -106,7 +107,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			);
 			return result;
 		} catch (ex) {
-			if (ex instanceof CancellationError) {
+			if (isCancellationError(ex)) {
 				scope?.error(ex, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
 				throw ex;
 			}

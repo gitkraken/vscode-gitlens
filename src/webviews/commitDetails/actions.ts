@@ -1,6 +1,6 @@
 import { Container } from '../../container.js';
 import type { CommitSelectedEvent } from '../../eventBus.js';
-import type { Repository } from '../../git/models/repository.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import type { WebviewViewShowOptions } from '../webviewsController.js';
 import type { ShowWipArgs } from './protocol.js';
 
@@ -12,7 +12,7 @@ export async function showInspectView(
 }
 
 export async function startCodeReview(
-	repository: Repository | undefined,
+	repository: GlRepository | undefined,
 	source: ShowWipArgs['source'],
 	showOptions?: WebviewViewShowOptions,
 ): Promise<void> {

@@ -1,18 +1,18 @@
 import { window } from 'vscode';
+import { BranchError } from '@gitlens/git/errors.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { getBranchNameAndRemote } from '@gitlens/git/utils/branch.utils.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { ensureArray } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
-import { BranchError } from '../../../git/errors.js';
-import type { GitBranchReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
-import type { GitWorktree } from '../../../git/models/worktree.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
-import { getBranchNameAndRemote } from '../../../git/utils/branch.utils.js';
-import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
-import { ensureArray } from '../../../system/array.js';
-import { Logger } from '../../../system/logger.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -48,7 +48,7 @@ export type BranchDeleteStepNames = StepNames;
 type Context = BranchContext<StepNames>;
 
 type Flags = '--force' | '--remotes';
-interface State<Repo = string | Repository, Refs = GitBranchReference | GitBranchReference[]> {
+interface State<Repo = string | GlRepository, Refs = GitBranchReference | GitBranchReference[]> {
 	repo: Repo;
 	references: Refs;
 	flags: Flags[];
@@ -129,7 +129,7 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 			state.references = ensureArray(state.references);
 
 			const worktreesByBranch = await getWorktreesByBranch(state.repo, { includeDefault: true });
@@ -159,7 +159,7 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
-			assertStepState<State<Repository, GitBranchReference[]>>(state);
+			assertStepState<State<GlRepository, GitBranchReference[]>>(state);
 
 			const worktrees = this.getSelectedWorktrees(state, worktreesByBranch);
 			if (worktrees.length) {
@@ -256,7 +256,7 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 	}
 
 	private getSelectedWorktrees(
-		state: StepState<State<Repository, GitBranchReference[]>>,
+		state: StepState<State<GlRepository, GitBranchReference[]>>,
 		worktreesByBranch: Map<string, GitWorktree>,
 	): GitWorktree[] {
 		const worktrees: GitWorktree[] = [];
@@ -272,7 +272,7 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(
-		state: StepState<State<Repository, GitBranchReference[]>>,
+		state: StepState<State<GlRepository, GitBranchReference[]>>,
 		context: BranchContext,
 	): StepResultGenerator<Flags[]> {
 		const confirmations: FlagsQuickPickItem<Flags>[] = [

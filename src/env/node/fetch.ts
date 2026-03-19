@@ -2,8 +2,8 @@ import * as process from 'process';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 // eslint-disable-next-line e18e/ban-dependencies
 import fetch from 'node-fetch';
+import { Logger } from '@gitlens/utils/logger.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { Logger } from '../../system/logger.js';
 
 export { fetch };
 export type { BodyInit, HeadersInit, RequestInfo, RequestInit, Response } from 'node-fetch';

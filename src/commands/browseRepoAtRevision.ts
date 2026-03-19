@@ -1,11 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
+import { basename } from '@gitlens/utils/path.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command, executeCoreCommand } from '../system/-webview/command.js';
 import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
-import { Logger } from '../system/logger.js';
-import { basename } from '../system/path.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';

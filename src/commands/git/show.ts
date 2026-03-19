@@ -1,8 +1,8 @@
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import type { Container } from '../../container.js';
-import type { GitCommit, GitStashCommit } from '../../git/models/commit.js';
-import { isCommit } from '../../git/models/commit.js';
-import type { GitRevisionReference } from '../../git/models/reference.js';
-import type { Repository } from '../../git/models/repository.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits.js';
 import { CommandQuickPickItem } from '../../quickpicks/items/common.js';
 import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard.js';
@@ -30,12 +30,12 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
-interface State<Repo = string | Repository, Ref = GitRevisionReference | GitCommit | GitStashCommit> {
+interface State<Repo = string | GlRepository, Ref = GitRevisionReference | GitCommit | GitStashCommit> {
 	repo: Repo;
 	reference: Ref;
 	fileName: string;
@@ -94,15 +94,15 @@ export class ShowGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (
 				steps.isAtStep(Steps.PickCommit) ||
 				state.reference == null ||
-				!isCommit(state.reference) ||
+				!GitCommit.is(state.reference) ||
 				state.reference.file != null
 			) {
-				if (state.reference != null && !isCommit(state.reference)) {
+				if (state.reference != null && !GitCommit.is(state.reference)) {
 					state.reference = (await this.container.git
 						.getRepositoryService(state.reference.repoPath)
 						.commits.getCommit(state.reference.ref))!;
@@ -133,13 +133,13 @@ export class ShowGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository, GitCommit | GitStashCommit>>(state);
+			assertStepState<State<GlRepository, GitCommit | GitStashCommit>>(state);
 
 			if (steps.isAtStepOrUnset(Steps.ShowCommit)) {
 				using step = steps.enterStep(Steps.ShowCommit);
 
 				if (!state.reference.hasFullDetails({ allowFilteredFiles: true })) {
-					await state.reference.ensureFullDetails();
+					await GitCommit.ensureFullDetails(state.reference);
 				}
 
 				const result = yield* showCommitOrStashStep(state, context);

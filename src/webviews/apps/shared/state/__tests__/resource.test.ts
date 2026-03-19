@@ -44,6 +44,7 @@ suite('createResource Test Suite', () => {
 
 			await resource.fetch();
 
+			// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression -- testing that undefined is stored correctly
 			assert.strictEqual(resource.value.get(), undefined);
 			assert.strictEqual(resource.status.get(), 'success');
 		});

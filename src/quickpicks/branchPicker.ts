@@ -1,15 +1,15 @@
 import type { Disposable, QuickPickItem } from 'vscode';
 import { window } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { getBranches } from '../commands/quick-wizard/steps/branches.js';
-import type { GitBranch } from '../git/models/branch.js';
-import type { Repository } from '../git/models/repository.js';
+import type { GlRepository } from '../git/models/repository.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
 import type { BranchQuickPickItem } from './items/gitWizard.js';
 
 export async function showBranchPicker(
 	title: string | undefined,
 	placeholder?: string,
-	repository?: Repository | Repository[],
+	repository?: GlRepository | GlRepository[],
 	options?: {
 		filter?: (b: GitBranch) => boolean;
 	},
@@ -56,7 +56,7 @@ export async function showBranchPicker(
 export async function showNewBranchPicker(
 	title: string | undefined,
 	placeholder?: string,
-	_repository?: Repository,
+	_repository?: GlRepository,
 ): Promise<string | undefined> {
 	const input = window.createInputBox();
 	input.ignoreFocusOut = true;
@@ -95,7 +95,7 @@ export async function showNewBranchPicker(
 
 export async function showNewOrSelectBranchPicker(
 	title: string | undefined,
-	repository?: Repository,
+	repository?: GlRepository,
 ): Promise<GitBranch | string | undefined> {
 	if (repository == null) {
 		return undefined;

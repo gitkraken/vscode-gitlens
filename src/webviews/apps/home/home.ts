@@ -5,7 +5,7 @@ import { ContextProvider } from '@lit/context';
 import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { signalObject } from 'signal-utils/object';
-import { debounce } from '../../../system/function/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type { HomeServices } from '../../home/homeService.js';
 import type {
 	GetActiveOverviewResponse,
@@ -232,7 +232,8 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
 		// but Remote<T> types them as synchronous values. The lint rule correctly detects the
 		// thenable; the disable is required — this is how Supertalk property access works.
-		/* eslint-disable @typescript-eslint/await-thenable */
+
+		/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy properties are thenable at runtime */
 		const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal] =
 			await Promise.all([
 				subscription.subscriptionState,

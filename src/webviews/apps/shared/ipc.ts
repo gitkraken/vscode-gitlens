@@ -1,12 +1,12 @@
 /*global window */
 import { inflateSync, strFromU8 } from 'fflate';
-import { getScopedCounter } from '../../../system/counter.js';
-import { debug, logName } from '../../../system/decorators/log.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { debug, logName } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger, maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { deserializeIpcData } from '../../../system/ipcSerialize.js';
-import { Logger } from '../../../system/logger.js';
-import { getScopedLogger, maybeStartScopedLogger } from '../../../system/logger.scope.js';
 import type { Serialized } from '../../../system/serialize.js';
-import { maybeStopWatch } from '../../../system/stopwatch.js';
 import type {
 	IpcCallParamsType,
 	IpcCallResponseParamsType,
@@ -54,7 +54,7 @@ function nextIpcId() {
 
 type PendingHandler = (msg: IpcMessage) => void;
 
-@logName<HostIpc>(c => `${c.appName}(HostIpc)`)
+@logName(c => `${c.appName}(HostIpc)`)
 export class HostIpc implements Disposable {
 	private _onReceiveMessage = new Emitter<IpcMessage>();
 	get onReceiveMessage(): Event<IpcMessage> {

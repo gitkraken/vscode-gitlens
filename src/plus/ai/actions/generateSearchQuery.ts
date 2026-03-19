@@ -1,6 +1,6 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Source } from '../../../constants.telemetry.js';
-import { CancellationError } from '../../../errors.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { AIResponse } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';

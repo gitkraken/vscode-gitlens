@@ -3,12 +3,12 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { flatCount } from '@gitlens/utils/iterable.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import { urls } from '../../../../../constants.js';
-import type { GitFileChangeShape } from '../../../../../git/models/fileChange.js';
 import type { DraftRole, DraftVisibility } from '../../../../../plus/drafts/models/drafts.js';
-import { debounce } from '../../../../../system/function/debounce.js';
-import { flatCount } from '../../../../../system/iterable.js';
 import type { Serialized } from '../../../../../system/serialize.js';
 import type {
 	Change,

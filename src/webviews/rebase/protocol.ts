@@ -1,12 +1,12 @@
-import type { Config } from '../../config.js';
-import type { GitFileConflictStatus } from '../../git/models/fileStatus.js';
-import type { ConflictDetectionResult } from '../../git/models/mergeConflicts.js';
+import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
+import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type {
 	ProcessedRebaseCommitEntry as _RebaseCommitEntry,
 	ProcessedRebaseCommandEntry,
 	ProcessedRebaseCommitEntry,
 	RebaseTodoCommitAction,
-} from '../../git/models/rebase.js';
+} from '@gitlens/git/models/rebase.js';
+import type { Config } from '../../config.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
 import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';

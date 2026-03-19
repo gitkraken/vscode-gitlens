@@ -1,5 +1,6 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { groupByFilterMap, map } from '@gitlens/utils/iterable.js';
 import type { DraftsViewConfig } from '../config.js';
 import { previewBadge } from '../constants.js';
 import type { Container } from '../container.js';
@@ -10,7 +11,6 @@ import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils.
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { gate } from '../system/decorators/gate.js';
-import { groupByFilterMap, map } from '../system/iterable.js';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './nodes/abstract/viewNode.js';
 import { DraftNode } from './nodes/draftNode.js';

@@ -1,24 +1,24 @@
 import type { ConfigurationChangeEvent, MessageItem } from 'vscode';
 import { Disposable, env, ExtensionMode, window } from 'vscode';
-import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views.js';
-import { localOnlyGroupedViews } from '../constants.views.js';
-import type { Container } from '../container.js';
-import type { GitContributor } from '../git/models/contributor.js';
+import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import type {
 	GitBranchReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../git/models/reference.js';
-import type { GitRemote } from '../git/models/remote.js';
-import type { GitWorktree } from '../git/models/worktree.js';
+} from '@gitlens/git/models/reference.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { once } from '@gitlens/utils/function.js';
+import { first } from '@gitlens/utils/iterable.js';
+import { compare } from '@gitlens/utils/version.js';
+import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views.js';
+import { localOnlyGroupedViews } from '../constants.views.js';
+import type { Container } from '../container.js';
 import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { getContext, setContext } from '../system/-webview/context.js';
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
-import { once } from '../system/function.js';
-import { first } from '../system/iterable.js';
-import { compare } from '../system/version.js';
 import {
 	registerCommitDetailsWebviewView,
 	registerGraphDetailsWebviewView,

@@ -2,25 +2,27 @@ import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { Disposable } from 'vscode';
 import type { HeadersInit } from '@env/fetch.js';
-import { getAvatarUri } from '../../avatars.js';
-import type { IntegrationIds } from '../../constants.integrations.js';
-import type { Container } from '../../container.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
-import { isRepository, Repository } from '../../git/models/repository.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type {
 	GkRepositoryId,
 	RepositoryIdentity,
 	RepositoryIdentityRequest,
 	RepositoryIdentityResponse,
-} from '../../git/models/repositoryIdentities.js';
-import type { GitUser } from '../../git/models/user.js';
-import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders.js';
-import { isSha, isUncommitted, shortenRevision } from '../../git/utils/revision.utils.js';
-import { debug } from '../../system/decorators/log.js';
-import type { ScopedLogger } from '../../system/logger.scope.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
-import { getSettledValue } from '../../system/promise.js';
+} from '@gitlens/git/models/repositoryIdentities.js';
+import type { GitUser } from '@gitlens/git/models/user.js';
+import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
+import { isSha, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { getAvatarUri } from '../../avatars.js';
+import type { IntegrationIds } from '../../constants.integrations.js';
+import type { Container } from '../../container.js';
+import { GlRepository } from '../../git/models/repository.js';
+import { buildRemoteProviderConfigs } from '../../git/remotes/remoteProviderConfigs.js';
+import { getBestRemoteWithIntegration, getRemoteIntegration } from '../../git/utils/-webview/remote.utils.js';
 import type { OrganizationMember } from '../gk/models/organization.js';
 import type { SubscriptionAccount } from '../gk/models/subscription.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
@@ -566,7 +568,7 @@ export class DraftService implements Disposable {
 		const repositoryOrIdentity = getSettledValue(repositoryResult)!;
 
 		let repoPath = '';
-		if (isRepository(repositoryOrIdentity)) {
+		if (GlRepository.is(repositoryOrIdentity)) {
 			repoPath = repositoryOrIdentity.path;
 		}
 
@@ -704,7 +706,7 @@ export class DraftService implements Disposable {
 		draftId: Draft['id'],
 		repoId: GkRepositoryId,
 		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
-	): Promise<Repository | RepositoryIdentity> {
+	): Promise<GlRepository | RepositoryIdentity> {
 		const identity = await this.getRepositoryIdentity(draftId, repoId);
 		return (await this.container.repositoryIdentity.getRepository(identity, options)) ?? identity;
 	}
@@ -724,7 +726,9 @@ export class DraftService implements Disposable {
 		} else if (data.provider?.repoName != null) {
 			name = data.provider.repoName;
 		} else if (data.remote?.url != null && data.remote?.domain != null && data.remote?.path != null) {
-			const matcher = await getRemoteProviderMatcher(this.container);
+			const configuredIntegrations = await this.container.integrations.getConfigured();
+			const configs = buildRemoteProviderConfigs(null, configuredIntegrations);
+			const matcher = createRemoteProviderMatcher(configs);
 			const provider = matcher(data.remote.url, data.remote.domain, data.remote.path, undefined);
 			name = provider?.repoName ?? data.remote.path;
 		} else {
@@ -745,14 +749,14 @@ export class DraftService implements Disposable {
 	}
 
 	async getProviderAuthFromRepoOrIntegrationId(
-		repoOrIntegrationId: Repository | IntegrationIds,
+		repoOrIntegrationId: GlRepository | IntegrationIds,
 	): Promise<ProviderAuth | undefined> {
 		let integration;
-		if (isRepository(repoOrIntegrationId)) {
-			const remote = await repoOrIntegrationId.git.remotes.getBestRemoteWithIntegration();
+		if (GlRepository.is(repoOrIntegrationId)) {
+			const remote = await getBestRemoteWithIntegration(repoOrIntegrationId.path);
 			if (remote == null) return undefined;
 
-			integration = await remote.getIntegration();
+			integration = await getRemoteIntegration(remote);
 		} else {
 			const metadata = providersMetadata[repoOrIntegrationId];
 			if (metadata == null) return undefined;
@@ -787,10 +791,10 @@ export class DraftService implements Disposable {
 			return undefined;
 		}
 
-		let repo: Repository | undefined;
+		let repo: GlRepository | undefined;
 		// avoid calling getRepositoryOrIdentity if possible
 		if (patch.repository != null) {
-			if (patch.repository instanceof Repository) {
+			if (patch.repository instanceof GlRepository) {
 				repo = patch.repository;
 			} else {
 				repo = await this.container.repositoryIdentity.getRepository(patch.repository);
@@ -799,7 +803,7 @@ export class DraftService implements Disposable {
 
 		if (repo == null) {
 			const repositoryOrIdentity = await this.getRepositoryOrIdentity(draft.id, patch.gkRepositoryId);
-			if (!(repositoryOrIdentity instanceof Repository)) {
+			if (!(repositoryOrIdentity instanceof GlRepository)) {
 				return undefined;
 			}
 
@@ -811,7 +815,7 @@ export class DraftService implements Disposable {
 
 	async getCodeSuggestions(
 		pullRequest: PullRequest,
-		repository: Repository,
+		repository: GlRepository,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
 	async getCodeSuggestions(
@@ -822,14 +826,14 @@ export class DraftService implements Disposable {
 	@debug({
 		args: (item, repositoryOrIntegrationId) => ({
 			item: item.id,
-			repositoryOrIntegrationId: isRepository(repositoryOrIntegrationId)
+			repositoryOrIntegrationId: GlRepository.is(repositoryOrIntegrationId)
 				? repositoryOrIntegrationId.id
 				: repositoryOrIntegrationId,
 		}),
 	})
 	async getCodeSuggestions(
 		item: PullRequest | LaunchpadItem,
-		repositoryOrIntegrationId: Repository | IntegrationIds,
+		repositoryOrIntegrationId: GlRepository | IntegrationIds,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
 		if (!supportsCodeSuggest(item.provider)) return [];
@@ -1002,7 +1006,7 @@ function formatPatch(
 		commit?: GitCommit;
 		contents?: string;
 		files?: DraftPatchFileChange[];
-		repository?: Repository | RepositoryIdentity;
+		repository?: GlRepository | RepositoryIdentity;
 	},
 ): DraftPatch {
 	return {

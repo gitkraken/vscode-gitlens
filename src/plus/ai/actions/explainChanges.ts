@@ -1,10 +1,10 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import { assertsCommitHasFullDetails } from '@gitlens/git/utils/commit.utils.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { TelemetryEvents } from '../../../constants.telemetry.js';
-import { AINoRequestDataError, CancellationError } from '../../../errors.js';
-import type { GitCommit } from '../../../git/models/commit.js';
-import { isCommit } from '../../../git/models/commit.js';
-import type { GitRevisionReference } from '../../../git/models/reference.js';
-import { assertsCommitHasFullDetails } from '../../../git/utils/commit.utils.js';
+import { AINoRequestDataError } from '../../../errors.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { AIResponse, AIResult, AISourceContext } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
@@ -111,17 +111,17 @@ export async function explainCommit(
 			if (!diff?.contents) throw new AINoRequestDataError('No changes found to explain.');
 			if (cancellation.isCancellationRequested) throw new CancellationError();
 
-			const commit = isCommit(commitOrRevision)
+			const commit = GitCommit.is(commitOrRevision)
 				? commitOrRevision
 				: await svc.commits.getCommit(commitOrRevision.ref);
 			if (commit == null) throw new AINoRequestDataError('No commit found to explain.');
 			if (cancellation.isCancellationRequested) throw new CancellationError();
 
 			if (!commit.hasFullDetails()) {
-				await commit.ensureFullDetails();
-				assertsCommitHasFullDetails(commit);
+				await GitCommit.ensureFullDetails(commit);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 			}
+			assertsCommitHasFullDetails(commit);
 
 			return { diff: diff.contents, message: commit.message };
 		},

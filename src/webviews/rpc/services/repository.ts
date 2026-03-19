@@ -8,19 +8,21 @@
  * - Per-repo change events (working tree FS changes, filtered repository changes)
  */
 
-import { CancellationTokenSource, Disposable, Uri } from 'vscode';
+import { Disposable, Uri } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { RepositoryChange } from '@gitlens/git/models/repository.js';
+import { repositoryChanges } from '@gitlens/git/models/repository.js';
+import type { CommitSignature } from '@gitlens/git/models/signature.js';
+import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
+import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../../container.js';
 import type { FeatureAccess, PlusFeatures } from '../../../features.js';
 import * as RepoActions from '../../../git/actions/repository.js';
-import type { GitCommitReachability } from '../../../git/gitProvider.js';
-import type { GitBranch } from '../../../git/models/branch.js';
-import type { GitCommit } from '../../../git/models/commit.js';
-import type { GitFileChange, GitFileChangeShape } from '../../../git/models/fileChange.js';
-import type { RepositoryChange } from '../../../git/models/repository.js';
-import { repositoryChanges } from '../../../git/models/repository.js';
-import type { CommitSignature } from '../../../git/models/signature.js';
+import { getCommitSignature } from '../../../git/utils/-webview/commit.utils.js';
 import { executeCoreGitCommand } from '../../../system/-webview/command.js';
-import { getSettledValue } from '../../../system/promise.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { createBufferedCallback } from '../eventVisibilityBuffer.js';
@@ -67,8 +69,8 @@ export class RepositoryService {
 			undefined,
 		);
 		const disposable = Disposable.from(
-			repo.watchFileSystem(1000),
-			repo.onDidChangeFileSystem(() => buffered(undefined)),
+			repo.watchWorkingTree(1000),
+			repo.onDidChangeWorkingTree(() => buffered(undefined)),
 		);
 		const unsubscribe = () => {
 			this.buffer?.removePending(pendingKey);
@@ -133,7 +135,7 @@ export class RepositoryService {
 	async getCommitFiles(repoPath: string, sha: string): Promise<SerializedGitFileChange[]> {
 		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha);
 		if (commit == null) return [];
-		await commit.ensureFullDetails();
+		await GitCommit.ensureFullDetails(commit);
 		const files = commit.fileset?.files;
 		if (files == null || files.length === 0) return [];
 		return files.map(serializeFileChange);
@@ -154,27 +156,11 @@ export class RepositoryService {
 		sha: string,
 		signal?: AbortSignal,
 	): Promise<GitCommitReachability | undefined> {
-		const cancellation = new CancellationTokenSource();
-		const onAbort = () => cancellation.cancel();
-		signal?.addEventListener('abort', onAbort, { once: true });
-
-		try {
-			if (signal?.aborted) {
-				cancellation.cancel();
-			}
-			return await this.container.git
-				.getRepositoryService(repoPath)
-				.commits.getCommitReachability?.(sha, cancellation.token);
-		} finally {
-			signal?.removeEventListener('abort', onAbort);
-			cancellation.dispose();
-		}
+		return this.container.git.getRepositoryService(repoPath).commits.getCommitReachability?.(sha, signal);
 	}
 
 	async getCommitSignature(repoPath: string, sha: string): Promise<CommitSignatureShape | undefined> {
-		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha);
-		if (commit == null) return undefined;
-		const signature = await commit.getSignature();
+		const signature = await getCommitSignature(repoPath, sha);
 		return signature != null ? serializeSignature(signature) : undefined;
 	}
 
@@ -257,7 +243,7 @@ export class RepositoryService {
 		if (status == null) return undefined;
 
 		return {
-			workingTreeState: status.getDiffStatus(),
+			workingTreeState: status.diffStatus,
 			hasConflicts: status.hasConflicts,
 			conflictsCount: status.conflicts.length,
 			pausedOpStatus: getSettledValue(pausedOpResult),
@@ -274,15 +260,9 @@ export class RepositoryService {
 
 		return {
 			branch: status.branch,
-			files: status.files.map(f => ({
-				repoPath: f.repoPath,
-				path: f.path,
-				status: f.status,
-				originalPath: f.originalPath,
-				submodule: f.submodule,
-			})),
+			files: status.files.map(f => serializeStatusFile(f)),
 			summary: {
-				workingTreeState: status.getDiffStatus(),
+				workingTreeState: status.diffStatus,
 				hasConflicts: status.hasConflicts,
 				conflictsCount: status.conflicts.length,
 			},
@@ -367,5 +347,16 @@ function serializeFileChange(file: GitFileChange): SerializedGitFileChange {
 		submodule: file.submodule,
 		previousSha: file.previousSha,
 		stats: file.stats,
+	};
+}
+
+function serializeStatusFile(file: GitStatusFile): SerializedGitFileChange {
+	return {
+		repoPath: file.repoPath,
+		path: file.path,
+		status: file.status,
+		originalPath: file.originalPath,
+		staged: file.staged,
+		submodule: file.submodule,
 	};
 }

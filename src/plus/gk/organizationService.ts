@@ -1,10 +1,10 @@
 import { Disposable, window } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { once } from '@gitlens/utils/function.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../container.js';
 import { setContext } from '../../system/-webview/context.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug } from '../../system/decorators/log.js';
-import { once } from '../../system/function.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
 import type {
 	Organization,
 	OrganizationMember,

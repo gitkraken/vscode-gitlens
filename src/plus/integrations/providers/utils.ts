@@ -1,5 +1,11 @@
 import type { AnyEntityIdentifierInput, EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierProviderType, EntityType, EntityVersion } from '@gitkraken/provider-apis';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { IssueResourceDescriptor, RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { isIssueResourceDescriptor, isRepositoryDescriptor } from '@gitlens/git/utils/resourceDescriptor.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
@@ -7,12 +13,6 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../../../constants.integrations.js';
 import type { Container } from '../../../container.js';
-import type { Issue, IssueShape } from '../../../git/models/issue.js';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest.js';
-import type { PullRequest } from '../../../git/models/pullRequest.js';
-import type { IssueResourceDescriptor, RepositoryDescriptor } from '../../../git/models/resourceDescriptor.js';
-import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../../../git/utils/resourceDescriptor.utils.js';
-import { Logger } from '../../../system/logger.js';
 import type { LaunchpadItem } from '../../launchpad/launchpadProvider.js';
 import { isCloudGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils.js';
 import type { AzureProjectInputDescriptor } from './azure/models.js';

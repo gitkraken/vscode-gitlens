@@ -1,15 +1,14 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitBranchReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import type { RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitCommit } from '../git/models/commit.js';
-import { isCommit } from '../git/models/commit.js';
-import type { GitBranchReference, GitRevisionReference } from '../git/models/reference.js';
-import type { GitRemote } from '../git/models/remote.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
-import { getRemoteNameFromBranchName } from '../git/utils/branch.utils.js';
-import { getReferenceLabel } from '../git/utils/reference.utils.js';
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { gate } from '../system/decorators/gate.js';
@@ -218,7 +217,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			.branches.getBranchesWithCommits(
 				[commit.ref],
 				undefined,
-				isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
+				GitCommit.is(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
 			);
 		if (branches.length === 0) return undefined;
 

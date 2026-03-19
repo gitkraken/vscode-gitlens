@@ -1,19 +1,20 @@
 import type { DecorationOptions, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
 import { Range } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { first } from '@gitlens/utils/iterable.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
+import type { TokenOptions } from '@gitlens/utils/string.js';
+import { getTokensFromTemplate, getWidth } from '@gitlens/utils/string.js';
 import type { GravatarDefaultStyle } from '../config.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter.js';
 import { CommitFormatter } from '../git/formatters/commitFormatter.js';
-import type { GitCommit } from '../git/models/commit.js';
+import { getCommitAuthorAvatarUri, getCommitDate } from '../git/utils/-webview/commit.utils.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { filterMap } from '../system/array.js';
-import { debug } from '../system/decorators/log.js';
-import { first } from '../system/iterable.js';
-import { getScopedLogger } from '../system/logger.scope.js';
-import { maybeStopWatch } from '../system/stopwatch.js';
-import type { TokenOptions } from '../system/string.js';
-import { getTokensFromTemplate, getWidth } from '../system/string.js';
 import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
 import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider.js';
 import { applyHeatmap, getGutterDecoration, getGutterRenderOptions } from './annotations.js';
@@ -179,7 +180,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			gutter = getGutterDecoration(commit, cfg.format, options, renderOptions) as DecorationOptions;
 
 			if (computedHeatmap != null) {
-				applyHeatmap(gutter, commit.date, computedHeatmap);
+				applyHeatmap(gutter, getCommitDate(commit), computedHeatmap);
 			}
 
 			gutter.range = new Range(editorLine, 0, editorLine, 0);
@@ -249,7 +250,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	) {
 		let avatarDecoration = map.get(commit.author.email ?? '');
 		if (avatarDecoration == null) {
-			const url = (await commit.getAvatarUri({ defaultStyle: gravatarDefault, size: 16 })).toString(true);
+			const url = (await getCommitAuthorAvatarUri(commit, { defaultStyle: gravatarDefault, size: 16 })).toString(
+				true,
+			);
 			avatarDecoration = {
 				contentText: '',
 				height: '16px',

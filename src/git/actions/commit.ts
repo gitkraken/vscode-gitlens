@@ -1,5 +1,19 @@
 import type { TextDocumentShowOptions, TextEditor, ViewColumn } from 'vscode';
 import { env, Range, Uri, window, workspace } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import { GitFileChange } from '@gitlens/git/models/fileChange.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import { createReference, getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import {
+	createRevisionRange,
+	isUncommitted,
+	isUncommittedStaged,
+	shortenRevision,
+} from '@gitlens/git/utils/revision.utils.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import type { DiffWithWorkingCommandArgs } from '../../commands/diffWithWorking.js';
@@ -18,21 +32,13 @@ import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker.js
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getOrOpenTextEditor, openChangesEditor, openTextEditors } from '../../system/-webview/vscode/editors.js';
-import { getSettledValue } from '../../system/promise.js';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
 import type { RevealOptions } from '../../views/viewBase.js';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration.js';
 import { GitUri } from '../gitUri.js';
-import type { GitCommit } from '../models/commit.js';
-import { isCommit } from '../models/commit.js';
-import type { GitFile } from '../models/file.js';
-import { GitFileChange } from '../models/fileChange.js';
-import type { GitRevisionReference } from '../models/reference.js';
-import { deletedOrMissing } from '../models/revision.js';
 import { getAheadBehindFilesQuery } from '../queryResults.js';
+import { findCommitFile, getCommitDate, getCommitForFile } from '../utils/-webview/commit.utils.js';
 import { getReferenceFromRevision } from '../utils/-webview/reference.utils.js';
-import { createReference, getReferenceLabel } from '../utils/reference.utils.js';
-import { createRevisionRange, isUncommitted, isUncommittedStaged, shortenRevision } from '../utils/revision.utils.js';
 
 export type Ref = { repoPath: string; ref: string };
 export type RefRange = { repoPath: string; rhs: string; lhs: string };
@@ -97,10 +103,10 @@ export async function copyIdToClipboard(ref: Ref | GitCommit): Promise<void> {
 
 export async function copyMessageToClipboard(ref: Ref | GitCommit): Promise<void> {
 	let commit;
-	if (isCommit(ref)) {
+	if (GitCommit.is(ref)) {
 		commit = ref;
 		if (commit.message == null) {
-			await commit.ensureFullDetails();
+			await GitCommit.ensureFullDetails(commit);
 		}
 	} else {
 		commit = await Container.instance.git.getRepositoryService(ref.repoPath).commits.getCommit(ref.ref);
@@ -276,12 +282,12 @@ export async function openChanges(
 	commitOrRefs: GitCommit | RefRange,
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ): Promise<void> {
-	const hasCommit = isCommit(commitOrRefs);
+	const hasCommit = GitCommit.is(commitOrRefs);
 
 	if (typeof file === 'string' || file instanceof Uri) {
 		if (!hasCommit) throw new Error('Invalid arguments');
 
-		const f = await commitOrRefs.findFile(file);
+		const f = await findCommitFile(commitOrRefs, file);
 		if (f == null) throw new Error('Invalid arguments');
 
 		file = f;
@@ -292,7 +298,7 @@ export async function openChanges(
 	options = { preserveFocus: true, preview: false, ...options };
 
 	if (file.status === 'A' && hasCommit) {
-		const commit = await commitOrRefs.getCommitForFile(file);
+		const commit = await getCommitForFile(commitOrRefs, file);
 		void executeCommand<DiffWithPreviousCommandArgs>('gitlens.diffWithPrevious:command', {
 			commit: commit,
 			showOptions: options,
@@ -330,9 +336,9 @@ export async function openChangesInDiffTool(
 	tool?: string,
 ): Promise<void> {
 	if (typeof file === 'string') {
-		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
+		if (!GitCommit.is(commitOrRef)) throw new Error('Invalid arguments');
 
-		const f = await commitOrRef.findFile(file);
+		const f = await findCommitFile(commitOrRef, file);
 		if (f == null) throw new Error('Invalid arguments');
 
 		file = f;
@@ -364,9 +370,9 @@ export async function openChangesWithWorking(
 	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void> {
 	if (typeof file === 'string' || file instanceof Uri) {
-		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
+		if (!GitCommit.is(commitOrRef)) throw new Error('Invalid arguments');
 
-		const f = await commitOrRef.findFile(file);
+		const f = await findCommitFile(commitOrRef, file);
 		if (f == null) throw new Error('Invalid arguments');
 
 		file = f;
@@ -375,7 +381,7 @@ export async function openChangesWithWorking(
 	if (file.status === 'D') return;
 
 	let ref;
-	if (isCommit(commitOrRef)) {
+	if (GitCommit.is(commitOrRef)) {
 		ref = {
 			repoPath: commitOrRef.repoPath,
 			ref: commitOrRef.sha,
@@ -513,18 +519,18 @@ export async function openFileAtRevision(
 ): Promise<void> {
 	let uri: Uri;
 	if (fileOrRevisionUri instanceof Uri) {
-		if (isCommit(commitOrOptions)) throw new Error('Invalid arguments');
+		if (GitCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
 
 		uri = fileOrRevisionUri;
 		options = commitOrOptions;
 	} else {
-		if (!isCommit(commitOrOptions)) throw new Error('Invalid arguments');
+		if (!GitCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
 
 		const commit = commitOrOptions;
 
 		let file;
 		if (typeof fileOrRevisionUri === 'string') {
-			const f = await commit.findFile(fileOrRevisionUri);
+			const f = await findCommitFile(commit, fileOrRevisionUri);
 			if (f == null) throw new Error('Invalid arguments');
 
 			file = f;
@@ -535,7 +541,7 @@ export async function openFileAtRevision(
 		uri = Container.instance.git
 			.getRepositoryService(commit.repoPath)
 			.getRevisionUri(
-				file.status === 'D' ? ((await commit.getPreviousSha()) ?? deletedOrMissing) : commit.sha,
+				file.status === 'D' ? ((await GitCommit.getPreviousSha(commit)) ?? deletedOrMissing) : commit.sha,
 				file,
 			);
 	}
@@ -770,11 +776,11 @@ export async function explainCommit(
 
 export async function openOnlyChangedFiles(container: Container, commit: GitCommit): Promise<void>;
 export async function openOnlyChangedFiles(container: Container, files: GitFile[]): Promise<void>;
-export async function openOnlyChangedFiles(container: Container, commitOrFiles: GitCommit | GitFile[]): Promise<void> {
+export async function openOnlyChangedFiles(_container: Container, commitOrFiles: GitCommit | GitFile[]): Promise<void> {
 	let files;
-	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.hasFullDetails()) {
-			await commitOrFiles.ensureFullDetails();
+	if (GitCommit.is(commitOrFiles)) {
+		if (!commitOrFiles.hasFullDetails()) {
+			await GitCommit.ensureFullDetails(commitOrFiles);
 		}
 
 		files = commitOrFiles.fileset?.files ?? [];
@@ -782,11 +788,12 @@ export async function openOnlyChangedFiles(container: Container, commitOrFiles: 
 		files = commitOrFiles.map(
 			f =>
 				new GitFileChange(
-					container,
 					f.repoPath!,
 					f.path,
 					f.status,
+					joinUriPath(fileUri(f.repoPath!), f.path),
 					f.originalPath,
+					f.originalPath != null ? joinUriPath(fileUri(f.repoPath!), f.originalPath) : undefined,
 					undefined,
 					undefined,
 					undefined,
@@ -874,7 +881,7 @@ async function getChangesRefArgs(
 	options: TextDocumentShowOptions | undefined;
 	ref: Ref;
 }> {
-	if (!isCommit(commitOrFiles)) {
+	if (!GitCommit.is(commitOrFiles)) {
 		return {
 			files: commitOrFiles,
 			options: options,
@@ -883,7 +890,7 @@ async function getChangesRefArgs(
 	}
 
 	if (commitOrFiles.fileset?.files == null) {
-		await commitOrFiles.ensureFullDetails();
+		await GitCommit.ensureFullDetails(commitOrFiles);
 	}
 
 	return {
@@ -907,7 +914,7 @@ async function getChangesRefsArgs(
 	options: TextDocumentShowOptions | undefined;
 	refs: RefRange;
 }> {
-	if (!isCommit(commitOrFiles)) {
+	if (!GitCommit.is(commitOrFiles)) {
 		return {
 			files: commitOrFiles,
 			options: options,
@@ -916,7 +923,7 @@ async function getChangesRefsArgs(
 	}
 
 	if (commitOrFiles.fileset?.files == null) {
-		await commitOrFiles.ensureFullDetails();
+		await GitCommit.ensureFullDetails(commitOrFiles);
 	}
 
 	return {
@@ -928,7 +935,7 @@ async function getChangesRefsArgs(
 			rhs: commitOrFiles.sha,
 			lhs:
 				commitOrFiles.resolvedPreviousSha ??
-				(await commitOrFiles.getPreviousSha()) ??
+				(await GitCommit.getPreviousSha(commitOrFiles)) ??
 				commitOrFiles.unresolvedPreviousSha,
 		},
 	};
@@ -939,7 +946,7 @@ async function getCommitChangesArgs(
 	filter?: (file: GitFileChange) => boolean,
 ): Promise<{ files: readonly GitFile[]; refs: RefRange }> {
 	if (commit.fileset?.files == null) {
-		await commit.ensureFullDetails();
+		await GitCommit.ensureFullDetails(commit);
 	}
 
 	return {
@@ -947,7 +954,7 @@ async function getCommitChangesArgs(
 		refs: {
 			repoPath: commit.repoPath,
 			rhs: commit.sha,
-			lhs: commit.resolvedPreviousSha ?? (await commit.getPreviousSha()) ?? commit.unresolvedPreviousSha,
+			lhs: commit.resolvedPreviousSha ?? (await GitCommit.getPreviousSha(commit)) ?? commit.unresolvedPreviousSha,
 		},
 	};
 }
@@ -977,7 +984,7 @@ export async function getOrderedComparisonRefs(
 	const commitRefA = getSettledValue(commitRefAResult);
 	const commitRefB = getSettledValue(commitRefBResult);
 
-	if (commitRefB != null && commitRefA != null && commitRefB.date > commitRefA.date) {
+	if (commitRefB != null && commitRefA != null && getCommitDate(commitRefB) > getCommitDate(commitRefA)) {
 		// If refB is "newer", compare refB to refA
 		return [refB, refA];
 	}

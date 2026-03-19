@@ -1,10 +1,10 @@
 import type { Event, Uri, UriHandler } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
 import type { Container } from '../container.js';
 import { AuthenticationUriPathPrefix, LoginUriPathPrefix } from '../plus/gk/authenticationConnection.js';
 import { AiAllAccessOptInPathPrefix, SubscriptionUpdatedUriPathPrefix } from '../plus/gk/utils/subscription.utils.js';
 import { CloudIntegrationAuthenticationUriPathPrefix } from '../plus/integrations/authentication/models.js';
-import { debug } from '../system/decorators/log.js';
 
 // This service is in charge of registering a URI handler and handling/emitting URI events received by GitLens.
 // URI events to GitLens take the form of: vscode://eamodio.gitlens/... and are handled by the UriEventHandler.

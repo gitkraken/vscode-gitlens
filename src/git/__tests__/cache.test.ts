@@ -1,22 +1,10 @@
 import * as assert from 'assert';
-import * as sinon from 'sinon';
-import type { Disposable, Uri } from 'vscode';
-import type { Container } from '../../container.js';
-import { configuration } from '../../system/-webview/configuration.js';
-import { GitCache } from '../cache.js';
-import type { GitDir, PagedResult } from '../gitProvider.js';
-import type { GitBranch } from '../models/branch.js';
-import { GitTag } from '../models/tag.js';
-
-// Helper to create a mock container with required events
-function createMockContainer(): Container {
-	const container: unknown = {
-		events: {
-			on: (): Disposable => ({ dispose: () => {} }),
-		},
-	};
-	return container as Container;
-}
+import { Cache } from '@gitlens/git/cache.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitDir } from '@gitlens/git/models/repository.js';
+import { GitTag } from '@gitlens/git/models/tag.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
+import type { Uri } from '@gitlens/utils/uri.js';
 
 // Helper to create a mock GitDir
 function createMockGitDir(commonUri: Uri | undefined): GitDir {
@@ -27,7 +15,7 @@ function createMockGitDir(commonUri: Uri | undefined): GitDir {
 	};
 }
 
-// Helper to create a mock Uri with VS Code's Uri methods
+// Helper to create a mock Uri
 function createMockUri(path: string): Uri {
 	const uri = {
 		fsPath: path,
@@ -40,24 +28,10 @@ function createMockUri(path: string): Uri {
 	return uri as Uri;
 }
 
-suite('GitCache Test Suite', () => {
-	let sandbox: sinon.SinonSandbox;
-	let mockContainer: Container;
-
-	setup(() => {
-		sandbox = sinon.createSandbox();
-		// Stub configuration.onDidChange to return a mock disposable
-		sandbox.stub(configuration, 'onDidChange').value(() => ({ dispose: () => {} }));
-		mockContainer = createMockContainer();
-	});
-
-	teardown(() => {
-		sandbox.restore();
-	});
-
+suite('Cache Test Suite', () => {
 	suite('CommonPath Registry', () => {
 		test('registers main repo with commonPath equal to repoPath', () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 			const repoUri = createMockUri('/code/project');
 			const gitDir = createMockGitDir(undefined); // No commonUri means main repo
 
@@ -68,7 +42,7 @@ suite('GitCache Test Suite', () => {
 		});
 
 		test('registers worktree with different commonPath', () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 			const worktreeUri = createMockUri('/code/project-feature');
 			const gitDir = createMockGitDir(createMockUri('/code/project/.git'));
 
@@ -79,13 +53,13 @@ suite('GitCache Test Suite', () => {
 		});
 
 		test('getCommonPath returns input path for unregistered paths', () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 
 			assert.strictEqual(cache.getCommonPath('/unknown/path'), '/unknown/path');
 		});
 
 		test('getWorktreePaths returns all paths sharing a commonPath', () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 
 			// Register main repo
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
@@ -109,7 +83,7 @@ suite('GitCache Test Suite', () => {
 		});
 
 		test('isWorktree returns false for main repo even when registered with worktrees', () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 
 			// Register main repo
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
@@ -127,24 +101,14 @@ suite('GitCache Test Suite', () => {
 
 	suite('Shared Cache Accessors', () => {
 		test('getTags caches by commonPath for main repo', async () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
 
 			let factoryCallCount = 0;
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [
-						new GitTag(
-							mockContainer,
-							commonPath,
-							'refs/tags/v1.0',
-							'abc123',
-							'Release',
-							undefined,
-							undefined,
-						),
-					],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
 				};
 			};
 
@@ -161,7 +125,7 @@ suite('GitCache Test Suite', () => {
 		});
 
 		test('getTags shares cache between worktrees with cloned tags', async () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 
 			// Register main repo and worktree
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
@@ -174,17 +138,7 @@ suite('GitCache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [
-						new GitTag(
-							mockContainer,
-							commonPath,
-							'refs/tags/v1.0',
-							'abc123',
-							'Release',
-							undefined,
-							undefined,
-						),
-					],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
 				};
 			};
 
@@ -204,7 +158,7 @@ suite('GitCache Test Suite', () => {
 		});
 
 		test('getTags fetches once when main repo queries first', async () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 
 			// Register main repo and worktree
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
@@ -217,17 +171,7 @@ suite('GitCache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [
-						new GitTag(
-							mockContainer,
-							commonPath,
-							'refs/tags/v1.0',
-							'abc123',
-							'Release',
-							undefined,
-							undefined,
-						),
-					],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
 				};
 			};
 
@@ -245,7 +189,7 @@ suite('GitCache Test Suite', () => {
 
 	suite('Cache Invalidation', () => {
 		test('clearCaches clears shared caches across all worktrees', async () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 
 			// Register main repo and worktrees
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
@@ -262,17 +206,7 @@ suite('GitCache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [
-						new GitTag(
-							mockContainer,
-							commonPath,
-							'refs/tags/v1.0',
-							'abc123',
-							'Release',
-							undefined,
-							undefined,
-						),
-					],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
 				};
 			};
 
@@ -299,7 +233,7 @@ suite('GitCache Test Suite', () => {
 
 	suite('Branch Caching', () => {
 		test('getBranches caches directly for non-worktree repos', async () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
 
 			let factoryCallCount = 0;
@@ -323,7 +257,7 @@ suite('GitCache Test Suite', () => {
 		});
 
 		test('getBranches shares cache and calls mapper for worktrees', async () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 
 			// Register main repo and worktree
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
@@ -378,7 +312,7 @@ suite('GitCache Test Suite', () => {
 		});
 
 		test('getBranches shares cache when main repo queries first', async () => {
-			const cache = new GitCache(mockContainer);
+			const cache = new Cache();
 
 			// Register main repo and worktree
 			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));

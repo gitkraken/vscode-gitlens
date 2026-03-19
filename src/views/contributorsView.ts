@@ -1,16 +1,16 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { GitContributor } from '@gitlens/git/models/contributor.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
 import { onDidFetchAvatar } from '../avatars.js';
 import type { ContributorsViewConfig, ViewFilesLayout } from '../config.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitContributor } from '../git/models/contributor.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
 import { gate } from '../system/decorators/gate.js';
-import { trace } from '../system/decorators/log.js';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode.js';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode.js';
 import type { ViewNode } from './nodes/abstract/viewNode.js';

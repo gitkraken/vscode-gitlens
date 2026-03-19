@@ -1,10 +1,11 @@
 import type { TextEditor } from 'vscode';
 import { Range } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { Container } from '../container.js';
-import type { GitCommit } from '../git/models/commit.js';
-import { debug } from '../system/decorators/log.js';
-import { getScopedLogger } from '../system/logger.scope.js';
-import { maybeStopWatch } from '../system/stopwatch.js';
+import { getCommitDate } from '../git/utils/-webview/commit.utils.js';
 import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
 import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider.js';
 import type { Decoration } from './annotations.js';
@@ -42,7 +43,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 			if (commit == null) continue;
 
 			addOrUpdateGutterHeatmapDecoration(
-				commit.date,
+				getCommitDate(commit),
 				computedHeatmap,
 				new Range(editorLine, 0, editorLine, 0),
 				decorationsMap,

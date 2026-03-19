@@ -1,22 +1,25 @@
 import type { Selection } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { memoize } from '@gitlens/utils/decorators/memoize.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { filterMap, find, some } from '@gitlens/utils/iterable.js';
+import { getLoggableName } from '@gitlens/utils/logger.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitFile } from '../../git/models/file.js';
-import { GitFileIndexStatus } from '../../git/models/fileStatus.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
-import { deletedOrMissing } from '../../git/models/revision.js';
+import type { RepositoryChangeEvent, RepositoryWorkingTreeChangeEvent } from '../../git/models/repository.js';
 import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils.js';
-import { isUncommitted } from '../../git/utils/revision.utils.js';
+import { getStatusFilePseudoCommits } from '../../git/utils/-webview/statusFile.utils.js';
+import { selectionToDiffRange } from '../../system/-webview/vscode/range.js';
 import { gate } from '../../system/decorators/gate.js';
-import { trace } from '../../system/decorators/log.js';
-import { memoize } from '../../system/decorators/memoize.js';
-import { weakEvent } from '../../system/event.js';
-import { filterMap, find } from '../../system/iterable.js';
-import { getLoggableName } from '../../system/logger.js';
-import { maybeStartScopedLogger } from '../../system/logger.scope.js';
-import { getSettledValue } from '../../system/promise.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import type { LineHistoryView } from '../lineHistoryView.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
@@ -107,7 +110,7 @@ export class LineHistoryNode
 					};
 
 					const currentUser = await svc.config.getCurrentUser();
-					const pseudoCommits = status?.getPseudoCommits(this.view.container, currentUser);
+					const pseudoCommits = status != null ? getStatusFilePseudoCommits(status, currentUser) : undefined;
 					if (pseudoCommits != null) {
 						for (const commit of pseudoCommits.reverse()) {
 							children.unshift(
@@ -187,7 +190,7 @@ export class LineHistoryNode
 
 		const subscription = Disposable.from(
 			weakEvent(repo.onDidChange, this.onRepositoryChanged, this),
-			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.watchFileSystem()]),
+			weakEvent(repo.onDidChangeWorkingTree, this.onWorkingTreeChanged, this, [repo.watchWorkingTree()]),
 		);
 
 		return subscription;
@@ -208,11 +211,11 @@ export class LineHistoryNode
 		void this.triggerChange(true);
 	}
 
-	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-		if (!e.uris.has(this.uri)) return;
+	private onWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
+		if (!some(e.uris, uri => areUrisEqual(uri, this.uri))) return;
 
 		using scope = maybeStartScopedLogger(
-			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,
+			`${getLoggableName(this)}.onWorkingTreeChanged(e=${this.uri.toString(true)})`,
 		);
 		scope?.trace('triggering node refresh');
 
@@ -235,7 +238,7 @@ export class LineHistoryNode
 				all: false,
 				isFolder: false,
 				limit: this.limit ?? this.view.config.pageItemLimit,
-				range: selection ?? this.selection,
+				range: selectionToDiffRange(selection ?? this.selection),
 				renames: false,
 			});
 

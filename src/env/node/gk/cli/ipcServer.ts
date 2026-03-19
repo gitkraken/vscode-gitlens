@@ -1,11 +1,11 @@
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 import { createServer } from 'http';
 import type { Disposable } from 'vscode';
-import { uuid } from '@env/crypto.js';
-import { debug } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
-import { createDisposable } from '../../../../system/unifiedDisposable.js';
+import { uuid } from '@gitlens/utils/crypto.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { createDisposable } from '@gitlens/utils/disposable.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 
 export interface IpcHandler<Request = unknown, Response = void> {
 	(request: Request | undefined): Promise<Response>;

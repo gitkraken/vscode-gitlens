@@ -1,6 +1,6 @@
+import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { Container } from '../../../container.js';
-import type { GitRemote } from '../../../git/models/remote.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -33,7 +33,7 @@ export type RemotePruneStepNames = StepNames;
 
 type Context = RemoteContext<StepNames>;
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	remote: string | GitRemote;
 }
@@ -92,10 +92,12 @@ export class RemotePruneGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (typeof state.remote === 'string') {
-				const [remote] = await state.repo.git.remotes.getRemotes({ filter: r => r.name === state.remote });
+				const [remote] = await state.repo.git.remotes.getRemotes({
+					filter: (r: GitRemote) => r.name === state.remote,
+				});
 				if (remote != null) {
 					state.remote = remote;
 				} else {
@@ -124,7 +126,7 @@ export class RemotePruneGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.Confirm);
 
 				const result = yield* this.confirmStep(
-					state as StepState<State<Repository>> & { remote: GitRemote },
+					state as StepState<State<GlRepository>> & { remote: GitRemote },
 					context,
 				);
 				if (result === StepResultBreak) {
@@ -142,7 +144,7 @@ export class RemotePruneGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(
-		state: StepState<State<Repository>> & { remote: GitRemote },
+		state: StepState<State<GlRepository>> & { remote: GitRemote },
 		context: Context,
 	): StepResultGenerator<void> {
 		const step: QuickPickStep = createConfirmStep(

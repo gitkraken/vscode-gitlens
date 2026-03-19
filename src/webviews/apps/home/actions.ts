@@ -11,7 +11,7 @@
  * - Fire-and-forget with `.then(setter, noop)`: each RPC sets its signal independently
  */
 import type { Remote } from '@eamodio/supertalk';
-import { Logger } from '../../../system/logger.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { HomeServices } from '../../home/homeService.js';
 import type { OverviewFilters } from '../../home/protocol.js';
 import { noop } from '../shared/actions/rpc.js';

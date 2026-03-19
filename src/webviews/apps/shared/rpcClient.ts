@@ -11,7 +11,7 @@ import type { Handler, Options, Remote } from '@eamodio/supertalk';
 import { Connection } from '@eamodio/supertalk';
 import { AbortSignalHandler } from '@eamodio/supertalk-core/handlers/abort-signal.js';
 import { SignalHandler } from '@eamodio/supertalk-signals';
-import { Logger } from '../../../system/logger.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { rpcHandlers } from '../../../system/rpc/handlers.js';
 import { supertalkLogger } from '../../../system/rpc/logger.js';
 import { RpcConnectCommand } from '../../protocol.js';

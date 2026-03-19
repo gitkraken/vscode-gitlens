@@ -6,7 +6,7 @@
  * so it works with any webview service that has a matching method signature.
  */
 import type { Signal } from '@lit-labs/signals';
-import type { GitFileChangeShape } from '../../../../git/models/fileChange.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { fireAndForget, fireRpc } from './rpc.js';
 
 // ============================================================

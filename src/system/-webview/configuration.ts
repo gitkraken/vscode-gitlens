@@ -1,8 +1,8 @@
 import type { ConfigurationChangeEvent, ConfigurationScope, Disposable, Event, ExtensionContext } from 'vscode';
 import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
+import { areEqual } from '@gitlens/utils/object.js';
 import type { Config, CoreConfig } from '../../config.js';
 import { extensionPrefix } from '../../constants.js';
-import { areEqual } from '../object.js';
 
 interface ConfigurationOverrides {
 	get<T extends ConfigPath>(section: T, value: ConfigPathValue<T>): ConfigPathValue<T>;

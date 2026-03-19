@@ -1,16 +1,16 @@
 import { window } from 'vscode';
+import { ApplyPatchCommitError } from '@gitlens/git/errors.js';
+import type { GitDiff } from '@gitlens/git/models/diff.js';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { isSha } from '@gitlens/git/utils/revision.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../../container.js';
-import { CancellationError } from '../../../errors.js';
-import { ApplyPatchCommitError } from '../../../git/errors.js';
-import type { GitDiff } from '../../../git/models/diff.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { uncommitted, uncommittedStaged } from '../../../git/models/revision.js';
-import type { GitWorktree } from '../../../git/models/worktree.js';
-import { isSha } from '../../../git/utils/revision.utils.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
-import { Logger } from '../../../system/logger.js';
-import { pluralize } from '../../../system/string.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -41,7 +41,7 @@ export type WorktreeCopyChangesStepNames = StepNames;
 
 type Context = WorktreeContext<WorktreeCopyChangesStepNames>;
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	/** Optional source worktree, defaults to the current worktree if not provided */
 	source?: GitWorktree;
@@ -115,7 +115,7 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
 				using step = steps.enterStep(Steps.EnsureAccess);
@@ -263,7 +263,7 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 				await targetSvc.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
 				void window.showInformationMessage(`Changes copied successfully`);
 			} catch (ex) {
-				if (ex instanceof CancellationError) return;
+				if (isCancellationError(ex)) return;
 
 				if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
 					void window.showWarningMessage('Changes copied with conflicts');
@@ -303,7 +303,10 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private async *confirmStep(state: StepState<State<Repository>>, context: Context): AsyncStepResultGenerator<void> {
+	private async *confirmStep(
+		state: StepState<State<GlRepository>>,
+		context: Context,
+	): AsyncStepResultGenerator<void> {
 		const files = await state.repo.git.diff.getDiffFiles?.(state.changes.contents!);
 		const count = files?.files.length ?? 0;
 

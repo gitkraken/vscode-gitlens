@@ -1,19 +1,19 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileWithCommit } from '@gitlens/git/models/file.js';
+import { GitFileChange } from '@gitlens/git/models/fileChange.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import { getGitFileStatusIcon } from '@gitlens/git/utils/fileStatus.utils.js';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { joinPaths } from '@gitlens/utils/path.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { GitFileWithCommit } from '../../git/models/file.js';
-import { isGitFileChange } from '../../git/models/fileChange.js';
-import type { GitRevisionReference } from '../../git/models/reference.js';
-import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils.js';
-import { shortenRevision } from '../../git/utils/revision.utils.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { relativeDir } from '../../system/-webview/path.js';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/editors.js';
-import { joinPaths } from '../../system/path.js';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { getFileTooltip } from './abstract/viewFileNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -159,7 +159,7 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 			.map(
 				f =>
 					`${getFileTooltip(f, getStatusSuffix(f))}${
-						isGitFileChange(f) && f.stats != null ? '\n\n' : '\\\n'
+						GitFileChange.is(f) && f.stats != null ? '\n\n' : '\\\n'
 					}`,
 			)
 			.join('')

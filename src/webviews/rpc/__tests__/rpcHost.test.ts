@@ -192,7 +192,6 @@ suite('RpcHost Integration Test Suite', () => {
 		test('should propagate async errors from service methods', async () => {
 			const { mockWebview, clientEndpoint } = createMockBridge();
 			const services = {
-				// eslint-disable-next-line @typescript-eslint/require-await -- intentionally async with no await to test async error propagation over RPC
 				failAsync: async function (): Promise<never> {
 					throw new Error('async failure');
 				},

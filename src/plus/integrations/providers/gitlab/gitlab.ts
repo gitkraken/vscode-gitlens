@@ -4,33 +4,33 @@ import { Uri, window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch.js';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
 import { isWeb } from '@env/platform.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
+import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
-	CancellationError,
 	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
 	RequestRateLimitError,
 } from '../../../../errors.js';
-import type { Account } from '../../../../git/models/author.js';
-import type { DefaultBranch } from '../../../../git/models/defaultBranch.js';
-import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest.js';
-import { PullRequest } from '../../../../git/models/pullRequest.js';
-import type { Provider } from '../../../../git/models/remoteProvider.js';
-import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata.js';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { trace } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
-import type { ScopedLogger } from '../../../../system/logger.scope.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
-import { maybeStopWatch } from '../../../../system/stopwatch.js';
-import { equalsIgnoreCase } from '../../../../system/string.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
 import type {
 	GitLabCommit,

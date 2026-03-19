@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { md5 } from '@env/crypto.js';
+import { md5 } from '@gitlens/utils/crypto.js';
 import type { GlCommands } from '../constants.commands.js';
 import type { Container } from '../container.js';
 import type { MarkdownContentMetadata } from '../documents/markdown.js';

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/require-await */
 import * as assert from 'assert';
 import type { OverviewFilters } from '../../../home/protocol.js';
 import { createAIState } from '../../shared/contexts/ai.js';

@@ -19,7 +19,7 @@
  * - Launchpad events from standalone LaunchpadService
  */
 import type { Remote } from '@eamodio/supertalk';
-import { Logger } from '../../../system/logger.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { HomeServices, WalkthroughProgressState } from '../../home/homeService.js';
 import type { OverviewFilters } from '../../home/protocol.js';
 import type {

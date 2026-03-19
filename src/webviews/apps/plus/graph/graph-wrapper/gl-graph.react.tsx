@@ -24,13 +24,13 @@ import GraphContainer, { CommitDateTimeSources, emptySetMarker, refZone } from '
 import type { ReactElement, ReactNode } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform.js';
+import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
+import type { DateTimeFormat } from '@gitlens/utils/date.js';
+import { formatDate, fromNow } from '@gitlens/utils/date.js';
+import { first, groupByFilterMap } from '@gitlens/utils/iterable.js';
+import { hasKeys } from '@gitlens/utils/object.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { DateStyle } from '../../../../../config.js';
-import { splitCommitMessage } from '../../../../../git/utils/commit.utils.js';
-import type { DateTimeFormat } from '../../../../../system/date.js';
-import { formatDate, fromNow } from '../../../../../system/date.js';
-import { first, groupByFilterMap } from '../../../../../system/iterable.js';
-import { hasKeys } from '../../../../../system/object.js';
-import { pluralize } from '../../../../../system/string.js';
 import type {
 	GraphAvatars,
 	GraphColumnName,
@@ -699,11 +699,11 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		invalidate: invalidateTarget,
 		provideAdornments: (
 			rows: readonly ReadonlyGraphRow[],
-			signal: AbortSignal,
+			cancellation: AbortSignal,
 		): Record<string, RowAdornment> | Promise<Record<string, RowAdornment>> => {
 			const adornments: Record<string, RowAdornment> = {};
 			for (const row of rows) {
-				if (signal.aborted) return {};
+				if (cancellation.aborted) return {};
 
 				if (row.type === 'work-dir-changes') {
 					adornments[row.sha] = { visibility: true };

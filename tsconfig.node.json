@@ -1,8 +1,14 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
+		"rootDir": ".",
 		"paths": {
-			"@env/*": ["./src/env/node/*"]
+			"@env/*": ["./src/env/node/*"],
+			"#env/*": ["./packages/utils/src/env/node/*"],
+			"@gitlens/utils/*": ["./packages/utils/src/*"],
+			"@gitlens/git/*": ["./packages/git/src/*"],
+			"@gitlens/git-cli/*": ["./packages/git-cli/src/*"],
+			"@gitlens/git-github/*": ["./packages/plus/git-github/src/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.node.tsbuildinfo"
 	},

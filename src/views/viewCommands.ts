@@ -1,6 +1,25 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { getTempFile } from '@env/platform.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import { matchContributor } from '@gitlens/git/utils/contributor.utils.js';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+} from '@gitlens/git/utils/pullRequest.utils.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { runSequentially } from '@gitlens/utils/function.js';
+import { join, map } from '@gitlens/utils/iterable.js';
+import { lazy } from '@gitlens/utils/lazy.js';
+import { basename } from '@gitlens/utils/path.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens.d.js';
 import type { DiffWithCommandArgs } from '../commands/diffWith.js';
 import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious.js';
@@ -26,24 +45,14 @@ import * as TagActions from '../git/actions/tag.js';
 import * as WorktreeActions from '../git/actions/worktree.js';
 import { browseAtRevision, executeGitCommand } from '../git/actions.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitBranch } from '../git/models/branch.js';
-import type { PullRequest } from '../git/models/pullRequest.js';
-import { RemoteResourceType } from '../git/models/remoteResource.js';
-import type { Repository } from '../git/models/repository.js';
-import { deletedOrMissing } from '../git/models/revision.js';
+import type { GlRepository } from '../git/models/repository.js';
+import { getBranchAssociatedPullRequest, getBranchRemote } from '../git/utils/-webview/branch.utils.js';
 import {
 	ensurePullRequestRefs,
 	getOpenedPullRequestRepo,
 	getOrOpenPullRequestRepository,
 } from '../git/utils/-webview/pullRequest.utils.js';
 import { openRebaseEditor } from '../git/utils/-webview/rebase.utils.js';
-import { matchContributor } from '../git/utils/contributor.utils.js';
-import {
-	getComparisonRefsForPullRequest,
-	getRepositoryIdentityForPullRequest,
-} from '../git/utils/pullRequest.utils.js';
-import { createReference } from '../git/utils/reference.utils.js';
-import { shortenRevision } from '../git/utils/revision.utils.js';
 import { showPatchesView } from '../plus/drafts/actions.js';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/associateIssueWithBranch.js';
@@ -59,19 +68,13 @@ import {
 import { configuration } from '../system/-webview/configuration.js';
 import { getContext, setContext } from '../system/-webview/context.js';
 import type { MergeEditorInputs } from '../system/-webview/vscode/editors.js';
-import { editorLineToDiffRange, openMergeEditor } from '../system/-webview/vscode/editors.js';
+import { openMergeEditor } from '../system/-webview/vscode/editors.js';
+import { editorLineToDiffRange } from '../system/-webview/vscode/range.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
 import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
 import { revealInFileExplorer } from '../system/-webview/vscode.js';
-import { filterMap } from '../system/array.js';
 import { createCommandDecorator } from '../system/decorators/command.js';
-import { debug } from '../system/decorators/log.js';
-import { runSequentially } from '../system/function.js';
-import { join, map } from '../system/iterable.js';
-import { lazy } from '../system/lazy.js';
-import { basename } from '../system/path.js';
-import { getSettledValue } from '../system/promise.js';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink.js';
 import type { ShowInCommitGraphCommandArgs } from '../webviews/plus/graph/registration.js';
 import type { LaunchpadItemNode } from './launchpadView.js';
@@ -301,7 +304,7 @@ export class ViewCommands implements Disposable {
 
 	@command('gitlens.views.addPullRequestRemote')
 	@debug()
-	private async addPullRequestRemote(node: ViewNode, pr: PullRequest, repo: Repository) {
+	private async addPullRequestRemote(node: ViewNode, pr: PullRequest, repo: GlRepository) {
 		const identity = getRepositoryIdentityForPullRequest(pr);
 		if (identity.remote?.url == null) return;
 
@@ -421,7 +424,7 @@ export class ViewCommands implements Disposable {
 	private async createPullRequest(node: BranchNode | BranchTrackingStatusNode) {
 		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
 
-		const remote = await node.branch.getRemote();
+		const remote = await getBranchRemote(this.container, node.branch);
 
 		return executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
 			repoPath: node.repoPath,
@@ -769,15 +772,16 @@ export class ViewCommands implements Disposable {
 		if (!node.is('branch') && !node.is('pullrequest') && !node.is('launchpad-item')) return;
 
 		if (node.is('branch')) {
-			const pr = await node.branch.getAssociatedPullRequest();
+			const pr = await getBranchAssociatedPullRequest(this.container, node.branch);
 			if (pr != null) {
 				const remoteUrl =
-					(await node.branch.getRemote())?.url ?? getRepositoryIdentityForPullRequest(pr).remote.url;
+					(await getBranchRemote(this.container, node.branch))?.url ??
+					getRepositoryIdentityForPullRequest(pr).remote.url;
 				if (remoteUrl != null) {
 					const deepLink = getPullRequestBranchDeepLink(
 						this.container,
 						pr,
-						node.branch.getNameWithoutRemote(),
+						node.branch.nameWithoutRemote,
 						remoteUrl,
 						DeepLinkActionType.SwitchToPullRequestWorktree,
 					);
@@ -1773,7 +1777,7 @@ export class ViewCommands implements Disposable {
 						? this.container.git
 								.getRepositoryService(node.commit.repoPath)
 								.getRevisionUri(
-									(await node.commit.getPreviousSha()) ?? deletedOrMissing,
+									(await GitCommit.getPreviousSha(node.commit)) ?? deletedOrMissing,
 									node.commit.file.path,
 								)
 						: this.container.git.getRevisionUriFromGitUri(node.uri);

@@ -1,7 +1,8 @@
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitStashReference } from '@gitlens/git/models/reference.js';
 import type { Container } from '../container.js';
 import { apply, pop } from '../git/actions/stash.js';
-import type { GitStashCommit } from '../git/models/commit.js';
-import type { GitStashReference } from '../git/models/reference.js';
 import type { CommandQuickPickItem } from '../quickpicks/items/common.js';
 import { command } from '../system/-webview/command.js';
 import { GlCommandBase } from './commandBase.js';
@@ -26,7 +27,7 @@ export class StashApplyCommand extends GlCommandBase {
 		if (context.command === 'gitlens.stashesApply:views') {
 			if (isCommandContextViewNodeHasCommit<GitStashCommit>(context)) {
 				if (context.node.commit.message == null) {
-					await context.node.commit.ensureFullDetails();
+					await GitCommit.ensureFullDetails(context.node.commit);
 				}
 				args = { ...args, stashItem: context.node.commit };
 			} else if (isCommandContextViewNodeHasRepository(context)) {

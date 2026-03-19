@@ -5,15 +5,15 @@
  * Keep this file to pure type definitions — no runtime code.
  */
 
+import type { GitTrackingUpstream } from '@gitlens/git/models/branch.js';
+import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
+import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import type { Source, TelemetryEventData, TelemetryEvents } from '../../../constants.telemetry.js';
-import type { GitTrackingUpstream } from '../../../git/models/branch.js';
-import type { GitDiffFileStats } from '../../../git/models/diff.js';
-import type { GitFileChangeShape, GitFileChangeStats } from '../../../git/models/fileChange.js';
-import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus.js';
-import type { RepositoryChange } from '../../../git/models/repository.js';
 
 // Re-export for webview-side consumers (avoids deep `../../../../git/` imports)
-export type { RepositoryChange } from '../../../git/models/repository.js';
+export type { RepositoryChange } from '@gitlens/git/models/repository.js';
 
 // ============================================================
 // File Show Options

@@ -1,15 +1,15 @@
-import type { IssueMember } from '../../../../git/models/issue.js';
-import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue.js';
-import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest.js';
-import type { PullRequestMember, PullRequestReviewer } from '../../../../git/models/pullRequest.js';
+import type { IssueMember } from '@gitlens/git/models/issue.js';
+import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequestMember, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
-} from '../../../../git/models/pullRequest.js';
-import type { Provider } from '../../../../git/models/remoteProvider.js';
-import type { ResourceDescriptor } from '../../../../git/models/resourceDescriptor.js';
+} from '@gitlens/git/models/pullRequest.js';
+import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 
 const vstsHostnameRegex = /\.visualstudio\.com$/;
 
