@@ -690,7 +690,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@command('gitlens.pausedOperation.showConflicts:')
 	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
-		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, { openRebaseEditor: true });
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, {
+			openRebaseEditor: pausedOpArgs.type === 'rebase',
+		});
 	}
 
 	@command('gitlens.createCloudPatch:')

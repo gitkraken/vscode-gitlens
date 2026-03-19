@@ -1,9 +1,11 @@
 import { flow } from '@lit-labs/virtualizer/layouts/flow.js';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { keyed } from 'lit/directives/keyed.js';
 import type { Ref } from 'lit/directives/ref.js';
 import { createRef, ref } from 'lit/directives/ref.js';
+import { styleMap } from 'lit/directives/style-map.js';
 import { when } from 'lit/directives/when.js';
 import { GlElement } from '../element.js';
 import type { GlGitStatus } from '../status/git-status.js';
@@ -58,6 +60,12 @@ export class GlTreeGenerator extends GlElement {
 				/* Use layout containment instead of strict to avoid rendering issues */
 				/* Removed paint containment to allow tooltips to escape */
 				contain: layout;
+				/* lit-virtualizer sets an inline min-height based on its initial item-size
+				   estimate, which can exceed the scrollable container in small viewports and
+				   push scrolling onto the outer .scrollable div instead of the virtualizer's
+				   own scroller. Since height: 100% already provides correct sizing from the
+				   flex layout, the min-height is always redundant. */
+				min-height: 0 !important;
 			}
 
 			gl-tree-item {
@@ -224,7 +232,13 @@ export class GlTreeGenerator extends GlElement {
 			}
 
 			if (decoration.type === 'text') {
-				return html`<span slot="decorations">${decoration.label}</span>`;
+				return html`<span
+					slot="decorations"
+					title=${ifDefined(decoration.tooltip)}
+					aria-label=${ifDefined(decoration.tooltip ?? decoration.label)}
+					style=${decoration.color ? styleMap({ color: decoration.color }) : nothing}
+					>${decoration.label}</span
+				>`;
 			}
 
 			// TODO: implement badge and indicator decorations

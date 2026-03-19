@@ -87,7 +87,8 @@ export const treeItemStyles = [
 			justify-content: flex-start;
 			align-items: center;
 			gap: 0.6rem;
-			width: 100%;
+			flex: 1;
+			min-width: 0;
 			padding: 0;
 			font-family: inherit;
 			font-size: inherit;
@@ -97,7 +98,6 @@ export const treeItemStyles = [
 			border: none;
 			outline: none;
 			cursor: pointer;
-			min-width: 0;
 		}
 		.icon {
 			display: inline-block;
@@ -262,7 +262,11 @@ export const treeItemStyles = [
 		}
 
 		slot[name='decorations'] {
-			display: inline-block;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+			flex: none;
+			white-space: nowrap;
 			margin-left: 0.4rem;
 		}
 
@@ -299,6 +303,10 @@ export const treeItemStyles = [
 			.node--connector::before {
 				border-color: CanvasText;
 				opacity: 1;
+			}
+
+			slot[name='decorations'] span {
+				color: CanvasText !important;
 			}
 		}
 	`,

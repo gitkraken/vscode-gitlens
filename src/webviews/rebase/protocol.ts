@@ -1,4 +1,5 @@
 import type { Config } from '../../config.js';
+import type { GitFileConflictStatus } from '../../git/models/fileStatus.js';
 import type { ConflictDetectionResult } from '../../git/models/mergeConflicts.js';
 import type {
 	ProcessedRebaseCommitEntry as _RebaseCommitEntry,
@@ -49,6 +50,16 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 
 	/** Subscription state for Pro feature gating */
 	subscription?: Subscription;
+
+	/** Conflicted files when rebase is paused due to conflicts */
+	conflictFiles?: ConflictFileInfo[];
+}
+
+export interface ConflictFileInfo {
+	path: string;
+	conflictStatus: GitFileConflictStatus;
+	/** Number of conflict markers in the file */
+	conflictCount?: number;
 }
 
 /** Reason the rebase is paused */
@@ -178,6 +189,17 @@ export interface GetMissingCommitsParams {
 export const GetMissingCommitsCommand = new IpcCommand<GetMissingCommitsParams>(scope, 'commits/get');
 
 export const RecomposeCommand = new IpcCommand(scope, 'recompose/open');
+
+export interface OpenConflictFileParams {
+	path: string;
+}
+export const OpenConflictFileCommand = new IpcCommand<OpenConflictFileParams>(scope, 'conflicts/openFile');
+
+export interface OpenConflictChangesParams {
+	path: string;
+	side: 'current' | 'incoming';
+}
+export const OpenConflictChangesCommand = new IpcCommand<OpenConflictChangesParams>(scope, 'conflicts/openChanges');
 
 // REQUESTS
 

@@ -3445,6 +3445,52 @@ void
 }
 ```
 
+### rebaseEditor/action/openConflictChanges
+
+> Sent when the user opens current or incoming changes for a conflict file
+
+```typescript
+{
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Which side of the conflict was opened
+  'side': 'current' | 'incoming'
+}
+```
+
+### rebaseEditor/action/openConflictFile
+
+> Sent when the user opens a conflict file from the inline conflict panel
+
+```typescript
+{
+  // File extension of the opened conflict file (e.g. '.ts', '.json')
+  'conflict.fileExtension': string,
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### rebaseEditor/action/recompose
 
 > Sent when the user opens the Commit Composer from the rebase editor

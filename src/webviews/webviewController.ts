@@ -210,6 +210,7 @@ export class WebviewController<
 
 		const isInEditor = 'onDidChangeViewState' in parent;
 		this._isInEditor = isInEditor;
+		this._viewColumn = isInEditor ? parent.viewColumn : undefined;
 		this._originalTitle = descriptor.title;
 		parent.title = descriptor.title;
 
