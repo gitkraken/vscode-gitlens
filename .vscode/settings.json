@@ -41,10 +41,9 @@
 	"[html][javascript][json][jsonc][markdown][scss][svg][typescript][typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
+	"js/ts.preferences.importModuleSpecifier": "project-relative",
+	"js/ts.tsdk.path": "node_modules/typescript/lib",
 	"search.exclude": {
 		"**/dist": true
-	},
-	"task.allowAutomaticTasks": "on",
-	"typescript.preferences.importModuleSpecifier": "project-relative",
-	"typescript.tsdk": "node_modules/typescript/lib"
+	}
 }

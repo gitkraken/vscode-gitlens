@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import { extensions } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import { ExtensionNotFoundError } from '../errors.js';
-import { Logger } from '../system/logger.js';
 
 export async function getRemoteHubApi(): Promise<RemoteHubApi>;
 // eslint-disable-next-line @typescript-eslint/unified-signatures
@@ -35,12 +35,13 @@ export interface Provider {
 	readonly name: string;
 }
 
-export const enum HeadType {
-	Branch = 0,
-	RemoteBranch = 1,
-	Tag = 2,
-	Commit = 3,
-}
+export const HeadType = {
+	Branch: 0,
+	RemoteBranch: 1,
+	Tag: 2,
+	Commit: 3,
+} as const;
+export type HeadType = (typeof HeadType)[keyof typeof HeadType];
 
 export interface Metadata {
 	readonly provider: Provider;

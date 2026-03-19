@@ -1,15 +1,16 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { first } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import { shortenRevision } from '../git/utils/revision.utils.js';
+import { getCommitRepository } from '../git/utils/-webview/commit.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { first } from '../system/iterable.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';
@@ -43,7 +44,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			args.sha = context.node.commit.sha;
 			return this.execute(
 				context.editor,
-				context.node.commit.file?.uri ?? context.node.commit.getRepository()?.uri,
+				context.node.commit.file?.uri ?? getCommitRepository(context.node.commit.repoPath)?.uri,
 				args,
 			);
 		} else if (isCommandContextViewNodeHasBranch(context)) {

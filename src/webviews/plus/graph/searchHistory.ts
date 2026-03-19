@@ -1,4 +1,4 @@
-import type { SearchQuery } from '../../../constants.search.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { Storage } from '../../../system/-webview/storage.js';
 
 /** Maximum number of search history entries to store */

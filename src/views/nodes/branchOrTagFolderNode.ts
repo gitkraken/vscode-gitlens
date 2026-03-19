@@ -1,7 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { HierarchicalItem } from '@gitlens/utils/array.js';
+import { first } from '@gitlens/utils/iterable.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { HierarchicalItem } from '../../system/array.js';
-import { first } from '../../system/iterable.js';
 import type {
 	ViewsWithBranchesNode,
 	ViewsWithRemotesNode,

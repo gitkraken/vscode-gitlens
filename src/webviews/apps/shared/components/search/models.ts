@@ -1,6 +1,6 @@
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
-import type { SearchOperatorsLongForm } from '../../../../../constants.search.js';
+import type { SearchOperatorsLongForm } from '@gitlens/git/models/search.js';
 import type { CompletionItem } from '../autocomplete/autocomplete.js';
 
 export type SearchCompletionItem = CompletionItem<

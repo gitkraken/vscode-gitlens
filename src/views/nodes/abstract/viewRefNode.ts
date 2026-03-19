@@ -1,8 +1,8 @@
+import type { GitReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { loggable } from '@gitlens/utils/decorators/log.js';
 import type { TreeViewRefFileNodeTypes, TreeViewRefNodeTypes } from '../../../constants.views.js';
 import type { GitUri } from '../../../git/gitUri.js';
-import type { GitReference, GitRevisionReference } from '../../../git/models/reference.js';
-import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
-import { loggable } from '../../../system/decorators/log.js';
 import type { View } from '../../viewBase.js';
 import { ViewFileNode } from './viewFileNode.js';
 import { ViewNode } from './viewNode.js';

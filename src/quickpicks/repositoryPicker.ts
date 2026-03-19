@@ -1,13 +1,13 @@
 import type { Disposable, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import { filterMap } from '@gitlens/utils/array.js';
+import { map } from '@gitlens/utils/iterable.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
-import type { Repository } from '../git/models/repository.js';
+import type { GlRepository } from '../git/models/repository.js';
 import { groupRepositories } from '../git/utils/-webview/repository.utils.js';
 import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
-import { filterMap } from '../system/array.js';
-import { map } from '../system/iterable.js';
 import type { QuickPickResult } from './items/common.js';
 import { createQuickPickSeparator } from './items/common.js';
 import type { DirectiveQuickPickItem } from './items/directive.js';
@@ -21,8 +21,8 @@ export async function getBestRepositoryOrShowPicker(
 	editor: TextEditor | undefined,
 	title: string,
 	placeholder?: string,
-	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean> },
-): Promise<Repository | undefined> {
+	options?: { excludeWorktrees?: boolean; filter?: (r: GlRepository) => Promise<boolean> },
+): Promise<GlRepository | undefined> {
 	return getRepositoryOrShowPickerCore(
 		container,
 		container.git.getBestRepository(uri, editor),
@@ -37,8 +37,8 @@ export async function getRepositoryOrShowPicker(
 	title: string,
 	placeholder?: string,
 	pathOrUri?: string | Uri,
-	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean> },
-): Promise<Repository | undefined> {
+	options?: { excludeWorktrees?: boolean; filter?: (r: GlRepository) => Promise<boolean> },
+): Promise<GlRepository | undefined> {
 	return getRepositoryOrShowPickerCore(
 		container,
 		pathOrUri == null ? container.git.highlander : await container.git.getOrOpenRepository(pathOrUri),
@@ -50,11 +50,11 @@ export async function getRepositoryOrShowPicker(
 
 async function getRepositoryOrShowPickerCore(
 	container: Container,
-	repository: Repository | undefined,
+	repository: GlRepository | undefined,
 	title: string,
 	placeholder?: string,
-	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean> },
-): Promise<Repository | undefined> {
+	options?: { excludeWorktrees?: boolean; filter?: (r: GlRepository) => Promise<boolean> },
+): Promise<GlRepository | undefined> {
 	if (repository != null && options?.filter != null) {
 		if (!(await options.filter(repository))) {
 			repository = undefined;
@@ -73,9 +73,9 @@ export async function showRepositoryPicker(
 	container: Container,
 	title: string | undefined,
 	placeholder?: string,
-	repositories?: readonly Repository[],
-	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean>; picked?: Repository },
-): Promise<Repository | undefined> {
+	repositories?: readonly GlRepository[],
+	options?: { excludeWorktrees?: boolean; filter?: (r: GlRepository) => Promise<boolean>; picked?: GlRepository },
+): Promise<GlRepository | undefined> {
 	const result = await showRepositoryPicker2(container, title, placeholder, repositories, options);
 	return result?.value;
 }
@@ -84,16 +84,16 @@ export async function showRepositoryPicker2(
 	container: Container,
 	title: string | undefined,
 	placeholder?: string,
-	repositories?: readonly Repository[],
+	repositories?: readonly GlRepository[],
 	options?: {
 		additionalItem?: DirectiveQuickPickItem;
 		autoPick?: boolean;
 		excludeWorktrees?: boolean;
-		filter?: (r: Repository) => Promise<boolean>;
-		picked?: Repository;
+		filter?: (r: GlRepository) => Promise<boolean>;
+		picked?: GlRepository;
 	},
-): Promise<QuickPickResult<Repository>> {
-	let repos: Iterable<Repository> = (repositories ??= container.git.openRepositories);
+): Promise<QuickPickResult<GlRepository>> {
+	let repos: Iterable<GlRepository> = (repositories ??= container.git.openRepositories);
 
 	if (options?.filter != null) {
 		const { filter } = options;
@@ -133,7 +133,7 @@ export async function showRepositoryPicker2(
 	const disposables: Disposable[] = [];
 
 	try {
-		const pick = await new Promise<QuickPickResult<Repository>>(resolve => {
+		const pick = await new Promise<QuickPickResult<GlRepository>>(resolve => {
 			disposables.push(
 				quickpick.onDidHide(() => resolve({ value: undefined })),
 				quickpick.onDidAccept(() => {
@@ -169,13 +169,13 @@ export async function showRepositoriesPicker(
 	container: Container,
 	title: string | undefined,
 	placeholder?: string,
-	repositories?: Repository[],
+	repositories?: GlRepository[],
 	options?: {
 		excludeWorktrees?: boolean;
-		filter?: (r: Repository) => Promise<boolean>;
-		picked?: readonly Repository[];
+		filter?: (r: GlRepository) => Promise<boolean>;
+		picked?: readonly GlRepository[];
 	},
-): Promise<readonly Repository[]> {
+): Promise<readonly GlRepository[]> {
 	const result = await showRepositoriesPicker2(container, title, placeholder, repositories, options);
 	return result?.value ?? [];
 }
@@ -184,15 +184,15 @@ export async function showRepositoriesPicker2(
 	container: Container,
 	title: string | undefined,
 	placeholder?: string,
-	repositories?: readonly Repository[],
+	repositories?: readonly GlRepository[],
 	options?: {
 		additionalItems?: DirectiveQuickPickItem[];
 		excludeWorktrees?: boolean;
-		filter?: (r: Repository) => Promise<boolean>;
-		picked?: readonly Repository[];
+		filter?: (r: GlRepository) => Promise<boolean>;
+		picked?: readonly GlRepository[];
 	},
-): Promise<QuickPickResult<Repository[]>> {
-	let repos: Iterable<Repository> = (repositories ??= container.git.openRepositories);
+): Promise<QuickPickResult<GlRepository[]>> {
+	let repos: Iterable<GlRepository> = (repositories ??= container.git.openRepositories);
 
 	if (options?.filter != null) {
 		const { filter } = options;
@@ -231,7 +231,7 @@ export async function showRepositoriesPicker2(
 	let selected: readonly (RepositoryQuickPickItem | DirectiveQuickPickItem)[] = [];
 
 	try {
-		const pick = await new Promise<QuickPickResult<Repository[]>>(resolve => {
+		const pick = await new Promise<QuickPickResult<GlRepository[]>>(resolve => {
 			disposables.push(
 				quickpick.onDidHide(() => resolve({ value: undefined })),
 				quickpick.onDidChangeSelection(e => {
@@ -297,7 +297,7 @@ export async function showRepositoriesPicker2(
 }
 
 export function getRepositoryPickerTitleAndPlaceholder(
-	repositories: Repository[],
+	repositories: GlRepository[],
 	action: string,
 	context?: string,
 ): { title: string; placeholder: string } {

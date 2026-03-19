@@ -1,10 +1,10 @@
+import type { Account } from '@gitlens/git/models/author.js';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
-import type { Account } from '../../../git/models/author.js';
-import type { IssueShape } from '../../../git/models/issue.js';
-import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { trace } from '../../../system/decorators/log.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IssueFilter } from '../providers/models.js';
 import type { Integration, IntegrationType } from './integration.js';

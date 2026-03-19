@@ -1,14 +1,16 @@
 import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileWithCommit } from '@gitlens/git/models/file.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { GitStatus } from '@gitlens/git/models/status.js';
+import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
+import { filter, flatMap, groupBy, map } from '@gitlens/utils/iterable.js';
+import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { pluralize, sortCompare } from '@gitlens/utils/string.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { GitFileWithCommit } from '../../git/models/file.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { GitStatus } from '../../git/models/status.js';
-import type { GitStatusFile } from '../../git/models/statusFile.js';
-import { makeHierarchical } from '../../system/array.js';
-import { filter, flatMap, groupBy, map } from '../../system/iterable.js';
-import { joinPaths, normalizePath } from '../../system/path.js';
-import { pluralize, sortCompare } from '../../system/string.js';
+import { getCommitDate } from '../../git/utils/-webview/commit.utils.js';
+import { getStatusFilePseudoCommits } from '../../git/utils/-webview/statusFile.utils.js';
 import type { ViewsWithWorkingTree } from '../viewBase.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
 import type { FileNode } from './folderNode.js';
@@ -47,7 +49,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 				await Promise.allSettled(
 					map(
 						filter(log.commits.values(), c => c.fileset?.files == null),
-						c => c.ensureFullDetails(),
+						c => GitCommit.ensureFullDetails(c),
 					),
 				);
 
@@ -63,12 +65,12 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 		if ((this.view.type === 'worktrees' || this.view.config.includeWorkingTree) && this.status.files.length) {
 			files.unshift(
 				...flatMap(this.status.files, f =>
-					map(f.getPseudoCommits(this.view.container, undefined), c => this.getFileWithPseudoCommit(f, c)),
+					map(getStatusFilePseudoCommits(f, undefined), c => this.getFileWithPseudoCommit(f, c)),
 				),
 			);
 		}
 
-		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
+		files.sort((a, b) => getCommitDate(b.commit).getTime() - getCommitDate(a.commit).getTime());
 
 		const groups = groupBy(files, s => s.path);
 

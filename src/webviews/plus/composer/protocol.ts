@@ -1,5 +1,5 @@
+import type { GitCommitIdentityShape } from '@gitlens/git/models/commit.js';
 import type { Source, Sources } from '../../../constants.telemetry.js';
-import type { GitCommitIdentityShape } from '../../../git/models/commit.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { AIModel } from '../../../plus/ai/models/model.js';
 import type { IpcScope } from '../../ipc/models/ipc.js';

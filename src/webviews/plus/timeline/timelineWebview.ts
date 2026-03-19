@@ -1,5 +1,27 @@
 import type { TabChangeEvent, TabGroupChangeEvent } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
+import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import {
+	createRevisionRange,
+	isUncommitted,
+	isUncommittedStaged,
+	shortenRevision,
+} from '@gitlens/git/utils/revision.utils.js';
+import { createFromDateDelta } from '@gitlens/utils/date.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { map, some } from '@gitlens/utils/iterable.js';
+import { flatten } from '@gitlens/utils/object.js';
+import { basename } from '@gitlens/utils/path.js';
+import { batch, getSettledValue } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
+import { SubscriptionManager } from '@gitlens/utils/subscriptionManager.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import { proBadge } from '../../../constants.js';
 import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
@@ -13,25 +35,15 @@ import {
 } from '../../../git/actions/commit.js';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
 import { ensureWorkingUri } from '../../../git/gitUri.utils.js';
-import type { GitCommit } from '../../../git/models/commit.js';
-import type { GitFileChange } from '../../../git/models/fileChange.js';
 import type {
-	Repository,
+	GlRepository,
 	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
+	RepositoryWorkingTreeChangeEvent,
 } from '../../../git/models/repository.js';
-import { uncommitted } from '../../../git/models/revision.js';
+import { getCommitDate } from '../../../git/utils/-webview/commit.utils.js';
 import { getReference } from '../../../git/utils/-webview/reference.utils.js';
 import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils.js';
 import { getPseudoCommitsWithStats } from '../../../git/utils/-webview/statusFile.utils.js';
-import { getChangedFilesCount } from '../../../git/utils/commit.utils.js';
-import { createReference } from '../../../git/utils/reference.utils.js';
-import {
-	createRevisionRange,
-	isUncommitted,
-	isUncommittedStaged,
-	shortenRevision,
-} from '../../../git/utils/revision.utils.js';
 import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { Directive } from '../../../quickpicks/items/directive.js';
 import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker.js';
@@ -43,17 +55,6 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { isDescendant } from '../../../system/-webview/path.js';
 import { openTextEditor } from '../../../system/-webview/vscode/editors.js';
 import { getTabUri } from '../../../system/-webview/vscode/tabs.js';
-import { createFromDateDelta } from '../../../system/date.js';
-import { trace } from '../../../system/decorators/log.js';
-import type { Deferrable } from '../../../system/function/debounce.js';
-import { debounce } from '../../../system/function/debounce.js';
-import { map, some } from '../../../system/iterable.js';
-import { flatten } from '../../../system/object.js';
-import { basename } from '../../../system/path.js';
-import { batch, getSettledValue } from '../../../system/promise.js';
-import { PromiseCache } from '../../../system/promiseCache.js';
-import { SubscriptionManager } from '../../../system/subscriptionManager.js';
-import { areUrisEqual } from '../../../system/uri.js';
 import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
@@ -588,16 +589,16 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	}
 
 	@trace({ args: false })
-	private onRepositoryWipChanged(e: RepositoryFileSystemChangeEvent) {
+	private onRepositoryWipChanged(e: RepositoryWorkingTreeChangeEvent) {
 		if (e.repository.id !== this._repositorySubscription?.source?.id) return;
 
-		if (this._context.etags.repositoryWip === e.repository.etagFileSystem) return;
+		if (this._context.etags.repositoryWip === e.repository.etagWorkingTree) return;
 
 		const uri = this._context.scope?.uri;
-		if (uri != null && (e.uris.has(uri) || some(e.uris, u => isDescendant(u, uri)))) {
+		if (uri != null && some(e.uris, u => areUrisEqual(u, uri) || isDescendant(u, uri))) {
 			void this.updateScope(this._context.scope);
 		} else {
-			this._context.etags.repositoryWip = e.repository.etagFileSystem;
+			this._context.etags.repositoryWip = e.repository.etagWorkingTree;
 		}
 	}
 
@@ -678,7 +679,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	private async getDataset(
 		scope: TimelineScope,
-		repo: Repository,
+		repo: GlRepository,
 		config: Context['config'],
 		access: RepoFeatureAccess | FeatureAccess,
 	): Promise<TimelineDatum[]> {
@@ -798,7 +799,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (commit == null) return;
 
 		if (!commit.hasFullDetails()) {
-			await commit.ensureFullDetails({ include: { uncommittedFiles: true } });
+			await GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } });
 		}
 
 		this.container.events.fire(
@@ -898,7 +899,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	private _repositorySubscription: SubscriptionManager<Repository> | undefined;
+	private _repositorySubscription: SubscriptionManager<GlRepository> | undefined;
 
 	private async updateScope(
 		scope: TimelineScope | undefined,
@@ -957,7 +958,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 
 			etags.repository = repo?.etag ?? 0;
-			etags.repositoryWip = repo?.etagFileSystem ?? 0;
+			etags.repositoryWip = repo?.etagWorkingTree ?? 0;
 		} else {
 			this._repositorySubscription?.dispose();
 			this._repositorySubscription = undefined;
@@ -998,11 +999,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return true;
 	}
 
-	private subscribeToRepository(repo: Repository): Disposable {
+	private subscribeToRepository(repo: GlRepository): Disposable {
 		return Disposable.from(
 			// TODO: advanced configuration for the watchFileSystem timing
-			repo.watchFileSystem(1000),
-			repo.onDidChangeFileSystem(this.onRepositoryWipChanged, this),
+			repo.watchWorkingTree(1000),
+			repo.onDidChangeWorkingTree(this.onRepositoryWipChanged, this),
 			repo.onDidChange(this.onRepositoryChanged, this),
 		);
 	}
@@ -1050,9 +1051,9 @@ function createDatum(commit: GitCommit, scopeType: TimelineScopeType, currentUse
 		additions: additions,
 		deletions: deletions,
 		sha: commit.sha,
-		date: commit.date.toISOString(),
+		date: getCommitDate(commit).toISOString(),
 		message: commit.message ?? commit.summary,
-		sort: commit.date.getTime(),
+		sort: getCommitDate(commit).getTime(),
 	};
 }
 

@@ -1,21 +1,24 @@
 import type { ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { once } from '@gitlens/utils/event.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { MaybePausedResult } from '@gitlens/utils/promise.js';
+import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations.js';
 import type { GlCommands } from '../constants.commands.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
 import { CommitFormatter } from '../git/formatters/commitFormatter.js';
-import type { PullRequest } from '../git/models/pullRequest.js';
+import { getCommitAssociatedPullRequest, getCommitGitUri } from '../git/utils/-webview/commit.utils.js';
+import { remoteSupportsIntegration } from '../git/utils/-webview/remote.utils.js';
 import { detailsMessage } from '../hovers/hovers.js';
+import { toAbortSignal } from '../system/-webview/cancellation.js';
 import { createCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { trace } from '../system/decorators/log.js';
-import { once } from '../system/event.js';
-import { getScopedLogger } from '../system/logger.scope.js';
-import type { MaybePausedResult } from '../system/promise.js';
-import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise.js';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker.js';
 
 export class StatusBarController implements Disposable {
@@ -351,7 +354,8 @@ export class StatusBarController implements Disposable {
 
 		const showPullRequests =
 			!commit.isUncommitted &&
-			remote?.supportsIntegration() &&
+			remote != null &&
+			remoteSupportsIntegration(remote) &&
 			cfg.pullRequests.enabled &&
 			(CommitFormatter.has(
 				cfg.format,
@@ -394,7 +398,7 @@ export class StatusBarController implements Disposable {
 			pr: Promise<PullRequest | undefined> | PullRequest | undefined,
 			timeout?: number,
 		) {
-			return detailsMessage(container, commit, commit.getGitUri(), commit.lines[0].line - 1, {
+			return detailsMessage(container, commit, getCommitGitUri(commit), commit.lines[0].line - 1, {
 				autolinks: true,
 				cancellation: cancellation,
 				dateFormat: defaultDateFormat,
@@ -414,8 +418,8 @@ export class StatusBarController implements Disposable {
 			const timeout = 100;
 
 			prResult = await pauseOnCancelOrTimeout(
-				commit.getAssociatedPullRequest(remote),
-				cancellation,
+				getCommitAssociatedPullRequest(commit.repoPath, commit.sha, remote),
+				toAbortSignal(cancellation),
 				timeout,
 				async result => {
 					if (result.reason !== 'timedout' || this._statusBarBlame == null) return;
@@ -455,7 +459,7 @@ export class StatusBarController implements Disposable {
 
 		const tooltipResult = await pauseOnCancelOrTimeout(
 			getBlameTooltip(this.container, getBranchAndTagTips, prResult?.value, 20),
-			cancellation,
+			toAbortSignal(cancellation),
 			100,
 			async result => {
 				if (result.reason !== 'timedout' || this._statusBarBlame == null) return;

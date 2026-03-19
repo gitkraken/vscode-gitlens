@@ -1,24 +1,25 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { CancellationToken, Disposable, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { fnv1aHash64 } from '@gitlens/utils/hash.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { AutolinkReference, GlDynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
 import type { IntegrationIds, IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
 import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
 import type { Sources } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
-import { AuthenticationError, CancellationError, RequestClientError } from '../../../errors.js';
-import type { Account } from '../../../git/models/author.js';
-import type { Issue, IssueShape } from '../../../git/models/issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest.js';
-import type { PullRequest } from '../../../git/models/pullRequest.js';
-import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
+import { AuthenticationError, RequestClientError } from '../../../errors.js';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../../messages.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug, trace } from '../../../system/decorators/log.js';
-import { fnv1aHash64 } from '../../../system/hash.js';
-import type { ScopedLogger } from '../../../system/logger.scope.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../gk/utils/subscription.utils.js';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
@@ -115,8 +116,8 @@ export abstract class IntegrationBase<
 	}
 
 	autolinks():
-		| (AutolinkReference | DynamicAutolinkReference)[]
-		| Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+		| (AutolinkReference | GlDynamicAutolinkReference)[]
+		| Promise<(AutolinkReference | GlDynamicAutolinkReference)[]> {
 		return [];
 	}
 
@@ -334,7 +335,7 @@ export abstract class IntegrationBase<
 		ex: Error,
 		options?: { scope?: ScopedLogger | undefined; silent?: boolean },
 	): void {
-		if (ex instanceof CancellationError) return;
+		if (isCancellationError(ex)) return;
 
 		options?.scope?.error(ex);
 
@@ -620,7 +621,7 @@ export abstract class IntegrationBase<
 						this.resetRequestExceptionCount('getCurrentAccount');
 						return account;
 					} catch (ex) {
-						if (ex instanceof CancellationError) {
+						if (isCancellationError(ex)) {
 							cacheable.invalidate();
 							return undefined;
 						}

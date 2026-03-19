@@ -6,14 +6,14 @@ import type {
 	ProcessedRebaseEntry,
 	ProcessedRebaseTodo,
 	RebaseTodoAction,
-} from '../../git/models/rebase.js';
-import { parseRebaseTodo } from '../../git/parsers/rebaseTodoParser.js';
+} from '@gitlens/git/models/rebase.js';
+import { parseRebaseTodo } from '@gitlens/git/parsers/rebaseTodoParser.js';
+import { map } from '@gitlens/utils/iterable.js';
 import {
 	formatRebaseTodoEntryLine,
 	formatUpdateRefLine,
 	processRebaseEntries,
 } from '../../git/utils/-webview/rebase.parsing.utils.js';
-import { map } from '../../system/iterable.js';
 import type { MoveEntryParams } from './protocol.js';
 import { maxSmallIntegerV8 } from './rebaseWebviewProvider.js';
 

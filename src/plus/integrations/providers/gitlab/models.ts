@@ -1,6 +1,6 @@
-import type { PullRequestRefs, PullRequestState } from '../../../../git/models/pullRequest.js';
-import { PullRequest, PullRequestMergeableState } from '../../../../git/models/pullRequest.js';
-import type { Provider } from '../../../../git/models/remoteProvider.js';
+import type { PullRequestRefs, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import { PullRequest, PullRequestMergeableState } from '@gitlens/git/models/pullRequest.js';
+import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { Integration } from '../../models/integration.js';
 import type { ProviderPullRequest } from '../models.js';
 import { fromProviderPullRequest } from '../models.js';

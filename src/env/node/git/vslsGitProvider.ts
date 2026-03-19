@@ -1,23 +1,29 @@
-import { Uri } from 'vscode';
+import type { Disposable } from 'vscode';
+import { Uri, workspace } from 'vscode';
+import type { GitExecOptions, GitResult, GitSpawnOptions } from '@gitlens/git/exec.types.js';
+import type { GitProviderDescriptor } from '@gitlens/git/providers/types.js';
+import type { CliGitProvider, CliGitProviderOptions } from '@gitlens/git-cli/cliGitProvider.js';
+import type { GitOptions } from '@gitlens/git-cli/exec/git.js';
+import { Git } from '@gitlens/git-cli/exec/git.js';
+import type { GitLocation } from '@gitlens/git-cli/exec/locator.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getScheme } from '@gitlens/utils/path.js';
 import { Schemes } from '../../../constants.js';
 import { Container } from '../../../container.js';
-import type { GitExecOptions, GitResult, GitSpawnOptions } from '../../../git/execTypes.js';
-import type { GitProviderDescriptor } from '../../../git/gitProvider.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { isFolderUri } from '../../../system/-webview/path.js';
 import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { trace } from '../../../system/decorators/log.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
-import { Git } from './git.js';
-import { LocalGitProvider } from './localGitProvider.js';
+import { GlCliGitProvider } from './cliGitProvider.js';
 
 export class VslsGit extends Git {
-	constructor(
-		container: Container,
-		private readonly localGit: Git,
-	) {
-		super(container);
+	private readonly localGit: Git;
+
+	constructor(locator: () => Promise<GitLocation>, options?: GitOptions) {
+		super(locator, options);
+
+		this.localGit = new Git(locator, { isTrusted: () => workspace.isTrusted });
 	}
 
 	override async exec<T extends string | Buffer>(options: GitExecOptions, ...args: any[]): Promise<GitResult<T>> {
@@ -49,7 +55,7 @@ export class VslsGit extends Git {
 	}
 }
 
-export class VslsGitProvider extends LocalGitProvider {
+export class VslsGitProvider extends GlCliGitProvider {
 	override readonly descriptor: GitProviderDescriptor = {
 		id: 'vsls',
 		name: 'Live Share',
@@ -57,8 +63,32 @@ export class VslsGitProvider extends LocalGitProvider {
 	};
 	override readonly supportedSchemes = new Set<string>([Schemes.Vsls, Schemes.VslsScc]);
 
+	private _vslsRegistration: Disposable | undefined;
+
+	protected override getProviderOptions(): CliGitProviderOptions {
+		const options = super.getProviderOptions();
+		return {
+			...options,
+			git: new VslsGit(options.locator, { isTrusted: () => workspace.isTrusted }),
+		};
+	}
+
+	override dispose(): void {
+		this._vslsRegistration?.dispose();
+		super.dispose();
+	}
+
+	protected override ensureProvider(): CliGitProvider {
+		const p = super.ensureProvider();
+		this._vslsRegistration ??= this.register(p, repoPath => {
+			const scheme = getScheme(repoPath);
+			return scheme === Schemes.Vsls || scheme === Schemes.VslsScc;
+		});
+		return p;
+	}
+
 	@trace({ exit: true })
-	override async discoverRepositories(uri: Uri): Promise<Repository[]> {
+	override async discoverRepositories(uri: Uri): Promise<GlRepository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
 		const scope = getScopedLogger();
@@ -68,13 +98,14 @@ export class VslsGitProvider extends LocalGitProvider {
 			const repositories = await guest?.getRepositoriesForUri(uri);
 			if (!repositories?.length) return [];
 
-			const result: Repository[] = [];
+			const result: GlRepository[] = [];
 			for (const r of repositories) {
 				const repoUri = Uri.parse(r.folderUri, true);
 
-				const gitDir = await this.config.getGitDir(repoUri.fsPath);
+				const gitDir = await this.provider.config.getGitDir?.(repoUri.fsPath);
 				if (gitDir == null) {
 					scope?.warn(`Unable to get gitDir for '${repoUri.toString(true)}'`);
+					continue;
 				}
 
 				result.push(...this.openRepository(undefined, repoUri, gitDir, r.root, r.closed));
@@ -120,7 +151,7 @@ export class VslsGitProvider extends LocalGitProvider {
 			}
 
 			let safe;
-			[safe, repoPath] = await this.git.rev_parse__show_toplevel(uri.fsPath);
+			[safe, repoPath] = await this.provider.git.rev_parse__show_toplevel(uri.fsPath);
 			if (safe) {
 				this.unsafePaths.delete(uri.fsPath);
 			} else {

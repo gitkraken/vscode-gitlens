@@ -2,10 +2,10 @@ import { provide } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type { GlWebviewCommands } from '../../../constants.commands.js';
 import type { CustomEditorIds, WebviewIds, WebviewTypes } from '../../../constants.views.js';
-import type { Deferrable } from '../../../system/function/debounce.js';
-import { debounce } from '../../../system/function/debounce.js';
 import { createWebviewCommandLink } from '../../../system/webview.js';
 import type { WebviewFocusChangedParams, WebviewState } from '../../protocol.js';
 import {

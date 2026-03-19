@@ -1,20 +1,19 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter, ProgressLocation, window } from 'vscode';
-import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
-import type { Container } from '../container.js';
-import type { GitCommit } from '../git/models/commit.js';
-import { isCommit } from '../git/models/commit.js';
-import type { GitContributor } from '../git/models/contributor.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import type {
 	GitBranchReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../git/models/reference.js';
-import type { GitRemote } from '../git/models/remote.js';
-import type { GitWorktree } from '../git/models/worktree.js';
-import { getRemoteNameFromBranchName } from '../git/utils/branch.utils.js';
-import { getReferenceLabel } from '../git/utils/reference.utils.js';
+} from '@gitlens/git/models/reference.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
+import type { Container } from '../container.js';
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
@@ -321,7 +320,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 					if (n instanceof RemoteNode) {
 						if (n.repoPath !== repoPath) return false;
 
-						return branch.remote && n.remote.name === getRemoteNameFromBranchName(branch.name); //branch.getRemoteName();
+						return branch.remote && n.remote.name === getRemoteNameFromBranchName(branch.name); //branch.remoteName;
 					}
 
 					if (
@@ -368,7 +367,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		let branches = await svc.branches.getBranchesWithCommits(
 			[commit.ref],
 			undefined,
-			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
+			GitCommit.is(commit) ? { commitDate: commit.committer.date } : undefined,
 		);
 		if (branches.length !== 0) {
 			return this.findNode((n: any) => n.commit?.ref === commit.ref, {
@@ -401,7 +400,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		branches = await svc.branches.getBranchesWithCommits(
 			[commit.ref],
 			undefined,
-			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
+			GitCommit.is(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
 		);
 		if (branches.length === 0) return undefined;
 

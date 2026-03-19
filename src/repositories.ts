@@ -1,12 +1,12 @@
 import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform.js';
+import { decodeGitLensRevisionUriAuthority } from '@gitlens/git/utils/uriAuthority.js';
+import { normalizePath } from '@gitlens/utils/path.js';
+import { UriTrie } from '@gitlens/utils/trie.js';
 import { Schemes } from './constants.js';
 import type { RevisionUriData } from './git/gitProvider.js';
-import { decodeGitLensRevisionUriAuthority } from './git/gitUri.authority.js';
-import type { Repository } from './git/models/repository.js';
+import type { GlRepository } from './git/models/repository.js';
 import { addVslsPrefixIfNeeded } from './system/-webview/path.vsls.js';
-import { normalizePath } from './system/path.js';
-import { UriTrie } from './system/trie.js';
 
 const slash = 47; //CharCode.Slash;
 
@@ -100,18 +100,18 @@ export function normalizeRepoUri(uri: Uri): { path: string; ignoreCase: boolean 
 }
 
 export class Repositories {
-	private readonly _trie: UriTrie<Repository>;
+	private readonly _trie: UriTrie<GlRepository, Uri>;
 	private _count: number = 0;
 
 	constructor() {
-		this._trie = new UriTrie<Repository>(normalizeRepoUri);
+		this._trie = new UriTrie<GlRepository, Uri>(normalizeRepoUri);
 	}
 
 	get count(): number {
 		return this._count;
 	}
 
-	add(repository: Repository): boolean {
+	add(repository: GlRepository): boolean {
 		const added = this._trie.set(repository.uri, repository);
 		if (added) {
 			this._count++;
@@ -124,21 +124,21 @@ export class Repositories {
 		this._trie.clear();
 	}
 
-	forEach(fn: (repository: Repository) => void, thisArg?: unknown): void {
+	forEach(fn: (repository: GlRepository) => void, thisArg?: unknown): void {
 		for (const value of this._trie.getDescendants()) {
 			fn.call(thisArg, value);
 		}
 	}
 
-	get(uri: Uri): Repository | undefined {
+	get(uri: Uri): GlRepository | undefined {
 		return this._trie.get(uri);
 	}
 
-	getClosest(uri: Uri): Repository | undefined {
+	getClosest(uri: Uri): GlRepository | undefined {
 		return this._trie.getClosest(uri);
 	}
 
-	getDescendants(uri: Uri): Generator<Repository> {
+	getDescendants(uri: Uri): Generator<GlRepository> {
 		return this._trie.getDescendants(uri);
 	}
 
@@ -154,7 +154,7 @@ export class Repositories {
 		return deleted;
 	}
 
-	values(): IterableIterator<Repository> {
+	values(): IterableIterator<GlRepository> {
 		return this._trie.getDescendants();
 	}
 }

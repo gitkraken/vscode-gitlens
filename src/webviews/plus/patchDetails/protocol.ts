@@ -1,9 +1,10 @@
 import type { TextDocumentShowOptions } from 'vscode';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { PatchRevisionRange } from '@gitlens/git/models/patch.js';
+import type { GkRepositoryId } from '@gitlens/git/models/repositoryIdentities.js';
+import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { Config } from '../../../config.js';
-import type { GitFileChangeShape } from '../../../git/models/fileChange.js';
-import type { PatchRevisionRange } from '../../../git/models/patch.js';
-import type { Repository } from '../../../git/models/repository.js';
-import type { GkRepositoryId } from '../../../git/models/repositoryIdentities.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type {
 	Draft,
 	DraftArchiveReason,
@@ -17,7 +18,6 @@ import type {
 	LocalDraft,
 } from '../../../plus/drafts/models/drafts.js';
 import type { OrganizationMember } from '../../../plus/gk/models/organization.js';
-import type { DateTimeFormat } from '../../../system/date.js';
 import type { Serialized } from '../../../system/serialize.js';
 import type { IpcScope } from '../../ipc/models/ipc.js';
 import { IpcCommand, IpcNotification, IpcRequest } from '../../ipc/models/ipc.js';
@@ -46,7 +46,7 @@ interface CreateDraftFromRepositories {
 	title?: string;
 	description?: string;
 	changes?: never;
-	repositories: Repository[] | undefined;
+	repositories: GlRepository[] | undefined;
 }
 
 export type CreateDraft = CreateDraftFromChanges | CreateDraftFromRepositories;

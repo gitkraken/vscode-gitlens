@@ -1,12 +1,12 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { isPromise } from '@gitlens/utils/promise.js';
 import type { GlCommands } from '../../constants.commands.js';
 import { Container } from '../../container.js';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { KeyMapping } from '../../system/-webview/keyboard.js';
-import { debug } from '../../system/decorators/log.js';
-import { isPromise } from '../../system/promise.js';
 import { GlCommandBase } from '../commandBase.js';
 import type { QuickWizardCommandArgsWithCompletion } from './models/quickWizard.js';
 import type { CustomStep } from './models/steps.custom.js';

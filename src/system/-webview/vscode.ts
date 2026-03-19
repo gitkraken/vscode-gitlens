@@ -1,11 +1,11 @@
 import type { ColorTheme, ThemeIcon } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, ExtensionMode, Uri, window, workspace } from 'vscode';
 import { getPlatform } from '@env/platform.js';
+import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { getDistributionGroup } from '@gitlens/utils/string.js';
+import { satisfies } from '@gitlens/utils/version.js';
 import type { IconPath } from '../../@types/vscode.iconpath.d.js';
 import type { Container } from '../../container.js';
-import { joinPaths, normalizePath } from '../path.js';
-import { getDistributionGroup } from '../string.js';
-import { satisfies } from '../version.js';
 import { executeCoreCommand } from './command.js';
 import { configuration } from './configuration.js';
 import { exists } from './vscode/uris.js';

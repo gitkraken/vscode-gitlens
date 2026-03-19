@@ -1,4 +1,4 @@
-import { exhaustiveArray } from '../../../system/array.js';
+import { exhaustiveArray } from '@gitlens/utils/array.js';
 
 export const launchpadActionCategories = [
 	'mergeable',

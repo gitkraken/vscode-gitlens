@@ -1,9 +1,9 @@
 import type { CancellationToken } from 'vscode';
-import type { SearchQuery } from '../../constants.search.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { CancellationError } from '../../errors.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
 
 export interface NaturalLanguageSearchOptions {
 	context?: string;

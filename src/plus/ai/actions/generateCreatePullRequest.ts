@@ -1,9 +1,10 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import type { Source } from '../../../constants.telemetry.js';
-import { AINoRequestDataError, CancellationError } from '../../../errors.js';
-import type { Repository } from '../../../git/models/repository.js';
+import { AINoRequestDataError } from '../../../errors.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { Deferred } from '../../../system/promise.js';
 import type { AIResponse } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
 import type { AIModel } from '../models/model.js';
@@ -16,7 +17,7 @@ import { truncatePromptWithDiff } from '../utils/-webview/truncation.utils.js';
 /** Generates pull request title and description */
 export async function generateCreatePullRequest(
 	service: AIService,
-	repo: Repository,
+	repo: GlRepository,
 	baseRef: string,
 	headRef: string,
 	source: Source,

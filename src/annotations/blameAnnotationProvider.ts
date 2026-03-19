@@ -1,13 +1,14 @@
 import type { CancellationToken, Disposable, Position, TextDocument, TextEditor } from 'vscode';
 import { Hover, languages, Range } from 'vscode';
+import type { GitBlame } from '@gitlens/git/models/blame.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
 import type { FileAnnotationType } from '../config.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitBlame } from '../git/models/blame.js';
-import type { GitCommit } from '../git/models/commit.js';
+import { getCommitDate } from '../git/utils/-webview/commit.utils.js';
 import { changesMessage, detailsMessage } from '../hovers/hovers.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { debug } from '../system/decorators/log.js';
 import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
 import type { DidChangeStatusCallback } from './annotationProvider.js';
 import { AnnotationProviderBase } from './annotationProvider.js';
@@ -72,7 +73,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			commit = blame.commits.get(l.sha);
 			if (commit == null) continue;
 
-			dates.push(commit.date);
+			dates.push(getCommitDate(commit));
 		}
 
 		dates.sort((a, b) => a.getTime() - b.getTime());

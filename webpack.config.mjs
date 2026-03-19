@@ -53,6 +53,35 @@ const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
 /** @typedef {'production' | 'development' | 'none'} GlMode */
 /** @typedef { 'node' | 'webworker' } GlTarget */
+
+function getLibraryAliases() {
+	return {
+		'@gitlens/utils': path.resolve(__dirname, 'packages', 'utils', 'src'),
+		'@gitlens/git': path.resolve(__dirname, 'packages', 'git', 'src'),
+		'@gitlens/git-cli': path.resolve(__dirname, 'packages', 'git-cli', 'src'),
+		'@gitlens/git-github': path.resolve(__dirname, 'packages', 'git-github', 'src'),
+	};
+}
+
+/**
+ * Gets `#env` aliases for `@gitlens/utils` internal env-switching imports.
+ * Enhanced-resolve doesn't re-apply extensionAlias (.js→.ts) to paths
+ * resolved through package.json `imports` fields, so we need explicit file aliases.
+ * @param {'node' | 'webworker'} target
+ */
+function getUtilsEnvAliases(target) {
+	const env = target === 'webworker' ? 'browser' : 'node';
+	const base = path.resolve(__dirname, 'packages', 'utils', 'src', 'env', env);
+	return {
+		'#env/base64.js': path.resolve(base, 'base64.ts'),
+		'#env/crypto.js': path.resolve(base, 'crypto.ts'),
+		'#env/fs.js': path.resolve(base, 'fs.ts'),
+		'#env/hex.js': path.resolve(base, 'hex.ts'),
+		'#env/hrtime.js': path.resolve(base, 'hrtime.ts'),
+		'#env/logScope.js': path.resolve(base, 'logScope.ts'),
+		'#env/platform.js': path.resolve(base, 'platform.ts'),
+	};
+}
 /** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; trace?: boolean; webviews?: string }} GlEnv */
 /** @typedef {{ [key: string]: { entry: string; plus?: boolean; alias?: { [key: string]: string } } }} GlWebviews */
 
@@ -344,7 +373,7 @@ function getExtensionConfig(target, mode, env) {
 			rules: [
 				{
 					exclude: /\.d\.ts$/,
-					include: path.join(__dirname, 'src'),
+					include: [path.join(__dirname, 'src'), path.join(__dirname, 'packages')],
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {
@@ -366,6 +395,8 @@ function getExtensionConfig(target, mode, env) {
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+				...getLibraryAliases(),
+				...getUtilsEnvAliases(target),
 				// Stupid dependency that is used by `http[s]-proxy-agent`
 				debug: path.resolve(__dirname, 'patches', 'debug.js'),
 				// This dependency is very large, and isn't needed for our use-case
@@ -383,6 +414,10 @@ function getExtensionConfig(target, mode, env) {
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 		},
+		ignoreWarnings: [
+			// Ignore dynamic require warning for platform-agnostic async_hooks detection
+			{ module: /packages[\\/]utils[\\/]src[\\/]logScope\.ts/, message: /Critical dependency/ },
+		],
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
@@ -683,7 +718,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				},
 				{
 					exclude: /\.d\.ts$/,
-					include: path.join(__dirname, 'src'),
+					include: [path.join(__dirname, 'src'), path.join(__dirname, 'packages')],
 					test: /\.tsx?$/,
 					use: [
 						// React Compiler - must come before esbuild-loader/ts-loader
@@ -727,6 +762,8 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
+				...getLibraryAliases(),
+				...getUtilsEnvAliases('webworker'),
 				react: path.resolve(__dirname, 'node_modules', 'react'),
 				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
 				...overrides.alias,

@@ -1,8 +1,8 @@
 import type { QuickInputButton } from 'vscode';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { remoteUrlRegex } from '@gitlens/git/utils/remote.utils.js';
 import { revealRemote } from '../../../git/actions/remote.js';
-import type { GitRemote } from '../../../git/models/remote.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { remoteUrlRegex } from '../../../git/parsers/remoteParser.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
 import type { RemoteQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
 import { createRemoteQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
@@ -25,7 +25,7 @@ import {
 } from '../utils/steps.utils.js';
 
 export async function getRemotes(
-	repo: Repository,
+	repo: GlRepository,
 	options?: { buttons?: QuickInputButton[]; filter?: (r: GitRemote) => boolean; picked?: string | string[] },
 ): Promise<RemoteQuickPickItem[]> {
 	const remotes = await repo.git.remotes.getRemotes({ filter: options?.filter, sort: true });
@@ -49,8 +49,8 @@ export async function getRemotes(
 }
 
 export async function* inputRemoteNameStep<
-	State extends PartialStepState & { repo: Repository; remote?: GitRemote },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository; remote?: GitRemote },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
@@ -71,7 +71,7 @@ export async function* inputRemoteNameStep<
 			const valid = !/[^a-zA-Z0-9-_.]/.test(value);
 			if (!valid) return [false, `'${value}' isn't a valid remote name`];
 
-			const remotes = await state.repo.git.remotes.getRemotes({ filter: r => r.name === value });
+			const remotes = await state.repo.git.remotes.getRemotes({ filter: (r: GitRemote) => r.name === value });
 			if (remotes.length) return [false, `A remote named '${value}' already exists`];
 
 			return [true, undefined];
@@ -87,8 +87,8 @@ export async function* inputRemoteNameStep<
 }
 
 export async function* inputRemoteUrlStep<
-	State extends PartialStepState & { repo: Repository; remote?: GitRemote },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository; remote?: GitRemote },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
@@ -120,8 +120,8 @@ export async function* inputRemoteUrlStep<
 }
 
 export function* pickRemoteStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
@@ -159,8 +159,8 @@ export function* pickRemoteStep<
 }
 
 export function* pickRemotesStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,

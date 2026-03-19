@@ -1,7 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { map } from '@gitlens/utils/iterable.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { Repository } from '../../git/models/repository.js';
-import { map } from '../../system/iterable.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithStashesNode } from '../viewBase.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -14,7 +14,7 @@ export class StashesNode extends CacheableChildrenViewNode<'stashes', ViewsWithS
 		uri: GitUri,
 		view: ViewsWithStashesNode,
 		protected override parent: ViewNode,
-		public readonly repo: Repository,
+		public readonly repo: GlRepository,
 	) {
 		super('stashes', uri, view, parent);
 

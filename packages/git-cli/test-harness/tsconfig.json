@@ -1,0 +1,12 @@
+{
+	"extends": "../../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"rootDir": ".",
+		"outDir": "../dist-test-harness",
+		"noEmit": true
+	},
+	"references": [{ "path": ".." }, { "path": "../../utils" }],
+	"include": ["*.ts"]
+}

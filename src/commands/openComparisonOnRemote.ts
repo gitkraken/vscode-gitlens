@@ -1,9 +1,9 @@
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
-import { RemoteResourceType } from '../git/models/remoteResource.js';
-import type { GitRevisionRangeNotation } from '../git/models/revision.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command, executeCommand } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext } from './commandContext.js';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote.js';

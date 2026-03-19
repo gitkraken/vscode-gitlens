@@ -1,17 +1,17 @@
 import { window } from 'vscode';
+import { RevertError } from '@gitlens/git/errors.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../container.js';
-import { RevertError } from '../../git/errors.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { GitRevisionReference } from '../../git/models/reference.js';
-import type { Repository } from '../../git/models/repository.js';
-import { getReferenceLabel } from '../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { executeCommand } from '../../system/-webview/command.js';
-import { Logger } from '../../system/logger.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
@@ -38,7 +38,7 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	destination: GitBranch;
@@ -46,7 +46,7 @@ interface Context extends StepsContext<StepNames> {
 }
 
 type Flags = '--edit' | '--no-edit';
-interface State<Repo = string | Repository, Refs = GitRevisionReference | GitRevisionReference[]> {
+interface State<Repo = string | GlRepository, Refs = GitRevisionReference | GitRevisionReference[]> {
 	repo: Repo;
 	references: Refs;
 	flags: Flags[];
@@ -70,7 +70,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	private async execute(state: StepState<State<Repository, GitRevisionReference[]>>) {
+	private async execute(state: StepState<State<GlRepository, GitRevisionReference[]>>) {
 		const refs = state.references.map(c => c.ref).reverse();
 
 		const options: { editMessage?: boolean } = {};
@@ -164,7 +164,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (context.destination == null) {
 				const branch = await state.repo.git.branches.getBranch();
@@ -206,7 +206,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
-			assertStepState<State<Repository, GitRevisionReference[]>>(state);
+			assertStepState<State<GlRepository, GitRevisionReference[]>>(state);
 
 			{
 				using step = steps.enterStep(Steps.Confirm);
@@ -229,7 +229,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(
-		state: StepState<State<Repository, GitRevisionReference[]>>,
+		state: StepState<State<GlRepository, GitRevisionReference[]>>,
 		context: Context,
 	): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(

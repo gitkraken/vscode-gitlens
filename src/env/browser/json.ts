@@ -1,5 +1,5 @@
 import { URI } from 'vscode-uri';
-import { isLoggable } from '../../system/loggable.js';
+import { isLoggable } from '@gitlens/utils/loggable.js';
 import type { IpcDate, IpcPromise } from '../../webviews/ipc/models/dataTypes.js';
 import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc/utils/ipc.utils.js';
 import { IpcPromiseSettled } from '../../webviews/protocol.js';

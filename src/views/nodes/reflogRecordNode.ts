@@ -1,11 +1,11 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import { GitReflogRecord } from '@gitlens/git/models/reflog.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { map } from '@gitlens/utils/iterable.js';
 import { GlyphChars } from '../../constants.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { GitReflogRecord } from '../../git/models/reflog.js';
 import { gate } from '../../system/decorators/gate.js';
-import { trace } from '../../system/decorators/log.js';
-import { map } from '../../system/iterable.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import type { PageableViewNode } from './abstract/viewNode.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
@@ -55,13 +55,17 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 			this.record.HEAD.length === 0
 				? ''
 				: `${this.record.HEAD} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
-		}${this.record.formattedDate}`;
+		}${
+			this.view.container.CommitDateFormatting.dateStyle === 'absolute'
+				? GitReflogRecord.formatDate(this.record, this.view.container.CommitDateFormatting.dateFormat)
+				: GitReflogRecord.formatDateFromNow(this.record)
+		}`;
 		item.contextValue = ContextValues.ReflogRecord;
 		item.tooltip = `${this.record.HEAD.length === 0 ? '' : `${this.record.HEAD}\n`}${this.record.command}${
 			this.record.commandArgs ? ` ${this.record.commandArgs}` : ''
 		}${
 			this.record.details ? ` (${this.record.details})` : ''
-		}\n${this.record.formatDateFromNow()} (${this.record.formatDate()})\n${this.record.previousShortSha} ${
+		}\n${GitReflogRecord.formatDateFromNow(this.record)} (${GitReflogRecord.formatDate(this.record)})\n${this.record.previousShortSha} ${
 			GlyphChars.Space
 		}${GlyphChars.ArrowRight}${GlyphChars.Space} ${this.record.shortSha}`;
 

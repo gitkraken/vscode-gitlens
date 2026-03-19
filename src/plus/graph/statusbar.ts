@@ -1,10 +1,10 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
+import { once } from '@gitlens/utils/function.js';
 import type { GlCommands } from '../../constants.commands.js';
 import type { Container } from '../../container.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../system/-webview/context.js';
-import { once } from '../../system/function.js';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService.js';
 import { arePlusFeaturesEnabled } from '../gk/utils/-webview/plus.utils.js';
 

@@ -1,11 +1,11 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { getSettledValue, pauseOnCancelOrTimeoutMapTuple } from '@gitlens/utils/promise.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitLog } from '../../git/models/log.js';
-import { isPullRequest } from '../../git/models/pullRequest.js';
-import { trace } from '../../system/decorators/log.js';
-import { weakEvent } from '../../system/event.js';
-import { debounce } from '../../system/function/debounce.js';
-import { getSettledValue, pauseOnCancelOrTimeoutMapTuple } from '../../system/promise.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
 import type { PageableViewNode, ViewNode } from './abstract/viewNode.js';
@@ -81,7 +81,7 @@ export class AutolinkedItemsNode extends SubscribeableViewNode<'autolinks', View
 
 				if (enrichedAutolinks?.size) {
 					children = Array.from(enrichedAutolinks.values(), ([issueOrPullRequest, autolink]) =>
-						issueOrPullRequest != null && isPullRequest(issueOrPullRequest?.value)
+						issueOrPullRequest != null && PullRequest.is(issueOrPullRequest?.value)
 							? new PullRequestNode(this.view, this, issueOrPullRequest.value, this.log.repoPath)
 							: new AutolinkedItemNode(
 									this.view,

@@ -1,17 +1,17 @@
 import type { TextEditor } from 'vscode';
 import { Uri } from 'vscode';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
 import { openFolderCompare } from '../git/actions/commit.js';
 import { GitUri } from '../git/gitUri.js';
-import { shortenRevision } from '../git/utils/revision.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
 import { isFolderUri } from '../system/-webview/path.js';
-import { Logger } from '../system/logger.js';
-import { pad } from '../system/string.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 

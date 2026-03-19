@@ -1,15 +1,15 @@
 import type { ConfigurationChangeEvent, Extension, Uri } from 'vscode';
 import { Disposable, extensions, workspace } from 'vscode';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { once } from '@gitlens/utils/event.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { defer } from '@gitlens/utils/promise.js';
 import type { Contact, LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls.d.js';
 import { Schemes } from '../constants.js';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
-import { trace } from '../system/decorators/log.js';
-import { once } from '../system/event.js';
-import { Logger } from '../system/logger.js';
-import type { Deferred } from '../system/promise.js';
-import { defer } from '../system/promise.js';
 import { VslsGuestService } from './guest.js';
 import { VslsHostService } from './host.js';
 

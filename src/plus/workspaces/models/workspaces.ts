@@ -1,4 +1,4 @@
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceData,
@@ -21,7 +21,7 @@ export type CodeWorkspaceFileContents = {
 export type WorkspaceRepositoriesByName = Map<string, RepositoryMatch>;
 
 export interface RepositoryMatch {
-	repository: Repository;
+	repository: GlRepository;
 	descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
 }
 

@@ -1,4 +1,8 @@
 import type { CancellationToken, Disposable } from 'vscode';
+import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IntegrationIds } from '../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
@@ -6,10 +10,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../../constants.integrations.js';
 import type { Container } from '../../container.js';
-import { AuthenticationRequiredError, CancellationError } from '../../errors.js';
-import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
-import { debug } from '../../system/decorators/log.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
+import { AuthenticationRequiredError } from '../../errors.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import { ensureAccount } from '../gk/utils/-webview/acount.utils.js';
 import type { EnrichableItem, EnrichedItem, EnrichedItemResponse } from './models/enrichedItem.js';
@@ -177,7 +178,7 @@ export class EnrichmentService implements Disposable {
 	}
 }
 
-const supportedRemoteProvidersToEnrich: Record<RemoteProvider['id'], EnrichedItemResponse['provider'] | undefined> = {
+const supportedRemoteProvidersToEnrich: Record<RemoteProviderId, EnrichedItemResponse['provider'] | undefined> = {
 	'azure-devops': 'azure',
 	bitbucket: 'bitbucket',
 	'bitbucket-server': 'bitbucket',
@@ -211,14 +212,14 @@ export function convertRemoteProviderToEnrichProvider(provider: RemoteProvider):
 	return convertRemoteProviderIdToEnrichProvider(provider.id);
 }
 
-export function convertRemoteProviderIdToEnrichProvider(id: RemoteProvider['id']): EnrichedItemResponse['provider'] {
+export function convertRemoteProviderIdToEnrichProvider(id: RemoteProviderId): EnrichedItemResponse['provider'] {
 	const enrichProvider = supportedRemoteProvidersToEnrich[id];
 	if (enrichProvider == null) throw new Error(`Unknown remote provider '${id}'`);
 	return enrichProvider;
 }
 
-export function isEnrichableRemoteProviderId(id: string): id is RemoteProvider['id'] {
-	return supportedRemoteProvidersToEnrich[id as RemoteProvider['id']] != null;
+export function isEnrichableRemoteProviderId(id: string): id is RemoteProviderId {
+	return supportedRemoteProvidersToEnrich[id as RemoteProviderId] != null;
 }
 
 export function isEnrichableIntegrationId(id: IntegrationIds): boolean {

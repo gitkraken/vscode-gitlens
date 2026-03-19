@@ -1,11 +1,11 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { ViewBranchesLayout, ViewFilesLayout, WorktreesViewConfig } from '../config.js';
 import { proBadge } from '../constants.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
-import type { GitWorktree } from '../git/models/worktree.js';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils.js';
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';

@@ -1,25 +1,33 @@
 import type { CancellationToken, Command, Selection } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import type { DiffRange } from '@gitlens/git/providers/types.js';
+import { getGitFileStatusIcon } from '@gitlens/git/utils/fileStatus.utils.js';
+import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import { joinPaths } from '@gitlens/utils/path.js';
+import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '@gitlens/utils/promise.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import type { Colors } from '../../constants.colors.js';
 import type { Container } from '../../container.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
-import type { DiffRange } from '../../git/gitProvider.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { GitFile } from '../../git/models/file.js';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
-import type { GitRevisionReference } from '../../git/models/reference.js';
-import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils.js';
-import { getConflictIncomingRef, resolveConflictFilePaths } from '../../git/utils/pausedOperationStatus.utils.js';
+import {
+	getCommitAssociatedPullRequest,
+	getCommitAuthorAvatarUri,
+	getCommitEnrichedAutolinks,
+	getCommitForFile,
+} from '../../git/utils/-webview/commit.utils.js';
+import { remoteSupportsIntegration } from '../../git/utils/-webview/remote.utils.js';
+import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { editorLineToDiffRange, selectionToDiffRange } from '../../system/-webview/vscode/editors.js';
-import { joinPaths } from '../../system/path.js';
-import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise.js';
+import { editorLineToDiffRange, selectionToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import type { LineHistoryView } from '../lineHistoryView.js';
 import type { ViewsWithCommits } from '../viewBase.js';
@@ -146,7 +154,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getTreeItem(): Promise<TreeItem> {
 		if (this.commit.file == null) {
 			// Try to get the commit directly from the multi-file commit
-			const commit = await this.commit.getCommitForFile(this.file);
+			const commit = await getCommitForFile(this.commit, this.file);
 			if (commit == null) {
 				const log = await this.view.container.git
 					.getRepositoryService(this.repoPath)
@@ -181,7 +189,9 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		if (!this.commit.isUncommitted && this.view.config.avatars) {
 			item.iconPath = this._options.unpublished
 				? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
-				: await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') });
+				: await getCommitAuthorAvatarUri(this.commit, {
+						defaultStyle: configuration.get('defaultGravatarsStyle'),
+					});
 		}
 
 		if (item.iconPath == null) {
@@ -216,7 +226,12 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		let range: DiffRange;
 		if (this.commit.lines.length) {
 			// TODO@eamodio should the endLine be the last line of the commit?
-			range = { startLine: this.commit.lines[0].line, endLine: this.commit.lines[0].line };
+			range = {
+				startLine: this.commit.lines[0].line,
+				startCharacter: 1,
+				endLine: this.commit.lines[0].line,
+				endCharacter: 1,
+			};
 		} else {
 			range = this.commit.file?.range ?? selectionToDiffRange(this._options?.selection);
 		}
@@ -309,8 +324,10 @@ export async function getFileRevisionAsCommitTooltip(
 	},
 ): Promise<string | undefined> {
 	const [remotesResult, _] = await Promise.allSettled([
-		container.git.getRepositoryService(commit.repoPath).remotes.getBestRemotesWithProviders(options?.cancellation),
-		commit.message == null ? commit.ensureFullDetails() : undefined,
+		container.git
+			.getRepositoryService(commit.repoPath)
+			.remotes.getBestRemotesWithProviders(toAbortSignal(options?.cancellation)),
+		commit.message == null ? GitCommit.ensureFullDetails(commit) : undefined,
 	]);
 
 	if (options?.cancellation?.isCancellationRequested) return undefined;
@@ -321,10 +338,13 @@ export async function getFileRevisionAsCommitTooltip(
 	let enrichedAutolinks;
 	let pr;
 
-	if (remote?.supportsIntegration()) {
+	if (remote != null && remoteSupportsIntegration(remote)) {
 		const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
-			pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote), options?.cancellation),
-			commit.getAssociatedPullRequest(remote),
+			pauseOnCancelOrTimeoutMapTuplePromise(
+				getCommitEnrichedAutolinks(commit.repoPath, commit.message, commit.summary, remote),
+				toAbortSignal(options?.cancellation),
+			),
+			getCommitAssociatedPullRequest(commit.repoPath, commit.sha, remote),
 		]);
 
 		const enrichedAutolinksMaybeResult = getSettledValue(enrichedAutolinksResult);

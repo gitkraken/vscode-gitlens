@@ -39,7 +39,11 @@ async function buildTests(target) {
 	};
 
 	config.alias = {
-		'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+		'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : 'node'),
+		'@gitlens/utils': path.resolve(__dirname, 'packages', 'utils', 'src'),
+		'@gitlens/git': path.resolve(__dirname, 'packages', 'git', 'src'),
+		'@gitlens/git-cli': path.resolve(__dirname, 'packages', 'git-cli', 'src'),
+		'@gitlens/git-github': path.resolve(__dirname, 'packages', 'git-github', 'src'),
 		// Stupid dependency that is used by `http[s]-proxy-agent`
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),
 		// This dependency is very large, and isn't needed for our use-case

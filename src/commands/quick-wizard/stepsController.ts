@@ -1,4 +1,4 @@
-import type { UnifiedDisposable } from '../../system/unifiedDisposable.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { StepsContext, StepsNavigation } from './models/steps.js';
 import { StepsComplete } from './models/steps.js';
 import type { QuickCommand } from './quickCommand.js';

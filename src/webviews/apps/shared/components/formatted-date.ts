@@ -1,6 +1,6 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { formatDate, fromNow } from '../../../../system/date.js';
+import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { dateConverter } from './converters/date-converter.js';
 import './overlays/tooltip.js';
 

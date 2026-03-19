@@ -1,76 +1,59 @@
 import type { Uri } from 'vscode';
+import { ProgressLocation, window } from 'vscode';
+import { CheckoutError, FetchError, PullError, PushError } from '@gitlens/git/errors.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import type { GitProviderDescriptor } from '@gitlens/git/providers/types.js';
+import type { RepositoryService } from '@gitlens/git/repositoryService.js';
+import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
+import { getRemoteThemeIconString } from '@gitlens/git/utils/remote.utils.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { groupByFilterMap } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import { GlyphChars, Schemes } from '../constants.js';
-import type { Features } from '../features.js';
-import { debug, trace } from '../system/decorators/log.js';
-import { groupByFilterMap } from '../system/iterable.js';
-import { getSettledValue } from '../system/promise.js';
-import type {
-	GitBranchesSubProvider,
-	GitCommitsSubProvider,
-	GitConfigSubProvider,
-	GitContributorsSubProvider,
-	GitDiffSubProvider,
-	GitGraphSubProvider,
-	GitOperationsSubProvider,
-	GitPatchSubProvider,
-	GitPausedOperationsSubProvider,
-	GitProvider,
-	GitProviderDescriptor,
-	GitRefsSubProvider,
-	GitRemotesSubProvider,
-	GitRepositoryProvider,
-	GitRevisionSubProvider,
-	GitStagingSubProvider,
-	GitStashSubProvider,
-	GitStatusSubProvider,
-	GitSubProvider,
-	GitSubProviderForRepo,
-	GitSubProvidersProps,
-	GitTagsSubProvider,
-	GitWorktreesSubProvider,
-	RevisionUriOptions,
-	ScmRepository,
-} from './gitProvider.js';
-import { createSubProviderProxyForRepo } from './gitProvider.js';
+import type { EventBus } from '../eventBus.js';
+import type { FeatureAccess, Features, PlusFeatures } from '../features.js';
+import { showGitErrorMessage } from '../messages.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { exists } from '../system/-webview/vscode/uris.js';
+import { gate } from '../system/decorators/gate.js';
+import type { GlGitProvider, RevisionUriOptions, ScmRepository } from './gitProvider.js';
 import type { GitProviderService } from './gitProviderService.js';
 import { GitUri } from './gitUri.js';
-import type { GitFile } from './models/file.js';
-import { deletedOrMissing } from './models/revision.js';
-import { getRemoteThemeIconString } from './utils/remote.utils.js';
+import type { GlRepository } from './models/repository.js';
 
-type GitSubProvidersForRepo = {
-	[P in keyof GitProvider as NonNullable<GitProvider[P]> extends GitSubProvider ? P : never]: NonNullable<
-		GitProvider[P]
-	> extends GitSubProvider
-		? GitSubProviderForRepo<NonNullable<GitProvider[P]>>
-		: never;
-};
+// Merge the RepositoryService sub-provider interface onto GitRepositoryService
+// so that sub-provider properties (branches, commits, etc.) are recognized by TypeScript.
+// The actual property descriptors are copied from RepositoryService at construction time.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface GitRepositoryService extends RepositoryService {}
 
-type IGitRepositoryService = GitSubProvidersForRepo & {
-	[K in Exclude<keyof GitRepositoryProvider, keyof GitSubProvidersForRepo>]: OmitFirstArg<GitRepositoryProvider[K]>;
-} & {
-	[K in Extract<
-		keyof GitProviderService,
-		| 'getBestRevisionUri'
-		| 'getBranchesAndTagsTipsLookup'
-		| 'getRepository'
-		| 'getRevisionUri'
-		| 'getWorkingUri'
-		| 'supports'
-	>]: OmitFirstArg<GitProviderService[K]>;
-} & {
-	[K in Extract<keyof GitProviderService, 'getAbsoluteUri' | 'getRelativePath'>]: GitProviderService[K];
-};
+const skipOverlappingProperties = new Set(['path', 'provider', 'getAbsoluteUri']);
 
-export class GitRepositoryService implements IGitRepositoryService {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export class GitRepositoryService {
 	constructor(
-		svc: GitProviderService,
-		private readonly _provider: GitProvider,
+		private readonly _svc: GitProviderService,
+		private readonly _provider: GlGitProvider,
 		readonly path: string,
+		repoService: RepositoryService,
+		private readonly _events: EventBus,
 	) {
-		this.getAbsoluteUri = svc.getAbsoluteUri.bind(svc);
-		this.getRelativePath = svc.getRelativePath.bind(svc);
-		this.getRepository = svc.getRepository.bind(svc, path);
+		this.getAbsoluteUri = _svc.getAbsoluteUri.bind(_svc);
+		this.getRelativePath = _svc.getRelativePath.bind(_svc);
+		this.getRepository = _svc.getRepository.bind(_svc, path);
+
+		// Absorb RepositoryService sub-provider getters directly onto this instance.
+		// This copies the lazy proxy getters so that sub-provider access (e.g. this.branches)
+		// resolves directly without an intermediate object.
+		const descriptors = Object.getOwnPropertyDescriptors(repoService);
+		for (const key of Object.keys(descriptors)) {
+			// Skip properties already defined on GitRepositoryService
+			if (skipOverlappingProperties.has(key)) continue;
+			Object.defineProperty(this, key, descriptors[key]);
+		}
 	}
 
 	@debug({ args: uris => ({ uris: uris.length }) })
@@ -83,7 +66,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 		return this._provider.getIgnoredUrisFilter(this.path);
 	}
 
-	getAbsoluteUri: IGitRepositoryService['getAbsoluteUri'];
+	getAbsoluteUri: GitProviderService['getAbsoluteUri'];
 
 	@debug()
 	async getBestRevisionUri(pathOrUri: string | Uri, rev: string | undefined): Promise<Uri | undefined> {
@@ -128,7 +111,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 				let icon;
 				if (bt.refType === 'branch') {
 					if (bt.remote) {
-						const remote = remotes.find(r => r.name === bt.getRemoteName());
+						const remote = remotes.find(r => r.name === bt.remoteName);
 						icon = `$(${getRemoteThemeIconString(remote)}) `;
 					} else {
 						icon = bt.current ? '$(target) ' : '$(git-branch) ';
@@ -141,8 +124,8 @@ export class GitRepositoryService implements IGitRepositoryService {
 					name: bt.name,
 					icon: icon,
 					compactName:
-						suppressName && bt.refType === 'branch' && bt.getNameWithoutRemote() === suppressName
-							? bt.getRemoteName()
+						suppressName && bt.refType === 'branch' && bt.nameWithoutRemote === suppressName
+							? bt.remoteName
 							: undefined,
 					type: bt.refType,
 				} satisfies Tip;
@@ -195,8 +178,8 @@ export class GitRepositoryService implements IGitRepositoryService {
 		return this._provider.getLastFetchedTimestamp(this.path);
 	}
 
-	getRelativePath: IGitRepositoryService['getRelativePath'];
-	getRepository: IGitRepositoryService['getRepository'];
+	getRelativePath: GitProviderService['getRelativePath'];
+	getRepository: () => GlRepository | undefined;
 
 	@debug()
 	getRevisionUri(rev: string, pathOrFile: string | GitFile, options?: RevisionUriOptions): Uri {
@@ -267,71 +250,207 @@ export class GitRepositoryService implements IGitRepositoryService {
 	get provider(): GitProviderDescriptor {
 		return this._provider.descriptor;
 	}
-	get branches(): GitSubProviderForRepo<GitBranchesSubProvider> {
-		return this.getSubProviderProxy('branches');
-	}
-	get commits(): GitSubProviderForRepo<GitCommitsSubProvider> {
-		return this.getSubProviderProxy('commits');
-	}
-	get config(): GitSubProviderForRepo<GitConfigSubProvider> {
-		return this.getSubProviderProxy('config');
-	}
-	get contributors(): GitSubProviderForRepo<GitContributorsSubProvider> {
-		return this.getSubProviderProxy('contributors');
-	}
-	get diff(): GitSubProviderForRepo<GitDiffSubProvider> {
-		return this.getSubProviderProxy('diff');
-	}
-	get graph(): GitSubProviderForRepo<GitGraphSubProvider> {
-		return this.getSubProviderProxy('graph');
-	}
-	get ops(): GitSubProviderForRepo<GitOperationsSubProvider> | undefined {
-		return this.getSubProviderProxy('ops');
-	}
-	get patch(): GitSubProviderForRepo<GitPatchSubProvider> | undefined {
-		return this.getSubProviderProxy('patch');
-	}
-	get pausedOps(): GitSubProviderForRepo<GitPausedOperationsSubProvider> | undefined {
-		return this.getSubProviderProxy('pausedOps');
-	}
-	get refs(): GitSubProviderForRepo<GitRefsSubProvider> {
-		return this.getSubProviderProxy('refs');
-	}
-	get remotes(): GitSubProviderForRepo<GitRemotesSubProvider> {
-		return this.getSubProviderProxy('remotes');
-	}
-	get revision(): GitSubProviderForRepo<GitRevisionSubProvider> {
-		return this.getSubProviderProxy('revision');
-	}
-	get staging(): GitSubProviderForRepo<GitStagingSubProvider> | undefined {
-		return this.getSubProviderProxy('staging');
-	}
-	get stash(): GitSubProviderForRepo<GitStashSubProvider> | undefined {
-		return this.getSubProviderProxy('stash');
-	}
-	get status(): GitSubProviderForRepo<GitStatusSubProvider> {
-		return this.getSubProviderProxy('status');
-	}
-	get tags(): GitSubProviderForRepo<GitTagsSubProvider> {
-		return this.getSubProviderProxy('tags');
-	}
-	get worktrees(): GitSubProviderForRepo<GitWorktreesSubProvider> | undefined {
-		return this.getSubProviderProxy('worktrees');
+
+	@debug()
+	access(feature?: PlusFeatures): Promise<FeatureAccess> {
+		return this._svc.access(feature, this.getRepository()?.uri);
 	}
 
-	private proxies = new Map<string, GitSubProviderForRepo<any>>();
+	containsUri(uri: Uri): boolean {
+		return this.getRepository() === this._svc.getRepository(uri);
+	}
 
-	private getSubProviderProxy<T extends GitSubProvidersProps>(
-		prop: T,
-	): GitSubProviderForRepo<NonNullable<GitProvider[T]>> {
-		let proxy = this.proxies.get(prop);
-		if (proxy == null) {
-			const subProvider = this._provider[prop];
-			if (subProvider == null) return undefined!;
+	async getAbsoluteOrBestRevisionUri(path: string, rev: string | undefined): Promise<Uri | undefined> {
+		const repo = this.getRepository();
+		const uri = this.getAbsoluteUri(path, repo?.uri);
+		if (uri != null && repo === this._svc.getRepository(uri) && (await exists(uri))) return uri;
 
-			proxy = createSubProviderProxyForRepo(subProvider, this.path);
-			this.proxies.set(prop, proxy);
+		return rev != null ? this.getBestRevisionUri(path, rev) : undefined;
+	}
+
+	@debug({ exit: true })
+	getCommonRepository(): GlRepository | undefined {
+		const repo = this.getRepository();
+		if (repo == null) return undefined;
+
+		const { commonUri } = repo;
+		if (commonUri == null) return repo;
+
+		return this._svc.getRepository(commonUri);
+	}
+
+	@gate()
+	@debug({ exit: true })
+	async getOrOpenCommonRepository(): Promise<GlRepository | undefined> {
+		const repo = this.getRepository();
+		if (repo == null) return undefined;
+
+		const { commonUri } = repo;
+		if (commonUri == null) return repo;
+
+		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
+		return this._svc.getOrOpenRepository(commonUri, { detectNested: false, force: true, closeOnOpen: true });
+	}
+
+	@gate()
+	@debug()
+	async fetch(options?: {
+		all?: boolean;
+		branch?: GitBranchReference;
+		progress?: boolean;
+		prune?: boolean;
+		pull?: boolean;
+		remote?: string;
+	}): Promise<void> {
+		const { progress, ...opts } = { progress: true, ...options };
+		if (!progress) return this.fetchCore(opts);
+
+		const repo = this.getRepository();
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title:
+					opts.branch != null
+						? `${opts.pull ? 'Pulling' : 'Fetching'} ${opts.branch.name}...`
+						: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${repo?.name ?? ''}...`,
+			},
+			() => this.fetchCore(opts),
+		);
+	}
+
+	private async fetchCore(options?: {
+		all?: boolean;
+		branch?: GitBranchReference;
+		prune?: boolean;
+		pull?: boolean;
+		remote?: string;
+	}) {
+		try {
+			await this.ops?.fetch(options);
+		} catch (ex) {
+			Logger.error(ex);
+
+			if (FetchError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to fetch');
+			}
 		}
-		return proxy;
+	}
+
+	@gate()
+	@debug()
+	async pull(options?: { progress?: boolean; rebase?: boolean }): Promise<void> {
+		const { progress, ...opts } = { progress: true, ...options };
+		if (!progress) return this.pullCore(opts);
+
+		const repo = this.getRepository();
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Pulling ${repo?.name ?? ''}...`,
+			},
+			() => this.pullCore(opts),
+		);
+	}
+
+	private async pullCore(options?: { rebase?: boolean }) {
+		const repo = this.getRepository();
+		try {
+			const withTags = configuration.getCore('git.pullTags', repo?.uri);
+			if (configuration.getCore('git.fetchOnPull', repo?.uri)) {
+				await this.ops?.fetch();
+			}
+
+			await this.ops?.pull({ ...options, tags: withTags });
+		} catch (ex) {
+			Logger.error(ex);
+
+			if (PullError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to pull');
+			}
+		}
+	}
+
+	@gate()
+	@debug()
+	async push(options?: {
+		force?: boolean;
+		progress?: boolean;
+		reference?: GitReference;
+		publish?: { remote: string };
+	}): Promise<void> {
+		const { progress, ...opts } = { progress: true, ...options };
+		if (!progress) return this.pushCore(opts);
+
+		const repo = this.getRepository();
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: isBranchReference(opts.reference)
+					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
+					: `Pushing ${repo?.name ?? ''}...`,
+			},
+			() => this.pushCore(opts),
+		);
+	}
+
+	private async pushCore(options?: { force?: boolean; reference?: GitReference; publish?: { remote: string } }) {
+		try {
+			await this.ops?.push({
+				reference: options?.reference,
+				force: options?.force,
+				publish: options?.publish,
+			});
+
+			if (this.ops != null && isBranchReference(options?.reference) && options?.publish != null) {
+				this._events.fireAsync('git:publish', {
+					repoPath: this.path,
+					remote: options.publish.remote,
+					branch: options.reference,
+				});
+			}
+		} catch (ex) {
+			Logger.error(ex);
+
+			if (PushError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to push');
+			}
+		}
+	}
+
+	@gate()
+	@debug()
+	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }): Promise<void> {
+		const { progress, ...opts } = { progress: true, ...options };
+		if (!progress) return this.switchCore(ref, opts);
+
+		const repo = this.getRepository();
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Switching ${repo?.name ?? ''} to ${ref}...`,
+				cancellable: false,
+			},
+			() => this.switchCore(ref, opts),
+		);
+	}
+
+	private async switchCore(ref: string, options?: { createBranch?: string }) {
+		try {
+			await this.ops?.checkout(ref, options);
+		} catch (ex) {
+			Logger.error(ex);
+
+			if (CheckoutError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to switch to reference');
+			}
+		}
 	}
 }

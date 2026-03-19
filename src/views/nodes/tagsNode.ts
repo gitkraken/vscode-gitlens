@@ -1,7 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { makeHierarchical } from '@gitlens/utils/array.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { Repository } from '../../git/models/repository.js';
-import { makeHierarchical } from '../../system/array.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithTagsNode } from '../viewBase.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -15,7 +15,7 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 		uri: GitUri,
 		view: ViewsWithTagsNode,
 		protected override readonly parent: ViewNode,
-		public readonly repo: Repository,
+		public readonly repo: GlRepository,
 	) {
 		super('tags', uri, view, parent);
 

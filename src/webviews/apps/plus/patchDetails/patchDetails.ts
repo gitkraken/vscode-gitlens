@@ -2,10 +2,10 @@
 /*global*/
 import './patchDetails.scss';
 import type { TextDocumentShowOptions } from 'vscode';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type { ViewFilesLayout } from '../../../../config.js';
 import type { GlCommands } from '../../../../constants.commands.js';
 import type { DraftPatchFileChange, DraftVisibility } from '../../../../plus/drafts/models/drafts.js';
-import { debounce } from '../../../../system/function/debounce.js';
 import type { Serialized } from '../../../../system/serialize.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type { State, SwitchModeParams } from '../../../plus/patchDetails/protocol.js';

@@ -2,12 +2,12 @@ import type { Chart, ChartOptions, ChartTypes, Data, DataItem } from 'billboard.
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { defer } from '@gitlens/utils/promise.js';
+import { pluralize, truncateMiddle } from '@gitlens/utils/string.js';
 import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb.d.js';
-import { shortenRevision } from '../../../../../git/utils/revision.utils.js';
-import { debug } from '../../../../../system/decorators/log.js';
-import { debounce } from '../../../../../system/function/debounce.js';
-import { defer } from '../../../../../system/promise.js';
-import { pluralize, truncateMiddle } from '../../../../../system/string.js';
 import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol.js';
 import { GlElement } from '../../../shared/components/element.js';
 import { createFromDateDelta, formatDate, fromNow } from '../../../shared/date.js';
@@ -662,11 +662,11 @@ export class GlTimelineChart extends GlElement {
 	private async renderChart(
 		dataPromise: NonNullable<State['dataset']>,
 		loading: ReturnType<typeof defer<void>>,
-		signal: AbortSignal,
+		cancellation: AbortSignal,
 	): Promise<void> {
 		const data = await dataPromise;
 
-		if (signal.aborted) {
+		if (cancellation.aborted) {
 			loading?.cancel();
 			return;
 		}
@@ -686,7 +686,7 @@ export class GlTimelineChart extends GlElement {
 		const { bb, bar, scatter, selection, zoom } = await import(
 			/* webpackChunkName: "lib-billboard" */ 'billboard.js'
 		);
-		if (signal.aborted) {
+		if (cancellation.aborted) {
 			loading?.cancel();
 			return;
 		}

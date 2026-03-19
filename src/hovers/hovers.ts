@@ -1,5 +1,17 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitLineDiff, ParsedGitDiffHunk } from '@gitlens/git/models/diff.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { deletedOrMissing, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { escapeMarkdownCodeBlocks } from '@gitlens/utils/markdown.js';
+import {
+	getSettledValue,
+	pauseOnCancelOrTimeout,
+	pauseOnCancelOrTimeoutMapTuplePromise,
+} from '@gitlens/utils/promise.js';
 import type { EnrichedAutolink } from '../autolinks/models/autolinks.js';
 import { DiffWithCommand } from '../commands/diffWith.js';
 import { ShowQuickCommitCommand } from '../commands/showQuickCommit.js';
@@ -8,17 +20,17 @@ import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { CommitFormatter } from '../git/formatters/commitFormatter.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitCommit } from '../git/models/commit.js';
-import type { GitLineDiff, ParsedGitDiffHunk } from '../git/models/diff.js';
-import type { PullRequest } from '../git/models/pullRequest.js';
-import type { GitRemote } from '../git/models/remote.js';
-import { deletedOrMissing, uncommittedStaged } from '../git/models/revision.js';
-import type { RemoteProvider } from '../git/remotes/remoteProvider.js';
-import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils.js';
+import {
+	findCommitFile,
+	getCommitAssociatedPullRequest,
+	getCommitEnrichedAutolinks,
+	getCommitPreviousComparisonUrisForRange,
+	isCommitSigned,
+} from '../git/utils/-webview/commit.utils.js';
+import { isRemoteMaybeIntegrationConnected, remoteSupportsIntegration } from '../git/utils/-webview/remote.utils.js';
+import { toAbortSignal } from '../system/-webview/cancellation.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { editorLineToDiffRange } from '../system/-webview/vscode/editors.js';
-import { escapeMarkdownCodeBlocks } from '../system/markdown.js';
-import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise.js';
+import { editorLineToDiffRange } from '../system/-webview/vscode/range.js';
 
 export async function changesMessage(
 	container: Container,
@@ -81,19 +93,19 @@ export async function changesMessage(
 	let previous;
 	let current;
 	if (commit.isUncommitted) {
-		const compareUris = await commit.getPreviousComparisonUrisForRange(range, documentRev);
+		const compareUris = await getCommitPreviousComparisonUrisForRange(commit, range, documentRev);
 		if (compareUris?.previous == null) return undefined;
 
 		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
-			lhs: { sha: compareUris.previous.sha ?? '', uri: compareUris.previous.documentUri },
-			rhs: { sha: compareUris.current.sha ?? '', uri: compareUris.current.documentUri },
+			lhs: { sha: compareUris.previous.sha ?? '', uri: compareUris.previous.uri },
+			rhs: { sha: compareUris.current.sha ?? '', uri: compareUris.current.uri },
 			repoPath: commit.repoPath,
 			range: compareUris.range,
 			source: telemetrySource,
 		})} "Open Changes")`;
 
 		previous =
-			compareUris.previous.sha == null || compareUris.previous.isUncommitted
+			compareUris.previous.sha == null || isUncommitted(compareUris.previous.sha)
 				? `  &nbsp;_${shortenRevision(compareUris.previous.sha, {
 						strings: { working: 'Working Tree' },
 					})}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
@@ -102,7 +114,7 @@ export async function changesMessage(
 					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(compareUris.previous.sha || '', undefined, telemetrySource)} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
 
 		current =
-			compareUris.current.sha == null || compareUris.current.isUncommitted
+			compareUris.current.sha == null || isUncommitted(compareUris.current.sha)
 				? `_${shortenRevision(compareUris.current.sha, { strings: { working: 'Working Tree' } })}_`
 				: `[$(git-commit) ${shortenRevision(
 						compareUris.current.sha || '',
@@ -110,7 +122,7 @@ export async function changesMessage(
 	} else {
 		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(commit, range, telemetrySource)} "Open Changes")`;
 
-		previousSha ??= await commit.getPreviousSha();
+		previousSha ??= await GitCommit.getPreviousSha(commit);
 		if (previousSha && previousSha !== deletedOrMissing) {
 			previous = `  &nbsp;[$(git-commit) ${shortenRevision(
 				previousSha,
@@ -150,7 +162,7 @@ export async function localChangesMessage(
 		previous = '_Working Tree_';
 		current = '_Unsaved_';
 	} else {
-		const file = await fromCommit.findFile(uri);
+		const file = await findCommitFile(fromCommit, uri);
 		if (file == null) return undefined;
 
 		const telemetrySource = { source: sourceName } as const;
@@ -200,19 +212,19 @@ export async function detailsMessage(
 		) => string | undefined;
 		pullRequest?: Promise<PullRequest | undefined> | PullRequest | undefined;
 		pullRequests?: boolean;
-		remotes?: GitRemote<RemoteProvider>[];
+		remotes?: GitRemote[];
 		timeout?: number;
 		sourceName: Sources;
 	}>,
 ): Promise<MarkdownString | undefined> {
 	const remotesResult = await pauseOnCancelOrTimeout(
 		options?.remotes ?? container.git.getRepositoryService(commit.repoPath).remotes.getBestRemotesWithProviders(),
-		options?.cancellation,
+		toAbortSignal(options?.cancellation),
 		options?.timeout,
 	);
 
-	let remotes: GitRemote<RemoteProvider>[] | undefined;
-	let remote: GitRemote<RemoteProvider> | undefined;
+	let remotes: GitRemote[] | undefined;
+	let remote: GitRemote | undefined;
 	if (remotesResult.paused) {
 		if (remotesResult.reason === 'cancelled') return undefined;
 		// If we timed out, just continue without the remotes
@@ -228,8 +240,9 @@ export async function detailsMessage(
 		cfg.autolinks.enhanced &&
 		CommitFormatter.has(cfg.detailsMarkdownFormat, 'message');
 	const prs =
-		remote?.supportsIntegration() &&
-		remote.maybeIntegrationConnected !== false &&
+		remote != null &&
+		remoteSupportsIntegration(remote) &&
+		isRemoteMaybeIntegrationConnected(remote) !== false &&
 		(options?.pullRequests || (options?.pullRequests !== false && cfg.pullRequests.enabled)) &&
 		CommitFormatter.has(
 			options.format,
@@ -255,30 +268,31 @@ export async function detailsMessage(
 	] = await Promise.allSettled([
 		enhancedAutolinks
 			? pauseOnCancelOrTimeoutMapTuplePromise(
-					options?.enrichedAutolinks ?? commit.getEnrichedAutolinks(remote),
-					options?.cancellation,
+					options?.enrichedAutolinks ??
+						getCommitEnrichedAutolinks(commit.repoPath, commit.message, commit.summary, remote),
+					toAbortSignal(options?.cancellation),
 					options?.timeout,
 				)
 			: undefined,
 		prs
 			? pauseOnCancelOrTimeout(
-					options?.pullRequest ?? commit.getAssociatedPullRequest(remote),
-					options?.cancellation,
+					options?.pullRequest ?? getCommitAssociatedPullRequest(commit.repoPath, commit.sha, remote),
+					toAbortSignal(options?.cancellation),
 					options?.timeout,
 				)
 			: undefined,
 		container.vsls.active
 			? pauseOnCancelOrTimeout(
 					container.vsls.getContactPresence(commit.author.email),
-					options?.cancellation,
+					toAbortSignal(options?.cancellation),
 					Math.min(options?.timeout ?? 250, 250),
 				)
 			: undefined,
 		commit.isUncommitted
-			? commit.getPreviousComparisonUrisForRange(editorLineToDiffRange(editorLine), uri.sha)
+			? getCommitPreviousComparisonUrisForRange(commit, editorLineToDiffRange(editorLine), uri.sha)
 			: undefined,
-		commit.message == null ? commit.ensureFullDetails() : undefined,
-		showSignature ? commit.isSigned() : undefined,
+		commit.message == null ? GitCommit.ensureFullDetails(commit) : undefined,
+		showSignature ? isCommitSigned(commit.repoPath, commit.sha) : undefined,
 	]);
 
 	if (options?.cancellation?.isCancellationRequested) return undefined;

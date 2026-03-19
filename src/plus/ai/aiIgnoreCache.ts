@@ -1,11 +1,11 @@
 import type { Ignore } from 'ignore';
 import ignore from 'ignore';
 import { workspace } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { Container } from '../../container.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { relative } from '../../system/-webview/path.js';
-import { Logger } from '../../system/logger.js';
-import { normalizePath } from '../../system/path.js';
 
 /** AI ignore file names in priority order */
 const aiIgnoreFileNames = ['.aiignore', '.cursorignore', '.aiexclude'] as const;

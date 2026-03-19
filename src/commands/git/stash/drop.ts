@@ -1,9 +1,9 @@
+import type { GitStashReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
-import type { GitStashReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
-import { Logger } from '../../../system/logger.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -31,7 +31,7 @@ export type StashDropStepNames = StepNames;
 
 type Context = StashContext<StepNames>;
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	references: GitStashReference[];
 }
@@ -92,7 +92,7 @@ export class StashDropGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStep(Steps.PickStashes) || !state.references?.length) {
 				using step = steps.enterStep(Steps.PickStashes);
@@ -141,7 +141,7 @@ export class StashDropGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<void> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<void> {
 		const step = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[

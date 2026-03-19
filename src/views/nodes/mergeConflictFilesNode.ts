@@ -1,10 +1,10 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
+import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { pluralize, sortCompare } from '@gitlens/utils/string.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
-import type { GitStatusFile } from '../../git/models/statusFile.js';
-import { makeHierarchical } from '../../system/array.js';
-import { joinPaths, normalizePath } from '../../system/path.js';
-import { pluralize, sortCompare } from '../../system/string.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { ViewNode } from './abstract/viewNode.js';
 import type { FileNode } from './folderNode.js';

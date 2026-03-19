@@ -1,13 +1,21 @@
 import type { CancellationToken } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitStashReference } from '@gitlens/git/models/reference.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
+import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '@gitlens/utils/promise.js';
+import { sortCompare } from '@gitlens/utils/string.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
-import type { GitStashCommit } from '../../git/models/commit.js';
-import type { GitStashReference } from '../../git/models/reference.js';
+import {
+	getCommitEnrichedAutolinks,
+	getCommitGitUri,
+	getCommitsForFiles,
+} from '../../git/utils/-webview/commit.utils.js';
+import { remoteSupportsIntegration } from '../../git/utils/-webview/remote.utils.js';
+import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { makeHierarchical } from '../../system/array.js';
-import { joinPaths, normalizePath } from '../../system/path.js';
-import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise.js';
-import { sortCompare } from '../../system/string.js';
 import type { ViewsWithStashes } from '../viewBase.js';
 import type { ViewNode } from './abstract/viewNode.js';
 import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
@@ -23,7 +31,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 		public readonly commit: GitStashCommit,
 		private readonly _options?: { allowFilteredFiles?: boolean; icon?: boolean },
 	) {
-		super('stash', commit.getGitUri(), view, parent);
+		super('stash', getCommitGitUri(commit), view, parent);
 
 		this.updateContext({ commit: commit });
 		this._uniqueId = getViewNodeId(this.type, this.context);
@@ -43,7 +51,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 	async getChildren(): Promise<ViewNode[]> {
 		// Ensure we have checked for untracked files (inside the getCommitsForFiles call)
-		const commits = await this.commit.getCommitsForFiles({
+		const commits = await getCommitsForFiles(this.commit, {
 			allowFilteredFiles: this._options?.allowFilteredFiles,
 			include: { stats: true },
 		});
@@ -95,8 +103,8 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 		const [remotesResult, _] = await Promise.allSettled([
 			this.view.container.git
 				.getRepositoryService(this.commit.repoPath)
-				.remotes.getBestRemotesWithProviders(cancellation),
-			this.commit.ensureFullDetails({
+				.remotes.getBestRemotesWithProviders(toAbortSignal(cancellation)),
+			GitCommit.ensureFullDetails(this.commit, {
 				allowFilteredFiles: this._options?.allowFilteredFiles,
 				include: { stats: true },
 			}),
@@ -109,9 +117,12 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 		let enrichedAutolinks;
 
-		if (remote?.supportsIntegration()) {
+		if (remote != null && remoteSupportsIntegration(remote)) {
 			const [enrichedAutolinksResult] = await Promise.allSettled([
-				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote), cancellation),
+				pauseOnCancelOrTimeoutMapTuplePromise(
+					getCommitEnrichedAutolinks(this.commit.repoPath, this.commit.message, this.commit.summary, remote),
+					toAbortSignal(cancellation),
+				),
 			]);
 
 			if (cancellation.isCancellationRequested) return undefined;

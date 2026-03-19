@@ -1,11 +1,11 @@
-import { sha256 } from '@env/crypto.js';
+import type { GitCommit, GitCommitIdentityShape } from '@gitlens/git/models/commit.js';
+import type { GitDiff, ParsedGitDiff } from '@gitlens/git/models/diff.js';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { parseGitDiff } from '@gitlens/git/parsers/diffParser.js';
+import { sha256 } from '@gitlens/utils/crypto.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../../../container.js';
-import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit.js';
-import type { GitDiff, ParsedGitDiff } from '../../../../git/models/diff.js';
-import type { Repository } from '../../../../git/models/repository.js';
-import { uncommitted, uncommittedStaged } from '../../../../git/models/revision.js';
-import { parseGitDiff } from '../../../../git/parsers/diffParser.js';
-import { getSettledValue } from '../../../../system/promise.js';
+import type { GlRepository } from '../../../../git/models/repository.js';
 import type { ComposerCommit, ComposerHunk, ComposerSafetyState } from '../protocol.js';
 
 const hunkOldRangeRegex = /@@ -(\d+),(\d+)/;
@@ -428,7 +428,7 @@ export interface ComposerDiffs {
 }
 
 export async function getComposerDiffs(
-	repo: Repository,
+	repo: GlRepository,
 	commits?: { baseSha: string; headSha: string },
 	options?: { includeUntracked?: boolean },
 ): Promise<ComposerDiffs | undefined> {
@@ -493,7 +493,7 @@ export async function getComposerDiffs(
  * Creates a safety state snapshot for the composer to validate against later
  */
 export async function createSafetyState(
-	repo: Repository,
+	repo: GlRepository,
 	diffs: ComposerDiffs,
 	baseSha?: string,
 	headSha?: string,
@@ -518,7 +518,7 @@ export async function createSafetyState(
  * Only validates diffs for sources that have hunks being committed.
  */
 export async function validateSafetyState(
-	repo: Repository,
+	repo: GlRepository,
 	safetyState: ComposerSafetyState,
 	hunksBeingCommitted?: ComposerHunk[],
 	diffs?: ComposerDiffs,
@@ -622,7 +622,7 @@ export function validateResultingDiff(
  */
 export async function getBranchCommits(
 	_container: Container,
-	repo: Repository,
+	repo: GlRepository,
 	branchName: string,
 	mergeTargetName?: string,
 ): Promise<{ commits: GitCommit[]; baseCommit: { sha: string; message: string }; headCommitSha: string } | undefined> {
@@ -687,7 +687,7 @@ export function parseCoAuthorsFromGitCommit(commit: GitCommit): GitCommitIdentit
 	while ((match = coAuthorRegex.exec(commit.message)) !== null) {
 		const [, name, email] = match;
 		if (name) {
-			coAuthors.push({ name: name.trim(), email: email?.trim(), date: commit.date });
+			coAuthors.push({ name: name.trim(), email: email?.trim(), date: commit.author.date });
 		}
 	}
 
@@ -698,7 +698,7 @@ export function parseCoAuthorsFromGitCommit(commit: GitCommit): GitCommitIdentit
  * Creates ComposerCommit array from existing branch commits, preserving order and mapping hunks correctly
  */
 export async function createComposerCommitsFromGitCommits(
-	repo: Repository,
+	repo: GlRepository,
 	commits: GitCommit[],
 ): Promise<{ commits: ComposerCommit[]; hunks: ComposerHunk[] } | undefined> {
 	try {
@@ -763,7 +763,7 @@ export async function createComposerCommitsFromGitCommits(
  * Calculates the combined diff from all branch commits for safety state validation
  */
 export async function calculateCombinedDiffBetweenCommits(
-	repo: Repository,
+	repo: GlRepository,
 	baseCommitSha: string,
 	headCommitSha: string,
 ): Promise<GitDiff | undefined> {

@@ -1,11 +1,11 @@
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
 import { getSteps } from '../../commands/quick-wizard/utils/quickWizard.utils.js';
 import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitWorktree } from '../../git/models/worktree.js';
-import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils.js';
-import type { Deferred } from '../../system/promise.js';
 import type { StartWorkContext, StartWorkStepState } from './startWorkBase.js';
 import { StartWorkBaseCommand } from './startWorkBase.js';
 import { createBranchNameFromIssue } from './utils/-webview/startWork.utils.js';

@@ -1,20 +1,20 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
 import { ViewColumn } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import type { DiffRange } from '@gitlens/git/providers/types.js';
+import { isShaWithParentSuffix, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { basename } from '@gitlens/utils/path.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import { GlyphChars } from '../constants.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
-import type { DiffRange } from '../git/gitProvider.js';
-import type { GitCommit } from '../git/models/commit.js';
-import { isCommit } from '../git/models/commit.js';
-import { deletedOrMissing } from '../git/models/revision.js';
-import { isShaWithParentSuffix, isUncommitted, shortenRevision } from '../git/utils/revision.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command } from '../system/-webview/command.js';
-import { diffRangeToSelection, openDiffEditor } from '../system/-webview/vscode/editors.js';
+import { openDiffEditor } from '../system/-webview/vscode/editors.js';
+import { diffRangeToSelection } from '../system/-webview/vscode/range.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { Logger } from '../system/logger.js';
-import { basename } from '../system/path.js';
-import { getSettledValue } from '../system/promise.js';
 import { GlCommandBase } from './commandBase.js';
 
 export interface DiffWithCommandArgsRevision {
@@ -44,7 +44,7 @@ export class DiffWithCommand extends GlCommandBase {
 		source?: Source,
 	): string {
 		let args: DiffWithCommandArgs | GitCommit;
-		if (isCommit(argsOrCommit)) {
+		if (GitCommit.is(argsOrCommit)) {
 			const commit = argsOrCommit;
 			if (commit.file == null || commit.unresolvedPreviousSha == null) {
 				debugger;

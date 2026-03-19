@@ -1,10 +1,10 @@
 import { Disposable } from 'vscode';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { szudzikPairing } from '@gitlens/utils/function.js';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
 import { unknownGitUri } from '../../../git/gitUri.js';
 import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
-import { trace } from '../../../system/decorators/log.js';
-import { weakEvent } from '../../../system/event.js';
-import { szudzikPairing } from '../../../system/function.js';
 import type { View } from '../../viewBase.js';
 import { SubscribeableViewNode } from './subscribeableViewNode.js';
 import type { ViewNode } from './viewNode.js';

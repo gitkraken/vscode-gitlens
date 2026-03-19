@@ -1,10 +1,10 @@
 import { MarkdownString } from 'vscode';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
+import { loggable } from '@gitlens/utils/decorators/log.js';
 import type { TreeViewFileNodeTypes } from '../../../constants.views.js';
 import { StatusFileFormatter } from '../../../git/formatters/statusFormatter.js';
 import type { GitUri } from '../../../git/gitUri.js';
-import type { GitFile } from '../../../git/models/file.js';
-import type { GitStatusFile } from '../../../git/models/statusFile.js';
-import { loggable } from '../../../system/decorators/log.js';
 import type { View } from '../../viewBase.js';
 import { ViewNode } from './viewNode.js';
 

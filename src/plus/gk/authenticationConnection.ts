@@ -1,14 +1,14 @@
 import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
-import { uuid } from '@env/crypto.js';
 import type { Response } from '@env/fetch.js';
+import { uuid } from '@gitlens/utils/crypto.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import type { DeferredEvent, DeferredEventExecutor } from '@gitlens/utils/event.js';
+import { promisifyDeferred } from '@gitlens/utils/event.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { TrackingContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
-import { trace } from '../../system/decorators/log.js';
-import type { DeferredEvent, DeferredEventExecutor } from '../../system/event.js';
-import { promisifyDeferred } from '../../system/event.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
 import type { ServerConnection } from './serverConnection.js';
 
 export const LoginUriPathPrefix = 'login';

@@ -1,17 +1,17 @@
 // import type { EnrichedAutolink } from './annotations/autolinks.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { Issue } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { isPromise } from '@gitlens/utils/promise.js';
+import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { Disposable } from './api/gitlens.d.js';
 import type { Container } from './container.js';
-import type { Account } from './git/models/author.js';
-import type { DefaultBranch } from './git/models/defaultBranch.js';
-import type { Issue } from './git/models/issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from './git/models/issueOrPullRequest.js';
-import type { PullRequest } from './git/models/pullRequest.js';
-import type { RepositoryMetadata } from './git/models/repositoryMetadata.js';
-import type { ResourceDescriptor } from './git/models/resourceDescriptor.js';
 import type { GitHostIntegration } from './plus/integrations/models/gitHostIntegration.js';
 import type { IntegrationBase } from './plus/integrations/models/integration.js';
-import { isPromise } from './system/promise.js';
-import { CacheController } from './system/promiseCache.js';
 
 type Caches = {
 	defaultBranch: { key: `repo:${string}`; value: DefaultBranch };

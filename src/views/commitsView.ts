@@ -1,25 +1,25 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import type { GitUser } from '@gitlens/git/models/user.js';
+import { matchContributor } from '@gitlens/git/utils/contributor.utils.js';
+import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { disposableInterval } from '@gitlens/utils/disposable.js';
 import type { CommitsViewConfig, ViewFilesLayout } from '../config.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitCommit } from '../git/models/commit.js';
-import { isCommit } from '../git/models/commit.js';
-import type { GitRevisionReference } from '../git/models/reference.js';
 import type { RepositoryChangeEvent } from '../git/models/repository.js';
-import type { GitUser } from '../git/models/user.js';
-import { matchContributor } from '../git/utils/contributor.utils.js';
-import { getLastFetchedUpdateInterval } from '../git/utils/fetch.utils.js';
-import { getReferenceLabel } from '../git/utils/reference.utils.js';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker.js';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { createCommand, executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
 import { gate } from '../system/decorators/gate.js';
-import { trace } from '../system/decorators/log.js';
-import { disposableInterval } from '../system/function.js';
 import type { UsageChangeEvent } from '../telemetry/usageTracker.js';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode.js';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode.js';
@@ -190,7 +190,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 					descParts.push(branch.name);
 				}
 
-				const status = branch.getTrackingStatus();
+				const status = GitBranch.getTrackingStatus(branch);
 				if (status) {
 					descParts.push(status);
 				}
@@ -362,7 +362,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 
 		// Check if the commit exists on the current branch
 		const branches = await svc.branches.getBranchesWithCommits([commit.ref], branch.name, {
-			commitDate: isCommit(commit) ? commit.committer.date : undefined,
+			commitDate: GitCommit.is(commit) ? commit.committer.date : undefined,
 		});
 		if (!branches.length) return undefined;
 

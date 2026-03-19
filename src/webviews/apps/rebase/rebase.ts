@@ -7,10 +7,10 @@ import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GitFileConflictStatus } from '../../../git/models/fileStatus.js';
-import type { RebaseTodoCommitAction } from '../../../git/models/rebase.js';
-import { filterMap, some } from '../../../system/iterable.js';
-import { pluralize } from '../../../system/string.js';
+import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
+import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
+import { filterMap, some } from '@gitlens/utils/iterable.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	ConflictFileInfo,
 	RebaseActiveStatus,

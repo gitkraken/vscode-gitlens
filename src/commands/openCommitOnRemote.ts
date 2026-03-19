@@ -1,10 +1,12 @@
 import type { TextEditor, Uri } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import { RemoteResourceType } from '../git/models/remoteResource.js';
-import { deletedOrMissing } from '../git/models/revision.js';
-import { isUncommitted } from '../git/utils/revision.utils.js';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
@@ -13,7 +15,6 @@ import {
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';
@@ -104,7 +105,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 				// If the line is uncommitted, use previous commit
 				args.sha = blame.commit.isUncommitted
-					? ((await blame.commit.getPreviousSha()) ?? deletedOrMissing)
+					? ((await GitCommit.getPreviousSha(blame.commit)) ?? deletedOrMissing)
 					: blame.commit.sha;
 			}
 

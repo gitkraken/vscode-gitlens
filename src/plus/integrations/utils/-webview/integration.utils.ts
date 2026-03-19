@@ -1,11 +1,12 @@
+import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../../../../constants.integrations.js';
-import type { RemoteProvider, RemoteProviderId } from '../../../../git/remotes/remoteProvider.js';
-import type { IntegrationConnectedKey } from '../../models/integration.js';
+import type { GitHostIntegration } from '../../models/gitHostIntegration.js';
+import type { Integration, IntegrationConnectedKey } from '../../models/integration.js';
 import { isAzureCloudDomain } from '../../providers/azureDevOps.js';
 import { isBitbucketCloudDomain } from '../../providers/bitbucket.js';
 import { isGitHubDotCom, isGitLabDotCom } from '../../providers/models.js';
@@ -108,6 +109,10 @@ export function isCloudGitSelfManagedHostIntegrationId(
 		default:
 			return false;
 	}
+}
+
+export function isGitHostIntegration(integration: Integration): integration is GitHostIntegration {
+	return integration.type === 'git';
 }
 
 export function isGitCloudHostIntegrationId(id: IntegrationIds): id is GitCloudHostIntegrationId {

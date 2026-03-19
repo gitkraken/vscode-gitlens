@@ -1,15 +1,19 @@
 import type { QuickInputButton } from 'vscode';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { createReference, getReferenceLabel, isStashReference } from '@gitlens/git/utils/reference.utils.js';
+import { getHighlanderProviderName } from '@gitlens/git/utils/remote.utils.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { first, map } from '@gitlens/utils/iterable.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
 import { openChanges, revealCommit, showCommitInDetailsView } from '../../../git/actions/commit.js';
 import { revealStash, showStashInDetailsView } from '../../../git/actions/stash.js';
-import type { GitCommit, GitStashCommit } from '../../../git/models/commit.js';
-import { isCommit, isStash } from '../../../git/models/commit.js';
-import type { GitLog } from '../../../git/models/log.js';
-import type { GitRevisionReference } from '../../../git/models/reference.js';
-import { RemoteResourceType } from '../../../git/models/remoteResource.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { createReference, getReferenceLabel, isStashReference } from '../../../git/utils/reference.utils.js';
-import { getHighlanderProviderName } from '../../../git/utils/remote.utils.js';
+import type { GlRepository } from '../../../git/models/repository.js';
+import { findCommitFile, isCommitPushed } from '../../../git/utils/-webview/commit.utils.js';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,
@@ -48,9 +52,6 @@ import {
 } from '../../../quickpicks/remoteProviderPicker.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { formatPath } from '../../../system/-webview/formatPath.js';
-import { filterMap } from '../../../system/array.js';
-import { first, map } from '../../../system/iterable.js';
-import { pad } from '../../../system/string.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -74,8 +75,8 @@ import {
 } from '../utils/steps.utils.js';
 
 export function* pickCommitStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
@@ -219,8 +220,8 @@ export function* pickCommitStep<
 }
 
 export function* pickCommitsStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
@@ -316,8 +317,8 @@ export function* pickCommitsStep<
 }
 
 export function* showCommitOrStashStep<
-	State extends PartialStepState & { repo: Repository; reference: GitCommit | GitStashCommit },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository; reference: GitCommit | GitStashCommit },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
@@ -367,18 +368,18 @@ export function* showCommitOrStashStep<
 
 export async function* showCommitOrStashFilesStep<
 	State extends PartialStepState & {
-		repo: Repository;
+		repo: GlRepository;
 		reference: GitCommit | GitStashCommit;
 		fileName?: string | undefined;
 	},
-	Context extends StepsContext<any> & { repos: Repository[] },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
 	options?: { picked?: string },
 ): AsyncStepResultGenerator<CommitFilesQuickPickItem | CommitFileQuickPickItem> {
 	if (!state.reference.hasFullDetails()) {
-		await state.reference.ensureFullDetails();
+		await GitCommit.ensureFullDetails(state.reference);
 	}
 
 	const step: QuickPickStep<CommitFilesQuickPickItem | CommitFileQuickPickItem> = createPickStep({
@@ -395,7 +396,7 @@ export async function* showCommitOrStashFilesStep<
 		items: [
 			new CommitFilesQuickPickItem(state.reference, {
 				picked: state.fileName == null,
-				hint: `Click to see ${isStash(state.reference) ? 'stash' : 'commit'} actions`,
+				hint: `Click to see ${GitCommit.isStash(state.reference) ? 'stash' : 'commit'} actions`,
 			}),
 			createQuickPickSeparator('Files'),
 			...(state.reference.anyFiles?.map(
@@ -435,11 +436,11 @@ export async function* showCommitOrStashFilesStep<
 
 export function* showCommitOrStashFileStep<
 	State extends PartialStepState & {
-		repo: Repository;
+		repo: GlRepository;
 		reference: GitCommit | GitStashCommit;
 		fileName: string;
 	},
-	Context extends StepsContext<any> & { repos: Repository[] },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(state: State, context: Context): StepResultGenerator<CommandQuickPickItem> {
 	const step: QuickPickStep<CommandQuickPickItem> = createPickStep<CommandQuickPickItem>({
 		title: appendReposToTitle(
@@ -490,7 +491,7 @@ export function* showCommitOrStashFileStep<
 }
 
 async function getShowCommitOrStashStepItems<
-	State extends PartialStepState & { repo: Repository; reference: GitCommit | GitStashCommit },
+	State extends PartialStepState & { repo: GlRepository; reference: GitCommit | GitStashCommit },
 >(state: State): Promise<CommandQuickPickItem[]> {
 	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [
 		new CommitOpenDetailsCommandQuickPickItem(state.reference),
@@ -499,7 +500,7 @@ async function getShowCommitOrStashStepItems<
 
 	let unpublished: boolean | undefined;
 
-	if (isStash(state.reference)) {
+	if (GitCommit.isStash(state.reference)) {
 		items.push(
 			createQuickPickSeparator('Actions'),
 			new GitWizardQuickPickItem('Apply Stash...', {
@@ -554,10 +555,12 @@ async function getShowCommitOrStashStepItems<
 		const [branches, published] = await Promise.all([
 			branch != null
 				? state.repo.git.branches.getBranchesWithCommits([state.reference.ref], branch.name, {
-						commitDate: isCommit(state.reference) ? state.reference.committer.date : undefined,
+						commitDate: GitCommit.is(state.reference) ? state.reference.committer.date : undefined,
 					})
 				: undefined,
-			!branch?.remote && branch?.upstream != null ? state.reference.isPushed() : undefined,
+			!branch?.remote && branch?.upstream != null
+				? isCommitPushed(state.reference.repoPath, state.reference.ref)
+				: undefined,
 		]);
 
 		const commitOnCurrentBranch = Boolean(branches?.length);
@@ -703,12 +706,12 @@ async function getShowCommitOrStashStepItems<
 
 async function getShowCommitOrStashFileStepItems<
 	State extends PartialStepState & {
-		repo: Repository;
+		repo: GlRepository;
 		reference: GitCommit | GitStashCommit;
 		fileName: string;
 	},
 >(state: State) {
-	const file = await state.reference.findFile(state.fileName);
+	const file = await findCommitFile(state.reference, state.fileName);
 	if (file == null) return [];
 
 	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [
@@ -716,7 +719,7 @@ async function getShowCommitOrStashFileStepItems<
 		new CommitOpenInGraphCommandQuickPickItem(state.reference),
 	];
 
-	if (isStash(state.reference)) {
+	if (GitCommit.isStash(state.reference)) {
 		items.push(
 			createQuickPickSeparator(),
 			new CommitCopyMessageQuickPickItem(state.reference),

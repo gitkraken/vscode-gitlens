@@ -24,7 +24,10 @@ const remappedTypes = new Map([
 	['TrackedUsageKeys', 'string /* TrackedUsageKeys */'],
 ]);
 
-const program = ts.createProgram(filePaths, {});
+const tsconfigPath = path.join(__dirname, 'tsconfig.node.json');
+const tsconfigFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+const parsedConfig = ts.parseJsonConfigFileContent(tsconfigFile.config, ts.sys, __dirname);
+const program = ts.createProgram(filePaths, parsedConfig.options);
 const typeChecker = program.getTypeChecker();
 
 /** @type {{ file: ts.SourceFile, type: ts.Type } | undefined} */

@@ -1,11 +1,11 @@
 import { ThemeIcon } from 'vscode';
+import { BranchError } from '@gitlens/git/errors.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
-import { BranchError } from '../../../git/errors.js';
-import type { GitBranchReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
-import { Logger } from '../../../system/logger.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -39,7 +39,7 @@ export type BranchUpstreamStepNames = StepNames;
 
 type Context = BranchContext<StepNames>;
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	reference: GitBranchReference;
 	/** Specifies the desired upstream; use `null` to unset */
@@ -98,7 +98,7 @@ export class BranchUpstreamGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStep(Steps.PickBranch) || state.reference == null) {
 				using step = steps.enterStep(Steps.PickBranch);
@@ -170,7 +170,7 @@ export class BranchUpstreamGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<void> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<void> {
 		let title;
 		let detail;
 		if (state.upstream == null) {

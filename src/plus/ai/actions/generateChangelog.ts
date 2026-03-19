@@ -1,8 +1,9 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import type { Lazy } from '@gitlens/utils/lazy.js';
 import type { Source } from '../../../constants.telemetry.js';
-import { AINoRequestDataError, CancellationError } from '../../../errors.js';
+import { AINoRequestDataError } from '../../../errors.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { Lazy } from '../../../system/lazy.js';
 import type { AIResponse } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
 import type { AIChatMessage } from '../models/provider.js';

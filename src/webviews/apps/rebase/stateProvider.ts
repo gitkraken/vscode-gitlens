@@ -1,7 +1,7 @@
 import { ContextProvider } from '@lit/context';
-import type { RebaseTodoCommitAction } from '../../../git/models/rebase.js';
-import type { Deferrable } from '../../../system/function/debounce.js';
-import { debounce } from '../../../system/function/debounce.js';
+import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type { IpcSerialized } from '../../../system/ipcSerialize.js';
 import type { IpcMessage } from '../../ipc/models/ipc.js';
 import type { State as _State, Commit } from '../../rebase/protocol.js';

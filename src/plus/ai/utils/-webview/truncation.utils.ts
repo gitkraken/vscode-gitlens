@@ -1,11 +1,11 @@
-import type { ParsedGitDiffFile } from '../../../../git/models/diff.js';
+import type { ParsedGitDiffFile } from '@gitlens/git/models/diff.js';
 import {
 	countDiffInsertionsAndDeletions,
 	countDiffLines,
 	filterDiffFiles,
 	parseGitDiff,
-} from '../../../../git/parsers/diffParser.js';
-import { extname } from '../../../../system/path.js';
+} from '@gitlens/git/parsers/diffParser.js';
+import { extname } from '@gitlens/utils/path.js';
 import type { PromptTemplateContext, TruncationHandler } from '../../models/promptTemplates.js';
 
 /**

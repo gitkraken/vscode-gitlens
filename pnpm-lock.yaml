@@ -27,9 +27,18 @@ importers:
       '@gitkraken/provider-apis':
         specifier: 0.40.0
         version: 0.40.0(encoding@0.1.13)
-      '@gk-nzaytsev/fast-string-truncated-width':
-        specifier: 1.1.0
-        version: 1.1.0
+      '@gitlens/git':
+        specifier: workspace:*
+        version: link:packages/git
+      '@gitlens/git-cli':
+        specifier: workspace:*
+        version: link:packages/git-cli
+      '@gitlens/git-github':
+        specifier: workspace:*
+        version: link:packages/git-github
+      '@gitlens/utils':
+        specifier: workspace:*
+        version: link:packages/utils
       '@lit-labs/signals':
         specifier: 0.2.0
         version: 0.2.0
@@ -358,6 +367,100 @@ importers:
       webpack-require-from:
         specifier: 1.8.6
         version: 1.8.6(tapable@2.3.0)
+
+  packages/git:
+    dependencies:
+      '@gitlens/utils':
+        specifier: workspace:*
+        version: link:../utils
+      ignore:
+        specifier: 7.0.5
+        version: 7.0.5
+    devDependencies:
+      '@types/mocha':
+        specifier: 10.0.10
+        version: 10.0.10
+      mocha:
+        specifier: 11.7.5
+        version: 11.7.5
+      tsx:
+        specifier: 4.21.0
+        version: 4.21.0
+
+  packages/git-cli:
+    dependencies:
+      '@gitlens/git':
+        specifier: workspace:*
+        version: link:../git
+      '@gitlens/utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@types/mocha':
+        specifier: 10.0.10
+        version: 10.0.10
+      '@types/sinon':
+        specifier: 21.0.0
+        version: 21.0.0
+      mocha:
+        specifier: 11.7.5
+        version: 11.7.5
+      sinon:
+        specifier: 21.0.1
+        version: 21.0.1
+      tsx:
+        specifier: 4.21.0
+        version: 4.21.0
+
+  packages/git-github:
+    dependencies:
+      '@gitlens/git':
+        specifier: workspace:*
+        version: link:../git
+      '@gitlens/utils':
+        specifier: workspace:*
+        version: link:../utils
+      '@octokit/graphql':
+        specifier: 9.0.3
+        version: 9.0.3
+      '@octokit/request':
+        specifier: 10.0.7
+        version: 10.0.7
+      '@octokit/request-error':
+        specifier: 7.1.0
+        version: 7.1.0
+      '@octokit/types':
+        specifier: 16.0.0
+        version: 16.0.0
+    devDependencies:
+      '@types/mocha':
+        specifier: 10.0.10
+        version: 10.0.10
+      mocha:
+        specifier: 11.7.5
+        version: 11.7.5
+      tsx:
+        specifier: 4.21.0
+        version: 4.21.0
+
+  packages/utils:
+    dependencies:
+      fast-string-truncated-width:
+        specifier: 3.0.3
+        version: 3.0.3
+      vscode-uri:
+        specifier: 3.1.0
+        version: 3.1.0
+    devDependencies:
+      mocha:
+        specifier: 11.7.5
+        version: 11.7.5
+      tinybench:
+        specifier: 6.0.0
+        version: 6.0.0
+      tsx:
+        specifier: 4.21.0
+        version: 4.21.0
 
 packages:
 
@@ -823,9 +926,6 @@ packages:
     resolution: {integrity: sha512-OEQkUVAOONyEANVLQhDrIzskbON56RBPxet0R+m8CQXmiND5CpvNON0f1GUfEsI2vomWZr/UkcB4Nj8NCowIAg==}
     engines: {node: '>= 20'}
 
-  '@gk-nzaytsev/fast-string-truncated-width@1.1.0':
-    resolution: {integrity: sha512-NPKNmdjRFUNpMRzQU3m+AmKzbiQ3WGFXxacMyfmRgm1N+vRhuCzAD3t2dRD29aX1n6a+PNBK2a6hwPwFTfx1rw==}
-
   '@graphql-typed-document-node/core@3.2.0':
     resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
     peerDependencies:
@@ -1218,6 +1318,10 @@ packages:
 
   '@octokit/request-error@7.1.0':
     resolution: {integrity: sha512-KMQIfq5sOPpkQYajXHwnhjCC0slzCNScLHs9JafXc4RAJI+9f+jNDlBNaIMTvazOPLgb4BnlhGJOTbnN0wIjPw==}
+    engines: {node: '>= 20'}
+
+  '@octokit/request@10.0.7':
+    resolution: {integrity: sha512-v93h0i1yu4idj8qFPZwjehoJx4j3Ntn+JhXsdJrG9pYaX6j/XRz2RmasMUHtNgQD39nrv/VwTWSqK0RNXR8upA==}
     engines: {node: '>= 20'}
 
   '@octokit/request@10.0.8':
@@ -1727,6 +1831,9 @@ packages:
 
   '@sinonjs/fake-timers@15.1.1':
     resolution: {integrity: sha512-cO5W33JgAPbOh07tvZjUOJ7oWhtaqGHiZw+11DPbyqh2kHTBc3eF/CjJDeQ4205RLQsX6rxCuYOroFQwl7JDRw==}
+
+  '@sinonjs/samsam@8.0.3':
+    resolution: {integrity: sha512-hw6HbX+GyVZzmaYNh82Ecj1vdGZrqVIn/keDTg63IgAwiQPO+xCz99uG6Woqgb4tM0mUiFENKZ4cqd7IX94AXQ==}
 
   '@sinonjs/samsam@9.0.2':
     resolution: {integrity: sha512-H/JSxa4GNKZuuU41E3b8Y3tbSEx8y4uq4UH1C56ONQac16HblReJomIvv3Ud7ANQHQmkeSowY49Ij972e/pGxQ==}
@@ -3628,6 +3735,9 @@ packages:
 
   fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
+
+  fast-string-truncated-width@3.0.3:
+    resolution: {integrity: sha512-0jjjIEL6+0jag3l2XWWizO64/aZVtpiGE3t0Zgqxv0DPuxiMjvB3M24fCyhZUO4KomJQPj3LTSUnDP3GpdwC0g==}
 
   fast-uri@3.1.0:
     resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
@@ -5891,6 +6001,9 @@ packages:
     resolution: {integrity: sha512-1sbhsxqI+I2tqlmjbz99GXNmZtr6tKIyEgGGnJw/MKGblalqk/XoOYYFJlBzTKZCxx8kLaD3FD5s9BEEjx5Pyg==}
     engines: {node: '>=10'}
 
+  sinon@21.0.1:
+    resolution: {integrity: sha512-Z0NVCW45W8Mg5oC/27/+fCqIHFnW8kpkFOq0j9XJIev4Ld0mKmERaZv5DMLAb9fGCevjKwaEeIQz5+MBXfZcDw==}
+
   sinon@21.0.2:
     resolution: {integrity: sha512-VHV4UaoxIe5jrMd89Y9duI76T5g3Lp+ET+ctLhLDaZtSznDPah1KKpRElbdBV4RwqWSw2vadFiVs9Del7MbVeQ==}
 
@@ -6278,6 +6391,11 @@ packages:
   tsscmp@1.0.6:
     resolution: {integrity: sha512-LxhtAkPDTkVCMQjt2h6eBVY28KCjikZqZfMcC15YBeNjkgUpdCfBu5HoiOTDu86v6smE8yOjyEktJ8hlbANHQA==}
     engines: {node: '>=0.6.x'}
+
+  tsx@4.21.0:
+    resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   ttf2eot@3.1.0:
     resolution: {integrity: sha512-aHTbcYosNHVqb2Qtt9Xfta77ae/5y0VfdwNLUS6sGBeGr22cX2JDMo/i5h3uuOf+FAD3akYOr17+fYd5NK8aXw==}
@@ -7174,8 +7292,6 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@gk-nzaytsev/fast-string-truncated-width@1.1.0': {}
-
   '@graphql-typed-document-node/core@3.2.0(graphql@15.10.1)':
     dependencies:
       graphql: 15.10.1
@@ -7518,6 +7634,14 @@ snapshots:
   '@octokit/request-error@7.1.0':
     dependencies:
       '@octokit/types': 16.0.0
+
+  '@octokit/request@10.0.7':
+    dependencies:
+      '@octokit/endpoint': 11.0.3
+      '@octokit/request-error': 7.1.0
+      '@octokit/types': 16.0.0
+      fast-content-type-parse: 3.0.0
+      universal-user-agent: 7.0.3
 
   '@octokit/request@10.0.8':
     dependencies:
@@ -7948,6 +8072,11 @@ snapshots:
   '@sinonjs/fake-timers@15.1.1':
     dependencies:
       '@sinonjs/commons': 3.0.1
+
+  '@sinonjs/samsam@8.0.3':
+    dependencies:
+      '@sinonjs/commons': 3.0.1
+      type-detect: 4.1.0
 
   '@sinonjs/samsam@9.0.2':
     dependencies:
@@ -10070,6 +10199,8 @@ snapshots:
   fast-json-stable-stringify@2.1.0: {}
 
   fast-levenshtein@2.0.6: {}
+
+  fast-string-truncated-width@3.0.3: {}
 
   fast-uri@3.1.0: {}
 
@@ -12584,6 +12715,14 @@ snapshots:
 
   simple-invariant@2.0.1: {}
 
+  sinon@21.0.1:
+    dependencies:
+      '@sinonjs/commons': 3.0.1
+      '@sinonjs/fake-timers': 15.1.1
+      '@sinonjs/samsam': 8.0.3
+      diff: 8.0.3
+      supports-color: 7.2.0
+
   sinon@21.0.2:
     dependencies:
       '@sinonjs/commons': 3.0.1
@@ -13029,6 +13168,13 @@ snapshots:
   tslib@2.8.1: {}
 
   tsscmp@1.0.6: {}
+
+  tsx@4.21.0:
+    dependencies:
+      esbuild: 0.27.3
+      get-tsconfig: 4.13.6
+    optionalDependencies:
+      fsevents: 2.3.3
 
   ttf2eot@3.1.0:
     dependencies:

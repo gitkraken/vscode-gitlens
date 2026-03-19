@@ -1,9 +1,10 @@
-import type { CancellationToken } from 'vscode';
-import { filterMap } from '../../../system/iterable.js';
-import { PageableResult } from '../../../system/paging.js';
-import type { GitBranch } from '../../models/branch.js';
-import type { Repository } from '../../models/repository.js';
-import type { GitWorktree } from '../../models/worktree.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitStatus } from '@gitlens/git/models/status.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { filterMap } from '@gitlens/utils/iterable.js';
+import { PageableResult } from '@gitlens/utils/paging.js';
+import type { Container } from '../../../container.js';
+import type { GlRepository } from '../../models/repository.js';
 
 export function getOpenedWorktreesByBranch(
 	worktreesByBranch: Map<string, GitWorktree> | undefined,
@@ -19,7 +20,7 @@ export function getOpenedWorktreesByBranch(
 }
 
 export async function getWorktreeForBranch(
-	repo: Repository,
+	repo: GlRepository,
 	branchName: string,
 	upstreamNames?: string | string[],
 	worktrees?: GitWorktree[],
@@ -72,14 +73,14 @@ export async function getWorktreeForBranch(
 }
 
 export async function getWorktreesByBranch(
-	repos: Repository | Repository[] | undefined,
+	repos: GlRepository | GlRepository[] | undefined,
 	options?: { includeDefault?: boolean },
-	cancellation?: CancellationToken,
+	cancellation?: AbortSignal,
 ): Promise<Map<string, GitWorktree>> {
 	const worktreesByBranch = new Map<string, GitWorktree>();
 	if (repos == null) return worktreesByBranch;
 
-	async function addWorktrees(repo: Repository) {
+	async function addWorktrees(repo: GlRepository) {
 		if (repo.git.worktrees == null) return;
 
 		groupWorktreesByBranch(await repo.git.worktrees.getWorktrees(cancellation), {
@@ -111,4 +112,18 @@ export function groupWorktreesByBranch(
 	}
 
 	return worktreesByBranch;
+}
+
+export async function getWorktreeStatus(container: Container, worktree: GitWorktree): Promise<GitStatus | undefined> {
+	if (worktree.type === 'bare') return undefined;
+	return container.git.getRepositoryService(worktree.uri.fsPath).status.getStatus();
+}
+
+export async function getWorktreeHasWorkingChanges(
+	container: Container,
+	worktree: GitWorktree,
+	options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean },
+): Promise<boolean | undefined> {
+	if (worktree.type === 'bare') return undefined;
+	return container.git.getRepositoryService(worktree.uri.fsPath).status?.hasWorkingChanges(options);
 }

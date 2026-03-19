@@ -1,6 +1,6 @@
+import type { Lazy } from '@gitlens/utils/lazy.js';
 import type { AIPrimaryProviders, AIProviders, OpenAIProviders } from '../../../constants.ai.js';
 import type { Container } from '../../../container.js';
-import type { Lazy } from '../../../system/lazy.js';
 import type { ServerConnection } from '../../gk/serverConnection.js';
 import type { AIProvider } from './provider.js';
 

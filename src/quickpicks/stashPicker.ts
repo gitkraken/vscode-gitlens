@@ -1,5 +1,9 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import type { GitStash } from '@gitlens/git/models/stash.js';
+import { filter, map } from '@gitlens/utils/iterable.js';
+import { isPromise } from '@gitlens/utils/promise.js';
 import {
 	RevealInSideBarQuickInputButton,
 	ShowDetailsViewQuickInputButton,
@@ -7,12 +11,8 @@ import {
 import type { Keys } from '../constants.js';
 import { Container } from '../container.js';
 import { revealStash, showStashInDetailsView } from '../git/actions/stash.js';
-import type { GitStashCommit } from '../git/models/commit.js';
-import type { GitStash } from '../git/models/stash.js';
 import type { KeyboardScope } from '../system/-webview/keyboard.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
-import { filter, map } from '../system/iterable.js';
-import { isPromise } from '../system/promise.js';
 import { CommandQuickPickItem } from './items/common.js';
 import type { DirectiveQuickPickItem } from './items/directive.js';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive.js';

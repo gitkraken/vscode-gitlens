@@ -1,8 +1,8 @@
 import type { TextEditor, Uri } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand } from './commandBase.js';
 
 @command()

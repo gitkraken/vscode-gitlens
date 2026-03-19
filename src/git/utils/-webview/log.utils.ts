@@ -1,13 +1,14 @@
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import { filterMap, map } from '@gitlens/utils/iterable.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Autolink } from '../../../autolinks/models/autolinks.js';
 import type { Container } from '../../../container.js';
 import type {
 	AIGenerateChangelogChange,
 	AIGenerateChangelogChanges,
 } from '../../../plus/ai/actions/generateChangelog.js';
-import { filterMap, map } from '../../../system/iterable.js';
-import { getSettledValue } from '../../../system/promise.js';
-import type { IssueOrPullRequest } from '../../models/issueOrPullRequest.js';
-import type { GitLog } from '../../models/log.js';
+import { getBestRemoteWithIntegration } from './remote.utils.js';
 
 export async function getChangesForChangelog(
 	container: Container,
@@ -23,7 +24,7 @@ export async function getChangesForChangelog(
 
 	const allLinks: Map<string, Autolink> = new Map();
 
-	const remote = await container.git.getRepositoryService(log.repoPath).remotes.getBestRemoteWithIntegration();
+	const remote = await getBestRemoteWithIntegration(log.repoPath);
 	for (const commit of log.commits.values()) {
 		const message = commit.message ?? commit.summary;
 		const links = await container.autolinks.getAutolinks(message, remote);

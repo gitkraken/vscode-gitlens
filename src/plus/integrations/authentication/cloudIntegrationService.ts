@@ -1,6 +1,6 @@
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import type { Container } from '../../../container.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { ServerConnection } from '../../gk/serverConnection.js';
 import type { CloudIntegrationAuthenticationSession, CloudIntegrationConnection } from './models.js';
 import { toCloudIntegrationType } from './models.js';

@@ -1,18 +1,21 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { TextEditor } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
+import { ApplyPatchCommitError } from '@gitlens/git/errors.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitDiff } from '@gitlens/git/models/diff.js';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
+import { isSha, isUncommitted, isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { map } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { ScmResource } from '../@types/vscode.git.resources.d.js';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
 import type { GlCommands } from '../constants.commands.js';
 import type { IntegrationIds } from '../constants.integrations.js';
 import type { Container } from '../container.js';
-import { CancellationError } from '../errors.js';
-import { ApplyPatchCommitError } from '../git/errors.js';
-import type { GitDiff } from '../git/models/diff.js';
-import type { Repository } from '../git/models/repository.js';
-import { uncommitted, uncommittedStaged } from '../git/models/revision.js';
-import { splitCommitMessage } from '../git/utils/commit.utils.js';
-import { isSha, isUncommitted, isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils.js';
+import type { GlRepository } from '../git/models/repository.js';
 import { showGitErrorMessage } from '../messages.js';
 import { showPatchesView } from '../plus/drafts/actions.js';
 import type { ProviderAuth } from '../plus/drafts/draftsService.js';
@@ -20,8 +23,6 @@ import type { Draft, LocalDraft } from '../plus/drafts/models/drafts.js';
 import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils.js';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
-import { map } from '../system/iterable.js';
-import { Logger } from '../system/logger.js';
 import { isViewRefFileNode } from '../views/nodes/utils/-webview/node.utils.js';
 import type { Change, CreateDraft } from '../webviews/plus/patchDetails/protocol.js';
 import { ActiveEditorCommand, GlCommandBase } from './commandBase.js';
@@ -113,7 +114,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 						};
 					} else {
 						if (commit.message == null) {
-							await commit.ensureFullDetails();
+							await GitCommit.ensureFullDetails(commit);
 						}
 
 						const { summary: title, body: description } = splitCommitMessage(commit.message);
@@ -319,7 +320,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 			await repo.git.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
 			void window.showInformationMessage(`Patch applied successfully`);
 		} catch (ex) {
-			if (ex instanceof CancellationError) return;
+			if (isCancellationError(ex)) return;
 
 			if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
 				void window.showWarningMessage('Patch applied with conflicts');
@@ -468,7 +469,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 	}
 }
 
-async function createDraft(repository: Repository, args: CreatePatchCommandArgs): Promise<CreateDraft | undefined> {
+async function createDraft(repository: GlRepository, args: CreatePatchCommandArgs): Promise<CreateDraft | undefined> {
 	if (args.to == null) return undefined;
 
 	const to = args.to ?? 'HEAD';

@@ -1,5 +1,5 @@
+import type { Deferred } from '@gitlens/utils/promise.js';
 import type { GlCommands } from '../../../constants.commands.js';
-import type { Deferred } from '../../../system/promise.js';
 import type { GitWizardCommandArgs } from '../../gitWizard.js';
 import type { QuickWizardCommandArgs } from '../../quickWizard.js';
 

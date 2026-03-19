@@ -1,12 +1,15 @@
-import type { CancellationToken } from 'vscode';
+import type { BranchDisposition, BranchTargetInfo, GitBranch } from '@gitlens/git/models/branch.js';
+import type { PullRequest, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import type { MaybePausedResult } from '@gitlens/utils/promise.js';
+import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
+import type { EnrichedAutolink } from '../../../autolinks/models/autolinks.js';
 import type { Container } from '../../../container.js';
-import { CancellationError } from '../../../errors.js';
-import type { MaybePausedResult } from '../../../system/promise.js';
-import { getSettledValue, pauseOnCancelOrTimeout } from '../../../system/promise.js';
 import type { GitRepositoryService } from '../../gitRepositoryService.js';
-import type { BranchTargetInfo, GitBranch } from '../../models/branch.js';
-import type { PullRequest } from '../../models/pullRequest.js';
-import { createRevisionRange } from '../revision.utils.js';
+import { getBestRemoteWithIntegration, getRemoteIntegration } from './remote.utils.js';
 
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([
@@ -53,7 +56,7 @@ export async function getBranchMergeTargetInfo(
 	branch: GitBranch,
 	options?: {
 		associatedPullRequest?: Promise<PullRequest | undefined>;
-		cancellation?: CancellationToken;
+		cancellation?: AbortSignal;
 		detectedOnly?: boolean;
 		timeout?: number;
 	},
@@ -63,12 +66,12 @@ export async function getBranchMergeTargetInfo(
 		container.git
 			.getRepositoryService(branch.repoPath)
 			.branches.getBaseBranchName?.(branch.name, options?.cancellation),
-		getDefaultBranchName(container, branch.repoPath, branch.getRemoteName(), {
+		getDefaultBranchName(container, branch.repoPath, branch.remoteName, {
 			cancellation: options?.cancellation,
 		}),
 	]);
 
-	if (options?.cancellation?.isCancellationRequested) throw new CancellationError();
+	if (options?.cancellation?.aborted) throw new CancellationError();
 
 	return {
 		mergeTargetBranch: getSettledValue(targetResult) ?? { value: undefined, paused: false },
@@ -82,7 +85,7 @@ export async function getBranchMergeTargetName(
 	branch: GitBranch,
 	options?: {
 		associatedPullRequest?: Promise<PullRequest | undefined>;
-		cancellation?: CancellationToken;
+		cancellation?: AbortSignal;
 		detectedOnly?: boolean;
 		timeout?: number;
 	},
@@ -92,7 +95,7 @@ export async function getBranchMergeTargetName(
 			container.git
 				.getRepositoryService(branch.repoPath)
 				.branches.getBaseBranchName?.(branch.name, options?.cancellation),
-			getDefaultBranchName(container, branch.repoPath, branch.getRemoteName(), {
+			getDefaultBranchName(container, branch.repoPath, branch.remoteName, {
 				cancellation: options?.cancellation,
 			}),
 		]);
@@ -103,19 +106,19 @@ export async function getBranchMergeTargetName(
 	if (!result.paused) {
 		if (result.value) return { value: result.value, paused: false };
 
-		if (options?.cancellation?.isCancellationRequested) {
+		if (options?.cancellation?.aborted) {
 			return { value: Promise.resolve(undefined), paused: true, reason: 'cancelled' };
 		}
 
 		const fallback = await getMergeTargetFallback();
-		if (options?.cancellation?.isCancellationRequested) {
+		if (options?.cancellation?.aborted) {
 			return { value: Promise.resolve(undefined), paused: true, reason: 'cancelled' };
 		}
 
 		return { value: fallback, paused: false };
 	}
 
-	if (options?.cancellation?.isCancellationRequested || result.reason === 'cancelled') {
+	if (options?.cancellation?.aborted || result.reason === 'cancelled') {
 		return { value: Promise.resolve(undefined), paused: true, reason: 'cancelled' };
 	}
 
@@ -132,7 +135,7 @@ async function getBranchMergeTargetNameWithoutFallback(
 	branch: GitBranch,
 	options?: {
 		associatedPullRequest?: Promise<PullRequest | undefined>;
-		cancellation?: CancellationToken;
+		cancellation?: AbortSignal;
 		detectedOnly?: boolean;
 		timeout?: number;
 	},
@@ -146,13 +149,13 @@ async function getBranchMergeTargetNameWithoutFallback(
 		return { value: validated || targetBranch, paused: false };
 	}
 
-	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
+	if (options?.cancellation?.aborted) return { value: undefined, paused: false };
 
 	return pauseOnCancelOrTimeout(
-		(options?.associatedPullRequest ?? branch?.getAssociatedPullRequest())?.then(pr => {
+		(options?.associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch))?.then(pr => {
 			if (pr?.refs?.base == null) return undefined;
 
-			const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
+			const name = `${branch.remoteName}/${pr.refs.base.branch}`;
 			void svc.branches.storeMergeTargetBranchName?.(branch.name, name);
 
 			return name;
@@ -166,37 +169,117 @@ export async function getDefaultBranchName(
 	container: Container,
 	repoPath: string,
 	remoteName?: string,
-	options?: { cancellation?: CancellationToken },
+	options?: { cancellation?: AbortSignal },
 ): Promise<string | undefined> {
 	const name = await container.git
 		.getRepositoryService(repoPath)
 		.branches.getDefaultBranchName(remoteName, options?.cancellation);
-	return name ?? getDefaultBranchNameFromIntegration(container, repoPath, options);
+	return name ?? getDefaultBranchNameFromIntegration(repoPath, options);
 }
 
 export async function getDefaultBranchNameFromIntegration(
-	container: Container,
 	repoPath: string,
-	options?: { cancellation?: CancellationToken },
+	options?: { cancellation?: AbortSignal },
 ): Promise<string | undefined> {
-	const remote = await container.git
-		.getRepositoryService(repoPath)
-		.remotes.getBestRemoteWithIntegration(undefined, options?.cancellation);
+	const remote = await getBestRemoteWithIntegration(repoPath, undefined, options?.cancellation);
 	if (remote == null) return undefined;
 
-	const integration = await remote.getIntegration();
-	const defaultBranch = await integration?.getDefaultBranch?.(remote.provider.repoDesc, options);
+	const integration = await getRemoteIntegration(remote);
+	const defaultBranch = await integration?.getDefaultBranch?.(remote.provider.repoDesc);
 	return defaultBranch && `${remote.name}/${defaultBranch?.name}`;
 }
 
-export function isBranchStarred(container: Container, branchId: string): boolean {
-	const starred = container.storage.getWorkspace('starred:branches');
-	return starred?.[branchId] === true;
+export function getStarredBranches(branches: Iterable<GitBranch>): Set<string> {
+	const ids = new Set<string>();
+	for (const b of branches) {
+		if (b.starred) {
+			ids.add(b.id);
+		}
+	}
+	return ids;
 }
 
-export function getStarredBranchIds(container: Container): Set<string> {
-	const starred = container.storage.getWorkspace('starred:branches');
-	if (starred == null) return new Set();
+export async function getBranchRemote(container: Container, branch: GitBranch): Promise<GitRemote | undefined> {
+	const remoteName = branch.remoteName;
+	if (remoteName == null) return undefined;
 
-	return new Set(Object.keys(starred).filter(branchId => starred[branchId] === true));
+	return container.git.getRepositoryService(branch.repoPath).remotes.getRemote(remoteName);
+}
+
+export async function getBranchAssociatedPullRequest(
+	container: Container,
+	branch: GitBranch,
+	options?: {
+		avatarSize?: number;
+		include?: PullRequestState[];
+		expiryOverride?: boolean | number;
+	},
+): Promise<PullRequest | undefined> {
+	const remote = await getBranchRemote(container, branch);
+	if (remote?.provider == null) return undefined;
+
+	const integration = await getRemoteIntegration(remote);
+	if (integration == null) return undefined;
+
+	if (branch.upstream?.missing) {
+		if (!branch.sha) return undefined;
+		return integration.getPullRequestForCommit(remote.provider.repoDesc, branch.sha);
+	}
+
+	return integration.getPullRequestForBranch(
+		remote.provider.repoDesc,
+		branch.trackingWithoutRemote ?? branch.nameWithoutRemote,
+		options,
+	);
+}
+
+export async function getBranchEnrichedAutolinks(
+	container: Container,
+	branch: GitBranch,
+): Promise<Map<string, EnrichedAutolink> | undefined> {
+	const remote = await container.git.getRepositoryService(branch.repoPath).remotes.getBestRemoteWithProvider();
+	const branchAutolinks = await container.autolinks.getBranchAutolinks(branch.name, remote);
+	return container.autolinks.getEnrichedAutolinks(branchAutolinks, remote);
+}
+
+export async function getBranchWorktree(
+	container: Container,
+	branch: GitBranch,
+	cancellation?: AbortSignal,
+): Promise<GitWorktree | undefined> {
+	if (branch.worktree === false) return undefined;
+
+	if (branch.worktree == null) {
+		const { id } = branch;
+		return container.git
+			.getRepositoryService(branch.repoPath)
+			.worktrees?.getWorktree(wt => wt.branch?.id === id, cancellation);
+	}
+
+	const { path } = branch.worktree;
+	return container.git
+		.getRepositoryService(branch.repoPath)
+		.worktrees?.getWorktree(wt => wt.path === path, cancellation);
+}
+
+export async function setBranchDisposition(
+	container: Container,
+	branch: GitBranch,
+	disposition: BranchDisposition | undefined,
+): Promise<void> {
+	const svc = container.git.getRepositoryService(branch.repoPath);
+	await svc.branches.setBranchDisposition?.(branch.name, disposition);
+
+	// Apply paired update: starring a remote branch also stars its local counterpart (and vice versa)
+	if (branch.remote) {
+		const local = await svc.branches.getLocalBranchByUpstream?.(branch.name);
+		if (local != null) {
+			await svc.branches.setBranchDisposition?.(local.name, disposition);
+		}
+	} else if (branch.upstream != null && !branch.upstream.missing) {
+		const remoteBranch = await svc.branches.getBranch(branch.upstream.name);
+		if (remoteBranch != null) {
+			await svc.branches.setBranchDisposition?.(remoteBranch.name, disposition);
+		}
+	}
 }

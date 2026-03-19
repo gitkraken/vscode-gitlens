@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GitReference } from '../../../../git/models/reference.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
 import { pickerIconStyles, refButtonBaseStyles } from './ref.css.js';
 import './button.js';
 import './ref-name.js';

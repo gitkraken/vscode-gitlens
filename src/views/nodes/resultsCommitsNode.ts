@@ -1,18 +1,18 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { map } from '@gitlens/utils/iterable.js';
+import { getLoggableName } from '@gitlens/utils/logger.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { defer, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { TreeViewNodeTypes } from '../../constants.views.js';
 import { GitUri } from '../../git/gitUri.js';
-import { isStash } from '../../git/models/commit.js';
-import type { GitRevisionRange } from '../../git/models/revision.js';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults.js';
 import { getChangesForChangelog } from '../../git/utils/-webview/log.utils.js';
 import type { AIGenerateChangelogChanges } from '../../plus/ai/actions/generateChangelog.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { trace } from '../../system/decorators/log.js';
-import { map } from '../../system/iterable.js';
-import { getLoggableName } from '../../system/logger.js';
-import { maybeStartScopedLogger } from '../../system/logger.scope.js';
-import type { Deferred } from '../../system/promise.js';
-import { defer, pauseOnCancelOrTimeout } from '../../system/promise.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import type { PageableViewNode } from './abstract/viewNode.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
@@ -140,7 +140,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 		children.push(
 			...insertDateMarkers(
 				map(log.commits.values(), c =>
-					isStash(c)
+					GitCommit.isStash(c)
 						? new StashNode(this.view, this, c, { allowFilteredFiles: allowFilteredFiles, icon: true })
 						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, {
 								allowFilteredFiles: allowFilteredFiles,

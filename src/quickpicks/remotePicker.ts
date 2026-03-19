@@ -1,7 +1,8 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quick-wizard/quickButtons.js';
-import type { GitRemote } from '../git/models/remote.js';
+import { setRemoteAsDefault } from '../git/utils/-webview/remote.utils.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
 import type { RemoteQuickPickItem } from './items/gitWizard.js';
 import { createRemoteQuickPickItem } from './items/gitWizard.js';
@@ -61,7 +62,7 @@ export async function showRemotePicker(
 				}),
 				quickpick.onDidTriggerItemButton(async e => {
 					if (e.button === SetRemoteAsDefaultQuickInputButton) {
-						await e.item.item.setAsDefault();
+						await setRemoteAsDefault(e.item.item);
 						resolve(e.item);
 					}
 				}),

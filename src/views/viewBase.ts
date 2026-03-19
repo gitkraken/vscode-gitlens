@@ -14,6 +14,15 @@ import type {
 	ViewBadge,
 } from 'vscode';
 import { EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
+import { areEqual } from '@gitlens/utils/array.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { once } from '@gitlens/utils/event.js';
+import { first } from '@gitlens/utils/iterable.js';
+import type { Lazy } from '@gitlens/utils/lazy.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { cancellable, defer, isPromise, PromiseCancelledError } from '@gitlens/utils/promise.js';
 import type {
 	BranchesViewConfig,
 	CommitsViewConfig,
@@ -38,24 +47,16 @@ import type { RepositoryFilterValue } from '../constants.storage.js';
 import type { TrackedUsageFeatures } from '../constants.telemetry.js';
 import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views.js';
 import type { Container } from '../container.js';
-import type { Repository } from '../git/models/repository.js';
+import type { GlRepository } from '../git/models/repository.js';
 import { groupRepositories } from '../git/utils/-webview/repository.utils.js';
 import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting.js';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive.js';
 import { showRepositoriesPicker2 } from '../quickpicks/repositoryPicker.js';
+import { toAbortSignal } from '../system/-webview/cancellation.js';
 import { executeCoreCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import type { StorageChangeEvent } from '../system/-webview/storage.js';
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
-import { areEqual } from '../system/array.js';
-import { debug, trace } from '../system/decorators/log.js';
-import { once } from '../system/event.js';
-import { debounce } from '../system/function/debounce.js';
-import { first } from '../system/iterable.js';
-import type { Lazy } from '../system/lazy.js';
-import { Logger } from '../system/logger.js';
-import { getScopedLogger } from '../system/logger.scope.js';
-import { cancellable, defer, isPromise, PromiseCancelledError } from '../system/promise.js';
 import type { BranchesView } from './branchesView.js';
 import type { CommitsView } from './commitsView.js';
 import type { ContributorsView } from './contributorsView.js';
@@ -504,7 +505,7 @@ export abstract class ViewBase<
 		return `gitlens.views.${this.type}.${command}` as const;
 	}
 
-	getFilteredRepositories(): Repository[] {
+	getFilteredRepositories(): GlRepository[] {
 		let repos = this.container.git.openRepositories;
 
 		const filter = this.repositoryFilter;
@@ -1019,9 +1020,14 @@ export abstract class ViewBase<
 
 						await this.loadMoreNodeChildren(node, defaultPageSize);
 
-						pagedChildren = await cancellable(Promise.resolve(node.getChildren()), 60000, token, {
-							onDidCancel: resolve => resolve([]),
-						});
+						pagedChildren = await cancellable(
+							Promise.resolve(node.getChildren()),
+							60000,
+							toAbortSignal(token),
+							{
+								onDidCancel: resolve => resolve([]),
+							},
+						);
 
 						child = pagedChildren.find(predicate);
 						if (child != null) return child;

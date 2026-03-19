@@ -1,16 +1,16 @@
 import { window } from 'vscode';
+import { ResetError } from '@gitlens/git/errors.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { GitRevisionReference, GitTagReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../container.js';
-import { ResetError } from '../../git/errors.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { GitRevisionReference, GitTagReference } from '../../git/models/reference.js';
-import type { Repository } from '../../git/models/repository.js';
-import { getReferenceLabel } from '../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
-import { Logger } from '../../system/logger.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
@@ -36,7 +36,7 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	destination: GitBranch;
@@ -44,7 +44,7 @@ interface Context extends StepsContext<StepNames> {
 }
 
 type Flags = '--hard' | '--keep' | '--soft';
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	reference: GitRevisionReference | GitTagReference;
 	flags: Flags[];
@@ -69,7 +69,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 		return this._canSkipConfirm;
 	}
 
-	private async execute(state: StepState<State<Repository>>) {
+	private async execute(state: StepState<State<GlRepository>>) {
 		const mode = state.flags.includes('--soft')
 			? 'soft'
 			: state.flags.includes('--keep')
@@ -132,7 +132,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (context.destination == null) {
 				const branch = await state.repo.git.branches.getBranch();
@@ -198,7 +198,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<Flags[]> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[

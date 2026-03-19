@@ -1,5 +1,5 @@
 /*global window document MutationObserver*/
-import { getCssVariable } from '../../../system/color.js';
+import { getCssVariable } from '@gitlens/utils/color.js';
 import type { Disposable, Event } from './events.js';
 import { Emitter } from './events.js';
 

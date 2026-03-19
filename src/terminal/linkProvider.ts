@@ -1,16 +1,17 @@
 import type { CancellationToken, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
 import { commands, window } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitTag } from '@gitlens/git/models/tag.js';
+import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { GitWizardCommandArgs } from '../commands/gitWizard.js';
 import type { InspectCommandArgs } from '../commands/inspect.js';
 import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory.js';
 import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit.js';
 import type { GlCommands } from '../constants.commands.js';
 import type { Container } from '../container.js';
-import type { PagedResult } from '../git/gitProvider.js';
-import type { GitBranch } from '../git/models/branch.js';
-import type { GitTag } from '../git/models/tag.js';
-import { getBranchNameWithoutRemote } from '../git/utils/branch.utils.js';
-import { createReference } from '../git/utils/reference.utils.js';
+import { toAbortSignal } from '../system/-webview/cancellation.js';
 import { createTerminalLinkCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 
@@ -101,7 +102,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 
 			const svc = this.container.git.getRepositoryService(repoPath);
 			// TODO@eamodio handle paging
-			branchResults ??= await svc.branches.getBranches(undefined, token).catch(() => undefined);
+			branchResults ??= await svc.branches.getBranches(undefined, toAbortSignal(token)).catch(() => undefined);
 			if (token.isCancellationRequested) break;
 
 			let branch = branchResults?.values.find(r => r.name === ref);
@@ -122,7 +123,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			}
 
 			// TODO@eamodio handle paging
-			tagResults ??= await svc.tags.getTags(undefined, token).catch(() => undefined);
+			tagResults ??= await svc.tags.getTags(undefined, toAbortSignal(token)).catch(() => undefined);
 			if (token.isCancellationRequested) break;
 
 			const tag = tagResults?.values.find(r => r.name === ref);
@@ -161,7 +162,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			if (await svc.refs.isValidReference(ref, undefined, token).catch(() => false)) {
+			if (await svc.refs.isValidReference(ref, undefined, toAbortSignal(token)).catch(() => false)) {
 				const link: GitTerminalLink<ShowQuickCommitCommandArgs | InspectCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,

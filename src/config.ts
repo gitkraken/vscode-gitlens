@@ -1,6 +1,6 @@
+import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { AIProviderAndModel, SupportedAIModels } from './constants.ai.js';
 import type { GroupableTreeViewTypes } from './constants.views.js';
-import type { DateTimeFormat } from './system/date.js';
 
 export interface Config {
 	readonly advanced: AdvancedConfig;

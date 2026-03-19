@@ -2,16 +2,16 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { env } from 'process';
 import { Uri, workspace } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import type { UnifiedAsyncDisposable } from '@gitlens/utils/disposable.js';
+import { createAsyncDisposable } from '@gitlens/utils/disposable.js';
+import type { Lazy } from '@gitlens/utils/lazy.js';
+import { lazy } from '@gitlens/utils/lazy.js';
+import { getLoggableName } from '@gitlens/utils/logger.js';
+import { getScopedLogger, maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { wait } from '@gitlens/utils/promise.js';
 import type { Container } from '../../../container.js';
 import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider.js';
-import { debug } from '../../../system/decorators/log.js';
-import type { Lazy } from '../../../system/lazy.js';
-import { lazy } from '../../../system/lazy.js';
-import { getLoggableName } from '../../../system/logger.js';
-import { getScopedLogger, maybeStartScopedLogger } from '../../../system/logger.scope.js';
-import { wait } from '../../../system/promise.js';
-import type { UnifiedAsyncDisposable } from '../../../system/unifiedDisposable.js';
-import { createAsyncDisposable } from '../../../system/unifiedDisposable.js';
 import { getPlatform } from '../platform.js';
 
 export class LocalSharedGkStorageLocationProvider implements SharedGkStorageLocationProvider {

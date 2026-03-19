@@ -1,4 +1,4 @@
-import { isLoggable } from '../../system/loggable.js';
+import { isLoggable } from '@gitlens/utils/loggable.js';
 import { loggingJsonReplacer } from './json.js';
 
 export function defaultResolver(...args: unknown[]): string {

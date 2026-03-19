@@ -1,8 +1,8 @@
+import type { GitFile } from '@gitlens/git/models/file.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
 import { formatPath } from '../../../system/-webview/formatPath.js';
 import { relativeDir, splitPath } from '../../../system/-webview/path.js';
-import { pad } from '../../../system/string.js';
-import type { GitFile } from '../../models/file.js';
 
 export function getGitFileFormattedDirectory(
 	file: GitFile,

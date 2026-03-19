@@ -1,4 +1,5 @@
 import type { Disposable } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
@@ -7,7 +8,6 @@ import {
 } from '../../../constants.integrations.js';
 import type { Container } from '../../../container.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { debug } from '../../../system/decorators/log.js';
 import { supportedIntegrationIds } from '../utils/-webview/integration.utils.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type { IntegrationAuthenticationProvider } from './integrationAuthenticationProvider.js';

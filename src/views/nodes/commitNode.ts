@@ -1,28 +1,37 @@
 import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
-import type { Colors } from '../../constants.colors.js';
-import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
-import type { GitRevisionReference } from '../../git/models/reference.js';
-import type { GitRemote } from '../../git/models/remote.js';
-import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
-import { createCommand } from '../../system/-webview/command.js';
-import { configuration } from '../../system/-webview/configuration.js';
-import { getContext } from '../../system/-webview/context.js';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/editors.js';
-import { makeHierarchical } from '../../system/array.js';
-import { joinPaths, normalizePath } from '../../system/path.js';
-import type { Deferred } from '../../system/promise.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
+import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import {
 	defer,
 	getSettledValue,
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
-} from '../../system/promise.js';
-import { sortCompare } from '../../system/string.js';
+} from '@gitlens/utils/promise.js';
+import { sortCompare } from '@gitlens/utils/string.js';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
+import type { Colors } from '../../constants.colors.js';
+import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
+import {
+	getCommitAssociatedPullRequest,
+	getCommitAuthorAvatarUri,
+	getCommitEnrichedAutolinks,
+	getCommitGitUri,
+	getCommitsForFiles,
+	isCommitSigned,
+} from '../../git/utils/-webview/commit.utils.js';
+import { remoteSupportsIntegration } from '../../git/utils/-webview/remote.utils.js';
+import { toAbortSignal } from '../../system/-webview/cancellation.js';
+import { createCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { getContext } from '../../system/-webview/context.js';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { disposeChildren } from '../viewBase.js';
@@ -49,7 +58,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		protected readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
 		protected readonly _options: { allowFilteredFiles?: boolean; expand?: boolean } = {},
 	) {
-		super('commit', commit.getGitUri(), view, parent);
+		super('commit', getCommitGitUri(commit), view, parent);
 
 		this.updateContext({ commit: commit });
 		this._uniqueId = getViewNodeId(this.type, this.context);
@@ -136,7 +145,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 			}
 
 			try {
-				const commits = await commit.getCommitsForFiles({
+				const commits = await getCommitsForFiles(commit, {
 					allowFilteredFiles: this._options.allowFilteredFiles,
 					include: { stats: true },
 				});
@@ -202,7 +211,9 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				: this.unpublished
 					? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
 					: this.view.config.avatars
-						? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
+						? await getCommitAuthorAvatarUri(this.commit, {
+								defaultStyle: configuration.get('defaultGravatarsStyle'),
+							})
 						: undefined;
 		// item.tooltip = this.tooltip;
 
@@ -237,16 +248,13 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		return item;
 	}
 
-	private async getAssociatedPullRequest(
-		commit: GitCommit,
-		remote?: GitRemote<RemoteProvider>,
-	): Promise<PullRequest | undefined> {
+	private async getAssociatedPullRequest(commit: GitCommit, remote?: GitRemote): Promise<PullRequest | undefined> {
 		let pullRequest = this.getState('pullRequest');
 		if (pullRequest !== undefined) return Promise.resolve(pullRequest ?? undefined);
 
 		let pendingPullRequest = this.getState('pendingPullRequest');
 		if (pendingPullRequest == null) {
-			pendingPullRequest = commit.getAssociatedPullRequest(remote);
+			pendingPullRequest = getCommitAssociatedPullRequest(commit.repoPath, commit.sha, remote);
 			this.storeState('pendingPullRequest', pendingPullRequest);
 
 			pullRequest = await pendingPullRequest;
@@ -270,12 +278,17 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		const [remotesResult, _, signatureResult] = await Promise.allSettled([
 			this.view.container.git
 				.getRepositoryService(this.commit.repoPath)
-				.remotes.getBestRemotesWithProviders(cancellation),
-			this.commit.ensureFullDetails({
+				.remotes.getBestRemotesWithProviders(toAbortSignal(cancellation)),
+			GitCommit.ensureFullDetails(this.commit, {
 				allowFilteredFiles: this._options.allowFilteredFiles,
 				include: { stats: true },
 			}),
-			showSignature ? pauseOnCancelOrTimeout(this.commit.isSigned(), cancellation) : undefined,
+			showSignature
+				? pauseOnCancelOrTimeout(
+						isCommitSigned(this.commit.repoPath, this.commit.sha),
+						toAbortSignal(cancellation),
+					)
+				: undefined,
 		]);
 
 		if (cancellation.isCancellationRequested) return undefined;
@@ -287,9 +300,12 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		let enrichedAutolinks;
 		let pr;
 
-		if (!remote || remote?.supportsIntegration()) {
+		if (!remote || remoteSupportsIntegration(remote)) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
-				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote), cancellation),
+				pauseOnCancelOrTimeoutMapTuplePromise(
+					getCommitEnrichedAutolinks(this.commit.repoPath, this.commit.message, this.commit.summary, remote),
+					toAbortSignal(cancellation),
+				),
 				this.getAssociatedPullRequest(this.commit, remote),
 			]);
 

@@ -1,15 +1,18 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import type { DiffRange } from '@gitlens/git/providers/types.js';
+import { isUncommittedStaged } from '@gitlens/git/utils/revision.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { Container } from '../container.js';
-import type { DiffRange } from '../git/gitProvider.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitCommit } from '../git/models/commit.js';
-import { deletedOrMissing } from '../git/models/revision.js';
+import { getCommitGitUri } from '../git/utils/-webview/commit.utils.js';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages.js';
 import { command, executeCommand } from '../system/-webview/command.js';
-import { getOrOpenTextEditor, selectionToDiffRange } from '../system/-webview/vscode/editors.js';
+import { getOrOpenTextEditor } from '../system/-webview/vscode/editors.js';
+import { selectionToDiffRange } from '../system/-webview/vscode/range.js';
 import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs.js';
-import { Logger } from '../system/logger.js';
-import { areUrisEqual } from '../system/uri.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { DiffWithCommandArgs } from './diffWith.js';
@@ -68,12 +71,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				return;
 			}
 
-			gitUri = args.commit?.getGitUri();
+			gitUri = args.commit != null ? getCommitGitUri(args.commit) : undefined;
 		} else {
 			if (uri == null) return;
 
 			gitUri = await GitUri.fromUri(uri);
 		}
+
+		if (gitUri == null) return;
 
 		// If we are in the right diff editor, we can't really trust the line number
 		// if (args.inDiffRightEditor && args.line !== 0) {
@@ -98,15 +103,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		}
 
 		try {
-			const diffUris = await this.container.git
-				.getRepositoryService(gitUri.repoPath!)
-				.diff.getPreviousComparisonUris(
-					gitUri,
-					gitUri.sha,
-					// If we are in the right-side of the diff editor, we need to skip back 1 more revision
-					isInRightSideOfDiffEditor ? 1 : 0,
-					isDirty,
-				);
+			const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
+			const diffUris = await svc.diff.getPreviousComparisonUris(
+				gitUri,
+				gitUri.sha,
+				// If we are in the right-side of the diff editor, we need to skip back 1 more revision
+				isInRightSideOfDiffEditor ? 1 : 0,
+				isDirty,
+			);
 
 			if (diffUris?.previous == null) {
 				if (diffUris == null) {
@@ -117,29 +121,34 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 				// If we have no previous and the current is the working file, just open the working file
 				if (diffUris.current.sha == null) {
-					void (await getOrOpenTextEditor(diffUris.current, args.showOptions));
+					void (await getOrOpenTextEditor(diffUris.current.uri, args.showOptions));
 
 					return;
 				}
 
-				if (!diffUris.current.isUncommittedStaged) {
+				if (!isUncommittedStaged(diffUris.current.sha)) {
 					void showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
 
 				// If we have no previous and the current is staged, then diff staged with missing
-				diffUris.previous = GitUri.fromFile(
-					diffUris.current.fileName,
-					diffUris.current.repoPath!,
-					deletedOrMissing,
-				);
+				const missingUri = svc.getRevisionUri(deletedOrMissing, diffUris.current.path);
+				void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
+					repoPath: diffUris.current.repoPath,
+					lhs: { sha: deletedOrMissing, uri: missingUri },
+					rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.uri },
+					range: args.range,
+					showOptions: args.showOptions,
+				}));
+
+				return;
 			}
 
 			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: diffUris.current.repoPath,
-				lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri },
-				rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri },
+				lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.uri },
+				rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.uri },
 				range: args.range,
 				showOptions: args.showOptions,
 			}));

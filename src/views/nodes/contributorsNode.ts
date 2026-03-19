@@ -1,11 +1,12 @@
 import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitContributor } from '@gitlens/git/models/contributor.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
 import type { CoreColors } from '../../constants.colors.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { GitContributor } from '../../git/models/contributor.js';
-import type { Repository } from '../../git/models/repository.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { sortContributors } from '../../git/utils/-webview/sorting.js';
+import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { trace } from '../../system/decorators/log.js';
 import type { ViewsWithContributorsNode } from '../viewBase.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -22,7 +23,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		uri: GitUri,
 		view: ViewsWithContributorsNode,
 		protected override readonly parent: ViewNode,
-		public readonly repo: Repository,
+		public readonly repo: GlRepository,
 		private readonly options?: {
 			all?: boolean;
 			icon?: boolean;
@@ -125,7 +126,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		const result = await svc.contributors.getContributors(
 			rev,
 			{ all: all, merges: this.options?.showMergeCommits, stats: !deferStats && stats },
-			this.view.cancellation,
+			toAbortSignal(this.view.cancellation),
 			timeout || undefined,
 		);
 		if (!result.contributors.length) {

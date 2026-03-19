@@ -1,6 +1,7 @@
 import type { Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter } from 'vscode';
 import { getPlatform, getRemoteInstanceIdentifier } from '@env/platform.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
 import { extensionPrefix } from '../../constants.js';
 import type {
 	DeprecatedGlobalStorage,
@@ -10,7 +11,6 @@ import type {
 	SecretKeys,
 	WorkspaceStorage,
 } from '../../constants.storage.js';
-import { trace } from '../decorators/log.js';
 import { registerCommand } from './command.js';
 
 type GlobalStorageKeys = keyof (GlobalStorage & DeprecatedGlobalStorage);

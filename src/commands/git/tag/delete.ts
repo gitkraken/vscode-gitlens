@@ -1,11 +1,11 @@
+import { TagError } from '@gitlens/git/errors.js';
+import type { GitTagReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { ensureArray } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
-import { TagError } from '../../../git/errors.js';
-import type { GitTagReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
-import { ensureArray } from '../../../system/array.js';
-import { Logger } from '../../../system/logger.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -38,7 +38,7 @@ export type TagDeleteStepNames = StepNames;
 
 type Context = TagContext<StepNames>;
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	references: GitTagReference | GitTagReference[];
 }
@@ -99,7 +99,7 @@ export class TagDeleteGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 			state.references = ensureArray(state.references);
 
 			if (steps.isAtStep(Steps.PickTags) || !state.references?.length) {
@@ -145,7 +145,7 @@ export class TagDeleteGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: TagContext): StepResultGenerator<void> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: TagContext): StepResultGenerator<void> {
 		const step: QuickPickStep = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[{ label: context.title, detail: `Will delete ${getReferenceLabel(state.references)}` }],

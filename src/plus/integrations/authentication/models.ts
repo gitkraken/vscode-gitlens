@@ -1,4 +1,5 @@
 import type { AuthenticationSession } from 'vscode';
+import { microhash } from '@gitlens/utils/hash.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
@@ -8,7 +9,6 @@ import {
 	supportedOrderedCloudIssuesIntegrationIds,
 } from '../../../constants.integrations.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import { fnv1aHash } from '../../../system/hash.js';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly cloud: boolean;
@@ -43,7 +43,7 @@ export function toTokenInfo<T extends IntegrationIds | 'gitkraken'>(
 ): TokenInfo<T> {
 	return {
 		providerId: providerId,
-		microHash: microhash(accessToken),
+		microHash: microhash(accessToken, 3),
 		cloud: info.cloud,
 		type: info.type,
 		scopes: info.scopes,
@@ -64,13 +64,6 @@ export function toTokenWithInfo<T extends IntegrationIds>(
 		// use the actual token used for the request
 		accessToken: accessToken,
 	};
-}
-
-function microhash(token: undefined): undefined;
-function microhash(token: string): string;
-function microhash(token: string | undefined): string | undefined;
-function microhash(token: string | undefined): string | undefined {
-	return !token ? undefined : `@${(fnv1aHash(token) >>> 0).toString(16).padStart(8, '0').substring(0, 3)}`;
 }
 
 export type TokenOptInfo<T extends IntegrationIds = IntegrationIds> =

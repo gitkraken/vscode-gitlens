@@ -1,10 +1,11 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
-import { md5 } from '@env/crypto.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { md5 } from '@gitlens/utils/crypto.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import type { Source } from '../../../constants.telemetry.js';
-import { AINoRequestDataError, CancellationError } from '../../../errors.js';
-import type { Repository } from '../../../git/models/repository.js';
+import { AINoRequestDataError } from '../../../errors.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { Deferred } from '../../../system/promise.js';
 import type { AIResponse } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
 import type { AIModel } from '../models/model.js';
@@ -16,7 +17,7 @@ import { truncatePromptWithDiff } from '../utils/-webview/truncation.utils.js';
 /** Generates a commit message based on staged or unstaged changes */
 export async function generateCommitMessage(
 	service: AIService,
-	changesOrRepo: string | string[] | Repository,
+	changesOrRepo: string | string[] | GlRepository,
 	source: Source,
 	options?: {
 		cancellation?: CancellationToken;
@@ -101,7 +102,7 @@ export async function generateCommitMessage(
 /** Generates a stash message based on changes */
 export async function generateStashMessage(
 	service: AIService,
-	changesOrRepo: string | string[] | Repository,
+	changesOrRepo: string | string[] | GlRepository,
 	source: Source,
 	options?: {
 		cancellation?: CancellationToken;

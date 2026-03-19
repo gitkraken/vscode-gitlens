@@ -1,7 +1,7 @@
 import type { RequestInit } from '@env/fetch.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../container.js';
-import { debug } from '../../system/decorators/log.js';
-import { Logger } from '../../system/logger.js';
 import type { GraphQLRequest, ServerConnection } from '../gk/serverConnection.js';
 import type { CloudWorkspaceData } from './models/cloudWorkspace.js';
 import { CloudWorkspaceProviderInputType } from './models/cloudWorkspace.js';
@@ -376,7 +376,7 @@ export class WorkspacesApi {
 		let count = 1;
 		const reposReturnQuery = repos
 			.map(
-				r => `Repository${count++}: repository(provider_organization_id: "${r.owner}", name: "${r.repoName}") {
+				r => `GlRepository${count++}: repository(provider_organization_id: "${r.owner}", name: "${r.repoName}") {
 			id
 			name
 			repository_id

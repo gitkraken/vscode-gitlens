@@ -1,4 +1,4 @@
-import type { SearchQuery } from '../constants.search.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { NaturalLanguageSearchOptions } from '../plus/search/naturalLanguageSearchProcessor.js';

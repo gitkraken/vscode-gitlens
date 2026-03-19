@@ -1,9 +1,11 @@
 import ProviderApis from '@gitkraken/provider-apis';
 import { version as codeVersion, env } from 'vscode';
-import { base64 } from '@env/base64.js';
 import type { Response as FetchResponse } from '@env/fetch.js';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch.js';
 import { getPlatform } from '@env/platform.js';
+import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
+import { base64 } from '@gitlens/utils/base64.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
@@ -18,8 +20,6 @@ import {
 	RequestNotFoundError,
 	RequestRateLimitError,
 } from '../../../errors.js';
-import type { PagedResult } from '../../../git/gitProvider.js';
-import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';

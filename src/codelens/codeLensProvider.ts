@@ -10,6 +10,14 @@ import type {
 	Uri,
 } from 'vscode';
 import { CodeLens, EventEmitter, Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode';
+import type { GitBlame } from '@gitlens/git/models/blame.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { is, once } from '@gitlens/utils/function.js';
+import { filterMap, find, first, join, map } from '@gitlens/utils/iterable.js';
+import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious.js';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote.js';
 import type { ShowCommitsInViewCommandArgs } from '../commands/showCommitsInView.js';
@@ -22,17 +30,10 @@ import type { GlCommands } from '../constants.commands.js';
 import { trackableSchemes } from '../constants.js';
 import type { Container } from '../container.js';
 import type { GitUri } from '../git/gitUri.js';
-import type { GitBlame } from '../git/models/blame.js';
-import type { GitCommit } from '../git/models/commit.js';
-import { RemoteResourceType } from '../git/models/remoteResource.js';
+import { formatCommitDate, getCommitFormattedDate } from '../git/utils/-webview/commit.utils.js';
 import { createCommand, executeCoreCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isVirtualUri } from '../system/-webview/vscode/uris.js';
-import { is, once } from '../system/function.js';
-import { filterMap, find, first, join, map } from '../system/iterable.js';
-import { getLoggableName, Logger } from '../system/logger.js';
-import { maybeStartScopedLogger } from '../system/logger.scope.js';
-import { pluralize } from '../system/string.js';
 
 class GitRecentChangeCodeLens extends CodeLens {
 	constructor(
@@ -473,7 +474,9 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 		// }
 
 		let title = `${recentCommit.author.name}, ${
-			lens.dateFormat == null ? recentCommit.formattedDate : recentCommit.formatDate(lens.dateFormat)
+			lens.dateFormat == null
+				? getCommitFormattedDate(recentCommit)
+				: formatCommitDate(recentCommit, lens.dateFormat)
 		}`;
 		if (configuration.get('debug')) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${

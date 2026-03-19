@@ -1,0 +1,46 @@
+{
+	"name": "@gitlens/git-github",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		},
+		"./api/*.js": {
+			"types": "./dist/api/*.d.ts",
+			"default": "./dist/api/*.js"
+		},
+		"./providers/*.js": {
+			"types": "./dist/providers/*.d.ts",
+			"default": "./dist/providers/*.js"
+		},
+		"./providers/github/*.js": {
+			"types": "./dist/providers/github/*.d.ts",
+			"default": "./dist/providers/github/*.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -b",
+		"clean": "pnpx rimraf --glob dist out .eslintcache* **/tsconfig*.tsbuildinfo",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 --no-error-on-unmatched-pattern 'src/**/__tests__/**/*.test.ts'"
+	},
+	"dependencies": {
+		"@gitlens/utils": "workspace:*",
+		"@gitlens/git": "workspace:*",
+		"@octokit/graphql": "9.0.3",
+		"@octokit/request": "10.0.7",
+		"@octokit/request-error": "7.1.0",
+		"@octokit/types": "16.0.0"
+	},
+	"devDependencies": {
+		"@types/mocha": "10.0.10",
+		"mocha": "11.7.5",
+		"tsx": "4.21.0"
+	}
+}

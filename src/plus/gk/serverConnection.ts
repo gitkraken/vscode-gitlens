@@ -4,13 +4,18 @@ import { version as codeVersion, env, Uri, window } from 'vscode';
 import type { RequestInfo, RequestInit, Response } from '@env/fetch.js';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch.js';
 import { getPlatform } from '@env/platform.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { memoize } from '@gitlens/utils/decorators/memoize.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Disposable } from '../../api/gitlens.d.js';
 import type { Container } from '../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	AuthenticationRequiredError,
-	CancellationError,
 	RequestClientError,
 	RequestGoneError,
 	RequestNotFoundError,
@@ -23,11 +28,6 @@ import {
 	showGkRequestFailed500WarningMessage,
 	showGkRequestTimedOutWarningMessage,
 } from '../../messages.js';
-import { trace } from '../../system/decorators/log.js';
-import { memoize } from '../../system/decorators/memoize.js';
-import { Logger } from '../../system/logger.js';
-import type { ScopedLogger } from '../../system/logger.scope.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
 import type { TokenInfo } from '../integrations/authentication/models.js';
 import { toTokenInfo } from '../integrations/authentication/models.js';
 import type { UrlsProvider } from './urlsProvider.js';
@@ -274,8 +274,8 @@ export class ServerConnection implements Disposable {
 		ex: RequestError | (Error & { name: 'AbortError' }),
 		scope: ScopedLogger | undefined,
 	): void {
-		if (ex instanceof CancellationError) throw ex;
 		if (ex.name === 'AbortError') throw new CancellationError(ex);
+		if (isCancellationError(ex)) throw ex;
 
 		const gitkrakenTokenInfo: TokenInfo<'gitkraken'> = toTokenInfo('gitkraken', token, {
 			cloud: true,

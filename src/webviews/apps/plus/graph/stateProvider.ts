@@ -1,6 +1,6 @@
 import { ContextProvider } from '@lit/context';
-import { debounce } from '../../../../system/function/debounce.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,

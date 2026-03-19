@@ -1,4 +1,10 @@
 import { ThemeIcon, window } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
+import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
+import { basename } from '@gitlens/utils/path.js';
+import { pad } from '@gitlens/utils/string.js';
 import type { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles.js';
 import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyChangedFiles.js';
 import {
@@ -31,14 +37,10 @@ import {
 } from '../../git/actions/commit.js';
 import { browseAtRevision } from '../../git/actions.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { GitFile } from '../../git/models/file.js';
-import type { GitFileChange } from '../../git/models/fileChange.js';
-import type { GitStatusFile } from '../../git/models/statusFile.js';
+import { formatCommitStats, getCommitGitUri } from '../../git/utils/-webview/commit.utils.js';
 import { getGitFileFormattedDirectory } from '../../git/utils/-webview/file.utils.js';
+import { formatFileChangeStats } from '../../git/utils/-webview/fileChange.utils.js';
 import { getGitFileStatusThemeIcon } from '../../git/utils/-webview/icons.js';
-import { basename } from '../../system/path.js';
-import { pad } from '../../system/string.js';
 import type { CompareResultsNode } from '../../views/nodes/compareResultsNode.js';
 import { CommandQuickPickItem } from './common.js';
 
@@ -60,11 +62,15 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 				}`,
 				detail: `${
 					options?.file != null
-						? `$(file) ${basename(options.file.path)}${options.file.formatStats('expanded', {
-								separator: ', ',
-								prefix: ` ${GlyphChars.Dot} `,
-							})}`
-						: `$(files) ${commit.formatStats('expanded', {
+						? `$(file) ${basename(options.file.path)}${formatFileChangeStats(
+								options.file.stats,
+								'expanded',
+								{
+									separator: ', ',
+									prefix: ` ${GlyphChars.Dot} `,
+								},
+							)}`
+						: `$(files) ${formatCommitStats(commit.stats, 'expanded', {
 								separator: ', ',
 								empty: 'No files changed',
 							})}`
@@ -144,7 +150,7 @@ export class CommitBrowseRepositoryFromHereCommandQuickPickItem extends CommandQ
 	}
 
 	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return browseAtRevision(this.commit.getGitUri(), {
+		return browseAtRevision(getCommitGitUri(this.commit), {
 			before: this.executeOptions?.before,
 			openInNewWindow: this.executeOptions?.openInNewWindow,
 		});

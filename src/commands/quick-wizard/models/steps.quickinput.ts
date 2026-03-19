@@ -1,6 +1,6 @@
 import type { InputBox, QuickInput, QuickInputButton } from 'vscode';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Keys } from '../../../constants.js';
-import type { UnifiedDisposable } from '../../../system/unifiedDisposable.js';
 import type { StepNavigationKeys } from './steps.js';
 
 export interface QuickInputStep<T extends string = string> {

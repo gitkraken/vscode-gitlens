@@ -3,13 +3,16 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
+import type { SearchOperators, SearchQuery } from '@gitlens/git/models/search.js';
+import { searchOperatorsToLongFormMap } from '@gitlens/git/models/search.js';
+import {
+	areSearchQueriesEqual,
+	parseSearchQuery,
+	rebuildSearchQueryFromParsed,
+} from '@gitlens/git/utils/search.utils.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { fuzzyFilter } from '@gitlens/utils/fuzzy.js';
 import { whitespaceRegex } from '../../../../../constants.js';
-import type { SearchOperators, SearchQuery } from '../../../../../constants.search.js';
-import { searchOperatorsToLongFormMap } from '../../../../../constants.search.js';
-import { parseSearchQuery, rebuildSearchQueryFromParsed } from '../../../../../git/search.js';
-import { areSearchQueriesEqual } from '../../../../../git/utils/search.utils.js';
-import { filterMap } from '../../../../../system/array.js';
-import { fuzzyFilter } from '../../../../../system/fuzzy.js';
 import {
 	ChooseAuthorRequest,
 	ChooseComparisonRequest,

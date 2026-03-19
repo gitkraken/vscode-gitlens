@@ -1,8 +1,8 @@
 import { commands } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
+import { wait } from '@gitlens/utils/promise.js';
 import type { Container } from '../container.js';
 import { command } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
-import { wait } from '../system/promise.js';
 import { GlCommandBase } from './commandBase.js';
 
 // VS Code LogLevel enum values

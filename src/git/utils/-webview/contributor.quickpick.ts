@@ -1,7 +1,8 @@
 import type { QuickInputButton } from 'vscode';
+import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import type { QuickPickItemOfT } from '../../../quickpicks/items/common.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { GitContributor } from '../../models/contributor.js';
+import { getContributorAvatarUri } from './contributor.utils.js';
 
 export type ContributorQuickPickItem = QuickPickItemOfT<GitContributor>;
 
@@ -17,7 +18,7 @@ export async function createContributorQuickPickItem(
 		buttons: options?.buttons,
 		picked: picked,
 		item: contributor,
-		iconPath: configuration.get('gitCommands.avatars') ? await contributor.getAvatarUri() : undefined,
+		iconPath: configuration.get('gitCommands.avatars') ? await getContributorAvatarUri(contributor) : undefined,
 	};
 
 	if (options?.alwaysShow == null && picked) {

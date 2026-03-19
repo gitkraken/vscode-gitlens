@@ -4,11 +4,13 @@ import {
 	getGkCliIntegrationProvider,
 	getMcpProviders,
 	getSharedGKStorageLocationProvider,
-	getSupportedGitProviders,
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
 	setTelemetryService,
 } from '@env/providers.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { memoize } from '@gitlens/utils/decorators/memoize.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { FileAnnotationController } from './annotations/fileAnnotationController.js';
 import { LineAnnotationController } from './annotations/lineAnnotationController.js';
 import { ActionRunners } from './api/actionRunners.js';
@@ -25,6 +27,7 @@ import { EventBus } from './eventBus.js';
 import { GitFileSystemProvider } from './git/fsProvider.js';
 import { GitProviderService } from './git/gitProviderService.js';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider.js';
+import { registerPublishListener } from './git/publishListener.js';
 import { LineHoverController } from './hovers/lineHoverController.js';
 import { AIProviderService } from './plus/ai/aiProviderService.js';
 import { DraftService } from './plus/drafts/draftsService.js';
@@ -55,9 +58,6 @@ import { executeCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
 import { Keyboard } from './system/-webview/keyboard.js';
 import type { Storage } from './system/-webview/storage.js';
-import { debug } from './system/decorators/log.js';
-import { memoize } from './system/decorators/memoize.js';
-import { Logger } from './system/logger.js';
 import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider.js';
 import { TelemetryService } from './telemetry/telemetry.js';
 import { UsageTracker } from './telemetry/usageTracker.js';
@@ -224,17 +224,18 @@ export class Container {
 		this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
+		this._disposables.push((this._eventBus = new EventBus()));
 		this._disposables.push((this._git = new GitProviderService(this)));
 		this._disposables.push(new GitFileSystemProvider(this));
 
 		this._disposables.push((this._deepLinks = new DeepLinkService(this)));
 
 		this._disposables.push((this._actionRunners = new ActionRunners(this)));
+		this._disposables.push(registerPublishListener(this));
 		this._disposables.push((this._documentTracker = new GitDocumentTracker(this)));
 		this._disposables.push((this._lineTracker = new LineTracker(this, this._documentTracker)));
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
-		this._disposables.push((this._eventBus = new EventBus()));
 		this._disposables.push((this._launchpadProvider = new LaunchpadProvider(this)));
 		this._disposables.push((this._markdownProvider = new MarkdownContentProvider(this)));
 
@@ -342,13 +343,7 @@ export class Container {
 
 	@debug()
 	private async registerGitProviders(): Promise<void> {
-		const providers = await getSupportedGitProviders(this);
-		for (const provider of providers) {
-			this._disposables.push(this._git.register(provider.descriptor.id, provider));
-		}
-
-		// Don't wait here otherwise will we deadlock in certain places
-		void this._git.registrationComplete();
+		await this._git.registerProviders();
 	}
 
 	@debug()
@@ -575,11 +570,10 @@ export class Container {
 		if (this._github == null) {
 			async function load(this: Container) {
 				try {
-					const github = new (
-						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github.js'
-						)
-					).GitHubApi(this);
+					const { createGitHubApi } = await import(
+						/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github.js'
+					);
+					const github = createGitHubApi();
 					this._disposables.push(github);
 					return github;
 				} catch (ex) {

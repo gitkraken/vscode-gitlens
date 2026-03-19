@@ -10,6 +10,10 @@ import type {
 	TextLine,
 } from 'vscode';
 import { Disposable, EndOfLine, env, EventEmitter, Uri, window, workspace } from 'vscode';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { once } from '@gitlens/utils/event.js';
 import type { Container } from '../container.js';
 import type { RepositoriesChangeEvent } from '../git/gitProviderService.js';
 import type { GitUri } from '../git/gitUri.js';
@@ -19,10 +23,6 @@ import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
 import { UriSet } from '../system/-webview/uriMap.js';
 import { getOpenTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents.js';
-import { trace } from '../system/decorators/log.js';
-import { once } from '../system/event.js';
-import type { Deferrable } from '../system/function/debounce.js';
-import { debounce } from '../system/function/debounce.js';
 import type { TrackedGitDocument } from './trackedDocument.js';
 import { createTrackedGitDocument } from './trackedDocument.js';
 
@@ -372,26 +372,6 @@ export class GitDocumentTracker implements Disposable {
 		}
 
 		return this._documentMap.has(documentOrUri);
-	}
-
-	resetCache(document: TextDocument, affects: 'blame' | 'diff' | 'log'): Promise<void>;
-	resetCache(uri: Uri, affects: 'blame' | 'diff' | 'log'): Promise<void>;
-	@trace()
-	async resetCache(documentOrUri: TextDocument | Uri, affects: 'blame' | 'diff' | 'log'): Promise<void> {
-		const doc = this.get(documentOrUri);
-		if (doc == null) return;
-
-		switch (affects) {
-			case 'blame':
-				(await doc).state?.clearBlame();
-				break;
-			case 'diff':
-				(await doc).state?.clearDiff();
-				break;
-			case 'log':
-				(await doc).state?.clearLog();
-				break;
-		}
 	}
 
 	@trace({ args: (document, _tracked) => ({ document: document }) })

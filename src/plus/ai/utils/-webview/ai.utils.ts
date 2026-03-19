@@ -1,21 +1,22 @@
 import type { CancellationToken, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import { decodeGitLensRevisionUriAuthority } from '@gitlens/git/utils/uriAuthority.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { formatNumeric } from '@gitlens/utils/date.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { getPossessiveForm, pluralize } from '@gitlens/utils/string.js';
 import type { AIProviders } from '../../../../constants.ai.js';
 import { Schemes } from '../../../../constants.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import type { MarkdownContentMetadata } from '../../../../documents/markdown.js';
-import { CancellationError } from '../../../../errors.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
-import { decodeGitLensRevisionUriAuthority } from '../../../../git/gitUri.authority.js';
+import { getCommitDate } from '../../../../git/utils/-webview/commit.utils.js';
 import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { getContext } from '../../../../system/-webview/context.js';
 import { openSettingsEditor } from '../../../../system/-webview/vscode/editors.js';
-import { formatNumeric } from '../../../../system/date.js';
-import { Logger } from '../../../../system/logger.js';
-import { getSettledValue } from '../../../../system/promise.js';
-import { getPossessiveForm, pluralize } from '../../../../system/string.js';
 import type { OrgAIConfig, OrgAIProvider } from '../../../gk/models/organization.js';
 import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils.js';
 import type { AIResponse, AIResultContext } from '../../aiProviderService.js';
@@ -32,9 +33,7 @@ export async function ensureAccount(container: Container, silent: boolean): Prom
 		silent,
 	);
 
-	if (!result && !silent) {
-		throw new CancellationError();
-	}
+	if (!result && !silent) throw new CancellationError();
 
 	return result;
 }
@@ -407,11 +406,13 @@ export async function prepareCompareDataForAIRequest(
 	if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 	const commitMessages: string[] = [];
-	for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+	for (const commit of [...log.commits.values()].sort(
+		(a, b) => getCommitDate(a).getTime() - getCommitDate(b).getTime(),
+	)) {
 		const message = commit.message ?? commit.summary;
 		if (message) {
 			commitMessages.push(
-				`<commit-message ${commit.date.toISOString()}>\n${commit.message ?? commit.summary}\n<end-of-commit-message>`,
+				`<commit-message ${getCommitDate(commit).toISOString()}>\n${commit.message ?? commit.summary}\n<end-of-commit-message>`,
 			);
 		}
 	}

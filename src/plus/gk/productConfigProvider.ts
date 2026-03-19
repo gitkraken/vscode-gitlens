@@ -1,13 +1,13 @@
+import type { Lazy } from '@gitlens/utils/lazy.js';
+import { lazy } from '@gitlens/utils/lazy.js';
+import { getLoggableName } from '@gitlens/utils/logger.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { Validator } from '@gitlens/utils/validation.js';
+import { createValidator, Is } from '@gitlens/utils/validation.js';
 import type { GlExtensionCommands } from '../../constants.commands.js';
 import { SubscriptionState } from '../../constants.subscription.js';
 import type { Container } from '../../container.js';
 import { deviceCohortGroup } from '../../system/-webview/vscode.js';
-import type { Lazy } from '../../system/lazy.js';
-import { lazy } from '../../system/lazy.js';
-import { getLoggableName } from '../../system/logger.js';
-import { maybeStartScopedLogger } from '../../system/logger.scope.js';
-import type { Validator } from '../../system/validation.js';
-import { createValidator, Is } from '../../system/validation.js';
 import type { Promo, PromoLocation, PromoPlans } from './models/promo.js';
 import type { ServerConnection } from './serverConnection.js';
 

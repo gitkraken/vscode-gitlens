@@ -1,16 +1,21 @@
 import { EventEmitter, Uri } from 'vscode';
-import { base64 } from '@env/base64.js';
-import { md5 } from '@env/crypto.js';
+import type { CommitAuthor } from '@gitlens/git/models/author.js';
+import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
+import { base64 } from '@gitlens/utils/base64.js';
+import { md5 } from '@gitlens/utils/crypto.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { filterMap } from '@gitlens/utils/iterable.js';
+import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { GravatarDefaultStyle } from './config.js';
 import type { StoredAvatar } from './constants.storage.js';
 import { Container } from './container.js';
-import type { CommitAuthor } from './git/models/author.js';
-import { getGitHubNoReplyAddressParts } from './git/remotes/github.js';
+import {
+	getBestRemoteWithIntegration,
+	getRemoteIntegration,
+	remoteSupportsIntegration,
+} from './git/utils/-webview/remote.utils.js';
 import { configuration } from './system/-webview/configuration.js';
 import { getContext } from './system/-webview/context.js';
-import { debounce } from './system/function/debounce.js';
-import { filterMap } from './system/iterable.js';
-import { equalsIgnoreCase } from './system/string.js';
 import type { ContactPresenceStatus } from './vsls/vsls.js';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
@@ -232,12 +237,10 @@ async function getAvatarUriFromRemoteProvider(
 		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
 		// } else {
 		if (typeof repoPathOrCommit !== 'string') {
-			const remote = await Container.instance.git
-				.getRepositoryService(repoPathOrCommit.repoPath)
-				.remotes.getBestRemoteWithIntegration();
-			if (remote?.supportsIntegration()) {
+			const remote = await getBestRemoteWithIntegration(repoPathOrCommit.repoPath);
+			if (remote != null && remoteSupportsIntegration(remote)) {
 				account = await (
-					await remote.getIntegration()
+					await getRemoteIntegration(remote)
 				)?.getAccountForCommit(remote.provider.repoDesc, repoPathOrCommit.ref, {
 					avatarSize: size,
 				});

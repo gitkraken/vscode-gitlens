@@ -1,7 +1,7 @@
 import type { Context, ContextProvider, ContextType } from '@lit/context';
-import { fromBase64ToString } from '@env/base64.js';
+import { fromBase64ToString } from '@gitlens/utils/base64.js';
+import { isPromise } from '@gitlens/utils/promise.js';
 import type { WebviewIds } from '../../../constants.views.js';
-import { isPromise } from '../../../system/promise.js';
 import type { IpcMessage } from '../../ipc/models/ipc.js';
 import type { WebviewState } from '../../protocol.js';
 import { WebviewReadyRequest } from '../../protocol.js';

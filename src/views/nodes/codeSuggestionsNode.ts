@@ -1,6 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';

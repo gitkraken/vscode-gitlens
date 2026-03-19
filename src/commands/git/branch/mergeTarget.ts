@@ -1,9 +1,9 @@
 import { ThemeIcon } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import type { Container } from '../../../container.js';
-import type { GitBranch } from '../../../git/models/branch.js';
-import type { GitBranchReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -37,7 +37,7 @@ export type BranchMergeTargetStepNames = StepNames;
 
 type Context = BranchContext<StepNames>;
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	reference: GitBranchReference | string;
 	/** Specifies the desired merge target; use `null` to reset to auto-detected */
@@ -97,7 +97,7 @@ export class BranchMergeTargetGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStep(Steps.PickBranch) || state.reference == null) {
 				using step = steps.enterStep(Steps.PickBranch);
@@ -178,7 +178,7 @@ export class BranchMergeTargetGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<void> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<void> {
 		const referenceLabel =
 			typeof state.reference === 'string' ? state.reference : getReferenceLabel(state.reference);
 		const mergeTargetLabel =

@@ -1,13 +1,15 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileWithCommit } from '@gitlens/git/models/file.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
+import { filter, flatMap, groupByMap, map } from '@gitlens/utils/iterable.js';
+import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { pluralize, sortCompare } from '@gitlens/utils/string.js';
 import type { FilesComparison } from '../../git/actions/commit.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitFileWithCommit } from '../../git/models/file.js';
-import { createRevisionRange } from '../../git/utils/revision.utils.js';
-import { makeHierarchical } from '../../system/array.js';
-import { filter, flatMap, groupByMap, map } from '../../system/iterable.js';
-import { joinPaths, normalizePath } from '../../system/path.js';
-import { pluralize, sortCompare } from '../../system/string.js';
+import { getCommitDate } from '../../git/utils/-webview/commit.utils.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
 import type { BranchTrackingStatus } from './branchTrackingStatusNode.js';
@@ -66,7 +68,8 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 		await Promise.allSettled(
 			map(
 				filter(log.commits.values(), c => c.fileset?.files == null),
-				c => c.ensureFullDetails(),
+
+				c => GitCommit.ensureFullDetails(c),
 			),
 		);
 
@@ -74,7 +77,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 			...flatMap(log.commits.values(), c => c.anyFiles?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? []),
 		];
 
-		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
+		files.sort((a, b) => getCommitDate(b.commit).getTime() - getCommitDate(a.commit).getTime());
 
 		const groups = groupByMap(files, s => s.path);
 		return groups;

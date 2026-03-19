@@ -1,16 +1,17 @@
 import type { SourceControlResourceState } from 'vscode';
 import { env, Uri, window } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import { isUncommitted, isUncommittedStaged } from '@gitlens/git/utils/revision.utils.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { ScmResource } from '../@types/vscode.git.resources.d.js';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import { isUncommitted, isUncommittedStaged } from '../git/utils/revision.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { filterMap } from '../system/array.js';
-import { Logger } from '../system/logger.js';
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext } from './commandContext.js';
 import {
@@ -40,7 +41,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 		args = { ...args };
 
 		if (isCommandContextViewNodeHasFileCommit(context)) {
-			const previousSha = await context.node.commit.getPreviousSha();
+			const previousSha = await GitCommit.getPreviousSha(context.node.commit);
 			const ref1 = isUncommitted(previousSha) ? '' : previousSha;
 			const ref2 = context.node.commit.isUncommitted ? '' : context.node.commit.sha;
 

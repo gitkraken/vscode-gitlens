@@ -1,11 +1,13 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitFileWithCommit } from '@gitlens/git/models/file.js';
+import type { GitStatus } from '@gitlens/git/models/status.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
+import { flatMap, groupBy } from '@gitlens/utils/iterable.js';
+import type { Lazy } from '@gitlens/utils/lazy.js';
+import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitFileWithCommit } from '../../git/models/file.js';
-import type { GitStatus } from '../../git/models/status.js';
-import { makeHierarchical } from '../../system/array.js';
-import { flatMap, groupBy } from '../../system/iterable.js';
-import type { Lazy } from '../../system/lazy.js';
-import { joinPaths, normalizePath } from '../../system/path.js';
+import { getCommitDate } from '../../git/utils/-webview/commit.utils.js';
+import { getStatusFilePseudoCommits } from '../../git/utils/-webview/statusFile.utils.js';
 import type { ViewsWithWorkingTree } from '../viewBase.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
 import type { FileNode } from './folderNode.js';
@@ -37,7 +39,7 @@ export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWit
 
 		const files: GitFileWithCommit[] = [
 			...flatMap(status.files, f => {
-				const commits = f.getPseudoCommits(this.view.container, undefined);
+				const commits = getStatusFilePseudoCommits(f, undefined);
 				return commits.map(
 					c =>
 						({
@@ -53,7 +55,7 @@ export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWit
 			}),
 		];
 
-		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
+		files.sort((a, b) => getCommitDate(b.commit).getTime() - getCommitDate(a.commit).getTime());
 
 		const groups = groupBy(files, f => f.path);
 

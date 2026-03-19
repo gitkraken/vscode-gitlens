@@ -1,11 +1,11 @@
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { weakEvent } from '@gitlens/utils/event.js';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { CloudWorkspace } from '../../plus/workspaces/models/cloudWorkspace.js';
 import type { LocalWorkspace } from '../../plus/workspaces/models/localWorkspace.js';
 import { createCommand } from '../../system/-webview/command.js';
-import { trace } from '../../system/decorators/log.js';
-import { weakEvent } from '../../system/event.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import type { WorkspacesView } from '../workspacesView.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';

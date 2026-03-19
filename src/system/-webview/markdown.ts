@@ -1,7 +1,7 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../container.js';
 import type { MarkdownContentMetadata } from '../../documents/markdown.js';
-import { Logger } from '../logger.js';
 import { executeCoreCommand } from './command.js';
 
 export function showMarkdownPreview(

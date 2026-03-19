@@ -1,8 +1,8 @@
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import { createReference, getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
+import { getRevisionRangeParts, isRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import type { Container } from '../container.js';
-import type { GitReference } from '../git/models/reference.js';
 import { getBranchMergeTargetInfo } from '../git/utils/-webview/branch.utils.js';
-import { createReference, getReferenceLabel, isBranchReference } from '../git/utils/reference.utils.js';
-import { getRevisionRangeParts, isRevisionRange } from '../git/utils/revision.utils.js';
 import { Directive } from './items/directive.js';
 import type { ReferencesQuickPickIncludes } from './referencePicker.js';
 import { showReferencePicker2 } from './referencePicker.js';

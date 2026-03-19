@@ -2,6 +2,7 @@ import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Subscription, SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription.js';
@@ -12,7 +13,6 @@ import {
 	isSubscriptionTrial,
 } from '../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import { pluralize } from '../../../../system/string.js';
 import type { PromosContext } from '../contexts/promos.js';
 import { promosContext } from '../contexts/promos.js';
 import type { GlPopover } from './overlays/popover.js';

@@ -1,7 +1,7 @@
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Keys } from '../../../constants.js';
 import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
-import type { UnifiedDisposable } from '../../../system/unifiedDisposable.js';
 import type { CustomStep } from './steps.custom.js';
 import type { StepNavigationKeys } from './steps.js';
 import type { QuickInputStep } from './steps.quickinput.js';

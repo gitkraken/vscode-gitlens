@@ -1,8 +1,8 @@
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
 import { proBadge } from '../../constants.js';
 import type { Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import type { GitBranchReference } from '../../git/models/reference.js';
 import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils.js';
 import { showBranchPicker } from '../../quickpicks/branchPicker.js';
 import { getIssueOwner } from '../integrations/providers/utils.js';

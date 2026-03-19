@@ -1,11 +1,11 @@
+import type { GitStatus } from '@gitlens/git/models/status.js';
+import { createReference, getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
-import type { Repository } from '../../git/models/repository.js';
-import type { GitStatus } from '../../git/models/status.js';
-import { createReference, getReferenceLabel } from '../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { CommandQuickPickItem } from '../../quickpicks/items/common.js';
 import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard.js';
-import { pad } from '../../system/string.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type { PartialStepState, StepGenerator, StepsContext } from '../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../quick-wizard/models/steps.js';
@@ -21,13 +21,13 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	status: GitStatus;
 	title: string;
 }
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 }
 
@@ -85,7 +85,7 @@ export class StatusGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			context.status = (await state.repo.git.status.getStatus())!;
 			if (context.status == null) break;

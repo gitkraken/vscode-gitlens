@@ -1,7 +1,7 @@
 import { cursor } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../../../container.js';
-import { debug } from '../../../../system/decorators/log.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
 import { GkMcpProviderBase } from './integrationBase.js';
 
 export class CursorGkMcpProvider extends GkMcpProviderBase {

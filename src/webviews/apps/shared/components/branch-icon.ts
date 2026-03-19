@@ -1,6 +1,6 @@
 import { css, html, LitElement, svg } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { GitBranchStatus } from '../../../../git/models/branch.js';
+import type { GitBranchStatus } from '@gitlens/git/models/branch.js';
 import { renderBranchName } from './branch-name.js';
 import './overlays/tooltip.js';
 

@@ -1,11 +1,11 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { PullRequestViewConfig, ViewFilesLayout } from '../config.js';
 import type { Container } from '../container.js';
 import { unknownGitUri } from '../git/gitUri.js';
-import type { GitBranch } from '../git/models/branch.js';
-import type { GitCommit } from '../git/models/commit.js';
-import type { PullRequest } from '../git/models/pullRequest.js';
 import { executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';

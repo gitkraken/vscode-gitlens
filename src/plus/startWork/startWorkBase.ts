@@ -1,6 +1,13 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
 import { Uri, window } from 'vscode';
-import { md5 } from '@env/crypto.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { md5 } from '@gitlens/utils/crypto.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { some } from '@gitlens/utils/iterable.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations.js';
 import type {
 	AsyncStepResultGenerator,
@@ -34,10 +41,7 @@ import { proBadge } from '../../constants.js';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { PlusFeatures } from '../../features.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { Issue, IssueShape } from '../../git/models/issue.js';
-import type { Repository } from '../../git/models/repository.js';
-import type { GitWorktree } from '../../git/models/worktree.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { getOrOpenIssueRepository } from '../../git/utils/-webview/issue.utils.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
@@ -46,10 +50,6 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
-import { getScopedCounter } from '../../system/counter.js';
-import { fromNow } from '../../system/date.js';
-import { some } from '../../system/iterable.js';
-import type { Deferred } from '../../system/promise.js';
 import type { ConnectMoreIntegrationsItem } from '../integrations/utils/-webview/integration.quickPicks.js';
 import {
 	isManageIntegrationsItem,
@@ -313,7 +313,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 	protected abstract continuation?(state: StartWorkStepState, context: StartWorkContext): StepGenerator;
 
-	protected async getIssueRepositoryIfExists(issue: IssueShape | Issue): Promise<Repository | undefined> {
+	protected async getIssueRepositoryIfExists(issue: IssueShape | Issue): Promise<GlRepository | undefined> {
 		try {
 			return await getOrOpenIssueRepository(this.container, issue);
 		} catch {

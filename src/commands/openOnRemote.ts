@@ -1,17 +1,18 @@
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
+import type { RemoteResource } from '@gitlens/git/models/remoteResource.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
+import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { ensureArray } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { pad, splitSingle } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
-import type { GitRemote } from '../git/models/remote.js';
-import type { RemoteResource } from '../git/models/remoteResource.js';
-import { RemoteResourceType } from '../git/models/remoteResource.js';
-import type { RemoteProvider } from '../git/remotes/remoteProvider.js';
-import { getHighlanderProviders } from '../git/utils/remote.utils.js';
-import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils.js';
+import { findCommitFile } from '../git/utils/-webview/commit.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker.js';
 import { command } from '../system/-webview/command.js';
-import { ensureArray } from '../system/array.js';
-import { Logger } from '../system/logger.js';
-import { pad, splitSingle } from '../system/string.js';
 import { GlCommandBase } from './commandBase.js';
 
 export type OpenOnRemoteCommandArgs =
@@ -47,7 +48,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 						.remotes.getRemotesWithProviders({ sort: true });
 
 		if (args.remote != null) {
-			const filtered = remotes.filter(r => r.name === args.remote);
+			const filtered = remotes.filter((r: GitRemote) => r.name === args.remote);
 			// Only filter if we get some results
 			if (remotes.length > 0) {
 				remotes = filtered;
@@ -60,7 +61,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 					// Check to see if the remote is in the branch
 					const [remoteName, branchName] = splitSingle(resource.branch, '/');
 					if (branchName != null) {
-						const remote = remotes.find(r => r.name === remoteName);
+						const remote = remotes.find((r: GitRemote) => r.name === remoteName);
 						if (remote != null) {
 							resource.branch = branchName;
 							remotes = [remote];
@@ -69,7 +70,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 				} else if (resource.type === RemoteResourceType.Revision) {
 					const { commit, fileName } = resource;
 					if (commit != null) {
-						const file = await commit.findFile(fileName);
+						const file = await findCommitFile(commit, fileName);
 						if (file?.status === 'D') {
 							// Resolve to the previous commit to that file
 							resource.sha = (

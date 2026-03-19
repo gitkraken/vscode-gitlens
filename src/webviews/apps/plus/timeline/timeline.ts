@@ -2,12 +2,12 @@ import './timeline.scss';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GitReference } from '../../../../git/models/reference.js';
-import { setAbbreviatedShaLength } from '../../../../git/utils/revision.utils.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import { setAbbreviatedShaLength } from '@gitlens/git/utils/revision.utils.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { dirname } from '@gitlens/utils/path.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
-import type { Deferrable } from '../../../../system/function/debounce.js';
-import { debounce } from '../../../../system/function/debounce.js';
-import { dirname } from '../../../../system/path.js';
 import type { State, TimelinePeriod, TimelineScopeType } from '../../../plus/timeline/protocol.js';
 import {
 	ChoosePathRequest,

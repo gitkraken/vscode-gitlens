@@ -1,13 +1,13 @@
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { truncateLeft } from '@gitlens/utils/string.js';
 import type { Container } from '../../../container.js';
 import { convertOpenFlagsToLocation } from '../../../git/actions/worktree.js';
-import type { Repository } from '../../../git/models/repository.js';
-import type { GitWorktree } from '../../../git/models/worktree.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { getWorkspaceFriendlyPath, openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
-import { truncateLeft } from '../../../system/string.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -42,7 +42,7 @@ export type WorktreeOpenStepNames = StepNames;
 type Context = WorktreeContext<StepNames>;
 
 type Flags = '--add-to-workspace' | '--new-window' | '--reveal-explorer';
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	worktree: GitWorktree;
 	flags: Flags[];
@@ -122,7 +122,7 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
 				using step = steps.enterStep(Steps.EnsureAccess);
@@ -177,13 +177,13 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	async executeOpen(state: StepState<State<Repository>>): Promise<void> {
+	async executeOpen(state: StepState<State<GlRepository>>): Promise<void> {
 		if (state.flags.includes('--reveal-explorer')) {
 			void revealInFileExplorer(state.worktree.uri);
 		} else {
 			let name;
 
-			const repo = (await state.repo.getOrOpenCommonRepository()) ?? state.repo;
+			const repo = (await state.repo.git.getOrOpenCommonRepository()) ?? state.repo;
 			if (repo.name !== state.worktree.name) {
 				name = `${repo.name}: ${state.worktree.name}`;
 			} else {
@@ -199,7 +199,7 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<Flags[]> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
 		type StepType = FlagsQuickPickItem<Flags>;
 
 		const newWindowItem = createFlagsQuickPickItem<Flags>(state.flags, ['--new-window'], {

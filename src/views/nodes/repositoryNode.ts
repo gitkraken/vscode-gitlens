@@ -1,17 +1,20 @@
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitStatus } from '@gitlens/git/models/status.js';
+import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
+import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
+import { findLastIndex } from '@gitlens/utils/array.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { disposableInterval } from '@gitlens/utils/disposable.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { join, map, slice } from '@gitlens/utils/iterable.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
-import { GitBranch } from '../../git/models/branch.js';
-import type {
-	Repository,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../git/models/repository.js';
-import type { GitStatus } from '../../git/models/status.js';
+import type { RepositoryChangeEvent, RepositoryWorkingTreeChangeEvent } from '../../git/models/repository.js';
+import { GlRepository } from '../../git/models/repository.js';
 import { getRepositoryStatusIconPath } from '../../git/utils/-webview/icons.js';
 import { formatLastFetched } from '../../git/utils/-webview/repository.utils.js';
-import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils.js';
-import { getHighlanderProviders } from '../../git/utils/remote.utils.js';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
@@ -20,13 +23,7 @@ import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../plus/workspaces/models/localWorkspace.js';
-import { findLastIndex } from '../../system/array.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { weakEvent } from '../../system/event.js';
-import { disposableInterval } from '../../system/function.js';
-import { join, map, slice } from '../../system/iterable.js';
-import { pad } from '../../system/string.js';
 import type { ViewsWithRepositories } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
@@ -53,7 +50,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		uri: GitUri,
 		view: ViewsWithRepositories,
 		parent: ViewNode,
-		public readonly repo: Repository,
+		public readonly repo: GlRepository,
 		context?: AmbientContext,
 	) {
 		super('repository', uri, view, parent);
@@ -93,11 +90,9 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				const defaultWorktreePath = await this.repo.git.config.getDefaultWorktreePath?.();
 
 				const branch = new GitBranch(
-					this.view.container,
 					status.repoPath,
 					`refs/heads/${status.branch}`,
 					true,
-					undefined,
 					undefined,
 					undefined,
 					status.sha,
@@ -220,7 +215,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 		const { workspace } = this.context;
 
-		let contextValue: string = ContextValues.Repository;
+		let contextValue: string = ContextValues.GlRepository;
 		if (this.repo.starred) {
 			contextValue += '+starred';
 		}
@@ -245,13 +240,13 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			tooltip += `\n\nCurrent branch $(git-branch) ${status.branch}${status.rebasing ? ' (Rebasing)' : ''}`;
 
 			if (this.view.config.includeWorkingTree && status.files.length !== 0) {
-				workingStatus = status.getFormattedDiffStatus({
+				workingStatus = GitStatus.getFormattedDiffStatus(status, {
 					compact: true,
 					prefix: pad(GlyphChars.Dot, 1, 1),
 				});
 			}
 
-			const upstreamStatus = status.getUpstreamStatus({
+			const upstreamStatus = GitStatus.getUpstreamStatus(status, {
 				suffix: pad(GlyphChars.Dot, 1, 1),
 			});
 
@@ -261,13 +256,10 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			if (status.upstream != null) {
 				const providers = getHighlanderProviders(await this.repo.git.remotes.getRemotesWithProviders());
 				providerName = providers?.length ? providers[0].name : undefined;
-			} else {
-				const remote = await status.getRemote();
-				providerName = remote?.provider?.name;
 			}
 
 			if (status.upstream != null) {
-				tooltip += ` is ${status.getUpstreamStatus({
+				tooltip += ` is ${GitStatus.getUpstreamStatus(status, {
 					empty: `up to date with $(git-branch) ${status.upstream.name}${
 						providerName ? ` on ${providerName}` : ''
 					}`,
@@ -286,7 +278,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			}
 
 			if (workingStatus) {
-				tooltip += `\n\nWorking tree has uncommitted changes${status.getFormattedDiffStatus({
+				tooltip += `\n\nWorking tree has uncommitted changes${GitStatus.getFormattedDiffStatus(status, {
 					expand: true,
 					prefix: '\n',
 					separator: '\n',
@@ -326,17 +318,17 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 	@debug()
 	fetch(options: { all?: boolean; progress?: boolean; prune?: boolean; remote?: string }): Promise<void> {
-		return this.repo.fetch(options);
+		return this.repo.git.fetch(options);
 	}
 
 	@debug()
 	pull(options: { progress?: boolean; rebase?: boolean }): Promise<void> {
-		return this.repo.pull(options);
+		return this.repo.git.pull(options);
 	}
 
 	@debug()
 	push(options: { force?: boolean; progress?: boolean }): Promise<void> {
-		return this.repo.push(options);
+		return this.repo.git.push(options);
 	}
 
 	@gate()
@@ -353,13 +345,13 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 	@debug()
 	async star(): Promise<void> {
-		await this.repo.star();
+		await GlRepository.starRepository(this.view.container, this.repo);
 		void this.parent!.triggerChange();
 	}
 
 	@debug()
 	async unstar(): Promise<void> {
-		await this.repo.unstar();
+		await GlRepository.unstarRepository(this.view.container, this.repo);
 		void this.parent!.triggerChange();
 	}
 
@@ -393,8 +385,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 		if (this.view.config.includeWorkingTree) {
 			disposables.push(
-				weakEvent(this.repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [
-					this.repo.watchFileSystem(),
+				weakEvent(this.repo.onDidChangeWorkingTree, this.onWorkingTreeChanged, this, [
+					this.repo.watchWorkingTree(),
 				]),
 			);
 		}
@@ -414,7 +406,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			)}${e.uris.size > 1 ? ', ...' : ''}] }`,
 		}),
 	})
-	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
+	private async onWorkingTreeChanged(_e: RepositoryWorkingTreeChangeEvent) {
 		this._status = this.repo.git.status.getStatus();
 
 		if (this.children !== undefined) {

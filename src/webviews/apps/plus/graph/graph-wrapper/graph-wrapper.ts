@@ -12,10 +12,10 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GitGraphRowType } from '../../../../../git/models/graph.js';
-import { filterMap } from '../../../../../system/array.js';
-import { getCssMixedColorValue, getCssOpacityColorValue, getCssVariable } from '../../../../../system/color.js';
-import { debounce } from '../../../../../system/function/debounce.js';
+import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { getCssMixedColorValue, getCssOpacityColorValue, getCssVariable } from '@gitlens/utils/color.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type { GraphSelection, RowAction } from '../../../../plus/graph/protocol.js';
 import {
 	DoubleClickedCommand,

@@ -4,31 +4,31 @@ import { window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch.js';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
 import { isWeb } from '@env/platform.js';
+import type { Account, CommitAuthor, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
+import type { Issue } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
-	CancellationError,
 	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors.js';
-import type { Account, CommitAuthor, UnidentifiedAuthor } from '../../../../git/models/author.js';
-import type { Issue } from '../../../../git/models/issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest.js';
-import type { PullRequest } from '../../../../git/models/pullRequest.js';
-import type { Provider } from '../../../../git/models/remoteProvider.js';
-import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata.js';
 import {
 	showBitbucketPRCommitLinksAppNotInstalledWarningMessage,
 	showIntegrationRequestFailed500WarningMessage,
 } from '../../../../messages.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { trace } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
-import type { ScopedLogger } from '../../../../system/logger.scope.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
-import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type { TokenInfo, TokenWithInfo } from '../../authentication/models.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models.js';
