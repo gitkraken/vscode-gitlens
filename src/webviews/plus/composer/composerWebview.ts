@@ -1,6 +1,9 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
-import { md5, sha256 } from '@env/crypto.js';
+import { rootSha } from '@gitlens/git/models/revision.js';
+import { md5, sha256 } from '@gitlens/utils/crypto.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { ContextKeys } from '../../../constants.context.js';
 import type {
 	ComposerTelemetryContext,
@@ -10,11 +13,10 @@ import type {
 } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type {
-	Repository,
+	GlRepository,
 	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
+	RepositoryWorkingTreeChangeEvent,
 } from '../../../git/models/repository.js';
-import { rootSha } from '../../../git/models/revision.js';
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils.js';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService.js';
@@ -23,8 +25,6 @@ import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '..
 import { executeCoreCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { onDidChangeContext } from '../../../system/-webview/context.js';
-import { getSettledValue } from '../../../system/promise.js';
-import { PromiseCache } from '../../../system/promiseCache.js';
 import type { IpcParams } from '../../ipc/handlerRegistry.js';
 import { ipcCommand } from '../../ipc/handlerRegistry.js';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider.js';
@@ -104,7 +104,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	// Repository subscription for working directory changes
 	private _repositorySubscription?: Disposable;
-	private _currentRepository?: Repository;
+	private _currentRepository?: GlRepository;
 
 	// Hunk map and safety state
 	private _hunks: ComposerHunk[] = [];
@@ -287,7 +287,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async initializeStateAndContext(
-		repo: Repository,
+		repo: GlRepository,
 		hunks: ComposerHunk[],
 		commits: ComposerCommit[],
 		diffs: ComposerDiffs,
@@ -378,7 +378,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async initializeStateAndContextFromWorkingDirectory(
-		repo: Repository,
+		repo: GlRepository,
 		includedUnstagedChanges?: boolean,
 		mode: 'experimental' | 'preview' = 'preview',
 		source?: Sources | Source,
@@ -464,7 +464,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async initializeStateAndContextFromBranch(
-		repo: Repository,
+		repo: GlRepository,
 		branchName: string,
 		mode: 'experimental' | 'preview' = 'preview',
 		source?: Sources | Source,
@@ -608,7 +608,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	 * This bypasses merge target resolution and uses the provided range directly.
 	 */
 	private async initializeStateAndContextFromExplicitRange(
-		repo: Repository,
+		repo: GlRepository,
 		branchName: string | undefined,
 		range: { base: string; head: string },
 		mode: 'experimental' | 'preview' = 'preview',
@@ -1058,14 +1058,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private subscribeToRepository(repository: Repository): void {
+	private subscribeToRepository(repository: GlRepository): void {
 		// Dispose existing subscription
 		this._repositorySubscription?.dispose();
 
 		// Subscribe to repository changes
 		this._repositorySubscription = Disposable.from(
-			repository.watchFileSystem(1000),
-			repository.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
+			repository.watchWorkingTree(1000),
+			repository.onDidChangeWorkingTree(this.onRepositoryWorkingTreeChanged, this),
 			repository.onDidChange(this.onRepositoryChanged, this),
 		);
 	}
@@ -1083,7 +1083,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		await this.host.notify(DidIndexChangeNotification, undefined);
 	}
 
-	private async onRepositoryFileSystemChanged(e: RepositoryFileSystemChangeEvent): Promise<void> {
+	private async onRepositoryWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent): Promise<void> {
 		// Working directory files have changed
 		if (e.repository.id !== this._currentRepository?.id) return;
 
@@ -1669,7 +1669,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Pop the stash we created to restore what is left in the working tree
 			if (stashCommit && stashedSuccessfully) {
-				await svc.stash?.applyStash(stashCommit.stashName, { deleteAfter: true });
+				const stashResult = await svc.stash?.applyStash(stashCommit.stashName, { deleteAfter: true });
+				if (stashResult?.conflicted) {
+					void window.showInformationMessage('Stash applied with conflicts');
+				}
 			}
 
 			// Clear the committing state and close the composer webview first

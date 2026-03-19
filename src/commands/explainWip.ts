@@ -1,12 +1,12 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { capitalize } from '@gitlens/utils/string.js';
 import type { Container } from '../container.js';
-import { uncommitted, uncommittedStaged } from '../git/models/revision.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command } from '../system/-webview/command.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { Logger } from '../system/logger.js';
-import { capitalize } from '../system/string.js';
 import type { CommandContext } from './commandContext.js';
 import {
 	isCommandContextViewNodeHasRepoPath,

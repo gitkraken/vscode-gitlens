@@ -1,8 +1,16 @@
 import { deflateSync, strFromU8, strToU8 } from 'fflate';
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
-import { base64 } from '@env/base64.js';
-import { getNonce } from '@env/crypto.js';
+import { base64 } from '@gitlens/utils/base64.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { getNonce } from '@gitlens/utils/crypto.js';
+import { logName, trace } from '@gitlens/utils/decorators/log.js';
+import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
+import { getLoggableName } from '@gitlens/utils/logger.js';
+import { getScopedLogger, maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
+import { maybeStopWatch, Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { GlWebviewCommands } from '../constants.commands.js';
 import type {
 	Source,
@@ -21,7 +29,6 @@ import type {
 	WebviewViewTypes,
 } from '../constants.views.js';
 import type { Container } from '../container.js';
-import { isCancellationError } from '../errors.js';
 import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command.js';
 import {
@@ -30,14 +37,7 @@ import {
 	setContext,
 } from '../system/-webview/context.js';
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
-import { getScopedCounter } from '../system/counter.js';
-import { logName, trace } from '../system/decorators/log.js';
-import { sequentialize } from '../system/decorators/sequentialize.js';
 import { serializeIpcData } from '../system/ipcSerialize.js';
-import { getLoggableName } from '../system/logger.js';
-import { getScopedLogger, maybeStartScopedLogger } from '../system/logger.scope.js';
-import { pauseOnCancelOrTimeout } from '../system/promise.js';
-import { maybeStopWatch, Stopwatch } from '../system/stopwatch.js';
 import type { WebviewContext } from '../system/webview.js';
 import { dispatchIpcMessage } from './ipc/handlerRegistry.js';
 import type { IpcPromise } from './ipc/models/dataTypes.js';
@@ -78,9 +78,7 @@ type GetWebviewDescriptor<T extends CustomEditorIds | WebviewIds> = T extends Cu
 
 type GetWebviewParent<T extends CustomEditorIds | WebviewIds> = T extends WebviewViewIds ? WebviewView : WebviewPanel;
 
-@logName<WebviewController<CustomEditorIds | WebviewIds, any>>(
-	c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`,
-)
+@logName(c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`)
 export class WebviewController<
 	ID extends CustomEditorIds | WebviewIds,
 	State,

@@ -1,7 +1,13 @@
 import type { Disposable } from 'vscode';
+import { workspace } from 'vscode';
+import type { Cache } from '@gitlens/git/cache.js';
+import type { GitExecOptions, GitResult } from '@gitlens/git/exec.types.js';
+import type { GitProvider } from '@gitlens/git/providers/provider.js';
+import { Git } from '@gitlens/git-cli/exec/git.js';
+import { findGitPath } from '@gitlens/git-cli/exec/locator.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Container } from '../../container.js';
-import type { GitExecOptions, GitResult } from '../../git/execTypes.js';
-import type { GitProvider } from '../../git/gitProvider.js';
+import type { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
 import {
 	mcpRegistrationEnabled,
@@ -13,34 +19,42 @@ import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/wo
 import { configuration } from '../../system/-webview/configuration.js';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import type { TelemetryService } from '../../telemetry/telemetry.js';
-import { Git } from './git/git.js';
-import { LocalGitProvider } from './git/localGitProvider.js';
-import { VslsGit, VslsGitProvider } from './git/vslsGitProvider.js';
+import { GlCliGitProvider } from './git/cliGitProvider.js';
+import { VslsGitProvider } from './git/vslsGitProvider.js';
 import { GkCliIntegrationProvider } from './gk/cli/integration.js';
 import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider.js';
 import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider.js';
 import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider.js';
 
-let gitInstance: Git | undefined;
-function ensureGit(container: Container) {
-	gitInstance ??= new Git(container);
-	return gitInstance;
+// Lightweight Git instance for VSLS host — only used for Live Share command proxying.
+// The primary Git execution path is inside CliGitProvider (created by LocalGitProvider).
+let vslsGitInstance: Git | undefined;
+function ensureVslsGit() {
+	if (vslsGitInstance == null) {
+		const locator = () => findGitPath(configuration.getCore('git.path'));
+		vslsGitInstance = new Git(locator, {
+			isTrusted: () => workspace.isTrusted,
+		});
+	}
+	return vslsGitInstance;
 }
 
 export function git(
-	container: Container,
+	_container: Container,
 	options: GitExecOptions,
 	...args: any[]
 ): Promise<GitResult<string | Buffer>> {
-	return ensureGit(container).exec(options, ...args);
+	return ensureVslsGit().exec(options, ...args);
 }
 
-export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
-	const git = ensureGit(container);
-
-	const providers: GitProvider[] = [
-		new LocalGitProvider(container, git),
-		new VslsGitProvider(container, new VslsGit(container, git)),
+export async function getSupportedGitProviders(
+	container: Container,
+	cache: Cache,
+	register: (provider: GitProvider, canHandle: (repoPath: string) => boolean) => UnifiedDisposable,
+): Promise<GlGitProvider[]> {
+	const providers: GlGitProvider[] = [
+		new GlCliGitProvider(container, cache, register),
+		new VslsGitProvider(container, cache, register),
 	];
 
 	if (configuration.get('virtualRepositories.enabled')) {
@@ -49,7 +63,7 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 				await import(
 					/* webpackChunkName: "integrations" */ '../../plus/integrations/providers/github/githubGitProvider.js'
 				)
-			).GitHubGitProvider(container),
+			).GlGitHubGitProvider(container, cache, register) as unknown as GlGitProvider,
 		);
 	}
 

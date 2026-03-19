@@ -1,12 +1,12 @@
 import { window } from 'vscode';
+import { StashApplyError } from '@gitlens/git/errors.js';
+import type { GitStashReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
 import { revealStash, showStashInDetailsView } from '../../../git/actions/stash.js';
-import { StashApplyError } from '../../../git/errors.js';
-import type { GitStashReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { getReferenceLabel } from '../../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
-import { Logger } from '../../../system/logger.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -36,7 +36,7 @@ export type StashApplyOrPopStepNames = StepNames;
 type Context = StashContext<StepNames>;
 
 type Mode = 'apply' | 'pop';
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	mode: Mode;
 	repo: Repo;
 	reference: GitStashReference;
@@ -98,7 +98,7 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStep(Steps.PickStash) || state.reference == null) {
 				using step = steps.enterStep(Steps.PickStash);
@@ -142,10 +142,13 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 			});
 
 			try {
-				await state.repo.git.stash?.applyStash(
+				const result = await state.repo.git.stash?.applyStash(
 					state.mode === 'pop' ? `stash@{${state.reference.stashNumber}}` : state.reference.ref,
 					{ deleteAfter: state.mode === 'pop' },
 				);
+				if (result?.conflicted) {
+					void window.showInformationMessage('Stash applied with conflicts');
+				}
 
 				if (state.reference.message) {
 					const scmRepo = await state.repo.git.getScmRepository();
@@ -169,7 +172,7 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<Mode> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Mode> {
 		const step = this.createConfirmStep<{ label: string; detail: string; item: Mode }>(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[

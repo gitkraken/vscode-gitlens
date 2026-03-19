@@ -1,12 +1,12 @@
 import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../container.js';
-import type { GitCommit } from '../git/models/commit.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
-import { trace } from '../system/decorators/log.js';
-import type { Deferrable } from '../system/function/debounce.js';
-import { debounce } from '../system/function/debounce.js';
-import { getScopedLogger } from '../system/logger.scope.js';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,

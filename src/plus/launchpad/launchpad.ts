@@ -1,5 +1,10 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { some } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { interpolate, pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri } from '../../avatars.js';
 import type {
 	AsyncStepResultGenerator,
@@ -48,11 +53,6 @@ import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
-import { getScopedCounter } from '../../system/counter.js';
-import { fromNow } from '../../system/date.js';
-import { some } from '../../system/iterable.js';
-import { Logger } from '../../system/logger.js';
-import { interpolate, pluralize } from '../../system/string.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
 import { getOpenOnGitProviderQuickInputButtons } from '../integrations/utils/-webview/integration.quickPicks.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';

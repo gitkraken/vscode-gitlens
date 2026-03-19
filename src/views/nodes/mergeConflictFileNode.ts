@@ -1,13 +1,13 @@
 import type { Command, Uri } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { GitFile } from '../../git/models/file.js';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
-import { getConflictIncomingRef, resolveConflictFilePaths } from '../../git/utils/pausedOperationStatus.utils.js';
 import { createCoreCommand } from '../../system/-webview/command.js';
 import { relativeDir } from '../../system/-webview/path.js';
-import { getSettledValue } from '../../system/promise.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode.js';
 import type { ViewNode } from './abstract/viewNode.js';

@@ -1,10 +1,11 @@
 import type { MessageItem, Uri } from 'vscode';
 import { window } from 'vscode';
+import { WorktreeDeleteError } from '@gitlens/git/errors.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { Container } from '../../../container.js';
 import { executeGitCommand } from '../../../git/actions.js';
-import { WorktreeDeleteError } from '../../../git/errors.js';
-import type { GitBranchReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
@@ -47,7 +48,7 @@ export type WorktreeDeleteStepNames = StepNames;
 type Context = WorktreeContext<StepNames>;
 
 type Flags = '--force' | '--delete-branches';
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	uris: Uri[];
 	flags: Flags[];
@@ -116,7 +117,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
 				using step = steps.enterStep(Steps.EnsureAccess);
@@ -184,7 +185,8 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 						if (force) {
 							let hasChanges;
 							try {
-								hasChanges = await worktree?.hasWorkingChanges();
+								hasChanges =
+									worktree != null ? await GitWorktree.hasWorkingChanges(worktree) : undefined;
 							} catch {}
 
 							if ((hasChanges ?? false) && !skipHasChangesPrompt) {
@@ -278,7 +280,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<Flags[]> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
 		context.title = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
 
 		const label = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';

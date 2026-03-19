@@ -1,9 +1,9 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { ConflictDetectionResult } from '../../../../git/models/mergeConflicts.js';
+import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils.js';
-import { pluralize } from '../../../../system/string.js';
 import type { State } from '../../../rebase/protocol.js';
 import { GetPotentialConflictsRequest } from '../../../rebase/protocol.js';
 import { elementBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';

@@ -1,8 +1,8 @@
 import * as assert from 'assert';
-import { isCancellationError } from '../../../errors.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { invalidateMemoized, memoize } from '@gitlens/utils/decorators/memoize.js';
+import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
 import { gate } from '../gate.js';
-import { invalidateMemoized, memoize } from '../memoize.js';
-import { sequentialize } from '../sequentialize.js';
 
 suite('Decorator Test Suite', () => {
 	suite('sequentialize', () => {
@@ -799,6 +799,30 @@ suite('Decorator Test Suite', () => {
 			assert.strictEqual(result1, 1);
 			assert.strictEqual(result2, 1);
 			assert.strictEqual(result3, 1);
+		});
+
+		test('should invalidate versioned getters when version is bumped', () => {
+			let executionCount = 0;
+
+			class TestClass {
+				@memoize({ version: 'providers' })
+				get value(): number {
+					executionCount++;
+					return executionCount;
+				}
+			}
+
+			const instance = new TestClass();
+
+			assert.strictEqual(instance.value, 1);
+			assert.strictEqual(instance.value, 1);
+			assert.strictEqual(executionCount, 1);
+
+			invalidateMemoized('providers');
+
+			assert.strictEqual(instance.value, 2);
+			assert.strictEqual(instance.value, 2);
+			assert.strictEqual(executionCount, 2);
 		});
 
 		test('should cache complex return values', () => {

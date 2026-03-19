@@ -1,10 +1,10 @@
 import type { Disposable, Event } from 'vscode';
 import { authentication, EventEmitter } from 'vscode';
+import { trace } from '@gitlens/utils/decorators/log.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
 import type { Sources } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
-import { trace } from '../../../system/decorators/log.js';
 import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils.js';
 import {
 	isCloudGitSelfManagedHostIntegrationId,

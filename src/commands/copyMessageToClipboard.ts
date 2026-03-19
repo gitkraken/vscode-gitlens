@@ -1,12 +1,14 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import { first } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { copyMessageToClipboard } from '../git/actions/commit.js';
 import { GitUri } from '../git/gitUri.js';
+import { getCommitRepository } from '../git/utils/-webview/commit.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command } from '../system/-webview/command.js';
-import { first } from '../system/iterable.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';
@@ -36,12 +38,12 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
 			if (context.node.commit.message != null) {
-				await context.node.commit.ensureFullDetails();
+				await GitCommit.ensureFullDetails(context.node.commit);
 			}
 			args.message = context.node.commit.message;
 			return this.execute(
 				context.editor,
-				context.node.commit.file?.uri ?? context.node.commit.getRepository()?.uri,
+				context.node.commit.file?.uri ?? getCommitRepository(context.node.commit.repoPath)?.uri,
 				args,
 			);
 		} else if (isCommandContextViewNodeHasBranch(context)) {

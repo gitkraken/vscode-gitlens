@@ -2,8 +2,8 @@
 import { basename, dirname } from 'path';
 import { FileType, Uri, workspace } from 'vscode';
 import { isLinux } from '@env/platform.js';
+import { commonBaseIndex, isFolderGlob, normalizePath } from '@gitlens/utils/path.js';
 import { Schemes } from '../../constants.js';
-import { commonBaseIndex, isFolderGlob, normalizePath } from '../path.js';
 
 const hasSchemeRegex = /^([a-zA-Z][\w+.-]+):/;
 

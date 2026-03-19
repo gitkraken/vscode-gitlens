@@ -1,13 +1,17 @@
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import {
+	getReferenceLabel,
+	isRevisionRangeReference,
+	isRevisionReference,
+} from '@gitlens/git/utils/reference.utils.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants.js';
 import type { Container } from '../../container.js';
 import { showCommitInDetailsView } from '../../git/actions/commit.js';
-import { GitCommit } from '../../git/models/commit.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { GitReference } from '../../git/models/reference.js';
-import type { Repository } from '../../git/models/repository.js';
-import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { formatPath } from '../../system/-webview/formatPath.js';
-import { pad } from '../../system/string.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type { PartialStepState, StepGenerator, StepsContext } from '../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../quick-wizard/models/steps.js';
@@ -28,14 +32,14 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	selectedBranchOrTag: GitReference | undefined;
 	title: string;
 }
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	reference: GitReference | 'HEAD';
 
@@ -102,7 +106,7 @@ export class LogGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (state.reference === 'HEAD') {
 				const branch = await state.repo.git.branches.getBranch();

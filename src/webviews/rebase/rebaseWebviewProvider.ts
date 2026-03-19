@@ -1,5 +1,13 @@
 import type { Disposable, TextDocument } from 'vscode';
 import { ViewColumn, workspace } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { ProcessedRebaseTodo, RebaseTodoAction } from '@gitlens/git/models/rebase.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { concat, filterMap, find, first, join, last, map } from '@gitlens/utils/iterable.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
 import type { RebaseEditorTelemetryContext } from '../../constants.telemetry.js';
@@ -11,11 +19,9 @@ import {
 	showPausedOperationStatus,
 	skipPausedOperation,
 } from '../../git/actions/pausedOperation.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { ProcessedRebaseTodo, RebaseTodoAction } from '../../git/models/rebase.js';
+import { formatCommitDate, getCommitFormattedDate } from '../../git/utils/-webview/commit.utils.js';
 import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
-import { createReference } from '../../git/utils/reference.utils.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
@@ -23,11 +29,6 @@ import { configuration } from '../../system/-webview/configuration.js';
 import { closeTab } from '../../system/-webview/vscode/tabs.js';
 import { exists } from '../../system/-webview/vscode/uris.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
-import { debug } from '../../system/decorators/log.js';
-import type { Deferrable } from '../../system/function/debounce.js';
-import { debounce } from '../../system/function/debounce.js';
-import { concat, filterMap, find, first, join, last, map } from '../../system/iterable.js';
-import { getSettledValue } from '../../system/promise.js';
 import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
 import type { ComposerWebviewShowingArgs } from '../plus/composer/registration.js';
@@ -754,7 +755,7 @@ export class RebaseWebviewProvider implements Disposable {
 
 		const result = await this.container.git
 			.getRepositoryService(this.repoPath)
-			.commits.searchCommits({ query: query }, { source: 'rebaseEditor' }, { limit: 0 });
+			.commits.searchCommits({ query: query }, { limit: 0, source: { source: 'rebaseEditor' } });
 		return result.log?.commits.values() ?? [];
 	}
 
@@ -1014,8 +1015,8 @@ function convertCommit(commit: GitCommit, defaultDateFormat: string | null): Com
 		sha: commit.sha,
 		author: commit.author.name,
 		committer: commit.committer.name,
-		date: commit.formatDate(defaultDateFormat),
-		formattedDate: commit.formattedDate,
+		date: formatCommitDate(commit, defaultDateFormat),
+		formattedDate: getCommitFormattedDate(commit),
 		message: emojify(commit.message ?? commit.summary),
 	};
 }

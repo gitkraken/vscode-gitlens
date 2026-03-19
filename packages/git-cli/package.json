@@ -1,0 +1,46 @@
+{
+	"name": "@gitlens/git-cli",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		},
+		"./exec/*.js": {
+			"types": "./dist/exec/*.d.ts",
+			"default": "./dist/exec/*.js"
+		},
+		"./providers/*.js": {
+			"types": "./dist/providers/*.d.ts",
+			"default": "./dist/providers/*.js"
+		},
+		"./parsers/*.js": {
+			"types": "./dist/parsers/*.d.ts",
+			"default": "./dist/parsers/*.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -b",
+		"clean": "pnpx rimraf --glob dist out .eslintcache* **/tsconfig*.tsbuildinfo",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/__tests__/integration/**'",
+		"test:integration": "mocha --require tsx --ui tdd --timeout 30000 'src/__tests__/integration/**/*.test.ts'",
+		"test:cli": "tsx test-harness/cli.ts"
+	},
+	"dependencies": {
+		"@gitlens/git": "workspace:*",
+		"@gitlens/utils": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/mocha": "10.0.10",
+		"@types/sinon": "21.0.0",
+		"mocha": "11.7.5",
+		"sinon": "21.0.1",
+		"tsx": "4.21.0"
+	}
+}

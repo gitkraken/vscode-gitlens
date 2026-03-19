@@ -1,9 +1,10 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import type { AIGenerateCreateDraftEventData } from '../../../constants.telemetry.js';
-import { AINoRequestDataError, CancellationError } from '../../../errors.js';
-import type { Repository } from '../../../git/models/repository.js';
+import { AINoRequestDataError } from '../../../errors.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { Deferred } from '../../../system/promise.js';
 import type { AIResponse, AISourceContext } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
 import type { AIModel } from '../models/model.js';
@@ -15,7 +16,7 @@ import { truncatePromptWithDiff } from '../utils/-webview/truncation.utils.js';
 /** Generates a draft message (cloud patch or code suggestion) */
 export async function generateCreateDraft(
 	service: AIService,
-	changesOrRepo: string | string[] | Repository,
+	changesOrRepo: string | string[] | GlRepository,
 	sourceContext: AISourceContext<{ type: AIGenerateCreateDraftEventData['draftType'] }>,
 	options?: {
 		cancellation?: CancellationToken;

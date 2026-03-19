@@ -1,16 +1,16 @@
 import type { ColorTheme } from 'vscode';
 import { ColorThemeKind, ThemeColor, ThemeIcon, Uri, window } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { GitStatus } from '@gitlens/git/models/status.js';
+import { getRemoteThemeIconString } from '@gitlens/git/utils/remote.utils.js';
 import type { IconPath } from '../../../@types/vscode.iconpath.d.js';
 import type { Colors } from '../../../constants.colors.js';
 import type { Container } from '../../../container.js';
 import { getIconPathUris, isLightTheme } from '../../../system/-webview/vscode.js';
-import type { GitBranch } from '../../models/branch.js';
-import type { GitFileStatus } from '../../models/fileStatus.js';
-import type { IssueOrPullRequest } from '../../models/issueOrPullRequest.js';
-import type { GitRemote } from '../../models/remote.js';
-import type { Repository } from '../../models/repository.js';
-import type { GitStatus } from '../../models/status.js';
-import { getRemoteThemeIconString } from '../remote.utils.js';
+import type { GlRepository } from '../../models/repository.js';
 
 export function getBranchIconPath(container: Container, branch: GitBranch | undefined): IconPath {
 	switch (branch?.status) {
@@ -182,20 +182,20 @@ export function getRemoteIconUri(
 	return asWebviewUri != null ? asWebviewUri(uri) : uri;
 }
 
-export function getRepositoryIcon(repository: Repository): string {
+export function getRepositoryIcon(repository: GlRepository): string {
 	if (repository.isSubmodule) return 'archive';
 	if (repository.isWorktree) return 'gitlens-worktree';
 	if (repository.virtual) return 'gitlens-repository-cloud';
 	return 'gitlens-repository';
 }
 
-export function getRepositoryIconPath(repository: Repository): IconPath {
+export function getRepositoryIconPath(repository: GlRepository): IconPath {
 	return new ThemeIcon(getRepositoryIcon(repository));
 }
 
 export function getRepositoryStatusIconPath(
 	container: Container,
-	repository: Repository,
+	repository: GlRepository,
 	status: GitStatus | undefined,
 ): IconPath {
 	if (repository.isSubmodule) return new ThemeIcon('archive');

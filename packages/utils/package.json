@@ -1,0 +1,54 @@
+{
+	"name": "@gitlens/utils",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"sideEffects": false,
+	"imports": {
+		"#env/*.js": {
+			"node": {
+				"types": "./dist/env/node/*.d.ts",
+				"default": "./dist/env/node/*.js"
+			},
+			"default": {
+				"types": "./dist/env/browser/*.d.ts",
+				"default": "./dist/env/browser/*.js"
+			}
+		}
+	},
+	"exports": {
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		},
+		"./decorators/*.js": {
+			"types": "./dist/decorators/*.d.ts",
+			"default": "./dist/decorators/*.js"
+		},
+		"./env/node/exec.js": {
+			"types": "./dist/env/node/exec.d.ts",
+			"default": "./dist/env/node/exec.js"
+		},
+		"./function/*.js": {
+			"types": "./dist/function/*.d.ts",
+			"default": "./dist/function/*.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -b",
+		"clean": "pnpx rimraf --glob dist out .eslintcache* **/tsconfig*.tsbuildinfo",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
+	},
+	"dependencies": {
+		"fast-string-truncated-width": "3.0.3",
+		"vscode-uri": "3.1.0"
+	},
+	"devDependencies": {
+		"mocha": "11.7.5",
+		"tinybench": "6.0.0",
+		"tsx": "4.21.0"
+	}
+}

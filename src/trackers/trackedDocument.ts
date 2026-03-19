@@ -1,93 +1,14 @@
 import type { Disposable, TextDocument } from 'vscode';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { logName, trace } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitBlame } from '../git/models/blame.js';
-import type { ParsedGitDiffHunks } from '../git/models/diff.js';
-import type { GitLog } from '../git/models/log.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isActiveTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents.js';
 import { getOpenTextEditorIfVisible } from '../system/-webview/vscode/editors.js';
-import { logName, trace } from '../system/decorators/log.js';
-import type { Deferrable } from '../system/function/debounce.js';
-import { debounce } from '../system/function/debounce.js';
-import { Logger } from '../system/logger.js';
-import { getScopedLogger } from '../system/logger.scope.js';
 import type { DocumentBlameStateChangeEvent, GitDocumentTracker } from './documentTracker.js';
-
-interface CachedItem<T> {
-	item: Promise<T>;
-	errorMessage?: string;
-}
-
-export type CachedBlame = CachedItem<GitBlame>;
-export type CachedDiff = CachedItem<ParsedGitDiffHunks>;
-export type CachedLog = CachedItem<GitLog>;
-
-export class GitDocumentState {
-	private readonly blameCache = new Map<string, CachedBlame>();
-	private readonly diffCache = new Map<string, CachedDiff>();
-	private readonly logCache = new Map<string, CachedLog>();
-
-	clearBlame(key?: string): void {
-		if (key == null) {
-			this.blameCache.clear();
-			return;
-		}
-		this.blameCache.delete(key);
-	}
-
-	clearDiff(key?: string): void {
-		if (key == null) {
-			this.diffCache.clear();
-			return;
-		}
-		this.diffCache.delete(key);
-	}
-
-	clearLog(key?: string): void {
-		if (key == null) {
-			this.logCache.clear();
-			return;
-		}
-		this.logCache.delete(key);
-	}
-
-	getBlame(key: string): CachedBlame | undefined {
-		return this.blameCache.get(key);
-	}
-
-	getDiff(key: string): CachedDiff | undefined {
-		return this.diffCache.get(key);
-	}
-
-	getLog(key: string): CachedLog | undefined {
-		return this.logCache.get(key);
-	}
-
-	setBlame(key: string, value: CachedBlame | undefined): void {
-		if (value == null) {
-			this.blameCache.delete(key);
-			return;
-		}
-		this.blameCache.set(key, value);
-	}
-
-	setDiff(key: string, value: CachedDiff | undefined): void {
-		if (value == null) {
-			this.diffCache.delete(key);
-			return;
-		}
-		this.diffCache.set(key, value);
-	}
-
-	setLog(key: string, value: CachedLog | undefined): void {
-		if (value == null) {
-			this.logCache.delete(key);
-			return;
-		}
-		this.logCache.set(key, value);
-	}
-}
 
 export interface TrackedGitDocumentStatus {
 	blameable: boolean;
@@ -111,8 +32,6 @@ export class TrackedGitDocument implements Disposable {
 		return doc;
 	}
 
-	state: GitDocumentState | undefined;
-
 	private _disposable: Disposable | undefined;
 	private _disposed: boolean = false;
 	private _tracked: boolean = false;
@@ -129,8 +48,6 @@ export class TrackedGitDocument implements Disposable {
 	) {}
 
 	dispose(): void {
-		this.state = undefined;
-
 		this._disposed = true;
 		this._disposable?.dispose();
 	}
@@ -150,7 +67,7 @@ export class TrackedGitDocument implements Disposable {
 	}
 
 	private get blameable() {
-		return this._blameFailure != null ? false : this._tracked;
+		return this._tracked;
 	}
 
 	get canDirtyIdle(): boolean {
@@ -199,15 +116,7 @@ export class TrackedGitDocument implements Disposable {
 	refresh(reason: 'changed' | 'saved' | 'visible' | 'repositoryChanged'): void {
 		if (this._pendingUpdates == null && reason === 'visible') return;
 
-		const scope = getScopedLogger();
-
-		this._blameFailure = undefined;
 		this._dirtyIdle = false;
-
-		if (this.state != null) {
-			this.state = undefined;
-			scope?.debug(`Reset state, reason=${reason}`);
-		}
 
 		switch (reason) {
 			case 'changed':
@@ -227,21 +136,6 @@ export class TrackedGitDocument implements Disposable {
 		} else if (isVisibleTextDocument(this.document)) {
 			this._updateDebounced ??= debounce(this.update.bind(this), 100);
 			void this._updateDebounced();
-		}
-	}
-
-	private _blameFailure: Error | undefined;
-	setBlameFailure(ex: Error): void {
-		const wasBlameable = this.blameable;
-
-		this._blameFailure = ex;
-
-		if (wasBlameable) {
-			this._pendingUpdates = { ...this._pendingUpdates, reason: 'blame-failed', forceBlameChange: true };
-
-			if (isActiveTextDocument(this.document)) {
-				void this.update();
-			}
 		}
 	}
 

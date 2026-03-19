@@ -1,9 +1,9 @@
 /*global window document*/
 import { ContextProvider } from '@lit/context';
+import { debounce } from '@gitlens/utils/debounce.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { GlWebviewCommands } from '../../../constants.commands.js';
 import type { CustomEditorIds, WebviewIds, WebviewTypes } from '../../../constants.views.js';
-import { debounce } from '../../../system/function/debounce.js';
-import type { ScopedLogger } from '../../../system/logger.scope.js';
 import { createWebviewCommandLink } from '../../../system/webview.js';
 import type {
 	IpcCallParamsType,

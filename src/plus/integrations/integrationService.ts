@@ -1,6 +1,16 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
 import { isWeb } from '@env/platform.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { promisifyDeferred, take } from '@gitlens/utils/event.js';
+import { filterMap, flatten, join } from '@gitlens/utils/iterable.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type {
 	CloudGitSelfManagedHostIntegrationIds,
 	IntegrationIds,
@@ -14,20 +24,11 @@ import {
 import type { Source } from '../../constants.telemetry.js';
 import { detailToContext, sourceToContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import type { Account } from '../../git/models/author.js';
-import type { IssueShape } from '../../git/models/issue.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
-import type { GitRemote } from '../../git/models/remote.js';
-import type { ResourceDescriptor } from '../../git/models/resourceDescriptor.js';
-import type { RemoteProviderId } from '../../git/remotes/remoteProvider.js';
+import { getRemoteIntegration } from '../../git/utils/-webview/remote.utils.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { promisifyDeferred, take } from '../../system/event.js';
-import { filterMap, flatten, join } from '../../system/iterable.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService.js';
 import type {
 	ConfiguredIntegrationsChangeEvent,
@@ -616,7 +617,7 @@ export class IntegrationService implements Disposable {
 		for (const repository of this.container.git.openRepositories) {
 			const remotes = await repository.git.remotes.getRemotes();
 			for (const remote of remotes) {
-				const remoteIntegration = await remote.getIntegration();
+				const remoteIntegration = await getRemoteIntegration(remote);
 				if (remoteIntegration == null) continue;
 				if (remoteIntegration.id === GitCloudHostIntegrationId.AzureDevOps) {
 					hasOpenAzureRepository = true;
@@ -708,7 +709,7 @@ export class IntegrationService implements Disposable {
 			const [remote] = remoteOrRemotes;
 			if (remote?.provider == null) return undefined;
 
-			const integration = await remote.getIntegration();
+			const integration = await getRemoteIntegration(remote);
 			return integration?.searchMyIssues(remote.provider.repoDesc);
 		}
 
@@ -717,7 +718,7 @@ export class IntegrationService implements Disposable {
 		for (const remote of remoteOrRemotes) {
 			if (remote?.provider == null) continue;
 
-			const integration = await remote.getIntegration();
+			const integration = await getRemoteIntegration(remote);
 			if (integration == null) continue;
 
 			let repos = integrations.get(integration);
@@ -838,7 +839,7 @@ export class IntegrationService implements Disposable {
 			const [remote] = remoteOrRemotes;
 			if (remote?.provider == null) return undefined;
 
-			const integration = await remote.getIntegration();
+			const integration = await getRemoteIntegration(remote);
 			return integration?.searchMyPullRequests(remote.provider.repoDesc);
 		}
 
@@ -847,7 +848,7 @@ export class IntegrationService implements Disposable {
 		for (const remote of remoteOrRemotes) {
 			if (remote?.provider == null) continue;
 
-			const integration = await remote.getIntegration();
+			const integration = await getRemoteIntegration(remote);
 			if (integration == null) continue;
 
 			let repos = integrations.get(integration);

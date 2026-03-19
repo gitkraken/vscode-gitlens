@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
-import { basename } from '../path.js';
-import { truncateLeft, truncateMiddle } from '../string.js';
+import { basename } from '@gitlens/utils/path.js';
+import { truncateLeft, truncateMiddle } from '@gitlens/utils/string.js';
 import { getBestPath, relativeDir } from './path.js';
 
 export function formatPath(

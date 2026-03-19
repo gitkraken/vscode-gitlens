@@ -1,19 +1,19 @@
+import type { GitContributor } from '@gitlens/git/models/contributor.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import { revealContributor } from '../../../git/actions/contributor.js';
-import type { GitContributor } from '../../../git/models/contributor.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type { ContributorQuickPickItem } from '../../../git/utils/-webview/contributor.quickpick.js';
 import { createContributorQuickPickItem } from '../../../git/utils/-webview/contributor.quickpick.js';
 import { sortContributors } from '../../../git/utils/-webview/sorting.js';
 import { isDirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
-import { debounce } from '../../../system/function/debounce.js';
 import type { PartialStepState, StepResultGenerator, StepsContext, StepSelection } from '../models/steps.js';
 import { StepResultBreak } from '../models/steps.js';
 import { RevealInSideBarQuickInputButton } from '../quickButtons.js';
 import { appendReposToTitle, canPickStepContinue, createPickStep } from '../utils/steps.utils.js';
 
 export function* pickContributorsStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
@@ -32,7 +32,7 @@ export function* pickContributorsStep<
 						? typeof options.picked === 'string'
 							? c.email === options.picked
 							: options.picked.includes(c.email!)
-						: message?.includes(c.getCoauthor()),
+						: message?.includes(c.coauthor),
 					{
 						buttons: [RevealInSideBarQuickInputButton],
 					},

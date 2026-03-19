@@ -1,9 +1,9 @@
+import type { GitContributor } from '@gitlens/git/models/contributor.js';
+import { ensureArray } from '@gitlens/utils/array.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { Container } from '../../container.js';
-import type { GitContributor } from '../../git/models/contributor.js';
-import type { Repository } from '../../git/models/repository.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
-import { ensureArray } from '../../system/array.js';
-import { normalizePath } from '../../system/path.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type { PartialStepState, StepGenerator, StepsContext, StepState } from '../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../quick-wizard/models/steps.js';
@@ -20,13 +20,13 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
-	activeRepo: Repository | undefined;
+	repos: GlRepository[];
+	activeRepo: GlRepository | undefined;
 	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
-interface State<Repo = string | Repository, Contributors = GitContributor | GitContributor[]> {
+interface State<Repo = string | GlRepository, Contributors = GitContributor | GitContributor[]> {
 	repo: Repo;
 	contributors: Contributors;
 }
@@ -49,7 +49,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	private async execute(state: StepState<State<Repository, GitContributor[]>>) {
+	private async execute(state: StepState<State<GlRepository, GitContributor[]>>) {
 		const scmRepo = await state.repo.git.getOrOpenScmRepository();
 		if (scmRepo == null) return;
 
@@ -70,7 +70,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 				newlines = '\n\n\n';
 			}
 
-			message += `${newlines}Co-authored-by: ${c.getCoauthor()}`;
+			message += `${newlines}Co-authored-by: ${c.coauthor}`;
 		}
 
 		scmRepo.inputBox.value = message;
@@ -130,7 +130,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (state.contributors != null && !Array.isArray(state.contributors)) {
 				state.contributors = [state.contributors];
@@ -152,7 +152,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 				state.contributors = result;
 			}
 
-			assertStepState<State<Repository, GitContributor[]>>(state);
+			assertStepState<State<GlRepository, GitContributor[]>>(state);
 
 			steps.markStepsComplete();
 			void this.execute(state);

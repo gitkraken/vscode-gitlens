@@ -3,11 +3,15 @@
 	"compilerOptions": {
 		"lib": ["dom", "dom.iterable", "es2023"],
 		"paths": {
+			"path": ["./node_modules/path-browserify"],
 			"@env/*": ["./src/env/browser/*"],
-			"path": ["./node_modules/path-browserify"]
+			"@gitlens/utils/*": ["./packages/utils/dist/*"],
+			"@gitlens/git/*": ["./packages/git/dist/*"],
+			"@gitlens/git-github/*": ["./packages/git-github/dist/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.browser.tsbuildinfo"
 	},
+	"references": [{ "path": "./packages/utils" }, { "path": "./packages/git" }, { "path": "./packages/git-github" }],
 	"include": ["src/**/*"],
 	"exclude": ["src/webviews/apps/**/*", "src/env/node/**/*"]
 }

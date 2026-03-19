@@ -1,14 +1,15 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { DiffRange } from '@gitlens/git/providers/types.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { Container } from '../container.js';
-import type { DiffRange } from '../git/gitProvider.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitCommit } from '../git/models/commit.js';
+import { getCommitGitUri } from '../git/utils/-webview/commit.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command, executeCommand } from '../system/-webview/command.js';
-import { selectionToDiffRange } from '../system/-webview/vscode/editors.js';
+import { selectionToDiffRange } from '../system/-webview/vscode/range.js';
 import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs.js';
-import { Logger } from '../system/logger.js';
-import { areUrisEqual } from '../system/uri.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { DiffWithCommandArgs } from './diffWith.js';
@@ -47,7 +48,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 			}
 		}
 
-		const gitUri = args.commit?.getGitUri() ?? (await GitUri.fromUri(uri));
+		const gitUri = (args.commit != null ? getCommitGitUri(args.commit) : undefined) ?? (await GitUri.fromUri(uri));
 		try {
 			const diffUris = await this.container.git.getRepositoryService(gitUri.repoPath!).diff.getNextComparisonUris(
 				gitUri,
@@ -60,8 +61,8 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: diffUris.current.repoPath,
-				lhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri },
-				rhs: { sha: diffUris.next.sha ?? '', uri: diffUris.next.documentUri },
+				lhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.uri },
+				rhs: { sha: diffUris.next.sha ?? '', uri: diffUris.next.uri },
 				range: args.range,
 				showOptions: args.showOptions,
 			}));

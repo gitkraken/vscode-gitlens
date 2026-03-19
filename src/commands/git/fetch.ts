@@ -1,13 +1,13 @@
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
+import { isStringArray } from '@gitlens/utils/array.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
-import type { GitBranchReference } from '../../git/models/reference.js';
-import type { Repository } from '../../git/models/repository.js';
-import { getReferenceLabel, isBranchReference } from '../../git/utils/reference.utils.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
-import { isStringArray } from '../../system/array.js';
-import { fromNow } from '../../system/date.js';
-import { pad } from '../../system/string.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
@@ -36,13 +36,13 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
 type Flags = '--all' | '--prune';
-interface State<Repos = string | string[] | Repository | Repository[]> {
+interface State<Repos = string | string[] | GlRepository | GlRepository[]> {
 	repos: Repos;
 	reference?: GitBranchReference;
 	flags: Flags[];
@@ -61,9 +61,9 @@ export class FetchGitCommand extends QuickCommand<State> {
 		this.initialState = { confirm: args?.confirm, ...args?.state };
 	}
 
-	private execute(state: StepState<State<Repository[]>>) {
+	private execute(state: StepState<State<GlRepository[]>>) {
 		if (isBranchReference(state.reference)) {
-			return state.repos[0].fetch({ branch: state.reference });
+			return state.repos[0].git.fetch({ branch: state.reference });
 		}
 
 		return this.container.git.fetchAll(state.repos, {
@@ -92,7 +92,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			state.repos = typeof state.repos === 'string' ? [state.repos] : [state.repos];
 		}
 
-		assertStepState<State<Repository[] | string[]>>(state);
+		assertStepState<State<GlRepository[] | string[]>>(state);
 
 		while (!steps.isComplete) {
 			context.title = this.title;
@@ -118,7 +118,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository[]>>(state);
+			assertStepState<State<GlRepository[]>>(state);
 
 			if (this.confirm(state.confirm)) {
 				using step = steps.enterStep(Steps.Confirm);
@@ -141,7 +141,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(
-		state: StepState<State<Repository[]>>,
+		state: StepState<State<GlRepository[]>>,
 		context: Context,
 	): AsyncStepResultGenerator<Flags[]> {
 		let lastFetchedOn = '';

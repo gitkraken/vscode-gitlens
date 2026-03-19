@@ -1,6 +1,6 @@
 import { fetch } from '@env/fetch.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { openRouterProviderDescriptor as provider } from '../../constants.ai.js';
-import { isCancellationError } from '../../errors.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 

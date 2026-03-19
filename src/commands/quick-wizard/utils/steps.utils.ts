@@ -1,12 +1,12 @@
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import type { Repository } from '../../../git/models/repository.js';
-import { getRevisionRangeParts, isRevisionRange, isSha } from '../../../git/utils/revision.utils.js';
+import { getRevisionRangeParts, isRevisionRange, isSha } from '@gitlens/git/utils/revision.utils.js';
+import { createDisposable } from '@gitlens/utils/disposable.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive, isDirective } from '../../../quickpicks/items/directive.js';
 import { createCommitQuickPickItem, createRefQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
-import { getSettledValue } from '../../../system/promise.js';
-import { createDisposable } from '../../../system/unifiedDisposable.js';
 import type { CustomStep } from '../models/steps.custom.js';
 import type { PartialStepState, StepItemType, StepResultBreak, StepState } from '../models/steps.js';
 import type { QuickInputStep } from '../models/steps.quickinput.js';
@@ -140,33 +140,33 @@ export function isQuickPickStep(
  * No-op at runtime - exists purely for TypeScript type narrowing
  *
  * @example
- * assertStepState<State<Repository>>(state);
- * assertStepState<State<Repository, GitReference[]>>(state);
+ * assertStepState<State<GlRepository>>(state);
+ * assertStepState<State<GlRepository, GitReference[]>>(state);
  */
 export function assertStepState<T>(_state: PartialStepState): asserts _state is StepState<T> {}
 
 export function appendReposToTitle<
-	State extends { repo: Repository } | { repos: Repository[] },
-	Context extends { repos: Repository[] },
+	State extends { repo: GlRepository } | { repos: GlRepository[] },
+	Context extends { repos: GlRepository[] },
 >(title: string, state: State, context: Context, additionalContext?: string): string {
 	if (context.repos.length === 1) {
 		return additionalContext ? `${title}${additionalContext}` : title;
 	}
 
 	let repoContext;
-	if ((state as { repo: Repository }).repo != null) {
-		repoContext = `${additionalContext ?? ''} · ${(state as { repo: Repository }).repo.name}`;
-	} else if ((state as { repos: Repository[] }).repos.length === 1) {
-		repoContext = `${additionalContext ?? ''} · ${(state as { repos: Repository[] }).repos[0].name}`;
+	if ((state as { repo: GlRepository }).repo != null) {
+		repoContext = `${additionalContext ?? ''} · ${(state as { repo: GlRepository }).repo.name}`;
+	} else if ((state as { repos: GlRepository[] }).repos.length === 1) {
+		repoContext = `${additionalContext ?? ''} · ${(state as { repos: GlRepository[] }).repos[0].name}`;
 	} else {
-		repoContext = ` · ${(state as { repos: Repository[] }).repos.length} repositories`;
+		repoContext = ` · ${(state as { repos: GlRepository[] }).repos.length} repositories`;
 	}
 
 	return `${title}${repoContext}`;
 }
 
 export function getValidateGitReferenceFn(
-	repos: Repository | Repository[] | undefined,
+	repos: GlRepository | GlRepository[] | undefined,
 	options?: {
 		revs?: { allow: boolean; buttons?: QuickInputButton[] };
 		ranges?: { allow: boolean; buttons?: QuickInputButton[]; validate?: boolean };

@@ -1,18 +1,18 @@
 import { window } from 'vscode';
-import type { Container } from '../../../container.js';
-import { TagError } from '../../../git/errors.js';
-import type { GitReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
+import { TagError } from '@gitlens/git/errors.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isRevisionReference,
 	isTagReference,
-} from '../../../git/utils/reference.utils.js';
+} from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { Container } from '../../../container.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
-import { Logger } from '../../../system/logger.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -53,7 +53,7 @@ export type TagCreateStepNames = StepNames;
 type Context = TagContext<StepNames>;
 
 type Flags = '--force' | '-m';
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	reference: GitReference;
 	name: string;
@@ -115,7 +115,7 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStep(Steps.PickRef) || state.reference == null) {
 				using step = steps.enterStep(Steps.PickRef);
@@ -215,7 +215,7 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 	}
 
 	private async *inputMessageStep(
-		state: StepState<State<Repository>>,
+		state: StepState<State<GlRepository>>,
 		context: TagContext,
 	): AsyncStepResultGenerator<string> {
 		const step = createInputStep({
@@ -238,7 +238,7 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 		return value;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: TagContext): StepResultGenerator<Flags[]> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: TagContext): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[

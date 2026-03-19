@@ -1,10 +1,10 @@
 import type { TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import { decodeGitLensRevisionUriAuthority } from '@gitlens/git/utils/uriAuthority.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { Schemes } from '../constants.js';
 import type { MarkdownContentMetadata } from '../documents/markdown.js';
-import { decodeGitLensRevisionUriAuthority } from '../git/gitUri.authority.js';
 import { command, executeCommand } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 

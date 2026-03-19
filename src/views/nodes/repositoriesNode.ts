@@ -1,13 +1,13 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { szudzikPairing } from '@gitlens/utils/function.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
 import { GitUri, unknownGitUri } from '../../git/gitUri.js';
 import { gate } from '../../system/decorators/gate.js';
-import { trace } from '../../system/decorators/log.js';
-import { weakEvent } from '../../system/event.js';
-import { debounce } from '../../system/function/debounce.js';
-import { szudzikPairing } from '../../system/function.js';
-import { Logger } from '../../system/logger.js';
 import type { ViewsWithRepositoriesNode } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
@@ -133,7 +133,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 
 		try {
 			const uri = editor.document.uri;
-			const node = this.children.find(n => n instanceof RepositoryNode && n.repo.containsUri(uri)) as
+			const node = this.children.find(n => n instanceof RepositoryNode && n.repo.git.containsUri(uri)) as
 				| RepositoryNode
 				| undefined;
 			if (node == null) return;

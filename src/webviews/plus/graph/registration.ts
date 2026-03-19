@@ -1,11 +1,11 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import type { SearchQuery } from '../../../constants.search.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { GitUri } from '../../../git/gitUri.js';
-import type { GitReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext } from '../../../system/-webview/context.js';
@@ -26,22 +26,22 @@ import type {
 import type { State } from './protocol.js';
 
 export type GraphWebviewShowingArgs = [
-	| Repository
+	| GlRepository
 	| { ref: GitReference; source?: Source }
-	| { repository: Repository; search?: SearchQuery; source?: Source }
+	| { repository: GlRepository; search?: SearchQuery; source?: Source }
 	| undefined,
 ];
 
 export type ShowInCommitGraphCommandArgs =
 	| { ref: GitReference; preserveFocus?: boolean; source?: Source; viewColumn?: ViewColumn }
 	| {
-			repository: Repository;
+			repository: GlRepository;
 			search?: SearchQuery;
 			preserveFocus?: boolean;
 			source?: Source;
 			viewColumn?: ViewColumn;
 	  }
-	| Repository
+	| GlRepository
 	| BranchNode
 	| CommitNode
 	| CommitFileNode

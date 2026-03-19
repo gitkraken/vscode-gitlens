@@ -1,7 +1,8 @@
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { getPossessiveForm, interpolate } from '@gitlens/utils/string.js';
 import type { TelemetryEvents } from '../../../../constants.telemetry.js';
-import { AIError, AIErrorReason, CancellationError } from '../../../../errors.js';
+import { AIError, AIErrorReason } from '../../../../errors.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
-import { getPossessiveForm, interpolate } from '../../../../system/string.js';
 import type { AIModel } from '../../models/model.js';
 import type {
 	PromptTemplate,

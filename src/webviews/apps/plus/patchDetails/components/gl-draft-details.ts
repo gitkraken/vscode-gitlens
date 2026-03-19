@@ -6,14 +6,14 @@ import { repeat } from 'lit/directives/repeat.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
+import { makeHierarchical } from '@gitlens/utils/array.js';
+import { flatCount } from '@gitlens/utils/iterable.js';
 import type {
 	DraftArchiveReason,
 	DraftPatchFileChange,
 	DraftRole,
 	DraftVisibility,
 } from '../../../../../plus/drafts/models/drafts.js';
-import { makeHierarchical } from '../../../../../system/array.js';
-import { flatCount } from '../../../../../system/iterable.js';
 import type {
 	CloudDraftDetails,
 	DraftDetails,

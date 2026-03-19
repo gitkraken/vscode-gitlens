@@ -1,12 +1,12 @@
 import type { CancellationToken } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { filterMap, flatten } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { AutolinkReference, GlDynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
 import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
-import type { Account } from '../../../git/models/author.js';
-import type { Issue, IssueShape } from '../../../git/models/issue.js';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest.js';
-import type { IssueResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
-import { filterMap, flatten } from '../../../system/iterable.js';
-import { Logger } from '../../../system/logger.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -42,8 +42,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return 'https://api.atlassian.com';
 	}
 
-	private _autolinks: Map<string, (AutolinkReference | DynamicAutolinkReference)[]> | undefined;
-	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+	private _autolinks: Map<string, (AutolinkReference | GlDynamicAutolinkReference)[]> | undefined;
+	override async autolinks(): Promise<(AutolinkReference | GlDynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected || this._session == null || this._organizations == null || this._projects == null) {
 			return [];
@@ -52,7 +52,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const cachedAutolinks = this._autolinks?.get(this._session.accessToken);
 		if (cachedAutolinks != null) return cachedAutolinks;
 
-		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
+		const autolinks: (AutolinkReference | GlDynamicAutolinkReference)[] = [];
 		const organizations = this._organizations.get(this._session.accessToken);
 		if (organizations != null) {
 			for (const organization of organizations) {
@@ -89,7 +89,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			}
 		}
 
-		this._autolinks ??= new Map<string, (AutolinkReference | DynamicAutolinkReference)[]>();
+		this._autolinks ??= new Map<string, (AutolinkReference | GlDynamicAutolinkReference)[]>();
 		this._autolinks.set(this._session.accessToken, autolinks);
 
 		return autolinks;

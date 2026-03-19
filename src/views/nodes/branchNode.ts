@@ -1,5 +1,23 @@
 import type { Uri } from 'vscode';
 import { Disposable, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { PullRequest, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import type { GitUser } from '@gitlens/git/models/user.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
+import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { memoize } from '@gitlens/utils/decorators/memoize.js';
+import { disposableInterval } from '@gitlens/utils/disposable.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { map } from '@gitlens/utils/iterable.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { defer, getSettledValue } from '@gitlens/utils/promise.js';
+import { pad } from '@gitlens/utils/string.js';
 import type { IconPath } from '../../@types/vscode.iconpath.d.js';
 import type { ViewShowBranchComparison } from '../../config.js';
 import type { Colors } from '../../constants.colors.js';
@@ -8,29 +26,17 @@ import type { Container } from '../../container.js';
 import type { GitRepositoryService } from '../../git/gitRepositoryService.js';
 import type { GitUri } from '../../git/gitUri.js';
 import { unknownGitUri } from '../../git/gitUri.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import { isStash } from '../../git/models/commit.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { PullRequest, PullRequestState } from '../../git/models/pullRequest.js';
-import type { GitBranchReference } from '../../git/models/reference.js';
-import type { Repository, RepositoryChangeEvent } from '../../git/models/repository.js';
-import type { GitUser } from '../../git/models/user.js';
-import type { GitWorktree } from '../../git/models/worktree.js';
-import { getBranchAheadRange, getBranchMergeTargetName } from '../../git/utils/-webview/branch.utils.js';
+import type { GlRepository, RepositoryChangeEvent } from '../../git/models/repository.js';
+import {
+	getBranchAheadRange,
+	getBranchAssociatedPullRequest,
+	getBranchMergeTargetName,
+	getBranchRemote,
+	setBranchDisposition,
+} from '../../git/utils/-webview/branch.utils.js';
 import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/-webview/icons.js';
-import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils.js';
-import { getHighlanderProviders } from '../../git/utils/remote.utils.js';
 import { getContext } from '../../system/-webview/context.js';
-import { fromNow } from '../../system/date.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { memoize } from '../../system/decorators/memoize.js';
-import { weakEvent } from '../../system/event.js';
-import { disposableInterval } from '../../system/function.js';
-import { map } from '../../system/iterable.js';
-import type { Deferred } from '../../system/promise.js';
-import { defer, getSettledValue } from '../../system/promise.js';
-import { pad } from '../../system/string.js';
 import type { View, ViewsWithBranches } from '../viewBase.js';
 import { disposeChildren } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
@@ -77,7 +83,7 @@ export class BranchNode
 		uri: GitUri,
 		view: ViewsWithBranches,
 		public override parent: ViewNode,
-		public readonly repo: Repository,
+		public readonly repo: GlRepository,
 		public readonly branch: GitBranch,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
@@ -119,7 +125,13 @@ export class BranchNode
 	}
 
 	private get avoidCompacting(): boolean {
-		return this.root || this.current || this.worktree?.opened || this.branch.detached || this.branch.starred;
+		return (
+			this.root ||
+			this.current ||
+			this.worktree?.opened ||
+			this.branch.detached ||
+			this.branch.disposition != null
+		);
 	}
 
 	compacted: boolean = false;
@@ -133,7 +145,7 @@ export class BranchNode
 	}
 
 	get treeHierarchy(): string[] {
-		return this.avoidCompacting ? [this.branch.name] : this.branch.getNameWithoutRemote().split('/');
+		return this.avoidCompacting ? [this.branch.name] : this.branch.nameWithoutRemote.split('/');
 	}
 
 	@memoize()
@@ -353,7 +365,7 @@ export class BranchNode
 				children.push(
 					...insertDateMarkers(
 						map(log.commits.values(), c =>
-							isStash(c)
+							GitCommit.isStash(c)
 								? new StashNode(this.view, this, c, { icon: true })
 								: new CommitNode(
 										this.view,
@@ -422,13 +434,13 @@ export class BranchNode
 
 	@debug()
 	async star(): Promise<void> {
-		await this.branch.star();
+		await setBranchDisposition(this.view.container, this.branch, 'starred');
 		void this.view.refresh(true);
 	}
 
 	@debug()
 	async unstar(): Promise<void> {
-		await this.branch.unstar();
+		await setBranchDisposition(this.view.container, this.branch, undefined);
 		void this.view.refresh(true);
 	}
 
@@ -451,7 +463,7 @@ export class BranchNode
 
 		let pendingPullRequest = this.getState('pendingPullRequest');
 		if (pendingPullRequest == null) {
-			pendingPullRequest = branch.getAssociatedPullRequest(options);
+			pendingPullRequest = getBranchAssociatedPullRequest(this.view.container, branch, options);
 			this.storeState('pendingPullRequest', pendingPullRequest);
 
 			pullRequest = await pendingPullRequest;
@@ -550,7 +562,7 @@ export async function getBranchNodeParts(
 		}
 	}
 
-	let tooltip: string | MarkdownString = `$(git-branch) \`${branch.getNameWithoutRemote()}\`${
+	let tooltip: string | MarkdownString = `$(git-branch) \`${branch.nameWithoutRemote}\`${
 		suffixes.length ? ` \u00a0(_${suffixes.join(', ')}_)` : ''
 	}`;
 
@@ -592,7 +604,7 @@ export async function getBranchNodeParts(
 		if (branch.upstream != null) {
 			let arrows = GlyphChars.Dash;
 
-			const remote = await branch.getRemote();
+			const remote = await getBranchRemote(container, branch);
 			if (!branch.upstream.missing) {
 				if (remote != null) {
 					let left;
@@ -622,16 +634,16 @@ export async function getBranchNodeParts(
 			}
 
 			description = options?.showAsCommits
-				? `${branch.getTrackingStatus({
+				? `${GitBranch.getTrackingStatus(branch, {
 						suffix: pad(GlyphChars.Dot, 1, 1),
-					})}${branch.getNameWithoutRemote()}${branch.rebasing ? ' (Rebasing)' : ''}${pad(arrows, 2, 2)}${
+					})}${branch.nameWithoutRemote}${branch.rebasing ? ' (Rebasing)' : ''}${pad(arrows, 2, 2)}${
 						branch.upstream.name
 					}`
-				: `${branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${GlyphChars.Space} ${
+				: `${GitBranch.getTrackingStatus(branch, { suffix: `${GlyphChars.Space} ` })}${arrows}${GlyphChars.Space} ${
 						branch.upstream.name
 					}`;
 
-			tooltip += `\n\nBranch is ${branch.getTrackingStatus({
+			tooltip += `\n\nBranch is ${GitBranch.getTrackingStatus(branch, {
 				empty: `${branch.upstream.missing ? 'missing upstream' : 'up to date with'} \\\n $(git-branch) \`${
 					branch.upstream.name
 				}\`${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`,
@@ -671,9 +683,10 @@ export async function getBranchNodeParts(
 	}
 
 	if (branch.date != null) {
-		description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${branch.formattedDate}`;
+		description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${GitBranch.formatDateWithStyle(branch, container.BranchDateFormatting)}`;
 
-		tooltip += `\n\nLast commit ${branch.formatDateFromNow()} (${branch.formatDate(
+		tooltip += `\n\nLast commit ${GitBranch.formatDateFromNow(branch)} (${GitBranch.formatDate(
+			branch,
 			container.BranchDateFormatting.dateFormat,
 		)})`;
 	}
@@ -694,10 +707,8 @@ export async function getBranchNodeParts(
 	if (options?.showAsCommits) {
 		label = 'Commits';
 	} else {
-		const branchName = branch.getNameWithoutRemote();
-		label = `${!options?.useBaseNameOnly ? branchName : branch.getBasename()}${
-			branch.rebasing ? ' (Rebasing)' : ''
-		}`;
+		const branchName = branch.nameWithoutRemote;
+		label = `${!options?.useBaseNameOnly ? branchName : branch.basename}${branch.rebasing ? ' (Rebasing)' : ''}`;
 	}
 
 	let localUnpublished = false;
@@ -717,7 +728,7 @@ export async function getBranchNodeParts(
 	} else if (options?.worktree != null) {
 		iconPath = getWorktreeBranchIconPath(container, branch);
 	} else if (branch.remote && options?.showingLocalAndRemoteBranches) {
-		const remote = await branch.getRemote();
+		const remote = await getBranchRemote(container, branch);
 		iconPath = getRemoteIconPath(container, remote, { avatars: options?.avatars });
 	} else {
 		iconPath = getBranchIconPath(container, branch);
@@ -733,7 +744,7 @@ export async function getBranchNodeParts(
 			status: localUnpublished ? 'unpublished' : status,
 			current: current,
 			worktree: options?.worktree != null ? { opened: options.worktree.opened } : undefined,
-			starred: branch.starred,
+			disposition: branch.disposition,
 			showStatusOnly: options?.showStatusDecorationOnly,
 		}),
 	};
@@ -742,7 +753,7 @@ export async function getBranchNodeParts(
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
 export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-current-branch'> {
-	private repo: Repository | undefined;
+	private repo: GlRepository | undefined;
 
 	constructor(
 		view: View,

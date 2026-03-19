@@ -1,9 +1,9 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { makeHierarchical } from '@gitlens/utils/array.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { Repository } from '../../git/models/repository.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { sortWorktrees } from '../../git/utils/-webview/sorting.js';
-import { makeHierarchical } from '../../system/array.js';
 import type { ViewsWithWorktreesNode } from '../viewBase.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -17,7 +17,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 		uri: GitUri,
 		view: ViewsWithWorktreesNode,
 		protected override readonly parent: ViewNode,
-		public readonly repo: Repository,
+		public readonly repo: GlRepository,
 	) {
 		super('worktrees', uri, view, parent);
 
@@ -35,7 +35,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const access = await this.repo.access('worktrees');
+			const access = await this.repo.git.access('worktrees');
 			if (!access.allowed) return [];
 
 			const worktrees = await this.repo.git.worktrees?.getWorktrees();
@@ -75,7 +75,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const access = await this.repo.access('worktrees');
+		const access = await this.repo.git.access('worktrees');
 
 		const item = new TreeItem(
 			'Worktrees',

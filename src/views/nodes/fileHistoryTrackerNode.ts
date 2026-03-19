@@ -1,21 +1,21 @@
 import type { Disposable, TextEditor } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
+import { isSha } from '@gitlens/git/utils/revision.utils.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { GitCommitish } from '../../git/gitUri.js';
 import { GitUri, unknownGitUri } from '../../git/gitUri.js';
 import { ensureWorkingUri } from '../../git/gitUri.utils.js';
-import { isBranchReference } from '../../git/utils/reference.utils.js';
-import { isSha } from '../../git/utils/revision.utils.js';
 import { showReferencePicker } from '../../quickpicks/referencePicker.js';
 import { setContext } from '../../system/-webview/context.js';
 import { isVirtualUri } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { weakEvent } from '../../system/event.js';
-import type { Deferrable } from '../../system/function/debounce.js';
-import { debounce } from '../../system/function/debounce.js';
-import { Logger } from '../../system/logger.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
-import { areUrisEqual } from '../../system/uri.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -122,7 +122,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 
 		if (reset) {
 			if (this._uri != null && this._uri !== unknownGitUri) {
-				await this.view.container.documentTracker.resetCache(this._uri, 'log');
+				this.view.container.git.resetCachesForUri(this._uri, 'fileLog');
 			}
 
 			this.reset();

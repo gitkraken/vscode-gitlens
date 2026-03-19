@@ -1,9 +1,10 @@
 import type { Uri } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
+import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import type { Container } from '../../container.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { GitFileChange } from '../../git/models/fileChange.js';
-import { uncommitted } from '../../git/models/revision.js';
-import { isUncommitted } from '../../git/utils/revision.utils.js';
+import { findCommitFile, getCommitForFile } from '../../git/utils/-webview/commit.utils.js';
 import { isWebviewItemContext } from '../../system/webview.js';
 import type {
 	DetailsFileContextValue,
@@ -64,13 +65,13 @@ export async function getFileCommitFromContext(
 		const commit = stash?.stashes.get(sha!);
 		if (commit == null) return [];
 
-		const file = await commit.findFile(path);
+		const file = await findCommitFile(commit, path);
 		return commit != null && file != null ? [commit, file] : [];
 	}
 
 	if (isUncommitted(sha)) {
 		let commit = await svc.commits.getCommit(uncommitted);
-		commit = await commit?.getCommitForFile(path, staged);
+		commit = commit != null ? await getCommitForFile(commit, path, staged) : undefined;
 		return commit?.file != null ? [commit, commit.file] : [];
 	}
 

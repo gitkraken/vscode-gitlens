@@ -1,5 +1,7 @@
 import type { Disposable } from 'vscode';
 import { workspace } from 'vscode';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../../container.js';
 import type {
 	RepositoryLocationEntry,
@@ -7,8 +9,6 @@ import type {
 } from '../../../git/location/repositorylocationProvider.js';
 import type { LocalRepoDataMap } from '../../../git/models/pathMapping.js';
 import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider.js';
-import { debug, trace } from '../../../system/decorators/log.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
 
 export class LocalRepositoryLocationProvider implements RepositoryLocationProvider, Disposable {
 	constructor(

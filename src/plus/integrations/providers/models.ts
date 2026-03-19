@@ -39,32 +39,32 @@ import {
 } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
-import type { IntegrationIds } from '../../../constants.integrations.js';
-import {
-	GitCloudHostIntegrationId,
-	GitSelfManagedHostIntegrationId,
-	IssuesCloudHostIntegrationId,
-} from '../../../constants.integrations.js';
-import type { Account as UserAccount } from '../../../git/models/author.js';
-import type { IssueMember, IssueProject, IssueShape } from '../../../git/models/issue.js';
-import { Issue, RepositoryAccessLevel } from '../../../git/models/issue.js';
+import type { Account as UserAccount } from '@gitlens/git/models/author.js';
+import type { IssueMember, IssueProject, IssueShape } from '@gitlens/git/models/issue.js';
+import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequestMember,
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestReviewer,
 	PullRequestState,
-} from '../../../git/models/pullRequest.js';
+} from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
-} from '../../../git/models/pullRequest.js';
-import type { Provider, ProviderReference } from '../../../git/models/remoteProvider.js';
-import { gitSuffixRegex } from '../../../git/parsers/remoteParser.js';
-import { equalsIgnoreCase } from '../../../system/string.js';
+} from '@gitlens/git/models/pullRequest.js';
+import type { Provider, ProviderReference } from '@gitlens/git/models/remoteProvider.js';
+import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
+import { equalsIgnoreCase } from '@gitlens/utils/string.js';
+import type { IntegrationIds } from '../../../constants.integrations.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../../../constants.integrations.js';
 import type { EnrichableItem } from '../../launchpad/models/enrichedItem.js';
 import type { Integration, IntegrationType } from '../models/integration.js';
 import { getEntityIdentifierInput } from './utils.js';

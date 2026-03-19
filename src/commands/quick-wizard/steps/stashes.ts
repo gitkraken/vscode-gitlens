@@ -1,19 +1,19 @@
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import type { GitStash } from '@gitlens/git/models/stash.js';
+import { map } from '@gitlens/utils/iterable.js';
 import { showStashInDetailsView } from '../../../git/actions/stash.js';
-import type { GitStashCommit } from '../../../git/models/commit.js';
-import type { Repository } from '../../../git/models/repository.js';
-import type { GitStash } from '../../../git/models/stash.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
 import type { CommitQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
 import { createStashQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
-import { map } from '../../../system/iterable.js';
 import type { PartialStepState, StepResultGenerator, StepsContext, StepSelection } from '../models/steps.js';
 import { StepResultBreak } from '../models/steps.js';
 import { ShowDetailsViewQuickInputButton } from '../quickButtons.js';
 import { appendReposToTitle, canPickStepContinue, createPickStep } from '../utils/steps.utils.js';
 
 export function* pickStashStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,
@@ -67,8 +67,8 @@ export function* pickStashStep<
 }
 
 export function* pickStashesStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[] },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[] },
 >(
 	state: State,
 	context: Context,

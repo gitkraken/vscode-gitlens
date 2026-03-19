@@ -1,8 +1,8 @@
 import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { GitReflog } from '@gitlens/git/models/reflog.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { GitReflog } from '../../git/models/reflog.js';
-import type { Repository } from '../../git/models/repository.js';
-import { trace } from '../../system/decorators/log.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import type { RepositoriesView } from '../repositoriesView.js';
 import type { WorkspacesView } from '../workspacesView.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
@@ -21,7 +21,7 @@ export class ReflogNode
 		uri: GitUri,
 		view: RepositoriesView | WorkspacesView,
 		parent: ViewNode,
-		public readonly repo: Repository,
+		public readonly repo: GlRepository,
 	) {
 		super('reflog', uri, view, parent);
 

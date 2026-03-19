@@ -1,13 +1,13 @@
 import { commands, Disposable, env } from 'vscode';
+import { RunError } from '@gitlens/git-cli/exec/exec.errors.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../../../container.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
 import { getHostAppName } from '../../../../system/-webview/vscode.js';
-import { debug, trace } from '../../../../system/decorators/log.js';
-import type { Deferrable } from '../../../../system/function/debounce.js';
-import { debounce } from '../../../../system/function/debounce.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
-import { RunError } from '../../git/shell.errors.js';
 import { runCLICommand, toMcpInstallProvider } from '../cli/utils.js';
 
 const CLIProxyMCPConfigOutputs = {

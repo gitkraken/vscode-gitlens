@@ -1,8 +1,8 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { fromNow } from '../../../../../system/date.js';
-import { pluralize } from '../../../../../system/string.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { BranchState, State } from '../../../../plus/graph/protocol.js';
 import { inlineCode } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';

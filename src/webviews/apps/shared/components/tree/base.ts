@@ -1,4 +1,4 @@
-import type { GitFileStatus } from '../../../../../git/models/fileStatus.js';
+import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { DraftPatchFileChange } from '../../../../../plus/drafts/models/drafts.js';
 
 export interface TreeItemBase {

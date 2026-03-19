@@ -1,8 +1,8 @@
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { Logger } from '../system/logger.js';
 import type { ComposerCommandArgs, ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
 import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
 import { GlCommandBase } from './commandBase.js';

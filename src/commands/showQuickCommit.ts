@@ -1,11 +1,13 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { GitCommit, GitStashCommit } from '@gitlens/git/models/commit.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { revealCommit } from '../git/actions/commit.js';
 import { executeGitCommand } from '../git/actions.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitCommit, GitStashCommit } from '../git/models/commit.js';
-import type { GitLog } from '../git/models/log.js';
+import { getCommitGitUri } from '../git/utils/-webview/commit.utils.js';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
@@ -14,7 +16,6 @@ import {
 } from '../messages.js';
 import { command } from '../system/-webview/command.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCachedCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';
@@ -82,7 +83,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		} else {
 			args.sha ??= args.commit.sha;
 
-			gitUri = args.commit.getGitUri();
+			gitUri = getCommitGitUri(args.commit);
 			repoPath = args.commit.repoPath;
 
 			uri ??= args.commit.file?.uri;

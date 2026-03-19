@@ -1,15 +1,18 @@
 import { ThemeIcon, window } from 'vscode';
+import { CherryPickError } from '@gitlens/git/errors.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/reference.utils.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { ensureArray } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../container.js';
 import { skipPausedOperation } from '../../git/actions/pausedOperation.js';
-import { CherryPickError } from '../../git/errors.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { GitLog } from '../../git/models/log.js';
-import type { ConflictDetectionResult } from '../../git/models/mergeConflicts.js';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
-import type { GitReference } from '../../git/models/reference.js';
-import type { Repository } from '../../git/models/repository.js';
-import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils.js';
-import { createRevisionRange } from '../../git/utils/revision.utils.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
@@ -18,9 +21,6 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { executeCommand } from '../../system/-webview/command.js';
-import { ensureArray } from '../../system/array.js';
-import { Logger } from '../../system/logger.js';
-import { pluralize } from '../../system/string.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
@@ -49,7 +49,7 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 interface Context extends StepsContext<StepNames> {
-	repos: Repository[];
+	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	destination: GitBranch;
@@ -59,7 +59,7 @@ interface Context extends StepsContext<StepNames> {
 }
 
 type Flags = '--edit' | '--no-commit';
-interface State<Repo = string | Repository, Refs = GitReference | GitReference[]> {
+interface State<Repo = string | GlRepository, Refs = GitReference | GitReference[]> {
 	repo: Repo;
 	references: Refs;
 	flags: Flags[];
@@ -83,7 +83,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	private async execute(state: StepState<State<Repository, GitReference[]>>) {
+	private async execute(state: StepState<State<GlRepository, GitReference[]>>) {
 		this.container.telemetry.sendEvent('gitCommand/run', { command: 'cherry-pick' });
 
 		try {
@@ -209,7 +209,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (context.destination == null) {
 				const branch = await state.repo.git.branches.getBranch();
@@ -295,7 +295,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
-			assertStepState<State<Repository, GitReference[]>>(state);
+			assertStepState<State<GlRepository, GitReference[]>>(state);
 
 			if (this.confirm(state.confirm)) {
 				using step = steps.enterStep(Steps.Confirm);
@@ -318,7 +318,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(
-		state: StepState<State<Repository, GitReference[]>>,
+		state: StepState<State<GlRepository, GitReference[]>>,
 		context: Context,
 	): AsyncStepResultGenerator<Flags[]> {
 		const items: FlagsQuickPickItem<Flags>[] = [

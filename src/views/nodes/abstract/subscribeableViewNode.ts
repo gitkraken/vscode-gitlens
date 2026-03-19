@@ -1,11 +1,11 @@
 import type { TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { TreeViewSubscribableNodeTypes } from '../../../constants.views.js';
 import type { GitUri } from '../../../git/gitUri.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { trace } from '../../../system/decorators/log.js';
-import { weakEvent } from '../../../system/event.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { View } from '../../viewBase.js';
 import { CacheableChildrenViewNode } from './cacheableChildrenViewNode.js';
 import type { ViewNode } from './viewNode.js';

@@ -1,6 +1,56 @@
 import type { emptySetMarker, GraphRefOptData, GraphSearchMode } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
+import { GitSearchError } from '@gitlens/git/errors.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import { GitContributor } from '@gitlens/git/models/contributor.js';
+import type { GitGraph, GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type {
+	GitBranchReference,
+	GitReference,
+	GitRevisionReference,
+	GitStashReference,
+	GitTagReference,
+} from '@gitlens/git/models/reference.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
+import {
+	getBranchId,
+	getBranchNameWithoutRemote,
+	getLocalBranchByUpstream,
+	getRemoteNameFromBranchName,
+} from '@gitlens/git/utils/branch.utils.js';
+import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
+import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+	serializePullRequest,
+} from '@gitlens/git/utils/pullRequest.utils.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
+import { filterMap } from '@gitlens/utils/array.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
+import { count, find, join, last } from '@gitlens/utils/iterable.js';
+import { filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
+import {
+	getSettledValue,
+	pauseOnCancelOrTimeout,
+	pauseOnCancelOrTimeoutMapTuplePromise,
+} from '@gitlens/utils/promise.js';
+import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
 import { getAvatarUri } from '../../../avatars.js';
 import { parseCommandContext } from '../../../commands/commandContext.utils.js';
@@ -31,7 +81,6 @@ import type { ContextKeys } from '../../../constants.context.js';
 import type { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '../../../constants.integrations.js';
 import { GlyphChars } from '../../../constants.js';
-import type { SearchQuery } from '../../../constants.search.js';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage.js';
 import type {
 	GraphShownTelemetryContext,
@@ -39,7 +88,6 @@ import type {
 	WebviewTelemetryEvents,
 } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
-import { CancellationError, isCancellationError } from '../../../errors.js';
 import type { CommitSelectedEvent } from '../../../eventBus.js';
 import type { FeaturePreview } from '../../../features.js';
 import { getFeaturePreviewStatus } from '../../../features.js';
@@ -67,59 +115,28 @@ import * as StashActions from '../../../git/actions/stash.js';
 import * as TagActions from '../../../git/actions/tag.js';
 import * as WorktreeActions from '../../../git/actions/worktree.js';
 import { executeGitCommand } from '../../../git/actions.js';
-import { GitSearchError } from '../../../git/errors.js';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter.js';
-import type { GitBranch } from '../../../git/models/branch.js';
-import type { GitCommit } from '../../../git/models/commit.js';
-import { isStash } from '../../../git/models/commit.js';
-import { GitContributor } from '../../../git/models/contributor.js';
-import type { GitGraph, GitGraphRowType } from '../../../git/models/graph.js';
-import type { IssueShape } from '../../../git/models/issue.js';
-import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus.js';
-import type { PullRequest } from '../../../git/models/pullRequest.js';
-import type {
-	GitBranchReference,
-	GitReference,
-	GitRevisionReference,
-	GitStashReference,
-	GitTagReference,
-} from '../../../git/models/reference.js';
-import { RemoteResourceType } from '../../../git/models/remoteResource.js';
-import type {
-	Repository,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../../git/models/repository.js';
-import { isRepository } from '../../../git/models/repository.js';
-import { uncommitted } from '../../../git/models/revision.js';
-import type {
-	GitCommitSearchContext,
-	GitGraphSearch,
-	GitGraphSearchProgress,
-	GitGraphSearchResults,
-} from '../../../git/search.js';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search.js';
+import { GlGraphRowProcessor } from '../../../git/graphRowProcessor.js';
+import type { RepositoryChangeEvent, RepositoryWorkingTreeChangeEvent } from '../../../git/models/repository.js';
+import { GlRepository } from '../../../git/models/repository.js';
 import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage.js';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils.js';
-import { getBranchMergeTargetInfo, getStarredBranchIds } from '../../../git/utils/-webview/branch.utils.js';
+import {
+	getBranchAssociatedPullRequest,
+	getBranchEnrichedAutolinks,
+	getBranchMergeTargetInfo,
+	getBranchRemote,
+	setBranchDisposition,
+} from '../../../git/utils/-webview/branch.utils.js';
+import {
+	getCommitAssociatedPullRequest,
+	getCommitEnrichedAutolinks,
+	isCommitSigned,
+} from '../../../git/utils/-webview/commit.utils.js';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
+import { getRemoteProviderUrl, remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
-import {
-	getBranchId,
-	getBranchNameWithoutRemote,
-	getLocalBranchByUpstream,
-	getRemoteNameFromBranchName,
-} from '../../../git/utils/branch.utils.js';
-import { splitCommitMessage } from '../../../git/utils/commit.utils.js';
-import { getLastFetchedUpdateInterval } from '../../../git/utils/fetch.utils.js';
-import {
-	getComparisonRefsForPullRequest,
-	getRepositoryIdentityForPullRequest,
-	serializePullRequest,
-} from '../../../git/utils/pullRequest.utils.js';
-import { createReference } from '../../../git/utils/reference.utils.js';
-import { isSha, shortenRevision } from '../../../git/utils/revision.utils.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService.js';
@@ -129,6 +146,7 @@ import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
+import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -141,22 +159,7 @@ import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode.js';
-import { filterMap } from '../../../system/array.js';
-import { getScopedCounter } from '../../../system/counter.js';
 import { createCommandDecorator, getWebviewCommand } from '../../../system/decorators/command.js';
-import { debug, trace } from '../../../system/decorators/log.js';
-import type { Deferrable } from '../../../system/function/debounce.js';
-import { debounce } from '../../../system/function/debounce.js';
-import { disposableInterval } from '../../../system/function.js';
-import { count, find, join, last } from '../../../system/iterable.js';
-import { filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '../../../system/object.js';
-import {
-	getSettledValue,
-	pauseOnCancelOrTimeout,
-	pauseOnCancelOrTimeoutMapTuplePromise,
-} from '../../../system/promise.js';
-import { Stopwatch } from '../../../system/stopwatch.js';
-import { createDisposable } from '../../../system/unifiedDisposable.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode.js';
@@ -261,7 +264,7 @@ interface SelectedRowState {
 	hidden?: boolean;
 }
 
-function hasSearchQuery(arg: any): arg is { repository: Repository; search: SearchQuery } {
+function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: SearchQuery } {
 	return arg?.repository != null && arg?.search != null;
 }
 
@@ -290,11 +293,11 @@ type CancellableOperations = 'branchState' | 'hover' | 'computeIncludedRefs' | '
 const { command, getCommands } = createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'graph'>>();
 
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
-	private _repository?: Repository;
-	private get repository(): Repository | undefined {
+	private _repository?: GlRepository;
+	private get repository(): GlRepository | undefined {
 		return this._repository;
 	}
-	private set repository(value: Repository | undefined) {
+	private set repository(value: GlRepository | undefined) {
 		if (this._repository === value) {
 			this.ensureRepositorySubscriptions();
 			return;
@@ -325,6 +328,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		| ((sha: string, options?: { compact?: boolean; icons?: boolean }) => string | undefined)
 		| undefined;
 	private _graph?: GitGraph;
+	private _graphRowProcessor?: GlGraphRowProcessor;
 	private _hoverCache = new Map<string, Promise<string>>();
 
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean>>([
@@ -353,6 +357,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _searchHistory: SearchHistory | undefined;
 
 	private isWindowFocused: boolean = true;
+
+	private get graphRowProcessor(): GlGraphRowProcessor {
+		return (this._graphRowProcessor ??= new GlGraphRowProcessor(this.container, uri =>
+			this.host.asWebviewUri(uri),
+		));
+	}
 
 	constructor(
 		private readonly container: Container,
@@ -399,8 +409,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const [arg] = args;
 
-		let repository: Repository | undefined;
-		if (isRepository(arg)) {
+		let repository: GlRepository | undefined;
+		if (GlRepository.is(arg)) {
 			repository = arg;
 		} else if (hasGitReference(arg)) {
 			repository = this.container.git.getRepository(arg.ref.repoPath);
@@ -471,7 +481,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const [arg] = args;
-		if (isRepository(arg)) {
+		if (GlRepository.is(arg)) {
 			this.repository = arg;
 		} else if (hasGitReference(arg)) {
 			this.repository = this.container.git.getRepository(arg.ref.repoPath);
@@ -808,7 +818,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@trace({ args: false })
-	private onRepositoryFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+	private onRepositoryWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
 		if (e.repository.id !== this.repository?.id) return;
 		void this.notifyDidChangeWorkingTree();
 	}
@@ -961,20 +971,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					switch (params.type) {
 						case 'work-dir-changes':
 							cache = false;
-							commit = await svc.commits.getCommit(uncommitted, cancellation.token);
+							commit = await svc.commits.getCommit(uncommitted, toAbortSignal(cancellation.token));
 							break;
 						case 'stash-node': {
-							const stash = await svc.stash?.getStash(undefined, cancellation.token);
+							const stash = await svc.stash?.getStash(undefined, toAbortSignal(cancellation.token));
 							commit = stash?.stashes.get(params.id);
 							break;
 						}
 						default: {
-							commit = await svc.commits.getCommit(params.id, cancellation.token);
+							commit = await svc.commits.getCommit(params.id, toAbortSignal(cancellation.token));
 							break;
 						}
 					}
 				} catch (ex) {
-					if (!(ex instanceof CancellationError)) throw ex;
+					if (!isCancellationError(ex)) throw ex;
 				}
 
 				if (commit != null && !cancellation.token.isCancellationRequested) {
@@ -1019,7 +1029,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
-		const template = configuration.get(`views.formats.${isStash(commit) ? 'stashes' : 'commits'}.tooltip`);
+		const template = configuration.get(
+			`views.formats.${GitCommit.isStash(commit) ? 'stashes' : 'commits'}.tooltip`,
+		);
 
 		const showSignature =
 			configuration.get('signing.showSignatureBadges') &&
@@ -1029,8 +1041,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const svc = this.container.git.getRepositoryService(commit.repoPath);
 		const [remotesResult, _, signedResult] = await Promise.allSettled([
 			svc.remotes.getBestRemotesWithProviders(),
-			commit.ensureFullDetails({ include: { stats: true } }),
-			showSignature ? commit.isSigned() : undefined,
+			GitCommit.ensureFullDetails(commit, { include: { stats: true } }),
+			showSignature ? isCommitSigned(commit.repoPath, commit.sha) : undefined,
 		]);
 
 		if (cancellation.isCancellationRequested) throw new CancellationError();
@@ -1042,10 +1054,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		let enrichedAutolinks;
 		let pr;
 
-		if (remote?.supportsIntegration()) {
+		if (remote != null && remoteSupportsIntegration(remote)) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
-				pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote), cancellation),
-				commit.getAssociatedPullRequest(remote),
+				pauseOnCancelOrTimeoutMapTuplePromise(
+					getCommitEnrichedAutolinks(commit.repoPath, commit.message, commit.summary, remote),
+					toAbortSignal(cancellation),
+				),
+				getCommitAssociatedPullRequest(commit.repoPath, commit.sha, remote),
 			]);
 
 			if (cancellation.isCancellationRequested) throw new CancellationError();
@@ -1178,7 +1193,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 
 				if (type === 'pullRequest') {
-					const pr = await branch?.getAssociatedPullRequest();
+					const pr =
+						branch != null ? await getBranchAssociatedPullRequest(this.container, branch) : undefined;
 
 					if (pr == null) {
 						if (metadata.pullRequest === undefined || metadata.pullRequest?.length === 0) {
@@ -1269,21 +1285,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						branch,
 					).then(issues => issues.value);
 					if (!issues?.length) {
-						issues = await branch.getEnrichedAutolinks().then(async enrichedAutolinks => {
-							if (enrichedAutolinks == null) return undefined;
+						issues = await getBranchEnrichedAutolinks(this.container, branch).then(
+							async enrichedAutolinks => {
+								if (enrichedAutolinks == null) return undefined;
 
-							return (
-								await Promise.all(
-									Array.from(enrichedAutolinks.values(), async ([issueOrPullRequestPromise]) =>
-										// eslint-disable-next-line no-return-await
-										issueOrPullRequestPromise != null ? await issueOrPullRequestPromise : undefined,
-									),
-								)
-							).filter<IssueShape>(
-								(a?: unknown): a is IssueShape =>
-									a != null && a instanceof Object && 'type' in a && a.type === 'issue',
-							);
-						});
+								return (
+									await Promise.all(
+										Array.from(
+											enrichedAutolinks.values(),
+											async ([issueOrPullRequestPromise]) =>
+												issueOrPullRequestPromise ?? undefined,
+										),
+									)
+								).filter<IssueShape>(
+									(a?: unknown): a is IssueShape =>
+										a != null && a instanceof Object && 'type' in a && a.type === 'issue',
+								);
+							},
+						);
 
 						if (!issues?.length) {
 							metadata.issue = null;
@@ -1366,7 +1385,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const branch = await repo.git.branches.getBranch();
 		if (branch == null) return undefined;
 
-		const pr = await branch.getAssociatedPullRequest();
+		const pr = await getBranchAssociatedPullRequest(this.container, branch);
 		if (pr == null) return undefined;
 
 		return this.container.views.pullRequest.showPullRequest(pr, branch);
@@ -1563,7 +1582,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					{
 						limit: e.limit ?? configuration.get('graph.searchItemLimit') ?? 0,
 					},
-					cancellation.token,
+					toAbortSignal(cancellation.token),
 				);
 				using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
 
@@ -1626,7 +1645,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						limit: configuration.get('graph.searchItemLimit') ?? 0,
 						ordering: configuration.get('graph.commitOrdering'),
 					},
-					cancellation.token,
+					toAbortSignal(cancellation.token),
 				);
 				using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
 
@@ -2312,8 +2331,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._repositoryEventsDisposable = Disposable.from(
 			repo.onDidChange(this.onRepositoryChanged, this),
-			repo.watchFileSystem(1000),
-			repo.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
+			repo.watchWorkingTree(1000),
+			repo.onDidChangeWorkingTree(this.onRepositoryWorkingTreeChanged, this),
 			onDidChangeContext(key => {
 				if (key !== 'gitlens:repos:withHostingIntegrationsConnected') return;
 
@@ -2517,7 +2536,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				const cancellation = this.createCancellation('computeIncludedRefs');
 
 				const result = await getBranchMergeTargetInfo(this.container, current, {
-					cancellation: cancellation.token,
+					cancellation: toAbortSignal(cancellation.token),
 					timeout: options?.timeout,
 				});
 
@@ -2553,13 +2572,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			}
 			case 'favorited': {
-				const starredBranchIds = getStarredBranchIds(this.container);
-				if (starredBranchIds.size) {
-					refs = new Map();
-					for (const branch of graph.branches.values()) {
-						if (branch.current || starredBranchIds.has(branch.id)) {
-							refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
-						}
+				refs = new Map();
+				for (const branch of graph.branches.values()) {
+					if (branch.current || branch.starred) {
+						refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
 					}
 				}
 
@@ -2804,16 +2820,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		hasWorkingChanges ??= await svc.status.hasWorkingChanges(
 			{ staged: true, unstaged: true, untracked: true },
-			cancellation,
+			toAbortSignal(cancellation),
 		);
 
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-			hasWorkingChanges ? svc.status.getStatus(cancellation) : undefined,
-			svc.pausedOps?.getPausedOperationStatus?.(cancellation),
+			hasWorkingChanges ? svc.status.getStatus(toAbortSignal(cancellation)) : undefined,
+			svc.pausedOps?.getPausedOperationStatus?.(toAbortSignal(cancellation)),
 		]);
 
 		const status = getSettledValue(statusResult);
-		const workingTreeStatus = status?.getDiffStatus();
+		const workingTreeStatus = status?.diffStatus;
 		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
 
 		return {
@@ -2862,7 +2878,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const hasWorkingChanges = await this.repository.git.status.hasWorkingChanges(
 			{ staged: true, unstaged: true, untracked: true },
-			cancellation.token,
+			toAbortSignal(cancellation.token),
 		);
 
 		let selectedId = this._selectedId;
@@ -2889,7 +2905,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const dataPromise = this.repository.git.graph.getGraph(
 			selectedId,
-			uri => this.host.asWebviewUri(uri),
 			{
 				include: {
 					stats:
@@ -2898,15 +2913,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						!columnSettings.changes.isHidden,
 				},
 				limit: limit,
+				rowProcessor: this.graphRowProcessor,
 			},
-			cancellation.token,
+			toAbortSignal(cancellation.token),
 		);
 
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
 			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges, cancellation.token),
-			this.repository.git.branches.getBranch(undefined, cancellation.token),
+			this.repository.git.branches.getBranch(undefined, toAbortSignal(cancellation.token)),
 			this.repository.getLastFetched(),
 		]);
 
@@ -2949,7 +2965,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			branchState = { ...(branch.upstream?.state ?? { ahead: 0, behind: 0 }) };
 
 			const worktreesByBranch =
-				data?.worktreesByBranch ?? (await getWorktreesByBranch(this.repository, undefined, cancellation.token));
+				data?.worktreesByBranch ??
+				(await getWorktreesByBranch(this.repository, undefined, toAbortSignal(cancellation.token)));
 			branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;
 
 			if (branch.upstream != null) {
@@ -2958,8 +2975,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				const branchStateCancellation = this.createCancellation('branchState');
 
 				const [remoteResult, prResult] = await Promise.allSettled([
-					branch.getRemote(),
-					pauseOnCancelOrTimeout(branch.getAssociatedPullRequest(), branchStateCancellation.token, 100),
+					getBranchRemote(this.container, branch),
+					pauseOnCancelOrTimeout(
+						getBranchAssociatedPullRequest(this.container, branch),
+						toAbortSignal(branchStateCancellation.token),
+						100,
+					),
 				]);
 
 				const remote = getSettledValue(remoteResult);
@@ -2967,7 +2988,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					branchState.provider = {
 						name: remote.provider.name,
 						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-						url: await remote.provider.url({ type: RemoteResourceType.Repo }),
+						url: await getRemoteProviderUrl(remote.provider, { type: RemoteResourceType.Repo }),
 					};
 				}
 
@@ -3418,7 +3439,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		const updatedGraph = await graph.more?.(limit, targetId, cancellation);
+		const updatedGraph = await graph.more?.(limit, targetId, toAbortSignal(cancellation));
 		if (updatedGraph != null) {
 			this.setGraph(updatedGraph);
 
@@ -3433,7 +3454,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// Search results are now updated in this._search
 					// notifyDidChangeRows() will send them along with the rows
 				} catch (ex) {
-					if (ex instanceof CancellationError) return;
+					if (isCancellationError(ex)) return;
 
 					// Only send error notifications immediately
 					void this.host.notify(DidSearchNotification, {
@@ -3504,7 +3525,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			const branch = await this.container.git.getRepositoryService(ref.repoPath).branches.getBranch(ref.name);
-			if (branch != null) return branch.star();
+			if (branch != null) return setBranchDisposition(this.container, branch, 'starred');
 		}
 
 		return Promise.resolve();
@@ -3516,7 +3537,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			const branch = await this.container.git.getRepositoryService(ref.repoPath).branches.getBranch(ref.name);
-			if (branch != null) return branch.unstar();
+			if (branch != null) return setBranchDisposition(this.container, branch, undefined);
 		}
 
 		return Promise.resolve();
@@ -4098,9 +4119,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@debug()
 	private async createWorktree(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item);
-		if (ref == null) return Promise.resolve();
+		if (ref == null) return;
 
-		return WorktreeActions.create(ref.repoPath, undefined, ref);
+		await WorktreeActions.create(ref.repoPath, undefined, ref);
 	}
 
 	@command('gitlens.createPullRequest:')
@@ -4111,7 +4132,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			const repo = this.container.git.getRepository(ref.repoPath);
 			const branch = await repo?.git.branches.getBranch(ref.name);
-			const remote = await branch?.getRemote();
+			const remote = branch != null ? await getBranchRemote(this.container, branch) : undefined;
 
 			return executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
 				repoPath: ref.repoPath,
@@ -4663,14 +4684,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { ref } = item.webviewItemValue;
 			const repo = this.container.git.getRepository(ref.repoPath);
 			const branch = await repo?.git.branches.getBranch(ref.name);
-			const pr = await branch?.getAssociatedPullRequest();
+			const pr = branch != null ? await getBranchAssociatedPullRequest(this.container, branch) : undefined;
 			if (branch != null && repo != null && pr != null) {
-				const remoteUrl = (await branch.getRemote())?.url ?? getRepositoryIdentityForPullRequest(pr).remote.url;
+				const remoteUrl =
+					(await getBranchRemote(this.container, branch))?.url ??
+					getRepositoryIdentityForPullRequest(pr).remote.url;
 				if (remoteUrl != null) {
 					const deepLink = getPullRequestBranchDeepLink(
 						this.container,
 						pr,
-						branch.getNameWithoutRemote(),
+						branch.nameWithoutRemote,
 						remoteUrl,
 						DeepLinkActionType.SwitchToPullRequestWorktree,
 					);
@@ -5054,7 +5077,7 @@ type GraphItemRefs<T> = {
 
 function convertBranchToIncludeOnlyRef(branch: GitBranch, remote?: boolean): GraphIncludeOnlyRef {
 	return (remote ?? branch.remote)
-		? { id: branch.id, type: 'remote', name: branch.getNameWithoutRemote(), owner: branch.getRemoteName() }
+		? { id: branch.id, type: 'remote', name: branch.nameWithoutRemote, owner: branch.remoteName }
 		: { id: branch.id, type: 'head', name: branch.name };
 }
 
@@ -5066,7 +5089,7 @@ function convertBranchUpstreamToIncludeOnlyRef(branch: GitBranch): GraphIncludeO
 		id: id,
 		type: 'remote',
 		name: getBranchNameWithoutRemote(branch.upstream.name),
-		owner: branch.getRemoteName(),
+		owner: branch.remoteName,
 	};
 }
 

@@ -1,7 +1,7 @@
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import type { GitStashReference } from '@gitlens/git/models/reference.js';
 import type { Container } from '../../../container.js';
-import type { GitStashCommit } from '../../../git/models/commit.js';
-import type { GitStashReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type { PartialStepState, StepGenerator, StepResult, StepsContext } from '../../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../quick-wizard/models/steps.js';
 import { QuickCommand } from '../../quick-wizard/quickCommand.js';
@@ -22,7 +22,7 @@ export type StashListStepNames = StepNames;
 
 type Context = StashContext<StepNames>;
 
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	reference: GitStashReference | GitStashCommit;
 }
@@ -82,7 +82,7 @@ export class StashListGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStep(Steps.PickStash) || state.reference == null) {
 				using step = steps.enterStep(Steps.PickStash);

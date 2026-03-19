@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
+import { isLoggable } from '@gitlens/utils/loggable.js';
 import { getCancellationTokenId, isCancellationToken } from '../../system/-webview/cancellation.js';
-import { isLoggable } from '../../system/loggable.js';
 import { loggingJsonReplacer } from './json.js';
 
 export function defaultResolver(...args: unknown[]): string {

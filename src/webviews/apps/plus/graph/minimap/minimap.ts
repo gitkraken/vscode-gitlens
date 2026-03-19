@@ -1,11 +1,11 @@
 import type { Chart, DataItem, RegionOptions } from 'billboard.js';
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { first, flatMap, groupByMap, map, union } from '@gitlens/utils/iterable.js';
+import { capitalize, pluralize } from '@gitlens/utils/string.js';
 import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb.d.js';
-import { debug } from '../../../../../system/decorators/log.js';
-import { debounce } from '../../../../../system/function/debounce.js';
-import { first, flatMap, groupByMap, map, union } from '../../../../../system/iterable.js';
-import { capitalize, pluralize } from '../../../../../system/string.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date.js';
 import '../../../shared/components/overlays/tooltip.js';

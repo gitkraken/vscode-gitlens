@@ -1,11 +1,13 @@
 import { ThemeIcon } from 'vscode';
+import { GitStatus } from '@gitlens/git/models/status.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { filterMap, isStringArray } from '@gitlens/utils/array.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import { revealRepository } from '../../../git/actions/repository.js';
-import type { Repository } from '../../../git/models/repository.js';
-import type { GitStatus } from '../../../git/models/status.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { groupRepositories } from '../../../git/utils/-webview/repository.utils.js';
 import { sortRepositories, sortRepositoriesGrouped } from '../../../git/utils/-webview/sorting.js';
-import { createReference } from '../../../git/utils/reference.utils.js';
-import { createRevisionRange } from '../../../git/utils/revision.utils.js';
 import {
 	OpenChangedFilesCommandQuickPickItem,
 	OpenOnlyChangedFilesCommandQuickPickItem,
@@ -15,8 +17,6 @@ import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
 import type { RepositoryQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
 import { createRepositoryQuickPickItem, GitWizardQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
-import { filterMap, isStringArray } from '../../../system/array.js';
-import { pluralize } from '../../../system/string.js';
 import type { ViewsWithRepositoryFolders } from '../../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
@@ -32,14 +32,14 @@ import type { StepController } from '../stepsController.js';
 import { appendReposToTitle, canPickStepContinue, createPickStep } from '../utils/steps.utils.js';
 
 export async function* pickRepositoryStep<
-	State extends PartialStepState & { repo?: string | Repository },
-	Context extends StepsContext<any> & { repos: Repository[]; associatedView: ViewsWithRepositoryFolders },
+	State extends PartialStepState & { repo?: string | GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[]; associatedView: ViewsWithRepositoryFolders },
 >(
 	state: State,
 	context: Context,
 	parentStep: StepController<any>,
-	options?: { excludeWorktrees?: boolean; picked?: string | Repository; placeholder?: string },
-): AsyncStepResultGenerator<Repository> {
+	options?: { excludeWorktrees?: boolean; picked?: string | GlRepository; placeholder?: string },
+): AsyncStepResultGenerator<GlRepository> {
 	if (typeof state.repo === 'string') {
 		state.repo = context.container.git.getRepository(state.repo);
 		if (state.repo != null) {
@@ -110,15 +110,15 @@ export async function* pickRepositoryStep<
 }
 
 export async function* pickRepositoriesStep<
-	State extends PartialStepState & { repos?: string[] | Repository[] },
-	Context extends StepsContext<any> & { repos: Repository[]; associatedView: ViewsWithRepositoryFolders },
+	State extends PartialStepState & { repos?: string[] | GlRepository[] },
+	Context extends StepsContext<any> & { repos: GlRepository[]; associatedView: ViewsWithRepositoryFolders },
 >(
 	state: State,
 	context: Context,
 	parentStep: StepController<any>,
 	options?: { excludeWorktrees?: boolean; placeholder?: string; skipIfPossible?: boolean },
-): AsyncStepResultGenerator<Repository[]> {
-	let actives: Repository[];
+): AsyncStepResultGenerator<GlRepository[]> {
+	let actives: GlRepository[];
 	if (state.repos != null) {
 		if (isStringArray(state.repos)) {
 			actives = filterMap(state.repos, path => context.repos.find(r => r.path === path));
@@ -187,11 +187,11 @@ export async function* pickRepositoriesStep<
 }
 
 export function* showRepositoryStatusStep<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[]; status: GitStatus },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[]; status: GitStatus },
 >(state: State, context: Context): StepResultGenerator<CommandQuickPickItem> {
-	const upstream = context.status.getUpstreamStatus({ expand: true, separator: ', ' });
-	const working = context.status.getFormattedDiffStatus({ expand: true, separator: ', ' });
+	const upstream = GitStatus.getUpstreamStatus(context.status, { expand: true, separator: ', ' });
+	const working = GitStatus.getFormattedDiffStatus(context.status, { expand: true, separator: ', ' });
 	const step: QuickPickStep<CommandQuickPickItem> = createPickStep<CommandQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		placeholder: upstream ? `${upstream}, ${working}` : working, //'Changes to be committed',
@@ -209,12 +209,12 @@ export function* showRepositoryStatusStep<
 }
 
 function getShowRepositoryStatusStepItems<
-	State extends PartialStepState & { repo: Repository },
-	Context extends StepsContext<any> & { repos: Repository[]; status: GitStatus },
+	State extends PartialStepState & { repo: GlRepository },
+	Context extends StepsContext<any> & { repos: GlRepository[]; status: GitStatus },
 >(state: State, context: Context) {
 	const items: (DirectiveQuickPickItem | CommandQuickPickItem)[] = [];
 
-	const computed = context.status.computeWorkingTreeStatus();
+	const computed = GitStatus.computeWorkingTreeStatus(context.status);
 
 	let workingTreeStatus;
 	if (computed.staged === 0 && computed.unstaged === 0) {

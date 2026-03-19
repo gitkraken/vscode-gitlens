@@ -1,6 +1,6 @@
 import type { Container } from '../../../container.js';
 import { revealRemote } from '../../../git/actions/remote.js';
-import type { Repository } from '../../../git/models/repository.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import type {
@@ -37,7 +37,7 @@ export type RemoteAddStepNames = StepNames;
 type Context = RemoteContext<StepNames>;
 
 type Flags = '-f';
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	name: string;
 	url: string;
@@ -99,7 +99,7 @@ export class RemoteAddGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStep(Steps.InputName) || state.name == null) {
 				using step = steps.enterStep(Steps.InputName);
@@ -161,7 +161,7 @@ export class RemoteAddGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<Flags[]> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[

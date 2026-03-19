@@ -6,7 +6,9 @@ import type {
 	WebviewPanel,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import { uuid } from '@env/crypto.js';
+import { uuid } from '@gitlens/utils/crypto.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../container.js';
 import {
 	getRepoUriFromRebaseTodo,
@@ -17,8 +19,6 @@ import {
 } from '../../git/utils/-webview/rebase.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
 import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar.js';
 import { WebviewController } from '../webviewController.js';
 import type { CustomEditorDescriptor } from '../webviewDescriptors.js';

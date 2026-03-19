@@ -1,15 +1,15 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import { pad } from '@gitlens/utils/string.js';
 import type { FileAnnotationType } from '../config.js';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants.js';
 import type { Container } from '../container.js';
 import { openFileAtRevision } from '../git/actions/commit.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitReference } from '../git/models/reference.js';
 import { showNoRepositoryWarningMessage } from '../messages.js';
 import { showReferencePicker } from '../quickpicks/referencePicker.js';
 import { showStashPicker } from '../quickpicks/stashPicker.js';
 import { command } from '../system/-webview/command.js';
-import { pad } from '../system/string.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 

@@ -1,10 +1,10 @@
 import type { Uri } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { getAvatarUri } from '../../avatars.js';
 import type { GitUri } from '../../git/gitUri.js';
 import type { Draft } from '../../plus/drafts/models/drafts.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { formatDate, fromNow } from '../../system/date.js';
 import type { DraftsView } from '../draftsView.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';

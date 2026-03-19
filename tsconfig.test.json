@@ -3,10 +3,20 @@
 	"compilerOptions": {
 		"outDir": "out/tests",
 		"paths": {
-			"@env/*": ["./src/env/node/*"]
+			"@env/*": ["./src/env/node/*"],
+			"@gitlens/utils/*": ["./packages/utils/dist/*"],
+			"@gitlens/git/*": ["./packages/git/dist/*"],
+			"@gitlens/git-cli/*": ["./packages/git-cli/dist/*"],
+			"@gitlens/git-github/*": ["./packages/git-github/dist/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.test.tsbuildinfo"
 	},
-	"include": ["src/**/__tests__/**/*"],
+	"references": [
+		{ "path": "./packages/utils" },
+		{ "path": "./packages/git" },
+		{ "path": "./packages/git-cli" },
+		{ "path": "./packages/git-github" }
+	],
+	"include": ["src/**/__tests__/**/*", "packages/git-cli/src/parsers/__tests__/logParser.test.ts"],
 	"exclude": ["src/webviews/apps/**/*", "src/env/browser/**/*"]
 }

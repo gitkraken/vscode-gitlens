@@ -1,4 +1,5 @@
 import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { AnnotationContext } from '../annotations/annotationProvider.js';
 import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider.js';
 import type { Container } from '../container.js';
@@ -9,7 +10,6 @@ import {
 	getOtherVisibleTextEditors,
 	isTrackableTextEditor,
 } from '../system/-webview/vscode/editors.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand, EditorCommand } from './commandBase.js';
 
 @command()

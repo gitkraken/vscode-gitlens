@@ -1,14 +1,15 @@
 import type { CancellationToken, DecorationOptions, Disposable, TextDocument, TextEditor } from 'vscode';
 import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { ParsedGitDiffHunks } from '@gitlens/git/models/diff.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { Container } from '../container.js';
-import type { GitCommit } from '../git/models/commit.js';
-import type { ParsedGitDiffHunks } from '../git/models/diff.js';
+import { getStatusFilePseudoCommits } from '../git/utils/-webview/statusFile.utils.js';
 import { localChangesMessage } from '../hovers/hovers.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { debug } from '../system/decorators/log.js';
-import { getScopedLogger } from '../system/logger.scope.js';
-import { getSettledValue } from '../system/promise.js';
-import { maybeStopWatch } from '../system/stopwatch.js';
 import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
 import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider.js';
 import { AnnotationProviderBase } from './annotationProvider.js';
@@ -127,7 +128,8 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 				}
 			} else {
 				const status = await svc.status.getStatusForFile?.(this.trackedDocument.uri);
-				const commits = status?.getPseudoCommits(this.container, await svc.config.getCurrentUser());
+				const commits =
+					status != null ? getStatusFilePseudoCommits(status, await svc.config.getCurrentUser()) : undefined;
 				if (commits?.length) {
 					commit = await svc.commits.getCommitForFile(this.trackedDocument.uri);
 					rev1 = 'HEAD';

@@ -20,6 +20,18 @@ import {
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform.js';
+import { createFromDateDelta, fromNow } from '@gitlens/utils/date.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, info, trace } from '@gitlens/utils/decorators/log.js';
+import { createDisposable } from '@gitlens/utils/disposable.js';
+import { take } from '@gitlens/utils/event.js';
+import { once } from '@gitlens/utils/function.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { flatten } from '@gitlens/utils/object.js';
+import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import type { CoreColors } from '../../constants.colors.js';
 import type { GlCommands } from '../../constants.commands.js';
@@ -49,19 +61,7 @@ import { executeCommand, registerCommand } from '../../system/-webview/command.j
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
-import { createFromDateDelta, fromNow } from '../../system/date.js';
 import { gate } from '../../system/decorators/gate.js';
-import { debug, info, trace } from '../../system/decorators/log.js';
-import { take } from '../../system/event.js';
-import type { Deferrable } from '../../system/function/debounce.js';
-import { debounce } from '../../system/function/debounce.js';
-import { once } from '../../system/function.js';
-import { Logger } from '../../system/logger.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
-import { flatten } from '../../system/object.js';
-import { pauseOnCancelOrTimeout } from '../../system/promise.js';
-import { pluralize } from '../../system/string.js';
-import { createDisposable } from '../../system/unifiedDisposable.js';
 import { LoginUriPathPrefix } from './authenticationConnection.js';
 import { authenticationProviderScopes } from './authenticationProvider.js';
 import type { GKCheckInResponse } from './models/checkin.js';
@@ -954,7 +954,7 @@ export class SubscriptionService implements Disposable {
 		return true;
 	}
 
-	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
+	@gate(o => `${o?.force ?? false}`)
 	@debug()
 	async validate(options?: { force?: boolean }, source?: Source | undefined): Promise<void> {
 		const scope = getScopedLogger();
@@ -1009,7 +1009,7 @@ export class SubscriptionService implements Disposable {
 		return result.value;
 	}
 
-	@gate<SubscriptionService['checkInAndValidateCore']>((s, _, orgId) => `${s.account.id}:${orgId}`)
+	@gate((s, _, orgId) => `${s.account.id}:${orgId}`)
 	@trace({ args: session => ({ session: session?.account?.label }) })
 	private async checkInAndValidateCore(
 		session: AuthenticationSession,

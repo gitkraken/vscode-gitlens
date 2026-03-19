@@ -1,0 +1,9 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"declarationMap": true,
+		"module": "nodenext",
+		"moduleResolution": "nodenext"
+	}
+}

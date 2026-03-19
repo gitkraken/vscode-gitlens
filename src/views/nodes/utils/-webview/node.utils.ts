@@ -1,6 +1,6 @@
+import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { TreeViewNodeTypes } from '../../../../constants.views.js';
 import { treeViewFileNodeTypes, treeViewRefFileNodeTypes, treeViewRefNodeTypes } from '../../../../constants.views.js';
-import type { GitCommit } from '../../../../git/models/commit.js';
 import type { DraftsViewNode } from '../../../draftsView.js';
 import type { LaunchpadItemNode, LaunchpadViewNode } from '../../../launchpadView.js';
 import type { SearchAndCompareViewNode } from '../../../searchAndCompareView.js';

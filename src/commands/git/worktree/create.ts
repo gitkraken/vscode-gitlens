@@ -1,19 +1,22 @@
 import type { MessageItem } from 'vscode';
 import { Uri, window, workspace } from 'vscode';
-import type { Config } from '../../../config.js';
-import type { Container } from '../../../container.js';
-import { convertLocationToOpenFlags, revealWorktree } from '../../../git/actions/worktree.js';
-import { WorktreeCreateError } from '../../../git/errors.js';
-import type { GitReference } from '../../../git/models/reference.js';
-import type { Repository } from '../../../git/models/repository.js';
-import type { GitWorktree } from '../../../git/models/worktree.js';
-import { getWorktreeForBranch } from '../../../git/utils/-webview/worktree.utils.js';
+import { WorktreeCreateError } from '@gitlens/git/errors.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isBranchReference,
 	isRevisionReference,
-} from '../../../git/utils/reference.utils.js';
+} from '@gitlens/git/utils/reference.utils.js';
+import { basename } from '@gitlens/utils/path.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { truncateLeft } from '@gitlens/utils/string.js';
+import type { Config } from '../../../config.js';
+import type { Container } from '../../../container.js';
+import { convertLocationToOpenFlags, revealWorktree } from '../../../git/actions/worktree.js';
+import type { GlRepository } from '../../../git/models/repository.js';
+import { getWorktreeForBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import type { ChatActions } from '../../../plus/chat/chatActions.js';
 import { storeChatActionDeepLink } from '../../../plus/chat/chatActions.js';
@@ -25,9 +28,6 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { isDescendant } from '../../../system/-webview/path.js';
 import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
-import { basename } from '../../../system/path.js';
-import type { Deferred } from '../../../system/promise.js';
-import { truncateLeft } from '../../../system/string.js';
 import type { CustomStep } from '../../quick-wizard/models/steps.custom.js';
 import type {
 	PartialStepState,
@@ -71,7 +71,7 @@ type Context = WorktreeContext<StepNames>;
 
 type ConfirmationChoice = Uri | 'changeRoot' | 'chooseFolder';
 type Flags = '--force' | '-b' | '--detach' | '--direct';
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	worktree?: GitWorktree;
 	uri: Uri;
@@ -160,7 +160,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					}
 				}
 
-				assertStepState<State<Repository>>(state);
+				assertStepState<State<GlRepository>>(state);
 
 				if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
 					using step = steps.enterStep(Steps.EnsureAccess);
@@ -470,7 +470,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 	}
 
 	private *choosePathStep(
-		state: StepState<State<Repository>>,
+		state: StepState<State<GlRepository>>,
 		context: Context,
 		options: { title: string; label: string; pickedUri: Uri | undefined; defaultUri?: Uri },
 	): StepResultGenerator<Uri> {
@@ -498,7 +498,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(
-		state: StepState<State<Repository>>,
+		state: StepState<State<GlRepository>>,
 		context: Context,
 	): StepResultGenerator<[ConfirmationChoice, Flags[]]> {
 		/**

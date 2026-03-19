@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
+import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { FeatureAccess } from '../../../features.js';
-import type { GitReference } from '../../../git/models/reference.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Serialized } from '../../../system/serialize.js';
 import type { IpcScope } from '../../ipc/models/ipc.js';

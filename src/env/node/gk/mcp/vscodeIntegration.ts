@@ -1,7 +1,7 @@
 import type { Disposable, Event, McpServerDefinition, McpServerDefinitionProvider } from 'vscode';
 import { EventEmitter, lm, McpStdioServerDefinition } from 'vscode';
+import { debug } from '@gitlens/utils/decorators/log.js';
 import type { Container } from '../../../../container.js';
-import { debug } from '../../../../system/decorators/log.js';
 import { GkMcpProviderBase } from './integrationBase.js';
 
 export class VSCodeGkMcpProvider extends GkMcpProviderBase implements McpServerDefinitionProvider {

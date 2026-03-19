@@ -1,9 +1,9 @@
 import type { Response } from '@env/fetch.js';
 import { fetch } from '@env/fetch.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { gitKrakenProviderDescriptor as provider } from '../../constants.ai.js';
 import { AIError, AIErrorReason, AuthenticationRequiredError } from '../../errors.js';
-import { trace } from '../../system/decorators/log.js';
-import { getScopedLogger } from '../../system/logger.scope.js';
 import type { AIActionType, AIModel } from './models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 import { ensureAccount, getReducedMaxInputTokens } from './utils/-webview/ai.utils.js';

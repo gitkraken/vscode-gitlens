@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import { maybeUri, normalizePath } from '../path.js';
+import { maybeUri, normalizePath } from '@gitlens/utils/path.js';
 
 const slash = 47;
 const vslsHasPrefixRegex = /^[/|\\]~(?:\d+?|external)(?:[/|\\]|$)/;

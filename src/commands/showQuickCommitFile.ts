@@ -1,13 +1,14 @@
 import type { TextEditor } from 'vscode';
 import { Uri } from 'vscode';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { executeGitCommand } from '../git/actions.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitCommit, GitStashCommit } from '../git/models/commit.js';
-import { isCommit } from '../git/models/commit.js';
-import type { GitLog } from '../git/models/log.js';
-import { createReference } from '../git/utils/reference.utils.js';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
@@ -16,7 +17,6 @@ import {
 } from '../messages.js';
 import { command } from '../system/-webview/command.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCachedCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';
@@ -131,9 +131,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			}
 
 			const path = args.commit?.file?.path ?? gitUri.fsPath;
-			if (isCommit(args.commit)) {
+			if (GitCommit.is(args.commit)) {
 				if (!args.commit.hasFullDetails({ allowFilteredFiles: true })) {
-					await args.commit.ensureFullDetails();
+					await GitCommit.ensureFullDetails(args.commit);
 				}
 			}
 

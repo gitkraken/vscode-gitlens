@@ -1,17 +1,32 @@
 /* eslint-disable @typescript-eslint/require-await */
-import type {
-	AuthenticationSessionsChangeEvent,
-	CancellationToken,
-	Disposable,
-	Event,
-	Range,
-	TextDocument,
-	WorkspaceFolder,
-} from 'vscode';
-import { authentication, EventEmitter, Uri, window, workspace } from 'vscode';
-import { encodeUtf8Hex } from '@env/hex.js';
+import type { AuthenticationSessionsChangeEvent, Disposable, WorkspaceFolder } from 'vscode';
+import { authentication, Uri, window, workspace } from 'vscode';
+import type { Cache } from '@gitlens/git/cache.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { GitDir } from '@gitlens/git/models/repository.js';
+import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import type { GitProvider } from '@gitlens/git/providers/provider.js';
+import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
+import { getVisibilityCacheKey } from '@gitlens/git/utils/remote.utils.js';
+import { isRevisionRange, isSha } from '@gitlens/git/utils/revision.utils.js';
+import { decodeRemoteHubAuthority } from '@gitlens/git/utils/uriAuthority.js';
+import type { GitHubSession } from '@gitlens/git-github/context.js';
+import type { GitHubGitProviderOptions } from '@gitlens/git-github/providers/githubGitProvider.js';
+import { GitHubGitProvider } from '@gitlens/git-github/providers/githubGitProvider.js';
+import { CharCode } from '@gitlens/utils/charCode.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import type { Event } from '@gitlens/utils/event.js';
+import { Emitter } from '@gitlens/utils/event.js';
+import { encodeUtf8Hex } from '@gitlens/utils/hex.js';
+import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getScheme, isAbsolute, maybeUri, normalizePath } from '@gitlens/utils/path.js';
+import { asSettled, getSettledValue } from '@gitlens/utils/promise.js';
+import { joinUriPath, parseUri } from '@gitlens/utils/uri.js';
 import { GitCloudHostIntegrationId } from '../../../../constants.integrations.js';
-import { CharCode, Schemes } from '../../../../constants.js';
+import { Schemes } from '../../../../constants.js';
 import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
@@ -21,44 +36,20 @@ import {
 	OpenVirtualRepositoryErrorReason,
 } from '../../../../errors.js';
 import type { Features } from '../../../../features.js';
-import { GitCache } from '../../../../git/cache.js';
 import type {
-	GitDir,
-	GitProvider,
+	GlGitProvider,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
-	RepositoryVisibility,
 	RevisionUriOptions,
 	ScmRepository,
 } from '../../../../git/gitProvider.js';
-import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority.js';
-import type { GitUri } from '../../../../git/gitUri.js';
-import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../../git/models/blame.js';
-import type { GitCommitLine } from '../../../../git/models/commit.js';
-import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit.js';
-import type { GitLineDiff, ParsedGitDiffHunks } from '../../../../git/models/diff.js';
-import { GitFileChange } from '../../../../git/models/fileChange.js';
-import { GitFileIndexStatus } from '../../../../git/models/fileStatus.js';
-import type { GitLog } from '../../../../git/models/log.js';
-import type { GitReference } from '../../../../git/models/reference.js';
-import type { GitRemote } from '../../../../git/models/remote.js';
+import { createGitProviderContext } from '../../../../git/gitProviderContext.js';
 import type { RepositoryChangeEvent } from '../../../../git/models/repository.js';
-import { Repository } from '../../../../git/models/repository.js';
-import { deletedOrMissing } from '../../../../git/models/revision.js';
-import { getVisibilityCacheKey } from '../../../../git/utils/remote.utils.js';
-import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils.js';
+import { GlRepository } from '../../../../git/models/repository.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { setContext } from '../../../../system/-webview/context.js';
 import { getBestPath, relative } from '../../../../system/-webview/path.js';
 import { gate } from '../../../../system/decorators/gate.js';
-import { debug, trace } from '../../../../system/decorators/log.js';
-import { Logger } from '../../../../system/logger.js';
-import type { ScopedLogger } from '../../../../system/logger.scope.js';
-import { getScopedLogger } from '../../../../system/logger.scope.js';
-import { isAbsolute, maybeUri, normalizePath } from '../../../../system/path.js';
-import { asSettled, getSettledValue } from '../../../../system/promise.js';
-import type { CachedBlame, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
-import { GitDocumentState } from '../../../../trackers/trackedDocument.js';
 import { getBuiltInIntegrationSession } from '../../../gk/utils/-webview/integrationAuthentication.utils.js';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub.js';
 import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub.js';
@@ -66,32 +57,10 @@ import type { IntegrationAuthenticationSessionDescriptor } from '../../authentic
 import type { ProviderAuthenticationSession } from '../../authentication/models.js';
 import { toTokenWithInfo } from '../../authentication/models.js';
 import type { GitHubApi } from './github.js';
-import { BranchesGitSubProvider } from './sub-providers/branches.js';
-import { CommitsGitSubProvider } from './sub-providers/commits.js';
-import { ConfigGitSubProvider } from './sub-providers/config.js';
-import { ContributorsGitSubProvider } from './sub-providers/contributors.js';
-import { DiffGitSubProvider } from './sub-providers/diff.js';
-import { GraphGitSubProvider } from './sub-providers/graph.js';
-import { RefsGitSubProvider } from './sub-providers/refs.js';
-import { RemotesGitSubProvider } from './sub-providers/remotes.js';
-import { RevisionGitSubProvider } from './sub-providers/revision.js';
-import { StatusGitSubProvider } from './sub-providers/status.js';
-import { TagsGitSubProvider } from './sub-providers/tags.js';
-
-const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 
 const githubAuthenticationScopes = ['repo', 'read:user', 'user:email'];
 
-export type GitHubGitProviderInternal = Omit<
-	GitHubGitProvider,
-	'ensureRepositoryContext' | 'createProviderUri' | 'createVirtualUri'
-> & {
-	ensureRepositoryContext: GitHubGitProvider['ensureRepositoryContext'];
-	createProviderUri: GitHubGitProvider['createProviderUri'];
-	createVirtualUri: GitHubGitProvider['createVirtualUri'];
-};
-
-export class GitHubGitProvider implements GitProvider, Disposable {
+export class GlGitHubGitProvider implements GlGitProvider {
 	descriptor = { id: 'github' as const, name: 'GitHub', virtual: true };
 	readonly authenticationDescriptor: IntegrationAuthenticationSessionDescriptor = {
 		domain: 'github.com',
@@ -100,49 +69,160 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	readonly authenticationProviderId = GitCloudHostIntegrationId.GitHub;
 	readonly supportedSchemes = new Set<string>([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
-	private _onDidChange = new EventEmitter<void>();
+	private _onDidChange = new Emitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
 	}
 
-	private _onWillChangeRepository = new EventEmitter<RepositoryChangeEvent>();
+	private _onWillChangeRepository = new Emitter<RepositoryChangeEvent>();
 	get onWillChangeRepository(): Event<RepositoryChangeEvent> {
 		return this._onWillChangeRepository.event;
 	}
 
-	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
+	private _onDidChangeRepository = new Emitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
 		return this._onDidChangeRepository.event;
 	}
 
-	private _onDidCloseRepository = new EventEmitter<RepositoryCloseEvent>();
+	private _onDidCloseRepository = new Emitter<RepositoryCloseEvent>();
 	get onDidCloseRepository(): Event<RepositoryCloseEvent> {
 		return this._onDidCloseRepository.event;
 	}
 
-	private _onDidOpenRepository = new EventEmitter<RepositoryOpenEvent>();
+	private _onDidOpenRepository = new Emitter<RepositoryOpenEvent>();
 	get onDidOpenRepository(): Event<RepositoryOpenEvent> {
 		return this._onDidOpenRepository.event;
 	}
 
-	private readonly _cache: GitCache;
 	private readonly _disposables: Disposable[] = [];
+	private _provider: GitHubGitProvider | undefined;
+	private _providerInitializing = false;
 
-	constructor(private readonly container: Container) {
-		this._cache = new GitCache(this.container);
+	constructor(
+		private readonly container: Container,
+		private readonly cache: Cache,
+		private readonly register: (
+			provider: GitProvider,
+			canHandle: (repoPath: string) => boolean,
+		) => UnifiedDisposable,
+	) {
 		this._disposables.push(
 			this._onDidChange,
 			this._onWillChangeRepository,
 			this._onDidChangeRepository,
 			this._onDidCloseRepository,
 			this._onDidOpenRepository,
-			this._cache,
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
 		);
 	}
 
+	[Symbol.dispose](): void {
+		this.dispose();
+	}
+
 	dispose(): void {
 		this._disposables.forEach(d => void d.dispose());
+	}
+
+	private get provider(): GitHubGitProvider {
+		return this.ensureProvider();
+	}
+
+	private ensureProvider(): GitHubGitProvider {
+		if (this._provider == null) {
+			if (this._providerInitializing) {
+				debugger;
+				throw new Error(`${getLoggableName(this)}: re-entrant access to provider getter during initialization`);
+			}
+
+			this._providerInitializing = true;
+			try {
+				this._provider = new GitHubGitProvider(this.getProviderOptions());
+				this._disposables.push(
+					this._provider,
+					this.register(this._provider, repoPath => {
+						const scheme = getScheme(repoPath);
+						// Only handle virtual/GitHub schemes (excluding 'pr' which the extension resolves).
+						return scheme === Schemes.Virtual || scheme === Schemes.GitHub;
+					}),
+				);
+			} finally {
+				this._providerInitializing = false;
+			}
+		}
+		return this._provider;
+	}
+
+	/** Builds the options bag for the `GitHubGitProvider` */
+	private getProviderOptions(): GitHubGitProviderOptions {
+		const baseContext = createGitProviderContext(this.container);
+		return {
+			authenticationProviderId: this.authenticationProviderId,
+			cache: this.cache,
+			context: {
+				...baseContext,
+				config: {
+					...baseContext.config!,
+					get paging() {
+						return { limit: configuration.get('advanced.maxListItems') ?? 100 };
+					},
+				},
+
+				hasUncommittedChanges: async (repoPath, path) => {
+					const repoUri = parseUri(repoPath, true);
+					if (repoUri.scheme !== Schemes.Virtual) return false;
+
+					const fileUri = joinUriPath(repoUri, path);
+					const [working, committed] = await Promise.allSettled([
+						workspace.fs.stat(fileUri as Uri),
+						workspace.fs.stat(fileUri.with({ scheme: Schemes.GitHub }) as Uri),
+					]);
+
+					return (
+						working.status !== 'fulfilled' ||
+						committed.status !== 'fulfilled' ||
+						working.value.mtime !== committed.value.mtime
+					);
+				},
+
+				resolveRepositoryContext: async (repoPath, open) => {
+					const ctx = await this.ensureRepositoryContext(repoPath, open);
+					return {
+						github: ctx.github,
+						metadata: {
+							repo: { owner: ctx.metadata.repo.owner, name: ctx.metadata.repo.name },
+							getRevision: () => ctx.metadata.getRevision(),
+						},
+						session: adaptSession(ctx.session),
+					};
+				},
+
+				uris: {
+					getRelativePath: (pathOrUri, base) =>
+						this.getRelativePath(pathOrUri as string | Uri, base as string | Uri),
+
+					createProviderUri: (repoPath, rev, path) => this.createProviderUri(repoPath, rev, path),
+
+					createVirtualUri: (repoPath, rev, path) => this.createVirtualUri(repoPath, rev, path),
+
+					getBestRevisionUri: (repoPath, path, rev) => this.getBestRevisionUri(repoPath, path, rev),
+
+					getAbsoluteUri: (pathOrUri, base) =>
+						this.getAbsoluteUri(pathOrUri as string | Uri, base as string | Uri),
+
+					getProviderRootUri: uri => {
+						// RemoteHub is always initialized before this is called because @gitlens/git-github
+						// sub-providers call ensureRepositoryContext first, which triggers ensureRemoteHubApi.
+						// Use the same fallback pattern as createProviderUri for safety.
+						if (this._remotehub == null) {
+							debugger;
+							return Uri.parse(uri.toString(), true).with({ scheme: Schemes.GitHub });
+						}
+						return this._remotehub.getProviderRootUri(uri);
+					},
+				},
+			},
+		};
 	}
 
 	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
@@ -152,15 +232,37 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
-		this._cache.onRepositoryChanged(repo.path, e);
-		this._onWillChangeRepository.fire(e);
+	private createRepository(
+		folder: WorkspaceFolder | undefined,
+		uri: Uri,
+		gitDir: GitDir | undefined,
+		root: boolean,
+		closed?: boolean,
+	): GlRepository {
+		const repo = new GlRepository(
+			this.container,
+			this.descriptor,
+			folder,
+			uri,
+			gitDir,
+			root,
+			closed ?? false,
+			!window.state.focused,
+		);
+
+		repo.onDidChange(e => {
+			this.cache.onRepositoryChanged(repo.path, [...e.changes]);
+			this._onWillChangeRepository.fire(e);
+			this._onDidChangeRepository.fire(e);
+		});
+
+		return repo;
 	}
 
 	async discoverRepositories(
 		uri: Uri,
-		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
-	): Promise<Repository[]> {
+		options?: { cancellation?: AbortSignal; depth?: number; silent?: boolean },
+	): Promise<GlRepository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
 		try {
@@ -226,22 +328,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		gitDir: GitDir | undefined,
 		root: boolean,
 		closed?: boolean,
-	): Repository[] {
-		return [
-			new Repository(
-				this.container,
-				{
-					onDidRepositoryChange: this._onDidChangeRepository,
-					onRepositoryChanged: this.onRepositoryChanged.bind(this),
-				},
-				this.descriptor,
-				folder ?? workspace.getWorkspaceFolder(uri),
-				uri,
-				gitDir,
-				root,
-				closed,
-			),
-		];
+	): GlRepository[] {
+		// Ensure the library-level provider is registered before any GlRepository is created,
+		// so the library's GitService can route this repo's path to the GitHub provider.
+		this.ensureProvider();
+
+		return [this.createRepository(folder ?? workspace.getWorkspaceFolder(uri), uri, gitDir, root, closed)];
 	}
 
 	async supports(feature: Features): Promise<boolean> {
@@ -260,7 +352,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
-		const remotes = await this.remotes.getRemotes(repoPath, { sort: true });
+		const remotes = await this.provider.remotes.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return ['local', undefined];
 
 		for await (const result of asSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
@@ -329,11 +421,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		if (typeof pathOrUri === 'string' && !maybeUri(pathOrUri)) {
 			const normalized = normalizePath(pathOrUri);
-			if (!isAbsolute(normalized)) return Uri.joinPath(base, normalized);
+			if (!isAbsolute(normalized)) return joinUriPath(base, normalized);
 		}
 
 		const relativePath = this.getRelativePath(pathOrUri, base);
-		return Uri.joinPath(base, relativePath);
+		return joinUriPath(base, relativePath);
 	}
 
 	@debug()
@@ -400,7 +492,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async isFolderUri(repoPath: string, uri: Uri): Promise<boolean> {
 		// Check if it's a directory via the tree entry
 		const relativePath = this.getRelativePath(uri, repoPath);
-		const tree = await this.revision.getTreeEntryForRevision(repoPath, 'HEAD', relativePath);
+		const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, 'HEAD', relativePath);
 		return tree?.type === 'tree';
 	}
 
@@ -434,397 +526,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@gate<GitHubGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
-	@debug({ args: (uri, document) => ({ uri: uri, document: document?.isDirty }) })
-	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
-		const scope = getScopedLogger();
-
-		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
-		if (document?.isDirty) return undefined; //this.getBlameContents(uri, document.getText());
-
-		let key = 'blame';
-		if (uri.sha != null) {
-			key += `:${uri.sha}`;
-		}
-
-		const doc = await this.container.documentTracker.getOrAdd(uri);
-		if (doc.state != null) {
-			const cachedBlame = doc.state.getBlame(key);
-			if (cachedBlame != null) {
-				scope?.trace(`Cache hit: '${key}'`);
-				return cachedBlame.item;
-			}
-		}
-
-		scope?.trace(`Cache miss: '${key}'`);
-
-		doc.state ??= new GitDocumentState();
-
-		const promise = this.getBlameCore(uri, doc, key, scope);
-
-		if (doc.state != null) {
-			scope?.trace(`Cache add: '${key}'`);
-
-			const value: CachedBlame = {
-				item: promise as Promise<GitBlame>,
-			};
-			doc.state.setBlame(key, value);
-		}
-
-		return promise;
-	}
-
-	private async getBlameCore(
-		uri: GitUri,
-		document: TrackedGitDocument,
-		key: string,
-		scope: ScopedLogger | undefined,
-	): Promise<GitBlame | undefined> {
-		try {
-			const context = await this.ensureRepositoryContext(uri.repoPath!);
-			if (context == null) return undefined;
-			const { metadata, github, remotehub, session } = context;
-
-			const root = remotehub.getVirtualUri(remotehub.getProviderRootUri(uri));
-			const relativePath = this.getRelativePath(uri, root);
-
-			if (uri.scheme === Schemes.Virtual) {
-				const [working, committed] = await Promise.allSettled([
-					workspace.fs.stat(uri),
-					workspace.fs.stat(uri.with({ scheme: Schemes.GitHub })),
-				]);
-				if (
-					working.status !== 'fulfilled' ||
-					committed.status !== 'fulfilled' ||
-					working.value.mtime !== committed.value.mtime
-				) {
-					return undefined;
-				}
-			}
-
-			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
-			const blame = await github.getBlame(
-				toTokenWithInfo(this.authenticationProviderId, session),
-				metadata.repo.owner,
-				metadata.repo.name,
-				ref,
-				relativePath,
-			);
-
-			const authors = new Map<string, GitBlameAuthor>();
-			const commits = new Map<string, GitCommit>();
-			const lines: GitCommitLine[] = [];
-
-			for (const range of blame.ranges) {
-				const c = range.commit;
-
-				const { viewer = session.account.label } = blame;
-				const authorName = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
-				const committerName = viewer != null && c.committer.name === viewer ? 'You' : c.committer.name;
-
-				let author = authors.get(authorName);
-				if (author == null) {
-					author = {
-						name: authorName,
-						lineCount: 0,
-					};
-					authors.set(authorName, author);
-				}
-
-				author.lineCount += range.endingLine - range.startingLine + 1;
-
-				let commit = commits.get(c.oid);
-				if (commit == null) {
-					commit = new GitCommit(
-						this.container,
-						uri.repoPath!,
-						c.oid,
-						new GitCommitIdentity(authorName, c.author.email, new Date(c.author.date), c.author.avatarUrl),
-						new GitCommitIdentity(committerName, c.committer.email, new Date(c.author.date)),
-						c.message.split('\n', 1)[0],
-						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
-						c.message,
-						{
-							files: undefined,
-							filtered: {
-								files: [
-									new GitFileChange(
-										this.container,
-										root.toString(),
-										relativePath,
-										GitFileIndexStatus.Modified,
-									),
-								],
-								pathspec: relativePath,
-							},
-						},
-						{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
-						[],
-					);
-
-					commits.set(c.oid, commit);
-				}
-
-				for (let i = range.startingLine; i <= range.endingLine; i++) {
-					// GitHub doesn't currently support returning the original line number, so we are just using the current one
-					const line: GitCommitLine = { sha: c.oid, originalLine: i, line: i };
-
-					commit.lines.push(line);
-					lines[i - 1] = line;
-				}
-			}
-
-			const sortedAuthors = new Map([...authors.entries()].sort((a, b) => b[1].lineCount - a[1].lineCount));
-
-			return {
-				repoPath: uri.repoPath!,
-				authors: sortedAuthors,
-				commits: commits,
-				lines: lines,
-			};
-		} catch (ex) {
-			debugger;
-			// Trap and cache expected blame errors
-			if (document.state != null && !String(ex).includes('No provider registered with')) {
-				const msg: string = ex?.toString() ?? '';
-				scope?.trace(`Cache replace (with empty promise): '${key}'`);
-
-				const value: CachedBlame = {
-					item: emptyPromise as Promise<GitBlame>,
-					errorMessage: msg,
-				};
-				document.state.setBlame(key, value);
-
-				document.setBlameFailure(ex);
-
-				return emptyPromise as Promise<GitBlame>;
-			}
-
-			return undefined;
-		}
-	}
-
-	@debug({ args: (_uri, _contents) => ({ contents: '<contents>' }) })
-	async getBlameContents(_uri: GitUri, _contents: string): Promise<GitBlame | undefined> {
-		// TODO@eamodio figure out how to actually generate a blame given the contents (need to generate a diff)
-		return undefined; //this.getBlame(uri);
-	}
-
-	@gate<GitHubGitProvider['getBlameForLine']>(
-		(u, l, d, o) => `${u.toString()}|${l}|${d?.isDirty}|${o?.forceSingleLine}`,
-	)
-	@debug({ args: (uri, editorLine, document) => ({ uri: uri, editorLine: editorLine, document: document?.isDirty }) })
-	async getBlameForLine(
-		uri: GitUri,
-		editorLine: number, // 0-based, Git is 1-based
-		document?: TextDocument | undefined,
-		options?: { forceSingleLine?: boolean },
-	): Promise<GitBlameLine | undefined> {
-		const scope = getScopedLogger();
-
-		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
-		if (document?.isDirty) return undefined; //this.getBlameForLineContents(uri, editorLine, document.getText(), options);
-
-		if (!options?.forceSingleLine) {
-			const blame = await this.getBlame(uri);
-			if (blame == null) return undefined;
-
-			let blameLine = blame.lines[editorLine];
-			if (blameLine == null) {
-				if (blame.lines.length !== editorLine) return undefined;
-				blameLine = blame.lines[editorLine - 1];
-			}
-
-			const commit = blame.commits.get(blameLine.sha);
-			if (commit == null) return undefined;
-
-			const author = blame.authors.get(commit.author.name)!;
-			return {
-				author: { ...author, lineCount: commit.lines.length },
-				commit: commit,
-				line: blameLine,
-			};
-		}
-
-		try {
-			const context = await this.ensureRepositoryContext(uri.repoPath!);
-			if (context == null) return undefined;
-			const { metadata, github, remotehub, session } = context;
-
-			const root = remotehub.getVirtualUri(remotehub.getProviderRootUri(uri));
-			const relativePath = this.getRelativePath(uri, root);
-
-			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
-			const blame = await github.getBlame(
-				toTokenWithInfo(this.authenticationProviderId, session),
-				metadata.repo.owner,
-				metadata.repo.name,
-				ref,
-				relativePath,
-			);
-
-			const startingLine = editorLine + 1;
-			const range = blame.ranges.find(r => r.startingLine === startingLine);
-			if (range == null) return undefined;
-
-			const c = range.commit;
-
-			const { viewer = session.account.label } = blame;
-			const authorName = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
-			const committerName = viewer != null && c.committer.name === viewer ? 'You' : c.committer.name;
-
-			const commit = new GitCommit(
-				this.container,
-				uri.repoPath!,
-				c.oid,
-				new GitCommitIdentity(authorName, c.author.email, new Date(c.author.date), c.author.avatarUrl),
-				new GitCommitIdentity(committerName, c.committer.email, new Date(c.author.date)),
-				c.message.split('\n', 1)[0],
-				c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
-				c.message,
-				{
-					files: undefined,
-					filtered: {
-						files: [
-							new GitFileChange(
-								this.container,
-								root.toString(),
-								relativePath,
-								GitFileIndexStatus.Modified,
-							),
-						],
-						pathspec: relativePath,
-					},
-				},
-				{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
-				[],
-			);
-
-			for (let i = range.startingLine; i <= range.endingLine; i++) {
-				// GitHub doesn't currently support returning the original line number, so we are just using the current one
-				const line: GitCommitLine = { sha: c.oid, originalLine: i, line: i };
-
-				commit.lines.push(line);
-			}
-
-			return {
-				author: {
-					name: authorName,
-					lineCount: range.endingLine - range.startingLine + 1,
-				},
-				commit: commit,
-				// GitHub doesn't currently support returning the original line number, so we are just using the current one
-				line: { sha: c.oid, originalLine: range.startingLine, line: range.startingLine },
-			};
-		} catch (ex) {
-			debugger;
-			scope?.error(ex);
-			return undefined;
-		}
-	}
-
-	@debug({ args: (_uri, _editorLine, _contents) => ({ contents: '<contents>' }) })
-	async getBlameForLineContents(
-		_uri: GitUri,
-		_editorLine: number, // 0-based, Git is 1-based
-		_contents: string,
-		_options?: { forceSingleLine?: boolean },
-	): Promise<GitBlameLine | undefined> {
-		// TODO@eamodio figure out how to actually generate a blame given the contents (need to generate a diff)
-		return undefined; //this.getBlameForLine(uri, editorLine);
-	}
-
-	@debug()
-	async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlame | undefined> {
-		const blame = await this.getBlame(uri);
-		if (blame == null) return undefined;
-
-		return this.getBlameRange(blame, uri, range);
-	}
-
-	@debug({ args: (uri, range, _contents) => ({ uri: uri, range: range, contents: '<contents>' }) })
-	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlame | undefined> {
-		const blame = await this.getBlameContents(uri, contents);
-		if (blame == null) return undefined;
-
-		return this.getBlameRange(blame, uri, range);
-	}
-
-	@debug({ args: (_blame, uri, range) => ({ blame: '<blame>', uri: uri, range: range }) })
-	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined {
-		if (blame.lines.length === 0) return blame;
-
-		if (range.start.line === 0 && range.end.line === blame.lines.length - 1) {
-			return blame;
-		}
-
-		const lines = blame.lines.slice(range.start.line, range.end.line + 1);
-		const shas = new Set(lines.map(l => l.sha));
-
-		// ranges are 0-based
-		const startLine = range.start.line + 1;
-		const endLine = range.end.line + 1;
-
-		const authors = new Map<string, GitBlameAuthor>();
-		const commits = new Map<string, GitCommit>();
-		for (const c of blame.commits.values()) {
-			if (!shas.has(c.sha)) continue;
-
-			const commit = c.with({
-				lines: c.lines.filter(l => l.line >= startLine && l.line <= endLine),
-			});
-			commits.set(c.sha, commit);
-
-			let author = authors.get(commit.author.name);
-			if (author == null) {
-				author = {
-					name: commit.author.name,
-					lineCount: 0,
-				};
-				authors.set(author.name, author);
-			}
-
-			author.lineCount += commit.lines.length;
-		}
-
-		const sortedAuthors = new Map([...authors.entries()].sort((a, b) => b[1].lineCount - a[1].lineCount));
-
-		return {
-			repoPath: uri.repoPath!,
-			authors: sortedAuthors,
-			commits: commits,
-			lines: lines,
-		};
-	}
-
-	@debug()
-	async getDiffForFile(
-		_uri: GitUri,
-		_ref1: string | undefined,
-		_ref2?: string,
-	): Promise<ParsedGitDiffHunks | undefined> {
-		return undefined;
-	}
-
-	@debug({ args: (_uri, _ref, _contents) => ({ contents: '<contents>' }) })
-	async getDiffForFileContents(
-		_uri: GitUri,
-		_ref: string,
-		_contents: string,
-	): Promise<ParsedGitDiffHunks | undefined> {
-		return undefined;
-	}
-
-	@debug()
-	async getDiffForLine(
-		_uri: GitUri,
-		_editorLine: number, // 0-based, Git is 1-based
-		_ref1: string | undefined,
-		_ref2?: string,
-	): Promise<GitLineDiff | undefined> {
-		return undefined;
-	}
-
 	async getLastFetchedTimestamp(_repoPath: string): Promise<number | undefined> {
 		return undefined;
 	}
@@ -846,103 +547,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const providerUri = uri.with({ scheme: Schemes.GitHub });
 		const stats = await workspace.fs.stat(providerUri);
 		return stats != null;
-	}
-
-	private _branches: BranchesGitSubProvider | undefined;
-	get branches(): BranchesGitSubProvider {
-		return (this._branches ??= new BranchesGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _commits: CommitsGitSubProvider | undefined;
-	get commits(): CommitsGitSubProvider {
-		return (this._commits ??= new CommitsGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _config: ConfigGitSubProvider | undefined;
-	get config(): ConfigGitSubProvider {
-		return (this._config ??= new ConfigGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _contributors: ContributorsGitSubProvider | undefined;
-	get contributors(): ContributorsGitSubProvider {
-		return (this._contributors ??= new ContributorsGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _diff: DiffGitSubProvider | undefined;
-	get diff(): DiffGitSubProvider {
-		return (this._diff ??= new DiffGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _graph: GraphGitSubProvider | undefined;
-	get graph(): GraphGitSubProvider {
-		return (this._graph ??= new GraphGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _refs: RefsGitSubProvider | undefined;
-	get refs(): RefsGitSubProvider {
-		return (this._refs ??= new RefsGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _remotes: RemotesGitSubProvider | undefined;
-	get remotes(): RemotesGitSubProvider {
-		return (this._remotes ??= new RemotesGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _revision: RevisionGitSubProvider | undefined;
-	get revision(): RevisionGitSubProvider {
-		return (this._revision ??= new RevisionGitSubProvider(
-			this.container,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _status: StatusGitSubProvider | undefined;
-	get status(): StatusGitSubProvider {
-		return (this._status ??= new StatusGitSubProvider(
-			this.container,
-			this as unknown as GitHubGitProviderInternal,
-		));
-	}
-
-	private _tags: TagsGitSubProvider | undefined;
-	get tags(): TagsGitSubProvider {
-		return (this._tags ??= new TagsGitSubProvider(
-			this.container,
-			this._cache,
-			this as unknown as GitHubGitProviderInternal,
-		));
 	}
 
 	@gate()
@@ -1073,7 +677,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		silent: boolean = false,
 	): Promise<ProviderAuthenticationSession> {
 		if (force || this._sessionPromise == null) {
-			async function getSession(this: GitHubGitProvider): Promise<ProviderAuthenticationSession> {
+			async function getSession(this: GlGitHubGitProvider): Promise<ProviderAuthenticationSession> {
 				let skip = this.container.storage.get(`provider:authentication:skip:${this.descriptor.id}`, false);
 
 				try {
@@ -1247,8 +851,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (isRevisionRange(ref)) return undefined;
 
 		const [branchResults, tagResults] = await Promise.allSettled([
-			this.branches.getBranches(repoPath, { filter: b => b.name === ref }),
-			this.tags.getTags(repoPath, { filter: t => t.name === ref }),
+			this.provider.branches.getBranches(repoPath, { filter: b => b.name === ref }),
+			this.provider.tags.getTags(repoPath, { filter: t => t.name === ref }),
 		]);
 
 		ref = getSettledValue(branchResults)?.values[0]?.sha ?? getSettledValue(tagResults)?.values[0]?.sha;
@@ -1258,6 +862,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		return ref;
 	}
+}
+
+function adaptSession(session: ProviderAuthenticationSession): GitHubSession {
+	return {
+		account: { label: session.account.label },
+		accessToken: session.accessToken,
+		cloud: session.cloud,
+		type: session.type,
+		scopes: session.scopes,
+		domain: session.domain,
+	};
 }
 
 function encodeAuthority<T>(scheme: string, metadata?: T): string {

@@ -2,7 +2,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property, queryAll } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
-import { debounce } from '../../../../../system/function/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type { GetOverviewBranch } from '../../../../home/protocol.js';
 import type { GlBranchCardBase } from './branch-card.js';
 import '../../../shared/components/progress.js';

@@ -3,6 +3,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import { urls } from '../../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription.js';
 import type { Source } from '../../../../../constants.telemetry.js';
@@ -18,7 +19,6 @@ import {
 	isSubscriptionTrialOrPaidFromState,
 } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
-import { pluralize } from '../../../../../system/string.js';
 import type { State } from '../../../../home/protocol.js';
 import { stateContext } from '../../../home/context.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';

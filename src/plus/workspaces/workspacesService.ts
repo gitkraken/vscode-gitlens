@@ -1,16 +1,18 @@
-import type { CancellationToken, Event, MessageItem, QuickPickItem } from 'vscode';
+import type { Event, MessageItem, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { normalizePath } from '@gitlens/utils/path.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
-import type { GitRemote } from '../../git/models/remote.js';
-import { RemoteResourceType } from '../../git/models/remoteResource.js';
-import { Repository } from '../../git/models/repository.js';
+import { GlRepository } from '../../git/models/repository.js';
+import { getRemoteProviderUrl } from '../../git/utils/-webview/remote.utils.js';
 import { showRepositoriesPicker } from '../../quickpicks/repositoryPicker.js';
+import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
-import { debug } from '../../system/decorators/log.js';
-import { normalizePath } from '../../system/path.js';
-import { getSettledValue } from '../../system/promise.js';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService.js';
 import { isSubscriptionTrialOrPaidFromState } from '../gk/utils/subscription.utils.js';
 import type { CloudWorkspaceData, CloudWorkspaceRepositoryDescriptor } from './models/cloudWorkspace.js';
@@ -301,7 +303,7 @@ export class WorkspacesService implements Disposable {
 			).values(),
 			r => r.repository,
 		);
-		const currentWorkspaceRepositoryIdMap = new Map<string, Repository>();
+		const currentWorkspaceRepositoryIdMap = new Map<string, GlRepository>();
 		for (const repository of this.container.git.openRepositories) {
 			currentWorkspaceRepositoryIdMap.set(repository.id, repository);
 		}
@@ -382,7 +384,7 @@ export class WorkspacesService implements Disposable {
 		await this._sharedStorage?.storeCloudWorkspaceRepositoryLocation(workspaceId, repoId, localPath);
 	}
 
-	private async getRepositoriesInParentFolder(cancellation?: CancellationToken): Promise<Repository[] | undefined> {
+	private async getRepositoriesInParentFolder(cancellation?: AbortSignal): Promise<GlRepository[] | undefined> {
 		const parentUri = (
 			await window.showOpenDialog({
 				title: `Choose a folder containing repositories for this workspace`,
@@ -392,7 +394,7 @@ export class WorkspacesService implements Disposable {
 			})
 		)?.[0];
 
-		if (parentUri == null || cancellation?.isCancellationRequested) return undefined;
+		if (parentUri == null || cancellation?.aborted) return undefined;
 
 		try {
 			return await this.container.git.findRepositories(parentUri, {
@@ -405,7 +407,7 @@ export class WorkspacesService implements Disposable {
 		}
 	}
 
-	async locateAllCloudWorkspaceRepos(workspaceId: string, cancellation?: CancellationToken): Promise<void> {
+	async locateAllCloudWorkspaceRepos(workspaceId: string, cancellation?: AbortSignal): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
@@ -413,7 +415,7 @@ export class WorkspacesService implements Disposable {
 		if (repoDescriptors == null || repoDescriptors.length === 0) return;
 
 		const foundRepos = await this.getRepositoriesInParentFolder(cancellation);
-		if (foundRepos == null || foundRepos.length === 0 || cancellation?.isCancellationRequested) return;
+		if (foundRepos == null || foundRepos.length === 0 || cancellation?.aborted) return;
 
 		for (const repoMatch of (
 			await this.resolveWorkspaceRepositoriesByName(workspaceId, {
@@ -423,7 +425,7 @@ export class WorkspacesService implements Disposable {
 		).values()) {
 			await this.locateWorkspaceRepo(workspaceId, repoMatch.descriptor, repoMatch.repository);
 
-			if (cancellation?.isCancellationRequested) return;
+			if (cancellation?.aborted) return;
 		}
 	}
 
@@ -441,13 +443,13 @@ export class WorkspacesService implements Disposable {
 		workspaceId: string,
 		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
 		// eslint-disable-next-line @typescript-eslint/unified-signatures
-		repository: Repository,
+		repository: GlRepository,
 	): Promise<void>;
 	@debug({ args: (workspaceId: string) => ({ workspaceId: workspaceId }) })
 	async locateWorkspaceRepo(
 		workspaceId: string,
 		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
-		uriOrRepository?: Uri | Repository,
+		uriOrRepository?: Uri | GlRepository,
 	): Promise<void> {
 		let repo;
 		if (uriOrRepository == null || uriOrRepository instanceof Uri) {
@@ -475,9 +477,13 @@ export class WorkspacesService implements Disposable {
 		const repoPath = repo.uri.fsPath;
 
 		const remotes = await repo.git.remotes.getRemotes();
-		const remoteUrlPromises: Promise<string | undefined>[] = remotes.map(async remote => {
-			return remote.provider?.url({ type: RemoteResourceType.Repo });
-		});
+		const remoteUrlPromises: Promise<string | undefined>[] = remotes.map((remote: GitRemote) =>
+			Promise.resolve(
+				remote.provider != null
+					? getRemoteProviderUrl(remote.provider, { type: RemoteResourceType.Repo })
+					: undefined,
+			),
+		);
 		const remoteUrls: string[] = (await Promise.allSettled(remoteUrlPromises))
 			.map(r => getSettledValue(r))
 			.filter(r => r != null);
@@ -510,7 +516,7 @@ export class WorkspacesService implements Disposable {
 	}
 
 	@debug({ args: false })
-	async createCloudWorkspace(options?: { repos?: Repository[] }): Promise<void> {
+	async createCloudWorkspace(options?: { repos?: GlRepository[] }): Promise<void> {
 		const input = window.createInputBox();
 		input.title = 'Create Cloud Workspace';
 		const quickpick = window.createQuickPick();
@@ -539,7 +545,9 @@ export class WorkspacesService implements Disposable {
 		if (options?.repos != null && options.repos.length > 0) {
 			// Currently only GitHub is supported.
 			for (const repo of options.repos) {
-				const repoRemotes = await repo.git.remotes.getRemotes({ filter: r => r.domain === 'github.com' });
+				const repoRemotes = await repo.git.remotes.getRemotes({
+					filter: (r: GitRemote) => r.domain === 'github.com',
+				});
 				if (repoRemotes.length === 0) {
 					await window.showErrorMessage(
 						`Only GitHub is supported for this operation. Please ensure all open repositories are hosted on GitHub.`,
@@ -770,13 +778,13 @@ export class WorkspacesService implements Disposable {
 	}
 
 	private async filterReposForProvider(
-		repos: Repository[],
+		repos: GlRepository[],
 		provider: CloudWorkspaceProviderType,
-	): Promise<Repository[]> {
-		const validRepos: Repository[] = [];
+	): Promise<GlRepository[]> {
+		const validRepos: GlRepository[] = [];
 		for (const repo of repos) {
 			const matchingRemotes = await repo.git.remotes.getRemotes({
-				filter: r => r.provider?.id === cloudWorkspaceProviderTypeToRemoteProviderId[provider],
+				filter: (r: GitRemote) => r.provider?.id === cloudWorkspaceProviderTypeToRemoteProviderId[provider],
 			});
 			if (matchingRemotes.length) {
 				validRepos.push(repo);
@@ -786,7 +794,7 @@ export class WorkspacesService implements Disposable {
 		return validRepos;
 	}
 
-	private async filterReposForCloudWorkspace(repos: Repository[], workspaceId: string): Promise<Repository[]> {
+	private async filterReposForCloudWorkspace(repos: GlRepository[], workspaceId: string): Promise<GlRepository[]> {
 		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
 		if (workspace == null) return repos;
 		const workspaceRepos = Array.from(
@@ -799,13 +807,13 @@ export class WorkspacesService implements Disposable {
 	@debug({ args: (workspaceId: string) => ({ workspaceId: workspaceId }) })
 	async addCloudWorkspaceRepos(
 		workspaceId: string,
-		options?: { repos?: Repository[]; suppressNotifications?: boolean },
+		options?: { repos?: GlRepository[]; suppressNotifications?: boolean },
 	): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
-		const repoInputs: (AddWorkspaceRepoDescriptor & { repo: Repository; url?: string })[] = [];
-		let reposOrRepoPaths: Repository[] | string[] | undefined = options?.repos;
+		const repoInputs: (AddWorkspaceRepoDescriptor & { repo: GlRepository; url?: string })[] = [];
+		let reposOrRepoPaths: GlRepository[] | string[] | undefined = options?.repos;
 		if (!options?.repos) {
 			let validRepos = await this.filterReposForProvider(this.container.git.openRepositories, workspace.provider);
 			validRepos = await this.filterReposForCloudWorkspace(validRepos, workspaceId);
@@ -847,7 +855,7 @@ export class WorkspacesService implements Disposable {
 						cancellable: true,
 					},
 					async (_progress, token) => {
-						const foundRepos = await this.getRepositoriesInParentFolder(token);
+						const foundRepos = await this.getRepositoriesInParentFolder(toAbortSignal(token));
 						if (foundRepos == null) return;
 						if (foundRepos.length === 0) {
 							if (!options?.suppressNotifications) {
@@ -902,7 +910,7 @@ export class WorkspacesService implements Disposable {
 		if (reposOrRepoPaths == null) return;
 		for (const repoOrPath of reposOrRepoPaths) {
 			const repo =
-				repoOrPath instanceof Repository
+				repoOrPath instanceof GlRepository
 					? repoOrPath
 					: await this.container.git.getOrOpenRepository(Uri.file(repoOrPath), { closeOnOpen: true });
 			if (repo == null) continue;
@@ -996,8 +1004,8 @@ export class WorkspacesService implements Disposable {
 	async resolveWorkspaceRepositoriesByName(
 		workspace: CloudWorkspace | LocalWorkspace,
 		options?: {
-			cancellation?: CancellationToken;
-			repositories?: Repository[];
+			cancellation?: AbortSignal;
+			repositories?: GlRepository[];
 			resolveFromPath?: boolean;
 			usePathMapping?: boolean;
 		},
@@ -1005,8 +1013,8 @@ export class WorkspacesService implements Disposable {
 	async resolveWorkspaceRepositoriesByName(
 		workspaceId: string,
 		options?: {
-			cancellation?: CancellationToken;
-			repositories?: Repository[];
+			cancellation?: AbortSignal;
+			repositories?: GlRepository[];
 			resolveFromPath?: boolean;
 			usePathMapping?: boolean;
 		},
@@ -1019,8 +1027,8 @@ export class WorkspacesService implements Disposable {
 	async resolveWorkspaceRepositoriesByName(
 		workspaceOrId: CloudWorkspace | LocalWorkspace | string,
 		options?: {
-			cancellation?: CancellationToken;
-			repositories?: Repository[];
+			cancellation?: AbortSignal;
+			repositories?: GlRepository[];
 			resolveFromPath?: boolean;
 			usePathMapping?: boolean;
 		},
@@ -1038,10 +1046,10 @@ export class WorkspacesService implements Disposable {
 
 		const currentRepositories = options?.repositories ?? this.container.git.repositories;
 
-		const reposProviderMap = new Map<string, Repository>();
-		const reposPathMap = new Map<string, Repository>();
+		const reposProviderMap = new Map<string, GlRepository>();
+		const reposPathMap = new Map<string, GlRepository>();
 		for (const repo of currentRepositories) {
-			if (options?.cancellation?.isCancellationRequested) break;
+			if (options?.cancellation?.aborted) break;
 			reposPathMap.set(normalizePath(repo.uri.fsPath.toLowerCase()), repo);
 
 			if (workspace instanceof CloudWorkspace) {
@@ -1335,7 +1343,7 @@ async function getRemoteDescriptor(remote: GitRemote): Promise<RemoteDescriptor 
 		provider: remote.provider.id.toLowerCase(),
 		owner: remote.provider.owner.toLowerCase(),
 		repoName: remoteRepoName.toLowerCase(),
-		url: await remote.provider.url({ type: RemoteResourceType.Repo }),
+		url: await getRemoteProviderUrl(remote.provider, { type: RemoteResourceType.Repo }),
 	};
 }
 

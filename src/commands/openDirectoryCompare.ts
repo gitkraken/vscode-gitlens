@@ -1,11 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { openDirectoryCompare } from '../git/actions/commit.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { showReferencePicker } from '../quickpicks/referencePicker.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
-import { Logger } from '../system/logger.js';
 import { CompareResultsNode } from '../views/nodes/compareResultsNode.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';

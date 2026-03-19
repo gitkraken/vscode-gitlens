@@ -88,10 +88,7 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 		]);
 	}
 
-	protected override preExecute(
-		context: CommandContext,
-		args?: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs>,
-	): Promise<void> {
+	protected override preExecute(context: CommandContext, args?: QuickWizardCommandArgsWithCompletion): Promise<void> {
 		switch (context.command) {
 			case 'gitlens.git.branch':
 				return this.execute({ command: 'branch', ...args });
@@ -172,7 +169,7 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 		}
 	}
 
-	override async execute(args?: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs>): Promise<void> {
+	override async execute(args?: QuickWizardCommandArgsWithCompletion): Promise<void> {
 		return super.execute(args, this.container.git.isDiscoveringRepositories);
 	}
 }
@@ -182,7 +179,7 @@ function getSubcommandArgs<
 	TSubcommand extends string,
 	TArgs extends { command: TCommand; state?: { subcommand?: string } },
 >(
-	args: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs> | undefined,
+	args: QuickWizardCommandArgsWithCompletion | undefined,
 	command: TCommand,
 	subcommand: TSubcommand,
 ): { command: TCommand; state: { subcommand: TSubcommand } } {

@@ -1,5 +1,7 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { flatten } from '@gitlens/utils/iterable.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
 import type {
@@ -7,8 +9,6 @@ import type {
 	StoredIntegrationConfigurations,
 } from '../../../constants.storage.js';
 import type { Container } from '../../../container.js';
-import { debounce } from '../../../system/function/debounce.js';
-import { flatten } from '../../../system/iterable.js';
 import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils.js';
 import { providersMetadata } from '../providers/models.js';
 import { isGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils.js';

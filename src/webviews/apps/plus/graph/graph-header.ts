@@ -9,17 +9,17 @@ import { cache } from 'lit/directives/cache.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
+import { debounce } from '@gitlens/utils/decorators/debounce.js';
+import { hasTruthyKeys } from '@gitlens/utils/object.js';
+import { wait } from '@gitlens/utils/promise.js';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
 import type { GraphBranchesVisibility } from '../../../../config.js';
 import { GlyphChars } from '../../../../constants.js';
-import type { SearchQuery } from '../../../../constants.search.js';
 import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
 import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import { debounce } from '../../../../system/decorators/debounce.js';
-import { hasTruthyKeys } from '../../../../system/object.js';
-import { wait } from '../../../../system/promise.js';
 import type {
 	DidChooseRefParams,
 	GraphExcludedRef,
@@ -902,7 +902,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private readonly searchEl!: GlSearchBox;
 
 	override render() {
-		const repo = this.graphState.repositories?.find(repo => repo.id === this.graphState.selectedRepository);
+		const repo = this.graphState.repositories?.find(repo => repo.path === this.graphState.selectedRepository);
 
 		return cache(
 			html`<header class="titlebar graph-app__header">

@@ -1,20 +1,20 @@
 import type { TreeCheckboxChangeEvent } from 'vscode';
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitUser } from '@gitlens/git/models/user.js';
+import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { weakEvent } from '@gitlens/utils/event.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewShowBranchComparison } from '../../config.js';
 import { GlyphChars } from '../../constants.js';
 import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { GitBranch } from '../../git/models/branch.js';
-import type { RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
-import type { GitUser } from '../../git/models/user.js';
+import type { RepositoryWorkingTreeChangeEvent } from '../../git/models/repository.js';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults.js';
 import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults.js';
-import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils.js';
 import { CommandQuickPickItem } from '../../quickpicks/items/common.js';
 import { showReferencePicker } from '../../quickpicks/referencePicker.js';
-import { debug, trace } from '../../system/decorators/log.js';
-import { weakEvent } from '../../system/event.js';
-import { pluralize } from '../../system/string.js';
 import type { ViewsWithBranches } from '../viewBase.js';
 import type { WorktreesView } from '../worktreesView.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
@@ -113,7 +113,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 			const repo = this.view.container.git.getRepository(this.uri);
 			if (repo != null) {
 				subscriptions.push(
-					weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.watchFileSystem()]),
+					weakEvent(repo.onDidChangeWorkingTree, this.onWorkingTreeChanged, this, [repo.watchWorkingTree()]),
 				);
 			}
 		}
@@ -121,7 +121,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		return Disposable.from(...subscriptions);
 	}
 
-	private onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
+	private onWorkingTreeChanged(_e: RepositoryWorkingTreeChangeEvent) {
 		void this.triggerChange(true);
 	}
 

@@ -1,5 +1,14 @@
 import { Uri } from 'vscode';
-import { realpath } from '@env/fs.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import { uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from '@gitlens/git/utils/uriAuthority.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { memoize } from '@gitlens/utils/decorators/memoize.js';
+import { realpath } from '@gitlens/utils/fs.js';
+import { arePathsEqual, basename, normalizePath } from '@gitlens/utils/path.js';
+import type { UriComponents } from '@gitlens/utils/uri.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri.js';
 import { Schemes } from '../constants.js';
 import { Container } from '../container.js';
@@ -8,16 +17,7 @@ import { configuration } from '../system/-webview/configuration.js';
 import { formatPath } from '../system/-webview/formatPath.js';
 import { getBestPath, relativeDir, splitPath } from '../system/-webview/path.js';
 import { isVirtualUri } from '../system/-webview/vscode/uris.js';
-import { trace } from '../system/decorators/log.js';
-import { memoize } from '../system/decorators/memoize.js';
-import { arePathsEqual, basename, normalizePath } from '../system/path.js';
-import type { UriComponents } from '../system/uri.js';
-import { areUrisEqual } from '../system/uri.js';
 import type { RevisionUriData } from './gitProvider.js';
-import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority.js';
-import type { GitFile } from './models/file.js';
-import { uncommittedStaged } from './models/revision.js';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from './utils/revision.utils.js';
 
 const slash = 47; //slash;
 
@@ -42,7 +42,7 @@ interface UriEx {
  * - **file:// with object properties** — created by `fromFile`, `fromRepoPath`, `fromUri`, or the constructor
  *   with a `GitCommitish`. The URI scheme stays as-is (usually `file:`), but `sha` and `repoPath` are
  *   carried as instance properties for internal use within GitLens.
- * - **gitlens:// with encoded authority** — created by `GitProvider.getRevisionUri()`. Git metadata is
+ * - **gitlens:// with encoded authority** — created by `GlGitProvider.getRevisionUri()`. Git metadata is
  *   hex-encoded in the URI authority for use with VS Code's `FileSystemProvider` and document APIs.
  *
  * Use `getRevisionUriFromGitUri()` on `GitProviderService` to convert a file:// GitUri to a gitlens:// revision URI.

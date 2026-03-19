@@ -1,13 +1,13 @@
 import type { TextEditor, Uri } from 'vscode';
+import { createSearchQueryForCommits } from '@gitlens/git/utils/search.utils.js';
+import { filterMap } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { executeGitCommand } from '../git/actions.js';
 import { GitUri } from '../git/gitUri.js';
-import { createSearchQueryForCommits } from '../git/search.js';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages.js';
 import { command } from '../system/-webview/command.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { filterMap } from '../system/iterable.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 

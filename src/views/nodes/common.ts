@@ -1,12 +1,12 @@
 import type { Command, Disposable, Uri } from 'vscode';
 import { commands, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { isPromise } from '@gitlens/utils/promise.js';
+import { compareSubstringIgnoreCase, equalsIgnoreCase, pluralize } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import { unknownGitUri } from '../../git/gitUri.js';
-import type { Repository } from '../../git/models/repository.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { getScopedCounter } from '../../system/counter.js';
-import { isPromise } from '../../system/promise.js';
-import { compareSubstringIgnoreCase, equalsIgnoreCase, pluralize } from '../../system/string.js';
 import type { View } from '../viewBase.js';
 import type { PageableViewNode } from './abstract/viewNode.js';
 import { ContextValues, ViewNode } from './abstract/viewNode.js';
@@ -176,7 +176,7 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		return item;
 	}
 
-	private getDescription(repos: Repository[]): string | undefined {
+	private getDescription(repos: GlRepository[]): string | undefined {
 		const description = this.getViewDescription();
 		const label = this.getRepositoryFilterLabel(repos, true);
 		return label
@@ -186,7 +186,7 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 			: description;
 	}
 
-	private getTooltip(repos: Repository[]): MarkdownString {
+	private getTooltip(repos: GlRepository[]): MarkdownString {
 		const tooltip = new MarkdownString();
 		if (this.view.grouped) {
 			tooltip.appendText(this.view.name);
@@ -224,7 +224,7 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		return tooltip;
 	}
 
-	private getRepositoryFilterLabel(repos?: Repository[], addSuffix?: boolean): string | undefined {
+	private getRepositoryFilterLabel(repos?: GlRepository[], addSuffix?: boolean): string | undefined {
 		if (!this.view.supportsRepositoryFilter) return undefined;
 		if (!repos?.length) return undefined;
 

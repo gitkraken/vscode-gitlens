@@ -1,13 +1,13 @@
 import type { Uri } from 'vscode';
 import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
+import { filterMap } from '@gitlens/utils/array.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { Container } from '../container.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
 import { openTextEditors } from '../system/-webview/vscode/editors.js';
-import { filterMap } from '../system/array.js';
-import { Logger } from '../system/logger.js';
-import { areUrisEqual } from '../system/uri.js';
 import { GlCommandBase } from './commandBase.js';
 
 export interface OpenOnlyChangedFilesCommandArgs {

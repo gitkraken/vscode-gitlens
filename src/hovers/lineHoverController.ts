@@ -1,12 +1,12 @@
 import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
 import { Disposable, Hover, languages, Range, window } from 'vscode';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { once } from '@gitlens/utils/event.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
-import { trace } from '../system/decorators/log.js';
-import { once } from '../system/event.js';
-import { Logger } from '../system/logger.js';
-import { areUrisEqual } from '../system/uri.js';
 import type { LinesChangeEvent } from '../trackers/lineTracker.js';
 import { changesMessage, detailsMessage } from './hovers.js';
 

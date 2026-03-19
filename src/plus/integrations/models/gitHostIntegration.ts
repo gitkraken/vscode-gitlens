@@ -1,19 +1,19 @@
 import type { CancellationToken } from 'vscode';
+import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { first } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationIds } from '../../../constants.integrations.js';
 import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
-import type { PagedResult } from '../../../git/gitProvider.js';
-import type { Account, UnidentifiedAuthor } from '../../../git/models/author.js';
-import type { DefaultBranch } from '../../../git/models/defaultBranch.js';
-import type { IssueOrPullRequestState as PullRequestState } from '../../../git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest.js';
-import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata.js';
-import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
-import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils.js';
 import { gate } from '../../../system/decorators/gate.js';
-import { trace } from '../../../system/decorators/log.js';
-import { first } from '../../../system/iterable.js';
-import { Logger } from '../../../system/logger.js';
-import { getScopedLogger } from '../../../system/logger.scope.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type {
 	GetIssuesOptions,
@@ -28,12 +28,8 @@ import type {
 	ProviderRepository,
 } from '../providers/models.js';
 import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
-import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
+import type { IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
-
-export function isGitHostIntegration(integration: Integration): integration is GitHostIntegration {
-	return integration.type === 'git';
-}
 
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,

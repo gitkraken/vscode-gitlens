@@ -1,16 +1,17 @@
 import type { Uri } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { GitContributor } from '@gitlens/git/models/contributor.js';
+import type { GitLog } from '@gitlens/git/models/log.js';
+import { formatNumeric } from '@gitlens/utils/date.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { map } from '@gitlens/utils/iterable.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import { getPresenceDataUri } from '../../avatars.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
-import type { GitContributor } from '../../git/models/contributor.js';
-import type { GitLog } from '../../git/models/log.js';
+import { getContributorAvatarUri } from '../../git/utils/-webview/contributor.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { formatNumeric } from '../../system/date.js';
 import { gate } from '../../system/decorators/gate.js';
-import { trace } from '../../system/decorators/log.js';
-import { map } from '../../system/iterable.js';
-import { pluralize } from '../../system/string.js';
 import type { ContactPresence } from '../../vsls/vsls.js';
 import type { ViewsWithContributors } from '../viewBase.js';
 import type { ClipboardType, PageableViewNode } from './abstract/viewNode.js';
@@ -122,7 +123,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 				: ''
-		}${this.contributor.latestCommitDate != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
+		}${this.contributor.latestCommitDate != null ? `${GitContributor.formatDateFromNow(this.contributor)}, ` : ''}${pluralize(
 			'commit',
 			this.contributor.contributionCount,
 		)}${shortStats}`;
@@ -131,7 +132,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		let avatarMarkdown;
 		if (this.view.config.avatars) {
 			const size = configuration.get('hovers.avatarSize');
-			avatarUri = await this.contributor.getAvatarUri({
+			avatarUri = await getContributorAvatarUri(this.contributor, {
 				defaultStyle: configuration.get('defaultGravatarsStyle'),
 				size: size,
 			});
@@ -167,7 +168,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 		const lastCommitted =
 			this.contributor.latestCommitDate != null
-				? `Last commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\\\n`
+				? `Last commit ${GitContributor.formatDateFromNow(this.contributor)} (${GitContributor.formatDate(this.contributor)})\\\n`
 				: '';
 
 		const pathContext = this.options?.pathspec?.uri

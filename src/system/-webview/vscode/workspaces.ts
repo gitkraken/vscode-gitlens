@@ -1,6 +1,6 @@
 import type { WorkspaceFolder } from 'vscode';
 import { Uri, workspace } from 'vscode';
-import { normalizePath } from '../../path.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { executeCoreCommand } from '../command.js';
 import { relative } from '../path.js';
 

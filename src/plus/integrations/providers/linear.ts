@@ -1,12 +1,12 @@
 import type { CancellationToken } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { IssueResourceDescriptor, ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { isIssueResourceDescriptor } from '@gitlens/git/utils/resourceDescriptor.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { AutolinkReference, GlDynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
 import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
-import type { Account } from '../../../git/models/author.js';
-import type { Issue, IssueShape } from '../../../git/models/issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest.js';
-import type { IssueResourceDescriptor, ResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
-import { isIssueResourceDescriptor } from '../../../git/utils/resourceDescriptor.utils.js';
-import { Logger } from '../../../system/logger.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -29,8 +29,8 @@ export interface LinearOrganizationDescriptor extends IssueResourceDescriptor {
 export interface LinearProjectDescriptor extends IssueResourceDescriptor {}
 
 export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Linear> {
-	private _autolinks: Map<string, (AutolinkReference | DynamicAutolinkReference)[]> | undefined;
-	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+	private _autolinks: Map<string, (AutolinkReference | GlDynamicAutolinkReference)[]> | undefined;
+	override async autolinks(): Promise<(AutolinkReference | GlDynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected || this._session == null) {
 			return [];
@@ -41,7 +41,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		const organization = await this.getOrganization(this._session);
 		if (organization == null) return [];
 
-		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
+		const autolinks: (AutolinkReference | GlDynamicAutolinkReference)[] = [];
 
 		const teams = await this.getTeams(this._session);
 		for (const team of teams ?? []) {
@@ -73,7 +73,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			});
 		}
 
-		this._autolinks ??= new Map<string, (AutolinkReference | DynamicAutolinkReference)[]>();
+		this._autolinks ??= new Map<string, (AutolinkReference | GlDynamicAutolinkReference)[]>();
 		this._autolinks.set(this._session.accessToken, autolinks);
 
 		return autolinks;

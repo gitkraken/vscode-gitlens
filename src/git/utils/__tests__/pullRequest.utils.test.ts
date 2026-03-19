@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { getPullRequestIdentityFromMaybeUrl } from '../pullRequest.utils.js';
+import { getPullRequestIdentityFromMaybeUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 
 suite('Test PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', () => {
 	function t(message: string, query: string, prNumber: string | undefined, ownerAndRepo?: string) {

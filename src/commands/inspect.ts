@@ -1,11 +1,12 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { showCommitInDetailsView } from '../git/actions/commit.js';
 import { GitUri } from '../git/gitUri.js';
-import type { GitRevisionReference } from '../git/models/reference.js';
 import { getReferenceFromRevision } from '../git/utils/-webview/reference.utils.js';
-import { createReference } from '../git/utils/reference.utils.js';
 import {
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
@@ -13,7 +14,6 @@ import {
 } from '../messages.js';
 import { command } from '../system/-webview/command.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { Logger } from '../system/logger.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';

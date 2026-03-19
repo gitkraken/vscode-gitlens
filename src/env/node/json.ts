@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
+import { isLoggable } from '@gitlens/utils/loggable.js';
 import { isContainer } from '../../container.js';
-import { isLoggable } from '../../system/loggable.js';
 import type { IpcDate, IpcPromise, IpcUri } from '../../webviews/ipc/models/dataTypes.js';
 import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc/utils/ipc.utils.js';
 import { IpcPromiseSettled } from '../../webviews/protocol.js';

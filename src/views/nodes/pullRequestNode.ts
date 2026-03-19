@@ -1,11 +1,17 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+} from '@gitlens/git/utils/pullRequest.utils.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { Colors } from '../../constants.colors.js';
 import { GitUri } from '../../git/gitUri.js';
-import { GitBranch } from '../../git/models/branch.js';
-import type { GitCommit } from '../../git/models/commit.js';
-import type { PullRequest } from '../../git/models/pullRequest.js';
-import type { GitBranchReference } from '../../git/models/reference.js';
-import type { Repository } from '../../git/models/repository.js';
+import type { GlRepository } from '../../git/models/repository.js';
 import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults.js';
 import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons.js';
 import {
@@ -13,13 +19,7 @@ import {
 	ensurePullRequestRemote,
 	getOrOpenPullRequestRepository,
 } from '../../git/utils/-webview/pullRequest.utils.js';
-import {
-	getComparisonRefsForPullRequest,
-	getRepositoryIdentityForPullRequest,
-} from '../../git/utils/pullRequest.utils.js';
-import { createRevisionRange } from '../../git/utils/revision.utils.js';
 import { createCommand } from '../../system/-webview/command.js';
-import { pluralize } from '../../system/string.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
@@ -132,7 +132,7 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 		if (this.pullRequest.refs?.base != null && this.pullRequest.refs.head != null) {
 			item.contextValue += `+refs`;
 		}
-		item.description = `${this.pullRequest.state}, ${this.pullRequest.formatDateFromNow()}`;
+		item.description = `${this.pullRequest.state}, ${PullRequest.formatDateFromNow(this.pullRequest)}`;
 		item.iconPath = getIssueOrPullRequestThemeIcon(this.pullRequest);
 		item.tooltip = getPullRequestTooltip(this.pullRequest, this.context);
 
@@ -144,9 +144,9 @@ export async function getPullRequestChildren(
 	view: ViewsWithCommits,
 	parent: ViewNode,
 	pullRequest: PullRequest,
-	repoOrPath?: Repository | string,
+	repoOrPath?: GlRepository | string,
 ): Promise<ViewNode[]> {
-	let repo: Repository | undefined;
+	let repo: GlRepository | undefined;
 	if (repoOrPath == null) {
 		repo = await getOrOpenPullRequestRepository(view.container, pullRequest, { promptIfNeeded: true });
 	} else if (typeof repoOrPath === 'string') {
@@ -175,7 +175,7 @@ export async function getPullRequestChildren(
 			new CommandMessageNode(
 				view,
 				parent,
-				createCommand<[ViewNode, PullRequest, Repository]>(
+				createCommand<[ViewNode, PullRequest, GlRepository]>(
 					'gitlens.views.addPullRequestRemote',
 					'Add Pull Request Remote...',
 					parent,
@@ -270,7 +270,7 @@ export function getPullRequestTooltip(
 			pullRequest.author.name
 		}](${pullRequest.author.url} "Open @${pullRequest.author.name} on ${
 			pullRequest.provider.name
-		}") was ${pullRequest.state.toLowerCase()} ${pullRequest.formatDateFromNow()}`,
+		}") was ${pullRequest.state.toLowerCase()} ${PullRequest.formatDateFromNow(pullRequest)}`,
 	);
 	if (context?.codeSuggestionsCount != null && context.codeSuggestionsCount > 0) {
 		tooltip.appendMarkdown(

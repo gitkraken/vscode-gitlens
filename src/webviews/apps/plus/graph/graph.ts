@@ -1,7 +1,7 @@
 import './graph.scss';
 import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { Color } from '../../../../system/color.js';
+import { Color } from '@gitlens/utils/color.js';
 import type { State } from '../../../plus/graph/protocol.js';
 import { GlAppHost } from '../../shared/appHost.js';
 import type { HostIpc } from '../../shared/ipc.js';

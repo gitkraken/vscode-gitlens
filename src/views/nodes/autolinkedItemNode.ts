@@ -1,10 +1,10 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { isPromise } from '@gitlens/utils/promise.js';
 import type { Autolink } from '../../autolinks/models/autolinks.js';
 import { GitUri } from '../../git/gitUri.js';
-import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest.js';
 import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons.js';
-import { fromNow } from '../../system/date.js';
-import { isPromise } from '../../system/promise.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import type { ClipboardType } from './abstract/viewNode.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';

@@ -1,11 +1,11 @@
 import { env, window } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { OpenIssueActionContext } from '../api/gitlens.d.js';
 import { actionCommandPrefix } from '../constants.commands.js';
 import { command } from '../system/-webview/command.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
-import { Logger } from '../system/logger.js';
-import { getScopedLogger } from '../system/logger.scope.js';
 import { GlCommandBase } from './commandBase.js';
 
 export interface OpenIssueOnRemoteCommandArgs {

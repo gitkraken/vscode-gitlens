@@ -21,6 +21,12 @@ import {
 	window,
 	workspace,
 } from 'vscode';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { once } from '@gitlens/utils/event.js';
+import { find } from '@gitlens/utils/iterable.js';
+import { basename } from '@gitlens/utils/path.js';
 import type { AnnotationsToggleMode, FileAnnotationType } from '../config.js';
 import type { Colors, CoreColors } from '../constants.colors.js';
 import type { AnnotationStatus } from '../constants.js';
@@ -31,12 +37,6 @@ import { setContext } from '../system/-webview/context.js';
 import type { KeyboardScope } from '../system/-webview/keyboard.js';
 import { UriSet } from '../system/-webview/uriMap.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
-import { debug, trace } from '../system/decorators/log.js';
-import { once } from '../system/event.js';
-import type { Deferrable } from '../system/function/debounce.js';
-import { debounce } from '../system/function/debounce.js';
-import { find } from '../system/iterable.js';
-import { basename } from '../system/path.js';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,

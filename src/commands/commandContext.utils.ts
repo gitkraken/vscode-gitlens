@@ -1,21 +1,17 @@
 import type { GitTimelineItem, SourceControl, TextEditor } from 'vscode';
 import { Uri, window } from 'vscode';
+import { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import { GitContributor } from '@gitlens/git/models/contributor.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
+import { GitRemote } from '@gitlens/git/models/remote.js';
+import { GitTag } from '@gitlens/git/models/tag.js';
+import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { GlCommands, GlCommandsDeprecated } from '../constants.commands.js';
 import type { StoredNamedRef } from '../constants.storage.js';
-import type { GitBranch } from '../git/models/branch.js';
-import { isBranch } from '../git/models/branch.js';
-import type { GitCommit, GitStashCommit } from '../git/models/commit.js';
-import { isCommit } from '../git/models/commit.js';
-import type { GitContributor } from '../git/models/contributor.js';
-import { isContributor } from '../git/models/contributor.js';
-import type { GitFile } from '../git/models/file.js';
-import type { GitReference } from '../git/models/reference.js';
-import type { GitRemote } from '../git/models/remote.js';
-import { isRemote } from '../git/models/remote.js';
-import { Repository } from '../git/models/repository.js';
-import type { GitTag } from '../git/models/tag.js';
-import { isTag } from '../git/models/tag.js';
-import { GitWorktree } from '../git/models/worktree.js';
+import { GlRepository } from '../git/models/repository.js';
 import { CloudWorkspace } from '../plus/workspaces/models/cloudWorkspace.js';
 import { LocalWorkspace } from '../plus/workspaces/models/localWorkspace.js';
 import { isScm, isScmResourceGroup, isScmResourceState } from '../system/-webview/scm.js';
@@ -42,7 +38,7 @@ export function isCommandContextViewNodeHasBranch(
 ): context is CommandViewNodeContext & { node: ViewNode & { branch: GitBranch } } {
 	if (context.type !== 'viewItem') return false;
 
-	return isBranch((context.node as ViewNode & { branch: GitBranch }).branch);
+	return GitBranch.is((context.node as ViewNode & { branch: GitBranch }).branch);
 }
 
 export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitStashCommit>(
@@ -50,7 +46,7 @@ export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitStash
 ): context is CommandViewNodeContext & { node: ViewNode & { commit: T } } {
 	if (context.type !== 'viewItem') return false;
 
-	return isCommit((context.node as ViewNode & { commit: GitCommit | GitStashCommit }).commit);
+	return GitCommit.is((context.node as ViewNode & { commit: GitCommit | GitStashCommit }).commit);
 }
 
 export function isCommandContextViewNodeHasContributor(
@@ -58,7 +54,7 @@ export function isCommandContextViewNodeHasContributor(
 ): context is CommandViewNodeContext & { node: ViewNode & { contributor: GitContributor } } {
 	if (context.type !== 'viewItem') return false;
 
-	return isContributor((context.node as ViewNode & { contributor: GitContributor }).contributor);
+	return GitContributor.is((context.node as ViewNode & { contributor: GitContributor }).contributor);
 }
 
 export function isCommandContextViewNodeHasFile(
@@ -76,7 +72,7 @@ export function isCommandContextViewNodeHasFileCommit(
 	if (context.type !== 'viewItem') return false;
 
 	const node = context.node as ViewNode & { commit: GitCommit; file: GitFile; repoPath: string };
-	return node.file != null && isCommit(node.commit) && (node.file.repoPath != null || node.repoPath != null);
+	return node.file != null && GitCommit.is(node.commit) && (node.file.repoPath != null || node.repoPath != null);
 }
 
 export function isCommandContextViewNodeHasFileRefs(context: CommandContext): context is CommandViewNodeContext & {
@@ -125,7 +121,7 @@ export function isCommandContextViewNodeHasRemote(
 ): context is CommandViewNodeContext & { node: ViewNode & { remote: GitRemote } } {
 	if (context.type !== 'viewItem') return false;
 
-	return isRemote((context.node as ViewNode & { remote: GitRemote }).remote);
+	return GitRemote.is((context.node as ViewNode & { remote: GitRemote }).remote);
 }
 
 export function isCommandContextViewNodeHasWorktree(
@@ -138,10 +134,10 @@ export function isCommandContextViewNodeHasWorktree(
 
 export function isCommandContextViewNodeHasRepository(
 	context: CommandContext,
-): context is CommandViewNodeContext & { node: ViewNode & { repo: Repository } } {
+): context is CommandViewNodeContext & { node: ViewNode & { repo: GlRepository } } {
 	if (context.type !== 'viewItem') return false;
 
-	return (context.node as ViewNode & { repo?: Repository }).repo instanceof Repository;
+	return (context.node as ViewNode & { repo?: GlRepository }).repo instanceof GlRepository;
 }
 
 export function isCommandContextViewNodeHasRepoPath(
@@ -157,7 +153,7 @@ export function isCommandContextViewNodeHasTag(
 ): context is CommandViewNodeContext & { node: ViewNode & { tag: GitTag } } {
 	if (context.type !== 'viewItem') return false;
 
-	return isTag((context.node as ViewNode & { tag: GitTag }).tag);
+	return GitTag.is((context.node as ViewNode & { tag: GitTag }).tag);
 }
 
 export function isCommandContextViewNodeHasWorkspace(

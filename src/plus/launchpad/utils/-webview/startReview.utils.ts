@@ -1,21 +1,21 @@
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
+import { defer } from '@gitlens/utils/promise.js';
 import type { WorktreeGitCommandArgs } from '../../../../commands/git/worktree.js';
 import type { OpenChatActionCommandArgs } from '../../../../commands/openChatAction.js';
 import type { SendToChatCommandArgs } from '../../../../commands/sendToChat.js';
 import type { Container } from '../../../../container.js';
-import type { GitBranch } from '../../../../git/models/branch.js';
-import type { PullRequest, PullRequestShape } from '../../../../git/models/pullRequest.js';
-import type { GitBranchReference } from '../../../../git/models/reference.js';
-import type { Repository } from '../../../../git/models/repository.js';
-import type { GitWorktree } from '../../../../git/models/worktree.js';
-import { parseGitRemoteUrl } from '../../../../git/parsers/remoteParser.js';
+import type { GlRepository } from '../../../../git/models/repository.js';
 import { getOrOpenPullRequestRepository } from '../../../../git/utils/-webview/pullRequest.utils.js';
 import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils.js';
 import { getWorktreeForBranch } from '../../../../git/utils/-webview/worktree.utils.js';
-import { serializePullRequest } from '../../../../git/utils/pullRequest.utils.js';
-import { createReference } from '../../../../git/utils/reference.utils.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js';
-import { defer } from '../../../../system/promise.js';
 import type { StartReviewChatAction } from '../../../chat/chatActions.js';
 import { storeChatActionDeepLink } from '../../../chat/chatActions.js';
 import type { LaunchpadItem } from '../../launchpadProvider.js';
@@ -115,7 +115,7 @@ export async function startReviewFromLaunchpadItem(
 }
 
 async function setupPullRequestBranch(
-	repo: Repository,
+	repo: GlRepository,
 	pr: PullRequest,
 ): Promise<{
 	remoteName: string;
@@ -186,7 +186,7 @@ async function setupPullRequestBranch(
 
 async function createPullRequestWorktree(
 	_container: Container,
-	repo: Repository,
+	repo: GlRepository,
 	localBranchName: string,
 	branchRef: GitBranchReference,
 	createBranch: string | undefined,

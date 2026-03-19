@@ -1,4 +1,4 @@
-import type { UriComponents } from '../../../system/uri.js';
+import type { UriComponents } from '@gitlens/utils/uri.js';
 
 // Unified IPC Tagged Types System - allows transparent serialization/deserialization of special types across the IPC boundary
 

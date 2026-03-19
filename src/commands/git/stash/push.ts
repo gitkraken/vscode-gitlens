@@ -1,19 +1,19 @@
 import type { QuickInputButton, Uri } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
+import { StashPushError } from '@gitlens/git/errors.js';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { defer } from '@gitlens/utils/promise.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
 import type { Container } from '../../../container.js';
-import { StashPushError } from '../../../git/errors.js';
-import type { Repository } from '../../../git/models/repository.js';
-import { uncommitted, uncommittedStaged } from '../../../git/models/revision.js';
+import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import type { AIModel } from '../../../plus/ai/models/model.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { formatPath } from '../../../system/-webview/formatPath.js';
-import { getLoggableName, Logger } from '../../../system/logger.js';
-import { maybeStartScopedLogger } from '../../../system/logger.scope.js';
-import { defer } from '../../../system/promise.js';
-import { pad } from '../../../system/string.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -48,7 +48,7 @@ export type StashPushStepNames = StepNames;
 type Context = StashContext<StepNames>;
 
 type Flags = '--include-untracked' | '--keep-index' | '--staged' | '--snapshot';
-interface State<Repo = string | Repository> {
+interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	message?: string;
 	uris?: Uri[];
@@ -112,7 +112,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			assertStepState<State<Repository>>(state);
+			assertStepState<State<GlRepository>>(state);
 
 			if (steps.isAtStep(Steps.InputMessage) || state.message == null) {
 				using step = steps.enterStep(Steps.InputMessage);
@@ -206,7 +206,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 	}
 
 	private async *inputMessageStep(
-		state: StepState<State<Repository>>,
+		state: StepState<State<GlRepository>>,
 		context: Context,
 	): AsyncStepResultGenerator<string> {
 		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.inputMessageStep`);
@@ -305,7 +305,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 		return value;
 	}
 
-	private *confirmStep(state: StepState<State<Repository>>, context: Context): StepResultGenerator<Flags[]> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
 		const stagedOnly = state.flags.includes('--staged');
 
 		const baseFlags: Flags[] = [];

@@ -1,11 +1,12 @@
 import { chmod, mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, resolve, sep } from 'path';
 import { Uri, window } from 'vscode';
+import { run } from '@gitlens/utils/env/node/exec.js';
+import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { joinUriPath } from '@gitlens/utils/uri.js';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
 import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
-import { maybeStartScopedLogger } from '../../../../system/logger.scope.js';
-import { run } from '../../git/shell.js';
 import { getPlatform } from '../../platform.js';
 
 /**
@@ -78,7 +79,7 @@ export async function extractZipFile(
 }
 
 export function getCLIExecutable(cliPath?: string | null): Uri {
-	return Uri.joinPath(
+	return joinUriPath(
 		Uri.file(cliPath ?? Container.instance.context.globalStorageUri.fsPath),
 		getPlatform() === 'windows' ? 'gk.exe' : 'gk',
 	);
