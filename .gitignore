@@ -2,6 +2,7 @@
 .claude/settings.local.json
 .claude/worktrees/**
 .DS_Store
+.triage/
 .eslintcache*
 **/.vscode-clean/**
 **/.vscode-test/**
