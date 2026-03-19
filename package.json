@@ -27431,6 +27431,8 @@
 		"reset": "pnpm run clean && pnpm install --force",
 		"test": "vscode-test",
 		"test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
+		"triage:recent": "node --experimental-strip-types ./scripts/triage/triage.mts recent",
+		"triage:audit": "node --experimental-strip-types ./scripts/triage/triage.mts audit",
 		"test:e2e:insiders": "set VSCODE_VERSION=insiders && playwright test -c tests/e2e/playwright.config.ts",
 		"build:e2e-runner": "esbuild tests/e2e/runner/src/index.ts --bundle --outfile=tests/e2e/runner/dist/index.js --platform=node --external:vscode --format=cjs",
 		"watch": "node ./scripts/build.mjs --watch",

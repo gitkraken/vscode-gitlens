@@ -40,7 +40,16 @@ Perform structured root cause analysis before implementing any fix.
 - Check both `src/env/node/` and `src/env/browser/` paths
 - Check sub-providers: `src/env/node/git/sub-providers/` and `src/git/sub-providers/`
 
-### 5. Present Findings
+### 5. Assess Source Attribution
+
+Before presenting findings, assess where the diagnosis came from:
+
+- **Independent analysis** — Root cause was determined primarily by tracing code paths, reading implementations, and forming hypotheses from code evidence. The issue description described symptoms but did not point to the cause.
+- **Confirmed reporter's diagnosis** — The issue already contained detailed code references, file paths, or a proposed root cause. The investigation verified these claims against the current code but did not independently discover the cause.
+
+Be honest about this. Both are valuable — confirming a reporter's analysis is useful — but the reader should know what the investigation actually contributed.
+
+### 6. Present Findings
 
 ```markdown
 ## Investigation: [Symptom]
@@ -48,6 +57,10 @@ Perform structured root cause analysis before implementing any fix.
 ### Symptom
 
 [What goes wrong]
+
+### Source Attribution
+
+[One of: "Independent analysis from code tracing" | "Confirms reporter's diagnosis — the issue included [specific detail: code references / file paths / root cause hypothesis] which this investigation verified against current code" | "Mixed — [explain what came from the issue vs. independent tracing]"]
 
 ### Code Path
 
@@ -72,7 +85,7 @@ Perform structured root cause analysis before implementing any fix.
 - Platform paths verified: Node.js [yes/no], Browser [yes/no]
 ```
 
-### 6. Get Confirmation
+### 7. Get Confirmation
 
 Present findings and proposed fix. Wait for user confirmation before implementing.
 
