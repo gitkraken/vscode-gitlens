@@ -127,6 +127,8 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private async start() {
+		this.stop();
+
 		const server = await createIpcServer<CliCommandRequest, CliCommandResponse>();
 
 		server.registerHandler('ping', () =>
