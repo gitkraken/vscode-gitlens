@@ -329,7 +329,7 @@ test.describe('Quick Wizard — Branch Commands', () => {
 			await quickPick.selectItemMulti(/feature-with-worktree/i);
 
 			// Confirm worktree deletion
-			await quickPick.waitForStep({ title: /Confirm Delete Worktree for Branch/i });
+			await quickPick.waitForStep({ title: /Delete Worktree for Branch/i });
 
 			// Note: The full flow would continue to delete the worktree then delete the branch,
 			// but we stop here to test navigation without actually performing destructive operations
@@ -361,7 +361,7 @@ test.describe('Quick Wizard — Branch Commands', () => {
 			await quickPick.selectItemMulti(/feature-with-worktree/i);
 
 			// Confirm worktree deletion
-			await quickPick.waitForStep({ title: /Confirm Delete Worktree for Branch/i });
+			await quickPick.waitForStep({ title: /Delete Worktree for Branch/i });
 
 			// Note: The full flow would continue to delete the worktree then delete the branch,
 			// but we stop here to test navigation without actually performing destructive operations
@@ -657,24 +657,24 @@ test.describe('Quick Wizard — Stash Commands', () => {
 			// Select a stash to show
 			await quickPick.selectItem(/Test stash/i);
 
-			// Show step - starts in files mode (placeholder is the stash description)
+			// Show step - starts in commands mode (placeholder is the stash description)
 			await quickPick.waitForStep({ title: /Stash #/i, placeholder: /Stash #.*Test stash/i });
 
-			// Verify we're in files mode by checking for the toggle to actions hint
+			// Verify we're in commands mode by checking for the toggle to files hint
 			let items = await quickPick.getVisibleItems();
-			expect(items.some(item => /Click to see.*actions/i.test(item))).toBeTruthy();
+			expect(items.some(item => /Click to see.*files/i.test(item))).toBeTruthy();
 
-			// Toggle to commands mode (click the toggle item with hint about stash actions)
-			await quickPick.selectItem(/Click to see.*actions/i);
+			// Toggle to files mode (click the toggle item with hint about files)
+			await quickPick.selectItem(/Click to see.*files/i);
 
-			// Verify we're now in commands mode by checking for the toggle back to files hint
+			// Verify we're now in files mode by checking for the toggle back to actions hint
 			await quickPick.waitForStep({ title: /Stash #/i });
 			items = await quickPick.getVisibleItems();
-			expect(items.some(item => /Click to see.*files/i.test(item))).toBeTruthy();
+			expect(items.some(item => /Click to see.*actions/i.test(item))).toBeTruthy();
 
 			// === REVERSE NAVIGATION ===
 
-			// Back from commands → stash picker (toggle doesn't add to history, so back skips files mode)
+			// Back from files → stash picker (toggle doesn't add to history, so back skips commands mode)
 			await quickPick.goBackAndWaitForStep({ title: /Stashes/i, placeholder: /Choose a stash/i });
 
 			await reverseCommandSubcommandAndRepo(vscode, 'stash');
@@ -698,25 +698,25 @@ test.describe('Quick Wizard — Stash Commands', () => {
 			// Select a stash to show
 			await quickPick.selectItem(/Test stash/i);
 
-			// Start in files mode
+			// Start in commands mode
 			await quickPick.waitForStep({ title: /Stash #/i });
 			let items = await quickPick.getVisibleItems();
+			expect(items.some(item => /Click to see.*files/i.test(item))).toBeTruthy();
+
+			// Toggle to files mode
+			await quickPick.selectItem(/Click to see.*files/i);
+			await quickPick.waitForStep({ title: /Stash #/i });
+			items = await quickPick.getVisibleItems();
 			expect(items.some(item => /Click to see.*actions/i.test(item))).toBeTruthy();
 
-			// Toggle to commands mode
+			// Toggle back to commands mode
 			await quickPick.selectItem(/Click to see.*actions/i);
+			await page.waitForTimeout(ShortTimeout); // Give time for the step to update
 			await quickPick.waitForStep({ title: /Stash #/i });
 			items = await quickPick.getVisibleItems();
 			expect(items.some(item => /Click to see.*files/i.test(item))).toBeTruthy();
 
-			// Toggle back to files mode
-			await quickPick.selectItem(/Click to see.*files/i);
-			await page.waitForTimeout(ShortTimeout); // Give time for the step to update
-			await quickPick.waitForStep({ title: /Stash #/i });
-			items = await quickPick.getVisibleItems();
-			expect(items.some(item => /Click to see.*actions/i.test(item))).toBeTruthy();
-
-			// Back from files → should go directly to stash picker (not through commands mode)
+			// Back from commands → should go directly to stash picker (not through files mode)
 			await quickPick.goBackAndWaitForStep({ title: /Stashes/i, placeholder: /Choose a stash/i });
 
 			await quickPick.cancel();
@@ -1431,9 +1431,9 @@ test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 			// Show step - title is "Commit <sha> (<message>)" - transitions to show command
 			await quickPick.waitForStep({ title: /Commit [a-f0-9]+/i });
 
-			// Verify we're in files mode by checking for the toggle to actions hint
+			// Verify we're in commands mode by checking for the toggle to files hint
 			const items = await quickPick.getVisibleItems();
-			expect(items.some(item => /Click to see.*actions/i.test(item))).toBeTruthy();
+			expect(items.some(item => /Click to see.*files/i.test(item))).toBeTruthy();
 
 			// === REVERSE NAVIGATION ===
 
