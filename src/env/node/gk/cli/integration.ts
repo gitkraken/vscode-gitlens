@@ -868,16 +868,35 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@debug()
-	private async updateCliCore(): Promise<{ previous: string | undefined; current: string | undefined } | undefined> {
+	private async updateCliCore(
+		source?: Source,
+	): Promise<{ previous: string | undefined; current: string | undefined } | undefined> {
 		const scope = getScopedLogger();
+		source ??= { source: 'gk-cli-integration' };
 
+		let previousVersion:
+			| {
+					proxy: string;
+					core: string;
+			  }
+			| undefined = undefined;
 		try {
-			const previousVersion = await getCLIVersions();
+			previousVersion = await getCLIVersions();
 			await runCLICommand(['update']);
 			const currentVersion = await getCLIVersions();
 			this._cliCoreVersion = currentVersion?.core;
 
 			scope?.debug(`CLI core update (previous: ${previousVersion?.core}, current: ${currentVersion?.core})`);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent(
+					'cli/updateCore/completed',
+					{
+						previous: previousVersion?.core,
+						current: currentVersion?.core,
+					},
+					source,
+				);
+			}
 
 			return {
 				previous: previousVersion?.core,
@@ -885,6 +904,16 @@ export class GkCliIntegrationProvider implements Disposable {
 			};
 		} catch (ex) {
 			scope?.error(ex, 'Failed to update CLI');
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent(
+					'cli/updateCore/failed',
+					{
+						previous: previousVersion?.core,
+						'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+					},
+					source,
+				);
+			}
 		}
 
 		return undefined;

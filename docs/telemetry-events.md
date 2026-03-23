@@ -669,6 +669,28 @@ void
 }
 ```
 
+### cli/updateCore/completed
+
+> Sent when a CLI update succeeds
+
+```typescript
+{
+  'current': string,
+  'previous': string
+}
+```
+
+### cli/updateCore/failed
+
+> Sent when a CLI update fails
+
+```typescript
+{
+  'error.message': string,
+  'previous': string
+}
+```
+
 ### cloudIntegrations/connected
 
 > Sent when connected to one or more cloud-based integrations from gkdev
