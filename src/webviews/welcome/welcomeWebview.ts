@@ -106,14 +106,24 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		return needsCursorMcpCleanupNotice(this.container);
 	}
 
+	private async getWelcomeTitle(): Promise<string> {
+		const featureFlags = await this.container.featureFlags;
+		const showVariant = (await featureFlags?.getFlag('glensWelcomeTitle', false)) ?? false;
+		return showVariant ? 'Welcome' : 'Get Started with GitLens';
+	}
+
 	private async getState(): Promise<State> {
-		const subscription = await this.container.subscription.getSubscription();
+		const [subscription, welcomeTitle] = await Promise.all([
+			this.container.subscription.getSubscription(),
+			this.getWelcomeTitle(),
+		]);
 		const plusState = subscription?.state ?? SubscriptionState.Community;
 
 		return {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
 			hostAppName: env.appName,
+			welcomeTitle: welcomeTitle,
 			plusState: plusState,
 			walkthroughProgress: this.getWalkthroughProgress(),
 			mcpNeedsInstall: this.getMcpNeedsInstall(),

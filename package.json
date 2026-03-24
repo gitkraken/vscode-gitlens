@@ -27459,12 +27459,13 @@
 		"prepare": "husky"
 	},
 	"dependencies": {
+		"@configcat/sdk": "^1.0.2",
+		"@gitkraken/gitkraken-components": "13.0.0-vnext.27",
+		"@gitkraken/provider-apis": "0.40.0",
 		"@gitlens/git": "workspace:*",
 		"@gitlens/git-cli": "workspace:*",
 		"@gitlens/git-github": "workspace:*",
 		"@gitlens/utils": "workspace:*",
-		"@gitkraken/gitkraken-components": "13.0.0-vnext.27",
-		"@gitkraken/provider-apis": "0.40.0",
 		"@lit-labs/signals": "0.2.0",
 		"@lit-labs/virtualizer": "2.1.1",
 		"@lit/context": "1.1.6",
