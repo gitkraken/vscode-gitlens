@@ -3,49 +3,77 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @eamodio/supertalk-core version 0.0.6 (https://github.com/eamodio/supertalk)
-2. @eamodio/supertalk-signals version 0.0.6 (https://github.com/eamodio/supertalk)
-3. @eamodio/supertalk version 0.0.7 (https://github.com/eamodio/supertalk)
-4. @gitlens/ai version 0.0.1 (undefined)
-5. @gitlens/git-cli version 0.0.1 (undefined)
-6. @gitlens/git-github version 0.0.1 (undefined)
-7. @gitlens/git version 0.0.1 (undefined)
-8. @lit-labs/signals version 0.2.0 (https://github.com/lit/lit)
-9. @lit-labs/virtualizer version 2.1.1 (https://github.com/lit/lit)
-10. @lit/context version 1.1.6 (https://github.com/lit/lit)
-11. @lit/react version 1.0.8 (https://github.com/lit/lit)
-12. @lit/task version 1.0.3 (https://github.com/lit/lit)
-13. @octokit/graphql version 9.0.3 (https://github.com/octokit/graphql.js)
-14. @octokit/request-error version 7.1.0 (https://github.com/octokit/request-error.js)
-15. @octokit/request version 10.0.8 (https://github.com/octokit/request.js)
-16. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
-17. @opentelemetry/api version 1.9.1 (https://github.com/open-telemetry/opentelemetry-js)
-18. @opentelemetry/exporter-trace-otlp-http version 0.214.0 (https://github.com/open-telemetry/opentelemetry-js)
-19. @opentelemetry/resources version 2.6.1 (https://github.com/open-telemetry/opentelemetry-js)
-20. @opentelemetry/sdk-trace-base version 2.6.1 (https://github.com/open-telemetry/opentelemetry-js)
-21. @opentelemetry/semantic-conventions version 1.40.0 (https://github.com/open-telemetry/opentelemetry-js)
-22. @shoelace-style/shoelace version 2.20.1 (https://github.com/shoelace-style/shoelace)
-23. @vscode/codicons version 0.0.45 (https://github.com/microsoft/vscode-codicons)
-24. billboard.js version 3.18.0 (https://github.com/naver/billboard.js)
-25. diff2html version 3.4.56 (https://github.com/rtfpessoa/diff2html)
-26. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
-27. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
-28. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
-29. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-30. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
-31. lit version 3.3.2 (https://github.com/lit/lit)
-32. marked version 17.0.5 (https://github.com/markedjs/marked)
-33. microsoft/vscode (https://github.com/microsoft/vscode)
-34. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
-35. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-36. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-37. react-dom version 19.2.4 (https://github.com/facebook/react)
-38. react version 19.2.4 (https://github.com/facebook/react)
-39. signal-polyfill version 0.2.2 (https://github.com/proposal-signals/signal-polyfill)
-40. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
-41. slug version 11.0.1 (https://github.com/Trott/slug)
-42. sortablejs version 1.15.7 (https://github.com/SortableJS/Sortable)
-43. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+1. @configcat/sdk version 1.0.2 (https://github.com/configcat/js-unified-sdk)
+2. @eamodio/supertalk-core version 0.0.6 (https://github.com/eamodio/supertalk)
+3. @eamodio/supertalk-signals version 0.0.6 (https://github.com/eamodio/supertalk)
+4. @eamodio/supertalk version 0.0.7 (https://github.com/eamodio/supertalk)
+5. @gitlens/ai version 0.0.1 (undefined)
+6. @gitlens/git-cli version 0.0.1 (undefined)
+7. @gitlens/git-github version 0.0.1 (undefined)
+8. @gitlens/git version 0.0.1 (undefined)
+9. @lit-labs/signals version 0.2.0 (https://github.com/lit/lit)
+10. @lit-labs/virtualizer version 2.1.1 (https://github.com/lit/lit)
+11. @lit/context version 1.1.6 (https://github.com/lit/lit)
+12. @lit/react version 1.0.8 (https://github.com/lit/lit)
+13. @lit/task version 1.0.3 (https://github.com/lit/lit)
+14. @octokit/graphql version 9.0.3 (https://github.com/octokit/graphql.js)
+15. @octokit/request-error version 7.1.0 (https://github.com/octokit/request-error.js)
+16. @octokit/request version 10.0.8 (https://github.com/octokit/request.js)
+17. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
+18. @opentelemetry/api version 1.9.1 (https://github.com/open-telemetry/opentelemetry-js)
+19. @opentelemetry/exporter-trace-otlp-http version 0.214.0 (https://github.com/open-telemetry/opentelemetry-js)
+20. @opentelemetry/resources version 2.6.1 (https://github.com/open-telemetry/opentelemetry-js)
+21. @opentelemetry/sdk-trace-base version 2.6.1 (https://github.com/open-telemetry/opentelemetry-js)
+22. @opentelemetry/semantic-conventions version 1.40.0 (https://github.com/open-telemetry/opentelemetry-js)
+23. @shoelace-style/shoelace version 2.20.1 (https://github.com/shoelace-style/shoelace)
+24. @vscode/codicons version 0.0.45 (https://github.com/microsoft/vscode-codicons)
+25. billboard.js version 3.18.0 (https://github.com/naver/billboard.js)
+26. diff2html version 3.4.56 (https://github.com/rtfpessoa/diff2html)
+27. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
+28. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
+29. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
+30. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+31. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
+32. lit version 3.3.2 (https://github.com/lit/lit)
+33. marked version 17.0.5 (https://github.com/markedjs/marked)
+34. microsoft/vscode (https://github.com/microsoft/vscode)
+35. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+36. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+37. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+38. react-dom version 19.2.4 (https://github.com/facebook/react)
+39. react version 19.2.4 (https://github.com/facebook/react)
+40. signal-polyfill version 0.2.2 (https://github.com/proposal-signals/signal-polyfill)
+41. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
+42. slug version 11.0.1 (https://github.com/Trott/slug)
+43. sortablejs version 1.15.7 (https://github.com/SortableJS/Sortable)
+44. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+
+%% @configcat/sdk NOTICES AND INFORMATION BEGIN HERE
+=========================================
+MIT License
+
+Copyright (c) 2025 ConfigCat
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=========================================
+END OF  @configcat/sdk NOTICES AND INFORMATION
 
 %% @eamodio/supertalk-core NOTICES AND INFORMATION BEGIN HERE
 =========================================
