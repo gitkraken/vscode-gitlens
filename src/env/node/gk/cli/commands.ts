@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/require-await */
+import type { Account } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
 import type { CompareWithCommandArgs } from '../../../../commands/compareWith.js';
 import type { Container } from '../../../../container.js';
 import { cherryPick, merge, rebase } from '../../../../git/actions/repository.js';
+import type { Account as AuthorAccount } from '../../../../git/models/author.js';
 import type { GitBranch } from '../../../../git/models/branch.js';
 import type { PullRequest } from '../../../../git/models/pullRequest.js';
 import type { Repository } from '../../../../git/models/repository.js';
@@ -325,7 +327,7 @@ export class CliCommandHandlers implements Disposable {
 }
 
 function serializeLaunchpadItem(item: LaunchpadItem): Record<string, unknown> {
-	const toSafeAccount = (account: any) => {
+	const toSafeAccount = (account: Account | AuthorAccount | null) => {
 		if (!account) return undefined;
 		return {
 			id: account.id,
