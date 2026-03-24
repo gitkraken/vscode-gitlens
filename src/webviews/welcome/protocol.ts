@@ -25,6 +25,7 @@ export interface GraphWalkthroughProgress {
 export interface State extends WebviewState<'gitlens.views.welcome'> {
 	webroot?: string;
 	hostAppName: string;
+	welcomeTitle: string;
 	plusState: SubscriptionState;
 	walkthroughProgress?: WalkthroughProgress;
 	graphWalkthroughProgress?: GraphWalkthroughProgress;

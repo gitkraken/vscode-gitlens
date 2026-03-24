@@ -4,45 +4,46 @@ THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
 1. @awesome.me/webawesome version 3.7.0 (https://github.com/shoelace-style/webawesome)
-2. @eamodio/supertalk-core version 0.0.6 (https://github.com/eamodio/supertalk)
-3. @eamodio/supertalk-signals version 0.0.6 (https://github.com/eamodio/supertalk)
-4. @eamodio/supertalk version 0.0.7 (https://github.com/eamodio/supertalk)
-5. @gitlens/ai version 0.0.1 (undefined)
-6. @gitlens/git-cli version 0.0.1 (undefined)
-7. @gitlens/git-github version 0.0.1 (undefined)
-8. @gitlens/git version 0.0.1 (undefined)
-9. @lit-labs/signals version 0.3.0 (https://github.com/lit/lit)
-10. @lit-labs/virtualizer version 2.1.1 (https://github.com/lit/lit)
-11. @lit/context version 1.1.6 (https://github.com/lit/lit)
-12. @lit/react version 1.0.8 (https://github.com/lit/lit)
-13. @lit/task version 1.0.3 (https://github.com/lit/lit)
-14. @octokit/graphql version 9.0.3 (https://github.com/octokit/graphql.js)
-15. @octokit/request-error version 7.1.0 (https://github.com/octokit/request-error.js)
-16. @octokit/request version 10.0.8 (https://github.com/octokit/request.js)
-17. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
-18. @opentelemetry/api version 1.9.1 (https://github.com/open-telemetry/opentelemetry-js)
-19. @opentelemetry/exporter-trace-otlp-http version 0.218.0 (https://github.com/open-telemetry/opentelemetry-js)
-20. @opentelemetry/resources version 2.7.1 (https://github.com/open-telemetry/opentelemetry-js)
-21. @opentelemetry/sdk-trace-base version 2.7.1 (https://github.com/open-telemetry/opentelemetry-js)
-22. @opentelemetry/semantic-conventions version 1.41.1 (https://github.com/open-telemetry/opentelemetry-js)
-23. @vscode/codicons version 0.0.45 (https://github.com/microsoft/vscode-codicons)
-24. diff2html version 3.4.56 (https://github.com/rtfpessoa/diff2html)
-25. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
-26. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
-27. fflate version 0.8.3 (https://github.com/101arrowz/fflate)
-28. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
-29. lit version 3.3.3 (https://github.com/lit/lit)
-30. marked version 18.0.4 (https://github.com/markedjs/marked)
-31. microsoft/vscode (https://github.com/microsoft/vscode)
-32. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-33. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-34. react-dom version 19.2.6 (https://github.com/facebook/react)
-35. react version 19.2.6 (https://github.com/facebook/react)
-36. signal-polyfill version 0.2.2 (https://github.com/proposal-signals/signal-polyfill)
-37. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
-38. slug version 11.0.1 (https://github.com/Trott/slug)
-39. sortablejs version 1.15.7 (https://github.com/SortableJS/Sortable)
-40. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+2. @configcat/sdk version 1.0.2 (https://github.com/configcat/js-unified-sdk)
+3. @eamodio/supertalk-core version 0.0.6 (https://github.com/eamodio/supertalk)
+4. @eamodio/supertalk-signals version 0.0.6 (https://github.com/eamodio/supertalk)
+5. @eamodio/supertalk version 0.0.7 (https://github.com/eamodio/supertalk)
+6. @gitlens/ai version 0.0.1 (undefined)
+7. @gitlens/git-cli version 0.0.1 (undefined)
+8. @gitlens/git-github version 0.0.1 (undefined)
+9. @gitlens/git version 0.0.1 (undefined)
+10. @lit-labs/signals version 0.3.0 (https://github.com/lit/lit)
+11. @lit-labs/virtualizer version 2.1.1 (https://github.com/lit/lit)
+12. @lit/context version 1.1.6 (https://github.com/lit/lit)
+13. @lit/react version 1.0.8 (https://github.com/lit/lit)
+14. @lit/task version 1.0.3 (https://github.com/lit/lit)
+15. @octokit/graphql version 9.0.3 (https://github.com/octokit/graphql.js)
+16. @octokit/request-error version 7.1.0 (https://github.com/octokit/request-error.js)
+17. @octokit/request version 10.0.8 (https://github.com/octokit/request.js)
+18. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
+19. @opentelemetry/api version 1.9.1 (https://github.com/open-telemetry/opentelemetry-js)
+20. @opentelemetry/exporter-trace-otlp-http version 0.218.0 (https://github.com/open-telemetry/opentelemetry-js)
+21. @opentelemetry/resources version 2.7.1 (https://github.com/open-telemetry/opentelemetry-js)
+22. @opentelemetry/sdk-trace-base version 2.7.1 (https://github.com/open-telemetry/opentelemetry-js)
+23. @opentelemetry/semantic-conventions version 1.41.1 (https://github.com/open-telemetry/opentelemetry-js)
+24. @vscode/codicons version 0.0.45 (https://github.com/microsoft/vscode-codicons)
+25. diff2html version 3.4.56 (https://github.com/rtfpessoa/diff2html)
+26. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
+27. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
+28. fflate version 0.8.3 (https://github.com/101arrowz/fflate)
+29. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
+30. lit version 3.3.3 (https://github.com/lit/lit)
+31. marked version 18.0.4 (https://github.com/markedjs/marked)
+32. microsoft/vscode (https://github.com/microsoft/vscode)
+33. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+34. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+35. react-dom version 19.2.6 (https://github.com/facebook/react)
+36. react version 19.2.6 (https://github.com/facebook/react)
+37. signal-polyfill version 0.2.2 (https://github.com/proposal-signals/signal-polyfill)
+38. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
+39. slug version 11.0.1 (https://github.com/Trott/slug)
+40. sortablejs version 1.15.7 (https://github.com/SortableJS/Sortable)
+41. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
 
 %% @awesome.me/webawesome NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -56,6 +57,33 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 =========================================
 END OF  @awesome.me/webawesome NOTICES AND INFORMATION
+
+%% @configcat/sdk NOTICES AND INFORMATION BEGIN HERE
+=========================================
+MIT License
+
+Copyright (c) 2025 ConfigCat
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=========================================
+END OF  @configcat/sdk NOTICES AND INFORMATION
 
 %% @eamodio/supertalk-core NOTICES AND INFORMATION BEGIN HERE
 =========================================

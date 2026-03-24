@@ -32,6 +32,7 @@
   // Cohort number between 1 and 100 to use for percentage-based rollouts
   'global.device.cohort': number,
   'global.enabled': boolean,
+  'global.featureFlags': string,
   'global.folders.count': number,
   'global.folders.schemes': string,
   'global.gk.mcp.registrationCompleted': boolean,
