@@ -628,6 +628,16 @@ void
 }
 ```
 
+### cli/discoveryFile/failed
+
+> Sent when the CLI integration discovery file fails to be created
+
+```typescript
+{
+  'error.message': string
+}
+```
+
 ### cli/install/failed
 
 > Sent when a CLI install attempt fails
@@ -666,6 +676,16 @@ void
   'insiders': boolean,
   'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'version': string
+}
+```
+
+### cli/ipc/failed
+
+> Sent when the CLI integration IPC server fails to start
+
+```typescript
+{
+  'error.message': string
 }
 ```
 

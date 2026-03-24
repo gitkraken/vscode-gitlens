@@ -96,6 +96,11 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a CLI install attempt fails */
 	'cli/install/failed': CLIInstallFailedEvent;
 
+	/** Sent when the CLI integration IPC server fails to start */
+	'cli/ipc/failed': CLIIpcFailedEvent;
+	/** Sent when the CLI integration discovery file fails to be created */
+	'cli/discoveryFile/failed': CLIDiscoveryFileFailedEvent;
+
 	/** Sent when a CLI update succeeds */
 	'cli/updateCore/completed': CLIUpdateCoreCompletedEvent;
 	/** Sent when a CLI update fails */
@@ -617,6 +622,14 @@ export interface CLIInstallFailedEvent {
 export interface CLIUpdateCoreCompletedEvent {
 	previous: string | undefined;
 	current: string | undefined;
+}
+
+export interface CLIIpcFailedEvent {
+	'error.message': string;
+}
+
+export interface CLIDiscoveryFileFailedEvent {
+	'error.message': string;
 }
 
 export interface CLIUpdateCoreFailedEvent {

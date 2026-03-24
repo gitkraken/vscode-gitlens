@@ -133,14 +133,19 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		try {
 			server = await createIpcServer<CliCommandRequest, CliCommandResponse>();
-
-			server.registerHandler('ping', () =>
-				Promise.resolve({ stdout: JSON.stringify({ version: this.container.version }) }),
-			);
 		} catch (ex) {
 			Logger.error(ex, 'Failed to start CLI integration IPC server');
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cli/ipc/failed', {
+					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+				});
+			}
 			return;
 		}
+
+		server.registerHandler('ping', () =>
+			Promise.resolve({ stdout: JSON.stringify({ version: this.container.version }) }),
+		);
 
 		const { environmentVariableCollection: envVars } = this.container.context;
 
@@ -161,6 +166,11 @@ export class GkCliIntegrationProvider implements Disposable {
 		} catch (error) {
 			// Discovery file creation failure should not prevent IPC server startup
 			Logger.warn(`${formatLoggableScopeBlock('IPC')} Failed to create discovery file: ${error}`);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cli/discoveryFile/failed', {
+					'error.message': error instanceof Error ? error.message : 'Unknown error',
+				});
+			}
 		}
 
 		this._runningDisposable = Disposable.from(new CliCommandHandlers(this.container, server), server);
