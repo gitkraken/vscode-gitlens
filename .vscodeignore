@@ -11,6 +11,7 @@ images/docs
 images/icons/**
 images/originals/**
 node_modules/**
+packages/**/node_modules/**
 out/**
 packages/*/node_modules/**
 packages/*/src/**
