@@ -378,13 +378,17 @@ export class GlWelcomePage extends LitElement {
 		this.removeEventListener('click', this.handleClick);
 	}
 
+	private getWelcomeHeading(): string {
+		return this._state.welcomeTitle;
+	}
+
 	override render(): unknown {
 		if (!this._state) return nothing;
 
 		return html`
 			<div part="page" class="welcome scrollable">
 				<div class="section header">
-					<h1><gitlens-logo-circle></gitlens-logo-circle><span>Get Started with GitLens</span></h1>
+					<h1><gitlens-logo-circle></gitlens-logo-circle><span>${this.getWelcomeHeading()}</span></h1>
 					<p>
 						Supercharge Git and unlock untapped knowledge within your repo to better understand, write, and
 						review code.

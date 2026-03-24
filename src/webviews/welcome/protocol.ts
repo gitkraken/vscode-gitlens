@@ -16,6 +16,7 @@ export interface WalkthroughProgress {
 export interface State extends WebviewState<'gitlens.views.welcome'> {
 	webroot?: string;
 	hostAppName: string;
+	welcomeTitle: string;
 	plusState: SubscriptionState;
 	walkthroughProgress?: WalkthroughProgress;
 	mcpNeedsInstall: boolean;
