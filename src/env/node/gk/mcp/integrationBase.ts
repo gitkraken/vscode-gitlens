@@ -144,11 +144,12 @@ export abstract class GkMcpProviderBase implements Disposable {
 				config = JSON.parse(output) as McpConfiguration;
 			} catch (parseEx) {
 				// The CLI returned non-JSON output. Log the raw output so the real error is visible.
+				const outputToLog = output.slice(0, 500);
 				scope?.error(
 					parseEx,
-					`MCP config command returned non-JSON output (CLI ${cliInstall.version}): ${output.slice(0, 500)}`,
+					`MCP config command returned non-JSON output (CLI ${cliInstall.version}): ${outputToLog}`,
 				);
-				throw new Error(`Invalid MCP config output from CLI ${cliInstall.version}: ${String(parseEx)}`);
+				throw new Error(`Invalid MCP config output from CLI ${cliInstall.version}: ${outputToLog}`);
 			}
 
 			if (!config.type || !config.command || !Array.isArray(config.args)) {
