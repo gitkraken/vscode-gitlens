@@ -129,11 +129,18 @@ export class GkCliIntegrationProvider implements Disposable {
 	private async start() {
 		this.stop();
 
-		const server = await createIpcServer<CliCommandRequest, CliCommandResponse>();
+		let server: CliIpcServer;
 
-		server.registerHandler('ping', () =>
-			Promise.resolve({ stdout: JSON.stringify({ version: this.container.version }) }),
-		);
+		try {
+			server = await createIpcServer<CliCommandRequest, CliCommandResponse>();
+
+			server.registerHandler('ping', () =>
+				Promise.resolve({ stdout: JSON.stringify({ version: this.container.version }) }),
+			);
+		} catch (ex) {
+			Logger.error(ex, 'Failed to start CLI integration IPC server');
+			return;
+		}
 
 		const { environmentVariableCollection: envVars } = this.container.context;
 
