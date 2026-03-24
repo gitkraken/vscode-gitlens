@@ -36,6 +36,7 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	/** Cohort number between 1 and 100 to use for percentage-based rollouts */
 	'device.cohort': number;
 	enabled: boolean;
+	featureFlags: string;
 	prerelease: boolean;
 	install: boolean;
 	upgrade: boolean;
