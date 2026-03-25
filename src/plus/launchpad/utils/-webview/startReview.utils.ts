@@ -18,7 +18,7 @@ import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js'
 import { defer } from '../../../../system/promise.js';
 import type { StartReviewChatAction } from '../../../chat/chatActions.js';
 import { storeChatActionDeepLink } from '../../../chat/chatActions.js';
-import type { LaunchpadItem } from '../../launchpadProvider.js';
+import type { LaunchpadItem, OpenRepository } from '../../launchpadProvider.js';
 
 export interface StartReviewResult {
 	worktree?: GitWorktree;
@@ -42,7 +42,30 @@ export async function startReviewFromLaunchpadItem(
 		throw new Error('Unable to retrieve PR details');
 	}
 
-	if (item.openRepository?.localBranch?.current) {
+	return startReviewFromPullRequest(
+		container,
+		pr,
+		item.openRepository,
+		instructions,
+		openChatOnComplete,
+		useDefaults,
+	);
+}
+
+/**
+ * Start a review from a PullRequest directly — the core implementation.
+ * Use this when you have a PullRequest and optional open repository info
+ * but don't need a full LaunchpadItem.
+ */
+export async function startReviewFromPullRequest(
+	container: Container,
+	pr: PullRequest,
+	openRepository?: OpenRepository,
+	instructions?: string,
+	openChatOnComplete?: boolean,
+	useDefaults?: boolean,
+): Promise<StartReviewResult> {
+	if (openRepository?.localBranch?.current) {
 		if (openChatOnComplete) {
 			void executeCommand('gitlens.openChatAction', {
 				chatAction: { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
@@ -51,21 +74,21 @@ export async function startReviewFromLaunchpadItem(
 
 		// If the branch is already checked out in the open repository, just get the worktree if it exists
 		const existingWorktree = await getWorktreeForBranch(
-			item.openRepository.repo,
-			item.openRepository.localBranch.name,
+			openRepository.repo,
+			openRepository.localBranch.name,
 			`${pr.refs?.head?.owner}/${pr.refs?.head?.branch}`,
 		);
 		return {
 			worktree: existingWorktree,
-			branch: item.openRepository.localBranch,
+			branch: openRepository.localBranch,
 			pr: pr,
 		};
 	}
 
-	// Use the already-resolved repository from LaunchpadItem if available,
-	// otherwise use getOpenedPullRequestRepo which handles finding/opening the repo
+	// Use the already-resolved repository if available,
+	// otherwise use getOrOpenPullRequestRepository which handles finding/opening the repo
 	const repo =
-		item.openRepository?.repo ??
+		openRepository?.repo ??
 		(await getOrOpenPullRequestRepository(container, pr, {
 			skipVirtual: true,
 		}));

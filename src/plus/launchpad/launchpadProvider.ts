@@ -535,6 +535,130 @@ export class LaunchpadProvider implements Disposable {
 		return this.container.urls.getGkDevUrl('launchpad');
 	}
 
+	/**
+	 * Performs a lightweight, direct PR lookup by URL — bypasses the full Launchpad categorization pipeline.
+	 * Use this when you already have a PR URL and only need the PR data and matching local repository.
+	 *
+	 * Unlike `getCategorizedItems({ search })`, this method:
+	 * - Does NOT fetch enriched items (pinned/snoozed state)
+	 * - Does NOT compute actionable categories or code suggestion counts
+	 * - Does NOT fetch current user accounts from all integrations
+	 * - Returns only the PR and its matching local repository
+	 *
+	 * Error handling: If the specific integration call succeeds, the result is returned even if
+	 * other integrations are in a failed state. This differs from `getCategorizedItems` which
+	 * would throw on partial integration failures.
+	 */
+	@debug()
+	async lookupPullRequestByUrl(
+		url: string,
+		cancellation?: CancellationToken,
+	): Promise<{ pr: PullRequest; openRepository?: OpenRepository } | undefined> {
+		const connectedIntegrations = await this.getConnectedIntegrations();
+		const prIdentity = await this.getPullRequestIdentityFromSearch(url, connectedIntegrations);
+
+		let pr: PullRequest | undefined;
+
+		if (prIdentity?.prNumber != null && prIdentity.ownerAndRepo != null) {
+			// Direct lookup by owner/repo/number — the expected path for valid PR URLs
+			for (const integrationId of supportedLaunchpadIntegrations) {
+				if (cancellation?.isCancellationRequested) return undefined;
+				if (!connectedIntegrations.get(integrationId)) continue;
+
+				const providerMatch = prIdentity.provider == null || prIdentity.provider === integrationId;
+				if (!providerMatch) continue;
+
+				const integration = await this.container.integrations.get(integrationId);
+				if (integration == null) continue;
+
+				const [owner, repo] = prIdentity.ownerAndRepo.split('/', 2);
+				pr = await integration.getPullRequest(
+					{ key: prIdentity.ownerAndRepo, owner: owner, name: repo } satisfies RepositoryDescriptor,
+					prIdentity.prNumber,
+				);
+				if (pr != null) break;
+			}
+		} else {
+			// Fallback: search all connected integrations in parallel
+			const connectedIds = [...connectedIntegrations.keys()].filter(
+				(id: IntegrationIds): id is SupportedLaunchpadIntegrationIds =>
+					(connectedIntegrations.get(id) && isSupportedLaunchpadIntegrationId(id)) ?? false,
+			);
+
+			const results = await Promise.allSettled(
+				connectedIds.map(async id => {
+					if (cancellation?.isCancellationRequested) return undefined;
+
+					const integration = await this.container.integrations.get(id);
+					if (integration == null) return undefined;
+
+					const prs = await integration.searchPullRequests(url, undefined, cancellation);
+					return prs?.[0];
+				}),
+			);
+
+			for (const r of results) {
+				const value = getSettledValue(r);
+				if (value != null) {
+					pr = value;
+					break;
+				}
+			}
+		}
+
+		if (cancellation?.isCancellationRequested || pr == null) return undefined;
+
+		// Find matching local repository
+		// Note: This reuses the same repository-matching approach as getMatchingOpenRepository/getMatchingRemoteMap
+		// but operates on a single PR rather than a batch. If the matching logic changes, update both paths.
+		const openRepository = await this.findOpenRepositoryForPullRequest(pr);
+		return { pr: pr, openRepository: openRepository };
+	}
+
+	/**
+	 * Finds the local open repository and branch that correspond to a pull request.
+	 * Matches by comparing the PR's head remote URL (and base URL as fallback) against
+	 * open repository remotes.
+	 *
+	 * See also: `getMatchingOpenRepository`/`getMatchingRemoteMap` which perform the same
+	 * matching for batches of PRs during full categorization.
+	 */
+	private async findOpenRepositoryForPullRequest(pr: PullRequest): Promise<OpenRepository | undefined> {
+		const headUrl = getRepositoryIdentityForPullRequest(pr).remote.url?.replace(gitSuffixRegex, '');
+
+		for (const repo of this.container.git.openRepositories) {
+			const remotes = await repo.git.remotes.getRemotes();
+
+			// Try matching head URL (the fork or source branch remote)
+			if (headUrl != null) {
+				for (const remote of remotes) {
+					const normalizedRemoteUrl = remote.url.replace(gitSuffixRegex, '');
+					if (normalizedRemoteUrl === headUrl || remote.matches(headUrl)) {
+						const remoteBranchName = `${remote.name}/${pr.refs?.head?.branch}`;
+						const matchingLocalBranch = pr.refs?.head?.branch
+							? await repo.git.branches.getLocalBranchByUpstream?.(remoteBranchName)
+							: undefined;
+
+						return { repo: repo, remote: remote, localBranch: matchingLocalBranch };
+					}
+				}
+			}
+
+			// Fallback: try matching base URL (the upstream/target repository)
+			const baseUrl = pr.refs?.base?.url?.replace(gitSuffixRegex, '');
+			if (baseUrl != null) {
+				for (const remote of remotes) {
+					const normalizedRemoteUrl = remote.url.replace(gitSuffixRegex, '');
+					if (normalizedRemoteUrl === baseUrl || remote.matches(baseUrl)) {
+						return { repo: repo };
+					}
+				}
+			}
+		}
+
+		return undefined;
+	}
+
 	private getItemBranchDeepLink(item: LaunchpadItem, action?: DeepLinkActionType): Uri | undefined {
 		if (item.type !== 'pullrequest' || item.headRef == null || item.repoIdentity?.remote?.url == null) {
 			return undefined;

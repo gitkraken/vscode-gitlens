@@ -49,7 +49,7 @@ import {
 } from '../integrations/utils/-webview/integration.quickPicks.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import { getLaunchpadItemIdHash, supportedLaunchpadIntegrations } from './launchpadProvider.js';
-import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
+import { startReviewFromLaunchpadItem, startReviewFromPullRequest } from './utils/-webview/startReview.utils.js';
 
 export interface StartReviewTelemetryContext {
 	instance: number;
@@ -255,18 +255,19 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 					opened = true;
 
-					// Auto-select PR if prUrl is provided
+					// Auto-select PR if prUrl is provided — use direct lookup to bypass
+					// the full Launchpad categorization pipeline for better performance
 					if (state.prUrl && state.useDefaults) {
-						// Lookup the LaunchpadItem from the URL, then execute the review
 						try {
-							const launchpadItem = await this.lookupLaunchpadItem(state.prUrl);
-							if (launchpadItem == null) {
+							const lookupResult = await this.container.launchpad.lookupPullRequestByUrl(state.prUrl);
+							if (lookupResult == null) {
 								throw new Error(`No PR found matching '${state.prUrl}'`);
 							}
 
-							const reviewResult = await startReviewFromLaunchpadItem(
+							const reviewResult = await startReviewFromPullRequest(
 								this.container,
-								launchpadItem,
+								lookupResult.pr,
+								lookupResult.openRepository,
 								state.instructions,
 								state.openChatOnComplete,
 								state.useDefaults,
@@ -347,15 +348,6 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		}
 
 		return connected;
-	}
-
-	private async lookupLaunchpadItem(prUrl: string): Promise<LaunchpadItem | undefined> {
-		const result = await this.container.launchpad.getCategorizedItems({ search: prUrl });
-		if (result.error != null) {
-			throw new Error(`Error fetching PR: ${result.error.message}`);
-		}
-
-		return result.items?.[0];
 	}
 
 	private async *confirmLocalIntegrationConnectStep(
