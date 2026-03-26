@@ -39,7 +39,7 @@ suite('RemotesSubProvider', () => {
 					return parsed.hostname === 'github.com' && parsed.pathname.includes('/test/repo');
 				} catch {
 					// Fallback for non-standard Git URLs (e.g. SSH-style).
-					return u.url.includes('github.com/test/repo');
+					return u.url.startsWith('git@github.com:') && u.url.includes('/test/repo');
 				}
 			}),
 			'Origin URL should contain github.com/test/repo',
@@ -54,7 +54,7 @@ suite('RemotesSubProvider', () => {
 					return parsed.hostname === 'github.com';
 				} catch {
 					// Fallback for non-standard Git URLs (e.g. SSH-style).
-					return u.url.includes('github.com');
+					return u.url.startsWith('git@github.com:');
 				}
 			}),
 			'Upstream URL should contain github.com',
