@@ -1,3 +1,4 @@
+import type { ConfigurationChangeEvent } from 'vscode';
 import { commands, Disposable, env } from 'vscode';
 import type { Container } from '../../../../container.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
@@ -30,6 +31,7 @@ export abstract class GkMcpProviderBase implements Disposable {
 			container.storage.onDidChange(e => this.onStorageChanged(e)),
 			container.events.on('gk:cli:ipc:started', () => this.onIpcServerStarted()),
 			container.events.on('gk:cli:mcp:setup:completed', () => this.onMcpSetupCompleted()),
+			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 		);
 		this._ipcTimeoutId = setTimeout(() => this.onIpcTimeoutExpired(), ipcWaitTime);
 	}
@@ -66,6 +68,13 @@ export abstract class GkMcpProviderBase implements Disposable {
 	protected onIpcServerStarted(): void {
 		this.clearIpcTimeout();
 		this.fireChange();
+	}
+
+	protected onConfigurationChanged(e: ConfigurationChangeEvent): void {
+		if (configuration.changed(e, 'gitkraken.mcp.experimental.enabled')) {
+			this._getMcpConfigurationFromCLIPromise = undefined;
+			this.fireChange(true);
+		}
 	}
 
 	protected onMcpSetupCompleted(): void {
@@ -132,6 +141,9 @@ export abstract class GkMcpProviderBase implements Disposable {
 
 		try {
 			const args = ['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`];
+			if (configuration.get('gitkraken.mcp.experimental.enabled')) {
+				args.push('--experimental');
+			}
 			if (configuration.get('gitkraken.cli.insiders.enabled')) {
 				args.push('--insiders');
 			}

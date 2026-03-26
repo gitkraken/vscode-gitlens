@@ -407,6 +407,9 @@ interface GitKrakenCliConfig {
 
 interface GitKrakenMcpConfig {
 	readonly autoEnabled: boolean;
+	readonly experimental: {
+		readonly enabled: boolean;
+	};
 }
 
 export interface GraphConfig {
