@@ -656,7 +656,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 							new CssMinimizerPlugin({
 								minimizerOptions: {
 									preset: [
-										'cssnano-preset-advanced',
+										require.resolve('cssnano-preset-advanced'),
 										{
 											autoprefixer: false,
 											discardUnused: false,
