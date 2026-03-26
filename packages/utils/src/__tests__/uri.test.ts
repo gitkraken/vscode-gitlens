@@ -53,6 +53,7 @@ suite('getRepositoryKey', () => {
 		const uri = URI.parse('github+ssh://github.com/owner/repo');
 		const result = getRepositoryKey(uri);
 		assert.ok(result.startsWith('github+ssh://'), `expected github+ssh scheme, got: ${result}`);
-		assert.ok(result.includes('github.com'), `expected authority, got: ${result}`);
+		const parsed = URI.parse(result);
+		assert.strictEqual(parsed.authority, 'github.com', `expected authority github.com, got: ${parsed.authority}`);
 	});
 });

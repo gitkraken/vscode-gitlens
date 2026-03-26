@@ -33,14 +33,30 @@ suite('RemotesSubProvider', () => {
 		assert.ok(origin, 'Should find origin');
 		assert.ok(origin.urls.length > 0, 'Origin should have URLs');
 		assert.ok(
-			origin.urls.some(u => u.url.includes('github.com/test/repo')),
+			origin.urls.some(u => {
+				try {
+					const parsed = new URL(u.url);
+					return parsed.hostname === 'github.com' && parsed.pathname.includes('/test/repo');
+				} catch {
+					// Fallback for non-standard Git URLs (e.g. SSH-style).
+					return u.url.includes('github.com/test/repo');
+				}
+			}),
 			'Origin URL should contain github.com/test/repo',
 		);
 
 		const upstream = remotes.find(r => r.name === 'upstream');
 		assert.ok(upstream, 'Should find upstream');
 		assert.ok(
-			upstream.urls.some(u => u.url.includes('github.com')),
+			upstream.urls.some(u => {
+				try {
+					const parsed = new URL(u.url);
+					return parsed.hostname === 'github.com';
+				} catch {
+					// Fallback for non-standard Git URLs (e.g. SSH-style).
+					return u.url.includes('github.com');
+				}
+			}),
 			'Upstream URL should contain github.com',
 		);
 	});
