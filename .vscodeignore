@@ -12,6 +12,11 @@ images/icons/**
 images/originals/**
 node_modules/**
 out/**
+packages/*/node_modules/**
+packages/*/src/**
+packages/*/__tests__/**
+packages/*/tsconfig*.json
+packages/*/*.tsbuildinfo
 patches/**
 resources/**
 scripts/**
