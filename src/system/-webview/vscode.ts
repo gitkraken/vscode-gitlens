@@ -109,7 +109,9 @@ export async function getHostExecutablePath(): Promise<string> {
 }
 
 export async function getHostEditorCommand(includeWorkspaceUri: boolean = false): Promise<string> {
-	const path = normalizePath(await getHostExecutablePath()).replace(/ /g, '\\ ');
+	const path = normalizePath(await getHostExecutablePath())
+		.replace(/\\/g, '\\\\')
+		.replace(/ /g, '\\ ');
 	if (includeWorkspaceUri) {
 		let uri = workspace.workspaceFile;
 		if (uri != null) {

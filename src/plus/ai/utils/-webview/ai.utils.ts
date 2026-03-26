@@ -221,7 +221,12 @@ export function showPromptTruncationWarning(model: AIModel): void {
 }
 
 export function isAzureUrl(url: string): boolean {
-	return url.includes('.azure.com');
+	try {
+		const hostname = new URL(url).hostname;
+		return hostname === 'azure.com' || hostname.endsWith('.azure.com');
+	} catch {
+		return false;
+	}
 }
 
 export function getOrgAIConfig(): OrgAIConfig {
