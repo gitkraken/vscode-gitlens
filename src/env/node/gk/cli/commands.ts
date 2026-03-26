@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await */
 import type { Account } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
+import type { Account as AuthorAccount } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -9,7 +10,6 @@ import { defer } from '@gitlens/utils/promise.js';
 import type { CompareWithCommandArgs } from '../../../../commands/compareWith.js';
 import type { Container } from '../../../../container.js';
 import { cherryPick, merge, rebase } from '../../../../git/actions/repository.js';
-import type { Account as AuthorAccount } from '@gitlens/git/models/author.js';
 import type { GlRepository } from '../../../../git/models/repository.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from '../../../../plus/launchpad/launchpadProvider.js';
 import { getLaunchpadItemGroups } from '../../../../plus/launchpad/launchpadProvider.js';
