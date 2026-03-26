@@ -164,12 +164,8 @@ export async function findExecutable(exe: string, args: string[]): Promise<{ cmd
 }
 
 export async function getWindowsShortPath(path: string): Promise<string> {
-	// Validate path to prevent shell injection
-	if (/[<>|&;`$(){}!\r\n]/.test(path) || path.includes('"')) {
-		throw new Error(`Invalid path characters: ${path}`);
-	}
 	return new Promise<string>((resolve, reject) => {
-		exec(`for %I in ("${path}") do @echo %~sI`, (error, stdout, _stderr) => {
+		execFile('cmd.exe', ['/c', `for %I in ("${path}") do @echo %~sI`], (error, stdout, _stderr) => {
 			if (error != null) {
 				reject(error);
 				return;
