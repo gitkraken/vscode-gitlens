@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import * as fetchModule from '@env/fetch.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { FeatureFlagService } from '../featureFlagService.js';
 
@@ -33,54 +32,33 @@ function createMockContainer(): any {
 	};
 }
 
-function createMockResponse(opts: { ok: boolean; status?: number; statusText?: string; body?: string }): any {
+function createMockClient(overrides?: Partial<Record<string, sinon.SinonStub>>): any {
 	return {
-		ok: opts.ok,
-		status: opts.status ?? (opts.ok ? 200 : 500),
-		statusText: opts.statusText ?? (opts.ok ? 'OK' : 'Internal Server Error'),
-		text: () => Promise.resolve(opts.body ?? ''),
+		getValueDetailsAsync: sinon.stub().resolves({ value: true, isDefaultValue: false }),
+		getAllValuesAsync: sinon.stub().resolves([]),
+		dispose: sinon.stub(),
+		waitForReady: sinon.stub().resolves(),
+		forceRefreshAsync: sinon.stub().resolves(),
+		...overrides,
 	};
 }
 
 suite('FeatureFlagService Test Suite', () => {
 	let sandbox: sinon.SinonSandbox;
-	let fetchStub: sinon.SinonStub;
+	let loadClientStub: sinon.SinonStub;
 
 	setup(() => {
 		sandbox = sinon.createSandbox();
-		fetchStub = sandbox.stub(fetchModule, 'fetch' as any);
+		loadClientStub = sandbox.stub(FeatureFlagService.prototype as any, 'loadClient');
 	});
 
 	teardown(() => {
 		sandbox.restore();
 	});
 
-	suite('loadClient — fetch failure scenarios', () => {
-		test('returns undefined client when fetch throws', async () => {
-			fetchStub.rejects(new Error('Network error'));
-			const s = new FeatureFlagService(createMockContainer());
-			assert.strictEqual(await s.getFlag('f', false), false);
-			s.dispose();
-		});
-
-		test('returns undefined client when response is not ok', async () => {
-			fetchStub.resolves(createMockResponse({ ok: false, status: 500 }));
-			const s = new FeatureFlagService(createMockContainer());
-			assert.strictEqual(await s.getFlag('f', 'def'), 'def');
-			s.dispose();
-		});
-
-		test('returns undefined client when response body is empty', async () => {
-			fetchStub.resolves(createMockResponse({ ok: true, body: '' }));
-			const s = new FeatureFlagService(createMockContainer());
-			assert.strictEqual(await s.getFlag('f', 42), 42);
-			s.dispose();
-		});
-	});
-
 	suite('getFlag — client unavailable', () => {
 		test('returns default boolean value', async () => {
-			fetchStub.rejects(new Error('no net'));
+			loadClientStub.resolves(undefined);
 			const s = new FeatureFlagService(createMockContainer());
 			assert.strictEqual(await s.getFlag('b', true), true);
 			assert.strictEqual(await s.getFlag('b', false), false);
@@ -88,23 +66,74 @@ suite('FeatureFlagService Test Suite', () => {
 		});
 
 		test('returns default string value', async () => {
-			fetchStub.rejects(new Error('no net'));
+			loadClientStub.resolves(undefined);
 			const s = new FeatureFlagService(createMockContainer());
 			assert.strictEqual(await s.getFlag('s', 'fallback'), 'fallback');
 			s.dispose();
 		});
 
 		test('returns default number value', async () => {
-			fetchStub.rejects(new Error('no net'));
+			loadClientStub.resolves(undefined);
 			const s = new FeatureFlagService(createMockContainer());
 			assert.strictEqual(await s.getFlag('n', 99), 99);
 			s.dispose();
 		});
 	});
 
+	suite('getFlag — client available', () => {
+		test('returns evaluated value from client', async () => {
+			const mockClient = createMockClient({
+				getValueDetailsAsync: sinon.stub().resolves({ value: 'variant-a', isDefaultValue: false }),
+			});
+			loadClientStub.resolves(mockClient);
+			const s = new FeatureFlagService(createMockContainer());
+			assert.strictEqual(await s.getFlag('experiment', 'control'), 'variant-a');
+			s.dispose();
+		});
+
+		test('returns default when getValueDetailsAsync throws', async () => {
+			const mockClient = createMockClient({
+				getValueDetailsAsync: sinon.stub().rejects(new Error('eval error')),
+			});
+			loadClientStub.resolves(mockClient);
+			const s = new FeatureFlagService(createMockContainer());
+			assert.strictEqual(await s.getFlag('broken', 'safe-default'), 'safe-default');
+			s.dispose();
+		});
+	});
+
 	suite('getAllFlags — client unavailable', () => {
 		test('returns empty object', async () => {
-			fetchStub.rejects(new Error('no net'));
+			loadClientStub.resolves(undefined);
+			const s = new FeatureFlagService(createMockContainer());
+			assert.deepStrictEqual(await s.getAllFlags(), {});
+			s.dispose();
+		});
+	});
+
+	suite('getAllFlags — client available', () => {
+		test('returns filtered map with only boolean/string/number values', async () => {
+			const mockClient = createMockClient({
+				getAllValuesAsync: sinon.stub().resolves([
+					{ settingKey: 'bool-flag', settingValue: true },
+					{ settingKey: 'str-flag', settingValue: 'on' },
+					{ settingKey: 'num-flag', settingValue: 7 },
+					{ settingKey: 'obj-flag', settingValue: { nested: true } },
+					{ settingKey: 'null-flag', settingValue: null },
+				]),
+			});
+			loadClientStub.resolves(mockClient);
+			const s = new FeatureFlagService(createMockContainer());
+			const flags = await s.getAllFlags();
+			assert.deepStrictEqual(flags, { 'bool-flag': true, 'str-flag': 'on', 'num-flag': 7 });
+			s.dispose();
+		});
+
+		test('returns empty object when getAllValuesAsync throws', async () => {
+			const mockClient = createMockClient({
+				getAllValuesAsync: sinon.stub().rejects(new Error('all values error')),
+			});
+			loadClientStub.resolves(mockClient);
 			const s = new FeatureFlagService(createMockContainer());
 			assert.deepStrictEqual(await s.getAllFlags(), {});
 			s.dispose();
@@ -113,20 +142,31 @@ suite('FeatureFlagService Test Suite', () => {
 
 	suite('dispose', () => {
 		test('does not throw when client is unavailable', async () => {
-			fetchStub.rejects(new Error('no net'));
+			loadClientStub.resolves(undefined);
 			const s = new FeatureFlagService(createMockContainer());
 			await s.getFlag('any', false);
 			assert.doesNotThrow(() => s.dispose());
 		});
 
 		test('does not throw when called multiple times', async () => {
-			fetchStub.rejects(new Error('no net'));
+			loadClientStub.resolves(undefined);
 			const s = new FeatureFlagService(createMockContainer());
 			await s.getFlag('any', false);
 			assert.doesNotThrow(() => {
 				s.dispose();
 				s.dispose();
 			});
+		});
+
+		test('disposes the underlying client', async () => {
+			const mockClient = createMockClient();
+			loadClientStub.resolves(mockClient);
+			const s = new FeatureFlagService(createMockContainer());
+			await s.getFlag('any', false);
+			s.dispose();
+			// Give the then() callback a tick to run
+			await new Promise(resolve => setTimeout(resolve, 10));
+			assert.strictEqual(mockClient.dispose.callCount, 1);
 		});
 	});
 
