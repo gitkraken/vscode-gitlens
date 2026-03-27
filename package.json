@@ -15909,10 +15909,9 @@
 					"alt": "gitlens.toggleFileHeatmap:editor/title"
 				},
 				{
-					"command": "gitlens.toggleFileHeatmap:editor/title",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
-					"group": "navigation@100",
-					"alt": "gitlens.toggleFileBlame"
+					"submenu": "gitlens/editor/annotations",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
+					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.diffWithPrevious:editor/title",
@@ -15952,14 +15951,10 @@
 					"alt": "gitlens.toggleFileBlame:editor/title"
 				},
 				{
-					"submenu": "gitlens/editor/annotations",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.openWorkingFile:editor/title",
-					"when": "resourceScheme == git && gitlens:enabled && !isInDiffEditor",
-					"group": "navigation@-98"
+					"command": "gitlens.toggleFileHeatmap:editor/title",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileBlame"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",

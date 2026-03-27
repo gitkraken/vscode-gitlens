@@ -4342,11 +4342,6 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme == git && gitlens:enabled && !isInDiffEditor",
-						"group": "navigation",
-						"order": -98
-					},
-					{
 						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
 						"group": "navigation",
 						"order": -98
