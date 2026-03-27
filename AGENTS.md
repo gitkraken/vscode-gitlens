@@ -278,6 +278,10 @@ As an expert software developer with deep expert-level knowledge of TypeScript, 
 - Ensure CHANGELOG entries are added for user-facing changes
 - Verify that build errors and test failures are not being dismissed as "pre-existing" without evidence
 
+### Known Non-Issues (Do Not Flag)
+
+- `debugger;` statements — Webpack's production build automatically strips all `debugger` statements via the minimizer. They are intentional development aids and NOT a shipping concern. Do NOT flag them in reviews.
+
 ## Debugging & Investigation Methodology
 
 When diagnosing bugs or unexpected behavior, follow this structured process. Do NOT guess at root causes — gather evidence first.
