@@ -24,6 +24,7 @@ import type { GlCommands } from './constants.commands.js';
 import { extensionPrefix } from './constants.js';
 import { MarkdownContentProvider } from './documents/markdown.js';
 import { EventBus } from './eventBus.js';
+import type { FeatureFlagService } from './featureFlags/featureFlagService.js';
 import { GitFileSystemProvider } from './git/fsProvider.js';
 import { GitProviderService } from './git/gitProviderService.js';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider.js';
@@ -433,6 +434,28 @@ export class Container {
 		}
 
 		return this._cloudIntegrations;
+	}
+
+	private _featureFlags: Promise<FeatureFlagService | undefined> | undefined;
+	get featureFlags(): Promise<FeatureFlagService | undefined> {
+		if (this._featureFlags == null) {
+			async function load(this: Container) {
+				try {
+					const featureFlags = new (
+						await import(/* webpackChunkName: "feature-flags" */ './featureFlags/featureFlagService.js')
+					).FeatureFlagService(this);
+					this._disposables.push(featureFlags);
+					return featureFlags;
+				} catch (ex) {
+					Logger.error(ex);
+					return undefined;
+				}
+			}
+
+			this._featureFlags = load.call(this);
+		}
+
+		return this._featureFlags;
 	}
 
 	private _drafts: DraftService | undefined;
