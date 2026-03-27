@@ -1,5 +1,5 @@
 import type { ExecFileException, ExecFileOptions } from 'child_process';
-import { exec, execFile, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import type { Stats } from 'fs';
 import { access, constants } from 'fs';
 import { stat } from 'fs/promises';
@@ -171,7 +171,7 @@ export async function getWindowsShortPath(path: string): Promise<string> {
 			{ env: { ...process.env, _GITLENS_PATH: path } },
 			(error, stdout, _stderr) => {
 				if (error != null) {
-					reject(error);
+					reject(error as Error);
 					return;
 				}
 
