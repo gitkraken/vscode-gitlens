@@ -1,5 +1,5 @@
 import type { ExecFileException, ExecFileOptions } from 'child_process';
-import { execFile, spawn } from 'child_process';
+import { exec, execFile, spawn } from 'child_process';
 import type { Stats } from 'fs';
 import { access, constants } from 'fs';
 import { stat } from 'fs/promises';
@@ -165,19 +165,14 @@ export async function findExecutable(exe: string, args: string[]): Promise<{ cmd
 
 export async function getWindowsShortPath(path: string): Promise<string> {
 	return new Promise<string>((resolve, reject) => {
-		execFile(
-			'cmd.exe',
-			['/c', 'for %I in ("%_GITLENS_PATH%") do @echo %~sI'],
-			{ env: { ...process.env, _GITLENS_PATH: path } },
-			(error, stdout, _stderr) => {
-				if (error != null) {
-					reject(error as Error);
-					return;
-				}
+		exec(`for %I in ("${path}") do @echo %~sI`, (error, stdout, _stderr) => {
+			if (error != null) {
+				reject(error);
+				return;
+			}
 
-				resolve(normalizePath(stdout.trim()));
-			},
-		);
+			resolve(normalizePath(stdout.trim()));
+		});
 	});
 }
 

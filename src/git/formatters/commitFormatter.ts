@@ -56,10 +56,6 @@ import { getReferenceFromRevision } from '../utils/-webview/reference.utils.js';
 import { isRemoteMaybeIntegrationConnected, remoteSupportsIntegration } from '../utils/-webview/remote.utils.js';
 
 const quoteRegex = /"/g;
-const backslashRegex = /\\/g;
-function escapeForQuotedString(value: string): string {
-	return value.replace(backslashRegex, '\\\\').replace(quoteRegex, '\\"');
-}
 const newlineRegex = /\r?\n/g;
 const lineStartRegex = /^/gm;
 
@@ -604,7 +600,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					source: editorHoverSource,
 				})} "Open Pull Request \\#${pr.id}${
 					Container.instance.actionRunners.count('openPullRequest') === 1 ? ` on ${pr.provider.name}` : '...'
-				}\n${GlyphChars.Dash.repeat(2)}\n${escapeForQuotedString(escapeMarkdown(pr.title))}\n${
+				}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdown(pr.title).replace(quoteRegex, '\\"')}\n${
 					pr.state
 				}, ${PullRequest.formatDateFromNow(pr)}")`;
 			} else if (isPromise(pr)) {
@@ -875,12 +871,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					source: this._options.source,
 				})} "Open Pull Request \\#${pr.id}${
 					Container.instance.actionRunners.count('openPullRequest') === 1 ? ` on ${pr.provider.name}` : '...'
-				}\n${GlyphChars.Dash.repeat(2)}\n${escapeForQuotedString(escapeMarkdown(pr.title))}\n${
+				}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdown(pr.title).replace(quoteRegex, '\\"')}\n${
 					pr.state
 				}, ${PullRequest.formatDateFromNow(pr)}")`;
 
 				if (this._options.footnotes != null) {
-					const prTitle = escapeForQuotedString(escapeMarkdown(pr.title)).trim();
+					const prTitle = escapeMarkdown(pr.title).replace(quoteRegex, '\\"').trim();
 
 					const index = this._options.footnotes.size + 1;
 					const prCommandLink = createMarkdownActionCommandLink<OpenPullRequestActionContext>(

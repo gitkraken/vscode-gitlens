@@ -50,13 +50,6 @@ import {
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 const tokenRegex = /(\x00\d+\x00)/g; // eslint-disable-line no-control-regex
 const quoteRegex = /"/g;
-const backslashRegex = /\\/g;
-
-function escapeForQuotedString(value: string): string {
-	// First escape backslashes, then double quotes, so that any literal backslash
-	// in the input cannot interfere with the quote escaping.
-	return value.replace(backslashRegex, '\\\\').replace(quoteRegex, '\\"');
-}
 
 export class AutolinksProvider implements Disposable {
 	private _disposable: Disposable | undefined;
@@ -459,7 +452,7 @@ function renderCacheableAutolink(
 							} else {
 								const issue = issueResult.value;
 								const issueTitle = escapeMarkdown(issue.title.trim());
-								const issueTitleQuoteEscaped = escapeForQuotedString(issueTitle);
+								const issueTitleQuoteEscaped = issueTitle.replace(quoteRegex, '\\"');
 
 								urlCommandContext.provider = issue.provider && {
 									id: issue.provider.id,
