@@ -176,7 +176,10 @@ suite('FeatureFlagService Test Suite', () => {
 			const mockService = {
 				getAllFlags: sandbox.stub().resolves({ 'z-flag': true, 'a-flag': 'variant-b', 'm-flag': 42 }),
 			} as unknown as FeatureFlagService;
-			const container = { featureFlags: Promise.resolve(mockService), telemetry: { setGlobalAttribute } };
+			const container = {
+				featureFlags: Promise.resolve(mockService),
+				telemetry: { setGlobalAttribute: setGlobalAttribute },
+			};
 			await setFeatureFlagTelemetryGlobalAttributes(container);
 			assert.strictEqual(setGlobalAttribute.callCount, 1);
 			assert.strictEqual(setGlobalAttribute.firstCall.args[0], 'featureFlags');
@@ -191,7 +194,7 @@ suite('FeatureFlagService Test Suite', () => {
 			const setGlobalAttribute = sandbox.stub();
 			await setFeatureFlagTelemetryGlobalAttributes({
 				featureFlags: Promise.resolve(undefined),
-				telemetry: { setGlobalAttribute },
+				telemetry: { setGlobalAttribute: setGlobalAttribute },
 			});
 			assert.strictEqual(setGlobalAttribute.callCount, 0);
 		});
@@ -201,7 +204,7 @@ suite('FeatureFlagService Test Suite', () => {
 			const mockService = { getAllFlags: sandbox.stub().resolves({}) } as unknown as FeatureFlagService;
 			await setFeatureFlagTelemetryGlobalAttributes({
 				featureFlags: Promise.resolve(mockService),
-				telemetry: { setGlobalAttribute },
+				telemetry: { setGlobalAttribute: setGlobalAttribute },
 			});
 			assert.strictEqual(setGlobalAttribute.callCount, 0);
 		});
@@ -214,7 +217,7 @@ suite('FeatureFlagService Test Suite', () => {
 			await assert.doesNotReject(async () => {
 				await setFeatureFlagTelemetryGlobalAttributes({
 					featureFlags: Promise.resolve(mockService),
-					telemetry: { setGlobalAttribute },
+					telemetry: { setGlobalAttribute: setGlobalAttribute },
 				});
 			});
 			assert.strictEqual(setGlobalAttribute.callCount, 0);
@@ -225,7 +228,7 @@ suite('FeatureFlagService Test Suite', () => {
 			await assert.doesNotReject(async () => {
 				await setFeatureFlagTelemetryGlobalAttributes({
 					featureFlags: Promise.reject(new Error('load error')),
-					telemetry: { setGlobalAttribute },
+					telemetry: { setGlobalAttribute: setGlobalAttribute },
 				});
 			});
 			assert.strictEqual(setGlobalAttribute.callCount, 0);
