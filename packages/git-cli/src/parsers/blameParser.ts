@@ -5,36 +5,37 @@ import { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
-import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
+import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 
-interface BlameEntry {
+export interface BlameEntry {
 	sha: string;
-
 	line: number;
 	originalLine: number;
 	lineCount: number;
 
-	author: string;
-	authorTime: number;
+	author?: string;
+	authorTime?: number;
 	authorTimeZone?: string;
 	authorEmail?: string;
 
-	committer: string;
-	committerTime: number;
+	committer?: string;
+	committerTime?: number;
 	committerTimeZone?: string;
 	committerEmail?: string;
 
 	previousSha?: string;
 	previousPath?: string;
 
-	path: string;
-
+	path?: string;
 	summary?: string;
+
+	authorCurrent?: boolean;
+	committerCurrent?: boolean;
 }
 
 export function parseGitBlame(
@@ -49,229 +50,236 @@ export function parseGitBlame(
 		return undefined;
 	}
 
+	// Pre-compute constants once
+	const normalizedRepoPath = normalizePath(repoPath);
+	const repoUri = fileUri(normalizedRepoPath);
+
+	// Path normalization + URI cache (single-file blame = 1 cache entry)
+	let cachedPath: string | undefined;
+	let cachedPathUri: Uri | undefined;
+	let cachedPreviousPath: string | undefined;
+	let cachedPreviousPathUri: Uri | undefined;
+
 	const authors = new Map<string, GitBlameAuthor>();
 	const commits = new Map<string, GitCommit>();
 	const lines: GitCommitLine[] = [];
 
-	let entry: BlameEntry | undefined = undefined;
-	let key: string;
-	let line: string;
-	let lineParts: string[];
+	let entry: BlameEntry | undefined;
 
-	for (line of iterateByDelimiter(data, '\n')) {
-		lineParts = line.split(' ');
-		if (lineParts.length < 2) continue;
+	for (const line of iterateByDelimiter(data, '\n')) {
+		const spaceIdx = line.indexOf(' ');
+		if (spaceIdx === -1) continue;
 
-		[key] = lineParts;
 		if (entry == null) {
-			entry = {
-				sha: key,
-				originalLine: parseInt(lineParts[1], 10),
-				line: parseInt(lineParts[2], 10),
-				lineCount: parseInt(lineParts[3], 10),
-			} as unknown as BlameEntry;
+			// Header line: <sha> <originalLine> <currentLine> <lineCount>
+			const sha = line.substring(0, spaceIdx);
 
+			let s = spaceIdx + 1;
+			let e = line.indexOf(' ', s);
+			const originalLine = parseInt(line.substring(s, e), 10);
+
+			s = e + 1;
+			e = line.indexOf(' ', s);
+			const lineno = parseInt(line.substring(s, e), 10);
+
+			s = e + 1;
+			const lineCount = parseInt(line.substring(s), 10);
+
+			entry = { sha: sha, originalLine: originalLine, line: lineno, lineCount: lineCount };
 			continue;
 		}
 
-		switch (key) {
-			case 'author':
-				if (entry.sha === uncommitted) {
-					entry.author = 'You';
-				} else {
-					entry.author = line.slice(key.length + 1).trim();
+		// Dispatch on first character + key length to avoid creating key substrings
+		const keyLen = spaceIdx;
+		const valueStart = spaceIdx + 1;
+
+		switch (line.charCodeAt(0)) {
+			case 0x61 /* a — author* */:
+				if (keyLen === 6 /* "author" */) {
+					entry.author = line.substring(valueStart);
+				} else if (keyLen === 11 /* "author-mail" | "author-time" */) {
+					// Disambiguate at pos 7: 'm' (mail) vs 't' (time)
+					if (line.charCodeAt(7) === 0x6d /* m */) {
+						entry.authorEmail = parseEmail(line.substring(valueStart));
+					} else {
+						entry.authorTime = parseInt(line.substring(valueStart), 10) * 1000;
+					}
+				} else if (keyLen === 9 /* "author-tz" */) {
+					entry.authorTimeZone = line.substring(valueStart);
 				}
 				break;
 
-			case 'author-mail': {
-				if (entry.sha === uncommitted) {
-					entry.authorEmail = currentUser?.email;
-					continue;
+			case 0x63 /* c — committer* */:
+				if (keyLen === 9 /* "committer" */) {
+					entry.committer = line.substring(valueStart);
+				} else if (keyLen === 14 /* "committer-mail" | "committer-time" */) {
+					// Disambiguate at pos 10: 'm' (mail) vs 't' (time)
+					if (line.charCodeAt(10) === 0x6d /* m */) {
+						entry.committerEmail = parseEmail(line.substring(valueStart));
+					} else {
+						entry.committerTime = parseInt(line.substring(valueStart), 10) * 1000;
+					}
+				} else if (keyLen === 12 /* "committer-tz" */) {
+					entry.committerTimeZone = line.substring(valueStart);
+				}
+				break;
+
+			case 0x66 /* f — filename */: {
+				// Don't trim — spaces in filenames are valid
+				entry.path = line.substring(valueStart);
+
+				// Assemble model immediately — no intermediate storage
+				const entryPath = entry.path;
+				const isUncommittedEntry = entry.sha === uncommitted;
+
+				let commit = commits.get(entry.sha);
+				if (commit == null) {
+					if (isUncommittedEntry) {
+						entry.author = currentUser?.name ?? '';
+						entry.authorCurrent = true;
+						entry.authorEmail = currentUser?.email;
+						entry.authorTime = modifiedTime ?? entry.authorTime ?? 0;
+						entry.committer = entry.author;
+						entry.committerEmail = entry.authorEmail;
+						entry.committerTime = entry.authorTime;
+						entry.committerCurrent = true;
+					} else {
+						if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
+							entry.authorCurrent = true;
+						}
+						if (isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
+							entry.committerCurrent = true;
+						}
+					}
+
+					let author = authors.get(entry.author!);
+					if (author == null) {
+						author = { name: entry.author!, lineCount: 0, current: entry.authorCurrent };
+						authors.set(entry.author!, author);
+					}
+
+					// Cache path normalization + URI
+					if (entryPath !== cachedPath) {
+						cachedPath = entryPath;
+						cachedPathUri = joinUriPath(repoUri, normalizePath(entryPath));
+					}
+
+					let previousPath: string | undefined;
+					let previousPathUri: Uri | undefined;
+					if (entry.previousPath != null && entry.previousPath !== entryPath) {
+						previousPath = entry.previousPath;
+						if (previousPath !== cachedPreviousPath) {
+							cachedPreviousPath = previousPath;
+							cachedPreviousPathUri = joinUriPath(repoUri, normalizePath(previousPath));
+						}
+						previousPathUri = cachedPreviousPathUri;
+					}
+
+					const file = new GitFileChange(
+						repoPath,
+						entryPath,
+						GitFileIndexStatus.Modified,
+						cachedPathUri!,
+						previousPath,
+						previousPathUri,
+						entry.previousSha,
+					);
+
+					commit = new GitCommit(
+						repoPath,
+						entry.sha,
+						new GitCommitIdentity(
+							entry.author!,
+							entry.authorEmail,
+							new Date(entry.authorTime!),
+							undefined,
+							entry.authorCurrent,
+						),
+						new GitCommitIdentity(
+							entry.committer!,
+							entry.committerEmail,
+							new Date(entry.committerTime!),
+							undefined,
+							entry.committerCurrent,
+						),
+						entry.summary ?? '',
+						[],
+						undefined,
+						{
+							files: undefined,
+							filtered: {
+								files: [file],
+								pathspec: entryPath,
+							},
+						},
+						undefined,
+						[],
+					);
+
+					commits.set(entry.sha, commit);
 				}
 
-				entry.authorEmail = line.slice(key.length + 1).trim();
-				const start = entry.authorEmail.indexOf('<');
-				if (start >= 0) {
-					const end = entry.authorEmail.indexOf('>', start);
-					if (end > start) {
-						entry.authorEmail = entry.authorEmail.substring(start + 1, end);
-					} else {
-						entry.authorEmail = entry.authorEmail.substring(start + 1);
+				// Accumulate author line counts incrementally
+				const authorName = commit.author.name;
+				if (authorName) {
+					const author = authors.get(authorName);
+					if (author != null) {
+						author.lineCount += entry.lineCount;
 					}
 				}
 
-				break;
-			}
-			case 'author-time':
-				if (entry.sha === uncommitted && modifiedTime != null) {
-					entry.authorTime = modifiedTime;
-				} else {
-					entry.authorTime = parseInt(lineParts[1], 10) * 1000;
+				// Build line mappings
+				const previousSha = entry.previousSha ?? commit.file?.previousSha;
+				for (let i = 0, count = entry.lineCount; i < count; i++) {
+					const l: GitCommitLine = {
+						sha: entry.sha,
+						previousSha: previousSha,
+						originalLine: entry.originalLine + i,
+						line: entry.line + i,
+					};
+
+					commit.lines.push(l);
+					lines[l.line - 1] = l;
 				}
-				break;
-
-			case 'author-tz':
-				entry.authorTimeZone = lineParts[1];
-				break;
-
-			case 'committer':
-				if (isUncommitted(entry.sha)) {
-					entry.committer = 'You';
-				} else {
-					entry.committer = line.slice(key.length + 1).trim();
-				}
-				break;
-
-			case 'committer-mail': {
-				if (isUncommitted(entry.sha)) {
-					entry.committerEmail = currentUser?.email;
-					continue;
-				}
-
-				entry.committerEmail = line.slice(key.length + 1).trim();
-				const start = entry.committerEmail.indexOf('<');
-				if (start >= 0) {
-					const end = entry.committerEmail.indexOf('>', start);
-					if (end > start) {
-						entry.committerEmail = entry.committerEmail.substring(start + 1, end);
-					} else {
-						entry.committerEmail = entry.committerEmail.substring(start + 1);
-					}
-				}
-
-				break;
-			}
-			case 'committer-time':
-				if (entry.sha === uncommitted && modifiedTime != null) {
-					entry.committerTime = modifiedTime;
-				} else {
-					entry.committerTime = parseInt(lineParts[1], 10) * 1000;
-				}
-				break;
-
-			case 'committer-tz':
-				entry.committerTimeZone = lineParts[1];
-				break;
-
-			case 'summary':
-				entry.summary = line.slice(key.length + 1).trim();
-				break;
-
-			case 'previous':
-				entry.previousSha = lineParts[1];
-				entry.previousPath = lineParts.slice(2).join(' ');
-				break;
-
-			case 'filename':
-				// Don't trim to allow spaces in the filename
-				entry.path = line.slice(key.length + 1);
-
-				// Since the filename marks the end of a commit, parse the entry and clear it for the next
-				parseBlameEntry(entry, repoPath, commits, authors, lines, currentUser);
 
 				entry = undefined;
 				break;
+			}
 
-			default:
+			case 0x73 /* s — summary */:
+				entry.summary = line.substring(valueStart);
 				break;
+
+			case 0x70 /* p — previous */: {
+				const value = line.substring(valueStart);
+				const shaEnd = value.indexOf(' ');
+				if (shaEnd !== -1) {
+					entry.previousSha = value.substring(0, shaEnd);
+					entry.previousPath = value.substring(shaEnd + 1);
+				}
+				break;
+			}
 		}
-	}
-
-	for (const [, c] of commits) {
-		if (!c.author.name) continue;
-
-		const author = authors.get(c.author.name);
-		if (author == null) continue;
-
-		author.lineCount += c.lines.length;
 	}
 
 	const sortedAuthors = new Map([...authors.entries()].sort((a, b) => b[1].lineCount - a[1].lineCount));
 
 	sw?.stop({ suffix: ` parsed ${lines.length} lines, ${commits.size} commits` });
 
-	const blame: GitBlame = {
+	return {
 		repoPath: repoPath,
 		authors: sortedAuthors,
 		commits: commits,
 		lines: lines,
 	};
-	return blame;
 }
 
-function parseBlameEntry(
-	entry: BlameEntry,
-	repoPath: string,
-	commits: Map<string, GitCommit>,
-	authors: Map<string, GitBlameAuthor>,
-	lines: GitCommitLine[],
-	currentUser: GitUser | undefined,
-) {
-	const repoUri = fileUri(normalizePath(repoPath));
-	let commit = commits.get(entry.sha);
-	if (commit == null) {
-		if (entry.author != null) {
-			if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
-				entry.author = 'You';
-			}
-
-			let author = authors.get(entry.author);
-			if (author == null) {
-				author = {
-					name: entry.author,
-					lineCount: 0,
-				};
-				authors.set(entry.author, author);
-			}
-		}
-
-		if (entry.committer != null && isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
-			entry.committer = 'You';
-		}
-
-		const file = new GitFileChange(
-			repoPath,
-			entry.path,
-			GitFileIndexStatus.Modified,
-			joinUriPath(repoUri, normalizePath(entry.path)),
-			entry.previousPath && entry.previousPath !== entry.path ? entry.previousPath : undefined,
-			entry.previousPath && entry.previousPath !== entry.path
-				? joinUriPath(repoUri, normalizePath(entry.previousPath))
-				: undefined,
-			entry.previousSha,
-		);
-
-		commit = new GitCommit(
-			repoPath,
-			entry.sha,
-			new GitCommitIdentity(entry.author, entry.authorEmail, new Date(entry.authorTime)),
-			new GitCommitIdentity(entry.committer, entry.committerEmail, new Date(entry.committerTime)),
-			entry.summary!,
-			[],
-			undefined,
-			{
-				files: undefined,
-				filtered: {
-					files: [file],
-					pathspec: entry.path,
-				},
-			},
-			undefined,
-			[],
-		);
-
-		commits.set(entry.sha, commit);
+/** Extracts email from a value like `<user@example.com>` */
+function parseEmail(raw: string): string {
+	const lt = raw.indexOf('<');
+	if (lt >= 0) {
+		const gt = raw.indexOf('>', lt + 1);
+		return gt > lt ? raw.substring(lt + 1, gt) : raw.substring(lt + 1);
 	}
-
-	for (let i = 0, len = entry.lineCount; i < len; i++) {
-		const line: GitCommitLine = {
-			sha: entry.sha,
-			previousSha: entry.previousSha ?? commit.file?.previousSha,
-			originalLine: entry.originalLine + i,
-			line: entry.line + i,
-		};
-
-		commit.lines.push(line);
-		lines[line.line - 1] = line;
-	}
+	return raw;
 }

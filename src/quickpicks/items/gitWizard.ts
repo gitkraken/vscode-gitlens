@@ -22,6 +22,7 @@ import type { GlRepository } from '../../git/models/repository.js';
 import { getBranchRemote } from '../../git/utils/-webview/branch.utils.js';
 import {
 	formatCommitStats,
+	formatIdentityDisplayName,
 	getCommitAuthorAvatarUri,
 	getCommitFormattedDate,
 } from '../../git/utils/-webview/commit.utils.js';
@@ -187,7 +188,7 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 	if (options?.compact) {
 		const item: CommitQuickPickItem<T> = {
 			label: commit.summary,
-			description: `${commit.author.name}, ${getCommitFormattedDate(commit)}${pad('$(git-commit)', 2, 1)}${
+			description: `${formatIdentityDisplayName(commit.author)}, ${getCommitFormattedDate(commit)}${pad('$(git-commit)', 2, 1)}${
 				commit.shortSha
 			}${pad(GlyphChars.Dot, 2, 2)}${formatCommitStats(commit.stats, 'short')}`,
 			alwaysShow: options.alwaysShow,
@@ -202,7 +203,7 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 	const item: CommitQuickPickItem<T> = {
 		label: commit.summary,
 		description: '',
-		detail: `${GlyphChars.Space.repeat(2)}${commit.author.name}, ${getCommitFormattedDate(commit)}${pad(
+		detail: `${GlyphChars.Space.repeat(2)}${formatIdentityDisplayName(commit.author)}, ${getCommitFormattedDate(commit)}${pad(
 			'$(git-commit)',
 			2,
 			1,

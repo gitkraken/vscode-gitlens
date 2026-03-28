@@ -23,7 +23,11 @@ import type { Container } from '../../../container.js';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit.js';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
 import { GlRepository } from '../../../git/models/repository.js';
-import { getCommitForFile, getCommitRepository } from '../../../git/utils/-webview/commit.utils.js';
+import {
+	formatCurrentUserDisplayName,
+	getCommitForFile,
+	getCommitRepository,
+} from '../../../git/utils/-webview/commit.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
 import { getDraftEntityIdentifier } from '../../../plus/drafts/draftsService.js';
@@ -1169,7 +1173,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				updatedAt: draft.updatedAt.getTime(),
 				author: {
 					id: draft.author.id,
-					name: draft.author.name,
+					name: draft.isMine ? formatCurrentUserDisplayName(draft.author.name) : draft.author.name,
 					email: draft.author.email,
 					avatar: draft.author.avatarUri?.toString(),
 				},

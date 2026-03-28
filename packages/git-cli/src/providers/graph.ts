@@ -372,7 +372,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							sha: shaOrRemapped,
 							// Always only return the first parent for stashes, as it is a Git implementation for the index and untracked files
 							parents: parents.slice(0, 1),
-							author: 'You',
+							author: currentUser?.name ?? commit.author,
 							email: commit.authorEmail,
 							date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 							commitDate: Number(commit.committerDate) * 1000,
@@ -382,6 +382,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							remotes: refRemoteHeads,
 							tags: refTags,
 							reachableFromBranches: branches ? [...branches] : undefined,
+							isCurrentUser: true,
 						};
 						rowProcessor?.processRow(row, graphCtx!);
 						rows.push(row);
@@ -400,7 +401,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						const row: GitGraphRow = {
 							sha: shaOrRemapped,
 							parents: onlyFollowFirstParent ? parents.slice(0, 1) : parents,
-							author: isCurrentUser ? 'You' : commit.author,
+							author: commit.author,
 							email: commit.authorEmail,
 							date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 							commitDate: Number(commit.committerDate) * 1000,
@@ -410,6 +411,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							remotes: refRemoteHeads,
 							tags: refTags,
 							reachableFromBranches: branches ? [...branches] : undefined,
+							isCurrentUser: isCurrentUser || undefined,
 						};
 						rowProcessor?.processRow(row, graphCtx!);
 						rows.push(row);

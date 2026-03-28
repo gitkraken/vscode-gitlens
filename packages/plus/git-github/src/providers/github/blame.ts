@@ -14,6 +14,10 @@ import { joinUriPath } from '@gitlens/utils/uri.js';
 import { toTokenInfo } from '../../api/tokenUtils.js';
 import type { GitHubGitProviderInternal } from '../githubProvider.js';
 
+function isViewer(name: string, viewer: string | undefined): boolean | undefined {
+	return (viewer != null && name === viewer) || undefined;
+}
+
 export class BlameGitHubSubProvider implements GitBlameSubProvider {
 	constructor(
 		private readonly cache: Cache,
@@ -113,13 +117,11 @@ export class BlameGitHubSubProvider implements GitBlameSubProvider {
 				const c = range.commit;
 
 				const { viewer = session.account.label } = blame;
-				const authorName = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
-				const committerName = viewer != null && c.committer.name === viewer ? 'You' : c.committer.name;
 
-				let author = authors.get(authorName);
+				let author = authors.get(c.author.name);
 				if (author == null) {
-					author = { name: authorName, lineCount: 0 };
-					authors.set(authorName, author);
+					author = { name: c.author.name, lineCount: 0, current: isViewer(c.author.name, viewer) };
+					authors.set(c.author.name, author);
 				}
 
 				author.lineCount += range.endingLine - range.startingLine + 1;
@@ -129,8 +131,20 @@ export class BlameGitHubSubProvider implements GitBlameSubProvider {
 					commit = new GitCommit(
 						repoPath,
 						c.oid,
-						new GitCommitIdentity(authorName, c.author.email, new Date(c.author.date), c.author.avatarUrl),
-						new GitCommitIdentity(committerName, c.committer.email, new Date(c.committer.date)),
+						new GitCommitIdentity(
+							c.author.name,
+							c.author.email,
+							new Date(c.author.date),
+							c.author.avatarUrl,
+							isViewer(c.author.name, viewer),
+						),
+						new GitCommitIdentity(
+							c.committer.name,
+							c.committer.email,
+							new Date(c.committer.date),
+							undefined,
+							isViewer(c.committer.name, viewer),
+						),
 						c.message.split('\n', 1)[0],
 						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 						c.message,

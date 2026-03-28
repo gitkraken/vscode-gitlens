@@ -13,6 +13,7 @@ import type {
 	GraphItemRefGroupContext,
 	GraphTagContextValue,
 } from '../webviews/plus/graph/protocol.js';
+import { formatCurrentUserDisplayName } from './utils/-webview/commit.utils.js';
 import { getRemoteIconUri } from './utils/-webview/icons.js';
 
 export class GlGraphRowProcessor implements GraphRowProcessor {
@@ -162,7 +163,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 				});
 			}
 		} else {
-			const isCurrentUser = row.author === 'You';
+			const isCurrentUser = row.isCurrentUser ?? false;
 			const isHeadCommit = row.heads?.some(h => h.isCurrentHead) ?? false;
 			const branches = context.reachableFromBranches.get(row.sha);
 			const isUniqueToBranch = branches?.size === 1;
@@ -201,6 +202,11 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 		}
 
 		row.contexts = contexts;
+
+		// Apply display name formatting for current user (after context building, which uses the raw name)
+		if (row.isCurrentUser) {
+			row.author = formatCurrentUserDisplayName(row.author);
+		}
 
 		// Emojify message (after context building, which uses the raw message)
 		row.message = emojify(row.message);

@@ -9,6 +9,7 @@ import { pluralize } from '@gitlens/utils/string.js';
 import { getPresenceDataUri } from '../../avatars.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
+import { formatCurrentUserDisplayName } from '../../git/utils/-webview/commit.utils.js';
 import { getContributorAvatarUri } from '../../git/utils/-webview/contributor.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { gate } from '../../system/decorators/gate.js';
@@ -111,10 +112,11 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 					)})`
 				: '';
 
-		const item = new TreeItem(
-			this.contributor.current ? `${this.contributor.label} (you)` : this.contributor.label,
-			TreeItemCollapsibleState.Collapsed,
-		);
+		const displayName = this.contributor.current
+			? formatCurrentUserDisplayName(this.contributor.label)
+			: this.contributor.label;
+
+		const item = new TreeItem(displayName, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = this.contributor.current
 			? `${ContextValues.Contributor}+current`
@@ -138,7 +140,14 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			});
 
 			if (presence != null) {
-				const title = `${this.contributor.contributionCount ? 'You are' : `${this.contributor.label} is`} ${
+				let subjectAndVerb: string;
+				if (this.contributor.current) {
+					const style = configuration.get('defaultCurrentUserNameStyle');
+					subjectAndVerb = `${formatCurrentUserDisplayName(this.contributor.label, style)} ${style === 'you' ? 'are' : 'is'}`;
+				} else {
+					subjectAndVerb = `${this.contributor.label} is`;
+				}
+				const title = `${subjectAndVerb} ${
 					presence.status === 'dnd' ? 'in ' : ''
 				}${presence.statusText.toLocaleLowerCase()}`;
 

@@ -1341,18 +1341,25 @@ function toCommit(c: ParsedCommit, repoPath: string, pathspec: string | undefine
 	const message = c.message.trim();
 	const index = message.indexOf('\n');
 
+	const isCurrentAuthor = isUserMatch(currentUser, c.author, c.authorEmail) || undefined;
+	const isCurrentCommitter = isUserMatch(currentUser, c.committer, c.committerEmail) || undefined;
+
 	return new GitCommit(
 		repoPath,
 		c.sha,
 		new GitCommitIdentity(
-			isUserMatch(currentUser, c.author, c.authorEmail) ? 'You' : c.author,
+			c.author,
 			c.authorEmail,
 			new Date(Number(c.authorDate) * 1000),
+			undefined,
+			isCurrentAuthor,
 		),
 		new GitCommitIdentity(
-			isUserMatch(currentUser, c.committer, c.committerEmail) ? 'You' : c.committer,
+			c.committer,
 			c.committerEmail,
 			new Date(Number(c.committerDate) * 1000),
+			undefined,
+			isCurrentCommitter,
 		),
 		index !== -1 ? message.substring(0, index) : message,
 		c.parents?.split(' ') ?? [],

@@ -634,6 +634,7 @@ export interface GitCommitIdentityShape {
 	readonly name: string;
 	readonly email: string | undefined;
 	readonly date: Date;
+	readonly current?: boolean | undefined;
 }
 
 @loggable(i => i.name)
@@ -643,6 +644,7 @@ export class GitCommitIdentity implements GitCommitIdentityShape {
 		public readonly email: string | undefined,
 		public readonly date: Date,
 		public readonly avatarUrl?: string | undefined,
+		public readonly current?: boolean | undefined,
 	) {}
 
 	@memoize({ resolver: format => format ?? 'MMMM Do, YYYY h:mma' })

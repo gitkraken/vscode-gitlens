@@ -52,8 +52,8 @@ export function createUncommittedChangesCommit(
 	return new GitCommit(
 		repoPath,
 		sha,
-		new GitCommitIdentity('You', user?.email ?? undefined, now),
-		new GitCommitIdentity('You', user?.email ?? undefined, now),
+		new GitCommitIdentity(user?.name ?? '', user?.email ?? undefined, now, undefined, true),
+		new GitCommitIdentity(user?.name ?? '', user?.email ?? undefined, now, undefined, true),
 		'Uncommitted changes',
 		options?.parents ?? (sha === uncommittedStaged ? ['HEAD'] : []),
 		'Uncommitted changes',

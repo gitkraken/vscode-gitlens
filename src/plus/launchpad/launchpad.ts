@@ -45,6 +45,7 @@ import { proBadge, urls } from '../../constants.js';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { AuthenticationError, getPresentableErrorMessage } from '../../errors.js';
+import { formatCurrentUserDisplayName } from '../../git/utils/-webview/commit.utils.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -1532,6 +1533,10 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 
 	for (const review of item.reviews) {
 		const isCurrentUser = review.reviewer.username === item.currentViewer.username;
+		const style = isCurrentUser ? configuration.get('defaultCurrentUserNameStyle') : undefined;
+		const reviewerName = isCurrentUser
+			? formatCurrentUserDisplayName(review.reviewer.username ?? '', style)
+			: review.reviewer.username;
 		let reviewLabel: string | undefined;
 		const iconPath =
 			item.provider.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ||
@@ -1542,18 +1547,16 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 					: new ThemeIcon('account');
 		switch (review.state) {
 			case ProviderPullRequestReviewState.Approved:
-				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved these changes`;
+				reviewLabel = `${reviewerName} approved these changes`;
 				break;
 			case ProviderPullRequestReviewState.ChangesRequested:
-				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} requested changes`;
+				reviewLabel = `${reviewerName} requested changes`;
 				break;
 			case ProviderPullRequestReviewState.Commented:
-				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} left a comment review`;
+				reviewLabel = `${reviewerName} left a comment review`;
 				break;
 			case ProviderPullRequestReviewState.ReviewRequested:
-				reviewLabel = `${
-					isCurrentUser ? `You haven't` : `${review.reviewer.username} hasn't`
-				} reviewed these changes yet`;
+				reviewLabel = `${reviewerName} ${style === 'you' ? "haven't" : "hasn't"} reviewed these changes yet`;
 				break;
 		}
 

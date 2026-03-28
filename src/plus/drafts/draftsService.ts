@@ -929,7 +929,7 @@ function formatDraft(
 		isMine = true;
 		author = {
 			id: draftResponse.createdBy,
-			name: `${options.account.name} (you)`,
+			name: options.account.name,
 			email: options.account.email,
 			avatarUri: getAvatarUri(options.account.email),
 		};

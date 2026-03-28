@@ -24,7 +24,11 @@ import {
 	skipPausedOperation,
 } from '../../git/actions/pausedOperation.js';
 import { GitUri } from '../../git/gitUri.js';
-import { formatCommitDate, getCommitFormattedDate } from '../../git/utils/-webview/commit.utils.js';
+import {
+	formatCommitDate,
+	formatIdentityDisplayName,
+	getCommitFormattedDate,
+} from '../../git/utils/-webview/commit.utils.js';
 import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
@@ -1165,8 +1169,8 @@ export class RebaseWebviewProvider implements Disposable {
 function convertCommit(commit: GitCommit, defaultDateFormat: string | null): Commit {
 	return {
 		sha: commit.sha,
-		author: commit.author.name,
-		committer: commit.committer.name,
+		author: formatIdentityDisplayName(commit.author),
+		committer: formatIdentityDisplayName(commit.committer),
 		date: formatCommitDate(commit, defaultDateFormat),
 		formattedDate: getCommitFormattedDate(commit),
 		message: emojify(commit.message ?? commit.summary),

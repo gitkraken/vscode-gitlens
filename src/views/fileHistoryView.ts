@@ -127,6 +127,7 @@ export class FileHistoryView extends ViewBase<
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
+			!configuration.changed(e, 'defaultCurrentUserNameStyle') &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateLocale') &&
 			!configuration.changed(e, 'defaultDateShortFormat') &&

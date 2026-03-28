@@ -35,7 +35,15 @@ export class GitCodeLensController implements Disposable {
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.onConfigurationChanged`);
 
-		if (configuration.changed(e, ['codeLens', 'defaultDateFormat', 'defaultDateSource', 'defaultDateStyle'])) {
+		if (
+			configuration.changed(e, [
+				'codeLens',
+				'defaultCurrentUserNameStyle',
+				'defaultDateFormat',
+				'defaultDateSource',
+				'defaultDateStyle',
+			])
+		) {
 			if (e != null) {
 				scope?.debug('resetting CodeLens provider');
 			}

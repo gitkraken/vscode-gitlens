@@ -701,7 +701,6 @@ export async function createComposerCommitsFromGitCommits(
 	commits: GitCommit[],
 ): Promise<{ commits: ComposerCommit[]; hunks: ComposerHunk[] } | undefined> {
 	try {
-		const currentUser = await repo.git.config.getCurrentUser();
 		const composerCommits: ComposerCommit[] = [];
 		const allHunks: ComposerHunk[] = [];
 		let count = 0;
@@ -722,16 +721,12 @@ export async function createComposerCommitsFromGitCommits(
 			// Parse the diff to get hunks
 			const parsedDiff = parseGitDiff(diff.contents);
 			const commitHunkIndices: number[] = [];
-			const author = {
-				...commit.author,
-				name: commit.author.name === 'You' ? (currentUser?.name ?? commit.author.name) : commit.author.name,
-			};
 
 			const { hunks, count: newCount } = convertDiffToComposerHunks(
 				parsedDiff,
 				'commits',
 				count,
-				author,
+				commit.author,
 				parseCoAuthorsFromGitCommit(commit),
 			);
 			allHunks.push(...hunks);

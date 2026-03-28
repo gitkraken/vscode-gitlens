@@ -14,12 +14,37 @@ import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { EnrichedAutolink } from '../../../autolinks/models/autolinks.js';
 import { getAvatarUri, getCachedAvatarUri } from '../../../avatars.js';
-import type { GravatarDefaultStyle } from '../../../config.js';
+import type { CurrentUserNameStyle, GravatarDefaultStyle } from '../../../config.js';
 import { GlyphChars } from '../../../constants.js';
 import { Container } from '../../../container.js';
+import { configuration } from '../../../system/-webview/configuration.js';
 import { GitUri } from '../../gitUri.js';
 import type { GlRepository } from '../../models/repository.js';
 import { getBestRemoteWithIntegration, getRemoteIntegration, remoteSupportsIntegration } from './remote.utils.js';
+
+// #region Current user display name
+
+export function formatCurrentUserDisplayName(name: string, style?: CurrentUserNameStyle): string {
+	style ??= configuration.get('defaultCurrentUserNameStyle');
+	switch (style) {
+		case 'name':
+			return name;
+		case 'nameAndYou':
+			return name ? `${name} (you)` : 'You';
+		case 'you':
+		default:
+			return 'You';
+	}
+}
+
+export function formatIdentityDisplayName(
+	identity: { name: string; current?: boolean | undefined },
+	style?: CurrentUserNameStyle,
+): string {
+	return identity.current ? formatCurrentUserDisplayName(identity.name, style) : identity.name;
+}
+
+// #endregion
 
 // #region Date / formatting utilities
 

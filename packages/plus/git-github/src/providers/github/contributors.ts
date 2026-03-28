@@ -57,7 +57,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 							let contributor: Mutable<GitContributor> | undefined = contributors.get(key);
 							if (contributor == null) {
 								const isCurrentUser =
-									c.author.name === 'You' || isUserMatch(currentUser, c.author.name, c.author.email);
+									c.author.current || isUserMatch(currentUser, c.author.name, c.author.email);
 								contributor = new GitContributor(
 									repoPath,
 									isCurrentUser ? (currentUser?.name ?? c.author.name) : c.author.name,

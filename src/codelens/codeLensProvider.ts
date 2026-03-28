@@ -30,7 +30,11 @@ import type { GlCommands } from '../constants.commands.js';
 import { trackableSchemes } from '../constants.js';
 import type { Container } from '../container.js';
 import type { GitUri } from '../git/gitUri.js';
-import { formatCommitDate, getCommitFormattedDate } from '../git/utils/-webview/commit.utils.js';
+import {
+	formatCommitDate,
+	formatIdentityDisplayName,
+	getCommitFormattedDate,
+} from '../git/utils/-webview/commit.utils.js';
 import { createCommand, executeCoreCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isVirtualUri } from '../system/-webview/vscode/uris.js';
@@ -473,7 +477,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 		// 	}
 		// }
 
-		let title = `${recentCommit.author.name}, ${
+		let title = `${formatIdentityDisplayName(recentCommit.author)}, ${
 			lens.dateFormat == null
 				? getCommitFormattedDate(recentCommit)
 				: formatCommitDate(recentCommit, lens.dateFormat)
@@ -535,7 +539,8 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 		if (blame == null) return applyCommandWithNoClickAction('? authors (Blame failed)', lens);
 
 		const count = blame.authors.size;
-		const author = first(blame.authors.values())?.name ?? 'Unknown';
+		const firstAuthor = first(blame.authors.values());
+		const author = firstAuthor != null ? formatIdentityDisplayName(firstAuthor) : 'Unknown';
 		const andOthers =
 			count > 1 ? ` and ${pluralize('one other', count - 1, { only: true, plural: 'others' })}` : '';
 
@@ -548,7 +553,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 					? `|${(lens.symbol as SymbolInformation).containerName}`
 					: ''
 			}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${join(
-				map(blame.authors.values(), a => a.name),
+				map(blame.authors.values(), formatIdentityDisplayName),
 				', ',
 			)})]`;
 		}
@@ -557,7 +562,9 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 			return applyCommandWithNoClickAction(title, lens);
 		}
 
-		const commit = find(blame.commits.values(), c => c.author.name === author) ?? first(blame.commits.values());
+		const authorRealName = firstAuthor?.name ?? author;
+		const commit =
+			find(blame.commits.values(), c => c.author.name === authorRealName) ?? first(blame.commits.values());
 		if (commit == null) return applyCommandWithNoClickAction(title, lens);
 
 		switch (lens.desiredCommand) {

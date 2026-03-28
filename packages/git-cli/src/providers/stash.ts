@@ -7,6 +7,7 @@ import { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import { GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitStash } from '@gitlens/git/models/stash.js';
+import type { GitUser } from '@gitlens/git/models/user.js';
 import type { GitStashSubProvider, StashApplyResult } from '@gitlens/git/providers/stash.js';
 import { countStringLength } from '@gitlens/utils/array.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
@@ -100,12 +101,14 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 			const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'stash', 'list', ...args);
 
+			const currentUser = await this.provider.config.getCurrentUser(repoPath);
+
 			const stashes = new Map<string, GitStashCommit>();
 			const parentShas = new Set<string>();
 
 			// First pass: create stashes and collect parent SHAs
 			for (const s of parser.parse(result.stdout)) {
-				stashes.set(s.sha, createStash(s, commonPath));
+				stashes.set(s.sha, createStash(s, commonPath, currentUser));
 				// Collect all parent SHAs for timestamp lookup
 				if (s.parents) {
 					for (const parentSha of s.parents.split(' ')) {
@@ -521,7 +524,11 @@ const stashSummaryRegex =
 	// eslint-disable-next-line no-control-regex
 	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
 
-function createStash(s: ParsedStash | ParsedStashWithFiles, repoPath: string): GitStashCommit {
+function createStash(
+	s: ParsedStash | ParsedStashWithFiles,
+	repoPath: string,
+	currentUser: GitUser | undefined,
+): GitStashCommit {
 	let message = s.summary.trim();
 
 	let onRef;
@@ -545,8 +552,20 @@ function createStash(s: ParsedStash | ParsedStashWithFiles, repoPath: string): G
 	return new GitCommit(
 		repoPath,
 		s.sha,
-		new GitCommitIdentity('You', undefined, new Date(Number(s.authorDate) * 1000)),
-		new GitCommitIdentity('You', undefined, new Date(Number(s.committedDate) * 1000)),
+		new GitCommitIdentity(
+			currentUser?.name ?? '',
+			currentUser?.email,
+			new Date(Number(s.authorDate) * 1000),
+			undefined,
+			true,
+		),
+		new GitCommitIdentity(
+			currentUser?.name ?? '',
+			currentUser?.email,
+			new Date(Number(s.committedDate) * 1000),
+			undefined,
+			true,
+		),
 		index !== -1 ? message.substring(0, index) : message,
 		s.parents.split(' ') ?? [],
 		message,

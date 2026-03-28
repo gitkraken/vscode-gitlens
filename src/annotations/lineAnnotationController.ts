@@ -59,19 +59,28 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		if (!configuration.changed(e, 'currentLine')) return;
+		let refresh = false;
 
-		if (configuration.changed(e, 'currentLine.enabled')) {
-			if (configuration.get('currentLine.enabled')) {
-				this._enabled = true;
-				this.resume();
-			} else {
-				this._enabled = false;
-				this.setLineTracker(false);
-			}
+		if (configuration.changed(e, 'defaultCurrentUserNameStyle')) {
+			refresh = true;
 		}
 
-		void this.refresh(window.activeTextEditor);
+		if (configuration.changed(e, 'currentLine')) {
+			if (configuration.changed(e, 'currentLine.enabled')) {
+				if (configuration.get('currentLine.enabled')) {
+					this._enabled = true;
+					this.resume();
+				} else {
+					this._enabled = false;
+					this.setLineTracker(false);
+				}
+			}
+			refresh = true;
+		}
+
+		if (refresh) {
+			void this.refresh(window.activeTextEditor);
+		}
 	}
 
 	private _suspended: boolean = false;

@@ -157,7 +157,8 @@ suite('Blame Parser Test Suite', () => {
 		assert.ok(result, 'Should return a blame');
 		const commit = result.commits.get(uncommittedSha);
 		assert.ok(commit, 'Should find the uncommitted commit');
-		assert.strictEqual(commit.author.name, 'You', 'Uncommitted author should be "You"');
+		assert.strictEqual(commit.author.name, 'Jane', 'Uncommitted author should use currentUser name');
+		assert.strictEqual(commit.author.current, true, 'Uncommitted author should be marked as current user');
 		assert.strictEqual(commit.author.email, 'jane@example.com', 'Should use currentUser email for uncommitted');
 	});
 
@@ -311,7 +312,7 @@ suite('Blame Parser Test Suite', () => {
 		assert.strictEqual(result.lines.length, 3, 'Should have 3 lines total');
 	});
 
-	test('maps currentUser to "You" when author matches', () => {
+	test('marks author as current user when matching currentUser', () => {
 		const currentUser = { name: 'Alice', email: 'alice@example.com' };
 
 		const data = blameBlock({
@@ -334,8 +335,14 @@ suite('Blame Parser Test Suite', () => {
 		assert.ok(result, 'Should return a blame');
 		const commit = result.commits.get('abc1234abc1234abc1234abc1234abc1234abc123');
 		assert.ok(commit, 'Should find the commit');
-		assert.strictEqual(commit.author.name, 'You', 'Author matching currentUser should be "You"');
-		assert.strictEqual(commit.committer.name, 'You', 'Committer matching currentUser should be "You"');
+		assert.strictEqual(commit.author.name, 'Alice', 'Author should preserve real name');
+		assert.strictEqual(commit.author.current, true, 'Author matching currentUser should be marked as current');
+		assert.strictEqual(commit.committer.name, 'Alice', 'Committer should preserve real name');
+		assert.strictEqual(
+			commit.committer.current,
+			true,
+			'Committer matching currentUser should be marked as current',
+		);
 	});
 
 	test('preserves author name when no currentUser match', () => {

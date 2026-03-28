@@ -148,6 +148,7 @@ export class FileAnnotationController implements Disposable {
 				'changes',
 				'heatmap',
 				'hovers',
+				'defaultCurrentUserNameStyle',
 				'defaultDateFormat',
 				'defaultDateSource',
 				'defaultDateStyle',

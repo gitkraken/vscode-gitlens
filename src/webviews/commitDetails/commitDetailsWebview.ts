@@ -63,6 +63,7 @@ import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import { getBranchAssociatedPullRequest } from '../../git/utils/-webview/branch.utils.js';
 import {
+	formatIdentityDisplayName,
 	getCommitAssociatedPullRequest,
 	getCommitAuthorAvatarUri,
 	getCommitEnrichedAutolinks,
@@ -764,6 +765,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
 			configuration.changed(e, [
+				'defaultCurrentUserNameStyle',
 				'defaultDateFormat',
 				'defaultDateStyle',
 				'views.commitDetails.files',
@@ -1672,8 +1674,16 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			repoPath: commit.repoPath,
 			sha: commit.sha,
 			shortSha: commit.shortSha,
-			author: { ...commit.author, avatar: avatarUri?.toString(true) },
-			committer: { ...commit.committer, avatar: undefined },
+			author: {
+				...commit.author,
+				name: formatIdentityDisplayName(commit.author),
+				avatar: avatarUri?.toString(true),
+			},
+			committer: {
+				...commit.committer,
+				name: formatIdentityDisplayName(commit.committer),
+				avatar: undefined,
+			},
 			message: formattedMessage,
 			parents: commit.parents,
 			stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,

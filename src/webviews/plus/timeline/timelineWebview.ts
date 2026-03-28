@@ -40,7 +40,7 @@ import type {
 	RepositoryChangeEvent,
 	RepositoryWorkingTreeChangeEvent,
 } from '../../../git/models/repository.js';
-import { getCommitDate } from '../../../git/utils/-webview/commit.utils.js';
+import { formatCurrentUserDisplayName, getCommitDate } from '../../../git/utils/-webview/commit.utils.js';
 import { getReference } from '../../../git/utils/-webview/reference.utils.js';
 import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils.js';
 import { getPseudoCommitsWithStats } from '../../../git/utils/-webview/statusFile.utils.js';
@@ -715,7 +715,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		]);
 
 		const currentUser = getSettledValue(currentUserResult);
-		const currentUserName = currentUser?.name ? `${currentUser.name} (you)` : 'You';
+		const currentUserName = formatCurrentUserDisplayName(currentUser?.name ?? '');
 
 		const dataset: TimelineDatum[] = [];
 
@@ -1046,7 +1046,7 @@ function createDatum(commit: GitCommit, scopeType: TimelineScopeType, currentUse
 	}
 
 	return {
-		author: commit.author.name === 'You' ? currentUserName : commit.author.name,
+		author: commit.author.current ? currentUserName : commit.author.name,
 		files: files,
 		additions: additions,
 		deletions: deletions,

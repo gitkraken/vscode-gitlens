@@ -9,7 +9,7 @@ import type { SuppressedMessages } from './config.js';
 import { urls } from './constants.js';
 import type { Source } from './constants.telemetry.js';
 import type { Container } from './container.js';
-import { getCommitFormattedDate } from './git/utils/-webview/commit.utils.js';
+import { formatIdentityDisplayName, getCommitFormattedDate } from './git/utils/-webview/commit.utils.js';
 import { mcpRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils.js';
 import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
@@ -39,7 +39,7 @@ export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit):
 	}
 	return showMessage(
 		'info',
-		`Commit ${commit.shortSha} (${commit.author.name}, ${getCommitFormattedDate(commit)}) has no previous commit.`,
+		`Commit ${commit.shortSha} (${formatIdentityDisplayName(commit.author)}, ${getCommitFormattedDate(commit)}) has no previous commit.`,
 		'suppressCommitHasNoPreviousCommitWarning',
 	);
 }

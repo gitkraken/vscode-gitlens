@@ -14,6 +14,7 @@ export interface Config {
 	readonly currentLine: CurrentLineConfig;
 	readonly debug: boolean;
 	readonly deepLinks: DeepLinksConfig;
+	readonly defaultCurrentUserNameStyle: CurrentUserNameStyle;
 	readonly defaultDateFormat: DateTimeFormat | (string & object) | null;
 	readonly defaultDateLocale: string | null;
 	readonly defaultDateShortFormat: DateTimeFormat | (string & object) | null;
@@ -62,6 +63,7 @@ export type AnnotationsToggleMode = 'file' | 'window';
 export type BlameHighlightLocations = 'gutter' | 'line' | 'overview';
 export type BranchSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
 export type ChangesLocations = 'gutter' | 'line' | 'overview';
+export type CurrentUserNameStyle = 'you' | 'name' | 'nameAndYou';
 
 export type CodeLensCommands =
 	| 'gitlens.copyRemoteCommitUrl'

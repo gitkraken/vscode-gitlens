@@ -214,8 +214,20 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 				const commit = new GitCommit(
 					'~/code/eamodio/vscode-gitlens-demo',
 					'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
-					new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
-					new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2020-11-01T06:57:21.000Z')),
+					new GitCommitIdentity(
+						'Eric Amodio',
+						'eamodio@gmail.com',
+						new Date('2016-11-12T20:41:00.000Z'),
+						undefined,
+						true,
+					),
+					new GitCommitIdentity(
+						'Eric Amodio',
+						'eamodio@gmail.com',
+						new Date('2020-11-01T06:57:21.000Z'),
+						undefined,
+						true,
+					),
 					params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 					['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
 					params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',

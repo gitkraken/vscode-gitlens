@@ -78,6 +78,7 @@ export interface GitGraphRow {
 	contexts?: GitGraphRowContexts;
 	stats?: GitGraphRowStats;
 	reachableFromBranches?: string[];
+	isCurrentUser?: boolean;
 }
 
 export interface GitGraph {

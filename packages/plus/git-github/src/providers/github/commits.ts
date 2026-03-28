@@ -30,6 +30,10 @@ import type { GitHubCommit } from '../../models.js';
 import { fromCommitFileStatus } from '../../models.js';
 import type { GitHubGitProviderInternal } from '../githubProvider.js';
 
+function isViewer(name: string, viewer: string | undefined): boolean | undefined {
+	return (viewer != null && name === viewer) || undefined;
+}
+
 export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	constructor(
 		private readonly cache: Cache,
@@ -65,19 +69,24 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const repoUri = coerceUri(repoPath);
 
 			const { viewer = session.account.label } = commit;
-			const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
 
 			return new GitCommit(
 				repoPath,
 				commit.oid,
 				new GitCommitIdentity(
-					authorName,
+					commit.author.name,
 					commit.author.email,
 					new Date(commit.author.date),
 					commit.author.avatarUrl,
+					isViewer(commit.author.name, viewer),
 				),
-				new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+				new GitCommitIdentity(
+					commit.committer.name,
+					commit.committer.email,
+					new Date(commit.committer.date),
+					undefined,
+					isViewer(commit.committer.name, viewer),
+				),
 				commit.message.split('\n', 1)[0],
 				commit.parents.nodes.map(p => p.oid),
 				commit.message,
@@ -160,19 +169,24 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			const repoUri = coerceUri(repoPath);
 			const { viewer = session.account.label } = commit;
-			const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
 
 			return new GitCommit(
 				repoPath,
 				commit.oid,
 				new GitCommitIdentity(
-					authorName,
+					commit.author.name,
 					commit.author.email,
 					new Date(commit.author.date),
 					commit.author.avatarUrl,
+					isViewer(commit.author.name, viewer),
 				),
-				new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+				new GitCommitIdentity(
+					commit.committer.name,
+					commit.committer.email,
+					new Date(commit.committer.date),
+					undefined,
+					isViewer(commit.committer.name, viewer),
+				),
 				commit.message.split('\n', 1)[0],
 				commit.parents.nodes.map(p => p.oid),
 				commit.message,
@@ -269,22 +283,25 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			const { viewer = session.account.label } = result;
 			for (const commit of result.values) {
-				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-				const committerName =
-					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
-
 				let c = commits.get(commit.oid);
 				if (c == null) {
 					c = new GitCommit(
 						repoPath,
 						commit.oid,
 						new GitCommitIdentity(
-							authorName,
+							commit.author.name,
 							commit.author.email,
 							new Date(commit.author.date),
 							commit.author.avatarUrl,
+							isViewer(commit.author.name, viewer),
 						),
-						new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+						new GitCommitIdentity(
+							commit.committer.name,
+							commit.committer.email,
+							new Date(commit.committer.date),
+							undefined,
+							isViewer(commit.committer.name, viewer),
+						),
 						commit.message.split('\n', 1)[0],
 						commit.parents.nodes.map(p => p.oid),
 						commit.message,
@@ -453,9 +470,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const { viewer = session.account.label } = result;
 		for (const commit of result.values) {
-			const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
-
 			let c = commits.get(commit.oid);
 			if (c == null) {
 				const files = commit.files?.map(f => toFileChange(repoUri, repoPath, f));
@@ -490,12 +504,19 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					repoPath,
 					commit.oid,
 					new GitCommitIdentity(
-						authorName,
+						commit.author.name,
 						commit.author.email,
 						new Date(commit.author.date),
 						commit.author.avatarUrl,
+						isViewer(commit.author.name, viewer),
 					),
-					new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+					new GitCommitIdentity(
+						commit.committer.name,
+						commit.committer.email,
+						new Date(commit.committer.date),
+						undefined,
+						isViewer(commit.committer.name, viewer),
+					),
 					commit.message.split('\n', 1)[0],
 					commit.parents.nodes.map(p => p.oid),
 					commit.message,
@@ -720,22 +741,25 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			const viewer = session.account.label;
 			for (const commit of result.values) {
-				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-				const committerName =
-					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
-
 				let c = commits.get(commit.oid);
 				if (c == null) {
 					c = new GitCommit(
 						repoPath,
 						commit.oid,
 						new GitCommitIdentity(
-							authorName,
+							commit.author.name,
 							commit.author.email,
 							new Date(commit.author.date),
 							commit.author.avatarUrl,
+							isViewer(commit.author.name, viewer),
 						),
-						new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+						new GitCommitIdentity(
+							commit.committer.name,
+							commit.committer.email,
+							new Date(commit.committer.date),
+							undefined,
+							isViewer(commit.committer.name, viewer),
+						),
 						commit.message.split('\n', 1)[0],
 						commit.parents.nodes.map(p => p.oid),
 						commit.message,

@@ -734,6 +734,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (
 			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
 			configuration.changed(e, 'ai.enabled') ||
+			configuration.changed(e, 'defaultCurrentUserNameStyle') ||
 			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateStyle') ||
 			configuration.changed(e, 'graph')
@@ -741,6 +742,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void this.notifyDidChangeConfiguration();
 
 			if (
+				configuration.changed(e, 'defaultCurrentUserNameStyle') ||
 				configuration.changed(e, 'graph.onlyFollowFirstParent') ||
 				((configuration.changed(e, 'graph.minimap.enabled') ||
 					configuration.changed(e, 'graph.minimap.dataType')) &&

@@ -10,6 +10,7 @@ export interface GitBlame {
 export interface GitBlameAuthor {
 	name: string;
 	lineCount: number;
+	current?: boolean;
 }
 
 export interface GitBlameLine {

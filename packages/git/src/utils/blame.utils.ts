@@ -36,6 +36,7 @@ export function getBlameRange(blame: GitBlame, range: DiffRange): GitBlame | und
 			author = {
 				name: commit.author.name,
 				lineCount: 0,
+				current: commit.author.current,
 			};
 			authors.set(author.name, author);
 		}

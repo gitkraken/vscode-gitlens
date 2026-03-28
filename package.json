@@ -5576,6 +5576,23 @@
 						"type": "string",
 						"markdownDeprecationMessage": "This setting is deprecated. Use the **GitLens: Enable Debug Logging** and **GitLens: Disable Debug Logging** commands, or the **Developer: Set Log Level...** command to control logging."
 					},
+					"gitlens.defaultCurrentUserNameStyle": {
+						"type": "string",
+						"default": "you",
+						"enum": [
+							"you",
+							"name",
+							"nameAndYou"
+						],
+						"enumDescriptions": [
+							"Displays \"You\" for the current user",
+							"Displays the user's name from git config",
+							"Displays the user's name followed by \"(you)\", e.g. \"Jane Doe (you)\""
+						],
+						"markdownDescription": "Specifies how the current git user's name is displayed in blame annotations, hovers, and other UI elements",
+						"scope": "window",
+						"order": 35
+					},
 					"gitlens.defaultGravatarsStyle": {
 						"type": "string",
 						"default": "robohash",

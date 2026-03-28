@@ -48,6 +48,7 @@ import {
 	formatCommitDate,
 	formatCommitDateFromNow,
 	formatCommitStats,
+	formatCurrentUserDisplayName,
 	getCommitAuthorAvatarUri,
 	getCommitGitUri,
 } from '../utils/-webview/commit.utils.js';
@@ -268,16 +269,25 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get author(): string {
-		return this.formatAuthor(this._item.author.name, this._item.author.email, this._options.tokenOptions.author);
+		const name = this._item.author.current
+			? formatCurrentUserDisplayName(this._item.author.name)
+			: this._item.author.name;
+		return this.formatAuthor(name, this._item.author.email, this._options.tokenOptions.author);
 	}
 
 	get authorFirst(): string {
-		const [first] = this._item.author.name.split(' ');
+		const displayName = this._item.author.current
+			? formatCurrentUserDisplayName(this._item.author.name)
+			: this._item.author.name;
+		const [first] = displayName.split(' ');
 		return this.formatAuthor(first, this._item.author.email, this._options.tokenOptions.authorFirst);
 	}
 
 	get authorLast(): string {
-		const [first, last] = this._item.author.name.split(' ');
+		const displayName = this._item.author.current
+			? formatCurrentUserDisplayName(this._item.author.name)
+			: this._item.author.name;
+		const [first, last] = displayName.split(' ');
 		return this.formatAuthor(last || first, this._item.author.email, this._options.tokenOptions.authorLast);
 	}
 
@@ -328,7 +338,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get authorNotYou(): string {
 		let { name, email } = this._item.author;
-		if (name === 'You') return this._padOrTruncate('', this._options.tokenOptions.authorNotYou);
+		if (this._item.author.current) return this._padOrTruncate('', this._options.tokenOptions.authorNotYou);
 
 		const author = this._padOrTruncate(name, this._options.tokenOptions.authorNotYou);
 
@@ -356,7 +366,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return this._padOrTruncate('', this._options.tokenOptions.avatar);
 		}
 
-		let { name } = this._item.author;
+		let name = this._item.author.current
+			? formatCurrentUserDisplayName(this._item.author.name)
+			: this._item.author.name;
 
 		let presence = this._options.presence;
 		// If we are still waiting for the presence, pretend it is offline
@@ -367,7 +379,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			};
 		}
 		if (presence != null) {
-			let title = `${name} ${name === 'You' ? 'are' : 'is'} ${
+			let title = `${name} ${this._item.author.current ? 'are' : 'is'} ${
 				presence.status === 'dnd' ? 'in ' : ''
 			}${presence.statusText.toLocaleLowerCase()}`;
 
