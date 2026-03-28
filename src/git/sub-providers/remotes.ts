@@ -84,7 +84,14 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 
 			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
-			const defaultRemote = remotes.find(r => r.default)?.name;
+			let defaultRemote = remotes.find(r => r.default)?.name;
+			if (defaultRemote == null) {
+				const upstream = remotes.find(r => r.name === 'upstream');
+				if (upstream != null) {
+					await this.setRemoteAsDefault(repoPath, 'upstream', true);
+					defaultRemote = 'upstream';
+				}
+			}
 			const currentBranchRemote = (await this.provider.branches.getBranch(remotes[0].repoPath))?.getRemoteName();
 
 			const weighted: [number, GitRemote<RemoteProvider>][] = [];
