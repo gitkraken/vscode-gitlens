@@ -286,6 +286,45 @@ export class GitLensPage extends VSCodePage {
 	// GitLens Webviews
 	// ============================================================================
 
+	// ============================================================================
+	// Blame Annotations
+	// ============================================================================
+
+	/**
+	 * Toggle file blame annotations on the active editor.
+	 */
+	async toggleFileBlame(): Promise<void> {
+		await this.executeCommand('gitlens.toggleFileBlame');
+	}
+
+	/**
+	 * Check if blame annotations are currently visible in the active editor.
+	 *
+	 * VS Code renders GitLens gutter blame decorations as CSS `::before`
+	 * pseudo-elements on `<span>` elements within `.view-lines`. The decoration
+	 * class names contain the `ced-` prefix (content editor decoration).
+	 *
+	 * @param expectedText — Text to search for in `::before` content (e.g. commit message or date pattern)
+	 */
+	async hasBlameAnnotations(expectedText: string): Promise<boolean> {
+		return this.page.evaluate((pattern: string) => {
+			// Blame decorations live on <span> elements inside .view-lines with ced-* classes
+			const candidates = document.querySelectorAll('.monaco-editor .view-lines span[class*="ced-"]');
+			for (const el of candidates) {
+				const content = window.getComputedStyle(el, '::before').getPropertyValue('content');
+				if (content && content !== 'none' && content !== '""') {
+					const text = content.replace(/^"|"$/g, '');
+					if (text.includes(pattern)) return true;
+				}
+			}
+			return false;
+		}, expectedText);
+	}
+
+	// ============================================================================
+	// Webviews
+	// ============================================================================
+
 	async getRebaseWebview(): Promise<FrameLocator | null> {
 		return this.getGitLensWebview('Interactive Rebase', 'customEditor');
 	}

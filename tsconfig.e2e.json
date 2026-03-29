@@ -2,7 +2,8 @@
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"outDir": "./out/e2e",
-		"rootDir": "."
+		"rootDir": ".",
+		"lib": ["es2023", "dom", "dom.iterable"]
 	},
 	"include": ["tests/e2e/**/*.ts", "src/constants.subscription.ts", "src/plus/gk/__debug__accountDebug.ts"]
 }
