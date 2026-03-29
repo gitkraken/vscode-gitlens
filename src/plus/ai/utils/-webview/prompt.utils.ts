@@ -1,15 +1,10 @@
-import { CancellationError } from '@gitlens/utils/cancellation.js';
-import { getPossessiveForm, interpolate } from '@gitlens/utils/string.js';
-import type { TelemetryEvents } from '../../../../constants.telemetry.js';
-import { AIError, AIErrorReason } from '../../../../errors.js';
-import { configuration } from '../../../../system/-webview/configuration.js';
-import type { AIModel } from '../../models/model.js';
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import type {
 	PromptTemplate,
 	PromptTemplateContext,
 	PromptTemplateType,
 	TruncationHandler,
-} from '../../models/promptTemplates.js';
+} from '@gitlens/ai/models/promptTemplates.js';
 import {
 	explainChanges,
 	generateChangelog,
@@ -22,8 +17,14 @@ import {
 	generateStashMessage,
 	reviewPullRequest,
 	startWorkFromIssue,
-} from '../../prompts.js';
-import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils.js';
+} from '@gitlens/ai/prompts.js';
+import { estimatedCharactersPerToken } from '@gitlens/ai/utils/ai.utils.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { getPossessiveForm, interpolate } from '@gitlens/utils/string.js';
+import type { TelemetryEvents } from '../../../../constants.telemetry.js';
+import { AIError, AIErrorReason } from '../../../../errors.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { showLargePromptWarning, showPromptTruncationWarning } from './ai.utils.js';
 
 export function getLocalPromptTemplate<T extends PromptTemplateType>(
 	template: T,

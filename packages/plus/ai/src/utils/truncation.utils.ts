@@ -6,7 +6,7 @@ import {
 	parseGitDiff,
 } from '@gitlens/git/parsers/diffParser.js';
 import { extname } from '@gitlens/utils/path.js';
-import type { PromptTemplateContext, TruncationHandler } from '../../models/promptTemplates.js';
+import type { PromptTemplateContext, TruncationHandler } from '../models/promptTemplates.js';
 
 /**
  * Truncates prompt context by removing complete entries from the end of the changelog JSON array.

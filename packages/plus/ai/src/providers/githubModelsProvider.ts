@@ -1,10 +1,8 @@
-import type { Response } from '@env/fetch.js';
-import { fetch } from '@env/fetch.js';
-import { githubProviderDescriptor as provider } from '../../constants.ai.js';
-import { AIError, AIErrorReason } from '../../errors.js';
-import type { AIActionType, AIModel } from './models/model.js';
+import { githubProviderDescriptor as provider } from '../constants.js';
+import { AIError, AIErrorReason } from '../errors.js';
+import type { AIActionType, AIModel } from '../models/model.js';
+import { getReducedMaxInputTokens } from '../utils/ai.utils.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
-import { getReducedMaxInputTokens } from './utils/-webview/ai.utils.js';
 
 type GitHubModelsModel = AIModel<typeof provider.id>;
 
@@ -18,9 +16,12 @@ export class GitHubModelsProvider extends OpenAICompatibleProviderBase<typeof pr
 	};
 
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
-		const rsp = await fetch('https://github.com/marketplace?category=All&task=chat-completion&type=models', {
-			headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-		});
+		const rsp = await this.context.fetch(
+			'https://github.com/marketplace?category=All&task=chat-completion&type=models',
+			{
+				headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+			},
+		);
 
 		interface ModelsResponse {
 			results: {
@@ -37,7 +38,7 @@ export class GitHubModelsProvider extends OpenAICompatibleProviderBase<typeof pr
 			}[];
 		}
 
-		const result: ModelsResponse = await rsp.json();
+		const result = (await rsp.json()) as ModelsResponse;
 		const models = result.results.map<GitHubModelsModel>(
 			m =>
 				({

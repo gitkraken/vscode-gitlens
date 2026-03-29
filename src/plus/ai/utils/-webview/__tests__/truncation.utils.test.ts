@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { truncatePromptWithDiff } from '../truncation.utils.js';
+import { truncatePromptWithDiff } from '@gitlens/ai/utils/truncation.utils.js';
 
 interface TestContext {
 	diff?: string;

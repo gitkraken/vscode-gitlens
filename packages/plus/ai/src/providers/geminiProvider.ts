@@ -1,7 +1,5 @@
-import type { CancellationToken } from 'vscode';
-import type { Response } from '@env/fetch.js';
-import { geminiProviderDescriptor as provider } from '../../constants.ai.js';
-import type { AIActionType, AIModel } from './models/model.js';
+import { geminiProviderDescriptor as provider } from '../constants.js';
+import type { AIActionType, AIModel } from '../models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type GeminiModel = AIModel<typeof provider.id>;
@@ -198,12 +196,12 @@ export class GeminiProvider extends OpenAICompatibleProviderBase<typeof provider
 		model: AIModel<typeof provider.id>,
 		apiKey: string,
 		request: object,
-		cancellation: CancellationToken | undefined,
+		signal: AbortSignal | undefined,
 	): Promise<Response> {
 		if ('max_completion_tokens' in request) {
 			const { max_completion_tokens: max, ...rest } = request;
 			request = max ? { max_tokens: max, ...rest } : rest;
 		}
-		return super.fetchCore(action, model, apiKey, request, cancellation);
+		return super.fetchCore(action, model, apiKey, request, signal);
 	}
 }

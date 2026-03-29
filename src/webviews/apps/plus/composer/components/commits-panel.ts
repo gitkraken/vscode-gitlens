@@ -3,7 +3,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
-import type { AIModel } from '../../../../../plus/ai/models/model.js';
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { ComposerBaseCommit, ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol.js';
 import {
 	getCommitChanges,

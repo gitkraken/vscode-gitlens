@@ -1,5 +1,6 @@
 import type { QuickInputButton, Uri } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import { StashPushError } from '@gitlens/git/errors.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
@@ -10,7 +11,6 @@ import { GlyphChars } from '../../../constants.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
-import type { AIModel } from '../../../plus/ai/models/model.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { formatPath } from '../../../system/-webview/formatPath.js';

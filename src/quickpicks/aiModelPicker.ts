@@ -1,10 +1,10 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
+import type { AIProviders } from '@gitlens/ai/constants.js';
+import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '@gitlens/ai/models/model.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import type { AIProviders } from '../constants.ai.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
-import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '../plus/ai/models/model.js';
 import { ensureAccess } from '../plus/ai/utils/-webview/ai.utils.js';
 import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';

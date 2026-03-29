@@ -1,38 +1,21 @@
-import type { CancellationToken } from 'vscode';
-import type { Response } from '@env/fetch.js';
-import { fetch } from '@env/fetch.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { getLoggableName } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import type { Role } from '../../@types/vsls.d.js';
-import type { AIProviders } from '../../constants.ai.js';
-import type { Container } from '../../container.js';
-import { AIError, AIErrorReason } from '../../errors.js';
-import type { ServerConnection } from '../gk/serverConnection.js';
-import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model.js';
-import type { AIChatMessage, AIChatMessageRole, AIProvider, AIProviderResponse } from './models/provider.js';
-import {
-	getActionName,
-	getOrgAIProviderOfType,
-	getOrPromptApiKey,
-	getReducedMaxInputTokens,
-	getValidatedTemperature,
-} from './utils/-webview/ai.utils.js';
-
-export interface AIProviderConfig {
-	url: string;
-	keyUrl: string;
-	keyValidator?: RegExp;
-}
+import type { AIProviders } from '../constants.js';
+import { AIError, AIErrorReason } from '../errors.js';
+import type { AIActionType, AIModel, AIProviderDescriptor } from '../models/model.js';
+import type { AIChatMessage, AIChatMessageRole, AIProvider, AIProviderResponse } from '../models/provider.js';
+import { getActionName, getReducedMaxInputTokens, getValidatedTemperature } from '../utils/ai.utils.js';
+import type { AIProviderContext } from './context.js';
 
 export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implements AIProvider<T> {
-	constructor(
-		protected readonly container: Container,
-		protected readonly connection: ServerConnection,
-	) {}
+	constructor(protected readonly context: AIProviderContext) {}
 
 	dispose(): void {}
+	[Symbol.dispose](): void {
+		this.dispose();
+	}
 
 	abstract readonly id: T;
 	abstract readonly name: string;
@@ -51,14 +34,13 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 	}
 
 	async getApiKey(silent: boolean): Promise<string | undefined> {
-		const orgConf = getOrgAIProviderOfType(this.id);
+		const orgConf = this.context.getProviderConfig(this.id);
 		if (!orgConf.enabled) return undefined;
 		if (orgConf.key) return orgConf.key;
 
 		const { keyUrl, keyValidator } = this.config;
 
-		return getOrPromptApiKey(
-			this.container,
+		return this.context.getApiKey(
 			{
 				id: this.id,
 				name: this.name,
@@ -92,19 +74,12 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		model: AIModel<T>,
 		apiKey: string,
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
-		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
+		options: { signal: AbortSignal; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.sendRequest`);
 
 		try {
-			const result = await this.fetch(
-				action,
-				model,
-				apiKey,
-				getMessages,
-				options.modelOptions,
-				options.cancellation,
-			);
+			const result = await this.fetch(action, model, apiKey, getMessages, options.modelOptions, options.signal);
 			return result;
 		} catch (ex) {
 			if (isCancellationError(ex)) {
@@ -126,7 +101,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		apiKey: string,
 		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		modelOptions?: { outputTokens?: number; temperature?: number },
-		cancellation?: CancellationToken,
+		signal?: AbortSignal,
 	): Promise<AIProviderResponse<void>> {
 		let retries = 0;
 		let maxInputTokens = model.maxTokens.input;
@@ -139,10 +114,14 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				max_completion_tokens: model.maxTokens.output
 					? Math.min(modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
 					: modelOptions?.outputTokens,
-				temperature: getValidatedTemperature(model, modelOptions?.temperature ?? model.temperature),
+				temperature: getValidatedTemperature(
+					model,
+					modelOptions?.temperature ?? model.temperature,
+					this.context.defaultTemperature,
+				),
 			};
 
-			const rsp = await this.fetchCore(action, model, apiKey, request, cancellation);
+			const rsp = await this.fetchCore(action, model, apiKey, request, signal);
 			if (!rsp.ok) {
 				const result = await this.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
 				if (result.retry) {
@@ -152,7 +131,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				}
 			}
 
-			const data: ChatCompletionResponse = await rsp.json();
+			const data: ChatCompletionResponse = (await rsp.json()) as ChatCompletionResponse;
 			const result: AIProviderResponse<void> = {
 				id: data.id ?? uuid(),
 				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
@@ -225,25 +204,19 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		model: AIModel<T>,
 		apiKey: string,
 		request: object,
-		cancellation: CancellationToken | undefined,
+		signal: AbortSignal | undefined,
 	): Promise<Response> {
-		let aborter: AbortController | undefined;
-		if (cancellation != null) {
-			aborter = new AbortController();
-			cancellation.onCancellationRequested(() => aborter?.abort());
-		}
-
 		const url = this.getUrl(model);
 		if (!url) {
 			throw new Error(`(${this.name}) ${getActionName(action)}: No URL configured`);
 		}
 
 		try {
-			return await fetch(url, {
+			return await this.context.fetch(url, {
 				headers: await this.getHeaders(action, apiKey, model, url),
 				method: 'POST',
 				body: JSON.stringify(request),
-				signal: aborter?.signal,
+				signal: signal,
 			});
 		} catch (ex) {
 			if (ex.name === 'AbortError') throw new CancellationError(ex);
@@ -276,7 +249,7 @@ interface ChatCompletionResponse {
 	choices?: {
 		index: number;
 		message: {
-			role: Role;
+			role: string;
 			content: string | null;
 			refusal: string | null;
 		};

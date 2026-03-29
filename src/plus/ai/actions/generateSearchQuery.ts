@@ -1,10 +1,10 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Source } from '../../../constants.telemetry.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { AIResponse } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
-import type { AIChatMessage } from '../models/provider.js';
 
 export type AISearchQueryResult = string;
 

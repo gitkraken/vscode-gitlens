@@ -1,7 +1,6 @@
-import { fetch } from '@env/fetch.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
-import { openRouterProviderDescriptor as provider } from '../../constants.ai.js';
-import type { AIActionType, AIModel } from './models/model.js';
+import { openRouterProviderDescriptor as provider } from '../constants.js';
+import type { AIActionType, AIModel } from '../models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type OpenRouterModel = AIModel<typeof provider.id>;
@@ -28,7 +27,7 @@ export class OpenRouterProvider extends OpenAICompatibleProviderBase<typeof prov
 		if (!apiKey) return [];
 
 		const url = 'https://openrouter.ai/api/v1/models';
-		const rsp = await fetch(url, { headers: this.getHeadersCore(apiKey) });
+		const rsp = await this.context.fetch(url, { headers: this.getHeadersCore(apiKey) });
 		if (!rsp.ok) {
 			throw new Error(`Getting models (${url}) failed: ${rsp.status} (${rsp.statusText})`);
 		}
@@ -44,7 +43,7 @@ export class OpenRouterProvider extends OpenAICompatibleProviderBase<typeof prov
 			}[];
 		};
 
-		const results: ModelsResponse = await rsp.json();
+		const results = (await rsp.json()) as ModelsResponse;
 		return results.data.map<OpenRouterModel>(
 			m =>
 				({

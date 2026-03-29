@@ -60,6 +60,9 @@ importers:
       '@gitkraken/provider-apis':
         specifier: 0.40.0
         version: 0.40.0(encoding@0.1.13)
+      '@gitlens/ai':
+        specifier: workspace:*
+        version: link:packages/plus/ai
       '@gitlens/git':
         specifier: workspace:*
         version: link:packages/git
@@ -447,6 +450,28 @@ importers:
       sinon:
         specifier: 'catalog:'
         version: 21.0.3
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.2
+
+  packages/plus/ai:
+    dependencies:
+      '@gitlens/git':
+        specifier: workspace:*
+        version: link:../../git
+      '@gitlens/utils':
+        specifier: workspace:*
+        version: link:../../utils
+    devDependencies:
+      '@types/mocha':
+        specifier: 'catalog:'
+        version: 10.0.10
+      mocha:
+        specifier: 'catalog:'
+        version: 11.7.5
       tsx:
         specifier: 'catalog:'
         version: 4.21.0

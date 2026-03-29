@@ -1,3 +1,4 @@
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { GitBranchStatus, GitTrackingState, GitTrackingUpstream } from '@gitlens/git/models/branch.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
@@ -10,7 +11,6 @@ import type { IntegrationDescriptor } from '../../constants.integrations.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { RepositoryShape } from '../../git/models/repositoryShape.js';
-import type { AIModel } from '../../plus/ai/models/model.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
 import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider.js';

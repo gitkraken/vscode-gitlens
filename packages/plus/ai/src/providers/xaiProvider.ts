@@ -1,5 +1,5 @@
-import { xAIProviderDescriptor as provider } from '../../constants.ai.js';
-import type { AIModel } from './models/model.js';
+import { xAIProviderDescriptor as provider } from '../constants.js';
+import type { AIModel } from '../models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type XAIModel = AIModel<typeof provider.id>;

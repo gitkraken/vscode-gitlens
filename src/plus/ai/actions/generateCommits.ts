@@ -1,4 +1,7 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { AIConversation } from '@gitlens/ai/models/conversation.js';
+import type { AIModel } from '@gitlens/ai/models/model.js';
+import type { AIProviderResponse } from '@gitlens/ai/models/provider.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
@@ -6,9 +9,6 @@ import { dedent } from '@gitlens/utils/string.js';
 import type { Source } from '../../../constants.telemetry.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { AIService } from '../aiService.js';
-import { AIConversation } from '../models/conversation.js';
-import type { AIModel } from '../models/model.js';
-import type { AIProviderResponse } from '../models/provider.js';
 
 export interface AIGenerateCommitsResult {
 	readonly commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[];

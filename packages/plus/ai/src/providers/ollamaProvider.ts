@@ -1,12 +1,8 @@
-import type { CancellationToken, Disposable } from 'vscode';
-import { window } from 'vscode';
 import { uuid } from '@gitlens/utils/crypto.js';
-import { ollamaProviderDescriptor as provider } from '../../constants.ai.js';
-import { configuration } from '../../system/-webview/configuration.js';
-import type { AIActionType, AIModel } from './models/model.js';
-import type { AIChatMessage, AIProviderResponse } from './models/provider.js';
+import { ollamaProviderDescriptor as provider } from '../constants.js';
+import type { AIActionType, AIModel } from '../models/model.js';
+import type { AIChatMessage, AIProviderResponse } from '../models/provider.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
-import { ensureAccount, ensureOrgConfiguredUrl, getOrgAIProviderOfType } from './utils/-webview/ai.utils.js';
 
 type OllamaModel = AIModel<typeof provider.id>;
 
@@ -26,21 +22,18 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 			return false;
 		}
 		// Ollama doesn't require an API key, but we'll check if the base URL is reachable
-		return this.validateUrl(url, silent);
+		return this.validateUrl(url);
 	}
 
-	override async getApiKey(silent: boolean): Promise<string | undefined> {
-		const result = await ensureAccount(this.container, silent);
-		if (!result) return undefined;
-
-		// Ollama doesn't require an API key
+	override getApiKey(_silent: boolean): Promise<string | undefined> {
+		// Ollama doesn't require an API key — account enrollment is handled by the context's getApiKey
 		return Promise.resolve('<not applicable>');
 	}
 
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		try {
 			const url = this.getBaseUrl();
-			const rsp = await fetch(`${url}/api/tags`, {
+			const rsp = await this.context.fetch(`${url}/api/tags`, {
 				headers: {
 					Accept: 'application/json',
 					'Content-Type': 'application/json',
@@ -83,104 +76,45 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 	}
 
 	private async getOrPromptBaseUrl(silent: boolean): Promise<string | undefined> {
-		const orgConf = getOrgAIProviderOfType(this.id);
-		if (!orgConf.enabled) return undefined;
-		if (orgConf.url) return orgConf.url;
+		const cfg = this.context.getProviderConfig(this.id);
+		if (!cfg.enabled) return undefined;
 
-		let url = configuration.get('ai.ollama.url') ?? undefined;
-		if (url) {
-			if (silent) return url;
+		if (cfg.url) return cfg.url;
 
-			const valid = await this.validateUrl(url, true);
-			if (valid) return url;
-		}
-
-		if (silent) return defaultBaseUrl;
-
-		const input = window.createInputBox();
-		input.ignoreFocusOut = true;
-
-		const disposables: Disposable[] = [];
-
-		try {
-			url = await new Promise<string | undefined>(resolve => {
-				disposables.push(
-					input.onDidHide(() => resolve(undefined)),
-					input.onDidChangeValue(value => {
-						if (value) {
-							try {
-								new URL(value);
-							} catch {
-								input.validationMessage = `Please enter a valid URL`;
-								return;
-							}
-						}
-						input.validationMessage = undefined;
-					}),
-					input.onDidAccept(async () => {
-						const value = input.value.trim();
-						if (!value) {
-							input.validationMessage = `Please enter a valid URL`;
-							return;
-						}
-
-						try {
-							new URL(value);
-						} catch {
-							input.validationMessage = `Please enter a valid URL`;
-							return;
-						}
-
-						const configured = await this.validateUrl(value, true);
-						if (!configured) {
-							input.validationMessage = `Could not connect to Ollama server. Make sure Ollama is installed and running locally.`;
-							return;
-						}
-
-						resolve(value);
-					}),
-				);
-
-				input.title = `Connect to Ollama`;
-				input.placeholder = `Please enter your Ollama server URL to use this feature`;
-				input.prompt = `Enter your Ollama server URL (default: ${defaultBaseUrl})`;
-				input.value = defaultBaseUrl;
-
-				input.show();
-			});
-		} finally {
-			input.dispose();
-			disposables.forEach(d => void d.dispose());
-		}
-
-		if (!url) return defaultBaseUrl;
-
-		void configuration.updateEffective('ai.ollama.url', url);
-
-		return url;
+		const url = await this.context.getOrPromptUrl(
+			this.id,
+			{
+				currentUrl: defaultBaseUrl,
+				title: 'Connect to Ollama',
+				placeholder: 'Please enter your Ollama server URL to use this feature',
+				validator: async (u: string) => {
+					const valid = await this.validateUrl(u);
+					return valid
+						? undefined
+						: 'Could not connect to Ollama server. Make sure Ollama is installed and running locally.';
+				},
+			},
+			silent,
+		);
+		return url ?? defaultBaseUrl;
 	}
 
-	private async validateUrl(url: string, silent: boolean): Promise<boolean> {
+	private async validateUrl(url: string): Promise<boolean> {
 		try {
-			const rsp = await fetch(`${url}/api/tags`, {
+			const rsp = await this.context.fetch(`${url}/api/tags`, {
 				headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
 				method: 'GET',
 			});
 			return rsp.ok;
 		} catch {
-			// If we reach here, Ollama server is not accessible
-			if (!silent) {
-				await window.showErrorMessage(
-					`Could not connect to Ollama server. Make sure Ollama is installed and running locally.`,
-				);
-			}
 			return false;
 		}
 	}
 
 	private getBaseUrl(): string | undefined {
-		// Get base URL from configuration or use default
-		return ensureOrgConfiguredUrl(this.id, configuration.get('ai.ollama.url') || defaultBaseUrl);
+		const orgConf = this.context.getProviderConfig(this.id);
+		if (!orgConf.enabled) return undefined;
+		return orgConf.url || defaultBaseUrl;
 	}
 
 	protected getUrl(_model: AIModel<typeof provider.id>): string | undefined {
@@ -206,7 +140,7 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 		apiKey: string,
 		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		modelOptions?: { outputTokens?: number; temperature?: number },
-		cancellation?: CancellationToken,
+		signal?: AbortSignal,
 	): Promise<AIProviderResponse<void>> {
 		let retries = 0;
 		let maxInputTokens = model.maxTokens.input;
@@ -235,7 +169,7 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 				},
 			};
 
-			const rsp = await this.fetchCore(action, model, apiKey, request, cancellation);
+			const rsp = await this.fetchCore(action, model, apiKey, request, signal);
 			if (!rsp.ok) {
 				const result = await this.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
 				if (result.retry) {

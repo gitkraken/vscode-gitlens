@@ -1,4 +1,4 @@
-import type { AIProviderDescriptor } from './plus/ai/models/model.js';
+import type { AIProviderDescriptor } from './models/model.js';
 
 export type AIProviders =
 	| 'anthropic'

@@ -1,7 +1,8 @@
+import type { AIProviders } from '@gitlens/ai/constants.js';
+import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { GitContributionTiers } from '@gitlens/git/models/contributor.js';
 import type { Flatten } from '@gitlens/utils/object.js';
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config.js';
-import type { AIProviders } from './constants.ai.js';
 import type { GlCommands, GlCommandsDeprecated } from './constants.commands.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations.js';
 import type { WalkthroughSteps } from './constants.js';
@@ -15,7 +16,6 @@ import type {
 } from './constants.views.js';
 import type { WalkthroughContextKeys } from './constants.walkthroughs.js';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features.js';
-import type { AIActionType } from './plus/ai/models/model.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol.js';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol.js';

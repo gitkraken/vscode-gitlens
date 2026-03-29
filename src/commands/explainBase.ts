@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { GlCommands } from '../constants.commands.js';
 import type { Container } from '../container.js';
@@ -8,7 +9,6 @@ import type { GitRepositoryService } from '../git/gitRepositoryService.js';
 import { GitUri } from '../git/gitUri.js';
 import type { AIExplainSourceContext } from '../plus/ai/actions/explainChanges.js';
 import type { AIResponse, AIResultContext } from '../plus/ai/aiProviderService.js';
-import type { AIModel } from '../plus/ai/models/model.js';
 import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { showMarkdownPreview } from '../system/-webview/markdown.js';

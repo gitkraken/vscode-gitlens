@@ -1,4 +1,9 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import type { PromptTemplateContext } from '@gitlens/ai/models/promptTemplates.js';
+import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
+import type { AISummarizedResult } from '@gitlens/ai/models/results.js';
+import { parseSummarizeResult } from '@gitlens/ai/utils/results.utils.js';
+import { truncatePromptWithDiff } from '@gitlens/ai/utils/truncation.utils.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { assertsCommitHasFullDetails } from '@gitlens/git/utils/commit.utils.js';
@@ -8,11 +13,6 @@ import { AINoRequestDataError } from '../../../errors.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { AIResponse, AIResult, AISourceContext } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
-import type { PromptTemplateContext } from '../models/promptTemplates.js';
-import type { AIChatMessage } from '../models/provider.js';
-import type { AISummarizedResult } from '../models/results.js';
-import { parseSummarizeResult } from '../utils/-webview/results.utils.js';
-import { truncatePromptWithDiff } from '../utils/-webview/truncation.utils.js';
 
 export type AIExplainSourceContext = AISourceContext<{ type: TelemetryEvents['ai/explain']['changeType'] }>;
 

@@ -10,7 +10,8 @@
 			"#env/*": ["../../../packages/utils/src/env/browser/*"],
 			"@gitlens/utils/*": ["../../../packages/utils/src/*"],
 			"@gitlens/git/*": ["../../../packages/git/src/*"],
-			"@gitlens/git-github/*": ["../../../packages/plus/git-github/src/*"]
+			"@gitlens/git-github/*": ["../../../packages/plus/git-github/src/*"],
+			"@gitlens/ai/*": ["../../../packages/plus/ai/src/*"]
 		},
 		"useDefineForClassFields": false // Needed for lit decorators https://github.com/lit/lit/issues/3278 https://lit.dev/docs/tools/publishing/#publishing-modern-javascript
 	},

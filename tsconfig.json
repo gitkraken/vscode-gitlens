@@ -8,6 +8,7 @@
 		{ "path": "./packages/git" },
 		{ "path": "./packages/git-cli" },
 		{ "path": "./packages/plus/git-github" },
+		{ "path": "./packages/plus/ai" },
 		{ "path": "./tsconfig.node.json" },
 		{ "path": "./tsconfig.browser.json" },
 		{ "path": "./src/webviews/apps/tsconfig.json" },

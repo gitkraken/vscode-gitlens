@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
+import type { AIConversation } from '@gitlens/ai/models/conversation.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
 import { md5, sha256 } from '@gitlens/utils/crypto.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -20,7 +21,6 @@ import type {
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils.js';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService.js';
-import type { AIConversation } from '../../../plus/ai/models/conversation.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
 import { executeCoreCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';

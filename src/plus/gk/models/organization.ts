@@ -1,4 +1,4 @@
-import type { AIProviders } from '../../../constants.ai.js';
+import type { AIProviders } from '@gitlens/ai/constants.js';
 
 export interface Organization {
 	readonly id: string;

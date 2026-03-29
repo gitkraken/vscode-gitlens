@@ -1,6 +1,6 @@
+import type { AIProviders } from '@gitlens/ai/constants.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
-import type { AIProviders } from './constants.ai.js';
 import type { IntegrationIds } from './constants.integrations.js';
 import type { SubscriptionState } from './constants.subscription.js';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';

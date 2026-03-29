@@ -35,6 +35,7 @@ const filePatterns = {
 		'packages/git/src/**/*',
 		'packages/git-cli/src/**/*',
 		'packages/plus/git-github/src/**/*',
+		'packages/plus/ai/src/**/*',
 	],
 	src: ['src/**/*'],
 	envNode: ['src/env/node/**/*'],

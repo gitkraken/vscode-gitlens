@@ -320,7 +320,7 @@ Guidelines for creating the changelog:
    - Focus on the what and why, not the how. One sentence is often sufficient, though bullets can be used for multiple related points
 5. Prioritize user-facing changes. If a commit message describes internal refactoring or implementation details, try to infer the user-facing impact (if any) from the issue titles or other commits. If there's no user-facing impact, and no clear external benefit, omit the change
 6. Use Markdown headings, links, and bullet points, adhering to Keep a Changelog structure
-7. Provide only the changelog entry—no additional text or commentary outside of the changelog
+7. Provide only the changelog entry---no additional text or commentary outside of the changelog
 
 Example output structure:
 

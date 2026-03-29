@@ -1,12 +1,10 @@
-import type { Response } from '@env/fetch.js';
-import { fetch } from '@env/fetch.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { gitKrakenProviderDescriptor as provider } from '../../constants.ai.js';
-import { AIError, AIErrorReason, AuthenticationRequiredError } from '../../errors.js';
-import type { AIActionType, AIModel } from './models/model.js';
+import { gitKrakenProviderDescriptor as provider } from '../constants.js';
+import { AIError, AIErrorReason, AuthenticationRequiredError } from '../errors.js';
+import type { AIActionType, AIModel } from '../models/model.js';
+import { getReducedMaxInputTokens } from '../utils/ai.utils.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
-import { ensureAccount, getReducedMaxInputTokens } from './utils/-webview/ai.utils.js';
 
 type GitKrakenModel = AIModel<typeof provider.id>;
 
@@ -17,15 +15,15 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 	protected readonly config = {};
 
 	override async getApiKey(silent: boolean): Promise<string | undefined> {
-		let session = await this.container.subscription.getAuthenticationSession();
-		if (session?.accessToken) return session.accessToken;
-		if (silent) return undefined;
-
-		const result = await ensureAccount(this.container, silent);
-		if (!result) return undefined;
-
-		session = await this.container.subscription.getAuthenticationSession();
-		return session?.accessToken;
+		return this.context.getApiKey(
+			{
+				id: this.id,
+				name: this.name,
+				requiresAccount: this.descriptor.requiresAccount,
+				validator: () => true,
+			},
+			silent,
+		);
 	}
 
 	@trace()
@@ -33,14 +31,11 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		const scope = getScopedLogger();
 
 		try {
-			const url = this.container.urls.getGkAIApiUrl('providers/message-prompt');
-			const rsp = await fetch(url, {
-				headers: await this.connection.getGkHeaders(undefined, undefined, {
-					Accept: 'application/json',
-				}),
+			const rsp = await this.context.fetch('providers/message-prompt', {
+				headers: { Accept: 'application/json' },
 			});
 			if (!rsp.ok) {
-				throw new Error(`Getting models (${url}) failed: ${rsp.status} (${rsp.statusText})`);
+				throw new Error(`Getting models failed: ${rsp.status} (${rsp.statusText})`);
 			}
 
 			interface ModelsResponse {
@@ -56,9 +51,9 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 				error?: null;
 			}
 
-			const result: ModelsResponse = await rsp.json();
+			const result = (await rsp.json()) as ModelsResponse;
 			if (result.error != null) {
-				throw new Error(`Getting models (${url}) failed: ${String(result.error)}`);
+				throw new Error(`Getting models failed: ${String(result.error)}`);
 			}
 
 			const models = result.data.map<GitKrakenModel>(
@@ -84,7 +79,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 	}
 
 	protected getUrl(_model: AIModel<typeof provider.id>): string {
-		return this.container.urls.getGkAIApiUrl('chat/completions');
+		return 'chat/completions';
 	}
 
 	protected override getHeaders<TAction extends AIActionType>(
@@ -92,11 +87,12 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		apiKey: string,
 		_model: AIModel<typeof provider.id>,
 		_url: string,
-	): Promise<Record<string, string>> {
-		return this.connection.getGkHeaders(apiKey, undefined, {
+	): Record<string, string> {
+		return {
 			Accept: 'application/json',
+			Authorization: `Bearer ${apiKey}`,
 			'GK-Action': action,
-		});
+		};
 	}
 
 	protected override async handleFetchFailure<TAction extends AIActionType>(

@@ -1,4 +1,6 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
+import { truncatePromptWithChangelog } from '@gitlens/ai/utils/truncation.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Lazy } from '@gitlens/utils/lazy.js';
 import type { Source } from '../../../constants.telemetry.js';
@@ -6,8 +8,6 @@ import { AINoRequestDataError } from '../../../errors.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { AIResponse } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
-import type { AIChatMessage } from '../models/provider.js';
-import { truncatePromptWithChangelog } from '../utils/-webview/truncation.utils.js';
 
 export interface AIGenerateChangelogChanges {
 	readonly changes: readonly AIGenerateChangelogChange[];

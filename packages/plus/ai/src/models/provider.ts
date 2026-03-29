@@ -1,5 +1,6 @@
-import type { CancellationToken, Disposable, Event } from 'vscode';
-import type { AIProviders } from '../../../constants.ai.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import type { Event } from '@gitlens/utils/event.js';
+import type { AIProviders } from '../constants.js';
 import type { AIActionType, AIModel } from './model.js';
 
 export type AIChatMessageRole = 'assistant' | 'system' | 'user';
@@ -32,7 +33,7 @@ export type AIProviderResult<T> = {
 	readonly promise: Promise<AIProviderResponse<T> | 'cancelled' | undefined>;
 };
 
-export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
+export interface AIProvider<Provider extends AIProviders = AIProviders> extends UnifiedDisposable {
 	readonly id: Provider;
 	readonly name: string;
 
@@ -46,6 +47,6 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 		model: AIModel<Provider>,
 		apiKey: string,
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
-		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
+		options: { signal: AbortSignal; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIProviderResponse<void> | undefined>;
 }

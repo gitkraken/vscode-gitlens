@@ -1,20 +1,7 @@
 import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions } from 'vscode';
 import { CancellationTokenSource, env, EventEmitter, window } from 'vscode';
 import { fetch } from '@env/fetch.js';
-import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
-import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
-import { debounce } from '@gitlens/utils/debounce.js';
-import { debug, trace } from '@gitlens/utils/decorators/log.js';
-import { map } from '@gitlens/utils/iterable.js';
-import type { Lazy } from '@gitlens/utils/lazy.js';
-import { lazy } from '@gitlens/utils/lazy.js';
-import { Logger } from '@gitlens/utils/logger.js';
-import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import type { Deferred } from '@gitlens/utils/promise.js';
-import { getSettledValue, getSettledValues } from '@gitlens/utils/promise.js';
-import { PromiseCache } from '@gitlens/utils/promiseCache.js';
-import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '../../constants.ai.js';
+import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '@gitlens/ai/constants.js';
 import {
 	anthropicProviderDescriptor,
 	azureProviderDescriptor,
@@ -30,7 +17,35 @@ import {
 	openRouterProviderDescriptor,
 	vscodeProviderDescriptor,
 	xAIProviderDescriptor,
-} from '../../constants.ai.js';
+} from '@gitlens/ai/constants.js';
+import type {
+	AIActionType,
+	AIModel,
+	AIModelDescriptor,
+	AIProviderDescriptorWithConfiguration,
+} from '@gitlens/ai/models/model.js';
+import type {
+	PromptTemplate,
+	PromptTemplateContext,
+	PromptTemplateId,
+	PromptTemplateType,
+	TruncationHandler,
+} from '@gitlens/ai/models/promptTemplates.js';
+import type { AIChatMessage, AIProvider, AIProviderResponse, AIProviderResult } from '@gitlens/ai/models/provider.js';
+import type { AIProviderContext } from '@gitlens/ai/providers/context.js';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { map } from '@gitlens/utils/iterable.js';
+import type { Lazy } from '@gitlens/utils/lazy.js';
+import { lazy } from '@gitlens/utils/lazy.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { getSettledValue, getSettledValues } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { Source, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { AIError, AIErrorReason, AINoRequestDataError, AuthenticationRequiredError } from '../../errors.js';
@@ -54,23 +69,15 @@ import {
 import { AIActions } from './aiActions.js';
 import { AIIgnoreCache } from './aiIgnoreCache.js';
 import type { AIService } from './aiService.js';
-import type {
-	AIActionType,
-	AIModel,
-	AIModelDescriptor,
-	AIProviderConstructor,
-	AIProviderDescriptorWithConfiguration,
-	AIProviderDescriptorWithType,
-} from './models/model.js';
-import type {
-	PromptTemplate,
-	PromptTemplateContext,
-	PromptTemplateId,
-	PromptTemplateType,
-	TruncationHandler,
-} from './models/promptTemplates.js';
-import type { AIChatMessage, AIProvider, AIProviderResponse, AIProviderResult } from './models/provider.js';
-import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils.js';
+import type { AIProviderConstructor, AIProviderDescriptorWithType } from './models/model.js';
+import {
+	ensureAccess,
+	ensureAccount,
+	getOrgAIConfig,
+	getOrgAIProviderOfType,
+	getOrPromptApiKey,
+	isProviderEnabledByOrg,
+} from './utils/-webview/ai.utils.js';
 import type { ResolvePromptOptions } from './utils/-webview/prompt.utils.js';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils.js';
 
@@ -100,7 +107,9 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...gitKrakenProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './gitkrakenProvider.js')).GitKrakenProvider,
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/gitkrakenProvider.js'))
+						.GitKrakenProvider,
 			),
 		},
 	],
@@ -116,7 +125,9 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...anthropicProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './anthropicProvider.js')).AnthropicProvider,
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/anthropicProvider.js'))
+						.AnthropicProvider,
 			),
 		},
 	],
@@ -124,28 +135,43 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		'gemini',
 		{
 			...geminiProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './geminiProvider.js')).GeminiProvider),
+			type: lazy(
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/geminiProvider.js'))
+						.GeminiProvider,
+			),
 		},
 	],
 	[
 		'openai',
 		{
 			...openAIProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider.js')).OpenAIProvider),
+			type: lazy(
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openaiProvider.js'))
+						.OpenAIProvider,
+			),
 		},
 	],
 	[
 		'azure',
 		{
 			...azureProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './azureProvider.js')).AzureProvider),
+			type: lazy(
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/azureProvider.js')).AzureProvider,
+			),
 		},
 	],
 	[
 		'mistral',
 		{
 			...mistralProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './mistralProvider.js')).MistralProvider),
+			type: lazy(
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/mistralProvider.js'))
+						.MistralProvider,
+			),
 		},
 	],
 	[
@@ -154,7 +180,7 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...openAICompatibleProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ './openAICompatibleProvider.js'))
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openAICompatibleProvider.js'))
 						.OpenAICompatibleProvider,
 			),
 		},
@@ -163,7 +189,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		'ollama',
 		{
 			...ollamaProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './ollamaProvider.js')).OllamaProvider),
+			type: lazy(
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/ollamaProvider.js'))
+						.OllamaProvider,
+			),
 		},
 	],
 	[
@@ -171,7 +201,9 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...openRouterProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './openRouterProvider.js')).OpenRouterProvider,
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openRouterProvider.js'))
+						.OpenRouterProvider,
 			),
 		},
 	],
@@ -180,7 +212,9 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...huggingFaceProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './huggingFaceProvider.js')).HuggingFaceProvider,
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/huggingFaceProvider.js'))
+						.HuggingFaceProvider,
 			),
 		},
 	],
@@ -190,7 +224,8 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...githubProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ './githubModelsProvider.js')).GitHubModelsProvider,
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/githubModelsProvider.js'))
+						.GitHubModelsProvider,
 			),
 		},
 	],
@@ -199,7 +234,9 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...deepSeekProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './deepSeekProvider.js')).DeepSeekProvider,
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/deepSeekProvider.js'))
+						.DeepSeekProvider,
 			),
 		},
 	],
@@ -207,7 +244,10 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		'xai',
 		{
 			...xAIProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './xaiProvider.js')).XAIProvider),
+			type: lazy(
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/xaiProvider.js')).XAIProvider,
+			),
 		},
 	],
 ]);
@@ -302,6 +342,183 @@ export class AIProviderService implements AIService, Disposable {
 		this._provider?.dispose();
 	}
 
+	private createAIProviderContext(providerId?: AIProviders): AIProviderContext {
+		const baseContext: AIProviderContext = {
+			defaultTemperature: configuration.get('ai.modelOptions.temperature'),
+			// node-fetch types are structurally compatible but nominally different from the standard Fetch API,
+			// so we bridge the types here to satisfy the platform-agnostic AIProviderContext interface
+			fetch: async (url: string | URL, init?: RequestInit): Promise<Response> => {
+				return (await fetch(url as any, init as any)) as unknown as Response;
+			},
+			getApiKey: (
+				config: {
+					id: string;
+					name: string;
+					requiresAccount: boolean;
+					validator?: (value: string) => boolean;
+					url?: string;
+				},
+				silent: boolean,
+			): Promise<string | undefined> => {
+				return getOrPromptApiKey(
+					this.container,
+					{
+						id: config.id as AIProviders,
+						name: config.name,
+						requiresAccount: config.requiresAccount,
+						validator: config.validator ?? (() => true),
+						url: config.url,
+					},
+					silent,
+				);
+			},
+			getProviderConfig: (type: string): { enabled: boolean; key?: string; url?: string } => {
+				return getOrgAIProviderOfType(type as AIProviders);
+			},
+			getOrPromptUrl: async (
+				providerId: string,
+				options: {
+					currentUrl: string | undefined;
+					title: string;
+					placeholder: string;
+					validator?: (url: string) => string | undefined | Promise<string | undefined>;
+				},
+				silent: boolean,
+			): Promise<string | undefined> => {
+				const configKey = `ai.${providerId}.url` as const;
+				let url = configuration.get(configKey as any) as string | undefined;
+				url ||= options.currentUrl;
+
+				if (silent) return url;
+
+				const input = window.createInputBox();
+				input.ignoreFocusOut = true;
+				if (url) {
+					input.value = url;
+				}
+
+				const disposables: Disposable[] = [];
+				try {
+					url = await new Promise<string | undefined>(resolve => {
+						disposables.push(
+							input.onDidHide(() => resolve(undefined)),
+							input.onDidChangeValue(value => {
+								if (value) {
+									try {
+										new URL(value);
+									} catch {
+										input.validationMessage = 'Please enter a valid URL';
+										return;
+									}
+								}
+								input.validationMessage = undefined;
+							}),
+							input.onDidAccept(async () => {
+								const value = input.value.trim();
+								if (!value) {
+									input.validationMessage = 'Please enter a valid URL';
+									return;
+								}
+								try {
+									new URL(value);
+								} catch {
+									input.validationMessage = 'Please enter a valid URL';
+									return;
+								}
+								const error = await options.validator?.(value);
+								if (error) {
+									input.validationMessage = error;
+									return;
+								}
+								resolve(value);
+							}),
+						);
+
+						input.title = options.title;
+						input.placeholder = options.placeholder;
+						input.prompt = `Enter your ${options.title} URL`;
+						input.show();
+					});
+				} finally {
+					input.dispose();
+					disposables.forEach(d => void d.dispose());
+				}
+
+				if (url) {
+					void configuration.updateEffective(configKey as any, url);
+				}
+
+				return url;
+			},
+		};
+
+		if (providerId === 'gitkraken') {
+			return {
+				...baseContext,
+				fetch: async (url: string | URL, init?: RequestInit): Promise<Response> => {
+					const urlStr = typeof url === 'string' ? url : url.toString();
+					// Resolve relative URLs against the GK AI API base URL and inject GK auth/telemetry headers
+					if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) {
+						const fullUrl = this.container.urls.getGkAIApiUrl(urlStr);
+						// Extract apiKey from the Authorization header if present
+						const headers = (init?.headers ?? {}) as Record<string, string>;
+						const authHeader = headers['Authorization'] ?? headers['authorization'];
+						const apiKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+						const gkHeaders = await this.connection.getGkHeaders(apiKey, undefined, headers);
+						return (await fetch(fullUrl, {
+							...init,
+							headers: gkHeaders,
+						} as any)) as unknown as Response;
+					}
+					return (await fetch(url as any, init as any)) as unknown as Response;
+				},
+				getApiKey: async (
+					_config: {
+						id: string;
+						name: string;
+						requiresAccount: boolean;
+						validator?: (value: string) => boolean;
+						url?: string;
+					},
+					silent: boolean,
+				): Promise<string | undefined> => {
+					let session = await this.container.subscription.getAuthenticationSession();
+					if (session?.accessToken) return session.accessToken;
+					if (silent) return undefined;
+
+					const result = await ensureAccount(this.container, silent);
+					if (!result) return undefined;
+
+					session = await this.container.subscription.getAuthenticationSession();
+					return session?.accessToken;
+				},
+			};
+		}
+
+		if (providerId === 'ollama') {
+			return {
+				...baseContext,
+				getApiKey: async (
+					_config: {
+						id: string;
+						name: string;
+						requiresAccount: boolean;
+						validator?: (value: string) => boolean;
+						url?: string;
+					},
+					silent: boolean,
+				): Promise<string | undefined> => {
+					// Ollama doesn't require an API key but still needs account enrollment
+					const result = await ensureAccount(this.container, silent);
+					if (!result) return undefined;
+					return '<not applicable>';
+				},
+			};
+		}
+
+		return baseContext;
+	}
+
 	async enable(source?: Source): Promise<void> {
 		if (this.enabled) return;
 
@@ -337,9 +554,9 @@ export class AIProviderService implements AIService, Disposable {
 	}
 
 	async getModels(providerId?: AIProviders): Promise<readonly AIModel[]> {
-		const loadModels = async (type: Lazy<Promise<AIProviderConstructor>>) => {
+		const loadModels = async (id: AIProviders, type: Lazy<Promise<AIProviderConstructor>>) => {
 			return type.value.then(async t => {
-				const p = new t(this.container, this.connection);
+				const p = new t(this.createAIProviderContext(id));
 				try {
 					return await p.getModels();
 				} finally {
@@ -352,10 +569,12 @@ export class AIProviderService implements AIService, Disposable {
 			const type = supportedAIProviders.get(providerId)?.type;
 			if (type == null) return [];
 
-			return loadModels(type);
+			return loadModels(providerId, type);
 		}
 
-		const modelResults = await Promise.allSettled(map(supportedAIProviders.values(), p => loadModels(p.type)));
+		const modelResults = await Promise.allSettled(
+			map(supportedAIProviders.entries(), ([id, p]) => loadModels(id, p.type)),
+		);
 
 		return modelResults.flatMap(m => getSettledValue(m, []));
 	}
@@ -491,7 +710,7 @@ export class AIProviderService implements AIService, Disposable {
 		const type = await provider.type.value;
 		if (type == null) return false;
 
-		const p = new type(this.container, this.connection);
+		const p = new type(this.createAIProviderContext(provider.id));
 		try {
 			return await p.configured(silent);
 		} finally {
@@ -535,7 +754,7 @@ export class AIProviderService implements AIService, Disposable {
 				return undefined;
 			}
 
-			this._provider = new type(this.container, this.connection);
+			this._provider = new type(this.createAIProviderContext(providerId));
 			this._providerDisposable = this._provider?.onDidChange?.(
 				debounce(async () => {
 					if (this._model != null) return;
@@ -720,13 +939,16 @@ export class AIProviderService implements AIService, Disposable {
 			return undefined;
 		}
 
+		const controller = new AbortController();
+		cancellation.onCancellationRequested(() => controller.abort());
+
 		const requestPromise = this._provider!.sendRequest(
 			action,
 			model,
 			apiKey,
 			provider.getMessages.bind(this, model, telementry.data, cancellation),
 			{
-				cancellation: cancellation,
+				signal: controller.signal,
 				modelOptions: options?.modelOptions,
 			},
 		);
@@ -1323,8 +1545,8 @@ export class AIProviderService implements AIService, Disposable {
 		const optIn = await this.container.subscription.aiAllAccessOptIn({ source: 'notification' });
 		if (optIn && !usingGkProvider && isProviderEnabledByOrg('gitkraken')) {
 			const gkProvider = new (
-				await import(/* webpackChunkName: "ai" */ './gitkrakenProvider.js')
-			).GitKrakenProvider(this.container, this.connection);
+				await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/gitkrakenProvider.js')
+			).GitKrakenProvider(this.createAIProviderContext('gitkraken'));
 			const defaultModel = (await gkProvider.getModels()).find(m => m.default);
 			if (defaultModel != null) {
 				this._provider = gkProvider;

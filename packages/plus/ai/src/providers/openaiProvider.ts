@@ -1,9 +1,8 @@
-import { openAIProviderDescriptor as provider } from '../../constants.ai.js';
-import { configuration } from '../../system/-webview/configuration.js';
-import type { AIActionType, AIModel } from './models/model.js';
-import { openAIModels } from './models/model.js';
+import { openAIProviderDescriptor as provider } from '../constants.js';
+import type { AIActionType, AIModel } from '../models/model.js';
+import { openAIModels } from '../models/model.js';
+import { isAzureUrl } from '../utils/ai.utils.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
-import { ensureOrgConfiguredUrl, isAzureUrl } from './utils/-webview/ai.utils.js';
 
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = openAIModels(provider);
@@ -21,11 +20,11 @@ export class OpenAIProvider extends OpenAICompatibleProviderBase<typeof provider
 		return Promise.resolve(models);
 	}
 
-	protected getUrl(_model: AIModel<typeof provider.id>): string {
-		return (
-			ensureOrgConfiguredUrl(this.id, configuration.get('ai.openai.url')) ||
-			'https://api.openai.com/v1/chat/completions'
-		);
+	protected getUrl(_model: AIModel<typeof provider.id>): string | undefined {
+		const cfg = this.context.getProviderConfig(this.id);
+		if (!cfg.enabled) return undefined;
+
+		return cfg.url || 'https://api.openai.com/v1/chat/completions';
 	}
 
 	protected override getHeaders<TAction extends AIActionType>(

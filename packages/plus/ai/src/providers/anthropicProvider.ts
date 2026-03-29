@@ -1,10 +1,8 @@
-import type { CancellationToken } from 'vscode';
-import type { Response } from '@env/fetch.js';
-import { anthropicProviderDescriptor as provider } from '../../constants.ai.js';
-import { AIError, AIErrorReason } from '../../errors.js';
-import type { AIActionType, AIModel } from './models/model.js';
+import { anthropicProviderDescriptor as provider } from '../constants.js';
+import { AIError, AIErrorReason } from '../errors.js';
+import type { AIActionType, AIModel } from '../models/model.js';
+import { getReducedMaxInputTokens } from '../utils/ai.utils.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
-import { getReducedMaxInputTokens } from './utils/-webview/ai.utils.js';
 
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
@@ -238,13 +236,13 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 		model: AIModel<typeof provider.id>,
 		apiKey: string,
 		request: object,
-		cancellation: CancellationToken | undefined,
+		signal: AbortSignal | undefined,
 	): Promise<Response> {
 		if ('max_completion_tokens' in request) {
 			const { max_completion_tokens: max, ...rest } = request;
 			request = max ? { max_tokens: max, ...rest } : rest;
 		}
-		return super.fetchCore(action, model, apiKey, request, cancellation);
+		return super.fetchCore(action, model, apiKey, request, signal);
 	}
 
 	protected override async handleFetchFailure<TAction extends AIActionType>(

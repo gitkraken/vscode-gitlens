@@ -1,6 +1,5 @@
-import { fetch } from '@env/fetch.js';
-import { huggingFaceProviderDescriptor as provider } from '../../constants.ai.js';
-import type { AIModel } from './models/model.js';
+import { huggingFaceProviderDescriptor as provider } from '../constants.js';
+import type { AIModel } from '../models/model.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type HuggingFaceModel = AIModel<typeof provider.id>;
@@ -21,7 +20,7 @@ export class HuggingFaceProvider extends OpenAICompatibleProviderBase<typeof pro
 			sort: 'trendingScore',
 			limit: '30',
 		});
-		const rsp = await fetch(`https://huggingface.co/api/models?${query.toString()}`, {
+		const rsp = await this.context.fetch(`https://huggingface.co/api/models?${query.toString()}`, {
 			headers: {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',
@@ -31,7 +30,7 @@ export class HuggingFaceProvider extends OpenAICompatibleProviderBase<typeof pro
 
 		type ModelsResponse = { id: string }[];
 
-		const results: ModelsResponse = await rsp.json();
+		const results = (await rsp.json()) as ModelsResponse;
 		const models = results.map<HuggingFaceModel>(
 			r =>
 				({

@@ -1,12 +1,14 @@
 import type { CancellationToken, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import type { AIProviders } from '@gitlens/ai/constants.js';
+import type { AIModel } from '@gitlens/ai/models/model.js';
+import { getValidatedTemperature as _getValidatedTemperature } from '@gitlens/ai/utils/ai.utils.js';
 import { decodeGitLensRevisionUriAuthority } from '@gitlens/git/utils/uriAuthority.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { formatNumeric } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { getPossessiveForm, pluralize } from '@gitlens/utils/string.js';
-import type { AIProviders } from '../../../../constants.ai.js';
 import { Schemes } from '../../../../constants.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
@@ -20,7 +22,6 @@ import { openSettingsEditor } from '../../../../system/-webview/vscode/editors.j
 import type { OrgAIConfig, OrgAIProvider } from '../../../gk/models/organization.js';
 import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils.js';
 import type { AIResponse, AIResultContext } from '../../aiProviderService.js';
-import type { AIActionType, AIModel } from '../../models/model.js';
 
 export async function ensureAccount(container: Container, silent: boolean): Promise<boolean> {
 	const result = await ensureAccountQuickPick(
@@ -37,31 +38,6 @@ export async function ensureAccount(container: Container, silent: boolean): Prom
 
 	return result;
 }
-
-export function getActionName(action: AIActionType): string {
-	switch (action) {
-		case 'explain-changes':
-			return 'Explain Changes';
-		case 'generate-commitMessage':
-			return 'Generate Commit Message';
-		case 'generate-stashMessage':
-			return 'Generate Stash Message';
-		case 'generate-changelog':
-			return 'Generate Changelog (Preview)';
-		case 'generate-create-cloudPatch':
-			return 'Create Cloud Patch Details';
-		case 'generate-create-codeSuggestion':
-			return 'Create Code Suggestion Details';
-		case 'generate-create-pullRequest':
-			return 'Create Pull Request Details (Preview)';
-		case 'generate-commits':
-			return 'Generate Commits (Preview)';
-		case 'generate-searchQuery':
-			return 'Generate Search Query (Preview)';
-	}
-}
-
-export const estimatedCharactersPerToken = 2.8;
 
 export async function getOrPromptApiKey(
 	container: Container,
@@ -147,48 +123,7 @@ export async function getOrPromptApiKey(
 }
 
 export function getValidatedTemperature(model: AIModel, modelTemperature?: number | null): number | undefined {
-	if (modelTemperature === null) return undefined;
-	// GPT5 doesn't support anything but the default temperature
-	if (model.id.startsWith('gpt-5')) return undefined;
-
-	modelTemperature ??= Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
-	return modelTemperature;
-}
-
-/**
- * Calculates the reduced max input tokens for retry attempts when context length is exceeded.
- *
- * If `estimatedTokens` is provided, calculates based on the actual overage ratio.
- * Otherwise, uses a hybrid strategy: conservative fixed reduction, then escalating percentages.
- *
- * @param maxInputTokens - Current max input tokens limit
- * @param retryCount - Current retry attempt (1-based, use value after incrementing)
- * @param estimatedTokens - Optional: estimated tokens in the prompt (if known)
- * @returns New max input tokens value
- */
-export function getReducedMaxInputTokens(maxInputTokens: number, retryCount: number, estimatedTokens?: number): number {
-	// If we know the estimated tokens, calculate reduction based on overage
-	if (estimatedTokens != null && estimatedTokens > maxInputTokens) {
-		const overageRatio = estimatedTokens / maxInputTokens;
-		// Target below the limit with some buffer (5-15% below based on retry)
-		const bufferPercent = 0.05 + retryCount * 0.05;
-		const targetRatio = 1 / overageRatio - bufferPercent;
-		return Math.floor(maxInputTokens * Math.max(0.5, targetRatio));
-	}
-
-	// Fallback: progressive reduction without knowing exact overage
-	switch (retryCount) {
-		case 1:
-			// Conservative fixed reduction for small overages
-			return maxInputTokens - 1000;
-		case 2:
-			// Moderate percentage-based reduction
-			return Math.floor(maxInputTokens * 0.9);
-		case 3:
-		default:
-			// Aggressive percentage-based reduction
-			return Math.floor(maxInputTokens * 0.75);
-	}
+	return _getValidatedTemperature(model, modelTemperature, configuration.get('ai.modelOptions.temperature'));
 }
 
 export async function showLargePromptWarning(estimatedTokens: number, threshold: number): Promise<boolean> {
@@ -218,10 +153,6 @@ export function showPromptTruncationWarning(model: AIModel): void {
 	void window.showWarningMessage(
 		`The prompt was truncated to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
 	);
-}
-
-export function isAzureUrl(url: string): boolean {
-	return url.includes('.azure.com');
 }
 
 export function getOrgAIConfig(): OrgAIConfig {
