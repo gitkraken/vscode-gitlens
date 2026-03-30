@@ -1,5 +1,4 @@
 import { Disposable, env } from 'vscode';
-import { getSettledValue } from '@gitlens/utils/promise.js';
 import { SubscriptionState } from '../../constants.subscription.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
@@ -108,19 +107,14 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		return needsCursorMcpCleanupNotice(this.container);
 	}
 
-	private async getWelcomeTitleVariant(): Promise<string | undefined> {
-		const featureFlags = await this.container.featureFlags;
-		const showVariant = (await featureFlags?.getFlag(FeatureFlagKey.WelcomeTitle, false)) ?? false;
+	private getWelcomeTitleVariant(): string | undefined {
+		const showVariant = this.container.featureFlags.getFlag(FeatureFlagKey.WelcomeTitleVariant, false);
 		return showVariant ? 'Welcome' : undefined;
 	}
 
 	private async getState(): Promise<State> {
-		const [subscriptionResult, welcomeTitleResult] = await Promise.allSettled([
-			this.container.subscription.getSubscription(),
-			this.getWelcomeTitleVariant(),
-		]);
-		const subscription = getSettledValue(subscriptionResult);
-		const welcomeTitle = getSettledValue(welcomeTitleResult) || 'Get Started with GitLens';
+		const subscription = await this.container.subscription.getSubscription();
+		const welcomeTitle = this.getWelcomeTitleVariant() || 'Get Started with GitLens';
 		const plusState = subscription?.state ?? SubscriptionState.Community;
 
 		return {
