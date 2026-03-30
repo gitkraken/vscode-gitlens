@@ -127,7 +127,21 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private async start() {
-		const server = await createIpcServer<CliCommandRequest, CliCommandResponse>();
+		this.stop();
+
+		let server: CliIpcServer;
+
+		try {
+			server = await createIpcServer<CliCommandRequest, CliCommandResponse>();
+		} catch (ex) {
+			Logger.error(ex, 'Failed to start CLI integration IPC server');
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cli/ipc/failed', {
+					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+				});
+			}
+			return;
+		}
 
 		server.registerHandler('ping', () =>
 			Promise.resolve({ stdout: JSON.stringify({ version: this.container.version }) }),
@@ -152,6 +166,11 @@ export class GkCliIntegrationProvider implements Disposable {
 		} catch (error) {
 			// Discovery file creation failure should not prevent IPC server startup
 			Logger.warn(`${formatLoggableScopeBlock('IPC')} Failed to create discovery file: ${error}`);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cli/discoveryFile/failed', {
+					'error.message': error instanceof Error ? error.message : 'Unknown error',
+				});
+			}
 		}
 
 		this._runningDisposable = Disposable.from(new CliCommandHandlers(this.container, server), server);
@@ -866,16 +885,35 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@debug()
-	private async updateCliCore(): Promise<{ previous: string | undefined; current: string | undefined } | undefined> {
+	private async updateCliCore(
+		source?: Source,
+	): Promise<{ previous: string | undefined; current: string | undefined } | undefined> {
 		const scope = getScopedLogger();
+		source ??= { source: 'gk-cli-integration' };
 
+		let previousVersion:
+			| {
+					proxy: string;
+					core: string;
+			  }
+			| undefined = undefined;
 		try {
-			const previousVersion = await getCLIVersions();
+			previousVersion = await getCLIVersions();
 			await runCLICommand(['update']);
 			const currentVersion = await getCLIVersions();
 			this._cliCoreVersion = currentVersion?.core;
 
 			scope?.debug(`CLI core update (previous: ${previousVersion?.core}, current: ${currentVersion?.core})`);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent(
+					'cli/updateCore/completed',
+					{
+						previous: previousVersion?.core,
+						current: currentVersion?.core,
+					},
+					source,
+				);
+			}
 
 			return {
 				previous: previousVersion?.core,
@@ -883,6 +921,16 @@ export class GkCliIntegrationProvider implements Disposable {
 			};
 		} catch (ex) {
 			scope?.error(ex, 'Failed to update CLI');
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent(
+					'cli/updateCore/failed',
+					{
+						previous: previousVersion?.core,
+						'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+					},
+					source,
+				);
+			}
 		}
 
 		return undefined;

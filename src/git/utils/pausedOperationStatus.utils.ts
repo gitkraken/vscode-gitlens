@@ -132,6 +132,7 @@ function findUndetectedRename(
 	// Use path-suffix matching to disambiguate: renames that add a directory prefix (e.g. monorepo
 	// migrations moving `src/x.ts` → `packages/utils/src/x.ts`) produce a pair where one path
 	// is a suffix of the other at a directory boundary.
+	const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
 	let fallbackMatch: string | undefined;
 	for (const deleted of sideFiles) {
 		if (deleted.status !== 'D') continue;
@@ -144,8 +145,11 @@ function findUndetectedRename(
 			return deleted.path;
 		}
 
-		// Track the first D+cross-reference match as a weaker fallback
-		fallbackMatch ??= deleted.path;
+		// Only consider same-basename files as a weaker fallback (catches renames where directory
+		// structure changed significantly, e.g. `src/git/parsers/x.ts` → `packages/cli/src/parsers/x.ts`)
+		if (fallbackMatch == null && deleted.path.substring(deleted.path.lastIndexOf('/') + 1) === fileName) {
+			fallbackMatch = deleted.path;
+		}
 	}
 
 	return fallbackMatch;

@@ -1,6 +1,7 @@
 import type { Disposable, TextDocument } from 'vscode';
-import { ViewColumn, workspace } from 'vscode';
+import { Uri, ViewColumn, window, workspace } from 'vscode';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
+import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
 import type { RebaseEditorTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -11,10 +12,12 @@ import {
 	showPausedOperationStatus,
 	skipPausedOperation,
 } from '../../git/actions/pausedOperation.js';
+import { GitUri } from '../../git/gitUri.js';
 import type { GitCommit } from '../../git/models/commit.js';
 import type { ProcessedRebaseTodo, RebaseTodoAction } from '../../git/models/rebase.js';
 import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
+import { getConflictIncomingRef, resolveConflictFilePaths } from '../../git/utils/pausedOperationStatus.utils.js';
 import { createReference } from '../../git/utils/reference.utils.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
@@ -27,6 +30,8 @@ import { debug } from '../../system/decorators/log.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { concat, filterMap, find, first, join, last, map } from '../../system/iterable.js';
+import { Logger } from '../../system/logger.js';
+import { extname, normalizePath } from '../../system/path.js';
 import { getSettledValue } from '../../system/promise.js';
 import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
@@ -37,6 +42,7 @@ import type { WebviewPanelShowCommandArgs } from '../webviewsController.js';
 import type {
 	Author,
 	Commit,
+	ConflictFileInfo,
 	RebaseActiveStatus,
 	RebaseEntry,
 	RebasePauseReason,
@@ -57,6 +63,8 @@ import {
 	GetPotentialConflictsRequest,
 	MoveEntriesCommand,
 	MoveEntryCommand,
+	OpenConflictChangesCommand,
+	OpenConflictFileCommand,
 	RecomposeCommand,
 	ReorderCommand,
 	RevealRefCommand,
@@ -92,6 +100,7 @@ interface RebaseEditorContext {
 export class RebaseWebviewProvider implements Disposable {
 	private _branchName?: string | null;
 	private _closing: boolean = false;
+	private _conflictMarkerCache = new Map<string, { mtime: number; count: number }>();
 	private readonly _disposables: Disposable[] = [];
 	private _enrichment: Enrichment;
 	private readonly _todoDocument: RebaseTodoDocument;
@@ -233,6 +242,85 @@ export class RebaseWebviewProvider implements Disposable {
 		if (!this.host.visible) return;
 
 		void this.host.notify(DidChangeSubscriptionNotification, { subscription: subscription });
+	}
+
+	@ipcCommand(OpenConflictFileCommand)
+	@debug()
+	private async onOpenConflictFile(params: IpcParams<typeof OpenConflictFileCommand>): Promise<void> {
+		const normalizedPath = normalizePath(params.path);
+
+		this.host.sendTelemetryEvent('rebaseEditor/action/openConflictFile', {
+			'conflict.fileExtension': extname(normalizedPath),
+		});
+
+		const uri = Uri.joinPath(Uri.file(this.repoPath), normalizedPath);
+		await executeCoreCommand('vscode.open', uri, { viewColumn: this.getConflictFileViewColumn() });
+	}
+
+	@ipcCommand(OpenConflictChangesCommand)
+	@debug()
+	private async onOpenConflictChanges(params: IpcParams<typeof OpenConflictChangesCommand>): Promise<void> {
+		const normalizedPath = normalizePath(params.path);
+
+		this.host.sendTelemetryEvent('rebaseEditor/action/openConflictChanges', {
+			side: params.side,
+		});
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
+		if (pausedStatus?.type !== 'rebase' || pausedStatus.mergeBase == null) {
+			Logger.warn('onOpenConflictChanges: unable to open conflict changes — missing rebase status or merge base');
+			void window.showWarningMessage('Unable to open conflict changes — rebase status is no longer available');
+			return;
+		}
+
+		const incomingRef = getConflictIncomingRef(pausedStatus) ?? pausedStatus.HEAD.ref;
+		const mergeBase = pausedStatus.mergeBase;
+
+		// Resolve rename-aware paths (mirrors mergeConflictFileNode.ts pattern)
+		const [currentFilesResult, incomingFilesResult] = await Promise.allSettled([
+			svc.diff.getDiffStatus(mergeBase, 'HEAD', { renameLimit: 0 }),
+			svc.diff.getDiffStatus(mergeBase, incomingRef, { renameLimit: 0 }),
+		]);
+		const currentFiles = getSettledValue(currentFilesResult);
+		const incomingFiles = getSettledValue(incomingFilesResult);
+
+		let lhsPath: string;
+		let rhsPath: string;
+		if (params.side === 'current') {
+			({ lhsPath, rhsPath } = resolveConflictFilePaths(currentFiles, incomingFiles, normalizedPath));
+		} else {
+			// Swap: when viewing incoming changes, "my side" is the incoming ref
+			({ lhsPath, rhsPath } = resolveConflictFilePaths(incomingFiles, currentFiles, normalizedPath));
+		}
+
+		const ref = params.side === 'current' ? 'HEAD' : incomingRef;
+
+		await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
+			lhs: {
+				sha: mergeBase,
+				uri: GitUri.fromFile(lhsPath, this.repoPath, mergeBase),
+				title: `${lhsPath} (merge-base)`,
+			},
+			rhs: {
+				sha: ref,
+				uri: GitUri.fromFile(rhsPath, this.repoPath, ref),
+				title: `${rhsPath} (${params.side === 'current' ? 'current' : 'incoming'})`,
+			},
+			repoPath: this.repoPath,
+			showOptions: {
+				preserveFocus: false,
+				preview: true,
+				viewColumn: this.getConflictFileViewColumn(),
+			},
+		});
+	}
+
+	// Opens conflict files in a different pane than the rebase editor.
+	// If only one pane exists, falls back to ViewColumn.Beside to open a new pane to the side.
+	private getConflictFileViewColumn(): ViewColumn {
+		const rebaseColumn = this.host.viewColumn;
+		return window.tabGroups.all.find(g => g.viewColumn !== rebaseColumn)?.viewColumn ?? ViewColumn.Beside;
 	}
 
 	@ipcCommand(AbortCommand)
@@ -653,9 +741,14 @@ export class RebaseWebviewProvider implements Disposable {
 			this._branchName = getSettledValue(branchResult)?.name ?? null;
 		}
 
-		const { status: rebaseStatus, doneEntries } = getSettledValue(rebaseStatusResult, {
+		const {
+			status: rebaseStatus,
+			doneEntries,
+			conflictFiles,
+		} = getSettledValue(rebaseStatusResult, {
 			status: undefined,
 			doneEntries: undefined,
+			conflictFiles: undefined,
 		});
 
 		const subscription = getSettledValue(subscriptionResult);
@@ -711,6 +804,7 @@ export class RebaseWebviewProvider implements Disposable {
 			rebaseStatus: rebaseStatus,
 			repoPath: this.repoPath,
 			subscription: subscription,
+			conflictFiles: conflictFiles,
 		};
 	}
 
@@ -776,17 +870,35 @@ export class RebaseWebviewProvider implements Disposable {
 	private async getRebaseStatus(svc: ReturnType<Container['git']['getRepositoryService']>): Promise<{
 		status: (RebaseActiveStatus & { onto: string }) | undefined;
 		doneEntries: RebaseEntry[] | undefined;
+		conflictFiles: ConflictFileInfo[] | undefined;
 	}> {
 		// Get paused operation status to check if we're in an active rebase
 		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
 		if (pausedStatus?.type !== 'rebase' || !pausedStatus.hasStarted) {
-			return { status: undefined, doneEntries: undefined };
+			return { status: undefined, doneEntries: undefined, conflictFiles: undefined };
 		}
 
 		const { entries, lastAction } = await this.getDoneEntries();
-		if (!entries.length) return { status: undefined, doneEntries: undefined };
+		if (!entries.length) return { status: undefined, doneEntries: undefined, conflictFiles: undefined };
 
-		const hasConflicts = await svc.status.hasConflictingFiles();
+		const files = await svc.status.getConflictingFiles();
+		const hasConflicts = files.length > 0;
+		if (!hasConflicts) {
+			this._conflictMarkerCache.clear();
+		}
+
+		// Fetch conflict file details when there are conflicts
+		let conflictFiles: ConflictFileInfo[] | undefined;
+		if (hasConflicts) {
+			const counts = await Promise.allSettled(
+				files.map(f => this.countConflictMarkers(Uri.joinPath(Uri.file(this.repoPath), f.path))),
+			);
+			conflictFiles = files.map((f, i) => ({
+				path: f.path,
+				conflictStatus: f.conflictStatus,
+				conflictCount: getSettledValue(counts[i]),
+			}));
+		}
 
 		// Determine pause reason based on last done entry and conflict status
 		const pauseReason: RebasePauseReason | undefined = hasConflicts
@@ -804,7 +916,33 @@ export class RebaseWebviewProvider implements Disposable {
 				onto: pausedStatus.onto.ref,
 			},
 			doneEntries: entries,
+			conflictFiles: conflictFiles,
 		};
+	}
+
+	private static readonly conflictMarkerPattern = /^<{7}(?=[ \t\n\r])/gm;
+
+	private async countConflictMarkers(uri: Uri): Promise<number> {
+		try {
+			const stat = await workspace.fs.stat(uri);
+
+			const maxConflictFileSize = 5 * 1024 * 1024; // 5 MB
+			if (stat.size > maxConflictFileSize) return 0;
+
+			const key = uri.fsPath;
+			const cached = this._conflictMarkerCache.get(key);
+			if (cached?.mtime === stat.mtime) {
+				return cached.count;
+			}
+			const content = await workspace.fs.readFile(uri);
+			const text = new TextDecoder().decode(content);
+			const count = text.match(RebaseWebviewProvider.conflictMarkerPattern)?.length ?? 0;
+			this._conflictMarkerCache.set(key, { mtime: stat.mtime, count: count });
+			return count;
+		} catch (ex) {
+			Logger.debug(ex, 'countConflictMarkers');
+			return 0;
+		}
 	}
 
 	private notifyDidChangeAvatars(): void {

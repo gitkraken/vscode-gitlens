@@ -141,14 +141,21 @@ export const rebaseStyles = css`
 		grid-template-areas:
 			'header'
 			'banner'
-			'entries'
+			'content'
 			'footer';
-		grid-template-rows: auto auto 1fr auto;
+		grid-template-rows: auto auto minmax(0, 1fr) auto;
 		grid-template-columns: minmax(0, 1fr);
 		height: 100vh;
 		min-width: 0;
 		box-sizing: border-box;
 		padding: 0.5rem;
+	}
+
+	.content {
+		grid-area: content;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
 
 	/* ==========================================================================
@@ -312,7 +319,7 @@ export const rebaseStyles = css`
 	   ========================================================================== */
 
 	.entries {
-		grid-area: entries;
+		flex: 1 1 0;
 		display: block;
 		min-height: 0;
 		overflow-x: hidden !important;
@@ -342,7 +349,7 @@ export const rebaseStyles = css`
 	}
 
 	.entries-empty {
-		grid-area: entries;
+		flex: 1 1 0;
 		display: flex;
 		justify-content: center;
 		color: var(--color-foreground--85);
@@ -378,6 +385,69 @@ export const rebaseStyles = css`
 	.entries.ascending gl-rebase-entry[isbase].drag-over::before {
 		top: auto;
 		bottom: 0;
+	}
+
+	/* ==========================================================================
+	   Conflict Divider & Panel
+	   ========================================================================== */
+
+	.conflict-divider {
+		flex: none;
+		height: 6px;
+		margin: 0 1rem;
+		cursor: row-resize;
+		position: relative;
+		z-index: 2;
+	}
+
+	.conflict-divider::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 50%;
+		transform: translateY(-50%);
+		height: 1px;
+		background: var(--vscode-sideBarSectionHeader-border);
+		transition:
+			height 0.1s,
+			background-color 0.1s;
+	}
+
+	.conflict-divider:hover::after,
+	.conflict-divider:focus-visible::after {
+		height: 2px;
+		background-color: var(--vscode-focusBorder);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.conflict-divider::after {
+			transition: none;
+		}
+	}
+
+	.conflict-panel {
+		flex: 0 1 auto;
+		display: flex;
+		flex-direction: column;
+		margin: 0 1rem;
+		overflow: hidden;
+		min-height: 50px;
+	}
+
+	.conflict-panel__header {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.5rem 0;
+		font-weight: 600;
+		color: var(--vscode-editorWarning-foreground, #cca700);
+		flex: none;
+	}
+
+	.conflict-panel__list {
+		flex: 1;
+		min-height: 0;
 	}
 
 	/* ==========================================================================

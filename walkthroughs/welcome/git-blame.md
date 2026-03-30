@@ -1,1 +1,1 @@
-<img src="./thumbnails/git-blame.png" alt="Inline Blame Annotations"/>
+<img src="./thumbnails/git-blame.webp" alt="Inline Blame Annotations"/>

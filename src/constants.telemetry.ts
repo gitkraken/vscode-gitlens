@@ -96,6 +96,16 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a CLI install attempt fails */
 	'cli/install/failed': CLIInstallFailedEvent;
 
+	/** Sent when the CLI integration IPC server fails to start */
+	'cli/ipc/failed': CLIIpcFailedEvent;
+	/** Sent when the CLI integration discovery file fails to be created */
+	'cli/discoveryFile/failed': CLIDiscoveryFileFailedEvent;
+
+	/** Sent when a CLI update succeeds */
+	'cli/updateCore/completed': CLIUpdateCoreCompletedEvent;
+	/** Sent when a CLI update fails */
+	'cli/updateCore/failed': CLIUpdateCoreFailedEvent;
+
 	/** Sent when connecting to one or more cloud-based integrations */
 	'cloudIntegrations/connecting': CloudIntegrationsConnectingEvent;
 
@@ -322,6 +332,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'rebaseEditor/action/recompose': RebaseEditorCompletionEventData;
 	/** Sent when the user clicks to show conflicts */
 	'rebaseEditor/action/showConflicts': RebaseEditorContextEventData;
+	/** Sent when the user opens a conflict file from the inline conflict panel */
+	'rebaseEditor/action/openConflictFile': RebaseEditorOpenConflictFileEvent;
+	/** Sent when the user opens current or incoming changes for a conflict file */
+	'rebaseEditor/action/openConflictChanges': RebaseEditorOpenConflictChangesEvent;
 	/** Sent when the user reveals a ref (commit/branch) in graph or commit details */
 	'rebaseEditor/action/revealRef': RebaseEditorRevealRefEvent;
 
@@ -607,6 +621,24 @@ export interface CLIInstallFailedEvent {
 	'error.message'?: string;
 	source?: Sources;
 	insiders: boolean;
+}
+
+export interface CLIUpdateCoreCompletedEvent {
+	previous: string | undefined;
+	current: string | undefined;
+}
+
+export interface CLIIpcFailedEvent {
+	'error.message': string;
+}
+
+export interface CLIDiscoveryFileFailedEvent {
+	'error.message': string;
+}
+
+export interface CLIUpdateCoreFailedEvent {
+	previous: string | undefined;
+	'error.message': string;
 }
 
 export interface MCPSetupStartedEvent {
@@ -1194,6 +1226,16 @@ interface RebaseEditorToggleOrderingEvent extends RebaseEditorContextEventData {
 	'ordering.new': 'asc' | 'desc';
 }
 
+interface RebaseEditorOpenConflictFileEvent extends RebaseEditorContextEventData {
+	/** File extension of the opened conflict file (e.g. '.ts', '.json') */
+	'conflict.fileExtension': string;
+}
+
+interface RebaseEditorOpenConflictChangesEvent extends RebaseEditorContextEventData {
+	/** Which side of the conflict was opened */
+	side: 'current' | 'incoming';
+}
+
 interface RebaseEditorRevealRefEvent extends RebaseEditorContextEventData {
 	/** Type of ref being revealed */
 	'ref.type': 'commit' | 'branch';
@@ -1244,6 +1286,8 @@ export type RebaseEditorTelemetryEvent =
 	| 'rebaseEditor/action/toggleOrdering'
 	| 'rebaseEditor/action/recompose'
 	| 'rebaseEditor/action/showConflicts'
+	| 'rebaseEditor/action/openConflictFile'
+	| 'rebaseEditor/action/openConflictChanges'
 	| 'rebaseEditor/action/revealRef'
 	| 'rebaseEditor/entries/changed'
 	| 'rebaseEditor/entries/moved'
