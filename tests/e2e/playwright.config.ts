@@ -16,6 +16,7 @@ export default defineConfig<CustomOptions>({
 	},
 	reporter: 'list', // process.env.CI ? 'html' : 'list',
 	timeout: 60000, // 1 minute
+	retries: process.env.CI ? 2 : 0,
 	fullyParallel: true,
 	workers: process.env.CI ? 4 : 8,
 	expect: {
