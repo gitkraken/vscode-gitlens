@@ -1,4 +1,4 @@
-import type { deserializeConfig, IConfigCatCache, IConfigCatClient, SettingTypeOf } from '@configcat/sdk';
+import type { deserializeConfig, IConfigCatCache, IConfigCatClient } from '@configcat/sdk';
 import type * as FeatureFlagProjectConfigModule from '@configcat/sdk/lib/esm/ProjectConfig.js';
 import { env as vscodeEnv } from 'vscode';
 import { fetch } from '@env/fetch.js';
@@ -11,13 +11,13 @@ type DeserializeFeatureFlagConfig = typeof deserializeConfig;
 
 export type FeatureFlagValue = boolean | string | number;
 export enum FeatureFlagKey {
-	WelcomeTitle = 'glensWelcomeTitle',
+	WelcomeTitleVariant = 'glensWelcomeTitleVariant',
 }
-export type FeatureFlagMap = Partial<Record<FeatureFlagKey, FeatureFlagValue>>;
+export type FeatureFlagMap = Readonly<Partial<Record<FeatureFlagKey, FeatureFlagValue>>>;
 export interface FeatureFlagService {
 	dispose(): void;
-	getFlag<T extends FeatureFlagValue>(key: FeatureFlagKey, defaultValue: T): Promise<FeatureFlagValue>;
-	getAllFlags(): Promise<FeatureFlagMap>;
+	getFlag<T extends FeatureFlagValue>(key: FeatureFlagKey, defaultValue: T): T;
+	getAllFlags(): FeatureFlagMap;
 }
 
 const _featureFlagKeys: ReadonlySet<string> = new Set<FeatureFlagKey>(Object.values(FeatureFlagKey));
@@ -50,45 +50,98 @@ class PrefetchedConfigCache implements IConfigCatCache {
 }
 
 export class ConfigCatFeatureFlagService implements FeatureFlagService {
-	private readonly _client: Promise<IConfigCatClient | undefined>;
+	private readonly _flags: FeatureFlagMap;
 
 	constructor(private readonly container: Container) {
-		this._client = this.loadClient();
+		this._flags = Object.freeze(this.container.storage.get('featureFlags:flags') ?? {});
+
+		// Fire background fetch to evaluate flags and store them for the NEXT activation
+		void this.fetchAndCacheFlags();
 	}
 
-	dispose(): void {
-		void this._client.then(
-			client => {
-				client?.dispose();
-			},
-			() => {},
-		);
+	dispose(): void {}
+
+	getFlag<T extends FeatureFlagValue>(key: FeatureFlagKey, defaultValue: T): T {
+		const value = this._flags[key];
+		if (value == null || typeof value !== typeof defaultValue) {
+			return defaultValue;
+		}
+		return value as T;
 	}
 
-	async getFlag<T extends FeatureFlagValue>(key: FeatureFlagKey, defaultValue: T): Promise<SettingTypeOf<T> | T> {
-		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.getFlag`);
+	getAllFlags(): FeatureFlagMap {
+		return this._flags;
+	}
 
-		const client = await this._client;
-		if (client == null) return defaultValue;
+	/**
+	 * Fetches fresh config from the API, evaluates all flags via ConfigCat SDK,
+	 * and stores the resolved flag map in globalState for the next activation.
+	 * Fire-and-forget — errors are logged but never propagated.
+	 */
+	private async fetchAndCacheFlags(): Promise<void> {
+		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.fetchAndCacheFlags`);
 
 		try {
-			const details = await client.getValueDetailsAsync<T>(key, defaultValue);
-			return details.value;
+			const response = await fetch(this.container.urls.getGkApiUrl('feature-flags', 'config'), {
+				headers: { Accept: 'application/json' },
+			});
+
+			if (!response.ok) {
+				Logger.debug(scope, `Failed to fetch feature flags config (${response.status} ${response.statusText})`);
+				return;
+			}
+
+			const configJson = await response.text();
+			if (!configJson) {
+				Logger.debug(scope, 'Feature flags config response was empty');
+				return;
+			}
+
+			const flags = await this.evaluateFlags(configJson);
+			if (flags != null) {
+				await this.container.storage.store('featureFlags:flags', flags);
+			}
 		} catch (ex) {
-			Logger.debug(ex, scope, `Failed to evaluate feature flag '${key}'; return default value`);
-			return defaultValue;
+			Logger.debug(ex, scope, 'Failed to fetch and cache feature flags');
 		}
 	}
 
-	async getAllFlags(): Promise<FeatureFlagMap> {
-		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.getAllFlags`);
+	/**
+	 * Creates a temporary ConfigCat client to evaluate all flags from the given config JSON,
+	 * then disposes it immediately.
+	 */
+	private async evaluateFlags(configJson: string): Promise<FeatureFlagMap | undefined> {
+		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.evaluateFlags`);
 
-		const client = await this._client;
-		if (client == null) return {};
+		const [sdkResult, projectConfigResult] = await Promise.allSettled([
+			import(/* webpackChunkName: "feature-flags" */ '@configcat/sdk'),
+			import(/* webpackChunkName: "feature-flags" */ '@configcat/sdk/lib/esm/ProjectConfig.js'),
+		]);
 
+		const sdk = getSettledValue(sdkResult);
+		const projectConfigModule = getSettledValue(projectConfigResult);
+
+		if (sdk == null || projectConfigModule == null) {
+			Logger.debug(scope, 'Failed to load ConfigCat SDK modules');
+			return undefined;
+		}
+
+		let client: IConfigCatClient | undefined;
 		try {
+			const cache = new PrefetchedConfigCache(
+				this.serializeProjectConfig(configJson, sdk.deserializeConfig, projectConfigModule),
+			);
+			client = sdk.getClient(localSdkKey, sdk.PollingMode.ManualPoll, {
+				cache: cache,
+				defaultUser: { identifier: vscodeEnv.machineId },
+				offline: true,
+			});
+
+			await client.waitForReady();
+			await client.forceRefreshAsync();
+
 			const values = await client.getAllValuesAsync();
-			const flags: FeatureFlagMap = {};
+			const flags: Partial<Record<FeatureFlagKey, FeatureFlagValue>> = {};
 
 			for (const { settingKey, settingValue } of values) {
 				if (
@@ -103,72 +156,10 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 
 			return flags;
 		} catch (ex) {
-			Logger.debug(ex, scope, 'Failed to evaluate feature flags; returning no flags');
-			return {};
-		}
-	}
-
-	private async loadClient(): Promise<IConfigCatClient | undefined> {
-		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.loadClient`);
-
-		try {
-			const response = await fetch(this.container.urls.getGkApiUrl('feature-flags', 'config'), {
-				headers: { Accept: 'application/json' },
-			});
-
-			if (!response.ok) {
-				Logger.debug(
-					scope,
-					`Failed to fetch feature flags config (${response.status} ${response.statusText}); using defaults`,
-				);
-				return undefined;
-			}
-
-			const configJson = await response.text();
-			if (!configJson) {
-				Logger.debug(scope, 'Feature flags config response was empty; using defaults');
-				return undefined;
-			}
-
-			return await this.createClient(configJson);
-		} catch (ex) {
-			Logger.debug(ex, scope, 'Failed to fetch feature flags config; using defaults');
+			Logger.debug(ex, scope, 'Failed to evaluate feature flags');
 			return undefined;
-		}
-	}
-
-	private async createClient(configJson: string): Promise<IConfigCatClient | undefined> {
-		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.createClient`);
-
-		const [sdkResult, projectConfigResult] = await Promise.allSettled([
-			import(/* webpackChunkName: "feature-flags" */ '@configcat/sdk'),
-			import(/* webpackChunkName: "feature-flags" */ '@configcat/sdk/lib/esm/ProjectConfig.js'),
-		]);
-
-		const sdk = getSettledValue(sdkResult);
-		const projectConfigModule = getSettledValue(projectConfigResult);
-
-		if (sdk == null || projectConfigModule == null) {
-			Logger.debug(scope, 'Failed to load ConfigCat SDK modules; using defaults');
-			return undefined;
-		}
-
-		try {
-			const cache = new PrefetchedConfigCache(
-				this.serializeProjectConfig(configJson, sdk.deserializeConfig, projectConfigModule),
-			);
-			const client = sdk.getClient(localSdkKey, sdk.PollingMode.ManualPoll, {
-				cache: cache,
-				defaultUser: { identifier: vscodeEnv.machineId, country: 'ES' },
-				offline: true,
-			});
-
-			await client.waitForReady();
-			await client.forceRefreshAsync();
-			return client;
-		} catch (ex) {
-			Logger.debug(ex, scope, 'Failed to initialize ConfigCat feature flag client; using defaults');
-			return undefined;
+		} finally {
+			client?.dispose();
 		}
 	}
 
