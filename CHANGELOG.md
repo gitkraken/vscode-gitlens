@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for displaying git notes in blame annotations, hovers, and status bar via the `${notes}` format token ([#2432](https://github.com/gitkraken/vscode-gitlens/issues/2432)) thanks to [PR #5085](5085) by Matt M ([@Mattwmaster58](https://github.com/Mattwmaster58))
 - Adds a conflict files panel to the _Interactive Rebase_ editor &mdash; shows conflicting files with per-file conflict counts, conflict status indicators, and actions to view current or incoming changes ([#5040](https://github.com/gitkraken/vscode-gitlens/issues/5040))
 - Adds branch activity dates to the _Home_ view recents &mdash; sorts by most recent activity and displays the most relevant activity label ([#5034](https://github.com/gitkraken/vscode-gitlens/issues/5034))
 

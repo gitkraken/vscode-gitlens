@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
+import type { CancellationToken } from 'vscode';
 import { Uri } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars.js';
@@ -88,11 +89,13 @@ export class GitCommit implements GitRevisionReference {
 		stashName?: string | undefined,
 		stashOnRef?: string | undefined,
 		parentTimestamps?: GitStashParentInfo[] | undefined,
+		notes?: string | null | undefined,
 	) {
 		this.ref = sha;
 		this.shortSha = sha.substring(0, this.container.CommitShaFormatting.length);
 		this.tips = tips;
 		this.parentTimestamps = parentTimestamps;
+		this._notes = notes;
 
 		if (stashName) {
 			this.refType = 'stash';
@@ -130,6 +133,11 @@ export class GitCommit implements GitRevisionReference {
 		}
 
 		this.lines = ensureArray(lines) ?? [];
+	}
+
+	private _notes: string | undefined | null;
+	get notes(): string | undefined {
+		return this._notes ?? undefined;
 	}
 
 	get date(): Date {
@@ -588,6 +596,14 @@ export class GitCommit implements GitRevisionReference {
 		return this.author.getCachedAvatarUri(options);
 	}
 
+	@gate()
+	async ensureNotes(cancellation?: CancellationToken): Promise<void> {
+		if (this.isUncommitted || this._notes !== undefined) return;
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		this._notes = (await svc.commits.getCommitNotes?.(this.sha, cancellation)) ?? null;
+	}
+
 	async getSignature(): Promise<CommitSignature | undefined> {
 		if (this.isUncommitted) return undefined;
 		if (this._signature === null) return undefined;
@@ -745,6 +761,7 @@ export class GitCommit implements GitRevisionReference {
 			this.stashName,
 			this.stashOnRef,
 			this.getChangedValue(changes.parentTimestamps, this.parentTimestamps),
+			this._notes,
 		) as T;
 	}
 
@@ -771,6 +788,7 @@ export class GitCommit implements GitRevisionReference {
 					this.stashName,
 					this.stashOnRef,
 					this.parentTimestamps,
+					this._notes,
 				) as T);
 	}
 

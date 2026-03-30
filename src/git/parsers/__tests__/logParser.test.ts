@@ -23,7 +23,7 @@ suite('Log Parser - File Parsing Test Suite', () => {
 	}
 
 	// Helper to create a mock commit record with files
-	// Format from commitsMapping: sha, author, authorEmail, authorDate, committer, committerEmail, committerDate, parents, tips, message
+	// Format from commitsMapping: sha, author, authorEmail, authorDate, committer, committerEmail, committerDate, parents, tips, notes, message
 	// The file content comes as a separate field AFTER the message field
 	function createCommitRecord(
 		sha: string,
@@ -35,8 +35,8 @@ suite('Log Parser - File Parsing Test Suite', () => {
 		// File content: --raw lines first, then --numstat lines, separated by newlines
 		const fileContent = [...rawLines, ...numstatLines].join('\n');
 
-		// Format: recordSep + 10 mapped fields + 1 file content field, all separated by fieldSep
-		// When fieldCount === keys.length (10), the parser reads the file content field
+		// Format: recordSep + 11 mapped fields + 1 file content field, all separated by fieldSep
+		// When fieldCount === keys.length (11), the parser reads the file content field
 		const fields = [
 			sha, // sha (field 0)
 			'Test Author', // author (field 1)
@@ -47,8 +47,9 @@ suite('Log Parser - File Parsing Test Suite', () => {
 			'1234567890', // committerDate (field 6)
 			'', // parents (field 7)
 			'', // tips (field 8)
-			'Test commit message', // message (field 9)
-			fileContent, // file content (field 10, parsed when fieldCount === 10)
+			'', // notes (field 9)
+			'Test commit message', // message (field 10)
+			fileContent, // file content (field 11, parsed when fieldCount === 11)
 		];
 		return recordSep + fields.join(fieldSep);
 	}

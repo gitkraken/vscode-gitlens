@@ -14,6 +14,7 @@ const commitsMapping = {
 	committerDate: '%ct',
 	parents: '%P',
 	tips: '%D',
+	notes: '%N',
 	message: '%B',
 };
 

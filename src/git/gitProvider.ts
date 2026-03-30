@@ -339,6 +339,7 @@ export interface GitCommitsSubProvider {
 		options?: { firstIfNotFound?: boolean | undefined },
 		cancellation?: CancellationToken,
 	): Promise<GitCommit | undefined>;
+	getCommitNotes?(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<string | undefined>;
 	getIncomingActivity?(
 		repoPath: string,
 		options?: IncomingActivityOptions,

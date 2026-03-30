@@ -119,6 +119,7 @@ export interface CommitFormatOptions extends FormatOptions {
 		id?: TokenOptions;
 		link?: TokenOptions;
 		message?: TokenOptions;
+		notes?: TokenOptions;
 		pullRequest?: TokenOptions;
 		pullRequestAgo?: TokenOptions;
 		pullRequestAgoOrDate?: TokenOptions;
@@ -713,6 +714,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			),
 			this._options.tokenOptions.footnotes,
 		);
+	}
+
+	get notes(): string {
+		return this._padOrTruncate(this._item.notes ?? '', this._options.tokenOptions.notes);
 	}
 
 	get id(): string {
