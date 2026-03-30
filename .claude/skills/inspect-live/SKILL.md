@@ -102,8 +102,9 @@ node scripts/e2e-dev-inspect.mjs \
 ## How AI Agents Should Use This
 
 1. **Build the extension first**: `pnpm run build:extension`
-2. **Run the script** with appropriate actions — all output goes to stdout as structured text
-3. **Parse the output**:
+2. **Determine VS Code variant**: Ask the user whether they use VS Code Stable or Insiders, or check which is installed. Pass `--flavor insiders` if needed. Remember the user's preference in memory for future invocations.
+3. **Run the script** with appropriate actions — all output goes to stdout as structured text
+4. **Parse the output**:
    - `>>> query-frame: h1` → followed by element text content
    - `>>> aria snapshot` → YAML-like accessibility tree with roles, names, states
    - `>>> eval:` → followed by `Result: <JSON>`
@@ -125,24 +126,25 @@ node scripts/e2e-dev-inspect.mjs \
 
 ## All Options
 
-| Flag                     | Description                                     |
-| ------------------------ | ----------------------------------------------- |
-| `--env <env>`            | Set `gitkraken.env` (e.g. `dev`, `staging`)     |
-| `--with-evaluator`       | Enable HTTP evaluator bridge (Test mode)        |
-| `--keep-open`            | Keep VS Code running (Ctrl+C to stop)           |
-| `--setting <key=value>`  | Custom VS Code setting (repeatable)             |
-| `--wait <ms>`            | Default wait between actions (default 3000)     |
-| `--activation-wait <ms>` | Wait time for GitLens activation (default 8000) |
-| `--workspace <path>`     | Path to open as workspace                       |
-| `--vscode-path <path>`   | Path to VS Code Electron binary                 |
-| `--command <cmd>`        | Execute VS Code command                         |
-| `--aria`                 | Print full window aria snapshot                 |
-| `--aria-selector <sel>`  | Print aria snapshot of specific element         |
-| `--query <sel>`          | Print textContent matching selector             |
-| `--query-frame <sel>`    | Search all frames for selector                  |
-| `--click <sel>`          | Click element                                   |
-| `--click-frame <sel>`    | Click inside webview iframe                     |
-| `--screenshot <path>`    | Save screenshot                                 |
-| `--logs [pattern]`       | Search extension logs                           |
-| `--eval <expr>`          | Evaluate JS expression in extension host        |
-| `--pause <ms>`           | Wait specified duration                         |
+| Flag                          | Description                                      |
+| ----------------------------- | ------------------------------------------------ |
+| `--env <env>`                 | Set `gitkraken.env` (e.g. `dev`, `staging`)      |
+| `--with-evaluator`            | Enable HTTP evaluator bridge (Test mode)         |
+| `--keep-open`                 | Keep VS Code running (Ctrl+C to stop)            |
+| `--setting <key=value>`       | Custom VS Code setting (repeatable)              |
+| `--wait <ms>`                 | Default wait between actions (default 3000)      |
+| `--activation-wait <ms>`      | Wait time for GitLens activation (default 8000)  |
+| `--workspace <path>`          | Path to open as workspace                        |
+| `--vscode-path <path>`        | Path to VS Code Electron binary                  |
+| `--flavor <stable\|insiders>` | VS Code variant to auto-detect (default: stable) |
+| `--command <cmd>`             | Execute VS Code command                          |
+| `--aria`                      | Print full window aria snapshot                  |
+| `--aria-selector <sel>`       | Print aria snapshot of specific element          |
+| `--query <sel>`               | Print textContent matching selector              |
+| `--query-frame <sel>`         | Search all frames for selector                   |
+| `--click <sel>`               | Click element                                    |
+| `--click-frame <sel>`         | Click inside webview iframe                      |
+| `--screenshot <path>`         | Save screenshot                                  |
+| `--logs [pattern]`            | Search extension logs                            |
+| `--eval <expr>`               | Evaluate JS expression in extension host         |
+| `--pause <ms>`                | Wait specified duration                          |
