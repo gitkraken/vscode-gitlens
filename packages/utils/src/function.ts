@@ -93,7 +93,7 @@ export function sequentialize<T extends (...args: any[]) => Promise<any>>(fn: T)
 	let promise: Promise<unknown> | undefined;
 
 	return function (...args: any[]): Promise<any> {
-		// eslint-disable-next-line no-return-await, @typescript-eslint/no-unsafe-return
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		const run = async () => await fn(...args);
 		if (promise == null) {
 			promise = run();

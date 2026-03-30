@@ -69,7 +69,7 @@ export function sequentialize<T extends (...args: any[]) => any>(
 			}
 
 			const state: SequentializeState | undefined = this[prop];
-			// eslint-disable-next-line no-return-await, @typescript-eslint/no-unsafe-return
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 			const run = async () => await fn.apply(this, args);
 
 			// Compute the dedupe key once
