@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
 import * as assert from 'assert';
+import * as process from 'process';
 import * as sinon from 'sinon';
 import { CancelledRunError, RunError } from '../shell.errors.js';
 import { run, runSpawn } from '../shell.js';

@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent, MessageItem } from 'vscode';
 import { Disposable, env, ExtensionMode, window } from 'vscode';
 import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views.js';
+import { localOnlyGroupedViews } from '../constants.views.js';
 import type { Container } from '../container.js';
 import type { GitContributor } from '../git/models/contributor.js';
 import type {
@@ -101,6 +102,7 @@ export class Views implements Disposable {
 		return this._scmGroupedViews;
 	}
 
+	private _hasVirtualFolders: boolean | undefined;
 	private _welcomeDismissed = false;
 
 	constructor(
@@ -109,6 +111,7 @@ export class Views implements Disposable {
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			new ViewCommands(container),
 			...this.registerViews(),
 			...this.registerWebviewViews(webviews),
@@ -181,6 +184,14 @@ export class Views implements Disposable {
 		}
 
 		if (configuration.changed(e, 'views.scm.grouped.views')) {
+			this.updateScmGroupedViewsRegistration();
+		}
+	}
+
+	private onRepositoriesChanged(): void {
+		const hasVirtualFolders = getContext('gitlens:hasVirtualFolders');
+		if (this._hasVirtualFolders !== hasVirtualFolders) {
+			this._hasVirtualFolders = hasVirtualFolders;
 			this.updateScmGroupedViewsRegistration();
 		}
 	}
@@ -589,6 +600,11 @@ export class Views implements Disposable {
 		void setContext('gitlens:views:scm:grouped:welcome', !this._welcomeDismissed);
 
 		this._scmGroupedViews = getScmGroupedViewsFromConfig();
+		if (getContext('gitlens:hasVirtualFolders')) {
+			for (const view of localOnlyGroupedViews) {
+				this._scmGroupedViews.delete(view);
+			}
+		}
 
 		if (this._scmGroupedViews.size) {
 			if (this._welcomeDismissed || bypassWelcomeView) {

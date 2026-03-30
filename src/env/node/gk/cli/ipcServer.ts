@@ -101,7 +101,17 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 		req.on('data', d => chunks.push(d));
 		req.on('end', async () => {
 			const body = Buffer.concat(chunks).toString('utf8');
-			const data = body ? (JSON.parse(body) as Request) : undefined;
+
+			let data: Request | undefined;
+			try {
+				data = body ? (JSON.parse(body) as Request) : undefined;
+			} catch (ex) {
+				scope?.error(ex, 'Invalid JSON in IPC request body', { body: body });
+				res.writeHead(400);
+				res.end('Invalid JSON');
+				return;
+			}
+
 			try {
 				const result = await handler(data);
 				if (result == null) {

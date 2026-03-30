@@ -278,6 +278,10 @@ As an expert software developer with deep expert-level knowledge of TypeScript, 
 - Ensure CHANGELOG entries are added for user-facing changes
 - Verify that build errors and test failures are not being dismissed as "pre-existing" without evidence
 
+### Known Non-Issues (Do Not Flag)
+
+- `debugger;` statements — Webpack's production build automatically strips all `debugger` statements via the minimizer. They are intentional development aids and NOT a shipping concern. Do NOT flag them in reviews.
+
 ## Debugging & Investigation Methodology
 
 When diagnosing bugs or unexpected behavior, follow this structured process. Do NOT guess at root causes — gather evidence first.
@@ -813,19 +817,20 @@ Reference examples and critical rules for common tasks.
 
 Skills provide detailed, step-by-step workflows for common tasks. Invoke with `/{skill-name}`.
 
-| Skill              | Purpose                                                   |
-| ------------------ | --------------------------------------------------------- |
-| `/investigate`     | Structured bug investigation with root cause analysis     |
-| `/analyze`         | Deep design/implementation analysis, devil's advocate     |
-| `/review`          | Code review against standards + impact completeness audit |
-| `/commit`          | Git commit with GitLens conventions                       |
-| `/create-issue`    | Create GitHub issues from code changes                    |
-| `/audit-commits`   | Audit commit range for issues and CHANGELOG entries       |
-| `/add-command`     | Scaffold a new VS Code command                            |
-| `/add-webview`     | Scaffold a new webview with IPC, Lit app, registration    |
-| `/add-test`        | Generate unit or E2E test files                           |
-| `/add-icon`        | Add icon to GL Icons font                                 |
-| `/add-ai-provider` | Add a new AI provider integration                         |
+| Skill              | Purpose                                                    |
+| ------------------ | ---------------------------------------------------------- |
+| `/investigate`     | Structured bug investigation with root cause analysis      |
+| `/analyze`         | Deep design/implementation analysis, devil's advocate      |
+| `/review`          | Code review against standards + impact completeness audit  |
+| `/commit`          | Git commit with GitLens conventions                        |
+| `/create-issue`    | Create GitHub issues from code changes                     |
+| `/audit-commits`   | Audit commit range for issues and CHANGELOG entries        |
+| `/add-command`     | Scaffold a new VS Code command                             |
+| `/add-webview`     | Scaffold a new webview with IPC, Lit app, registration     |
+| `/add-test`        | Generate unit or E2E test files                            |
+| `/add-icon`        | Add icon to GL Icons font                                  |
+| `/add-ai-provider` | Add a new AI provider integration                          |
+| `/inspect-live`    | Launch VS Code with GitLens via Playwright inspect UI/logs |
 
 ### Canonical Examples
 

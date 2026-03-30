@@ -628,6 +628,16 @@ void
 }
 ```
 
+### cli/discoveryFile/failed
+
+> Sent when the CLI integration discovery file fails to be created
+
+```typescript
+{
+  'error.message': string
+}
+```
+
 ### cli/install/failed
 
 > Sent when a CLI install attempt fails
@@ -666,6 +676,38 @@ void
   'insiders': boolean,
   'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'version': string
+}
+```
+
+### cli/ipc/failed
+
+> Sent when the CLI integration IPC server fails to start
+
+```typescript
+{
+  'error.message': string
+}
+```
+
+### cli/updateCore/completed
+
+> Sent when a CLI update succeeds
+
+```typescript
+{
+  'current': string,
+  'previous': string
+}
+```
+
+### cli/updateCore/failed
+
+> Sent when a CLI update fails
+
+```typescript
+{
+  'error.message': string,
+  'previous': string
 }
 ```
 
@@ -3430,6 +3472,52 @@ void
 
 ```typescript
 {
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### rebaseEditor/action/openConflictChanges
+
+> Sent when the user opens current or incoming changes for a conflict file
+
+```typescript
+{
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Which side of the conflict was opened
+  'side': 'current' | 'incoming'
+}
+```
+
+### rebaseEditor/action/openConflictFile
+
+> Sent when the user opens a conflict file from the inline conflict panel
+
+```typescript
+{
+  // File extension of the opened conflict file (e.g. '.ts', '.json')
+  'conflict.fileExtension': string,
   'context.ascending': boolean,
   'context.done.count': number,
   'context.hasConflicts': boolean,
