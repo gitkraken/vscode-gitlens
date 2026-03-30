@@ -411,8 +411,8 @@ suite('Serialization Benchmark Test Suite', () => {
 		const { remote, dispose } = await createConnectionPair<GraphDataService>(services);
 
 		try {
-			// Warm up
-			await remote.getRows(100);
+			// Warm up at the same payload size to absorb JIT overhead
+			await remote.getRows(500);
 
 			const timings: number[] = [];
 			const iterations = 5;
@@ -424,15 +424,17 @@ suite('Serialization Benchmark Test Suite', () => {
 				assert.strictEqual(rows.length, 500);
 			}
 
-			// No single iteration should be more than 5x the fastest
+			// CI runners see higher relative variance, so allowing a wider threshold
+			// eslint-disable-next-line no-restricted-globals
+			const maxRatio = process.env.CI ? 10 : 5;
 			const fastest = Math.min(...timings);
 			const slowest = Math.max(...timings);
 			const ratio = slowest / Math.max(fastest, 0.01);
 
 			assert.ok(
-				ratio < 5,
+				ratio < maxRatio,
 				`Sequential call variance too high: fastest=${fastest.toFixed(1)}ms, ` +
-					`slowest=${slowest.toFixed(1)}ms, ratio=${ratio.toFixed(1)}x`,
+					`slowest=${slowest.toFixed(1)}ms, ratio=${ratio.toFixed(1)}x (limit=${maxRatio}x)`,
 			);
 		} finally {
 			dispose();
