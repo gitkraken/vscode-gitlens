@@ -217,7 +217,7 @@ export default defineConfig(
 			'no-restricted-globals': ['error', 'process'],
 			'no-restricted-imports': 'off',
 			'no-return-assign': 'error',
-			'no-return-await': 'warn',
+			'no-return-await': 'off', // Disabled in favor of @typescript-eslint/return-await (handles `using` correctly)
 			'no-self-compare': 'error',
 			'no-sequences': 'error',
 			'no-template-curly-in-string': 'warn',
