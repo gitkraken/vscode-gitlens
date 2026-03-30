@@ -245,6 +245,9 @@ export async function detailsMessage(
 		!commit.isUncommitted &&
 		CommitFormatter.has(options.format, 'signature');
 
+	const showNotes =
+		!commit.isUncommitted && commit.notes === undefined && CommitFormatter.has(options.format, 'notes');
+
 	const [
 		enrichedAutolinksResult,
 		prResult,
@@ -252,6 +255,7 @@ export async function detailsMessage(
 		previousLineComparisonUrisResult,
 		_fullDetailsResult,
 		signedResult,
+		_notesResult,
 	] = await Promise.allSettled([
 		enhancedAutolinks
 			? pauseOnCancelOrTimeoutMapTuplePromise(
@@ -279,6 +283,7 @@ export async function detailsMessage(
 			: undefined,
 		commit.message == null ? commit.ensureFullDetails() : undefined,
 		showSignature ? commit.isSigned() : undefined,
+		showNotes ? commit.ensureNotes(options?.cancellation) : undefined,
 	]);
 
 	if (options?.cancellation?.isCancellationRequested) return undefined;

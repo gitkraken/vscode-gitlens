@@ -287,6 +287,19 @@ export class LineAnnotationController implements Disposable {
 				? this.container.git.getRepositoryService(repoPath).getBranchesAndTagsTipsLookup()
 				: undefined;
 
+		const getNotesForLines = !uncommittedOnly && repoPath != null && CommitFormatter.has(cfg.format, 'notes');
+		if (getNotesForLines) {
+			const seen = new Set<string>();
+			await Promise.allSettled(
+				Array.from(lines.values(), state => {
+					if (state.commit.isUncommitted || seen.has(state.commit.ref)) return Promise.resolve();
+					seen.add(state.commit.ref);
+					return state.commit.ensureNotes(cancellation);
+				}),
+			);
+		}
+		if (cancellation.isCancellationRequested) return;
+
 		async function updateDecorations(
 			container: Container,
 			editor: TextEditor,

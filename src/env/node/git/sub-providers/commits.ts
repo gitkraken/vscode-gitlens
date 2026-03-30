@@ -115,6 +115,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@debug({ exit: true })
+	async getCommitNotes(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<string | undefined> {
+		const result = await this.git.exec(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+			'notes',
+			'show',
+			rev,
+		);
+		if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
+
+		const data = result.stdout.trim();
+		return data || undefined;
+	}
+
+	@debug({ exit: true })
 	async getCommitCount(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<number | undefined> {
 		const result = await this.git.exec(
 			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
@@ -1394,6 +1408,7 @@ function createCommit(
 ) {
 	const message = c.message.trim();
 	const index = message.indexOf('\n');
+	const notes = c.notes?.trim() || null;
 
 	return new GitCommit(
 		container,
@@ -1416,6 +1431,10 @@ function createCommit(
 		c.stats,
 		undefined,
 		c.tips?.split(' '),
+		undefined,
+		undefined,
+		undefined,
+		notes,
 	);
 }
 

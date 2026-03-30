@@ -235,6 +235,11 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 					},
 					undefined,
 					[],
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					params.type === 'commit-uncommitted' ? undefined : 'Some note content',
 				);
 
 				let includePullRequest = false;
