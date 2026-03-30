@@ -1166,7 +1166,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		const entries = this.entries;
 
 		// Find oldest commit (first commit entry in line order)
-		this._oldestCommitId = entries.find(isCommitEntry)?.sha;
+		// If there are done commit entries, the oldest is among them, not in pending entries
+		const hasDoneCommits = this.doneEntries.some(isCommitEntry);
+		this._oldestCommitId = hasDoneCommits ? undefined : entries.find(isCommitEntry)?.sha;
 
 		// Compute squash info - targets and entries in the squash path
 		const squashInfo = this.computeSquashInfo(entries);

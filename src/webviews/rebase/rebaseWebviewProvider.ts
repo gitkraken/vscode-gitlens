@@ -757,8 +757,22 @@ export class RebaseWebviewProvider implements Disposable {
 		const onto = parsed.info?.onto ?? rebaseStatus?.onto ?? '';
 		this._enrichment.onto ??= { sha: onto };
 
-		const { entries } = processed;
+		let { entries } = processed;
 		const { authors, commits, onto: ontoCommit } = this._enrichment;
+
+		// Filter out commits already in doneEntries to prevent duplicates caused by
+		// the TextDocument being stale while the done file is read fresh from disk
+		if (doneEntries?.length) {
+			const doneShas = new Set<string>();
+			for (const e of doneEntries) {
+				if (e.type === 'commit') {
+					doneShas.add(e.sha);
+				}
+			}
+			if (doneShas.size) {
+				entries = entries.filter(e => e.type !== 'commit' || !doneShas.has(e.sha));
+			}
+		}
 
 		const defaultDateFormat = configuration.get('defaultDateFormat');
 
