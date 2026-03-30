@@ -21,8 +21,11 @@ function createRootState() {
 }
 
 async function flushPromises(): Promise<void> {
-	await Promise.resolve();
-	await Promise.resolve();
+	// Enough microtask ticks to settle the async chain through:
+	// restoreOverviewFilter (2 awaits + async wrapper unwrap) > Promise.all > .then callback
+	for (let i = 0; i < 10; i++) {
+		await Promise.resolve();
+	}
 }
 
 suite('home actions', () => {
