@@ -25,6 +25,7 @@
  *   --activation-wait <ms>  Wait time for GitLens activation (default 8000)
  *   --workspace <path>       Path to open as workspace (default: extension root)
  *   --vscode-path <path>     Path to VS Code Electron binary (auto-detected)
+ *   --flavor <stable|insiders>  VS Code variant to use (default: stable)
  *
  * Actions (executed in order, repeatable):
  *   --command <cmd>           Execute a VS Code command via command palette
@@ -80,6 +81,7 @@ function parseArgs(argv) {
 		activationWait: 8000,
 		workspace: extensionRoot,
 		vscodePath: undefined,
+		flavor: 'stable',
 		actions: [],
 	};
 	function requireArg(argv, i, flag) {
@@ -127,6 +129,15 @@ function parseArgs(argv) {
 			case '--vscode-path':
 				opts.vscodePath = requireArg(argv, ++i, '--vscode-path');
 				break;
+			case '--flavor': {
+				const val = requireArg(argv, ++i, '--flavor');
+				if (val !== 'stable' && val !== 'insiders') {
+					console.error(`Invalid --flavor value: "${val}". Expected "stable" or "insiders".`);
+					process.exit(1);
+				}
+				opts.flavor = val;
+				break;
+			}
 			case '--setting': {
 				const raw = requireArg(argv, ++i, '--setting');
 				if (!raw.includes('=') || raw.startsWith('=')) {
@@ -193,26 +204,58 @@ function parseArgs(argv) {
 }
 
 // --- VS Code auto-detection -------------------------------------------------
-function findVSCode(explicit) {
-	if (explicit) return explicit;
-	const candidates = [
+const vscodePaths = {
+	stable: [
+		// macOS
 		'/Applications/Visual Studio Code.app/Contents/MacOS/Electron',
 		`${os.homedir()}/Applications/Visual Studio Code.app/Contents/MacOS/Electron`,
 		// Linux — Electron binaries (not wrapper scripts like /usr/bin/code)
-		'/usr/share/code/code', // deb/rpm install
-		`${os.homedir()}/.local/share/code/code`, // user-local install
-		'/snap/code/current/usr/share/code/code', // snap install
+		'/usr/share/code/code',
+		`${os.homedir()}/.local/share/code/code`,
+		'/snap/code/current/usr/share/code/code',
+	],
+	insiders: [
+		// macOS
+		'/Applications/Visual Studio Code - Insiders.app/Contents/MacOS/Electron',
+		`${os.homedir()}/Applications/Visual Studio Code - Insiders.app/Contents/MacOS/Electron`,
+		// Linux
+		'/usr/share/code-insiders/code-insiders',
+		`${os.homedir()}/.local/share/code-insiders/code-insiders`,
+		'/snap/code-insiders/current/usr/share/code-insiders/code-insiders',
+	],
+};
+
+function getWindowsPaths(flavor) {
+	const paths = [];
+	if (flavor === 'stable' || flavor === undefined) {
+		if (process.env.LOCALAPPDATA) paths.push(`${process.env.LOCALAPPDATA}/Programs/Microsoft VS Code/Code.exe`);
+		if (process.env.ProgramFiles) paths.push(`${process.env.ProgramFiles}/Microsoft VS Code/Code.exe`);
+	}
+	if (flavor === 'insiders' || flavor === undefined) {
+		if (process.env.LOCALAPPDATA)
+			paths.push(`${process.env.LOCALAPPDATA}/Programs/Microsoft VS Code Insiders/Code - Insiders.exe`);
+		if (process.env.ProgramFiles)
+			paths.push(`${process.env.ProgramFiles}/Microsoft VS Code Insiders/Code - Insiders.exe`);
+	}
+	return paths;
+}
+
+function findVSCode(explicit, flavor = 'stable') {
+	if (explicit) return explicit;
+
+	// Search preferred flavor first, then fall back to the other
+	const other = flavor === 'insiders' ? 'stable' : 'insiders';
+	const candidates = [
+		...vscodePaths[flavor],
+		...getWindowsPaths(flavor),
+		...vscodePaths[other],
+		...getWindowsPaths(other),
 	];
-	if (process.env.LOCALAPPDATA) {
-		candidates.push(`${process.env.LOCALAPPDATA}/Programs/Microsoft VS Code/Code.exe`);
-	}
-	if (process.env.ProgramFiles) {
-		candidates.push(`${process.env.ProgramFiles}/Microsoft VS Code/Code.exe`);
-	}
+
 	for (const c of candidates) {
 		if (existsSync(c)) return c;
 	}
-	throw new Error('Could not find VS Code. Provide --vscode-path.');
+	throw new Error('Could not find VS Code. Provide --vscode-path or install VS Code.');
 }
 
 // --- Default settings -------------------------------------------------------
@@ -396,7 +439,7 @@ async function connectEvaluator(electronApp) {
 // --- Main -------------------------------------------------------------------
 async function main() {
 	const opts = parseArgs(process.argv);
-	const vscodePath = findVSCode(opts.vscodePath);
+	const vscodePath = findVSCode(opts.vscodePath, opts.flavor);
 	const { _electron } = await import('@playwright/test');
 
 	// Temp directories
@@ -454,6 +497,7 @@ async function main() {
 
 		const mode = opts.withEvaluator ? 'Test (with evaluator)' : 'Development';
 		console.log(`Launching VS Code in ${mode} mode...`);
+		console.log(`  binary: ${vscodePath}`);
 		if (opts.env) console.log(`  gitkraken.env: "${opts.env}"`);
 
 		electronApp = await _electron.launch({
