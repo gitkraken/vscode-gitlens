@@ -255,7 +255,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		upgrade: previousVersion != null && gitlensVersion !== previousVersion,
 		upgradedFrom: previousVersion != null && gitlensVersion !== previousVersion ? previousVersion : undefined,
 	});
-	await setFeatureFlagTelemetryGlobalAttributes(container);
+	setFeatureFlagTelemetryGlobalAttributes(container);
 
 	const api = new Api(container);
 	const mode = container.mode;
@@ -307,21 +307,14 @@ function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys |
 	context.globalState?.setKeysForSync([...keys, SyncedStorageKeys.Version, SyncedStorageKeys.PreReleaseVersion]);
 }
 
-async function setFeatureFlagTelemetryGlobalAttributes(container: Container): Promise<void> {
-	try {
-		const featureFlags = await container.featureFlags;
-		if (featureFlags == null) return;
+function setFeatureFlagTelemetryGlobalAttributes(container: Container): void {
+	const flags = container.featureFlags.getAllFlags();
+	if (Object.keys(flags).length === 0) return;
 
-		const flags = await featureFlags.getAllFlags();
-		if (Object.keys(flags).length === 0) return;
-
-		container.telemetry.setGlobalAttribute(
-			'featureFlags',
-			JSON.stringify(Object.fromEntries(Object.entries(flags).sort(([a], [b]) => a.localeCompare(b)))),
-		);
-	} catch (ex) {
-		Logger.error(ex, 'setFeatureFlagTelemetryGlobalAttributes');
-	}
+	container.telemetry.setGlobalAttribute(
+		'featureFlags',
+		JSON.stringify(Object.fromEntries(Object.entries(flags).sort(([a], [b]) => a.localeCompare(b)))),
+	);
 }
 
 function registerBuiltInActionRunners(container: Container): void {

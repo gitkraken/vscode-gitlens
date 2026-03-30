@@ -6,6 +6,7 @@ import type { SubscriptionState } from './constants.subscription.js';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
 import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views.js';
 import type { Environment } from './container.js';
+import type { FeatureFlagMap } from './featureFlags/featureFlagService.js';
 import type { FeaturePreviews } from './features.js';
 import type { OnboardingStorage } from './onboarding/models/onboarding.js';
 import type { OrganizationSettings } from './plus/gk/models/organization.js';
@@ -103,6 +104,7 @@ interface GlobalStorageCore {
 	'integrations:configured': StoredIntegrationConfigurations;
 	/** Unified onboarding/dismissible UI state */
 	'onboarding:state': OnboardingStorage;
+	'featureFlags:flags': FeatureFlagMap;
 }
 
 type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &
