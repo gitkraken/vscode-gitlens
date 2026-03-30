@@ -125,7 +125,7 @@ export async function runCLICommand(args: string[], options?: { cwd?: string }):
 		throw new Error('CLI is not installed');
 	}
 
-	// eslint-disable-next-line no-return-await -- await is needed for the scope to be properly disposed
+	// await is needed for the scope to be properly disposed
 	return await run(command, args, 'utf8', { cwd: cwd });
 }
 

@@ -217,7 +217,7 @@ export default defineConfig(
 			'no-restricted-globals': ['error', 'process'],
 			'no-restricted-imports': 'off',
 			'no-return-assign': 'error',
-			'no-return-await': 'warn',
+			'no-return-await': 'off', // Disabled in favor of @typescript-eslint/return-await
 			'no-self-compare': 'error',
 			'no-sequences': 'error',
 			'no-template-curly-in-string': 'warn',
@@ -408,6 +408,7 @@ export default defineConfig(
 			'@typescript-eslint/prefer-optional-chain': 'warn',
 			'@typescript-eslint/prefer-promise-reject-errors': ['error', { allowEmptyReject: true }],
 			'@typescript-eslint/prefer-reduce-type-parameter': 'warn',
+			'@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'], // Included in strictTypeChecked, but pinned explicitly to prevent silent loss if the preset changes
 			'@typescript-eslint/restrict-template-expressions': [
 				'error',
 				{ allowAny: true, allowBoolean: true, allowNumber: true, allowNullish: true },
