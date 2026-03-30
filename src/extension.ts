@@ -312,7 +312,7 @@ async function setFeatureFlagTelemetryGlobalAttributes(container: Container): Pr
 		const featureFlags = await container.featureFlags;
 		if (featureFlags == null) return;
 
-		const flags = await featureFlags.getAllFlags();
+		const flags = featureFlags.getAllFlags();
 		if (Object.keys(flags).length === 0) return;
 
 		container.telemetry.setGlobalAttribute(

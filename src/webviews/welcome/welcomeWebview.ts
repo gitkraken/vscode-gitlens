@@ -110,7 +110,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 
 	private async getWelcomeTitleVariant(): Promise<string | undefined> {
 		const featureFlags = await this.container.featureFlags;
-		const showVariant = (await featureFlags?.getFlag(FeatureFlagKey.WelcomeTitle, false)) ?? false;
+		const showVariant = featureFlags?.getFlag(FeatureFlagKey.WelcomeTitle, false) ?? false;
 		return showVariant ? 'Welcome' : undefined;
 	}
 

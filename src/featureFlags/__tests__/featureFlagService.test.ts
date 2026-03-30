@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { Logger } from '@gitlens/utils/logger.js';
-import type { FeatureFlagService } from '../featureFlagService.js';
+import type { FeatureFlagMap, FeatureFlagService } from '../featureFlagService.js';
 import { ConfigCatFeatureFlagService, FeatureFlagKey } from '../featureFlagService.js';
 
 // Replicate the module-private setFeatureFlagTelemetryGlobalAttributes from extension.ts
@@ -13,7 +13,7 @@ async function setFeatureFlagTelemetryGlobalAttributes(container: {
 	try {
 		const featureFlags = await container.featureFlags;
 		if (featureFlags == null) return;
-		const flags = await featureFlags.getAllFlags();
+		const flags = featureFlags.getAllFlags();
 		if (Object.keys(flags).length === 0) return;
 		container.telemetry.setGlobalAttribute(
 			'featureFlags',
@@ -24,149 +24,103 @@ async function setFeatureFlagTelemetryGlobalAttributes(container: {
 	}
 }
 
-function createMockContainer(): any {
+function createMockContainer(flags?: FeatureFlagMap): any {
 	return {
 		urls: { getGkApiUrl: (...segments: string[]) => `https://api.test.com/${segments.join('/')}` },
 		env: 'production',
 		debugging: false,
 		prereleaseOrDebugging: false,
-	};
-}
-
-function createMockClient(overrides?: Partial<Record<string, sinon.SinonStub>>): any {
-	return {
-		getValueDetailsAsync: sinon.stub().resolves({ value: true, isDefaultValue: false }),
-		getAllValuesAsync: sinon.stub().resolves([]),
-		dispose: sinon.stub(),
-		waitForReady: sinon.stub().resolves(),
-		forceRefreshAsync: sinon.stub().resolves(),
-		...overrides,
+		storage: {
+			get: sinon.stub().returns(flags),
+			store: sinon.stub().resolves(),
+		},
 	};
 }
 
 suite('FeatureFlagService Test Suite', () => {
 	let sandbox: sinon.SinonSandbox;
-	let loadClientStub: sinon.SinonStub;
+	let fetchAndCacheFlagsStub: sinon.SinonStub;
 
 	setup(() => {
 		sandbox = sinon.createSandbox();
-		loadClientStub = sandbox.stub(ConfigCatFeatureFlagService.prototype as any, 'loadClient');
+		// Prevent background fetch from running during tests
+		fetchAndCacheFlagsStub = sandbox
+			.stub(ConfigCatFeatureFlagService.prototype as any, 'fetchAndCacheFlags')
+			.resolves();
 	});
 
 	teardown(() => {
 		sandbox.restore();
 	});
 
-	suite('getFlag — client unavailable', () => {
-		test('returns default boolean value', async () => {
-			loadClientStub.resolves(undefined);
+	suite('getFlag — no cached flags', () => {
+		test('returns default boolean value', () => {
 			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			assert.strictEqual(await s.getFlag(FeatureFlagKey.WelcomeTitle, true), true);
-			assert.strictEqual(await s.getFlag(FeatureFlagKey.WelcomeTitle, false), false);
+			assert.strictEqual(s.getFlag(FeatureFlagKey.WelcomeTitle, true), true);
+			assert.strictEqual(s.getFlag(FeatureFlagKey.WelcomeTitle, false), false);
 			s.dispose();
 		});
 
-		test('returns default string value', async () => {
-			loadClientStub.resolves(undefined);
+		test('returns default string value', () => {
 			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			assert.strictEqual(await s.getFlag(FeatureFlagKey.WelcomeTitle, 'fallback'), 'fallback');
+			assert.strictEqual(s.getFlag(FeatureFlagKey.WelcomeTitle, 'fallback'), 'fallback');
 			s.dispose();
 		});
 
-		test('returns default number value', async () => {
-			loadClientStub.resolves(undefined);
+		test('returns default number value', () => {
 			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			assert.strictEqual(await s.getFlag(FeatureFlagKey.WelcomeTitle, 99), 99);
+			assert.strictEqual(s.getFlag(FeatureFlagKey.WelcomeTitle, 99), 99);
 			s.dispose();
 		});
 	});
 
-	suite('getFlag — client available', () => {
-		test('returns evaluated value from client', async () => {
-			const mockClient = createMockClient({
-				getValueDetailsAsync: sinon.stub().resolves({ value: 'variant-a', isDefaultValue: false }),
-			});
-			loadClientStub.resolves(mockClient);
-			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			assert.strictEqual(await s.getFlag(FeatureFlagKey.WelcomeTitle, 'control'), 'variant-a');
-			s.dispose();
-		});
-
-		test('returns default when getValueDetailsAsync throws', async () => {
-			const mockClient = createMockClient({
-				getValueDetailsAsync: sinon.stub().rejects(new Error('eval error')),
-			});
-			loadClientStub.resolves(mockClient);
-			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			assert.strictEqual(await s.getFlag(FeatureFlagKey.WelcomeTitle, 'safe-default'), 'safe-default');
+	suite('getFlag — cached flags available', () => {
+		test('returns cached value over default', () => {
+			const s = new ConfigCatFeatureFlagService(
+				createMockContainer({ [FeatureFlagKey.WelcomeTitle]: 'variant-a' }),
+			);
+			assert.strictEqual(s.getFlag(FeatureFlagKey.WelcomeTitle, 'control'), 'variant-a');
 			s.dispose();
 		});
 	});
 
-	suite('getAllFlags — client unavailable', () => {
-		test('returns empty object', async () => {
-			loadClientStub.resolves(undefined);
+	suite('getAllFlags — no cached flags', () => {
+		test('returns empty object', () => {
 			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			assert.deepStrictEqual(await s.getAllFlags(), {});
+			assert.deepStrictEqual(s.getAllFlags(), {});
 			s.dispose();
 		});
 	});
 
-	suite('getAllFlags — client available', () => {
-		test('returns filtered map with only boolean/string/number values', async () => {
-			const mockClient = createMockClient({
-				getAllValuesAsync: sinon.stub().resolves([
-					{ settingKey: FeatureFlagKey.WelcomeTitle, settingValue: true },
-					{ settingKey: 'unknown-flag', settingValue: 'on' },
-					{ settingKey: 'obj-flag', settingValue: { nested: true } },
-					{ settingKey: 'null-flag', settingValue: null },
-				]),
-			});
-			loadClientStub.resolves(mockClient);
-			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			const flags = await s.getAllFlags();
-			assert.deepStrictEqual(flags, { glensWelcomeTitle: true });
+	suite('getAllFlags — cached flags available', () => {
+		test('returns cached flag map', () => {
+			const flags: FeatureFlagMap = { [FeatureFlagKey.WelcomeTitle]: true };
+			const s = new ConfigCatFeatureFlagService(createMockContainer(flags));
+			assert.deepStrictEqual(s.getAllFlags(), flags);
 			s.dispose();
 		});
+	});
 
-		test('returns empty object when getAllValuesAsync throws', async () => {
-			const mockClient = createMockClient({
-				getAllValuesAsync: sinon.stub().rejects(new Error('all values error')),
-			});
-			loadClientStub.resolves(mockClient);
+	suite('constructor', () => {
+		test('fires background fetch on construction', () => {
 			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			assert.deepStrictEqual(await s.getAllFlags(), {});
+			assert.strictEqual(fetchAndCacheFlagsStub.callCount, 1);
 			s.dispose();
 		});
 	});
 
 	suite('dispose', () => {
-		test('does not throw when client is unavailable', async () => {
-			loadClientStub.resolves(undefined);
+		test('does not throw when called', () => {
 			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			await s.getFlag(FeatureFlagKey.WelcomeTitle, false);
 			assert.doesNotThrow(() => s.dispose());
 		});
 
-		test('does not throw when called multiple times', async () => {
-			loadClientStub.resolves(undefined);
+		test('does not throw when called multiple times', () => {
 			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			await s.getFlag(FeatureFlagKey.WelcomeTitle, false);
 			assert.doesNotThrow(() => {
 				s.dispose();
 				s.dispose();
 			});
-		});
-
-		test('disposes the underlying client', async () => {
-			const mockClient = createMockClient();
-			loadClientStub.resolves(mockClient);
-			const s = new ConfigCatFeatureFlagService(createMockContainer());
-			await s.getFlag(FeatureFlagKey.WelcomeTitle, false);
-			s.dispose();
-			// Give the then() callback a tick to run
-			await new Promise(resolve => setTimeout(resolve, 10));
-			assert.strictEqual(mockClient.dispose.callCount, 1);
 		});
 	});
 
@@ -174,7 +128,7 @@ suite('FeatureFlagService Test Suite', () => {
 		test('sets sorted flags JSON on telemetry when flags are available', async () => {
 			const setGlobalAttribute = sandbox.stub();
 			const mockService = {
-				getAllFlags: sandbox.stub().resolves({ 'z-flag': true, 'a-flag': 'variant-b', 'm-flag': 42 }),
+				getAllFlags: sandbox.stub().returns({ 'z-flag': true, 'a-flag': 'variant-b', 'm-flag': 42 }),
 			} as unknown as FeatureFlagService;
 			const container = {
 				featureFlags: Promise.resolve(mockService),
@@ -201,24 +155,10 @@ suite('FeatureFlagService Test Suite', () => {
 
 		test('does not set attribute when flags are empty', async () => {
 			const setGlobalAttribute = sandbox.stub();
-			const mockService = { getAllFlags: sandbox.stub().resolves({}) } as unknown as FeatureFlagService;
+			const mockService = { getAllFlags: sandbox.stub().returns({}) } as unknown as FeatureFlagService;
 			await setFeatureFlagTelemetryGlobalAttributes({
 				featureFlags: Promise.resolve(mockService),
 				telemetry: { setGlobalAttribute: setGlobalAttribute },
-			});
-			assert.strictEqual(setGlobalAttribute.callCount, 0);
-		});
-
-		test('handles error from getAllFlags gracefully', async () => {
-			const setGlobalAttribute = sandbox.stub();
-			const mockService = {
-				getAllFlags: sandbox.stub().rejects(new Error('flags error')),
-			} as unknown as FeatureFlagService;
-			await assert.doesNotReject(async () => {
-				await setFeatureFlagTelemetryGlobalAttributes({
-					featureFlags: Promise.resolve(mockService),
-					telemetry: { setGlobalAttribute: setGlobalAttribute },
-				});
 			});
 			assert.strictEqual(setGlobalAttribute.callCount, 0);
 		});
