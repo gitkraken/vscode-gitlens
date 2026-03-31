@@ -35,10 +35,8 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
+    - 'handlebars@4.7.9'
     - 'ovsx@0.10.10'
-    - 'picomatch@4.0.4'
-    - 'tinyexec@1.0.4'
-    - 'typescript@6.0.2'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

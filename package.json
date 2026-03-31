@@ -27461,7 +27461,7 @@
 		"css-loader": "7.1.4",
 		"css-minimizer-webpack-plugin": "8.0.0",
 		"cssnano-preset-advanced": "7.0.11",
-		"esbuild": "0.27.3",
+		"esbuild": "0.27.4",
 		"esbuild-loader": "4.4.2",
 		"esbuild-node-externals": "1.20.1",
 		"esbuild-sass-plugin": "3.7.0",
@@ -27519,7 +27519,8 @@
 	},
 	"resolutions": {
 		"@types/vscode": "1.101.0",
-		"esbuild": "0.27.3",
+		"esbuild": "0.27.4",
+		"handlebars": "4.7.9",
 		"https-proxy-agent": "5.0.1",
 		"node-fetch": "2.7.0"
 	},
