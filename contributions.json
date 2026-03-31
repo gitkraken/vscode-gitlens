@@ -32,6 +32,16 @@
 			"label": "Install Claude Hook",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.agents.openSession": {
+			"label": "Open AI Agent Session",
+			"icon": "$(hubot)",
+			"commandPalette": true
+		},
+		"gitlens.agents.showPermission": {
+			"label": "Show AI Agent Permission Request",
+			"icon": "$(shield)",
+			"commandPalette": "gitlens:enabled"
+		},
 		"gitlens.ai.enable": {
 			"label": "Enable AI Features...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:gk:organization:ai:enabled"

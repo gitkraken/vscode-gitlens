@@ -842,6 +842,8 @@ export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
 	| 'gitlens.agents.indicator.toggle'
 	| 'gitlens.agents.installClaudeHook'
+	| 'gitlens.agents.openSession'
+	| 'gitlens.agents.showPermission'
 	| 'gitlens.ai.enable'
 	| 'gitlens.ai.explainBranch'
 	| 'gitlens.ai.explainCommit'

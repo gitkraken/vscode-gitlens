@@ -6408,6 +6408,18 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.agents.openSession",
+				"title": "Open AI Agent Session",
+				"category": "GitLens",
+				"icon": "$(hubot)"
+			},
+			{
+				"command": "gitlens.agents.showPermission",
+				"title": "Show AI Agent Permission Request",
+				"category": "GitLens",
+				"icon": "$(shield)"
+			},
+			{
 				"command": "gitlens.ai.enable",
 				"title": "Enable AI Features...",
 				"category": "GitLens"
@@ -11859,6 +11871,10 @@
 				{
 					"command": "gitlens.agents.installClaudeHook",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.agents.showPermission",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.ai.enable",

@@ -12,6 +12,7 @@ import {
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { AgentStatusIndicator } from './agents/agentStatusIndicator.js';
 import { AgentStatusService } from './agents/agentStatusService.js';
 import { FileAnnotationController } from './annotations/fileAnnotationController.js';
 import { LineAnnotationController } from './annotations/lineAnnotationController.js';
@@ -189,6 +190,7 @@ export class Container {
 	};
 
 	private _agentStatusService: AgentStatusService | undefined;
+	private _agentStatusIndicator: AgentStatusIndicator | undefined;
 
 	get agentStatus(): AgentStatusService | undefined {
 		return this._agentStatusService;
@@ -290,6 +292,11 @@ export class Container {
 		const agentProviders = getAgentSessionProviders(this);
 		if (agentProviders.length > 0) {
 			this._disposables.push((this._agentStatusService = new AgentStatusService(agentProviders)));
+			if (configuration.get('agents.indicator.enabled')) {
+				this._disposables.push(
+					(this._agentStatusIndicator = new AgentStatusIndicator(this, this._agentStatusService)),
+				);
+			}
 		}
 
 		if (configuration.get('terminalLinks.enabled')) {
@@ -320,6 +327,19 @@ export class Container {
 					if (configuration.get('launchpad.indicator.enabled')) {
 						this._disposables.push(
 							(this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)),
+						);
+					}
+				}
+
+				if (configuration.changed(e, 'agents.indicator.enabled')) {
+					this._agentStatusIndicator?.dispose();
+					this._agentStatusIndicator = undefined;
+
+					this.telemetry.sendEvent('agents/indicator/hidden');
+
+					if (configuration.get('agents.indicator.enabled') && this._agentStatusService != null) {
+						this._disposables.push(
+							(this._agentStatusIndicator = new AgentStatusIndicator(this, this._agentStatusService)),
 						);
 					}
 				}
