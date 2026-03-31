@@ -26,6 +26,7 @@ import { WorkspaceUntrustedError } from '@gitlens/git/errors.js';
 import { CancellationError, getAbortSignalId, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { getDurationMilliseconds, hrtime } from '@gitlens/utils/hrtime.js';
+import type { LogChannel } from '@gitlens/utils/logger.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { formatLoggableScopeBlock } from '@gitlens/utils/logger.scoped.js';
 import { dirname, isAbsolute, joinPaths, normalizePath } from '@gitlens/utils/path.js';
@@ -413,6 +414,8 @@ export interface GitOptions {
 	decode?: (data: Uint8Array, options?: { readonly encoding: string }) => string | Promise<string>;
 	/** Hooks for observing git execution events */
 	hooks?: GitHooks;
+	/** Optional dedicated logger for git command logging */
+	logger?: LogChannel;
 }
 
 export interface GitHooks {
@@ -977,6 +980,7 @@ export class Git {
 
 	private logGitCommandStart(command: string, id: number): void {
 		Logger.info(`${formatLoggableScopeBlock(`GIT:\u2192${id}`)} ${command} \u00b7 starting...`);
+		this.options.logger?.info(`${formatLoggableScopeBlock(`\u2192${id}`, '')} ${command} \u2022 starting...`);
 	}
 
 	private logGitCommandComplete(
@@ -1009,6 +1013,16 @@ export class Git {
 			Logger.info(
 				`${formatLoggableScopeBlock(id ? `GIT:\u2190${id}` : 'GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`,
 			);
+		}
+
+		const logMessage = `${formatLoggableScopeBlock(
+			`${id ? `\u2190${id}` : ''}${slow ? '*' : ''}`,
+			`${duration}ms`,
+		)} ${command}${status}`;
+		if (ex != null) {
+			this.options.logger?.error(`${logMessage} \u2022 FAILED\n${String(ex)}`);
+		} else {
+			this.options.logger?.info(`${logMessage} \u2022 completed`);
 		}
 	}
 }

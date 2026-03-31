@@ -196,6 +196,9 @@ export class GlCliGitProvider implements GlGitProvider {
 		const baseContext = createGitProviderContext(container);
 		const getAbsoluteUri = this.getAbsoluteUri.bind(this);
 
+		const gitOutputChannel = window.createOutputChannel('GitLens (Git)', { log: true });
+		this._disposables.push(gitOutputChannel);
+
 		return {
 			cache: this.cache,
 			context: {
@@ -232,6 +235,7 @@ export class GlCliGitProvider implements GlGitProvider {
 					Promise.resolve(options ? workspace.decode(data, options) : workspace.decode(data)),
 				gitTimeout: (configuration.get('advanced.git.timeout') ?? 60) * 1000,
 				queue: { maxConcurrent: configuration.get('advanced.git.maxConcurrentProcesses') ?? 7 },
+				logger: gitOutputChannel,
 				hooks: {
 					onAborted: info => container.telemetry.sendEvent('op/git/aborted', info),
 					onSlowQueue: info =>
