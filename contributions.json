@@ -23,6 +23,15 @@
 				]
 			}
 		},
+		"gitlens.agents.indicator.toggle": {
+			"label": "Toggle AI Agent Status Indicator",
+			"icon": "$(hubot)",
+			"commandPalette": "gitlens:enabled"
+		},
+		"gitlens.agents.installClaudeHook": {
+			"label": "Install Claude Hook",
+			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.ai.enable": {
 			"label": "Enable AI Features...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:gk:organization:ai:enabled"

@@ -415,7 +415,14 @@ function getExtensionConfig(target, mode, env) {
 			fallback: {
 				'../../../product.json': false,
 				...(target === 'webworker'
-					? { path: require.resolve('path-browserify'), os: require.resolve('os-browserify/browser') }
+					? {
+							path: require.resolve('path-browserify'),
+							os: require.resolve('os-browserify/browser'),
+							child_process: false,
+							fs: false,
+							'fs/promises': false,
+							process: false,
+						}
 					: {}),
 			},
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],

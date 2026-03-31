@@ -1455,6 +1455,23 @@
 				}
 			},
 			{
+				"id": "agents",
+				"title": "AI Agents (ᴘʀᴇᴠɪᴇᴡ)",
+				"order": 65,
+				"tags": [
+					"preview"
+				],
+				"properties": {
+					"gitlens.agents.indicator.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show a status bar indicator when AI coding agents (e.g., Claude Code) are active in the workspace",
+						"scope": "window",
+						"order": 10
+					}
+				}
+			},
+			{
 				"id": "cloud-patches",
 				"title": "Cloud Patches (ᴘʀᴇᴠɪᴇᴡ)",
 				"order": 70,
@@ -6378,6 +6395,17 @@
 				"title": "Add Co-authors...",
 				"category": "GitLens",
 				"icon": "$(person-add)"
+			},
+			{
+				"command": "gitlens.agents.indicator.toggle",
+				"title": "Toggle AI Agent Status Indicator",
+				"category": "GitLens",
+				"icon": "$(hubot)"
+			},
+			{
+				"command": "gitlens.agents.installClaudeHook",
+				"title": "Install Claude Hook",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.enable",
@@ -11823,6 +11851,14 @@
 				{
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.agents.indicator.toggle",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.agents.installClaudeHook",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.ai.enable",

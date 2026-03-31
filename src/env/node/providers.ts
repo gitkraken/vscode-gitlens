@@ -6,6 +6,7 @@ import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import { Git } from '@gitlens/git-cli/exec/git.js';
 import { findGitPath } from '@gitlens/git-cli/exec/locator.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import type { AgentSessionProvider } from '../../agents/provider.js';
 import type { Container } from '../../container.js';
 import type { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
@@ -19,6 +20,7 @@ import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/wo
 import { configuration } from '../../system/-webview/configuration.js';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import type { TelemetryService } from '../../telemetry/telemetry.js';
+import { ClaudeCodeProvider } from './agents/claudeCodeProvider.js';
 import { GlCliGitProvider } from './git/cliGitProvider.js';
 import { VslsGitProvider } from './git/vslsGitProvider.js';
 import { GkCliIntegrationProvider } from './gk/cli/integration.js';
@@ -107,6 +109,10 @@ export async function getMcpProviders(container: Container): Promise<Disposable[
 	}
 
 	return undefined;
+}
+
+export function getAgentSessionProviders(container: Container): AgentSessionProvider[] {
+	return [new ClaudeCodeProvider(container)];
 }
 
 let _telemetryService: TelemetryService | undefined;

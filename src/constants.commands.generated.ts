@@ -840,6 +840,8 @@ export type ContributedCommands =
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
+	| 'gitlens.agents.indicator.toggle'
+	| 'gitlens.agents.installClaudeHook'
 	| 'gitlens.ai.enable'
 	| 'gitlens.ai.explainBranch'
 	| 'gitlens.ai.explainCommit'
