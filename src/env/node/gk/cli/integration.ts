@@ -1,6 +1,6 @@
 import { mkdir, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { arch, ppid } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
@@ -28,6 +28,7 @@ import {
 	extractZipFile,
 	getCLIExecutable,
 	getCLIVersions,
+	getDevCLILocalPath,
 	resolveCLIExecutable,
 	runCLICommand,
 	showManualMcpSetupPrompt,
@@ -106,8 +107,8 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 		}
 
-		// Reinstall CLI when insiders setting changes
-		if (e != null && configuration.changed(e, 'gitkraken.cli.insiders.enabled')) {
+		// Reinstall CLI when insiders setting changes (skip when using local CLI)
+		if (e != null && configuration.changed(e, 'gitkraken.cli.insiders.enabled') && getDevCLILocalPath() == null) {
 			const cliInstall = this.container.storage.getScoped('gk:cli:install');
 			if (cliInstall?.status === 'completed') {
 				// Force reinstall to switch between production and insiders
@@ -196,6 +197,12 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private async ensureUpdateOrInstall() {
+		if (getDevCLILocalPath() != null) {
+			Logger.info(`${formatLoggableScopeBlock('CLI')} Using local CLI binary — skipping auto-install/update`);
+			void setContext('gitlens:gk:cli:installed', true);
+			return;
+		}
+
 		let forceInstall = false;
 		const versionDidChange = this.container.version !== this.container.previousVersion;
 
@@ -557,6 +564,18 @@ export class GkCliIntegrationProvider implements Disposable {
 		force = false,
 	): Promise<{ cliVersion?: string; cliPath?: string; status: 'completed' | 'unsupported' | 'attempted' }> {
 		const scope = getScopedLogger();
+
+		const devLocalPath = getDevCLILocalPath();
+		if (devLocalPath != null) {
+			const resolved = await resolveCLIExecutable();
+			if (resolved != null) {
+				scope?.info(`Using local CLI binary: ${resolved.fsPath}`);
+				const versions = await getCLIVersions();
+				return { cliVersion: versions?.core, cliPath: dirname(resolved.fsPath), status: 'completed' };
+			}
+			scope?.warn(`Local CLI binary not found at: ${devLocalPath}`);
+			return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
+		}
 
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
 		let cliInstallAttempts = force ? 0 : (cliInstall?.attempts ?? 0);

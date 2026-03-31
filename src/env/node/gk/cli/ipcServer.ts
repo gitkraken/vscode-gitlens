@@ -97,9 +97,22 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 			return;
 		}
 
+		const maxBodySize = 10_485_760; // 10 MB
+		let bodySize = 0;
 		const chunks: Uint8Array[] = [];
-		req.on('data', d => chunks.push(d));
+		req.on('data', (d: Uint8Array) => {
+			bodySize += d.length;
+			if (bodySize > maxBodySize) {
+				res.writeHead(413);
+				res.end();
+				req.destroy();
+				return;
+			}
+			chunks.push(d);
+		});
 		req.on('end', async () => {
+			if (bodySize > maxBodySize) return;
+
 			const body = Buffer.concat(chunks).toString('utf8');
 
 			let data: Request | undefined;

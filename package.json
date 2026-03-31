@@ -4170,6 +4170,19 @@
 						"scope": "window",
 						"order": 20
 					},
+					"gitlens.gitkraken.cli.localPath": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies the path to a local GitKraken CLI binary for development. When set in development mode, auto-install and auto-update of the CLI are disabled. _Only applies when running in development mode._",
+						"scope": "machine",
+						"order": 25,
+						"tags": [
+							"experimental"
+						]
+					},
 					"gitlens.gitkraken.cli.integration.enabled": {
 						"type": "boolean",
 						"default": false,

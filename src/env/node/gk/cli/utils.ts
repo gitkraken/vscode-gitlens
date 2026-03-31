@@ -6,6 +6,7 @@ import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinUriPath } from '@gitlens/utils/uri.js';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
 import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getPlatform } from '../../platform.js';
 
@@ -78,7 +79,17 @@ export async function extractZipFile(
 	}
 }
 
+export function getDevCLILocalPath(): string | undefined {
+	if (!Container.instance.debugging) return undefined;
+	return configuration.get('gitkraken.cli.localPath') ?? undefined;
+}
+
 export function getCLIExecutable(cliPath?: string | null): Uri {
+	const localPath = getDevCLILocalPath();
+	if (localPath != null) {
+		return Uri.file(localPath);
+	}
+
 	return joinUriPath(
 		Uri.file(cliPath ?? Container.instance.context.globalStorageUri.fsPath),
 		getPlatform() === 'windows' ? 'gk.exe' : 'gk',
