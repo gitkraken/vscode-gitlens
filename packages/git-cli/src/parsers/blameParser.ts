@@ -8,7 +8,7 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
-import { iterateByDelimiter } from '@gitlens/utils/string.js';
+import { iterateAsyncByDelimiter, iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 
@@ -272,6 +272,94 @@ export function parseGitBlame(
 		commits: commits,
 		lines: lines,
 	};
+}
+
+/**
+ * Async generator that yields `BlameEntry` objects as they are parsed from
+ * a streaming `git blame --incremental` output. Each entry is yielded as soon
+ * as its `filename` terminator line is encountered.
+ */
+export async function* parseGitBlameAsync(stream: AsyncIterable<string>): AsyncGenerator<BlameEntry> {
+	let entry: BlameEntry | undefined;
+
+	for await (const line of iterateAsyncByDelimiter(stream, '\n')) {
+		const spaceIdx = line.indexOf(' ');
+		if (spaceIdx === -1) continue;
+
+		if (entry == null) {
+			const sha = line.substring(0, spaceIdx);
+
+			let s = spaceIdx + 1;
+			let e = line.indexOf(' ', s);
+			const originalLine = parseInt(line.substring(s, e), 10);
+
+			s = e + 1;
+			e = line.indexOf(' ', s);
+			const lineno = parseInt(line.substring(s, e), 10);
+
+			s = e + 1;
+			const lineCount = parseInt(line.substring(s), 10);
+
+			entry = { sha: sha, originalLine: originalLine, line: lineno, lineCount: lineCount };
+			continue;
+		}
+
+		const keyLen = spaceIdx;
+		const valueStart = spaceIdx + 1;
+
+		// Dispatch on first character + key length to avoid creating key substrings
+		switch (line.charCodeAt(0)) {
+			case 0x61 /* a — author* */:
+				if (keyLen === 6 /* "author" */) {
+					entry.author = line.substring(valueStart);
+				} else if (keyLen === 11 /* "author-mail" | "author-time" */) {
+					// Disambiguate at pos 7: 'm' (mail) vs 't' (time)
+					if (line.charCodeAt(7) === 0x6d /* m */) {
+						entry.authorEmail = parseEmail(line.substring(valueStart));
+					} else {
+						entry.authorTime = parseInt(line.substring(valueStart), 10) * 1000;
+					}
+				} else if (keyLen === 9 /* "author-tz" */) {
+					entry.authorTimeZone = line.substring(valueStart);
+				}
+				break;
+
+			case 0x63 /* c — committer* */:
+				if (keyLen === 9 /* "committer" */) {
+					entry.committer = line.substring(valueStart);
+				} else if (keyLen === 14 /* "committer-mail" | "committer-time" */) {
+					// Disambiguate at pos 10: 'm' (mail) vs 't' (time)
+					if (line.charCodeAt(10) === 0x6d /* m */) {
+						entry.committerEmail = parseEmail(line.substring(valueStart));
+					} else {
+						entry.committerTime = parseInt(line.substring(valueStart), 10) * 1000;
+					}
+				} else if (keyLen === 12 /* "committer-tz" */) {
+					entry.committerTimeZone = line.substring(valueStart);
+				}
+				break;
+
+			case 0x66 /* f — filename */:
+				entry.path = line.substring(valueStart);
+				yield entry;
+				entry = undefined;
+				break;
+
+			case 0x73 /* s — summary */:
+				entry.summary = line.substring(valueStart);
+				break;
+
+			case 0x70 /* p — previous */: {
+				const value = line.substring(valueStart);
+				const shaEnd = value.indexOf(' ');
+				if (shaEnd !== -1) {
+					entry.previousSha = value.substring(0, shaEnd);
+					entry.previousPath = value.substring(shaEnd + 1);
+				}
+				break;
+			}
+		}
+	}
 }
 
 /** Extracts email from a value like `<user@example.com>` */

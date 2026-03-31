@@ -1,5 +1,5 @@
 import type { Cache } from '@gitlens/git/cache.js';
-import type { GitBlame, GitBlameAuthor } from '@gitlens/git/models/blame.js';
+import type { GitBlame, GitBlameAuthor, ProgressiveGitBlame } from '@gitlens/git/models/blame.js';
 import type { GitCommitLine } from '@gitlens/git/models/commit.js';
 import { GitCommit, GitCommitIdentity } from '@gitlens/git/models/commit.js';
 import { GitFileChange } from '@gitlens/git/models/fileChange.js';
@@ -8,6 +8,7 @@ import type { GitBlameSubProvider } from '@gitlens/git/providers/blame.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { getBlameRange } from '@gitlens/git/utils/blame.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { createDisposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { joinUriPath } from '@gitlens/utils/uri.js';
@@ -38,9 +39,18 @@ export class BlameGitHubSubProvider implements GitBlameSubProvider {
 		if (await this.provider.context.hasUncommittedChanges?.(repoPath, path)) return undefined;
 
 		const cacheKey = `${normalizePath(path)}:${rev ?? ''}`;
-		return this.cache.blame.getOrCreate(repoPath, cacheKey, () => this.getBlameCore(repoPath, path, rev), {
-			errorTTL: 1000 * 60,
-		});
+		const progressive = await this.cache.blame.getOrCreate(
+			repoPath,
+			cacheKey,
+			async () => {
+				const blame = await this.getBlameCore(repoPath, path, rev);
+				if (blame == null) return undefined;
+
+				return createCompletedBlame(blame);
+			},
+			{ errorTTL: 1000 * 60 },
+		);
+		return progressive?.completed;
 	}
 
 	@debug()
@@ -196,4 +206,17 @@ export class BlameGitHubSubProvider implements GitBlameSubProvider {
 			return undefined;
 		}
 	}
+}
+
+/** Creates an already-completed progressive blame. Used when the provider doesn't support streaming. */
+function createCompletedBlame(blame: GitBlame): ProgressiveGitBlame {
+	const noop = createDisposable(() => {});
+	return {
+		current: blame,
+		isComplete: true,
+		completed: Promise.resolve(blame),
+		onDidProgress: function () {
+			return noop;
+		},
+	};
 }

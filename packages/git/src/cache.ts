@@ -8,7 +8,7 @@ import type { PromiseOrValue } from '@gitlens/utils/promise.js';
 import { CacheController, PromiseCache, PromiseMap, RepoPromiseCacheMap } from '@gitlens/utils/promiseCache.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { GitResult } from './exec.types.js';
-import type { GitBlame } from './models/blame.js';
+import type { ProgressiveGitBlame } from './models/blame.js';
 import type { GitBranch } from './models/branch.js';
 import type { GitStashCommit } from './models/commit.js';
 import type { GitContributor, GitContributorsStats } from './models/contributor.js';
@@ -60,7 +60,7 @@ export type ConflictDetectionCacheKey = `apply:${string}:${string}:${string}` | 
 /** Per-worktree caches — cleared by repoPath directly */
 interface Caches {
 	bestRemotes: PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> | undefined;
-	blame: RepoPromiseCacheMap<string, GitBlame | undefined> | undefined;
+	blame: RepoPromiseCacheMap<string, ProgressiveGitBlame | undefined> | undefined;
 	branch: PromiseMap<RepoPath, GitBranch | undefined> | undefined;
 	conflictDetection: RepoPromiseCacheMap<ConflictDetectionCacheKey, ConflictDetectionResult> | undefined;
 	currentBranchReference: PromiseCache<RepoPath, GitBranchReference | undefined> | undefined;
@@ -181,8 +181,8 @@ export class Cache implements Disposable {
 		return (this._caches.bestRemotes ??= new PromiseMap<RepoPath, GitRemote<RemoteProvider>[]>());
 	}
 
-	get blame(): RepoPromiseCacheMap<string, GitBlame | undefined> {
-		return (this._caches.blame ??= new RepoPromiseCacheMap<string, GitBlame | undefined>({
+	get blame(): RepoPromiseCacheMap<string, ProgressiveGitBlame | undefined> {
+		return (this._caches.blame ??= new RepoPromiseCacheMap<string, ProgressiveGitBlame | undefined>({
 			createTTL: 1000 * 60 * 10, // 10 minutes
 			capacity: 50,
 		}));

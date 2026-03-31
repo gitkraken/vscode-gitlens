@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable, Position, TextDocument, TextEditor } from 'vscode';
 import { Hover, languages, Range } from 'vscode';
-import type { GitBlame } from '@gitlens/git/models/blame.js';
+import type { GitBlame, ProgressiveGitBlame } from '@gitlens/git/models/blame.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import type { FileAnnotationType } from '../config.js';
@@ -19,6 +19,7 @@ const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's 
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 	protected blame: Promise<GitBlame | undefined>;
+	protected progressive: Promise<ProgressiveGitBlame | undefined> | undefined;
 	protected hoverProviderDisposable: Disposable | undefined;
 
 	constructor(
@@ -30,7 +31,10 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	) {
 		super(container, onDidChangeStatus, annotationType, editor, trackedDocument);
 
-		this.blame = container.git.getBlame(this.trackedDocument.uri, editor.document);
+		this.progressive = container.git.getBlameProgressive(this.trackedDocument.uri, editor.document);
+		this.blame = this.progressive.then(p =>
+			p != null ? p.completed : container.git.getBlame(this.trackedDocument.uri, editor.document),
+		);
 
 		if (editor.document.isDirty) {
 			trackedDocument.setForceDirtyStateChangeOnNextDocumentChange();
@@ -46,6 +50,10 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	}
 
 	override async validate(): Promise<boolean> {
+		// If progressive blame is streaming, it's valid — don't block on the full result
+		const progressive = await this.progressive;
+		if (progressive != null) return true;
+
 		const blame = await this.blame;
 		return Boolean(blame?.lines.length);
 	}
@@ -64,15 +72,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	protected getComputedHeatmap(blame: GitBlame): ComputedHeatmap {
 		const dates: Date[] = [];
 
-		let commit;
-		let previousSha;
-		for (const l of blame.lines) {
-			if (previousSha === l.sha) continue;
-			previousSha = l.sha;
-
-			commit = blame.commits.get(l.sha);
-			if (commit == null) continue;
-
+		for (const commit of blame.commits.values()) {
 			dates.push(getCommitDate(commit));
 		}
 

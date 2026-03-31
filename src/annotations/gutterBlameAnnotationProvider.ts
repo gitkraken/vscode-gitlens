@@ -1,23 +1,35 @@
-import type { DecorationOptions, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
-import { Range } from 'vscode';
+import type {
+	DecorationOptions,
+	Disposable,
+	TextEditor,
+	TextEditorDecorationType,
+	ThemableDecorationAttachmentRenderOptions,
+} from 'vscode';
+import { ColorThemeKind, Range, window } from 'vscode';
+import type { GitBlame } from '@gitlens/git/models/blame.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { filterMap } from '@gitlens/utils/array.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { fromDisposables } from '@gitlens/utils/disposable.js';
 import { first } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { TokenOptions } from '@gitlens/utils/string.js';
-import { getTokensFromTemplate, getWidth } from '@gitlens/utils/string.js';
-import type { GravatarDefaultStyle } from '../config.js';
-import { GlyphChars } from '../constants.js';
+import { getTokensFromTemplate } from '@gitlens/utils/string.js';
 import type { Container } from '../container.js';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter.js';
 import { CommitFormatter } from '../git/formatters/commitFormatter.js';
-import { getCommitAuthorAvatarUri, getCommitDate } from '../git/utils/-webview/commit.utils.js';
+import {
+	getCommitAuthorAvatarUri,
+	getCommitAuthorCachedAvatarUri,
+	getCommitDate,
+} from '../git/utils/-webview/commit.utils.js';
 import { configuration } from '../system/-webview/configuration.js';
 import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
 import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider.js';
-import { applyHeatmap, getGutterDecoration, getGutterRenderOptions } from './annotations.js';
+import { applyHeatmap, getAvatarRenderOptions, getGutterDecoration, toCssInjection } from './annotations.js';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider.js';
 import { Decorations } from './fileAnnotationController.js';
 
@@ -31,6 +43,9 @@ export interface BlameFontOptions {
 }
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
+	private _progressDisposable: Disposable | undefined;
+	private _cleared = false;
+
 	constructor(
 		container: Container,
 		onDidChangeStatus: DidChangeStatusCallback,
@@ -41,6 +56,21 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	}
 
 	override async clear(): Promise<void> {
+		this._cleared = true;
+		this._progressDisposable?.dispose();
+		this._progressDisposable = undefined;
+
+		// Clear progressive decorations that were set directly via editor.setDecorations
+		// (not tracked in this.decorations until the final render)
+		try {
+			if (Decorations.gutterBlameAnnotation != null) {
+				this.editor.setDecorations(Decorations.gutterBlameAnnotation, []);
+			}
+			if (Decorations.gutterBlameCompact != null) {
+				this.editor.setDecorations(Decorations.gutterBlameCompact, []);
+			}
+		} catch {}
+
 		await super.clear();
 
 		if (Decorations.gutterBlameHighlight != null) {
@@ -52,12 +82,436 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 	@debug()
 	override async onProvideAnnotation(_context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
+		this._cleared = false;
 		const scope = getScopedLogger();
+		using sw = maybeStopWatch(scope, { log: { onlyExit: true } });
 
+		// Try progressive blame first — enables incremental rendering
+		if (state?.recompute) {
+			this.progressive = this.container.git.getBlameProgressive(this.trackedDocument.uri, this.editor.document);
+			this.blame = this.progressive.then(p =>
+				p != null ? p.completed : this.container.git.getBlame(this.trackedDocument.uri, this.editor.document),
+			);
+		}
+		const progressive = await this.progressive;
+
+		if (progressive != null && !progressive.isComplete && Decorations.gutterBlameAnnotation != null) {
+			// Progressive path — blame is still streaming
+			const cfg = configuration.get('blame');
+			const tokenOptions = getTokensFromTemplate(cfg.format).reduce<Record<string, TokenOptions | undefined>>(
+				(map, token) => {
+					map[token.key] = token.options;
+					return map;
+				},
+				Object.create(null),
+			);
+			const formatOptions: CommitFormatOptions = {
+				dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
+				tokenOptions: tokenOptions,
+				source: { source: 'editor:hover' },
+			};
+
+			const compact = cfg.compact;
+			const heatmapEnabled = cfg.heatmap.enabled;
+			const avatars = cfg.avatars;
+			const gravatarDefault = avatars ? configuration.get('defaultGravatarsStyle') : undefined;
+
+			// Placeholder: animated SVG spinner with theme-appropriate stroke color
+			const spinnerColor =
+				window.activeColorTheme.kind === ColorThemeKind.Light ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)';
+			const spinnerSvg = encodeURIComponent(
+				`<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'><path fill='none' stroke='${spinnerColor}' stroke-linecap='round' stroke-width='3' d='M 4 12 A 8 8 0 1 1 12 20'><animateTransform attributeName='transform' type='rotate' from='0 12 12' to='360 12 12' dur='0.8s' repeatCount='indefinite'/></path></svg>`,
+			);
+			const placeholderRenderOptions: DecorationOptions['renderOptions'] = {
+				before: {
+					contentText: '\u00a0' /* &nbsp; */,
+					textDecoration: toCssInjection({
+						'background-image': `url("data:image/svg+xml,${spinnerSvg}")`,
+						'background-repeat': 'no-repeat',
+						'background-position': '4px center',
+						'background-size': '14px 14px',
+					}),
+				},
+			};
+			const compactRenderOptions: DecorationOptions['renderOptions'] = {
+				before: { contentText: '\u00a0' /* &nbsp; */ },
+			};
+
+			// Pre-build full decoration array with placeholders
+			const lineCount = this.editor.document.lineCount;
+			const decorations: DecorationOptions[] = new Array<DecorationOptions>(lineCount);
+			for (let i = 0; i < lineCount; i++) {
+				decorations[i] = { range: new Range(i, 0, i, 0), renderOptions: placeholderRenderOptions };
+			}
+
+			// Use the leader type during progressive so there's no type switch at completion
+			// (which would cause a flash). The final render adds gutterBlameCompact for
+			// compact followers additively — no replacement of the leader type needed.
+			const decorationType = Decorations.gutterBlameAnnotation;
+			// Show placeholders immediately — viewport only for speed
+			const visibleRanges = this.editor.visibleRanges;
+			if (visibleRanges.length > 0) {
+				const vpStart = Math.max(0, visibleRanges[0].start.line - 200);
+				const vpEnd = Math.min(lineCount, visibleRanges.at(-1)!.end.line + 201);
+				this.editor.setDecorations(decorationType, decorations.slice(vpStart, vpEnd));
+			}
+
+			sw?.log({ suffix: ` [${sw?.elapsed() ?? 0}ms] to apply placeholders for ${lineCount} lines` });
+
+			// Fast-path: if blame completes within 100ms of placeholders showing, skip progressive
+			const blameResult = await pauseOnCancelOrTimeout(
+				progressive.completed.then(b => b),
+				undefined,
+				100,
+			);
+			if (!blameResult.paused) {
+				await this.renderBlameDecorations(blameResult.value);
+				sw?.stop({
+					suffix: ` to compute and apply gutter blame annotations (immediate); ${lineCount} lines, ${blameResult.value.commits.size} commits`,
+				});
+				this.registerHoverProviders(configuration.get('hovers.annotations'));
+				return true;
+			}
+
+			const resolvedLines = new Uint8Array(lineCount);
+			const commitDecorationCache = new Map<string, DecorationOptions['renderOptions']>();
+
+			// Avatar tracking
+			const knownEmails = avatars ? new Set<string>() : undefined;
+			const avatarCache = avatars ? new Map<string, ThemableDecorationAttachmentRenderOptions>() : undefined;
+			const pendingAvatars: Promise<void>[] = [];
+			let lastAvatarCacheSize = 0;
+
+			const startAvatarFetch = (commit: GitCommit): void => {
+				const email = commit.author.email;
+				if (email == null || knownEmails!.has(email)) return;
+				knownEmails!.add(email);
+
+				// Check sync cache first to avoid async fetch for already-known avatars
+				const cachedUri = getCommitAuthorCachedAvatarUri(commit, { size: 16 });
+				if (cachedUri != null) {
+					const avatar = getAvatarRenderOptions(cachedUri.toString(true));
+					avatarCache!.set(email, avatar);
+					for (const [sha, opts] of commitDecorationCache) {
+						const c = progressive.current.commits.get(sha);
+						if (c?.author.email === email) {
+							commitDecorationCache.set(sha, { ...opts, after: avatar });
+						}
+					}
+					return;
+				}
+
+				pendingAvatars.push(
+					(async () => {
+						const uri = await getCommitAuthorAvatarUri(commit, {
+							defaultStyle: gravatarDefault!,
+							size: 16,
+						});
+						const avatar = getAvatarRenderOptions(uri.toString(true));
+						avatarCache!.set(email, avatar);
+						for (const [sha, opts] of commitDecorationCache) {
+							const c = progressive.current.commits.get(sha);
+							if (c?.author.email === email) {
+								commitDecorationCache.set(sha, { ...opts, after: avatar });
+							}
+						}
+					})(),
+				);
+			};
+
+			// Viewport-aware rendering: only flush visible lines + buffer to VS Code
+			const viewportBuffer = 200;
+			const getViewportRange = (): [start: number, end: number] | undefined => {
+				const ranges = this.editor.visibleRanges;
+				if (!ranges.length) return undefined;
+				return [
+					Math.max(0, ranges[0].start.line - viewportBuffer),
+					Math.min(lineCount, ranges.at(-1)!.end.line + viewportBuffer + 1),
+				];
+			};
+			const flushDecorations = (): void => {
+				const vp = getViewportRange();
+				if (vp == null) return;
+
+				sw?.log({ suffix: ` applying updated decorations to viewport (${vp[0]}-${vp[1] - 1})` });
+				this.editor.setDecorations(decorationType, decorations.slice(vp[0], vp[1]));
+			};
+
+			// Re-render on scroll so newly visible lines get decorations
+			const onScroll = window.onDidChangeTextEditorVisibleRanges(e => {
+				if (e.textEditor === this.editor) {
+					flushDecorations();
+				}
+			});
+
+			// Accumulate indices across debounced events
+			let pendingIndices: number[] = [];
+
+			// Core update — processes ONLY new line indices from the producer
+			const updateDecorations = (blame: GitBlame): void => {
+				const newIndices = pendingIndices;
+				pendingIndices = [];
+
+				if (!newIndices.length && !(avatarCache != null && avatarCache.size > lastAvatarCacheSize)) {
+					return;
+				}
+
+				let viewportChanged = false;
+				const vp = getViewportRange();
+
+				for (const i of newIndices) {
+					if (i < 0 || i >= lineCount || resolvedLines[i]) continue;
+
+					const l = blame.lines[i];
+					if (l == null) continue;
+
+					const commit = blame.commits.get(l.sha);
+					if (commit == null) continue;
+
+					resolvedLines[i] = 1;
+					if (vp != null && i >= vp[0] && i < vp[1]) {
+						viewportChanged = true;
+					}
+
+					let commitRenderOptions = commitDecorationCache.get(l.sha);
+					if (commitRenderOptions == null) {
+						const gutter = getGutterDecoration(commit, cfg.format, formatOptions, {
+							separateLines: cfg.separateLines,
+						});
+						commitRenderOptions = gutter.renderOptions;
+
+						if (avatarCache != null) {
+							const avatar = avatarCache.get(commit.author.email ?? '');
+							if (avatar != null) {
+								commitRenderOptions = { ...commitRenderOptions, after: avatar };
+							}
+						}
+						commitDecorationCache.set(l.sha, commitRenderOptions);
+
+						if (avatars) {
+							startAvatarFetch(commit);
+						}
+					}
+
+					const prevSha = blame.lines[i - 1]?.sha;
+					if (compact && prevSha === l.sha) {
+						decorations[i].renderOptions = compactRenderOptions;
+					} else {
+						decorations[i].renderOptions = commitRenderOptions;
+					}
+
+					if (compact && i + 1 < lineCount && resolvedLines[i + 1]) {
+						const nextSha = blame.lines[i + 1]?.sha;
+						if (nextSha === l.sha) {
+							decorations[i + 1].renderOptions = compactRenderOptions;
+						}
+					}
+				}
+
+				// Re-apply avatars only when new ones resolved
+				if (avatarCache != null && avatarCache.size > lastAvatarCacheSize) {
+					lastAvatarCacheSize = avatarCache.size;
+					for (let i = 0; i < lineCount; i++) {
+						if (!resolvedLines[i]) continue;
+						const l = blame.lines[i];
+						if (l == null) continue;
+
+						const updated = commitDecorationCache.get(l.sha);
+						if (updated != null && updated !== decorations[i].renderOptions) {
+							const prevSha = blame.lines[i - 1]?.sha;
+							if (!(compact && prevSha === l.sha)) {
+								decorations[i].renderOptions = updated;
+								if (vp != null && i >= vp[0] && i < vp[1]) {
+									viewportChanged = true;
+								}
+							}
+						}
+					}
+				}
+
+				if (viewportChanged) {
+					flushDecorations();
+				}
+			};
+
+			// Event-driven: debounced listener — 150ms trailing for quick response after streaming ends, 1000ms maxWait limits setDecorations calls during streaming (~1/sec)
+			const debouncedUpdate = debounce((blame: GitBlame) => updateDecorations(blame), 150, { maxWait: 1000 });
+
+			this._progressDisposable?.dispose();
+			const progressSubscription = progressive.onDidProgress(e => {
+				if (e.complete) return;
+
+				// Accumulate indices — debounce may batch multiple events
+				for (const idx of e.newLineIndices) {
+					pendingIndices.push(idx);
+				}
+				debouncedUpdate(e.blame);
+			});
+			this._progressDisposable = fromDisposables(
+				progressSubscription,
+				{ dispose: () => debouncedUpdate.cancel?.() },
+				onScroll,
+			);
+
+			// Wait for completion — final update
+			let blame: GitBlame;
+			try {
+				blame = await progressive.completed;
+			} catch {
+				// Streaming failed — cleanup and fall through to non-progressive path
+				this._progressDisposable?.dispose();
+				this._progressDisposable = undefined;
+				return false;
+			}
+			sw?.log({
+				suffix: ` [${sw?.elapsed() ?? 0}ms] to stream git blame; ${blame.commits.size} commits`,
+			});
+			this._progressDisposable?.dispose();
+			this._progressDisposable = undefined;
+			// Process any remaining new lines
+			updateDecorations(blame);
+
+			// Post-completion: apply heatmap + tips to existing decorations in-place.
+			const needsTips = CommitFormatter.has(cfg.format, 'tips');
+
+			if (heatmapEnabled || needsTips) {
+				let finalFormatOptions = formatOptions;
+				if (needsTips) {
+					const tips = await this.container.git
+						.getRepositoryService(blame.repoPath)
+						.getBranchesAndTagsTipsLookup();
+					if (tips != null) {
+						finalFormatOptions = { ...formatOptions, getBranchAndTagTips: tips };
+					}
+				}
+
+				const computedHeatmap = heatmapEnabled ? this.getComputedHeatmap(blame) : undefined;
+				const compactHeatmapCache = new Map<string, DecorationOptions['renderOptions']>();
+
+				for (const [sha, opts] of commitDecorationCache) {
+					const commit = blame.commits.get(sha);
+					if (commit == null) continue;
+
+					let enhanced: DecorationOptions['renderOptions'];
+					if (needsTips && finalFormatOptions !== formatOptions) {
+						enhanced = getGutterDecoration(commit, cfg.format, finalFormatOptions, {
+							separateLines: cfg.separateLines,
+						}).renderOptions;
+					} else {
+						enhanced = opts;
+					}
+
+					if (computedHeatmap != null && enhanced?.before != null) {
+						enhanced = { ...enhanced, before: { ...enhanced.before } };
+						applyHeatmap(
+							{ renderOptions: enhanced } as Partial<DecorationOptions>,
+							getCommitDate(commit),
+							computedHeatmap,
+						);
+					}
+
+					const avatar = avatarCache?.get(commit.author.email ?? '');
+					if (avatar != null) {
+						enhanced = { ...enhanced, after: avatar };
+					}
+
+					commitDecorationCache.set(sha, enhanced);
+				}
+
+				for (let i = 0; i < lineCount; i++) {
+					const l = blame.lines[i];
+					if (l == null) continue;
+
+					const prevSha = blame.lines[i - 1]?.sha;
+					if (compact && prevSha === l.sha) {
+						if (computedHeatmap != null) {
+							let compactOpts = compactHeatmapCache.get(l.sha);
+							if (compactOpts == null) {
+								const commit = blame.commits.get(l.sha);
+								if (commit != null) {
+									compactOpts = { before: { ...compactRenderOptions.before } };
+									applyHeatmap(
+										{ renderOptions: compactOpts } as Partial<DecorationOptions>,
+										getCommitDate(commit),
+										computedHeatmap,
+									);
+									compactHeatmapCache.set(l.sha, compactOpts);
+								}
+							}
+							if (compactOpts != null) {
+								decorations[i].renderOptions = compactOpts;
+							}
+						}
+					} else {
+						const updated = commitDecorationCache.get(l.sha);
+						if (updated != null) {
+							decorations[i].renderOptions = updated;
+						}
+					}
+				}
+			}
+
+			// Final render — single type, no type switching, no flash
+			const decorationSet = [{ decorationType: decorationType, rangesOrOptions: decorations }];
+
+			this.setDecorations(decorationSet);
+			sw?.stop({
+				suffix: ` to compute and apply gutter blame annotations (progressive); ${lineCount} lines, ${blame.commits.size} commits`,
+			});
+
+			// Avatars: keep applying as they resolve (non-blocking)
+			if (pendingAvatars.length > 0) {
+				const applyAvatars = (): boolean => {
+					let applied = false;
+					for (let i = 0; i < lineCount; i++) {
+						const l = blame.lines[i];
+						if (l == null) continue;
+
+						const prevSha = blame.lines[i - 1]?.sha;
+						if (compact && prevSha === l.sha) continue;
+
+						const updated = commitDecorationCache.get(l.sha);
+						if (updated != null && updated !== decorations[i].renderOptions) {
+							decorations[i].renderOptions = updated;
+							applied = true;
+						}
+					}
+					return applied;
+				};
+
+				void Promise.allSettled(pendingAvatars).then(() => {
+					if (this._cleared) return;
+
+					if (applyAvatars()) {
+						this.setDecorations(decorationSet);
+					}
+				});
+			}
+
+			this.registerHoverProviders(configuration.get('hovers.annotations'));
+			return true;
+		}
+
+		// Non-progressive path (dirty docs, or already complete)
 		const blame = await this.getBlame(state?.recompute);
 		if (blame == null) return false;
 
-		using sw = maybeStopWatch(scope);
+		await this.renderBlameDecorations(blame);
+		sw?.stop({
+			suffix: ` to compute and apply gutter blame annotations (non-progressive); ${blame.lines.length} lines, ${blame.commits.size} commits`,
+		});
+
+		this.registerHoverProviders(configuration.get('hovers.annotations'));
+		return true;
+	}
+
+	/**
+	 * Full blame render using two decoration types (leader + compact).
+	 * Per-instance renderOptions only carry line-varying properties (contentText, borderColor, after).
+	 * Base CSS (background, font, width, margin) lives on the decoration types.
+	 */
+	private async renderBlameDecorations(blame: GitBlame): Promise<void> {
+		if (Decorations.gutterBlameAnnotation == null || Decorations.gutterBlameCompact == null) return;
 
 		const cfg = configuration.get('blame');
 
@@ -77,135 +531,145 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				.getBranchesAndTagsTipsLookup();
 		}
 
-		const options: CommitFormatOptions = {
+		const formatOptions: CommitFormatOptions = {
 			dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
 			getBranchAndTagTips: getBranchAndTagTips,
 			tokenOptions: tokenOptions,
 			source: { source: 'editor:hover' },
 		};
 
-		const fontOptions: BlameFontOptions = {
-			family: configuration.get('blame.fontFamily'),
-			size: configuration.get('blame.fontSize'),
-			style: configuration.get('blame.fontStyle'),
-			weight: configuration.get('blame.fontWeight'),
-		};
-
 		const avatars = cfg.avatars;
 		const gravatarDefault = configuration.get('defaultGravatarsStyle');
-		const separateLines = cfg.separateLines;
-		const renderOptions = getGutterRenderOptions(
-			separateLines,
-			cfg.heatmap,
-			cfg.avatars,
-			cfg.format,
-			options,
-			fontOptions,
-		);
-
-		const decorationOptions = [];
-		const decorationsMap = new Map<string, DecorationOptions | undefined>();
-		const avatarDecorationsMap = avatars ? new Map<string, ThemableDecorationAttachmentRenderOptions>() : undefined;
-
-		let commit: GitCommit | undefined;
-		let compacted = false;
-		let gutter: DecorationOptions | undefined;
-		let previousSha: string | undefined;
 
 		let computedHeatmap;
 		if (cfg.heatmap.enabled) {
 			computedHeatmap = this.getComputedHeatmap(blame);
 		}
 
-		let emptyLine: string | undefined;
+		// Two decoration arrays: leader lines (with separator) and compact/follower lines (without)
+		const leaderDecorations: DecorationOptions[] = [];
+		const compactDecorations: DecorationOptions[] = [];
 
-		for (const l of blame.lines) {
+		// Shared render options per commit SHA — only contentText + maybe borderColor + uncommitted color
+		const commitRenderCache = new Map<string, DecorationOptions['renderOptions']>();
+		// Compact lines: all share a single renderOptions (just space content + maybe borderColor)
+		const compactRenderCache = new Map<string, DecorationOptions['renderOptions']>();
+
+		// Collect unique commits for parallel avatar fetching
+		const avatarCommits = avatars ? new Map<string, GitCommit>() : undefined;
+
+		let commit: GitCommit | undefined;
+		let previousSha: string | undefined;
+
+		const lineCount = this.editor.document.lineCount;
+		for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
+			const l = blame.lines[lineIndex];
+			if (l == null) continue;
+
 			// editor lines are 0-based
 			const editorLine = l.line - 1;
-
-			if (previousSha === l.sha) {
-				if (gutter == null) continue;
-
-				// Use a shallow copy of the previous decoration options
-				gutter = { ...gutter };
-
-				if (cfg.compact && !compacted) {
-					// Since the line length is the same just generate a single new empty line
-					emptyLine ??= GlyphChars.Space.repeat(getWidth(gutter.renderOptions!.before!.contentText!));
-
-					// Since we are wiping out the contextText make sure to copy the objects
-					gutter.renderOptions = {
-						before: {
-							...gutter.renderOptions!.before,
-							contentText: emptyLine,
-						},
-					};
-
-					if (separateLines) {
-						gutter.renderOptions.before!.textDecoration = `none;box-sizing: border-box${
-							avatars ? ';padding: 0 0 0 18px' : ''
-						}${fontOptions.family ? `;font-family: ${fontOptions.family}` : ''}${
-							fontOptions.size ? `;font-size: ${fontOptions.size}px` : ''
-						}`;
-					}
-
-					compacted = true;
-				}
-
-				gutter.range = new Range(editorLine, 0, editorLine, 0);
-
-				decorationOptions.push(gutter);
-
-				continue;
-			}
-
-			compacted = false;
-			previousSha = l.sha;
 
 			commit = blame.commits.get(l.sha);
 			if (commit == null) continue;
 
-			gutter = decorationsMap.get(l.sha);
-			if (gutter != null) {
-				gutter = {
-					...gutter,
-					range: new Range(editorLine, 0, editorLine, 0),
-				};
-
-				decorationOptions.push(gutter);
-
+			// Compact follower: same SHA as previous line
+			if (cfg.compact && previousSha === l.sha) {
+				let compactOpts = compactRenderCache.get(l.sha);
+				if (compactOpts == null) {
+					compactOpts = { before: { contentText: '\u00a0' /* &nbsp; */ } };
+					if (computedHeatmap != null) {
+						applyHeatmap(
+							{ renderOptions: compactOpts } as Partial<DecorationOptions>,
+							getCommitDate(commit),
+							computedHeatmap,
+						);
+					}
+					compactRenderCache.set(l.sha, compactOpts);
+				}
+				compactDecorations.push({ range: new Range(editorLine, 0, editorLine, 0), renderOptions: compactOpts });
 				continue;
 			}
 
-			gutter = getGutterDecoration(commit, cfg.format, options, renderOptions) as DecorationOptions;
+			previousSha = l.sha;
 
-			if (computedHeatmap != null) {
-				applyHeatmap(gutter, getCommitDate(commit), computedHeatmap);
+			// Leader line: get or build render options
+			let leaderOpts = commitRenderCache.get(l.sha);
+			if (leaderOpts == null) {
+				const gutter = getGutterDecoration(commit, cfg.format, formatOptions, {
+					separateLines: cfg.separateLines,
+				});
+				leaderOpts = gutter.renderOptions;
+				if (computedHeatmap != null) {
+					applyHeatmap(
+						{ renderOptions: leaderOpts } as Partial<DecorationOptions>,
+						getCommitDate(commit),
+						computedHeatmap,
+					);
+				}
+				commitRenderCache.set(l.sha, leaderOpts);
+
+				// Track for avatar fetching
+				if (avatarCommits != null && commit.author.email != null) {
+					avatarCommits.set(commit.author.email, commit);
+				}
 			}
 
-			gutter.range = new Range(editorLine, 0, editorLine, 0);
+			leaderDecorations.push({ range: new Range(editorLine, 0, editorLine, 0), renderOptions: leaderOpts });
+		}
 
-			decorationOptions.push(gutter);
+		// Parallel avatar fetching — all at once instead of sequential await in loop
+		if (avatarCommits != null && avatarCommits.size > 0) {
+			const avatarMap = new Map<string, ThemableDecorationAttachmentRenderOptions>();
+			await Promise.allSettled(
+				Array.from(avatarCommits.entries(), async ([email, c]) => {
+					const url = (
+						await getCommitAuthorAvatarUri(c, { defaultStyle: gravatarDefault, size: 16 })
+					).toString(true);
+					avatarMap.set(email, getAvatarRenderOptions(url));
+				}),
+			);
 
-			if (avatars && commit.author.email != null) {
-				await this.applyAvatarDecoration(commit, gutter, gravatarDefault, avatarDecorationsMap!);
+			// Apply avatars — cached per author email, so only leader lines with a
+			// known email get the avatar. Compact lines intentionally skip avatars.
+			for (const [sha, opts] of commitRenderCache) {
+				const c = blame.commits.get(sha);
+				if (c?.author.email == null) continue;
+
+				const avatar = avatarMap.get(c.author.email);
+				if (avatar != null) {
+					commitRenderCache.set(sha, { ...opts, after: avatar });
+				}
 			}
 
-			decorationsMap.set(l.sha, gutter);
+			// Re-apply updated render options to leader decorations
+			for (const decoration of leaderDecorations) {
+				const line = decoration.range.start.line;
+				const l = blame.lines[line];
+				if (l == null) continue;
+
+				const updated = commitRenderCache.get(l.sha);
+				if (updated != null) {
+					decoration.renderOptions = updated;
+				}
+			}
 		}
 
-		sw?.restart({ suffix: ' to compute gutter blame annotations' });
-
-		if (decorationOptions.length) {
-			this.setDecorations([
-				{ decorationType: Decorations.gutterBlameAnnotation, rangesOrOptions: decorationOptions },
-			]);
-
-			sw?.stop({ suffix: ' to apply all gutter blame annotations' });
+		const decorationSets: { decorationType: TextEditorDecorationType; rangesOrOptions: DecorationOptions[] }[] = [];
+		if (leaderDecorations.length) {
+			decorationSets.push({
+				decorationType: Decorations.gutterBlameAnnotation,
+				rangesOrOptions: leaderDecorations,
+			});
 		}
-
-		this.registerHoverProviders(configuration.get('hovers.annotations'));
-		return true;
+		if (compactDecorations.length) {
+			decorationSets.push({
+				decorationType: Decorations.gutterBlameCompact,
+				rangesOrOptions: compactDecorations,
+			});
+		}
+		if (decorationSets.length) {
+			this.setDecorations(decorationSets);
+		}
 	}
 
 	@debug({ args: false })
@@ -240,30 +704,5 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		);
 
 		this.editor.setDecorations(Decorations.gutterBlameHighlight, highlightDecorationRanges);
-	}
-
-	private async applyAvatarDecoration(
-		commit: GitCommit,
-		gutter: DecorationOptions,
-		gravatarDefault: GravatarDefaultStyle,
-		map: Map<string, ThemableDecorationAttachmentRenderOptions>,
-	) {
-		let avatarDecoration = map.get(commit.author.email ?? '');
-		if (avatarDecoration == null) {
-			const url = (await getCommitAuthorAvatarUri(commit, { defaultStyle: gravatarDefault, size: 16 })).toString(
-				true,
-			);
-			avatarDecoration = {
-				contentText: '',
-				height: '16px',
-				width: '16px',
-				textDecoration: `none;position:absolute;top:1px;left:5px;background:url(${encodeURI(
-					url,
-				)});background-size:16px 16px;margin-left: 0 !important`,
-			};
-			map.set(commit.author.email ?? '', avatarDecoration);
-		}
-
-		gutter.renderOptions!.after = avatarDecoration;
 	}
 }

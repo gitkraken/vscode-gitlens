@@ -1,4 +1,4 @@
-import type { GitBlame, GitBlameLine } from '../models/blame.js';
+import type { GitBlame, GitBlameLine, ProgressiveGitBlame } from '../models/blame.js';
 import type { DiffRange } from './types.js';
 
 export interface GitBlameOptions {
@@ -30,4 +30,11 @@ export interface GitBlameSubProvider {
 		contents?: string,
 		options?: GitBlameOptions,
 	): Promise<GitBlame | undefined>;
+	getProgressiveBlame?(
+		repoPath: string,
+		path: string,
+		rev?: string,
+		contents?: string,
+		options?: GitBlameOptions,
+	): Promise<ProgressiveGitBlame | undefined>;
 }

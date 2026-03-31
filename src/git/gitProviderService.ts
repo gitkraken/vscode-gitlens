@@ -14,7 +14,7 @@ import { getSupportedGitProviders } from '@env/providers.js';
 import type { CachedGitTypes, UriScopedCachedGitTypes } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '@gitlens/git/errors.js';
-import type { GitBlame, GitBlameLine } from '@gitlens/git/models/blame.js';
+import type { GitBlame, GitBlameLine, ProgressiveGitBlame } from '@gitlens/git/models/blame.js';
 import type { GitLineDiff, ParsedGitDiffHunks } from '@gitlens/git/models/diff.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
@@ -1556,6 +1556,32 @@ export class GitProviderService implements UnifiedDisposable {
 
 		try {
 			return await blame.getBlame(path, uri.sha, undefined, this.getBlameOptions());
+		} catch (ex) {
+			this.handleBlameError(ex);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Returns a `GitBlameProgressive` that progressively resolves as git blame streams entries.
+	 * Subscribe to `onDidProgress` for incremental updates, or `await completed` for the full result.
+	 */
+	async getBlameProgressive(
+		uri: GitUri,
+		document?: TextDocument | undefined,
+	): Promise<ProgressiveGitBlame | undefined> {
+		// Dirty documents go through the existing synchronous blame path (no streaming benefit)
+		if (document?.isDirty) return undefined;
+
+		const { provider } = this.getProvider(uri);
+		if (!(await provider.isTracked(uri))) return undefined;
+
+		const [path, root] = splitPath(uri, uri.repoPath);
+		const svc = this._gitService.forRepo(root);
+		if (svc?.blame?.getProgressiveBlame == null) return undefined;
+
+		try {
+			return await svc.blame.getProgressiveBlame(path, uri.sha, undefined, this.getBlameOptions());
 		} catch (ex) {
 			this.handleBlameError(ex);
 			return undefined;

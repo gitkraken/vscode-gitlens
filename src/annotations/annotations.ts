@@ -1,18 +1,14 @@
 import type {
-	DecorationInstanceRenderOptions,
 	DecorationOptions,
 	Range,
 	TextEditorDecorationType,
 	ThemableDecorationAttachmentRenderOptions,
-	ThemableDecorationRenderOptions,
 } from 'vscode';
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { scale, toRgba } from '@gitlens/utils/color.js';
 import { getWidth, interpolate, pad } from '@gitlens/utils/string.js';
-import type { Config } from '../config.js';
 import type { Colors } from '../constants.colors.js';
-import { GlyphChars } from '../constants.js';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter.js';
 import { CommitFormatter } from '../git/formatters/commitFormatter.js';
 import { configuration } from '../system/-webview/configuration.js';
@@ -31,16 +27,26 @@ export type Decoration<T extends Range[] | DecorationOptions[] = Range[] | Decor
 	dispose?: boolean;
 };
 
-interface RenderOptions
-	extends
-		DecorationInstanceRenderOptions,
-		ThemableDecorationRenderOptions,
-		ThemableDecorationAttachmentRenderOptions {
-	height?: string;
-	uncommittedColor?: string | ThemeColor;
+export interface BlameDecorationOptions {
+	avatars: boolean;
+	compact: boolean;
+	fontFamily?: string;
+	fontSize?: number;
+	fontStyle?: string;
+	fontWeight?: string;
+	format: string;
+	formatOptions: CommitFormatOptions;
+	heatmapEnabled: boolean;
+	heatmapLocation?: 'left' | 'right';
+	separateLines: boolean;
 }
 
-const spaceRegex = / /g;
+export function toCssInjection(styles: Record<string, string | number | undefined | null>): string {
+	return `${Object.entries(styles)
+		.filter(([, value]) => value != null && value !== '')
+		.map(([key, value]) => `${key}:${value}`)
+		.join(';')};`;
+}
 
 const defaultHeatmapHotColor = '#f66a0a';
 const defaultHeatmapColdColor = '#0a60f6';
@@ -146,39 +152,14 @@ export function addOrUpdateGutterHeatmapDecoration(
 	return colorDecoration.decorationType;
 }
 
-export function getGutterDecoration(
-	commit: GitCommit,
+function computeGutterWidth(
 	format: string,
-	dateFormatOrFormatOptions: string | null | CommitFormatOptions,
-	renderOptions: RenderOptions,
-): Partial<DecorationOptions> {
-	const decoration: Partial<DecorationOptions> = {
-		renderOptions: {
-			before: { ...renderOptions },
-		},
-	};
-
-	if (commit.isUncommitted) {
-		decoration.renderOptions!.before!.color = renderOptions.uncommittedColor;
-	}
-
-	const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
-	decoration.renderOptions!.before!.contentText = pad(message.replace(spaceRegex, GlyphChars.Space), 1, 1);
-
-	return decoration;
-}
-
-export function getGutterRenderOptions(
-	separateLines: boolean,
-	heatmap: Config['blame']['heatmap'],
+	formatOptions: Pick<CommitFormatOptions, 'tokenOptions'>,
 	avatars: boolean,
-	format: string,
-	options: CommitFormatOptions,
-	fontOptions: BlameFontOptions,
-): RenderOptions {
-	// Get the character count of all the tokens, assuming there there is a cap (bail if not)
+): string | undefined {
+	// Get the character count of all the tokens, assuming there is a cap (bail if not)
 	let chars = 0;
-	for (const token of Object.values(options.tokenOptions!)) {
+	for (const token of Object.values(formatOptions.tokenOptions!)) {
 		if (token === undefined) continue;
 
 		// If any token is uncapped, kick out and set no max
@@ -186,7 +167,6 @@ export function getGutterRenderOptions(
 			chars = -1;
 			break;
 		}
-
 		chars += token.truncateTo;
 	}
 
@@ -199,40 +179,96 @@ export function getGutterRenderOptions(
 		}
 	}
 
-	let borderStyle = undefined;
-	let borderWidth = undefined;
-	if (heatmap.enabled) {
-		borderStyle = 'solid';
-		borderWidth = heatmap.location === 'left' ? '0 0 0 2px' : '0 2px 0 0';
-	}
+	if (chars < 0) return undefined;
 
-	let width;
-	if (chars >= 0) {
-		const spacing = configuration.getCore('editor.letterSpacing');
-		if (spacing != null && spacing !== 0) {
-			width = `calc(${chars}ch + ${Math.round(chars * spacing) + (avatars ? 13 : -6)}px)`;
-		} else {
-			width = `calc(${chars}ch ${avatars ? '+ 13px' : '- 6px'})`;
-		}
+	const spacing = configuration.getCore('editor.letterSpacing');
+	if (spacing != null && spacing !== 0) {
+		return `calc(${chars}ch + ${Math.round(chars * spacing) + (avatars ? 13 : -6)}px)`;
 	}
+	return `calc(${chars}ch ${avatars ? '+ 13px' : '- 6px'})`;
+}
 
+export function getAvatarRenderOptions(url: string): ThemableDecorationAttachmentRenderOptions {
+	return {
+		contentText: '',
+		height: '16px',
+		width: '16px',
+		textDecoration: toCssInjection({
+			'text-decoration': 'none',
+			position: 'absolute',
+			top: '1px',
+			left: '5px',
+			background: `url(${encodeURI(url)})`,
+			'background-size': '16px 16px',
+			'border-radius': '50%',
+			'margin-left': '0 !important',
+		}),
+	};
+}
+
+/**
+ * Builds the `before` decoration attachment options for a blame decoration type.
+ * These are line-invariant properties that go on the decoration TYPE, not per-instance.
+ *
+ * Note: heatmap border styling is injected via `textDecoration` CSS hack because
+ * `borderStyle`/`borderWidth` aren't available on `ThemableDecorationAttachmentRenderOptions`.
+ */
+export function getBlameDecorationBaseOptions(
+	options: BlameDecorationOptions,
+	separator: boolean,
+): ThemableDecorationAttachmentRenderOptions {
 	return {
 		backgroundColor: new ThemeColor('gitlens.gutterBackgroundColor' satisfies Colors),
-		borderStyle: borderStyle,
-		borderWidth: borderWidth,
 		color: new ThemeColor('gitlens.gutterForegroundColor' satisfies Colors),
-		fontWeight: fontOptions.weight ?? 'normal',
-		fontStyle: fontOptions.style ?? 'normal',
+		fontWeight: options.fontWeight ?? 'normal',
+		fontStyle: options.fontStyle ?? 'normal',
 		height: '100%',
 		margin: '0 26px -1px 0',
-		textDecoration: `${separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none'};box-sizing: border-box${
-			avatars ? ';padding: 0 0 0 18px' : ''
-		}${fontOptions.family ? `;font-family: ${fontOptions.family}` : ''}${
-			fontOptions.size ? `;font-size: ${fontOptions.size}px` : ''
-		};`,
-		width: width,
-		uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor' satisfies Colors),
+		width: computeGutterWidth(options.format, options.formatOptions, options.avatars),
+		textDecoration: toCssInjection({
+			'text-decoration': separator ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
+			'box-sizing': 'border-box',
+			padding: options.avatars ? '0 0 0 18px' : undefined,
+			'font-family': options.fontFamily,
+			'font-size': options.fontSize ? `${options.fontSize}px` : undefined,
+			'border-style': options.heatmapEnabled ? 'solid' : undefined,
+			'border-width': options.heatmapEnabled
+				? options.heatmapLocation === 'left'
+					? '0 0 0 2px'
+					: '0 2px 0 0'
+				: undefined,
+			'white-space': 'pre',
+			'font-variant-numeric': 'tabular-nums',
+		}),
 	};
+}
+
+/**
+ * Returns per-instance render options for a blame decoration.
+ * Only includes line-varying properties — base CSS lives on the decoration type.
+ */
+export function getGutterDecoration(
+	commit: GitCommit,
+	format: string,
+	dateFormatOrFormatOptions: string | null | CommitFormatOptions,
+	options?: { separateLines?: boolean },
+): Partial<DecorationOptions> {
+	const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
+	const decoration: Partial<DecorationOptions> = { renderOptions: { before: { contentText: pad(message, 1, 1) } } };
+
+	if (commit.isUncommitted) {
+		decoration.renderOptions!.before!.color = new ThemeColor(
+			'gitlens.gutterUncommittedForegroundColor' satisfies Colors,
+		);
+	}
+
+	// Apply the separator overline per-instance because VS Code doesn't reliably
+	// cascade the type-level textDecoration CSS hack to per-instance sub-types
+	if (options?.separateLines) {
+		decoration.renderOptions!.before!.textDecoration = 'overline solid rgba(0, 0, 0, .2)';
+	}
+
+	return decoration;
 }
 
 export function getInlineDecoration(
@@ -261,13 +297,18 @@ export function getInlineDecoration(
 			after: {
 				backgroundColor: new ThemeColor('gitlens.trailingLineBackgroundColor' satisfies Colors),
 				color: new ThemeColor('gitlens.trailingLineForegroundColor' satisfies Colors),
-				contentText: pad(message.replace(spaceRegex, GlyphChars.Space), 1, 1),
+				contentText: pad(message, 1, 1),
 				fontWeight: fontOptions?.weight ?? 'normal',
 				fontStyle: fontOptions?.style ?? 'normal',
 				// Pull the decoration out of the document flow if we want to be scrollable
-				textDecoration: `none${scrollable ? '' : ';position: absolute'}${
-					fontOptions?.family ? `;font-family: ${fontOptions.family}` : ''
-				}${fontOptions?.size ? `;font-size: ${fontOptions.size}px` : ''};`,
+				textDecoration: toCssInjection({
+					'text-decoration': 'none',
+					position: scrollable ? undefined : 'absolute',
+					'font-family': fontOptions?.family,
+					'font-size': fontOptions?.size ? `${fontOptions?.size}px` : undefined,
+					'white-space': 'pre',
+					'font-variant-numeric': 'tabular-nums',
+				}),
 			},
 		},
 	};
