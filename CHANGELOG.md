@@ -144,6 +144,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds an experimental _Agent Kanban_ mode &mdash; an interactive Kanban board grouping active agent sessions by state
 - Adds conflict resolution actions to the _Interactive Rebase_ editor conflict file list
 - Adds a close-tab warning banner to the _Interactive Rebase_ editor &mdash; displays a dismissible informational banner during the planning phase to clarify that closing the tab automatically starts the rebase ([#5123](https://github.com/gitkraken/vscode-gitlens/issues/5123))
+- Adds ConfigCat-based feature flag service for A/B testing and experimentation support ([#5092](https://github.com/gitkraken/vscode-gitlens/issues/5092))
 - Adds a `gitlens.rebaseEditor.openBehavior` setting to control where the _Interactive Rebase_ editor opens when automatically reopened on a paused rebase &mdash; `auto` (default) opens beside only when a multi-pane layout already exists; `beside` always opens in a side group
 - Adds Seti file icon theme support for webviews &mdash; files in webview trees now display the correct Seti glyph
 - Adds folder actions in _Details Panel_ and _Inspect_ view
