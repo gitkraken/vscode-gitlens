@@ -41,9 +41,18 @@ export interface BlameDecorationOptions {
 	separateLines: boolean;
 }
 
+/**
+ * Builds a CSS-injection string for use in VS Code's `textDecoration` property.
+ *
+ * VS Code emits `text-decoration: <value>` in the generated CSS rule, so the
+ * first token in our string is consumed as the text-decoration value. We always
+ * emit `text-decoration:<td>` first (defaulting to `none`) so that subsequent
+ * properties land as independent CSS declarations after the terminating `;`.
+ */
 export function toCssInjection(styles: Record<string, string | number | undefined | null>): string {
-	return `${Object.entries(styles)
-		.filter(([, value]) => value != null && value !== '')
+	const td = styles['text-decoration'] ?? 'none';
+	return `text-decoration:${td};${Object.entries(styles)
+		.filter(([key, value]) => key !== 'text-decoration' && value != null && value !== '')
 		.map(([key, value]) => `${key}:${value}`)
 		.join(';')};`;
 }
@@ -194,7 +203,6 @@ export function getAvatarRenderOptions(url: string): ThemableDecorationAttachmen
 		height: '16px',
 		width: '16px',
 		textDecoration: toCssInjection({
-			'text-decoration': 'none',
 			position: 'absolute',
 			top: '1px',
 			left: '5px',
@@ -226,7 +234,7 @@ export function getBlameDecorationBaseOptions(
 		margin: '0 26px -1px 0',
 		width: computeGutterWidth(options.format, options.formatOptions, options.avatars),
 		textDecoration: toCssInjection({
-			'text-decoration': separator ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
+			'text-decoration': separator ? 'overline solid rgba(0, 0, 0, .2)' : undefined,
 			'box-sizing': 'border-box',
 			padding: options.avatars ? '0 0 0 18px' : undefined,
 			'font-family': options.fontFamily,
@@ -302,7 +310,6 @@ export function getInlineDecoration(
 				fontStyle: fontOptions?.style ?? 'normal',
 				// Pull the decoration out of the document flow if we want to be scrollable
 				textDecoration: toCssInjection({
-					'text-decoration': 'none',
 					position: scrollable ? undefined : 'absolute',
 					'font-family': fontOptions?.family,
 					'font-size': fontOptions?.size ? `${fontOptions?.size}px` : undefined,
