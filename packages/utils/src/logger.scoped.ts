@@ -40,7 +40,7 @@ export function createLogScope(scopeId: number, prevScopeId: number | undefined,
 		scopeId: scopeId,
 		prevScopeId: prevScopeId,
 		prefix: prefix,
-		enabled: Logger.enabled,
+		enabled: (level?: Exclude<LogLevel, 'off'>) => Logger.enabled(level),
 		addExitInfo: function (...details: string[]): void {
 			(exitDetails ??= []).push(...details);
 		},
