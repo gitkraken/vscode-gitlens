@@ -33,6 +33,7 @@ suite('setupSubscriptions Test Suite', () => {
 					return () => {};
 				},
 				onFocusAccount: () => () => {},
+				onAgentSessionsChanged: () => () => {},
 			},
 			launchpad: {
 				onLaunchpadChanged: () => () => {},
@@ -118,6 +119,7 @@ suite('setupSubscriptions Test Suite', () => {
 				},
 				onOverviewFilterChanged: () => () => {},
 				onFocusAccount: () => () => {},
+				onAgentSessionsChanged: () => () => {},
 			},
 			launchpad: {
 				onLaunchpadChanged: () => () => {},

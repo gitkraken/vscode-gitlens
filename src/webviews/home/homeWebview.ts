@@ -101,6 +101,7 @@ import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webvie
 import type { WebviewShowOptions } from '../webviewsController.js';
 import type { HomeServices, HomeViewService, WalkthroughProgressState } from './homeService.js';
 import type {
+	AgentSessionState,
 	BranchAndTargetRefs,
 	BranchRef,
 	CollapseSectionParams,
@@ -245,6 +246,22 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				'focusAccount',
 				'signal',
 				this._rpcFocusAccountCallbacks,
+				undefined,
+				tracker,
+			),
+
+			// --- Agent Sessions ---
+			getAgentSessions: () => Promise.resolve(this.getAgentSessionsState()),
+			onAgentSessionsChanged: createEventSubscription<AgentSessionState[]>(
+				buffer,
+				'agentSessions',
+				'save-last',
+				buffered =>
+					this.container.agentStatus != null
+						? this.container.agentStatus.onDidChange(() => {
+								buffered(this.getAgentSessionsState());
+							})
+						: { dispose: () => {} },
 				undefined,
 				tracker,
 			),
@@ -1219,6 +1236,24 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			progress: this.container.walkthrough.progress,
 			state: state as Record<WalkthroughContextKeys, boolean>,
 		};
+	}
+
+	private getAgentSessionsState(): AgentSessionState[] {
+		const service = this.container.agentStatus;
+		if (service == null) return [];
+
+		return service.sessions.map(s => ({
+			id: s.id,
+			name: s.name,
+			status: s.status,
+			statusDetail: s.statusDetail,
+			branch: s.branch,
+			worktreeName: s.worktreeName,
+			isLocal: s.isLocal,
+			hasPermissionRequest: s.pendingPermission != null,
+			subagentCount: s.subagents?.length ?? 0,
+			workspacePath: s.workspacePath,
+		}));
 	}
 
 	private async onIntegrationsChangedCore() {
