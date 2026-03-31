@@ -4,6 +4,7 @@ import type { BranchDisposition, GitBranchStatus } from '@gitlens/git/models/bra
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitPausedOperation } from '@gitlens/git/models/pausedOperationStatus.js';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri.js';
+import type { AgentSessionStatus } from '../agents/provider.js';
 import type { Colors } from '../constants.colors.js';
 import { GlyphChars, Schemes } from '../constants.js';
 
@@ -64,6 +65,7 @@ interface BranchViewDecoration {
 	current?: boolean;
 	disposition?: BranchDisposition;
 	worktree?: { opened: boolean };
+	agent?: { active: boolean };
 	showStatusOnly?: boolean;
 }
 
@@ -127,6 +129,15 @@ function getBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 			...decoration,
 			badge: GlyphChars.Bullseye,
 			tooltip: 'Current',
+		};
+	}
+
+	if (state?.agent?.active) {
+		return {
+			...decoration,
+			badge: '▶',
+			color: new ThemeColor('gitlens.decorations.branchAgentActiveForegroundColor' as Colors),
+			tooltip: 'AI Agent Active',
 		};
 	}
 
@@ -328,6 +339,7 @@ interface WorktreeViewDecoration {
 	hasChanges?: boolean;
 	missing?: boolean;
 	disposition?: BranchDisposition;
+	agent?: { status: AgentSessionStatus };
 }
 
 function getWorktreeDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
@@ -338,6 +350,14 @@ function getWorktreeDecoration(uri: Uri, _token: CancellationToken): FileDecorat
 			badge: GlyphChars.Warning,
 			color: new ThemeColor('gitlens.decorations.worktreeMissingForegroundColor' satisfies Colors),
 			tooltip: '',
+		};
+	}
+
+	if (state?.agent != null) {
+		return {
+			badge: '▶',
+			color: new ThemeColor('gitlens.decorations.worktreeAgentActiveForegroundColor' as Colors),
+			tooltip: 'AI Agent Active',
 		};
 	}
 

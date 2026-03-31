@@ -17,6 +17,7 @@ import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer, getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { pad } from '@gitlens/utils/string.js';
 import type { IconPath } from '../../@types/vscode.iconpath.d.js';
+import { findSessionsForBranch } from '../../agents/agentBranchMatcher.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
 import {
@@ -332,12 +333,23 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				break;
 		}
 
+		// Check for active AI agent sessions on this worktree's branch
+		const agentSessions =
+			this.worktree.branch != null
+				? findSessionsForBranch(
+						this.view.container.agentStatus?.sessions ?? [],
+						this.worktree.branch.name,
+						this.worktree.uri,
+					)
+				: [];
+		const hasAgent = agentSessions.length > 0;
+
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.description = description;
 		item.contextValue = `${ContextValues.Worktree}${this.worktree.isDefault ? '+default' : ''}${
 			this.worktree.opened ? '+active' : ''
-		}${hasChanges ? '+working' : ''}${this.worktree.branch?.starred ? '+starred' : ''}`;
+		}${hasChanges ? '+working' : ''}${this.worktree.branch?.starred ? '+starred' : ''}${hasAgent ? '+agent' : ''}`;
 		item.iconPath =
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
@@ -349,6 +361,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			hasChanges: hasChanges,
 			missing: missing,
 			disposition: this.worktree.branch?.disposition,
+			agent: hasAgent ? { status: agentSessions[0].status } : undefined,
 		});
 
 		return item;
@@ -464,6 +477,25 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		const { missing } = await this.hasWorkingChanges();
 		if (missing) {
 			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
+		}
+
+		// Add AI agent status
+		if (this.worktree.branch != null) {
+			const sessions = findSessionsForBranch(
+				this.view.container.agentStatus?.sessions ?? [],
+				this.worktree.branch.name,
+				this.worktree.uri,
+			);
+			if (sessions.length > 0) {
+				const session = sessions[0];
+				const statusLabel =
+					session.status === 'tool_use'
+						? `running ${session.statusDetail ?? 'tool'}`
+						: session.status === 'permission_requested'
+							? 'awaiting approval'
+							: session.status;
+				tooltip.appendMarkdown(`\n\n$(hubot) ${session.name} \u2014 ${statusLabel}`);
+			}
 		}
 
 		// Add favorited indicator

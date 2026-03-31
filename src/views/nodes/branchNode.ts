@@ -19,6 +19,8 @@ import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer, getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { pad } from '@gitlens/utils/string.js';
 import type { IconPath } from '../../@types/vscode.iconpath.d.js';
+import { findSessionsForBranch } from '../../agents/agentBranchMatcher.js';
+import type { AgentSession } from '../../agents/provider.js';
 import type { ViewShowBranchComparison } from '../../config.js';
 import type { Colors } from '../../constants.colors.js';
 import { GlyphChars } from '../../constants.js';
@@ -416,7 +418,14 @@ export class BranchNode
 			}
 		}
 
+		const agentSessions = findSessionsForBranch(
+			this.view.container.agentStatus?.sessions ?? [],
+			this.branch.name,
+			this.worktree?.uri,
+		);
+
 		const parts = await getBranchNodeParts(this.view.container, this.branch, this.current, {
+			agentSession: agentSessions[0],
 			avatars: this.view.config.avatars,
 			hasWorkingChanges: hasWorkingChanges,
 			pendingPullRequest: this.getState('pendingPullRequest'),
@@ -551,6 +560,7 @@ export async function getBranchNodeParts(
 	branch: GitBranch,
 	current: boolean,
 	options?: {
+		agentSession?: AgentSession;
 		avatars?: boolean;
 		hasWorkingChanges?: boolean;
 		pendingPullRequest?: Promise<PullRequest | undefined> | undefined;
@@ -620,6 +630,9 @@ export async function getBranchNodeParts(
 	}
 	if (checkedout) {
 		contextValue += '+checkedout';
+	}
+	if (options?.agentSession != null) {
+		contextValue += '+agent';
 	}
 
 	let iconColor: ThemeColor | undefined;
@@ -723,6 +736,17 @@ export async function getBranchNodeParts(
 		tooltip.appendMarkdown('\\\n$(star-full) Favorited');
 	}
 
+	if (options?.agentSession != null) {
+		const session = options.agentSession;
+		const statusLabel =
+			session.status === 'tool_use'
+				? `running ${session.statusDetail ?? 'tool'}`
+				: session.status === 'permission_requested'
+					? 'awaiting approval'
+					: session.status;
+		tooltip.appendMarkdown(`\n\n$(hubot) ${session.name} \u2014 ${statusLabel}`);
+	}
+
 	if (options?.pendingPullRequest != null) {
 		tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
 	}
@@ -769,6 +793,7 @@ export async function getBranchNodeParts(
 			current: current,
 			worktree: options?.worktree != null ? { opened: options.worktree.opened } : undefined,
 			disposition: branch.disposition,
+			agent: options?.agentSession != null ? { active: true } : undefined,
 			showStatusOnly: options?.showStatusDecorationOnly,
 		}),
 	};

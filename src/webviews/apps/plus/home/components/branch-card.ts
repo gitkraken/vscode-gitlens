@@ -7,6 +7,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { interpolate, pluralize } from '@gitlens/utils/string.js';
+import type { AgentSessionStatus } from '../../../../../agents/provider.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import {
@@ -17,6 +18,7 @@ import {
 } from '../../../../../plus/launchpad/models/launchpad.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type {
+	AgentSessionState,
 	BranchRef,
 	CreatePullRequestCommandArgs,
 	GetOverviewBranch,
@@ -24,6 +26,8 @@ import type {
 	OpenInTimelineParams,
 	OpenWorktreeCommandArgs,
 } from '../../../../home/protocol.js';
+import type { HomeState } from '../../../home/state.js';
+import { homeStateContext } from '../../../home/state.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { GlCard } from '../../../shared/components/card/card.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
@@ -48,6 +52,16 @@ import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/branch-icon.js';
 import './merge-target-status.js';
+
+const agentStatusDisplay: Record<AgentSessionStatus, { icon: string; label: string; spin?: boolean }> = {
+	thinking: { icon: 'loading', label: 'thinking', spin: true },
+	tool_use: { icon: 'terminal', label: 'running' },
+	responding: { icon: 'comment', label: 'responding' },
+	waiting: { icon: 'clock', label: 'waiting for input' },
+	idle: { icon: 'circle-outline', label: 'idle' },
+	compacting: { icon: 'loading', label: 'compacting context', spin: true },
+	permission_requested: { icon: 'shield', label: 'awaiting approval' },
+};
 
 export const branchCardStyles = css`
 	* {
@@ -128,6 +142,30 @@ export const branchCardStyles = css`
 		gap: 0.6rem;
 		max-width: 100%;
 		margin-block: 0;
+	}
+
+	.agent-status {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.85em;
+		font-weight: normal;
+		color: var(--vscode-descriptionForeground);
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.agent-status:hover {
+		color: var(--vscode-textLink-activeForeground);
+	}
+
+	.agent-status--warning {
+		color: var(--vscode-editorWarning-foreground);
+	}
+
+	.agent-status--warning:hover {
+		color: var(--vscode-editorWarning-foreground);
+		opacity: 0.8;
 	}
 
 	.branch-item__changes {
@@ -273,6 +311,9 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 
 	@consume({ context: webviewContext })
 	protected _webview!: WebviewContext;
+
+	@consume({ context: homeStateContext })
+	private _homeState!: HomeState;
 
 	@property()
 	repo!: string;
@@ -769,6 +810,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 		const indicator = this.branch.opened ? undefined : this.renderBranchIndicator?.();
 		const mergeTargetStatus = this.renderMergeTargetStatus();
 		const timestamp = this.renderTimestamp();
+		const agentStatus = this.renderAgentStatus();
 
 		return html`
 			<gl-work-item
@@ -781,6 +823,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon"> ${this.renderBranchIcon()} </span>
 						<span class="branch-item__name">${this.branch.name}</span>
+						${agentStatus}
 					</p>
 				</div>
 				${when(
@@ -816,6 +859,46 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 			?worktree=${this.branch.worktree != null}
 			?is-default=${this.branch.worktree?.isDefault ?? false}
 		></gl-branch-icon>`;
+	}
+
+	private getMatchingAgentSession(): AgentSessionState | undefined {
+		const sessions = this._homeState?.agentSessions?.get();
+		if (sessions == null || sessions.length === 0) return undefined;
+
+		const branchName = this.branch.name;
+		for (const session of sessions) {
+			if (session.branch !== branchName) continue;
+			// If both the session and the branch card have worktree info, cross-check
+			if (session.worktreeName != null && this.branch.worktree != null) {
+				// worktree.uri is a stringified Uri -- extract the basename for comparison
+				const worktreeBasename = this.branch.worktree.uri.split('/').pop() ?? '';
+				if (session.worktreeName !== worktreeBasename) continue;
+			}
+			return session;
+		}
+		return undefined;
+	}
+
+	private renderAgentStatus(): TemplateResult | NothingType {
+		const session = this.getMatchingAgentSession();
+		if (session == null) return nothing;
+
+		const isWarning = session.status === 'permission_requested';
+		const commandName = isWarning ? 'gitlens.agents.showPermission' : 'gitlens.agents.openSession';
+		const href = createCommandLink(commandName, JSON.stringify(session.id));
+		const display = agentStatusDisplay[session.status];
+
+		const label =
+			session.status === 'tool_use'
+				? `${session.name} ${display.label} ${session.statusDetail ?? 'tool'}`
+				: session.status === 'idle'
+					? session.name
+					: `${session.name} ${display.label}`;
+
+		return html`<a class="agent-status ${isWarning ? 'agent-status--warning' : ''}" href=${href}>
+			<code-icon icon=${display.icon} .modifier=${display.spin ? 'spin' : nothing}></code-icon>
+			<span>${label}</span>
+		</a>`;
 	}
 
 	protected renderPrItem(): TemplateResult | NothingType {

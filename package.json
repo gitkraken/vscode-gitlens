@@ -6065,6 +6065,24 @@
 				}
 			},
 			{
+				"id": "gitlens.decorations.worktreeAgentActiveForegroundColor",
+				"description": "Specifies the decoration foreground color for worktrees with an active AI agent",
+				"defaults": {
+					"light": "#7e57c2",
+					"dark": "#b39ddb",
+					"highContrast": "#b39ddb"
+				}
+			},
+			{
+				"id": "gitlens.decorations.branchAgentActiveForegroundColor",
+				"description": "Specifies the decoration foreground color for branches with an active AI agent",
+				"defaults": {
+					"light": "#7e57c2",
+					"dark": "#b39ddb",
+					"highContrast": "#b39ddb"
+				}
+			},
+			{
 				"id": "gitlens.graphLane1Color",
 				"description": "Specifies the color for the first commit lane of the _Commit Graph_ visualization",
 				"defaults": {

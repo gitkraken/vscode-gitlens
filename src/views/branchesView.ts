@@ -3,6 +3,7 @@ import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vs
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitBranchReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type { BranchesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
@@ -130,7 +131,19 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	protected registerCommands(): Disposable[] {
-		return [
+		const commands: Disposable[] = [];
+
+		// Refresh the view when AI agent status changes (debounced to avoid flicker)
+		if (this.container.agentStatus != null) {
+			const debouncedRefresh = debounce(() => void this.refresh(), 1000);
+			commands.push(
+				this.container.agentStatus.onDidChange(() => {
+					debouncedRefresh();
+				}),
+			);
+		}
+
+		commands.push(
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
@@ -200,7 +213,9 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 			),
 			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
 			registerViewCommand(this.getQualifiedCommand('setShowStashesOff'), () => this.setShowStashes(false), this),
-		];
+		);
+
+		return commands;
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {

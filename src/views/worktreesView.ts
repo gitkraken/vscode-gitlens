@@ -1,6 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import type { ViewBranchesLayout, ViewFilesLayout, WorktreesViewConfig } from '../config.js';
 import { proBadge } from '../constants.js';
 import type { Container } from '../container.js';
@@ -121,7 +122,19 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	}
 
 	protected registerCommands(): Disposable[] {
-		return [
+		const commands: Disposable[] = [];
+
+		// Refresh the view when AI agent status changes (debounced to avoid flicker)
+		if (this.container.agentStatus != null) {
+			const debouncedRefresh = debounce(() => void this.refresh(), 1000);
+			commands.push(
+				this.container.agentStatus.onDidChange(() => {
+					debouncedRefresh();
+				}),
+			);
+		}
+
+		commands.push(
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
@@ -182,7 +195,9 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			),
 			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
 			registerViewCommand(this.getQualifiedCommand('setShowStashesOff'), () => this.setShowStashes(false), this),
-		];
+		);
+
+		return commands;
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
