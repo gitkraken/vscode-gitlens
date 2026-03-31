@@ -533,7 +533,6 @@ function createProgressiveGitBlame(repoPath: string): {
 } {
 	let current: GitBlame = { repoPath: repoPath, authors: new Map(), commits: new Map(), lines: [] };
 	let isComplete = false;
-	const allResolvedIndices: number[] = [];
 
 	const completed = defer<GitBlame>();
 	// Prevent unhandled rejection if fail() is called before anyone awaits completed
@@ -552,9 +551,24 @@ function createProgressiveGitBlame(repoPath: string): {
 
 		onDidProgress: (listener, thisArgs?, disposables?) => {
 			const disposable = onDidProgress.event(listener, thisArgs, disposables);
-			// Replay all resolved indices so late-registering listeners catch up on ALL missed updates
-			if (allResolvedIndices.length > 0 && !isComplete) {
-				listener.call(thisArgs, { blame: current, complete: false, newLineIndices: allResolvedIndices });
+			// Replay resolved indices so late-registering listeners catch up
+			if (!isComplete) {
+				const lines = current.lines;
+				if (lines.length > 0) {
+					const resolvedIndices: number[] = [];
+					for (let i = 0; i < lines.length; i++) {
+						if (lines[i] != null) {
+							resolvedIndices.push(i);
+						}
+					}
+					if (resolvedIndices.length > 0) {
+						listener.call(thisArgs, {
+							blame: current,
+							complete: false,
+							newLineIndices: resolvedIndices,
+						});
+					}
+				}
 			}
 			return disposable;
 		},
@@ -563,9 +577,6 @@ function createProgressiveGitBlame(repoPath: string): {
 	const writer: ProgressiveGitBlameWriter = {
 		update: function (blame: GitBlame, newLineIndices: number[]): void {
 			current = blame;
-			for (const idx of newLineIndices) {
-				allResolvedIndices.push(idx);
-			}
 			onDidProgress.fire({ blame: blame, complete: false, newLineIndices: newLineIndices });
 		},
 

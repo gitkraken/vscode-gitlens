@@ -584,16 +584,21 @@ export function iterateByDelimiter(data: string | Iterable<string>, delimiter: s
 }
 
 /**
- * Async iterable delimiter iterator with buffering
- * Handles streaming async data by buffering incomplete segments
+ * Async iterable delimiter iterator with buffering.
+ *
+ * Buffer strategy: instead of growing a single buffer via concatenation
+ * (which causes V8 SlicedString retention — yielded substrings hold
+ * references to the entire accumulated buffer, preventing GC), each chunk
+ * builds a fresh `remainder + chunk` string. Substrings of this bounded
+ * string only retain the current chunk, not the full stream history.
  */
 class AsyncIterableDelimiterIterator implements AsyncIterableIterator<string> {
 	private readonly delimiterLen: number;
 	private readonly iterator: AsyncIterator<string>;
 
+	private remainder = '';
 	private buffer = '';
-	private bufferIndex = 0;
-	private needsMoreData = true;
+	private searchIndex = 0;
 	private done = false;
 
 	constructor(
@@ -611,62 +616,31 @@ class AsyncIterableDelimiterIterator implements AsyncIterableIterator<string> {
 
 		while (true) {
 			// Try to find delimiter in current buffer
-			if (this.bufferIndex < this.buffer.length) {
-				const j = this.buffer.indexOf(this.delimiter, this.bufferIndex);
-
-				if (j !== -1) {
-					// Found delimiter - return the segment
-					const value = this.buffer.substring(this.bufferIndex, j);
-					this.bufferIndex = j + this.delimiterLen;
-					return { done: false, value: value };
-				}
-
-				// No delimiter found in buffer
-				if (!this.needsMoreData) {
-					// No more data coming - yield rest of buffer
-					if (this.bufferIndex < this.buffer.length) {
-						const value = this.buffer.substring(this.bufferIndex);
-						this.bufferIndex = this.buffer.length;
-						this.done = true;
-						return { done: false, value: value };
-					}
-					this.done = true;
-					return { done: true, value: undefined };
-				}
-
-				// Need more data - keep unprocessed part as leftover
-				if (this.bufferIndex > 0) {
-					this.buffer = this.buffer.substring(this.bufferIndex);
-					this.bufferIndex = 0;
-				}
+			const j = this.buffer.indexOf(this.delimiter, this.searchIndex);
+			if (j !== -1) {
+				const value = this.buffer.substring(this.searchIndex, j);
+				this.searchIndex = j + this.delimiterLen;
+				return { done: false, value: value };
 			}
 
-			// Fetch next chunk if needed
-			if (this.needsMoreData) {
-				const result = await this.iterator.next();
-
-				if (result.done) {
-					this.needsMoreData = false;
-
-					// Yield any remaining unprocessed buffer content
-					if (this.bufferIndex < this.buffer.length) {
-						const value = this.buffer.substring(this.bufferIndex);
-						this.bufferIndex = this.buffer.length;
-						this.done = true;
-						return { done: false, value: value };
-					}
-
+			// No delimiter — fetch next chunk
+			const result = await this.iterator.next();
+			if (result.done) {
+				// No more data — yield any remaining content
+				if (this.searchIndex < this.buffer.length) {
+					const value = this.buffer.substring(this.searchIndex);
 					this.done = true;
-					return { done: true, value: undefined };
+					return { done: false, value: value };
 				}
-
-				// Append chunk to buffer
-				this.buffer += result.value;
-			} else {
-				// No more data and buffer is empty
 				this.done = true;
 				return { done: true, value: undefined };
 			}
+
+			// Build a fresh buffer from leftover + new chunk so that
+			// substrings only retain this bounded string, not a growing chain
+			this.remainder = this.searchIndex < this.buffer.length ? this.buffer.substring(this.searchIndex) : '';
+			this.buffer = this.remainder + result.value;
+			this.searchIndex = 0;
 		}
 	}
 

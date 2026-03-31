@@ -231,7 +231,7 @@ export function run<T extends number | string>(
 	encoding: BufferEncoding | string,
 	options?: RunOptions<BufferEncoding> & { exitCodeOnly?: boolean },
 ): Promise<T> {
-	const scope = getScopedLogger() ?? maybeStartScopedLogger('Shell.run');
+	const scope = getScopedLogger() ?? maybeStartScopedLogger('Exec.run');
 
 	const { stdin, stdinEncoding, cancellation, decode, ...opts }: RunOptions<BufferEncoding> & ExecFileOptions = {
 		maxBuffer: 1000 * 1024 * 1024,
@@ -297,7 +297,7 @@ export function run<T extends number | string>(
 				}
 
 				if (stderr && scope?.enabled('debug')) {
-					scope?.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
+					scope?.warn(`[EXEC] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 				}
 
 				if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
@@ -351,7 +351,7 @@ export function runSpawn<T extends string | Buffer>(
 	encoding: BufferEncoding | 'buffer' | string,
 	options: RunOptions & { exitCodeOnly?: boolean },
 ): Promise<RunExitResult | RunResult<T>> {
-	const scope = getScopedLogger() ?? maybeStartScopedLogger('Shell.runSpawn');
+	const scope = getScopedLogger() ?? maybeStartScopedLogger('Exec.runSpawn');
 
 	const { stdin, stdinEncoding, cancellation, decode, ...opts }: RunOptions = options;
 
@@ -414,7 +414,7 @@ export function runSpawn<T extends string | Buffer>(
 				const stdio = getStdio<string>(errorEncoding);
 				const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
 				if (stderr.length && scope?.enabled('debug')) {
-					scope?.warn(`[SHELL] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
+					scope?.warn(`[EXEC] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 				}
 
 				if (signal === 'SIGTERM') {
@@ -442,7 +442,7 @@ export function runSpawn<T extends string | Buffer>(
 			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
 			if (stderr.length && scope?.enabled('debug')) {
 				scope?.warn(
-					`[SHELL] '${command} ${args.join(' ')}' \u2022 ${typeof stderr === 'string' ? stderr : stderr.toString()}`,
+					`[EXEC] '${command} ${args.join(' ')}' \u2022 ${typeof stderr === 'string' ? stderr : stderr.toString()}`,
 				);
 			}
 
