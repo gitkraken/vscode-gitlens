@@ -260,7 +260,10 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			if (context.selectedBranchOrTag != null) {
+			if (
+				context.selectedBranchOrTag != null &&
+				(steps.isAtStep(Steps.PickCommits) || !state.references?.length)
+			) {
 				using step = steps.enterStep(Steps.PickCommits);
 
 				const rev = createRevisionRange(context.destination.ref, context.selectedBranchOrTag.ref, '..');
