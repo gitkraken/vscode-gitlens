@@ -99,10 +99,21 @@ node scripts/e2e-dev-inspect.mjs \
   --command gitlens.showWelcomeView --aria
 ```
 
+## WSL / SSH / Headless Linux
+
+If VS Code is not installed natively in your Linux environment, use `--download-vscode`
+to download a portable binary. Xvfb is started automatically if no `$DISPLAY` is set.
+
+```bash
+node scripts/e2e-dev-inspect.mjs --download-vscode --command gitlens.showHomeView --aria
+```
+
+Requires `xvfb` package for headless environments: `sudo apt-get install xvfb`
+
 ## How AI Agents Should Use This
 
 1. **Build the extension first**: `pnpm run build:extension`
-2. **Determine VS Code variant**: Ask the user whether they use VS Code Stable or Insiders, or check which is installed. Pass `--flavor insiders` if needed. Remember the user's preference in memory for future invocations.
+2. **Determine VS Code variant**: Ask the user whether they use VS Code Stable or Insiders, or check which is installed. Pass `--flavor insiders` if needed. If on WSL/SSH/headless Linux, use `--download-vscode` instead. Remember the user's preference in memory for future invocations.
 3. **Run the script** with appropriate actions — all output goes to stdout as structured text
 4. **Parse the output**:
    - `>>> query-frame: h1` → followed by element text content
@@ -136,6 +147,7 @@ node scripts/e2e-dev-inspect.mjs \
 | `--activation-wait <ms>`      | Wait time for GitLens activation (default 8000)  |
 | `--workspace <path>`          | Path to open as workspace                        |
 | `--vscode-path <path>`        | Path to VS Code Electron binary                  |
+| `--download-vscode`           | Download a portable VS Code binary (WSL/SSH/CI)  |
 | `--flavor <stable\|insiders>` | VS Code variant to auto-detect (default: stable) |
 | `--command <cmd>`             | Execute VS Code command                          |
 | `--aria`                      | Print full window aria snapshot                  |

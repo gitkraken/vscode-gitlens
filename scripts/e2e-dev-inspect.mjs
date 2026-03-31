@@ -25,6 +25,7 @@
  *   --activation-wait <ms>  Wait time for GitLens activation (default 8000)
  *   --workspace <path>       Path to open as workspace (default: extension root)
  *   --vscode-path <path>     Path to VS Code Electron binary (auto-detected)
+ *   --download-vscode        Download a portable VS Code binary (for WSL/SSH/CI)
  *   --flavor <stable|insiders>  VS Code variant to use (default: stable)
  *
  * Actions (executed in order, repeatable):
@@ -61,7 +62,8 @@
  *   # Keep open for manual inspection
  *   node scripts/e2e-dev-inspect.mjs --env dev --keep-open
  */
-import { existsSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -76,6 +78,7 @@ function parseArgs(argv) {
 		env: undefined,
 		withEvaluator: false,
 		keepOpen: false,
+		downloadVSCode: false,
 		settings: {},
 		wait: 3000,
 		activationWait: 8000,
@@ -103,6 +106,9 @@ function parseArgs(argv) {
 				break;
 			case '--keep-open':
 				opts.keepOpen = true;
+				break;
+			case '--download-vscode':
+				opts.downloadVSCode = true;
 				break;
 			case '--wait': {
 				const val = Number(requireArg(argv, ++i, '--wait'));
@@ -255,7 +261,9 @@ function findVSCode(explicit, flavor = 'stable') {
 	for (const c of candidates) {
 		if (existsSync(c)) return c;
 	}
-	throw new Error('Could not find VS Code. Provide --vscode-path or install VS Code.');
+	throw new Error(
+		'Could not find VS Code. Provide --vscode-path, install VS Code, or use --download-vscode to download a portable binary.',
+	);
 }
 
 // --- Default settings -------------------------------------------------------
@@ -273,6 +281,46 @@ const defaultSettings = {
 	'gitlens.outputLevel': 'debug',
 	'gitlens.telemetry.enabled': false,
 };
+
+// --- Display handling for headless Linux (WSL/SSH) --------------------------
+const XVFB_DISPLAY = ':99';
+let xvfbProcess;
+
+/**
+ * Ensures a display server is available for Electron on Linux.
+ * On non-Linux or when $DISPLAY is already set, this is a no-op.
+ * On headless Linux (WSL, SSH), starts Xvfb if available.
+ */
+function ensureDisplay() {
+	if (process.platform !== 'linux' || process.env.DISPLAY) {
+		return process.env.DISPLAY;
+	}
+
+	try {
+		execFileSync('which', ['Xvfb'], { stdio: 'ignore' });
+
+		// Check if Xvfb is already running on our display
+		try {
+			execFileSync('xdpyinfo', ['-display', XVFB_DISPLAY], { stdio: 'ignore' });
+			return XVFB_DISPLAY;
+		} catch {
+			// Not running, start it
+		}
+
+		xvfbProcess = spawn('Xvfb', [XVFB_DISPLAY, '-screen', '0', '1920x1080x24'], {
+			detached: true,
+			stdio: 'ignore',
+		});
+		xvfbProcess.unref();
+
+		// Give Xvfb time to start
+		execFileSync('sleep', ['0.5']);
+
+		return XVFB_DISPLAY;
+	} catch {
+		return undefined;
+	}
+}
 
 // --- Log searching ----------------------------------------------------------
 async function findLogs(dir, pattern, depth = 0) {
@@ -439,7 +487,16 @@ async function connectEvaluator(electronApp) {
 // --- Main -------------------------------------------------------------------
 async function main() {
 	const opts = parseArgs(process.argv);
-	const vscodePath = findVSCode(opts.vscodePath, opts.flavor);
+
+	let vscodePath;
+	if (opts.downloadVSCode) {
+		const { downloadAndUnzipVSCode } = await import('@vscode/test-electron/out/download.js');
+		console.log('Downloading portable VS Code...');
+		vscodePath = await downloadAndUnzipVSCode(opts.flavor === 'insiders' ? 'insiders' : 'stable');
+	} else {
+		vscodePath = findVSCode(opts.vscodePath, opts.flavor);
+	}
+
 	const { _electron } = await import('@playwright/test');
 
 	// Temp directories
@@ -495,15 +552,22 @@ async function main() {
 			}
 		}
 
+		const display = ensureDisplay();
+
 		const mode = opts.withEvaluator ? 'Test (with evaluator)' : 'Development';
 		console.log(`Launching VS Code in ${mode} mode...`);
 		console.log(`  binary: ${vscodePath}`);
+		if (display) console.log(`  display: ${display}`);
 		if (opts.env) console.log(`  gitkraken.env: "${opts.env}"`);
 
 		electronApp = await _electron.launch({
 			executablePath: vscodePath,
 			args: launchArgs,
-			env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined },
+			env: {
+				...process.env,
+				ELECTRON_RUN_AS_NODE: undefined,
+				...(display ? { DISPLAY: display } : {}),
+			},
 		});
 
 		const page = await electronApp.firstWindow();
