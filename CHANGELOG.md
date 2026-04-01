@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes an issue where VS Code would switch to the _Source Control_ sidebar and reveal the _GitLens_ view on every restart or project change ([#5082](https://github.com/gitkraken/vscode-gitlens/issues/5082))
 - Fixes the _Worktrees_ view showing a misleading 'upgrade your Git' message when opening a virtual GitHub repository ([#5056](https://github.com/gitkraken/vscode-gitlens/issues/5056))
 - Fixes provider id mismatch for cloud-connected self-hosted integrations ([#5031](https://github.com/gitkraken/vscode-gitlens/issues/5031))
 - Fixes an issue where the _Launchpad_ would fail to show any pull requests when one integration provider had an authentication failure — now shows partial results with an error indicator ([#4492](https://github.com/gitkraken/vscode-gitlens/issues/4492))
