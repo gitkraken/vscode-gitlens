@@ -810,7 +810,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	// ---- Progressive overview methods (skeleton → WIP → enrichment) ----
 
 	private async getOverviewBranches(
-		type?: 'active' | 'inactive',
+		type?: 'active' | 'inactive' | 'agents',
 		signal?: AbortSignal,
 	): Promise<GetOverviewBranchesResponse> {
 		if (this._discovering != null) {
@@ -830,6 +830,26 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const { branches, worktreesByBranch } = getSettledValue(branchesAndWorktreesResult)!;
 		const repository = getSettledValue(formatRepositoryResult)!;
+
+		// Agent branches: return only branches that have an active agent session
+		if (type === 'agents') {
+			const sessions = this.container.agentStatus?.sessions ?? [];
+			const agentBranchNames = new Set<string>();
+			for (const session of sessions) {
+				if (session.branch != null) {
+					agentBranchNames.add(session.branch);
+				}
+			}
+
+			const agentBranches: OverviewBranch[] = [];
+			for (const branch of branches) {
+				if (agentBranchNames.has(branch.name)) {
+					agentBranches.push(toOverviewBranch(branch, worktreesByBranch, false));
+				}
+			}
+
+			return { repository: repository, active: [], recent: agentBranches, stale: undefined };
+		}
 
 		const active: OverviewBranch[] = [];
 		const recent: OverviewBranch[] = [];

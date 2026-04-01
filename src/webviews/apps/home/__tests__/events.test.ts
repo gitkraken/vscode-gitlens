@@ -77,6 +77,7 @@ suite('setupSubscriptions Test Suite', () => {
 			onFocusAccount: () => {},
 			onSubscriptionChanged: () => {},
 			refreshLaunchpad: () => {},
+			refreshAgentOverview: () => {},
 		} satisfies SubscriptionActions;
 
 		const unsubscribe = await setupSubscriptions(state, services, actions);
@@ -155,6 +156,7 @@ suite('setupSubscriptions Test Suite', () => {
 			onFocusAccount: () => {},
 			onSubscriptionChanged: () => {},
 			refreshLaunchpad: () => {},
+			refreshAgentOverview: () => {},
 		} satisfies SubscriptionActions;
 
 		const unsubscribe = await setupSubscriptions(state, services, actions);

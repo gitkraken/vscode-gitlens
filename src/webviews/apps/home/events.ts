@@ -65,6 +65,8 @@ export interface SubscriptionActions {
 	onSubscriptionChanged(): void;
 	/** Called when launchpad data should be refreshed. */
 	refreshLaunchpad(): void;
+	/** Called when agent overview branches should be refreshed. */
+	refreshAgentOverview(): void;
 }
 
 /**
@@ -190,6 +192,7 @@ export function setupSubscriptions(
 		() =>
 			services.home.onAgentSessionsChanged((sessions: AgentSessionState[]) => {
 				state.home.agentSessions.set(sessions);
+				actions.refreshAgentOverview();
 			}),
 	]);
 }

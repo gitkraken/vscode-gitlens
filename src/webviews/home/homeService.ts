@@ -68,7 +68,10 @@ export interface HomeViewService {
 	/** Get branch skeletons (sync fields only) classified as active/recent/stale. Fast — no enrichment.
 	 * @param type - If specified, only returns the requested category. Omit for all categories.
 	 */
-	getOverviewBranches(type?: 'active' | 'inactive', signal?: AbortSignal): Promise<GetOverviewBranchesResponse>;
+	getOverviewBranches(
+		type?: 'active' | 'inactive' | 'agents',
+		signal?: AbortSignal,
+	): Promise<GetOverviewBranchesResponse>;
 
 	/** Get WIP status for specified branches. Lightweight — local git status only. */
 	getOverviewWip(branchIds: string[], signal?: AbortSignal): Promise<GetOverviewWipResponse>;
