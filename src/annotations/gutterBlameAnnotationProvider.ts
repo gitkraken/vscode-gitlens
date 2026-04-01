@@ -14,7 +14,8 @@ import { debug } from '@gitlens/utils/decorators/log.js';
 import { fromDisposables } from '@gitlens/utils/disposable.js';
 import { first } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { defer, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { TokenOptions } from '@gitlens/utils/string.js';
 import { getTokensFromTemplate } from '@gitlens/utils/string.js';
@@ -35,6 +36,35 @@ import { Decorations } from './fileAnnotationController.js';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
+/**
+ * Returns whether viewport-limited decoration rendering should be used.
+ * Files with few unique commits can decorate everything. Files with many
+ * unique commits (each producing a unique CSS style) need viewport limiting
+ * to avoid overwhelming VS Code's renderer.
+ */
+function useViewportRendering(lineCount: number, commitCount: number): boolean {
+	return lineCount > 1000 && commitCount > 500;
+}
+
+function getSpinnerPlaceholderRenderOptions(): DecorationOptions['renderOptions'] {
+	const spinnerColor =
+		window.activeColorTheme.kind === ColorThemeKind.Light ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)';
+	const spinnerSvg = encodeURIComponent(
+		`<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'><path fill='none' stroke='${spinnerColor}' stroke-linecap='round' stroke-width='3' d='M 4 12 A 8 8 0 1 1 12 20'><animateTransform attributeName='transform' type='rotate' from='0 12 12' to='360 12 12' dur='0.8s' repeatCount='indefinite'/></path></svg>`,
+	);
+	return {
+		before: {
+			contentText: '\u00a0',
+			textDecoration: toCssInjection({
+				'background-image': `url("data:image/svg+xml,${spinnerSvg}")`,
+				'background-repeat': 'no-repeat',
+				'background-position': '4px center',
+				'background-size': '14px 14px',
+			}),
+		},
+	};
+}
+
 export interface BlameFontOptions {
 	family: string;
 	size: number;
@@ -43,7 +73,10 @@ export interface BlameFontOptions {
 }
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
+	private _cancelledComputing: Deferred<never> | undefined;
+	private _flushViewport: (() => void) | undefined;
 	private _progressDisposable: Disposable | undefined;
+	private _scrollDisposable: Disposable | undefined;
 	private _cleared = false;
 
 	constructor(
@@ -57,27 +90,33 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 	override async clear(): Promise<void> {
 		this._cleared = true;
+		this._cancelledComputing?.cancel();
+		this._flushViewport = undefined;
 		this._progressDisposable?.dispose();
 		this._progressDisposable = undefined;
-
-		// Clear progressive decorations that were set directly via editor.setDecorations
-		// (not tracked in this.decorations until the final render)
-		try {
-			if (Decorations.gutterBlameAnnotation != null) {
-				this.editor.setDecorations(Decorations.gutterBlameAnnotation, []);
-			}
-			if (Decorations.gutterBlameCompact != null) {
-				this.editor.setDecorations(Decorations.gutterBlameCompact, []);
-			}
-		} catch {}
-
-		await super.clear();
+		this._scrollDisposable?.dispose();
+		this._scrollDisposable = undefined;
 
 		if (Decorations.gutterBlameHighlight != null) {
 			try {
 				this.editor.setDecorations(Decorations.gutterBlameHighlight, []);
 			} catch {}
 		}
+
+		await super.clear();
+	}
+
+	override restore(editor: TextEditor, recompute?: boolean): void {
+		if (this._flushViewport != null) {
+			// Viewport-rendered: update the editor ref and re-flush the viewport
+			// instead of replaying the (empty) stored decoration sets
+			if ((this.editor as any)._disposed !== false) {
+				this.editor = editor;
+			}
+			this._flushViewport();
+			return;
+		}
+		super.restore(editor, recompute);
 	}
 
 	@debug()
@@ -116,25 +155,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			const avatars = cfg.avatars;
 			const gravatarDefault = avatars ? configuration.get('defaultGravatarsStyle') : undefined;
 
-			// Placeholder: animated SVG spinner with theme-appropriate stroke color
-			const spinnerColor =
-				window.activeColorTheme.kind === ColorThemeKind.Light ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)';
-			const spinnerSvg = encodeURIComponent(
-				`<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'><path fill='none' stroke='${spinnerColor}' stroke-linecap='round' stroke-width='3' d='M 4 12 A 8 8 0 1 1 12 20'><animateTransform attributeName='transform' type='rotate' from='0 12 12' to='360 12 12' dur='0.8s' repeatCount='indefinite'/></path></svg>`,
-			);
-			const placeholderRenderOptions: DecorationOptions['renderOptions'] = {
-				before: {
-					contentText: '\u00a0' /* &nbsp; */,
-					textDecoration: toCssInjection({
-						'background-image': `url("data:image/svg+xml,${spinnerSvg}")`,
-						'background-repeat': 'no-repeat',
-						'background-position': '4px center',
-						'background-size': '14px 14px',
-					}),
-				},
-			};
+			const placeholderRenderOptions = getSpinnerPlaceholderRenderOptions();
 			const compactRenderOptions: DecorationOptions['renderOptions'] = {
-				before: { contentText: '\u00a0' /* &nbsp; */ },
+				before: { contentText: '\u00a0' },
 			};
 
 			// Pre-build full decoration array with placeholders
@@ -353,12 +376,16 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				onScroll,
 			);
 
-			// Wait for completion — final update
+			// Wait for completion — race against clear() cancellation so toggling
+			// blame off doesn't hang waiting for the git process to finish
+			this._cancelledComputing = defer<never>();
+			this._cancelledComputing.promise.catch(() => {});
+
 			let blame: GitBlame;
 			try {
-				blame = await progressive.completed;
+				blame = await Promise.race([progressive.completed, this._cancelledComputing.promise]);
 			} catch {
-				// Streaming failed — cleanup and fall through to non-progressive path
+				// Cancelled by clear() or streaming failed — cleanup either way
 				this._progressDisposable?.dispose();
 				this._progressDisposable = undefined;
 				return false;
@@ -451,10 +478,76 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				}
 			}
 
-			// Final render — single type, no type switching, no flash
-			const decorationSet = [{ decorationType: decorationType, rangesOrOptions: decorations }];
+			// Final render — split decorations into leader + compact
+			const splitDecorations = (): {
+				leaderDecorations: DecorationOptions[];
+				compactDecorations: DecorationOptions[];
+			} => {
+				const vpLeader: DecorationOptions[] = [];
+				const vpCompact: DecorationOptions[] = [];
+				for (let i = 0; i < lineCount; i++) {
+					const d = decorations[i];
+					if (d?.renderOptions == null) continue;
 
-			this.setDecorations(decorationSet);
+					const l = blame.lines[i];
+					if (l == null) continue;
+
+					const prevSha = blame.lines[i - 1]?.sha;
+					if (compact && prevSha === l.sha) {
+						vpCompact.push(d);
+					} else {
+						vpLeader.push(d);
+					}
+				}
+				return { leaderDecorations: vpLeader, compactDecorations: vpCompact };
+			};
+
+			// Split into leader + compact and set up rendering
+			const allSplit = splitDecorations();
+			const useVpRendering = useViewportRendering(lineCount, blame.commits.size);
+
+			let flushFinal: (() => void) | undefined;
+
+			if (!useVpRendering) {
+				// Small/simple file — send all decorations at once via base class
+				const decorationSets: {
+					decorationType: TextEditorDecorationType;
+					rangesOrOptions: DecorationOptions[];
+				}[] = [];
+				if (allSplit.leaderDecorations.length && Decorations.gutterBlameAnnotation != null) {
+					decorationSets.push({
+						decorationType: Decorations.gutterBlameAnnotation,
+						rangesOrOptions: allSplit.leaderDecorations,
+					});
+				}
+				if (allSplit.compactDecorations.length && Decorations.gutterBlameCompact != null) {
+					decorationSets.push({
+						decorationType: Decorations.gutterBlameCompact,
+						rangesOrOptions: allSplit.compactDecorations,
+					});
+				}
+				if (decorationSets.length) {
+					this.setDecorations(decorationSets);
+				}
+
+				// For avatar updates, re-send all via base class
+				flushFinal = () => this.setDecorations(decorationSets);
+			} else {
+				// Complex file — viewport-only rendering
+				const allLeader = new Array<DecorationOptions | undefined>(lineCount);
+				for (const d of allSplit.leaderDecorations) {
+					allLeader[d.range.start.line] = d;
+				}
+				const allCompact = new Array<DecorationOptions | undefined>(lineCount);
+				for (const d of allSplit.compactDecorations) {
+					allCompact[d.range.start.line] = d;
+				}
+
+				if (this._cleared) return false;
+
+				flushFinal = this.setupViewportRendering(allLeader, allCompact, lineCount);
+			}
+
 			sw?.stop({
 				suffix: ` to compute and apply gutter blame annotations (progressive); ${lineCount} lines, ${blame.commits.size} commits`,
 			});
@@ -464,6 +557,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				const applyAvatars = (): boolean => {
 					let applied = false;
 					for (let i = 0; i < lineCount; i++) {
+						const d = decorations[i];
+						if (d?.renderOptions == null) continue;
+
 						const l = blame.lines[i];
 						if (l == null) continue;
 
@@ -471,8 +567,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 						if (compact && prevSha === l.sha) continue;
 
 						const updated = commitDecorationCache.get(l.sha);
-						if (updated != null && updated !== decorations[i].renderOptions) {
-							decorations[i].renderOptions = updated;
+						if (updated != null && updated !== d.renderOptions) {
+							d.renderOptions = updated;
 							applied = true;
 						}
 					}
@@ -483,7 +579,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					if (this._cleared) return;
 
 					if (applyAvatars()) {
-						this.setDecorations(decorationSet);
+						flushFinal?.();
 					}
 				});
 			}
@@ -576,7 +672,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			if (cfg.compact && previousSha === l.sha) {
 				let compactOpts = compactRenderCache.get(l.sha);
 				if (compactOpts == null) {
-					compactOpts = { before: { contentText: '\u00a0' /* &nbsp; */ } };
+					compactOpts = { before: { contentText: '\u00a0' } };
 					if (computedHeatmap != null) {
 						applyHeatmap(
 							{ renderOptions: compactOpts } as Partial<DecorationOptions>,
@@ -654,22 +750,103 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			}
 		}
 
+		if (!useViewportRendering(lineCount, blame.commits.size)) {
+			// Small/simple file — send all decorations at once
+			const decorationSets: { decorationType: TextEditorDecorationType; rangesOrOptions: DecorationOptions[] }[] =
+				[];
+			if (leaderDecorations.length) {
+				decorationSets.push({
+					decorationType: Decorations.gutterBlameAnnotation,
+					rangesOrOptions: leaderDecorations,
+				});
+			}
+			if (compactDecorations.length && Decorations.gutterBlameCompact != null) {
+				decorationSets.push({
+					decorationType: Decorations.gutterBlameCompact,
+					rangesOrOptions: compactDecorations,
+				});
+			}
+			if (decorationSets.length) {
+				this.setDecorations(decorationSets);
+			}
+		} else {
+			// Complex file — viewport-only rendering to avoid overwhelming VS Code's
+			// renderer with thousands of unique per-instance decoration styles
+			const allLeader = new Array<DecorationOptions | undefined>(lineCount);
+			for (const d of leaderDecorations) {
+				allLeader[d.range.start.line] = d;
+			}
+			const allCompact = new Array<DecorationOptions | undefined>(lineCount);
+			for (const d of compactDecorations) {
+				allCompact[d.range.start.line] = d;
+			}
+
+			this.setupViewportRendering(allLeader, allCompact, lineCount);
+		}
+	}
+
+	/**
+	 * Sets up viewport-limited decoration rendering. Sends only the visible
+	 * lines + padding to VS Code and re-applies on scroll. Stores a
+	 * `_flushViewport` reference so `restore()` can re-apply after tab switch.
+	 */
+	private setupViewportRendering(
+		allLeader: (DecorationOptions | undefined)[],
+		allCompact: (DecorationOptions | undefined)[],
+		lineCount: number,
+	): () => void {
+		const flushViewport = (): void => {
+			const ranges = this.editor.visibleRanges;
+			if (!ranges.length) return;
+
+			const visibleLines = ranges.at(-1)!.end.line - ranges[0].start.line;
+			const padding = Math.max(visibleLines, 500);
+			const vpStart = Math.max(0, ranges[0].start.line - padding);
+			const vpEnd = Math.min(lineCount, ranges.at(-1)!.end.line + padding + 1);
+
+			const vpLeader: DecorationOptions[] = [];
+			const vpCompact: DecorationOptions[] = [];
+			for (let i = vpStart; i < vpEnd; i++) {
+				const ld = allLeader[i];
+				if (ld != null) {
+					vpLeader.push(ld);
+					continue;
+				}
+				const cd = allCompact[i];
+				if (cd != null) {
+					vpCompact.push(cd);
+				}
+			}
+
+			if (Decorations.gutterBlameAnnotation != null) {
+				this.editor.setDecorations(Decorations.gutterBlameAnnotation, vpLeader);
+			}
+			if (Decorations.gutterBlameCompact != null) {
+				this.editor.setDecorations(Decorations.gutterBlameCompact, vpCompact);
+			}
+		};
+
+		// Track types for base class clear()
 		const decorationSets: { decorationType: TextEditorDecorationType; rangesOrOptions: DecorationOptions[] }[] = [];
-		if (leaderDecorations.length) {
-			decorationSets.push({
-				decorationType: Decorations.gutterBlameAnnotation,
-				rangesOrOptions: leaderDecorations,
-			});
+		if (Decorations.gutterBlameAnnotation != null) {
+			decorationSets.push({ decorationType: Decorations.gutterBlameAnnotation, rangesOrOptions: [] });
 		}
-		if (compactDecorations.length) {
-			decorationSets.push({
-				decorationType: Decorations.gutterBlameCompact,
-				rangesOrOptions: compactDecorations,
-			});
+		if (Decorations.gutterBlameCompact != null) {
+			decorationSets.push({ decorationType: Decorations.gutterBlameCompact, rangesOrOptions: [] });
 		}
-		if (decorationSets.length) {
-			this.setDecorations(decorationSets);
-		}
+		this.decorations = decorationSets;
+
+		this._scrollDisposable?.dispose();
+		this._scrollDisposable = window.onDidChangeTextEditorVisibleRanges(e => {
+			if (e.textEditor === this.editor) {
+				flushViewport();
+			}
+		});
+
+		this._flushViewport = flushViewport;
+		flushViewport();
+
+		return flushViewport;
 	}
 
 	@debug({ args: false })

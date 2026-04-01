@@ -34,7 +34,7 @@ export type DidChangeStatusCallback = (e: { editor?: TextEditor; status?: Annota
 export abstract class AnnotationProviderBase<
 	TContext extends AnnotationContext = AnnotationContext,
 > implements Disposable {
-	private decorations: Decoration[] | undefined;
+	protected decorations: Decoration[] | undefined;
 	protected disposable: Disposable;
 	private _computing: Deferred<void> | undefined;
 
