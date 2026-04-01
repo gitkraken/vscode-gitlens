@@ -27,6 +27,48 @@ No tag: suggest the most recent (`git tag --sort=-creatordate | head -10`).
 4. **Check each user-facing commit** against `[Unreleased]` in CHANGELOG.md
 5. **Present summary**, confirm before creating issues or editing CHANGELOG
 
+## CHANGELOG Management
+
+Uses [Keep a Changelog](http://keepachangelog.com/) format under `[Unreleased]`.
+
+### Section Mapping
+
+| Change Type | Section    |
+| ----------- | ---------- |
+| Feature     | Added      |
+| Enhancement | Changed    |
+| Performance | Changed    |
+| Bugfix      | Fixed      |
+| Deprecation | Deprecated |
+| Removal     | Removed    |
+
+### Entry Format
+
+```markdown
+- [Verb] [description] ([#issue](url))
+```
+
+**Guidelines:**
+
+- Start with: "Adds", "Improves", "Changes", "Fixes", "Removes"
+- Use underscores for UI elements: `_Commit Graph_`, `_Home_ view`
+- Include issue reference if available
+- Be user-centric (what user sees, not code changes)
+
+**Example:**
+
+```markdown
+- Fixes an issue where the _Home_ view would not update when switching repositories ([#4717](https://github.com/gitkraken/vscode-gitlens/issues/4717))
+```
+
+### Detection
+
+Check `[Unreleased]` section for:
+
+- Issue number reference (if commit has linked issue)
+- Keywords from commit message
+- Feature/component names
+
 ## Impact Assessment
 
 | Impact | Criteria                                           |

@@ -20,6 +20,14 @@ Review code changes against GitLens coding standards and verify change completen
 - `impact`: impact completeness audit only (skip code review checklist)
 - `full`: both code review + impact audit
 
+## Review Priorities
+
+Review all changes for: correctness, matching user expectations, high performance (including proper caching and deferring of work), well-factored/structured/named code, minimal complexity, proper error handling and logging, comprehensive telemetry, and adherence to best practices. For webview changes, verify they are responsive, accessible, and work with VS Code theming.
+
+### Known Non-Issues (Do Not Flag)
+
+- `debugger;` statements — Webpack's production build automatically strips all `debugger` statements via the minimizer. They are intentional development aids and NOT a shipping concern. Do NOT flag them in reviews.
+
 ## Part 1: Code Review Checklist
 
 ### TypeScript & Imports
@@ -74,7 +82,7 @@ Review code changes against GitLens coding standards and verify change completen
 
 ### Documentation & Skills
 
-- [ ] Check if changes affect patterns documented in `AGENTS.md` — update if so
+- [ ] Check if changes affect patterns documented in `AGENTS.md`, `docs/architecture.md`, or `docs/coding-standards.md` — update if so
 - [ ] Check if any skills in `.claude/skills/` reference changed APIs, patterns, or file paths — update if so
 - [ ] CHANGELOG entry needed for user-facing changes
 

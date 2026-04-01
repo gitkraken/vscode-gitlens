@@ -132,3 +132,5 @@ await git.merge(branch, message?)
 pnpm run test -- --grep "FeatureName"           # Unit
 pnpm run test:e2e -- tests/e2e/specs/file.test.ts  # E2E
 ```
+
+For detailed test running patterns, output interpretation, and debugging: see `docs/testing.md`.

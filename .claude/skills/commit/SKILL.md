@@ -15,9 +15,10 @@ Create a well-formatted git commit following GitLens conventions.
 
 ## Commit Message Format
 
-- Third-person singular present tense: **Adds**, **Fixes**, **Improves**, **Updates**, **Removes**, **Refactors**
+- Use future-oriented manner, third-person singular present tense
+- Verbs: **Adds**, **Fixes**, **Improves**, **Updates**, **Removes**, **Refactors**, **Changes**
 - First line under 72 characters
-- Reference issues with `#123` syntax
+- Reference issues with `#123` syntax for auto-linking
 
 Examples:
 
@@ -32,10 +33,11 @@ Refactors git provider initialization
 
 1. **Check status**: `git status` (never use `-uall`)
 2. **Review changes**: `git diff --cached` and `git diff`
-3. **Stage files** — specific files, not `git add -A`
-4. **Generate message** if none provided — analyze changes, determine type, draft message, confirm with user
-5. **Commit** using HEREDOC format with Co-Authored-By trailer
-6. **Verify**: `git status` and `git log -1`
+3. **Check CHANGELOG**: If changes are user-facing, ensure they have a CHANGELOG entry (use `/audit-commits` for CHANGELOG format)
+4. **Stage files** — specific files, not `git add -A`
+5. **Generate message** if none provided — analyze changes, determine type, draft message, confirm with user
+6. **Commit** using HEREDOC format with Co-Authored-By trailer
+7. **Verify**: `git status` and `git log -1`
 
 ## Pre-commit Hook Failures
 

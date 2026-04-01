@@ -193,6 +193,10 @@ export const styles = css`
 `;
 ```
 
+## Accessibility
+
+For accessibility requirements when creating or modifying webview components, see `docs/accessibility.md`.
+
 ## Additional Steps
 
 7. **Webpack entry** — Add to `getWebviewsConfigs()` in `webpack.config.mjs`

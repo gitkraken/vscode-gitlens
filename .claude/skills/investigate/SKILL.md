@@ -83,6 +83,15 @@ Present findings and proposed fix. Wait for user confirmation before implementin
 - Do NOT propose disabling/removing a feature when asked to fix it
 - Do NOT suppress errors — fix the root cause or propagate properly
 
+### Common Misdiagnosis Patterns to Avoid
+
+1. **Blaming logging decorators for hangs**: When a method hangs, the issue is almost never in `@info()`/`@debug()`/`@trace()`. Check `@gate()` (promise never resolving) or the actual async operation first.
+2. **Confusing `@gate()` and `@sequentialize()`**: `@gate()` returns the SAME promise to concurrent callers. `@sequentialize()` QUEUES calls. These solve different problems.
+3. **Wrong error type handling**: Use the error's `.is()` static method with reason discriminator: `PushError.is(ex, 'noUpstream')`, not `instanceof` + `ex.message.includes(...)`.
+4. **Platform-specific bugs**: Something working in Node.js may fail in browser (and vice versa). Always check the `@env/` abstraction layer.
+5. **Scope/context bugs**: `getScopedLogger()` returns stale scope after `await` in browser. Capture the scope before the first `await`.
+6. **Suppressing errors instead of fixing them**: Do NOT silence errors by catching and ignoring them. Fix the root cause or propagate them properly (e.g., use `errors: throw` so catch blocks handle them).
+
 ## Decorator Reference
 
 Source files: `src/system/decorators/`
