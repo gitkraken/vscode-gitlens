@@ -487,6 +487,34 @@ suite('Blame Parser Test Suite', () => {
 		assert.strictEqual(result.lines[6]?.originalLine, 12, 'Third original line should be 12');
 	});
 
+	test('ignores encoding header line gracefully', () => {
+		// Git blame porcelain output can include `encoding <charset>` for non-UTF-8 commits.
+		// With --encoding=utf-8 the header won't appear, but the parser should not choke if it does.
+		const lines: string[] = [];
+		lines.push('abc1234abc1234abc1234abc1234abc1234abc123 1 1 1');
+		lines.push('author Alice');
+		lines.push('author-mail <alice@example.com>');
+		lines.push('author-time 1700000000');
+		lines.push('author-tz +0000');
+		lines.push('committer Alice');
+		lines.push('committer-mail <alice@example.com>');
+		lines.push('committer-time 1700000000');
+		lines.push('committer-tz +0000');
+		lines.push('summary Commit with encoding header');
+		lines.push('encoding ISO-8859-1');
+		lines.push('filename src/foo.ts');
+		const data = lines.join('\n');
+
+		const result = parseGitBlame(repoPath, data, undefined);
+
+		assert.ok(result, 'Should return a blame despite encoding header');
+		assert.strictEqual(result.commits.size, 1, 'Should have 1 commit');
+		const commit = result.commits.get('abc1234abc1234abc1234abc1234abc1234abc123');
+		assert.ok(commit, 'Should find the commit');
+		assert.strictEqual(commit.author.name, 'Alice', 'Should parse author correctly');
+		assert.ok(commit.summary.startsWith('Commit with encoding header'), 'Should parse summary correctly');
+	});
+
 	test('sets repoPath on returned blame', () => {
 		const data = blameBlock({
 			sha: 'abc1234abc1234abc1234abc1234abc1234abc123',

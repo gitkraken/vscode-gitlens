@@ -298,10 +298,10 @@ export class BlameGitSubProvider implements GitBlameSubProvider {
 		repoPath: string | undefined,
 		fileName: string,
 		options?: BlameArgOptions,
-	): Promise<{ root: string; file: string; params: string[]; stdin: string | undefined }> {
+	): Promise<{ root: string; file: string; params: string[]; stdin: string | Buffer | undefined }> {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
-		const params = ['blame', '--root', '--incremental'];
+		const params = ['blame', '--root', '--incremental', '--encoding=utf-8'];
 
 		if (options?.ignoreWhitespace) {
 			params.push('-w');
@@ -362,7 +362,7 @@ export class BlameGitSubProvider implements GitBlameSubProvider {
 			params.push('--ignore-revs-file', '.git-blame-ignore-revs');
 		}
 
-		let stdin: string | undefined;
+		let stdin: string | Buffer | undefined;
 		if (options?.contents != null) {
 			// Pipe the blame contents to stdin
 			params.push('--contents', '-');
@@ -371,8 +371,11 @@ export class BlameGitSubProvider implements GitBlameSubProvider {
 			if (isUncommittedStaged(options.ref)) {
 				// Pipe the blame contents to stdin
 				params.push('--contents', '-');
-				// Get the file contents for the staged version using `:`
-				stdin = await this.provider.revision.getRevisionContentText(repoPath, fileName, ':');
+				// Get raw bytes to avoid corrupting non-UTF-8 file content during the roundtrip
+				const data = await this.provider.revision.getRevisionContent(root, file, ':');
+				if (data != null) {
+					stdin = Buffer.from(data);
+				}
 			} else {
 				params.push(options.ref);
 			}

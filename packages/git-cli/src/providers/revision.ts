@@ -70,11 +70,6 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return this.showContentCore<Buffer>(root, relativePath, rev, { encoding: 'buffer', errors: 'throw' });
 	}
 
-	/** Returns file content at a given revision as a string. Used internally by blame. */
-	getRevisionContentText(repoPath: string | undefined, path: string, rev: string): Promise<string | undefined> {
-		return this.showContentCore<string>(repoPath, path, rev);
-	}
-
 	@debug()
 	async getSubmoduleHead(repoPath: string, submodulePath: string): Promise<string | undefined> {
 		// Verify the path is a submodule (gitlink commit) in the parent tree, not just a regular directory

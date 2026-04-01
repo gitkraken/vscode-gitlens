@@ -744,7 +744,7 @@ export class Git {
 		const start = hrtime();
 		const streamId = uniqueCounterForStream.next();
 
-		const { configs, stdin, stdinEncoding, cancellation, ...opts } = options;
+		const { configs, stdin, stdinEncoding, cancellation, encoding, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
 
 		const spawnOpts: SpawnOptions = {
@@ -852,9 +852,28 @@ export class Git {
 
 			try {
 				if (proc.stdout) {
-					proc.stdout.setEncoding('utf8');
-					for await (const chunk of proc.stdout) {
-						yield chunk;
+					const enc = encoding ?? 'utf8';
+					if (enc === 'utf8' || enc === 'binary' || enc === 'buffer') {
+						proc.stdout.setEncoding(enc === 'buffer' ? 'utf8' : enc);
+						for await (const chunk of proc.stdout) {
+							yield chunk;
+						}
+					} else {
+						// Non-UTF-8 encoding: collect raw buffers and decode at the end.
+						// Streaming decode is unsafe because chunk boundaries can split
+						// multi-byte sequences in the source encoding.
+						const decode = this.options.decode;
+						if (decode == null) {
+							throw new Error(
+								`Non-UTF-8 encoding '${enc}' requested for stream but no decode function configured`,
+							);
+						}
+
+						const buffers: Buffer[] = [];
+						for await (const chunk of proc.stdout) {
+							buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+						}
+						yield await decode(Buffer.concat(buffers as ReadonlyArray<Uint8Array>), { encoding: enc });
 					}
 				}
 			} finally {

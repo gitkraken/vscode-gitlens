@@ -70,6 +70,7 @@ export interface GitSpawnOptions {
 	// Below options comes from SpawnOptions
 	cwd?: string;
 	readonly env?: Record<string, string | undefined>;
+	readonly encoding?: BufferEncoding | 'buffer' | string;
 	readonly stdin?: string | Buffer;
 	readonly stdinEncoding?: string;
 	// Set to 0 to disable
