@@ -11,6 +11,7 @@ import type {
 import type { HomeState } from '../../../home/state.js';
 import { homeStateContext } from '../../../home/state.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
+import { selectStyles } from './branch-threshold-filter.js';
 import type { AgentOverviewState, InactiveOverviewState } from './overviewState.js';
 import { agentOverviewStateContext, inactiveOverviewStateContext } from './overviewState.js';
 import '../../../shared/components/skeleton-loader.js';
@@ -19,11 +20,13 @@ import './branch-section.js';
 export const overviewTagName = 'gl-overview';
 
 type OverviewTab = 'recent' | 'agents';
+type AgentFilter = 'workspace' | 'all';
 
 @customElement(overviewTagName)
 export class GlOverview extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
+		selectStyles,
 		css`
 			:host {
 				display: block;
@@ -71,6 +74,9 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	@state()
 	private _activeTab: OverviewTab = 'recent';
+
+	@state()
+	private _agentFilter: AgentFilter = 'workspace';
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -310,11 +316,40 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	private renderAgentsTabComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
 		const { repository } = overview;
+		const branches = this.filterAgentBranches(overview.recent);
 		return html`
 			<gl-section ?loading=${isFetching}>
-				${this.renderTabs()} ${this.renderBranchCards(overview.recent, repository.path)}
+				${this.renderTabs()}
+				<select
+					slot="heading-actions"
+					class="select"
+					.value=${this._agentFilter}
+					@change=${this.onAgentFilterChange}
+				>
+					<option value="workspace" ?selected=${this._agentFilter === 'workspace'}>workspace</option>
+					<option value="all" ?selected=${this._agentFilter === 'all'}>all</option>
+				</select>
+				${this.renderBranchCards(branches, repository.path)}
 			</gl-section>
 		`;
+	}
+
+	private readonly onAgentFilterChange = (e: Event) => {
+		this._agentFilter = (e.target as HTMLSelectElement).value as AgentFilter;
+	};
+
+	private filterAgentBranches(branches: GetOverviewBranch[]): GetOverviewBranch[] {
+		if (this._agentFilter === 'all') return branches;
+
+		const sessions = this._homeCtx.agentSessions.get() ?? [];
+		const workspaceBranches = new Set<string>();
+		for (const session of sessions) {
+			if (session.branch != null && session.workspacePath != null) {
+				workspaceBranches.add(session.branch);
+			}
+		}
+
+		return branches.filter(b => workspaceBranches.has(b.name));
 	}
 
 	// ── Shared ──
