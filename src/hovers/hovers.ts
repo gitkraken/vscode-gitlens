@@ -1,5 +1,6 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
+import type { GitCommitLine } from '@gitlens/git/models/commit.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitLineDiff, ParsedGitDiffHunk } from '@gitlens/git/models/diff.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -62,6 +63,7 @@ export async function changesMessage(
 	editorLine: number, // 0-based, Git is 1-based
 	document: TextDocument,
 	sourceName: Sources,
+	blameLine?: GitCommitLine,
 ): Promise<MarkdownString | undefined> {
 	const documentRev = uri.sha;
 
@@ -71,7 +73,8 @@ export async function changesMessage(
 		if (commit.file == null) return undefined;
 
 		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
+		// Use the pre-resolved blame line when available (correctly remapped for dirty blame)
+		const commitLine = blameLine ?? commit.lines.find(l => l.line === line) ?? commit.lines[0];
 
 		// TODO: Figure out how to optimize this
 		let ref;

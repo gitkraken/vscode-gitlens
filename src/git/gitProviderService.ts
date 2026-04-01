@@ -15,9 +15,14 @@ import type { CachedGitTypes, UriScopedCachedGitTypes } from '@gitlens/git/cache
 import { Cache } from '@gitlens/git/cache.js';
 import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '@gitlens/git/errors.js';
 import type { GitBlame, GitBlameLine, ProgressiveGitBlame } from '@gitlens/git/models/blame.js';
+import type { GitCommitLine } from '@gitlens/git/models/commit.js';
+import { GitCommit, GitCommitIdentity } from '@gitlens/git/models/commit.js';
 import type { GitLineDiff, ParsedGitDiffHunks } from '@gitlens/git/models/diff.js';
+import { GitFileChange } from '@gitlens/git/models/fileChange.js';
+import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type {
 	GitProviderDescriptor,
 	GitProviderId,
@@ -64,6 +69,7 @@ import { setContext } from '../system/-webview/context.js';
 import { getBestPath, splitPath } from '../system/-webview/path.js';
 import { rangeToLineRange } from '../system/-webview/vscode/range.js';
 import { gate } from '../system/decorators/gate.js';
+import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
 import type { GlGitProvider, ScmRepository } from './gitProvider.js';
 import { GitRepositoryService } from './gitRepositoryService.js';
 import type { GitUri } from './gitUri.js';
@@ -76,6 +82,7 @@ import {
 	resolveLocalInfoFromRemoteUri,
 } from './utils/-webview/remote.utils.js';
 import { sortRepositories } from './utils/-webview/sorting.js';
+import { BlameSnapshot } from './utils/blameSnapshot.js';
 
 const emptyArray: readonly any[] = Object.freeze([]);
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
@@ -1545,17 +1552,45 @@ export class GitProviderService implements UnifiedDisposable {
 	 * @param document Optional TextDocument to blame the contents of if dirty
 	 */
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
-		if (document?.isDirty) return this.getBlameContents(uri, document.getText());
+		// Check for snapshot first — handles both dirty and recently-saved clean documents.
+		// After auto-save, the document is clean but the snapshot holds the correct blame,
+		// so we can return it instantly without spawning a git process.
+		let doc: TrackedGitDocument | undefined;
+		if (document != null) {
+			doc = await this.container.documentTracker.getOrAdd(document);
+			if (doc?.blameSnapshot != null) {
+				if (document.isDirty) {
+					const dirtyBlame = doc.blameSnapshot.computeDirtyBlame(document.getText(), document.version);
+					this.ensureUncommittedBlameCommit(uri, dirtyBlame);
+					return dirtyBlame;
+				}
+				// Ensure uncommitted commit exists for updated snapshots that may contain uncommitted lines from a previous dirty→save cycle
+				this.ensureUncommittedBlameCommit(uri, doc.blameSnapshot.blame);
+				return doc.blameSnapshot.blame;
+			}
+			if (document.isDirty) return this.getBlameContents(uri, document.getText());
+		}
 
 		const { provider } = this.getProvider(uri);
 		if (!(await provider.isTracked(uri))) return undefined;
 
 		const [path, root] = splitPath(uri, uri.repoPath);
-		const blame = this._gitService.forRepo(root)?.blame;
-		if (blame == null) return undefined;
+		const blameProvider = this._gitService.forRepo(root)?.blame;
+		if (blameProvider == null) return undefined;
 
 		try {
-			return await blame.getBlame(path, uri.sha, undefined, this.getBlameOptions());
+			const start = Date.now();
+			const blame = await blameProvider.getBlame(path, uri.sha, undefined, this.getBlameOptions());
+
+			// Create snapshot so it's available for the very next call.
+			// The slow HEAD-content fetch (for HEAD-anchored baselines) runs in the background.
+			if (blame != null && uri.sha == null && doc != null && doc.blameSnapshot == null) {
+				doc.lastBlameDuration = Date.now() - start;
+				doc.blameSnapshot = new BlameSnapshot(blame, document!.getText());
+				void this.upgradeBlameSnapshotToHead(doc, blame, document!, root, path);
+			}
+
+			return blame;
 		} catch (ex) {
 			this.handleBlameError(ex);
 			return undefined;
@@ -1570,6 +1605,16 @@ export class GitProviderService implements UnifiedDisposable {
 		uri: GitUri,
 		document?: TextDocument | undefined,
 	): Promise<ProgressiveGitBlame | undefined> {
+		// If a snapshot exists, skip progressive blame — the snapshot serves blame instantly
+		// without spawning a git process. This prevents auto-save thrashing when gutter blame
+		// is active with preserveWhileEditing (restore with recompute=true).
+		if (document != null) {
+			const doc = await this.container.documentTracker.getOrAdd(document);
+			if (doc?.blameSnapshot != null) {
+				return undefined;
+			}
+		}
+
 		// Dirty documents go through the existing synchronous blame path (no streaming benefit)
 		if (document?.isDirty) return undefined;
 
@@ -1624,27 +1669,55 @@ export class GitProviderService implements UnifiedDisposable {
 		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		if (document?.isDirty) return this.getBlameForLineContents(uri, editorLine, document.getText(), options);
+		if (document != null) {
+			const doc = await this.container.documentTracker.getOrAdd(document);
+			if (doc?.blameSnapshot != null) {
+				if (document.isDirty) {
+					// Try in-memory dirty blame first (Tier 3: per-line, then Tier 4: full diff)
+
+					// Tier 3: fast per-line mapping
+					const lineText = document.lineAt(editorLine).text;
+					const result = doc.blameSnapshot.getBlameForDirtyLine(editorLine, lineText);
+					if (result != null) {
+						const commit = doc.blameSnapshot.blame.commits.get(result.sha);
+						if (commit != null) {
+							const author = doc.blameSnapshot.blame.authors.get(commit.author.name);
+							return {
+								author: author ? { ...author, lineCount: commit.lines.length } : undefined,
+								commit: commit,
+								line: result,
+							};
+						}
+						// Uncommitted line from Tier 3
+						if (result.sha === uncommitted) {
+							const uncommittedCommit = this.ensureUncommittedBlameCommit(uri, doc.blameSnapshot.blame);
+							return {
+								author: { name: 'You', lineCount: 0, current: true },
+								commit: uncommittedCommit,
+								line: result,
+							};
+						}
+					}
+
+					// Tier 4: full line-level diff fallback
+					const dirtyBlame = doc.blameSnapshot.computeDirtyBlame(document.getText(), document.version);
+					this.ensureUncommittedBlameCommit(uri, dirtyBlame);
+					return this.resolveBlameLineAt(dirtyBlame, editorLine);
+				}
+
+				// Clean with valid snapshot — use snapshot blame directly (no git process)
+				// Ensure uncommitted commit exists for updated snapshots
+				this.ensureUncommittedBlameCommit(uri, doc.blameSnapshot.blame);
+				return this.resolveBlameLineAt(doc.blameSnapshot.blame, editorLine);
+			}
+			if (document.isDirty) return this.getBlameForLineContents(uri, editorLine, document.getText(), options);
+		}
 
 		if (!options?.forceSingleLine) {
 			const blame = await this.getBlame(uri, document);
 			if (blame == null) return undefined;
 
-			let blameLine = blame.lines[editorLine];
-			if (blameLine == null) {
-				if (blame.lines.length !== editorLine) return undefined;
-				blameLine = blame.lines[editorLine - 1];
-			}
-
-			const commit = blame.commits.get(blameLine.sha);
-			if (commit == null) return undefined;
-
-			const author = blame.authors.get(commit.author.name)!;
-			return {
-				author: { ...author, lineCount: commit.lines.length },
-				commit: commit,
-				line: blameLine,
-			};
+			return this.resolveBlameLineAt(blame, editorLine);
 		}
 
 		const { provider } = this.getProvider(uri);
@@ -1746,12 +1819,109 @@ export class GitProviderService implements UnifiedDisposable {
 		};
 	}
 
+	/** Resolve a blame line at the given editor line (0-based), handling the off-by-one edge case at EOF */
+	private resolveBlameLineAt(
+		blame: GitBlame,
+		editorLineOrCommitLine: number | GitCommitLine,
+	): GitBlameLine | undefined {
+		let blameLine: GitCommitLine | undefined;
+		if (typeof editorLineOrCommitLine === 'number') {
+			blameLine = blame.lines[editorLineOrCommitLine];
+			if (blameLine == null) {
+				if (blame.lines.length !== editorLineOrCommitLine) return undefined;
+				blameLine = blame.lines[editorLineOrCommitLine - 1];
+			}
+		} else {
+			blameLine = editorLineOrCommitLine;
+		}
+
+		const commit = blame.commits.get(blameLine.sha);
+		if (commit == null) return undefined;
+
+		const author = blame.authors.get(commit.author.name);
+		return {
+			author: author ? { ...author, lineCount: commit.lines.length } : undefined,
+			commit: commit,
+			line: blameLine,
+		};
+	}
+
 	private handleBlameError(ex: unknown): void {
 		if (ex instanceof BlameIgnoreRevsFileError || ex instanceof BlameIgnoreRevsFileBadRevisionError) {
 			void showBlameInvalidIgnoreRevsFileWarningMessage(ex);
 		} else {
 			Logger.error(ex);
 		}
+	}
+
+	/**
+	 * Upgrade a basic snapshot to a HEAD-anchored snapshot in the background.
+	 * This allows restored-line attribution (lines edited back to committed content
+	 * get the original commit, not "uncommitted").
+	 */
+	private async upgradeBlameSnapshotToHead(
+		doc: TrackedGitDocument,
+		blame: GitBlame,
+		document: TextDocument,
+		root: string,
+		path: string,
+	): Promise<void> {
+		try {
+			const versionBefore = document.version;
+
+			let headBytes: Uint8Array | undefined;
+			try {
+				headBytes = await this._gitService.forRepo(root)?.revision?.getRevisionContent('HEAD', path);
+			} catch {
+				// HEAD content fetch failed (unborn branch, etc.) — keep basic snapshot
+				return;
+			}
+			if (headBytes == null) return;
+
+			// Abort if the document changed while we were fetching HEAD content
+			if (document.version !== versionBefore) return;
+
+			const encoding = getEncoding(document.uri);
+			const headContent =
+				encoding === 'utf8'
+					? new TextDecoder().decode(headBytes)
+					: await workspace.decode(headBytes, { encoding: encoding });
+			const docText = document.getText();
+
+			// Only upgrade if HEAD differs from working tree (otherwise basic snapshot is fine)
+			if (headContent !== docText) {
+				doc.blameSnapshot = BlameSnapshot.fromHead(blame, docText, headContent);
+			}
+		} catch (ex) {
+			Logger.error(ex, 'GitProviderService', 'Failed to upgrade blame snapshot to HEAD');
+		}
+	}
+
+	/** Ensure the blame has a synthetic uncommitted commit (no-op if already present) */
+	private ensureUncommittedBlameCommit(uri: GitUri, blame: GitBlame): GitCommit {
+		let commit = blame.commits.get(uncommitted);
+		if (commit != null) return commit;
+
+		const now = new Date();
+		const relativePath = this.getRelativePath(uri, blame.repoPath);
+		commit = new GitCommit(
+			blame.repoPath,
+			uncommitted,
+			new GitCommitIdentity('You', undefined, now, undefined, true),
+			new GitCommitIdentity('You', undefined, now, undefined, true),
+			'Uncommitted changes',
+			[],
+			undefined,
+			{
+				files: undefined,
+				filtered: {
+					files: [new GitFileChange(blame.repoPath, relativePath, GitFileIndexStatus.Modified, uri)],
+					pathspec: relativePath,
+				},
+			},
+		);
+		blame.commits.set(uncommitted, commit);
+		return commit;
 	}
 
 	@debug()

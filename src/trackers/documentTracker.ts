@@ -212,6 +212,12 @@ export class GitDocumentTracker implements Disposable {
 		if (docPromise == null) return;
 
 		const doc = await docPromise;
+
+		// Record content changes for in-memory dirty blame (before refresh)
+		if (e.contentChanges.length > 0) {
+			doc.recordContentChanges(e.contentChanges);
+		}
+
 		doc.refresh('changed');
 
 		const dirty = e.document.isDirty;
@@ -252,6 +258,17 @@ export class GitDocumentTracker implements Disposable {
 
 		const doc = await docPromise;
 		doc.refresh('saved');
+
+		// Detect dirty → clean transition on save. VS Code doesn't fire onDidChangeTextDocument
+		// for saves, so the dirty state change is never detected via onTextDocumentChangedCore.
+		// Without this, LineTracker stays suspended after auto-save until the user switches editors.
+		if (doc.dirty && !document.isDirty) {
+			doc.dirty = false;
+			const editor = window.activeTextEditor;
+			if (editor?.document === document) {
+				this._onDidChangeDirtyState.fire({ editor: editor, document: doc, dirty: false });
+			}
+		}
 	}
 
 	private onVisibleTextEditorsChanged(editors: readonly TextEditor[]) {

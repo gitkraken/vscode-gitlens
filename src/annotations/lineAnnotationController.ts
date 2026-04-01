@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, DecorationOptions, TextEditor, TextEditorDecorationType } from 'vscode';
-import { CancellationTokenSource, DecorationRangeBehavior, Disposable, Range, window } from 'vscode';
+import { CancellationTokenSource, Disposable, Range, window } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { debounce } from '@gitlens/utils/debounce.js';
@@ -26,7 +26,6 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 		margin: '0 0 0 3em',
 		textDecoration: 'none',
 	},
-	rangeBehavior: DecorationRangeBehavior.OpenOpen,
 });
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
@@ -123,12 +122,32 @@ export class LineAnnotationController implements Disposable {
 		}),
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
-		if (!e.pending && e.selections !== undefined) {
-			void this.refresh(e.editor);
-
+		// Editing event — user is typing on the current line.
+		// Clear decorations so annotations don't interfere with editing.
+		// They'll reappear when the cursor moves to a different line.
+		if (e.editing) {
+			this.clearAnnotations(e.editor);
 			return;
 		}
 
+		// Real event with blame data ready — refresh decorations
+		if (!e.pending && e.selections != null) {
+			void this.refresh(e.editor);
+			return;
+		}
+
+		// Pending event — cursor moved, blame data not ready yet.
+		// Clear stale decorations so old blame doesn't "stick" on the wrong line,
+		// but DON'T cancel in-flight work — let it complete or detect staleness.
+		if (e.pending) {
+			if (this._editor !== e.editor && this._editor != null) {
+				this.clearAnnotations(this._editor);
+			}
+			this.clearAnnotations(e.editor);
+			return;
+		}
+
+		// No selections / suspended / error — full clear including work cancellation
 		this.clear(e.editor);
 	}
 
@@ -195,6 +214,7 @@ export class LineAnnotationController implements Disposable {
 		const scope = getScopedLogger();
 
 		const selections = this.container.lineTracker.selections;
+		const selectionsVersion = this.container.lineTracker.selectionsVersion;
 		if (editor == null || selections == null || !isTrackableTextEditor(editor)) {
 			scope?.addExitInfo('Skipped because there is no valid editor or no valid selections');
 
@@ -217,9 +237,17 @@ export class LineAnnotationController implements Disposable {
 			return;
 		}
 
+		// Don't show annotations while actively editing the current line
+		if (this.container.lineTracker.isEditing) {
+			scope?.addExitInfo('Skipped because the user is actively editing');
+
+			this.clearAnnotations(editor);
+			return;
+		}
+
 		const trackedDocument = await this.container.documentTracker.getOrAdd(editor.document);
 		const status = await trackedDocument?.getStatus();
-		if (!status?.blameable && this.suspended) {
+		if (!status?.blameable || this.suspended) {
 			scope?.addExitInfo(
 				`Skipped because the ${this.suspended ? 'controller is suspended' : 'document is not blameable'}`,
 			);
@@ -229,7 +257,7 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		// Make sure the editor hasn't died since the await above and that we are still on the same line(s)
-		if (editor.document == null || !this.container.lineTracker.includes(selections)) {
+		if (editor.document == null || selectionsVersion !== this.container.lineTracker.selectionsVersion) {
 			scope?.addExitInfo(
 				`Skipped because the ${
 					editor.document == null
@@ -237,6 +265,7 @@ export class LineAnnotationController implements Disposable {
 						: `selection=${selections.map(s => `[${s.anchor}-${s.active}]`).join()} are no longer current`
 				}`,
 			);
+			this.clearAnnotations(editor);
 			return;
 		}
 
@@ -398,7 +427,10 @@ export class LineAnnotationController implements Disposable {
 			...commitPromises.values(),
 		]);
 
-		if (cancellation.isCancellationRequested) return;
+		if (cancellation.isCancellationRequested) {
+			this.clearAnnotations(editor);
+			return;
+		}
 
 		await updateDecorations(this.container, editor, getSettledValue(getBranchAndTagTipsResult), prsResult, 100);
 	}

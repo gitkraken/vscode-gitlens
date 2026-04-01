@@ -57,8 +57,8 @@ export function gate<T extends (...args: any[]) => any>(
 					return originalPromise;
 				}
 
-				// Apply timeout if configured - this prevents indefinite hangs
-				if (timeout != null && timeout > 0) {
+				if (timeout > 0) {
+					// Apply timeout if configured - this prevents indefinite hangs
 					const timeoutPromise = new Promise((resolve, reject) => {
 						const timeoutId = setTimeout(() => {
 							Logger.warn(`[gate] ${key} timeout after ${timeout}ms, forcing gate clear`, `prop=${prop}`);

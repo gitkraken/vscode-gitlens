@@ -117,9 +117,15 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
 		let editorLine = position.line;
-		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
-		editorLine = commitLine.originalLine - 1;
+		// Use the pre-resolved blame line from the line tracker (correctly remapped for dirty blame)
+		// instead of commit.lines.find() which has stale line numbers after edits shift positions
+		const commitLine = lineState?.commitLine;
+		if (commitLine != null) {
+			editorLine = commitLine.originalLine - 1;
+		} else {
+			const line = editorLine + 1;
+			editorLine = (commit.lines.find(l => l.line === line) ?? commit.lines[0]).originalLine - 1;
+		}
 
 		const trackedDocument = await this.container.documentTracker.get(document);
 		if (trackedDocument == null || token.isCancellationRequested) return undefined;
@@ -188,6 +194,7 @@ export class LineHoverController implements Disposable {
 			position.line,
 			trackedDocument.document,
 			'editor:hover',
+			lineState?.commitLine,
 		);
 		if (message == null) return undefined;
 

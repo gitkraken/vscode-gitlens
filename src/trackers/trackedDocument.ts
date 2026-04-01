@@ -1,10 +1,11 @@
-import type { Disposable, TextDocument } from 'vscode';
+import type { Disposable, TextDocument, TextDocumentContentChangeEvent } from 'vscode';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { logName, trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
+import type { BlameSnapshot } from '../git/utils/blameSnapshot.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { isActiveTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents.js';
 import { getOpenTextEditorIfVisible } from '../system/-webview/vscode/editors.js';
@@ -32,11 +33,17 @@ export class TrackedGitDocument implements Disposable {
 		return doc;
 	}
 
+	/** Baseline for in-memory dirty blame computation (no git process needed) */
+	blameSnapshot: BlameSnapshot | undefined;
+	/** Duration (ms) of the last fresh git blame for this document, used to throttle resets */
+	lastBlameDuration = 0;
+
 	private _disposable: Disposable | undefined;
 	private _disposed: boolean = false;
 	private _tracked: boolean = false;
 	private _pendingUpdates: { reason: string; forceBlameChange?: boolean; forceDirtyIdle?: boolean } | undefined;
-	private _updateDebounced: Deferrable<TrackedGitDocument['update']> | undefined;
+	private _updateDebounced: Deferrable<TrackedGitDocument['updateCore']> | undefined;
+	private _updateInFlight: Promise<void> | undefined;
 	private _uri!: GitUri;
 
 	private constructor(
@@ -48,8 +55,14 @@ export class TrackedGitDocument implements Disposable {
 	) {}
 
 	dispose(): void {
+		this.blameSnapshot = undefined;
 		this._disposed = true;
 		this._disposable?.dispose();
+	}
+
+	/** Record content changes for in-memory dirty blame incremental tracking */
+	recordContentChanges(contentChanges: readonly TextDocumentContentChangeEvent[]): void {
+		this.blameSnapshot?.recordContentChanges(contentChanges);
 	}
 
 	private _loading = false;
@@ -99,6 +112,8 @@ export class TrackedGitDocument implements Disposable {
 	async getStatus(): Promise<TrackedGitDocumentStatus> {
 		if (this._pendingUpdates != null) {
 			await this.update();
+		} else if (this._updateInFlight != null) {
+			await this._updateInFlight;
 		}
 		return {
 			blameable: this.blameable,
@@ -120,12 +135,32 @@ export class TrackedGitDocument implements Disposable {
 
 		switch (reason) {
 			case 'changed':
-				// Pending update here?
+				// Don't clear blame cache on edits — the in-memory dirty blame (BlameSnapshot)
+				// handles dirty content without needing to re-run git blame.
 				return;
 			case 'saved':
-				this._pendingUpdates = { ...this._pendingUpdates, reason: reason, forceBlameChange: true };
+				// Update on save, then check if the snapshot has drifted too far
+				// or is too stale to trust — if so, discard and force a fresh git blame.
+				if (this.blameSnapshot != null) {
+					try {
+						this.blameSnapshot = this.blameSnapshot.update(this.document.getText(), this.document.version);
+						if (this.blameSnapshot.shouldReset(this.lastBlameDuration)) {
+							this.blameSnapshot = undefined;
+						}
+					} catch (ex) {
+						Logger.error(ex, 'TrackedGitDocument', 'Failed to update snapshot on save');
+						this.blameSnapshot = undefined;
+					}
+				}
+				// Don't force blame change if we have a valid baseline — the blame data
+				// is already correct and a full refresh would cause auto-save thrashing.
+				if (this.blameSnapshot == null) {
+					this._pendingUpdates = { ...this._pendingUpdates, reason: reason, forceBlameChange: true };
+				}
 				break;
 			case 'repositoryChanged':
+				// Full reset on repository changes — git state changed externally
+				this.blameSnapshot = undefined;
 				this._pendingUpdates = { ...this._pendingUpdates, reason: reason };
 				break;
 		}
@@ -134,7 +169,7 @@ export class TrackedGitDocument implements Disposable {
 		if (isActiveTextDocument(this.document) && reason !== 'visible') {
 			void this.update();
 		} else if (isVisibleTextDocument(this.document)) {
-			this._updateDebounced ??= debounce(this.update.bind(this), 100);
+			this._updateDebounced ??= debounce(this.updateCore.bind(this), 100);
 			void this._updateDebounced();
 		}
 	}
@@ -147,8 +182,19 @@ export class TrackedGitDocument implements Disposable {
 		this._forceDirtyStateChangeOnNextDocumentChange = true;
 	}
 
+	private update(): Promise<void> {
+		const p = this.updateCore();
+		this._updateInFlight = p;
+		void p.finally(() => {
+			if (this._updateInFlight === p) {
+				this._updateInFlight = undefined;
+			}
+		});
+		return p;
+	}
+
 	@trace()
-	private async update(): Promise<void> {
+	private async updateCore(): Promise<void> {
 		const updates = this._pendingUpdates;
 		this._pendingUpdates = undefined;
 
