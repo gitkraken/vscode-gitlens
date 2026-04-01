@@ -11,7 +11,6 @@ import type {
 import type { HomeState } from '../../../home/state.js';
 import { homeStateContext } from '../../../home/state.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
-import { selectStyles } from './branch-threshold-filter.js';
 import type { AgentOverviewState, InactiveOverviewState } from './overviewState.js';
 import { agentOverviewStateContext, inactiveOverviewStateContext } from './overviewState.js';
 import '../../../shared/components/skeleton-loader.js';
@@ -25,11 +24,37 @@ type OverviewTab = 'recent' | 'agents';
 export class GlOverview extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
-		selectStyles,
 		css`
 			:host {
 				display: block;
 				margin-bottom: 2.4rem;
+				color: var(--vscode-foreground);
+			}
+
+			.tabs {
+				display: inline-flex;
+				gap: 0.6rem;
+			}
+
+			.tab {
+				appearance: none;
+				background: none;
+				border: none;
+				padding: 0;
+				margin: 0;
+				cursor: pointer;
+				font-family: inherit;
+				font-size: inherit;
+				font-weight: normal;
+				text-transform: uppercase;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.tab:hover {
+				color: var(--vscode-foreground);
+			}
+
+			.tab[aria-selected='true'] {
 				color: var(--vscode-foreground);
 			}
 		`,
@@ -80,20 +105,34 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	// ── Tab switching ──
 
-	private renderTabDropdown() {
-		return html`<select slot="heading" class="select" @change=${this.onTabChange} .value=${this._activeTab}>
-			<option value="recent" ?selected=${this._activeTab === 'recent'}>Recent</option>
-			<option value="agents" ?selected=${this._activeTab === 'agents'}>Agents</option>
-		</select>`;
+	private renderTabs() {
+		return html`<div class="tabs" slot="heading" role="tablist">
+			<button
+				class="tab"
+				role="tab"
+				aria-selected=${this._activeTab === 'recent'}
+				@click=${() => this.switchTab('recent')}
+			>
+				Recent
+			</button>
+			<button
+				class="tab"
+				role="tab"
+				aria-selected=${this._activeTab === 'agents'}
+				@click=${() => this.switchTab('agents')}
+			>
+				Agents
+			</button>
+		</div>`;
 	}
 
-	private readonly onTabChange = (e: Event) => {
-		const tab = (e.target as HTMLSelectElement).value as OverviewTab;
+	private switchTab(tab: OverviewTab): void {
+		if (this._activeTab === tab) return;
 		this._activeTab = tab;
 		if (tab === 'agents') {
 			this._agentOverviewState.fetch();
 		}
-	};
+	}
 
 	// ── Recent (no agents, original behavior) ──
 
@@ -179,7 +218,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		if (this._inactiveOverviewState.error.get() != null) {
 			return html`
 				<gl-section>
-					${this.renderTabDropdown()}
+					${this.renderTabs()}
 					<span
 						>Unable to load branch data.
 						<a
@@ -208,7 +247,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		const { repository } = overview;
 		return html`
 			<gl-section ?loading=${isFetching}>
-				${this.renderTabDropdown()}
+				${this.renderTabs()}
 				<gl-branch-threshold-filter
 					slot="heading-actions"
 					@gl-change=${this.onChangeRecentThresholdFilter}
@@ -244,7 +283,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		if (this._agentOverviewState.error.get() != null) {
 			return html`
 				<gl-section>
-					${this.renderTabDropdown()}
+					${this.renderTabs()}
 					<span
 						>Unable to load agent branch data.
 						<a
@@ -273,7 +312,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		const { repository } = overview;
 		return html`
 			<gl-section ?loading=${isFetching}>
-				${this.renderTabDropdown()} ${this.renderBranchCards(overview.recent, repository.path)}
+				${this.renderTabs()} ${this.renderBranchCards(overview.recent, repository.path)}
 			</gl-section>
 		`;
 	}
