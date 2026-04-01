@@ -59,6 +59,7 @@ import {
 	isGitCloudHostIntegrationId,
 	isGitSelfManagedHostIntegrationId,
 } from './utils/-webview/integration.utils.js';
+import { parseIssueUrl } from './utils/-webview/issueUrl.utils.js';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -599,6 +600,72 @@ export class IntegrationService implements Disposable {
 		}
 
 		return this.configuredIntegrationService.getConfiguredLite(id, options);
+	}
+
+	@debug()
+	async getIssueByUrl(url: string): Promise<IssueShape | undefined> {
+		const scope = getScopedLogger();
+
+		const parsed = parseIssueUrl(url);
+		if (parsed == null) {
+			scope?.debug('Unable to parse issue URL');
+			return undefined;
+		}
+
+		if (parsed.type === 'gitHost') {
+			const integration = await this.get(parsed.integrationId, parsed.domain);
+			if (integration == null) {
+				scope?.debug('No integration found for parsed URL');
+				return undefined;
+			}
+
+			const connected = integration.maybeConnected ?? (await integration.isConnected());
+			if (!connected) {
+				scope?.debug('Integration is not connected');
+				return undefined;
+			}
+
+			return integration.getIssue(
+				{ key: `${parsed.owner}/${parsed.repo}`, owner: parsed.owner, name: parsed.repo },
+				parsed.issueId,
+			);
+		}
+
+		// For issue-only providers (Jira, Linear), we need to resolve the resource descriptor
+		// from the user's connected resources since the URL doesn't contain the resource UUID
+		const integration = await this.get(parsed.integrationId);
+		if (integration == null) {
+			scope?.debug('No integration found for parsed URL');
+			return undefined;
+		}
+
+		const connected = integration.maybeConnected ?? (await integration.isConnected());
+		if (!connected) {
+			scope?.debug('Integration is not connected');
+			return undefined;
+		}
+
+		const resources = await integration.getResourcesForUser();
+		if (resources == null || resources.length === 0) {
+			scope?.debug('No resources found for user');
+			return undefined;
+		}
+
+		// Match the resource by URL domain (Jira orgs have a `url` field, e.g. "https://org.atlassian.net")
+		const resource = resources.find(r => {
+			if (!('url' in r) || typeof r.url !== 'string') return false;
+			try {
+				return new URL(r.url).hostname === parsed.domain;
+			} catch {
+				return false;
+			}
+		});
+		if (resource == null) {
+			scope?.debug('No matching resource found for domain');
+			return undefined;
+		}
+
+		return integration.getIssue(resource, parsed.issueId);
 	}
 
 	@debug({

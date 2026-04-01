@@ -259,16 +259,23 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 					let preSelecteditem: StartWorkItem | undefined = undefined;
 					// Auto-select issue if issueUrl is provided
 					if (state.issueUrl) {
-						if (context.result == null) {
-							await updateContextItems(this.container, context);
-						}
-						preSelecteditem = context.result?.items.find(item => item.issue.url === state.issueUrl);
+						// Fast path: direct lookup by URL (single API call instead of fetching all issues)
+						const issue = await this.container.integrations.getIssueByUrl(state.issueUrl);
+						if (issue != null) {
+							preSelecteditem = { issue: issue };
+						} else {
+							// Fallback: search through all issues
+							if (context.result == null) {
+								await updateContextItems(this.container, context);
+							}
+							preSelecteditem = context.result?.items.find(item => item.issue.url === state.issueUrl);
 
-						// If issue not found, show error and fall through to picker
-						if (preSelecteditem == null) {
-							void window.showErrorMessage(
-								`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
-							);
+							// If still not found, show error and fall through to picker
+							if (preSelecteditem == null) {
+								void window.showErrorMessage(
+									`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
+								);
+							}
 						}
 					}
 

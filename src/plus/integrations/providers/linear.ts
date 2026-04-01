@@ -133,10 +133,11 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return this._teams.get(accessToken);
 	}
 
-	protected override getProviderResourcesForUser(
-		_session: ProviderAuthenticationSession,
+	protected override async getProviderResourcesForUser(
+		session: ProviderAuthenticationSession,
 	): Promise<ResourceDescriptor[] | undefined> {
-		throw new Error('Method not implemented.');
+		const organization = await this.getOrganization(session);
+		return organization != null ? [organization] : undefined;
 	}
 	protected override getProviderProjectsForResources(
 		_session: ProviderAuthenticationSession,
