@@ -5,6 +5,7 @@ import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
 	StepGenerator,
+	StepResultGenerator,
 	StepsContext,
 	StepSelection,
 	StepState,
@@ -34,6 +35,8 @@ import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
@@ -49,6 +52,7 @@ import {
 } from '../integrations/utils/-webview/integration.quickPicks.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import { getLaunchpadItemIdHash, supportedLaunchpadIntegrations } from './launchpadProvider.js';
+import type { ReviewMode } from './utils/-webview/startReview.utils.js';
 import { startReviewFromLaunchpadItem, startReviewFromPullRequest } from './utils/-webview/startReview.utils.js';
 
 export interface StartReviewTelemetryContext {
@@ -78,10 +82,13 @@ export interface StartReviewCommandArgs {
 
 const instanceCounter = getScopedCounter();
 
+type ReviewFlags = '--open-chat';
+
 const Steps = {
 	ConnectIntegrations: 'startReview-connect-integrations',
 	EnsureAccess: 'startReview-ensure-access',
 	PickPullRequest: 'startReview-pick-pr',
+	ConfirmReview: 'startReview-confirm',
 } as const;
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
@@ -114,6 +121,7 @@ interface StartReviewState {
 	instructions?: string;
 	useDefaults?: boolean;
 	openChatOnComplete?: boolean;
+	flags?: ReviewFlags[];
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree; pr: PullRequest }>;
 }
 
@@ -269,7 +277,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 								lookupResult.pr,
 								lookupResult.openRepository,
 								state.instructions,
-								state.openChatOnComplete,
+								state.openChatOnComplete ? 'chat' : undefined,
 								state.useDefaults,
 							);
 							state.result?.fulfill(reviewResult);
@@ -309,13 +317,54 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 				assertsStartReviewStepState(state);
 
+				// Show confirm step only for interactive users when AI is enabled
+				// When AI is disabled, skip the confirm step and go directly to manual review
+				if (state.openChatOnComplete == null && !state.useDefaults && this.container.ai.enabled) {
+					if (steps.isAtStepOrUnset(Steps.ConfirmReview)) {
+						using step = steps.enterStep(Steps.ConfirmReview);
+
+						if (this.container.telemetry.enabled) {
+							this.container.telemetry.sendEvent(
+								`${this.telemetryEventKey}/steps/confirm`,
+								{
+									...context.telemetryContext!,
+									connected: true,
+								},
+								this.source,
+							);
+						}
+
+						const result = yield* this.confirmReviewStep(state, context);
+						if (result === StepResultBreak) {
+							(state as StepState<StartReviewState>).item = undefined;
+							if (step.goBack() == null) break;
+							continue;
+						}
+
+						state.flags = result;
+					}
+				}
+
+				// Derive reviewMode from confirm step flags or from args
+				let reviewMode: ReviewMode | undefined;
+				if (state.flags != null) {
+					// Confirm step was shown — derive from user's choice
+					reviewMode = state.flags.includes('--open-chat') ? 'chat' : 'manual';
+				} else if (state.openChatOnComplete) {
+					// Programmatic caller explicitly set openChatOnComplete
+					reviewMode = 'chat';
+				} else if (!state.useDefaults) {
+					// Interactive user with AI disabled — default to manual review
+					reviewMode = 'manual';
+				}
+
 				// Execute the review using the LaunchpadItem directly (avoids redundant PR lookup)
 				try {
 					const reviewResult = await startReviewFromLaunchpadItem(
 						this.container,
 						state.item.launchpadItem,
 						state.instructions,
-						state.openChatOnComplete,
+						reviewMode,
 						state.useDefaults,
 					);
 					state.result?.fulfill(reviewResult);
@@ -632,6 +681,37 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		}
 
 		return { ...element.item };
+	}
+
+	private *confirmReviewStep(
+		state: StartReviewStepState,
+		_context: StartReviewContext,
+	): StepResultGenerator<ReviewFlags[]> {
+		const prTitle =
+			state.item.launchpadItem.title.length > 60
+				? `${state.item.launchpadItem.title.substring(0, 60)}...`
+				: state.item.launchpadItem.title;
+
+		const confirmations: FlagsQuickPickItem<ReviewFlags>[] = [
+			createFlagsQuickPickItem<ReviewFlags>(state.flags ?? [], [], {
+				label: 'Review Manually',
+				detail: `Will open a worktree with the Inspect and Pull Request views for ${prTitle}`,
+			}),
+			createFlagsQuickPickItem<ReviewFlags>(state.flags ?? [], ['--open-chat'], {
+				label: 'Review in AI Chat',
+				detail: `Will open a worktree and start an AI-assisted review chat for ${prTitle}`,
+			}),
+		];
+
+		const step = this.createConfirmStep(
+			`Confirm ${this.title}`,
+			confirmations,
+			createDirectiveQuickPickItem(Directive.Cancel),
+			{ placeholder: 'Choose how to start the review' },
+		);
+
+		const selection: StepSelection<typeof step> = yield step;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private open(item: StartReviewItem): void {

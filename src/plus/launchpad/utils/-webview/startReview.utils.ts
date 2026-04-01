@@ -17,7 +17,11 @@ import { executeCommand } from '../../../../system/-webview/command.js';
 import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js';
 import { defer } from '../../../../system/promise.js';
 import type { StartReviewChatAction } from '../../../chat/chatActions.js';
-import { storeChatActionDeepLink } from '../../../chat/chatActions.js';
+import {
+	executeManualReviewAction,
+	storeChatActionDeepLink,
+	storeManualReviewDeepLink,
+} from '../../../chat/chatActions.js';
 import type { LaunchpadItem, OpenRepository } from '../../launchpadProvider.js';
 
 export interface StartReviewResult {
@@ -25,6 +29,8 @@ export interface StartReviewResult {
 	branch: GitBranch;
 	pr: PullRequest;
 }
+
+export type ReviewMode = 'chat' | 'manual';
 
 /**
  * Start a review from a LaunchpadItem - uses already-fetched PR and repository data.
@@ -34,7 +40,7 @@ export async function startReviewFromLaunchpadItem(
 	container: Container,
 	item: LaunchpadItem,
 	instructions?: string,
-	openChatOnComplete?: boolean,
+	reviewMode?: ReviewMode,
 	useDefaults?: boolean,
 ): Promise<StartReviewResult> {
 	const pr = item.underlyingPullRequest;
@@ -42,14 +48,7 @@ export async function startReviewFromLaunchpadItem(
 		throw new Error('Unable to retrieve PR details');
 	}
 
-	return startReviewFromPullRequest(
-		container,
-		pr,
-		item.openRepository,
-		instructions,
-		openChatOnComplete,
-		useDefaults,
-	);
+	return startReviewFromPullRequest(container, pr, item.openRepository, instructions, reviewMode, useDefaults);
 }
 
 /**
@@ -62,14 +61,16 @@ export async function startReviewFromPullRequest(
 	pr: PullRequest,
 	openRepository?: OpenRepository,
 	instructions?: string,
-	openChatOnComplete?: boolean,
+	reviewMode?: ReviewMode,
 	useDefaults?: boolean,
 ): Promise<StartReviewResult> {
 	if (openRepository?.localBranch?.current) {
-		if (openChatOnComplete) {
+		if (reviewMode === 'chat') {
 			void executeCommand('gitlens.openChatAction', {
 				chatAction: { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
 			} as OpenChatActionCommandArgs);
+		} else if (reviewMode === 'manual') {
+			void executeManualReviewAction(openRepository.repo, 'startReview');
 		}
 
 		// If the branch is already checked out in the open repository, just get the worktree if it exists
@@ -115,18 +116,21 @@ export async function startReviewFromPullRequest(
 			createBranch,
 			addRemote,
 			useDefaults,
-			openChatOnComplete
+			reviewMode === 'chat'
 				? { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions }
 				: undefined,
+			reviewMode === 'manual',
 		);
 	} else {
-		// Worktree already exists - handle chat and workspace opening manually
-		if (openChatOnComplete) {
+		// Worktree already exists — store the appropriate deep link and open the workspace
+		if (reviewMode === 'chat') {
 			await storeChatActionDeepLink(
 				container,
 				{ type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
 				worktree.uri.fsPath,
 			);
+		} else if (reviewMode === 'manual') {
+			await storeManualReviewDeepLink(container, worktree.uri.fsPath);
 		}
 		openWorkspace(worktree.uri, { location: 'newWindow' });
 	}
@@ -216,6 +220,7 @@ async function createPullRequestWorktree(
 	addRemote: { name: string; url: string } | undefined,
 	useDefaults?: boolean,
 	chatAction?: StartReviewChatAction,
+	manualReview?: boolean,
 ): Promise<GitWorktree> {
 	// Add remote if needed (for forks)
 	if (addRemote != null) {
@@ -237,6 +242,7 @@ async function createPullRequestWorktree(
 			worktreeDefaultOpen: useDefaults ? 'new' : undefined,
 			result: worktreeResult,
 			chatAction: chatAction,
+			manualReview: manualReview,
 		},
 	});
 

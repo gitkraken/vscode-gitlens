@@ -364,6 +364,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'startReview/steps/connect': StartReviewConnectedEventData;
 	/** Sent when the user reaches the "choose a PR" step of Start Review */
 	'startReview/steps/pr': StartReviewConnectedEventData;
+	/** Sent when the user reaches the "confirm review" step of Start Review */
+	'startReview/steps/confirm': StartReviewConnectedEventData;
 	/** Sent when the user chooses to connect an integration */
 	'startReview/title/action': StartReviewTitleActionEvent;
 	/** Sent when the user chooses to manage integrations */

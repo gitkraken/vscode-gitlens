@@ -16,7 +16,7 @@ import {
 } from '../../../git/utils/reference.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import type { ChatActions } from '../../../plus/chat/chatActions.js';
-import { storeChatActionDeepLink } from '../../../plus/chat/chatActions.js';
+import { storeChatActionDeepLink, storeManualReviewDeepLink } from '../../../plus/chat/chatActions.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import { Directive } from '../../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
@@ -92,6 +92,8 @@ interface State<Repo = string | Repository> {
 
 	// Chat action for deeplink storage
 	chatAction?: ChatActions;
+	// Open Inspect (WIP) + PR view after worktree opens
+	manualReview?: boolean;
 }
 export type WorktreeCreateState = State;
 
@@ -347,9 +349,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					});
 					state.result?.fulfill(worktree);
 
-					// Store deeplink before opening worktree (if this is a chat action flow)
+					// Store deeplink before opening worktree
 					if (state.chatAction && worktree) {
 						await storeChatActionDeepLink(this.container, state.chatAction, worktree.uri.fsPath);
+					} else if (state.manualReview && worktree) {
+						await storeManualReviewDeepLink(this.container, worktree.uri.fsPath);
 					}
 				} catch (ex) {
 					if (WorktreeCreateError.is(ex, 'alreadyCheckedOut') && !state.flags.includes('--force')) {

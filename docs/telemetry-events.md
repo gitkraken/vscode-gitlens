@@ -3946,6 +3946,18 @@ void
 }
 ```
 
+### startReview/steps/confirm
+
+> Sent when the user reaches the "confirm review" step of Start Review
+
+```typescript
+{
+  'instance': number,
+  'connected': boolean,
+  'items.count': number
+}
+```
+
 ### startReview/steps/connect
 
 > Sent when the user reaches the "connect an integration" step of Start Review

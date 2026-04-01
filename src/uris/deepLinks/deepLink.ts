@@ -31,6 +31,7 @@ export enum DeepLinkCommandType {
 	Launchpad = 'launchpad',
 	Login = 'login',
 	SignUp = 'signup',
+	ManualReview = 'manual-review',
 	StartReview = 'start-review',
 	StartWork = 'start-work',
 	Walkthrough = 'walkthrough',
@@ -269,6 +270,7 @@ export const enum DeepLinkServiceState {
 	OpenAllPrChanges,
 	DeleteBranch,
 	ConnectCloudIntegrations,
+	ManualReview,
 	StartReview,
 	StartWork,
 }
@@ -306,6 +308,7 @@ export const enum DeepLinkServiceAction {
 	OpenSwitch,
 	OpenAllPrChanges,
 	DeleteBranch,
+	ManualReview,
 	StartReview,
 	StartWork,
 }
@@ -480,6 +483,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.ManualReview]: DeepLinkServiceState.ManualReview,
 		[DeepLinkServiceAction.StartReview]: DeepLinkServiceState.StartReview,
 		[DeepLinkServiceAction.StartWork]: DeepLinkServiceState.StartWork,
 	},
@@ -489,6 +493,12 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.ConnectCloudIntegrations]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.ManualReview]: {
+		[DeepLinkServiceAction.ManualReview]: DeepLinkServiceState.ManualReview,
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
@@ -539,6 +549,7 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.OpenAllPrChanges]: { message: 'Opening all PR changes...', increment: 90 },
 	[DeepLinkServiceState.DeleteBranch]: { message: 'Deleting branch...', increment: 90 },
 	[DeepLinkServiceState.ConnectCloudIntegrations]: { message: 'Connecting cloud integrations...', increment: 90 },
+	[DeepLinkServiceState.ManualReview]: { message: 'Opening review...', increment: 90 },
 	[DeepLinkServiceState.StartReview]: { message: 'Starting review...', increment: 90 },
 	[DeepLinkServiceState.StartWork]: { message: 'Starting work...', increment: 90 },
 };

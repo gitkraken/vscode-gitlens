@@ -241,6 +241,8 @@ export class DeepLinkService implements Disposable {
 
 				return DeepLinkServiceAction.DeepLinkErrored;
 			}
+			case DeepLinkServiceState.ManualReview:
+				return DeepLinkServiceAction.ManualReview;
 			case DeepLinkServiceState.StartReview:
 				return DeepLinkServiceAction.StartReview;
 			case DeepLinkServiceState.StartWork:
@@ -1558,6 +1560,11 @@ export class DeepLinkService implements Disposable {
 					}
 
 					// Handle special command types that need custom processing
+					if (mainId === DeepLinkCommandType.ManualReview) {
+						action = DeepLinkServiceAction.ManualReview;
+						break;
+					}
+
 					if (mainId === DeepLinkCommandType.StartReview) {
 						action = DeepLinkServiceAction.StartReview;
 						break;
@@ -1640,6 +1647,27 @@ export class DeepLinkService implements Disposable {
 						source != null ? { source: 'deeplink', detail: source } : { source: 'deeplink' },
 					);
 					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+				}
+				case DeepLinkServiceState.ManualReview: {
+					if (!repo) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Missing repository.';
+						break;
+					}
+
+					try {
+						await showInspectView({
+							type: 'wip',
+							inReview: true,
+							repository: repo,
+							source: 'startReview',
+						} satisfies ShowWipArgs);
+						action = DeepLinkServiceAction.DeepLinkResolved;
+					} catch (ex) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = `Failed to open review: ${ex instanceof Error ? ex.message : String(ex)}`;
+					}
 					break;
 				}
 				case DeepLinkServiceState.StartReview: {

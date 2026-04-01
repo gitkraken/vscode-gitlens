@@ -4,12 +4,15 @@ import type { Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { IssueShape } from '../../git/models/issue.js';
 import type { PullRequestShape } from '../../git/models/pullRequest.js';
+import type { Repository } from '../../git/models/repository.js';
 import { serializeIssue } from '../../git/utils/issue.utils.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { Logger } from '../../system/logger.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkCommandType, DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
+import { showInspectView } from '../../webviews/commitDetails/actions.js';
+import type { ShowWipArgs } from '../../webviews/commitDetails/protocol.js';
 
 export interface StartWorkChatAction {
 	type: 'startWork';
@@ -92,6 +95,33 @@ export async function storeChatActionDeepLink(
 			...contextData,
 			instructions: chatAction.instructions,
 			state: deepLinkState,
+		}),
+	);
+}
+
+export async function executeManualReviewAction(repository: Repository, source: Sources): Promise<void> {
+	await showInspectView({
+		type: 'wip',
+		inReview: true,
+		repository: repository,
+		source: source,
+	} satisfies ShowWipArgs);
+}
+
+export async function storeManualReviewDeepLink(container: Container, repoPath: string): Promise<void> {
+	const schemeOverride = configuration.get('deepLinks.schemeOverride');
+	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+
+	const deepLinkUrl = new URL(
+		`${scheme}://${container.context.extension.id}/${'link' satisfies UriTypes}/${DeepLinkType.Command}/${DeepLinkCommandType.ManualReview}`,
+	);
+
+	await container.storage.storeSecret(
+		'deepLinks:pending',
+		JSON.stringify({
+			url: deepLinkUrl.toString(),
+			repoPath: repoPath,
+			state: DeepLinkServiceState.ManualReview,
 		}),
 	);
 }
