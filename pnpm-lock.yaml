@@ -46,6 +46,9 @@ importers:
 
   .:
     dependencies:
+      '@configcat/sdk':
+        specifier: 1.0.2
+        version: 1.0.2
       '@eamodio/supertalk':
         specifier: 0.0.7
         version: 0.0.7
@@ -725,6 +728,9 @@ packages:
 
   '@bufbuild/protobuf@2.11.0':
     resolution: {integrity: sha512-sBXGT13cpmPR5BMgHE6UEEfEaShh5Ror6rfN3yEK5si7QVrtZg8LEPQb0VVhiLRUslD2yLnXtnRzG035J/mZXQ==}
+
+  '@configcat/sdk@1.0.2':
+    resolution: {integrity: sha512-mgPK9wT4XOLzNAynxu1TFqtaxRZxZdqj4kRGg9d2cptgVydsM3biQF2ceBJFoFJqJlqc8dwZ9k1XKsbGWif43g==}
 
   '@ctrl/tinycolor@4.2.0':
     resolution: {integrity: sha512-kzyuwOAQnXJNLS9PSyrk0CWk35nWJW/zl/6KvnTBMFK65gm7U1/Z5BqjxeapjZCIhQcM/DsrEmcbRwDyXyXK4A==}
@@ -7153,6 +7159,8 @@ snapshots:
   '@bcoe/v8-coverage@1.0.2': {}
 
   '@bufbuild/protobuf@2.11.0': {}
+
+  '@configcat/sdk@1.0.2': {}
 
   '@ctrl/tinycolor@4.2.0': {}
 
