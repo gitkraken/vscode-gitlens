@@ -812,7 +812,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					}>${message}</span>`;
 					break;
 				case 'markdown':
-					message = `\n> ${message}`;
+					message = `\n\n${message}`;
 					break;
 			}
 			return this._padOrTruncate(message, this._options.tokenOptions.message);
@@ -831,7 +831,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			message = encodeHtmlWeak(message);
 		}
 		if (outputFormat === 'markdown') {
-			message = escapeMarkdown(message, { quoted: true, inlineBackticks: true, preserveLinks: true });
+			// Block image embeds to prevent tracking pixels from commit messages
+			message = message.replace(/!\[/g, '&#33;&#91;');
 		}
 
 		if (this._options.messageAutolinks) {
@@ -858,7 +859,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					this._options.htmlFormat?.classes?.id ? `class="${this._options.htmlFormat.classes.id}"` : ''
 				}>${message}</span>`;
 			case 'markdown':
-				return `\n> ${message}`;
+				return `\n\n${message}`;
 			default:
 				return message;
 		}

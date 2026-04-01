@@ -1,4 +1,3 @@
-import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import { encodeHtmlWeak, escapeRegex } from '@gitlens/utils/string.js';
 import type { RequireSome } from '@gitlens/utils/types.js';
 import type {
@@ -62,9 +61,8 @@ export function ensureCachedRegex(
 
 	// Regexes matches the ref prefix followed by a token (e.g. #1234)
 	if (outputFormat === 'markdown') {
-		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
 		ref.messageMarkdownRegex ??= new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${refPattern}))\\b`,
+			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${refPattern}))\\b`,
 			refFlags,
 		);
 	} else if (outputFormat === 'html') {
