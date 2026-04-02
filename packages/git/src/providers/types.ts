@@ -6,7 +6,7 @@ export interface DiffRange extends LineRange {
 }
 
 export interface RevisionUri {
-	/** The `gitlens://` scheme URI encoding revision metadata in authority */
+	/** The URI for this revision — `gitlens://` for committed/staged revisions, `file://` for working tree */
 	uri: Uri;
 	/** The file path (relative to repo root) */
 	path: string;

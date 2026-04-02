@@ -1016,11 +1016,13 @@ function createRevisionUri(
 	sha: string | undefined,
 ): RevisionUri {
 	return {
-		uri: fromUri({
-			scheme: 'gitlens',
-			authority: encodeGitLensRevisionUriAuthority({ ref: sha, repoPath: repoPath }),
-			path: provider.getAbsoluteUri(relativePath, repoPath).path,
-		}),
+		uri: sha
+			? fromUri({
+					scheme: 'gitlens',
+					authority: encodeGitLensRevisionUriAuthority({ ref: sha, repoPath: repoPath }),
+					path: provider.getAbsoluteUri(relativePath, repoPath).path,
+				})
+			: provider.getAbsoluteUri(relativePath, repoPath),
 		path: relativePath,
 		sha: sha,
 		repoPath: repoPath,
