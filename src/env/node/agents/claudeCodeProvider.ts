@@ -114,6 +114,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private _ipcServer: AgentIpcServer | undefined;
 	private _handlerDisposables: Disposable[] = [];
 	private readonly _pendingPermissions = new Map<string, PendingPermissionEntry>();
+	private readonly _sessionCwds = new Map<string, string>();
 	private _workspacePaths: string[] = [];
 	private _staleCheckTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -259,6 +260,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					this._sessions.splice(index, 1);
 					this._onDidChangeSessions.fire();
 				}
+				this._sessionCwds.delete(event.sessionId);
 				this.container.telemetry.sendEvent('agents/session/ended', { 'agent.provider': this.id });
 				break;
 			}
@@ -497,6 +499,16 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			lastActivity: new Date(),
 		};
 		this._onDidChangeSessions.fire();
+
+		if (status === 'thinking' || status === 'tool_use' || status === 'compacting') {
+			const sessionCwd = this._sessionCwds.get(sessionId);
+			if (sessionCwd != null) {
+				const repo = this.container.git.getRepository(sessionCwd);
+				if (repo != null) {
+					queueMicrotask(() => repo.git.branches.onCurrentBranchAgentActivity?.());
+				}
+			}
+		}
 	}
 
 	/**
@@ -531,6 +543,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			// Resolve branch & worktree info asynchronously from the cwd
 			if (cwd != null) {
+				this._sessionCwds.set(sessionId, cwd);
 				void this.resolveGitInfo(sessionId, cwd);
 			}
 		} else {
@@ -557,8 +570,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 
 			// Re-resolve git info if we now have a cwd but didn't before
-			if (cwd != null && existing.branch == null) {
-				void this.resolveGitInfo(sessionId, cwd);
+			if (cwd != null) {
+				this._sessionCwds.set(sessionId, cwd);
+				if (existing.branch == null) {
+					void this.resolveGitInfo(sessionId, cwd);
+				}
 			}
 		}
 		return index;
@@ -617,8 +633,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		} catch {
 			// CLI not available or command failed — only clean up stale in-memory sessions
 			const before = this._sessions.length;
+			const removedIds = new Set(
+				this._sessions.filter(s => s.pid != null && !isProcessAlive(s.pid)).map(s => s.id),
+			);
 			this._sessions = this._sessions.filter(s => s.pid == null || isProcessAlive(s.pid));
 			if (this._sessions.length !== before) {
+				for (const id of removedIds) {
+					this._sessionCwds.delete(id);
+				}
 				this._onDidChangeSessions.fire();
 			}
 			return;
@@ -671,8 +693,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		// Remove in-memory sessions whose PIDs are no longer alive
 		const before = this._sessions.length;
+		const removedIds = new Set(this._sessions.filter(s => s.pid != null && !isProcessAlive(s.pid)).map(s => s.id));
 		this._sessions = this._sessions.filter(s => s.pid == null || isProcessAlive(s.pid));
 		if (this._sessions.length !== before) {
+			for (const id of removedIds) {
+				this._sessionCwds.delete(id);
+			}
 			changed = true;
 		}
 
