@@ -5,6 +5,7 @@ import { when } from 'lit/directives/when.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { formatIdentityDisplayName } from '@gitlens/git/utils/commit.utils.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations.js';
 import { createCommandLink } from '../../../../system/commands.js';
@@ -237,7 +238,10 @@ export class GlCommitDetails extends GlDetailsBase {
 									.avatarUrl="${details.author.avatar ?? ''}"
 									.committerEmail="${details.committer.email}"
 									email="${details.author.email}"
-									name="${details.author.name}"
+									name="${formatIdentityDisplayName(
+										details.author,
+										this.preferences?.currentUserNameStyle ?? 'you',
+									)}"
 									.showAvatar="${this.preferences?.avatars ?? true}"
 									.showSignature="${this.preferences?.showSignatureBadges ?? true}"
 									.signature="${this._enriched?.signature}"

@@ -276,18 +276,22 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get authorFirst(): string {
-		const displayName = this._item.author.current
-			? formatCurrentUserDisplayName(this._item.author.name)
-			: this._item.author.name;
-		const [first] = displayName.split(' ');
+		const style = this._item.author.current ? configuration.get('defaultCurrentUserNameStyle') : undefined;
+		if (style === 'you') {
+			return this.formatAuthor('You', this._item.author.email, this._options.tokenOptions.authorFirst);
+		}
+		// 'name', 'nameAndYou', or not current user — use raw name parts
+		const [first] = this._item.author.name.split(' ');
 		return this.formatAuthor(first, this._item.author.email, this._options.tokenOptions.authorFirst);
 	}
 
 	get authorLast(): string {
-		const displayName = this._item.author.current
-			? formatCurrentUserDisplayName(this._item.author.name)
-			: this._item.author.name;
-		const [first, last] = displayName.split(' ');
+		const style = this._item.author.current ? configuration.get('defaultCurrentUserNameStyle') : undefined;
+		if (style === 'you') {
+			return this.formatAuthor('You', this._item.author.email, this._options.tokenOptions.authorLast);
+		}
+		// 'name', 'nameAndYou', or not current user — use raw name parts
+		const [first, last] = this._item.author.name.split(' ');
 		return this.formatAuthor(last || first, this._item.author.email, this._options.tokenOptions.authorLast);
 	}
 

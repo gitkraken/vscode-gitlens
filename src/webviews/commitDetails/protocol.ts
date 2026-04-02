@@ -6,6 +6,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import type { CurrentUserNameStyle } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { Autolink } from '../../autolinks/models/autolinks.js';
 import type { Config, DateStyle } from '../../config.js';
@@ -62,6 +63,7 @@ export interface CommitDetails extends CommitSummary {
 export interface Preferences {
 	pullRequestExpanded: boolean;
 	avatars: boolean;
+	currentUserNameStyle: CurrentUserNameStyle;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	files: Config['views']['commitDetails']['files'];

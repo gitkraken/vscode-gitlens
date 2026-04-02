@@ -63,7 +63,6 @@ import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import { getBranchAssociatedPullRequest } from '../../git/utils/-webview/branch.utils.js';
 import {
-	formatIdentityDisplayName,
 	getCommitAssociatedPullRequest,
 	getCommitAuthorAvatarUri,
 	getCommitEnrichedAutolinks,
@@ -834,6 +833,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		return {
 			pullRequestExpanded: this.container.storage.getWorkspace('views:commitDetails:pullRequestExpanded') ?? true,
 			avatars: configuration.get('views.commitDetails.avatars'),
+			currentUserNameStyle: configuration.get('defaultCurrentUserNameStyle'),
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
 			dateStyle: configuration.get('defaultDateStyle') ?? 'relative',
 			files: configuration.get('views.commitDetails.files'),
@@ -1676,12 +1676,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			shortSha: commit.shortSha,
 			author: {
 				...commit.author,
-				name: formatIdentityDisplayName(commit.author),
 				avatar: avatarUri?.toString(true),
 			},
 			committer: {
 				...commit.committer,
-				name: formatIdentityDisplayName(commit.committer),
 				avatar: undefined,
 			},
 			message: formattedMessage,

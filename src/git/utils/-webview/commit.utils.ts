@@ -9,7 +9,11 @@ import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js'
 import type { CommitSignature } from '@gitlens/git/models/signature.js';
 import type { PreviousRangeComparisonUrisResult } from '@gitlens/git/providers/diff.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
-import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
+import {
+	formatCurrentUserDisplayName as _formatCurrentUserDisplayName,
+	formatIdentityDisplayName as _formatIdentityDisplayName,
+	getChangedFilesCount,
+} from '@gitlens/git/utils/commit.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { EnrichedAutolink } from '../../../autolinks/models/autolinks.js';
@@ -25,23 +29,14 @@ import { getBestRemoteWithIntegration, getRemoteIntegration, remoteSupportsInteg
 // #region Current user display name
 
 export function formatCurrentUserDisplayName(name: string, style?: CurrentUserNameStyle): string {
-	style ??= configuration.get('defaultCurrentUserNameStyle');
-	switch (style) {
-		case 'name':
-			return name;
-		case 'nameAndYou':
-			return name ? `${name} (you)` : 'You';
-		case 'you':
-		default:
-			return 'You';
-	}
+	return _formatCurrentUserDisplayName(name, style ?? configuration.get('defaultCurrentUserNameStyle'));
 }
 
 export function formatIdentityDisplayName(
 	identity: { name: string; current?: boolean | undefined },
 	style?: CurrentUserNameStyle,
 ): string {
-	return identity.current ? formatCurrentUserDisplayName(identity.name, style) : identity.name;
+	return _formatIdentityDisplayName(identity, style ?? configuration.get('defaultCurrentUserNameStyle'));
 }
 
 // #endregion

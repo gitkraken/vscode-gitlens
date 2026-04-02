@@ -4,6 +4,31 @@ import type { GitReference } from '../models/reference.js';
 import { uncommittedStaged } from '../models/revision.js';
 import type { GitUser } from '../models/user.js';
 
+export type CurrentUserNameStyle = 'you' | 'name' | 'nameAndYou';
+
+export function formatCurrentUserDisplayName(name: string, style: CurrentUserNameStyle): string {
+	switch (style) {
+		case 'name':
+			return name;
+		case 'nameAndYou':
+			if (name === 'You' || name.endsWith(' (you)')) {
+				debugger;
+				return name;
+			}
+			return name ? `${name} (you)` : 'You';
+		case 'you':
+		default:
+			return 'You';
+	}
+}
+
+export function formatIdentityDisplayName(
+	identity: { name: string; current?: boolean | undefined },
+	style: CurrentUserNameStyle,
+): string {
+	return identity.current ? formatCurrentUserDisplayName(identity.name, style) : identity.name;
+}
+
 export function assertsCommitHasFullDetails(commit: GitCommit): asserts commit is GitCommitWithFullDetails {
 	if (!commit.hasFullDetails()) {
 		throw new Error(`GitCommit(${commit.sha}) is not fully loaded`);
