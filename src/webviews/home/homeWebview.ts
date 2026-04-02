@@ -1278,6 +1278,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			hasPermissionRequest: s.pendingPermission != null,
 			subagentCount: s.subagents?.length ?? 0,
 			workspacePath: s.workspacePath,
+			lastActivityTimestamp: s.lastActivity.getTime(),
+			pendingPermissionDetail:
+				s.pendingPermission != null
+					? {
+							toolName: s.pendingPermission.toolName,
+							toolDescription: s.pendingPermission.toolDescription,
+							toolInputDescription: s.pendingPermission.toolInputDescription,
+						}
+					: undefined,
 		}));
 	}
 

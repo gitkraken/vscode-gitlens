@@ -71,6 +71,12 @@ export interface AgentSessionState {
 	readonly hasPermissionRequest: boolean;
 	readonly subagentCount: number;
 	readonly workspacePath?: string;
+	readonly lastActivityTimestamp?: number;
+	readonly pendingPermissionDetail?: {
+		readonly toolName: string;
+		readonly toolDescription: string;
+		readonly toolInputDescription?: string;
+	};
 }
 
 export interface SubscriptionState {

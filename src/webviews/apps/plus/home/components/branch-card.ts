@@ -7,7 +7,6 @@ import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { interpolate, pluralize } from '@gitlens/utils/string.js';
-import type { AgentSessionStatus } from '../../../../../agents/provider.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import {
@@ -52,16 +51,7 @@ import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/branch-icon.js';
 import './merge-target-status.js';
-
-const agentStatusDisplay: Record<AgentSessionStatus, { icon: string; label: string; spin?: boolean }> = {
-	thinking: { icon: 'loading', label: 'thinking', spin: true },
-	tool_use: { icon: 'terminal', label: 'running' },
-	responding: { icon: 'comment', label: 'responding' },
-	waiting: { icon: 'clock', label: 'waiting for input' },
-	idle: { icon: 'circle-outline', label: 'idle' },
-	compacting: { icon: 'loading', label: 'compacting context', spin: true },
-	permission_requested: { icon: 'shield', label: 'awaiting approval' },
-};
+import '../../../shared/components/pills/agent-status-pill.js';
 
 export const branchCardStyles = css`
 	* {
@@ -144,28 +134,27 @@ export const branchCardStyles = css`
 		margin-block: 0;
 	}
 
-	.agent-status {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-		font-size: 0.85em;
-		font-weight: normal;
+	.agent-overflow {
+		font-size: 0.75em;
 		color: var(--vscode-descriptionForeground);
-		text-decoration: none;
-		white-space: nowrap;
+		margin-inline-start: 0.2rem;
+		cursor: pointer;
 	}
 
-	.agent-status:hover {
+	.agent-overflow:hover {
 		color: var(--vscode-textLink-activeForeground);
 	}
 
-	.agent-status--warning {
-		color: var(--vscode-editorWarning-foreground);
+	.branch-item__agents {
+		flex-direction: row;
+		align-items: center;
+		gap: 0.4rem;
+		flex-wrap: wrap;
+		padding-inline-start: 0.2rem;
 	}
 
-	.agent-status--warning:hover {
-		color: var(--vscode-editorWarning-foreground);
-		opacity: 0.8;
+	.branch-item__agents code-icon {
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.branch-item__changes {
@@ -512,6 +501,9 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	@property({ type: Boolean, reflect: true })
 	expandable = false;
 
+	@state()
+	private _agentPillsExpanded = false;
+
 	private eventController?: AbortController;
 
 	@observe('expandable')
@@ -834,6 +826,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 						</div>
 					`,
 				)}
+				${this.renderAgentPillsRow()}
 				${when(
 					// TODO: this doesn't work properly. nothing is true, empty html template is true
 					actionsSection || mergeTargetStatus,
@@ -861,44 +854,49 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 		></gl-branch-icon>`;
 	}
 
-	private getMatchingAgentSession(): AgentSessionState | undefined {
+	private getMatchingAgentSessions(): AgentSessionState[] {
 		const sessions = this._homeState?.agentSessions?.get();
-		if (sessions == null || sessions.length === 0) return undefined;
+		if (sessions == null || sessions.length === 0) return [];
 
 		const branchName = this.branch.name;
-		for (const session of sessions) {
-			if (session.branch !== branchName) continue;
+		return sessions.filter(session => {
+			if (session.branch !== branchName) return false;
 			// If both the session and the branch card have worktree info, cross-check
 			if (session.worktreeName != null && this.branch.worktree != null) {
-				// worktree.uri is a stringified Uri -- extract the basename for comparison
 				const worktreeBasename = this.branch.worktree.uri.split('/').pop() ?? '';
-				if (session.worktreeName !== worktreeBasename) continue;
+				if (session.worktreeName !== worktreeBasename) return false;
 			}
-			return session;
-		}
-		return undefined;
+			return true;
+		});
 	}
 
 	private renderAgentStatus(): TemplateResult | NothingType {
-		const session = this.getMatchingAgentSession();
-		if (session == null) return nothing;
+		const sessions = this.getMatchingAgentSessions();
+		if (sessions.length === 0) return nothing;
 
-		const isWarning = session.status === 'permission_requested';
-		const commandName = isWarning ? 'gitlens.agents.showPermission' : 'gitlens.agents.openSession';
-		const href = createCommandLink(commandName, JSON.stringify(session.id));
-		const display = agentStatusDisplay[session.status];
+		return html`<gl-agent-status-pill .session=${sessions[0]}></gl-agent-status-pill>${sessions.length > 1
+				? html`<span class="agent-overflow" @click=${this.onToggleAgentPills}>+${sessions.length - 1}</span>`
+				: nothing}`;
+	}
 
-		const label =
-			session.status === 'tool_use'
-				? `${session.name} ${display.label} ${session.statusDetail ?? 'tool'}`
-				: session.status === 'idle'
-					? session.name
-					: `${session.name} ${display.label}`;
+	private renderAgentPillsRow(): TemplateResult | NothingType {
+		if (!this._agentPillsExpanded) return nothing;
 
-		return html`<a class="agent-status ${isWarning ? 'agent-status--warning' : ''}" href=${href}>
-			<code-icon icon=${display.icon} .modifier=${display.spin ? 'spin' : nothing}></code-icon>
-			<span>${label}</span>
-		</a>`;
+		const sessions = this.getMatchingAgentSessions();
+		if (sessions.length <= 1) return nothing;
+
+		return html`
+			<div class="branch-item__section branch-item__agents" slot="context">
+				<code-icon icon="hubot"></code-icon>
+				${sessions.map(s => html`<gl-agent-status-pill .session=${s}></gl-agent-status-pill>`)}
+			</div>
+		`;
+	}
+
+	private onToggleAgentPills(e: Event): void {
+		e.preventDefault();
+		e.stopPropagation();
+		this._agentPillsExpanded = !this._agentPillsExpanded;
 	}
 
 	protected renderPrItem(): TemplateResult | NothingType {

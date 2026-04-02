@@ -2,24 +2,12 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import type { AgentSessionStatus } from '../../../../../agents/provider.js';
-import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { HomeState } from '../../../home/state.js';
 import { homeStateContext } from '../../../home/state.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/pills/agent-status-pill.js';
 import './branch-section.js';
-
-const statusDisplay: Record<AgentSessionStatus, { icon: string; label: string; spin?: boolean }> = {
-	thinking: { icon: 'loading', label: 'thinking', spin: true },
-	tool_use: { icon: 'terminal', label: 'running' },
-	responding: { icon: 'comment', label: 'responding' },
-	waiting: { icon: 'clock', label: 'waiting for input' },
-	idle: { icon: 'circle-outline', label: 'idle' },
-	compacting: { icon: 'loading', label: 'compacting context', spin: true },
-	permission_requested: { icon: 'shield', label: 'awaiting approval' },
-};
 
 @customElement('gl-agent-status')
 export class GlAgentStatus extends SignalWatcher(LitElement) {
@@ -47,41 +35,28 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 				gap: 0.2rem;
 			}
 
-			.status {
+			.session {
 				display: flex;
 				align-items: center;
 				gap: 0.6rem;
 				margin-block: 0;
-				color: var(--vscode-foreground);
-				text-decoration: none;
 			}
 
-			.status:hover {
-				color: var(--vscode-textLink-activeForeground);
-			}
-
-			.status--warning {
-				color: var(--vscode-editorWarning-foreground);
-			}
-
-			.icon {
-				flex: none;
-			}
-
-			.label {
+			.session__name {
 				flex: 1;
 				min-width: 0;
 				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				color: var(--vscode-foreground);
 			}
 
-			.subagents {
+			.session__subagents {
 				flex: none;
 				color: var(--vscode-descriptionForeground);
 			}
 
-			.context {
+			.session__context {
 				flex: none;
 				color: var(--vscode-descriptionForeground);
 				font-size: 0.9em;
@@ -140,37 +115,20 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 	}
 
 	private renderSession(session: AgentSessionState): unknown {
-		const display = statusDisplay[session.status];
-		const isWarning = session.status === 'permission_requested';
-		const commandName = isWarning ? 'gitlens.agents.showPermission' : 'gitlens.agents.openSession';
-		// Pre-stringify so the string gets JSON-quoted in the command URI (bare strings fail JSON.parse)
-		const href = createCommandLink(commandName, JSON.stringify(session.id));
-
-		const label =
-			session.status === 'tool_use'
-				? `${session.name} ${display.label} ${session.statusDetail ?? 'tool'}`
-				: session.status === 'idle'
-					? session.name
-					: `${session.name} ${display.label}`;
-
 		const context = this.getSessionContext(session);
 
 		return html`
-			<a class="status ${isWarning ? 'status--warning' : ''}" href=${href}>
-				<code-icon
-					class="icon"
-					icon="${display.icon}"
-					modifier=${ifDefined(display.spin ? 'spin' : undefined)}
-				></code-icon>
-				<span class="label">${label}</span>
-				${context != null ? html`<span class="context">${context}</span>` : nothing}
+			<div class="session">
+				<gl-agent-status-pill .session=${session}></gl-agent-status-pill>
+				<span class="session__name">${session.name}</span>
+				${context != null ? html`<span class="session__context">${context}</span>` : nothing}
 				${session.subagentCount > 0
-					? html`<span class="subagents">
+					? html`<span class="session__subagents">
 							<code-icon icon="organization"></code-icon>
 							${session.subagentCount}
 						</span>`
 					: nothing}
-			</a>
+			</div>
 		`;
 	}
 }
