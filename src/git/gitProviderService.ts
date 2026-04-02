@@ -1866,19 +1866,28 @@ export class GitProviderService implements UnifiedDisposable {
 		root: string,
 		path: string,
 	): Promise<void> {
+		using scope = maybeStartScopedLogger(getLoggableName(this));
+
 		try {
 			const versionBefore = document.version;
 
-			let headBytes: Uint8Array | undefined;
-			try {
-				headBytes = await this._gitService.forRepo(root)?.revision?.getRevisionContent('HEAD', path);
-			} catch {
-				// HEAD content fetch failed (unborn branch, etc.) — keep basic snapshot
-				return;
-			}
+			const svc = this._gitService.forRepo(root);
+
+			// Only fetch HEAD blame when the working-tree blame has uncommitted lines —
+			// those are the lines whose original commit SHAs we can't derive without it.
+			const needsHeadBlame = blame.lines.some(l => l.sha === uncommitted);
+
+			const [headBytesResult, headBlameResult] = await Promise.allSettled([
+				svc?.revision?.getRevisionContent('HEAD', path),
+				needsHeadBlame ? svc?.blame?.getBlame(path, 'HEAD', undefined, this.getBlameOptions()) : undefined,
+			]);
+
+			const headBytes = getSettledValue(headBytesResult);
 			if (headBytes == null) return;
 
-			// Abort if the document changed while we were fetching HEAD content
+			const headBlame = getSettledValue(headBlameResult);
+
+			// Abort if the document changed while we were fetching
 			if (document.version !== versionBefore) return;
 
 			const encoding = getEncoding(document.uri);
@@ -1890,10 +1899,10 @@ export class GitProviderService implements UnifiedDisposable {
 
 			// Only upgrade if HEAD differs from working tree (otherwise basic snapshot is fine)
 			if (headContent !== docText) {
-				doc.blameSnapshot = BlameSnapshot.fromHead(blame, docText, headContent);
+				doc.blameSnapshot = BlameSnapshot.fromHead(blame, docText, headContent, headBlame);
 			}
 		} catch (ex) {
-			Logger.error(ex, 'GitProviderService', 'Failed to upgrade blame snapshot to HEAD');
+			Logger.error(ex, scope, 'Failed to upgrade blame snapshot to HEAD');
 		}
 	}
 

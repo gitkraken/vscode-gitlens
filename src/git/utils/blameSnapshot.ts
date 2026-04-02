@@ -97,7 +97,12 @@ export class BlameSnapshot {
 	 * The HEAD-anchored data is stored privately and used when computing dirty blame
 	 * so that lines edited back to their committed content get the original commit.
 	 */
-	static fromHead(workingTreeBlame: GitBlame, workingTreeText: string, headContent: string): BlameSnapshot {
+	static fromHead(
+		workingTreeBlame: GitBlame,
+		workingTreeText: string,
+		headContent: string,
+		headBlame?: GitBlame,
+	): BlameSnapshot {
 		const headLines = splitLines(headContent);
 		const wtLines = splitLines(workingTreeText);
 
@@ -135,8 +140,16 @@ export class BlameSnapshot {
 			if (wtMiddleOffset != null) {
 				const wtIdx = mapping.dirtyMiddleStart + wtMiddleOffset;
 				const wtLine = workingTreeBlame.lines[wtIdx];
-				if (wtLine != null) {
+				if (wtLine != null && wtLine.sha !== uncommitted) {
 					headBlameLines[headIdx] = { ...wtLine, line: headIdx + 1 };
+					continue;
+				}
+			}
+			// Unmapped or uncommitted — use HEAD blame if available
+			if (headBlame != null) {
+				const headLine = headBlame.lines[headIdx];
+				if (headLine != null) {
+					headBlameLines[headIdx] = { ...headLine, line: headIdx + 1 };
 				}
 			}
 		}
@@ -152,16 +165,35 @@ export class BlameSnapshot {
 			}
 		}
 
-		const headBlame: GitBlame = {
+		// Merge commits from HEAD blame — it may reference commits the working-tree blame
+		// doesn't have (lines it attributed as uncommitted have real commits in HEAD blame)
+		let commits = workingTreeBlame.commits;
+		let authors = workingTreeBlame.authors;
+		if (headBlame != null) {
+			commits = new Map(workingTreeBlame.commits);
+			for (const [sha, commit] of headBlame.commits) {
+				if (!commits.has(sha)) {
+					commits.set(sha, commit);
+				}
+			}
+			authors = new Map(workingTreeBlame.authors);
+			for (const [name, author] of headBlame.authors) {
+				if (!authors.has(name)) {
+					authors.set(name, author);
+				}
+			}
+		}
+
+		const headBlameResult: GitBlame = {
 			repoPath: workingTreeBlame.repoPath,
-			authors: workingTreeBlame.authors,
-			commits: workingTreeBlame.commits,
+			authors: authors,
+			commits: commits,
 			lines: headBlameLines,
 		};
 
 		// Public blame stays working-tree-indexed; HEAD data is private baseline
 		const snapshot = new BlameSnapshot(workingTreeBlame, wtLines, wtHashes);
-		snapshot._headBlame = headBlame;
+		snapshot._headBlame = headBlameResult;
 		snapshot._headLines = headLines;
 		snapshot._headHashes = headHashes;
 		return snapshot;
