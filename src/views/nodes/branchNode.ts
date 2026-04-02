@@ -6,7 +6,7 @@ import type { GitLog } from '@gitlens/git/models/log.js';
 import type { PullRequest, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
-import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
@@ -16,7 +16,7 @@ import { disposableInterval } from '@gitlens/utils/disposable.js';
 import { weakEvent } from '@gitlens/utils/event.js';
 import { map } from '@gitlens/utils/iterable.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
-import { defer, getSettledValue } from '@gitlens/utils/promise.js';
+import { defer, getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { pad } from '@gitlens/utils/string.js';
 import type { IconPath } from '../../@types/vscode.iconpath.d.js';
 import type { ViewShowBranchComparison } from '../../config.js';
@@ -402,8 +402,23 @@ export class BranchNode
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
+		let hasWorkingChanges: boolean | undefined;
+		if (this.worktree != null) {
+			const result = await pauseOnCancelOrTimeout(this.getWorktreeHasWorkingChanges(), undefined, 1);
+			if (!result.paused) {
+				hasWorkingChanges = result.value;
+			} else {
+				queueMicrotask(() => {
+					void result.value.then(() => {
+						this.view.triggerNodeChange(this);
+					});
+				});
+			}
+		}
+
 		const parts = await getBranchNodeParts(this.view.container, this.branch, this.current, {
 			avatars: this.view.config.avatars,
+			hasWorkingChanges: hasWorkingChanges,
 			pendingPullRequest: this.getState('pendingPullRequest'),
 			showAsCommits: this.options.showAsCommits,
 			showingLocalAndRemoteBranches: this.view.type === 'branches' && this.view.config.showRemoteBranches,
@@ -450,8 +465,16 @@ export class BranchNode
 		this.children = undefined;
 		if (reset) {
 			this._log = undefined;
+			this._worktreeHasWorkingChanges = undefined;
 			this.deleteState();
 		}
+	}
+
+	private _worktreeHasWorkingChanges: boolean | undefined;
+	private async getWorktreeHasWorkingChanges(): Promise<boolean | undefined> {
+		this._worktreeHasWorkingChanges ??=
+			this.worktree != null ? await GitWorktree.hasWorkingChanges(this.worktree) : undefined;
+		return this._worktreeHasWorkingChanges;
 	}
 
 	private async getAssociatedPullRequest(
@@ -529,6 +552,7 @@ export async function getBranchNodeParts(
 	current: boolean,
 	options?: {
 		avatars?: boolean;
+		hasWorkingChanges?: boolean;
 		pendingPullRequest?: Promise<PullRequest | undefined> | undefined;
 		showAsCommits?: boolean;
 		showingLocalAndRemoteBranches?: boolean;
@@ -726,7 +750,7 @@ export async function getBranchNodeParts(
 	} else if (options?.showAsCommits) {
 		iconPath = new ThemeIcon('git-commit', iconColor);
 	} else if (options?.worktree != null) {
-		iconPath = getWorktreeBranchIconPath(container, branch);
+		iconPath = getWorktreeBranchIconPath(container, branch, options?.hasWorkingChanges);
 	} else if (branch.remote && options?.showingLocalAndRemoteBranches) {
 		const remote = await getBranchRemote(container, branch);
 		iconPath = getRemoteIconPath(container, remote, { avatars: options?.avatars });

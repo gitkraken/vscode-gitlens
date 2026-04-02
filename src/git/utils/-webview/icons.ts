@@ -224,7 +224,7 @@ export function getRepositoryStatusIconPath(
 export function getWorktreeBranchIconPath(
 	container: Container,
 	branch: GitBranch | undefined,
-	status?: GitStatus,
+	hasWorkingChanges: boolean = false,
 ): IconPath {
 	switch (branch?.status) {
 		case 'ahead':
@@ -232,12 +232,12 @@ export function getWorktreeBranchIconPath(
 		case 'diverged':
 			return getIconPathUris(container, `icon-worktree-${branch.status}.svg`);
 		case 'upToDate':
-			if (status?.hasWorkingTreeChanges) {
+			if (hasWorkingChanges) {
 				return getIconPathUris(container, `icon-worktree-changes.svg`);
 			}
 			return getIconPathUris(container, `icon-worktree-synced.svg`);
 		default:
-			if (status?.hasWorkingTreeChanges) {
+			if (hasWorkingChanges) {
 				return getIconPathUris(container, `icon-worktree-changes.svg`);
 			}
 			return getIconPathUris(container, `icon-worktree.svg`);
