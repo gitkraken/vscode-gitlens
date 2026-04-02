@@ -38,6 +38,7 @@ export interface AgentSession {
 	readonly subagents?: readonly AgentSession[];
 	readonly pendingPermission?: PendingPermission;
 	readonly workspacePath?: string;
+	readonly planFile?: string;
 	readonly isLocal: boolean;
 }
 

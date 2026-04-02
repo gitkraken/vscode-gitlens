@@ -41,6 +41,7 @@ interface AgentSessionEvent {
 	agentId?: string;
 	agentType?: string;
 	matchedWorkspacePath?: string;
+	planFile?: string;
 }
 
 interface PermissionRequestEvent {
@@ -88,6 +89,7 @@ interface SessionFileData {
 	model?: string | null;
 	updatedAt: string;
 	subagents?: { agentId: string; agentType: string }[];
+	planFile?: string | null;
 }
 
 interface DiscoveryFile {
@@ -232,6 +234,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					event.matchedWorkspacePath,
 					isLocal,
 					event.cwd,
+					event.planFile,
 				);
 				// Reset to a clean 'waiting' state in case the session already
 				// existed (e.g. implicitly created by an earlier hook event)
@@ -274,6 +277,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					event.matchedWorkspacePath,
 					isLocal,
 					event.cwd,
+					event.planFile,
 				);
 				break;
 
@@ -286,6 +290,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					event.matchedWorkspacePath,
 					isLocal,
 					event.cwd,
+					event.planFile,
 				);
 				break;
 
@@ -299,6 +304,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					event.matchedWorkspacePath,
 					isLocal,
 					event.cwd,
+					event.planFile,
 				);
 				break;
 
@@ -311,6 +317,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					event.matchedWorkspacePath,
 					isLocal,
 					event.cwd,
+					event.planFile,
 				);
 				break;
 
@@ -323,6 +330,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					event.matchedWorkspacePath,
 					isLocal,
 					event.cwd,
+					event.planFile,
 				);
 				break;
 
@@ -337,6 +345,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					event.matchedWorkspacePath,
 					isLocal,
 					event.cwd,
+					event.planFile,
 				);
 				const parent = this._sessions[parentIdx];
 				if (event.agentId) {
@@ -365,6 +374,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					event.matchedWorkspacePath,
 					isLocal,
 					event.cwd,
+					event.planFile,
 				);
 				const parentSession = this._sessions[parentIdx];
 				if (parentSession.subagents != null && event.agentId) {
@@ -485,8 +495,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		matchedWorkspacePath?: string,
 		isLocal?: boolean,
 		cwd?: string,
+		planFile?: string,
 	): void {
-		const index = this.ensureSession(sessionId, pid, matchedWorkspacePath, isLocal, cwd);
+		const index = this.ensureSession(sessionId, pid, matchedWorkspacePath, isLocal, cwd, planFile);
 
 		const prev = this._sessions[index];
 		if (prev.status === status && prev.statusDetail === statusDetail) return;
@@ -524,6 +535,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		workspacePath?: string,
 		isLocal?: boolean,
 		cwd?: string,
+		planFile?: string,
 	): number {
 		let index = this._sessions.findIndex(s => s.id === sessionId);
 		if (index < 0) {
@@ -537,6 +549,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				lastActivity: new Date(),
 				isSubagent: false,
 				workspacePath: workspacePath,
+				planFile: planFile,
 				isLocal: isLocal ?? false,
 			});
 			this._onDidChangeSessions.fire();
@@ -555,16 +568,19 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			const updatedPid = pid != null && existing.pid == null ? pid : existing.pid;
 			const updatedWorkspacePath = workspacePath ?? existing.workspacePath;
 			const updatedIsLocal = workspacePath != null ? (isLocal ?? existing.isLocal) : existing.isLocal;
+			const updatedPlanFile = planFile ?? existing.planFile;
 
 			if (
 				updatedPid !== existing.pid ||
 				updatedWorkspacePath !== existing.workspacePath ||
-				updatedIsLocal !== existing.isLocal
+				updatedIsLocal !== existing.isLocal ||
+				updatedPlanFile !== existing.planFile
 			) {
 				this._sessions[index] = {
 					...existing,
 					pid: updatedPid,
 					workspacePath: updatedWorkspacePath,
+					planFile: updatedPlanFile,
 					isLocal: updatedIsLocal,
 				};
 			}
@@ -680,6 +696,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				lastActivity: new Date(data.updatedAt),
 				isSubagent: false,
 				workspacePath: data.matchedWorkspacePath,
+				planFile: data.planFile ?? undefined,
 				isLocal: isLocal,
 				subagents: subagents != null && subagents.length > 0 ? subagents : undefined,
 			});
