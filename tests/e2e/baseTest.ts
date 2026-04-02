@@ -1,7 +1,7 @@
 /* eslint-disable no-empty-pattern */
 import type { ChildProcess } from 'node:child_process';
 import { execSync, spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -68,6 +68,32 @@ function ensureXvfb(): string | undefined {
 	}
 }
 
+/**
+ * Patches the test VS Code's product.json to disable the win32VersionedUpdate mutex check.
+ *
+ * On Windows, VS Code checks for a `vscode-updating` mutex created by the InnoSetup installer.
+ * If the system VS Code is being updated (installer waiting for VS Code to restart), this mutex
+ * is active and causes the test VS Code instance to exit immediately with:
+ *   "Code is currently being updated. Please wait for the update to complete before launching."
+ *
+ * Setting `win32VersionedUpdate: false` bypasses this check for the isolated test instance.
+ */
+function patchTestVSCodeProductJson(vscodePath: string): void {
+	if (process.platform !== 'win32') return;
+	const vscodeDir = path.dirname(vscodePath);
+	for (const entry of readdirSync(vscodeDir, { withFileTypes: true })) {
+		if (!entry.isDirectory()) continue;
+		const productJsonPath = path.join(vscodeDir, entry.name, 'resources', 'app', 'product.json');
+		if (!existsSync(productJsonPath)) continue;
+		const product = JSON.parse(readFileSync(productJsonPath, 'utf8')) as Record<string, unknown>;
+		if (product['win32VersionedUpdate']) {
+			product['win32VersionedUpdate'] = false;
+			writeFileSync(productJsonPath, JSON.stringify(product, null, '\t'));
+		}
+		break;
+	}
+}
+
 /** Ensures the E2E runner is built before tests run */
 function ensureRunnerBuilt(): void {
 	const runnerDist = path.join(__dirname, 'runner', 'dist', 'index.js');
@@ -97,6 +123,8 @@ const defaultUserSettings: Record<string, unknown> = {
 
 	'gitlens.outputLevel': 'debug',
 	'gitlens.telemetry.enabled': false,
+	// Skip onboarding/welcome screens — ephemeral test environments shouldn't show welcome views
+	'gitlens.advanced.skipOnboarding': true,
 
 	// Associate git-rebase-todo files with GitLens rebase editor
 	// TODO: is this needed?
@@ -163,6 +191,8 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 
 			const tempDir = await createTmpDir();
 			const vscodePath = await downloadAndUnzipVSCode(vscodeOptions.vscodeVersion ?? 'stable');
+			// Patch product.json to prevent installer-mutex false positive on Windows
+			patchTestVSCodeProductJson(vscodePath);
 			const extensionPath = path.join(__dirname, '..', '..');
 			const runnerPath = path.join(__dirname, 'runner', 'dist');
 			const userDataDir = path.join(tempDir, 'user-data');
