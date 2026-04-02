@@ -163,7 +163,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.integrations.onDidChange(this.onIntegrationsChanged, this),
 			this.container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
+			...(this.container.agentStatus != null
+				? [this.container.agentStatus.onDidChange(() => this.updateAgentBadge())]
+				: []),
 		);
+
+		this.updateAgentBadge();
 	}
 
 	dispose(): void {
@@ -1274,6 +1279,20 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			subagentCount: s.subagents?.length ?? 0,
 			workspacePath: s.workspacePath,
 		}));
+	}
+
+	private updateAgentBadge(): void {
+		const service = this.container.agentStatus;
+		if (service == null) {
+			this.host.badge = undefined;
+			return;
+		}
+
+		const waiting = service.sessions.filter(
+			s => !s.isSubagent && (s.status === 'waiting' || s.status === 'permission_requested'),
+		).length;
+
+		this.host.badge = waiting > 0 ? { tooltip: `${waiting} agent(s) need attention`, value: waiting } : undefined;
 	}
 
 	private async onIntegrationsChangedCore() {
