@@ -1692,7 +1692,7 @@ export class GitProviderService implements UnifiedDisposable {
 						if (result.sha === uncommitted) {
 							const uncommittedCommit = this.ensureUncommittedBlameCommit(uri, doc.blameSnapshot.blame);
 							return {
-								author: { name: 'You', lineCount: 0, current: true },
+								author: { name: uncommittedCommit.author.name, lineCount: 0, current: true },
 								commit: uncommittedCommit,
 								line: result,
 							};
@@ -1911,13 +1911,24 @@ export class GitProviderService implements UnifiedDisposable {
 		let commit = blame.commits.get(uncommitted);
 		if (commit != null) return commit;
 
+		// Derive current user's name/email from an existing blame commit marked as current
+		let userName = '';
+		let userEmail: string | undefined;
+		for (const c of blame.commits.values()) {
+			if (c.author.current) {
+				userName = c.author.name;
+				userEmail = c.author.email;
+				break;
+			}
+		}
+
 		const now = new Date();
 		const relativePath = this.getRelativePath(uri, blame.repoPath);
 		commit = new GitCommit(
 			blame.repoPath,
 			uncommitted,
-			new GitCommitIdentity('You', undefined, now, undefined, true),
-			new GitCommitIdentity('You', undefined, now, undefined, true),
+			new GitCommitIdentity(userName, userEmail, now, undefined, true),
+			new GitCommitIdentity(userName, userEmail, now, undefined, true),
 			'Uncommitted changes',
 			[],
 			undefined,

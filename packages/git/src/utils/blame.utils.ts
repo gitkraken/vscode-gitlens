@@ -255,7 +255,9 @@ export function buildDirtyBlame(cleanBlame: GitBlame, mapping: LineMappingResult
 	const authors = new Map<string, GitBlameAuthor>();
 	for (const [sha, lineCount] of lineCountsBySha) {
 		if (sha === uncommitted) {
-			authors.set('You', { name: 'You', lineCount: lineCount, current: true });
+			const uncommittedCommit = commits.get(uncommitted);
+			const userName = uncommittedCommit?.author.name ?? '';
+			authors.set(userName, { name: userName, lineCount: lineCount, current: true });
 			continue;
 		}
 
