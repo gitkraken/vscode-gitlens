@@ -67,6 +67,10 @@ export class GlMcpBanner extends LitElement {
 					layout="${this.layout}"
 					banner-title="GitKraken MCP Bundled with GitLens"
 					body="${bodyHtml}"
+					secondary-button="Connect More Agents"
+					secondary-button-href="${createCommandLink('gitlens.ai.mcp.selectAgents', {
+						source: this.source,
+					})}"
 					dismissible
 					dismiss-href="${createCommandLink('gitlens.storage.store', {
 						key: 'mcp:banner:dismissed',

@@ -6492,6 +6492,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.mcp.selectAgents",
+				"title": "GitKraken MCP: Connect More Agents...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.ai.switchProvider",
 				"title": "Switch AI Provider/Model...",
 				"category": "GitLens"
@@ -11907,6 +11912,10 @@
 				},
 				{
 					"command": "gitlens.ai.mcp.reinstall",
+					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
+				},
+				{
+					"command": "gitlens.ai.mcp.selectAgents",
 					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
 				},
 				{

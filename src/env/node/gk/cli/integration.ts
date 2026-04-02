@@ -8,7 +8,6 @@ import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { formatLoggableScopeBlock, getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { compare, fromString, satisfies } from '@gitlens/utils/version.js';
-import { urls } from '../../../../constants.js';
 import type { StoredGkCLIInstallInfo } from '../../../../constants.storage.js';
 import type { Source, Sources } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
@@ -24,6 +23,8 @@ import { getPlatform, isOffline, isWeb } from '../../platform.js';
 import { CliCommandHandlers } from './commands.js';
 import type { IpcServer } from './ipcServer.js';
 import { createIpcServer } from './ipcServer.js';
+import { showMcpAgentPicker } from './mcpAgentPicker.js';
+import type { McpAgent } from './mcpAgents.js';
 import {
 	extractZipFile,
 	getCLIExecutable,
@@ -255,34 +256,42 @@ export class GkCliIntegrationProvider implements Disposable {
 		await this.container.storage.store('mcp:banner:dismissed', true);
 
 		try {
-			const result = await window.withProgress(
+			// Step 1: Install the CLI (required for everything)
+			const { cliPath, status } = await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
 					title: 'Setting up the GitKraken MCP...',
 					cancellable: false,
 				},
-				async () => this.setupMCPCore(source, force),
+				() => this.installCLI(false, source, force),
 			);
 
-			if (result.requiresUserCompletion) {
-				await openUrl(result.url);
+			if (status !== 'completed' || cliPath == null) {
+				throw new McpSetupError(
+					McpSetupErrorReason.InstallationFailed,
+					'Unable to setup the GitKraken MCP: installation failed. Please try again.',
+					'unknown error',
+					source ?? 'commandPalette',
+				);
 			}
 
-			if (result.usingExtensionRegistration) {
-				const learnMore = { title: 'Learn More' };
-				const confirm = { title: 'OK', isCloseAffordance: true };
-				window
-					.showInformationMessage(
-						'GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions.',
-						learnMore,
-						confirm,
-					)
-					.then(r => {
-						if (r === learnMore) {
-							void openUrl(urls.helpCenterMCP);
-						}
-					});
-			}
+			// Step 2: Let the user choose which agents to install for
+			const hostAppName = await getHostAppName();
+			const agents = await showMcpAgentPicker(hostAppName, cliPath);
+			if (agents == null || agents.length === 0) return;
+
+			// Step 3: Install for selected agents
+			const results = await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: `Installing GitKraken MCP for ${agents.length} agent${agents.length > 1 ? 's' : ''}...`,
+					cancellable: false,
+				},
+				() => this.installMCPForAgents(agents, cliPath),
+			);
+
+			this.container.events.fire('gk:cli:mcp:setup:completed', undefined);
+			this.showAgentInstallResults(results);
 		} catch (ex) {
 			scope?.error(ex, `Error during MCP setup: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
 			if (ex instanceof McpSetupError) {
@@ -880,8 +889,157 @@ export class GkCliIntegrationProvider implements Disposable {
 		return [
 			registerCommand('gitlens.ai.mcp.install', (src?: Source) => this.setupMCP(src?.source)),
 			registerCommand('gitlens.ai.mcp.reinstall', (src?: Source) => this.setupMCP(src?.source, true)),
+			registerCommand('gitlens.ai.mcp.selectAgents', (src?: Source) => this.selectAndInstallAgents(src?.source)),
 			registerCommand('gitlens.ai.mcp.authCLI', () => this.authCLI()),
 		];
+	}
+
+	@debug({ exit: true })
+	private async selectAndInstallAgents(source?: Sources): Promise<void> {
+		const scope = getScopedLogger();
+		const commandSource = source ?? 'commandPalette';
+
+		try {
+			// Ensure CLI is installed first
+			const { cliPath, status } = await this.installCLI(false, source);
+			if (status !== 'completed' || cliPath == null) {
+				void window.showWarningMessage(
+					'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+				);
+				return;
+			}
+
+			const hostAppName = await getHostAppName();
+			const agents = await showMcpAgentPicker(hostAppName, cliPath);
+			if (agents == null || agents.length === 0) return;
+
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('mcp/agents/selected', {
+					source: commandSource,
+					'agents.count': agents.length,
+					'agents.ids': agents.map(a => a.name).join(','),
+				});
+			}
+
+			const results = await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: `Installing GitKraken MCP for ${agents.length} agent${agents.length > 1 ? 's' : ''}...`,
+					cancellable: false,
+				},
+				() => this.installMCPForAgents(agents, cliPath),
+			);
+
+			this.showAgentInstallResults(results);
+		} catch (ex) {
+			scope?.error(ex, 'Error selecting and installing agents');
+			void window.showErrorMessage(
+				`Unable to install GitKraken MCP for agents: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+			);
+		}
+	}
+
+	private async installMCPForAgents(
+		agents: McpAgent[],
+		cliPath: string,
+	): Promise<{
+		succeeded: string[];
+		failed: { agent: string; error: string }[];
+		requiresUserAction: { agent: string; url: string }[];
+	}> {
+		const succeeded: string[] = [];
+		const failed: { agent: string; error: string }[] = [];
+		const requiresUserAction: { agent: string; url: string }[] = [];
+
+		const results = await Promise.allSettled(
+			agents.map(async agent => {
+				try {
+					const output = await runCLICommand(
+						['mcp', 'install', agent.name, '--source=gitlens', `--scheme=${env.uriScheme}`],
+						{ cwd: cliPath },
+					);
+
+					const cleanOutput = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
+					if (CLIProxyMCPInstallOutputs.installedSuccessfully.test(cleanOutput)) {
+						return { agent: agent, status: 'succeeded' as const };
+					} else if (CLIProxyMCPInstallOutputs.notASupportedClient.test(cleanOutput)) {
+						return { agent: agent, status: 'failed' as const, error: 'Not a supported MCP client' };
+					}
+
+					// Check if output is a URL requiring user action
+					if (URL.canParse(cleanOutput)) {
+						return { agent: agent, status: 'userAction' as const, url: cleanOutput };
+					}
+					return {
+						agent: agent,
+						status: 'failed' as const,
+						error: `Unexpected output: ${cleanOutput}`,
+					};
+				} catch (ex) {
+					return {
+						agent: agent,
+						status: 'failed' as const,
+						error: ex instanceof Error ? ex.message : 'Unknown error',
+					};
+				}
+			}),
+		);
+
+		for (const result of results) {
+			// All promises now resolve (errors caught above), but handle rejected for safety
+			if (result.status === 'rejected') continue;
+
+			const value = result.value;
+			switch (value.status) {
+				case 'succeeded':
+					succeeded.push(value.agent.displayName);
+					break;
+				case 'failed':
+					failed.push({ agent: value.agent.displayName, error: value.error });
+					break;
+				case 'userAction':
+					requiresUserAction.push({ agent: value.agent.displayName, url: value.url });
+					break;
+			}
+		}
+
+		return { succeeded: succeeded, failed: failed, requiresUserAction: requiresUserAction };
+	}
+
+	private showAgentInstallResults(results: {
+		succeeded: string[];
+		failed: { agent: string; error: string }[];
+		requiresUserAction: { agent: string; url: string }[];
+	}): void {
+		const parts: string[] = [];
+
+		if (results.succeeded.length > 0) {
+			parts.push(`Installed for ${results.succeeded.join(', ')}`);
+		}
+		if (results.failed.length > 0) {
+			parts.push(`Failed for ${results.failed.map(f => f.agent).join(', ')}`);
+		}
+		if (results.requiresUserAction.length > 0) {
+			parts.push(
+				`${results.requiresUserAction.map(r => r.agent).join(', ')} require${results.requiresUserAction.length === 1 ? 's' : ''} manual setup`,
+			);
+		}
+
+		const message = `GitKraken MCP: ${parts.join('. ')}.`;
+
+		if (results.failed.length > 0) {
+			void window.showWarningMessage(message);
+		} else if (results.requiresUserAction.length > 0) {
+			const openSetup = { title: 'Open Setup' };
+			const ok = { title: 'OK', isCloseAffordance: true };
+			void window.showInformationMessage(message, openSetup, ok).then(r => {
+				if (r === openSetup && results.requiresUserAction.length > 0) {
+					void openUrl(results.requiresUserAction[0].url);
+				}
+			});
+		} else if (results.succeeded.length > 0) {
+			void window.showInformationMessage(message);
+		}
 	}
 
 	@debug()

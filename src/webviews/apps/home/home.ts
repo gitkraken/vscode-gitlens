@@ -47,6 +47,7 @@ import '../shared/components/skeleton-loader.js';
 import './components/repo-alerts.js';
 import '../shared/components/banner/banner.js';
 import '../shared/components/gl-error-banner.js';
+import '../shared/components/mcp-banner.js';
 
 /**
  * Home App - signal-based state management with RPC.
@@ -452,7 +453,17 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// Banners outside <main> only render once we know the layout
 		if (!this._homeState.ready.get()) return nothing;
 
-		return nothing;
+		return this.renderMcpBanner();
+	}
+
+	private renderMcpBanner(): unknown {
+		const aiState = this._aiState.state.get();
+
+		// Show banner when MCP is bundled (active via extension registration)
+		// The banner handles its own dismissal via storage command
+		if (!aiState.mcp.bundled) return nothing;
+
+		return html` <gl-mcp-banner source="home" .canAutoRegister=${aiState.mcp.bundled}></gl-mcp-banner> `;
 	}
 
 	private renderMain(): unknown {
