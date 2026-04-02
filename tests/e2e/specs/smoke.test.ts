@@ -41,8 +41,9 @@ const test = base.extend({
 				await git.stage('stash-test.txt');
 				await git.stash('Test stash');
 
-				// Add a remote (fake URL, just for UI testing)
-				await git.addRemote('origin', 'https://github.com/test/test-repo.git');
+				// Add a remote (fake URL with non-GitHub host — avoids GitLens trying to connect to GitHub
+				// integration, which can cause multi-second network timeouts if VPN is active)
+				await git.addRemote('origin', 'https://example.com/test/test-repo.git');
 
 				return repoDir;
 			},
