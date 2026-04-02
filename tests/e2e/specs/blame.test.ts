@@ -70,7 +70,7 @@ test.describe('Blame Annotations', () => {
 
 	test.beforeEach(async ({ vscode }) => {
 		await vscode.gitlens.openFile('blame-test.ts');
-		await expect(vscode.page.locator('.monaco-editor .view-lines')).toBeVisible({ timeout: MaxTimeout });
+		await expect(vscode.page.locator('.monaco-editor .view-lines').first()).toBeVisible({ timeout: MaxTimeout });
 		// Click on editor to ensure it has focus (ActiveEditorCommand requires a focused editor)
 		await vscode.page.locator('.monaco-editor .view-lines').first().click();
 		await vscode.page.waitForTimeout(1000);
@@ -184,7 +184,7 @@ largeFileTest.describe('Blame Annotations — Large File', () => {
 
 		// Open spec.html — a ~50K-70K line file
 		await vscode.gitlens.openFile('spec.html');
-		await expect(vscode.page.locator('.monaco-editor .view-lines')).toBeVisible({ timeout: MaxTimeout });
+		await expect(vscode.page.locator('.monaco-editor .view-lines').first()).toBeVisible({ timeout: MaxTimeout });
 
 		// Click on editor to ensure focus, then wait for file to load
 		await vscode.page.locator('.monaco-editor .view-lines').first().click();
