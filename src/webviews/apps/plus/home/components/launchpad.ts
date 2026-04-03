@@ -63,7 +63,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				text-decoration: none;
 			}
 
-			.launchpad-action:hover span {
+			.launchpad-action:hover:not(span) span {
 				text-decoration: underline;
 			}
 
@@ -182,25 +182,43 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	private renderSummary(summary: LaunchpadSummary | undefined) {
 		if (summary == null) return nothing;
 
-		if ('error' in summary) {
+		// Total failure: error-only object with no summary data
+		if (!('total' in summary)) {
 			return html`<ul class="menu">
 				<li>Unable to load items</li>
 			</ul>`;
 		}
 
+		const result: TemplateResult[] = [];
+
+		// Partial success: some integrations failed but items were still loaded
+		if (summary.error != null) {
+			result.push(
+				html`<li>
+					<span class="launchpad-action">
+						<code-icon class="launchpad-action__icon" icon="warning"></code-icon>
+						<span>Some integrations failed to load</span>
+					</span>
+				</li>`,
+			);
+		}
+
 		if (summary.total === 0) {
+			result.push(html`<li>You are all caught up!</li>`);
 			return html`<ul class="menu">
-				<li>You are all caught up!</li>
+				${result}
 			</ul>`;
 		}
 		if (!summary.hasGroupedItems) {
+			result.push(
+				html`<li>No pull requests need your attention</li>
+					<li>(${summary.total} other pull requests)</li>`,
+			);
 			return html`<ul class="menu">
-				<li>No pull requests need your attention</li>
-				<li>(${summary.total} other pull requests)</li>
+				${result}
 			</ul>`;
 		}
 
-		const result: TemplateResult[] = [];
 		for (const group of summary.groups) {
 			let total;
 			switch (group) {

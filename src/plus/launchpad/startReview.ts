@@ -351,7 +351,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 	private async lookupLaunchpadItem(prUrl: string): Promise<LaunchpadItem | undefined> {
 		const result = await this.container.launchpad.getCategorizedItems({ search: prUrl });
-		if (result.error != null) {
+		// Only throw on total failure (error with no items); partial success still has usable items
+		if (result.error != null && !result.items?.length) {
 			throw new Error(`Error fetching PR: ${result.error.message}`);
 		}
 
@@ -691,7 +692,8 @@ async function updateContextItems(container: Container, context: StartReviewCont
 		? await container.launchpad.getCategorizedItems({ search: options.search })
 		: await container.launchpad.getCategorizedItems();
 
-	if (result.error != null) {
+	// Only treat as total failure when error exists with no items
+	if (result.error != null && !result.items?.length) {
 		if (options?.search) {
 			context.searchResult = { items: [] };
 		} else {

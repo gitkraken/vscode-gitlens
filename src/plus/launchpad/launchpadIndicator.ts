@@ -122,7 +122,7 @@ export class LaunchpadIndicator implements Disposable {
 			return;
 		}
 
-		if (e.error != null) {
+		if (e.error != null && !e.items?.length) {
 			this.updateStatusBarState('failed');
 
 			return;
@@ -140,7 +140,7 @@ export class LaunchpadIndicator implements Disposable {
 		}
 
 		const items = await this.provider.getCategorizedItems();
-		if (items.error != null) {
+		if (items.error != null && !items.items?.length) {
 			this.updateStatusBarState('failed');
 
 			return;
@@ -618,6 +618,7 @@ export interface LaunchpadSummaryResult {
 	total: number;
 	groups: LaunchpadGroup[];
 	hasGroupedItems: boolean;
+	error?: Error;
 
 	mergeable?: {
 		total: number;

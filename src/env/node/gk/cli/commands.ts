@@ -262,7 +262,9 @@ export class CliCommandHandlers implements Disposable {
 		const result = await this.container.launchpad.getCategorizedItems(
 			prSearch != null ? { search: prSearch } : undefined,
 		);
-		if (result.error != null) {
+
+		// Only throw on total failure (error with no items); partial success returns items alongside the error
+		if (result.error != null && !result.items?.length) {
 			throw new Error(`Error fetching Launchpad: ${result.error.message}`);
 		}
 
@@ -294,7 +296,11 @@ export class CliCommandHandlers implements Disposable {
 
 		try {
 			const serializedResponse = serializeLaunchpadItem(item);
-			return { stdout: JSON.stringify({ item: serializedResponse }) };
+			const response: Record<string, unknown> = { item: serializedResponse };
+			if (result.error != null) {
+				response.warning = `Some integrations failed to load: ${result.error.message}`;
+			}
+			return { stdout: JSON.stringify(response) };
 		} catch (ex) {
 			return { stderr: `Error sending Launchpad item data: ${ex}` };
 		}
@@ -319,7 +325,11 @@ export class CliCommandHandlers implements Disposable {
 
 		try {
 			const serializedItems = items.map(serializeLaunchpadItem);
-			return { stdout: JSON.stringify({ items: serializedItems }) };
+			const response: Record<string, unknown> = { items: serializedItems };
+			if (result.error != null) {
+				response.warning = `Some integrations failed to load: ${result.error.message}`;
+			}
+			return { stdout: JSON.stringify(response) };
 		} catch (ex) {
 			return { stderr: `Error sending Launchpad data: ${ex}` };
 		}
