@@ -11,6 +11,7 @@ export const config = {
 	duplicateCandidateLimit: 5,
 	staleInactivityDays: 365,
 	auditBatchSize: 50,
+	singleIssueBatchLimit: 10, // Max issues per GraphQL alias query
 	graphqlRetryMaxAttempts: 3,
 	graphqlRetryBackoffMs: 60_000, // 60 seconds, doubled on each retry
 	schemaVersion: '1.0',

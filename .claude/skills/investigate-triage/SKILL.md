@@ -10,9 +10,11 @@ Read a triage report and spawn parallel `/investigate` subagents for bug issues 
 ## Usage
 
 ```
-/investigate-triage [report-path] [--verdict "Valid - Needs Triage"] [--max 10]
+/investigate-triage <number> [number...]                           # Direct issue numbers
+/investigate-triage [report-path] [--verdict "Valid - Needs Triage"] [--max 10]  # From triage report
 ```
 
+- Issue numbers — Investigate specific issues directly (skips triage report filtering)
 - `report-path` — Path to a triage decisions JSON file (e.g., `.triage/reports/DECISIONS-2026-03-18.json`). If omitted, use the most recent `DECISIONS-*.json` in `.triage/reports/`.
 - `--verdict` — Which verdict(s) to investigate. Defaults to `Valid - Needs Triage`. Can be comma-separated (e.g., `"Valid - Needs Triage,Request More Info"`).
 - `--max` — Maximum number of issues to investigate in parallel. Defaults to 10.
@@ -20,6 +22,12 @@ Read a triage report and spawn parallel `/investigate` subagents for bug issues 
 ## Instructions
 
 ### Stage 0 — Load and Filter Issues
+
+**Direct mode (issue numbers):**
+
+If invoked with issue numbers, skip filtering and use those numbers directly. Proceed to Stage 1.
+
+**From-triage mode (report path):**
 
 1. Read the decisions JSON file specified (or find the most recent one)
 2. Filter verdicts to only those matching the `--verdict` filter AND where the issue is a bug (check `recommendedLabels` or the corresponding markdown report for type info)
@@ -144,7 +152,35 @@ Buckets confirmed/likely bugs by estimated effort and risk to aid prioritization
 - **Skipped (over max)**: N
 ```
 
-Write the file and report its path to the user.
+Write the markdown file and report its path to the user.
+
+#### Machine-Readable JSON
+
+Also produce a machine-readable companion file: `.triage/reports/INVESTIGATION-DECISIONS-YYYY-MM-DD.json`
+
+```json
+{
+	"reportId": "<uuid>",
+	"sourceDecisionsFile": "<path to triage decisions that triggered this, or null for direct mode>",
+	"generatedAt": "<ISO timestamp>",
+	"investigations": [
+		{
+			"issueNumber": 1234,
+			"result": "Confirmed Bug | Likely Fixed | Cannot Reproduce | Inconclusive | Insufficient Information",
+			"confidence": "High | Medium | Low",
+			"sourceAttribution": "Independent | Confirms Reporter | Mixed",
+			"estimatedEffort": "Small | Medium | Large | Unknown",
+			"riskLevel": "Low | Medium | High | Unknown",
+			"rootCauseSummary": "...",
+			"proposedFix": "...",
+			"affectedFiles": ["src/path/to/file.ts"],
+			"recommendation": "Fix | Request Info | Close | Needs Planning"
+		}
+	]
+}
+```
+
+Generate a UUID for `reportId`. Write both files and confirm their paths to the user.
 
 ## Important Notes
 
@@ -153,3 +189,16 @@ Write the file and report its path to the user.
 - DO skip issues that are clearly feature requests mislabeled as bugs — note these in the report.
 - Subagent failures (timeouts, errors) should be noted in the report, not silently dropped.
 - If a subagent finds that a bug has already been fixed (e.g., the code path no longer has the described behavior), report that as "Likely Fixed" — this is valuable triage signal.
+
+## Chaining
+
+This skill can be used standalone or as part of the issue workflow pipeline:
+
+```
+/triage recent → /investigate-triage → /resolve --from-investigation → /apply-actions
+/triage 5096   → /investigate-triage 5096 → /resolve 5096 → /apply-actions
+/investigate-triage 5096 5084              (standalone, direct mode)
+```
+
+Upstream: Consumes triage decisions JSON from `/triage`.
+Downstream: `/resolve --from-investigation` consumes the investigation decisions JSON. `/apply-actions` can also consume it directly.

@@ -3,7 +3,7 @@ import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { config } from './config.mts';
 import { fetchChangelogLookup } from './fetch-changelog.mts';
-import { fetchIssues } from './fetch-issues.mts';
+import { fetchIssues, fetchSingleIssues } from './fetch-issues.mts';
 import { fetchLabels } from './fetch-labels.mts';
 import { fetchTeamMembers } from './fetch-team.mts';
 import type {
@@ -14,9 +14,11 @@ import type {
 	EvidencePack,
 	GitHubIssue,
 	IssueLabel,
+	ReactionSummary,
 	ReactiveQueryParams,
 	RepositoryLabel,
 	RunMetadata,
+	SingleQueryParams,
 	Workflow,
 } from './types.mts';
 
@@ -113,19 +115,27 @@ const supersessionPatterns = [
 
 export async function buildPack(
 	mode: Workflow,
-	params: ReactiveQueryParams | AuditQueryParams,
+	params: ReactiveQueryParams | AuditQueryParams | SingleQueryParams,
 	forceRefresh?: boolean,
 ): Promise<string> {
 	console.error('Fetching team members, labels, changelog, and issues...');
+
+	// Determine issue fetcher based on mode
+	let issueFetcher: Promise<GitHubIssue[]>;
+	if (mode === 'single') {
+		issueFetcher = fetchSingleIssues(params as SingleQueryParams);
+	} else if (mode === 'reactive') {
+		issueFetcher = fetchIssues('reactive', params as ReactiveQueryParams);
+	} else {
+		issueFetcher = fetchIssues('audit', params as AuditQueryParams);
+	}
 
 	// Fetch all data in parallel
 	const [teamMembers, labels, changelogLookup, rawIssues] = await Promise.all([
 		fetchTeamMembers(forceRefresh),
 		fetchLabels(forceRefresh),
 		fetchChangelogLookup(forceRefresh),
-		mode === 'reactive'
-			? fetchIssues('reactive', params as ReactiveQueryParams)
-			: fetchIssues('audit', params as AuditQueryParams),
+		issueFetcher,
 	]);
 
 	const labelMap = new Map<string, RepositoryLabel>(labels.map(l => [l.name, l]));
@@ -168,15 +178,54 @@ export async function buildPack(
 	await writeFile(packPath, JSON.stringify(pack, null, '\t'));
 
 	// Write latest symlink (as copy for cross-platform compatibility)
-	const latestName =
-		mode === 'reactive'
-			? 'latest-reactive.json'
-			: `latest-audit-batch-${(params as AuditQueryParams).batchNumber}.json`;
+	let latestName: string;
+	if (mode === 'reactive') {
+		latestName = 'latest-reactive.json';
+	} else if (mode === 'audit') {
+		latestName = `latest-audit-batch-${(params as AuditQueryParams).batchNumber}.json`;
+	} else {
+		latestName = 'latest-single.json';
+	}
 	const latestPath = join(config.packsDir, latestName);
 	await copyFile(packPath, latestPath);
 
 	console.error(`Evidence pack written: ${packPath}`);
 	return packPath;
+}
+
+const reactionContentMap: Record<string, keyof Omit<ReactionSummary, 'total'>> = {
+	THUMBS_UP: 'thumbsUp',
+	THUMBS_DOWN: 'thumbsDown',
+	LAUGH: 'laugh',
+	HOORAY: 'hooray',
+	CONFUSED: 'confused',
+	HEART: 'heart',
+	ROCKET: 'rocket',
+	EYES: 'eyes',
+};
+
+function mapReactions(groups: Array<{ content: string; totalCount: number }>): ReactionSummary {
+	const reactions: ReactionSummary = {
+		thumbsUp: 0,
+		thumbsDown: 0,
+		laugh: 0,
+		hooray: 0,
+		confused: 0,
+		heart: 0,
+		rocket: 0,
+		eyes: 0,
+		total: 0,
+	};
+
+	for (const g of groups) {
+		const key = reactionContentMap[g.content];
+		if (key != null) {
+			reactions[key] = g.totalCount;
+			reactions.total += g.totalCount;
+		}
+	}
+
+	return reactions;
 }
 
 function enrichIssue(
@@ -202,9 +251,12 @@ function enrichIssue(
 	const dates = [raw.updatedAt, ...raw.comments.map(c => c.createdAt)];
 	const lastActivityAt = dates.reduce((a, b) => (a > b ? a : b));
 
-	// 6. supersessionIndicators (audit mode only)
+	// 5. reactions
+	const reactions = mapReactions(raw.reactionGroups);
+
+	// 6. supersessionIndicators (audit and single mode)
 	const supersessionIndicators: string[] = [];
-	if (mode === 'audit') {
+	if (mode === 'audit' || mode === 'single') {
 		const textToScan = [raw.body, ...raw.comments.map(c => c.body)].join('\n');
 		for (const pattern of supersessionPatterns) {
 			const match = textToScan.match(pattern);
@@ -239,6 +291,7 @@ function enrichIssue(
 		commentCount: raw.commentCount,
 		linkedPrs: raw.linkedPrs,
 		isTeamMember,
+		reactions,
 		changelogEntry,
 		lastActivityAt,
 		duplicateCandidates: [], // Filled in by addDuplicateCandidates

@@ -1,7 +1,7 @@
 // Evidence pack schema types for the triage toolkit.
 // No runtime logic — type definitions only.
 
-export type Workflow = 'reactive' | 'audit';
+export type Workflow = 'reactive' | 'audit' | 'single';
 
 export type VerdictClass =
 	| 'Close - Fixed'
@@ -25,12 +25,16 @@ export interface AuditQueryParams {
 	batchNumber: number;
 }
 
+export interface SingleQueryParams {
+	issueNumbers: number[];
+}
+
 export interface RunMetadata {
 	runId: string;
 	timestamp: string;
 	schemaVersion: string;
 	workflow: Workflow;
-	queryParams: ReactiveQueryParams | AuditQueryParams;
+	queryParams: ReactiveQueryParams | AuditQueryParams | SingleQueryParams;
 	teamMembersRefreshedAt: string;
 	changelogRefreshedAt: string;
 	repo: string;
@@ -69,6 +73,18 @@ export interface DuplicateCandidate {
 	similarityBasis: string;
 }
 
+export interface ReactionSummary {
+	thumbsUp: number;
+	thumbsDown: number;
+	laugh: number;
+	hooray: number;
+	confused: number;
+	heart: number;
+	rocket: number;
+	eyes: number;
+	total: number;
+}
+
 /** Raw issue fields from GitHub (before enrichment). */
 export interface GitHubIssue {
 	number: number;
@@ -87,10 +103,12 @@ export interface GitHubIssue {
 	comments: IssueComment[];
 	commentCount: number;
 	linkedPrs: LinkedPr[];
+	reactionGroups: Array<{ content: string; totalCount: number }>;
 }
 
 /** Enriched issue with computed evidence fields. */
-export interface EnrichedIssue extends Omit<GitHubIssue, 'labels'> {
+export interface EnrichedIssue extends Omit<GitHubIssue, 'labels' | 'reactionGroups'> {
+	reactions: ReactionSummary;
 	labels: IssueLabel[];
 	isTeamMember: boolean;
 	changelogEntry: ChangelogEntry | null;

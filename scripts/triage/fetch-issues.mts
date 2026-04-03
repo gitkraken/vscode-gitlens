@@ -10,6 +10,7 @@ import type {
 	IssueComment,
 	LinkedPr,
 	ReactiveQueryParams,
+	SingleQueryParams,
 } from './types.mts';
 
 const execFileAsync = promisify(execFile);
@@ -134,6 +135,10 @@ const issueFragment = `
 		createdAt
 		updatedAt
 		closedAt
+		reactionGroups {
+			content
+			reactors(first: 0) { totalCount }
+		}
 		comments(last: ${config.issueCommentLimit}) {
 			totalCount
 			nodes {
@@ -184,6 +189,7 @@ interface GraphQLIssueNode {
 	createdAt: string;
 	updatedAt: string;
 	closedAt: string | null;
+	reactionGroups: Array<{ content: string; reactors: { totalCount: number } }>;
 	comments: {
 		totalCount: number;
 		nodes: Array<{
@@ -225,6 +231,11 @@ function mapIssueNode(node: GraphQLIssueNode): GitHubIssue {
 		createdAt: c.createdAt,
 	}));
 
+	const reactionGroups = (node.reactionGroups ?? []).map(g => ({
+		content: g.content,
+		totalCount: g.reactors.totalCount,
+	}));
+
 	return {
 		number: node.number,
 		title: node.title,
@@ -242,6 +253,7 @@ function mapIssueNode(node: GraphQLIssueNode): GitHubIssue {
 		comments,
 		commentCount: node.comments.totalCount,
 		linkedPrs,
+		reactionGroups,
 	};
 }
 
@@ -322,6 +334,48 @@ async function fetchSinglePage(query: string, cursor: string | null): Promise<Gi
 	await writeFile(cursorFile, JSON.stringify(auditCursor, null, '\t'));
 
 	return issues;
+}
+
+export async function fetchSingleIssues(params: SingleQueryParams): Promise<GitHubIssue[]> {
+	const chunkSize = config.singleIssueBatchLimit;
+	const allIssues: GitHubIssue[] = [];
+
+	for (let i = 0; i < params.issueNumbers.length; i += chunkSize) {
+		const chunk = params.issueNumbers.slice(i, i + chunkSize);
+		const aliases = chunk.map(n => `i${n}: issue(number: ${n}) { ...IssueFields }`).join('\n');
+
+		const query = `
+			query($owner: String!, $repo: String!, $cursor: String) {
+				repository(owner: $owner, name: $repo) {
+					${aliases}
+				}
+			}
+			${issueFragment}
+		`;
+
+		const raw = await execGraphQL(query, null);
+		const response = JSON.parse(raw);
+
+		if (response.errors?.length) {
+			// Some issues may not exist — filter out null results
+			const nonNullErrors = response.errors.filter((e: { type?: string }) => e.type !== 'NOT_FOUND');
+			if (nonNullErrors.length > 0) {
+				throw new Error(`GraphQL errors: ${JSON.stringify(nonNullErrors)}`);
+			}
+		}
+
+		const repo = response.data.repository;
+		for (const num of chunk) {
+			const node: GraphQLIssueNode | null = repo[`i${num}`];
+			if (node != null) {
+				allIssues.push(mapIssueNode(node));
+			} else {
+				console.error(`Warning: issue #${num} not found, skipping`);
+			}
+		}
+	}
+
+	return allIssues;
 }
 
 /** Remove the audit cursor file (called when a batch completes successfully). */

@@ -21,6 +21,28 @@ Perform structured root cause analysis before implementing any fix.
 - Identify: extension host or webview? Node.js or browser? Which feature area?
 - Ask clarifying questions if ambiguous
 
+### 1a. Relevance Assessment (for issues older than 1 year)
+
+If the issue is older than 1 year, perform a quick relevance check before the full investigation:
+
+1. Identify the feature area, code paths, UI elements, settings, or commands mentioned in the issue
+2. Check if the referenced files still exist using `Glob` or `Grep`
+3. If they exist, check `git log --since="<issue creation date>" -- <relevant files>` for significant changes
+4. If files have been deleted or substantially rewritten, include a **Relevance Assessment** in the output:
+
+```markdown
+### Relevance Assessment
+
+[One of:
+
+- "Code path still exists — issue may still be relevant"
+- "Code path no longer exists — [file(s)] deleted/removed since issue was filed"
+- "Feature area significantly refactored — [summary of changes since issue creation]"
+- "Unable to map issue to specific code paths — proceeding with investigation"]
+```
+
+If the code path no longer exists, note this prominently and consider whether the investigation should continue or if the issue should be recommended for closure.
+
 ### 2. Trace the Code Path
 
 - Find the entry point (command, event handler, IPC message)

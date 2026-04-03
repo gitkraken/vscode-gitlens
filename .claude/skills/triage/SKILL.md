@@ -10,8 +10,9 @@ Evaluate GitHub issues using a pre-assembled evidence pack and produce a structu
 ## Usage
 
 ```
-/triage recent [--since 7d]
-/triage audit [--older-than 180d] [--batch-size 50] [--label bug]
+/triage <number> [number...]           # Single issue(s)
+/triage recent [--since 7d]            # Recent batch
+/triage audit [--older-than 180d] [--batch-size 50] [--label bug]  # Historical batch
 ```
 
 ## Instructions
@@ -20,8 +21,16 @@ Evaluate GitHub issues using a pre-assembled evidence pack and produce a structu
 
 Run the CLI to ensure data is fresh. Forward all arguments after the command name.
 
+**Single-issue mode:** When invoked with issue numbers, use the `single` command:
+
 ```bash
-node --experimental-strip-types ./scripts/triage/triage.mts <command> [args]
+node --experimental-strip-types ./scripts/triage/triage.mts single <number> [number...]
+```
+
+**Batch modes:** Forward the command and arguments directly:
+
+```bash
+node --experimental-strip-types ./scripts/triage/triage.mts <recent|audit> [args]
 ```
 
 The script prints the absolute path to the evidence pack JSON on stdout. Read that file.
@@ -95,7 +104,7 @@ If only one source is present, downgrade to `Request More Info` or `Valid - Need
 
 Is the issue caused by a VS Code API limitation, a platform OS issue, or a third-party extension conflict? Note this as evidence for `Close - Invalid` with an explicit reason.
 
-#### 10. Stale evaluation (audit mode only)
+#### 10. Stale evaluation (audit and single mode)
 
 Does the issue meet ALL THREE stale criteria:
 
@@ -104,6 +113,19 @@ Does the issue meet ALL THREE stale criteria:
 - (c) No missing mandatory evidence that would block a reliable verdict
 
 Only then classify as `Close - Stale`. Check `supersessionIndicators` for evidence of supersession.
+
+**Codebase-level staleness signals:** If the issue references specific UI elements, settings, commands, or code paths, check whether they still exist in the codebase. If the referenced functionality has been removed, substantially redesigned, or renamed, that is strong evidence for staleness. Use `Grep` or `Glob` to quickly verify existence of referenced features.
+
+#### 10a. Stale-but-needs-verification (audit and single mode)
+
+Separate from `Close - Stale`, identify issues that are old and inactive but where the code path still exists and the issue may still be valid. Classify as `Request More Info` when ALL of:
+
+- (a) No activity for a significant period (e.g., 6+ months) — check `lastActivityAt`
+- (b) The reported GitLens version is significantly outdated
+- (c) No upvotes or low engagement (`reactions.thumbsUp` is 0-1)
+- (d) The code path still exists (not eligible for `Close - Stale`)
+
+The `Request More Info` comment should ask the reporter to verify the issue still occurs on the current version and provide updated environment details. This triggers the `needs-more-info` label via `/apply-actions`, which activates existing automation that auto-closes if no response within a set timeframe.
 
 ### Safety Gate
 
@@ -140,6 +162,7 @@ Produce two files in `.triage/reports/`:
 
 For reactive mode: `TRIAGE-REPORT-YYYY-MM-DD.md`
 For audit mode: `AUDIT-REPORT-YYYY-MM-DD-batch-N.md`
+For single mode: `TRIAGE-REPORT-YYYY-MM-DD.md`
 
 Use this structure:
 
@@ -227,7 +250,7 @@ File: `DECISIONS-YYYY-MM-DD[-batch-N].json`
 	"runId": "<uuid from pack>",
 	"schemaVersion": "1.0",
 	"generatedAt": "<ISO timestamp>",
-	"workflow": "reactive | audit",
+	"workflow": "reactive | audit | single",
 	"verdicts": [
 		{
 			"issueNumber": 1234,
@@ -253,3 +276,14 @@ File: `DECISIONS-YYYY-MM-DD[-batch-N].json`
 Generate a UUID for `reportId`. Use the `runId` from the evidence pack's `meta.runId`.
 
 Write both files and confirm their paths to the user.
+
+## Chaining
+
+This skill can be used standalone or as part of the issue workflow pipeline:
+
+```
+/triage recent → /investigate-triage → /resolve --from-investigation → /apply-actions
+/triage 5096   → /investigate-triage 5096 → /resolve 5096 → /apply-actions
+```
+
+Downstream skills consume the decisions JSON produced by this skill.
