@@ -173,7 +173,7 @@ The resolution report provides:
 - **Summary table** with counts by recommendation (Shortlist: 5, Backlog: 12, Won't Fix: 3, Community Contribution: 2)
 - **Per-issue priority signals** (reactions, related issues, severity, effort, age, activity)
 - **Rationale** for each recommendation grounded in specific data
-- **Machine-readable JSON** (`RESOLUTIONS-YYYY-MM-DD.json`) for downstream tooling
+- **Machine-readable JSON** (`YYYY-MM-DD-RESOLUTIONS.json`) for downstream tooling
 
 **Workflow B — Quick planning view for specific issues:**
 
@@ -272,7 +272,7 @@ Every skill works standalone or chained. Here are all supported input modes:
 | Historical batch | `/triage audit --older-than 180d --batch-size 50` |
 | Filtered batch   | `/triage audit --older-than 180d --label bug`     |
 
-**Output:** `.triage/reports/TRIAGE-REPORT-YYYY-MM-DD.md` + `DECISIONS-YYYY-MM-DD.json`
+**Output:** `.triage/reports/YYYY-MM-DD-TRIAGE-REPORT.md` + `YYYY-MM-DD-DECISIONS.json`
 
 ### `/investigate`
 
@@ -288,12 +288,12 @@ Every skill works standalone or chained. Here are all supported input modes:
 | Input                | Example                                                                  |
 | -------------------- | ------------------------------------------------------------------------ |
 | From triage report   | `/investigate-triage` (uses most recent decisions JSON)                  |
-| Specific report      | `/investigate-triage .triage/reports/DECISIONS-2026-04-01.json`          |
+| Specific report      | `/investigate-triage .triage/reports/2026-04-01-DECISIONS.json`          |
 | Direct issue numbers | `/investigate-triage 5096 5084`                                          |
 | Filtered verdicts    | `/investigate-triage --verdict "Valid - Needs Triage,Request More Info"` |
 | Limited parallelism  | `/investigate-triage --max 5`                                            |
 
-**Output:** `.triage/reports/INVESTIGATION-REPORT-YYYY-MM-DD.md` + `INVESTIGATION-DECISIONS-YYYY-MM-DD.json`
+**Output:** `.triage/reports/YYYY-MM-DD-INVESTIGATION-REPORT.md` + `YYYY-MM-DD-INVESTIGATION-DECISIONS.json`
 
 ### `/resolve`
 
@@ -301,22 +301,22 @@ Every skill works standalone or chained. Here are all supported input modes:
 | --------------------- | ------------------------------------------------------------------ |
 | Direct issue numbers  | `/resolve 5096 5084 5070`                                          |
 | From triage decisions | `/resolve --from-triage`                                           |
-| From specific triage  | `/resolve --from-triage .triage/reports/DECISIONS-2026-04-01.json` |
+| From specific triage  | `/resolve --from-triage .triage/reports/2026-04-01-DECISIONS.json` |
 | From investigation    | `/resolve --from-investigation`                                    |
 
-**Output:** `.triage/reports/RESOLUTION-REPORT-YYYY-MM-DD.md` + `RESOLUTIONS-YYYY-MM-DD.json`
+**Output:** `.triage/reports/YYYY-MM-DD-RESOLUTION-REPORT.md` + `YYYY-MM-DD-RESOLUTIONS.json`
 
 ### `/apply-actions`
 
 | Input              | Example                                                      |
 | ------------------ | ------------------------------------------------------------ |
 | Most recent report | `/apply-actions`                                             |
-| Specific report    | `/apply-actions .triage/reports/RESOLUTIONS-2026-04-01.json` |
+| Specific report    | `/apply-actions .triage/reports/2026-04-01-RESOLUTIONS.json` |
 | Dry-run only       | `/apply-actions --dry-run`                                   |
 
 **Consumes:** Any of the three JSON report types (triage decisions, investigation decisions, resolution decisions)
 
-**Output:** Dry-run table → user confirmation → execution → `.triage/reports/ACTIONS-YYYY-MM-DD.md` audit log
+**Output:** Dry-run table → user confirmation → execution → `.triage/reports/YYYY-MM-DD-ACTIONS.md` audit log
 
 ---
 
@@ -364,11 +364,11 @@ All reports are written to `.triage/reports/`. Each analysis skill produces both
 | -------------------------------- | --------------------- | ----------------------------------------------------------------- |
 | `TRIAGE-REPORT-*.md`             | `/triage`             | Humans                                                            |
 | `DECISIONS-*.json`               | `/triage`             | `/investigate-triage`, `/resolve --from-triage`, `/apply-actions` |
-| `INVESTIGATION-REPORT-*.md`      | `/investigate-triage` | Humans                                                            |
-| `INVESTIGATION-DECISIONS-*.json` | `/investigate-triage` | `/resolve --from-investigation`, `/apply-actions`                 |
+| `*-INVESTIGATION-REPORT.md`      | `/investigate-triage` | Humans                                                            |
+| `*-INVESTIGATION-DECISIONS.json` | `/investigate-triage` | `/resolve --from-investigation`, `/apply-actions`                 |
 | `RESOLUTION-REPORT-*.md`         | `/resolve`            | Humans                                                            |
 | `RESOLUTIONS-*.json`             | `/resolve`            | `/apply-actions`                                                  |
-| `ACTIONS-*.md`                   | `/apply-actions`      | Humans (audit trail)                                              |
+| `*-ACTIONS.md`                   | `/apply-actions`      | Humans (audit trail)                                              |
 
 ---
 
@@ -378,7 +378,7 @@ All reports are written to `.triage/reports/`. Each analysis skill produces both
 2. **Apply requires confirmation** — `/apply-actions` always shows a dry-run first and requires explicit approval
 3. **Pre-flight checks** — `/apply-actions` verifies current issue state before each action, skipping stale or redundant changes
 4. **Close confirmation** — Closing issues requires per-issue approval
-5. **Audit trail** — Every applied action is logged to `.triage/reports/ACTIONS-*.md`
+5. **Audit trail** — Every applied action is logged to `.triage/reports/*-ACTIONS.md`
 6. **Human-in-the-loop** — All close recommendations require human approval (`requiresHumanApproval: true`)
 
 ---

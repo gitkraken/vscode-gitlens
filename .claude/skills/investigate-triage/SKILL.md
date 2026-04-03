@@ -15,7 +15,7 @@ Read a triage report and spawn parallel `/investigate` subagents for bug issues 
 ```
 
 - Issue numbers — Investigate specific issues directly (skips triage report filtering)
-- `report-path` — Path to a triage decisions JSON file (e.g., `.triage/reports/DECISIONS-2026-03-18.json`). If omitted, use the most recent `DECISIONS-*.json` in `.triage/reports/`.
+- `report-path` — Path to a triage decisions JSON file (e.g., `.triage/reports/2026-03-18-DECISIONS.json`). If omitted, use the most recent `*-DECISIONS.json` in `.triage/reports/`.
 - `--verdict` — Which verdict(s) to investigate. Defaults to `Valid - Needs Triage`. Can be comma-separated (e.g., `"Valid - Needs Triage,Request More Info"`).
 - `--max` — Maximum number of issues to investigate in parallel. Defaults to 10.
 
@@ -69,7 +69,7 @@ Run subagents in parallel where possible. Each subagent operates independently.
 
 Gather all subagent results and produce a report file:
 
-**File**: `.triage/reports/INVESTIGATION-REPORT-YYYY-MM-DD.md`
+**File**: `.triage/reports/YYYY-MM-DD-INVESTIGATION-REPORT.md`
 
 ```markdown
 # Investigation Report — YYYY-MM-DD
@@ -85,6 +85,7 @@ Issues inconclusive: N
 
 ### [#NNNN — Title](https://github.com/<owner>/<repo>/issues/NNNN)
 
+- **Author**: @username (team) | @username
 - **Triage verdict**: <original verdict from triage>
 - **Investigation result**: Confirmed Bug | Likely Fixed | Cannot Reproduce from Description | Inconclusive | Insufficient Information
 - **Confidence**: High | Medium | Low
@@ -156,7 +157,7 @@ Write the markdown file and report its path to the user.
 
 #### Machine-Readable JSON
 
-Also produce a machine-readable companion file: `.triage/reports/INVESTIGATION-DECISIONS-YYYY-MM-DD.json`
+Also produce a machine-readable companion file: `.triage/reports/YYYY-MM-DD-INVESTIGATION-DECISIONS.json`
 
 ```json
 {

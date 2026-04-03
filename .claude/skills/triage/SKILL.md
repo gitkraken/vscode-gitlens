@@ -160,9 +160,9 @@ Produce two files in `.triage/reports/`:
 
 #### 1. Markdown Report
 
-For reactive mode: `TRIAGE-REPORT-YYYY-MM-DD.md`
-For audit mode: `AUDIT-REPORT-YYYY-MM-DD-batch-N.md`
-For single mode: `TRIAGE-REPORT-YYYY-MM-DD.md`
+For reactive mode: `YYYY-MM-DD-TRIAGE-REPORT.md`
+For audit mode: `YYYY-MM-DD-AUDIT-REPORT-batch-N.md`
+For single mode: `YYYY-MM-DD-TRIAGE-REPORT.md`
 
 Use this structure:
 
@@ -184,6 +184,7 @@ Issues requiring human approval: N
 
 ### [#NNNN — Title](https://github.com/<owner>/<repo>/issues/NNNN)
 
+- **Author**: @username (team) | @username
 - **Verdict**: Close - Fixed | Close - Duplicate | Close - Invalid | Close - Stale
 - **Confidence**: High | Medium | Low
 - **Type**: <issue type> | **Labels**: <label list>
@@ -197,6 +198,7 @@ Issues requiring human approval: N
 
 ### [#NNNN — Title](https://github.com/<owner>/<repo>/issues/NNNN)
 
+- **Author**: @username (team) | @username
 - **Verdict**: Request More Info
 - **Confidence**: High | Medium | Low
 - **Evidence**: <what is known>
@@ -208,6 +210,7 @@ Issues requiring human approval: N
 
 ### [#NNNN — Title](https://github.com/<owner>/<repo>/issues/NNNN)
 
+- **Author**: @username (team) | @username
 - **Verdict**: Relabel - Bug | Relabel - Feature Request
 - **Confidence**: High | Medium | Low
 - **Evidence**: <why the current label is wrong>
@@ -220,6 +223,7 @@ Issues requiring human approval: N
 
 ### [#NNNN — Title](https://github.com/<owner>/<repo>/issues/NNNN)
 
+- **Author**: @username (team) | @username
 - **Verdict**: Valid - Needs Triage
 - **Confidence**: Medium | Low
 - **Evidence**: <what is known and what needs investigation>
@@ -242,7 +246,7 @@ Issues requiring human approval: N
 
 #### 2. Machine-Readable Decisions JSON
 
-File: `DECISIONS-YYYY-MM-DD[-batch-N].json`
+File: `YYYY-MM-DD-DECISIONS[-batch-N].json`
 
 ```json
 {

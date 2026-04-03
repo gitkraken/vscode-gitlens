@@ -23,7 +23,7 @@ Read a triage, investigation, or resolution report and apply the recommended act
 Read the JSON file and determine report type:
 
 - Has `verdicts` array → **Triage decisions** (`DECISIONS-*.json`)
-- Has `investigations` array → **Investigation decisions** (`INVESTIGATION-DECISIONS-*.json`)
+- Has `investigations` array → **Investigation decisions** (`*-INVESTIGATION-DECISIONS.json`)
 - Has `resolutions` array → **Resolution decisions** (`RESOLUTIONS-*.json`)
 
 ### Stage 1 — Translate Recommendations to Actions
@@ -136,7 +136,7 @@ gh issue close <number> --repo gitkraken/vscode-gitlens --reason "completed" --c
 
 ### Stage 5 — Audit Log
 
-Write an audit log to `.triage/reports/ACTIONS-YYYY-MM-DD.md`:
+Write an audit log to `.triage/reports/YYYY-MM-DD-ACTIONS.md`:
 
 ```markdown
 # Actions Applied — YYYY-MM-DD

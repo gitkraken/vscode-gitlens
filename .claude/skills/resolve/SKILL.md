@@ -16,8 +16,8 @@ Evaluate triaged or investigated issues and recommend resolution: shortlist, bac
 ```
 
 - Issue numbers — Fetches evidence pack via `single` command, performs resolution analysis
-- `--from-triage` — Reads a triage decisions JSON (most recent `DECISIONS-*.json` if path omitted). Filters to actionable verdicts.
-- `--from-investigation` — Reads an investigation decisions JSON (most recent `INVESTIGATION-DECISIONS-*.json` if path omitted). Uses investigation findings as additional input.
+- `--from-triage` — Reads a triage decisions JSON (most recent `*-DECISIONS.json` if path omitted). Filters to actionable verdicts.
+- `--from-investigation` — Reads an investigation decisions JSON (most recent `*-INVESTIGATION-DECISIONS.json` if path omitted). Uses investigation findings as additional input.
 
 ## Instructions
 
@@ -98,7 +98,7 @@ Produce two files in `.triage/reports/`:
 
 #### 1. Markdown Report
 
-File: `RESOLUTION-REPORT-YYYY-MM-DD.md`
+File: `YYYY-MM-DD-RESOLUTION-REPORT.md`
 
 **Single issue:**
 
@@ -111,6 +111,7 @@ Issues evaluated: 1
 
 ### [#NNNN — Title](https://github.com/gitkraken/vscode-gitlens/issues/NNNN)
 
+- **Author**: @username (team) | @username
 - **Recommendation**: Shortlist | Backlog | Won't Fix | Community Contribution
 - **Confidence**: High | Medium | Low
 
@@ -170,7 +171,7 @@ Source: [direct | triage decisions | investigation decisions]
 
 #### 2. Machine-Readable JSON
 
-File: `RESOLUTIONS-YYYY-MM-DD.json`
+File: `YYYY-MM-DD-RESOLUTIONS.json`
 
 ```json
 {

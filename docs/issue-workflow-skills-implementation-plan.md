@@ -275,7 +275,7 @@ Issues evaluated: N
 }
 ```
 
-**Output location:** `.triage/reports/RESOLUTION-REPORT-YYYY-MM-DD.md` and `.triage/reports/RESOLUTIONS-YYYY-MM-DD.json`
+**Output location:** `.triage/reports/YYYY-MM-DD-RESOLUTION-REPORT.md` and `.triage/reports/YYYY-MM-DD-RESOLUTIONS.json`
 
 #### 2.4 Add JSON output to investigate-triage skill
 
@@ -285,7 +285,7 @@ Issues evaluated: N
 
 **Addition:** After writing the markdown report, also write a machine-readable JSON file:
 
-**File:** `.triage/reports/INVESTIGATION-DECISIONS-YYYY-MM-DD.json`
+**File:** `.triage/reports/YYYY-MM-DD-INVESTIGATION-DECISIONS.json`
 
 ```json
 {
@@ -340,7 +340,7 @@ Create `.claude/skills/apply-actions/SKILL.md` — the action execution skill (r
 1. **Dry-run by default** — First invocation shows what would be done, asks for confirmation
 2. **Batch confirmation** — For batch operations, show a summary table of all actions and get one confirmation
 3. **Per-issue confirmation for destructive actions** — Closing issues requires individual confirmation
-4. **Audit log** — Write applied actions to `.triage/reports/ACTIONS-YYYY-MM-DD.md`
+4. **Audit log** — Write applied actions to `.triage/reports/YYYY-MM-DD-ACTIONS.md`
 5. **Pre-flight state check** — Before applying any action, fetch current issue state (`gh issue view --json state,labels,milestone`) and skip/warn if the issue has changed since the report was generated (e.g., already closed, labels already applied, milestone already set). This prevents stale-report conflicts.
 
 #### 3.2 Implementation
