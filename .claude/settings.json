@@ -3,6 +3,28 @@
 		"claude-code-setup@claude-plugins-official": true
 	},
 	"hooks": {
+		"WorktreeCreate": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node .claude/hooks/worktree.mts create",
+						"timeout": 60
+					}
+				]
+			}
+		],
+		"WorktreeRemove": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node .claude/hooks/worktree.mts remove",
+						"timeout": 30
+					}
+				]
+			}
+		],
 		"PostToolUse": [
 			{
 				"matcher": "Edit|Write",
