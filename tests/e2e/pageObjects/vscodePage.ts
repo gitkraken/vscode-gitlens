@@ -117,7 +117,7 @@ export class VSCodePage {
 	 */
 	async resetUI(): Promise<void> {
 		await this.closeAllEditors();
-		await this.executeCommand('notifications.clearAll');
+		await this.executeCommand('notifications.clearAll').catch(() => {});
 		await this.panel.close();
 		await this.sidebar.close();
 		await this.secondarySidebar.close();
