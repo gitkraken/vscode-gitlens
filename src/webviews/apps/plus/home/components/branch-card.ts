@@ -490,7 +490,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	}
 
 	get isWorktree(): boolean {
-		return this.branch.worktree != null && !this.branch.worktree.isDefault;
+		return this.branch.worktree != null;
 	}
 
 	get cardIndicator(): GlCard['indicator'] {

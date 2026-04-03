@@ -532,7 +532,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		// Show in the Worktrees or Branches view depending
 		const worktree = await getBranchWorktree(this.container, branch);
-		if (worktree != null && !worktree.isDefault) {
+		if (worktree != null) {
 			await revealWorktree(worktree, { select: true, focus: true, expand: true });
 		} else {
 			await revealBranch(branch, { select: true, focus: true, expand: true });
