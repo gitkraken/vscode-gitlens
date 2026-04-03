@@ -1,38 +1,36 @@
 # Issue Workflow Skills — Usage Guide
 
-How to use the issue workflow skills to triage, investigate, plan, and act on GitHub issues.
+How to use the issue workflow skills to triage, investigate, prioritize, and update GitHub issues.
 
 ## Skills Overview
 
-| Skill                 | Purpose                                        | Modifies GitHub? |
-| --------------------- | ---------------------------------------------- | ---------------- |
-| `/triage`             | First-pass review: categorize, filter, verdict | No               |
-| `/investigate`        | Deep root cause analysis of a single bug       | No               |
-| `/investigate-triage` | Batch investigation of bugs from triage report | No               |
-| `/resolve`            | Recommend resolution: shortlist, backlog, etc. | No               |
-| `/apply-actions`      | Apply recommendations to GitHub issues         | **Yes**          |
+| Skill            | Purpose                                         | Modifies GitHub? |
+| ---------------- | ----------------------------------------------- | ---------------- |
+| `/triage`        | First-pass review: categorize, filter, verdict  | No               |
+| `/investigate`   | Root cause analysis — single deep dive or batch | No               |
+| `/prioritize`    | Recommend resolution: shortlist, backlog, etc.  | No               |
+| `/update-issues` | Apply recommendations to GitHub issues          | **Yes**          |
 
-All analysis skills are read-only. Only `/apply-actions` modifies GitHub state, and it requires explicit confirmation before every action.
+All analysis skills are read-only. Only `/update-issues` modifies GitHub state, and it requires explicit confirmation before every action.
 
 ---
 
 ## Quick Reference
 
-| I want to...                                       | Run this                                                                                               |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Triage one issue                                   | `/triage 5096`                                                                                         |
-| Triage this week's new issues                      | `/triage recent`                                                                                       |
-| Triage with a 14-day window                        | `/triage recent --since 14d`                                                                           |
-| Audit old backlog issues                           | `/triage audit --older-than 365d`                                                                      |
-| Investigate a specific bug                         | `/investigate #5096`                                                                                   |
-| Batch-investigate bugs from a triage report        | `/investigate-triage`                                                                                  |
-| Investigate specific issues without triaging first | `/investigate-triage 5096 5084`                                                                        |
-| Get priority/milestone recommendations             | `/resolve 5096`                                                                                        |
-| Get recommendations from triage results            | `/resolve --from-triage`                                                                               |
-| Get recommendations enriched by investigation      | `/resolve --from-investigation`                                                                        |
-| Apply recommended actions to GitHub                | `/apply-actions`                                                                                       |
-| Dry-run to see what would be applied               | `/apply-actions --dry-run`                                                                             |
-| Full pipeline: triage through apply                | `/triage recent` then `/investigate-triage` then `/resolve --from-investigation` then `/apply-actions` |
+| I want to...                                       | Run this                                                                                                                |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Triage one issue                                   | `/triage 5096`                                                                                                          |
+| Triage this week's new issues                      | `/triage recent`                                                                                                        |
+| Triage with a 14-day window                        | `/triage recent --since 14d`                                                                                            |
+| Audit old backlog issues                           | `/triage audit --older-than 365d`                                                                                       |
+| Investigate a specific bug                         | `/investigate #5096`                                                                                                    |
+| Batch-investigate bugs from a triage report        | `/investigate --from-report`                                                                                            |
+| Investigate specific issues without triaging first | `/investigate 5096 5084`                                                                                                |
+| Get priority/milestone recommendations             | `/prioritize 5096`                                                                                                      |
+| Get recommendations from a report                  | `/prioritize --from-report`                                                                                             |
+| Update GitHub issues from a report                 | `/update-issues --from-report`                                                                                          |
+| Dry-run to see what would be updated               | `/update-issues --from-report --dry-run`                                                                                |
+| Full pipeline: triage through update               | `/triage recent` then `/investigate --from-report` then `/prioritize --from-report` then `/update-issues --from-report` |
 
 ---
 
@@ -46,11 +44,11 @@ All analysis skills are read-only. Only `/apply-actions` modifies GitHub state, 
 
 ```
 /triage recent --since 14d
-/resolve --from-triage
+/prioritize --from-report
 ```
 
 1. `/triage recent` evaluates recent issues and produces a triage report with verdicts
-2. `/resolve --from-triage` reads the triage decisions and produces a resolution report ranking issues by priority signals (reactions, severity, related issues, effort)
+2. `/prioritize --from-report` reads the triage decisions and produces a resolution report ranking issues by priority signals (reactions, severity, related issues, effort)
 
 The resolution report's **Shortlist** section shows the highest-priority issues with rationale. The **Priority Signals** table for each issue gives engineers concrete data (e.g., "45 thumbs-up, 3 related issues, broken workflow").
 
@@ -58,16 +56,16 @@ The resolution report's **Shortlist** section shows the highest-priority issues 
 
 ```
 /triage recent
-/investigate-triage
-/resolve --from-investigation
+/investigate --from-report
+/prioritize --from-report
 ```
 
-Adding `/investigate-triage` between triage and resolve provides root cause analysis, effort estimates, and fix approaches. The resolution report then has more accurate effort/risk data to drive recommendations.
+Adding `/investigate --from-report` between triage and prioritize provides root cause analysis, effort estimates, and fix approaches. The resolution report then has more accurate effort/risk data to drive recommendations.
 
 **Workflow C — Quick prioritization of specific issues:**
 
 ```
-/resolve 5096 5084 5070
+/prioritize 5096 5084 5070
 ```
 
 Skip triage entirely. Directly evaluate specific issues for priority signals and produce recommendations. Useful when someone asks "which of these should we work on next?"
@@ -82,7 +80,7 @@ Skip triage entirely. Directly evaluate specific issues for priority signals and
 
 ```
 /triage recent
-/apply-actions
+/update-issues --from-report
 ```
 
 1. `/triage recent` evaluates all issues opened in the last 7 days. It produces:
@@ -91,7 +89,7 @@ Skip triage entirely. Directly evaluate specific issues for priority signals and
    - **Missing info** with draft comments requesting specifics (logs, repo setup, version)
    - **Miscategorized** issues flagged for relabeling (bug vs. enhancement)
    - **Out of scope** issues identified
-2. `/apply-actions` reads the triage decisions and presents a dry-run of all recommended label changes, comments, and closures. Approve to execute.
+2. `/update-issues --from-report` reads the triage decisions and presents a dry-run of all recommended label changes, comments, and closures. Approve to execute.
 
 **Workflow B — Triage a specific issue someone reported:**
 
@@ -127,11 +125,11 @@ Produces a structured investigation report with: symptom, code path trace, root 
 
 ```
 /triage recent
-/investigate-triage
+/investigate --from-report
 ```
 
 1. `/triage recent` identifies issues needing investigation (`Valid - Needs Triage` verdict)
-2. `/investigate-triage` reads the triage decisions, spawns parallel investigation subagents for each qualifying bug, and produces:
+2. `/investigate --from-report` reads the triage decisions, spawns parallel investigation subagents for each qualifying bug, and produces:
    - Per-issue investigation reports with root cause, effort, and risk
    - A **Classification Matrix** bucketing issues by effort x risk
    - **Quick Wins** section (small effort, low/medium risk)
@@ -140,19 +138,19 @@ Produces a structured investigation report with: symptom, code path trace, root 
 **Workflow C — Investigate specific issues directly:**
 
 ```
-/investigate-triage 5096 5084 5070
+/investigate 5096 5084 5070
 ```
 
-Skip triage — investigate specific issue numbers directly. Useful when you already know which issues need investigation.
+Skip triage — investigate specific issue numbers directly (batch mode with parallel subagents). Useful when you already know which issues need investigation.
 
 **Workflow D — Apply investigation results:**
 
 ```
-/investigate-triage
-/apply-actions
+/investigate --from-report
+/update-issues --from-report
 ```
 
-After investigation, `/apply-actions` can consume the investigation decisions JSON to label confirmed bugs as `triaged` and request more info for issues that can't be reproduced.
+After investigation, `/update-issues` can consume the investigation decisions JSON to label confirmed bugs as `triaged` and request more info for issues that can't be reproduced.
 
 ---
 
@@ -164,8 +162,8 @@ After investigation, `/apply-actions` can consume the investigation decisions JS
 
 ```
 /triage recent --since 30d
-/investigate-triage
-/resolve --from-investigation
+/investigate --from-report
+/prioritize --from-report
 ```
 
 The resolution report provides:
@@ -178,7 +176,7 @@ The resolution report provides:
 **Workflow B — Quick planning view for specific issues:**
 
 ```
-/resolve 5096 5084 5070 4999 4800
+/prioritize 5096 5084 5070 4999 4800
 ```
 
 Evaluate a hand-picked set of issues and get priority recommendations. Useful for sprint planning when you have a candidate list.
@@ -187,7 +185,7 @@ Evaluate a hand-picked set of issues and get priority recommendations. Useful fo
 
 ```
 /triage recent
-/resolve --from-triage
+/prioritize --from-report
 ```
 
 Faster than the full pipeline — skips investigation. Effort estimates are inferred from issue descriptions rather than codebase analysis. Good enough for initial planning; run investigation later for shortlisted items.
@@ -210,7 +208,7 @@ Faster than the full pipeline — skips investigation. Effort estimates are infe
 
 ```
 /triage audit --older-than 365d --batch-size 50
-/apply-actions
+/update-issues --from-report
 ```
 
 Run in batches. The triage skill in audit mode:
@@ -234,12 +232,12 @@ Focus on enhancement requests older than 6 months. These often accumulate as "ni
 
 ```
 /triage audit --older-than 365d
-/investigate-triage
-/resolve --from-investigation
-/apply-actions
+/investigate --from-report
+/prioritize --from-report
+/update-issues --from-report
 ```
 
-The full pipeline on old issues. Investigation includes a **Relevance Assessment** for issues older than 1 year, checking whether the affected code paths still exist. The resolve step provides milestone recommendations. Apply-actions closes stale issues, requests verification on uncertain ones, and labels confirmed bugs.
+The full pipeline on old issues. Investigation includes a **Relevance Assessment** for issues older than 1 year, checking whether the affected code paths still exist. The prioritize step provides milestone recommendations. Update-issues closes stale issues, requests verification on uncertain ones, and labels confirmed bugs.
 
 **Workflow D — Spot-check specific old issues:**
 
@@ -251,7 +249,7 @@ Triage a handful of specific old issues. Useful when a user asks about an old is
 
 **Staleness detection — two paths:**
 
-| Condition                                                   | Triage verdict      | Apply-actions behavior                                                                                     |
+| Condition                                                   | Triage verdict      | Update-issues behavior                                                                                     |
 | ----------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Code refactored or removed since issue filed                | `Close - Stale`     | Close with explanatory comment                                                                             |
 | Old version, no activity, low engagement, code still exists | `Request More Info` | Add `needs-more-info` label + comment asking to verify on current version (triggers auto-close automation) |
@@ -276,45 +274,38 @@ Every skill works standalone or chained. Here are all supported input modes:
 
 ### `/investigate`
 
-| Input               | Example                                      |
-| ------------------- | -------------------------------------------- |
-| Symptom description | `/investigate blame annotations not showing` |
-| Issue reference     | `/investigate #5096`                         |
+| Input               | Example                                                                         |
+| ------------------- | ------------------------------------------------------------------------------- |
+| Symptom description | `/investigate blame annotations not showing`                                    |
+| Single issue        | `/investigate #5096`                                                            |
+| Multiple issues     | `/investigate 5096 5084` (batch mode with parallel subagents)                   |
+| From report         | `/investigate --from-report` (uses most recent decisions JSON)                  |
+| Specific report     | `/investigate --from-report .triage/reports/2026-04-01-DECISIONS.json`          |
+| Filtered verdicts   | `/investigate --from-report --verdict "Valid - Needs Triage,Request More Info"` |
+| Limited parallelism | `/investigate --from-report --max 5`                                            |
 
-**Output:** Investigation report in conversation (not written to file)
+**Output (single):** Investigation report in conversation (not written to file)
+**Output (batch):** `.triage/reports/YYYY-MM-DD-INVESTIGATION-REPORT.md` + `YYYY-MM-DD-INVESTIGATION-DECISIONS.json`
 
-### `/investigate-triage`
+### `/prioritize`
 
-| Input                | Example                                                                  |
-| -------------------- | ------------------------------------------------------------------------ |
-| From triage report   | `/investigate-triage` (uses most recent decisions JSON)                  |
-| Specific report      | `/investigate-triage .triage/reports/2026-04-01-DECISIONS.json`          |
-| Direct issue numbers | `/investigate-triage 5096 5084`                                          |
-| Filtered verdicts    | `/investigate-triage --verdict "Valid - Needs Triage,Request More Info"` |
-| Limited parallelism  | `/investigate-triage --max 5`                                            |
-
-**Output:** `.triage/reports/YYYY-MM-DD-INVESTIGATION-REPORT.md` + `YYYY-MM-DD-INVESTIGATION-DECISIONS.json`
-
-### `/resolve`
-
-| Input                 | Example                                                            |
-| --------------------- | ------------------------------------------------------------------ |
-| Direct issue numbers  | `/resolve 5096 5084 5070`                                          |
-| From triage decisions | `/resolve --from-triage`                                           |
-| From specific triage  | `/resolve --from-triage .triage/reports/2026-04-01-DECISIONS.json` |
-| From investigation    | `/resolve --from-investigation`                                    |
+| Input                | Example                                                                       |
+| -------------------- | ----------------------------------------------------------------------------- |
+| Direct issue numbers | `/prioritize 5096 5084 5070`                                                  |
+| From report          | `/prioritize --from-report` (uses most recent report JSON, auto-detects type) |
+| Specific report      | `/prioritize --from-report .triage/reports/2026-04-01-DECISIONS.json`         |
 
 **Output:** `.triage/reports/YYYY-MM-DD-RESOLUTION-REPORT.md` + `YYYY-MM-DD-RESOLUTIONS.json`
 
-### `/apply-actions`
+### `/update-issues`
 
-| Input              | Example                                                      |
-| ------------------ | ------------------------------------------------------------ |
-| Most recent report | `/apply-actions`                                             |
-| Specific report    | `/apply-actions .triage/reports/2026-04-01-RESOLUTIONS.json` |
-| Dry-run only       | `/apply-actions --dry-run`                                   |
+| Input           | Example                                                                          |
+| --------------- | -------------------------------------------------------------------------------- |
+| From report     | `/update-issues --from-report` (uses most recent report JSON, auto-detects type) |
+| Specific report | `/update-issues --from-report .triage/reports/2026-04-01-RESOLUTIONS.json`       |
+| Dry-run only    | `/update-issues --from-report --dry-run`                                         |
 
-**Consumes:** Any of the three JSON report types (triage decisions, investigation decisions, resolution decisions)
+**Consumes:** Any of the three JSON report types (triage decisions, investigation decisions, resolutions)
 
 **Output:** Dry-run table → user confirmation → execution → `.triage/reports/YYYY-MM-DD-ACTIONS.md` audit log
 
@@ -322,34 +313,34 @@ Every skill works standalone or chained. Here are all supported input modes:
 
 ## Pipeline Chains
 
-### Minimal: Triage + Apply
+### Minimal: Triage + Update
 
 ```
-/triage recent → /apply-actions
+/triage recent → /update-issues --from-report
 ```
 
 Triage issues, then apply labels/comments/closures. Good for weekly inbox processing.
 
-### Standard: Triage + Investigate + Apply
+### Standard: Triage + Investigate + Update
 
 ```
-/triage recent → /investigate-triage → /apply-actions
+/triage recent → /investigate --from-report → /update-issues --from-report
 ```
 
 Triage, then investigate bugs, then apply results. Good when you need to understand root causes before acting.
 
-### Full: Triage + Investigate + Resolve + Apply
+### Full: Triage + Investigate + Prioritize + Update
 
 ```
-/triage recent → /investigate-triage → /resolve --from-investigation → /apply-actions
+/triage recent → /investigate --from-report → /prioritize --from-report → /update-issues --from-report
 ```
 
 Triage, investigate, get planning recommendations, then apply. Good for milestone/sprint planning.
 
-### Shortcut: Resolve + Apply
+### Shortcut: Prioritize + Update
 
 ```
-/resolve 5096 5084 → /apply-actions
+/prioritize 5096 5084 → /update-issues --from-report
 ```
 
 Skip triage and investigation. Get recommendations and apply. Good for ad-hoc prioritization of known issues.
@@ -360,23 +351,23 @@ Skip triage and investigation. Get recommendations and apply. Good for ad-hoc pr
 
 All reports are written to `.triage/reports/`. Each analysis skill produces both a human-readable markdown report and a machine-readable JSON file.
 
-| File pattern                     | Producer              | Consumer                                                          |
-| -------------------------------- | --------------------- | ----------------------------------------------------------------- |
-| `TRIAGE-REPORT-*.md`             | `/triage`             | Humans                                                            |
-| `DECISIONS-*.json`               | `/triage`             | `/investigate-triage`, `/resolve --from-triage`, `/apply-actions` |
-| `*-INVESTIGATION-REPORT.md`      | `/investigate-triage` | Humans                                                            |
-| `*-INVESTIGATION-DECISIONS.json` | `/investigate-triage` | `/resolve --from-investigation`, `/apply-actions`                 |
-| `RESOLUTION-REPORT-*.md`         | `/resolve`            | Humans                                                            |
-| `RESOLUTIONS-*.json`             | `/resolve`            | `/apply-actions`                                                  |
-| `*-ACTIONS.md`                   | `/apply-actions`      | Humans (audit trail)                                              |
+| File pattern                     | Producer         | Consumer                                                                                  |
+| -------------------------------- | ---------------- | ----------------------------------------------------------------------------------------- |
+| `*-TRIAGE-REPORT.md`             | `/triage`        | Humans                                                                                    |
+| `*-DECISIONS.json`               | `/triage`        | `/investigate --from-report`, `/prioritize --from-report`, `/update-issues --from-report` |
+| `*-INVESTIGATION-REPORT.md`      | `/investigate`   | Humans                                                                                    |
+| `*-INVESTIGATION-DECISIONS.json` | `/investigate`   | `/prioritize --from-report`, `/update-issues --from-report`                               |
+| `*-RESOLUTION-REPORT.md`         | `/prioritize`    | Humans                                                                                    |
+| `*-RESOLUTIONS.json`             | `/prioritize`    | `/update-issues --from-report`                                                            |
+| `*-ACTIONS.md`                   | `/update-issues` | Humans (audit trail)                                                                      |
 
 ---
 
 ## Safety Model
 
-1. **Analysis is read-only** — `/triage`, `/investigate`, `/investigate-triage`, and `/resolve` never modify GitHub issues
-2. **Apply requires confirmation** — `/apply-actions` always shows a dry-run first and requires explicit approval
-3. **Pre-flight checks** — `/apply-actions` verifies current issue state before each action, skipping stale or redundant changes
+1. **Analysis is read-only** — `/triage`, `/investigate`, and `/prioritize` never modify GitHub issues
+2. **Update requires confirmation** — `/update-issues` always shows a dry-run first and requires explicit approval
+3. **Pre-flight checks** — `/update-issues` verifies current issue state before each action, skipping stale or redundant changes
 4. **Close confirmation** — Closing issues requires per-issue approval
 5. **Audit trail** — Every applied action is logged to `.triage/reports/*-ACTIONS.md`
 6. **Human-in-the-loop** — All close recommendations require human approval (`requiresHumanApproval: true`)
@@ -385,7 +376,7 @@ All reports are written to `.triage/reports/`. Each analysis skill produces both
 
 ## Limitations and Notes
 
-- **Single-issue duplicate detection is limited.** When triaging a single issue (`/triage 5096`), duplicate detection only cross-references against other issues in the same evidence pack. For a single issue, there's nothing to cross-reference. Use `/resolve` which searches the full repo for related issues, or use batch triage (`/triage recent`) for better duplicate detection.
-- **Specific iteration milestones require human judgment.** The `/resolve` skill recommends "Shortlist" or "Backlog" milestones but does not assign issues to specific iterations/sprints. Deciding which sprint an issue belongs to requires team context that the skills don't have. Use the priority signals from `/resolve` to inform that decision.
-- **Rate limits constrain batch sizes.** `/resolve` uses GitHub's Search API (30 requests/min) for related-issue counting. Batches of 25+ issues will approach the rate limit. The skill budgets accordingly but large batches may take longer.
-- **Investigation cost scales with issue count.** `/investigate-triage` spawns a parallel subagent per issue. Each performs a full codebase investigation. Use `--max` to control parallelism.
+- **Single-issue duplicate detection is limited.** When triaging a single issue (`/triage 5096`), duplicate detection only cross-references against other issues in the same evidence pack. For a single issue, there's nothing to cross-reference. Use `/prioritize` which searches the full repo for related issues, or use batch triage (`/triage recent`) for better duplicate detection.
+- **Specific iteration milestones require human judgment.** The `/prioritize` skill recommends "Shortlist" or "Backlog" milestones but does not assign issues to specific iterations/sprints. Deciding which sprint an issue belongs to requires team context that the skills don't have. Use the priority signals from `/prioritize` to inform that decision.
+- **Rate limits constrain batch sizes.** `/prioritize` uses GitHub's Search API (30 requests/min) for related-issue counting. Batches of 25+ issues will approach the rate limit. The skill budgets accordingly but large batches may take longer.
+- **Investigation cost scales with issue count.** `/investigate` in batch mode spawns a parallel subagent per issue. Each performs a full codebase investigation. Use `--max` to control parallelism.

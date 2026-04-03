@@ -1,19 +1,19 @@
 ---
-name: apply-actions
-description: Apply triage, investigation, or resolution recommendations to GitHub issues — adds labels, posts comments, sets milestones, and closes issues with safety checks
+name: update-issues
+description: Update GitHub issues from triage, investigation, or prioritization reports — adds labels, posts comments, sets milestones, and closes issues with safety checks
 ---
 
-# /apply-actions - Apply Recommendations to GitHub
+# /update-issues - Update GitHub Issues from Reports
 
-Read a triage, investigation, or resolution report and apply the recommended actions to GitHub. This is the only skill in the issue workflow that modifies GitHub state.
+Read a triage, investigation, or prioritization report and apply the recommended actions to GitHub. This is the only skill in the issue workflow that modifies GitHub state.
 
 ## Usage
 
 ```
-/apply-actions [report-path] [--dry-run]
+/update-issues --from-report [path] [--dry-run]
 ```
 
-- `report-path` — Path to a decisions/resolutions JSON file. If omitted, use the most recent JSON report in `.triage/reports/`.
+- `--from-report` — Path to a report JSON file (auto-detects type: triage decisions, investigation decisions, or resolutions). If path omitted, uses the most recent report JSON in `.triage/reports/`.
 - `--dry-run` — Show what would be done without making changes. This is the DEFAULT behavior on first invocation — you must confirm before actions are applied.
 
 ## Instructions
@@ -177,7 +177,7 @@ Applied by: <git user>
 This skill consumes output from the other issue workflow skills:
 
 ```
-/triage recent → /apply-actions                              (apply triage verdicts)
-/triage recent → /investigate-triage → /apply-actions        (apply investigation results)
-/triage recent → /investigate-triage → /resolve → /apply-actions  (apply resolution plan)
+/triage recent → /update-issues                                      (apply triage verdicts)
+/triage recent → /investigate --from-report → /update-issues         (apply investigation results)
+/triage recent → /investigate --from-report → /prioritize --from-report → /update-issues  (full pipeline)
 ```

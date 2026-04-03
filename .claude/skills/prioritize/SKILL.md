@@ -1,23 +1,21 @@
 ---
-name: resolve
-description: Recommend resolution and prioritization for triaged/investigated issues — produces milestone recommendations, priority signals, and draft communications
+name: prioritize
+description: Prioritize triaged/investigated issues — recommends shortlist, backlog, won't fix, or community contribution with priority signals and draft communications
 ---
 
-# /resolve - Issue Resolution & Planning
+# /prioritize - Issue Prioritization & Resolution
 
 Evaluate triaged or investigated issues and recommend resolution: shortlist, backlog, won't fix, or community contribution. Produces priority signal summaries and optional draft communications.
 
 ## Usage
 
 ```
-/resolve <issue-number> [issue-number...]
-/resolve --from-triage [report-path]
-/resolve --from-investigation [report-path]
+/prioritize <number> [number...]
+/prioritize --from-report [path]
 ```
 
 - Issue numbers — Fetches evidence pack via `single` command, performs resolution analysis
-- `--from-triage` — Reads a triage decisions JSON (most recent `*-DECISIONS.json` if path omitted). Filters to actionable verdicts.
-- `--from-investigation` — Reads an investigation decisions JSON (most recent `*-INVESTIGATION-DECISIONS.json` if path omitted). Uses investigation findings as additional input.
+- `--from-report` — Reads a report JSON file (auto-detects type: triage decisions, investigation decisions, or resolutions). If path omitted, uses the most recent report JSON in `.triage/reports/`.
 
 ## Instructions
 
@@ -33,15 +31,14 @@ node --experimental-strip-types ./scripts/triage/triage.mts single <numbers...>
 
 Read the evidence pack JSON printed to stdout.
 
-**From-triage mode:**
+**From-report mode (`--from-report`):**
 
-Read the decisions JSON file. Filter to issues with verdicts: `Valid - Needs Triage`, `Valid - Already Triaged`, `Relabel - Bug`, `Relabel - Feature Request`. Skip issues with close or request-more-info verdicts — those have already been resolved by triage.
+Read the JSON file and auto-detect report type:
+
+- Has `verdicts` array → **Triage decisions**. Filter to issues with actionable verdicts (`Valid - Needs Triage`, `Valid - Already Triaged`, `Relabel - Bug`, `Relabel - Feature Request`). Skip close or request-more-info verdicts — those are already resolved.
+- Has `investigations` array → **Investigation decisions**. For each issue, combine investigation findings (effort, risk, root cause, confidence) with evidence pack data.
 
 For each qualifying issue, you need the evidence pack data. If the corresponding evidence pack is available in `.triage/packs/`, read it. Otherwise, run the `single` command to fetch data for the issue numbers.
-
-**From-investigation mode:**
-
-Read the investigation decisions JSON file. For each issue, combine investigation findings (effort, risk, root cause, confidence) with evidence pack data.
 
 ### Stage 1 — Gather Related Issue Counts
 
@@ -210,9 +207,9 @@ Generate a UUID for `reportId`. Write both files and confirm their paths to the 
 This skill can be used standalone or as part of the issue workflow pipeline:
 
 ```
-/triage recent → /investigate-triage → /resolve --from-investigation
-/triage 5096   → /investigate-triage 5096 → /resolve 5096
-/resolve 5096 5084 5070                    (standalone, direct mode)
+/triage recent → /investigate --from-report → /prioritize --from-report → /update-issues
+/triage 5096   → /investigate 5096          → /prioritize 5096          → /update-issues
+/prioritize 5096 5084 5070                    (standalone, direct mode)
 ```
 
-Downstream: `/apply-actions` can consume the resolutions JSON to apply recommendations to GitHub.
+Downstream: `/update-issues` can consume the resolutions JSON to apply recommendations to GitHub.

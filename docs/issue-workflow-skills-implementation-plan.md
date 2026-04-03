@@ -4,12 +4,12 @@
 
 ### What Exists
 
-| Component                                                           | Status | Coverage                                                                                            |
-| ------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
-| **Triage skill** (`.claude/skills/triage/`)                         | Solid  | Stage 1 fully covered — evidence packs, two-stage eval, 9 verdict classes, batch (reactive + audit) |
-| **Investigate skill** (`.claude/skills/investigate/`)               | Solid  | Stage 2 single-issue — structured root cause analysis with code tracing                             |
-| **Investigate-triage skill** (`.claude/skills/investigate-triage/`) | Solid  | Bridges triage → investigation — parallel subagents from triage decisions                           |
-| **Triage scripts** (`scripts/triage/`)                              | Solid  | Data fetching infra — GraphQL, caching, rate limiting, evidence pack assembly                       |
+| Component                                                                  | Status | Coverage                                                                                            |
+| -------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
+| **Triage skill** (`.claude/skills/triage/`)                                | Solid  | Stage 1 fully covered — evidence packs, two-stage eval, 9 verdict classes, batch (reactive + audit) |
+| **Investigate skill** (`.claude/skills/investigate/`)                      | Solid  | Stage 2 single-issue — structured root cause analysis with code tracing                             |
+| **Investigate-triage skill** (`.claude/skills/investigate --from-report/`) | Solid  | Bridges triage → investigation — parallel subagents from triage decisions                           |
+| **Triage scripts** (`scripts/triage/`)                                     | Solid  | Data fetching infra — GraphQL, caching, rate limiting, evidence pack assembly                       |
 
 ### Gaps vs Requirements
 
@@ -18,7 +18,7 @@
 | No Resolution & Planning skill                | Stage 3: prioritize, recommend milestone, draft communication | Engineers/PMs lack actionable next steps after investigation       |
 | No reaction data in evidence packs            | Priority signals need thumbs-up/reaction counts               | Can't score issue impact for resolution planning                   |
 | No single-issue mode for triage/investigation | Each stage works on single issue or range                     | Can't triage one issue without building a full batch evidence pack |
-| No apply-actions skill                        | Separate action to apply recommendations to GitHub            | All recommendations are read-only with no efficient way to act     |
+| No update-issues skill                        | Separate action to apply recommendations to GitHub            | All recommendations are read-only with no efficient way to act     |
 | No codebase staleness detection               | Detect if affected code was refactored/removed                | Backlog relevance review can't check if code moved on              |
 | No resolution-level batch summary             | Batch output with counts by recommendation category           | PMs lack aggregate planning view                                   |
 
@@ -113,37 +113,37 @@ query ($owner: String!, $repo: String!) {
 
 This avoids one-request-per-issue overhead and stays within the GraphQL rate limit budget. Use conservative chunking (10 issues per GraphQL request) since the `IssueFields` fragment has nested pagination (comments, timeline, labels, assignees). Add error handling to retry with smaller chunks if a complexity limit is hit.
 
-**Evidence pack output:** Same `EvidencePack` format with `workflow: 'single'` and a new `SingleQueryParams` type. Same enrichment pipeline (team members, labels, changelog, duplicate candidates). This means all downstream skills (triage, investigate-triage, resolve) consume the same pack format regardless of how issues were selected.
+**Evidence pack output:** Same `EvidencePack` format with `workflow: 'single'` and a new `SingleQueryParams` type. Same enrichment pipeline (team members, labels, changelog, duplicate candidates). This means all downstream skills (triage, investigate, prioritize) consume the same pack format regardless of how issues were selected.
 
 **`Workflow` type impact:** Adding `'single'` to the `Workflow` union type affects `RunMetadata.workflow` which the triage skill reads to gate behavior (e.g., stale evaluation is "audit mode only"). The triage skill must be updated to handle `workflow: 'single'` — single mode should run all Stage 2 steps including stale evaluation for old issues, since the user explicitly chose these issues for analysis.
 
-#### 1.3 Related-issue counting (moved to resolve skill)
+#### 1.3 Related-issue counting (moved to prioritize skill)
 
-**No changes to evidence pack scripts.** The evidence pack's `duplicateCandidates` field already provides in-batch cross-references. Broader related-issue counting is deferred to the resolve skill (Phase 2), which performs `gh search issues` calls on-demand during resolution analysis.
+**No changes to evidence pack scripts.** The evidence pack's `duplicateCandidates` field already provides in-batch cross-references. Broader related-issue counting is deferred to the prioritize skill (Phase 2), which performs `gh search issues` calls on-demand during resolution analysis.
 
-**Rationale:** The evidence pack build pipeline (`buildPack()`) is a single-pass function that returns a complete pack. Adding Search API calls (rate-limited to 30/min) would slow pack building and couple triage data fetching to resolution concerns. Instead, the resolve skill fetches related-issue counts itself using issue titles as search keywords, only for the issues it's actually evaluating. This keeps pack building fast and avoids hitting the search rate limit during triage.
+**Rationale:** The evidence pack build pipeline (`buildPack()`) is a single-pass function that returns a complete pack. Adding Search API calls (rate-limited to 30/min) would slow pack building and couple triage data fetching to resolution concerns. Instead, the prioritize skill fetches related-issue counts itself using issue titles as search keywords, only for the issues it's actually evaluating. This keeps pack building fast and avoids hitting the search rate limit during triage.
 
-**Implementation in resolve skill:**
+**Implementation in prioritize skill:**
 
 - For each issue being evaluated, run: `gh search issues --repo gitkraken/vscode-gitlens "<significant keywords from title>" --state open --json number --limit 20`
 - Count results (excluding the issue itself) as `relatedIssueCount`
-- Rate-budget: max 25 search calls per resolve invocation (leaves headroom within 30/min limit)
-- Cache results in memory for the duration of the resolve run (no persistent cache needed)
+- Rate-budget: max 25 search calls per prioritize invocation (leaves headroom within 30/min limit)
+- Cache results in memory for the duration of the prioritize run (no persistent cache needed)
 
 ---
 
 ### Phase 2: Resolution & Planning Skill
 
-Create `.claude/skills/resolve/SKILL.md` — the Stage 3 skill.
+Create `.claude/skills/prioritize/SKILL.md` — the Stage 3 skill.
 
 #### 2.1 Skill design
 
 **Usage:**
 
 ```
-/resolve <issue-number> [issue-number...]
-/resolve --from-triage [report-path]
-/resolve --from-investigation [report-path]
+/prioritize <issue-number> [issue-number...]
+/prioritize --from-triage [report-path]
+/prioritize --from-report [report-path]
 ```
 
 **Three input modes:**
@@ -277,11 +277,11 @@ Issues evaluated: N
 
 **Output location:** `.triage/reports/YYYY-MM-DD-RESOLUTION-REPORT.md` and `.triage/reports/YYYY-MM-DD-RESOLUTIONS.json`
 
-#### 2.4 Add JSON output to investigate-triage skill
+#### 2.4 Add JSON output to investigate skill (batch mode)
 
-**File to modify:** `.claude/skills/investigate-triage/SKILL.md`
+**File to modify:** `.claude/skills/investigate/SKILL.md`
 
-**Problem:** The investigate-triage skill currently outputs only a markdown report. The resolve skill's `--from-investigation` mode needs structured data to consume investigation findings (effort, risk, confidence, result) without fragile markdown parsing.
+**Problem:** The investigate skill (batch mode) currently outputs only a markdown report. The prioritize skill's `--from-report` mode needs structured data to consume investigation findings (effort, risk, confidence, result) without fragile markdown parsing.
 
 **Addition:** After writing the markdown report, also write a machine-readable JSON file:
 
@@ -315,14 +315,14 @@ This mirrors the triage decisions JSON pattern — markdown for humans, JSON for
 
 ### Phase 3: Apply Actions Skill
 
-Create `.claude/skills/apply-actions/SKILL.md` — the action execution skill (renamed from `apply-triage` to reflect broader scope).
+Create `.claude/skills/update-issues/SKILL.md` — the action execution skill (renamed from `apply-triage` to reflect broader scope).
 
 #### 3.1 Skill design
 
 **Usage:**
 
 ```
-/apply-actions [report-path] [--dry-run]
+/update-issues [report-path] [--dry-run]
 ```
 
 **Purpose:** Read a triage, investigation, or resolution report and apply the recommended actions to GitHub. This is the only skill that modifies GitHub state.
@@ -417,18 +417,17 @@ Make all three stages work seamlessly as standalone or chained operations on sin
 
 When invoked with issue numbers, the skill runs `triage.mts single <numbers>` to build an evidence pack, then evaluates using the same two-stage process. The output format is the same — a triage report and decisions JSON — just with fewer issues.
 
-#### 5.2 Update investigate-triage for flexible input
+#### 5.2 Consolidate investigate skills
 
-**File to modify:** `.claude/skills/investigate-triage/SKILL.md`
-
-**Enhancement:** In addition to reading from a decisions JSON file, allow reading from the triage report directly by issue number:
+**Merged `/investigate-triage` into `/investigate`.** The single skill now handles both modes:
 
 ```
-/investigate-triage 5096 5084          # Investigate specific issues
-/investigate-triage [report-path]      # From triage decisions (existing)
+/investigate #5096                           # Single deep investigation
+/investigate 5096 5084 5070                  # Batch parallel investigation
+/investigate --from-report [path]            # Batch from triage decisions
 ```
 
-When given issue numbers directly, skip the decisions file filtering and go straight to fetching issue context + spawning investigation subagents.
+Mode is determined by input: one issue → single deep dive in current agent, 2+ issues or `--from-report` → parallel subagents with report output.
 
 #### 5.3 Chaining documentation
 
@@ -439,8 +438,8 @@ Add a section to each skill's SKILL.md showing how it chains with the others:
 
 This skill can be used standalone or as part of the issue workflow:
 
-/triage recent → /investigate-triage → /resolve --from-investigation
-/triage 5096   → /investigate-triage 5096 → /resolve 5096
+/triage recent → /investigate --from-report → /prioritize --from-report
+/triage 5096   → /investigate --from-report 5096 → /prioritize 5096
 ```
 
 ---
@@ -449,20 +448,20 @@ This skill can be used standalone or as part of the issue workflow:
 
 ```
 Phase 1.1 (reactions)  ─┐
-Phase 1.2 (single)     ─┤─→ Phase 2 (resolve skill + 2.4 investigation JSON) ─→ Phase 3 (apply skill)
+Phase 1.2 (single)     ─┤─→ Phase 2 (prioritize skill + 2.4 investigation JSON) ─→ Phase 3 (apply skill)
                         │         │
 Phase 4.1 (staleness)  ┘         │
 Phase 4.2 (triage staleness)     │
 Phase 5 (composability) ─────────┘
 ```
 
-Note: Phase 1.3 (related-issue counting) was moved into the resolve skill (Phase 2) — no longer a separate data layer step.
+Note: Phase 1.3 (related-issue counting) was moved into the prioritize skill (Phase 2) — no longer a separate data layer step.
 
 **Recommended build order:**
 
 1. Phase 1.1 + 1.2 (parallel — independent script changes)
 2. Phase 5.1 (triage single-issue mode — depends on 1.2)
-3. Phase 2.1-2.3 (resolve skill — depends on 1.1, 1.2)
+3. Phase 2.1-2.3 (prioritize skill — depends on 1.1, 1.2)
 4. Phase 2.4 (investigation JSON output — independent, can overlap with 2.1-2.3)
 5. Phase 4 (staleness — independent, can overlap with Phase 2)
 6. Phase 5.2 + 5.3 (composability — depends on Phase 2)
@@ -476,21 +475,20 @@ Note: Phase 1.3 (related-issue counting) was moved into the resolve skill (Phase
 
 | File                                    | Purpose                               |
 | --------------------------------------- | ------------------------------------- |
-| `.claude/skills/resolve/SKILL.md`       | Resolution & Planning skill (Stage 3) |
-| `.claude/skills/apply-actions/SKILL.md` | Action execution skill                |
+| `.claude/skills/prioritize/SKILL.md`    | Resolution & Planning skill (Stage 3) |
+| `.claude/skills/update-issues/SKILL.md` | Action execution skill                |
 
 ### Modified Files
 
-| File                                         | Change                                                                          |
-| -------------------------------------------- | ------------------------------------------------------------------------------- |
-| `scripts/triage/fetch-issues.mts`            | Add `reactionGroups` to GraphQL fragment; add `fetchSingleIssues()`             |
-| `scripts/triage/types.mts`                   | Add `ReactionSummary`, `SingleQueryParams`; add `'single'` to `Workflow` union  |
-| `scripts/triage/build-pack.mts`              | Map reactions during enrichment; handle single-issue mode                       |
-| `scripts/triage/triage.mts`                  | Add `single` command                                                            |
-| `scripts/triage/config.mts`                  | Add `singleIssueBatchLimit` config                                              |
-| `.claude/skills/triage/SKILL.md`             | Add single-issue usage; handle `workflow: 'single'`; enhance staleness guidance |
-| `.claude/skills/investigate/SKILL.md`        | Add relevance assessment step for old issues                                    |
-| `.claude/skills/investigate-triage/SKILL.md` | Add JSON output; add direct issue number input; chaining docs                   |
+| File                                  | Change                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------ |
+| `scripts/triage/fetch-issues.mts`     | Add `reactionGroups` to GraphQL fragment; add `fetchSingleIssues()`                  |
+| `scripts/triage/types.mts`            | Add `ReactionSummary`, `SingleQueryParams`; add `'single'` to `Workflow` union       |
+| `scripts/triage/build-pack.mts`       | Map reactions during enrichment; handle single-issue mode                            |
+| `scripts/triage/triage.mts`           | Add `single` command                                                                 |
+| `scripts/triage/config.mts`           | Add `singleIssueBatchLimit` config                                                   |
+| `.claude/skills/triage/SKILL.md`      | Add single-issue usage; handle `workflow: 'single'`; enhance staleness guidance      |
+| `.claude/skills/investigate/SKILL.md` | Merge single + batch modes; add relevance assessment; add JSON output; chaining docs |
 
 ---
 
@@ -509,8 +507,8 @@ Note: Phase 1.3 (related-issue counting) was moved into the resolve skill (Phase
 
 ## Success Criteria
 
-1. **Single-issue flow works end-to-end:** `/triage 5096` → `/investigate-triage 5096` → `/resolve 5096` → `/apply-actions`
-2. **Batch flow works end-to-end:** `/triage recent` → `/investigate-triage` → `/resolve --from-investigation` → `/apply-actions`
+1. **Single-issue flow works end-to-end:** `/triage 5096` → `/investigate --from-report 5096` → `/prioritize 5096` → `/update-issues`
+2. **Batch flow works end-to-end:** `/triage recent` → `/investigate --from-report` → `/prioritize --from-report` → `/update-issues`
 3. **Resolution recommendations are grounded:** Every recommendation cites specific priority signals with values
 4. **Apply skill is safe:** Dry-run by default, confirmation required, audit logged
 5. **Old issues get relevance checks:** Investigation of 2+ year old issues includes codebase staleness assessment

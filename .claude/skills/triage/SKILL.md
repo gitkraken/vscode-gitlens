@@ -125,7 +125,7 @@ Separate from `Close - Stale`, identify issues that are old and inactive but whe
 - (c) No upvotes or low engagement (`reactions.thumbsUp` is 0-1)
 - (d) The code path still exists (not eligible for `Close - Stale`)
 
-The `Request More Info` comment should ask the reporter to verify the issue still occurs on the current version and provide updated environment details. This triggers the `needs-more-info` label via `/apply-actions`, which activates existing automation that auto-closes if no response within a set timeframe.
+The `Request More Info` comment should ask the reporter to verify the issue still occurs on the current version and provide updated environment details. This triggers the `needs-more-info` label via `/update-issues`, which activates existing automation that auto-closes if no response within a set timeframe.
 
 ### Safety Gate
 
@@ -286,8 +286,8 @@ Write both files and confirm their paths to the user.
 This skill can be used standalone or as part of the issue workflow pipeline:
 
 ```
-/triage recent → /investigate-triage → /resolve --from-investigation → /apply-actions
-/triage 5096   → /investigate-triage 5096 → /resolve 5096 → /apply-actions
+/triage recent → /investigate --from-report → /prioritize --from-report → /update-issues
+/triage 5096   → /investigate 5096          → /prioritize 5096          → /update-issues
 ```
 
 Downstream skills consume the decisions JSON produced by this skill.
