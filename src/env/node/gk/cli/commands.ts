@@ -166,6 +166,10 @@ export class CliCommandHandlers implements Disposable {
 		request: CliCommandRequest | undefined,
 		repo?: GlRepository | undefined,
 	): Promise<CliCommandResponse> {
+		if (request?.cwd && repo == null) {
+			return { stderr: `'${request.cwd}' is an invalid or non-Git directory` };
+		}
+
 		const instructions = request?.args?.[0];
 
 		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
