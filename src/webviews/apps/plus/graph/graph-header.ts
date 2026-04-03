@@ -902,7 +902,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private readonly searchEl!: GlSearchBox;
 
 	override render() {
-		const repo = this.graphState.repositories?.find(repo => repo.path === this.graphState.selectedRepository);
+		const repo = this.graphState.repositories?.find(repo => repo.id === this.graphState.selectedRepository);
 
 		return cache(
 			html`<header class="titlebar graph-app__header">

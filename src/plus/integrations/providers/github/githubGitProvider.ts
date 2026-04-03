@@ -273,49 +273,36 @@ export class GlGitHubGitProvider implements GlGitProvider {
 			return this.openRepository(undefined, workspaceUri, undefined, true, options?.silent);
 		} catch (ex) {
 			if (ex.message.startsWith('No provider registered with')) {
-				Logger.error(
-					ex,
-					'No GitHub provider registered with Remote Repositories (yet); queuing pending discovery',
-				);
-				this._pendingDiscovery.add(uri);
-				this.ensurePendingRepositoryDiscovery();
+				Logger.error(ex, 'No GitHub provider registered with Remote Repositories (yet); retrying');
+				return this.discoverRepositoriesPending(uri, options);
 			}
 			return [];
 		}
 	}
 
-	private _pendingDiscovery = new Set<Uri>();
-	private _pendingTimer: ReturnType<typeof setTimeout> | undefined;
-	private ensurePendingRepositoryDiscovery() {
-		if (this._pendingTimer != null || this._pendingDiscovery.size === 0) return;
+	private async discoverRepositoriesPending(
+		uri: Uri,
+		options?: { cancellation?: AbortSignal; depth?: number; silent?: boolean },
+	): Promise<GlRepository[]> {
+		const remotehub = await getRemoteHubApi();
 
-		this._pendingTimer = setTimeout(async () => {
+		for (let attempt = 0; attempt < 20; attempt++) {
+			await new Promise<void>(resolve => setTimeout(resolve, 250));
+
+			if (options?.cancellation?.aborted) return [];
+			if (remotehub.getProvider(uri) == null) continue;
+
 			try {
-				const remotehub = await getRemoteHubApi();
+				const workspaceUri = remotehub.getVirtualWorkspaceUri(uri);
+				if (workspaceUri == null) return [];
 
-				for (const uri of this._pendingDiscovery) {
-					if (remotehub.getProvider(uri) == null) {
-						this._pendingTimer = undefined;
-						this.ensurePendingRepositoryDiscovery();
-						return;
-					}
-
-					this._pendingDiscovery.delete(uri);
-				}
-
-				this._pendingTimer = undefined;
-
-				setTimeout(() => this._onDidChange.fire(), 1);
-
-				if (this._pendingDiscovery.size !== 0) {
-					this.ensurePendingRepositoryDiscovery();
-				}
+				return this.openRepository(undefined, workspaceUri, undefined, true, options?.silent);
 			} catch {
-				debugger;
-				this._pendingTimer = undefined;
-				this.ensurePendingRepositoryDiscovery();
+				return [];
 			}
-		}, 250);
+		}
+
+		return [];
 	}
 
 	updateContext(): void {

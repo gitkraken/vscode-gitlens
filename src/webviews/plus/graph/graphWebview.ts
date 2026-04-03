@@ -415,7 +415,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} else if (hasGitReference(arg)) {
 			repository = this.container.git.getRepository(arg.ref.repoPath);
 		} else if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
-			repository = this.container.git.getRepository(arg.state.selectedRepository);
+			repository = this.container.git.openRepositories.find(r => r.id === arg.state.selectedRepository);
 		}
 
 		return repository?.uri.toString() === this.repository?.uri.toString() ? true : undefined;
@@ -509,7 +509,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.updateState();
 		} else {
 			if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
-				this.repository = this.container.git.getRepository(arg.state.selectedRepository);
+				this.repository = this.container.git.openRepositories.find(r => r.id === arg.state.selectedRepository);
 			}
 
 			if (this.repository == null && this.container.git.repositoryCount > 1) {
@@ -2345,6 +2345,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onIntegrationConnectionChanged(e: ConnectionStateChangeEvent) {
+		// If we're still discovering repositories, we'll update the view once discovery is complete
+		if (this._discovering) return;
+
 		void this.notifyDidChangeRepoConnection();
 
 		// If an issue integration connected/disconnected, update metadata state
@@ -3040,7 +3043,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			webroot: this.host.getWebRoot(),
 			windowFocused: this.isWindowFocused,
 			repositories: await formatRepositories(this.container.git.openRepositories),
-			selectedRepository: this.repository.path,
+			selectedRepository: this.repository.id,
 			selectedRepositoryVisibility: visibility,
 			branchesVisibility: refsVisibility.branchesVisibility,
 			branch: branch && {

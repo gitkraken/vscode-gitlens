@@ -11,7 +11,7 @@ import {
 } from '../../../constants.integrations.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
-import { toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils.js';
+import { toRepositoryShape, toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils.js';
 import { isWebviewItemContext, isWebviewItemGroupContext } from '../../../system/webview.js';
 import type {
 	GraphBranchContextValue,
@@ -38,10 +38,16 @@ export async function formatRepositories(repositories: GlRepository[]): Promise<
 
 	const result = await Promise.allSettled(
 		repositories.map<Promise<GraphRepository>>(async repo => {
-			const remotes = await repo.git.remotes.getBestRemotesWithProviders();
-			const remote = remotes.find(r => remoteSupportsIntegration(r)) ?? remotes[0];
+			try {
+				const remotes = await repo.git.remotes.getBestRemotesWithProviders();
+				const remote = remotes.find(r => remoteSupportsIntegration(r)) ?? remotes[0];
 
-			return toRepositoryShapeWithProvider(repo, remote);
+				return await toRepositoryShapeWithProvider(repo, remote);
+			} catch {
+				// If provider info fails (e.g. during integration reconnection),
+				// still return the repo shape without provider details
+				return toRepositoryShape(repo);
+			}
 		}),
 	);
 	return result.map(r => getSettledValue(r)).filter(r => r != null);
