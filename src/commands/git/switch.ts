@@ -246,7 +246,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				state.createBranch = undefined;
 
 				const worktree = await svc.worktrees?.getWorktree(w => w.branch?.name === state.reference.name);
-				if (worktree != null && !worktree.isDefault) {
+				if (worktree != null) {
 					if (state.fastForwardTo != null) {
 						try {
 							await state.repos[0].git.ops?.merge(state.fastForwardTo.ref, { fastForward: 'only' });
