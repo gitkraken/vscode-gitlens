@@ -3285,6 +3285,18 @@ void
 }
 ```
 
+### op/git/gitDirResolve/failed
+
+> Sent when getGitDir resolves to a non-existent .git directory or rev-parse fails
+
+```typescript
+{
+  'error.message': string,
+  'git.dir': string,
+  'repository.path': string
+}
+```
+
 ### op/git/queueWait
 
 > Sent when a background git command waited in the queue

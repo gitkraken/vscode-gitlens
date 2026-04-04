@@ -246,6 +246,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		const cached = this.cache.gitDir.get(repoPath);
 		if (cached != null) return cached;
 
+		const scope = getScopedLogger();
 		const repoInfo = await this.getRepositoryInfo(repoPath);
 
 		let gitDir: GitDir;
@@ -259,6 +260,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			gitDir = {
 				uri: this.provider.getAbsoluteUri(joinPaths(repoPath, '.git'), repoPath),
 			};
+
+			const gitDirPath = gitDir.uri.toString(true);
+			scope?.warn(`rev-parse failed for '${repoPath}'; falling back to '${gitDirPath}'`);
+			this.context.hooks?.operations?.onGitDirResolveFailed?.(
+				repoPath,
+				gitDirPath,
+				`rev_parse returned ${JSON.stringify(repoInfo)}`,
+			);
 		}
 		this.cache.gitDir.set(repoPath, gitDir);
 
@@ -324,13 +333,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		const gkConfigPath = await this.getGkConfigPath(repoPath);
 		if (!gkConfigPath) return;
 
-		// Ensure the .git/gk/ directory exists before writing
 		const gkConfigFolder = joinPaths(gkConfigPath, '..');
-		try {
-			await fs.mkdir(gkConfigFolder, { recursive: true });
-		} catch (ex) {
-			scope?.error(ex, `Failed to create '${gkConfigFolder}' directory`);
-		}
+
+		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
 
 		await this.setConfigCore(repoPath, key, value, { file: gkConfigPath });
 
@@ -578,6 +583,34 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return { path: dotGitPath };
 	}
 
+	/**
+	 * Ensures the `.git/gk/` folder exists, but only if the parent `.git` directory already exists.
+	 * This prevents creating stray `.git` directories if the computed path is wrong.
+	 * Returns `true` if the folder was ensured, `false` if the parent `.git` does not exist.
+	 */
+	private async ensureGkConfigFolder(
+		gkConfigFolder: string,
+		scope: ReturnType<typeof getScopedLogger>,
+	): Promise<boolean> {
+		// Verify the .git directory already exists — never create it from scratch
+		const dotGitDir = joinPaths(gkConfigFolder, '..');
+		try {
+			await fs.stat(dotGitDir);
+		} catch {
+			scope?.warn(`Skipping GK config write — expected git directory '${dotGitDir}' does not exist`);
+			return false;
+		}
+
+		try {
+			await fs.mkdir(gkConfigFolder, { recursive: true });
+		} catch (ex) {
+			scope?.error(ex, `Failed to create '${gkConfigFolder}' directory`);
+			return false;
+		}
+
+		return true;
+	}
+
 	private _migratedRepos = new Set<string>();
 
 	/**
@@ -611,16 +644,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		}
 
 		// If .git/gk/config doesn't exist, create an empty file to prevent multiple migration attempts in future sessions
+		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
 		try {
-			await fs.mkdir(gkConfigFolder, { recursive: true });
-			try {
-				await fs.writeFile(gkConfigPath, new Uint8Array());
-			} catch (ex) {
-				scope?.error(ex, `Failed to create '${gkConfigPath}' file`);
-			}
+			await fs.writeFile(gkConfigPath, new Uint8Array());
 		} catch (ex) {
-			scope?.error(ex, `Failed to create '${gkConfigFolder}' directory`);
-			return;
+			scope?.error(ex, `Failed to create '${gkConfigPath}' file`);
 		}
 
 		// Read legacy gk-* keys from regular git config

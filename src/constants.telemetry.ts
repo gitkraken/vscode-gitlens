@@ -299,6 +299,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	'op/gate/deadlock': OperationGateDeadlockEvent;
 	'op/git/aborted': OperationGitAbortedEvent;
+	/** Sent when getGitDir resolves to a non-existent .git directory or rev-parse fails */
+	'op/git/gitDirResolve/failed': OperationGitDirResolveFailedEvent;
 	/** Sent when a background git command waited in the queue */
 	'op/git/queueWait': OperationGitQueueWaitEvent;
 
@@ -1161,6 +1163,12 @@ interface OperationGitAbortedEvent {
 	duration: number;
 	timeout: number;
 	reason: 'timeout' | 'cancellation' | 'unknown';
+}
+
+interface OperationGitDirResolveFailedEvent {
+	'repository.path': string;
+	'git.dir': string;
+	'error.message': string | undefined;
 }
 
 interface OperationGitQueueWaitEvent {

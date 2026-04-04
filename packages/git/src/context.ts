@@ -121,6 +121,8 @@ export interface GitServiceHooks {
 	readonly operations?: {
 		/** Called when a git command produced a conflict */
 		onConflicted?(command: GitConflictCommand): void;
+		/** Called when getGitDir resolves to a non-existent .git directory or rev-parse fails */
+		onGitDirResolveFailed?(repoPath: string, gitDir: string, errorMessage: string): void;
 	};
 }
 

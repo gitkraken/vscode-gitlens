@@ -81,6 +81,12 @@ export function createGitProviderContext(container: Container): GitServiceContex
 			},
 			operations: {
 				onConflicted: command => container.telemetry.sendEvent('gitCommand/conflict', { command: command }),
+				onGitDirResolveFailed: (repoPath, gitDir, errorMessage) =>
+					container.telemetry.sendEvent('op/git/gitDirResolve/failed', {
+						'repository.path': repoPath,
+						'git.dir': gitDir,
+						'error.message': errorMessage,
+					}),
 			},
 		},
 
