@@ -13,13 +13,13 @@ jobs:
             contents: write
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
             - name: Setup node
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
               with:
                   node-version: '22'
             - name: Setup pnpm
-              uses: pnpm/action-setup@v3
+              uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3
               with:
                   version: 10
             - name: Setup Environment
@@ -36,13 +36,13 @@ jobs:
               run: pnpm ovsx publish ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_OPENVSIX_PAT }}
             - name: Generate Changelog
               id: changelog
-              uses: mindsers/changelog-reader-action@v2
+              uses: mindsers/changelog-reader-action@32aa5b4c155d76c94e4ec883a223c947b2f02656 # v2
               with:
                   version: ${{ env.PACKAGE_VERSION }}
                   path: ./CHANGELOG.md
             - name: Create GitHub release
               id: create_release
-              uses: softprops/action-gh-release@v2
+              uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
