@@ -35,8 +35,11 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
+    - 'esbuild@0.28.0'
+    - '@esbuild/*'
+    - 'esbuild-loader@4.4.3'
+    - 'esbuild-node-externals@1.21.0'
     - 'handlebars@4.7.9'
-    - 'ovsx@0.10.10'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch
