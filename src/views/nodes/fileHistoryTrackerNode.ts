@@ -153,7 +153,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		}
 
 		// Only trigger change if the editor's URI is different from the current one
-		if (!editor?.document?.uri || areUrisEqual(editor.document.uri, this.uri)) {
+		if (editor != null && areUrisEqual(editor.document.uri, this.uri)) {
 			return;
 		}
 
