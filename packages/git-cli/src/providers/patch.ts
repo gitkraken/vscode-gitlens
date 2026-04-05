@@ -150,7 +150,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			undefined,
 			options,
 		);
-		// eslint-disable-next-line no-return-await -- await is needed for the disposableIndex to be disposed properly after
+		// await is needed for the disposableIndex to be disposed properly after
 		return await this.provider.commits.getCommit(repoPath, sha);
 	}
 
