@@ -1,5 +1,5 @@
-import { McpClient, findGkCliFromArgs, findLatestIpcFile, waitForCliInstall } from '../helpers/mcpHelper.js';
 import { test as base } from '../baseTest.js';
+import { findGkCliFromArgs, findLatestIpcFile, McpClient, waitForCliInstall } from '../helpers/mcpHelper.js';
 
 export { expect } from '@playwright/test';
 export type { McpMessage, McpClient } from '../helpers/mcpHelper.js';
@@ -31,6 +31,9 @@ export const mcpTest = base.extend<McpFixtures>({
 		const gkPath = findGkCliFromArgs(vscode.electron.args);
 		await waitForCliInstall(gkPath);
 		const ipcFilePath = findLatestIpcFile();
+		if (ipcFilePath == null) {
+			console.warn('[mcpTest] No live IPC file found — GK_GL_PATH will not be set');
+		}
 		const client = new McpClient(gkPath, ipcFilePath);
 		await use(client);
 	},
