@@ -1,7 +1,8 @@
+import { spawn } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import process from 'node:process';
 import * as readline from 'node:readline';
 
 export type McpMessage = {
@@ -13,7 +14,7 @@ export type McpMessage = {
 	error?: { code: number; message: string };
 };
 
-type McpConfigResult = {
+export type McpConfigResult = {
 	name: string;
 	type: string;
 	command: string;
@@ -48,7 +49,7 @@ export function findLatestIpcFile(): string | undefined {
 		.map(f => {
 			const fullPath = path.join(tmpDir, f);
 			try {
-				return { fullPath, mtime: statSync(fullPath).mtime };
+				return { fullPath: fullPath, mtime: statSync(fullPath).mtime };
 			} catch {
 				return null;
 			}
@@ -102,7 +103,7 @@ export class McpClient {
 			],
 			2,
 		);
-		return ((msg?.result as any)?.tools ?? []).map((t: { name: string }) => t.name) as string[];
+		return ((msg?.result as { tools?: { name: string }[] })?.tools ?? []).map(t => t.name);
 	}
 
 	/** Calls a single MCP tool and returns the tool-response message. */
@@ -124,8 +125,12 @@ export class McpClient {
 	 */
 	async getMcpConfig(options?: { experimental?: boolean; insiders?: boolean }): Promise<McpConfigResult> {
 		const args = ['mcp', 'config', this.host, '--source=gitlens', `--scheme=${this.host}`];
-		if (options?.experimental) args.push('--experimental');
-		if (options?.insiders) args.push('--insiders');
+		if (options?.experimental) {
+			args.push('--experimental');
+		}
+		if (options?.insiders) {
+			args.push('--insiders');
+		}
 
 		return new Promise((resolve, reject) => {
 			const proc = spawn(this.gkPath, args, {
@@ -134,14 +139,20 @@ export class McpClient {
 			});
 
 			let stdout = '';
+			let stderr = '';
 			proc.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+			proc.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
 			proc.on('close', () => {
 				// Strip "checking for updates..." noise before parsing
 				const clean = stdout.replace(/checking for updates\.\.\./gi, '').trim();
 				try {
 					resolve(JSON.parse(clean) as McpConfigResult);
 				} catch {
-					reject(new Error(`gk mcp config returned non-JSON: ${clean.slice(0, 200)}`));
+					reject(
+						new Error(
+							`gk mcp config returned non-JSON: ${clean.slice(0, 200)}${stderr ? `\nstderr: ${stderr}` : ''}`,
+						),
+					);
 				}
 			});
 			proc.on('error', reject);
@@ -152,7 +163,9 @@ export class McpClient {
 
 	private buildEnv(): NodeJS.ProcessEnv {
 		const env: NodeJS.ProcessEnv = { ...process.env };
-		if (this.ipcFilePath != null) env['GK_GL_PATH'] = this.ipcFilePath;
+		if (this.ipcFilePath != null) {
+			env['GK_GL_PATH'] = this.ipcFilePath;
+		}
 		return env;
 	}
 
@@ -186,11 +199,18 @@ export class McpClient {
 			);
 
 			let resolved = false;
+			let stderr = '';
+			proc.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+
 			const timer = setTimeout(() => {
 				if (!resolved) {
 					resolved = true;
 					proc.kill();
-					reject(new Error(`McpClient: timeout after ${timeoutMs}ms waiting for id=${targetId}`));
+					reject(
+						new Error(
+							`McpClient: timeout after ${timeoutMs}ms waiting for id=${targetId}${stderr ? `\nstderr: ${stderr}` : ''}`,
+						),
+					);
 				}
 			}, timeoutMs);
 
@@ -209,7 +229,7 @@ export class McpClient {
 				// Auto-cancel any elicitation requests so tests don't hang
 				if (msg.method === 'elicitation/create') {
 					proc.stdin.write(
-						JSON.stringify({ jsonrpc: '2.0', id: (msg as any).id, result: { action: 'cancel' } }) + '\n',
+						`${JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { action: 'cancel' } })}\n`,
 					);
 					return;
 				}
@@ -238,7 +258,7 @@ export class McpClient {
 				}
 			});
 
-			const payload = messages.map(m => JSON.stringify(m)).join('\n') + '\n';
+			const payload = `${messages.map(m => JSON.stringify(m)).join('\n')}\n`;
 			proc.stdin.write(payload);
 			proc.stdin.end();
 		});
