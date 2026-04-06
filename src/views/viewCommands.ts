@@ -822,7 +822,7 @@ export class ViewCommands implements Disposable {
 		}
 	}
 
-	@command('gitlens.views.pruneRemote')
+	@command('gitlens.pruneRemote:views')
 	@debug()
 	private pruneRemote(node: RemoteNode) {
 		if (!node.is('remote')) return Promise.resolve();
@@ -830,7 +830,7 @@ export class ViewCommands implements Disposable {
 		return RemoteActions.prune(node.remote.repoPath, node.remote.name);
 	}
 
-	@command('gitlens.views.removeRemote')
+	@command('gitlens.removeRemote:views')
 	@debug()
 	private async removeRemote(node: RemoteNode) {
 		if (!node.is('remote')) return Promise.resolve();
@@ -1043,7 +1043,7 @@ export class ViewCommands implements Disposable {
 		return RepoActions.revert(node.repoPath, node.ref);
 	}
 
-	@command('gitlens.views.setAsDefault')
+	@command('gitlens.setRemoteAsDefault:views')
 	@debug()
 	private setAsDefault(node: RemoteNode) {
 		if (!node.is('remote')) return Promise.resolve();
@@ -1171,7 +1171,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
-	@command('gitlens.views.unsetAsDefault')
+	@command('gitlens.unsetRemoteAsDefault:views')
 	@debug()
 	private unsetAsDefault(node: RemoteNode): Promise<void> {
 		if (!node.is('remote')) return Promise.resolve();

@@ -6656,6 +6656,16 @@
 				"icon": "$(plug)"
 			},
 			{
+				"command": "gitlens.connectRemoteProvider:graph",
+				"title": "Connect Remote Integration",
+				"icon": "$(plug)"
+			},
+			{
+				"command": "gitlens.connectRemoteProvider:views",
+				"title": "Connect Remote Integration",
+				"icon": "$(plug)"
+			},
+			{
 				"command": "gitlens.copyCurrentBranch",
 				"title": "Copy Current Branch Name",
 				"category": "GitLens",
@@ -6790,6 +6800,11 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "gitlens.copyRemoteBranchesUrl:graph",
+				"title": "Copy Remote Branches URL",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.copyRemoteBranchUrl",
 				"title": "Copy Remote Branch URL",
 				"icon": "$(copy)"
@@ -6849,6 +6864,16 @@
 			},
 			{
 				"command": "gitlens.copyRemoteRepositoryUrl",
+				"title": "Copy Remote Repository URL",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyRemoteRepositoryUrl:graph",
+				"title": "Copy Remote URL",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyRemoteRepositoryUrl:views",
 				"title": "Copy Remote Repository URL",
 				"icon": "$(copy)"
 			},
@@ -7050,6 +7075,16 @@
 				"icon": "$(gitlens-unplug)"
 			},
 			{
+				"command": "gitlens.disconnectRemoteProvider:graph",
+				"title": "Disconnect Remote Integration",
+				"icon": "$(gitlens-unplug)"
+			},
+			{
+				"command": "gitlens.disconnectRemoteProvider:views",
+				"title": "Disconnect Remote Integration",
+				"icon": "$(gitlens-unplug)"
+			},
+			{
 				"command": "gitlens.enableDebugLogging",
 				"title": "Enable Debug (Trace) Logging",
 				"category": "GitLens"
@@ -7080,6 +7115,12 @@
 			},
 			{
 				"command": "gitlens.fetch:views",
+				"title": "Fetch",
+				"icon": "$(repo-fetch)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.fetchRemote:graph",
 				"title": "Fetch",
 				"icon": "$(repo-fetch)",
 				"enablement": "!operationInProgress"
@@ -7784,6 +7825,16 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "gitlens.openBranchesOnRemote:graph",
+				"title": "Open Branches on Remote",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.openBranchesOnRemote:views",
+				"title": "Open Branches on Remote",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "gitlens.openBranchOnRemote",
 				"title": "Open Branch on Remote",
 				"category": "GitLens",
@@ -7982,6 +8033,16 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "gitlens.openRepoOnRemote:graph",
+				"title": "Open on Remote",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.openRepoOnRemote:views",
+				"title": "Open Repository on Remote",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "gitlens.openRevisionFile",
 				"title": "Open File at Revision",
 				"category": "GitLens",
@@ -8115,6 +8176,17 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.pruneRemote:graph",
+				"title": "Prune",
+				"icon": "$(close)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.pruneRemote:views",
+				"title": "Prune",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.publishBranch:graph",
 				"title": "Publish Branch",
 				"icon": "$(cloud-upload)",
@@ -8242,6 +8314,17 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.removeRemote:graph",
+				"title": "Remove Remote",
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.removeRemote:views",
+				"title": "Remove Remote...",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.reset",
 				"title": "Reset Stored Data...",
 				"category": "GitLens"
@@ -8281,6 +8364,14 @@
 				"command": "gitlens.revealCommitInView",
 				"title": "Reveal Commit in Side Bar",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.setRemoteAsDefault:graph",
+				"title": "Set as Default"
+			},
+			{
+				"command": "gitlens.setRemoteAsDefault:views",
+				"title": "Set as Default"
 			},
 			{
 				"command": "gitlens.setUpstream:graph",
@@ -8891,6 +8982,14 @@
 				"command": "gitlens.toggleZenMode",
 				"title": "Toggle Zen Mode",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.unsetRemoteAsDefault:graph",
+				"title": "Unset as Default"
+			},
+			{
+				"command": "gitlens.unsetRemoteAsDefault:views",
+				"title": "Unset as Default"
 			},
 			{
 				"command": "gitlens.unstar.branch:graph",
@@ -9986,11 +10085,6 @@
 				"icon": "$(debug-step-over)"
 			},
 			{
-				"command": "gitlens.views.pruneRemote",
-				"title": "Prune",
-				"enablement": "!operationInProgress"
-			},
-			{
 				"command": "gitlens.views.publishRepository",
 				"title": "Publish Repository",
 				"icon": "$(cloud-upload)",
@@ -10169,11 +10263,6 @@
 				"command": "gitlens.views.remotes.viewOptionsTitle",
 				"title": "Remotes View Options",
 				"enablement": "false"
-			},
-			{
-				"command": "gitlens.views.removeRemote",
-				"title": "Remove Remote...",
-				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.renameBranch",
@@ -10806,10 +10895,6 @@
 				"title": "Select for Compare"
 			},
 			{
-				"command": "gitlens.views.setAsDefault",
-				"title": "Set as Default"
-			},
-			{
 				"command": "gitlens.views.setBranchComparisonToBranch",
 				"title": "Compare with Branch (HEAD)",
 				"icon": "$(compare-changes)"
@@ -11047,10 +11132,6 @@
 				"title": "Undo Commit",
 				"icon": "$(discard)",
 				"enablement": "!operationInProgress"
-			},
-			{
-				"command": "gitlens.views.unsetAsDefault",
-				"title": "Unset as Default"
 			},
 			{
 				"command": "gitlens.views.unstageDirectory",
@@ -12032,6 +12113,14 @@
 					"when": "config.gitlens.integrations.enabled && gitlens:repos:withHostingIntegrations && !gitlens:repos:withHostingIntegrationsConnected"
 				},
 				{
+					"command": "gitlens.connectRemoteProvider:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.connectRemoteProvider:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.copyCurrentBranch",
 					"when": "gitlens:enabled"
 				},
@@ -12140,6 +12229,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.copyRemoteBranchesUrl:graph",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.copyRemoteBranchUrl",
 					"when": "false"
 				},
@@ -12185,6 +12278,14 @@
 				},
 				{
 					"command": "gitlens.copyRemoteRepositoryUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyRemoteRepositoryUrl:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyRemoteRepositoryUrl:views",
 					"when": "false"
 				},
 				{
@@ -12336,6 +12437,14 @@
 					"when": "config.gitlens.integrations.enabled && gitlens:repos:withHostingIntegrationsConnected"
 				},
 				{
+					"command": "gitlens.disconnectRemoteProvider:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.disconnectRemoteProvider:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.externalDiff",
 					"when": "!gitlens:hasVirtualFolders && resource in gitlens:tabs:tracked"
 				},
@@ -12357,6 +12466,10 @@
 				},
 				{
 					"command": "gitlens.fetch:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.fetchRemote:graph",
 					"when": "false"
 				},
 				{
@@ -12932,6 +13045,14 @@
 					"when": "gitlens:repos:withRemotes"
 				},
 				{
+					"command": "gitlens.openBranchesOnRemote:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openBranchesOnRemote:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.openBranchOnRemote",
 					"when": "gitlens:repos:withRemotes"
 				},
@@ -13084,6 +13205,14 @@
 					"when": "gitlens:repos:withRemotes"
 				},
 				{
+					"command": "gitlens.openRepoOnRemote:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openRepoOnRemote:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.openRevisionFile",
 					"when": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor"
 				},
@@ -13178,6 +13307,14 @@
 				{
 					"command": "gitlens.plus.validate",
 					"when": "gitlens:plus"
+				},
+				{
+					"command": "gitlens.pruneRemote:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.pruneRemote:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.publishBranch:graph",
@@ -13280,6 +13417,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.removeRemote:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.removeRemote:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.restore.file:commitDetails",
 					"when": "false"
 				},
@@ -13306,6 +13451,14 @@
 				{
 					"command": "gitlens.revealCommitInView",
 					"when": "resource in gitlens:tabs:blameable"
+				},
+				{
+					"command": "gitlens.setRemoteAsDefault:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.setRemoteAsDefault:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.setUpstream:graph",
@@ -13730,6 +13883,14 @@
 				{
 					"command": "gitlens.toggleZenMode",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.unsetRemoteAsDefault:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.unsetRemoteAsDefault:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.unstar.branch:graph",
@@ -14648,10 +14809,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.pruneRemote",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.publishRepository",
 					"when": "false"
 				},
@@ -14789,10 +14946,6 @@
 				},
 				{
 					"command": "gitlens.views.remotes.viewOptionsTitle",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.removeRemote",
 					"when": "false"
 				},
 				{
@@ -15340,10 +15493,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.setAsDefault",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.setBranchComparisonToBranch",
 					"when": "false"
 				},
@@ -15525,10 +15674,6 @@
 				},
 				{
 					"command": "gitlens.views.undoCommit",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.unsetAsDefault",
 					"when": "false"
 				},
 				{
@@ -20231,20 +20376,20 @@
 					"group": "inline@97"
 				},
 				{
-					"command": "gitlens.connectRemoteProvider",
+					"command": "gitlens.connectRemoteProvider:views",
 					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/ && config.gitlens.integrations.enabled",
 					"group": "inline@98"
 				},
 				{
-					"command": "gitlens.disconnectRemoteProvider",
+					"command": "gitlens.disconnectRemoteProvider:views",
 					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/ && config.gitlens.integrations.enabled",
 					"group": "inline@98"
 				},
 				{
-					"command": "gitlens.openRepoOnRemote",
+					"command": "gitlens.openRepoOnRemote:views",
 					"when": "viewItem =~ /gitlens:remote\\b/",
 					"group": "inline@99",
-					"alt": "gitlens.copyRemoteRepositoryUrl"
+					"alt": "gitlens.copyRemoteRepositoryUrl:views"
 				},
 				{
 					"command": "gitlens.fetch:views",
@@ -20252,42 +20397,42 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.pruneRemote",
+					"command": "gitlens.pruneRemote:views",
 					"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.openRepoOnRemote",
+					"command": "gitlens.openRepoOnRemote:views",
 					"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection",
 					"group": "5_gitlens_open@1"
 				},
 				{
-					"command": "gitlens.openBranchesOnRemote",
+					"command": "gitlens.openBranchesOnRemote:views",
 					"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection",
 					"group": "5_gitlens_open@2"
 				},
 				{
-					"command": "gitlens.views.removeRemote",
+					"command": "gitlens.removeRemote:views",
 					"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "6_gitlens_terminal@1"
 				},
 				{
-					"command": "gitlens.views.setAsDefault",
+					"command": "gitlens.setRemoteAsDefault:views",
 					"when": "viewItem =~ /gitlens:remote\\b(?!.*?\\b\\+default\\b)/ && !listMultiSelection",
 					"group": "8_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.unsetAsDefault",
+					"command": "gitlens.unsetRemoteAsDefault:views",
 					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+default\\b)/ && !listMultiSelection",
 					"group": "8_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.connectRemoteProvider",
+					"command": "gitlens.connectRemoteProvider:views",
 					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/ && !listMultiSelection && config.gitlens.integrations.enabled",
 					"group": "8_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.disconnectRemoteProvider",
+					"command": "gitlens.disconnectRemoteProvider:views",
 					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/ && !listMultiSelection && config.gitlens.integrations.enabled",
 					"group": "8_gitlens_actions@2"
 				},
