@@ -6,6 +6,7 @@ import { PageableResult } from '@gitlens/utils/paging.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import { getOpenedWorktreesByBranch } from '../../git/utils/-webview/worktree.utils.js';
+import { configuration } from '../../system/-webview/configuration.js';
 import type { ViewsWithBranchesNode } from '../viewBase.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -49,10 +50,15 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 				sort: this.view.config.showCurrentBranchOnTop
 					? {
 							current: true,
+							orderBy: configuration.get('sortBranchesBy'),
 							groupByType: defaultRemote == null,
 							openedWorktreesByBranch: getOpenedWorktreesByBranch(this.context.worktreesByBranch),
 						}
-					: { current: false, groupByType: defaultRemote == null },
+					: {
+							current: false,
+							orderBy: configuration.get('sortBranchesBy'),
+							groupByType: defaultRemote == null,
+						},
 			};
 
 			const branches = new PageableResult<GitBranch>(p =>

@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Adds sort menus to the unified SCM grouped view for Branches, Tags, Remotes, Contributors, Repositories, and Worktrees ([#5110](https://github.com/gitkraken/vscode-gitlens/issues/5110))
 - Improves inline blame performance and editing experience &mdash; serves blame from an in-memory snapshot instead of spawning git processes on every save, with drift-based invalidation to prevent auto-save thrashing and accurate blame attribution in dirty documents ([#5098](https://github.com/gitkraken/vscode-gitlens/issues/5098))
 - Improves blame annotation responsiveness with progressive streaming &mdash; annotations now render incrementally as results arrive from Git, with viewport-aware updates and parallelized avatar loading ([#5089](https://github.com/gitkraken/vscode-gitlens/issues/5089))
 - Improves error handling, logging and telemetry for CLI and MCP integration issues ([#5057](https://github.com/gitkraken/vscode-gitlens/issues/5057))
@@ -22,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes an issue where the `sortBranchesBy` and `sortTagsBy` settings were not honored by the _Branches_, _Remotes_, and _Tags_ views &mdash; sort always used the default `date:desc` ([#5109](https://github.com/gitkraken/vscode-gitlens/issues/5109))
 - Fixes an issue where the _File History_ view would show stale history after closing all editors instead of clearing ([#4853](https://github.com/gitkraken/vscode-gitlens/issues/4853)) &mdash; thanks to [PR #4854](https://github.com/gitkraken/vscode-gitlens/pull/4854) by wolfsilver ([@wolfsilver](https://github.com/wolfsilver))
 - Fixes an issue where the terminal integration was not detected until relaunched ([#4977](https://github.com/gitkraken/vscode-gitlens/issues/4977))
 - Fixes an issue where VS Code would switch to the _Source Control_ sidebar and reveal the _GitLens_ view on every restart or project change ([#5082](https://github.com/gitkraken/vscode-gitlens/issues/5082))

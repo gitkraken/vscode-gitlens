@@ -18853,6 +18853,13 @@
 		"gitlens/views/branches/sort": {
 			"label": "Sort By",
 			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:branches",
@@ -18862,7 +18869,7 @@
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.branches",
+						"when": "view == gitlens.views.branches || view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
 						"group": "2_gitlens_sort",
 						"order": 0
 					}
@@ -18872,6 +18879,13 @@
 		"gitlens/views/contributors/sort": {
 			"label": "Sort By",
 			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:contributors",
@@ -18881,7 +18895,7 @@
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.contributors",
+						"when": "view == gitlens.views.contributors || view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
 						"group": "2_gitlens_sort",
 						"order": 0
 					}
@@ -19141,6 +19155,13 @@
 		"gitlens/views/remotes/sort": {
 			"label": "Sort Branches By",
 			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:remotes",
@@ -19150,7 +19171,7 @@
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.remotes",
+						"when": "view == gitlens.views.remotes || view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "2_gitlens_sort",
 						"order": 0
 					}
@@ -19160,6 +19181,13 @@
 		"gitlens/views/repositories/sort": {
 			"label": "Sort By",
 			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:repositories",
@@ -19169,7 +19197,7 @@
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.repositories",
+						"when": "view == gitlens.views.repositories || view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories",
 						"group": "2_gitlens_sort",
 						"order": 0
 					}
@@ -19179,6 +19207,13 @@
 		"gitlens/views/tags/sort": {
 			"label": "Sort By",
 			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:tags",
@@ -19188,7 +19223,7 @@
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.tags",
+						"when": "view == gitlens.views.tags || view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
 						"group": "2_gitlens_sort",
 						"order": 0
 					}
@@ -19198,6 +19233,13 @@
 		"gitlens/views/worktrees/sort": {
 			"label": "Sort By",
 			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:worktrees",
@@ -19207,7 +19249,7 @@
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.worktrees",
+						"when": "view == gitlens.views.worktrees || view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
 						"group": "2_gitlens_sort",
 						"order": 0
 					}

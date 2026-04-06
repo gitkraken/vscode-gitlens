@@ -2,6 +2,7 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { GlRepository } from '../../git/models/repository.js';
+import { configuration } from '../../system/-webview/configuration.js';
 import type { ViewsWithTagsNode } from '../viewBase.js';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -33,7 +34,7 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const tags = await this.repo.git.tags.getTags({ sort: true });
+			const tags = await this.repo.git.tags.getTags({ sort: { orderBy: configuration.get('sortTagsBy') } });
 			if (tags.values.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
 
 			// TODO@eamodio handle paging

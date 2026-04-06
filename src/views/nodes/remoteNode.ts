@@ -11,6 +11,7 @@ import {
 	remoteSupportsIntegration,
 	setRemoteAsDefault,
 } from '../../git/utils/-webview/remote.utils.js';
+import { configuration } from '../../system/-webview/configuration.js';
 import type { ViewsWithRemotes } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
@@ -49,7 +50,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		const branches = await this.repo.git.branches.getBranches({
 			// only show remote branches for this remote
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
-			sort: true,
+			sort: { orderBy: configuration.get('sortBranchesBy') },
 		});
 		if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
