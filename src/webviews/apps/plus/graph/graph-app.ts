@@ -2,12 +2,13 @@ import type { GraphRow, SelectCommitsOptions } from '@gitkraken/gitkraken-compon
 import { refZone } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
-import { html, LitElement } from 'lit';
+import { html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
+import type { GraphSidebarPanel } from '../../../plus/graph/protocol.js';
 import { GetRowHoverRequest } from '../../../plus/graph/protocol.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
@@ -20,19 +21,38 @@ import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
 import type { GlGraphHover } from './hover/graphHover.js';
 import type { GlGraphMinimapContainer } from './minimap/minimap-container.js';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap.js';
+import type { GraphSidebarPanelSelectEventDetail } from './sidebar/sidebar-panel.js';
+import type { GraphSidebarToggleEventDetail } from './sidebar/sidebar.js';
 import './gate.js';
 import './graph-header.js';
 import './graph-wrapper/graph-wrapper.js';
 import './hover/graphHover.js';
 import './minimap/minimap-container.js';
+import '../../shared/components/split-panel/split-panel.js';
 import './sidebar/sidebar.js';
+import './sidebar/sidebar-panel.js';
 import '../../shared/components/mcp-banner.js';
+
+const sidebarDefaultWidth = 220;
+const sidebarMinWidth = 150;
+const sidebarMaxPercent = 0.375; // 37.5% of the total width
 
 @customElement('gl-graph-app')
 export class GraphApp extends SignalWatcher(LitElement) {
 	private _hoverTrackingCounter = getScopedCounter();
 	private _selectionTrackingCounter = getScopedCounter();
 	private _lastSearchRequest: SearchQuery | undefined;
+
+	private _sidebarPosition = sidebarDefaultWidth;
+	private _lastSidebarPanel: GraphSidebarPanel | undefined;
+	private _sidebarSnap = ({ pos, size }: { pos: number; size: number }) => {
+		const max = size * sidebarMaxPercent;
+		if (pos < sidebarMinWidth / 2) return 0;
+		if (pos < sidebarMinWidth) return sidebarMinWidth;
+		if (pos > max) return max;
+		if (Math.abs(pos - sidebarDefaultWidth) <= 12) return sidebarDefaultWidth;
+		return pos;
+	};
 
 	// use Light DOM
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
@@ -119,23 +139,85 @@ export class GraphApp extends SignalWatcher(LitElement) {
 									></gl-graph-minimap-container>
 								`,
 							)}
-							${when(this.graphState.config?.sidebar, () => html`<gl-graph-sidebar></gl-graph-sidebar>`)}
-							<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
-							<gl-graph-wrapper
-								@gl-graph-change-selection=${this.handleGraphSelectionChanged}
-								@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
-								@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
-								@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
-								@gl-graph-row-hover=${this.handleGraphRowHover}
-								@gl-graph-row-unhover=${this.handleGraphRowUnhover}
-								@row-action-hover=${this.handleGraphRowActionHover}
-							></gl-graph-wrapper>
+							${when(
+								this.graphState.config?.sidebar,
+								() =>
+									html`<gl-graph-sidebar
+										active-panel=${this.graphState.activeSidebarPanel ?? nothing}
+										@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
+									></gl-graph-sidebar>`,
+							)}
+							${this.graphState.config?.sidebar ? this.renderSplitPanel() : this.renderGraphContent()}
 						</div>
 						<!-- future: commit details -->
 					</main>
 				</div>
 			</div>
 		`;
+	}
+
+	private renderSplitPanel() {
+		const isOpen = this.graphState.activeSidebarPanel != null;
+		return html`<gl-split-panel
+			class="graph__sidebar-split"
+			.position=${isOpen ? this._sidebarPosition : 0}
+			.snap=${this._sidebarSnap}
+			@gl-split-panel-change=${this.handleSplitChange}
+		>
+			${isOpen
+				? html`<gl-graph-sidebar-panel
+						slot="start"
+						active-panel=${this.graphState.activeSidebarPanel}
+						date-format=${this.graphState.config?.dateFormat ?? nothing}
+						@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
+					></gl-graph-sidebar-panel>`
+				: html`<div slot="start"></div>`}
+			<div slot="end" class="graph__graph-content">${this.renderGraphContent()}</div>
+		</gl-split-panel>`;
+	}
+
+	private renderGraphContent() {
+		return html`
+			<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
+			<gl-graph-wrapper
+				@gl-graph-change-selection=${this.handleGraphSelectionChanged}
+				@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
+				@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
+				@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
+				@gl-graph-row-hover=${this.handleGraphRowHover}
+				@gl-graph-row-unhover=${this.handleGraphRowUnhover}
+				@row-action-hover=${this.handleGraphRowActionHover}
+			></gl-graph-wrapper>
+		`;
+	}
+
+	private handleSplitChange(e: CustomEvent<{ position: number }>) {
+		const { position } = e.detail;
+		if (position <= 0) {
+			if (this.graphState.activeSidebarPanel != null) {
+				this._lastSidebarPanel = this.graphState.activeSidebarPanel;
+				this.graphState.activeSidebarPanel = undefined;
+			}
+		} else if (this.graphState.activeSidebarPanel == null) {
+			this.graphState.activeSidebarPanel = this._lastSidebarPanel ?? 'worktrees';
+			this._sidebarPosition = position;
+		} else {
+			this._sidebarPosition = position;
+		}
+	}
+
+	private handleSidebarToggle(e: CustomEvent<GraphSidebarToggleEventDetail>) {
+		const panel = e.detail.panel;
+		if (this.graphState.activeSidebarPanel === panel) {
+			this._lastSidebarPanel = panel;
+			this.graphState.activeSidebarPanel = undefined;
+		} else {
+			this.graphState.activeSidebarPanel = panel;
+		}
+	}
+
+	private handleSidebarPanelSelect(e: CustomEvent<GraphSidebarPanelSelectEventDetail>) {
+		this.graph?.ensureAndSelectCommit(e.detail.sha);
 	}
 
 	private selectCommits = (shas: string[], options?: SelectCommitsOptions) => {

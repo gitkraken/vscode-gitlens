@@ -7,7 +7,7 @@ import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../models/repository.js';
 
 export function getOpenedWorktreesByBranch(
-	worktreesByBranch: Map<string, GitWorktree> | undefined,
+	worktreesByBranch: ReadonlyMap<string, GitWorktree> | undefined,
 ): Set<string> | undefined {
 	let openedWorktreesByBranch: Set<string> | undefined;
 	if (worktreesByBranch?.size) {

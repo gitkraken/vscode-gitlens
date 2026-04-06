@@ -1,12 +1,17 @@
 import './graph.scss';
+import { ContextProvider } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { Color } from '@gitlens/utils/color.js';
+import type { GraphServices } from '../../../plus/graph/graphService.js';
 import type { State } from '../../../plus/graph/protocol.js';
 import { GlAppHost } from '../../shared/appHost.js';
 import type { HostIpc } from '../../shared/ipc.js';
+import { RpcController } from '../../shared/rpc/rpcController.js';
 import type { ThemeChangeEvent } from '../../shared/theme.js';
 import type { GraphApp } from './graph-app.js';
+import { sidebarActionsContext } from './sidebar/sidebarContext.js';
+import { createSidebarActions } from './sidebar/sidebarState.js';
 import { GraphStateProvider } from './stateProvider.js';
 import './graph-app.js';
 
@@ -14,6 +19,26 @@ import './graph-app.js';
 export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
 		return this;
+	}
+
+	private _sidebarActions = createSidebarActions();
+
+	// Create the context provider eagerly so child components can consume it
+	// during their connectedCallback. The actions object exists immediately;
+	// initialize() later populates it with the RPC service, and signal
+	// updates inside the actions drive reactivity in consumers.
+	private _sidebarActionsProvider = new ContextProvider(this, {
+		context: sidebarActionsContext,
+		initialValue: this._sidebarActions,
+	});
+
+	private _rpc = new RpcController<GraphServices>(this, {
+		onReady: services => this._onRpcReady(services),
+	});
+
+	private async _onRpcReady(services: import('@eamodio/supertalk').Remote<GraphServices>): Promise<void> {
+		const sidebar = await services.sidebar;
+		this._sidebarActions.initialize(sidebar);
 	}
 
 	@query('gl-graph-app')
@@ -29,6 +54,11 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		if (this.state.excludeTypes == null) return false;
 
 		return Object.values(this.state.excludeTypes).includes(true);
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+		this._sidebarActions.dispose();
 	}
 
 	override render() {

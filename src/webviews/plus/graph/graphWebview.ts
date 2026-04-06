@@ -36,6 +36,7 @@ import {
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
+import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
 import { filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
@@ -110,6 +111,7 @@ import {
 	showPausedOperationStatus,
 	skipPausedOperation,
 } from '../../../git/actions/pausedOperation.js';
+import * as RemoteActions from '../../../git/actions/remote.js';
 import * as RepoActions from '../../../git/actions/repository.js';
 import * as StashActions from '../../../git/actions/stash.js';
 import * as TagActions from '../../../git/actions/tag.js';
@@ -135,8 +137,16 @@ import {
 } from '../../../git/utils/-webview/commit.utils.js';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
-import { getRemoteProviderUrl, remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
-import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
+import {
+	getRemoteIntegration,
+	getRemoteProviderUrl,
+	remoteSupportsIntegration,
+} from '../../../git/utils/-webview/remote.utils.js';
+import {
+	getOpenedWorktreesByBranch,
+	getWorktreeHasWorkingChanges,
+	getWorktreesByBranch,
+} from '../../../git/utils/-webview/worktree.utils.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService.js';
@@ -153,6 +163,7 @@ import {
 	executeCoreCommand,
 	registerCommand,
 } from '../../../system/-webview/command.js';
+import type { ConfigPath } from '../../../system/-webview/configuration.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
 import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
@@ -166,11 +177,15 @@ import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFo
 import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
+import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
+import { createSharedServices, proxyServices } from '../../rpc/services/common.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
 import type { ComposerCommandArgs } from '../composer/registration.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
+import type { GraphServices } from './graphService.js';
 import {
 	formatRepositories,
 	hasGitReference,
@@ -182,10 +197,12 @@ import {
 } from './graphWebview.utils.js';
 import type {
 	BranchState,
+	GraphBranchContextValue,
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphColumnsConfig,
 	GraphColumnsSettings,
+	GraphCommitContextValue,
 	GraphComponentConfig,
 	GraphExcludedRef,
 	GraphExcludeRefs,
@@ -193,16 +210,22 @@ import type {
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
 	GraphItemContext,
+	GraphItemRefContext,
+	GraphItemTypedContext,
 	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadataType,
 	GraphRefMetadata,
 	GraphRefMetadataType,
 	GraphRefType,
+	GraphRemoteContextValue,
 	GraphRepository,
 	GraphScrollMarkerTypes,
 	GraphSearchResults,
 	GraphSelectedRows,
 	GraphSelection,
+	GraphSidebarPanel,
+	GraphStashContextValue,
+	GraphTagContextValue,
 	GraphWorkingTreeStats,
 	State,
 } from './protocol.js';
@@ -328,7 +351,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		| ((sha: string, options?: { compact?: boolean; icons?: boolean }) => string | undefined)
 		| undefined;
 	private _graph?: GitGraph;
+	private _graphLoading?: Promise<GitGraph>;
 	private _graphRowProcessor?: GlGraphRowProcessor;
+	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _hoverCache = new Map<string, Promise<string>>();
 
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean>>([
@@ -402,6 +427,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	dispose(): void {
 		this._disposable.dispose();
+	}
+
+	private readonly _sidebarInvalidatedEvent = createRpcEvent<undefined>('sidebarInvalidated', 'signal');
+	private readonly _sidebarWorktreeEvent = createRpcEvent<{
+		changes: Record<string, boolean | undefined>;
+	}>('sidebarWorktreeState', 'save-last');
+
+	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
+		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
+
+		return proxyServices({
+			...base,
+			sidebar: {
+				getSidebarData: panel => this.onGetSidebarData({ panel: panel }),
+				getSidebarCounts: () => this.onGetCounts(),
+				toggleLayout: panel => this.onSidebarToggleLayout({ panel: panel }),
+				refresh: panel => this.onSidebarRefresh({ panel: panel }),
+				executeAction: (command, context) => this.onSidebarAction({ command: command, context: context }),
+				onSidebarInvalidated: this._sidebarInvalidatedEvent.subscribe(buffer, tracker),
+				onWorktreeStateChanged: this._sidebarWorktreeEvent.subscribe(buffer, tracker),
+			},
+		} satisfies GraphServices);
 	}
 
 	canReuseInstance(...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>): boolean | undefined {
@@ -613,17 +660,364 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcRequest(GetCountsRequest)
 	private async onGetCounts() {
-		if (this._graph == null) return undefined;
+		const graph = this._graph ?? (await this._graphLoading?.catch(() => undefined));
+		if (graph == null) return undefined;
 
-		const tags = await this.container.git.getRepositoryService(this._graph.repoPath).tags.getTags();
+		const tags = await this.container.git.getRepositoryService(graph.repoPath).tags.getTags();
 		return {
-			branches: count(this._graph.branches?.values(), b => !b.remote),
-			remotes: this._graph.remotes.size,
-			stashes: this._graph.stashes?.size,
+			branches: count(graph.branches?.values(), b => !b.remote),
+			remotes: graph.remotes.size,
+			stashes: graph.stashes?.size,
 			// Subtract the default worktree
-			worktrees: this._graph.worktrees != null ? this._graph.worktrees.length - 1 : undefined,
+			worktrees: graph.worktrees != null ? graph.worktrees.length - 1 : undefined,
 			tags: tags.values.length,
 		};
+	}
+
+	private async onGetSidebarData(params: { panel: GraphSidebarPanel }) {
+		const graph = this._graph ?? (await this._graphLoading?.catch(() => undefined));
+		if (graph == null) return { panel: params.panel, items: [] };
+
+		switch (params.panel) {
+			case 'branches':
+				return this.getSidebarBranches(graph);
+			case 'remotes':
+				return this.getSidebarRemotes(graph);
+			case 'stashes':
+				return this.getSidebarStashes(graph);
+			case 'tags':
+				return this.getSidebarTags(graph);
+			case 'worktrees':
+				return this.getSidebarWorktrees(graph);
+			default:
+				return { panel: params.panel as GraphSidebarPanel, items: [] };
+		}
+	}
+
+	private getProviderByRemote(graph: GitGraph): Map<string, string> {
+		const providerByRemote = new Map<string, string>();
+		for (const r of graph.remotes.values()) {
+			if (r.provider?.name) {
+				providerByRemote.set(r.name, r.provider.name);
+			}
+		}
+		return providerByRemote;
+	}
+
+	private getSidebarBranches(graph: GitGraph) {
+		const providerByRemote = this.getProviderByRemote(graph);
+
+		const branchCfg = configuration.get('views.branches.branches');
+		const sorted = sortBranches(
+			[...graph.branches.values()].filter(b => !b.remote),
+			{
+				current: true,
+				orderBy: configuration.get('sortBranchesBy'),
+				openedWorktreesByBranch: getOpenedWorktreesByBranch(graph.worktreesByBranch),
+			},
+		);
+
+		const items = sorted.map(b => {
+			// Exclude the default worktree from the worktree indicator (matches view behavior)
+			const hasWorktree = b.worktree != null && b.worktree !== false && !b.worktree.isDefault;
+			const worktree = graph.worktreesByBranch?.get(b.id);
+			const remoteName = b.upstream ? getRemoteNameFromBranchName(b.upstream.name) : undefined;
+			return {
+				name: b.name,
+				sha: b.sha,
+				current: b.current,
+				remote: false,
+				status: b.status,
+				upstream: b.upstream ? { name: b.upstream.name, missing: b.upstream.missing } : undefined,
+				tracking: b.upstream?.state,
+				worktree: hasWorktree,
+				worktreeOpened: worktree?.opened || undefined,
+				disposition: b.disposition || undefined,
+				date: b.date?.getTime(),
+				providerName: remoteName ? providerByRemote.get(remoteName) : undefined,
+				starred: b.starred || undefined,
+				menuContext: serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>({
+					webview: this.host.id,
+					webviewItem: `gitlens:branch${b.current ? '+current' : ''}${
+						b.upstream != null && !b.upstream.missing ? '+tracking' : ''
+					}${hasWorktree ? '+worktree' : ''}${
+						b.current || hasWorktree ? '+checkedout' : ''
+					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}`,
+					webviewItemValue: {
+						type: 'branch',
+						ref: createReference(b.name, graph.repoPath, {
+							id: b.id,
+							refType: 'branch',
+							name: b.name,
+							remote: false,
+							upstream: b.upstream,
+						}),
+					},
+				}),
+			};
+		});
+		return { panel: 'branches' as const, items: items, layout: branchCfg.layout, compact: branchCfg.compact };
+	}
+
+	private async getSidebarRemotes(graph: GitGraph) {
+		const sorted = sortRemotes([...graph.remotes.values()]);
+		const branchOrderBy = configuration.get('sortBranchesBy');
+		const branchesByRemote = new Map<string, GitBranch[]>();
+		for (const b of graph.branches.values()) {
+			if (!b.remote) continue;
+			const remote = getRemoteNameFromBranchName(b.name);
+			let arr = branchesByRemote.get(remote);
+			if (arr == null) {
+				arr = [];
+				branchesByRemote.set(remote, arr);
+			}
+			arr.push(b);
+		}
+		const items = await Promise.all(
+			sorted.map(async r => {
+				const rBranches = sortBranches(branchesByRemote.get(r.name) ?? [], {
+					current: false,
+					orderBy: branchOrderBy,
+				});
+				const branches = rBranches.map(b => ({
+					name: getBranchNameWithoutRemote(b.name),
+					sha: b.sha,
+					menuContext: serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>({
+						webview: this.host.id,
+						webviewItem: `gitlens:branch+remote`,
+						webviewItemValue: {
+							type: 'branch',
+							ref: createReference(b.name, graph.repoPath, {
+								id: b.id,
+								refType: 'branch',
+								name: b.name,
+								remote: true,
+							}),
+						},
+					}),
+				}));
+
+				let connected: boolean | undefined;
+				if (remoteSupportsIntegration(r)) {
+					const integration = await getRemoteIntegration(r);
+					connected = integration?.maybeConnected ?? (await integration?.isConnected()) ?? false;
+				}
+
+				let webviewItem = 'gitlens:remote';
+				if (r.default) {
+					webviewItem += '+default';
+				}
+				if (connected != null) {
+					webviewItem += connected ? '+connected' : '+disconnected';
+				}
+
+				return {
+					name: r.name,
+					url: r.urls[0]?.url,
+					isDefault: r.default,
+					providerIcon: r.provider?.icon,
+					providerName: r.provider?.name,
+					connected: connected,
+					branches: branches,
+					menuContext: serializeWebviewItemContext<GraphItemTypedContext<GraphRemoteContextValue>>({
+						webview: this.host.id,
+						webviewItem: webviewItem,
+						webviewItemValue: {
+							type: 'remote',
+							name: r.name,
+							repoPath: graph.repoPath,
+						},
+					}),
+				};
+			}),
+		);
+		const remoteCfg = configuration.get('views.remotes.branches');
+		return { panel: 'remotes' as const, items: items, layout: remoteCfg.layout, compact: remoteCfg.compact };
+	}
+
+	private getSidebarStashes(graph: GitGraph) {
+		const items =
+			graph.stashes != null
+				? Array.from(graph.stashes.values(), s => ({
+						name: s.stashName,
+						sha: s.sha,
+						message: s.message ?? '',
+						date: s.author.date.getTime(),
+						stashNumber: s.stashNumber ?? '',
+						stashOnRef: s.stashOnRef,
+						menuContext: serializeWebviewItemContext<GraphItemRefContext<GraphStashContextValue>>({
+							webview: this.host.id,
+							webviewItem: 'gitlens:stash',
+							webviewItemValue: {
+								type: 'stash',
+								ref: createReference(s.sha, graph.repoPath, {
+									refType: 'stash',
+									name: s.stashName,
+									message: s.message,
+									number: s.stashNumber,
+								}),
+							},
+						}),
+					}))
+				: [];
+		return { panel: 'stashes' as const, items: items };
+	}
+
+	private async getSidebarTags(graph: GitGraph) {
+		const tagCfg = configuration.get('views.tags.branches');
+		const result = await this.container.git.getRepositoryService(graph.repoPath).tags.getTags({ sort: true });
+		const sorted = sortTags(result.values, { orderBy: configuration.get('sortTagsBy') });
+		const items = sorted.map(t => ({
+			name: t.name,
+			sha: t.sha,
+			message: t.message || undefined,
+			annotated: t.message != null && t.message.length > 0,
+			date: t.date?.getTime(),
+			menuContext: serializeWebviewItemContext<GraphItemRefContext<GraphTagContextValue>>({
+				webview: this.host.id,
+				webviewItem: 'gitlens:tag',
+				webviewItemValue: {
+					type: 'tag',
+					ref: createReference(t.name, graph.repoPath, {
+						id: t.id,
+						refType: 'tag',
+						name: t.name,
+					}),
+				},
+			}),
+		}));
+		return { panel: 'tags' as const, items: items, layout: tagCfg.layout, compact: tagCfg.compact };
+	}
+
+	private getSidebarWorktrees(graph: GitGraph) {
+		const providerByRemote = this.getProviderByRemote(graph);
+
+		const wtCfg = configuration.get('views.worktrees.branches');
+		const worktrees =
+			graph.worktrees != null
+				? sortWorktrees([...graph.worktrees], { orderBy: configuration.get('sortWorktreesBy') })
+				: [];
+
+		const items = worktrees.map(w => {
+			const upstreamName = w.branch?.upstream?.name;
+			const remoteName = upstreamName ? getRemoteNameFromBranchName(upstreamName) : undefined;
+			return {
+				name: w.name,
+				uri: w.uri.fsPath,
+				branch: w.branch?.name,
+				sha: w.sha,
+				isDefault: w.isDefault,
+				locked: w.locked !== false,
+				opened: w.workspaceFolder != null,
+				status: w.branch?.status,
+				upstream: w.branch?.upstream?.name,
+				tracking: w.branch?.upstream?.state,
+				providerName: remoteName ? providerByRemote.get(remoteName) : undefined,
+				menuContext:
+					w.branch != null
+						? serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>({
+								webview: this.host.id,
+								webviewItem: `gitlens:branch${w.branch.current ? '+current' : ''}${
+									w.branch.upstream != null && !w.branch.upstream.missing ? '+tracking' : ''
+								}+worktree${
+									w.branch.current || w.workspaceFolder != null ? '+checkedout' : ''
+								}${w.workspaceFolder != null ? '+opened' : ''}`,
+								webviewItemValue: {
+									type: 'branch',
+									ref: createReference(w.branch.name, graph.repoPath, {
+										id: w.branch.id,
+										refType: 'branch',
+										name: w.branch.name,
+										remote: false,
+										upstream: w.branch.upstream,
+									}),
+								},
+							})
+						: w.sha != null
+							? serializeWebviewItemContext<GraphItemRefContext<GraphCommitContextValue>>({
+									webview: this.host.id,
+									webviewItem: `gitlens:commit+worktree${
+										w.workspaceFolder != null ? '+checkedout' : ''
+									}`,
+									webviewItemValue: {
+										type: 'commit',
+										ref: createReference(w.sha, graph.repoPath, {
+											refType: 'revision',
+											name: w.sha,
+											message: '',
+										}),
+									},
+								})
+							: undefined,
+			};
+		});
+
+		// Fire-and-forget: compute working changes per worktree and notify the webview
+		if (worktrees.length > 0) {
+			this.computeWorktreeChanges(worktrees);
+		}
+
+		return { panel: 'worktrees' as const, items: items, layout: wtCfg.layout, compact: wtCfg.compact };
+	}
+
+	private onSidebarToggleLayout(params: { panel: GraphSidebarPanel }) {
+		const configKey = {
+			branches: 'views.branches.branches.layout',
+			remotes: 'views.remotes.branches.layout',
+			tags: 'views.tags.branches.layout',
+			worktrees: 'views.worktrees.branches.layout',
+		} as const satisfies Partial<Record<GraphSidebarPanel, ConfigPath>>;
+
+		const key = configKey[params.panel as keyof typeof configKey];
+		if (key == null) return;
+
+		const current = configuration.get(key);
+		void configuration.updateEffective(key, current === 'tree' ? 'list' : 'tree');
+	}
+
+	private onSidebarRefresh(_params: { panel: GraphSidebarPanel }) {
+		this.notifySidebarInvalidated();
+	}
+
+	private onSidebarAction(params: { command: string; context?: string }) {
+		const repoPath = this._graph?.repoPath;
+		if (repoPath == null) return;
+
+		if (params.context != null) {
+			try {
+				const ctx = JSON.parse(params.context);
+				void executeCommand(params.command as any, ctx);
+				return;
+			} catch {}
+		}
+
+		// Header actions — dispatch directly to action functions with repoPath,
+		// since view commands expect view node context, not Uri
+		switch (params.command) {
+			case 'gitlens.views.title.createWorktree':
+				void WorktreeActions.create(repoPath);
+				return;
+			case 'gitlens.views.title.createBranch':
+				void BranchActions.create(repoPath);
+				return;
+			case 'gitlens.views.title.createTag':
+				void TagActions.create(repoPath);
+				return;
+			case 'gitlens.views.addRemote':
+				void RemoteActions.add(repoPath);
+				return;
+			case 'gitlens.switchToAnotherBranch:views':
+				void RepoActions.switchTo(repoPath);
+				return;
+			case 'gitlens.stashSave:views':
+				void StashActions.push(repoPath);
+				return;
+			case 'gitlens.stashesApply:views':
+				void StashActions.apply(repoPath);
+				return;
+			default:
+				void executeCommand(params.command as any, Uri.file(repoPath));
+		}
 	}
 
 	@ipcCommand(UpdateGraphConfigurationCommand)
@@ -729,6 +1123,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.updateState();
 
 			return;
+		}
+
+		if (
+			configuration.changed(e, 'views.branches.branches') ||
+			configuration.changed(e, 'views.remotes.branches') ||
+			configuration.changed(e, 'views.tags.branches') ||
+			configuration.changed(e, 'views.worktrees.branches') ||
+			configuration.changed(e, 'sortBranchesBy') ||
+			configuration.changed(e, 'sortTagsBy') ||
+			configuration.changed(e, 'sortWorktreesBy')
+		) {
+			this.notifySidebarInvalidated();
 		}
 
 		if (
@@ -1107,10 +1513,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			id = params.id;
 		} else {
 			await this.updateGraphWithMoreRows(this._graph, params.id, this._search);
-			void this.notifyDidChangeRows();
 			if (this._graph.ids.has(params.id)) {
 				id = params.id;
 			}
+
+			if (id != null && params.select) {
+				this.setSelectedRows(id);
+			}
+
+			void this.notifyDidChangeRows(params.select ?? false);
 		}
 
 		return { id: id };
@@ -2261,6 +2672,40 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	private computeWorktreeChanges(worktrees: Parameters<typeof getWorktreeHasWorkingChanges>[1][]) {
+		// Deduplicate — skip if a computation is already in flight
+		this._computeWorktreeChangesPromise ??= this.doComputeWorktreeChanges(worktrees).finally(() => {
+			this._computeWorktreeChangesPromise = undefined;
+		});
+	}
+
+	private async doComputeWorktreeChanges(worktrees: Parameters<typeof getWorktreeHasWorkingChanges>[1][]) {
+		try {
+			const results = await Promise.allSettled(
+				worktrees.map(async w => {
+					const hasChanges = await getWorktreeHasWorkingChanges(this.container, w);
+					return [w.uri.toString(), hasChanges] as const;
+				}),
+			);
+
+			const changes: Record<string, boolean | undefined> = {};
+			for (const result of results) {
+				if (result.status === 'fulfilled') {
+					changes[result.value[0]] = result.value[1];
+				}
+			}
+
+			this._sidebarWorktreeEvent.fire({ changes: changes });
+		} catch {
+			// Ignore — non-critical async enhancement
+		}
+	}
+
+	@trace()
+	private notifySidebarInvalidated() {
+		this._sidebarInvalidatedEvent.fire(undefined);
+	}
+
 	@trace()
 	private async notifyDidChangeWorkingTree(hasWorkingChanges?: boolean) {
 		if (!this.host.ready || !this.host.visible) {
@@ -2316,7 +2761,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		this._notifyDidChangeStateDebounced?.cancel();
-		return this.host.notify(DidChangeNotification, { state: await this.getState() });
+		const state = await this.getState();
+
+		// Notify sidebar AFTER state (and graph) is loaded so data fetches see the new graph
+		this._sidebarInvalidatedEvent.fire(undefined);
+
+		return this.host.notify(DidChangeNotification, { state: state });
 	}
 
 	private ensureRepositorySubscriptions(force?: boolean) {
@@ -2922,6 +3372,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			toAbortSignal(cancellation.token),
 		);
+		this._graphLoading = dataPromise;
 
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
@@ -2947,6 +3398,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					void this.notifyDidChangeRefsVisibility();
 					void this.notifyDidChangeRows(selectionChanged);
+					this.notifySidebarInvalidated();
 				} catch {}
 			});
 		} else {
@@ -3356,6 +3808,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
 		if (graph == null) {
+			this._graphLoading = undefined;
 			this.resetHoverCache();
 			this.resetRefsMetadata();
 			this.resetSearchState();
@@ -3482,6 +3935,103 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private fetch(item?: GraphItemContext) {
 		const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
 		void RepoActions.fetch(this.repository, ref);
+	}
+
+	@command('gitlens.fetchRemote:')
+	@debug()
+	private fetchRemote(item?: GraphItemContext) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+		void RemoteActions.fetch(item.webviewItemValue.repoPath, item.webviewItemValue.name);
+	}
+
+	@command('gitlens.pruneRemote:')
+	@debug()
+	private pruneRemote(item?: GraphItemContext) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+		void RemoteActions.prune(item.webviewItemValue.repoPath, item.webviewItemValue.name);
+	}
+
+	@command('gitlens.removeRemote:')
+	@debug()
+	private removeRemote(item?: GraphItemContext) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+		void RemoteActions.remove(item.webviewItemValue.repoPath, item.webviewItemValue.name);
+	}
+
+	@command('gitlens.openRepoOnRemote:')
+	@debug()
+	private openRepoOnRemoteFromGraph(item?: GraphItemContext, clipboard?: boolean) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+
+		return executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
+			repoPath: item.webviewItemValue.repoPath,
+			resource: { type: RemoteResourceType.Repo },
+			remote: item.webviewItemValue.name,
+			clipboard: clipboard,
+		});
+	}
+
+	@command('gitlens.copyRemoteRepositoryUrl:')
+	private copyRemoteRepositoryUrl(item?: GraphItemContext) {
+		return this.openRepoOnRemoteFromGraph(item, true);
+	}
+
+	@command('gitlens.openBranchesOnRemote:')
+	@debug()
+	private openBranchesOnRemoteFromGraph(item?: GraphItemContext, clipboard?: boolean) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+
+		return executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
+			repoPath: item.webviewItemValue.repoPath,
+			resource: { type: RemoteResourceType.Branches },
+			remote: item.webviewItemValue.name,
+			clipboard: clipboard,
+		});
+	}
+
+	@command('gitlens.copyRemoteBranchesUrl:')
+	private copyRemoteBranchesUrlFromGraph(item?: GraphItemContext) {
+		return this.openBranchesOnRemoteFromGraph(item, true);
+	}
+
+	@command('gitlens.setRemoteAsDefault:')
+	@debug()
+	private async setRemoteAsDefault(item?: GraphItemContext) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+
+		const { repoPath, name } = item.webviewItemValue;
+		await this.container.git.getRepositoryService(repoPath).remotes.setRemoteAsDefault(name, true);
+	}
+
+	@command('gitlens.unsetRemoteAsDefault:')
+	@debug()
+	private async unsetRemoteAsDefault(item?: GraphItemContext) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+
+		const { repoPath, name } = item.webviewItemValue;
+		await this.container.git.getRepositoryService(repoPath).remotes.setRemoteAsDefault(name, false);
+	}
+
+	@command('gitlens.connectRemoteProvider:')
+	@debug()
+	private connectRemoteProviderFromGraph(item?: GraphItemContext) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+
+		return executeCommand('gitlens.connectRemoteProvider', {
+			repoPath: item.webviewItemValue.repoPath,
+			remote: item.webviewItemValue.name,
+		});
+	}
+
+	@command('gitlens.disconnectRemoteProvider:')
+	@debug()
+	private disconnectRemoteProviderFromGraph(item?: GraphItemContext) {
+		if (!isGraphItemTypedContext(item, 'remote')) return;
+
+		return executeCommand('gitlens.disconnectRemoteProvider', {
+			repoPath: item.webviewItemValue.repoPath,
+			remote: item.webviewItemValue.name,
+		});
 	}
 
 	@command('gitlens.graph.pushWithForce')
@@ -4738,6 +5288,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 
 			const worktree = worktreesByBranch?.get(ref.id);
+			if (worktree == null) return;
+
+			openWorkspace(worktree.uri, options);
+		} else if (isGraphItemRefContext(item, 'revision')) {
+			// Detached worktree — find by sha
+			const { ref } = item.webviewItemValue;
+			const worktree = this._graph?.worktrees?.find(w => w.sha === ref.ref);
 			if (worktree == null) return;
 
 			openWorkspace(worktree.uri, options);

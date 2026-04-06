@@ -1,34 +1,35 @@
 import { consume } from '@lit/context';
-import { Task } from '@lit/task';
 import { SignalWatcher } from '@lit-labs/signals';
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/protocol.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
-import type { Disposable } from '../../../shared/events.js';
-import type { HostIpc } from '../../../shared/ipc.js';
+import type { GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
+import { sidebarActionsContext } from './sidebarContext.js';
+import type { SidebarActions } from './sidebarState.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 interface Icon {
 	type: IconTypes;
 	icon: string;
-	command: string;
 	tooltip: string;
 }
 type IconTypes = 'branches' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
 const icons: Icon[] = [
-	{ type: 'branches', icon: 'gl-branches-view', command: 'gitlens.showBranchesView', tooltip: 'Branches' },
-	{ type: 'remotes', icon: 'gl-remotes-view', command: 'gitlens.showRemotesView', tooltip: 'Remotes' },
-	{ type: 'stashes', icon: 'gl-stashes-view', command: 'gitlens.showStashesView', tooltip: 'Stashes' },
-	{ type: 'tags', icon: 'gl-tags-view', command: 'gitlens.showTagsView', tooltip: 'Tags' },
-	{ type: 'worktrees', icon: 'gl-worktrees-view', command: 'gitlens.showWorktreesView', tooltip: 'Worktrees' },
+	{ type: 'worktrees', icon: 'gl-worktrees-view', tooltip: 'Worktrees' },
+	{ type: 'branches', icon: 'gl-branches-view', tooltip: 'Branches' },
+	{ type: 'remotes', icon: 'gl-remotes-view', tooltip: 'Remotes' },
+	{ type: 'stashes', icon: 'gl-stashes-view', tooltip: 'Stashes' },
+	{ type: 'tags', icon: 'gl-tags-view', tooltip: 'Tags' },
 ];
 
-type Counts = Record<IconTypes, number | undefined>;
+export interface GraphSidebarToggleEventDetail {
+	panel: GraphSidebarPanel;
+}
 
 @customElement('gl-graph-sidebar')
 export class GlGraphSideBar extends SignalWatcher(LitElement) {
@@ -41,6 +42,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 		.sidebar {
 			box-sizing: border-box;
+			position: relative;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
@@ -55,23 +57,64 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			z-index: 1040;
 		}
 
+		gl-tooltip {
+			width: 100%;
+		}
+
 		.item {
-			color: inherit;
+			position: relative;
+			width: 100%;
+			color: var(--vscode-activityBar-inactiveForeground, var(--titlebar-fg));
 			text-decoration: none;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
 			cursor: pointer;
+			background: none;
+			border: none;
+			padding: 0;
+			font: inherit;
 		}
 
 		.item:hover {
-			color: var(--color-foreground);
+			color: var(--vscode-activityBar-foreground, var(--color-foreground));
 			text-decoration: none;
+		}
+
+		.item.active {
+			color: var(--vscode-activityBar-foreground, var(--color-foreground));
+		}
+
+		.indicator {
+			position: absolute;
+			left: 0;
+			top: 0;
+			width: 1px;
+			border-radius: 1px;
+			background-color: var(
+				--vscode-activityBar-activeBorder,
+				var(--vscode-activityBar-foreground, var(--color-foreground))
+			);
+			height: var(--indicator-height, 0px);
+			transform: translateY(var(--indicator-top, 0px));
+			transition:
+				transform 0.25s ease-in-out,
+				height 0.15s ease-in-out;
+			pointer-events: none;
+		}
+
+		.indicator.no-transition {
+			transition: none;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.indicator {
+				transition: none;
+			}
 		}
 
 		.count {
 			color: var(--color-foreground--50);
-			/* color: var(--color-highlight); */
 			margin-top: 0.4rem;
 		}
 
@@ -88,96 +131,116 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			: (['branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
 	}
 
-	@consume({ context: ipcContext })
-	private _ipc!: HostIpc;
+	@property({ type: String, attribute: 'active-panel' })
+	activePanel: GraphSidebarPanel | undefined;
+
+	@consume({ context: sidebarActionsContext, subscribe: true })
+	private _actions!: SidebarActions;
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private readonly _state!: typeof graphStateContext.__context__;
 
-	private _disposable: Disposable | undefined;
-	private _countsTask = new Task(this, {
-		args: () => [this.fetchCounts()],
-		task: ([counts]) => counts,
-		autoRun: false,
-	});
-
-	override connectedCallback(): void {
-		super.connectedCallback?.();
-
-		this._disposable = this._ipc.onReceiveMessage(msg => {
-			switch (true) {
-				case DidChangeNotification.is(msg):
-					this._counts = undefined;
-					this.requestUpdate();
-					break;
-
-				case GetCountsRequest.response.is(msg):
-					this._counts = Promise.resolve(msg.params as Counts);
-					this.requestUpdate();
-					break;
-			}
-		});
-	}
-
-	override disconnectedCallback(): void {
-		super.disconnectedCallback?.();
-
-		this._disposable?.dispose();
-	}
-
-	private _counts: Promise<Counts | undefined> | undefined;
-	private async fetchCounts() {
-		if (this._counts == null) {
-			const ipc = this._ipc;
-			if (ipc != null) {
-				async function fetch() {
-					const rsp = await ipc.sendRequest(GetCountsRequest, undefined);
-					return rsp as Counts;
-				}
-				this._counts = fetch();
-			} else {
-				this._counts = Promise.resolve(undefined);
-			}
-		}
-		return this._counts;
-	}
+	private _suppressTransition = true;
 
 	override render(): unknown {
-		if (this._counts == null) {
-			void this._countsTask.run();
-		}
-
 		return html`<section class="sidebar">
+			${this.activePanel != null
+				? html`<div
+						class=${classMap({
+							indicator: true,
+							'no-transition': this._suppressTransition,
+						})}
+					></div>`
+				: nothing}
 			${repeat(
 				icons,
-				i => i,
+				i => i.type,
 				i => this.renderIcon(i),
 			)}
 		</section>`;
 	}
 
+	override firstUpdated(changedProperties: PropertyValues): void {
+		super.firstUpdated(changedProperties);
+		this._updateIndicator();
+		requestAnimationFrame(() => {
+			this._suppressTransition = false;
+		});
+	}
+
+	override updated(changedProperties: PropertyValues): void {
+		super.updated(changedProperties);
+
+		if (changedProperties.has('activePanel')) {
+			const prev = changedProperties.get('activePanel') as GraphSidebarPanel | undefined;
+			if (prev == null && this.activePanel != null) {
+				// Panel just opened — indicator was just created, suppress transition for one frame
+				const indicator = this.renderRoot.querySelector<HTMLElement>('.indicator');
+				if (indicator != null) {
+					indicator.classList.add('no-transition');
+					this._updateIndicator();
+					requestAnimationFrame(() => indicator.classList.remove('no-transition'));
+					return;
+				}
+			}
+		}
+
+		this._updateIndicator();
+	}
+
+	private _updateIndicator(): void {
+		const indicator = this.renderRoot.querySelector<HTMLElement>('.indicator');
+		if (indicator == null) return;
+
+		const activeButton = this.renderRoot.querySelector<HTMLElement>('.item.active');
+		if (activeButton == null) return;
+
+		const sidebar = this.renderRoot.querySelector<HTMLElement>('.sidebar');
+		if (sidebar == null) return;
+
+		const tooltipHost = activeButton.closest('gl-tooltip');
+		const target = tooltipHost ?? activeButton;
+
+		const sidebarRect = sidebar.getBoundingClientRect();
+		const targetRect = target.getBoundingClientRect();
+
+		indicator.style.setProperty('--indicator-top', `${targetRect.top - sidebarRect.top}px`);
+		indicator.style.setProperty('--indicator-height', `${targetRect.height}px`);
+	}
+
 	private renderIcon(icon: Icon) {
 		if (this.include != null && !this.include.includes(icon.type)) return;
 
+		const isActive = this.activePanel === icon.type;
+
 		return html`<gl-tooltip placement="right" content="${icon.tooltip}">
-			<a class="item" href="command:${icon.command}" @click=${() => this.sendTelemetry(icon.command)}>
+			<button
+				class=${classMap({ item: true, active: isActive })}
+				@click=${() => this.handleIconClick(icon)}
+				aria-pressed=${isActive}
+			>
 				<code-icon icon="${icon.icon}"></code-icon>
-				${this._countsTask.render({
-					pending: () =>
-						html`<span class="count"
-							><code-icon icon="loading" modifier="spin" size="9"></code-icon
-						></span>`,
-					complete: c => renderCount(c?.[icon.type]),
-					error: () => html`<span class="count error"><code-icon icon="warning" size="9"></code-icon></span>`,
-				})}
-			</a>
+				${this._actions?.state.countsLoading.get()
+					? html`<span class="count"><code-icon icon="loading" modifier="spin" size="9"></code-icon></span>`
+					: this._actions?.state.countsError.get()
+						? html`<span class="count error"><code-icon icon="warning" size="9"></code-icon></span>`
+						: renderCount(this._actions?.state.counts.get()?.[icon.type])}
+			</button>
 		</gl-tooltip>`;
 	}
 
-	private sendTelemetry(command: string) {
+	private handleIconClick(icon: Icon) {
+		this.dispatchEvent(
+			new CustomEvent<GraphSidebarToggleEventDetail>('gl-graph-sidebar-toggle', {
+				detail: { panel: icon.type },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+
 		emitTelemetrySentEvent<'graph/action/sidebar'>(this, {
 			name: 'graph/action/sidebar',
-			data: { action: command },
+			data: { action: icon.type },
 		});
 	}
 }

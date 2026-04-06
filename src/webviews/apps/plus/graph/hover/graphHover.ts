@@ -96,6 +96,7 @@ export class GlGraphHover extends GlElement {
 			.skidding=${this.skidding}
 			.placement=${this.placement}
 			trigger="manual"
+			hoist
 			@sl-reposition=${this.onReposition}
 		>
 			<div slot="content">

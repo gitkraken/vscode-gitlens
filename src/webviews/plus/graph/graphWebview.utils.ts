@@ -27,6 +27,7 @@ import type {
 	GraphItemTypedContext,
 	GraphItemTypedContextValue,
 	GraphPullRequestContextValue,
+	GraphRemoteContextValue,
 	GraphRepository,
 	GraphStashContextValue,
 	GraphTagContextValue,
@@ -83,6 +84,10 @@ export function isGraphItemTypedContext(
 	item: unknown,
 	type: 'issue',
 ): item is GraphItemTypedContext<GraphIssueContextValue>;
+export function isGraphItemTypedContext(
+	item: unknown,
+	type: 'remote',
+): item is GraphItemTypedContext<GraphRemoteContextValue>;
 export function isGraphItemTypedContext(
 	item: unknown,
 	type: GraphItemTypedContextValue['type'],

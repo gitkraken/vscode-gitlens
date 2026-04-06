@@ -3,6 +3,7 @@
 @use '../../shared/styles/utils';
 @use '../../shared/styles/icons/utils' as iconUtils;
 @use '../../shared/base';
+
 @include meta.load-css('../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css');
 
 @mixin focusStyles() {
@@ -1301,7 +1302,7 @@ web-graph {
 		display: grid;
 		grid-template-columns: min-content 1fr;
 		grid-template-rows: auto 1fr;
-		grid-template-areas: 'minimap minimap' 'sidebar graph';
+		grid-template-areas: 'minimap minimap' 'sidebar main';
 		height: 100%;
 		overflow: hidden;
 
@@ -1314,8 +1315,18 @@ web-graph {
 		}
 
 		gl-graph-wrapper {
-			grid-area: graph;
+			grid-area: main;
 		}
+	}
+
+	&__sidebar-split {
+		grid-area: main;
+	}
+
+	&__graph-content {
+		height: 100%;
+		position: relative;
+		z-index: 0;
 	}
 	&__graph-root {
 		width: 100%;

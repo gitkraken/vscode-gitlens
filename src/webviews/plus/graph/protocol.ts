@@ -102,6 +102,8 @@ export type GraphMinimapMarkerTypes =
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
+export type GraphSidebarPanel = 'branches' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
+
 export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.graph'> {
 	windowFocused?: boolean;
 	webroot?: string;
@@ -143,6 +145,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
 	activeRow?: string;
+	activeSidebarPanel?: GraphSidebarPanel;
 	visibleDays?: {
 		top: number;
 		bottom: number;
@@ -432,6 +435,90 @@ export type DidGetCountParams =
 	| undefined;
 export const GetCountsRequest = new IpcRequest<void, DidGetCountParams>(scope, 'counts');
 
+export interface GraphSidebarBranch {
+	name: string;
+	sha?: string;
+	current: boolean;
+	remote: boolean;
+	status?: string;
+	upstream?: { name: string; missing: boolean };
+	tracking?: { ahead: number; behind: number };
+	worktree?: boolean;
+	worktreeOpened?: boolean;
+	disposition?: string;
+	date?: number;
+	providerName?: string;
+	starred?: boolean;
+	menuContext?: string;
+}
+
+export interface GraphSidebarRemoteBranch {
+	name: string;
+	sha?: string;
+	menuContext?: string;
+}
+
+export interface GraphSidebarRemote {
+	name: string;
+	url?: string;
+	isDefault: boolean;
+	providerIcon?: string;
+	providerName?: string;
+	/** Whether the remote's integration is connected (`true`), disconnected (`false`), or not applicable (`undefined`). */
+	connected?: boolean;
+	branches: GraphSidebarRemoteBranch[];
+	menuContext?: string;
+}
+
+export interface GraphSidebarStash {
+	name: string;
+	sha: string;
+	message: string;
+	date?: number;
+	stashNumber: string;
+	stashOnRef?: string;
+	menuContext?: string;
+}
+
+export interface GraphSidebarTag {
+	name: string;
+	sha?: string;
+	message?: string;
+	annotated: boolean;
+	date?: number;
+	menuContext?: string;
+}
+
+export interface GraphSidebarWorktree {
+	name: string;
+	uri: string;
+	branch?: string;
+	sha?: string;
+	isDefault: boolean;
+	locked: boolean;
+	opened: boolean;
+	hasChanges?: boolean;
+	status?: string;
+	upstream?: string;
+	tracking?: { ahead: number; behind: number };
+	providerName?: string;
+	menuContext?: string;
+}
+
+export type GraphSidebarItems =
+	| GraphSidebarBranch[]
+	| GraphSidebarRemote[]
+	| GraphSidebarStash[]
+	| GraphSidebarTag[]
+	| GraphSidebarWorktree[];
+
+export type GetSidebarDataParams = { panel: GraphSidebarPanel };
+export type DidGetSidebarDataParams = {
+	panel: GraphSidebarPanel;
+	items: GraphSidebarItems;
+	layout?: 'list' | 'tree';
+	compact?: boolean;
+};
 export type GetRowHoverParams = {
 	type: GitGraphRowType;
 	id: string;
@@ -633,6 +720,7 @@ export type GraphItemTypedContext<T = GraphItemTypedContextValue> = WebviewItemC
 export type GraphItemTypedContextValue =
 	| GraphContributorContextValue
 	| GraphPullRequestContextValue
+	| GraphRemoteContextValue
 	| GraphUpstreamStatusContextValue
 	| GraphIssueContextValue;
 
@@ -660,6 +748,12 @@ export interface GraphIssueContextValue {
 	id: string;
 	url: string;
 	provider: ProviderReference;
+}
+
+export interface GraphRemoteContextValue {
+	type: 'remote';
+	name: string;
+	repoPath: string;
 }
 
 export interface GraphBranchContextValue {

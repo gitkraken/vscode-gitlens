@@ -19,6 +19,7 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import type { GraphSelection, RowAction } from '../../../../plus/graph/protocol.js';
 import {
 	DoubleClickedCommand,
+	EnsureRowRequest,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
@@ -181,6 +182,23 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	selectCommits(shas: string[], options?: SelectCommitsOptions): ReadonlyGraphRow[] {
 		return this.ref?.selectCommits(shas, options) ?? [];
+	}
+
+	/**
+	 * Select a row by SHA, loading it into the graph first if necessary.
+	 * The host handles both loading and selecting — the rows notification
+	 * carries the updated selection so the graph renders it automatically.
+	 */
+	ensureAndSelectCommit(sha: string): void {
+		// Fast path — row already loaded
+		if (this.ref?.getCommits([sha])?.length) {
+			this.ref.selectCommits([sha], { ensureVisible: true });
+			return;
+		}
+
+		// Ask the host to load and select the row; the rows notification
+		// will carry the selection so the graph picks it up on render.
+		void this._ipc.sendRequest(EnsureRowRequest, { id: sha, select: true });
 	}
 
 	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
