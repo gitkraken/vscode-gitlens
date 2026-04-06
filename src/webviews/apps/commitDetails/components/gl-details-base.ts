@@ -445,6 +445,8 @@ export class GlDetailsBase extends LitElement {
 			.model=${treeModel}
 			.guides=${this.indentGuides}
 			.filtered=${this.searchContext != null && this._filterMode !== 'off'}
+			filterable
+			filter-placeholder="Filter files..."
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}
