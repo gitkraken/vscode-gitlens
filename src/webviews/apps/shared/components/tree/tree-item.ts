@@ -190,6 +190,8 @@ export class GlTreeItem extends GlElement {
 				@click=${this.onButtonClick}
 				@dblclick=${this.onButtonDblClick}
 				@contextmenu=${this.onButtonContextMenu}
+				@mouseenter=${this.onButtonMouseEnter}
+				@mouseleave=${this.onButtonMouseLeave}
 			>
 				${when(this.showIcon, () => html`<slot name="icon" class="icon"></slot>`)}
 				<span class="text">
@@ -274,6 +276,14 @@ export class GlTreeItem extends GlElement {
 		this.dispatchEvent(evt);
 	}
 
+	private onButtonMouseEnter(_e: MouseEvent) {
+		this.emit('gl-tree-item-hover', { node: this, element: this.buttonEl });
+	}
+
+	private onButtonMouseLeave(_e: MouseEvent) {
+		this.emit('gl-tree-item-unhover', { node: this });
+	}
+
 	private onCheckboxClick(e: Event) {
 		e.stopPropagation();
 	}
@@ -296,5 +306,7 @@ declare global {
 		'gl-tree-item-select': CustomEvent<undefined>;
 		'gl-tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'gl-tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
+		'gl-tree-item-hover': CustomEvent<{ node: GlTreeItem; element: HTMLElement }>;
+		'gl-tree-item-unhover': CustomEvent<{ node: GlTreeItem }>;
 	}
 }

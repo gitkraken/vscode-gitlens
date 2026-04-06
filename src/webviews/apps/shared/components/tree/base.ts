@@ -49,16 +49,31 @@ export interface TreeItemDecorationStatus extends TreeItemDecorationBase {
 	status: string;
 }
 
-export type TreeItemDecoration = TreeItemDecorationText | TreeItemDecorationIcon | TreeItemDecorationStatus;
+export interface TreeItemDecorationTracking extends TreeItemDecorationBase {
+	type: 'tracking';
+	ahead: number;
+	behind: number;
+}
+
+export type TreeItemDecoration =
+	| TreeItemDecorationText
+	| TreeItemDecorationIcon
+	| TreeItemDecorationStatus
+	| TreeItemDecorationTracking;
 
 interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;
-	icon?: string | { type: 'status'; name: GitFileStatus };
+	icon?:
+		| string
+		| { type: 'status'; name: GitFileStatus }
+		| { type: 'branch'; status?: string; worktree?: boolean; hasChanges?: boolean };
 	description?: string;
 	context?: Context;
 	actions?: TreeItemAction[];
 	decorations?: TreeItemDecoration[];
 	contextData?: unknown;
+	tooltip?: string;
+	filterText?: string;
 	matched?: boolean;
 }
 

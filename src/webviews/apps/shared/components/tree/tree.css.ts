@@ -110,9 +110,12 @@ export const treeItemStyles = [
 		}
 
 		slot[name='icon']::slotted(*) {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
 			width: 1.6rem;
-			aspect-ratio: 1;
-			vertical-align: text-bottom;
+			height: 1.6rem;
+			vertical-align: middle;
 		}
 
 		.node {

@@ -20,7 +20,12 @@ import type {
 } from './base.js';
 import '@lit-labs/virtualizer';
 import '../actions/action-item.js';
+import '../branch-icon.js';
+import '../markdown/markdown.js';
+import '../overlays/popover.js';
+import '../pills/tracking.js';
 import '../status/git-status.js';
+import '../button.js';
 import '../code-icon.js';
 import './tree-item.js';
 import type { GlTreeItem } from './tree-item.js';
@@ -72,9 +77,73 @@ export class GlTreeGenerator extends GlElement {
 				width: 100%;
 			}
 
-			/* Dim non-matched items when filter is present */
-			:host([filtered]) gl-tree-item:not([matched]) {
+			/* Dim non-matched items when highlighting */
+			:host([filtered]:not([filter-mode='filter'])) gl-tree-item:not([matched]) {
 				opacity: 0.6;
+			}
+
+			.filter {
+				position: relative;
+				padding: 0.4rem 0.6rem;
+				flex: none;
+			}
+
+			.filter-input {
+				width: 100%;
+				height: 2.4rem;
+				box-sizing: border-box;
+				padding: 0 2rem 0 0.6rem;
+				font-family: var(--vscode-font-family);
+				font-size: var(--vscode-font-size);
+				color: var(--vscode-input-foreground);
+				background-color: var(--vscode-input-background);
+				border: 1px solid var(--vscode-input-border, transparent);
+				border-radius: 2px;
+				outline: none;
+			}
+
+			.filter-input:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
+
+			.filter-input::placeholder {
+				color: var(--vscode-input-placeholderForeground);
+			}
+
+			.filter-controls {
+				position: absolute;
+				top: 0.4rem;
+				right: 0.6rem;
+				bottom: 0.4rem;
+				display: inline-flex;
+				align-items: center;
+				gap: 0.1rem;
+				padding-right: 0.2rem;
+			}
+
+			.filter-controls gl-button {
+				--button-line-height: 1;
+				--button-input-height: 2rem;
+			}
+
+			mark {
+				background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));
+				color: inherit;
+				border-radius: 1px;
+			}
+
+			.no-results {
+				padding: 0.8rem 1.2rem;
+				color: var(--vscode-disabledForeground, var(--color-foreground--50));
+				font-style: italic;
+			}
+
+			.hover-content {
+				font-size: 1.2rem;
+				line-height: 1.5;
+				max-width: min(92vw, 35rem);
+				--code-icon-size: 1em;
 			}
 		`,
 	];
@@ -90,6 +159,25 @@ export class GlTreeGenerator extends GlElement {
 
 	@property({ type: Boolean, reflect: true })
 	filtered = false;
+
+	@property({ type: Boolean, reflect: true })
+	filterable = false;
+
+	@property({ type: String, attribute: 'filter-placeholder' })
+	filterPlaceholder = 'Filter...';
+
+	@property({ type: String, attribute: 'filter-mode', reflect: true })
+	filterMode: 'filter' | 'highlight' = 'highlight';
+
+	@property({ type: Boolean, attribute: 'tooltip-anchor-right' })
+	tooltipAnchorRight = false;
+
+	@state()
+	private _filterText = '';
+
+	private _filterLower = '';
+	private _filterTerms: string[] = [];
+	private _filterDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 	@property({ type: String, attribute: 'aria-label' })
 	override ariaLabel = 'Tree';
@@ -107,6 +195,14 @@ export class GlTreeGenerator extends GlElement {
 	private _actionButtonHasFocus = false;
 
 	private _scrolling = false;
+
+	// Hover tooltip state
+	private _hoverTimer?: ReturnType<typeof setTimeout>;
+	private _hoveredTooltip?: string;
+	private _hoveredAnchor?: HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> };
+
+	@state()
+	private _hoverOpen = false;
 
 	// Type-ahead search state
 	private _typeAheadBuffer = '';
@@ -138,11 +234,12 @@ export class GlTreeGenerator extends GlElement {
 		this.removeEventListener('focusout', this.handleFocusOut, { capture: true });
 		this.removeEventListener('contextmenu', this.handleContextMenu);
 
-		// Clean up type-ahead timer and reset state
+		// Clean up timers and reset state
 		if (this._typeAheadTimer) {
 			clearTimeout(this._typeAheadTimer);
 			this._typeAheadTimer = undefined;
 		}
+		clearTimeout(this._filterDebounceTimer);
 		this._typeAheadBuffer = '';
 	}
 
@@ -165,10 +262,11 @@ export class GlTreeGenerator extends GlElement {
 		let treeItems: TreeModelFlat[] | undefined;
 		if (this._model != null) {
 			const size = this._model.length;
-			treeItems = this._model.reduce<TreeModelFlat[]>((acc, node, index) => {
-				acc.push(...flattenTree(node, size, index + 1, undefined, this._nodeMap));
-				return acc;
-			}, []);
+			const hideNonMatched = this.filtered && this.filterMode === 'filter';
+			treeItems = [];
+			for (let i = 0; i < size; i++) {
+				flattenTree(this._model[i], size, i + 1, undefined, this._nodeMap, hideNonMatched, treeItems);
+			}
 		}
 
 		this.treeItems = treeItems;
@@ -188,18 +286,32 @@ export class GlTreeGenerator extends GlElement {
 		return this._model;
 	}
 
-	private renderIcon(icon?: string | { type: 'status'; name: GlGitStatus['status'] }) {
+	private renderIcon(
+		icon?:
+			| string
+			| { type: 'status'; name: GlGitStatus['status'] }
+			| { type: 'branch'; status?: string; worktree?: boolean; hasChanges?: boolean },
+	) {
 		if (icon == null) return nothing;
 
 		if (typeof icon === 'string') {
 			return html`<code-icon slot="icon" icon=${icon}></code-icon>`;
 		}
 
-		if (icon.type !== 'status') {
-			return nothing;
+		if (icon.type === 'status') {
+			return html`<gl-git-status slot="icon" .status=${icon.name}></gl-git-status>`;
 		}
 
-		return html`<gl-git-status slot="icon" .status=${icon.name}></gl-git-status>`;
+		if (icon.type === 'branch') {
+			return html`<gl-branch-icon
+				slot="icon"
+				.status=${icon.status}
+				.worktree=${icon.worktree ?? false}
+				.hasChanges=${icon.hasChanges ?? false}
+			></gl-branch-icon>`;
+		}
+
+		return nothing;
 	}
 
 	private renderActions(model: TreeModelFlat) {
@@ -241,10 +353,50 @@ export class GlTreeGenerator extends GlElement {
 				>`;
 			}
 
+			if (decoration.type === 'tracking') {
+				return html`<gl-tracking-pill
+					slot="decorations"
+					.ahead=${decoration.ahead}
+					.behind=${decoration.behind}
+					colorized
+				></gl-tracking-pill>`;
+			}
+
 			// TODO: implement badge and indicator decorations
 
 			return undefined;
 		});
+	}
+
+	private highlightText(text: string): unknown {
+		if (!this.filtered || this._filterTerms.length === 0) return text;
+
+		const lowerText = text.toLowerCase();
+
+		// Collect all matched character indices across all filter terms
+		const allIndices = new Set<number>();
+		for (const term of this._filterTerms) {
+			// Try exact substring first
+			const idx = lowerText.indexOf(term);
+			if (idx !== -1) {
+				for (let i = idx; i < idx + term.length; i++) {
+					allIndices.add(i);
+				}
+				continue;
+			}
+			// Fuzzy match
+			const matched = fuzzyMatch(lowerText, term);
+			if (matched != null) {
+				for (const i of matched) {
+					allIndices.add(i);
+				}
+			}
+		}
+
+		if (allIndices.size === 0) return text;
+
+		const sorted = [...allIndices].sort((a, b) => a - b);
+		return renderFuzzyHighlight(text, sorted);
 	}
 
 	private renderTreeItem(model: TreeModelFlat) {
@@ -278,18 +430,53 @@ export class GlTreeGenerator extends GlElement {
 			@gl-tree-item-select=${() => this.onBeforeTreeItemSelected(model)}
 			@gl-tree-item-selected=${(e: CustomEvent<TreeItemSelectionDetail>) => this.onTreeItemSelected(e, model)}
 			@gl-tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
+			@gl-tree-item-hover=${(e: CustomEvent<{ element: HTMLElement }>) =>
+				this.onTreeItemHover(e.detail.element, model)}
+			@gl-tree-item-unhover=${() => this.onTreeItemUnhover()}
 		>
 			${this.renderIcon(model.icon)}
-			${model.label}${when(
+			${this.highlightText(model.label)}${when(
 				model.description != null,
-				() => html`<span slot="description">${model.description}</span>`,
+				() => html`<span slot="description">${this.highlightText(model.description!)}</span>`,
 			)}
 			${this.renderActions(model)} ${this.renderDecorations(model)}
 		</gl-tree-item>`;
 	}
 
+	private renderFilterBar(): unknown {
+		if (!this.filterable) return nothing;
+
+		return html`<div class="filter">
+			<input
+				class="filter-input"
+				type="text"
+				placeholder="${this.filterPlaceholder}"
+				.value=${this._filterText}
+				@input=${this.handleFilterInput}
+			/>
+			<div class="filter-controls">
+				<gl-button
+					appearance="input"
+					role="checkbox"
+					aria-checked=${this.filterMode === 'filter' ? 'true' : 'false'}
+					tooltip=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
+					aria-label=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
+					@click=${this.toggleFilterMode}
+				>
+					<code-icon icon="list-filter"></code-icon>
+				</gl-button>
+			</div>
+		</div>`;
+	}
+
 	override render(): unknown {
-		if (!this.treeItems?.length) return nothing;
+		if (!this.treeItems?.length) {
+			if (this._filterText && this._model?.length) {
+				return html`${this.renderFilterBar()}
+					<div class="no-results">No results found</div>`;
+			}
+			return nothing;
+		}
 
 		// Container-focused approach: the scrollable div is the focusable element
 		// Use aria-activedescendant to indicate which tree item is active for screen readers
@@ -298,6 +485,7 @@ export class GlTreeGenerator extends GlElement {
 		// Use keyed directive to force virtualizer re-creation when model changes
 		// This prevents stale DOM node references in the repeat directive
 		return html`
+			${this.renderFilterBar()}
 			<div
 				${ref(this.scrollableRef)}
 				class="scrollable"
@@ -323,6 +511,21 @@ export class GlTreeGenerator extends GlElement {
 					></lit-virtualizer>`,
 				)}
 			</div>
+			${this._hoverOpen && this._hoveredTooltip
+				? html`<gl-popover
+						?open=${this._hoverOpen}
+						.anchor=${this._hoveredAnchor}
+						placement="right-start"
+						trigger="manual"
+						hoist
+						.distance=${4}
+						@mouseleave=${() => this.onTreeItemUnhover()}
+					>
+						<div slot="content" class="hover-content">
+							<gl-markdown density="compact" .markdown=${this._hoveredTooltip ?? ''}></gl-markdown>
+						</div>
+					</gl-popover>`
+				: nothing}
 		`;
 	}
 
@@ -351,11 +554,12 @@ export class GlTreeGenerator extends GlElement {
 		// This prevents stale node references when expanding/collapsing nodes
 		this._nodeMap.clear();
 
+		const hideNonMatched = this.filtered && this.filterMode === 'filter';
 		const size = this._model.length;
-		const newTreeItems = this._model.reduce<TreeModelFlat[]>((acc, node, index) => {
-			acc.push(...flattenTree(node, size, index + 1, undefined, this._nodeMap));
-			return acc;
-		}, []);
+		const newTreeItems: TreeModelFlat[] = [];
+		for (let i = 0; i < size; i++) {
+			flattenTree(this._model[i], size, i + 1, undefined, this._nodeMap, hideNonMatched, newTreeItems);
+		}
 
 		this.treeItems = newTreeItems;
 
@@ -400,6 +604,47 @@ export class GlTreeGenerator extends GlElement {
 			node: model,
 			context: model.context,
 		});
+	}
+
+	private onTreeItemHover(element: HTMLElement, model: TreeModelFlat) {
+		if (!model.tooltip) {
+			this.onTreeItemUnhover();
+			return;
+		}
+
+		clearTimeout(this._hoverTimer);
+
+		// Show quickly if already showing, otherwise debounce
+		const delay = this._hoverOpen ? 150 : 500;
+		if (this.tooltipAnchorRight) {
+			const hostRect = this.getBoundingClientRect();
+			const itemRect = element.getBoundingClientRect();
+			this._hoveredAnchor = {
+				getBoundingClientRect: () => ({
+					x: hostRect.right,
+					y: itemRect.top,
+					top: itemRect.top,
+					bottom: itemRect.bottom,
+					left: hostRect.right,
+					right: hostRect.right,
+					width: 0,
+					height: itemRect.height,
+				}),
+			};
+		} else {
+			this._hoveredAnchor = element;
+		}
+		this._hoveredTooltip = model.tooltip;
+		this._hoverTimer = setTimeout(() => {
+			this._hoverOpen = true;
+		}, delay);
+	}
+
+	private onTreeItemUnhover() {
+		clearTimeout(this._hoverTimer);
+		this._hoverOpen = false;
+		this._hoveredTooltip = undefined;
+		this._hoveredAnchor = undefined;
 	}
 
 	private onTreeItemActionClicked(e: MouseEvent, model: TreeModelFlat, action: TreeItemAction, dblClick = false) {
@@ -913,44 +1158,150 @@ export class GlTreeGenerator extends GlElement {
 		// Check if it's a single character and is alphanumeric or common punctuation
 		return char.length === 1 && filterableCharRegex.test(char);
 	}
+
+	private handleFilterInput = (e: InputEvent) => {
+		this._filterText = (e.target as HTMLInputElement).value;
+		clearTimeout(this._filterDebounceTimer);
+		this._filterDebounceTimer = setTimeout(() => this.applyFilterToModel(), 150);
+	};
+
+	private toggleFilterMode = () => {
+		this.filterMode = this.filterMode === 'filter' ? 'highlight' : 'filter';
+		if (this.filtered) {
+			this.rebuildFlattenedTree();
+		}
+	};
+
+	private applyFilterToModel() {
+		this._filterLower = this._filterText.toLowerCase().trim();
+		// Split on whitespace into independent search terms
+		this._filterTerms = this._filterLower.split(/\s+/).filter(t => t.length > 0);
+		if (this._filterTerms.length === 0) {
+			this.filtered = false;
+			if (this._model != null) {
+				clearMatched(this._model);
+			}
+		} else {
+			this.filtered = true;
+			if (this._model != null) {
+				applyFilter(this._model, this._filterTerms);
+			}
+		}
+
+		this.rebuildFlattenedTree();
+	}
 }
 
 /**
- * Flatten a hierarchical tree node into a flat array
- * Optionally populates a node map during traversal for O(1) lookups
+ * Flatten a hierarchical tree node into a flat array.
+ * Uses an accumulator to avoid intermediate array allocations.
+ * Optionally populates a node map during traversal for O(1) lookups.
  */
 function flattenTree(
 	tree: TreeModel,
-	children: number = 1,
-	position: number = 1,
-	parentPath?: string,
-	nodeMap?: Map<string, TreeModel>,
+	children: number,
+	position: number,
+	parentPath: string | undefined,
+	nodeMap: Map<string, TreeModel> | undefined,
+	hideNonMatched: boolean,
+	out?: TreeModelFlat[],
 ): TreeModelFlat[] {
-	// Add to node map if provided (single traversal optimization)
-	if (nodeMap) {
-		nodeMap.set(tree.path, tree);
-	}
+	if (hideNonMatched && tree.matched === false) return out ?? [];
 
-	const node: TreeModelFlat = {
+	const result = out ?? [];
+
+	nodeMap?.set(tree.path, tree);
+
+	result.push({
 		...tree,
 		size: children,
 		position: position,
 		parentPath: parentPath,
-	};
+	});
 
-	const nodes = [node];
-
-	// Only include children if this node is expanded
-	const isExpanded = tree.expanded !== false;
-	if (tree.children != null && tree.children.length > 0 && isExpanded) {
+	if (tree.expanded !== false && tree.children != null && tree.children.length > 0) {
 		const childSize = tree.children.length;
 		for (let i = 0; i < childSize; i++) {
-			// Pass this node's path as the parent path for children
-			nodes.push(...flattenTree(tree.children[i], childSize, i + 1, tree.path, nodeMap));
+			flattenTree(tree.children[i], childSize, i + 1, tree.path, nodeMap, hideNonMatched, result);
 		}
 	}
 
-	return nodes;
+	return result;
+}
+
+function applyFilter(model: TreeModel[], terms: string[]): boolean {
+	let anyMatch = false;
+	for (const item of model) {
+		// All terms must match against the item's searchable text (AND logic)
+		const searchText = item.filterText ?? item.label ?? '';
+		const searchLower = searchText.toLowerCase();
+		const descLower = item.description?.toLowerCase();
+		const selfMatch = terms.every(
+			term => searchLower.includes(term) || fuzzyMatch(searchLower, term) != null || descLower?.includes(term),
+		);
+		let childMatch = false;
+
+		if (item.children != null && item.children.length > 0) {
+			childMatch = applyFilter(item.children, terms);
+		}
+
+		item.matched = selfMatch || childMatch;
+		if (item.matched) {
+			anyMatch = true;
+		}
+
+		// Auto-expand branches with matching children
+		if (item.branch && childMatch) {
+			item.expanded = true;
+		}
+	}
+	return anyMatch;
+}
+
+function clearMatched(model: TreeModel[]): void {
+	for (const item of model) {
+		item.matched = false;
+		if (item.children != null) {
+			clearMatched(item.children);
+		}
+	}
+}
+
+/** Sequential character fuzzy match — returns matched indices or undefined */
+function fuzzyMatch(text: string, filter: string): number[] | undefined {
+	const indices: number[] = [];
+	let fi = 0;
+	for (let ti = 0; ti < text.length && fi < filter.length; ti++) {
+		if (text[ti] === filter[fi]) {
+			indices.push(ti);
+			fi++;
+		}
+	}
+	return fi === filter.length ? indices : undefined;
+}
+
+function renderFuzzyHighlight(text: string, matchedIndices: number[]): unknown[] {
+	const parts: unknown[] = [];
+	let last = 0;
+	let i = 0;
+	while (i < matchedIndices.length) {
+		let end = i;
+		while (end + 1 < matchedIndices.length && matchedIndices[end + 1] === matchedIndices[end] + 1) {
+			end++;
+		}
+		const start = matchedIndices[i];
+		const runEnd = matchedIndices[end] + 1;
+		if (start > last) {
+			parts.push(text.substring(last, start));
+		}
+		parts.push(html`<mark>${text.substring(start, runEnd)}</mark>`);
+		last = runEnd;
+		i = end + 1;
+	}
+	if (last < text.length) {
+		parts.push(text.substring(last));
+	}
+	return parts;
 }
 
 declare global {
