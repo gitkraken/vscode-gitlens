@@ -9,14 +9,14 @@ import type { Container } from '../../container.js';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils/-webview/launchpad.utils.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from './eventVisibilityBuffer.js';
-import { createBufferedCallback } from './eventVisibilityBuffer.js';
-import type { EventSubscriber, Unsubscribe } from './services/types.js';
+import { bufferEventHandler } from './eventVisibilityBuffer.js';
+import type { RpcEventSubscription, Unsubscribe } from './services/types.js';
 
 export class LaunchpadService {
 	/**
 	 * Fired when launchpad items change (PR status updates, etc.).
 	 */
-	readonly onLaunchpadChanged: EventSubscriber<undefined>;
+	readonly onLaunchpadChanged: RpcEventSubscription<undefined>;
 
 	readonly #container: Container;
 
@@ -25,7 +25,7 @@ export class LaunchpadService {
 
 		this.onLaunchpadChanged = (callback): Unsubscribe => {
 			const pendingKey = Symbol('launchpadChanged');
-			const buffered = createBufferedCallback(buffer, pendingKey, callback, 'signal', undefined);
+			const buffered = bufferEventHandler(buffer, pendingKey, callback, 'signal', undefined);
 			const disposable = container.launchpad.onDidChange(() => buffered(undefined));
 			const unsubscribe = () => {
 				buffer?.removePending(pendingKey);

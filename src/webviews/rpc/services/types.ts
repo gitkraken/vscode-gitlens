@@ -320,4 +320,4 @@ export type Unsubscribe = () => void;
  * Event subscription function signature.
  * Returns an unsubscribe function.
  */
-export type EventSubscriber<T> = (callback: (data: T) => void) => Unsubscribe;
+export type RpcEventSubscription<T> = (handler: (data: T) => void) => Unsubscribe;

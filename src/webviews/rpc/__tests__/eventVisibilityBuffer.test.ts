@@ -1,9 +1,9 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import {
-	createBufferedCallback,
-	createCallbackMapSubscription,
-	createEventSubscription,
+	bufferEventHandler,
+	createRpcEvent,
+	createRpcEventSubscription,
 	EventVisibilityBuffer,
 	SubscriptionTracker,
 } from '../eventVisibilityBuffer.js';
@@ -28,7 +28,7 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(buffer.visible, true);
 		});
 
-		test('should flush pending callbacks on setVisible(true)', () => {
+		test('should flush pending handlers on setVisible(true)', () => {
 			const buffer = new EventVisibilityBuffer();
 			const spy = sinon.spy();
 
@@ -40,7 +40,7 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(spy.callCount, 1);
 		});
 
-		test('should overwrite pending callback for the same key', () => {
+		test('should overwrite pending handler for the same key', () => {
 			const buffer = new EventVisibilityBuffer();
 			const spy1 = sinon.spy();
 			const spy2 = sinon.spy();
@@ -50,11 +50,11 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			buffer.addPending('event1', spy2);
 
 			buffer.setVisible(true);
-			assert.strictEqual(spy1.callCount, 0, 'first callback should not fire');
-			assert.strictEqual(spy2.callCount, 1, 'second (latest) callback should fire');
+			assert.strictEqual(spy1.callCount, 0, 'first handler should not fire');
+			assert.strictEqual(spy2.callCount, 1, 'second (latest) handler should fire');
 		});
 
-		test('should flush multiple different-keyed callbacks', () => {
+		test('should flush multiple different-keyed handlers', () => {
 			const buffer = new EventVisibilityBuffer();
 			const spy1 = sinon.spy();
 			const spy2 = sinon.spy();
@@ -90,7 +90,7 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(spy.callCount, 1);
 		});
 
-		test('should allow callbacks to re-add pending during flush without infinite loop', () => {
+		test('should allow handlers to re-add pending during flush without infinite loop', () => {
 			const buffer = new EventVisibilityBuffer();
 			let callCount = 0;
 
@@ -104,15 +104,15 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			});
 
 			buffer.setVisible(true);
-			assert.strictEqual(callCount, 1, 'only the original callback should fire in this flush');
+			assert.strictEqual(callCount, 1, 'only the original handler should fire in this flush');
 
-			// Now flush again to invoke the re-added callback
+			// Now flush again to invoke the re-added handler
 			buffer.setVisible(false);
 			buffer.setVisible(true);
 			assert.strictEqual(callCount, 2);
 		});
 
-		test('should allow removePending to cancel a pending callback', () => {
+		test('should allow removePending to cancel a pending handler', () => {
 			const buffer = new EventVisibilityBuffer();
 			const spy = sinon.spy();
 
@@ -125,62 +125,62 @@ suite('EventVisibilityBuffer Test Suite', () => {
 		});
 	});
 
-	suite('createBufferedCallback', () => {
-		test('should return the original callback when buffer is undefined', () => {
-			const callback = sinon.spy();
-			const result = createBufferedCallback(undefined, 'key', callback, 'save-last');
-			assert.strictEqual(result, callback, 'should return the same function reference');
+	suite('bufferEventHandler', () => {
+		test('should return the original handler when buffer is undefined', () => {
+			const handler = sinon.spy();
+			const result = bufferEventHandler(undefined, 'key', handler, 'save-last');
+			assert.strictEqual(result, handler, 'should return the same function reference');
 		});
 
-		test('should invoke callback immediately when visible (save-last)', () => {
+		test('should invoke handler immediately when visible (save-last)', () => {
 			const buffer = new EventVisibilityBuffer();
-			const callback = sinon.spy();
-			const buffered = createBufferedCallback(buffer, 'key', callback, 'save-last');
+			const handler = sinon.spy();
+			const buffered = bufferEventHandler(buffer, 'key', handler, 'save-last');
 
 			buffered('data1');
-			assert.strictEqual(callback.callCount, 1);
-			assert.strictEqual(callback.firstCall.args[0], 'data1');
+			assert.strictEqual(handler.callCount, 1);
+			assert.strictEqual(handler.firstCall.args[0], 'data1');
 		});
 
-		test('should invoke callback immediately when visible (signal)', () => {
+		test('should invoke handler immediately when visible (signal)', () => {
 			const buffer = new EventVisibilityBuffer();
-			const callback = sinon.spy();
-			const buffered = createBufferedCallback(buffer, 'key', callback, 'signal', undefined);
+			const handler = sinon.spy();
+			const buffered = bufferEventHandler(buffer, 'key', handler, 'signal', undefined);
 
 			buffered('data1');
-			assert.strictEqual(callback.callCount, 1);
-			assert.strictEqual(callback.firstCall.args[0], 'data1');
+			assert.strictEqual(handler.callCount, 1);
+			assert.strictEqual(handler.firstCall.args[0], 'data1');
 		});
 
 		test('should buffer and replay latest data in save-last mode', () => {
 			const buffer = new EventVisibilityBuffer();
-			const callback = sinon.spy();
-			const buffered = createBufferedCallback(buffer, 'key', callback, 'save-last');
+			const handler = sinon.spy();
+			const buffered = bufferEventHandler(buffer, 'key', handler, 'save-last');
 
 			buffer.setVisible(false);
 			buffered('data1');
 			buffered('data2');
 			buffered('data3');
-			assert.strictEqual(callback.callCount, 0, 'should not invoke while hidden');
+			assert.strictEqual(handler.callCount, 0, 'should not invoke while hidden');
 
 			buffer.setVisible(true);
-			assert.strictEqual(callback.callCount, 1, 'should invoke once on flush');
-			assert.strictEqual(callback.firstCall.args[0], 'data3', 'should replay latest data');
+			assert.strictEqual(handler.callCount, 1, 'should invoke once on flush');
+			assert.strictEqual(handler.firstCall.args[0], 'data3', 'should replay latest data');
 		});
 
 		test('should buffer and replay signalValue in signal mode', () => {
 			const buffer = new EventVisibilityBuffer();
-			const callback = sinon.spy();
-			const buffered = createBufferedCallback<string>(buffer, 'key', callback, 'signal', 'refresh-signal');
+			const handler = sinon.spy();
+			const buffered = bufferEventHandler<string>(buffer, 'key', handler, 'signal', 'refresh-signal');
 
 			buffer.setVisible(false);
 			buffered('actual-data');
-			assert.strictEqual(callback.callCount, 0);
+			assert.strictEqual(handler.callCount, 0);
 
 			buffer.setVisible(true);
-			assert.strictEqual(callback.callCount, 1);
+			assert.strictEqual(handler.callCount, 1);
 			assert.strictEqual(
-				callback.firstCall.args[0],
+				handler.firstCall.args[0],
 				'refresh-signal',
 				'should replay signal value, not actual data',
 			);
@@ -188,216 +188,117 @@ suite('EventVisibilityBuffer Test Suite', () => {
 
 		test('should replay undefined as signalValue when not specified in signal mode', () => {
 			const buffer = new EventVisibilityBuffer();
-			const callback = sinon.spy();
-			const buffered = createBufferedCallback(buffer, 'key', callback, 'signal');
+			const handler = sinon.spy();
+			const buffered = bufferEventHandler(buffer, 'key', handler, 'signal');
 
 			buffer.setVisible(false);
 			buffered('actual-data');
 
 			buffer.setVisible(true);
-			assert.strictEqual(callback.callCount, 1);
-			assert.strictEqual(callback.firstCall.args[0], undefined, 'should replay undefined');
+			assert.strictEqual(handler.callCount, 1);
+			assert.strictEqual(handler.firstCall.args[0], undefined, 'should replay undefined');
 		});
 	});
 
-	suite('createEventSubscription', () => {
-		test('should return a function (EventSubscriber)', () => {
-			const subscriber = createEventSubscription<string>(undefined, 'key', 'save-last', callback => {
-				callback('initial');
+	suite('createRpcEventSubscription', () => {
+		test('should return a function (RpcEventSubscription<T>)', () => {
+			const subscriber = createRpcEventSubscription<string>(undefined, 'key', 'save-last', handler => {
+				handler('initial');
 				return { dispose: () => {} };
 			});
 			assert.strictEqual(typeof subscriber, 'function');
 		});
 
-		test('should call subscribe with the callback and return unsubscribe', () => {
+		test('should call subscribe with the handler and return unsubscribe', () => {
 			const disposeSpy = sinon.spy();
-			const subscriber = createEventSubscription<string>(undefined, 'key', 'save-last', _callback => ({
+			const subscriber = createRpcEventSubscription<string>(undefined, 'key', 'save-last', _handler => ({
 				dispose: disposeSpy,
 			}));
 
-			const callback = sinon.spy();
-			const unsubscribe = subscriber(callback);
+			const handler = sinon.spy();
+			const unsubscribe = subscriber(handler);
 
 			assert.strictEqual(typeof unsubscribe, 'function');
 			unsubscribe();
 			assert.strictEqual(disposeSpy.callCount, 1);
 		});
 
-		test('should use buffered callback when buffer is provided', () => {
+		test('should use buffered handler when buffer is provided', () => {
 			const buffer = new EventVisibilityBuffer();
 			const disposeSpy = sinon.spy();
-			let capturedCallback: ((data: string) => void) | undefined;
+			let capturedhandler: ((data: string) => void) | undefined;
 
-			const subscriber = createEventSubscription<string>(buffer, 'key', 'save-last', callback => {
-				capturedCallback = callback;
+			const subscriber = createRpcEventSubscription<string>(buffer, 'key', 'save-last', handler => {
+				capturedhandler = handler;
 				return { dispose: disposeSpy };
 			});
 
-			const callback = sinon.spy();
-			subscriber(callback);
+			const handler = sinon.spy();
+			subscriber(handler);
 
 			// Fire while hidden — should buffer
 			buffer.setVisible(false);
-			capturedCallback!('hidden-data');
-			assert.strictEqual(callback.callCount, 0);
+			capturedhandler!('hidden-data');
+			assert.strictEqual(handler.callCount, 0);
 
 			// Flush
 			buffer.setVisible(true);
-			assert.strictEqual(callback.callCount, 1);
-			assert.strictEqual(callback.firstCall.args[0], 'hidden-data');
+			assert.strictEqual(handler.callCount, 1);
+			assert.strictEqual(handler.firstCall.args[0], 'hidden-data');
 		});
 
 		test('should replay buffered events for multiple subscribers using the same logical key', () => {
 			const buffer = new EventVisibilityBuffer();
-			const callbacks: Array<(data: string) => void> = [];
+			const handlers: Array<(data: string) => void> = [];
 
-			const subscriber = createEventSubscription<string>(buffer, 'shared-key', 'save-last', callback => {
-				callbacks.push(callback);
+			const subscriber = createRpcEventSubscription<string>(buffer, 'shared-key', 'save-last', handler => {
+				handlers.push(handler);
 				return { dispose: () => {} };
 			});
 
-			const callback1 = sinon.spy();
-			const callback2 = sinon.spy();
-			subscriber(callback1);
-			subscriber(callback2);
+			const handler1 = sinon.spy();
+			const handler2 = sinon.spy();
+			subscriber(handler1);
+			subscriber(handler2);
 
 			buffer.setVisible(false);
-			callbacks[0]('first-1');
-			callbacks[1]('second-1');
-			callbacks[0]('first-2');
-			callbacks[1]('second-2');
+			handlers[0]('first-1');
+			handlers[1]('second-1');
+			handlers[0]('first-2');
+			handlers[1]('second-2');
 
 			buffer.setVisible(true);
 
-			assert.strictEqual(callback1.callCount, 1);
-			assert.strictEqual(callback1.firstCall.args[0], 'first-2');
-			assert.strictEqual(callback2.callCount, 1);
-			assert.strictEqual(callback2.firstCall.args[0], 'second-2');
+			assert.strictEqual(handler1.callCount, 1);
+			assert.strictEqual(handler1.firstCall.args[0], 'first-2');
+			assert.strictEqual(handler2.callCount, 1);
+			assert.strictEqual(handler2.firstCall.args[0], 'second-2');
 		});
 
 		test('should remove pending and dispose on unsubscribe', () => {
 			const buffer = new EventVisibilityBuffer();
 			const disposeSpy = sinon.spy();
-			let capturedCallback: ((data: string) => void) | undefined;
+			let capturedhandler: ((data: string) => void) | undefined;
 
-			const subscriber = createEventSubscription<string>(buffer, 'my-event', 'save-last', callback => {
-				capturedCallback = callback;
+			const subscriber = createRpcEventSubscription<string>(buffer, 'my-event', 'save-last', handler => {
+				capturedhandler = handler;
 				return { dispose: disposeSpy };
 			});
 
-			const callback = sinon.spy();
-			const unsubscribe = subscriber(callback);
+			const handler = sinon.spy();
+			const unsubscribe = subscriber(handler);
 
 			// Add a pending entry
 			buffer.setVisible(false);
-			capturedCallback!('data');
+			capturedhandler!('data');
 
 			// Unsubscribe should remove pending and dispose
 			unsubscribe();
 			assert.strictEqual(disposeSpy.callCount, 1);
 
-			// Flushing should not invoke the callback (pending was removed)
+			// Flushing should not invoke the handler (pending was removed)
 			buffer.setVisible(true);
-			assert.strictEqual(callback.callCount, 0);
-		});
-	});
-
-	suite('createCallbackMapSubscription', () => {
-		test('should return a function (EventSubscriber)', () => {
-			const callbackMap = new Map<symbol, (data: string) => void>();
-			const subscriber = createCallbackMapSubscription<string>(undefined, 'key', 'save-last', callbackMap);
-			assert.strictEqual(typeof subscriber, 'function');
-		});
-
-		test('should add entry to callback map on subscribe', () => {
-			const callbackMap = new Map<symbol, (data: string) => void>();
-			const subscriber = createCallbackMapSubscription<string>(undefined, 'key', 'save-last', callbackMap);
-
-			const callback = sinon.spy();
-			subscriber(callback);
-
-			assert.strictEqual(callbackMap.size, 1);
-		});
-
-		test('should remove entry from callback map on unsubscribe', () => {
-			const callbackMap = new Map<symbol, (data: string) => void>();
-			const subscriber = createCallbackMapSubscription<string>(undefined, 'key', 'save-last', callbackMap);
-
-			const callback = sinon.spy();
-			const unsubscribe = subscriber(callback);
-
-			assert.strictEqual(callbackMap.size, 1);
-			unsubscribe();
-			assert.strictEqual(callbackMap.size, 0);
-		});
-
-		test('should use buffered callback in the map', () => {
-			const buffer = new EventVisibilityBuffer();
-			const callbackMap = new Map<symbol, (data: string) => void>();
-			const subscriber = createCallbackMapSubscription<string>(buffer, 'key', 'save-last', callbackMap);
-
-			const callback = sinon.spy();
-			subscriber(callback);
-
-			// Simulate provider firing the event while hidden
-			buffer.setVisible(false);
-			for (const cb of callbackMap.values()) {
-				cb('hidden-data');
-			}
-			assert.strictEqual(callback.callCount, 0);
-
-			// Flush
-			buffer.setVisible(true);
-			assert.strictEqual(callback.callCount, 1);
-			assert.strictEqual(callback.firstCall.args[0], 'hidden-data');
-		});
-
-		test('should replay buffered events for multiple callback-map subscribers using the same logical key', () => {
-			const buffer = new EventVisibilityBuffer();
-			const callbackMap = new Map<symbol, (data: string) => void>();
-			const subscriber = createCallbackMapSubscription<string>(buffer, 'shared-key', 'save-last', callbackMap);
-
-			const callback1 = sinon.spy();
-			const callback2 = sinon.spy();
-			subscriber(callback1);
-			subscriber(callback2);
-
-			buffer.setVisible(false);
-			const callbacks = [...callbackMap.values()];
-			callbacks[0]('first-1');
-			callbacks[1]('second-1');
-			callbacks[0]('first-2');
-			callbacks[1]('second-2');
-
-			buffer.setVisible(true);
-
-			assert.strictEqual(callback1.callCount, 1);
-			assert.strictEqual(callback1.firstCall.args[0], 'first-2');
-			assert.strictEqual(callback2.callCount, 1);
-			assert.strictEqual(callback2.firstCall.args[0], 'second-2');
-		});
-
-		test('should remove pending and map entry on unsubscribe', () => {
-			const buffer = new EventVisibilityBuffer();
-			const callbackMap = new Map<symbol, (data: string) => void>();
-			const subscriber = createCallbackMapSubscription<string>(buffer, 'my-event', 'save-last', callbackMap);
-
-			const callback = sinon.spy();
-			const unsubscribe = subscriber(callback);
-
-			// Add a pending entry
-			buffer.setVisible(false);
-			for (const cb of callbackMap.values()) {
-				cb('data');
-			}
-
-			// Unsubscribe should remove both map entry and pending
-			unsubscribe();
-			assert.strictEqual(callbackMap.size, 0);
-
-			// Flushing should not invoke the callback
-			buffer.setVisible(true);
-			assert.strictEqual(callback.callCount, 0);
+			assert.strictEqual(handler.callCount, 0);
 		});
 	});
 
@@ -480,47 +381,127 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(unsub2.callCount, 1, 'remaining tracked should be called');
 		});
 
-		test('createEventSubscription should track via tracker', () => {
+		test('createRpcEventSubscription should track via tracker', () => {
 			const tracker = new SubscriptionTracker();
 			const disposeSpy = sinon.spy();
 
-			const subscriber = createEventSubscription<string>(
+			const subscriber = createRpcEventSubscription<string>(
 				undefined,
 				'key',
 				'save-last',
-				_callback => ({ dispose: disposeSpy }),
+				_handler => ({ dispose: disposeSpy }),
 				undefined,
 				tracker,
 			);
 
-			const callback = sinon.spy();
-			subscriber(callback);
+			const handler = sinon.spy();
+			subscriber(handler);
 
 			// Dispose tracker should clean up the subscription
 			tracker.dispose();
 			assert.strictEqual(disposeSpy.callCount, 1);
 		});
+	});
 
-		test('createCallbackMapSubscription should track via tracker', () => {
+	suite('createRpcEvent', () => {
+		test('should return subscriber and fire', () => {
+			const event = createRpcEvent<string>('key', 'save-last');
+			assert.strictEqual(typeof event.subscribe, 'function');
+			assert.strictEqual(typeof event.fire, 'function');
+		});
+
+		test('fire should invoke all subscribed handlers', () => {
+			const event = createRpcEvent<string>('key', 'save-last');
+			const subscriber = event.subscribe();
+			const cb1 = sinon.spy();
+			const cb2 = sinon.spy();
+			subscriber(cb1);
+			subscriber(cb2);
+
+			event.fire('hello');
+			assert.strictEqual(cb1.callCount, 1);
+			assert.strictEqual(cb1.firstCall.args[0], 'hello');
+			assert.strictEqual(cb2.callCount, 1);
+			assert.strictEqual(cb2.firstCall.args[0], 'hello');
+		});
+
+		test('fire should not invoke unsubscribed handlers', () => {
+			const event = createRpcEvent<string>('key', 'save-last');
+			const subscriber = event.subscribe();
+			const cb = sinon.spy();
+			const unsub = subscriber(cb);
+
+			unsub();
+			event.fire('hello');
+			assert.strictEqual(cb.callCount, 0);
+		});
+
+		test('should work with visibility buffer', () => {
+			const buffer = new EventVisibilityBuffer();
+			const event = createRpcEvent<string>('key', 'save-last');
+			const subscriber = event.subscribe(buffer);
+			const cb = sinon.spy();
+			subscriber(cb);
+
+			buffer.setVisible(false);
+			event.fire('hidden-data');
+			assert.strictEqual(cb.callCount, 0);
+
+			buffer.setVisible(true);
+			assert.strictEqual(cb.callCount, 1);
+			assert.strictEqual(cb.firstCall.args[0], 'hidden-data');
+		});
+
+		test('should work with tracker', () => {
 			const tracker = new SubscriptionTracker();
-			const callbackMap = new Map<symbol, (data: string) => void>();
+			const event = createRpcEvent<string>('key', 'save-last');
+			const subscriber = event.subscribe(undefined, tracker);
+			const cb = sinon.spy();
+			subscriber(cb);
 
-			const subscriber = createCallbackMapSubscription<string>(
-				undefined,
-				'key',
-				'save-last',
-				callbackMap,
-				undefined,
-				tracker,
-			);
+			event.fire('before-dispose');
+			assert.strictEqual(cb.callCount, 1);
 
-			const callback = sinon.spy();
-			subscriber(callback);
-			assert.strictEqual(callbackMap.size, 1);
-
-			// Dispose tracker should clean up the callback map entry
 			tracker.dispose();
-			assert.strictEqual(callbackMap.size, 0);
+			event.fire('after-dispose');
+			assert.strictEqual(cb.callCount, 1);
+		});
+
+		test('subscriber can be called with different tracker across reconnections', () => {
+			const event = createRpcEvent<string>('key', 'save-last');
+			const tracker1 = new SubscriptionTracker();
+			const tracker2 = new SubscriptionTracker();
+
+			const sub1 = event.subscribe(undefined, tracker1);
+			const cb1 = sinon.spy();
+			sub1(cb1);
+
+			// Simulate reconnection: dispose old tracker, create new subscriber
+			tracker1.dispose();
+
+			const sub2 = event.subscribe(undefined, tracker2);
+			const cb2 = sinon.spy();
+			sub2(cb2);
+
+			event.fire('data');
+			assert.strictEqual(cb1.callCount, 0, 'cleaned up by tracker1.dispose()');
+			assert.strictEqual(cb2.callCount, 1);
+		});
+
+		test('should replay signalValue in signal mode', () => {
+			const buffer = new EventVisibilityBuffer();
+			const event = createRpcEvent<undefined>('key', 'signal');
+			const subscriber = event.subscribe(buffer);
+			const cb = sinon.spy();
+			subscriber(cb);
+
+			buffer.setVisible(false);
+			event.fire(undefined);
+			assert.strictEqual(cb.callCount, 0);
+
+			buffer.setVisible(true);
+			assert.strictEqual(cb.callCount, 1);
+			assert.strictEqual(cb.firstCall.args[0], undefined);
 		});
 	});
 });

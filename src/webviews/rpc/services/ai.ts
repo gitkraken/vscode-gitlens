@@ -12,25 +12,25 @@ import { mcpRegistrationAllowed } from '../../../plus/gk/utils/-webview/mcp.util
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { createEventSubscription } from '../eventVisibilityBuffer.js';
-import type { AiModelInfo, AIState, EventSubscriber } from './types.js';
+import { createRpcEventSubscription } from '../eventVisibilityBuffer.js';
+import type { AiModelInfo, AIState, RpcEventSubscription } from './types.js';
 
 export class AIService {
 	/**
 	 * Fired when the selected AI model changes.
 	 */
-	readonly onModelChanged: EventSubscriber<AiModelInfo | undefined>;
+	readonly onModelChanged: RpcEventSubscription<AiModelInfo | undefined>;
 
 	/**
 	 * Fired when AI or MCP state changes (settings, org, CLI installation).
 	 */
-	readonly onStateChanged: EventSubscriber<AIState>;
+	readonly onStateChanged: RpcEventSubscription<AIState>;
 
 	readonly #container: Container;
 
 	constructor(container: Container, buffer: EventVisibilityBuffer | undefined, tracker?: SubscriptionTracker) {
 		this.#container = container;
-		this.onModelChanged = createEventSubscription<AiModelInfo | undefined>(
+		this.onModelChanged = createRpcEventSubscription<AiModelInfo | undefined>(
 			buffer,
 			'modelChanged',
 			'save-last',
@@ -51,7 +51,7 @@ export class AIService {
 			tracker,
 		);
 
-		this.onStateChanged = createEventSubscription<AIState>(
+		this.onStateChanged = createRpcEventSubscription<AIState>(
 			buffer,
 			'aiStateChanged',
 			'save-last',

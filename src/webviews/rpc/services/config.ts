@@ -12,18 +12,18 @@ import type {
 } from '../../../system/-webview/configuration.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { createEventSubscription } from '../eventVisibilityBuffer.js';
-import type { EventSubscriber } from './types.js';
+import { createRpcEventSubscription } from '../eventVisibilityBuffer.js';
+import type { RpcEventSubscription } from './types.js';
 
 export class ConfigService {
 	/**
 	 * Fired when GitLens configuration changes.
 	 * Pure signal — handler should re-fetch relevant config as needed.
 	 */
-	readonly onConfigChanged: EventSubscriber<undefined>;
+	readonly onConfigChanged: RpcEventSubscription<undefined>;
 
 	constructor(buffer: EventVisibilityBuffer | undefined, tracker?: SubscriptionTracker) {
-		this.onConfigChanged = createEventSubscription<undefined>(
+		this.onConfigChanged = createRpcEventSubscription<undefined>(
 			buffer,
 			'configChanged',
 			'signal',

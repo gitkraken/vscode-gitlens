@@ -14,8 +14,8 @@ import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { createEventSubscription } from '../eventVisibilityBuffer.js';
-import type { EventSubscriber, OrgSettings } from './types.js';
+import { createRpcEventSubscription } from '../eventVisibilityBuffer.js';
+import type { OrgSettings, RpcEventSubscription } from './types.js';
 
 export class SubscriptionService {
 	readonly #container: Container;
@@ -60,12 +60,12 @@ export class SubscriptionService {
 	 * Includes the current subscription — derive `hasAccount` from
 	 * `subscription.account != null`.
 	 */
-	readonly onSubscriptionChanged: EventSubscriber<Subscription>;
+	readonly onSubscriptionChanged: RpcEventSubscription<Subscription>;
 
 	/**
 	 * Fired when organization settings change (AI enabled, drafts enabled).
 	 */
-	readonly onOrgSettingsChanged: EventSubscriber<OrgSettings>;
+	readonly onOrgSettingsChanged: RpcEventSubscription<OrgSettings>;
 
 	constructor(container: Container, buffer: EventVisibilityBuffer | undefined, tracker?: SubscriptionTracker) {
 		this.#container = container;
@@ -83,7 +83,7 @@ export class SubscriptionService {
 			this.#updateDerivedState(serialized);
 		});
 
-		this.onSubscriptionChanged = createEventSubscription<Subscription>(
+		this.onSubscriptionChanged = createRpcEventSubscription<Subscription>(
 			buffer,
 			'subscriptionChanged',
 			'save-last',
@@ -98,7 +98,7 @@ export class SubscriptionService {
 			tracker,
 		);
 
-		this.onOrgSettingsChanged = createEventSubscription<OrgSettings>(
+		this.onOrgSettingsChanged = createRpcEventSubscription<OrgSettings>(
 			buffer,
 			'orgSettingsChanged',
 			'save-last',

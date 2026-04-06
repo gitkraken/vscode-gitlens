@@ -25,7 +25,7 @@ import { getCommitSignature } from '../../../git/utils/-webview/commit.utils.js'
 import { executeCoreGitCommand } from '../../../system/-webview/command.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { createBufferedCallback } from '../eventVisibilityBuffer.js';
+import { bufferEventHandler } from '../eventVisibilityBuffer.js';
 import type {
 	CommitSignatureShape,
 	RepositoryChangeEventData,
@@ -61,7 +61,7 @@ export class RepositoryService {
 		if (repo == null) return () => {};
 
 		const pendingKey = Symbol(`repositoryWorking:${repoPath}`);
-		const buffered = createBufferedCallback<undefined>(
+		const buffered = bufferEventHandler<undefined>(
 			this.buffer,
 			pendingKey,
 			callback as (data: undefined) => void,

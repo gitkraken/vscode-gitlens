@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import {
-	createBufferedCallback,
-	createEventSubscription,
+	bufferEventHandler,
+	createRpcEventSubscription,
 	EventVisibilityBuffer,
 	SubscriptionTracker,
 } from '../eventVisibilityBuffer.js';
@@ -47,7 +47,7 @@ suite('EventVisibilityBuffer Stress Test Suite', () => {
 			// Fire each event 5 times with different data
 			for (let round = 0; round < 5; round++) {
 				for (const key of eventKeys) {
-					const buffered = createBufferedCallback(buffer, key, callbacks.get(key)!, 'save-last');
+					const buffered = bufferEventHandler(buffer, key, callbacks.get(key)!, 'save-last');
 					buffered(`${key}-data-round-${round}`);
 				}
 			}
@@ -133,7 +133,7 @@ suite('EventVisibilityBuffer Stress Test Suite', () => {
 					results.push({ key: key, value: data });
 				};
 
-				const buffered = createBufferedCallback(buffer, key, callback, mode, signalValue);
+				const buffered = bufferEventHandler(buffer, key, callback, mode, signalValue);
 				buffered(`${key}-actual-data`);
 			}
 
@@ -205,7 +205,7 @@ suite('EventVisibilityBuffer Stress Test Suite', () => {
 		});
 	});
 
-	suite('createEventSubscription with SubscriptionTracker at scale', () => {
+	suite('createRpcEventSubscription with SubscriptionTracker at scale', () => {
 		test('should set up and tear down 20 event subscriptions via tracker', () => {
 			const buffer = new EventVisibilityBuffer();
 			const tracker = new SubscriptionTracker();
@@ -237,7 +237,7 @@ suite('EventVisibilityBuffer Stress Test Suite', () => {
 				const disposeSpy = sinon.spy();
 				disposeSpies.push(disposeSpy);
 
-				const subscriber = createEventSubscription<string>(
+				const subscriber = createRpcEventSubscription<string>(
 					buffer,
 					key,
 					'save-last',

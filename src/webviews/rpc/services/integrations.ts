@@ -11,8 +11,8 @@ import {
 import type { Container } from '../../../container.js';
 import { providersMetadata } from '../../../plus/integrations/providers/models.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { createBufferedCallback } from '../eventVisibilityBuffer.js';
-import type { EventSubscriber, IntegrationChangeEventData, IntegrationStateInfo, Unsubscribe } from './types.js';
+import { bufferEventHandler } from '../eventVisibilityBuffer.js';
+import type { IntegrationChangeEventData, IntegrationStateInfo, RpcEventSubscription, Unsubscribe } from './types.js';
 
 // ============================================================
 // Helpers
@@ -69,7 +69,7 @@ export class IntegrationsService {
 	 * Fired when cloud integration connections change.
 	 * Includes full integration state for each configured provider.
 	 */
-	readonly onIntegrationsChanged: EventSubscriber<IntegrationChangeEventData>;
+	readonly onIntegrationsChanged: RpcEventSubscription<IntegrationChangeEventData>;
 
 	constructor(
 		private readonly container: Container,
@@ -78,7 +78,7 @@ export class IntegrationsService {
 	) {
 		this.onIntegrationsChanged = (callback): Unsubscribe => {
 			const pendingKey = Symbol('integrationsChanged');
-			const buffered = createBufferedCallback(buffer, pendingKey, callback, 'save-last');
+			const buffered = bufferEventHandler(buffer, pendingKey, callback, 'save-last');
 
 			const fireIntegrationsChanged = async () => {
 				const integrations = await getIntegrationStates(container);

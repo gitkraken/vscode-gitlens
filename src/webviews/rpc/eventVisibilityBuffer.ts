@@ -3,8 +3,8 @@
  *
  * For `retainContextWhenHidden: true` webviews, VS Code silently drops
  * `postMessage` while hidden. The EventVisibilityBuffer intercepts event
- * callbacks and stores pending replays keyed by buffered subscription. On visibility
- * restore, all pending replays fire through the normal RPC callback path.
+ * handlers and stores pending replays keyed by buffered subscription. On visibility
+ * restore, all pending replays fire through the normal RPC handler path.
  *
  * Key properties:
  * - Same buffered subscription firing N times while hidden → 1 pending entry (latest overwrites)
@@ -13,7 +13,7 @@
  */
 
 import type { Disposable } from 'vscode';
-import type { EventSubscriber, Unsubscribe } from './services/types.js';
+import type { RpcEventSubscription, Unsubscribe } from './services/types.js';
 
 export type EventVisibilityKey = string | symbol;
 
@@ -21,7 +21,7 @@ export type EventVisibilityKey = string | symbol;
  * Tracks outstanding RPC event subscriptions so they can be disposed on
  * reconnection or controller teardown.
  *
- * Without this, VS Code event listeners created by `createEventSubscription`
+ * Without this, VS Code event listeners created by `createRpcEventSubscription`
  * leak when a webview refreshes — the old Supertalk Connection closes but
  * nobody calls the `Unsubscribe` functions that hold the VS Code Disposables.
  */
@@ -57,7 +57,7 @@ export class SubscriptionTracker implements Disposable {
  *
  * Usage:
  * - Controller creates an EventVisibilityBuffer for `retainContextWhenHidden: true` webviews
- * - Factory wraps each event subscription using `createBufferedCallback`
+ * - Factory wraps each event subscription using `bufferEventHandler`
  * - Controller calls `setVisible(visible)` in `onParentVisibilityChanged`
  */
 export class EventVisibilityBuffer {
@@ -86,7 +86,7 @@ export class EventVisibilityBuffer {
 	private flush(): void {
 		if (this._pending.size === 0) return;
 
-		// Snapshot and clear before invoking — callbacks could re-add pending entries
+		// Snapshot and clear before invoking — handlers could re-add pending entries
 		const fns = [...this._pending.values()];
 		this._pending.clear();
 		for (const fn of fns) {
@@ -96,98 +96,107 @@ export class EventVisibilityBuffer {
 }
 
 /**
- * Wraps an event callback with visibility buffering.
+ * Wraps an event handler with visibility buffering.
  *
  * - `save-last`: When hidden, stores a closure that replays the latest event data.
  *   Each call overwrites the previous — only the most recent data survives.
  * - `signal`: When hidden, stores a closure that fires with `signalValue` (typically
  *   `undefined`). The webview handler re-fetches current state as needed.
  *
- * When `buffer` is `undefined` (retainContextWhenHidden: false), returns the callback
+ * When `buffer` is `undefined` (retainContextWhenHidden: false), returns the handler
  * unchanged — no buffering overhead.
  */
-export function createBufferedCallback<T>(
+export function bufferEventHandler<T>(
 	buffer: EventVisibilityBuffer | undefined,
 	key: EventVisibilityKey,
-	callback: (data: T) => void,
+	handler: (data: T) => void,
 	mode: 'save-last' | 'signal',
 	signalValue?: T,
 ): (data: T) => void {
-	if (buffer == null) return callback;
+	if (buffer == null) return handler;
 	return (data: T) => {
 		if (buffer.visible) {
-			callback(data);
+			handler(data);
 		} else {
-			buffer.addPending(key, () => callback(mode === 'save-last' ? data : (signalValue as T)));
+			buffer.addPending(key, () => handler(mode === 'save-last' ? data : (signalValue as T)));
 		}
 	};
 }
 
 /**
- * Creates an `EventSubscriber` backed by a VS Code `Disposable` event source.
- *
- * Standard pattern for the common case: Container event emitter → buffered callback → cleanup.
- * The `subscribe` function receives the already-buffered callback and returns a `Disposable`.
- *
- * For custom patterns (aggregation, callback maps, replay-on-subscribe), use
- * `createBufferedCallback` directly.
- *
- * @param buffer - Optional visibility buffer (undefined = no buffering)
- * @param key - Logical event key used to create a per-subscription pending entry
- * @param mode - `'save-last'` replays latest data; `'signal'` replays `signalValue`
- * @param subscribe - Receives buffered callback, returns Disposable to clean up
- * @param signalValue - Value to replay in `'signal'` mode (typically `undefined`)
- * @param tracker - Optional subscription tracker for disposal on reconnection
+ * Result of {@link createRpcEvent} — bundles a subscriber factory
+ * and a fire function backed by the same internal handler map.
  */
-export function createEventSubscription<T>(
-	buffer: EventVisibilityBuffer | undefined,
-	key: string,
-	mode: 'save-last' | 'signal',
-	subscribe: (bufferedCallback: (data: T) => void) => Disposable,
-	signalValue?: T,
-	tracker?: SubscriptionTracker,
-): EventSubscriber<T> {
-	return (callback: (data: T) => void): Unsubscribe => {
-		const pendingKey = Symbol(key);
-		const buffered = createBufferedCallback(buffer, pendingKey, callback, mode, signalValue);
-		const disposable = subscribe(buffered);
-		const unsubscribe = () => {
-			buffer?.removePending(pendingKey);
-			disposable.dispose();
-		};
-		return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
+export interface RpcEvent<T> {
+	readonly subscribe: (buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker) => RpcEventSubscription<T>;
+	readonly fire: (data: T) => void;
+}
+
+/**
+ * Creates a self-contained handler-map event.
+ *
+ * The handler map is created and managed internally. Use `.subscribe(buffer, tracker)`
+ * inside `getRpcServices` to produce an `RpcEventSubscription<T>`, and `.fire(data)` anywhere
+ * to invoke all registered handlers.
+ *
+ * @param key - Logical event key for visibility buffering pending entries
+ * @param mode - `'save-last'` replays latest data; `'signal'` replays `signalValue`
+ * @param signalValue - Value to replay in `'signal'` mode (typically `undefined`)
+ */
+export function createRpcEvent<T>(key: string, mode: 'save-last' | 'signal', signalValue?: T): RpcEvent<T> {
+	const handlers = new Map<symbol, (data: T) => void>();
+	return {
+		subscribe: function (buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): RpcEventSubscription<T> {
+			return function (handler: (data: T) => void): Unsubscribe {
+				const pendingKey = Symbol(key);
+				const buffered = bufferEventHandler(buffer, pendingKey, handler, mode, signalValue);
+				const sym = Symbol();
+				handlers.set(sym, buffered);
+				const unsubscribe = function () {
+					buffer?.removePending(pendingKey);
+					handlers.delete(sym);
+				};
+				return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
+			};
+		},
+		fire: function (data: T): void {
+			for (const handler of [...handlers.values()]) {
+				handler(data);
+			}
+		},
 	};
 }
 
 /**
- * Creates an `EventSubscriber` backed by a symbol-keyed callback map.
+ * Creates an `RpcEventSubscription` backed by a VS Code `Disposable` event source.
  *
- * For events where the provider owns the firing logic (no Container emitter).
- * The provider iterates `[...callbackMap.values()]` to fire the event.
+ * Standard pattern for the common case: Container event emitter → buffered handler → cleanup.
+ * The `subscribe` function receives the already-buffered handler and returns a `Disposable`.
+ *
+ * For custom patterns (aggregation, handler maps, replay-on-subscribe), use `bufferEventHandler` directly.
  *
  * @param buffer - Optional visibility buffer (undefined = no buffering)
  * @param key - Logical event key used to create a per-subscription pending entry
  * @param mode - `'save-last'` replays latest data; `'signal'` replays `signalValue`
- * @param callbackMap - Map that the provider iterates to fire events
+ * @param subscribe - Receives buffered handler, returns Disposable to clean up
  * @param signalValue - Value to replay in `'signal'` mode (typically `undefined`)
  * @param tracker - Optional subscription tracker for disposal on reconnection
  */
-export function createCallbackMapSubscription<T>(
+export function createRpcEventSubscription<T>(
 	buffer: EventVisibilityBuffer | undefined,
 	key: string,
 	mode: 'save-last' | 'signal',
-	callbackMap: Map<symbol, (data: T) => void>,
+	subscribe: (bufferedHandler: (data: T) => void) => Disposable,
 	signalValue?: T,
 	tracker?: SubscriptionTracker,
-): EventSubscriber<T> {
-	return (callback: (data: T) => void): Unsubscribe => {
+): RpcEventSubscription<T> {
+	return (handler: (data: T) => void): Unsubscribe => {
 		const pendingKey = Symbol(key);
-		const buffered = createBufferedCallback(buffer, pendingKey, callback, mode, signalValue);
-		const sym = Symbol();
-		callbackMap.set(sym, buffered);
+		const buffered = bufferEventHandler(buffer, pendingKey, handler, mode, signalValue);
+		const disposable = subscribe(buffered);
 		const unsubscribe = () => {
 			buffer?.removePending(pendingKey);
-			callbackMap.delete(sym);
+			disposable.dispose();
 		};
 		return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
 	};

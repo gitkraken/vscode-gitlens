@@ -14,13 +14,13 @@ import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { Container } from '../../../container.js';
 import type { RepositoryChange } from '../../../git/models/repository.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { createBufferedCallback, createEventSubscription } from '../eventVisibilityBuffer.js';
+import { bufferEventHandler, createRpcEventSubscription } from '../eventVisibilityBuffer.js';
 import { extractRepositoryChanges } from './repository.js';
 import type {
 	CommitSelectedEventData,
-	EventSubscriber,
 	RepositoriesState,
 	RepositoryChangeEventData,
+	RpcEventSubscription,
 	SerializedRepository,
 	Unsubscribe,
 } from './types.js';
@@ -29,33 +29,33 @@ export class RepositoriesService {
 	/**
 	 * Fired when a commit is selected (from EventBus).
 	 */
-	readonly onCommitSelected: EventSubscriber<CommitSelectedEventData>;
+	readonly onCommitSelected: RpcEventSubscription<CommitSelectedEventData>;
 
 	/**
 	 * Fired when repository list changes (added/removed).
 	 * Pure signal — handler should re-fetch aggregate state as needed.
 	 */
-	readonly onRepositoriesChanged: EventSubscriber<undefined>;
+	readonly onRepositoriesChanged: RpcEventSubscription<undefined>;
 
 	/**
 	 * Fired when a specific repository changes (branches, commits, etc.).
 	 * When gated (hidden webview), changes are aggregated per-repo and
 	 * replayed on visibility restore with the union of all change types.
 	 */
-	readonly onRepositoryChanged: EventSubscriber<RepositoryChangeEventData>;
+	readonly onRepositoryChanged: RpcEventSubscription<RepositoryChangeEventData>;
 
 	/**
 	 * Fired when initial repository discovery completes.
 	 * Includes the aggregate repositories state at the time of completion.
 	 */
-	readonly onDiscoveryCompleted: EventSubscriber<RepositoriesState>;
+	readonly onDiscoveryCompleted: RpcEventSubscription<RepositoriesState>;
 
 	constructor(
 		private readonly container: Container,
 		private readonly buffer: EventVisibilityBuffer | undefined,
 		private readonly tracker?: SubscriptionTracker,
 	) {
-		this.onCommitSelected = createEventSubscription<CommitSelectedEventData>(
+		this.onCommitSelected = createRpcEventSubscription<CommitSelectedEventData>(
 			buffer,
 			'commitSelected',
 			'save-last',
@@ -72,7 +72,7 @@ export class RepositoriesService {
 			tracker,
 		);
 
-		this.onRepositoriesChanged = createEventSubscription<undefined>(
+		this.onRepositoriesChanged = createRpcEventSubscription<undefined>(
 			buffer,
 			'repositoriesChanged',
 			'signal',
@@ -122,7 +122,7 @@ export class RepositoriesService {
 
 		this.onDiscoveryCompleted = (callback): Unsubscribe => {
 			const pendingKey = Symbol('discoveryCompleted');
-			const buffered = createBufferedCallback(buffer, pendingKey, callback, 'save-last');
+			const buffered = bufferEventHandler(buffer, pendingKey, callback, 'save-last');
 
 			// If discovery is already done, fire immediately
 			const discovering = container.git.isDiscoveringRepositories;

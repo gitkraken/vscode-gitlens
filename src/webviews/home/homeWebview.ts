@@ -94,7 +94,7 @@ import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js
 import type { Change } from '../plus/patchDetails/protocol.js';
 import type { TimelineCommandArgs } from '../plus/timeline/registration.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVisibilityBuffer.js';
-import { createCallbackMapSubscription, createEventSubscription } from '../rpc/eventVisibilityBuffer.js';
+import { createRpcEvent, createRpcEventSubscription } from '../rpc/eventVisibilityBuffer.js';
 import { LaunchpadService } from '../rpc/launchpadService.js';
 import { createSharedServices, proxyServices } from '../rpc/services/common.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
@@ -187,9 +187,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			getOverviewFilterState: () => Promise.resolve(this._overviewBranchFilter),
 			setOverviewFilter: filter => {
 				this._overviewBranchFilter = filter;
-				for (const cb of [...this._rpcOverviewFilterChangedCallbacks.values()]) {
-					cb({ filter: this._overviewBranchFilter });
-				}
+				this._overviewFilterChangedEvent.fire({ filter: this._overviewBranchFilter });
 				return Promise.resolve();
 			},
 			getOverviewRepositoryState: () => Promise.resolve(this.getSelectedRepository()?.path),
@@ -199,22 +197,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				if (repo == null) return;
 				this.fireOverviewRepositoryChanged(repo.path);
 			},
-			onOverviewRepositoryChanged: createCallbackMapSubscription<{ repoPath: string | undefined }>(
-				buffer,
-				'overviewRepoChanged',
-				'save-last',
-				this._rpcOverviewRepoChangedCallbacks,
-				undefined,
-				tracker,
-			),
-			onOverviewFilterChanged: createCallbackMapSubscription(
-				buffer,
-				'overviewFilterChanged',
-				'save-last',
-				this._rpcOverviewFilterChangedCallbacks,
-				undefined,
-				tracker,
-			),
+			onOverviewRepositoryChanged: this._overviewRepoChangedEvent.subscribe(buffer, tracker),
+			onOverviewFilterChanged: this._overviewFilterChangedEvent.subscribe(buffer, tracker),
 
 			// --- Walkthrough ---
 			getWalkthroughProgress: () => Promise.resolve(this.getWalkthroughProgress()),
@@ -222,7 +206,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				this.dismissWalkthrough();
 				return Promise.resolve();
 			},
-			onWalkthroughProgressChanged: createEventSubscription<WalkthroughProgressState>(
+			onWalkthroughProgressChanged: createRpcEventSubscription<WalkthroughProgressState>(
 				buffer,
 				'walkthroughProgress',
 				'save-last',
@@ -240,14 +224,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			// --- UI Actions ---
 			collapseSection: (section, collapsed) => this.onCollapseSection({ section: section, collapsed: collapsed }),
 			openInGraph: params => this.showInCommitGraph(params),
-			onFocusAccount: createCallbackMapSubscription<undefined>(
-				buffer,
-				'focusAccount',
-				'signal',
-				this._rpcFocusAccountCallbacks,
-				undefined,
-				tracker,
-			),
+			onFocusAccount: this._focusAccountEvent.subscribe(buffer, tracker),
 
 			// --- Initial Context ---
 			getInitialContext: () =>
@@ -275,17 +252,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		} satisfies HomeServices);
 	}
 
-	// RPC callback maps for events that don't have a Container-level emitter.
-	// These are populated by RPC event subscriptions and fired by the provider methods.
-	private readonly _rpcOverviewRepoChangedCallbacks = new Map<
-		symbol,
-		(data: { repoPath: string | undefined }) => void
-	>();
-	private readonly _rpcOverviewFilterChangedCallbacks = new Map<
-		symbol,
-		(data: { filter: OverviewFilters }) => void
-	>();
-	private readonly _rpcFocusAccountCallbacks = new Map<symbol, (data: undefined) => void>();
+	private readonly _overviewRepoChangedEvent = createRpcEvent<{ repoPath: string | undefined }>(
+		'overviewRepoChanged',
+		'save-last',
+	);
+	private readonly _overviewFilterChangedEvent = createRpcEvent<{ filter: OverviewFilters }>(
+		'overviewFilterChanged',
+		'save-last',
+	);
+	private readonly _focusAccountEvent = createRpcEvent<undefined>('focusAccount', 'signal');
 
 	private _overviewBranchFilter: OverviewFilters = {
 		recent: {
@@ -310,9 +285,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (arg?.focusAccount === true) {
 			if (!loading && this.host.ready && this.host.visible) {
 				queueMicrotask(() => {
-					for (const cb of [...this._rpcFocusAccountCallbacks.values()]) {
-						cb(undefined);
-					}
+					this._focusAccountEvent.fire(undefined);
 				});
 				return [true, undefined];
 			}
@@ -369,9 +342,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private fireOverviewRepositoryChanged(repoPath: string | undefined): void {
-		for (const cb of [...this._rpcOverviewRepoChangedCallbacks.values()]) {
-			cb({ repoPath: repoPath });
-		}
+		this._overviewRepoChangedEvent.fire({ repoPath: repoPath });
 	}
 
 	@command('gitlens.push:')
@@ -453,9 +424,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (this._pendingFocusAccount === true) {
 			this._pendingFocusAccount = false;
 
-			for (const cb of [...this._rpcFocusAccountCallbacks.values()]) {
-				cb(undefined);
-			}
+			this._focusAccountEvent.fire(undefined);
 		}
 	}
 

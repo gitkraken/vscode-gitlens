@@ -9,7 +9,7 @@
 import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { LaunchpadService } from '../rpc/launchpadService.js';
 import type { SharedWebviewServices } from '../rpc/services/common.js';
-import type { EventSubscriber, OrgSettings, RepositoriesState } from '../rpc/services/types.js';
+import type { OrgSettings, RepositoriesState, RpcEventSubscription } from '../rpc/services/types.js';
 import type {
 	GetOverviewBranchesResponse,
 	GetOverviewEnrichmentResponse,
@@ -91,10 +91,10 @@ export interface HomeViewService {
 	changeOverviewRepository(): Promise<void>;
 
 	/** Fired when the selected overview repository changes. */
-	onOverviewRepositoryChanged: EventSubscriber<{ repoPath: string | undefined }>;
+	onOverviewRepositoryChanged: RpcEventSubscription<{ repoPath: string | undefined }>;
 
 	/** Fired when the overview filter changes. */
-	onOverviewFilterChanged: EventSubscriber<{ filter: OverviewFilters }>;
+	onOverviewFilterChanged: RpcEventSubscription<{ filter: OverviewFilters }>;
 
 	// --- Walkthrough ---
 
@@ -105,7 +105,7 @@ export interface HomeViewService {
 	dismissWalkthrough(): Promise<void>;
 
 	/** Fired when walkthrough progress changes. */
-	onWalkthroughProgressChanged: EventSubscriber<WalkthroughProgressState>;
+	onWalkthroughProgressChanged: RpcEventSubscription<WalkthroughProgressState>;
 
 	// --- UI Actions ---
 
@@ -116,7 +116,7 @@ export interface HomeViewService {
 	openInGraph(params: OpenInGraphParams): void;
 
 	/** Fired when the extension requests account focus. */
-	onFocusAccount: EventSubscriber<undefined>;
+	onFocusAccount: RpcEventSubscription<undefined>;
 
 	// --- Initial Context ---
 
