@@ -8,6 +8,7 @@ import { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getHighlanderProviderName } from '@gitlens/git/utils/remote.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { map } from '@gitlens/utils/iterable.js';
 import type { Lazy } from '@gitlens/utils/lazy.js';
@@ -394,19 +395,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 					if (branch.upstream != null) {
 						const remote = await getBranchRemote(this.view.container, branch);
 						tooltip.appendMarkdown(
-							`\n\nBranch is ${GitBranch.getTrackingStatus(branch, {
-								empty: `${
-									branch.upstream.missing ? 'missing upstream' : 'up to date with'
-								} \\\n $(git-branch) \`${branch.upstream.name}\`${
-									remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-								}`,
-								expand: true,
-								icons: true,
-								separator: ', ',
-								suffix: `\\\n$(git-branch) \`${branch.upstream.name}\`${
-									remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-								}`,
-							})}`,
+							`\n\n${formatTrackingTooltip(
+								branch.upstream.name,
+								branch.upstream.missing,
+								branch.upstream.state,
+								remote?.provider?.name,
+							)}`,
 						);
 					} else {
 						const providerName = getHighlanderProviderName(

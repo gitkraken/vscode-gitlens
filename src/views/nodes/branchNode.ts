@@ -9,6 +9,7 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
+import { formatIndicators, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
@@ -586,9 +587,7 @@ export async function getBranchNodeParts(
 		}
 	}
 
-	let tooltip: string | MarkdownString = `$(git-branch) \`${branch.nameWithoutRemote}\`${
-		suffixes.length ? ` \u00a0(_${suffixes.join(', ')}_)` : ''
-	}`;
+	let tooltip: string | MarkdownString = `$(git-branch) \`${branch.nameWithoutRemote}\`${formatIndicators(suffixes)}`;
 
 	let contextValue: string = ContextValues.Branch;
 	let checkedout = false;
@@ -667,17 +666,12 @@ export async function getBranchNodeParts(
 						branch.upstream.name
 					}`;
 
-			tooltip += `\n\nBranch is ${GitBranch.getTrackingStatus(branch, {
-				empty: `${branch.upstream.missing ? 'missing upstream' : 'up to date with'} \\\n $(git-branch) \`${
-					branch.upstream.name
-				}\`${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`,
-				expand: true,
-				icons: true,
-				separator: ', ',
-				suffix: `\\\n$(git-branch) \`${branch.upstream.name}\`${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-				}`,
-			})}`;
+			tooltip += `\n\n${formatTrackingTooltip(
+				branch.upstream.name,
+				branch.upstream.missing,
+				branch.upstream.state,
+				remote?.provider?.name,
+			)}`;
 
 			switch (status) {
 				case 'ahead':
