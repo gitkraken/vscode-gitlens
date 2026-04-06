@@ -3,9 +3,9 @@
  *
  * This module provides a helper to wrap RPC services in webview apps.
  *
- * Uses a deferred handshake: creates the Connection first (sets up listener),
- * then sends an "rpc/connect" signal to the host to trigger expose().
- * The host's expose() sends the ready signal back, which resolves waitForReady().
+ * Creates the Connection (sets up listener) and waits for the host to call
+ * expose(). The host calls expose() when it receives WebviewReadyRequest,
+ * which is the unified readiness signal for all webviews.
  */
 import type { Handler, Options, Remote } from '@eamodio/supertalk';
 import { Connection } from '@eamodio/supertalk';
@@ -14,9 +14,7 @@ import { SignalHandler } from '@eamodio/supertalk-signals';
 import { Logger } from '@gitlens/utils/logger.js';
 import { rpcHandlers } from '../../../system/rpc/handlers.js';
 import { supertalkLogger } from '../../../system/rpc/logger.js';
-import { RpcConnectCommand } from '../../protocol.js';
 import { getHost } from './host/context.js';
-import { getHostIpcApi } from './ipc.js';
 import type { DisposableEndpoint } from './webviewEndpoint.js';
 
 export interface RpcClientOptions {
@@ -184,19 +182,9 @@ export async function wrapServices<TServices extends object>(
 
 		Logger.debug('RpcClient: Connecting to host...');
 
-		// Tell the host we're ready: the Connection listener is set up,
-		// so the host can now safely call expose() and we'll receive the ready signal.
-		// Sent as a standard IpcCommand so the host's onMessageReceivedCore handles it.
-		getHostIpcApi().postMessage({
-			id: 'rpc-connect',
-			scope: RpcConnectCommand.scope,
-			method: RpcConnectCommand.method,
-			params: undefined,
-			compressed: false,
-			timestamp: Date.now(),
-		});
-
-		// Wait for the host to expose() services and send the ready signal
+		// Wait for the host to call expose() (triggered by WebviewReadyRequest)
+		// and send the ready signal. The Connection listener is already set up,
+		// so we just wait for the signal to arrive.
 		warnTimer = setTimeout(
 			() => Logger.warn(`RpcClient: Connection still pending after ${timeoutMs / 2}ms`),
 			timeoutMs / 2,

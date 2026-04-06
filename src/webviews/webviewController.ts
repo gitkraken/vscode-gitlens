@@ -57,7 +57,6 @@ import {
 	DidChangeWebviewVisibilityNotification,
 	ExecuteCommand,
 	IpcPromiseSettled,
-	RpcConnectCommand,
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyRequest,
@@ -191,6 +190,7 @@ export class WebviewController<
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
 	private _eventBuffer: EventVisibilityBuffer | undefined;
 	private _rpcHost: RpcHost<object> | undefined;
+	private _rpcExposed = false;
 	private readonly webview: Webview;
 
 	private _viewColumn: ViewColumn | undefined;
@@ -227,7 +227,7 @@ export class WebviewController<
 
 			// Set up RPC services if the provider exposes them.
 			// The RpcHost creates a Connection but defers expose() until the
-			// webview sends "rpc/connect" (handled in onMessageReceivedCore).
+			// webview sends WebviewReadyRequest (handled in onMessageReceivedCore).
 			const eventBuffer = this.descriptor.webviewHostOptions?.retainContextWhenHidden
 				? new EventVisibilityBuffer()
 				: undefined;
@@ -328,6 +328,16 @@ export class WebviewController<
 
 		await this._initializing;
 		this._initializing = undefined;
+	}
+
+	private exposeRpc(): void {
+		if (this._rpcExposed || this._rpcHost == null) return;
+		this._rpcExposed = true;
+		try {
+			this._rpcHost.expose();
+		} catch (ex) {
+			Logger.error(ex, `WebviewController(${this.id}): Failed to expose RPC services`);
+		}
 	}
 
 	getTelemetryContext(): WebviewTelemetryContext {
@@ -526,7 +536,9 @@ export class WebviewController<
 
 		// Mark the webview as not ready, until we know if we are changing the html
 		const wasReady = this._ready;
+		const wasRpcExposed = this._rpcExposed;
 		this._ready = false;
+		this._rpcExposed = false;
 
 		let html;
 		try {
@@ -550,6 +562,7 @@ export class WebviewController<
 			if (wasReady) {
 				this._ready = true;
 			}
+			this._rpcExposed = wasRpcExposed;
 			return;
 		}
 
@@ -575,6 +588,7 @@ export class WebviewController<
 		switch (true) {
 			case WebviewReadyRequest.is(e):
 				this._ready = true;
+				this.exposeRpc();
 				void this.respond(WebviewReadyRequest, e, {
 					state: e.params.bootstrap ? this.provider.includeBootstrap?.(false) : undefined,
 				});
@@ -586,28 +600,6 @@ export class WebviewController<
 			case WebviewFocusChangedCommand.is(e):
 				this.onViewFocusChanged(e.params);
 
-				break;
-
-			case RpcConnectCommand.is(e):
-				// Webview's RPC Connection is ready - expose services and send the ready signal.
-				// This deferred handshake avoids the timing issue where expose()'s ready signal
-				// is sent before the webview scripts have loaded.
-				try {
-					this._rpcHost?.expose();
-				} catch (ex) {
-					Logger.error(ex, `WebviewController(${this.id}): Failed to expose RPC services`);
-					break;
-				}
-
-				// Treat the RPC connection as the webview readiness signal — same as
-				// WebviewReadyRequest — so that IPC still works for unmigrated child
-				// components during the RPC migration. Guard against duplicate onReady
-				// calls if WebviewReadyRequest already fired.
-				if (!this._ready) {
-					this._ready = true;
-					this.sendPendingIpcNotifications();
-					void this.provider.onReady?.();
-				}
 				break;
 
 			case ExecuteCommand.is(e):
@@ -667,6 +659,7 @@ export class WebviewController<
 				}
 			} else {
 				this._ready = false;
+				this._rpcExposed = false;
 			}
 		} else if (forceReload) {
 			void this.refresh();

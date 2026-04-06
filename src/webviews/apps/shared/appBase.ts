@@ -186,13 +186,23 @@ export abstract class GlWebviewApp extends GlElement {
 // SignalWatcher mixin loses parent class type information (known TS issue with mixins).
 // `GlWebviewApp` is abstract, so we first cast to a concrete constructor for `SignalWatcher`,
 // then cast the result back to preserve `GlWebviewApp`'s type surface.
-/**
- * A strongly-typed base class for webviews that use Lit Signals for state management.
- * Encapsulates the `SignalWatcher` mixin safely.
- */
-export const SignalWatcherWebviewApp = SignalWatcher(
+const _SignalWatcherBase = SignalWatcher(
 	GlWebviewApp as unknown as new (...args: any[]) => GlWebviewApp,
 ) as unknown as typeof GlWebviewApp;
+
+/**
+ * Base class for RPC-only webviews that use Lit Signals for state management.
+ * Sends `WebviewReadyRequest` at the end of `connectedCallback()` — this is
+ * the unified readiness signal that triggers IPC notification flush and RPC expose().
+ */
+export abstract class SignalWatcherWebviewApp extends _SignalWatcherBase {
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+
+		// Signal readiness to the host — triggers IPC flush and RPC expose()
+		void this._ipc.sendRequest(WebviewReadyRequest, { bootstrap: false });
+	}
+}
 
 /** @deprecated Use GlAppHost or GlWebviewApp instead */
 export abstract class App<

@@ -6,8 +6,8 @@
  *
  * Uses a deferred handshake: the Connection is created immediately (starts
  * listening for messages), but expose() is NOT called until the webview
- * signals readiness via an "rpc/connect" message. This avoids the timing
- * issue where expose()'s ready signal is sent before the webview scripts load.
+ * signals readiness via WebviewReadyRequest. This avoids the timing issue
+ * where expose()'s ready signal is sent before the webview scripts load.
  */
 import type { Handler, Options } from '@eamodio/supertalk';
 import { Connection } from '@eamodio/supertalk';
@@ -77,8 +77,8 @@ export interface RpcHostOptions {
  *     this.rpcHost = new RpcHost(host.webview, services);
  *   }
  *
- *   // Called when webview sends "rpc/connect":
- *   onWebviewConnect() {
+ *   // Called when WebviewReadyRequest is received:
+ *   onWebviewReady() {
  *     this.rpcHost?.expose();
  *   }
  *
@@ -107,23 +107,23 @@ export class RpcHost<TServices extends object> implements Disposable {
 		this.endpoint = createHostEndpoint(webview);
 
 		// Create the Connection (sets up message listener) but DON'T expose yet.
-		// The webview will send "rpc/connect" when its listener is ready.
+		// The host will call expose() when WebviewReadyRequest is received.
 		this.connection = new Connection(this.endpoint, this.buildConnectionOptions());
-		Logger.debug('RpcHost: Connection created, awaiting webview connect signal');
+		Logger.debug('RpcHost: Connection created, awaiting WebviewReadyRequest');
 
-		// Diagnostic: warn if the webview never sends "rpc/connect"
+		// Diagnostic: warn if expose() is never called
 		this._connectTimer = setTimeout(() => {
 			this._connectTimer = undefined;
 			if (!this._exposed) {
-				Logger.warn('RpcHost: Webview has not sent "rpc/connect" after 30s — may indicate a load failure');
+				Logger.warn('RpcHost: expose() has not been called after 30s — may indicate a load failure');
 			}
 		}, 30_000);
 	}
 
 	/**
 	 * Expose services and send the ready signal to the webview.
-	 * Call this when the webview sends an "rpc/connect" message,
-	 * indicating its Connection listener is set up and ready.
+	 * Called by the WebviewController when WebviewReadyRequest is received,
+	 * indicating the webview's Connection listener is set up and ready.
 	 *
 	 * On reconnection (e.g. webview refresh), the old Connection is
 	 * closed and a fresh one is created — supertalk's Connection doesn't
