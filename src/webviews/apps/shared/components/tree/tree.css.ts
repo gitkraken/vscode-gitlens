@@ -44,6 +44,8 @@ export const treeItemStyles = [
 		:host(:hover) {
 			color: var(--vscode-list-hoverForeground);
 			background-color: var(--vscode-list-hoverBackground);
+			/* Raise above sibling items so action tooltips aren't painted behind the next row */
+			z-index: 1;
 		}
 
 		:host([aria-selected='true']) {
@@ -55,6 +57,7 @@ export const treeItemStyles = [
 		:host([focused]) {
 			outline: 1px solid var(--vscode-list-focusOutline);
 			outline-offset: -0.1rem;
+			z-index: 1;
 		}
 
 		:host([aria-selected='true'][focused]) {
@@ -73,6 +76,7 @@ export const treeItemStyles = [
 		:host(:focus-within) {
 			outline: 1px solid var(--vscode-list-focusOutline);
 			outline-offset: -0.1rem;
+			z-index: 1;
 		}
 
 		:host([aria-selected='true']:focus-within) {
