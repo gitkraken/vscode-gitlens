@@ -191,3 +191,50 @@ test.describe('MCP — IPC Discovery', () => {
 		expect(data!.scheme).toBe('vscode');
 	});
 });
+
+// ============================================================================
+// Block 1: CLI Installation Verification
+// ============================================================================
+
+test.describe('MCP — CLI Installation', () => {
+	test.describe.configure({ mode: 'serial' });
+
+	test('should install gk CLI binary on activation', async ({ mcpClient }) => {
+		const gkPath = mcpClient.gkPath;
+		console.log('[CLI Install] gkPath:', gkPath);
+		console.log('[CLI Install] exists:', existsSync(gkPath));
+
+		expect(existsSync(gkPath)).toBe(true);
+	});
+
+	test('should have correct binary file size', async ({ mcpClient }) => {
+		const gkPath = mcpClient.gkPath;
+		const stats = statSync(gkPath);
+		console.log('[CLI Binary] size:', stats.size, 'bytes');
+
+		// gk binary should be a substantial executable, not a stub
+		expect(stats.size).toBeGreaterThan(1_000_000);
+	});
+
+	test('should report CLI version via gk version', async ({ mcpClient }) => {
+		const { execSync } = await import('node:child_process');
+		const output = execSync(`"${mcpClient.gkPath}" version`, { encoding: 'utf8' }).trim();
+		console.log('[CLI Version] output:', output);
+
+		// Proxy binary returns "CLI Core: X.Y.Z\nCLI Installer: X.Y.Z"
+		expect(output).toContain('CLI Core:');
+		expect(output).toMatch(/\d+\.\d+\.\d+/);
+	});
+
+	test('should have executable permissions on Unix', async ({ mcpClient }) => {
+		test.skip(process.platform === 'win32', 'Permission check not applicable on Windows');
+
+		const gkPath = mcpClient.gkPath;
+		const stats = statSync(gkPath);
+		const mode = stats.mode & 0o777;
+		console.log('[CLI Permissions] mode:', mode.toString(8));
+
+		// Owner execute bit should be set (at minimum 0o755)
+		expect(mode & 0o100).toBeTruthy();
+	});
+});
