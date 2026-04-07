@@ -227,6 +227,7 @@ export class McpClient {
 			const timer = setTimeout(() => {
 				if (!resolved) {
 					resolved = true;
+					proc.stdin.end();
 					proc.kill();
 					reject(
 						new Error(
@@ -259,6 +260,7 @@ export class McpClient {
 				if (msg.id === targetId && !resolved) {
 					resolved = true;
 					clearTimeout(timer);
+					proc.stdin.end();
 					proc.kill();
 					resolve(msg);
 				}
@@ -284,9 +286,10 @@ export class McpClient {
 				}
 			});
 
+			// Keep stdin open after writing so elicitation/create responses can be sent.
+			// stdin is closed in the resolve/timeout/close paths above.
 			const payload = `${messages.map(m => JSON.stringify(m)).join('\n')}\n`;
 			proc.stdin.write(payload);
-			proc.stdin.end();
 		});
 	}
 }
