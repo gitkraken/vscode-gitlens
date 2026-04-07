@@ -18,8 +18,8 @@ declare global {
 
 /**
  * A split panel with a draggable divider.
- * All positioning is in pixels. The start panel is the primary panel —
- * its pixel size is preserved across container resizes.
+ * All positioning is in pixels. The `primary` property controls which
+ * panel preserves its pixel size across container resizes (default: start).
  *
  * @slot start - Content for the start panel (left in horizontal, top in vertical).
  * @slot end - Content for the end panel (right in horizontal, bottom in vertical).
@@ -41,6 +41,7 @@ export class GlSplitPanel extends LitElement {
 	private _size = 0;
 	private _position = 0;
 	private _positionBeforeCollapse = 0;
+	private _endPanelSize: number | undefined;
 	private _dragAc: AbortController | undefined;
 	private _resizeObserver: ResizeObserver | undefined;
 
@@ -52,6 +53,9 @@ export class GlSplitPanel extends LitElement {
 	set position(value: number) {
 		const old = this._position;
 		this._position = this.clampPosition(value);
+		if (this._size > 0) {
+			this._endPanelSize = this._size - this._position;
+		}
 		this.requestUpdate('position', old);
 	}
 
@@ -63,9 +67,13 @@ export class GlSplitPanel extends LitElement {
 	@property({ attribute: false })
 	snap: GlSplitPanelSnapFunction | undefined;
 
-	/** Snap threshold in pixels for keyboard nudge operations. */
-	@property({ type: Number, attribute: 'snap-threshold' })
-	snapThreshold = 12;
+	/**
+	 * Which panel keeps its pixel size on container resize.
+	 * `start` (default) — the start panel stays fixed, end panel absorbs resize.
+	 * `end` — the end panel stays fixed, start panel absorbs resize.
+	 */
+	@property({ reflect: true })
+	primary: 'start' | 'end' = 'start';
 
 	/** Whether resizing is disabled. */
 	@property({ type: Boolean, reflect: true })
@@ -82,16 +90,33 @@ export class GlSplitPanel extends LitElement {
 		super.connectedCallback?.();
 		this._resizeObserver = new ResizeObserver(entries => {
 			const rect = entries[0].contentRect;
-			const size = this.isHorizontal ? rect.width : rect.height;
+			const size = Math.round(this.isHorizontal ? rect.width : rect.height);
 			if (size !== this._size) {
+				const oldPos = this._position;
+				const oldSize = this._size;
+
+				if (this.primary === 'end' && (oldSize > 0 || this._endPanelSize != null)) {
+					// Keep end panel size fixed — use stored size to survive shrink-then-grow
+					this._endPanelSize ??= oldSize - this._position;
+					this._position = Math.max(0, size - this._endPanelSize);
+				} else if (this._position <= 0) {
+					// Stick to start edge (collapsed start panel stays collapsed)
+					this._position = 0;
+				}
+				// primary="start" with position > 0: no change needed
+				// (start panel keeps its pixel width; CSS min() handles overflow)
+
 				this._size = size;
+				if (this._position !== oldPos) {
+					this.emitChange();
+				}
 				this.requestUpdate();
 			}
 		});
 		void this.updateComplete.then(() => {
 			this._resizeObserver!.observe(this);
 			const rect = this.getBoundingClientRect();
-			this._size = this.isHorizontal ? rect.width : rect.height;
+			this._size = Math.round(this.isHorizontal ? rect.width : rect.height);
 			this.requestUpdate();
 		});
 	}
@@ -118,7 +143,9 @@ export class GlSplitPanel extends LitElement {
 				tabindex=${this.disabled ? -1 : 0}
 				role="separator"
 				aria-orientation=${this.orientation}
-				aria-valuenow=${this._size > 0 ? Math.round((this._position / this._size) * 100) : 0}
+				aria-valuenow=${this._size > 0
+					? Math.max(0, Math.min(100, Math.round((this._position / this._size) * 100)))
+					: 0}
 				aria-valuemin="0"
 				aria-valuemax="100"
 				aria-label="Resize"
@@ -133,8 +160,8 @@ export class GlSplitPanel extends LitElement {
 	}
 
 	private clampPosition(value: number): number {
-		if (this._size <= 0) return Math.max(0, value);
-		return Math.max(0, Math.min(value, this._size));
+		if (this._size <= 0) return Math.max(0, Math.round(value));
+		return Math.max(0, Math.min(Math.round(value), this._size));
 	}
 
 	private applySnap(pos: number): number {
@@ -148,8 +175,6 @@ export class GlSplitPanel extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('gl-split-panel-change', {
 				detail: { position: this._position },
-				bubbles: true,
-				composed: true,
 			}),
 		);
 	}
@@ -244,7 +269,7 @@ export class GlSplitPanel extends LitElement {
 
 		if (handled) {
 			e.preventDefault();
-			this.position = newPos;
+			this.position = this.applySnap(newPos);
 			this.emitChange();
 		}
 	}

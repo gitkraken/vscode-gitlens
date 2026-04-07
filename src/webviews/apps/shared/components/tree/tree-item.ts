@@ -176,7 +176,12 @@ export class GlTreeItem extends GlElement {
 	}
 
 	private renderDecorations() {
-		return html`<slot name="decorations" class="decorations"></slot>`;
+		return html`<slot
+			name="decorations"
+			class="decorations"
+			@mouseenter=${this.onMouseEnter}
+			@mouseleave=${this.onMouseLeave}
+		></slot>`;
 	}
 
 	override render(): unknown {
@@ -190,8 +195,8 @@ export class GlTreeItem extends GlElement {
 				@click=${this.onButtonClick}
 				@dblclick=${this.onButtonDblClick}
 				@contextmenu=${this.onButtonContextMenu}
-				@mouseenter=${this.onButtonMouseEnter}
-				@mouseleave=${this.onButtonMouseLeave}
+				@mouseenter=${this.onMouseEnter}
+				@mouseleave=${this.onMouseLeave}
 			>
 				${when(this.showIcon, () => html`<slot name="icon" class="icon"></slot>`)}
 				<span class="text">
@@ -276,11 +281,11 @@ export class GlTreeItem extends GlElement {
 		this.dispatchEvent(evt);
 	}
 
-	private onButtonMouseEnter(_e: MouseEvent) {
+	private onMouseEnter(_e: MouseEvent) {
 		this.emit('gl-tree-item-hover', { node: this, element: this.buttonEl });
 	}
 
-	private onButtonMouseLeave(_e: MouseEvent) {
+	private onMouseLeave(_e: MouseEvent) {
 		this.emit('gl-tree-item-unhover', { node: this });
 	}
 

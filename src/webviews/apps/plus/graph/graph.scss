@@ -1292,6 +1292,7 @@ web-graph {
 		position: relative;
 		flex: 1;
 		overflow: hidden;
+		z-index: 0;
 	}
 
 	&__panes {

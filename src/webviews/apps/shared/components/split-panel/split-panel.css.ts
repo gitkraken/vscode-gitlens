@@ -3,7 +3,12 @@ import { css } from 'lit';
 export const splitPanelStyles = css`
 	:host {
 		display: grid;
-		grid-template-columns: var(--_start-size, 0px) var(--gl-split-panel-divider-width, 4px) 1fr;
+		grid-template-columns:
+			min(var(--_start-size, 0px), calc(100% - var(--gl-split-panel-divider-width, 4px))) var(
+				--gl-split-panel-divider-width,
+				4px
+			)
+			1fr;
 		grid-template-rows: 1fr;
 		height: 100%;
 		width: 100%;
@@ -12,7 +17,12 @@ export const splitPanelStyles = css`
 
 	:host([orientation='vertical']) {
 		grid-template-columns: 1fr;
-		grid-template-rows: var(--_start-size, 0px) var(--gl-split-panel-divider-width, 4px) 1fr;
+		grid-template-rows:
+			min(var(--_start-size, 0px), calc(100% - var(--gl-split-panel-divider-width, 4px))) var(
+				--gl-split-panel-divider-width,
+				4px
+			)
+			1fr;
 	}
 
 	:host([dragging]) {
