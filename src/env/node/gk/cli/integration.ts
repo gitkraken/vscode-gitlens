@@ -252,7 +252,7 @@ export class GkCliIntegrationProvider implements Disposable {
 	private async setupMCP(source?: Sources, force = false): Promise<void> {
 		const scope = getScopedLogger();
 
-		await this.container.storage.store('mcp:banner:dismissed', true);
+		await this.container.onboarding.dismiss('mcp:banner');
 
 		try {
 			const result = await window.withProgress(

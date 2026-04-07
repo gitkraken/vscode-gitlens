@@ -43,6 +43,7 @@ interface ResolvedServices {
 	subscription: Awaited<Remote<HomeServices>['subscription']>;
 	integrations: Awaited<Remote<HomeServices>['integrations']>;
 	repositories: Awaited<Remote<HomeServices>['repositories']>;
+	onboarding: Awaited<Remote<HomeServices>['onboarding']>;
 	ai: Awaited<Remote<HomeServices>['ai']>;
 }
 
@@ -136,6 +137,17 @@ export function setupSubscriptions(
 		() =>
 			services.home.onWalkthroughProgressChanged((progress: WalkthroughProgressState) => {
 				state.onboarding.walkthroughProgress.set(progress);
+			}),
+
+		// ============================================================
+		// Onboarding events — from shared OnboardingRpcService
+		// ============================================================
+
+		() =>
+			services.onboarding.onDidChange((e: { key: string; dismissed: boolean }) => {
+				if (e.key === 'home:integrationBanner') {
+					state.onboarding.banners.integrationBanner = !e.dismissed;
+				}
 			}),
 
 		// ============================================================

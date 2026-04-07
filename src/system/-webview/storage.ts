@@ -11,20 +11,10 @@ import type {
 	SecretKeys,
 	WorkspaceStorage,
 } from '../../constants.storage.js';
-import { registerCommand } from './command.js';
 
 type GlobalStorageKeys = keyof (GlobalStorage & DeprecatedGlobalStorage);
 type GlobalScopedStorageKeys = keyof GlobalScopedStorage;
 type WorkspaceStorageKeys = keyof (WorkspaceStorage & DeprecatedWorkspaceStorage);
-
-const allowedStoreCommandGlobalStorageKeys: GlobalStorageKeys[] = ['mcp:banner:dismissed'];
-const allowedStoreCommandWorkspaceStorageKeys: WorkspaceStorageKeys[] = [];
-
-interface StorageStoreCommandArgs {
-	key: string;
-	value: any;
-	isWorkspace?: boolean;
-}
 
 export type StorageChangeEvent =
 	| {
@@ -49,6 +39,8 @@ export type StorageChangeEvent =
 			readonly type: 'workspace';
 	  };
 
+export type StorageType = StorageChangeEvent['type'];
+
 export class Storage implements Disposable {
 	private _onDidChange = new EventEmitter<StorageChangeEvent>();
 	get onDidChange(): Event<StorageChangeEvent> {
@@ -66,7 +58,6 @@ export class Storage implements Disposable {
 			this._onDidChange,
 			this._onDidChangeSecrets,
 			this.context.secrets.onDidChange(e => this._onDidChangeSecrets.fire(e)),
-			registerCommand('gitlens.storage.store', args => this.storeFromCommand(args), this),
 		);
 	}
 
@@ -258,19 +249,5 @@ export class Storage implements Disposable {
 	): Promise<void> {
 		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, value);
 		this._onDidChange.fire({ keys: [key], type: 'workspace' });
-	}
-
-	async storeFromCommand(args: StorageStoreCommandArgs): Promise<void> {
-		if (args.isWorkspace) {
-			if (!allowedStoreCommandWorkspaceStorageKeys.includes(args.key as any)) {
-				return;
-			}
-			await this.storeWorkspace(args.key as any, args.value);
-		} else {
-			if (!allowedStoreCommandGlobalStorageKeys.includes(args.key as any)) {
-				return;
-			}
-			await this.store(args.key as any, args.value);
-		}
 	}
 }

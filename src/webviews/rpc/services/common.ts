@@ -17,6 +17,7 @@ import { ConfigService } from './config.js';
 import { DraftsService } from './drafts.js';
 import { FilesService } from './files.js';
 import { IntegrationsService } from './integrations.js';
+import { OnboardingRpcService } from './onboarding.js';
 import { PullRequestsService } from './pullRequests.js';
 import { RepositoriesService } from './repositories.js';
 import { RepositoryService } from './repository.js';
@@ -43,6 +44,7 @@ export interface SharedWebviewServices {
 	readonly storage: StorageService;
 	readonly subscription: SubscriptionService;
 	readonly integrations: IntegrationsService;
+	readonly onboarding: OnboardingRpcService;
 	readonly ai: AIService;
 	readonly autolinks: AutolinksService;
 	readonly commands: CommandsService;
@@ -82,6 +84,7 @@ export function createSharedServices(
 		storage: new StorageService(container),
 		subscription: new SubscriptionService(container, buffer, tracker),
 		integrations: new IntegrationsService(container, buffer, tracker),
+		onboarding: new OnboardingRpcService(container, buffer, tracker),
 		ai: new AIService(container, buffer, tracker),
 		autolinks: new AutolinksService(container),
 		commands: new CommandsService(container, host),

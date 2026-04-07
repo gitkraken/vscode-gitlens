@@ -79,7 +79,6 @@ suite('home actions', () => {
 					walkthroughSupported: true,
 					newInstall: false,
 					hostAppName: 'VS Code',
-					integrationBannerCollapsed: false,
 					orgSettings: { ai: true, drafts: true },
 				}),
 				getWalkthroughProgress: async () => undefined,

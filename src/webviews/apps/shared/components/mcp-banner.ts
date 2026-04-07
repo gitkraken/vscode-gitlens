@@ -68,9 +68,8 @@ export class GlMcpBanner extends LitElement {
 					banner-title="GitKraken MCP Bundled with GitLens"
 					body="${bodyHtml}"
 					dismissible
-					dismiss-href="${createCommandLink('gitlens.storage.store', {
-						key: 'mcp:banner:dismissed',
-						value: true,
+					dismiss-href="${createCommandLink('gitlens.onboarding.dismiss', {
+						id: 'mcp:banner',
 					})}"
 				></gl-banner>
 			`;
@@ -88,9 +87,8 @@ export class GlMcpBanner extends LitElement {
 				primary-button="Install GitKraken MCP"
 				primary-button-href="${createCommandLink('gitlens.ai.mcp.install', { source: this.source })}"
 				dismissible
-				dismiss-href="${createCommandLink('gitlens.storage.store', {
-					key: 'mcp:banner:dismissed',
-					value: true,
+				dismiss-href="${createCommandLink('gitlens.onboarding.dismiss', {
+					id: 'mcp:banner',
 				})}"
 			></gl-banner>
 		`;

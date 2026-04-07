@@ -25,6 +25,7 @@ import type { CommandsState } from '../shared/contexts/commands.js';
 import { commandsContext } from '../shared/contexts/commands.js';
 import { createIntegrationsState, integrationsContext } from '../shared/contexts/integrations.js';
 import { createLaunchpadState, launchpadContext } from '../shared/contexts/launchpad.js';
+import type { OnboardingKeys } from '../../../constants.onboarding.js';
 import type { OnboardingKey } from '../shared/contexts/onboarding.js';
 import { createOnboardingState, onboardingContext } from '../shared/contexts/onboarding.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../shared/contexts/subscription.js';
@@ -216,18 +217,29 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// Resolve all sub-services in parallel.
 		// Supertalk proxy properties are thenables (have .then but not .catch/.finally);
 		// Promise.all handles thenables natively so no wrapping is needed.
-		const [home, launchpad, config, subscription, integrations, repositories, repository, ai, commands] =
-			await Promise.all([
-				services.home,
-				services.launchpad,
-				services.config,
-				services.subscription,
-				services.integrations,
-				services.repositories,
-				services.repository,
-				services.ai,
-				services.commands,
-			]);
+		const [
+			home,
+			launchpad,
+			config,
+			subscription,
+			integrations,
+			repositories,
+			repository,
+			ai,
+			commands,
+			onboarding,
+		] = await Promise.all([
+			services.home,
+			services.launchpad,
+			services.config,
+			services.subscription,
+			services.integrations,
+			services.repositories,
+			services.repository,
+			services.ai,
+			services.commands,
+			services.onboarding,
+		]);
 
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
 		// but Remote<T> types them as synchronous values. The lint rule correctly detects the
@@ -341,12 +353,21 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		root.commands.service = commands;
 		root.launchpad.service = launchpad;
 
-		// Wire onboarding dismiss callbacks to current homeService methods
-		const dismissMap: Record<OnboardingKey, () => void> = {
-			integrationBanner: () => home.collapseSection('integrationBanner', true),
+		// Wire onboarding dismiss/state to RPC onboarding service
+		const onboardingKeyMap: Record<OnboardingKey, OnboardingKeys> = {
+			integrationBanner: 'home:integrationBanner',
 		};
-		this._onboardingState.dismiss = (key: OnboardingKey) => dismissMap[key]?.();
+		this._onboardingState.dismiss = (key: OnboardingKey) => {
+			const onboardingKey = onboardingKeyMap[key];
+			if (onboardingKey != null) {
+				this._onboardingState.banners[key] = false;
+				void onboarding.dismiss(onboardingKey);
+			}
+		};
 		this._onboardingState.dismissWalkthrough = () => void home.dismissWalkthrough();
+
+		// Populate initial banner state from onboarding service
+		this._onboardingState.banners.integrationBanner = !(await onboarding.isDismissed('home:integrationBanner'));
 
 		// Set up event subscriptions FIRST (so we don't miss events during fetch)
 		const watchWipForRepo = (repoPath: string | undefined): void => {
@@ -400,6 +421,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				subscription: subscription,
 				integrations: integrations,
 				repositories: repositories,
+				onboarding: onboarding,
 				ai: ai,
 			},
 			actions,

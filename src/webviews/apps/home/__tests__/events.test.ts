@@ -51,6 +51,9 @@ suite('setupSubscriptions Test Suite', () => {
 				getRepositoriesState: () =>
 					Promise.resolve({ count: 0, openCount: 0, hasUnsafe: false, trusted: true }),
 			},
+			onboarding: {
+				onDidChange: () => () => {},
+			},
 			ai: {
 				onModelChanged: () => () => {},
 				onStateChanged: () => () => {},
@@ -135,6 +138,9 @@ suite('setupSubscriptions Test Suite', () => {
 				onRepositoryChanged: () => () => {},
 				getRepositoriesState: () =>
 					Promise.resolve({ count: 0, openCount: 0, hasUnsafe: false, trusted: true }),
+			},
+			onboarding: {
+				onDidChange: () => () => {},
 			},
 			ai: {
 				onModelChanged: () => () => {},

@@ -7,6 +7,7 @@ import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
 import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views.js';
 import type { Environment } from './container.js';
 import type { FeaturePreviews } from './features.js';
+import type { OnboardingStorage } from './onboarding/models/onboarding.js';
 import type { OrganizationSettings } from './plus/gk/models/organization.js';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 import type { IntegrationConnectedKey } from './plus/integrations/models/integration.js';
@@ -56,6 +57,16 @@ export type DeprecatedGlobalStorage = {
 	'views:commitDetails:dismissed': 'sidebar'[];
 	/** @deprecated */
 	'views:welcome:visible': boolean;
+	/** @deprecated Use OnboardingService */
+	'home:walkthrough:dismissed': boolean;
+	/** @deprecated Use OnboardingService */
+	'mcp:banner:dismissed': boolean;
+	/** @deprecated Use OnboardingService */
+	'views:scm:grouped:welcome:dismissed': boolean;
+	/** @deprecated Use OnboardingService dismiss('composer:onboarding') */
+	'composer:onboarding:dismissed': string;
+	/** @deprecated Use OnboardingService setItemState('composer:onboarding', ...) */
+	'composer:onboarding:stepReached': number;
 } & {
 	/** @deprecated */
 	[key in `disallow:connection:${string}`]: any;
@@ -81,20 +92,16 @@ interface GlobalStorageCore {
 	preVersion: string;
 	'product:config': Stored<StoredProductConfig>;
 	'confirm:draft:storage': boolean;
-	// Value based on `currentOnboardingVersion` in composer's protocol
-	'composer:onboarding:dismissed': string;
-	'composer:onboarding:stepReached': number;
 	'home:sections:collapsed': string[];
-	'home:walkthrough:dismissed': boolean;
-	'mcp:banner:dismissed': boolean;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
 	'graph:useNaturalLanguageSearch': boolean;
-	'views:scm:grouped:welcome:dismissed': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
+	/** Unified onboarding/dismissible UI state */
+	'onboarding:state': OnboardingStorage;
 }
 
 type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &
@@ -183,6 +190,8 @@ interface WorkspaceStorageCore {
 	gitPath: string;
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
+	/** Unified onboarding/dismissible UI state (workspace-scoped items) */
+	'onboarding:state': OnboardingStorage;
 	'starred:repositories': StoredStarred;
 	'views:commitDetails:pullRequestExpanded': boolean;
 	'views:repositories:autoRefresh': boolean;
