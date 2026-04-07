@@ -2,7 +2,7 @@ import { test as base } from '../baseTest.js';
 import { findGkCliFromArgs, findLatestIpcFile, McpClient, waitForCliInstall } from '../helpers/mcpHelper.js';
 
 export { expect } from '@playwright/test';
-export type { McpMessage, McpClient } from '../helpers/mcpHelper.js';
+export type { McpConfigResult, McpMessage, McpClient } from '../helpers/mcpHelper.js';
 
 interface McpFixtures {
 	/** Ready-to-use McpClient for the current VS Code worker instance. */

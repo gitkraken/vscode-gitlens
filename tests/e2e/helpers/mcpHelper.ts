@@ -129,7 +129,7 @@ export class McpClient {
 
 	/** Calls a single MCP tool and returns the tool-response message. */
 	async callTool(toolName: string, args: Record<string, unknown>): Promise<McpMessage> {
-		const msg = await this.sendRequests(
+		return this.sendRequests(
 			[
 				this.initMsg(),
 				this.notificationMsg(),
@@ -137,7 +137,6 @@ export class McpClient {
 			],
 			3,
 		);
-		return msg ?? { jsonrpc: '2.0', id: 3, error: { code: -1, message: 'No response received' } };
 	}
 
 	/**
@@ -183,7 +182,7 @@ export class McpClient {
 				settled = true;
 				clearTimeout(timer);
 				// Strip "checking for updates..." noise before parsing
-				const clean = stdout.replace(/checking for updates\.\.\./gi, '').trim();
+				const clean = stdout.replace(/checking for updates.../gi, '').trim();
 				if (code != null && code !== 0) {
 					reject(
 						new Error(
@@ -243,7 +242,7 @@ export class McpClient {
 	 * Spawns gk mcp, sends all messages, waits for the response with `targetId`,
 	 * and handles elicitation/create by auto-cancelling (safe default for tests).
 	 */
-	private sendRequests(messages: object[], targetId: number, timeoutMs = 30_000): Promise<McpMessage | undefined> {
+	private sendRequests(messages: object[], targetId: number, timeoutMs = 30_000): Promise<McpMessage> {
 		return new Promise((resolve, reject) => {
 			const proc = spawn(
 				this.gkPath,
@@ -251,19 +250,13 @@ export class McpClient {
 				{ env: this.buildEnv(), stdio: ['pipe', 'pipe', 'pipe'] },
 			);
 
-			let resolved = false;
+			let settled = false;
 			let stderr = '';
-			let exitCode: number | null = null;
-			let exitSignal: string | null = null;
 			proc.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
-			proc.on('close', (code, signal) => {
-				exitCode = code;
-				exitSignal = signal;
-			});
 
 			const timer = setTimeout(() => {
-				if (!resolved) {
-					resolved = true;
+				if (!settled) {
+					settled = true;
 					proc.stdin.end();
 					proc.kill();
 					reject(
@@ -277,6 +270,8 @@ export class McpClient {
 			const rl = readline.createInterface({ input: proc.stdout, crlfDelay: Infinity });
 
 			rl.on('line', (line: string) => {
+				if (settled) return;
+
 				const trimmed = line.trim();
 				if (!trimmed) return;
 				let msg: McpMessage;
@@ -294,21 +289,21 @@ export class McpClient {
 					return;
 				}
 
-				if (msg.id === targetId && !resolved) {
-					resolved = true;
+				if (msg.id === targetId) {
+					settled = true;
 					clearTimeout(timer);
+					rl.close();
 					proc.stdin.end();
 					proc.kill();
 					resolve(msg);
 				}
 			});
 
-			rl.on('close', () => {
-				if (!resolved) {
-					resolved = true;
+			proc.on('close', (code, signal) => {
+				if (!settled) {
+					settled = true;
 					clearTimeout(timer);
-					const exitInfo =
-						exitCode != null ? `code=${exitCode}` : exitSignal != null ? `signal=${exitSignal}` : 'unknown';
+					const exitInfo = code != null ? `code=${code}` : signal != null ? `signal=${signal}` : 'unknown';
 					reject(
 						new Error(
 							`McpClient: process exited (${exitInfo}) before response id=${targetId} was received${stderr ? `\nstderr: ${stderr}` : ''}`,
@@ -318,8 +313,8 @@ export class McpClient {
 			});
 
 			proc.on('error', (err: Error) => {
-				if (!resolved) {
-					resolved = true;
+				if (!settled) {
+					settled = true;
 					clearTimeout(timer);
 					reject(err);
 				}
