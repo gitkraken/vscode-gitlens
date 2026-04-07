@@ -46,7 +46,6 @@ import {
 	ChooseRepositoryCommand,
 	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
-	currentOnboardingVersion,
 	DidCancelGenerateCommitMessageNotification,
 	DidCancelGenerateCommitsNotification,
 	DidChangeAiEnabledNotification,
@@ -909,10 +908,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			return;
 		}
 
-		const previousStepReached = this.container.storage.get('composer:onboarding:stepReached') ?? 1;
+		const previousStepReached = this.container.onboarding.getItemState('composer:onboarding')?.stepReached ?? 1;
 		const highestStep = Math.max(previousStepReached, stepNumber);
 		this._context.onboarding.stepReached = highestStep;
-		void this.container.storage.store('composer:onboarding:stepReached', highestStep).catch();
+		void this.container.onboarding.setItemState('composer:onboarding', { stepReached: highestStep }).catch();
 	}
 
 	@ipcCommand(DismissOnboardingCommand)
@@ -922,16 +921,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 
 		this._context.onboarding.dismissed = true;
-		void this.container.storage.store('composer:onboarding:dismissed', currentOnboardingVersion).catch();
+		void this.container.onboarding.dismiss('composer:onboarding').catch();
 	}
 
 	private isOnboardingDismissed(): boolean {
-		const dismissedVersion = this.container.storage.get('composer:onboarding:dismissed');
-		return dismissedVersion === currentOnboardingVersion;
+		return this.container.onboarding.isDismissed('composer:onboarding');
 	}
 
 	private getOnboardingStepReached(): number | undefined {
-		return this.container.storage.get('composer:onboarding:stepReached');
+		return this.container.onboarding.getItemState('composer:onboarding')?.stepReached;
 	}
 
 	private resetContext(): void {

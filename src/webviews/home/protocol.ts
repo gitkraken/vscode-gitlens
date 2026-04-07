@@ -37,7 +37,6 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 	};
 	aiEnabled: boolean;
 	experimentalComposerEnabled: boolean;
-	integrationBannerCollapsed: boolean;
 	mcpBannerCollapsed: boolean;
 	mcpCanAutoRegister: boolean;
 	hasAnyIntegrationConnected: boolean;
@@ -311,11 +310,6 @@ export type GetInactiveOverviewResponse =
 			stale?: GetOverviewBranch[];
 	  }
 	| undefined;
-
-export interface CollapseSectionParams {
-	section: string;
-	collapsed: boolean;
-}
 
 export type OpenInGraphParams =
 	| { type: 'repo'; repoPath: string; branchId?: never }

@@ -103,7 +103,6 @@ import type { HomeServices, HomeViewService, WalkthroughProgressState } from './
 import type {
 	BranchAndTargetRefs,
 	BranchRef,
-	CollapseSectionParams,
 	CreatePullRequestCommandArgs,
 	DidChangeRepositoriesParams,
 	GetOverviewBranch,
@@ -222,7 +221,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			),
 
 			// --- UI Actions ---
-			collapseSection: (section, collapsed) => this.onCollapseSection({ section: section, collapsed: collapsed }),
 			openInGraph: params => this.showInCommitGraph(params),
 			onFocusAccount: this._focusAccountEvent.subscribe(buffer, tracker),
 
@@ -240,7 +238,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					newInstall:
 						!configuration.get('advanced.skipOnboarding') && getContext('gitlens:install:new', false),
 					hostAppName: env.appName,
-					integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 					orgSettings: this.getOrgSettings(),
 				}),
 		};
@@ -689,45 +686,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void showPatchesView({ mode: 'create', create: { changes: [change] } });
 	}
 
-	private onCollapseSection(params: CollapseSectionParams) {
-		const collapsed = this.container.storage.get('home:sections:collapsed');
-		if (collapsed == null) {
-			if (params.collapsed === true) {
-				void this.container.storage.store('home:sections:collapsed', [params.section]).catch();
-			}
-			return;
-		}
-
-		const idx = collapsed.indexOf(params.section);
-		if (params.collapsed === true) {
-			if (idx === -1) {
-				void this.container.storage.store('home:sections:collapsed', [...collapsed, params.section]).catch();
-			}
-
-			return;
-		}
-
-		if (idx !== -1) {
-			collapsed.splice(idx, 1);
-			void this.container.storage.store('home:sections:collapsed', collapsed).catch();
-		}
-	}
-
 	@debug()
 	private dismissWalkthrough() {
-		const dismissed = this.container.storage.get('home:walkthrough:dismissed');
-		if (!dismissed) {
-			void this.container.storage.store('home:walkthrough:dismissed', true).catch();
+		if (!this.container.onboarding.isDismissed('home:walkthrough')) {
+			void this.container.onboarding.dismiss('home:walkthrough').catch();
 			void this.container.usage.track('home:walkthrough:dismissed').catch();
 		}
 	}
 
 	private getWalkthroughDismissed() {
-		return this.container.storage.get('home:walkthrough:dismissed') ?? false;
-	}
-
-	private getIntegrationBannerCollapsed() {
-		return this.container.storage.get('home:sections:collapsed')?.includes('integrationBanner') ?? false;
+		return this.container.onboarding.isDismissed('home:walkthrough');
 	}
 
 	private getOrgSettings(): State['orgSettings'] {
@@ -1193,7 +1161,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async onIntegrationsChangedCore() {
 		const integrations = await this.getIntegrationStates(true);
 		if (integrations.some(i => i.connected)) {
-			this.onCollapseSection({ section: 'integrationBanner', collapsed: true });
+			void this.container.onboarding.dismiss('home:integrationBanner').catch();
 		}
 	}
 

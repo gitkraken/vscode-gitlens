@@ -118,7 +118,7 @@ export class Views implements Disposable {
 			...this.registerCommands(),
 		);
 
-		this._welcomeDismissed = container.storage.get('views:scm:grouped:welcome:dismissed', false);
+		this._welcomeDismissed = container.onboarding.isDismissed('views:scmGrouped:welcome');
 
 		let newInstall = false;
 		let showGitLensView = false;
@@ -133,7 +133,7 @@ export class Views implements Disposable {
 				}
 			}
 		} else if (!this._welcomeDismissed) {
-			void container.storage.store('views:scm:grouped:welcome:dismissed', true).catch();
+			void container.onboarding.dismiss('views:scmGrouped:welcome').catch();
 			this._welcomeDismissed = true;
 		}
 
@@ -410,12 +410,12 @@ export class Views implements Disposable {
 
 			registerCommand('gitlens.views.scm.grouped.welcome.dismiss', () => {
 				this._welcomeDismissed = true;
-				void this.container.storage.store('views:scm:grouped:welcome:dismissed', true).catch();
+				void this.container.onboarding.dismiss('views:scmGrouped:welcome').catch();
 				this.updateScmGroupedViewsRegistration();
 			}),
 			registerCommand('gitlens.views.scm.grouped.welcome.restore', async () => {
 				this._welcomeDismissed = true;
-				void this.container.storage.store('views:scm:grouped:welcome:dismissed', true).catch();
+				void this.container.onboarding.dismiss('views:scmGrouped:welcome').catch();
 				await updateScmGroupedViewsInConfig(new Set());
 			}),
 		];

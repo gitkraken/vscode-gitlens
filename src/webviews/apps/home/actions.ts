@@ -80,7 +80,6 @@ export function populateInitialState(
 			state.home.walkthroughSupported.set(ctx.walkthroughSupported);
 			state.home.newInstall.set(ctx.newInstall);
 			state.home.hostAppName.set(ctx.hostAppName);
-			state.onboarding.banners.integrationBanner = !ctx.integrationBannerCollapsed;
 			state.home.ready.set(true); // render gate — set last
 		},
 		(ex: unknown) => {

@@ -42,7 +42,6 @@ export interface HomeInitialContext {
 	readonly walkthroughSupported: boolean;
 	readonly newInstall: boolean;
 	readonly hostAppName: string;
-	readonly integrationBannerCollapsed: boolean;
 	readonly orgSettings: OrgSettings;
 }
 
@@ -108,9 +107,6 @@ export interface HomeViewService {
 	onWalkthroughProgressChanged: RpcEventSubscription<WalkthroughProgressState>;
 
 	// --- UI Actions ---
-
-	/** Collapse or expand a named section. */
-	collapseSection(section: string, collapsed: boolean): void;
 
 	/** Open a branch or repo in the Commit Graph. */
 	openInGraph(params: OpenInGraphParams): void;
