@@ -30,9 +30,10 @@ export const mcpTest = base.extend<McpFixtures>({
 	mcpClient: async ({ vscode }, use) => {
 		const gkPath = findGkCliFromArgs(vscode.electron.args);
 		await waitForCliInstall(gkPath);
-		const ipcFilePath = findLatestIpcFile();
+		const vscodePid = vscode.electron.app.process().pid;
+		const ipcFilePath = findLatestIpcFile(vscodePid);
 		if (ipcFilePath == null) {
-			console.warn('[mcpTest] No live IPC file found — GK_GL_PATH will not be set');
+			console.warn(`[mcpTest] No live IPC file found for pid=${vscodePid} — GK_GL_PATH will not be set`);
 		}
 		const client = new McpClient(gkPath, ipcFilePath);
 		await use(client);

@@ -36,16 +36,27 @@ export function findGkCliFromArgs(electronArgs: string[]): string {
 }
 
 /**
- * Finds the most recent live IPC discovery file.
- * GitLens writes one file per session to %TEMP%/gitkraken/gitlens/.
- * Validates the process is still alive via process.kill(pid, 0).
+ * Finds the IPC discovery file for a specific VS Code process.
+ * GitLens writes one file per session to %TEMP%/gitkraken/gitlens/
+ * with format: gitlens-ipc-server-{pid}-{port}.json.
+ *
+ * When `vscodePid` is provided, only files belonging to that process are considered,
+ * preventing cross-worker contamination in parallel Playwright runs.
+ * Falls back to the newest live file when no pid is given.
  */
-export function findLatestIpcFile(): string | undefined {
+export function findLatestIpcFile(vscodePid?: number): string | undefined {
 	const tmpDir = path.join(os.tmpdir(), 'gitkraken', 'gitlens');
 	if (!existsSync(tmpDir)) return undefined;
 
 	const candidates = readdirSync(tmpDir)
-		.filter(f => f.startsWith('gitlens-ipc-server-') && f.endsWith('.json'))
+		.filter(f => {
+			if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) return false;
+			if (vscodePid != null) {
+				// File format: gitlens-ipc-server-{pid}-{port}.json
+				return f.startsWith(`gitlens-ipc-server-${vscodePid}-`);
+			}
+			return true;
+		})
 		.map(f => {
 			const fullPath = path.join(tmpDir, f);
 			try {
