@@ -141,9 +141,6 @@ export abstract class GkMcpProviderBase implements Disposable {
 
 		try {
 			const args = ['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`];
-			if (configuration.get('gitkraken.mcp.experimental.enabled')) {
-				args.push('--experimental');
-			}
 			if (configuration.get('gitkraken.cli.insiders.enabled')) {
 				args.push('--insiders');
 			}
@@ -166,6 +163,12 @@ export abstract class GkMcpProviderBase implements Disposable {
 
 			if (!config.type || !config.command || !Array.isArray(config.args)) {
 				throw new Error(`Invalid MCP configuration: missing required properties (${output})`);
+			}
+
+			// Append --experimental to the MCP server args (not the config command)
+			// so the server itself runs with experimental features enabled
+			if (configuration.get('gitkraken.mcp.experimental.enabled') && !config.args.includes('--experimental')) {
+				config.args.push('--experimental');
 			}
 
 			this.onRegistrationCompleted(cliInstall.version);

@@ -4197,6 +4197,16 @@
 						"scope": "window",
 						"order": 50
 					},
+					"gitlens.gitkraken.mcp.experimental.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to enable experimental features for the GitKraken MCP server (passes `--experimental` flag to the CLI)",
+						"scope": "window",
+						"order": 55,
+						"tags": [
+							"experimental"
+						]
+					},
 					"gitlens.terminal.overrideGitEditor": {
 						"type": "boolean",
 						"default": true,
