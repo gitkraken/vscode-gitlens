@@ -458,13 +458,23 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				action: 'gitlens.graph.compareWithWorking',
 			});
 		} else if (b.worktree) {
-			actions.push({ icon: 'window', label: 'Open Worktree...', action: 'gitlens.openWorktree:graph' });
+			actions.push({
+				icon: 'window',
+				label: 'Open Worktree...',
+				action: 'gitlens.openWorktree:graph',
+				altIcon: 'empty-window',
+				altLabel: 'Open Worktree in New Window...',
+				altAction: 'gitlens.openWorktreeInNewWindow:graph',
+			});
 		} else {
 			actions.push({ icon: 'gl-switch', label: 'Switch to Branch...', action: 'gitlens.switchToBranch:graph' });
 			actions.push({
 				icon: 'compare-changes',
 				label: 'Compare with HEAD',
 				action: 'gitlens.graph.compareBranchWithHead',
+				altIcon: 'gl-compare-ref-working',
+				altLabel: 'Compare with Working Tree',
+				altAction: 'gitlens.graph.compareWithWorking',
 			});
 		}
 		if (b.tracking?.behind) {
@@ -522,7 +532,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				],
 				actions: w.opened
 					? []
-					: [{ icon: 'window', label: 'Open Worktree...', action: 'gitlens.openWorktree:graph' }],
+					: [
+							{
+								icon: 'window',
+								label: 'Open Worktree...',
+								action: 'gitlens.openWorktree:graph',
+								altIcon: 'empty-window',
+								altLabel: 'Open Worktree in New Window...',
+								altAction: 'gitlens.openWorktreeInNewWindow:graph',
+							},
+						],
 				menuContext: w.menuContext,
 			};
 		};
@@ -662,7 +681,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private handleTreeItemAction(e: CustomEvent<TreeItemActionDetail>) {
 		const action = e.detail.action;
 		const node = e.detail.node as TreeModelFlat;
-		this._actions?.executeAction(action.action, node.contextData as string | undefined);
+		const command = e.detail.altKey && action.altAction ? action.altAction : action.action;
+		this._actions?.executeAction(command, node.contextData as string | undefined);
 	}
 
 	private handleTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail & { context?: SidebarItemContext }>) {

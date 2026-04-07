@@ -20,12 +20,15 @@ export interface TreeItemBase {
 	disableCheck?: boolean;
 }
 
-// TODO: add support for modifiers (ctrl, alt, shift, meta)
 export interface TreeItemAction {
 	icon: string;
 	label: string;
 	action: string;
 	arguments?: any[];
+
+	altIcon?: string;
+	altLabel?: string;
+	altAction?: string;
 }
 
 export interface TreeItemDecorationBase {

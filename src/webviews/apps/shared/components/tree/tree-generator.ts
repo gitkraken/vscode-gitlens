@@ -323,6 +323,8 @@ export class GlTreeGenerator extends GlElement {
 				slot="actions"
 				.icon=${action.icon}
 				.label=${action.label}
+				.altIcon=${action.altIcon}
+				.altLabel=${action.altLabel}
 				@click=${(e: MouseEvent) => this.onTreeItemActionClicked(e, model, action, false)}
 				@dblclick=${(e: MouseEvent) => this.onTreeItemActionClicked(e, model, action, true)}
 			></action-item>`;
