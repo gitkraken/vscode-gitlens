@@ -238,3 +238,52 @@ test.describe('MCP — CLI Installation', () => {
 		expect(mode & 0o100).toBeTruthy();
 	});
 });
+
+// ============================================================================
+// Block 3: MCP Registration (IDE-specific)
+// ============================================================================
+
+test.describe('MCP — Registration', () => {
+	test.describe.configure({ mode: 'serial' });
+
+	test('should provide VS Code server definition with correct scheme', async ({ mcpClient }) => {
+		const config = await mcpClient.getMcpConfig();
+		console.log(
+			'[Registration] scheme arg:',
+			config.args.find(a => a.includes('--scheme')),
+		);
+
+		expect(config.args).toContain('--scheme=vscode');
+	});
+
+	test('should provide server definition with gitlens source', async ({ mcpClient }) => {
+		const config = await mcpClient.getMcpConfig();
+		console.log(
+			'[Registration] source arg:',
+			config.args.find(a => a.includes('--source')),
+		);
+
+		expect(config.args).toContain('--source=gitlens');
+	});
+
+	test('should provide server definition with correct host', async ({ mcpClient }) => {
+		const config = await mcpClient.getMcpConfig();
+		console.log(
+			'[Registration] host arg:',
+			config.args.find(a => a.includes('--host')),
+		);
+
+		expect(config.args).toContain('--host=vscode');
+	});
+
+	test('should return cursor scheme when configured for cursor', async ({ mcpClient }) => {
+		// McpClient defaults to vscode host; create config for cursor host
+		const { McpClient } = await import('../helpers/mcpHelper.js');
+		const cursorClient = new McpClient(mcpClient.gkPath, mcpClient.ipcFilePath, 'cursor');
+		const config = await cursorClient.getMcpConfig();
+		console.log('[Registration Cursor] args:', config.args);
+
+		expect(config.args).toContain('--host=cursor');
+		expect(config.args).toContain('--scheme=cursor');
+	});
+});
