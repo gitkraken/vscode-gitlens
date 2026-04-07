@@ -98,3 +98,28 @@ test.describe('MCP — Tool Discovery', () => {
 		expect(first.sort()).toEqual(second.sort());
 	});
 });
+
+test.describe('MCP — Tool Invocation', () => {
+	test('should return an error for unknown tool', async ({ mcpClient }) => {
+		const response = await mcpClient.callTool('nonexistent_tool_12345', {});
+
+		// MCP spec: unknown tool should return an error response, not crash
+		expect(response).toBeDefined();
+		expect(response.error).toBeDefined();
+	});
+
+	test('should return a valid response for a known tool', async ({ mcpClient }) => {
+		const tools = await mcpClient.listTools();
+		expect(tools.length).toBeGreaterThan(0);
+
+		// Pick the first tool that looks safe to call without args
+		const safeToolCandidates = tools.filter(t => /status|list|log|diff|branch/i.test(t));
+		const toolName = safeToolCandidates[0] ?? tools[0];
+
+		const response = await mcpClient.callTool(toolName, {});
+
+		// Should get a response (either result or error), not a timeout/crash
+		expect(response).toBeDefined();
+		expect(response.jsonrpc).toBe('2.0');
+	});
+});
