@@ -63,3 +63,38 @@ test.describe('MCP — Configuration', () => {
 		expect(config.args).not.toContain('--experimental');
 	});
 });
+
+test.describe('MCP — Tool Discovery', () => {
+	test('should return a non-empty list of tools', async ({ mcpClient }) => {
+		const tools = await mcpClient.listTools();
+
+		expect(tools).toBeInstanceOf(Array);
+		expect(tools.length).toBeGreaterThan(0);
+	});
+
+	test('should include git-related tools', async ({ mcpClient }) => {
+		const tools = await mcpClient.listTools();
+		const gitTools = tools.filter(t => /git/i.test(t));
+
+		// The MCP server should expose at least some git-related tools
+		expect(gitTools.length).toBeGreaterThan(0);
+	});
+
+	test('should include gitlens-specific tools', async ({ mcpClient }) => {
+		const tools = await mcpClient.listTools();
+		const gitlensTools = tools.filter(t => t.startsWith('gitlens_'));
+
+		expect(gitlensTools.length).toBeGreaterThan(0);
+		expect(gitlensTools).toContain('gitlens_commit_composer');
+		expect(gitlensTools).toContain('gitlens_launchpad');
+		expect(gitlensTools).toContain('gitlens_start_review');
+		expect(gitlensTools).toContain('gitlens_start_work');
+	});
+
+	test('should return consistent results on repeated calls', async ({ mcpClient }) => {
+		const first = await mcpClient.listTools();
+		const second = await mcpClient.listTools();
+
+		expect(first.sort()).toEqual(second.sort());
+	});
+});
