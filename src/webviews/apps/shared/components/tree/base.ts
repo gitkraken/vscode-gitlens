@@ -56,6 +56,7 @@ export interface TreeItemDecorationTracking extends TreeItemDecorationBase {
 	type: 'tracking';
 	ahead: number;
 	behind: number;
+	missingUpstream?: boolean;
 }
 
 export type TreeItemDecoration =

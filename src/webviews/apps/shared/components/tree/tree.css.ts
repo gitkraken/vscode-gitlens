@@ -275,6 +275,7 @@ export const treeItemStyles = [
 			flex: none;
 			white-space: nowrap;
 			margin-left: 0.4rem;
+			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
 		}
 
 		/* High Contrast Mode Support */

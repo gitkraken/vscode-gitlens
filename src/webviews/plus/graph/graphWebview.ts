@@ -719,7 +719,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const items = sorted.map(b => {
 			// Exclude the default worktree from the worktree indicator (matches view behavior)
-			const hasWorktree = b.worktree != null && b.worktree !== false && !b.worktree.isDefault;
+			const isCheckedOut = b.worktree != null && b.worktree !== false;
+			const hasWorktree = isCheckedOut && !b.worktree.isDefault;
 			const worktree = graph.worktreesByBranch?.get(b.id);
 			const remoteName = b.upstream ? getRemoteNameFromBranchName(b.upstream.name) : undefined;
 			return {
@@ -732,6 +733,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				tracking: b.upstream?.state,
 				worktree: hasWorktree,
 				worktreeOpened: worktree?.opened || undefined,
+				checkedOut: isCheckedOut || undefined,
 				disposition: b.disposition || undefined,
 				date: b.date?.getTime(),
 				providerName: remoteName ? providerByRemote.get(remoteName) : undefined,
@@ -741,7 +743,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					webviewItem: `gitlens:branch${b.current ? '+current' : ''}${
 						b.upstream != null && !b.upstream.missing ? '+tracking' : ''
 					}${hasWorktree ? '+worktree' : ''}${
-						b.current || hasWorktree ? '+checkedout' : ''
+						b.current || isCheckedOut ? '+checkedout' : ''
 					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}`,
 					webviewItemValue: {
 						type: 'branch',

@@ -361,6 +361,8 @@ export class GlTreeGenerator extends GlElement {
 					.ahead=${decoration.ahead}
 					.behind=${decoration.behind}
 					colorized
+					outlined
+					?missingUpstream=${decoration.missingUpstream ?? false}
 				></gl-tracking-pill>`;
 			}
 

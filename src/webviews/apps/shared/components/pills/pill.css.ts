@@ -16,7 +16,7 @@ export const baseStyles = css`
 		border-radius: 0.5rem;
 		font-size: 1rem;
 		font-weight: 500;
-		line-height: normal;
+		line-height: 1;
 		text-transform: uppercase;
 		color: var(--gl-pill-foreground, var(--vscode-foreground));
 		background-color: var(--gl-pill-background, var(--vscode-editorWidget-background));

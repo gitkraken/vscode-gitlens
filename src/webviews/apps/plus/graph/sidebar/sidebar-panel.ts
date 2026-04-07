@@ -101,12 +101,13 @@ interface LeafProps {
 
 function trackingDecorations(
 	tracking: { ahead: number; behind: number } | undefined,
+	missingUpstream?: boolean,
 ): TreeModel<SidebarItemContext>['decorations'] {
 	if (tracking == null) return undefined;
 	const { ahead, behind } = tracking;
 	if (ahead === 0 && behind === 0) return undefined;
 
-	return [{ type: 'tracking', label: 'tracking', ahead: ahead, behind: behind }];
+	return [{ type: 'tracking', label: 'tracking', ahead: ahead, behind: behind, missingUpstream: missingUpstream }];
 }
 
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {
@@ -437,7 +438,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					(t, isTree) => this.toTagLeaf(t, isTree),
 				);
 			case 'worktrees':
-				return this.buildWorktreeTree(data.items as GraphSidebarWorktree[], useTree, compact);
+				return this.buildItemTree(
+					data.items as GraphSidebarWorktree[],
+					useTree,
+					compact,
+					w => (w.isDefault || w.opened || !w.branch ? [w.name] : w.branch.split('/')),
+					(w, isTree) => this.toWorktreeLeaf(w, isTree),
+				);
 			default:
 				return [];
 		}
@@ -446,8 +453,30 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private toBranchLeaf(b: GraphSidebarBranch, isTree: boolean): LeafProps {
 		const actions: TreeItemAction[] = [];
 
-		if (b.current) {
+		if (b.tracking?.behind) {
 			actions.push({
+				icon: 'repo-pull',
+				label: 'Pull',
+				action: 'gitlens.graph.pull',
+				altIcon: 'repo-fetch',
+				altLabel: 'Fetch',
+				altAction: 'gitlens.fetch:graph',
+			});
+		} else if (b.tracking?.ahead) {
+			actions.push({ icon: 'repo-push', label: 'Push', action: 'gitlens.graph.push' });
+		} else if (b.upstream && !b.upstream.missing) {
+			actions.push({
+				icon: 'repo-fetch',
+				label: 'Fetch',
+				action: 'gitlens.fetch:graph',
+				altIcon: 'repo-pull',
+				altLabel: 'Pull',
+				altAction: 'gitlens.graph.pull',
+			});
+		}
+
+		if (b.current) {
+			actions.unshift({
 				icon: 'gl-switch',
 				label: 'Switch to Another Branch...',
 				action: 'gitlens.switchToAnotherBranch:graph',
@@ -457,7 +486,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				label: 'Compare with Working Tree',
 				action: 'gitlens.graph.compareWithWorking',
 			});
-		} else if (b.worktree) {
+		} else if (b.checkedOut) {
 			actions.push({
 				icon: 'window',
 				label: 'Open Worktree...',
@@ -467,7 +496,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				altAction: 'gitlens.openWorktreeInNewWindow:graph',
 			});
 		} else {
-			actions.push({ icon: 'gl-switch', label: 'Switch to Branch...', action: 'gitlens.switchToBranch:graph' });
+			actions.unshift({
+				icon: 'gl-switch',
+				label: 'Switch to Branch...',
+				action: 'gitlens.switchToBranch:graph',
+			});
 			actions.push({
 				icon: 'compare-changes',
 				label: 'Compare with HEAD',
@@ -477,12 +510,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				altAction: 'gitlens.graph.compareWithWorking',
 			});
 		}
-		if (b.tracking?.behind) {
-			actions.push({ icon: 'repo-pull', label: 'Pull', action: 'gitlens.graph.pull' });
-		}
-		if (b.tracking?.ahead) {
-			actions.push({ icon: 'repo-push', label: 'Push', action: 'gitlens.graph.push' });
-		}
 
 		return {
 			label: isTree ? (b.name.split('/').pop() ?? b.name) : b.name,
@@ -491,7 +518,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			icon: { type: 'branch', status: b.status, worktree: b.worktree },
 			description: b.date != null ? fromNow(b.date) : undefined,
 			context: [b.sha] as SidebarItemContext,
-			decorations: trackingDecorations(b.tracking),
+			decorations: trackingDecorations(b.tracking, b.upstream?.missing),
 			actions: actions,
 			menuContext: b.menuContext,
 		};
@@ -510,53 +537,58 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		};
 	}
 
-	private buildWorktreeTree(
-		worktrees: GraphSidebarWorktree[],
-		useTree: boolean,
-		compact: boolean,
-	): TreeModel<SidebarItemContext>[] {
-		const toLeaf = (w: GraphSidebarWorktree, isTree: boolean): LeafProps => {
-			const branchName = w.branch ?? w.name;
-			const desc = formatWorktreeDescription(w);
-			return {
-				label: isTree ? (branchName.split('/').pop() ?? branchName) : branchName,
-				filterText: isTree ? branchName : undefined,
-				tooltip: worktreeTooltip(w),
-				icon: { type: 'branch', status: w.status, hasChanges: w.hasChanges },
-				description: desc,
-				context: [w.sha] as SidebarItemContext,
-				decorations: [
-					...(trackingDecorations(w.tracking) ?? []),
-					...(w.opened ? [{ type: 'icon' as const, icon: 'check', label: 'Active' }] : []),
-					...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: 'Locked' }] : []),
-				],
-				actions: w.opened
-					? []
-					: [
-							{
-								icon: 'window',
-								label: 'Open Worktree...',
-								action: 'gitlens.openWorktree:graph',
-								altIcon: 'empty-window',
-								altLabel: 'Open Worktree in New Window...',
-								altAction: 'gitlens.openWorktreeInNewWindow:graph',
-							},
-						],
-				menuContext: w.menuContext,
-			};
-		};
+	private toWorktreeLeaf(w: GraphSidebarWorktree, isTree: boolean): LeafProps {
+		const branchName = w.branch ?? w.name;
 
-		if (!useTree || !compact) {
-			return worktrees.map(w => leafToTreeModel(toLeaf(w, false), w.uri, 1));
+		const actions: TreeItemAction[] = [];
+		if (w.tracking?.behind) {
+			actions.push({
+				icon: 'repo-pull',
+				label: 'Pull',
+				action: 'gitlens.graph.pull',
+				altIcon: 'repo-fetch',
+				altLabel: 'Fetch',
+				altAction: 'gitlens.fetch:graph',
+			});
+		} else if (w.tracking?.ahead) {
+			actions.push({ icon: 'repo-push', label: 'Push', action: 'gitlens.graph.push' });
+		} else if (w.upstream) {
+			actions.push({
+				icon: 'repo-fetch',
+				label: 'Fetch',
+				action: 'gitlens.fetch:graph',
+				altIcon: 'repo-pull',
+				altLabel: 'Pull',
+				altAction: 'gitlens.graph.pull',
+			});
 		}
 
-		return this.buildItemTree(
-			worktrees,
-			true,
-			compact,
-			w => (w.isDefault || w.opened || !w.branch ? [w.name] : w.branch.split('/')),
-			(w, isTree) => toLeaf(w, isTree),
-		);
+		if (!w.opened) {
+			actions.push({
+				icon: 'window',
+				label: 'Open Worktree...',
+				action: 'gitlens.openWorktree:graph',
+				altIcon: 'empty-window',
+				altLabel: 'Open Worktree in New Window...',
+				altAction: 'gitlens.openWorktreeInNewWindow:graph',
+			});
+		}
+
+		return {
+			label: isTree ? (branchName.split('/').pop() ?? branchName) : branchName,
+			filterText: isTree ? branchName : undefined,
+			tooltip: worktreeTooltip(w),
+			icon: { type: 'branch', status: w.status, hasChanges: w.hasChanges },
+			description: formatWorktreeDescription(w),
+			context: [w.sha] as SidebarItemContext,
+			decorations: [
+				...(trackingDecorations(w.tracking) ?? []),
+				...(w.opened ? [{ type: 'icon' as const, icon: 'check', label: 'Active' }] : []),
+				...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: 'Locked' }] : []),
+			],
+			actions: actions,
+			menuContext: w.menuContext,
+		};
 	}
 
 	private buildRemoteTree(

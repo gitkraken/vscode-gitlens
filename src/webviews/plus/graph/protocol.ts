@@ -445,6 +445,7 @@ export interface GraphSidebarBranch {
 	tracking?: { ahead: number; behind: number };
 	worktree?: boolean;
 	worktreeOpened?: boolean;
+	checkedOut?: boolean;
 	disposition?: string;
 	date?: number;
 	providerName?: string;
