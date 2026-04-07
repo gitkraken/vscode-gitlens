@@ -287,3 +287,67 @@ test.describe('MCP — Registration', () => {
 		expect(config.args).toContain('--scheme=cursor');
 	});
 });
+
+// ============================================================================
+// Block 4: Settings & Feature Flags
+// ============================================================================
+
+test.describe('MCP — Settings & Feature Flags', () => {
+	test.describe.configure({ mode: 'serial' });
+
+	test('should include --insiders in args when insiders option is set', async ({ mcpClient }) => {
+		const config = await mcpClient.getMcpConfig({ insiders: true });
+		console.log('[Settings Insiders] args:', config.args);
+
+		expect(config).toBeDefined();
+		expect(config.type).toBe('stdio');
+		expect(config.args).toContain('--insiders');
+	});
+
+	test('should not include --insiders in args by default', async ({ mcpClient }) => {
+		const config = await mcpClient.getMcpConfig();
+		console.log('[Settings Default] args:', config.args);
+
+		expect(config).toBeDefined();
+		expect(config.args).not.toContain('--insiders');
+	});
+});
+
+// ============================================================================
+// Block 5: Error Resilience
+// ============================================================================
+
+test.describe('MCP — Error Resilience', () => {
+	test.describe.configure({ mode: 'serial' });
+
+	test('should return valid config even without IPC file', async ({ mcpClient }) => {
+		const { McpClient } = await import('../helpers/mcpHelper.js');
+		const noIpcClient = new McpClient(mcpClient.gkPath, undefined);
+		const config = await noIpcClient.getMcpConfig();
+		console.log('[Resilience NoIPC Config] name:', config.name, 'type:', config.type);
+
+		expect(config).toBeDefined();
+		expect(config.name).toBeTruthy();
+		expect(config.type).toBe('stdio');
+	});
+
+	test('should list tools even without IPC file', async ({ mcpClient }) => {
+		const { McpClient } = await import('../helpers/mcpHelper.js');
+		const noIpcClient = new McpClient(mcpClient.gkPath, undefined);
+		const tools = await noIpcClient.listTools();
+		console.log('[Resilience NoIPC Tools] count:', tools.length);
+
+		expect(tools).toBeInstanceOf(Array);
+		expect(tools.length).toBeGreaterThan(0);
+	});
+
+	test('should handle tool call gracefully without IPC file', async ({ mcpClient }) => {
+		const { McpClient } = await import('../helpers/mcpHelper.js');
+		const noIpcClient = new McpClient(mcpClient.gkPath, undefined);
+		const response = await noIpcClient.callTool('nonexistent_tool', {});
+		console.log('[Resilience NoIPC Call] response:', JSON.stringify(response).slice(0, 200));
+
+		expect(response).toBeDefined();
+		expect(response.jsonrpc).toBe('2.0');
+	});
+});
