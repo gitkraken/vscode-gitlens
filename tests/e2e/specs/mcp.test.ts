@@ -130,3 +130,64 @@ test.describe('MCP — Tool Invocation', () => {
 		expect(response.jsonrpc).toBe('2.0');
 	});
 });
+
+// ============================================================================
+// Block 2: IPC Discovery
+// ============================================================================
+
+test.describe('MCP — IPC Discovery', () => {
+	test.describe.configure({ mode: 'serial' });
+
+	test('should create IPC discovery file for current VS Code PID', async ({ mcpClient, vscode }) => {
+		const ipcPath = mcpClient.ipcFilePath;
+		const pid = vscode.electron.app.process().pid;
+		console.log('[IPC Discovery] pid:', pid);
+		console.log('[IPC Discovery] ipcFilePath:', ipcPath ?? 'NOT FOUND');
+
+		// IPC file may not exist if workspace has no folders (e.g. temp dir opened as file)
+		// In E2E tests with a workspace, it should be present
+		if (ipcPath != null) {
+			expect(existsSync(ipcPath)).toBe(true);
+			expect(ipcPath).toContain(`gitlens-ipc-server-${pid}-`);
+		}
+	});
+
+	test('should contain valid IPC discovery data', async ({ mcpClient }) => {
+		const ipcPath = mcpClient.ipcFilePath;
+		test.skip(ipcPath == null, 'No IPC discovery file available');
+
+		const data = readIpcDiscoveryFile(ipcPath!);
+		console.log('[IPC Data] contents:', JSON.stringify(data, null, 2));
+
+		expect(data).toBeDefined();
+		expect(data!.token).toBeTruthy();
+		expect(data!.address).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+		expect(data!.port).toBeGreaterThan(0);
+		expect(data!.pid).toBeGreaterThan(0);
+		expect(data!.scheme).toBeTruthy();
+	});
+
+	test('should include workspace paths in discovery data', async ({ mcpClient }) => {
+		const ipcPath = mcpClient.ipcFilePath;
+		test.skip(ipcPath == null, 'No IPC discovery file available');
+
+		const data = readIpcDiscoveryFile(ipcPath!);
+		console.log('[IPC Workspace] paths:', data?.workspacePaths);
+
+		expect(data).toBeDefined();
+		expect(data!.workspacePaths).toBeInstanceOf(Array);
+		expect(data!.workspacePaths!.length).toBeGreaterThan(0);
+	});
+
+	test('should include IDE metadata in discovery data', async ({ mcpClient }) => {
+		const ipcPath = mcpClient.ipcFilePath;
+		test.skip(ipcPath == null, 'No IPC discovery file available');
+
+		const data = readIpcDiscoveryFile(ipcPath!);
+		console.log('[IPC IDE] ideName:', data?.ideName, 'scheme:', data?.scheme);
+
+		expect(data).toBeDefined();
+		// E2E tests run in VS Code
+		expect(data!.scheme).toBe('vscode');
+	});
+});
