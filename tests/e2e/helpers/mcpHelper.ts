@@ -22,6 +22,30 @@ export type McpConfigResult = {
 	version?: string;
 };
 
+export type IpcDiscoveryData = {
+	token: string;
+	address: string;
+	port: number;
+	pid: number;
+	workspacePaths?: string[];
+	ideName?: string;
+	ideDisplayName?: string;
+	scheme?: string;
+	createdAt?: string;
+};
+
+/**
+ * Reads and parses the IPC discovery JSON file.
+ * Returns `undefined` if the file doesn't exist or can't be parsed.
+ */
+export function readIpcDiscoveryFile(filePath: string): IpcDiscoveryData | undefined {
+	try {
+		return JSON.parse(readFileSync(filePath, 'utf8')) as IpcDiscoveryData;
+	} catch {
+		return undefined;
+	}
+}
+
 /**
  * Derives the path to the gk CLI executable from VS Code launch arguments.
  * In E2E tests, gk is installed into the temp user-data-dir, not the real AppData.
