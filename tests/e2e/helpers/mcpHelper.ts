@@ -71,10 +71,17 @@ export function findLatestIpcFile(vscodePid?: number): string | undefined {
 	for (const { fullPath } of candidates) {
 		try {
 			const data = JSON.parse(readFileSync(fullPath, 'utf8')) as { pid: number };
-			process.kill(data.pid, 0); // throws if process is dead
-			return fullPath;
+			try {
+				process.kill(data.pid, 0);
+				return fullPath;
+			} catch (killErr) {
+				const code = (killErr as { code?: string }).code;
+				// EPERM means the process exists but we can't signal it — still valid
+				if (code === 'EPERM') return fullPath;
+				// ESRCH means the process is gone — skip
+			}
 		} catch {
-			// dead process or unreadable file — skip
+			// unreadable or invalid file — skip
 		}
 	}
 	return undefined;
@@ -137,7 +144,10 @@ export class McpClient {
 	 * Calls `gk mcp config <host>` and returns the parsed McpConfiguration.
 	 * Useful for smoke-testing the config output format.
 	 */
-	async getMcpConfig(options?: { experimental?: boolean; insiders?: boolean }): Promise<McpConfigResult> {
+	async getMcpConfig(
+		options?: { experimental?: boolean; insiders?: boolean },
+		timeoutMs = 30_000,
+	): Promise<McpConfigResult> {
 		const args = ['mcp', 'config', this.host, '--source=gitlens', `--scheme=${this.host}`];
 		if (options?.experimental) {
 			args.push('--experimental');
@@ -152,11 +162,26 @@ export class McpClient {
 				stdio: ['pipe', 'pipe', 'pipe'],
 			});
 
+			let settled = false;
 			let stdout = '';
 			let stderr = '';
 			proc.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
 			proc.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+
+			const timer = setTimeout(() => {
+				if (!settled) {
+					settled = true;
+					proc.kill();
+					reject(
+						new Error(`gk mcp config timed out after ${timeoutMs}ms${stderr ? `\nstderr: ${stderr}` : ''}`),
+					);
+				}
+			}, timeoutMs);
+
 			proc.on('close', (code: number | null) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
 				// Strip "checking for updates..." noise before parsing
 				const clean = stdout.replace(/checking for updates\.\.\./gi, '').trim();
 				if (code != null && code !== 0) {
@@ -177,7 +202,13 @@ export class McpClient {
 					);
 				}
 			});
-			proc.on('error', reject);
+			proc.on('error', (err: Error) => {
+				if (!settled) {
+					settled = true;
+					clearTimeout(timer);
+					reject(err);
+				}
+			});
 		});
 	}
 
@@ -222,7 +253,13 @@ export class McpClient {
 
 			let resolved = false;
 			let stderr = '';
+			let exitCode: number | null = null;
+			let exitSignal: string | null = null;
 			proc.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+			proc.on('close', (code, signal) => {
+				exitCode = code;
+				exitSignal = signal;
+			});
 
 			const timer = setTimeout(() => {
 				if (!resolved) {
@@ -270,9 +307,11 @@ export class McpClient {
 				if (!resolved) {
 					resolved = true;
 					clearTimeout(timer);
+					const exitInfo =
+						exitCode != null ? `code=${exitCode}` : exitSignal != null ? `signal=${exitSignal}` : 'unknown';
 					reject(
 						new Error(
-							`McpClient: process exited before response id=${targetId} was received${stderr ? `\nstderr: ${stderr}` : ''}`,
+							`McpClient: process exited (${exitInfo}) before response id=${targetId} was received${stderr ? `\nstderr: ${stderr}` : ''}`,
 						),
 					);
 				}
