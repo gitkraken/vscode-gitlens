@@ -9,13 +9,16 @@
  * Uses the mcpTest fixture which provides a ready-to-use McpClient
  * connected to the gk CLI installed by the current VS Code instance.
  */
-import { expect, mcpTest as test } from '../fixtures/mcp.js';
-
-// MCP tests run serially on a single VS Code worker instance.
-// The gk CLI is shared state — parallel calls can cause port/IPC conflicts.
-test.describe.configure({ mode: 'serial' });
+import { existsSync, statSync } from 'node:fs';
+import * as process from 'node:process';
+import { expect, mcpTest as test, readIpcDiscoveryFile } from '../fixtures/mcp.js';
 
 test.describe('MCP — Configuration', () => {
+	// Tests within each block run serially (shared gk CLI state),
+	// but blocks themselves are independent — a failure in one block
+	// does not prevent other blocks from running.
+	test.describe.configure({ mode: 'serial' });
+
 	test('should return valid server configuration from getMcpConfig', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig();
 
@@ -65,6 +68,8 @@ test.describe('MCP — Configuration', () => {
 });
 
 test.describe('MCP — Tool Discovery', () => {
+	test.describe.configure({ mode: 'serial' });
+
 	test('should return a non-empty list of tools', async ({ mcpClient }) => {
 		const tools = await mcpClient.listTools();
 
@@ -100,6 +105,8 @@ test.describe('MCP — Tool Discovery', () => {
 });
 
 test.describe('MCP — Tool Invocation', () => {
+	test.describe.configure({ mode: 'serial' });
+
 	test('should return an error for unknown tool', async ({ mcpClient }) => {
 		const response = await mcpClient.callTool('nonexistent_tool_12345', {});
 
