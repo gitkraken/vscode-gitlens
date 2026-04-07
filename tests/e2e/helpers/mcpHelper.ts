@@ -103,6 +103,9 @@ export class McpClient {
 			],
 			2,
 		);
+		if (msg?.error) {
+			throw new Error(`MCP tools/list failed: [${msg.error.code}] ${msg.error.message}`);
+		}
 		return ((msg?.result as { tools?: { name: string }[] })?.tools ?? []).map(t => t.name);
 	}
 
@@ -142,9 +145,17 @@ export class McpClient {
 			let stderr = '';
 			proc.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
 			proc.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
-			proc.on('close', () => {
+			proc.on('close', (code: number | null) => {
 				// Strip "checking for updates..." noise before parsing
 				const clean = stdout.replace(/checking for updates\.\.\./gi, '').trim();
+				if (code != null && code !== 0) {
+					reject(
+						new Error(
+							`gk mcp config exited with code ${code}: ${clean.slice(0, 200)}${stderr ? `\nstderr: ${stderr}` : ''}`,
+						),
+					);
+					return;
+				}
 				try {
 					resolve(JSON.parse(clean) as McpConfigResult);
 				} catch {
@@ -246,7 +257,11 @@ export class McpClient {
 				if (!resolved) {
 					resolved = true;
 					clearTimeout(timer);
-					resolve(undefined);
+					reject(
+						new Error(
+							`McpClient: process exited before response id=${targetId} was received${stderr ? `\nstderr: ${stderr}` : ''}`,
+						),
+					);
 				}
 			});
 
