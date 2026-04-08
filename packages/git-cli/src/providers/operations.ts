@@ -533,11 +533,19 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	async rebase(
 		repoPath: string,
 		upstream: string,
-		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string; updateRefs?: boolean },
+		options?: {
+			autoStash?: boolean;
+			branch?: string;
+			editor?: string;
+			interactive?: boolean;
+			onto?: string;
+			updateRefs?: boolean;
+		},
 	): Promise<void> {
 		const scope = getScopedLogger();
 
 		const args = ['rebase'];
+		let configs: string[] | undefined;
 
 		if (options?.autoStash !== false) {
 			args.push('--autostash');
@@ -545,6 +553,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options?.interactive) {
 			args.push('--interactive');
+
+			if (options.editor) {
+				configs = ['-c', `sequence.editor=${options.editor}`];
+			}
 		}
 
 		if (options?.updateRefs) {
@@ -564,7 +576,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.exec(
 				// Avoid a timeout since rebases can take a long time (set to 0 to disable)
-				{ cwd: repoPath, errors: 'throw', timeout: 0 },
+				{ cwd: repoPath, errors: 'throw', configs: configs, timeout: 0 },
 				...args,
 			);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');

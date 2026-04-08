@@ -8,6 +8,7 @@ import type {
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../container.js';
 import {
@@ -128,58 +129,75 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	): Promise<void> {
 		const scope = getScopedLogger();
 
-		void this.container.usage.track(`${descriptor.trackingFeature}:shown`).catch();
+		try {
+			void this.container.usage.track(`${descriptor.trackingFeature}:shown`).catch();
 
-		const key = document.uri.toString();
+			const key = document.uri.toString();
 
-		// Dispose any existing controller for this document, (shouldn't happen due to supportsMultipleEditorsPerDocument being false)
-		const existing = this._controllers.get(key);
-		if (existing != null) {
-			scope?.trace(`Disposing existing rebase editor controller for ${key}:${existing.instanceId}`);
-			existing.dispose();
-			this._controllers.delete(key);
-		}
-
-		const repoUri = await getRepoUriFromRebaseTodo(document.uri);
-		const svc = this.container.git.getRepositoryService(repoUri);
-		const branch = await svc.branches.getBranch();
-
-		// Set panel title and icon
-		panel.title = `${descriptor.title}${branch?.name ? ` (${branch.name})` : ''}`;
-		panel.iconPath = Uri.file(this.container.context.asAbsolutePath(descriptor.iconPath));
-
-		panel.webview.options = {
-			enableCommandUris: true,
-			enableScripts: true,
-			localResourceRoots: [Uri.file(this.container.context.extensionPath)],
-			...descriptor.webviewOptions,
-		};
-
-		const controller = await WebviewController.create<'gitlens.rebase', State>(
-			this.container,
-			this.commandRegistrar,
-			descriptor,
-			uuid(),
-			panel,
-			async (container, host) => {
-				const { RebaseWebviewProvider } = await import(
-					/* webpackChunkName: "webview-rebase" */ './rebaseWebviewProvider.js'
-				);
-				return new RebaseWebviewProvider(container, host, document, svc.path);
-			},
-		);
-		this._controllers.set(key, controller);
-
-		const subscriptions: Disposable[] = [
-			controller.onDidDispose(() => {
-				scope?.trace(`Disposing rebase editor controller (${key}:${controller.instanceId})`);
-
+			// Dispose any existing controller for this document, (shouldn't happen due to supportsMultipleEditorsPerDocument being false)
+			const existing = this._controllers.get(key);
+			if (existing != null) {
+				scope?.trace(`Disposing existing rebase editor controller for ${key}:${existing.instanceId}`);
+				existing.dispose();
 				this._controllers.delete(key);
-				Disposable.from(...subscriptions).dispose();
-			}),
-			controller,
-		];
+			}
 
-		await controller.show(true, { preserveFocus: false }).catch();
+			const repoUri = await getRepoUriFromRebaseTodo(document.uri);
+
+			let repoPath: string;
+			let branchName: string | undefined;
+			try {
+				const svc = this.container.git.getRepositoryService(repoUri);
+				repoPath = svc.path;
+				const branch = await svc.branches.getBranch();
+				branchName = branch?.name;
+			} catch (ex) {
+				Logger.error(ex, 'RebaseEditorProvider', `Failed to resolve repository for ${repoUri.toString()}`);
+				repoPath = repoUri.fsPath;
+			}
+
+			// Set panel title and icon
+			panel.title = `${descriptor.title}${branchName ? ` (${branchName})` : ''}`;
+			panel.iconPath = Uri.file(this.container.context.asAbsolutePath(descriptor.iconPath));
+
+			panel.webview.options = {
+				enableCommandUris: true,
+				enableScripts: true,
+				localResourceRoots: [Uri.file(this.container.context.extensionPath)],
+				...descriptor.webviewOptions,
+			};
+
+			const controller = await WebviewController.create<'gitlens.rebase', State>(
+				this.container,
+				this.commandRegistrar,
+				descriptor,
+				uuid(),
+				panel,
+				async (container, host) => {
+					const { RebaseWebviewProvider } = await import(
+						/* webpackChunkName: "webview-rebase" */ './rebaseWebviewProvider.js'
+					);
+					return new RebaseWebviewProvider(container, host, document, repoPath);
+				},
+			);
+			this._controllers.set(key, controller);
+
+			const subscriptions: Disposable[] = [
+				controller.onDidDispose(() => {
+					scope?.trace(`Disposing rebase editor controller (${key}:${controller.instanceId})`);
+
+					this._controllers.delete(key);
+					Disposable.from(...subscriptions).dispose();
+				}),
+				controller,
+			];
+
+			await controller.show(true, { preserveFocus: false }).catch();
+		} catch (ex) {
+			Logger.error(ex, 'RebaseEditorProvider', `Failed to open rebase editor for ${document.uri.toString()}`);
+			void window.showErrorMessage(
+				'GitLens was unable to open the Interactive Rebase Editor. Falling back to the text editor.',
+			);
+		}
 	}
 }

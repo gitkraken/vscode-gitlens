@@ -44,6 +44,7 @@ export interface GitOperationsSubProvider {
 		options?: {
 			autoStash?: boolean;
 			branch?: string;
+			editor?: string;
 			interactive?: boolean;
 			onto?: string;
 			updateRefs?: boolean;

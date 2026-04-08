@@ -20,6 +20,7 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { executeCommand } from '../../system/-webview/command.js';
+import { getHostEditorCommand } from '../../system/-webview/vscode.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
@@ -106,6 +107,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		try {
 			await state.repo.git.ops?.rebase(state.destination.ref, {
+				editor: interactive ? await getHostEditorCommand(true) : undefined,
 				interactive: interactive,
 				updateRefs: updateRefs,
 			});
