@@ -64,11 +64,9 @@ export function groupRepositories(repositories: Iterable<GlRepository>): Map<GlR
 
 		// If no common URI, this is a main repo (or standalone)
 		if (commonUri == null) {
-			if (result.has(repo.id)) {
-				debugger;
+			if (!result.has(repo.id)) {
+				result.set(repo.id, { repo: repo, children: new Map() });
 			}
-
-			result.set(repo.id, { repo: repo, children: new Map() });
 			continue;
 		}
 
@@ -85,11 +83,9 @@ export function groupRepositories(repositories: Iterable<GlRepository>): Map<GlR
 		const commonRepo = reposByUri.get(commonUri);
 		if (commonRepo == null) {
 			// Common repo not in the list, treat this worktree as standalone
-			if (result.has(repo.id)) {
-				debugger;
+			if (!result.has(repo.id)) {
+				result.set(repo.id, { repo: repo, children: new Map() });
 			}
-
-			result.set(repo.id, { repo: repo, children: new Map() });
 			continue;
 		}
 
