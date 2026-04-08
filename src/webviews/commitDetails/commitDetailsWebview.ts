@@ -19,6 +19,7 @@ import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessa
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { ExplainCommitCommandArgs } from '../../commands/explainCommit.js';
+import type { ExplainStashCommandArgs } from '../../commands/explainStash.js';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip.js';
 import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote.js';
 import type { OpenOnRemoteCommandArgs } from '../../commands/openOnRemote.js';
@@ -123,7 +124,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	// so getInitialContext() can tell the webview what to load.
 	// This is NOT cached domain data - just the request parameters.
 	private _showingMode: Mode = 'commit';
-	private _showingCommitRef: { repoPath: string; sha: string } | undefined;
+	private _showingCommitRef: { repoPath: string; sha: string; refType?: GitRevisionReference['refType'] } | undefined;
 	private _showingWipRepoPath: string | undefined;
 	private _showingInReview = false;
 	private _showingSource: Sources | undefined;
@@ -268,7 +269,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		if (data?.commit != null) {
 			const ref = getReferenceFromRevision(data.commit);
 			this._commitStack.insert(ref);
-			this._showingCommitRef = { repoPath: ref.repoPath, sha: ref.ref };
+			this._showingCommitRef = { repoPath: ref.repoPath, sha: ref.ref, refType: ref.refType };
 		} else {
 			// No explicit commit - try to resolve from event cache / line tracker
 			this._showingCommitRef = this.resolveCurrentCommitRef();
@@ -428,8 +429,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		}
 
 		// Add to navigation stack and track what's being shown
-		this._commitStack.insert(getReferenceFromRevision(e.data.commit));
-		this._showingCommitRef = { repoPath: e.data.commit.repoPath, sha: e.data.commit.ref };
+		const ref = getReferenceFromRevision(e.data.commit);
+		this._commitStack.insert(ref);
+		this._showingCommitRef = { repoPath: ref.repoPath, sha: ref.ref, refType: ref.refType };
 
 		// Forward event to webview - let webview decide what to do based on its state
 		this._onCommitSelected.fire({
@@ -513,15 +515,17 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 					repoPath: repoPath,
 					source: { source: this.getTelemetrySource(), context: { type: 'wip' } },
 				});
+			} else if (this._showingCommitRef?.refType === 'stash') {
+				await executeCommand<ExplainStashCommandArgs>('gitlens.ai.explainStash', {
+					repoPath: repoPath,
+					rev: sha,
+					source: { source: this.getTelemetrySource(), context: { type: 'stash' } },
+				});
 			} else {
-				// TODO: Detect stash commits - for now assume regular commit
 				await executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
 					repoPath: repoPath,
 					rev: sha,
-					source: {
-						source: this.getTelemetrySource(),
-						context: { type: 'commit' },
-					},
+					source: { source: this.getTelemetrySource(), context: { type: 'commit' } },
 				});
 			}
 			signal?.throwIfAborted();
@@ -567,7 +571,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		let selectedCommit: NavigateResult['selectedCommit'];
 		if (commit != null) {
 			// Track what's being shown so file actions know which commit to use
-			this._showingCommitRef = { repoPath: commit.repoPath, sha: commit.ref };
+			this._showingCommitRef = { repoPath: commit.repoPath, sha: commit.ref, refType: commit.refType };
 			selectedCommit = { repoPath: commit.repoPath, sha: commit.ref };
 		}
 
@@ -1391,11 +1395,17 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 				getCommit: async (repoPath: string, sha: string, signal?: AbortSignal) => {
 					signal?.throwIfAborted();
-					const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha);
+					const svc = this.container.git.getRepositoryService(repoPath);
+					let commit: GitCommit | undefined;
+					if (this._showingCommitRef?.refType === 'stash') {
+						const stash = await svc.stash?.getStash();
+						commit = stash?.stashes.get(sha);
+					}
+					commit ??= await svc.commits.getCommit(sha);
 					if (commit == null) return undefined;
 					signal?.throwIfAborted();
 					// Track what the webview is showing so file actions know which commit to use
-					this._showingCommitRef = { repoPath: repoPath, sha: sha };
+					this._showingCommitRef = { repoPath: repoPath, sha: sha, refType: commit.refType };
 					const details = await this.getCoreCommitDetails(commit);
 					signal?.throwIfAborted();
 					return details;
