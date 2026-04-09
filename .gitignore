@@ -3,6 +3,7 @@
 .claude/worktrees/**
 .codex
 .DS_Store
+.work/
 .eslintcache*
 .superpowers
 .tasks
