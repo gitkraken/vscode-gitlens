@@ -323,7 +323,7 @@ export const rebaseStyles = css`
 		display: block;
 		min-height: 0;
 		overflow-x: hidden !important;
-		overflow-y: visible;
+		overflow-y: auto;
 		outline: none;
 		margin: 0.5rem 1rem;
 		box-sizing: border-box;
@@ -388,51 +388,51 @@ export const rebaseStyles = css`
 	}
 
 	/* ==========================================================================
-	   Conflict Divider & Panel
+	   Conflict Split Panel
 	   ========================================================================== */
 
-	.conflict-divider {
-		flex: none;
-		height: 6px;
-		margin: 0 1rem;
-		cursor: row-resize;
-		position: relative;
-		z-index: 2;
+	.entries-panel {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+
+		> .entries {
+			border-bottom: none;
+		}
 	}
 
-	.conflict-divider::after {
-		content: '';
-		position: absolute;
-		left: 0;
-		right: 0;
-		top: 50%;
-		transform: translateY(-50%);
-		height: 1px;
-		background: var(--vscode-sideBarSectionHeader-border);
-		transition:
-			height 0.1s,
-			background-color 0.1s;
-	}
+	.conflict-split {
+		flex: 1 1 0;
+		min-height: 0;
 
-	.conflict-divider:hover::after,
-	.conflict-divider:focus-visible::after {
-		height: 2px;
-		background-color: var(--vscode-focusBorder);
-	}
+		&::part(divider) {
+			background-image: linear-gradient(
+				var(--vscode-sideBarSectionHeader-border, rgba(128, 128, 128, 0.35)),
+				var(--vscode-sideBarSectionHeader-border, rgba(128, 128, 128, 0.35))
+			);
+			background-size: 100% 1px;
+			background-position: center;
+			background-repeat: no-repeat;
+			transition: background-color 0.1s ease-out;
+		}
 
-	@media (prefers-reduced-motion: reduce) {
-		.conflict-divider::after {
-			transition: none;
+		&::part(divider):hover,
+		&[dragging]::part(divider) {
+			background-image: linear-gradient(
+				var(--vscode-sash-hoverBorder, var(--vscode-focusBorder)),
+				var(--vscode-sash-hoverBorder, var(--vscode-focusBorder))
+			);
+			background-size: 100% 100%;
+			transition: background-color 0.1s ease-out 0.2s;
 		}
 	}
 
 	.conflict-panel {
-		flex: 0 1 auto;
 		display: flex;
 		flex-direction: column;
-		margin: 0 1rem;
 		overflow: hidden;
-		min-height: 50px;
+		height: 100%;
+		padding: 0 1rem;
 	}
 
 	.conflict-panel__header {
@@ -445,9 +445,15 @@ export const rebaseStyles = css`
 		flex: none;
 	}
 
+	.conflict-panel__header > span {
+		flex: 1;
+	}
+
 	.conflict-panel__list {
 		flex: 1;
 		min-height: 0;
+		--gl-decoration-before-font-size: 0.8em;
+		--gl-decoration-before-opacity: 0.7;
 	}
 
 	/* ==========================================================================

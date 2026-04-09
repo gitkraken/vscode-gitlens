@@ -9,6 +9,8 @@ import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
+import type { HierarchicalItem } from '@gitlens/utils/array.js';
+import { makeHierarchical } from '@gitlens/utils/array.js';
 import { filterMap, some } from '@gitlens/utils/iterable.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
@@ -64,20 +66,44 @@ import '../shared/components/checkbox/checkbox.js';
 import '../shared/components/commit-sha.js';
 import '../shared/components/overlays/popover-confirm.js';
 import '../shared/components/overlays/tooltip.js';
+import '../shared/components/split-panel/split-panel.js';
 
-const addedColor = 'var(--vscode-gitDecoration-addedResourceForeground)';
-const deletedColor = 'var(--vscode-gitDecoration-deletedResourceForeground)';
-const modifiedColor = 'var(--vscode-gitDecoration-modifiedResourceForeground)';
-
-const conflictStatusInfo: Partial<Record<GitFileConflictStatus, { label: string; color: string }>> = {
-	AA: { label: 'Both Added', color: addedColor },
-	AU: { label: 'Added by Us', color: addedColor },
-	UA: { label: 'Added by Them', color: addedColor },
-	DD: { label: 'Both Deleted', color: deletedColor },
-	DU: { label: 'Deleted by Us', color: deletedColor },
-	UD: { label: 'Deleted by Them', color: deletedColor },
-	UU: { label: 'Both Modified', color: modifiedColor },
+const conflictActions: Record<string, { label: string; color: string }> = {
+	A: { label: 'Added', color: 'var(--vscode-gitDecoration-addedResourceForeground)' },
+	D: { label: 'Deleted', color: 'var(--vscode-gitDecoration-deletedResourceForeground)' },
+	U: { label: 'Modified', color: 'var(--vscode-gitDecoration-modifiedResourceForeground)' },
 };
+
+function getConflictStatusInfo(
+	status: GitFileConflictStatus,
+	branchName?: string,
+): { label: string; color: string; description: string } | undefined {
+	// First char = current (ours in rebase = onto/target), second char = incoming (theirs in rebase = branch)
+	const currentAction = conflictActions[status[0]];
+	const incomingAction = conflictActions[status[1]];
+	if (currentAction == null || incomingAction == null) return undefined;
+
+	const color = currentAction.color === conflictActions.U.color ? incomingAction.color : currentAction.color;
+	const branch = branchName ? `$(git-branch) ${branchName}` : 'incoming';
+
+	if (status[0] === status[1]) {
+		return {
+			label: `${currentAction.label} (Both)`,
+			color: color,
+			description: `${currentAction.label} on both ${branch} and the target`,
+		};
+	}
+
+	return {
+		label: `${currentAction.label} (Current), ${incomingAction.label} (Incoming)`,
+		color: color,
+		description: `${incomingAction.label} on ${branch}\n${currentAction.label} on the target`,
+	};
+}
+
+const filesPanelDefaultPercent = 0.5;
+const filesPanelMinHeight = 40;
+const filesPanelMaxPercent = 0.75; // 75% of the total height
 
 const scrollZonePx = 80;
 const scrollSpeedPx = 8;
@@ -145,11 +171,21 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private _conflictTreeModel: TreeModel[] = [];
 	private _prevConflictFiles: ConflictFileInfo[] | undefined;
 
-	/** Conflict panel divider drag state */
-	@state() private _conflictPanelHeight = 150;
-	private _isDraggingDivider = false;
-	private _dragStartY = 0;
-	private _dragStartHeight = 0;
+	/** Split position in px (height of the entries/start panel). null = not yet measured. */
+	@state() private _splitPosition: number | null = null;
+	@state() private _conflictFilesLayout: 'list' | 'tree' = 'list';
+
+	private _conflictPanelSnap = ({ pos, size }: { pos: number; size: number }) => {
+		const divider = 4;
+		const minPos = size - size * filesPanelMaxPercent; // entries panel min (files panel at max)
+		const maxPos = size - filesPanelMinHeight - divider; // entries panel max (files panel at min)
+		const defaultPos = size * (1 - filesPanelDefaultPercent) - divider;
+
+		if (pos < minPos) return minPos;
+		if (pos > maxPos) return maxPos;
+		if (Math.abs(pos - defaultPos) <= 12) return defaultPos;
+		return pos;
+	};
 
 	/**
 	 * Number of non-editable entries (base + done) at the start of _sortedEntries.
@@ -158,10 +194,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	 */
 	private _editableStartOffset = 0;
 
-	/** Cached conflict panel element reference (lazily queried, cleared on disconnect) */
-	private _conflictPanelEl: HTMLElement | null | undefined;
-	private get conflictPanelEl(): HTMLElement | null {
-		return (this._conflictPanelEl ??= this.shadowRoot?.querySelector<HTMLElement>('.conflict-panel') ?? null);
+	private get hasConflictPanel(): boolean {
+		return (this.state?.conflictFiles?.length ?? 0) > 0 && (this.rebaseStatus?.hasConflicts ?? false);
 	}
 
 	private get ascending(): boolean {
@@ -210,14 +244,6 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	override disconnectedCallback(): void {
 		document.removeEventListener('keydown', this.onDocumentKeyDown);
-		document.removeEventListener('mousemove', this.onDividerMouseMove);
-		document.removeEventListener('mouseup', this.onDividerMouseUp);
-		if (this._isDraggingDivider) {
-			this._isDraggingDivider = false;
-			document.body.style.cursor = '';
-			document.body.style.userSelect = '';
-		}
-		this._conflictPanelEl = undefined;
 		super.disconnectedCallback?.();
 	}
 
@@ -1178,12 +1204,15 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		// Rebuild sorted entries and index map
 		this.refreshIndices();
 
-		// Recompute conflict tree model only when conflictFiles reference changes
+		// Recompute conflict tree model when conflictFiles or layout changes
 		const conflictFiles = this.state?.conflictFiles;
-		if (conflictFiles !== this._prevConflictFiles) {
+		if (conflictFiles !== this._prevConflictFiles || _changedProperties.has('_conflictFilesLayout' as keyof this)) {
 			this._prevConflictFiles = conflictFiles;
 			this._conflictTreeModel = this.buildConflictTreeModel(conflictFiles);
-			this._conflictPanelEl = undefined;
+			// Reset split position when conflicts clear so it re-initializes next time
+			if (this._conflictTreeModel.length === 0) {
+				this._splitPosition = null;
+			}
 		}
 
 		// Set initial focus and selection when entries first arrive
@@ -1220,6 +1249,17 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	protected override updated(_changedProperties: PropertyValues): void {
+		// Initialize split position on first frame after the split panel mounts
+		if (this._splitPosition == null && this.hasConflictPanel) {
+			const splitEl = this.renderRoot?.querySelector<HTMLElement>('.conflict-split');
+			if (splitEl) {
+				const height = splitEl.clientHeight;
+				if (height > 0) {
+					this._splitPosition = height * (1 - filesPanelDefaultPercent) - 4;
+				}
+			}
+		}
+
 		if (!this.pendingFocusId) return;
 
 		const idToFocus = this.pendingFocusId;
@@ -1255,33 +1295,49 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				)}
 				${preservesMerges ? this.renderPreservesMergesBanner() : nothing}
 				<div class="content">
-					${!isEmptyOrNoop
-						? html`<lit-virtualizer
-								role="list"
-								class="entries scrollable ${this.ascending ? 'ascending' : 'descending'}${this
-									.rebaseStatus?.hasConflicts
-									? ' has-conflicts'
-									: ''}"
-								autofocus
-								@click=${this.onListClick}
-								@keydown=${this.onListKeyDown}
-								@dragstart=${this.onDragStart}
-								@dragend=${this.onDragEnd}
-								@dragover=${this.onDragOver}
-								@dragleave=${this.onDragLeave}
-								@drop=${this.onDrop}
-								scroller
-								.items=${this._sortedEntries}
-								.keyFunction=${this.virtualizerKeyFn}
-								.layout=${flow({ direction: 'vertical' })}
-								.renderItem=${this.virtualizerRenderFn}
-							></lit-virtualizer>`
-						: html`<div class="entries-empty">No commits to rebase</div>`}
-					${this.renderConflictPanel()}
+					${this.hasConflictPanel
+						? html`<gl-split-panel
+								class="conflict-split"
+								orientation="vertical"
+								primary="end"
+								.position=${this._splitPosition ?? 0}
+								.snap=${this._conflictPanelSnap}
+								@gl-split-panel-change=${this.onSplitPanelChange}
+							>
+								${!isEmptyOrNoop
+									? html`<div slot="start" class="entries-panel">${this.renderEntries()}</div>`
+									: html`<div slot="start" class="entries-empty">No commits to rebase</div>`}
+								${this.renderConflictPanel()}
+							</gl-split-panel>`
+						: !isEmptyOrNoop
+							? this.renderEntries()
+							: html`<div class="entries-empty">No commits to rebase</div>`}
 				</div>
 				${this.renderFooter()}
 			</div>
 		`;
+	}
+
+	private renderEntries(): unknown {
+		return html`<lit-virtualizer
+			role="list"
+			class="entries scrollable ${this.ascending ? 'ascending' : 'descending'}${this.rebaseStatus?.hasConflicts
+				? ' has-conflicts'
+				: ''}"
+			autofocus
+			@click=${this.onListClick}
+			@keydown=${this.onListKeyDown}
+			@dragstart=${this.onDragStart}
+			@dragend=${this.onDragEnd}
+			@dragover=${this.onDragOver}
+			@dragleave=${this.onDragLeave}
+			@drop=${this.onDrop}
+			scroller
+			.items=${this._sortedEntries}
+			.keyFunction=${this.virtualizerKeyFn}
+			.layout=${flow({ direction: 'vertical' })}
+			.renderItem=${this.virtualizerRenderFn}
+		></lit-virtualizer>`;
 	}
 
 	private renderPreservesMergesBanner() {
@@ -1389,32 +1445,38 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		const conflictFiles = this.state?.conflictFiles;
 		if (!conflictFiles?.length || !this.rebaseStatus?.hasConflicts) return nothing;
 
-		return html`<div
-				class="conflict-divider"
-				role="separator"
-				aria-orientation="horizontal"
-				aria-label="Resize conflict panel"
-				tabindex="0"
-				@mousedown=${this.onDividerMouseDown}
-				@keydown=${this.onDividerKeyDown}
-			></div>
-			<div class="conflict-panel" style="height: ${this._conflictPanelHeight}px">
-				<div class="conflict-panel__header">
-					<code-icon icon="warning" aria-hidden="true"></code-icon>
-					<span>${pluralize('conflicted file', conflictFiles.length)}</span>
-				</div>
-				<gl-tree-generator
-					class="conflict-panel__list"
-					aria-label="${pluralize('conflicted file', conflictFiles.length)}"
-					.model=${this._conflictTreeModel}
-					@gl-tree-generated-item-selected=${this.onConflictTreeItemSelected}
-					@gl-tree-generated-item-action-clicked=${this.onConflictTreeActionClicked}
-				></gl-tree-generator>
-			</div>`;
+		return html`<div slot="end" class="conflict-panel">
+			<div class="conflict-panel__header">
+				<code-icon icon="warning" aria-hidden="true"></code-icon>
+				<span>${pluralize('conflicted file', conflictFiles.length)}</span>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip="${this._conflictFilesLayout === 'tree'
+						? 'Switch to List Layout'
+						: 'Switch to Tree Layout'}"
+					@click=${this.onToggleConflictFilesLayout}
+					><code-icon icon="${this._conflictFilesLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
+				></gl-button>
+			</div>
+			<gl-tree-generator
+				class="conflict-panel__list"
+				filterable
+				filter-placeholder="Filter conflicted files..."
+				aria-label="${pluralize('conflicted file', conflictFiles.length)}"
+				.model=${this._conflictTreeModel}
+				@gl-tree-generated-item-selected=${this.onConflictTreeItemSelected}
+				@gl-tree-generated-item-action-clicked=${this.onConflictTreeActionClicked}
+			></gl-tree-generator>
+		</div>`;
 	}
 
 	private buildConflictTreeModel(conflictFiles: ConflictFileInfo[] | undefined): TreeModel[] {
 		if (!conflictFiles?.length) return [];
+
+		if (this._conflictFilesLayout === 'tree') {
+			return this.buildConflictTreeHierarchy(conflictFiles);
+		}
 
 		return conflictFiles.map(file => {
 			const lastSlash = file.path.lastIndexOf('/');
@@ -1430,6 +1492,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				icon: { type: 'status', name: file.conflictStatus },
 				label: filename,
 				description: dir,
+				tooltip: this.getConflictTooltip(file.conflictStatus, file.conflictCount),
 				actions: [
 					{ icon: 'diff', label: 'Open Current Changes', action: 'current-changes' },
 					{ icon: 'git-compare', label: 'Open Incoming Changes', action: 'incoming-changes' },
@@ -1439,32 +1502,112 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		});
 	}
 
+	private buildConflictTreeHierarchy(conflictFiles: ConflictFileInfo[]): TreeModel[] {
+		const hierarchy = makeHierarchical(
+			conflictFiles,
+			f => f.path.split('/'),
+			(...paths: string[]) => paths.join('/'),
+			true,
+		);
+		return this.walkConflictHierarchy(hierarchy, 1);
+	}
+
+	private walkConflictHierarchy(node: HierarchicalItem<ConflictFileInfo>, level: number): TreeModel[] {
+		const models: TreeModel[] = [];
+
+		if (node.children != null) {
+			for (const child of node.children.values()) {
+				if (child.value != null) {
+					models.push({
+						branch: false,
+						expanded: true,
+						path: child.value.path,
+						level: level,
+						checkable: false,
+						icon: { type: 'status', name: child.value.conflictStatus },
+						label: child.name,
+						tooltip: this.getConflictTooltip(child.value.conflictStatus, child.value.conflictCount),
+						actions: [
+							{ icon: 'diff', label: 'Open Current Changes', action: 'current-changes' },
+							{
+								icon: 'git-compare',
+								label: 'Open Incoming Changes',
+								action: 'incoming-changes',
+							},
+						],
+						decorations: this.getConflictDecorations(child.value.conflictStatus, child.value.conflictCount),
+					});
+				} else if (child.children != null && child.children.size > 0) {
+					const children = this.walkConflictHierarchy(child, level + 1);
+					models.push({
+						branch: true,
+						expanded: true,
+						path: `folder:${child.relativePath}`,
+						level: level,
+						label: child.name,
+						icon: 'folder',
+						checkable: false,
+						children: children,
+					});
+				}
+			}
+		}
+
+		return models;
+	}
+
 	private getConflictDecorations(
 		conflictStatus: GitFileConflictStatus,
 		conflictCount: number | undefined,
 	): TreeItemDecoration[] | undefined {
-		const info = conflictStatusInfo[conflictStatus];
+		const info = getConflictStatusInfo(conflictStatus, this.state?.branch);
 		const decorations: TreeItemDecoration[] = [];
 
 		if (info != null) {
 			decorations.push({
 				type: 'text',
 				label: conflictStatus,
-				tooltip: info.label,
+				tooltip: info.description,
 				color: info.color,
+				position: 'after',
+			});
+			decorations.push({
+				type: 'text',
+				label: info.label,
+				tooltip: info.label,
+				color: 'var(--vscode-descriptionForeground)',
+				position: 'before',
 			});
 		}
 
 		if (conflictCount != null && conflictCount > 0) {
 			decorations.push({
-				type: 'text',
-				label: `${conflictCount}`,
+				type: 'conflict',
+				label: pluralize('conflict', conflictCount),
+				count: conflictCount,
 				tooltip: pluralize('conflict', conflictCount),
-				color: info?.color ?? modifiedColor,
+				color: info?.color ?? conflictActions.U.color,
+				position: 'before',
 			});
 		}
 
 		return decorations.length ? decorations : undefined;
+	}
+
+	private getConflictTooltip(conflictStatus: GitFileConflictStatus, conflictCount: number | undefined): string {
+		const info = getConflictStatusInfo(conflictStatus, this.state?.branch);
+		const parts: string[] = [];
+
+		if (info != null) {
+			parts.push(`**${info.label}** (${conflictStatus})`);
+			parts.push(info.description);
+		}
+
+		if (conflictCount != null && conflictCount > 0) {
+			parts.push(pluralize('conflict', conflictCount));
+		}
+
+		return parts.join('\n\n');
 	}
 
 	private onConflictTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>): void {
@@ -1489,57 +1632,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		this._ipc.sendCommand(OpenConflictFileCommand, { path: path });
 	}
 
-	private onDividerKeyDown = (e: KeyboardEvent) => {
-		const step = e.shiftKey ? 50 : 10;
-		let newHeight: number | undefined;
-
-		switch (e.key) {
-			case 'ArrowUp':
-				newHeight = Math.max(50, this._conflictPanelHeight + step);
-				break;
-			case 'ArrowDown':
-				newHeight = Math.max(50, this._conflictPanelHeight - step);
-				break;
-			default:
-				return;
-		}
-
-		e.preventDefault();
-		this._conflictPanelHeight = newHeight;
+	private onToggleConflictFilesLayout = () => {
+		this._conflictFilesLayout = this._conflictFilesLayout === 'tree' ? 'list' : 'tree';
 	};
 
-	private onDividerMouseDown = (e: MouseEvent) => {
-		e.preventDefault();
-		this._isDraggingDivider = true;
-		this._dragStartY = e.clientY;
-		this._dragStartHeight = this._conflictPanelHeight;
-		document.body.style.cursor = 'row-resize';
-		document.body.style.userSelect = 'none';
-		document.addEventListener('mousemove', this.onDividerMouseMove);
-		document.addEventListener('mouseup', this.onDividerMouseUp);
-	};
-
-	private onDividerMouseMove = (e: MouseEvent) => {
-		if (!this._isDraggingDivider) return;
-
-		// Dragging up increases panel height; CSS flex-shrink constrains the layout
-		const delta = this._dragStartY - e.clientY;
-		const newHeight = Math.max(50, this._dragStartHeight + delta);
-		this._conflictPanelHeight = newHeight;
-
-		// Direct DOM updates for smooth dragging (avoids full Lit re-render)
-		const panel = this.conflictPanelEl;
-		if (panel) {
-			panel.style.height = `${newHeight}px`;
-		}
-	};
-
-	private onDividerMouseUp = () => {
-		this._isDraggingDivider = false;
-		document.body.style.cursor = '';
-		document.body.style.userSelect = '';
-		document.removeEventListener('mousemove', this.onDividerMouseMove);
-		document.removeEventListener('mouseup', this.onDividerMouseUp);
+	private onSplitPanelChange = (e: CustomEvent<{ position: number }>) => {
+		this._splitPosition = e.detail.position;
 	};
 
 	private get showConflictsCommandUrl(): string {
