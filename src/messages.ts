@@ -331,15 +331,17 @@ export async function showMcpMessage(container: Container, _current: string): Pr
 	const isAutoInstallable = mcpRegistrationAllowed(container);
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const learnMore = { title: 'Learn More' };
+	const connectMore = { title: 'Connect More Agents' };
 	const install = { title: 'Install GitKraken MCP' };
 
 	let result: MessageItem | undefined;
 	if (isAutoInstallable) {
 		result = await showMessage(
 			'info',
-			`GitLens adds the GitKraken MCP into your AI chat, leveraging Git and your integrations to provide context and perform actions.`,
+			`GitLens adds the GitKraken MCP into your AI chat, leveraging Git and your integrations to provide context and perform actions. You can also connect MCP to other agents on your machine.`,
 			undefined,
 			null,
+			connectMore,
 			learnMore,
 			confirm,
 		);
@@ -357,6 +359,10 @@ export async function showMcpMessage(container: Container, _current: string): Pr
 
 	if (result === install) {
 		void executeCommand<Source>('gitlens.ai.mcp.install', { source: 'mcp-welcome-message' });
+	}
+
+	if (result === connectMore) {
+		void executeCommand<Source>('gitlens.ai.mcp.selectAgents', { source: 'mcp-welcome-message' });
 	}
 
 	if (result === learnMore) {

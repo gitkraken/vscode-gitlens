@@ -264,8 +264,13 @@ const walkthroughSteps: WalkthroughStep[] = [
 		body: html`
 			<p>
 				GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and
-				perform actions.
+				perform actions. You can also connect MCP to other agents on your machine.
 			</p>
+			<div class="card-part--centered">
+				<gl-button href="${createCommandLink('gitlens.ai.mcp.selectAgents', { source: 'welcome' })}"
+					>Connect More Agents</gl-button
+				>
+			</div>
 			<p><a href="${urls.helpCenterMCP}">Learn more in the Help Center</a></p>
 		`,
 		condition: state => state.mcpNeedsInstall === false && !state.mcpShowCleanupNotice,
@@ -277,8 +282,13 @@ const walkthroughSteps: WalkthroughStep[] = [
 		body: html`
 			<p>
 				GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and
-				perform actions.
+				perform actions. You can also connect MCP to other agents on your machine.
 			</p>
+			<div class="card-part--centered">
+				<gl-button href="${createCommandLink('gitlens.ai.mcp.selectAgents', { source: 'welcome' })}"
+					>Connect More Agents</gl-button
+				>
+			</div>
 			<p>
 				<strong>Note:</strong> You may have a duplicate entry in your Cursor <code>mcp.json</code> from a
 				previous install. Remove <code>mcpServers.GitKraken</code> to clean it up.

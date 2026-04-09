@@ -491,6 +491,16 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 							<span class="integration__actions">
 								<gl-button
 									appearance="toolbar"
+									href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
+										source: 'home',
+										detail: 'integrations',
+									})}"
+									tooltip="Connect More Agents"
+									aria-label="Connect More Agents"
+									><code-icon icon="plug"></code-icon
+								></gl-button>
+								<gl-button
+									appearance="toolbar"
 									href="${createCommandLink<Source>('gitlens.ai.mcp.reinstall', {
 										source: 'home',
 										detail: 'integrations',
