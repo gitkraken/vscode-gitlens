@@ -35,9 +35,19 @@ export class GlGitStatus extends LitElement {
 			}
 
 			:host {
+				--gl-icon-size: 1.6rem;
+
 				display: inline-block;
 				width: 16px;
 				aspect-ratio: 1 / 1;
+			}
+
+			:host([conflict]) {
+				--gl-icon-size: 2.2rem;
+				margin-right: 0.4rem;
+
+				width: 22px;
+				aspect-ratio: auto;
 			}
 
 			svg {
@@ -63,6 +73,12 @@ export class GlGitStatus extends LitElement {
 				this.setAttribute('title', this.statusName);
 			} else {
 				this.removeAttribute('title');
+			}
+
+			if (this.status?.length === 2) {
+				this.setAttribute('conflict', '');
+			} else {
+				this.removeAttribute('conflict');
 			}
 		}
 	}
@@ -158,17 +174,102 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	private renderConflict() {
+	private renderConflictGlyphs(
+		leftColor: string,
+		leftGlyph: string,
+		leftFg: string,
+		rightColor: string,
+		rightGlyph: string,
+		rightFg: string,
+	) {
+		// 22x16 split icon: two halves with 2px gap, rounded outer edges (r=3), flat inner edges
 		return html`
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
-				<path
-					fill="#7F4E7E"
-					fill-rule="evenodd"
-					d="M7.5 15a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15zm-4.03-4.53L6.44 7.5 3.47 4.53l1.06-1.06L7.5 6.44l2.97-2.97 1.06 1.06L8.56 7.5l2.97 2.97-1.06 1.06L7.5 8.56l-2.97 2.97-1.06-1.06z"
-					clip-rule="evenodd"
-				/>
+			<svg xmlns="http://www.w3.org/2000/svg" width="22" height="16" fill="none" viewBox="0 0 22 16">
+				<path d="M3 0H10V16H3C1.35 16 0 14.65 0 13V3C0 1.35 1.35 0 3 0Z" fill="${leftColor}" />
+				<path d="M12 0H19C20.65 0 22 1.35 22 3V13C22 14.65 20.65 16 19 16H12V0Z" fill="${rightColor}" />
+				<text
+					x="5"
+					y="7"
+					dominant-baseline="central"
+					text-anchor="middle"
+					font-size="12"
+					font-weight="700"
+					fill="${leftFg}"
+				>
+					${leftGlyph}
+				</text>
+				<text
+					x="17"
+					y="7"
+					dominant-baseline="central"
+					text-anchor="middle"
+					font-size="12"
+					font-weight="700"
+					fill="${rightFg}"
+				>
+					${rightGlyph}
+				</text>
 			</svg>
 		`;
+	}
+
+	private renderConflictUU() {
+		const m = 'var(--gl-git-status-conflict-modified, #c4a000)';
+		return this.renderConflictGlyphs(m, '±', '#000', m, '±', '#000');
+	}
+
+	private renderConflictAA() {
+		const a = 'var(--gl-git-status-added)';
+		return this.renderConflictGlyphs(a, '+', '#fff', a, '+', '#fff');
+	}
+
+	private renderConflictDD() {
+		const d = 'var(--gl-git-status-deleted)';
+		return this.renderConflictGlyphs(d, '−', '#fff', d, '−', '#fff');
+	}
+
+	private renderConflictDU() {
+		return this.renderConflictGlyphs(
+			'var(--gl-git-status-deleted)',
+			'−',
+			'#fff',
+			'var(--gl-git-status-conflict-modified, #c4a000)',
+			'±',
+			'#000',
+		);
+	}
+
+	private renderConflictUD() {
+		return this.renderConflictGlyphs(
+			'var(--gl-git-status-conflict-modified, #c4a000)',
+			'±',
+			'#000',
+			'var(--gl-git-status-deleted)',
+			'−',
+			'#fff',
+		);
+	}
+
+	private renderConflictAU() {
+		return this.renderConflictGlyphs(
+			'var(--gl-git-status-added)',
+			'+',
+			'#fff',
+			'var(--gl-git-status-conflict-modified, #c4a000)',
+			'±',
+			'#000',
+		);
+	}
+
+	private renderConflictUA() {
+		return this.renderConflictGlyphs(
+			'var(--gl-git-status-conflict-modified, #c4a000)',
+			'±',
+			'#000',
+			'var(--gl-git-status-added)',
+			'+',
+			'#fff',
+		);
 	}
 
 	private renderUnknown() {
@@ -203,13 +304,19 @@ export class GlGitStatus extends LitElement {
 			case 'C':
 				return this.renderCopied();
 			case 'AA':
+				return this.renderConflictAA();
 			case 'AU':
+				return this.renderConflictAU();
 			case 'UA':
+				return this.renderConflictUA();
 			case 'DD':
+				return this.renderConflictDD();
 			case 'DU':
+				return this.renderConflictDU();
 			case 'UD':
+				return this.renderConflictUD();
 			case 'UU':
-				return this.renderConflict();
+				return this.renderConflictUU();
 		}
 
 		return this.renderUnknown();
