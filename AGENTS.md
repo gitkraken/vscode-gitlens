@@ -230,20 +230,29 @@ Reference examples and critical rules for common tasks.
 
 Skills provide detailed, step-by-step workflows for common tasks. Invoke with `/{skill-name}`.
 
-| Skill              | Purpose                                                    |
-| ------------------ | ---------------------------------------------------------- |
-| `/investigate`     | Structured bug investigation with root cause analysis      |
-| `/analyze`         | Deep design/implementation analysis, devil's advocate      |
-| `/review`          | Code review against standards + impact completeness audit  |
-| `/commit`          | Git commit with GitLens conventions                        |
-| `/create-issue`    | Create GitHub issues from code changes                     |
-| `/audit-commits`   | Audit commit range for issues and CHANGELOG entries        |
-| `/add-command`     | Scaffold a new VS Code command                             |
-| `/add-webview`     | Scaffold a new webview with IPC, Lit app, registration     |
-| `/add-test`        | Generate unit or E2E test files                            |
-| `/add-icon`        | Add icon to GL Icons font                                  |
-| `/add-ai-provider` | Add a new AI provider integration                          |
-| `/inspect-live`    | Launch VS Code with GitLens via Playwright inspect UI/logs |
+| Skill              | Purpose                                                                     |
+| ------------------ | --------------------------------------------------------------------------- |
+| `/triage`          | Triage GitHub issues — verdicts, confidence levels, recommended actions     |
+| `/investigate`     | Structured bug investigation with root cause analysis                       |
+| `/prioritize`      | Prioritize triaged issues — shortlist, backlog, won't fix, community        |
+| `/update-issues`   | Update GitHub issues from triage/investigation/prioritization reports       |
+| `/dev-scope`       | Scope work into a goals doc — defines what and why, not how                 |
+| `/deep-planning`   | Design implementation approach — investigates codebase, presents trade-offs |
+| `/challenge-plan`  | Stress-test a proposed plan or architecture decision                        |
+| `/analyze`         | Deep design/implementation analysis, devil's advocate                       |
+| `/review`          | Code review against standards + impact completeness audit                   |
+| `/deep-review`     | Deep merge-blocking review — traces code paths for correctness              |
+| `/ux-review`       | UX review — traces user flows against goals doc                             |
+| `/commit`          | Git commit with GitLens conventions                                         |
+| `/create-issue`    | Create GitHub issues from code changes                                      |
+| `/audit-commits`   | Audit commit range for issues and CHANGELOG entries                         |
+| `/worktree`        | Create isolated git worktrees for feature work                              |
+| `/add-command`     | Scaffold a new VS Code command                                              |
+| `/add-webview`     | Scaffold a new webview with IPC, Lit app, registration                      |
+| `/add-test`        | Generate unit or E2E test files                                             |
+| `/add-icon`        | Add icon to GL Icons font                                                   |
+| `/add-ai-provider` | Add a new AI provider integration                                           |
+| `/inspect-live`    | Launch VS Code with GitLens via Playwright inspect UI/logs                  |
 
 ### Canonical Examples
 
