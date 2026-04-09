@@ -131,16 +131,27 @@ export class ActionItem extends LitElement {
 		super.connectedCallback?.();
 		window.addEventListener('keydown', this);
 		window.addEventListener('keyup', this);
+		this.addEventListener('pointerenter', this.handlePointerModifiers);
+		this.addEventListener('pointermove', this.handlePointerModifiers);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 		window.removeEventListener('keydown', this);
 		window.removeEventListener('keyup', this);
+		this.removeEventListener('pointerenter', this.handlePointerModifiers);
+		this.removeEventListener('pointermove', this.handlePointerModifiers);
 	}
 
+	private handlePointerModifiers = (e: PointerEvent) => {
+		const alt = e.altKey || e.shiftKey;
+		if (this.isAltKeyPressed !== alt) {
+			this.isAltKeyPressed = alt;
+		}
+	};
+
 	handleEvent(e: KeyboardEvent) {
-		const isAltKey = e.key === 'Alt' || e.altKey;
+		const isAltKey = e.key === 'Alt' || e.key === 'Shift' || e.altKey || e.shiftKey;
 		if (e.type === 'keydown') {
 			this.isAltKeyPressed = isAltKey;
 		} else if (e.type === 'keyup' && isAltKey) {
