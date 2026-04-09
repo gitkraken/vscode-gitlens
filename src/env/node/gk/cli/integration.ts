@@ -779,11 +779,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				}
 
 				try {
-					const installArgs = ['install'];
-					if (insidersEnabled && canSupportCliInsiders(cliVersion)) {
-						installArgs.push('--insiders');
-					}
-					const coreInstallOutput = await runCLICommand(installArgs, { cwd: globalStorageUri.fsPath });
+					const coreInstallOutput = await runCLICommand(['install'], { cwd: globalStorageUri.fsPath });
 					if (!/Directory: (.*)/.test(coreInstallOutput)) {
 						throw new Error(`Failed to find core directory in install output: ${coreInstallOutput}`);
 					}
@@ -993,12 +989,6 @@ export class GkCliIntegrationProvider implements Disposable {
 			proxy: undefined,
 		};
 	}
-}
-
-// The CLI insiders flag was added in 3.1.51, so check for that version before allowing it to be used
-function canSupportCliInsiders(version: string | undefined): boolean {
-	if (version == null) return false;
-	return satisfies(fromString(version), '>= 3.1.51');
 }
 
 function reachedMaxAttempts(cliInstall?: StoredGkCLIInstallInfo): boolean {

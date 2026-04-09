@@ -144,10 +144,6 @@ export abstract class GkMcpProviderBase implements Disposable {
 			if (configuration.get('gitkraken.mcp.experimental.enabled')) {
 				args.push('--experimental');
 			}
-			if (configuration.get('gitkraken.cli.insiders.enabled')) {
-				args.push('--insiders');
-			}
-
 			let output = await runCLICommand(args);
 			output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
 

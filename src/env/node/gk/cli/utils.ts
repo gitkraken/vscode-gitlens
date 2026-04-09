@@ -6,6 +6,7 @@ import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinUriPath } from '@gitlens/utils/uri.js';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
 import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getPlatform } from '../../platform.js';
 
@@ -105,6 +106,12 @@ export function toMcpInstallProvider<T extends string | undefined>(appHostName: 
 
 export async function runCLICommand(args: string[], options?: { cwd?: string }): Promise<string> {
 	const cwd = options?.cwd ?? Container.instance.context.globalStorageUri.fsPath;
+
+	// Centrally inject --insiders for all CLI commands when the setting is enabled
+	if (configuration.get('gitkraken.cli.insiders.enabled')) {
+		args = [...args, '--insiders'];
+	}
+
 	const command = (await resolveCLIExecutable(cwd))?.fsPath;
 	using scope = maybeStartScopedLogger(
 		`${command} ${args[0] === 'auth' ? '[auth]' : args.join(' ')}`,
