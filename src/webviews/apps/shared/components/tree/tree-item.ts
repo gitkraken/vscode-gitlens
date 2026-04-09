@@ -175,13 +175,12 @@ export class GlTreeItem extends GlElement {
 		return html`<action-nav class="actions"><slot name="actions"></slot></action-nav>`;
 	}
 
-	private renderDecorations() {
-		return html`<slot
-			name="decorations"
-			class="decorations"
-			@mouseenter=${this.onMouseEnter}
-			@mouseleave=${this.onMouseLeave}
-		></slot>`;
+	private renderBefore() {
+		return html`<slot name="decorations-before" class="decorations-before"></slot>`;
+	}
+
+	private renderAfter() {
+		return html`<slot name="decorations-after" class="decorations-after"></slot>`;
 	}
 
 	override render(): unknown {
@@ -195,8 +194,6 @@ export class GlTreeItem extends GlElement {
 				@click=${this.onButtonClick}
 				@dblclick=${this.onButtonDblClick}
 				@contextmenu=${this.onButtonContextMenu}
-				@mouseenter=${this.onMouseEnter}
-				@mouseleave=${this.onMouseLeave}
 			>
 				${when(this.showIcon, () => html`<slot name="icon" class="icon"></slot>`)}
 				<span class="text">
@@ -204,7 +201,7 @@ export class GlTreeItem extends GlElement {
 					<slot name="description" class="description"></slot>
 				</span>
 			</button>
-			${this.renderActions()}${this.renderDecorations()}
+			${this.renderBefore()}${this.renderActions()}${this.renderAfter()}
 		`;
 	}
 
@@ -281,14 +278,6 @@ export class GlTreeItem extends GlElement {
 		this.dispatchEvent(evt);
 	}
 
-	private onMouseEnter(_e: MouseEvent) {
-		this.emit('gl-tree-item-hover', { node: this, element: this.buttonEl });
-	}
-
-	private onMouseLeave(_e: MouseEvent) {
-		this.emit('gl-tree-item-unhover', { node: this });
-	}
-
 	private onCheckboxClick(e: Event) {
 		e.stopPropagation();
 	}
@@ -311,7 +300,5 @@ declare global {
 		'gl-tree-item-select': CustomEvent<undefined>;
 		'gl-tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'gl-tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
-		'gl-tree-item-hover': CustomEvent<{ node: GlTreeItem; element: HTMLElement }>;
-		'gl-tree-item-unhover': CustomEvent<{ node: GlTreeItem }>;
 	}
 }

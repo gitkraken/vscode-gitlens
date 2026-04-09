@@ -104,20 +104,20 @@ export const treeItemStyles = [
 			cursor: pointer;
 		}
 		.icon {
-			display: inline-block;
-			width: 1.6rem;
-			text-align: center;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: var(--gl-icon-size, 1.6rem);
 			height: 2.2rem;
-			line-height: 2.2rem;
 			pointer-events: none;
-			vertical-align: text-bottom;
+			flex: none;
 		}
 
 		slot[name='icon']::slotted(*) {
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			width: 1.6rem;
+			width: var(--gl-icon-size, 1.6rem);
 			height: 1.6rem;
 			vertical-align: middle;
 		}
@@ -201,6 +201,7 @@ export const treeItemStyles = [
 			flex: none;
 			user-select: none;
 			color: var(--vscode-icon-foreground);
+			margin-left: 0.4rem;
 		}
 
 		:host(:focus-within) .actions,
@@ -268,7 +269,8 @@ export const treeItemStyles = [
 			opacity: 1;
 		}
 
-		slot[name='decorations'] {
+		slot[name='decorations-before'],
+		slot[name='decorations-after'] {
 			display: inline-flex;
 			align-items: center;
 			gap: 0.4rem;
@@ -276,6 +278,11 @@ export const treeItemStyles = [
 			white-space: nowrap;
 			margin-left: 0.4rem;
 			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
+		}
+
+		::slotted([slot='decorations-before'].decoration-text) {
+			font-size: var(--gl-decoration-before-font-size, inherit);
+			opacity: var(--gl-decoration-before-opacity, 1);
 		}
 
 		/* High Contrast Mode Support */
@@ -313,7 +320,7 @@ export const treeItemStyles = [
 				opacity: 1;
 			}
 
-			slot[name='decorations'] span {
+			slot[name='decorations-after'] span {
 				color: CanvasText !important;
 			}
 		}

@@ -34,6 +34,8 @@ export interface TreeItemAction {
 export interface TreeItemDecorationBase {
 	type: string;
 	label: string;
+	/** Which slot to render in: `'before'` renders before actions, `'after'` (default) renders after */
+	position?: 'before' | 'after';
 }
 
 export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
@@ -59,11 +61,19 @@ export interface TreeItemDecorationTracking extends TreeItemDecorationBase {
 	missingUpstream?: boolean;
 }
 
+export interface TreeItemDecorationConflict extends TreeItemDecorationBase {
+	type: 'conflict';
+	count: number;
+	tooltip?: string;
+	color?: string;
+}
+
 export type TreeItemDecoration =
 	| TreeItemDecorationText
 	| TreeItemDecorationIcon
 	| TreeItemDecorationStatus
-	| TreeItemDecorationTracking;
+	| TreeItemDecorationTracking
+	| TreeItemDecorationConflict;
 
 interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;

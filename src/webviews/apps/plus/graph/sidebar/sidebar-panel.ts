@@ -107,7 +107,16 @@ function trackingDecorations(
 	const { ahead, behind } = tracking;
 	if (ahead === 0 && behind === 0) return undefined;
 
-	return [{ type: 'tracking', label: 'tracking', ahead: ahead, behind: behind, missingUpstream: missingUpstream }];
+	return [
+		{
+			type: 'tracking',
+			label: 'tracking',
+			ahead: ahead,
+			behind: behind,
+			missingUpstream: missingUpstream,
+			position: 'before',
+		},
+	];
 }
 
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {

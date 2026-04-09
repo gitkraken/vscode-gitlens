@@ -145,6 +145,18 @@ export class GlTreeGenerator extends GlElement {
 				max-width: min(92vw, 35rem);
 				--code-icon-size: 1em;
 			}
+
+			.conflict-count {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.3rem;
+				padding: 0 0.6rem;
+				height: 1.8rem;
+				border-radius: 0.9rem;
+				font-size: 1.1rem;
+				font-weight: 500;
+				border: 1px solid;
+			}
 		`,
 	];
 
@@ -167,7 +179,7 @@ export class GlTreeGenerator extends GlElement {
 	filterPlaceholder = 'Filter...';
 
 	@property({ type: String, attribute: 'filter-mode', reflect: true })
-	filterMode: 'filter' | 'highlight' = 'highlight';
+	filterMode: 'filter' | 'highlight' = 'filter';
 
 	@property({ type: Boolean, attribute: 'tooltip-anchor-right' })
 	tooltipAnchorRight = false;
@@ -198,7 +210,12 @@ export class GlTreeGenerator extends GlElement {
 
 	// Hover tooltip state
 	private _hoverTimer?: ReturnType<typeof setTimeout>;
+	private _unhoverTimer?: ReturnType<typeof setTimeout>;
+
+	@state()
 	private _hoveredTooltip?: string;
+
+	@state()
 	private _hoveredAnchor?: HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> };
 
 	@state()
@@ -325,6 +342,8 @@ export class GlTreeGenerator extends GlElement {
 				.label=${action.label}
 				.altIcon=${action.altIcon}
 				.altLabel=${action.altLabel}
+				@mouseenter=${() => this.onSuspendRowTooltip()}
+				@mouseleave=${() => this.onResumeRowTooltip()}
 				@click=${(e: MouseEvent) => this.onTreeItemActionClicked(e, model, action, false)}
 				@dblclick=${(e: MouseEvent) => this.onTreeItemActionClicked(e, model, action, true)}
 			></action-item>`;
@@ -336,10 +355,12 @@ export class GlTreeGenerator extends GlElement {
 		if (decorations == null || decorations.length === 0) return nothing;
 
 		return decorations.map(decoration => {
+			const slot = decoration.position === 'before' ? 'decorations-before' : 'decorations-after';
+
 			if (decoration.type === 'icon') {
 				return html`<code-icon
-					slot="decorations"
-					title="${decoration.label}"
+					slot=${slot}
+					part=${slot}
 					aria-label="${decoration.label}"
 					.icon=${decoration.icon}
 				></code-icon>`;
@@ -347,8 +368,9 @@ export class GlTreeGenerator extends GlElement {
 
 			if (decoration.type === 'text') {
 				return html`<span
-					slot="decorations"
-					title=${ifDefined(decoration.tooltip)}
+					slot=${slot}
+					part=${slot}
+					class="decoration-text"
 					aria-label=${ifDefined(decoration.tooltip ?? decoration.label)}
 					style=${decoration.color ? styleMap({ color: decoration.color }) : nothing}
 					>${decoration.label}</span
@@ -357,13 +379,30 @@ export class GlTreeGenerator extends GlElement {
 
 			if (decoration.type === 'tracking') {
 				return html`<gl-tracking-pill
-					slot="decorations"
+					slot=${slot}
+					part=${slot}
 					.ahead=${decoration.ahead}
 					.behind=${decoration.behind}
 					colorized
 					outlined
 					?missingUpstream=${decoration.missingUpstream ?? false}
 				></gl-tracking-pill>`;
+			}
+
+			if (decoration.type === 'conflict') {
+				return html`<span
+					slot=${slot}
+					part=${slot}
+					class="conflict-count"
+					aria-label=${ifDefined(decoration.tooltip ?? decoration.label)}
+					style=${decoration.color
+						? styleMap({
+								color: decoration.color,
+								'border-color': `color-mix(in srgb, transparent 60%, ${decoration.color})`,
+							})
+						: nothing}
+					><code-icon icon="warning" size="12"></code-icon>${decoration.count}</span
+				>`;
 			}
 
 			// TODO: implement badge and indicator decorations
@@ -434,9 +473,8 @@ export class GlTreeGenerator extends GlElement {
 			@gl-tree-item-select=${() => this.onBeforeTreeItemSelected(model)}
 			@gl-tree-item-selected=${(e: CustomEvent<TreeItemSelectionDetail>) => this.onTreeItemSelected(e, model)}
 			@gl-tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
-			@gl-tree-item-hover=${(e: CustomEvent<{ element: HTMLElement }>) =>
-				this.onTreeItemHover(e.detail.element, model)}
-			@gl-tree-item-unhover=${() => this.onTreeItemUnhover()}
+			@mouseenter=${(e: MouseEvent) => this.onTreeItemHover(e.currentTarget as HTMLElement, model)}
+			@mouseleave=${() => this.onTreeItemUnhover()}
 		>
 			${this.renderIcon(model.icon)}
 			${this.highlightText(model.label)}${when(
@@ -519,10 +557,11 @@ export class GlTreeGenerator extends GlElement {
 				? html`<gl-popover
 						?open=${this._hoverOpen}
 						.anchor=${this._hoveredAnchor}
-						placement="right-start"
+						.placement=${this.tooltipAnchorRight ? 'right-start' : 'bottom'}
 						trigger="manual"
 						hoist
 						.distance=${4}
+						@mouseenter=${() => clearTimeout(this._unhoverTimer)}
 						@mouseleave=${() => this.onTreeItemUnhover()}
 					>
 						<div slot="content" class="hover-content">
@@ -617,9 +656,8 @@ export class GlTreeGenerator extends GlElement {
 		}
 
 		clearTimeout(this._hoverTimer);
+		clearTimeout(this._unhoverTimer);
 
-		// Show quickly if already showing, otherwise debounce
-		const delay = this._hoverOpen ? 150 : 500;
 		if (this.tooltipAnchorRight) {
 			const hostRect = this.getBoundingClientRect();
 			const itemRect = element.getBoundingClientRect();
@@ -639,16 +677,39 @@ export class GlTreeGenerator extends GlElement {
 			this._hoveredAnchor = element;
 		}
 		this._hoveredTooltip = model.tooltip;
+
+		if (this._hoverOpen) {
+			// Already showing — update immediately for the new item
+			return;
+		}
+
 		this._hoverTimer = setTimeout(() => {
 			this._hoverOpen = true;
-		}, delay);
+		}, 500);
 	}
 
 	private onTreeItemUnhover() {
 		clearTimeout(this._hoverTimer);
+		// Debounce unhover to avoid flickering when transitioning between
+		// sibling elements (e.g. button → decorations) within the same tree item
+		this._unhoverTimer = setTimeout(() => {
+			this._hoverOpen = false;
+			this._hoveredTooltip = undefined;
+			this._hoveredAnchor = undefined;
+		}, 100);
+	}
+
+	private onSuspendRowTooltip() {
+		clearTimeout(this._hoverTimer);
+		clearTimeout(this._unhoverTimer);
 		this._hoverOpen = false;
-		this._hoveredTooltip = undefined;
-		this._hoveredAnchor = undefined;
+		// Keep _hoveredTooltip and _hoveredAnchor so we can resume
+	}
+
+	private onResumeRowTooltip() {
+		if (this._hoveredTooltip != null && this._hoveredAnchor != null) {
+			this._hoverOpen = true;
+		}
 	}
 
 	private onTreeItemActionClicked(e: MouseEvent, model: TreeModelFlat, action: TreeItemAction, dblClick = false) {
