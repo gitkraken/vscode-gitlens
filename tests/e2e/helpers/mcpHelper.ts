@@ -34,6 +34,9 @@ export type IpcDiscoveryData = {
 	createdAt?: string;
 };
 
+/** Directory where GitLens writes IPC discovery files. */
+const ipcDiscoveryDir = path.join(os.tmpdir(), 'gitkraken', 'gitlens');
+
 /**
  * Reads and parses the IPC discovery JSON file.
  * Returns `undefined` if the file doesn't exist or can't be parsed.
@@ -60,29 +63,49 @@ export function findGkCliFromArgs(electronArgs: string[]): string {
 }
 
 /**
- * Finds the IPC discovery file for a specific VS Code process.
- * GitLens writes one file per session to %TEMP%/gitkraken/gitlens/
- * with format: gitlens-ipc-server-{pid}-{port}.json.
+ * Finds the IPC discovery file whose `workspacePaths` contains the given path.
  *
- * When `vscodePid` is provided, only files belonging to that process are considered,
- * preventing cross-worker contamination in parallel Playwright runs.
- * Falls back to the newest live file when no pid is given.
+ * GitLens names discovery files with `process.ppid` (the extension host's parent),
+ * which differs from the Electron main PID exposed by Playwright. Matching by
+ * workspace path sidesteps this mismatch. Each E2E worker creates a unique temp
+ * git repo, so the match is unambiguous even under parallel execution.
+ */
+export function findIpcFileByWorkspace(workspacePath: string): string | undefined {
+	if (!existsSync(ipcDiscoveryDir)) return undefined;
+
+	const normalizedTarget = workspacePath.replace(/\\/g, '/').toLowerCase();
+
+	for (const f of readdirSync(ipcDiscoveryDir)) {
+		if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) continue;
+
+		const fullPath = path.join(ipcDiscoveryDir, f);
+		const data = readIpcDiscoveryFile(fullPath);
+		if (data == null) continue;
+
+		const match = data.workspacePaths?.some(p => p.replace(/\\/g, '/').toLowerCase() === normalizedTarget);
+		if (match) return fullPath;
+	}
+
+	return undefined;
+}
+
+/**
+ * Finds the newest live IPC discovery file, optionally filtered by PID.
+ * Used as a fallback when workspace-based lookup is not available.
  */
 export function findLatestIpcFile(vscodePid?: number): string | undefined {
-	const tmpDir = path.join(os.tmpdir(), 'gitkraken', 'gitlens');
-	if (!existsSync(tmpDir)) return undefined;
+	if (!existsSync(ipcDiscoveryDir)) return undefined;
 
-	const candidates = readdirSync(tmpDir)
+	const candidates = readdirSync(ipcDiscoveryDir)
 		.filter(f => {
 			if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) return false;
 			if (vscodePid != null) {
-				// File format: gitlens-ipc-server-{pid}-{port}.json
 				return f.startsWith(`gitlens-ipc-server-${vscodePid}-`);
 			}
 			return true;
 		})
 		.map(f => {
-			const fullPath = path.join(tmpDir, f);
+			const fullPath = path.join(ipcDiscoveryDir, f);
 			try {
 				return { fullPath: fullPath, mtime: statSync(fullPath).mtime };
 			} catch {
