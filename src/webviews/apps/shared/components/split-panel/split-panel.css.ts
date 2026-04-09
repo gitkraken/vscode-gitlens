@@ -32,6 +32,8 @@ export const splitPanelStyles = css`
 	.start,
 	.end {
 		overflow: visible;
+		min-height: 0;
+		min-width: 0;
 	}
 
 	::slotted(*) {
