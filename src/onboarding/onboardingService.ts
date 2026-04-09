@@ -59,7 +59,13 @@ export class OnboardingService implements Disposable {
 			}),
 		);
 
-		void this.migrateLegacyState().then(() => this._ready.fulfill(undefined));
+		void this.migrateLegacyState().then(
+			() => this._ready.fulfill(undefined),
+			(ex: unknown) => {
+				Logger.error(ex, 'OnboardingService', 'Legacy state migration failed');
+				this._ready.fulfill(undefined);
+			},
+		);
 	}
 
 	/** Promise that resolves once legacy state migration is complete */
@@ -101,7 +107,14 @@ export class OnboardingService implements Disposable {
 	 */
 	isDismissed(key: OnboardingKeys): boolean {
 		const item = this.getItem(key);
-		if (!item?.dismissedAt) return false;
+		if (!item?.dismissedAt) {
+			// During migration, check legacy storage keys as a fallback so callers
+			// that run before migration completes don't see unmigrated (false) state
+			if (this._ready.pending) {
+				return this.isLegacyDismissed(key);
+			}
+			return false;
+		}
 
 		// If reshowAfter is set and user dismissed before that version, re-show
 		const { reshowAfter } = onboardingDefinitions[key] as { reshowAfter?: `${number}.${number}.${number}` };
@@ -112,6 +125,29 @@ export class OnboardingService implements Disposable {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Checks legacy (pre-onboarding-service) storage keys for dismiss state.
+	 * Only used as a fallback during the brief migration window on upgrade.
+	 */
+	private isLegacyDismissed(key: OnboardingKeys): boolean {
+		/* eslint-disable @typescript-eslint/no-deprecated -- intentional: reading deprecated keys as migration fallback */
+		switch (key) {
+			case 'views:scmGrouped:welcome':
+				return this.storage.get('views:scm:grouped:welcome:dismissed') ?? false;
+			case 'mcp:banner':
+				return this.storage.get('mcp:banner:dismissed') ?? false;
+			case 'home:walkthrough':
+				return this.storage.get('home:walkthrough:dismissed') ?? false;
+			case 'home:integrationBanner':
+				return this.storage.get('home:sections:collapsed')?.includes('integrationBanner') ?? false;
+			case 'composer:onboarding':
+				return this.storage.get('composer:onboarding:dismissed') != null;
+			default:
+				return false;
+		}
+		/* eslint-enable @typescript-eslint/no-deprecated */
 	}
 
 	/** Dismiss an onboarding item, recording the current timestamp and GitLens version */
@@ -199,15 +235,14 @@ export class OnboardingService implements Disposable {
 
 	/** Resets all onboarding state */
 	async resetAll(): Promise<void> {
-		// Collect previously dismissed keys before clearing
+		// Collect previously dismissed keys before clearing — use getOnboarding()
+		// to ensure storage is read (not just the cache) so change events fire correctly
 		const dismissedKeys: OnboardingKeys[] = [];
 		for (const scope of ['global', 'workspace'] as const) {
-			const onboarding = this._onboarding[scope];
-			if (onboarding != null) {
-				for (const [key, item] of Object.entries(onboarding.items)) {
-					if (item?.dismissedAt != null) {
-						dismissedKeys.push(key as OnboardingKeys);
-					}
+			const onboarding = this.getOnboarding(scope);
+			for (const [key, item] of Object.entries(onboarding.items)) {
+				if (item?.dismissedAt != null) {
+					dismissedKeys.push(key as OnboardingKeys);
 				}
 			}
 		}
@@ -263,6 +298,7 @@ export class OnboardingService implements Disposable {
 						await this.dismiss(key);
 					}
 				}
+				await this.storage.delete('home:sections:collapsed');
 			}
 
 			// Intentionally reading/deleting deprecated keys during migration

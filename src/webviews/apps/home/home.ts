@@ -6,6 +6,7 @@ import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { signalObject } from 'signal-utils/object';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { OnboardingKeys } from '../../../constants.onboarding.js';
 import type { HomeServices } from '../../home/homeService.js';
 import type {
 	GetActiveOverviewResponse,
@@ -25,7 +26,6 @@ import type { CommandsState } from '../shared/contexts/commands.js';
 import { commandsContext } from '../shared/contexts/commands.js';
 import { createIntegrationsState, integrationsContext } from '../shared/contexts/integrations.js';
 import { createLaunchpadState, launchpadContext } from '../shared/contexts/launchpad.js';
-import type { OnboardingKeys } from '../../../constants.onboarding.js';
 import type { OnboardingKey } from '../shared/contexts/onboarding.js';
 import { createOnboardingState, onboardingContext } from '../shared/contexts/onboarding.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../shared/contexts/subscription.js';
@@ -367,7 +367,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this._onboardingState.dismissWalkthrough = () => void home.dismissWalkthrough();
 
 		// Populate initial banner state from onboarding service
-		this._onboardingState.banners.integrationBanner = !(await onboarding.isDismissed('home:integrationBanner'));
+		this._onboardingState.banners.integrationBanner = !onboarding.isDismissed('home:integrationBanner');
 
 		// Set up event subscriptions FIRST (so we don't miss events during fetch)
 		const watchWipForRepo = (repoPath: string | undefined): void => {
