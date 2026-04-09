@@ -221,6 +221,23 @@ export const GetPotentialConflictsRequest = new IpcRequest<GetPotentialConflicts
 	'conflicts/get',
 );
 
+/** Parameters for checking conflicts against the modified todo list */
+export interface GetTodoConflictsParams {
+	/** The onto target SHA */
+	onto: string;
+	/** Commit SHAs in the modified order (as reordered by the user) - only non-dropped commits */
+	commits: string[];
+	/** Optional base override - for paused rebases, use 'HEAD' since done entries have been applied */
+	base?: string;
+}
+export interface DidGetTodoConflictsParams {
+	conflicts?: ConflictDetectionResult;
+}
+export const GetTodoConflictsRequest = new IpcRequest<GetTodoConflictsParams, DidGetTodoConflictsParams>(
+	scope,
+	'conflicts/todo',
+);
+
 // NOTIFICATIONS
 
 export interface DidChangeParams {
