@@ -24,6 +24,8 @@ import { getPlatform, isOffline, isWeb } from '../../platform.js';
 import { CliCommandHandlers } from './commands.js';
 import type { IpcServer } from './ipcServer.js';
 import { createIpcServer } from './ipcServer.js';
+import { showMcpAgentPicker } from './mcpAgentPicker.js';
+import type { McpAgent } from './mcpAgents.js';
 import {
 	extractZipFile,
 	getCLIExecutable,
@@ -247,6 +249,14 @@ export class GkCliIntegrationProvider implements Disposable {
 		void this.setupMCPCore('gk-cli-integration', forceInstall, shouldAutoInstall).catch(() => {});
 	}
 
+	/**
+	 * User-initiated MCP setup: installs the CLI and registers MCP for the current host IDE,
+	 * then offers the user the option to connect additional agents.
+	 *
+	 * The auto-install path ({@link setupMCPCore}) also runs silently on startup to ensure
+	 * MCP "just works" for the current IDE. This method adds the interactive agent selection
+	 * on top of that.
+	 */
 	@gate()
 	@debug({ exit: true })
 	private async setupMCP(source?: Sources, force = false): Promise<void> {
@@ -266,51 +276,35 @@ export class GkCliIntegrationProvider implements Disposable {
 
 			if (result.requiresUserCompletion) {
 				await openUrl(result.url);
+				return;
 			}
 
-			if (result.usingExtensionRegistration) {
-				const learnMore = { title: 'Learn More' };
-				const confirm = { title: 'OK', isCloseAffordance: true };
-				window
-					.showInformationMessage(
-						'GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions.',
-						learnMore,
-						confirm,
-					)
-					.then(r => {
-						if (r === learnMore) {
-							void openUrl(urls.helpCenterMCP);
-						}
-					});
-			}
+			const connectMore = { title: 'Connect More Agents' };
+			const learnMore = { title: 'Learn More' };
+			const confirm = { title: 'OK', isCloseAffordance: true };
+			void window
+				.showInformationMessage(
+					'GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions. You can also connect MCP to other agents on your machine.',
+					connectMore,
+					learnMore,
+					confirm,
+				)
+				.then(r => {
+					if (r === connectMore) {
+						void this.selectAndInstallAgents(source);
+					} else if (r === learnMore) {
+						void openUrl(urls.helpCenterMCP);
+					}
+				});
 		} catch (ex) {
 			scope?.error(ex, `Error during MCP setup: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
+			// setupMCPCore already normalizes errors and sends failure telemetry before re-throwing,
+			// so McpSetupError instances just need to be shown — don't double-track telemetry
 			if (ex instanceof McpSetupError) {
-				switch (ex.reason) {
-					case McpSetupErrorReason.WebUnsupported:
-					case McpSetupErrorReason.VSCodeVersionUnsupported:
-					case McpSetupErrorReason.Offline:
-						void window.showWarningMessage(ex.message);
-						break;
-					case McpSetupErrorReason.InstallationFailed:
-					case McpSetupErrorReason.CLIUnsupportedPlatform:
-					case McpSetupErrorReason.CLILocalInstallFailed:
-					case McpSetupErrorReason.CLIUnknownError:
-						void window.showErrorMessage(ex.message);
-						break;
-					case McpSetupErrorReason.UnsupportedHost:
-					case McpSetupErrorReason.UnsupportedClient:
-					case McpSetupErrorReason.UnexpectedOutput:
-						void showManualMcpSetupPrompt(ex.message);
-						break;
-					default:
-						void window.showErrorMessage(ex.message);
-						break;
-				}
+				this.showSetupError(ex);
 			} else {
-				void window.showErrorMessage(
-					`Unable to setup the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
-				);
+				const normalized = this.normalizeAndTrackSetupError(ex, source ?? 'commandPalette');
+				this.showSetupError(normalized);
 			}
 		}
 	}
@@ -480,72 +474,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			};
 		} catch (ex) {
 			scope?.error(ex, `Error during MCP installation: ${ex}`);
-
-			let telemetryReason: string;
-			let telemetryErrorMessage: string | undefined = ex.message;
-			let cliVersionForTelemetry: string | undefined;
-			let errorToThrow: Error;
-
-			// Normalize errors
-			if (ex instanceof McpSetupError) {
-				errorToThrow = ex;
-				telemetryReason = ex.telemetryReason;
-				cliVersionForTelemetry = ex.cliVersion;
-				if (ex.telemetryMessage) {
-					telemetryErrorMessage = ex.telemetryMessage;
-				}
-			} else if (ex instanceof CLIInstallError) {
-				let reason: McpSetupErrorReason;
-				let message: string;
-
-				switch (ex.reason) {
-					case CLIInstallErrorReason.UnsupportedPlatform:
-						reason = McpSetupErrorReason.CLIUnsupportedPlatform;
-						message = 'GitKraken MCP setup is not supported on this platform.';
-						telemetryReason = 'unsupported platform';
-						break;
-					case CLIInstallErrorReason.ProxyUrlFetch:
-					case CLIInstallErrorReason.ProxyUrlFormat:
-					case CLIInstallErrorReason.ProxyFetch:
-					case CLIInstallErrorReason.ProxyDownload:
-					case CLIInstallErrorReason.ProxyExtract:
-					case CLIInstallErrorReason.CoreInstall:
-					case CLIInstallErrorReason.GlobalStorageDirectory:
-						reason = McpSetupErrorReason.CLILocalInstallFailed;
-						message = 'Unable to locally install the GitKraken MCP server. Please try again.';
-						telemetryReason = 'local installation failed';
-						break;
-					case CLIInstallErrorReason.Offline:
-						reason = McpSetupErrorReason.Offline;
-						message =
-							'Unable to setup the GitKraken MCP server when offline. Please try again when you are online.';
-						telemetryReason = 'offline';
-						break;
-					default:
-						reason = McpSetupErrorReason.CLIUnknownError;
-						message = 'Unable to setup the GitKraken MCP: Unknown error.';
-						telemetryReason = 'unknown error';
-						break;
-				}
-
-				errorToThrow = new McpSetupError(reason, message, telemetryReason, commandSource);
-			} else {
-				errorToThrow = ex instanceof Error ? ex : new Error('Unknown error');
-				telemetryReason = 'unknown error';
-			}
-
-			// Send failure telemetry
-			if (this.container.telemetry.enabled) {
-				this.container.telemetry.sendEvent('mcp/setup/failed', {
-					reason: telemetryReason ?? 'unknown error',
-					'error.message': telemetryErrorMessage ?? 'Unknown error',
-					source: commandSource,
-					'cli.version': cliVersionForTelemetry,
-				});
-			}
-
-			// Now throw the error
-			throw errorToThrow;
+			throw this.normalizeAndTrackSetupError(ex, commandSource);
 		}
 	}
 
@@ -876,8 +805,282 @@ export class GkCliIntegrationProvider implements Disposable {
 		return [
 			registerCommand('gitlens.ai.mcp.install', (src?: Source) => this.setupMCP(src?.source)),
 			registerCommand('gitlens.ai.mcp.reinstall', (src?: Source) => this.setupMCP(src?.source, true)),
+			registerCommand('gitlens.ai.mcp.selectAgents', (src?: Source) => this.selectAndInstallAgents(src?.source)),
 			registerCommand('gitlens.ai.mcp.authCLI', () => this.authCLI()),
 		];
+	}
+
+	@debug({ exit: true })
+	private async selectAndInstallAgents(source?: Sources): Promise<void> {
+		const scope = getScopedLogger();
+		const commandSource = source ?? 'commandPalette';
+
+		try {
+			// Ensure CLI is installed first
+			const { cliPath, status } = await this.installCLI(false, source);
+			if (status !== 'completed' || cliPath == null) {
+				void window.showWarningMessage(
+					'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+				);
+				return;
+			}
+
+			await this.pickAndInstallAgents(cliPath, commandSource);
+		} catch (ex) {
+			scope?.error(ex, 'Error selecting and installing agents');
+			const normalized = this.normalizeAndTrackSetupError(ex, commandSource);
+			this.showSetupError(normalized);
+		}
+	}
+
+	/** Shared core: shows agent picker, installs for selected agents, reports results. */
+	private async pickAndInstallAgents(cliPath: string, source: Sources): Promise<void> {
+		const agents = await showMcpAgentPicker(cliPath);
+		if (agents == null || agents.length === 0) return;
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('mcp/agents/selected', {
+				source: source,
+				'agents.count': agents.length,
+				'agents.ids': agents.map(a => a.name).join(','),
+			});
+		}
+
+		const results = await window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Installing GitKraken MCP for ${agents.length} agent${agents.length > 1 ? 's' : ''}...`,
+				cancellable: false,
+			},
+			() => this.installMCPForAgents(agents, cliPath),
+		);
+
+		if (results.succeeded.length > 0) {
+			this.container.events.fire('gk:cli:mcp:setup:completed', undefined);
+
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('mcp/setup/completed', {
+					requiresUserCompletion: results.requiresUserAction.length > 0,
+					source: source,
+				});
+			}
+		}
+
+		this.showAgentInstallResults(results);
+	}
+
+	@debug()
+	private async installMCPForAgents(
+		agents: McpAgent[],
+		cliPath: string,
+	): Promise<{
+		succeeded: string[];
+		failed: { agent: string; error: string }[];
+		requiresUserAction: { agent: string; url: string }[];
+	}> {
+		const scope = getScopedLogger();
+		const succeeded: string[] = [];
+		const failed: { agent: string; error: string }[] = [];
+		const requiresUserAction: { agent: string; url: string }[] = [];
+
+		const results = await Promise.allSettled(
+			agents.map(async agent => {
+				try {
+					Logger.debug(scope, `Installing MCP for agent '${agent.name}'...`);
+					const output = await runCLICommand(
+						['mcp', 'install', agent.name, '--source=gitlens', `--scheme=${env.uriScheme}`],
+						{ cwd: cliPath },
+					);
+
+					const cleanOutput = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
+					// Empty output means success — the CLI suppresses the success message when --source=gitlens
+					if (!cleanOutput || CLIProxyMCPInstallOutputs.installedSuccessfully.test(cleanOutput)) {
+						Logger.debug(scope, `MCP install succeeded for agent '${agent.name}'`);
+						return { agent: agent, status: 'succeeded' as const };
+					} else if (CLIProxyMCPInstallOutputs.notASupportedClient.test(cleanOutput)) {
+						Logger.warn(scope, `MCP install failed for agent '${agent.name}': not a supported client`);
+						return { agent: agent, status: 'failed' as const, error: 'Not a supported MCP client' };
+					}
+
+					// Check if output is a URL requiring user action
+					if (URL.canParse(cleanOutput)) {
+						Logger.debug(
+							scope,
+							`MCP install for agent '${agent.name}' requires user action: ${cleanOutput}`,
+						);
+						return { agent: agent, status: 'userAction' as const, url: cleanOutput };
+					}
+
+					Logger.warn(
+						scope,
+						`MCP install failed for agent '${agent.name}': unexpected output: ${cleanOutput}`,
+					);
+					return {
+						agent: agent,
+						status: 'failed' as const,
+						error: `Unexpected output: ${cleanOutput}`,
+					};
+				} catch (ex) {
+					Logger.error(ex, scope, `MCP install failed for agent '${agent.name}'`);
+					return {
+						agent: agent,
+						status: 'failed' as const,
+						error: ex instanceof Error ? ex.message : 'Unknown error',
+					};
+				}
+			}),
+		);
+
+		for (const result of results) {
+			// All promises now resolve (errors caught above), but handle rejected for safety
+			if (result.status === 'rejected') continue;
+
+			const value = result.value;
+			switch (value.status) {
+				case 'succeeded':
+					succeeded.push(value.agent.displayName);
+					break;
+				case 'failed':
+					failed.push({ agent: value.agent.displayName, error: value.error });
+					break;
+				case 'userAction':
+					requiresUserAction.push({ agent: value.agent.displayName, url: value.url });
+					break;
+			}
+		}
+
+		Logger.debug(
+			scope,
+			`MCP install results — succeeded: ${succeeded.length}, failed: ${failed.length}, userAction: ${requiresUserAction.length}`,
+		);
+		return { succeeded: succeeded, failed: failed, requiresUserAction: requiresUserAction };
+	}
+
+	private showAgentInstallResults(results: {
+		succeeded: string[];
+		failed: { agent: string; error: string }[];
+		requiresUserAction: { agent: string; url: string }[];
+	}): void {
+		const parts: string[] = [];
+
+		if (results.succeeded.length > 0) {
+			parts.push(`Installed for ${results.succeeded.join(', ')}`);
+		}
+		if (results.failed.length > 0) {
+			parts.push(`Failed for ${results.failed.map(f => f.agent).join(', ')}`);
+		}
+		if (results.requiresUserAction.length > 0) {
+			parts.push(
+				`${results.requiresUserAction.map(r => r.agent).join(', ')} require${results.requiresUserAction.length === 1 ? 's' : ''} manual setup`,
+			);
+		}
+
+		const message = `GitKraken MCP: ${parts.join('. ')}.`;
+
+		if (results.failed.length > 0) {
+			void window.showWarningMessage(message);
+		} else if (results.requiresUserAction.length > 0) {
+			const openSetup = { title: 'Open Setup' };
+			const ok = { title: 'OK', isCloseAffordance: true };
+			void window.showInformationMessage(message, openSetup, ok).then(r => {
+				if (r === openSetup && results.requiresUserAction.length > 0) {
+					void openUrl(results.requiresUserAction[0].url);
+				}
+			});
+		} else if (results.succeeded.length > 0) {
+			void window.showInformationMessage(message);
+		}
+	}
+
+	/**
+	 * Converts CLI/setup errors into user-friendly McpSetupError instances and sends failure telemetry.
+	 * Shared by both {@link setupMCP} and {@link setupMCPCore}.
+	 */
+	private normalizeAndTrackSetupError(ex: unknown, source: Sources, cliVersion?: string): McpSetupError {
+		let normalized: McpSetupError;
+
+		if (ex instanceof McpSetupError) {
+			normalized = ex;
+		} else if (ex instanceof CLIInstallError) {
+			let reason: McpSetupErrorReason;
+			let message: string;
+			let telemetryReason: string;
+
+			switch (ex.reason) {
+				case CLIInstallErrorReason.UnsupportedPlatform:
+					reason = McpSetupErrorReason.CLIUnsupportedPlatform;
+					message = 'GitKraken MCP setup is not supported on this platform.';
+					telemetryReason = 'unsupported platform';
+					break;
+				case CLIInstallErrorReason.ProxyUrlFetch:
+				case CLIInstallErrorReason.ProxyUrlFormat:
+				case CLIInstallErrorReason.ProxyFetch:
+				case CLIInstallErrorReason.ProxyDownload:
+				case CLIInstallErrorReason.ProxyExtract:
+				case CLIInstallErrorReason.CoreInstall:
+				case CLIInstallErrorReason.GlobalStorageDirectory:
+					reason = McpSetupErrorReason.CLILocalInstallFailed;
+					message = 'Unable to locally install the GitKraken MCP server. Please try again.';
+					telemetryReason = 'local installation failed';
+					break;
+				case CLIInstallErrorReason.Offline:
+					reason = McpSetupErrorReason.Offline;
+					message =
+						'Unable to setup the GitKraken MCP server when offline. Please try again when you are online.';
+					telemetryReason = 'offline';
+					break;
+				default:
+					reason = McpSetupErrorReason.CLIUnknownError;
+					message = 'Unable to setup the GitKraken MCP: Unknown error.';
+					telemetryReason = 'unknown error';
+					break;
+			}
+
+			normalized = new McpSetupError(reason, message, telemetryReason, source, cliVersion);
+		} else {
+			normalized = new McpSetupError(
+				McpSetupErrorReason.CLIUnknownError,
+				`Unable to setup the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+				'unknown error',
+				source,
+				cliVersion,
+			);
+		}
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('mcp/setup/failed', {
+				reason: normalized.telemetryReason,
+				'error.message': normalized.telemetryMessage ?? normalized.message,
+				source: source,
+				'cli.version': normalized.cliVersion,
+			});
+		}
+
+		return normalized;
+	}
+
+	private showSetupError(ex: McpSetupError): void {
+		switch (ex.reason) {
+			case McpSetupErrorReason.WebUnsupported:
+			case McpSetupErrorReason.VSCodeVersionUnsupported:
+			case McpSetupErrorReason.Offline:
+				void window.showWarningMessage(ex.message);
+				break;
+			case McpSetupErrorReason.InstallationFailed:
+			case McpSetupErrorReason.CLIUnsupportedPlatform:
+			case McpSetupErrorReason.CLILocalInstallFailed:
+			case McpSetupErrorReason.CLIUnknownError:
+				void window.showErrorMessage(ex.message);
+				break;
+			case McpSetupErrorReason.UnsupportedHost:
+			case McpSetupErrorReason.UnsupportedClient:
+			case McpSetupErrorReason.UnexpectedOutput:
+				void showManualMcpSetupPrompt(ex.message);
+				break;
+			default:
+				void window.showErrorMessage(ex.message);
+				break;
+		}
 	}
 
 	@debug()
