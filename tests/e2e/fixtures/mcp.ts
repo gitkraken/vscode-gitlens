@@ -1,12 +1,6 @@
 import * as process from 'node:process';
 import { test as base, createTmpDir, GitFixture } from '../baseTest.js';
-import {
-	findGkCliFromArgs,
-	findIpcFileByWorkspace,
-	findLatestIpcFile,
-	McpClient,
-	waitForCliInstall,
-} from '../helpers/mcpHelper.js';
+import { findGkCliFromArgs, findIpcFileByWorkspace, McpClient, waitForCliInstall } from '../helpers/mcpHelper.js';
 
 export { expect } from '@playwright/test';
 export type { IpcDiscoveryData, McpConfigResult, McpMessage, McpClient } from '../helpers/mcpHelper.js';
@@ -35,7 +29,7 @@ export const mcpTest = base.extend<McpFixtures>({
 				return repoDir;
 			},
 		},
-		{ scope: 'worker', option: true },
+		{ scope: 'worker' },
 	],
 
 	mcpClient: async ({ vscode }, use) => {
@@ -43,8 +37,7 @@ export const mcpTest = base.extend<McpFixtures>({
 		await waitForCliInstall(gkPath);
 		const workspacePath = vscode.electron.workspacePath;
 
-		// Workspace-based lookup avoids PID mismatch; fall back to newest live file
-		const ipcFilePath = findIpcFileByWorkspace(workspacePath) ?? findLatestIpcFile();
+		const ipcFilePath = await findIpcFileByWorkspace(workspacePath);
 		const client = new McpClient(gkPath, ipcFilePath);
 		await use(client);
 	},

@@ -69,21 +69,28 @@ export function findGkCliFromArgs(electronArgs: string[]): string {
  * which differs from the Electron main PID exposed by Playwright. Matching by
  * workspace path sidesteps this mismatch. Each E2E worker creates a unique temp
  * git repo, so the match is unambiguous even under parallel execution.
+ *
+ * Polls with retries because the IPC file may not yet exist when the fixture
+ * runs (GitLens writes it asynchronously after activation).
  */
-export function findIpcFileByWorkspace(workspacePath: string): string | undefined {
-	if (!existsSync(ipcDiscoveryDir)) return undefined;
-
+export async function findIpcFileByWorkspace(workspacePath: string, timeoutMs = 30_000): Promise<string | undefined> {
 	const normalizedTarget = workspacePath.replace(/\\/g, '/').toLowerCase();
+	const deadline = Date.now() + timeoutMs;
 
-	for (const f of readdirSync(ipcDiscoveryDir)) {
-		if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) continue;
+	while (Date.now() < deadline) {
+		if (existsSync(ipcDiscoveryDir)) {
+			for (const f of readdirSync(ipcDiscoveryDir)) {
+				if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) continue;
 
-		const fullPath = path.join(ipcDiscoveryDir, f);
-		const data = readIpcDiscoveryFile(fullPath);
-		if (data == null) continue;
+				const fullPath = path.join(ipcDiscoveryDir, f);
+				const data = readIpcDiscoveryFile(fullPath);
+				if (data == null) continue;
 
-		const match = data.workspacePaths?.some(p => p.replace(/\\/g, '/').toLowerCase() === normalizedTarget);
-		if (match) return fullPath;
+				const match = data.workspacePaths?.some(p => p.replace(/\\/g, '/').toLowerCase() === normalizedTarget);
+				if (match) return fullPath;
+			}
+		}
+		await new Promise(r => setTimeout(r, 500));
 	}
 
 	return undefined;
