@@ -375,8 +375,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			.model=${model}
 			filterable
 			tooltip-anchor-right
+			filter-text=${this._actions.filterText || nothing}
+			filter-mode=${this._actions.filterMode}
 			filter-placeholder="Filter ${config.title.toLowerCase()}..."
 			aria-label="${config.title}"
+			@gl-tree-filter-changed=${this.handleFilterChanged}
+			@gl-tree-filter-mode-changed=${this.handleFilterModeChanged}
 			@gl-tree-generated-item-selected=${this.handleTreeItemSelected}
 			@gl-tree-generated-item-action-clicked=${this.handleTreeItemAction}
 		></gl-tree-generator>`;
@@ -704,6 +708,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		return models;
 	}
+
+	private handleFilterChanged = (e: CustomEvent<string>) => {
+		this._actions.filterText = e.detail;
+	};
+
+	private handleFilterModeChanged = (e: CustomEvent<'filter' | 'highlight'>) => {
+		this._actions.filterMode = e.detail;
+	};
 
 	private handleAction(command: string) {
 		this._actions?.executeAction(command);

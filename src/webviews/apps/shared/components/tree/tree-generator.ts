@@ -134,9 +134,10 @@ export class GlTreeGenerator extends GlElement {
 			}
 
 			.no-results {
-				padding: 0.8rem 1.2rem;
-				color: var(--vscode-disabledForeground, var(--color-foreground--50));
+				padding: 1rem;
+				color: var(--vscode-descriptionForeground);
 				font-style: italic;
+				text-align: center;
 			}
 
 			.hover-content {
@@ -184,8 +185,19 @@ export class GlTreeGenerator extends GlElement {
 	@property({ type: Boolean, attribute: 'tooltip-anchor-right' })
 	tooltipAnchorRight = false;
 
-	@state()
 	private _filterText = '';
+	@property({ type: String, attribute: 'filter-text' })
+	get filterText(): string {
+		return this._filterText;
+	}
+	set filterText(value: string) {
+		const old = this._filterText;
+		if (old === value) return;
+		this._filterText = value;
+		clearTimeout(this._filterDebounceTimer);
+		this.applyFilterToModel();
+		this.requestUpdate('filterText', old);
+	}
 
 	private _filterLower = '';
 	private _filterTerms: string[] = [];
@@ -266,6 +278,11 @@ export class GlTreeGenerator extends GlElement {
 		if (this._model === value) return;
 
 		this._model = value;
+
+		// Apply active filter to the new model so matched flags are set before flattening
+		if (this._filterTerms.length > 0 && this._model != null) {
+			applyFilter(this._model, this._filterTerms);
+		}
 
 		// Clear stale node map before processing new model
 		// This prevents stale node references when switching commits or toggling filters
@@ -1226,12 +1243,22 @@ export class GlTreeGenerator extends GlElement {
 
 	private handleFilterInput = (e: InputEvent) => {
 		this._filterText = (e.target as HTMLInputElement).value;
+		this.dispatchEvent(
+			new CustomEvent('gl-tree-filter-changed', { detail: this._filterText, bubbles: true, composed: true }),
+		);
 		clearTimeout(this._filterDebounceTimer);
 		this._filterDebounceTimer = setTimeout(() => this.applyFilterToModel(), 150);
 	};
 
 	private toggleFilterMode = () => {
 		this.filterMode = this.filterMode === 'filter' ? 'highlight' : 'filter';
+		this.dispatchEvent(
+			new CustomEvent('gl-tree-filter-mode-changed', {
+				detail: this.filterMode,
+				bubbles: true,
+				composed: true,
+			}),
+		);
 		if (this.filtered) {
 			this.rebuildFlattenedTree();
 		}
@@ -1298,11 +1325,18 @@ function applyFilter(model: TreeModel[], terms: string[]): boolean {
 	let anyMatch = false;
 	for (const item of model) {
 		// All terms must match against the item's searchable text (AND logic)
-		const searchText = item.filterText ?? item.label ?? '';
-		const searchLower = searchText.toLowerCase();
+		// Use exact substring for filterText (full path in tree mode) to avoid
+		// false positives from fuzzy matching across long paths.
+		// Reserve fuzzy matching for the displayed label only.
+		const labelLower = (item.label ?? '').toLowerCase();
+		const filterTextLower = item.filterText?.toLowerCase();
 		const descLower = item.description?.toLowerCase();
 		const selfMatch = terms.every(
-			term => searchLower.includes(term) || fuzzyMatch(searchLower, term) != null || descLower?.includes(term),
+			term =>
+				filterTextLower?.includes(term) ||
+				labelLower.includes(term) ||
+				fuzzyMatch(labelLower, term) != null ||
+				descLower?.includes(term),
 		);
 		let childMatch = false;
 

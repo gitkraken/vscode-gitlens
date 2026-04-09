@@ -19,6 +19,10 @@ export interface SidebarActions {
 	/** The currently visible panel — set by the sidebar-panel component so invalidateAll can refetch it. */
 	activePanel: GraphSidebarPanel | undefined;
 
+	/** Persisted filter state — survives sidebar-panel destruction/recreation */
+	filterText: string;
+	filterMode: 'filter' | 'highlight';
+
 	initialize(service: GraphSidebarService): void;
 	fetchPanel(panel: GraphSidebarPanel): void;
 	fetchCounts(): void;
@@ -82,6 +86,8 @@ export function createSidebarActions(): SidebarActions {
 	const actions: SidebarActions = {
 		state: state,
 		activePanel: undefined,
+		filterText: '',
+		filterMode: 'filter',
 
 		initialize: function (svc: GraphSidebarService) {
 			service = svc;
