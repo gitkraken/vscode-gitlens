@@ -21,7 +21,7 @@
  *   --rubber-duck, --rd      Second-opinion pass on evaluative stages
  */
 
-import { execSync, spawnSync } from 'node:child_process';
+import { execFileSync, execSync, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { readFile, access, mkdir, stat, readdir } from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';
@@ -90,8 +90,9 @@ function resolveDuckModel(agent: AgentType, mainModel?: string, duckOverride?: s
 function notify(title: string, message: string, silent: boolean): void {
 	if (silent) return;
 	try {
-		const escaped = message.replace(/"/g, '\\"');
-		execSync(`osascript -e 'display notification "${escaped}" with title "${title}" sound name "Glass"'`, {
+		const escaped = message.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+		const escapedTitle = title.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+		execSync(`osascript -e 'display notification "${escaped}" with title "${escapedTitle}" sound name "Glass"'`, {
 			stdio: 'ignore',
 		});
 	} catch {
@@ -412,17 +413,16 @@ async function runTriagePipeline(
 	if (startIdx === 0) {
 		divider('Stage 0: Building evidence pack');
 
-		const triageArgs = [triageCommand, ...restArgs].join(' ');
 		const triageScript = resolve(dirname(fileURLToPath(import.meta.url)), 'triage.mts');
-		const triageCmd = `node --experimental-strip-types ${triageScript} ${triageArgs}`;
+		const triageExecArgs = ['--experimental-strip-types', triageScript, triageCommand, ...restArgs];
 
 		if (globalOpts.dryRun) {
-			log('🏜️', `[dry-run] ${triageCmd}`);
+			log('🏜️', `[dry-run] node ${triageExecArgs.join(' ')}`);
 			packPath = '/tmp/dry-run-pack.json';
 		} else {
-			log('▶', `Running: ${triageCmd}`);
+			log('▶', `Running: node ${triageExecArgs.join(' ')}`);
 			try {
-				packPath = execSync(triageCmd, { encoding: 'utf8' }).trim();
+				packPath = execFileSync('node', triageExecArgs, { encoding: 'utf8' }).trim();
 				log('✓', `Evidence pack: ${packPath}`);
 			} catch (err: unknown) {
 				log('✗', `Failed to build evidence pack`);
