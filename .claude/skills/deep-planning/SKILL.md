@@ -15,8 +15,10 @@ Find the **best** approach to a task — not just a good one. Investigate the co
 
 ```
 /deep-planning [task, feature, refactor, or design decision]
+/deep-planning --scope .work/dev/5096/
 ```
 
+- **`--scope <path>`**: When provided, read `goals.md` from the given directory as the task input instead of expecting the task description in the prompt. The goals document contains success criteria, verified claims, user experience requirements, code landscape, and constraints — use all of these to inform your planning. When `--scope` is absent, the skill works exactly as it does today (interactive, prompt-driven).
 - If adjacent skills like `brainstorming` or `writing-plans` are available, use them as complements.
 - If they are not available in the current environment, continue with this skill. It is self-contained.
 

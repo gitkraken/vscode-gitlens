@@ -13,8 +13,10 @@ Root-cause, merge-blocking review that traces every modified code path end-to-en
 
 ```
 /deep-review [target]
+/deep-review branch --scope .work/dev/5096/
 ```
 
+- **`--scope <path>`**: When provided, read `goals.md` from the given directory to understand the original intent, success criteria, and user experience requirements. Use this to evaluate whether the implementation actually delivers what was scoped — not just whether the code is correct in isolation. When `--scope` is absent, the skill works exactly as it does today.
 - No argument: review staged changes (`git diff --cached`)
 - `all`: all uncommitted changes
 - `branch`: changes vs base branch (`git diff main...HEAD`)

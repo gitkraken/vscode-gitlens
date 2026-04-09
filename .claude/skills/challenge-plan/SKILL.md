@@ -15,8 +15,10 @@ Stress-test a proposed plan before implementation begins. Extract assumptions, v
 
 ```
 /challenge-plan [proposed plan, implementation outline, or design decision]
+/challenge-plan --scope .work/dev/5096/
 ```
 
+- **`--scope <path>`**: When provided, read `plan.md` from the given directory as the plan to challenge, and read `goals.md` from the same directory for context (success criteria, verified claims, constraints). Use the goals document to evaluate whether the plan actually delivers what was scoped. When `--scope` is absent, the skill works exactly as it does today (interactive, prompt-driven).
 - `deep-planning` formulates the best approach
 - **`challenge-plan`** stress-tests the chosen approach
 - `analyze` evaluates code paths and edge cases during/after implementation
