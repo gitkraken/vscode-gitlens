@@ -11,7 +11,11 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
-import { isRebaseTodoEditorEnabled, reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
+import {
+	isRebaseTodoEditorEnabled,
+	openRebaseEditor,
+	reopenRebaseTodoEditor,
+} from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
@@ -129,19 +133,33 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 			if (RebaseError.is(ex, 'conflicts')) {
 				this.container.telemetry.sendEvent('gitCommand/conflict', { command: 'rebase' });
-				void window.showWarningMessage(
-					'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
-				);
-				// TODO: open the rebase editor, if its not already open?
+				const openEditor = { title: 'Open Rebase Editor' };
+				void window
+					.showWarningMessage(
+						'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
+						openEditor,
+					)
+					.then(result => {
+						if (result === openEditor) {
+							void openRebaseEditor(this.container, state.repo.path);
+						}
+					});
 				void executeCommand('gitlens.showCommitsView');
 				return;
 			}
 
 			if (RebaseError.is(ex, 'alreadyInProgress')) {
-				void window.showWarningMessage(
-					'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
-				);
-				// TODO: open the rebase editor, if its not already open?
+				const openEditor = { title: 'Open Rebase Editor' };
+				void window
+					.showWarningMessage(
+						'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
+						openEditor,
+					)
+					.then(result => {
+						if (result === openEditor) {
+							void openRebaseEditor(this.container, state.repo.path);
+						}
+					});
 				void executeCommand('gitlens.showCommitsView');
 				return;
 			}
