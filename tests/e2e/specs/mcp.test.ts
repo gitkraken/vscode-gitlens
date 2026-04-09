@@ -38,11 +38,6 @@ test.describe('MCP — Configuration', () => {
 		expect(config.args).toContain('mcp');
 	});
 
-	// These two tests require PR #5114 (registers gitlens.gitkraken.mcp.experimental.enabled
-	// in package.json and injects --experimental into server args).
-	// withSettings() logs a warning but does not throw for unregistered settings,
-	// so the test proceeds to the expect assertion where the real failure is visible.
-
 	test('should include --experimental in args when setting is enabled', async ({ mcpClient, vscode }) => {
 		using _ = await vscode.gitlens.withSettings({
 			'gitlens.gitkraken.mcp.experimental.enabled': true,
