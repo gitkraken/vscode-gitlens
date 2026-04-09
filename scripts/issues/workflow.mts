@@ -21,7 +21,7 @@
  *   --rubber-duck, --rd      Second-opinion pass on evaluative stages
  */
 
-import { execFileSync, execSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { readFile, access, mkdir, stat, readdir } from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';
@@ -89,15 +89,8 @@ function resolveDuckModel(agent: AgentType, mainModel?: string, duckOverride?: s
 
 function notify(title: string, message: string, silent: boolean): void {
 	if (silent) return;
-	try {
-		const escaped = message.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-		const escapedTitle = title.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-		execSync(`osascript -e 'display notification "${escaped}" with title "${escapedTitle}" sound name "Glass"'`, {
-			stdio: 'ignore',
-		});
-	} catch {
-		// Notification failure is non-fatal
-	}
+	log('🔔', `${title}: ${message}`);
+	process.stderr.write('\x07');
 }
 
 function log(icon: string, message: string): void {
