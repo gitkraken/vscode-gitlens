@@ -537,6 +537,31 @@ export const rebaseStyles = css`
 		margin-left: 1.6rem;
 	}
 
+	.conflict-loading {
+		display: inline-flex;
+		align-items: center;
+		margin-left: 0.5rem;
+		color: var(--vscode-foreground);
+		opacity: 0.7;
+	}
+
+	.conflict-summary {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-left: 0.5rem;
+		padding: 0.2rem 0.6rem;
+		border-radius: 0.3rem;
+		font-size: 1.1rem;
+		font-weight: 500;
+
+		&.warning {
+			background-color: var(--vscode-inputValidation-warningBackground, rgba(200, 140, 0, 0.2));
+			color: var(--vscode-inputValidation-warningForeground, #cca700);
+			border: 1px solid var(--vscode-inputValidation-warningBorder, #cca700);
+		}
+	}
+
 	gl-button .button-shortcut {
 		display: block;
 		margin-top: 0.2rem;

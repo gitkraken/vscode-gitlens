@@ -8,6 +8,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
+import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
@@ -26,6 +27,7 @@ import {
 	ChangeEntryCommand,
 	ContinueCommand,
 	DismissCloseWarningCommand,
+	GetTodoConflictsRequest,
 	isCommandEntry,
 	isCommitEntry,
 	MoveEntriesCommand,
@@ -189,6 +191,13 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		if (Math.abs(pos - defaultPos) <= 12) return defaultPos;
 		return pos;
 	};
+
+	/** Todo conflict detection state */
+	@state() private _todoConflicts: ConflictDetectionResult | undefined;
+	@state() private _todoConflictsLoading = false;
+	private _todoConflictCheckTimer: ReturnType<typeof setTimeout> | undefined;
+	private _todoConflictCheckGeneration = 0;
+	private _todoConflictCheckKey: string | undefined;
 
 	/**
 	 * Number of non-editable entries (base + done) at the start of _sortedEntries.
@@ -539,6 +548,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			this._stateProvider.moveEntries(orderedIds, 0);
 			this.refreshIndices();
 			this._ipc.sendCommand(MoveEntriesCommand, { ids: orderedIds, to: 0 });
+
+			this.scheduleTodoConflictCheck();
 		} else {
 			const fromIndex = this.entries.findIndex(e => e.id === id);
 			if (fromIndex === -1) return;
@@ -722,6 +733,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 		// Send absolute position to host
 		this._ipc.sendCommand(MoveEntryCommand, { id: entry.id, to: toIndex, relative: false });
+
+		this.scheduleTodoConflictCheck();
 	}
 
 	/**
@@ -792,6 +805,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 		// Send batch command to host
 		this._ipc.sendCommand(MoveEntriesCommand, { ids: orderedIds, to: toIndex });
+
+		this.scheduleTodoConflictCheck();
 	}
 
 	private readonly onEntrySelect = (
@@ -887,9 +902,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			this._ipc.sendCommand(ChangeEntriesCommand, { entries: entries });
 		}
 
-		// Only mark conflicts as stale if we're dropping commits (which changes what gets applied)
+		// If dropping commits, schedule todo conflict check (since that affects what gets applied)
 		if (action === 'drop') {
-			this.markConflictDetectionStale();
+			this.scheduleTodoConflictCheck();
 		}
 	};
 
@@ -957,6 +972,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 			// Send shift command to host
 			this._ipc.sendCommand(ShiftEntriesCommand, { ids: ids, direction: direction });
+
+			this.scheduleTodoConflictCheck();
 		} else {
 			const targetSortedIndex = sortedIndex + (isDownward ? 1 : -1);
 
@@ -1218,6 +1235,17 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			}
 		}
 
+		const todoConflictCheckKey = this.getTodoConflictCheckKey();
+		if (todoConflictCheckKey !== this._todoConflictCheckKey) {
+			this._todoConflictCheckKey = todoConflictCheckKey;
+
+			if (todoConflictCheckKey != null) {
+				this.scheduleTodoConflictCheck();
+			} else {
+				this.resetTodoConflictCheckState();
+			}
+		}
+
 		// Set initial focus and selection when entries first arrive
 		if (this.focusedEntryId == null && this._sortedEntries.length > 0) {
 			const baseId = this.state?.onto?.sha;
@@ -1374,8 +1402,33 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private renderConflictIndicator() {
-		// Only show for new rebases (not active ones)
-		if (this.isRebasing || !this.state?.branch || !this.state?.onto) {
+		// For active/paused rebases, show todo conflict status
+		if (this.isRebasing) {
+			if (this._todoConflictsLoading) {
+				return html`<span class="conflict-loading" title="Checking remaining commits for conflicts...">
+					<code-icon icon="loading" modifier="spin"></code-icon>
+				</span>`;
+			}
+			const conflictCount =
+				this._todoConflicts?.status === 'conflicts' ? (this._todoConflicts.conflict?.shas?.length ?? 0) : 0;
+			if (conflictCount) {
+				return html`<gl-tooltip
+					hoist
+					content="Potential conflicts detected in ${conflictCount} remaining commit${conflictCount > 1
+						? 's'
+						: ''}"
+				>
+					<span class="conflict-summary warning">
+						<code-icon icon="warning"></code-icon>
+						<span>${conflictCount}</span>
+					</span>
+				</gl-tooltip>`;
+			}
+			return nothing;
+		}
+
+		// For new rebases, show the full conflict indicator
+		if (!this.state?.branch || !this.state?.onto) {
 			return nothing;
 		}
 
@@ -1820,6 +1873,83 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private onRevealCommit = (e: CustomEvent<{ sha: string }>) => {
 		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: e.detail.sha });
 	};
+
+	/** Computes a key that changes when the rebase advances externally (Continue/Skip/external edit).
+	 *  Local edits (move/shift/drop) are handled by explicit scheduleTodoConflictCheck() calls. */
+	private getTodoConflictCheckKey(): string | undefined {
+		if (!this.isRebasing || !this.state?.onto?.sha) return undefined;
+
+		return `${this.state.onto.sha}|${this.rebaseStatus?.currentStep ?? 0}|${this.doneEntries.length}|${this.entries.length}`;
+	}
+
+	private scheduleTodoConflictCheck(): void {
+		if (this._todoConflictCheckTimer != null) {
+			clearTimeout(this._todoConflictCheckTimer);
+		}
+
+		this.markConflictDetectionStale();
+
+		this._todoConflictCheckTimer = setTimeout(() => {
+			this._todoConflictCheckTimer = undefined;
+			void this.checkTodoConflicts();
+		}, 500);
+	}
+
+	private resetTodoConflictCheckState(): void {
+		if (this._todoConflictCheckTimer != null) {
+			clearTimeout(this._todoConflictCheckTimer);
+			this._todoConflictCheckTimer = undefined;
+		}
+
+		this._todoConflictCheckGeneration++;
+		this._todoConflictsLoading = false;
+		this._todoConflicts = undefined;
+		this._conflictingShas = undefined;
+	}
+
+	private async checkTodoConflicts(): Promise<void> {
+		const state = this.state;
+		if (!state?.onto?.sha) return;
+
+		const commits = state.entries
+			.filter(e => isCommitEntry(e) && e.action !== 'drop')
+			.map(e => (e as RebaseCommitEntry).sha);
+
+		if (!commits.length) {
+			this._todoConflicts = { status: 'clean' };
+			this._conflictingShas = undefined;
+			return;
+		}
+
+		this._todoConflictsLoading = true;
+		const generation = ++this._todoConflictCheckGeneration;
+
+		try {
+			// For paused rebases, use HEAD as base since done entries have been applied
+			const base = this.isRebasing ? 'HEAD' : undefined;
+
+			const response = await this._ipc.sendRequest(GetTodoConflictsRequest, {
+				onto: state.onto.sha,
+				commits: commits,
+				base: base,
+			});
+
+			// Discard stale responses if a newer check was started
+			if (generation !== this._todoConflictCheckGeneration) return;
+
+			this._todoConflicts = response.conflicts;
+			this._conflictingShas =
+				this._todoConflicts?.status === 'conflicts' ? (this._todoConflicts.conflict?.shas ?? []) : undefined;
+		} catch {
+			if (generation !== this._todoConflictCheckGeneration) return;
+			this._todoConflicts = undefined;
+			this._conflictingShas = undefined;
+		} finally {
+			if (generation === this._todoConflictCheckGeneration) {
+				this._todoConflictsLoading = false;
+			}
+		}
+	}
 
 	private onConflictStateChange = (
 		e: CustomEvent<{ isLoading: boolean; hasConflicts: boolean; conflictingShas: string[] | undefined }>,
