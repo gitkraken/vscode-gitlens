@@ -33,7 +33,6 @@ test.describe('MCP — Configuration', () => {
 	test('should include mcp subcommand in config args', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig();
 
-		// The server args should include the "mcp" subcommand
 		expect(config.args).toContain('mcp');
 	});
 
@@ -81,7 +80,6 @@ test.describe('MCP — Tool Discovery', () => {
 		const tools = await mcpClient.listTools();
 		const gitTools = tools.filter(t => /git/i.test(t));
 
-		// The MCP server should expose at least some git-related tools
 		expect(gitTools.length).toBeGreaterThan(0);
 	});
 
@@ -132,24 +130,24 @@ test.describe('MCP — Tool Invocation', () => {
 });
 
 // ============================================================================
-// Block 2: IPC Discovery
+// IPC Discovery
 // ============================================================================
 
 test.describe('MCP — IPC Discovery', () => {
 	test.describe.configure({ mode: 'serial' });
 
-	test('should create IPC discovery file for current VS Code PID', async ({ mcpClient, vscode }) => {
+	test('should find IPC discovery file for current workspace', async ({ mcpClient, vscode }) => {
 		const ipcPath = mcpClient.ipcFilePath;
-		const pid = vscode.electron.app.process().pid;
-		console.log('[IPC Discovery] pid:', pid);
-		console.log('[IPC Discovery] ipcFilePath:', ipcPath ?? 'NOT FOUND');
+		const workspacePath = vscode.electron.workspacePath;
 
-		// IPC file may not exist if workspace has no folders (e.g. temp dir opened as file)
-		// In E2E tests with a workspace, it should be present
-		if (ipcPath != null) {
-			expect(existsSync(ipcPath)).toBe(true);
-			expect(ipcPath).toContain(`gitlens-ipc-server-${pid}-`);
-		}
+		expect(ipcPath).toBeTruthy();
+		expect(existsSync(ipcPath!)).toBe(true);
+
+		// Verify the matched file actually contains our workspace (case-insensitive for Windows)
+		const data = readIpcDiscoveryFile(ipcPath!);
+		expect(data).toBeDefined();
+		const wsLower = data!.workspacePaths!.map(p => p.toLowerCase());
+		expect(wsLower).toContain(workspacePath.toLowerCase());
 	});
 
 	test('should contain valid IPC discovery data', async ({ mcpClient }) => {
@@ -157,7 +155,6 @@ test.describe('MCP — IPC Discovery', () => {
 		test.skip(ipcPath == null, 'No IPC discovery file available');
 
 		const data = readIpcDiscoveryFile(ipcPath!);
-		console.log('[IPC Data] contents:', JSON.stringify(data, null, 2));
 
 		expect(data).toBeDefined();
 		expect(data!.token).toBeTruthy();
@@ -172,7 +169,6 @@ test.describe('MCP — IPC Discovery', () => {
 		test.skip(ipcPath == null, 'No IPC discovery file available');
 
 		const data = readIpcDiscoveryFile(ipcPath!);
-		console.log('[IPC Workspace] paths:', data?.workspacePaths);
 
 		expect(data).toBeDefined();
 		expect(data!.workspacePaths).toBeInstanceOf(Array);
@@ -184,33 +180,25 @@ test.describe('MCP — IPC Discovery', () => {
 		test.skip(ipcPath == null, 'No IPC discovery file available');
 
 		const data = readIpcDiscoveryFile(ipcPath!);
-		console.log('[IPC IDE] ideName:', data?.ideName, 'scheme:', data?.scheme);
 
 		expect(data).toBeDefined();
-		// E2E tests run in VS Code
 		expect(data!.scheme).toBe('vscode');
 	});
 });
 
 // ============================================================================
-// Block 1: CLI Installation Verification
+// CLI Installation Verification
 // ============================================================================
 
 test.describe('MCP — CLI Installation', () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test('should install gk CLI binary on activation', async ({ mcpClient }) => {
-		const gkPath = mcpClient.gkPath;
-		console.log('[CLI Install] gkPath:', gkPath);
-		console.log('[CLI Install] exists:', existsSync(gkPath));
-
-		expect(existsSync(gkPath)).toBe(true);
+		expect(existsSync(mcpClient.gkPath)).toBe(true);
 	});
 
 	test('should have correct binary file size', async ({ mcpClient }) => {
-		const gkPath = mcpClient.gkPath;
-		const stats = statSync(gkPath);
-		console.log('[CLI Binary] size:', stats.size, 'bytes');
+		const stats = statSync(mcpClient.gkPath);
 
 		// gk binary should be a substantial executable, not a stub
 		expect(stats.size).toBeGreaterThan(1_000_000);
@@ -219,7 +207,6 @@ test.describe('MCP — CLI Installation', () => {
 	test('should report CLI version via gk version', async ({ mcpClient }) => {
 		const { execSync } = await import('node:child_process');
 		const output = execSync(`"${mcpClient.gkPath}" version`, { encoding: 'utf8' }).trim();
-		console.log('[CLI Version] output:', output);
 
 		// Proxy binary returns "CLI Core: X.Y.Z\nCLI Installer: X.Y.Z"
 		expect(output).toContain('CLI Core:');
@@ -229,10 +216,8 @@ test.describe('MCP — CLI Installation', () => {
 	test('should have executable permissions on Unix', async ({ mcpClient }) => {
 		test.skip(process.platform === 'win32', 'Permission check not applicable on Windows');
 
-		const gkPath = mcpClient.gkPath;
-		const stats = statSync(gkPath);
+		const stats = statSync(mcpClient.gkPath);
 		const mode = stats.mode & 0o777;
-		console.log('[CLI Permissions] mode:', mode.toString(8));
 
 		// Owner execute bit should be set (at minimum 0o755)
 		expect(mode & 0o100).toBeTruthy();
@@ -240,7 +225,7 @@ test.describe('MCP — CLI Installation', () => {
 });
 
 // ============================================================================
-// Block 3: MCP Registration (IDE-specific)
+// MCP Registration (IDE-specific)
 // ============================================================================
 
 test.describe('MCP — Registration', () => {
@@ -248,40 +233,26 @@ test.describe('MCP — Registration', () => {
 
 	test('should provide VS Code server definition with correct scheme', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig();
-		console.log(
-			'[Registration] scheme arg:',
-			config.args.find(a => a.includes('--scheme')),
-		);
 
 		expect(config.args).toContain('--scheme=vscode');
 	});
 
 	test('should provide server definition with gitlens source', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig();
-		console.log(
-			'[Registration] source arg:',
-			config.args.find(a => a.includes('--source')),
-		);
 
 		expect(config.args).toContain('--source=gitlens');
 	});
 
 	test('should provide server definition with correct host', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig();
-		console.log(
-			'[Registration] host arg:',
-			config.args.find(a => a.includes('--host')),
-		);
 
 		expect(config.args).toContain('--host=vscode');
 	});
 
 	test('should return cursor scheme when configured for cursor', async ({ mcpClient }) => {
-		// McpClient defaults to vscode host; create config for cursor host
 		const { McpClient } = await import('../helpers/mcpHelper.js');
 		const cursorClient = new McpClient(mcpClient.gkPath, mcpClient.ipcFilePath, 'cursor');
 		const config = await cursorClient.getMcpConfig();
-		console.log('[Registration Cursor] args:', config.args);
 
 		expect(config.args).toContain('--host=cursor');
 		expect(config.args).toContain('--scheme=cursor');
@@ -289,32 +260,32 @@ test.describe('MCP — Registration', () => {
 });
 
 // ============================================================================
-// Block 4: Settings & Feature Flags
+// Settings & Feature Flags
 // ============================================================================
 
 test.describe('MCP — Settings & Feature Flags', () => {
 	test.describe.configure({ mode: 'serial' });
 
-	test('should include --insiders in args when insiders option is set', async ({ mcpClient }) => {
+	// CLI does not yet support --insiders in `gk mcp config` (see gitkraken/gkcli#724).
+	// When supported, the returned command should point to gk-insiders (pre-release binary).
+	test('should return gk-insiders command when insiders option is set', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig({ insiders: true });
-		console.log('[Settings Insiders] args:', config.args);
 
 		expect(config).toBeDefined();
 		expect(config.type).toBe('stdio');
-		expect(config.args).toContain('--insiders');
+		expect(config.command).toMatch(/gk-insiders/);
 	});
 
-	test('should not include --insiders in args by default', async ({ mcpClient }) => {
+	test('should return gk command (not insiders) by default', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig();
-		console.log('[Settings Default] args:', config.args);
 
 		expect(config).toBeDefined();
-		expect(config.args).not.toContain('--insiders');
+		expect(config.command).not.toMatch(/gk-insiders/);
 	});
 });
 
 // ============================================================================
-// Block 5: Error Resilience
+// Error Resilience
 // ============================================================================
 
 test.describe('MCP — Error Resilience', () => {
@@ -324,7 +295,6 @@ test.describe('MCP — Error Resilience', () => {
 		const { McpClient } = await import('../helpers/mcpHelper.js');
 		const noIpcClient = new McpClient(mcpClient.gkPath, undefined);
 		const config = await noIpcClient.getMcpConfig();
-		console.log('[Resilience NoIPC Config] name:', config.name, 'type:', config.type);
 
 		expect(config).toBeDefined();
 		expect(config.name).toBeTruthy();
@@ -335,7 +305,6 @@ test.describe('MCP — Error Resilience', () => {
 		const { McpClient } = await import('../helpers/mcpHelper.js');
 		const noIpcClient = new McpClient(mcpClient.gkPath, undefined);
 		const tools = await noIpcClient.listTools();
-		console.log('[Resilience NoIPC Tools] count:', tools.length);
 
 		expect(tools).toBeInstanceOf(Array);
 		expect(tools.length).toBeGreaterThan(0);
@@ -345,7 +314,6 @@ test.describe('MCP — Error Resilience', () => {
 		const { McpClient } = await import('../helpers/mcpHelper.js');
 		const noIpcClient = new McpClient(mcpClient.gkPath, undefined);
 		const response = await noIpcClient.callTool('nonexistent_tool', {});
-		console.log('[Resilience NoIPC Call] response:', JSON.stringify(response).slice(0, 200));
 
 		expect(response).toBeDefined();
 		expect(response.jsonrpc).toBe('2.0');
