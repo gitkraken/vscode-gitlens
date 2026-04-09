@@ -11,7 +11,7 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { RunError } from '../exec/exec.errors.js';
 import type { Git } from '../exec/git.js';
-import { gitConfigsLog } from '../exec/git.js';
+import { gitConfigsLog, GitError } from '../exec/git.js';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
 	constructor(
@@ -310,8 +310,8 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			await this.git.exec({ cwd: repoPath, configs: gitConfigsLog, stdin: contents }, 'apply', '--check', '-');
 			return true;
 		} catch (ex) {
-			if (ex instanceof RunError) {
-				if (ex.stderr.includes('No valid patches in input')) {
+			if (ex instanceof RunError || ex instanceof GitError) {
+				if ((ex.stderr ?? '').includes('No valid patches in input')) {
 					return false;
 				}
 
