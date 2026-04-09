@@ -67,6 +67,7 @@ import {
 	GetMissingAvatarsCommand,
 	GetMissingCommitsCommand,
 	GetPotentialConflictsRequest,
+	GetTodoConflictsRequest,
 	MoveEntriesCommand,
 	MoveEntryCommand,
 	OpenConflictChangesCommand,
@@ -636,6 +637,60 @@ export class RebaseWebviewProvider implements Disposable {
 				'commits.count': commits.length,
 				error: ex instanceof Error ? ex.message : String(ex),
 			});
+			return { conflicts: undefined };
+		}
+	}
+
+	/** Handles request for todo-list conflict detection (Pro feature) */
+	@ipcRequest(GetTodoConflictsRequest)
+	private async onGetTodoConflicts(
+		params: IpcParams<typeof GetTodoConflictsRequest>,
+	): Promise<IpcResponse<typeof GetTodoConflictsRequest>> {
+		const { onto, commits, base } = params;
+		const startTime = Date.now();
+
+		// Check subscription status
+		const subscription = await this.container.subscription.getSubscription();
+		if (!isSubscriptionTrialOrPaidFromState(subscription?.state)) {
+			return { conflicts: undefined };
+		}
+
+		if (!commits?.length) {
+			return { conflicts: { status: 'clean' } };
+		}
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+
+		try {
+			const targetBase = base ?? onto;
+			const result = await svc.branches.getPotentialApplyConflicts?.(targetBase, commits, {
+				stopOnFirstConflict: false,
+			});
+
+			const duration = Date.now() - startTime;
+			if (result?.status === 'conflicts') {
+				this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
+					duration: duration,
+					status: 'conflicts',
+					'commits.count': commits.length,
+					'commits.conflicting': result.conflict.shas?.length ?? 0,
+				});
+			} else if (result?.status === 'clean') {
+				this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
+					duration: duration,
+					status: 'clean',
+					'commits.count': commits.length,
+				});
+			}
+
+			return { conflicts: result };
+		} catch (ex) {
+			this.host.sendTelemetryEvent('rebaseEditor/conflicts/failed', {
+				duration: Date.now() - startTime,
+				'commits.count': commits.length,
+				error: ex instanceof Error ? ex.message : String(ex),
+			});
+			Logger.error(ex, 'onGetTodoConflicts');
 			return { conflicts: undefined };
 		}
 	}
