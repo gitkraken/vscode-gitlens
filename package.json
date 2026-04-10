@@ -6507,7 +6507,7 @@
 			},
 			{
 				"command": "gitlens.ai.mcp.selectAgents",
-				"title": "GitKraken MCP: Connect More Agents...",
+				"title": "Connect GitKraken MCP to More Agents...",
 				"category": "GitLens"
 			},
 			{
