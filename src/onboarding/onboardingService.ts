@@ -105,12 +105,12 @@ export class OnboardingService implements Disposable {
 	 * Checks if an onboarding item is dismissed
 	 * Respects `reshowAfter` - if the user dismissed before that version, returns false
 	 */
-	isDismissed(key: OnboardingKeys): boolean {
+	isDismissed(key: OnboardingKeys, skipLegacyFallback: boolean = false): boolean {
 		const item = this.getItem(key);
 		if (!item?.dismissedAt) {
 			// During migration, check legacy storage keys as a fallback so callers
 			// that run before migration completes don't see unmigrated (false) state
-			if (this._ready.pending) {
+			if (!skipLegacyFallback && this._ready.pending) {
 				return this.isLegacyDismissed(key);
 			}
 			return false;
@@ -277,7 +277,7 @@ export class OnboardingService implements Disposable {
 				// eslint-disable-next-line @typescript-eslint/no-deprecated
 				const wasDismissed = this.storage.get(legacy);
 				if (wasDismissed) {
-					if (!this.isDismissed(current)) {
+					if (!this.isDismissed(current, true)) {
 						await this.dismiss(current);
 					}
 					await this.storage.delete(legacy);
@@ -294,7 +294,7 @@ export class OnboardingService implements Disposable {
 
 				for (const section of collapsedSections) {
 					const key = sectionMap[section];
-					if (key && !this.isDismissed(key)) {
+					if (key && !this.isDismissed(key, true)) {
 						await this.dismiss(key);
 					}
 				}
@@ -307,7 +307,7 @@ export class OnboardingService implements Disposable {
 			// eslint-disable-next-line @typescript-eslint/no-deprecated
 			const composerStepReached = this.storage.get('composer:onboarding:stepReached');
 			if (composerDismissed != null || composerStepReached != null) {
-				if (composerDismissed != null && !this.isDismissed('composer:onboarding')) {
+				if (composerDismissed != null && !this.isDismissed('composer:onboarding', true)) {
 					await this.dismiss('composer:onboarding');
 				}
 				if (composerStepReached != null) {
