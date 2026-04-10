@@ -12,7 +12,7 @@ Evaluate GitHub issues using a pre-assembled evidence pack and produce a structu
 ```
 /triage <number> [number...]           # Single issue(s)
 /triage recent [--since 7d]            # Recent batch
-/triage audit [--older-than 180d] [--batch-size 50] [--label bug]  # Historical batch
+/triage audit [--older-than 180d] [--batch-size 50] [--type bug]   # Historical batch
 /triage <any mode> --skip-trust        # Skip reporter claim verification for team-member issues
 ```
 
@@ -100,7 +100,7 @@ Apply only to issues not yet resolved to a high-confidence verdict in Stage 1.
 
 #### 7. Feature-exists check (feature requests)
 
-Does the requested feature already exist in the extension? Check against CHANGELOG entries (`changelogEntry` field), known feature areas, or codebase evidence if needed. If the feature already exists, classify as `Close - Invalid` with a note about the existing feature.
+Does the requested feature already exist in the extension? Check against CHANGELOG entries (`changelogEntry` field), known feature areas, or codebase evidence if needed. If the feature already exists, classify as `Close - Already Exists` with a note explaining the existing feature and how to access it.
 
 #### 8. Bug-still-valid hypothesis (bug reports)
 
@@ -157,23 +157,25 @@ Before assigning ANY verdict:
 - Confirm all required evidence fields for that verdict class are satisfied
 - If any required evidence is missing or confidence is `Low`, downgrade to `Request More Info` or `Valid - Needs Triage`
 - If you cannot justify a verdict with available evidence, defer to human review by classifying as `Valid - Needs Triage` with a note of your impression
-- Set `requiresHumanApproval: true` for ALL close recommendations (`Close - Fixed`, `Close - Duplicate`, `Close - Invalid`, `Close - Stale`)
+- Set `requiresHumanApproval: true` for ALL close recommendations (`Close - Fixed`, `Close - Duplicate`, `Close - Not a Bug`, `Close - Already Exists`, `Close - Invalid`, `Close - Stale`)
 - Never override the two-source rule for `Close - Fixed`
 - Never classify a team member's issue as spam
 
 ### Evidence Requirements by Verdict
 
-| Verdict                   | Required Evidence                                                                |
-| ------------------------- | -------------------------------------------------------------------------------- |
-| Close - Fixed             | 2+ of: changelog entry, merged linked PR, maintainer comment, code investigation |
-| Close - Duplicate         | Identified canonical issue number + both issues describe same behavior           |
-| Close - Invalid           | Clear evidence of third-party cause, spam, or misunderstanding                   |
-| Close - Stale             | No activity for 365+ days + feature still exists or addressed elsewhere          |
-| Request More Info         | Specific description of what information is missing                              |
-| Relabel - Bug             | Evidence issue describes a defect, not a feature request                         |
-| Relabel - Feature Request | Evidence issue describes desired new behavior, not a defect                      |
-| Valid - Needs Triage      | Insufficient evidence for any other verdict                                      |
-| Valid - Already Triaged   | Has milestone, assignee, or triage labels                                        |
+| Verdict                  | Required Evidence                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| Close - Fixed            | 2+ of: changelog entry, merged linked PR, maintainer comment, code investigation               |
+| Close - Duplicate        | Identified canonical issue number + both issues describe same behavior                         |
+| Close - Not a Bug        | Evidence the reported behavior is expected, user error, or environment-specific (not a defect) |
+| Close - Already Exists   | Codebase or CHANGELOG evidence the requested feature already ships                             |
+| Close - Invalid          | Clear evidence of third-party cause, spam, or misunderstanding                                 |
+| Close - Stale            | No activity for 365+ days + feature still exists or addressed elsewhere                        |
+| Request More Info        | Specific description of what information is missing                                            |
+| Retype - Bug             | Evidence issue describes a defect, not a feature request                                       |
+| Retype - Feature Request | Evidence issue describes desired new behavior, not a defect                                    |
+| Valid - Needs Triage     | Insufficient evidence for any other verdict                                                    |
+| Valid - Already Triaged  | Has milestone, assignee, or triage labels                                                      |
 
 ### Output
 
@@ -208,7 +210,7 @@ Issues requiring human approval: N
 ### [#NNNN — Title](https://github.com/<owner>/<repo>/issues/NNNN)
 
 - **Author**: @username (team) | @username
-- **Verdict**: Close - Fixed | Close - Duplicate | Close - Invalid | Close - Stale
+- **Verdict**: Close - Fixed | Close - Duplicate | Close - Not a Bug | Close - Already Exists | Close - Invalid | Close - Stale
 - **Confidence**: High | Medium | Low
 - **Type**: <issue type> | **Labels**: <label list>
 - **Claims**: <checked claims with status: confirmed/disputed/unverifiable — omit if verification was skipped>
@@ -231,17 +233,17 @@ Issues requiring human approval: N
 
 ---
 
-## Issues Needing Relabeling
+## Issues Needing Retyping
 
 ### [#NNNN — Title](https://github.com/<owner>/<repo>/issues/NNNN)
 
 - **Author**: @username (team) | @username
-- **Verdict**: Relabel - Bug | Relabel - Feature Request
+- **Verdict**: Retype - Bug | Retype - Feature Request
 - **Confidence**: High | Medium | Low
 - **Claims**: <checked claims with status — omit if verification was skipped>
-- **Evidence**: <why the current label is wrong>
-- **Current type/labels**: <current>
-- **Recommended labels**: <changes to make>
+- **Evidence**: <why the current type is wrong>
+- **Current type**: <current>
+- **Recommended type**: <new type>
 
 ---
 

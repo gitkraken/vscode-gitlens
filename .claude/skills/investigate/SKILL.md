@@ -285,7 +285,9 @@ Also produce a machine-readable companion file: `.work/triage/reports/YYYY-MM-DD
 			"rootCauseSummary": "...",
 			"proposedFix": "...",
 			"affectedFiles": ["src/path/to/file.ts"],
-			"recommendation": "Fix | Request Info | Close | Needs Planning"
+			"blockedBy": null | "vscode" | "git" | "cli" | "language-server" | "other",
+			"blockedDetail": "...",
+			"recommendation": "Fix | Request Info | Close | Needs Planning | Blocked"
 		}
 	]
 }

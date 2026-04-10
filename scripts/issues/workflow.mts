@@ -385,6 +385,7 @@ async function runTriagePipeline(
 			'older-than': { type: 'string', default: '180d' },
 			'batch-size': { type: 'string', default: '50' },
 			label: { type: 'string' },
+			type: { type: 'string' },
 			batch: { type: 'string', default: '1' },
 			'force-refresh': { type: 'boolean', default: false },
 			'skip-to': { type: 'string' },
