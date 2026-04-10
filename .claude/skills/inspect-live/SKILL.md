@@ -7,9 +7,53 @@ description: Launch VS Code with GitLens via Playwright and inspect the running 
 
 Launch a real VS Code instance with GitLens loaded, then inspect UI elements, read logs, interact with views, and evaluate runtime values — all programmatically via Playwright.
 
-## The Script
+## MCP Server (Preferred for Iterative Inspection)
 
-`scripts/e2e-dev-inspect.mjs` — a general-purpose CLI that supports ordered, repeatable actions.
+The `vscode-inspector` MCP server provides a **persistent, interactive** session. It launches VS Code once and exposes tools for screenshot/click/inspect/rebuild cycles — much faster than the batch CLI for agentic feedback loops.
+
+The server is auto-discovered via `.mcp.json` when Claude Code starts in this repo. When connected, these MCP tools are available:
+
+| Tool                 | Purpose                                                |
+| -------------------- | ------------------------------------------------------ |
+| `launch`             | Start VS Code with GitLens loaded (persistent session) |
+| `teardown`           | Close VS Code and clean up                             |
+| `get_status`         | Check if session is running                            |
+| `screenshot`         | Capture window or webview as inline image              |
+| `execute_command`    | Run any VS Code command by ID                          |
+| `click`              | Click element by CSS selector (main UI or webview)     |
+| `type_text`          | Type text into inputs                                  |
+| `press_key`          | Press keyboard shortcuts                               |
+| `inspect_dom`        | Query DOM elements for text/HTML/attributes            |
+| `aria_snapshot`      | Get accessibility tree as YAML                         |
+| `evaluate`           | Run JS in extension host with vscode API               |
+| `read_logs`          | Search extension output logs                           |
+| `rebuild_and_reload` | Build extension + reload VS Code window                |
+
+### Typical Workflow
+
+1. Call `launch` (once per session — takes ~10s)
+2. Call `execute_command` to open the view you want to inspect
+3. Call `screenshot` to see the current state (returns inline image)
+4. Make code changes, then call `rebuild_and_reload` (~10-30s)
+5. Call `screenshot` again to verify changes
+6. Repeat steps 4-5 as needed
+7. Call `teardown` when done
+
+### Quick Example
+
+```
+launch { with_evaluator: true }
+execute_command { command: "gitlens.showHomeView" }
+screenshot { target: "webview", webview_title: "Home" }
+inspect_dom { selector: "h1", in_webview: true }
+rebuild_and_reload { build_command: "pnpm run build:extension" }
+screenshot {}
+teardown
+```
+
+## Batch CLI (Fallback for One-Shot Inspection)
+
+`scripts/e2e-dev-inspect.mjs` — a general-purpose CLI that supports ordered, repeatable actions. Use this when the MCP server is not available or for quick one-off inspections.
 
 ### Two Modes
 
