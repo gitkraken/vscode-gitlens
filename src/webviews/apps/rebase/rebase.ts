@@ -25,6 +25,7 @@ import {
 	ChangeEntriesCommand,
 	ChangeEntryCommand,
 	ContinueCommand,
+	DismissCloseWarningCommand,
 	isCommandEntry,
 	isCommitEntry,
 	MoveEntriesCommand,
@@ -168,6 +169,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private _squashTargetIds = new Set<string>();
 
 	/** Cached conflict tree model */
+	@state() private closeWarningDismissedLocal = false;
+
 	private _conflictTreeModel: TreeModel[] = [];
 	private _prevConflictFiles: ConflictFileInfo[] | undefined;
 
@@ -1293,7 +1296,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					],
 					() => this.renderHeader(),
 				)}
-				${preservesMerges ? this.renderPreservesMergesBanner() : nothing}
+				${preservesMerges ? this.renderPreservesMergesBanner() : nothing} ${this.renderCloseWarningBanner()}
 				<div class="content">
 					${this.hasConflictPanel
 						? html`<gl-split-panel
@@ -1347,6 +1350,27 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			layout="responsive"
 			body="This rebase contains merge commits. Reordering is disabled to preserve the merge structure, but you can still change actions (drop, reword, etc.)."
 		></gl-banner>`;
+	}
+
+	private renderCloseWarningBanner() {
+		// Only show during planning phase (not during active rebase) and when not dismissed
+		if (this.isRebasing || this.closeWarningDismissedLocal || this.state?.closeWarningDismissed) {
+			return nothing;
+		}
+
+		return html`<gl-banner
+			class="close-warning-banner"
+			display="outline"
+			layout="responsive"
+			body="The rebase will start automatically when you close this tab."
+			dismissible
+			@gl-banner-dismiss=${this.onDismissCloseWarning}
+		></gl-banner>`;
+	}
+
+	private onDismissCloseWarning() {
+		this.closeWarningDismissedLocal = true;
+		this._ipc?.sendCommand(DismissCloseWarningCommand, undefined);
 	}
 
 	private renderConflictIndicator() {
