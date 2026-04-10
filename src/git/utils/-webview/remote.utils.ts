@@ -5,6 +5,7 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { ParsedRemoteFileUri, RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { CreatePullRequestRemoteResource, RemoteResource } from '@gitlens/git/models/remoteResource.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { ensureArray } from '@gitlens/utils/array.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
 import { Container } from '../../../container.js';
@@ -143,20 +144,17 @@ async function getUrlsFromResources(
 	provider: RemoteProvider,
 	resource: RemoteResource | RemoteResource[],
 ): Promise<string[]> {
-	const urlPromises: (Promise<string | undefined> | string | undefined)[] = [];
+	const urlPromises: Promise<string | undefined>[] = [];
 
-	if (Array.isArray(resource)) {
-		for (const r of resource) {
-			urlPromises.push(provider.url(r));
-		}
-	} else {
+	for (const r of ensureArray(resource)) {
 		// Resolve AI-generated PR details centrally before URL construction
-		if (resource.type === RemoteResourceType.CreatePullRequest) {
-			resource = await resolveCreatePullRequestDetails(resource);
+		if (r.type === RemoteResourceType.CreatePullRequest) {
+			urlPromises.push(resolveCreatePullRequestDetails(r).then(resolved => provider.url(resolved)));
+		} else {
+			urlPromises.push(Promise.resolve(provider.url(r)));
 		}
-		urlPromises.push(provider.url(resource));
 	}
-	// eslint-disable-next-line @typescript-eslint/await-thenable
+
 	const urls: string[] = (await Promise.allSettled(urlPromises)).map(r => getSettledValue(r)).filter(r => r != null);
 	return urls;
 }
