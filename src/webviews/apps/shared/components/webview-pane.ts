@@ -91,6 +91,8 @@ export class WebviewPane extends LitElement {
 			}
 
 			.content {
+				display: flex;
+				flex-direction: column;
 				flex: 1;
 				overflow: auto;
 				min-height: 0;
@@ -144,7 +146,7 @@ export class WebviewPane extends LitElement {
 
 	override render(): unknown {
 		return html`
-			<header class="header">
+			<header class="header" part="header">
 				${this.renderTitle()}
 				<slot name="actions"></slot>
 				<progress-indicator ?active="${this.loading}"></progress-indicator>

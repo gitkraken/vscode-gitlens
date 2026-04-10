@@ -20,6 +20,8 @@ export class ActionChip extends LitElement {
 				align-items: center;
 				vertical-align: text-bottom;
 				border-radius: 0.5rem;
+				max-width: 100%;
+				min-width: 0;
 			}
 
 			* {
@@ -50,6 +52,7 @@ export class ActionChip extends LitElement {
 				gap: 0.2rem;
 				/* vertical-align: middle; */
 				color: inherit;
+				max-width: 100%;
 				min-width: 2rem;
 				height: 2rem;
 				color: inherit;
@@ -59,6 +62,7 @@ export class ActionChip extends LitElement {
 				background: none;
 				border: none;
 				font: inherit;
+				overflow: hidden;
 			}
 			.chip:hover {
 				text-decoration: none;

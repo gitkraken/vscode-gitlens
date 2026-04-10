@@ -107,6 +107,7 @@ export class GlSplitPanel extends LitElement {
 				// (start panel keeps its pixel width; CSS min() handles overflow)
 
 				this._size = size;
+				this._position = this.applySnap(this._position);
 				if (this._position !== oldPos) {
 					this.emitChange();
 				}
@@ -191,10 +192,13 @@ export class GlSplitPanel extends LitElement {
 		this._dragAc = ac;
 
 		const horiz = this.isHorizontal;
+		const rect = this.getBoundingClientRect();
+		const clickPos = horiz ? e.clientX - rect.left : e.clientY - rect.top;
+		const offset = clickPos - this._position;
 
 		const onMove = (ev: PointerEvent) => {
 			const rect = this.getBoundingClientRect();
-			const pos = horiz ? ev.clientX - rect.left : ev.clientY - rect.top;
+			const pos = (horiz ? ev.clientX - rect.left : ev.clientY - rect.top) - offset;
 			this.position = this.applySnap(pos);
 			this.emitChange();
 		};
@@ -207,8 +211,6 @@ export class GlSplitPanel extends LitElement {
 
 		this.dividerEl.addEventListener('pointermove', onMove, { passive: true, signal: ac.signal });
 		this.dividerEl.addEventListener('lostpointercapture', cleanup, { signal: ac.signal });
-
-		onMove(e);
 	}
 
 	private handleKeyDown(e: KeyboardEvent): void {

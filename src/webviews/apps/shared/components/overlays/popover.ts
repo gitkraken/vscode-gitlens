@@ -180,11 +180,17 @@ export class GlPopover extends GlElement {
 				--arrow-color: var(--vscode-menu-background);
 			}
 
+			[slot='anchor'] {
+				width: var(--gl-popover-anchor-width, fit-content);
+				max-width: 100%;
+				overflow: hidden;
+			}
+
 			/* .popover::part(hover-bridge) {
-			background: tomato;
-			opacity: 1;
-			z-index: 10000000000;
-		} */
+				background: tomato;
+				opacity: 0.5;
+				z-index: 10000000000;
+			} */
 		`,
 	];
 
@@ -329,10 +335,16 @@ export class GlPopover extends GlElement {
 	private _triggeredBy: TriggerType | undefined;
 	/** Shows the popover. */
 	async show(triggeredBy?: TriggerType): Promise<void> {
+		if (this.open || this.suppressed) {
+			// Allow click to upgrade from hover to "pin" the popover open
+			if (triggeredBy === 'click' && this._triggeredBy === 'hover') {
+				this._triggeredBy = triggeredBy;
+			}
+			return undefined;
+		}
 		if (this._triggeredBy == null || triggeredBy !== 'hover') {
 			this._triggeredBy = triggeredBy;
 		}
-		if (this.open || this.suppressed) return undefined;
 
 		// Close other popovers before showing this one, unless this popover is a descendant of an open popover
 		GlPopover.closeOthers(this);
@@ -456,12 +468,9 @@ export class GlPopover extends GlElement {
 		}
 	};
 
-	private readonly handleMouseOut = (e: MouseEvent) => {
+	private readonly handleMouseOut = () => {
 		if (this.hasTrigger('hover')) {
 			clearTimeout(this.hoverTimeout);
-
-			const composedPath = e.composedPath();
-			if (composedPath[composedPath.length - 2] === this) return;
 
 			if (this.hasPopupFocus() || this._triggeredBy !== 'hover') return;
 

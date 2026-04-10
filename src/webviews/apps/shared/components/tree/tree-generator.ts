@@ -83,9 +83,12 @@ export class GlTreeGenerator extends GlElement {
 			}
 
 			.filter {
-				position: relative;
 				padding: 0.4rem 0.6rem;
 				flex: none;
+			}
+
+			.filter-field {
+				position: relative;
 			}
 
 			.filter-input {
@@ -113,9 +116,9 @@ export class GlTreeGenerator extends GlElement {
 
 			.filter-controls {
 				position: absolute;
-				top: 0.4rem;
-				right: 0.6rem;
-				bottom: 0.4rem;
+				top: 1px;
+				right: 0;
+				bottom: 1px;
 				display: inline-flex;
 				align-items: center;
 				gap: 0.1rem;
@@ -506,24 +509,26 @@ export class GlTreeGenerator extends GlElement {
 		if (!this.filterable) return nothing;
 
 		return html`<div class="filter">
-			<input
-				class="filter-input"
-				type="text"
-				placeholder="${this.filterPlaceholder}"
-				.value=${this._filterText}
-				@input=${this.handleFilterInput}
-			/>
-			<div class="filter-controls">
-				<gl-button
-					appearance="input"
-					role="checkbox"
-					aria-checked=${this.filterMode === 'filter' ? 'true' : 'false'}
-					tooltip=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
-					aria-label=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
-					@click=${this.toggleFilterMode}
-				>
-					<code-icon icon="list-filter"></code-icon>
-				</gl-button>
+			<div class="filter-field">
+				<input
+					class="filter-input"
+					type="text"
+					placeholder="${this.filterPlaceholder}"
+					.value=${this._filterText}
+					@input=${this.handleFilterInput}
+				/>
+				<div class="filter-controls">
+					<gl-button
+						appearance="input"
+						role="checkbox"
+						aria-checked=${this.filterMode === 'filter' ? 'true' : 'false'}
+						tooltip=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
+						aria-label=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
+						@click=${this.toggleFilterMode}
+					>
+						<code-icon icon="list-filter"></code-icon>
+					</gl-button>
+				</div>
 			</div>
 		</div>`;
 	}

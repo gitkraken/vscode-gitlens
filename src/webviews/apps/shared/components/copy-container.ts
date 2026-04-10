@@ -24,7 +24,7 @@ export class GlCopyContainer extends LitElement {
 			cursor: pointer;
 		}
 
-		gl-tooltip:focus {
+		gl-tooltip:focus-visible {
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: 2px;
 		}
@@ -94,6 +94,7 @@ export class GlCopyContainer extends LitElement {
 	timeout: number = 1000;
 
 	private _resetTimer: ReturnType<typeof setTimeout> | undefined;
+	private _isMouseDown = false;
 
 	@state()
 	private label!: string;
@@ -104,18 +105,34 @@ export class GlCopyContainer extends LitElement {
 	override connectedCallback() {
 		super.connectedCallback?.();
 		this.label = this.copyLabel;
+		this.addEventListener('mousedown', this.onMouseDown);
 		this.addEventListener('focusin', this.onFocusIn);
 		this.addEventListener('focusout', this.onFocusOut);
 	}
 
+	override willUpdate(changedProperties: Map<PropertyKey, unknown>) {
+		// Keep label in sync with copyLabel when it hasn't been temporarily changed (e.g. to "Copied!")
+		if (changedProperties.has('copyLabel') && this._resetTimer == null) {
+			this.label = this.copyLabel;
+		}
+	}
+
 	override disconnectedCallback() {
 		this.cancelResetTimer();
+		this.removeEventListener('mousedown', this.onMouseDown);
 		this.removeEventListener('focusin', this.onFocusIn);
 		this.removeEventListener('focusout', this.onFocusOut);
 		super.disconnectedCallback?.();
 	}
 
+	private onMouseDown = () => {
+		this._isMouseDown = true;
+		window.addEventListener('mouseup', () => (this._isMouseDown = false), { once: true });
+	};
+
 	private onFocusIn = () => {
+		// Skip showing on mouse-triggered focus — onClick handles it after copy
+		if (this._isMouseDown) return;
 		void this.tooltip?.show();
 	};
 
@@ -151,6 +168,9 @@ export class GlCopyContainer extends LitElement {
 			this.label = 'Nothing to Copy';
 		}
 		this.createResetTimer();
+		await this.updateComplete;
+		await this.tooltip?.updateComplete;
+		void this.tooltip?.show();
 	}
 
 	private onKeydown(e: KeyboardEvent) {

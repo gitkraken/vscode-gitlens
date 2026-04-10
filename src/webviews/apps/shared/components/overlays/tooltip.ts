@@ -32,6 +32,8 @@ export class GlTooltip extends LitElement {
 		}
 
 		:host {
+			max-width: inherit;
+			overflow: inherit;
 			text-transform: var(--gl-tooltip-text-transform, inherit);
 		}
 
