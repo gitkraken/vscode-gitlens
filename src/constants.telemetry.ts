@@ -651,6 +651,9 @@ export interface MCPSetupCompletedEvent {
 	source: Sources;
 	'cli.version'?: string;
 	requiresUserCompletion: boolean;
+	'agents.succeeded'?: string;
+	'agents.failed'?: string;
+	'agents.userAction'?: string;
 }
 
 export interface MCPSetupFailedEvent {
@@ -658,6 +661,7 @@ export interface MCPSetupFailedEvent {
 	reason: string;
 	'cli.version'?: string;
 	'error.message'?: string;
+	'agents.failed'?: string;
 }
 
 export interface MCPAgentsSelectedEvent {
