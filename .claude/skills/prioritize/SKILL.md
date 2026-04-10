@@ -35,7 +35,7 @@ Read the evidence pack JSON printed to stdout.
 
 Read the JSON file and auto-detect report type:
 
-- Has `verdicts` array → **Triage decisions**. Filter to issues with actionable verdicts (`Valid - Needs Triage`, `Valid - Already Triaged`, `Relabel - Bug`, `Relabel - Feature Request`). Skip close or request-more-info verdicts — those are already resolved.
+- Has `verdicts` array → **Triage decisions**. Filter to issues with actionable verdicts (`Valid - Needs Triage`, `Valid - Already Triaged`, `Retype - Bug`, `Retype - Feature Request`). Skip close or request-more-info verdicts — those are already resolved.
 - Has `investigations` array → **Investigation decisions**. For each issue, combine investigation findings (effort, risk, root cause, confidence) with evidence pack data.
 
 For each qualifying issue, you need the evidence pack data. If the corresponding evidence pack is available in `.work/triage/packs/`, read it. Otherwise, run the `single` command to fetch data for the issue numbers.

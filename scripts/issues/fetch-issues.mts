@@ -111,7 +111,13 @@ async function fetchAuditIssues(params: AuditQueryParams): Promise<GitHubIssue[]
 	const issues = await fetchSinglePage(query, startCursor, params.batchNumber);
 
 	// Filter to only issues older than the threshold
-	const filtered = issues.filter(i => i.createdAt <= `${beforeDate}T23:59:59Z`);
+	let filtered = issues.filter(i => i.createdAt <= `${beforeDate}T23:59:59Z`);
+
+	// Client-side type filter (GitHub GraphQL filterBy doesn't support issue types)
+	if (params.typeFilter) {
+		const typeFilter = params.typeFilter.toLowerCase();
+		filtered = filtered.filter(i => i.type?.toLowerCase() === typeFilter);
+	}
 
 	// Save cursor for resume
 	// We only fetch one page for audit mode, so save cursor from this page

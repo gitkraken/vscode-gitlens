@@ -6,11 +6,13 @@ export type Workflow = 'reactive' | 'audit' | 'single';
 export type VerdictClass =
 	| 'Close - Fixed'
 	| 'Close - Duplicate'
+	| 'Close - Not a Bug'
+	| 'Close - Already Exists'
 	| 'Close - Invalid'
 	| 'Close - Stale'
 	| 'Request More Info'
-	| 'Relabel - Bug'
-	| 'Relabel - Feature Request'
+	| 'Retype - Bug'
+	| 'Retype - Feature Request'
 	| 'Valid - Needs Triage'
 	| 'Valid - Already Triaged';
 
@@ -22,6 +24,7 @@ export interface AuditQueryParams {
 	olderThan: string;
 	batchSize: number;
 	labelFilter: string | null;
+	typeFilter: string | null;
 	batchNumber: number;
 }
 

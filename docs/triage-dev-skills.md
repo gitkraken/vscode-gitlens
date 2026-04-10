@@ -124,7 +124,7 @@ Quick single-issue triage. Checks for sufficient info, duplicates, correct categ
 **Workflow C — Triage with label filter:**
 
 ```
-/triage audit --older-than 180d --label bug
+/triage audit --older-than 180d --type bug
 ```
 
 Focus triage on a specific category of backlog issues.
@@ -245,7 +245,7 @@ Repeat with `--batch 2`, `--batch 3`, etc. to work through the full backlog.
 **Workflow B — Targeted audit of a specific age range:**
 
 ```
-/triage audit --older-than 180d --label enhancement
+/triage audit --older-than 180d --type enhancement
 ```
 
 Focus on enhancement requests older than 6 months. These often accumulate as "nice to have" items that never get prioritized.
@@ -392,7 +392,7 @@ The `pnpm workflow` command automates running pipeline stages sequentially. It b
 pnpm workflow triage recent                          # Triage last 7 days of issues
 pnpm workflow triage recent --since 14d              # Custom lookback window
 pnpm workflow triage audit --older-than 365d         # Audit old issues
-pnpm workflow triage audit --older-than 180d --label bug  # Filtered audit
+pnpm workflow triage audit --older-than 180d --type bug  # Filtered audit
 pnpm workflow triage single 5096 5084                # Triage specific issues
 
 # Dev pipeline
@@ -415,12 +415,13 @@ pnpm workflow dev 5096 --skip-to review              # Post-implementation revie
 
 ### Triage Pipeline Options
 
-| Option                    | Description                                  |
-| ------------------------- | -------------------------------------------- |
-| `--since <duration>`      | Lookback window for `recent` (default: `7d`) |
-| `--older-than <duration>` | Age threshold for `audit` (default: `180d`)  |
-| `--batch-size <n>`        | Issues per batch for `audit` (default: `50`) |
-| `--label <label>`         | Filter issues by label                       |
+| Option                    | Description                                   |
+| ------------------------- | --------------------------------------------- |
+| `--since <duration>`      | Lookback window for `recent` (default: `7d`)  |
+| `--older-than <duration>` | Age threshold for `audit` (default: `180d`)   |
+| `--batch-size <n>`        | Issues per batch for `audit` (default: `50`)  |
+| `--label <label>`         | Filter issues by label                        |
+| `--type <type>`           | Filter issues by type (e.g. bug, enhancement) |
 
 **Triage skip-to stages:** `triage`, `investigate`, `prioritize`
 
@@ -516,7 +517,7 @@ Every skill works standalone or chained. Here are all supported input modes:
 | Multiple issues  | `/triage 5096 5084 5070`                          |
 | Recent batch     | `/triage recent --since 7d`                       |
 | Historical batch | `/triage audit --older-than 180d --batch-size 50` |
-| Filtered batch   | `/triage audit --older-than 180d --label bug`     |
+| Filtered batch   | `/triage audit --older-than 180d --type bug`      |
 
 **Output:** `.work/triage/reports/YYYY-MM-DD-TRIAGE-REPORT.md` + `YYYY-MM-DD-DECISIONS.json`
 

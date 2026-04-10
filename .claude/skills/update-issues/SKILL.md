@@ -32,35 +32,38 @@ For each issue in the report, determine the GitHub actions to take:
 
 **From triage decisions:**
 
-| Verdict                   | Actions                                                                                   |
-| ------------------------- | ----------------------------------------------------------------------------------------- |
-| Close - Fixed             | Close issue (reason: completed), add label `triaged`, remove label `triage`               |
-| Close - Duplicate         | Close issue (reason: not planned), comment linking canonical issue, add label `duplicate` |
-| Close - Invalid           | Close issue (reason: not planned), comment with explanation                               |
-| Close - Stale             | Close issue (reason: not planned), comment explaining staleness                           |
-| Request More Info         | Add label `needs-more-info`, comment requesting specific info                             |
-| Relabel - Bug             | Change issue type/labels to bug                                                           |
-| Relabel - Feature Request | Change issue type/labels to enhancement                                                   |
-| Valid - Needs Triage      | No action (needs investigation first)                                                     |
-| Valid - Already Triaged   | No action                                                                                 |
+| Verdict                  | Actions                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Close - Fixed            | Close issue (reason: completed), add label `triaged`, remove label `triage`                            |
+| Close - Duplicate        | Close issue (reason: not planned), comment linking canonical issue, add label `duplicate`              |
+| Close - Not a Bug        | Close issue (reason: not planned), add label `not-bug`, comment explaining why this is not a defect    |
+| Close - Already Exists   | Close issue (reason: not planned), add label `already-exists`, comment explaining the existing feature |
+| Close - Invalid          | Close issue (reason: not planned), comment with explanation                                            |
+| Close - Stale            | Close issue (reason: not planned), comment explaining staleness                                        |
+| Request More Info        | Add label `needs-more-info`, comment requesting specific info                                          |
+| Retype - Bug             | Change issue type to bug                                                                               |
+| Retype - Feature Request | Change issue type to enhancement                                                                       |
+| Valid - Needs Triage     | No action (needs investigation first)                                                                  |
+| Valid - Already Triaged  | No action                                                                                              |
 
 **From investigation decisions:**
 
-| Result                      | Actions                                                                          |
-| --------------------------- | -------------------------------------------------------------------------------- |
-| Confirmed Bug               | Add label `triaged`, remove label `triage`                                       |
-| Likely Fixed                | Add label `needs-more-info`, comment asking reporter to verify on latest version |
-| Cannot Reproduce            | Add label `needs-more-info`, comment requesting updated repro steps              |
-| Inconclusive / Insufficient | No action (needs human review)                                                   |
+| Result                      | Actions                                                                                                                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Confirmed Bug               | Add label `triaged`, remove label `triage`                                                                                                                                             |
+| Confirmed Bug (blocked)     | Add label `triaged`, remove label `triage`, add blocked label (`blocked`, `blocked: vscode`, `blocked: git`, `blocked: cli`, or `blocked: language-server` based on `blockedBy` field) |
+| Likely Fixed                | Add label `needs-more-info`, comment asking reporter to verify on latest version                                                                                                       |
+| Cannot Reproduce            | Add label `needs-more-info`, comment requesting updated repro steps                                                                                                                    |
+| Inconclusive / Insufficient | No action (needs human review)                                                                                                                                                         |
 
 **From resolution decisions:**
 
-| Recommendation         | Actions                                                                  |
-| ---------------------- | ------------------------------------------------------------------------ |
-| shortlist              | Set milestone to "Shortlist", add label `triaged`, remove label `triage` |
-| backlog                | Set milestone to "Backlog", add label `triaged`, remove label `triage`   |
-| wont-fix               | Close issue (reason: not planned), comment with rationale                |
-| community-contribution | Add label `needs-help`, comment inviting contribution                    |
+| Recommendation         | Actions                                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| shortlist              | Set milestone to "Shortlist", add label `triaged`, remove label `triage`                            |
+| backlog                | Set milestone to "Backlog", add label `triaged`, remove label `triage`                              |
+| wont-fix               | Close issue (reason: not planned), add label `wontfix`, comment with rationale                      |
+| community-contribution | Add label `needs-help` (if bug) or `needs-champion` (if enhancement), comment inviting contribution |
 
 ### Stage 2 — Pre-flight State Check
 

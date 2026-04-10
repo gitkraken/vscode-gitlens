@@ -42,6 +42,7 @@ Options (audit):
   --older-than <duration>  Age threshold, e.g. 180d (default: 180d)
   --batch-size <n>         Issues per batch (default: 50)
   --label <label>          Filter by label (optional)
+  --type <type>            Filter by issue type, e.g. bug, enhancement (optional)
   --batch <n>              Resume at batch number N (default: 1)
   --force-refresh          Bypass cache for all fetch steps
 
@@ -85,6 +86,7 @@ async function runAudit(rawArgs: string[]): Promise<void> {
 			'older-than': { type: 'string', default: '180d' },
 			'batch-size': { type: 'string', default: String(config.auditBatchSize) },
 			label: { type: 'string' },
+			type: { type: 'string' },
 			batch: { type: 'string', default: '1' },
 			'force-refresh': { type: 'boolean', default: false },
 		},
@@ -95,6 +97,7 @@ async function runAudit(rawArgs: string[]): Promise<void> {
 		olderThan: values['older-than'] as string,
 		batchSize: parseInt(values['batch-size'] as string, 10),
 		labelFilter: (values.label as string) ?? null,
+		typeFilter: (values.type as string) ?? null,
 		batchNumber: parseInt(values.batch as string, 10),
 	};
 	const forceRefresh = values['force-refresh'] as boolean;
