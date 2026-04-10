@@ -345,7 +345,7 @@
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.mcp.selectAgents": {
-			"label": "GitKraken MCP: Connect More Agents...",
+			"label": "Connect GitKraken MCP to More Agents...",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.switchProvider": {
