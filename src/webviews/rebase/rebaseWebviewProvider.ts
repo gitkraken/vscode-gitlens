@@ -63,6 +63,7 @@ import {
 	DidChangeCommitsNotification,
 	DidChangeNotification,
 	DidChangeSubscriptionNotification,
+	DismissCloseWarningCommand,
 	GetMissingAvatarsCommand,
 	GetMissingCommitsCommand,
 	GetPotentialConflictsRequest,
@@ -163,6 +164,11 @@ export class RebaseWebviewProvider implements Disposable {
 			}),
 			this.container.subscription.onDidChange(e => {
 				this.onSubscriptionChanged(e.current);
+			}),
+			this.container.onboarding.onDidChange(e => {
+				if (e.key === 'rebaseEditor:closeWarning') {
+					this.updateState();
+				}
 			}),
 		);
 
@@ -432,6 +438,12 @@ export class RebaseWebviewProvider implements Disposable {
 
 		await this._todoDocument.save();
 		await closeTab(this._todoDocument.uri);
+	}
+
+	@ipcCommand(DismissCloseWarningCommand)
+	@debug()
+	private onDismissCloseWarning(): void {
+		void this.container.onboarding.dismiss('rebaseEditor:closeWarning');
 	}
 
 	@ipcCommand(ReorderCommand)
@@ -824,6 +836,7 @@ export class RebaseWebviewProvider implements Disposable {
 			repoPath: this.repoPath,
 			subscription: subscription,
 			conflictFiles: conflictFiles,
+			closeWarningDismissed: this.container.onboarding.isDismissed('rebaseEditor:closeWarning'),
 		};
 	}
 
