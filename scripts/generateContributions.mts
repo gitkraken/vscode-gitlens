@@ -18,7 +18,7 @@ import {
 	parseGroup,
 	validateAndRewriteWhenClause,
 } from './contributions/contributionsBuilder.mts';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { Parser } from './contributions/whenParser.mts';
@@ -48,13 +48,27 @@ function extractContributionsFromPackageJson(): void {
 
 	const packageJson: PackageJson = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 
+	// Load NLS entries to resolve %key% references back to English values
+	const nlsPath = path.join(__dirname, 'package.nls.json');
+	const nlsEntries: Record<string, string> = existsSync(nlsPath) ? JSON.parse(readFileSync(nlsPath, 'utf8')) : {};
+
+	function resolveNls(value: string): string {
+		if (value.startsWith('%') && value.endsWith('%')) {
+			const key = value.slice(1, -1);
+			const resolved = nlsEntries[key];
+			if (resolved != null) return resolved;
+			console.warn(`Warning: NLS key '${key}' not found in package.nls.json`);
+		}
+		return value;
+	}
+
 	// Load commands from package.json
 	for (const cmd of packageJson.contributes.commands.sort((a: Command, b: Command) =>
 		a.command.localeCompare(b.command),
 	)) {
 		commands.set(cmd.command, {
 			id: cmd.command,
-			label: cmd.title,
+			label: resolveNls(cmd.title),
 			commandPalette: true,
 			enablement: cmd.enablement,
 			icon: cmd.icon,
@@ -65,7 +79,7 @@ function extractContributionsFromPackageJson(): void {
 	for (const submenu of packageJson.contributes.submenus.sort((a: Submenu, b: Submenu) => a.id.localeCompare(b.id))) {
 		submenus.set(submenu.id, {
 			id: submenu.id,
-			label: submenu.label,
+			label: resolveNls(submenu.label),
 			icon: submenu.icon,
 		});
 	}
@@ -170,9 +184,9 @@ function extractContributionsFromPackageJson(): void {
 			views.set(view.id, {
 				type: view.type,
 				id: view.id,
-				name: view.name,
+				name: resolveNls(view.name),
 				when: view.when,
-				contextualTitle: view.contextualTitle,
+				contextualTitle: view.contextualTitle ? resolveNls(view.contextualTitle) : view.contextualTitle,
 				icon: view.icon,
 				initialSize: view.initialSize,
 				visibility: view.visibility,
@@ -187,7 +201,7 @@ function extractContributionsFromPackageJson(): void {
 		const view = views.get(viewWelcome.view);
 		if (view) {
 			view.welcomeContent ??= [];
-			view.welcomeContent.push({ contents: viewWelcome.contents, when: viewWelcome.when });
+			view.welcomeContent.push({ contents: resolveNls(viewWelcome.contents), when: viewWelcome.when });
 		} else {
 			console.error(`Missing '${viewWelcome.view}' view for welcome content`);
 			debugger;
@@ -289,7 +303,11 @@ function generateContributionsIntoPackageJson(): void {
 		validateContributions(packageJson.contributes, contributions);
 	}
 
-	// Skip writing if there are no changes
+	// Always regenerate package.nls.json — a label change in contributions.json changes
+	// the NLS value but not the %key% reference in package.json, so we must always update it
+	writeNlsFile(builder.getNlsEntries());
+
+	// Skip writing package.json if there are no changes to the generated sections
 	if (
 		JSON.stringify(packageJson.contributes.commands) === JSON.stringify(contributions.commands) &&
 		JSON.stringify(packageJson.contributes.keybindings) === JSON.stringify(contributions.keybindings) &&
@@ -298,7 +316,7 @@ function generateContributionsIntoPackageJson(): void {
 		JSON.stringify(packageJson.contributes.views) === JSON.stringify(contributions.views) &&
 		JSON.stringify(packageJson.contributes.viewsWelcome) === JSON.stringify(contributions.viewsWelcome)
 	) {
-		console.log("Skipped; No changes detected in 'contributions.json'");
+		console.log("Skipped 'package.json'; No changes detected in 'contributions.json'");
 		return;
 	}
 
@@ -312,6 +330,54 @@ function generateContributionsIntoPackageJson(): void {
 
 	writeFileSync(path.join(__dirname, 'package.json'), `${JSON.stringify(packageJson, undefined, '\t')}\n`, 'utf8');
 	console.log("Generated 'package.json' contributions");
+}
+
+/**
+ * Writes the generated NLS entries to package.nls.json, merging with any existing
+ * non-generated entries (e.g., configuration, colors, walkthroughs).
+ *
+ * Generated entries (command.*, submenu.*, view.*, viewsWelcome.*) are always overwritten.
+ * All other entries are preserved as-is.
+ */
+function writeNlsFile(generatedEntries: ReadonlyMap<string, string>): void {
+	const nlsPath = path.join(__dirname, 'package.nls.json');
+
+	// Generated key prefixes — these are owned by the generation script
+	const generatedPrefixes = ['command.', 'submenu.', 'view.', 'viewsWelcome.'];
+
+	// Read existing file once — used for both merging and skip-if-unchanged comparison
+	const existingContent = existsSync(nlsPath) ? readFileSync(nlsPath, 'utf8') : undefined;
+	const existingNls: Record<string, string> = existingContent != null ? JSON.parse(existingContent) : {};
+
+	// Preserve non-generated entries
+	const merged: Record<string, string> = {};
+	for (const [key, value] of Object.entries(existingNls)) {
+		if (!generatedPrefixes.some(prefix => key.startsWith(prefix))) {
+			merged[key] = value;
+		}
+	}
+
+	// Add generated entries
+	for (const [key, value] of generatedEntries) {
+		merged[key] = value;
+	}
+
+	// Sort alphabetically for deterministic output
+	const sorted: Record<string, string> = {};
+	for (const key of Object.keys(merged).sort()) {
+		sorted[key] = merged[key];
+	}
+
+	const newContent = `${JSON.stringify(sorted, undefined, '\t')}\n`;
+
+	// Skip writing if unchanged
+	if (existingContent === newContent) {
+		console.log("Skipped 'package.nls.json'; No changes detected");
+		return;
+	}
+
+	writeFileSync(nlsPath, newContent, 'utf8');
+	console.log("Generated 'package.nls.json'");
 }
 
 /** Validates that all existing contributions are preserved in the new contributions */

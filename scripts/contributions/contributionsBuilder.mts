@@ -57,6 +57,16 @@ export class ContributesBuilder {
 	private keybindings: Keybinding[] = [];
 	private views: Record<string, ViewDefinition> = Object.create(null);
 	private submenus: Record<string, SubmenuDefinition[]> = Object.create(null);
+	private readonly nlsEntries = new Map<string, string>();
+
+	getNlsEntries(): ReadonlyMap<string, string> {
+		return this.nlsEntries;
+	}
+
+	private nls(key: string, value: string): string {
+		this.nlsEntries.set(key, value);
+		return `%${key}%`;
+	}
 
 	load(path: string): void {
 		const contributions: ContributionsJson = JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -112,8 +122,8 @@ export class ContributesBuilder {
 			.flat()
 			.map<Command>(c => ({
 				command: c.id,
-				title: c.label,
-				category: c.commandPalette != null ? 'GitLens' : undefined,
+				title: this.nls(`command.${c.id}.title`, c.label),
+				category: c.commandPalette != null ? this.nls('command.category', 'GitLens') : undefined,
 				icon: c.icon,
 				enablement: c.enablement,
 			}));
@@ -189,7 +199,7 @@ export class ContributesBuilder {
 			.flat()
 			.map<Submenu>(s => ({
 				id: s.id,
-				label: s.label,
+				label: this.nls(`submenu.${s.id}.label`, s.label),
 				icon: s.icon,
 			}));
 	}
@@ -223,9 +233,11 @@ export class ContributesBuilder {
 					result[v.container].push({
 						type: v.type,
 						id: v.id,
-						name: v.name,
+						name: this.nls(`view.${v.id}.name`, v.name),
 						when: v.when,
-						contextualTitle: v.contextualTitle,
+						contextualTitle: v.contextualTitle
+							? this.nls(`view.${v.id}.contextualTitle`, v.contextualTitle)
+							: undefined,
 						icon: v.icon,
 						initialSize: v.initialSize,
 						visibility: v.visibility,
@@ -254,9 +266,9 @@ export class ContributesBuilder {
 			.flat()
 			.filter(v => v.welcomeContent?.length)
 			.flatMap(v =>
-				v.welcomeContent!.map(wc => ({
+				v.welcomeContent!.map((wc, i) => ({
 					view: v.id,
-					contents: wc.contents,
+					contents: this.nls(`viewsWelcome.${v.id}.${i}.contents`, wc.contents),
 					when: wc.when,
 				})),
 			);
