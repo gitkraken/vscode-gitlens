@@ -810,6 +810,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		];
 	}
 
+	@gate()
 	@debug({ exit: true })
 	private async selectAndInstallAgents(source?: Sources): Promise<void> {
 		const scope = getScopedLogger();
@@ -855,15 +856,24 @@ export class GkCliIntegrationProvider implements Disposable {
 			() => this.installMCPForAgents(agents, cliPath),
 		);
 
-		if (results.succeeded.length > 0) {
-			this.container.events.fire('gk:cli:mcp:setup:completed', undefined);
+		const requiresUserAction = results.requiresUserAction.length > 0;
 
+		if (results.succeeded.length > 0 || requiresUserAction) {
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/completed', {
-					requiresUserCompletion: results.requiresUserAction.length > 0,
+					requiresUserCompletion: requiresUserAction,
 					source: source,
+					'agents.succeeded': results.succeeded.join(',') || undefined,
+					'agents.failed': results.failed.map(f => f.agent).join(',') || undefined,
+					'agents.userAction': results.requiresUserAction.map(r => r.agent).join(',') || undefined,
 				});
 			}
+		} else if (results.failed.length > 0 && this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('mcp/setup/failed', {
+				reason: 'agent install failed',
+				source: source,
+				'agents.failed': results.failed.map(f => f.agent).join(','),
+			});
 		}
 
 		for (const item of results.requiresUserAction) {

@@ -3232,6 +3232,7 @@ void
 
 ```typescript
 {
+  'agents.failed': string,
   'cli.version': string,
   'error.message': string,
   'reason': string,
@@ -3245,6 +3246,9 @@ void
 
 ```typescript
 {
+  'agents.failed': string,
+  'agents.succeeded': string,
+  'agents.userAction': string,
   'cli.version': string,
   'requiresUserCompletion': boolean,
   'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
@@ -3257,6 +3261,7 @@ void
 
 ```typescript
 {
+  'agents.failed': string,
   'cli.version': string,
   'error.message': string,
   'reason': string,
