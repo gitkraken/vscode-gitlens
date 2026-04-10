@@ -44,15 +44,17 @@ export async function getSelectableAgents(cliPath?: string): Promise<McpAgent[]>
 
 		const agents: McpAgent[] = [];
 		for (const item of parsed as unknown[]) {
+			if (item == null || typeof item !== 'object') continue;
+
+			const agent = item as McpAgent;
 			if (
-				item != null &&
-				typeof (item as McpAgent).name === 'string' &&
-				typeof (item as McpAgent).displayName === 'string' &&
-				typeof (item as McpAgent).detected === 'boolean' &&
-				(item as McpAgent).detected &&
-				!ideAgentIds.has((item as McpAgent).name)
+				typeof agent.name === 'string' &&
+				typeof agent.displayName === 'string' &&
+				typeof agent.detected === 'boolean' &&
+				agent.detected &&
+				!ideAgentIds.has(agent.name)
 			) {
-				agents.push(item as McpAgent);
+				agents.push(agent);
 			}
 		}
 		return agents;
