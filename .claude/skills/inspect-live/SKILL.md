@@ -1,15 +1,95 @@
 ---
 name: inspect-live
-description: Launch VS Code with GitLens via Playwright and inspect the running extension — read UI text, check feature flags, read logs, take screenshots
+description: Use when you need to visually inspect, interact with, or debug the running GitLens extension in VS Code — examining UI state, reading logs, checking feature flags, or verifying code changes against the live product
 ---
 
 # /inspect-live — Live Extension Inspection
 
 Launch a real VS Code instance with GitLens loaded, then inspect UI elements, read logs, interact with views, and evaluate runtime values — all programmatically via Playwright.
 
-## The Script
+## MCP Server (Preferred for Iterative Inspection)
 
-`scripts/e2e-dev-inspect.mjs` — a general-purpose CLI that supports ordered, repeatable actions.
+The `vscode-inspector` MCP server provides a **persistent, interactive** session. It launches VS Code once and exposes tools for screenshot/click/inspect/rebuild cycles — much faster than the batch CLI for agentic feedback loops.
+
+The server is auto-discovered via `.mcp.json` when Claude Code starts in this repo. When connected, these MCP tools are available:
+
+| Tool                 | Purpose                                                |
+| -------------------- | ------------------------------------------------------ |
+| `launch`             | Start VS Code with GitLens loaded (persistent session) |
+| `teardown`           | Close VS Code and clean up                             |
+| `get_status`         | Check if session is running                            |
+| `screenshot`         | Capture window or webview as inline image              |
+| `execute_command`    | Run any VS Code command by ID                          |
+| `click`              | Click element by CSS selector (main UI or webview)     |
+| `type_text`          | Type text into inputs                                  |
+| `press_key`          | Press keyboard shortcuts                               |
+| `inspect_dom`        | Query DOM elements for text/HTML/attributes            |
+| `aria_snapshot`      | Get accessibility tree as YAML                         |
+| `evaluate`           | Run JS in extension host with vscode API               |
+| `read_logs`          | Search extension output logs                           |
+| `rebuild_and_reload` | Build extension + restart extension host               |
+
+### Typical Workflow
+
+1. Call `launch` (once per session — takes ~10s)
+2. Call `execute_command` to open the view you want to inspect
+3. Call `screenshot` to see the current state (returns inline image)
+4. Make code changes, then rebuild and reload (see below)
+5. Call `screenshot` again to verify changes
+6. Repeat steps 4-5 as needed
+7. Call `teardown` when done
+
+### Rebuilding After Code Changes
+
+**Extension host code** (commands, providers, services, models, parsers — anything under `src/` outside `src/webviews/apps/`):
+
+```
+rebuild_and_reload { build_command: "pnpm run build:extension" }
+```
+
+This restarts the extension host with the new code. All tools continue to work on the same VS Code instance.
+
+**Webview code** (Lit components, CSS, templates under `src/webviews/apps/`): No extension host restart needed. Build the webviews, then use the view's refresh command:
+
+```
+rebuild_and_reload { build_command: "pnpm run build:webviews" }
+execute_command { command: "gitlens.views.home.refresh" }
+```
+
+Every GitLens webview has a `gitlens.views.<name>.refresh` command (e.g. `gitlens.views.welcome.refresh`, `gitlens.views.graph.refresh`, `gitlens.views.commitDetails.refresh`). These fully reload the webview with fresh JS/CSS.
+
+**Both changed**: Use `pnpm run build:quick` (builds extension + webviews, no linting), then refresh the relevant view.
+
+### Quick Examples
+
+Extension host code change:
+
+```
+launch {}
+execute_command { command: "gitlens.showHomeView" }
+screenshot {}
+# ... edit extension host code ...
+rebuild_and_reload { build_command: "pnpm run build:extension" }
+screenshot {}
+teardown
+```
+
+Webview code change:
+
+```
+launch {}
+execute_command { command: "gitlens.showWelcomeView" }
+inspect_dom { selector: "h1", in_webview: true }
+# ... edit webview code ...
+rebuild_and_reload { build_command: "pnpm run build:webviews" }
+execute_command { command: "gitlens.views.welcome.refresh" }
+inspect_dom { selector: "h1", in_webview: true }
+teardown
+```
+
+## Batch CLI (Fallback for One-Shot Inspection)
+
+`scripts/e2e-dev-inspect.mjs` — a general-purpose CLI that supports ordered, repeatable actions. Use this when the MCP server is not available or for quick one-off inspections.
 
 ### Two Modes
 
@@ -112,28 +192,20 @@ Requires `xvfb` package for headless environments: `sudo apt-get install xvfb`
 
 ## How AI Agents Should Use This
 
-1. **Build the extension first**: `pnpm run build:extension`
-2. **Determine VS Code variant**: Ask the user whether they use VS Code Stable or Insiders, or check which is installed. Pass `--flavor insiders` if needed. If on WSL/SSH/headless Linux, use `--download-vscode` instead. Remember the user's preference in memory for future invocations.
-3. **Run the script** with appropriate actions — all output goes to stdout as structured text
-4. **Parse the output**:
-   - `>>> query-frame: h1` → followed by element text content
-   - `>>> aria snapshot` → YAML-like accessibility tree with roles, names, states
-   - `>>> eval:` → followed by `Result: <JSON>`
-   - `>>> logs` → followed by matching log lines
+**Prefer the MCP server** for iterative work. Call `launch` once (use `download_vscode: true` on WSL/SSH/headless Linux), then use tools in a loop. No output parsing needed — tools return structured results directly.
 
-### Choosing the right action
+### Choosing the right tool
 
-| I want to...                         | Action                           |
-| ------------------------------------ | -------------------------------- |
-| Read text from a webview             | `--query-frame <selector>`       |
-| See all UI elements and their states | `--aria`                         |
-| Find a specific element              | `--aria-selector <css>`          |
-| Read text from the main VS Code UI   | `--query <selector>`             |
-| Click a button/link in a webview     | `--click-frame <selector>`       |
-| Click in the main VS Code UI         | `--click <selector>`             |
-| Read a runtime value                 | `--with-evaluator --eval "expr"` |
-| Execute a VS Code command            | `--command <id>`                 |
-| Check extension logs                 | `--logs <pattern>`               |
+| I want to...                         | MCP tool                              | CLI flag                         |
+| ------------------------------------ | ------------------------------------- | -------------------------------- |
+| Read text from a webview             | `inspect_dom` with `in_webview: true` | `--query-frame <selector>`       |
+| See all UI elements and their states | `aria_snapshot`                       | `--aria`                         |
+| Read text from the main VS Code UI   | `inspect_dom`                         | `--query <selector>`             |
+| Click a button/link in a webview     | `click` with `in_webview: true`       | `--click-frame <selector>`       |
+| Read a runtime value                 | `evaluate`                            | `--with-evaluator --eval "expr"` |
+| Execute a VS Code command            | `execute_command`                     | `--command <id>`                 |
+| Check extension logs                 | `read_logs`                           | `--logs <pattern>`               |
+| See what the UI looks like           | `screenshot`                          | `--screenshot <path>`            |
 
 ## All Options
 

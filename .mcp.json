@@ -1,0 +1,8 @@
+{
+	"mcpServers": {
+		"vscode-inspector": {
+			"command": "node",
+			"args": ["scripts/mcp-vscode-server.mjs"]
+		}
+	}
+}

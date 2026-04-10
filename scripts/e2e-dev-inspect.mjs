@@ -372,10 +372,38 @@ async function queryAllFrames(page, selector, action = 'text') {
 			}
 		}
 	} catch {}
-	// All subframes (webview iframes)
+	// Webview content via DOM-driven frameLocator.
+	// VS Code webviews nest iframes: outer (vscode-webview://) → inner (#active-frame).
+	// Using frameLocator('#active-frame') always resolves from the live DOM,
+	// avoiding stale frame references after webview refreshes.
 	for (const frame of page.frames()) {
+		if (frame.isDetached()) continue;
 		const url = frame.url();
-		if (url === 'about:blank' || url === page.url()) continue;
+		if (!url.startsWith('vscode-webview://')) continue;
+		try {
+			const activeFrame = frame.frameLocator('#active-frame');
+			const els = activeFrame.locator(selector);
+			const count = await els.count();
+			for (let i = 0; i < count; i++) {
+				if (action === 'click') {
+					await els.nth(i).click({ timeout: 2000 });
+					results.push({ frame: url.substring(0, 80), text: '(clicked)' });
+					return results;
+				} else {
+					const text = await els
+						.nth(i)
+						.textContent({ timeout: 1000 })
+						.catch(() => null);
+					if (text?.trim()) results.push({ frame: url.substring(0, 80), text: text.trim() });
+				}
+			}
+		} catch {}
+	}
+	// Fallback: non-webview subframes (e.g. extension editor iframes)
+	for (const frame of page.frames()) {
+		if (frame.isDetached()) continue;
+		const url = frame.url();
+		if (url === 'about:blank' || url === page.url() || url.startsWith('vscode-webview://')) continue;
 		try {
 			const els = frame.locator(selector);
 			const count = await els.count();

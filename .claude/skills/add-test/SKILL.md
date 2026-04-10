@@ -67,8 +67,7 @@ teardown(() => {
 Creates `tests/e2e/specs/feature.test.ts`:
 
 ```typescript
-import { test as base, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { createTmpDir } from '../fixtures/tmpDir.js';
+import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 
 const test = base.extend({
 	vscodeOptions: [
@@ -89,9 +88,13 @@ const test = base.extend({
 test.describe('Feature Name', () => {
 	test.describe.configure({ mode: 'serial' });
 
-	test('should display feature correctly', async ({ vscode, page, expect }) => {
+	test.afterEach(async ({ vscode }) => {
+		await vscode.gitlens.resetUI();
+	});
+
+	test('should display feature correctly', async ({ vscode }) => {
 		await vscode.gitlens.openGitLensSidebar();
-		await expect(page.getByRole('heading')).toContainText('Expected');
+		await expect(vscode.page.getByRole('heading')).toContainText('Expected');
 	});
 });
 ```
@@ -107,10 +110,49 @@ test.describe('Feature Name', () => {
 
 ### E2E Tests
 
-1. Determine Git state needed (commits, branches, tags)
-2. Create GitFixture setup
-3. Cover: UI presence, user interactions, navigation, error states
-4. Assertions: `expect(locator).toBeVisible()`, `.toContainText()`, `.toHaveCount()`
+**Use the MCP server to explore, then write the test.** Don't guess at selectors — verify them live.
+
+1. **Explore with MCP first** — Use `/inspect-live` to launch VS Code and discover the right selectors:
+   ```
+   launch {}
+   execute_command { command: "gitlens.showHomeView" }
+   aria_snapshot {}                              # See all UI elements and roles
+   inspect_dom { selector: "h1", in_webview: true }  # Find webview content
+   screenshot {}                                 # Visual verification
+   ```
+2. **Determine Git state needed** — what commits, branches, tags does the test need?
+3. **Create GitFixture setup** — use the methods below
+4. **Write the test** using selectors discovered via MCP
+5. **Validate with MCP** — run the test scenario manually through MCP tools to confirm assertions before finalizing:
+   - Use `inspect_dom` to verify element text/visibility
+   - Use `evaluate` to check extension runtime state
+   - Use `screenshot` to visually confirm UI state
+6. Cover: UI presence, user interactions, navigation, error states, Pro vs Community gating
+7. Assertions: `expect(locator).toBeVisible()`, `.toContainText()`, `.toHaveCount()`
+
+### E2E Webview Content
+
+Use `getGitLensWebview(title, purpose)` to get a `FrameLocator` for webview content:
+
+```typescript
+const webview = await vscode.gitlens.getGitLensWebview('Home', 'webviewView');
+await expect(webview!.locator('h1')).toContainText('Expected heading');
+await expect(webview!.getByRole('button', { name: /Try Pro/i })).toBeVisible();
+```
+
+Available webviews: `Home`, `Graph`, `Graph Details`, `Inspect`, `Visual File History`, `Interactive Rebase`.
+Purpose is `webviewView` (sidebar/panel) or `webviewPanel` (editor tab) or `customEditor`.
+
+### E2E Pro Feature Gating
+
+```typescript
+// Simulate Pro subscription for the test
+using _ = await vscode.gitlens.startSubscriptionSimulation({
+	state: 6 /* SubscriptionState.Paid */,
+	planId: 'pro',
+});
+// Pro features now accessible — auto-reverts when scope exits
+```
 
 ## GitFixture Methods
 
