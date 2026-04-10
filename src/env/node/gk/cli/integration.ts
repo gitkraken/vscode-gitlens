@@ -866,6 +866,10 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 		}
 
+		for (const item of results.requiresUserAction) {
+			void openUrl(item.url);
+		}
+
 		this.showAgentInstallResults(results);
 	}
 
@@ -979,15 +983,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		if (results.failed.length > 0) {
 			void window.showWarningMessage(message);
-		} else if (results.requiresUserAction.length > 0) {
-			const openSetup = { title: 'Open Setup' };
-			const ok = { title: 'OK', isCloseAffordance: true };
-			void window.showInformationMessage(message, openSetup, ok).then(r => {
-				if (r === openSetup && results.requiresUserAction.length > 0) {
-					void openUrl(results.requiresUserAction[0].url);
-				}
-			});
-		} else if (results.succeeded.length > 0) {
+		} else {
 			void window.showInformationMessage(message);
 		}
 	}
