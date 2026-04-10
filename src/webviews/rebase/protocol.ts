@@ -53,6 +53,9 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 
 	/** Conflicted files when rebase is paused due to conflicts */
 	conflictFiles?: ConflictFileInfo[];
+
+	/** Whether the close-warning banner has been dismissed */
+	closeWarningDismissed?: boolean;
 }
 
 export interface ConflictFileInfo {
@@ -189,6 +192,7 @@ export interface GetMissingCommitsParams {
 export const GetMissingCommitsCommand = new IpcCommand<GetMissingCommitsParams>(scope, 'commits/get');
 
 export const RecomposeCommand = new IpcCommand(scope, 'recompose/open');
+export const DismissCloseWarningCommand = new IpcCommand(scope, 'closeWarning/dismiss');
 
 export interface OpenConflictFileParams {
 	path: string;
