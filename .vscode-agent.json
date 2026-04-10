@@ -1,0 +1,9 @@
+{
+	"extensionId": "eamodio.gitlens",
+	"buildCommand": "pnpm run build:extension",
+	"activationWait": 8000,
+	"settings": {
+		"gitlens.outputLevel": "debug",
+		"gitlens.telemetry.enabled": false
+	}
+}
