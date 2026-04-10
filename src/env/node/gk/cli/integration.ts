@@ -826,7 +826,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				return;
 			}
 
-			await this.pickAndInstallAgents(cliPath, commandSource);
+			await this.pickAndInstallAgents(cliPath, commandSource, true);
 		} catch (ex) {
 			scope?.error(ex, 'Error selecting and installing agents');
 			const normalized = this.normalizeAndTrackSetupError(ex, commandSource);
@@ -835,8 +835,8 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	/** Shared core: shows agent picker, installs for selected agents, reports results. */
-	private async pickAndInstallAgents(cliPath: string, source: Sources): Promise<void> {
-		const agents = await showMcpAgentPicker(cliPath);
+	private async pickAndInstallAgents(cliPath: string, source: Sources, showEmptyState = false): Promise<void> {
+		const agents = await showMcpAgentPicker(cliPath, { showEmptyState: showEmptyState });
 		if (agents == null || agents.length === 0) return;
 
 		if (this.container.telemetry.enabled) {
@@ -897,7 +897,8 @@ export class GkCliIntegrationProvider implements Disposable {
 		const failed: { agent: string; error: string }[] = [];
 		const requiresUserAction: { agent: string; url: string }[] = [];
 
-		const results = await Promise.allSettled(
+		// Every inner promise catches its own errors, so all resolve — Promise.all is safe here
+		const results = await Promise.all(
 			agents.map(async agent => {
 				try {
 					Logger.debug(scope, `Installing MCP for agent '${agent.name}'...`);
@@ -946,19 +947,15 @@ export class GkCliIntegrationProvider implements Disposable {
 		);
 
 		for (const result of results) {
-			// All promises now resolve (errors caught above), but handle rejected for safety
-			if (result.status === 'rejected') continue;
-
-			const value = result.value;
-			switch (value.status) {
+			switch (result.status) {
 				case 'succeeded':
-					succeeded.push(value.agent.displayName);
+					succeeded.push(result.agent.displayName);
 					break;
 				case 'failed':
-					failed.push({ agent: value.agent.displayName, error: value.error });
+					failed.push({ agent: result.agent.displayName, error: result.error });
 					break;
 				case 'userAction':
-					requiresUserAction.push({ agent: value.agent.displayName, url: value.url });
+					requiresUserAction.push({ agent: result.agent.displayName, url: result.url });
 					break;
 			}
 		}
