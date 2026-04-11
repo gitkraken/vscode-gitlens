@@ -53,7 +53,7 @@ const status = await provider.status.getStatus('/path/to/repo');
 provider.dispose();
 ```
 
-> **Note**: `CliGitProviderOptions.context` is `GitHostContext` (omits `fireCacheReset`/`fireRepositoryChanged` — the provider wires those internally). The `fs` field is required; all other context fields are optional.
+> **Note**: `CliGitProviderOptions.context` is `GitServiceContext`. The `fs` field is required; all other context fields are optional.
 
 ---
 
@@ -104,17 +104,17 @@ provider.dispose();
 | `InvalidGitConfigError`       | `exec/locator.js`   |
 | `Git`                         | `exec/git.js`       |
 | `GitOptions`                  | `exec/git.js`       |
-| `GitCallbacks`                | `exec/git.js`       |
+| `GitHooks`                    | `exec/git.js`       |
 | `GitQueue`                    | `exec/gitQueue.js`  |
 
 `CliGitProviderOptions`:
 
 ```typescript
 interface CliGitProviderOptions {
-	context: GitHostContext; // required — omits fire functions
+	context: GitServiceContext; // required
 	locator: () => Promise<GitLocation>; // required — resolves git binary
-	gitOptions?: GitOptions; // timeout, trust, queue config
-	gitCallbacks?: GitCallbacks; // abort notifications, etc.
+	gitOptions?: GitOptions; // timeout, trust, queue config, hooks, etc.
+	git?: Git; // pre-built Git executor (used instead of creating from locator/options)
 	cache?: Cache; // reuse existing cache instance
 }
 ```
@@ -202,26 +202,26 @@ Also on `GitProvider`:
 
 Each sub-provider interface is defined in its own file under `providers/`:
 
-| Interface                        | Module                          | Also Exports            |
-| -------------------------------- | ------------------------------- | ----------------------- |
-| `GitBlameSubProvider`            | `providers/blame.js`            | `GitBlameOptions`       |
-| `GitBranchesSubProvider`         | `providers/branches.js`         |                         |
-| `GitCommitsSubProvider`          | `providers/commits.js`          | `GitCommitReachability` |
-| `GitConfigSubProvider`           | `providers/config.js`           |                         |
-| `GitContributorsSubProvider`     | `providers/contributors.js`     | `GitContributorsResult` |
-| `GitDiffSubProvider`             | `providers/diff.js`             |                         |
-| `GitGraphSubProvider`            | `providers/graph.js`            |                         |
-| `GitOperationsSubProvider`       | `providers/operations.js`       |                         |
-| `GitPatchSubProvider`            | `providers/patch.js`            |                         |
-| `GitPausedOperationsSubProvider` | `providers/pausedOperations.js` |                         |
-| `GitRefsSubProvider`             | `providers/refs.js`             |                         |
-| `GitRemotesSubProvider`          | `providers/remotes.js`          |                         |
-| `GitRevisionSubProvider`         | `providers/revision.js`         |                         |
-| `GitStagingSubProvider`          | `providers/staging.js`          |                         |
-| `GitStashSubProvider`            | `providers/stash.js`            | `StashApplyResult`      |
-| `GitStatusSubProvider`           | `providers/status.js`           |                         |
-| `GitTagsSubProvider`             | `providers/tags.js`             |                         |
-| `GitWorktreesSubProvider`        | `providers/worktrees.js`        |                         |
+| Interface                        | Module                          | Also Exports               |
+| -------------------------------- | ------------------------------- | -------------------------- |
+| `GitBlameSubProvider`            | `providers/blame.js`            | `GitBlameOptions`          |
+| `GitBranchesSubProvider`         | `providers/branches.js`         | `MergeDetectionConfidence` |
+| `GitCommitsSubProvider`          | `providers/commits.js`          | `GitCommitReachability`    |
+| `GitConfigSubProvider`           | `providers/config.js`           |                            |
+| `GitContributorsSubProvider`     | `providers/contributors.js`     | `GitContributorsResult`    |
+| `GitDiffSubProvider`             | `providers/diff.js`             |                            |
+| `GitGraphSubProvider`            | `providers/graph.js`            |                            |
+| `GitOperationsSubProvider`       | `providers/operations.js`       |                            |
+| `GitPatchSubProvider`            | `providers/patch.js`            |                            |
+| `GitPausedOperationsSubProvider` | `providers/pausedOperations.js` |                            |
+| `GitRefsSubProvider`             | `providers/refs.js`             |                            |
+| `GitRemotesSubProvider`          | `providers/remotes.js`          |                            |
+| `GitRevisionSubProvider`         | `providers/revision.js`         |                            |
+| `GitStagingSubProvider`          | `providers/staging.js`          |                            |
+| `GitStashSubProvider`            | `providers/stash.js`            | `StashApplyResult`         |
+| `GitStatusSubProvider`           | `providers/status.js`           |                            |
+| `GitTagsSubProvider`             | `providers/tags.js`             |                            |
+| `GitWorktreesSubProvider`        | `providers/worktrees.js`        |                            |
 
 ### GitBranchesSubProvider
 
@@ -236,6 +236,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `deleteLocalBranch?(repoPath, names, options?)`                                      | `void`                                     |
 | `deleteRemoteBranch?(repoPath, names, remote)`                                       | `void`                                     |
 | `getBranchMergedStatus?(repoPath, branch, into, cancellation?)`                      | `GitBranchMergedStatus`                    |
+| `getCurrentBranchReference?(repoPath, cancellation?)` _(internal)_                   | `GitBranchReference \| undefined`          |
 | `getLocalBranchByUpstream?(repoPath, remoteBranchName, cancellation?)`               | `GitBranch \| undefined`                   |
 | `getPotentialApplyConflicts?(repoPath, targetBranch, shas, options?, cancellation?)` | `ConflictDetectionResult`                  |
 | `getPotentialMergeConflicts?(repoPath, branch, targetBranch, cancellation?)`         | `ConflictDetectionResult`                  |
@@ -329,20 +330,19 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 ### GitOperationsSubProvider
 
-| Method                                 | Returns               |
-| -------------------------------------- | --------------------- |
-| `checkout(repoPath, ref, options?)`    | `void`                |
-| `cherryPick(repoPath, revs, options?)` | `void`                |
-| `clone(url, parentPath)`               | `string \| undefined` |
-| `fetch(repoPath, options?)`            | `void`                |
-| `merge(repoPath, ref, options?)`       | `void`                |
-| `pull(repoPath, options?)`             | `void`                |
-| `push(repoPath, options?)`             | `void`                |
-| `rebase(repoPath, upstream, options?)` | `void`                |
-| `reset(repoPath, rev, options?)`       | `void`                |
-| `revert(repoPath, refs, options?)`     | `void`                |
+| Method                                 | Returns |
+| -------------------------------------- | ------- |
+| `checkout(repoPath, ref, options?)`    | `void`  |
+| `cherryPick(repoPath, revs, options?)` | `void`  |
+| `fetch(repoPath, options?)`            | `void`  |
+| `merge(repoPath, ref, options?)`       | `void`  |
+| `pull(repoPath, options?)`             | `void`  |
+| `push(repoPath, options?)`             | `void`  |
+| `rebase(repoPath, upstream, options?)` | `void`  |
+| `reset(repoPath, rev, options?)`       | `void`  |
+| `revert(repoPath, refs, options?)`     | `void`  |
 
-> Note: `clone(url, parentPath)` does not take `repoPath` as first arg. The `RepositoryService` proxy excludes it from repoPath injection.
+> Note: `clone` is on `GitProvider` directly (not on this sub-provider) — see Provider Interface above.
 
 ### GitPausedOperationsSubProvider
 
@@ -396,9 +396,9 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 | Method                                         | Returns                     |
 | ---------------------------------------------- | --------------------------- |
-| `getRevisionContent(repoPath, rev, path)`      | `Uint8Array \| undefined`   |
+| `getRevisionContent(repoPath, path, rev)`      | `Uint8Array \| undefined`   |
 | `getTrackedFiles(repoPath)`                    | `string[]`                  |
-| `getTreeEntryForRevision(repoPath, rev, path)` | `GitTreeEntry \| undefined` |
+| `getTreeEntryForRevision(repoPath, path, rev)` | `GitTreeEntry \| undefined` |
 | `getTreeForRevision(repoPath, rev)`            | `GitTreeEntry[]`            |
 | `resolveRevision(repoPath, ref, pathOrUri?)`   | `ResolvedRevision`          |
 | `exists?(repoPath, path, revOrOptions?)`       | `boolean`                   |
@@ -467,11 +467,12 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 ### GitBlameSubProvider
 
-| Method                                                                   | Returns                     |
-| ------------------------------------------------------------------------ | --------------------------- |
-| `getBlame(repoPath, path, rev?, contents?, options?)`                    | `GitBlame \| undefined`     |
-| `getBlameForLine(repoPath, path, editorLine, rev?, contents?, options?)` | `GitBlameLine \| undefined` |
-| `getBlameForRange(repoPath, path, range, rev?, contents?, options?)`     | `GitBlame \| undefined`     |
+| Method                                                                   | Returns                            |
+| ------------------------------------------------------------------------ | ---------------------------------- |
+| `getBlame(repoPath, path, rev?, contents?, options?)`                    | `GitBlame \| undefined`            |
+| `getBlameForLine(repoPath, path, editorLine, rev?, contents?, options?)` | `GitBlameLine \| undefined`        |
+| `getBlameForRange(repoPath, path, range, rev?, contents?, options?)`     | `GitBlame \| undefined`            |
+| `getProgressiveBlame?(repoPath, path, rev?, contents?, options?)`        | `ProgressiveGitBlame \| undefined` |
 
 ### Utilities (`utils/blame.utils.js`)
 
@@ -485,51 +486,52 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 All in `models/`:
 
-| Module                     | Key Exports                                                                                                |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `author.js`                | `CommitAuthor`, `UnidentifiedAuthor`, `Account`                                                            |
-| `autolink.js`              | `AutolinkType`, `AutolinkReferenceType`, `AutolinkReference`, `Autolink`                                   |
-| `blame.js`                 | `GitBlame`, `GitBlameAuthor`, `GitBlameLine`                                                               |
-| `branch.js`                | `GitBranch`, `BranchDisposition`, `BranchMetadata`                                                         |
-| `commit.js`                | `GitCommit`, `GitStashCommit`, `GitCommitIdentityShape`, `GitCommitShape`                                  |
-| `contributor.js`           | `GitContributor`, `GitContributorsStats`                                                                   |
-| `defaultBranch.js`         | `DefaultBranch`                                                                                            |
-| `diff.js`                  | `GitDiff`, `GitDiffFiles`, `GitDiffShortStat`, `GitDiffFilter`, `GitLineDiff`, `ParsedGitDiffHunks`        |
-| `file.js`                  | `GitFile`, `GitFileWithCommit`                                                                             |
-| `fileChange.js`            | `GitFileChangeShape`, `GitFileChange`                                                                      |
-| `fileStatus.js`            | `GitFileStatus`, `GitFileConflictStatus`, `GitFileIndexStatus`, `GitFileWorkingTreeStatus`                 |
-| `graph.js`                 | `GitGraph`, `GitGraphRowType`, graph row types                                                             |
-| `issue.js`                 | `Issue`, `IssueShape`                                                                                      |
-| `issueOrPullRequest.js`    | `IssueOrPullRequest`, `IssueOrPullRequestType`, `IssueOrPullRequestState`                                  |
-| `lineRange.js`             | `LineRange`                                                                                                |
-| `log.js`                   | `GitLog`                                                                                                   |
-| `mergeConflicts.js`        | `ConflictDetectionResult`, `MergeConflicts`, `MergeConflictFile`                                           |
-| `patch.js`                 | `PatchRevisionRange`, `GitPatch`                                                                           |
-| `pausedOperationStatus.js` | `GitPausedOperationStatus`, `GitPausedOperation`                                                           |
-| `pullRequest.js`           | `PullRequest`, `PullRequestShape`, `PullRequestState`                                                      |
-| `rebase.js`                | `RebaseTodoAction`, `RebaseTodoEntry`, `ParsedRebaseTodo`, `UpdateRefInfo`                                 |
-| `reference.js`             | `GitBranchReference`, `GitRevisionReference`, `GitStashReference`                                          |
-| `reflog.js`                | `GitReflog`, `GitReflogRecord`                                                                             |
-| `remote.js`                | `GitRemote`, `GitRemoteType`                                                                               |
-| `remoteProvider.js`        | `RemoteProvider` (abstract), `RemoteProviderId`, `RemoteProviderSupportedFeatures`                         |
-| `remoteResource.js`        | `RemoteResourceType`                                                                                       |
-| `repository.js`            | `RepositoryChange`, `Repository`, `GitDir`                                                                 |
-| `repositoryChangeEvent.js` | `RepositoryChangeEvent`                                                                                    |
-| `repositoryIdentities.js`  | `GkProviderId`, `GkRepositoryId`, `RepositoryIdentityDescriptor`                                           |
-| `repositoryMetadata.js`    | `RepositoryMetadata`                                                                                       |
-| `resourceDescriptor.js`    | `ResourceDescriptor`, `RepositoryDescriptor`                                                               |
-| `revision.js`              | `GitRevisionRange`, `GitRevisionRangeNotation`, `deletedOrMissing`, `uncommitted*` sentinels               |
-| `search.js`                | `SearchQuery`, `GitGraphSearch`, `GitGraphSearchProgress`, `GitGraphSearchResults`, `GitGraphSearchCursor` |
-| `shortlog.js`              | `GitShortLog`                                                                                              |
-| `signature.js`             | `CommitSignature`, `SigningConfig`, `ValidationResult`                                                     |
-| `staging.js`               | `GitConflictFile`, `GitIndexFile`                                                                          |
-| `stash.js`                 | `GitStash`                                                                                                 |
-| `status.js`                | `GitStatus`                                                                                                |
-| `statusFile.js`            | `GitStatusFile`                                                                                            |
-| `tag.js`                   | `GitTag`                                                                                                   |
-| `tree.js`                  | `GitTreeEntry`, `GitTreeType`                                                                              |
-| `user.js`                  | `GitUser`                                                                                                  |
-| `worktree.js`              | `GitWorktree`                                                                                              |
+| Module                     | Key Exports                                                                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `author.js`                | `CommitAuthor`, `UnidentifiedAuthor`, `Account`                                                                                                      |
+| `autolink.js`              | `AutolinkType`, `AutolinkReferenceType`, `AutolinkReference`, `Autolink`                                                                             |
+| `blame.js`                 | `GitBlame`, `GitBlameAuthor`, `GitBlameLine`                                                                                                         |
+| `branch.js`                | `GitBranch`, `BranchDisposition`, `BranchMetadata`                                                                                                   |
+| `commit.js`                | `GitCommit`, `GitStashCommit`, `GitCommitIdentityShape`, `GitCommitShape`                                                                            |
+| `contributor.js`           | `GitContributor`, `GitContributorsStats`                                                                                                             |
+| `defaultBranch.js`         | `DefaultBranch`                                                                                                                                      |
+| `diff.js`                  | `GitDiff`, `GitDiffFiles`, `GitDiffShortStat`, `GitDiffFilter`, `GitLineDiff`, `ParsedGitDiffHunks`                                                  |
+| `file.js`                  | `GitFile`, `GitFileWithCommit`                                                                                                                       |
+| `fileChange.js`            | `GitFileChangeShape`, `GitFileChange`                                                                                                                |
+| `fileStatus.js`            | `GitFileStatus`, `GitFileConflictStatus`, `GitFileIndexStatus`, `GitFileWorkingTreeStatus`                                                           |
+| `graph.js`                 | `GitGraph`, `GitGraphRowType`, graph row types                                                                                                       |
+| `issue.js`                 | `Issue`, `IssueShape`                                                                                                                                |
+| `issueOrPullRequest.js`    | `IssueOrPullRequest`, `IssueOrPullRequestType`, `IssueOrPullRequestState`                                                                            |
+| `lineRange.js`             | `LineRange`                                                                                                                                          |
+| `log.js`                   | `GitLog`                                                                                                                                             |
+| `mergeConflicts.js`        | `ConflictDetectionResult`, `MergeConflicts`, `MergeConflictFile`                                                                                     |
+| `patch.js`                 | `PatchRevisionRange`, `GitPatch`                                                                                                                     |
+| `pausedOperationStatus.js` | `GitPausedOperationStatus`, `GitPausedOperation`                                                                                                     |
+| `pullRequest.js`           | `PullRequest`, `PullRequestShape`, `PullRequestState`                                                                                                |
+| `rebase.js`                | `RebaseTodoAction`, `RebaseTodoEntry`, `ParsedRebaseTodo`, `UpdateRefInfo`                                                                           |
+| `reference.js`             | `GitBranchReference`, `GitRevisionReference`, `GitStashReference`                                                                                    |
+| `reflog.js`                | `GitReflog`, `GitReflogRecord`                                                                                                                       |
+| `remote.js`                | `GitRemote`, `GitRemoteType`                                                                                                                         |
+| `remoteProvider.js`        | `RemoteProvider` (abstract), `RemoteProviderId`, `RemoteProviderSupportedFeatures`                                                                   |
+| `remoteResource.js`        | `RemoteResourceType`                                                                                                                                 |
+| `repository.js`            | `RepositoryChange`, `Repository`, `GitDir`                                                                                                           |
+| `repositoryChangeEvent.js` | `RepositoryChangeEvent`                                                                                                                              |
+| `repositoryIdentities.js`  | `GkProviderId`, `GkRepositoryId`, `RepositoryIdentityDescriptor`                                                                                     |
+| `repositoryMetadata.js`    | `RepositoryMetadata`                                                                                                                                 |
+| `resourceDescriptor.js`    | `ResourceDescriptor`, `RepositoryDescriptor`                                                                                                         |
+| `revision.js`              | `GitRevisionRange`, `GitRevisionRangeNotation`, `deletedOrMissing`, `uncommitted*` sentinels                                                         |
+| `graphSearch.js`           | `GitGraphSearch`, `GitGraphSearchProgress`, `GitGraphSearchResults`, `GitGraphSearchCursor`, `GitGraphSearchResultData`, `GitGraphSearchCursorState` |
+| `search.js`                | `SearchQuery`, `SearchOperators`, `ParsedSearchQuery`, `SearchQueryFilters`, `SearchQueryGitCommand`, `SearchQueryGitHubCommand`                     |
+| `shortlog.js`              | `GitShortLog`                                                                                                                                        |
+| `signature.js`             | `CommitSignature`, `SigningConfig`, `ValidationResult`                                                                                               |
+| `staging.js`               | `GitConflictFile`, `GitIndexFile`                                                                                                                    |
+| `stash.js`                 | `GitStash`                                                                                                                                           |
+| `status.js`                | `GitStatus`                                                                                                                                          |
+| `statusFile.js`            | `GitStatusFile`                                                                                                                                      |
+| `tag.js`                   | `GitTag`                                                                                                                                             |
+| `tree.js`                  | `GitTreeEntry`, `GitTreeType`                                                                                                                        |
+| `user.js`                  | `GitUser`                                                                                                                                            |
+| `worktree.js`              | `GitWorktree`                                                                                                                                        |
 
 ---
 
@@ -537,28 +539,29 @@ All in `models/`:
 
 All in `errors.js`. Each error class extends `GitCommandError<Details>` with a typed `reason` discriminant:
 
-| Error Class                 | Reasons                                                                                                                 |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `ApplyPatchCommitError`     | `appliedWithConflicts`, `applyFailed`, `checkoutFailed`, `createWorktreeFailed`, `stashFailed`, `wouldOverwriteChanges` |
-| `BranchError`               | `alreadyExists`, `notFullyMerged`, `invalidName`, `noRemoteReference`, `other`                                          |
-| `CheckoutError`             | `invalidRef`, `pathspecNotFound`, `wouldOverwriteChanges`, `other`                                                      |
-| `CherryPickError`           | `aborted`, `alreadyInProgress`, `conflicts`, `emptyCommit`, `wouldOverwriteChanges`, `other`                            |
-| `FetchError`                | `noFastForward`, `noRemote`, `remoteConnectionFailed`, `other`                                                          |
-| `MergeError`                | `alreadyMerged`, `conflicts`, `localChangesOverwritten`, ...                                                            |
-| `PausedOperationAbortError` | `nothingToAbort`                                                                                                        |
-| `PullError`                 | `conflict`, `divergedBranches`, `noUpstream`, `overwrittenChanges`, ...                                                 |
-| `PushError`                 | `noUpstream`, `permissionDenied`, `pushRejected`, `remoteConnectionFailed`, ...                                         |
-| `RebaseError`               | `conflicts`, `abortWhenNothingInProgress`, `localChangesOverwritten`, ...                                               |
-| `ResetError`                | `uncommittedChanges`, `localChangesOverwritten`                                                                         |
-| `RevertError`               | `conflicts`, `conflictsWithPausedRevert`, `emptyCommit`, ...                                                            |
-| `StashApplyError`           | `uncommittedChanges`, `other`                                                                                           |
-| `StashPushError`            | `conflictingStagedAndUnstagedLines`, `nothingToSave`, `other`                                                           |
-| `ShowError`                 | `invalidObject`, `invalidRevision`, `notFound`, `notInRevision`, `other`                                                |
-| `TagError`                  | `alreadyExists`, `notFound`, `invalidName`                                                                              |
-| `WorktreeCreateError`       | `alreadyCheckedOut`, `alreadyExists`                                                                                    |
-| `WorktreeDeleteError`       | `defaultWorkingTree`, `directoryNotEmpty`, `uncommittedChanges`                                                         |
-| `SigningError`              | `noKey`, `gpgNotFound`, `sshNotFound`, `passphraseFailed`, `unknown`                                                    |
-| `WorkspaceUntrustedError`   | (no reasons — thrown when `isTrusted: false`)                                                                           |
+| Error Class                    | Reasons                                                                                                                            |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `ApplyPatchCommitError`        | `appliedWithConflicts`, `applyFailed`, `checkoutFailed`, `createWorktreeFailed`, `stashFailed`, `wouldOverwriteChanges`            |
+| `BranchError`                  | `alreadyExists`, `notFullyMerged`, `invalidName`, `noRemoteReference`, `other`                                                     |
+| `CheckoutError`                | `invalidRef`, `pathspecNotFound`, `wouldOverwriteChanges`, `other`                                                                 |
+| `CherryPickError`              | `aborted`, `alreadyInProgress`, `conflicts`, `emptyCommit`, `wouldOverwriteChanges`, `other`                                       |
+| `FetchError`                   | `noFastForward`, `noRemote`, `remoteConnectionFailed`, `other`                                                                     |
+| `MergeError`                   | `alreadyMerged`, `conflicts`, `localChangesOverwritten`, ...                                                                       |
+| `PausedOperationAbortError`    | `nothingToAbort`                                                                                                                   |
+| `PausedOperationContinueError` | `conflicts`, `emptyCommit`, `nothingToContinue`, `uncommittedChanges`, `unmergedFiles`, `unstagedChanges`, `wouldOverwriteChanges` |
+| `PullError`                    | `conflict`, `divergedBranches`, `noUpstream`, `overwrittenChanges`, ...                                                            |
+| `PushError`                    | `noUpstream`, `permissionDenied`, `pushRejected`, `remoteConnectionFailed`, ...                                                    |
+| `RebaseError`                  | `conflicts`, `abortWhenNothingInProgress`, `localChangesOverwritten`, ...                                                          |
+| `ResetError`                   | `uncommittedChanges`, `localChangesOverwritten`                                                                                    |
+| `RevertError`                  | `conflicts`, `conflictsWithPausedRevert`, `emptyCommit`, ...                                                                       |
+| `StashApplyError`              | `uncommittedChanges`, `other`                                                                                                      |
+| `StashPushError`               | `conflictingStagedAndUnstagedLines`, `nothingToSave`, `other`                                                                      |
+| `ShowError`                    | `invalidObject`, `invalidRevision`, `notFound`, `notInRevision`, `other`                                                           |
+| `TagError`                     | `alreadyExists`, `notFound`, `invalidName`                                                                                         |
+| `WorktreeCreateError`          | `alreadyCheckedOut`, `alreadyExists`                                                                                               |
+| `WorktreeDeleteError`          | `defaultWorkingTree`, `directoryNotEmpty`, `uncommittedChanges`                                                                    |
+| `SigningError`                 | `noKey`, `gpgNotFound`, `sshNotFound`, `passphraseFailed`, `unknown`                                                               |
+| `WorkspaceUntrustedError`      | (no reasons — thrown when `isTrusted: false`)                                                                                      |
 
 Also: `BlameIgnoreRevsFileError`, `BlameIgnoreRevsFileBadRevisionError`, `GitSearchError`, `AuthenticationError`, `RequestClientError`, `RequestNotFoundError`, `RequestRateLimitError`.
 
