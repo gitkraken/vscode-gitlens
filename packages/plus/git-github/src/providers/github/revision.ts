@@ -20,7 +20,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 	@gate()
 	@debug()
-	getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined> {
+	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined> {
 		const uri = rev
 			? this.provider.createProviderUri(repoPath, rev, path)
 			: this.provider.createVirtualUri(repoPath, rev, path);
@@ -30,7 +30,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 	@gate()
 	@debug()
-	async getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined> {
+	async getTreeEntryForRevision(repoPath: string, path: string, rev: string): Promise<GitTreeEntry | undefined> {
 		if (repoPath == null || !path) return undefined;
 
 		if (path) {

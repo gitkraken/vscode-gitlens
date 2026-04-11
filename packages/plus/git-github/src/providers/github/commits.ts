@@ -424,7 +424,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			relativePath = stripFolderGlob(relativePath);
 			options.isFolder = true;
 		} else if (options.isFolder == null) {
-			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
+			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, relativePath, rev || 'HEAD');
 			options.isFolder = tree?.type === 'tree';
 		}
 

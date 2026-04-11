@@ -97,13 +97,13 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 		let data: Uint8Array | undefined;
 		try {
-			data = await svc.revision.getRevisionContent(ref, path);
+			data = await svc.revision.getRevisionContent(path, ref);
 		} catch (ex) {
 			if (ShowError.is(ex, 'invalidObject') || ShowError.is(ex, 'invalidRevision')) {
 				// Check the tree entry to determine if this is a regular file or submodule
 				// For submodules (type 'commit' in git tree), return the standard git submodule diff format
 				// This matches the format Git uses in diff output (see diff.c:show_submodule_diff_summary)
-				const treeEntry = await svc.revision.getTreeEntryForRevision(ref, path);
+				const treeEntry = await svc.revision.getTreeEntryForRevision(path, ref);
 				if (treeEntry?.type === 'commit') {
 					return new TextEncoder().encode(`Subproject commit ${treeEntry.oid}\n`);
 				}
@@ -152,7 +152,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 			treeItem = await this.container.git
 				.getRepositoryService(repoPath)
-				.revision.getTreeEntryForRevision(ref, path);
+				.revision.getTreeEntryForRevision(path, ref);
 		}
 
 		if (treeItem == null) {

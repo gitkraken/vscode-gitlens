@@ -479,7 +479,7 @@ export class GlGitHubGitProvider implements GlGitProvider {
 	async isFolderUri(repoPath: string, uri: Uri): Promise<boolean> {
 		// Check if it's a directory via the tree entry
 		const relativePath = this.getRelativePath(uri, repoPath);
-		const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, 'HEAD', relativePath);
+		const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, relativePath, 'HEAD');
 		return tree?.type === 'tree';
 	}
 

@@ -1019,7 +1019,7 @@ export class GlCliGitProvider implements GlGitProvider {
 	async isFolderUri(repoPath: string, uri: Uri): Promise<boolean> {
 		// Use tree entry to determine type: 'tree' = folder, 'commit' = submodule, 'blob' = file
 		const relativePath = this.getRelativePath(uri, repoPath);
-		const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, 'HEAD', relativePath);
+		const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, relativePath, 'HEAD');
 		return tree?.type === 'tree';
 	}
 

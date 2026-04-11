@@ -230,7 +230,7 @@ export class GitRepositoryService {
 		const rhsSha = workingGitUri.submoduleSha;
 
 		// Look up the committed submodule SHA at the base revision (must be a gitlink commit, not a blob/tree)
-		const treeEntry = baseRev ? await this.revision.getTreeEntryForRevision(baseRev, relativePath) : undefined;
+		const treeEntry = baseRev ? await this.revision.getTreeEntryForRevision(relativePath, baseRev) : undefined;
 		const lhsSha = treeEntry?.type === 'commit' ? treeEntry.oid : undefined;
 		if (lhsSha == null) return undefined;
 

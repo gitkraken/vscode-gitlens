@@ -65,7 +65,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 	@gate()
 	@debug()
-	getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined> {
+	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 		return this.showContentCore<Buffer>(root, relativePath, rev, { encoding: 'buffer', errors: 'throw' });
 	}
@@ -73,7 +73,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	@debug()
 	async getSubmoduleHead(repoPath: string, submodulePath: string): Promise<string | undefined> {
 		// Verify the path is a submodule (gitlink commit) in the parent tree, not just a regular directory
-		const treeEntry = await this.getTreeEntryForRevision(repoPath, 'HEAD', submodulePath);
+		const treeEntry = await this.getTreeEntryForRevision(repoPath, submodulePath, 'HEAD');
 		if (treeEntry?.type !== 'commit') return undefined;
 
 		const [relativePath, root] = splitPath(submodulePath, repoPath);
@@ -86,7 +86,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 	@gate()
 	@debug()
-	async getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined> {
+	async getTreeEntryForRevision(repoPath: string, path: string, rev: string): Promise<GitTreeEntry | undefined> {
 		if (!repoPath || !path) return undefined;
 
 		const [relativePath, root] = splitPath(path, repoPath);

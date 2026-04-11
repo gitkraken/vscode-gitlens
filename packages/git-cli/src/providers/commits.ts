@@ -632,7 +632,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			// Check if this is a "bad object" error due to a submodule's internal SHA
 			const pathspec = options?.path?.pathspec;
 			if (rev && pathspec && ex instanceof Error && GitErrors.badObject.test(ex.message)) {
-				const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, 'HEAD', pathspec);
+				const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, pathspec, 'HEAD');
 				if (tree?.type === 'commit') {
 					// It's a submodule - retry without the rev and without rename tracking
 					return this.getLogCore(
@@ -803,7 +803,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			options.isFolder = true;
 			type = 'folder';
 		} else if (options.isFolder == null) {
-			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
+			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, relativePath, rev || 'HEAD');
 			if (cancellation?.aborted) throw new CancellationError();
 
 			if (tree?.type === 'commit') {

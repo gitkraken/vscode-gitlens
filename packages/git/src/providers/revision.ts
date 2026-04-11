@@ -18,11 +18,11 @@ export interface ResolvedRevision {
 
 export interface GitRevisionSubProvider {
 	exists?(repoPath: string, path: string, revOrOptions?: string | { untracked?: boolean }): Promise<boolean>;
-	getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined>;
+	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined>;
 	getSubmoduleHead?(repoPath: string, submodulePath: string): Promise<string | undefined>;
 	/** Gets tracked file paths from the index (reflects working tree state, even during rebase) */
 	getTrackedFiles(repoPath: string): Promise<string[]>;
-	getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined>;
+	getTreeEntryForRevision(repoPath: string, path: string, rev: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]>;
 	resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision>;
 }

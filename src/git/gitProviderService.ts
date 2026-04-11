@@ -1878,7 +1878,7 @@ export class GitProviderService implements UnifiedDisposable {
 			const needsHeadBlame = blame.lines.some(l => l.sha === uncommitted);
 
 			const [headBytesResult, headBlameResult] = await Promise.allSettled([
-				svc?.revision?.getRevisionContent('HEAD', path),
+				svc?.revision?.getRevisionContent(path, 'HEAD'),
 				needsHeadBlame ? svc?.blame?.getBlame(path, 'HEAD', undefined, this.getBlameOptions()) : undefined,
 			]);
 
