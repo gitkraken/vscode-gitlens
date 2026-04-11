@@ -1324,7 +1324,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					],
 					() => this.renderHeader(),
 				)}
-				${preservesMerges ? this.renderPreservesMergesBanner() : nothing} ${this.renderCloseWarningBanner()}
+				<div class="banners">
+					${preservesMerges ? this.renderPreservesMergesBanner() : nothing} ${this.renderCloseWarningBanner()}
+				</div>
 				<div class="content">
 					${this.hasConflictPanel
 						? html`<gl-split-panel
@@ -1916,6 +1918,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			.map(e => (e as RebaseCommitEntry).sha);
 
 		if (!commits.length) {
+			++this._todoConflictCheckGeneration;
+			this._todoConflictsLoading = false;
 			this._todoConflicts = { status: 'clean' };
 			this._conflictingShas = undefined;
 			return;
@@ -1938,8 +1942,10 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			if (generation !== this._todoConflictCheckGeneration) return;
 
 			this._todoConflicts = response.conflicts;
-			this._conflictingShas =
-				this._todoConflicts?.status === 'conflicts' ? (this._todoConflicts.conflict?.shas ?? []) : undefined;
+			if (this._todoConflicts != null) {
+				this._conflictingShas =
+					this._todoConflicts.status === 'conflicts' ? (this._todoConflicts.conflict?.shas ?? []) : undefined;
+			}
 		} catch {
 			if (generation !== this._todoConflictCheckGeneration) return;
 			this._todoConflicts = undefined;
@@ -1947,6 +1953,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		} finally {
 			if (generation === this._todoConflictCheckGeneration) {
 				this._todoConflictsLoading = false;
+				this.conflictDetectionStale = false;
 			}
 		}
 	}
