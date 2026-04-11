@@ -3729,6 +3729,8 @@ void
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
+  // Which detection mode produced this event
+  'detection': 'potential' | 'todo',
   // Duration of conflict detection in milliseconds
   'duration': number,
   // Result status
