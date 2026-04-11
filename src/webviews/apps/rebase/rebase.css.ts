@@ -162,20 +162,14 @@ export const rebaseStyles = css`
 	   Banners (Preserves Merges)
 	   ========================================================================== */
 
-	.preserves-merges-banner {
+	.banners {
 		grid-area: banner;
-		margin: 0.5rem 1rem;
-		margin-block-end: 0.5rem;
-
-		/* Info-style colors */
-		--gl-banner-primary-background: var(--vscode-inputValidation-infoBackground, rgba(0, 127, 212, 0.15));
-		--gl-banner-secondary-background: var(--vscode-inputValidation-infoBackground, rgba(0, 127, 212, 0.15));
-		--gl-banner-text-color: var(--vscode-inputValidation-infoForeground, inherit);
-		--gl-banner-primary-emphasis-background: var(--vscode-inputValidation-infoBorder, #007fd4);
+		display: flex;
+		flex-direction: column;
 	}
 
+	.preserves-merges-banner,
 	.close-warning-banner {
-		grid-area: banner;
 		margin: 0.5rem 1rem;
 		margin-block-end: 0.5rem;
 

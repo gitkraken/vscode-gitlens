@@ -602,6 +602,7 @@ export class RebaseWebviewProvider implements Disposable {
 			this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
 				duration: Date.now() - startTime,
 				status: 'clean',
+				detection: 'potential',
 				'commits.count': 0,
 			});
 			return { conflicts: { status: 'clean' } };
@@ -619,6 +620,7 @@ export class RebaseWebviewProvider implements Disposable {
 				this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
 					duration: duration,
 					status: 'conflicts',
+					detection: 'potential',
 					'commits.count': commits.length,
 					'commits.conflicting': result.conflict.shas?.length ?? 0,
 				});
@@ -626,6 +628,7 @@ export class RebaseWebviewProvider implements Disposable {
 				this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
 					duration: duration,
 					status: 'clean',
+					detection: 'potential',
 					'commits.count': commits.length,
 				});
 			}
@@ -672,6 +675,7 @@ export class RebaseWebviewProvider implements Disposable {
 				this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
 					duration: duration,
 					status: 'conflicts',
+					detection: 'todo',
 					'commits.count': commits.length,
 					'commits.conflicting': result.conflict.shas?.length ?? 0,
 				});
@@ -679,6 +683,7 @@ export class RebaseWebviewProvider implements Disposable {
 				this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
 					duration: duration,
 					status: 'clean',
+					detection: 'todo',
 					'commits.count': commits.length,
 				});
 			}
