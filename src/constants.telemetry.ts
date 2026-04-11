@@ -1278,6 +1278,8 @@ interface RebaseEditorConflictsDetectedEvent extends RebaseEditorContextEventDat
 	duration: number;
 	/** Result status */
 	status: 'clean' | 'conflicts';
+	/** Which detection mode produced this event */
+	detection: 'potential' | 'todo';
 	/** Number of commits checked */
 	'commits.count': number;
 	/** Number of conflicting commits (only when status is 'conflicts') */
