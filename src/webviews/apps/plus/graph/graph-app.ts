@@ -152,6 +152,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						<!-- future: commit details -->
 					</main>
 				</div>
+				<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
 			</div>
 		`;
 	}
@@ -178,7 +179,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private renderGraphContent() {
 		return html`
-			<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
 			<gl-graph-wrapper
 				@gl-graph-change-selection=${this.handleGraphSelectionChanged}
 				@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
@@ -187,6 +187,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				@gl-graph-row-hover=${this.handleGraphRowHover}
 				@gl-graph-row-unhover=${this.handleGraphRowUnhover}
 				@row-action-hover=${this.handleGraphRowActionHover}
+				@rowhoverstart=${this.handleGraphRowHoverStart}
 			></gl-graph-wrapper>
 		`;
 	}
@@ -316,6 +317,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		detail: { graphRow, relatedTarget },
 	}: CustomEventType<'gl-graph-row-unhover'>): void {
 		this.graphHover.onRowUnhovered(graphRow, relatedTarget);
+	}
+
+	private handleGraphRowHoverStart() {
+		this.graphHover.resetUnhoverTimer();
 	}
 
 	private handleGraphRowActionHover() {

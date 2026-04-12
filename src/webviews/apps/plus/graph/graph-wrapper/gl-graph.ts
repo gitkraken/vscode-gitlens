@@ -257,7 +257,7 @@ export class GlGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('rowdoubleclick', { detail: detail }));
 	};
 
-	private handleRowHover = debounce(
+	private _handleRowHoverDebounced = debounce(
 		(detail: {
 			graphZoneType: GraphZoneType;
 			graphRow: GraphRow;
@@ -269,17 +269,28 @@ export class GlGraph extends LitElement {
 		250,
 	);
 
+	private handleRowHover = (detail: {
+		graphZoneType: GraphZoneType;
+		graphRow: GraphRow;
+		clientX: number;
+		currentTarget: HTMLElement;
+	}): void => {
+		// Fire immediately so downstream can cancel unhover timers before the debounced hover arrives
+		this.dispatchEvent(new CustomEvent('rowhoverstart', { bubbles: true, composed: true }));
+		this._handleRowHoverDebounced(detail);
+	};
+
 	private handleRowUnhover = (detail: {
 		graphZoneType: GraphZoneType;
 		graphRow: GraphRow;
 		relatedTarget: EventTarget | null;
 	}): void => {
-		this.handleRowHover.cancel();
+		this._handleRowHoverDebounced.cancel();
 		this.dispatchEvent(new CustomEvent('rowunhover', { detail: detail }));
 	};
 
 	private handleRowActionHover = () => {
-		this.handleRowHover.cancel();
+		this._handleRowHoverDebounced.cancel();
 		this.dispatchEvent(new CustomEvent('row-action-hover', { bubbles: true, composed: true }));
 	};
 }
@@ -312,6 +323,7 @@ declare global {
 			clientX: number;
 			currentTarget: HTMLElement;
 		}>;
+		rowhoverstart: CustomEvent<void>;
 		rowunhover: CustomEvent<{
 			graphZoneType: GraphZoneType;
 			graphRow: GraphRow;

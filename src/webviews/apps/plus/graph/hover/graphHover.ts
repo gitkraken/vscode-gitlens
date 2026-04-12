@@ -29,6 +29,11 @@ type Anchor = string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect
 @customElement('gl-graph-hover')
 export class GlGraphHover extends GlElement {
 	static override styles = css`
+		:host {
+			position: absolute;
+			z-index: 102;
+		}
+
 		gl-popover::part(body) {
 			--max-width: min(92vw, 45rem);
 			max-height: 50vh;
@@ -197,6 +202,7 @@ export class GlGraphHover extends GlElement {
 	onRowUnhovered(_row: GraphRow, relatedTarget: EventTarget | null): void {
 		this.recalculated = false;
 		this.resetUnhoverTimer();
+		this._showCoreDebounced?.cancel();
 
 		if (relatedTarget != null && relatedTarget instanceof HTMLElement) {
 			if (relatedTarget.classList.contains('resizable-handle')) {
@@ -207,7 +213,9 @@ export class GlGraphHover extends GlElement {
 			if (relatedTarget.closest('gl-graph-hover')) return;
 		}
 
-		this.hide();
+		// Use a short delay to allow row-to-row transitions without flicker.
+		// The rowhoverstart event will cancel this timer if moving to another row.
+		this.unhoverTimer = setTimeout(() => this.hide(), 150);
 	}
 
 	private onWindowKeydown = (e: KeyboardEvent) => {
@@ -223,6 +231,7 @@ export class GlGraphHover extends GlElement {
 		if (typeof markdown === 'string') {
 			this.markdown = markdown;
 		} else if (isPromise(markdown)) {
+			this.markdown = undefined;
 			const previousSha = this.shaHovering;
 			void markdown
 				.then(markdown => {
@@ -255,7 +264,7 @@ export class GlGraphHover extends GlElement {
 		this.open = false;
 	}
 
-	private resetUnhoverTimer(): void {
+	resetUnhoverTimer(): void {
 		if (this.unhoverTimer) {
 			clearTimeout(this.unhoverTimer);
 			this.unhoverTimer = undefined;
