@@ -57,6 +57,15 @@ export class GlAutocomplete extends LitElement {
 				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 			}
 
+			/* Override scrollbar thumb to not inherit the visible border-color */
+			.scrollable::-webkit-scrollbar-thumb {
+				border-color: transparent;
+			}
+			:host(:hover) .scrollable::-webkit-scrollbar-thumb,
+			:host(:focus-within) .scrollable::-webkit-scrollbar-thumb {
+				border-color: var(--vscode-scrollbarSlider-background);
+			}
+
 			.autocomplete-item {
 				display: flex;
 				flex-direction: row;

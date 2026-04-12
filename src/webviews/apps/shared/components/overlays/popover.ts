@@ -168,6 +168,16 @@ export class GlPopover extends GlElement {
 				pointer-events: all;
 			}
 
+			/* Override scrollbar thumb to not inherit border-color from the popover
+			   body's visible border, which conflicts with the scrollableBase trick */
+			.popover__body::-webkit-scrollbar-thumb {
+				border-color: transparent;
+			}
+			:host(:hover) .popover__body::-webkit-scrollbar-thumb,
+			:host(:focus-within) .popover__body::-webkit-scrollbar-thumb {
+				border-color: var(--vscode-scrollbarSlider-background);
+			}
+
 			.popover[data-current-placement^='top'] .popover__body,
 			.popover[data-current-placement^='bottom'] .popover__body {
 				width: max-content;
