@@ -197,6 +197,8 @@ export class GlSearchInput extends GlElement {
 		/* Input highlighting overlay */
 		.input-container {
 			position: relative;
+			background-color: var(--gl-search-input-background);
+			border-radius: 0.25rem;
 		}
 
 		.input-highlight {
@@ -990,13 +992,14 @@ export class GlSearchInput extends GlElement {
 	}
 
 	private handleKeyup(e: KeyboardEvent) {
-		// Don't update autocomplete on navigation keys - they're handled in handleShortcutKeys
+		// Don't update autocomplete on navigation keys or Enter - they're handled in handleShortcutKeys
 		if (
 			e.key !== 'ArrowUp' &&
 			e.key !== 'ArrowDown' &&
 			e.key !== 'PageUp' &&
 			e.key !== 'PageDown' &&
-			e.key !== 'Escape'
+			e.key !== 'Escape' &&
+			e.key !== 'Enter'
 		) {
 			this.updateAutocomplete();
 		}
@@ -1026,9 +1029,14 @@ export class GlSearchInput extends GlElement {
 				e.preventDefault();
 				e.stopPropagation();
 
-				// Accept autocomplete selection if visible AND an item is selected
+				// Accept autocomplete selection if visible, an item is selected, and we're completing a value (not an operator suggestion)
 				const selectedIndex = this.autocomplete?.selectedIndex ?? -1;
-				if (this.autocompleteOpen && this.autocompleteItems.length && selectedIndex >= 0) {
+				if (
+					this.autocompleteOpen &&
+					this.autocompleteItems.length &&
+					selectedIndex >= 0 &&
+					this.cursorOperator
+				) {
 					void this.acceptAutocomplete(selectedIndex);
 					return true;
 				}
@@ -1230,6 +1238,7 @@ export class GlSearchInput extends GlElement {
 		if (!force && this._lastSearch && areSearchQueriesEqual(search, this._lastSearch)) return;
 
 		this._lastSearch = search;
+		this.hideAutocomplete();
 
 		this.emit('gl-search-inputchange', search);
 	}

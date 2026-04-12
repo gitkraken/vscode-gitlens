@@ -71,6 +71,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	// Track current search ID to ignore stale updates
 	private _currentSearchId: number | undefined;
 
+	get currentSearchId(): number | undefined {
+		return this._currentSearchId;
+	}
+
 	// App state members moved from GraphAppState
 	@signalState()
 	accessor activeDay: AppState['activeDay'];

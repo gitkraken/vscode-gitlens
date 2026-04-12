@@ -188,8 +188,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@state()
 	private _searchResultHidden = false;
 
+	private _lastRepoPath: string | undefined;
+
 	override updated(changedProperties: PropertyValues): void {
 		this.aiAllowed = (this.graphState.config?.aiEnabled ?? true) && (this.graphState.orgSettings?.ai ?? true);
+
+		// Clear navigation caches when repository changes
+		const currentRepo = this.graphState.selectedRepository;
+		if (this._lastRepoPath !== currentRepo) {
+			this._lastRepoPath = currentRepo;
+			this.ensuredIds.clear();
+			this.pendingEnsureRequests.clear();
+		}
+
 		super.updated(changedProperties);
 	}
 
@@ -386,14 +397,26 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private cancelSearch(preserveResults: boolean) {
-		// Send cancel command to backend
-		// Don't update local state here - wait for backend notification to ensure cancel is processed
-		// The searchId-based filtering will prevent any race conditions with stale progressive updates
-		if (!preserveResults) {
-			this.graphState.searchResultsResponse = undefined;
-		}
-
+		// Don't eagerly clear local state — the host sends a clear notification as part of
+		// processing the cancel (or starting a new search). Eagerly clearing causes a flash
+		// where old results/errors disappear briefly before the new state arrives.
 		this._ipc.sendCommand(SearchCancelCommand, { preserveResults: preserveResults });
+	}
+
+	private async waitForSearchComplete(timeoutMs: number = 30000): Promise<void> {
+		if (!this.graphState.searching) return;
+
+		const deadline = Date.now() + timeoutMs;
+		while (this.graphState.searching && Date.now() < deadline) {
+			// Wait for the next Lit render cycle — SignalWatcher triggers a
+			// re-render when `searching` changes, so updateComplete resolves
+			// once the new signal value is reflected.
+			await this.updateComplete;
+			if (!this.graphState.searching) return;
+			// Yield one frame to avoid a tight loop if updateComplete resolves
+			// synchronously (e.g., no actual DOM changes in this cycle)
+			await new Promise(r => requestAnimationFrame(r));
+		}
 	}
 
 	private async startSearch() {
@@ -410,16 +433,20 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				this.searchEl.logSearch(rsp.search);
 			}
 
-			this.graphState.searchResultsResponse = rsp.results;
-
-			// if (!rsp.results || 'error' in rsp.results) {
-			// 	this.graphState.searchResultsResponse = rsp.results;
-			// 	this.graphState.searching = false;
-			// }
-
-			this.graphState.searchMode = this._searchQuery.filter ? 'filter' : 'normal';
-			if (rsp.selectedRows != null) {
-				this.graphState.selectedRows = rsp.selectedRows;
+			// Guard: only update state if this response is still for the current search.
+			// Progressive notifications already handle results via searchId filtering,
+			// but error results only come through the IPC response.
+			if (rsp.searchId === this.graphState.currentSearchId) {
+				this.graphState.searchResultsResponse = rsp.results;
+				// The IPC response means the host-side search handler has completed —
+				// mark searching as done. For successful searches this is redundant
+				// (the final notification already set it), but for errors it's the
+				// only path that clears the searching state.
+				this.graphState.searching = false;
+				this.graphState.searchMode = this._searchQuery.filter ? 'filter' : 'normal';
+				if (rsp.selectedRows != null) {
+					this.graphState.selectedRows = rsp.selectedRows;
+				}
 			}
 		} catch {
 			this.graphState.searchResultsResponse = undefined;
@@ -477,6 +504,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 
 		this._searchQuery = e.detail;
+		this.ensuredIds.clear();
 		void this.startSearch();
 	}
 
@@ -493,17 +521,26 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// Set searching state immediately for responsive UI
 		this.graphState.searching = true;
 
+		// Capture current searchId before async gap to detect staleness
+		const currentSearchId = this.graphState.currentSearchId;
+
 		// Preserve current search results but ensure hasMore is true
 		// Read from searchResultsResponse (the source) not searchResults (the derived value)
 		const currentResults = this.graphState.searchResultsResponse;
 		if (currentResults != null && !isGraphSearchResultsError(currentResults)) {
-			this.graphState.searchResultsResponse = {
-				...currentResults,
-				hasMore: true,
-			};
+			// Only update if we're still on the same search
+			if (this.graphState.currentSearchId === currentSearchId) {
+				this.graphState.searchResultsResponse = {
+					...currentResults,
+					hasMore: true,
+				};
+			}
 		}
 
-		// Resume a paused search by requesting more results
+		// Resume a paused search by requesting more results.
+		// The response is deliberately discarded (void) — progressive notifications
+		// handle state updates. The host's searchId guard in processSearchStream
+		// protects against stale processing if a new search starts before this completes.
 		void this._ipc.sendRequest(SearchRequest, {
 			search: this._searchQuery,
 			more: true,
@@ -518,8 +555,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				more: options?.more,
 			});
 
-			// Don't update state for resume operations - progressive notifications handle it
-			if (!options?.more) {
+			// Don't update state for resume operations - progressive notifications handle it.
+			// For non-resume paths, guard with searchId check to prevent stale overwrites.
+			// Note: the `more: true` path (from executeNavigation) returns to the caller
+			// which uses the results as local variables, so no guard needed there.
+			if (!options?.more && rsp.searchId === this.graphState.currentSearchId) {
 				this.graphState.searchResultsResponse = rsp.results;
 				if (rsp.selectedRows != null) {
 					this.graphState.selectedRows = rsp.selectedRows;
@@ -608,13 +648,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 		// For jump-to-last while search is running, wait for search to complete first
 		if (direction === 'last' && this.graphState.searching) {
-			// Wait for the search to complete by polling the state
-			// The search will update searchResults via notifications
-			const maxWaitTime = 30000; // 30 seconds max
-			const startTime = Date.now();
-			while (this.graphState.searching && Date.now() - startTime < maxWaitTime) {
-				await new Promise(resolve => setTimeout(resolve, 100));
-			}
+			await this.waitForSearchComplete();
 
 			// Refresh searchResults after waiting
 			searchResults = this.graphState.searchResults;
@@ -809,7 +843,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	 * Waits for a row to be processed and available in the graph -- to avoid race conditions where we are trying to access the row before it's available.
 	 *
 	 * Returns as soon as the row is loaded, regardless of whether it's filtered out.
-	 * Polls every 10ms using getCommits to check availability without modifying selection.
+	 * Polls every 50ms using getCommits to check availability without modifying selection.
 	 *
 	 * @returns Array of ReadonlyGraphRow objects, or undefined on timeout
 	 */
@@ -823,7 +857,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			const rows = this.getCommits?.([id]);
 			if (rows != null) return rows;
 
-			await wait(10);
+			await wait(50);
 		}
 
 		debugger;

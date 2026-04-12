@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves blame annotation responsiveness with progressive streaming &mdash; annotations now render incrementally as results arrive from Git, with viewport-aware updates and parallelized avatar loading ([#5089](https://github.com/gitkraken/vscode-gitlens/issues/5089))
 - Improves error handling, logging and telemetry for CLI and MCP integration issues ([#5057](https://github.com/gitkraken/vscode-gitlens/issues/5057))
 - Improves worktree icons on the Branches view to indicate it has working changes ([#5072](https://github.com/gitkraken/vscode-gitlens/issues/5072))
+- Improves the _Commit Graph_ search input auto-complete experience ([#4890](https://github.com/gitkraken/vscode-gitlens/issues/4890))
 
 ### Fixed
 

@@ -2003,12 +2003,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				search = await this.processSearchStream(searchStream, searchId, progressive, graph);
 
-				if (search != null) {
+				if (search != null && searchId === this._searchIdCounter.current) {
 					return {
 						search: e.search,
 						results: this.getSearchResultsData(search),
 						partial: false,
-						searchId: this._searchIdCounter.current,
+						searchId: searchId,
 					};
 				}
 
@@ -2016,7 +2016,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					search: e.search,
 					results: undefined,
 					partial: false,
-					searchId: this._searchIdCounter.current,
+					searchId: searchId,
 				};
 			} finally {
 				cancellation.dispose();
@@ -2069,15 +2069,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				});
 
 				if (search == null) {
+					if (searchId !== this._searchIdCounter.current) {
+						// Search was superseded — return quietly with the original searchId
+						// so the webview's searchId guard ignores this stale response
+						return {
+							search: e.search,
+							results: undefined,
+							partial: false,
+							searchId: searchId,
+						};
+					}
 					throw new Error('Search generator completed without returning a result');
 				}
 			} catch (ex) {
+				if (searchId !== this._searchIdCounter.current) {
+					// Search was superseded — return with the original (stale) searchId
+					// so the webview's searchId guard ignores this response
+					return {
+						search: e.search,
+						results: undefined,
+						partial: false,
+						searchId: searchId,
+					};
+				}
 				this._search = undefined;
 				throw ex;
 			}
 
-			// At this point, search is guaranteed to be defined (either from generator or we threw an error)
-			this._search = updateSearchMode(this.container, search);
+			// Only update _search if this search hasn't been superseded by a newer one
+			if (searchId === this._searchIdCounter.current) {
+				this._search = updateSearchMode(this.container, search);
+			}
 		} else {
 			search = this._search!;
 
@@ -2184,14 +2206,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
+		// Skip final result processing if this search has been superseded
+		if (searchId !== this._searchIdCounter.current) {
+			return search;
+		}
+
 		// Get final result from generator
 		if (result?.value != null) {
 			search = result.value;
 			this._search = updateSearchMode(this.container, search);
 			void (await this.ensureSearchStartsInRange(graph, search.results));
 
-			// Send final notification with complete results (only if not superseded)
-			if (searchId === this._searchIdCounter.current && progressive) {
+			// Send final notification with complete results
+			if (progressive) {
 				void this.host.notify(DidSearchNotification, {
 					search: this._search.query,
 					results: this.getSearchResultsData(search) ?? {

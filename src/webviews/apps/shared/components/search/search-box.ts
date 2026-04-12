@@ -287,7 +287,9 @@ export class GlSearchBox extends GlElement {
 	private handleCancel(e: Event) {
 		e.preventDefault();
 		e.stopPropagation();
-		this.emit('gl-search-cancel', { preserveResults: true });
+		// Preserve results (pause) when we have results worth keeping;
+		// hard cancel when there are no results (e.g., error state, still waiting)
+		this.emit('gl-search-cancel', { preserveResults: this.total > 0 });
 	}
 
 	private get resultsHtml() {

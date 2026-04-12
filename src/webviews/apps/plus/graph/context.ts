@@ -19,6 +19,7 @@ export interface AppState extends State {
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
 	searchResults: GraphSearchResults | undefined;
 	searchResultsError: GraphSearchResultsError | undefined;
+	currentSearchId: number | undefined;
 	selectedRows: GraphSelectedRows | undefined;
 	visibleDays: { top: number; bottom: number } | undefined;
 }

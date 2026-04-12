@@ -45,7 +45,8 @@ export class GlAutocomplete extends LitElement {
 				position: absolute;
 				top: 100%;
 				left: 0;
-				right: 0;
+				min-width: min(max(100%, 30rem), var(--_max-width, 100%));
+				max-width: var(--_max-width, none);
 				margin-top: 0.2rem;
 				z-index: 1000;
 				max-height: 20rem;
@@ -199,11 +200,19 @@ export class GlAutocomplete extends LitElement {
 	@state()
 	private _selectedIndex = -1;
 
+	private _resizeObserver?: ResizeObserver;
+
 	/**
 	 * Gets the currently selected index (readonly from outside)
 	 */
 	get selectedIndex(): number {
 		return this._selectedIndex;
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+		this._resizeObserver?.disconnect();
+		this._resizeObserver = undefined;
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
@@ -216,8 +225,26 @@ export class GlAutocomplete extends LitElement {
 			}
 		}
 
+		if (changedProperties.has('open') || changedProperties.has('items')) {
+			if (this.open) {
+				this.constrainToViewport();
+				this._resizeObserver ??= new ResizeObserver(() => this.constrainToViewport());
+				this._resizeObserver.observe(document.documentElement);
+			} else if (changedProperties.has('open')) {
+				this._resizeObserver?.disconnect();
+			}
+		}
+
 		if (changedProperties.has('_selectedIndex') && this._selectedIndex >= 0) {
 			this.scrollToSelected();
+		}
+	}
+
+	private constrainToViewport() {
+		const containerLeft = this.parentElement?.getBoundingClientRect().left ?? 0;
+		const maxWidth = document.documentElement.clientWidth - containerLeft - 8;
+		if (maxWidth > 0) {
+			this.style.setProperty('--_max-width', `${maxWidth}px`);
 		}
 	}
 
