@@ -3,6 +3,7 @@ import { debug } from '@gitlens/utils/decorators/log.js';
 import { once } from '@gitlens/utils/function.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../container.js';
+import { AuthenticationRequiredError, getPresentableErrorMessage } from '../../errors.js';
 import { setContext } from '../../system/-webview/context.js';
 import { gate } from '../../system/decorators/gate.js';
 import type {
@@ -73,10 +74,18 @@ export class OrganizationService implements Disposable {
 					{ token: options?.accessToken },
 				);
 			} catch (ex) {
+				if (ex instanceof AuthenticationRequiredError) {
+					this.updateOrganizations(undefined);
+					return this._organizations;
+				}
+
 				debugger;
 				scope?.error(ex);
 
-				void window.showErrorMessage(`Unable to get organizations due to error: ${ex}`, 'OK');
+				void window.showErrorMessage(
+					`Unable to get organizations due to error: ${getPresentableErrorMessage(ex)}`,
+					'OK',
+				);
 				this.updateOrganizations(undefined);
 				return this._organizations;
 			}
