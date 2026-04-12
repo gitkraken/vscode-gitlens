@@ -13,7 +13,6 @@ import { configs as wcConfigs } from 'eslint-plugin-wc';
 import noSrcImports from './scripts/eslint-rules/no-src-imports.mjs';
 import noEnvWithoutJs from './scripts/eslint-rules/no-env-without-js.mjs';
 import logScopeUsage from './scripts/eslint-rules/scoped-logger-usage.mjs';
-import reactCompiler from 'eslint-plugin-react-compiler';
 import { fileURLToPath } from 'node:url';
 
 /** @type {Awaited<import('typescript-eslint').Config>[number]['languageOptions']} */
@@ -462,12 +461,7 @@ export default defineConfig(
 		name: 'webviews:apps',
 		files: filePatterns.webviewsApps,
 		ignores: [...ignorePatterns.extensionOnly, ...filePatterns.unitTests],
-		extends: [
-			litConfigs['flat/recommended'],
-			wcConfigs['flat/recommended'],
-			wcConfigs['flat/best-practice'],
-			reactCompiler.configs.recommended,
-		],
+		extends: [litConfigs['flat/recommended'], wcConfigs['flat/recommended'], wcConfigs['flat/best-practice']],
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
 		rules: {
 			'@typescript-eslint/no-restricted-imports': restrictedImports.webviews,

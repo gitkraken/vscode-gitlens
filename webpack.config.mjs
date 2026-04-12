@@ -19,7 +19,6 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import { createRequire } from 'module';
 import { availableParallelism } from 'os';
 import path from 'path';
-import { defineReactCompilerLoaderOption, reactCompilerLoader } from 'react-compiler-webpack';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -744,9 +743,6 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 					include: [path.join(__dirname, 'src'), path.join(__dirname, 'packages')],
 					test: /\.tsx?$/,
 					use: [
-						// React Compiler - must come before esbuild-loader/ts-loader
-						{ loader: reactCompilerLoader, options: defineReactCompilerLoaderOption({ target: '19' }) },
-						// TypeScript transpilation
 						env.esbuild
 							? {
 									loader: 'esbuild-loader',
