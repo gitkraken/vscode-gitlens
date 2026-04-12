@@ -166,7 +166,7 @@ try {
 		}
 
 		console.log(`Linking @gitkraken/gitkraken-components -> file:${targetPath}`);
-		execSync(`pnpm add @gitkraken/gitkraken-components@file:${targetPath}`, { stdio: 'inherit' });
+		execSync(`pnpm add --workspace-root @gitkraken/gitkraken-components@file:${targetPath}`, { stdio: 'inherit' });
 		console.log('✓ Link complete');
 		process.exit(0);
 	}
@@ -184,7 +184,7 @@ try {
 	}
 
 	console.log(`Restoring @gitkraken/gitkraken-components to ${originalVersion}`);
-	execSync(`pnpm add @gitkraken/gitkraken-components@${originalVersion}`, { stdio: 'inherit' });
+	execSync(`pnpm add --workspace-root @gitkraken/gitkraken-components@${originalVersion}`, { stdio: 'inherit' });
 
 	try {
 		unlinkSync(versionStateFile);
