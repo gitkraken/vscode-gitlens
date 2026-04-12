@@ -63,6 +63,7 @@ export class VSCodeGkMcpProvider extends GkMcpProviderBase implements McpServerD
 			serverEnv,
 			config.version,
 		);
+		serverDefinition.cwd = this.container.context.globalStorageUri;
 
 		return [serverDefinition];
 	}

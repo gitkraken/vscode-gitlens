@@ -295,7 +295,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	}
 
 	async createEmptyInitialCommit(repoPath: string): Promise<string> {
-		const emptyTree = await this.git.exec({ cwd: repoPath }, 'hash-object', '-t', 'tree', '/dev/null');
+		const emptyTree = await this.git.exec({ cwd: repoPath, stdin: '' }, 'hash-object', '-t', 'tree', '--stdin');
 		const result = await this.git.exec({ cwd: repoPath }, 'commit-tree', emptyTree.stdout.trim(), '-m', 'temp');
 		// create refs/heads/main and point to it
 		await this.git.exec({ cwd: repoPath }, 'update-ref', 'refs/heads/main', result.stdout.trim());
