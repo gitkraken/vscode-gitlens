@@ -476,13 +476,13 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.views.title.createWorktree', { args: () => [] })
 	@command('gitlens.views.createWorktree')
 	@debug()
-	private async createWorktree(node?: BranchNode | WorktreesNode) {
+	private async createWorktree(node?: ViewRefNode | ViewRefFileNode | WorktreesNode) {
 		if (node?.is('worktrees')) {
 			node = undefined;
 		}
-		if (node != null && !node.is('branch')) return undefined;
+		const ref = node instanceof ViewRefNode || node instanceof ViewRefFileNode ? node.ref : undefined;
 
-		return WorktreeActions.create(node?.repoPath, undefined, node?.ref);
+		return WorktreeActions.create(node?.repoPath, undefined, ref);
 	}
 
 	@command('gitlens.views.deleteBranch')

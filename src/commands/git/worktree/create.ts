@@ -207,7 +207,10 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						: undefined;
 
 				const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
-				if ((isRemoteBranch || state.worktree != null) && !state.flags.includes('-b')) {
+				if (
+					(isRemoteBranch || isRevisionReference(state.reference) || state.worktree != null) &&
+					!state.flags.includes('-b')
+				) {
 					setCreateBranchFlag = true;
 					state.flags.push('-b');
 				} else {

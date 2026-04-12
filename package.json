@@ -16580,6 +16580,11 @@
 					"command": "gitlens.views.createTag",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_secondary_actions@4"
+				},
+				{
+					"command": "gitlens.views.createWorktree",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_secondary_actions@5"
 				}
 			],
 			"gitlens/commit/file/history": [
@@ -19690,6 +19695,11 @@
 					"command": "gitlens.views.createTag",
 					"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_1@4"
+				},
+				{
+					"command": "gitlens.views.createWorktree",
+					"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_1@5"
 				},
 				{
 					"command": "gitlens.ai.explainCommit:views",
@@ -25813,6 +25823,11 @@
 					"command": "gitlens.graph.createTag",
 					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_1@4"
+				},
+				{
+					"command": "gitlens.graph.createWorktree",
+					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_1@5"
 				},
 				{
 					"command": "gitlens.ai.explainCommit:graph",
