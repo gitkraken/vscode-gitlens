@@ -122,6 +122,7 @@ Issues evaluated: 1
 | Estimated effort      | Small / Medium / Large | [source: investigation or inferred] |
 | Age                   | N days                 | [assessment]                        |
 | Last activity         | N days ago             | [assessment]                        |
+| Comments              | N                      | [assessment]                        |
 
 #### Rationale
 
@@ -165,6 +166,8 @@ Source: [direct | triage decisions | investigation decisions]
 
 [Per-issue details]
 ```
+
+Omit recommendation sections that have no issues — the Summary table already shows the full breakdown. Each per-issue entry in a recommendation section should use the same Priority Signals table and Rationale format as the single-issue template.
 
 #### 2. Machine-Readable JSON
 

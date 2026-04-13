@@ -189,6 +189,8 @@ For reactive mode: `YYYY-MM-DD-TRIAGE-REPORT.md`
 For audit mode: `YYYY-MM-DD-AUDIT-REPORT-batch-N.md`
 For single mode: `YYYY-MM-DD-TRIAGE-REPORT.md`
 
+**Single-issue brevity rule:** When evaluating only 1 issue, omit any verdict-group sections that have no issues (e.g., skip "Issues to Close Now" entirely if there are none). Only include sections that contain at least one issue, plus the Quality Metadata section. This keeps the report focused and scannable. For batch triage (2+ issues), include all sections — the grouping serves as a useful overview even when some groups are empty.
+
 Use this structure:
 
 ```markdown
@@ -254,8 +256,9 @@ Issues requiring human approval: N
 - **Author**: @username (team) | @username
 - **Verdict**: Valid - Needs Triage
 - **Confidence**: Medium | Low
-- **Claims**: <checked claims with status — omit if verification was skipped>
-- **Evidence**: <what is known and what needs investigation>
+- **Type**: <issue type> | **Labels**: <current labels> | **Recommended labels**: <area labels to add based on feature area identified during evaluation, e.g. area-graph, area-ai, area-integrations — or "none" if current labels are sufficient>
+- **Claims**: <1-2 sentence summary per checked claim with status: confirmed/disputed/unverifiable — omit if verification was skipped>
+- **Evidence**: <what is known and what needs investigation — keep to 2-4 bullet points>
 
 ---
 
@@ -314,6 +317,11 @@ File: `YYYY-MM-DD-DECISIONS[-batch-N].json`
 ```
 
 Generate a UUID for `reportId`. Use the `runId` from the evidence pack's `meta.runId`.
+
+**Field guidance:**
+
+- `evidenceChecklistStatus` — Used for the Two-Source Rule (Stage 2, step 9). These fields track formal evidence sources for close decisions, NOT claim verification from Stage 1. `investigationEvidence` should only be `true` if a formal `/investigate` report exists or you performed a Stage 2 code investigation that confirms/refutes the bug status. Claim verification (Stage 1, step 5) does not count as investigation evidence.
+- `recommendedLabels` — Always include recommended area labels (e.g., `area-graph`, `area-ai`, `area-cli`, `area-integrations`) based on the feature area identified during evaluation. Include type corrections (e.g., `bug`, `enhancement`) and status labels (e.g., `triaged`). Check the evidence pack's label descriptions for available area labels.
 
 Write both files and confirm their paths to the user.
 
