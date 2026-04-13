@@ -27716,7 +27716,7 @@
 		"@eamodio/supertalk": "0.0.7",
 		"@eamodio/supertalk-core": "0.0.6",
 		"@eamodio/supertalk-signals": "0.0.6",
-		"@gitkraken/gitkraken-components": "13.0.0-vnext.27",
+		"@gitkraken/gitkraken-components": "13.0.0-vnext.28",
 		"@gitkraken/provider-apis": "0.40.0",
 		"@gitlens/ai": "workspace:*",
 		"@gitlens/git": "workspace:*",
