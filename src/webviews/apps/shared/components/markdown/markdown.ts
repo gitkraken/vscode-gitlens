@@ -184,6 +184,9 @@ function getMarkdownRenderer(): RendererObject {
 			}
 			return `<img ${attributes.join(' ')}>`;
 		},
+		codespan: function (this: RendererThis, { text }: Tokens.Codespan): string {
+			return `<code>${escape(text)}</code>`;
+		},
 		paragraph: function (this: RendererThis, { tokens }: Tokens.Paragraph): string {
 			const text = this.parser.parseInline(tokens);
 			return `<p>${text}</p>`;
@@ -224,7 +227,10 @@ function getInlineMarkdownRenderer(): RendererObject {
 		},
 		code: function (this: RendererThis, { text }: Tokens.Code): string {
 			// In inline mode, wrap in code tag but without pre block formatting
-			return `<code>${escape(text, true)}</code>`;
+			return `<code>${escape(text)}</code>`;
+		},
+		codespan: function (this: RendererThis, { text }: Tokens.Codespan): string {
+			return `<code>${escape(text)}</code>`;
 		},
 		heading: function (this: RendererThis, { tokens }: Tokens.Heading): string {
 			// In inline mode, disable heading styles to prevent text starting with '#' (e.g. commit messages)
