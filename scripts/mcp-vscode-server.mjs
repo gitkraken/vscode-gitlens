@@ -38,6 +38,8 @@ let userDataDir = null;
 let launchTime = null;
 let sessionConfig = {};
 let xvfbProcess = null;
+let consoleBuffer = [];
+const MAX_CONSOLE_ENTRIES = 500;
 
 // =============================================================================
 // Load optional .vscode-agent.json config
@@ -109,7 +111,7 @@ function findVSCode(explicit, flavor = 'stable') {
 // =============================================================================
 const XVFB_DISPLAY = ':99';
 
-function ensureDisplay() {
+function ensureDisplay(screenResolution = '1920x1080x24') {
 	if (process.platform !== 'linux' || process.env.DISPLAY) {
 		return process.env.DISPLAY;
 	}
@@ -121,7 +123,7 @@ function ensureDisplay() {
 		} catch {
 			// Not running, start it
 		}
-		xvfbProcess = spawn('Xvfb', [XVFB_DISPLAY, '-screen', '0', '1920x1080x24'], {
+		xvfbProcess = spawn('Xvfb', [XVFB_DISPLAY, '-screen', '0', screenResolution], {
 			detached: true,
 			stdio: 'ignore',
 		});
@@ -376,6 +378,7 @@ async function cleanup() {
 		tempDir = null;
 		userDataDir = null;
 		launchTime = null;
+		consoleBuffer = [];
 		state = 'idle';
 		cleaningUp = false;
 	}
@@ -394,9 +397,41 @@ function textResult(text) {
 	return { content: [{ type: 'text', text }] };
 }
 
-function imageResult(buffer) {
+const MAX_SCREENSHOT_DIMENSION = 1920;
+
+/**
+ * Read PNG width/height from the IHDR chunk (bytes 16-23).
+ */
+function pngDimensions(buf) {
+	if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47) return null;
+	if (buf.readUInt32BE(12) !== 0x49484452) return null; // Verify IHDR chunk
+	return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+/**
+ * Enforce the max dimension limit on screenshots. Downscales via sharp
+ * (already a project dependency) so images never exceed the 2000px
+ * multi-image limit in Claude conversations.
+ */
+async function enforceMaxDimension(buf) {
+	const dims = pngDimensions(buf);
+	if (!dims || (dims.width <= MAX_SCREENSHOT_DIMENSION && dims.height <= MAX_SCREENSHOT_DIMENSION)) return buf;
+	const sharp = (await import('sharp')).default;
+	return await sharp(buf)
+		.resize({
+			width: MAX_SCREENSHOT_DIMENSION,
+			height: MAX_SCREENSHOT_DIMENSION,
+			fit: 'inside',
+			withoutEnlargement: true,
+		})
+		.png()
+		.toBuffer();
+}
+
+async function imageResult(buffer) {
+	const resized = await enforceMaxDimension(buffer);
 	return {
-		content: [{ type: 'image', data: buffer.toString('base64'), mimeType: 'image/png' }],
+		content: [{ type: 'image', data: resized.toString('base64'), mimeType: 'image/png' }],
 	};
 }
 
@@ -421,22 +456,26 @@ async function findWebviewFrameLocator(webviewTitle, extensionId) {
 			continue;
 		}
 		// Check if the outer frame's title matches
-		try {
-			const title = await outerFrame.title().catch(() => '');
-			if (title && title.toLowerCase().includes(webviewTitle.toLowerCase())) {
-				return { frameLocator, outerFrame };
-			}
-		} catch {}
+		if (webviewTitle) {
+			try {
+				const title = await outerFrame.title().catch(() => '');
+				if (title && title.toLowerCase().includes(webviewTitle.toLowerCase())) {
+					return { frameLocator, outerFrame };
+				}
+			} catch {}
+		}
 	}
-	// Fallback: return first webview with non-empty content
-	for (const entry of webviews) {
-		try {
-			const bodyText = await entry.frameLocator
-				.locator('body')
-				.textContent({ timeout: 500 })
-				.catch(() => '');
-			if (bodyText) return entry;
-		} catch {}
+	// Fallback: return first webview with non-empty content (only when no title specified)
+	if (!webviewTitle) {
+		for (const entry of webviews) {
+			try {
+				const bodyText = await entry.frameLocator
+					.locator('body')
+					.textContent({ timeout: 500 })
+					.catch(() => '');
+				if (bodyText) return entry;
+			} catch {}
+		}
 	}
 	return null;
 }
@@ -469,6 +508,16 @@ server.tool(
 			.optional()
 			.describe('Milliseconds to wait for extension activation (default: from config or 8000)'),
 		flavor: z.enum(['stable', 'insiders']).optional().describe('VS Code variant (default: stable)'),
+		screen_resolution: z
+			.string()
+			.optional()
+			.describe('Xvfb screen resolution for headless Linux (e.g. "2560x1440x24", default: "1920x1080x24")'),
+		disable_site_isolation: z
+			.boolean()
+			.optional()
+			.describe(
+				'Disable site isolation and web security (OOPIF workaround). Only use if webview frame access fails. Disables CORS/CSP — webviews may behave differently than production.',
+			),
 	},
 	async args => {
 		if (state === 'ready') {
@@ -531,6 +580,10 @@ server.tool(
 				`--user-data-dir=${userDataDir}`,
 			];
 
+			if (args.disable_site_isolation) {
+				launchArgs.push('--disable-site-isolation-trials', '--disable-web-security');
+			}
+
 			if (withEvaluator) {
 				const runnerPath = path.join(extensionPath, 'tests', 'e2e', 'runner', 'dist');
 				const runnerIndex = path.join(runnerPath, 'index.js');
@@ -548,7 +601,7 @@ server.tool(
 			}
 			launchArgs.push(workspace);
 
-			const display = ensureDisplay();
+			const display = ensureDisplay(args.screen_resolution);
 
 			electronApp = await _electron.launch({
 				executablePath: vscodePath,
@@ -571,6 +624,31 @@ server.tool(
 			});
 
 			page = await electronApp.firstWindow();
+
+			// Capture console messages and errors from all frames (including webviews)
+			consoleBuffer = [];
+			page.on('console', msg => {
+				consoleBuffer.push({
+					type: msg.type(),
+					text: msg.text(),
+					url: msg.location()?.url ?? '',
+					timestamp: Date.now(),
+				});
+				if (consoleBuffer.length > MAX_CONSOLE_ENTRIES) {
+					consoleBuffer = consoleBuffer.slice(-MAX_CONSOLE_ENTRIES);
+				}
+			});
+			page.on('pageerror', error => {
+				consoleBuffer.push({
+					type: 'error',
+					text: `${error.name}: ${error.message}`,
+					url: '',
+					timestamp: Date.now(),
+				});
+				if (consoleBuffer.length > MAX_CONSOLE_ENTRIES) {
+					consoleBuffer = consoleBuffer.slice(-MAX_CONSOLE_ENTRIES);
+				}
+			});
 
 			// Connect evaluator
 			if (sessionConfig.withEvaluator) {
@@ -633,13 +711,19 @@ server.tool('get_status', 'Get the current session state.', async () => {
 // --- screenshot --------------------------------------------------------------
 server.tool(
 	'screenshot',
-	'Capture a screenshot of the VS Code window or a specific webview. Returns an inline image.',
+	`Capture a screenshot of the VS Code window or a specific webview. Returns an inline image. Images are automatically capped at ${MAX_SCREENSHOT_DIMENSION}px to stay within Claude's multi-image dimension limit.`,
 	{
 		target: z.enum(['full', 'webview']).optional().describe('What to capture (default: full)'),
 		webview_title: z.string().optional().describe('Title of the webview to capture (for target: webview)'),
+		scale: z
+			.enum(['css', 'device'])
+			.optional()
+			.describe('Screenshot scale — "device" for full DPI, "css" for CSS pixels (default: device)'),
 	},
 	async args => {
 		requireReady();
+		const screenshotOpts = { fullPage: true };
+		if (args.scale) screenshotOpts.scale = args.scale;
 		try {
 			if (args.target === 'webview' && args.webview_title) {
 				// Try to find and screenshot just the webview
@@ -648,16 +732,18 @@ server.tool(
 					// Screenshot the outer frame's element (contains the full webview)
 					try {
 						const frameElement = await result.outerFrame.frameElement();
-						const buffer = await frameElement.screenshot();
-						return imageResult(buffer);
+						const opts = {};
+						if (args.scale) opts.scale = args.scale;
+						const buffer = await frameElement.screenshot(opts);
+						return await imageResult(buffer);
 					} catch {
 						// Fall back to full page screenshot
 					}
 				}
 			}
 			try {
-				const buffer = await page.screenshot({ fullPage: true });
-				return imageResult(buffer);
+				const buffer = await page.screenshot(screenshotOpts);
+				return await imageResult(buffer);
 			} catch (screenshotErr) {
 				// Page may be stale after a reload — try re-acquiring
 				if (electronApp) {
@@ -666,14 +752,14 @@ server.tool(
 						if (windows.length > 0) {
 							page = windows[0];
 							const buffer = await page.screenshot({ fullPage: true });
-							return imageResult(buffer);
+							return await imageResult(buffer);
 						}
 					} catch {}
 					// Try firstWindow as last resort
 					try {
 						page = await electronApp.firstWindow();
 						const buffer = await page.screenshot({ fullPage: true });
-						return imageResult(buffer);
+						return await imageResult(buffer);
 					} catch {}
 				}
 				throw new Error(`Screenshot failed after recovery attempts: ${screenshotErr.message}`);
@@ -730,8 +816,11 @@ server.tool(
 	'Click an element by CSS selector. Can search within webview iframes.',
 	{
 		selector: z.string().describe('CSS selector for the element to click'),
-		in_webview: z.boolean().optional().describe('Search within webview iframes (default: false)'),
-		webview_title: z.string().optional().describe('Specific webview to search in'),
+		in_webview: z
+			.boolean()
+			.optional()
+			.describe('Search within webview iframes (default: false). Implied by webview_title.'),
+		webview_title: z.string().optional().describe('Specific webview to search in (implies in_webview)'),
 	},
 	async args => {
 		requireReady();
@@ -818,9 +907,11 @@ server.tool(
 		in_webview: z.boolean().optional().describe('Search within webview iframes (default: false)'),
 		webview_title: z.string().optional().describe('Specific webview to search in'),
 		property: z
-			.enum(['textContent', 'innerHTML', 'outerHTML', 'attributes'])
+			.enum(['textContent', 'innerHTML', 'outerHTML', 'attributes', 'shadowDOM'])
 			.optional()
-			.describe('What to return (default: textContent)'),
+			.describe(
+				'What to return (default: textContent). "shadowDOM" recursively serializes shadow roots for Lit/web components.',
+			),
 		max_results: z.number().optional().describe('Maximum number of results (default: 10)'),
 	},
 	async args => {
@@ -848,9 +939,29 @@ server.tool(
 					return errorResult(`Webview "${args.webview_title}" not found.`);
 				}
 				// Search all frames
-				const results = await queryAllFrames(page, args.selector);
-				if (results.length === 0) return textResult(`No elements matching "${args.selector}" in any frame.`);
-				return textResult(results.map((r, i) => `[${i}] "${r.text}" (in ${r.frame})`).join('\n'));
+				const webviews = getWebviewFrameLocators(page);
+				const allResults = [];
+				let foundCount = 0;
+
+				for (const { frameLocator, outerFrame, url } of webviews) {
+					if (foundCount >= maxResults) break;
+					try {
+						const title = await outerFrame.title().catch(() => url.substring(0, 80));
+						const extracted = await extractFromLocator(
+							frameLocator.locator(args.selector),
+							prop,
+							maxResults - foundCount,
+						);
+						for (const text of extracted) {
+							allResults.push(`--- ${title} ---\n${text}`);
+							foundCount++;
+						}
+					} catch {}
+				}
+
+				if (allResults.length === 0)
+					return textResult(`No elements matching "${args.selector}" in any webview frame.`);
+				return textResult(allResults.map((r, i) => `[${i}] ${r}`).join('\n\n'));
 			}
 
 			const results = await extractFromLocator(page.locator(args.selector), prop, maxResults);
@@ -892,6 +1003,50 @@ async function extractFromLocator(locator, prop, maxResults) {
 						)
 						.catch(() => null);
 					break;
+				case 'shadowDOM':
+					value = await el
+						.evaluate(
+							e => {
+								function serialize(node, depth, maxDepth) {
+									if (depth > maxDepth) return '  '.repeat(depth) + '...\n';
+									const indent = '  '.repeat(depth);
+									let out = '';
+									if (node.nodeType === 3) {
+										const t = node.textContent.trim();
+										if (t) out += indent + t.substring(0, 200) + '\n';
+										return out;
+									}
+									if (node.nodeType !== 1) return '';
+									const tag = node.tagName.toLowerCase();
+									const attrs = [...node.attributes]
+										.filter(a => a.name !== 'class' || a.value.length < 100)
+										.map(a => `${a.name}="${a.value}"`)
+										.join(' ');
+									const attrStr = attrs ? ' ' + attrs : '';
+									const children = [];
+									if (node.shadowRoot) {
+										children.push(
+											...Array.from(node.shadowRoot.childNodes).map(c =>
+												serialize(c, depth + 1, maxDepth),
+											),
+										);
+									}
+									children.push(
+										...Array.from(node.childNodes).map(c => serialize(c, depth + 1, maxDepth)),
+									);
+									const content = children.join('');
+									if (!content.trim()) {
+										return `${indent}<${tag}${attrStr} />\n`;
+									}
+									return `${indent}<${tag}${attrStr}>\n${content}${indent}</${tag}>\n`;
+								}
+								return serialize(e, 0, 10);
+							},
+							null,
+							{ timeout: 5000 },
+						)
+						.catch(() => null);
+					break;
 			}
 			if (value) results.push(value);
 		} catch {}
@@ -902,14 +1057,37 @@ async function extractFromLocator(locator, prop, maxResults) {
 // --- aria_snapshot -----------------------------------------------------------
 server.tool(
 	'aria_snapshot',
-	'Get the accessibility tree as YAML. Useful for understanding the UI structure without screenshots.',
+	'Get the accessibility tree as YAML. Useful for understanding the UI structure without screenshots. Supports webview iframes.',
 	{
-		selector: z.string().optional().describe('CSS selector for subtree (default: full window body)'),
+		selector: z.string().optional().describe('CSS selector for subtree (default: body)'),
+		in_webview: z.boolean().optional().describe('Capture snapshot inside webview iframes (default: false)'),
+		webview_title: z.string().optional().describe('Specific webview to capture snapshot from'),
 	},
 	async args => {
 		requireReady();
+		const sel = args.selector ?? 'body';
 		try {
-			const sel = args.selector ?? 'body';
+			if (args.webview_title) {
+				const result = await findWebviewFrameLocator(args.webview_title, sessionConfig.extensionId);
+				if (!result) return errorResult(`Webview "${args.webview_title}" not found.`);
+				const snapshot = await result.frameLocator.locator(sel).first().ariaSnapshot({ timeout: 5000 });
+				return textResult(snapshot);
+			}
+			if (args.in_webview) {
+				const webviews = getWebviewFrameLocators(page);
+				if (webviews.length === 0) return textResult('No webviews found.');
+				const parts = [];
+				for (const { frameLocator, outerFrame, url } of webviews) {
+					try {
+						const title = await outerFrame.title().catch(() => url.substring(0, 80));
+						const snapshot = await frameLocator.locator(sel).first().ariaSnapshot({ timeout: 5000 });
+						parts.push(`--- ${title} ---\n${snapshot}`);
+					} catch {
+						// Skip webviews that fail (may be loading or empty)
+					}
+				}
+				return textResult(parts.length > 0 ? parts.join('\n\n') : 'No webview content found.');
+			}
 			const snapshot = await page.locator(sel).first().ariaSnapshot({ timeout: 5000 });
 			return textResult(snapshot);
 		} catch (e) {
@@ -918,10 +1096,65 @@ server.tool(
 	},
 );
 
+// --- list_webviews -----------------------------------------------------------
+server.tool(
+	'list_webviews',
+	'List all open webviews with their titles, URLs, dimensions, and content status. Useful for discovering webview titles before using other webview-targeting tools.',
+	{},
+	async () => {
+		requireReady();
+		try {
+			const webviews = getWebviewFrameLocators(page);
+			if (webviews.length === 0) return textResult('No webviews found.');
+
+			const results = [];
+			for (const { frameLocator, outerFrame, url } of webviews) {
+				const entry = { url: url.substring(0, 120) };
+				try {
+					entry.title = await outerFrame.title().catch(() => '(unknown)');
+				} catch {
+					entry.title = '(unknown)';
+				}
+				// Parse extensionId from URL query params
+				try {
+					const u = new URL(url);
+					entry.extensionId = u.searchParams.get('extensionId') ?? undefined;
+				} catch {}
+				// Get dimensions
+				try {
+					const el = await outerFrame.frameElement();
+					const box = await el.boundingBox();
+					if (box)
+						entry.dimensions = {
+							width: Math.round(box.width),
+							height: Math.round(box.height),
+							x: Math.round(box.x),
+							y: Math.round(box.y),
+						};
+				} catch {}
+				// Check if content is loaded
+				try {
+					const text = await frameLocator
+						.locator('body')
+						.textContent({ timeout: 500 })
+						.catch(() => '');
+					entry.hasContent = !!(text && text.trim().length > 0);
+				} catch {
+					entry.hasContent = false;
+				}
+				results.push(entry);
+			}
+			return textResult(JSON.stringify(results, null, 2));
+		} catch (e) {
+			return errorResult(`List webviews failed: ${e.message}`);
+		}
+	},
+);
+
 // --- evaluate ----------------------------------------------------------------
 server.tool(
 	'evaluate',
-	'Run a JavaScript expression in the VS Code extension host with the vscode API in scope. Requires the evaluator bridge (with_evaluator: true on launch).',
+	'Run a JavaScript expression in the VS Code extension host (Node.js) with the vscode API in scope. No DOM access — use evaluate_in_webview for webview DOM. Requires the evaluator bridge (with_evaluator: true on launch).',
 	{
 		expression: z.string().describe('JS expression to evaluate (e.g. "vscode.env.machineId")'),
 	},
@@ -939,6 +1172,100 @@ server.tool(
 		} catch (e) {
 			return errorResult(`Evaluate failed: ${e.message}`);
 		}
+	},
+);
+
+// --- evaluate_in_webview -----------------------------------------------------
+server.tool(
+	'evaluate_in_webview',
+	'Run JavaScript in the webview renderer context (browser/DOM). Access document, shadow DOM, Lit component state, computed styles, scroll positions. Does NOT have vscode API — use "evaluate" for that.',
+	{
+		expression: z
+			.string()
+			.describe(
+				'JS expression to evaluate in the webview (e.g. "document.title", "document.querySelector(\'gl-home-app\').shadowRoot.innerHTML")',
+			),
+		webview_title: z.string().optional().describe('Webview to evaluate in (default: first found)'),
+	},
+	async args => {
+		requireReady();
+		try {
+			const result = await findWebviewFrameLocator(args.webview_title, sessionConfig.extensionId);
+			if (!result) {
+				return errorResult(
+					args.webview_title
+						? `Webview "${args.webview_title}" not found. Use "list_webviews" to see available webviews.`
+						: 'No webviews found. Open a webview first.',
+				);
+			}
+			const value = await result.frameLocator.locator('body').evaluate(
+				(body, expr) => {
+					const fn = new Function(`return (${expr})`); // eslint-disable-line no-new-func -- intentional: inspector tool for local dev
+					return fn();
+				},
+				args.expression,
+				{ timeout: 5000 },
+			);
+			return textResult(`Result: ${JSON.stringify(value, null, 2)}`);
+		} catch (e) {
+			return errorResult(`Evaluate in webview failed: ${e.message}`);
+		}
+	},
+);
+
+// --- wait_for_webview --------------------------------------------------------
+server.tool(
+	'wait_for_webview',
+	'Wait for a webview to be loaded and rendered. Checks for the removal of the "preload" CSS class (Lit hydration signal) or non-empty body content as fallback.',
+	{
+		webview_title: z.string().optional().describe('Title of the webview to wait for (default: any webview)'),
+		selector: z.string().optional().describe('CSS selector to wait for inside the webview'),
+		timeout_ms: z.number().optional().describe('Maximum wait time in ms (default: 10000)'),
+	},
+	async args => {
+		requireReady();
+		const timeout = args.timeout_ms ?? 10000;
+		const startTime = Date.now();
+
+		while (Date.now() - startTime < timeout) {
+			const result = await findWebviewFrameLocator(args.webview_title, sessionConfig.extensionId);
+			if (result) {
+				try {
+					if (args.selector) {
+						// Wait for a specific selector to be present
+						const count = await result.frameLocator
+							.locator(args.selector)
+							.count()
+							.catch(() => 0);
+						if (count > 0) {
+							return textResult(
+								`Webview ready (${Date.now() - startTime}ms). Selector "${args.selector}" found.`,
+							);
+						}
+					} else {
+						// Check for preload class removal (Lit hydration complete signal)
+						const isReady = await result.frameLocator
+							.locator('body')
+							.evaluate(
+								body => !body.classList.contains('preload') && body.textContent.trim().length > 0,
+								null,
+								{ timeout: 1000 },
+							)
+							.catch(() => false);
+						if (isReady) {
+							return textResult(`Webview ready (${Date.now() - startTime}ms).`);
+						}
+					}
+				} catch {
+					// Not ready yet
+				}
+			}
+			await page.waitForTimeout(500);
+		}
+
+		return errorResult(
+			`Webview not ready after ${timeout}ms.${args.webview_title ? ` Title: "${args.webview_title}".` : ''} Use "list_webviews" to check available webviews.`,
+		);
 	},
 );
 
@@ -963,6 +1290,70 @@ server.tool(
 			return textResult(`Found ${logs.length} matching lines:\n${logs.map(l => l.substring(0, 500)).join('\n')}`);
 		} catch (e) {
 			return errorResult(`Log search failed: ${e.message}`);
+		}
+	},
+);
+
+// --- read_console ------------------------------------------------------------
+server.tool(
+	'read_console',
+	'Read browser console messages (log, warn, error) from the VS Code main process. Cross-origin webview messages may not be captured — use evaluate_in_webview to inspect webview state directly.',
+	{
+		level: z
+			.enum(['all', 'error', 'warning', 'log', 'info', 'debug'])
+			.optional()
+			.describe('Filter by log level (default: all)'),
+		pattern: z.string().optional().describe('Filter messages containing this text'),
+		last_n: z.number().optional().describe('Only return the last N messages'),
+		clear: z.boolean().optional().describe('Clear the buffer after reading (default: false)'),
+	},
+	async args => {
+		requireReady();
+		let entries = [...consoleBuffer];
+
+		// Filter by level
+		if (args.level && args.level !== 'all') {
+			entries = entries.filter(e => e.type === args.level);
+		}
+		// Filter by pattern
+		if (args.pattern) {
+			const pat = args.pattern.toLowerCase();
+			entries = entries.filter(e => e.text.toLowerCase().includes(pat));
+		}
+		// Limit to last N
+		if (args.last_n && args.last_n > 0) {
+			entries = entries.slice(-args.last_n);
+		}
+		// Clear if requested
+		if (args.clear) {
+			consoleBuffer = [];
+		}
+
+		if (entries.length === 0) return textResult('No matching console messages.');
+		const lines = entries.map(e => {
+			const time = new Date(e.timestamp).toISOString().substring(11, 23);
+			const src = e.url ? ` (${e.url.substring(0, 80)})` : '';
+			return `[${time}] [${e.type}] ${e.text.substring(0, 500)}${src}`;
+		});
+		return textResult(`${entries.length} messages:\n${lines.join('\n')}`);
+	},
+);
+
+// --- resize_viewport ---------------------------------------------------------
+server.tool(
+	'resize_viewport',
+	'Resize the VS Code window viewport. Useful for testing responsive layouts or getting larger screenshots.',
+	{
+		width: z.number().describe('Viewport width in pixels'),
+		height: z.number().describe('Viewport height in pixels'),
+	},
+	async args => {
+		requireReady();
+		try {
+			await page.setViewportSize({ width: args.width, height: args.height });
+			return textResult(`Viewport resized to ${args.width}x${args.height}.`);
+		} catch (e) {
+			return errorResult(`Resize failed: ${e.message}`);
 		}
 	},
 );
@@ -1030,10 +1421,10 @@ server.tool(
 			const activationWait = agentCfg.activationWait ?? 5000;
 			await new Promise(r => setTimeout(r, activationWait));
 
-			// Reconnect evaluator if it was active
+			// Reconnect evaluator if it was active (skipCache to avoid stale URL from pre-restart)
 			if (sessionConfig.withEvaluator) {
 				try {
-					const evaluator = await connectEvaluator(electronApp);
+					const evaluator = await connectEvaluator(electronApp, { skipCache: true });
 					evaluateFn = evaluator.evaluate.bind(evaluator);
 				} catch {
 					evaluateFn = null;
