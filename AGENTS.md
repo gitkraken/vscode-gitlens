@@ -277,6 +277,19 @@ When implementing something new, look at these files first:
 - Run `pnpm run generate:contributions` after editing (or let the watcher handle it)
 - Run `pnpm run generate:commandTypes` after adding commands (or let the watcher handle it)
 
+**Localization (`package.nls.json`)**
+
+All user-facing strings in `package.json` `contributes` use `%key%` references resolved from `package.nls.json` (English). The localization approach differs depending on what you're editing:
+
+- **Commands, submenus, views** (managed by `contributions.json`):
+  - Use **literal English strings** in `contributions.json` (e.g., `"label": "Add Co-authors..."`)
+  - Do NOT use `%key%` references in `contributions.json` — the generation script handles the conversion automatically
+  - The script writes `%key%` references to `package.json` and English values to `package.nls.json`
+- **Configuration, colors, walkthroughs, viewsContainers, customEditors** (directly in `package.json`):
+  - Use `%key%` references in `package.json` (e.g., `"markdownDescription": "%config.myFeature.markdownDescription%"`)
+  - Add the English text to `package.nls.json` with the matching key
+- **Adding a new language**: Copy `package.nls.json` to `package.nls.<locale>.json` and translate the values. No other files need changes.
+
 **Imports**
 
 - Always use `.js` extension in imports (ESM requirement)
