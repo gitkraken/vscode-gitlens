@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves blame annotation responsiveness with progressive streaming &mdash; annotations now render incrementally as results arrive from Git, with viewport-aware updates and parallelized avatar loading ([#5089](https://github.com/gitkraken/vscode-gitlens/issues/5089))
 - Improves the _Commit Graph_ search auto-complete experience ([#4890](https://github.com/gitkraken/vscode-gitlens/issues/4890))
 - Improves _Commit Graph_ hover behavior to prevent flickering during row-to-row transitions and clipping issues ([#5134](https://github.com/gitkraken/vscode-gitlens/issues/5134))
-- Improves support for comparing merge conflicts with a working files picker and improved rename detection ([#5131](https://github.com/gitkraken/vscode-gitlens/issues/5131))
+- Improves support for comparing merge conflicts with a working files picker and improved rename detection
 - Improves worktree icons on the Branches view to indicate it has working changes ([#5072](https://github.com/gitkraken/vscode-gitlens/issues/5072))
 - Improves error handling, logging and telemetry for CLI and MCP integration issues ([#5057](https://github.com/gitkraken/vscode-gitlens/issues/5057))
 - Improves non-UTF-8 encoding support in Git operations &mdash; ensures raw buffers are decoded correctly and forces UTF-8 output in blame commands for consistent parsing
