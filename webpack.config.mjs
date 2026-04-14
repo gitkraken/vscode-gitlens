@@ -403,7 +403,7 @@ function getExtensionConfig(target, mode, env) {
 				'signal-polyfill': path.resolve(__dirname, 'node_modules', 'signal-polyfill'),
 				...getLibraryAliases(),
 				...getUtilsEnvAliases(target),
-				// Stupid dependency that is used by `http[s]-proxy-agent`
+				// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 				debug: path.resolve(__dirname, 'patches', 'debug.js'),
 				// This dependency is very large, and isn't needed for our use-case
 				tr46: path.resolve(__dirname, 'patches', 'tr46.js'),

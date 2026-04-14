@@ -15,9 +15,6 @@ export interface GitHubApiConfig {
 	/** The `fetch` implementation to use for HTTP requests. */
 	readonly fetch: (url: string, init?: any) => Promise<Response>;
 
-	/** Returns an HTTPS proxy agent (Node.js desktop only). */
-	getProxyAgent?(): unknown;
-
 	/**
 	 * Wraps an async operation so that TLS certificate validation
 	 * is disabled when the provider's `getIgnoreSSLErrors()` returns `'force'`.

@@ -20,9 +20,11 @@ export class CloudIntegrationService {
 			{ organizationId: false },
 		);
 		if (!providersRsp.ok) {
-			const error = (await providersRsp.json())?.error;
+			const error = ((await providersRsp.json()) as { error?: unknown })?.error;
 			const errorMessage =
-				typeof error === 'string' ? error : ((error?.message as string) ?? providersRsp.statusText);
+				typeof error === 'string'
+					? error
+					: ((error as { message?: string })?.message ?? providersRsp.statusText);
 			if (error != null) {
 				scope?.error(undefined, `Failed to get connected providers from cloud: ${errorMessage}`);
 			}
@@ -34,7 +36,9 @@ export class CloudIntegrationService {
 			return undefined;
 		}
 
-		return (await providersRsp.json())?.data as Promise<CloudIntegrationConnection[] | undefined>;
+		return ((await providersRsp.json()) as { data?: unknown })?.data as Promise<
+			CloudIntegrationConnection[] | undefined
+		>;
 	}
 
 	async getConnectionSession(
@@ -64,9 +68,9 @@ export class CloudIntegrationService {
 			{ organizationId: false },
 		);
 		if (!tokenRsp.ok) {
-			const error = (await tokenRsp.json())?.error;
+			const error = ((await tokenRsp.json()) as { error?: unknown })?.error;
 			const errorMessage =
-				typeof error === 'string' ? error : ((error?.message as string) ?? tokenRsp.statusText);
+				typeof error === 'string' ? error : ((error as { message?: string })?.message ?? tokenRsp.statusText);
 			if (error != null) {
 				scope?.error(
 					undefined,
@@ -93,7 +97,7 @@ export class CloudIntegrationService {
 					{ organizationId: false },
 				);
 				if (newTokenRsp.ok) {
-					return (await newTokenRsp.json())?.data as Promise<
+					return ((await newTokenRsp.json()) as { data?: unknown })?.data as Promise<
 						CloudIntegrationAuthenticationSession | undefined
 					>;
 				}
@@ -102,7 +106,9 @@ export class CloudIntegrationService {
 			return undefined;
 		}
 
-		return (await tokenRsp.json())?.data as Promise<CloudIntegrationAuthenticationSession | undefined>;
+		return ((await tokenRsp.json()) as { data?: unknown })?.data as Promise<
+			CloudIntegrationAuthenticationSession | undefined
+		>;
 	}
 
 	async disconnect(id: IntegrationIds): Promise<boolean> {
@@ -120,9 +126,9 @@ export class CloudIntegrationService {
 			{ organizationId: false },
 		);
 		if (!tokenRsp.ok) {
-			const error = (await tokenRsp.json())?.error;
+			const error = ((await tokenRsp.json()) as { error?: unknown })?.error;
 			const errorMessage =
-				typeof error === 'string' ? error : ((error?.message as string) ?? tokenRsp.statusText);
+				typeof error === 'string' ? error : ((error as { message?: string })?.message ?? tokenRsp.statusText);
 			if (error != null) {
 				scope?.error(undefined, `Failed to disconnect ${id} token from cloud: ${errorMessage}`);
 			}

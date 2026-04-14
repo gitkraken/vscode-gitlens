@@ -1,7 +1,6 @@
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { Disposable } from 'vscode';
-import type { HeadersInit } from '@env/fetch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type {
@@ -101,7 +100,7 @@ export class DraftService implements Disposable {
 
 			type DraftResult = { data: CreateDraftResponse };
 
-			let providerAuthHeader: HeadersInit | undefined;
+			let providerAuthHeader: RequestInit['headers'] | undefined;
 			let prEntityIdBody: { prEntityId: string } | undefined;
 			if (type === 'suggested_pr_change') {
 				if (options?.prEntityId == null) {

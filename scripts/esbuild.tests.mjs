@@ -46,7 +46,7 @@ async function buildTests(target) {
 		'@gitlens/git-github': path.resolve(__dirname, 'packages', 'plus', 'git-github', 'src'),
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
 
-		// Stupid dependency that is used by `http[s]-proxy-agent`
+		// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),
 		// This dependency is very large, and isn't needed for our use-case
 		tr46: path.resolve(__dirname, 'patches', 'tr46.js'),

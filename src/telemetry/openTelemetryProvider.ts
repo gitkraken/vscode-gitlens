@@ -11,7 +11,6 @@ import {
 	ATTR_DEVICE_ID,
 	ATTR_OS_TYPE,
 } from '@opentelemetry/semantic-conventions/incubating';
-import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { TelemetryContext, TelemetryProvider } from './telemetry.js';
 
 enum CompressionAlgorithm {
@@ -25,11 +24,10 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 	private readonly provider: BasicTracerProvider;
 	private readonly tracer: Tracer;
 
-	constructor(context: TelemetryContext, agent?: HttpsProxyAgent, debugging?: boolean) {
+	constructor(context: TelemetryContext, debugging?: boolean) {
 		const exporter = new OTLPTraceExporter({
 			url: debugging ? 'https://otel-dev.gitkraken.com/v1/traces' : 'https://otel.gitkraken.com/v1/traces',
 			compression: CompressionAlgorithm.GZIP,
-			httpAgentOptions: agent?.options,
 		});
 
 		const spanProcessors: SpanProcessor[] = [];

@@ -1,5 +1,4 @@
 import type { Uri } from 'vscode';
-import type { Response } from '@env/fetch.js';
 import { AuthenticationError } from '@gitlens/git/errors.js';
 import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 import { isSubscriptionPaidPlan } from './plus/gk/utils/subscription.utils.js';

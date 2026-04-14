@@ -1,7 +1,6 @@
 import type { AttributeValue, Span, TimeInput } from '@opentelemetry/api';
 import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
-import { getProxyAgent } from '@env/fetch.js';
 import { getPlatform } from '@env/platform.js';
 import type { Source, TelemetryEventData, TelemetryEvents, TelemetryGlobalContext } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
@@ -113,7 +112,6 @@ export class TelemetryService implements Disposable {
 				vscodeUIKind: String(env.uiKind),
 				vscodeVersion: codeVersion,
 			},
-			getProxyAgent(),
 			container.debugging,
 		);
 

@@ -3,7 +3,7 @@ import { homedir } from 'os';
 import { resolve as resolvePath } from 'path';
 import type { Disposable, WorkspaceFolder } from 'vscode';
 import { extensions, FileType, Uri, window, workspace } from 'vscode';
-import { fetch, getProxyAgent } from '@env/fetch.js';
+import { fetch } from '@env/fetch.js';
 import { isLinux, isWindows } from '@env/platform.js';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
@@ -607,7 +607,7 @@ export class GlCliGitProvider implements GlGitProvider {
 			const aborter = new AbortController();
 			const timer = setTimeout(() => aborter.abort(), 30000);
 
-			promise = fetch(url, { method: 'HEAD', agent: getProxyAgent(), signal: aborter.signal });
+			promise = fetch(url, { method: 'HEAD', signal: aborter.signal });
 			void promise.finally(() => clearTimeout(timer));
 
 			this._pendingRemoteVisibility.set(url, promise);

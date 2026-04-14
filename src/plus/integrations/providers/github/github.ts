@@ -1,5 +1,5 @@
 import { window } from 'vscode';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
+import { fetch, wrapForForcedInsecureSSL } from '@env/fetch.js';
 import { isWeb } from '@env/platform.js';
 import { AuthenticationErrorReason } from '@gitlens/git/errors.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
@@ -17,15 +17,11 @@ export function createGitHubApi(): GitHubApi {
 	const config: GitHubApiConfig = {
 		isWeb: isWeb,
 		fetch: fetch as unknown as GitHubApiConfig['fetch'],
-		getProxyAgent: () => getProxyAgent(),
 		wrapForForcedInsecureSSL: wrapForForcedInsecureSSL,
 
 		onConfigChanged: (listener: () => void) => {
 			return configuration.onDidChangeAny(e => {
-				if (
-					configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
-					configuration.changed(e, 'proxy')
-				) {
+				if (configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL'])) {
 					listener();
 				}
 			});

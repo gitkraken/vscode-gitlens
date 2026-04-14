@@ -233,19 +233,8 @@ export class GitHubApi {
 	}
 
 	private resetCaches(): void {
-		this._proxyAgent = null;
 		this._defaults.clear();
 		this._enterpriseVersions.clear();
-	}
-
-	private _proxyAgent: unknown | null | undefined = null;
-	private get proxyAgent(): unknown | undefined {
-		if (this.config.isWeb) return undefined;
-
-		if (this._proxyAgent === null) {
-			this._proxyAgent = this.config.getProxyAgent?.();
-		}
-		return this._proxyAgent ?? undefined;
 	}
 
 	async getCurrentAccount(
@@ -2883,7 +2872,6 @@ export class GitHubApi {
 					authorization: `token ${token}`,
 				},
 				request: {
-					agent: this.proxyAgent,
 					fetch: configIsWeb
 						? (url: string, options: { headers?: Record<string, string> }) => {
 								if (options.headers != null) {

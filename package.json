@@ -5630,40 +5630,6 @@
 						"scope": "window",
 						"order": 40
 					},
-					"gitlens.proxy": {
-						"type": [
-							"object",
-							"null"
-						],
-						"default": null,
-						"items": {
-							"type": "object",
-							"required": [
-								"url",
-								"strictSSL"
-							],
-							"properties": {
-								"url": {
-									"type": [
-										"string",
-										"null"
-									],
-									"default": null,
-									"description": "Specifies the URL of the proxy server to use"
-								},
-								"strictSSL": {
-									"type": "boolean",
-									"description": "Specifies whether the proxy server certificate should be verified against the list of supplied CAs",
-									"default": true
-								}
-							},
-							"additionalProperties": false
-						},
-						"uniqueItems": true,
-						"description": "Specifies the proxy configuration to use. If not specified, the proxy configuration will be determined based on VS Code or OS settings",
-						"scope": "window",
-						"order": 55
-					},
 					"gitlens.plusFeatures.enabled": {
 						"type": "boolean",
 						"default": true,
@@ -27745,11 +27711,9 @@
 		"dragula": "3.7.3",
 		"driver.js": "1.4.0",
 		"fflate": "0.8.2",
-		"https-proxy-agent": "5.0.1",
 		"ignore": "7.0.5",
 		"lit": "3.3.2",
-		"marked": "17.0.5",
-		"node-fetch": "2.7.0",
+		"marked": "18.0.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
 		"react": "19.2.4",
@@ -27764,13 +27728,13 @@
 		"@custom-elements-manifest/analyzer": "0.11.0",
 		"@e18e/eslint-plugin": "0.3.0",
 		"@eamodio/eslint-lite-webpack-plugin": "0.5.0",
-		"@eslint/compat": "2.0.3",
+		"@eslint/compat": "2.0.4",
 		"@eslint/js": "9.39.4",
 		"@modelcontextprotocol/sdk": "^1.29.0",
-		"@playwright/test": "1.58.2",
+		"@playwright/test": "1.59.1",
 		"@prettier/plugin-oxc": "0.1.3",
 		"@profoundlogic/hogan": "3.0.4",
-		"@swc/core": "1.15.21",
+		"@swc/core": "1.15.24",
 		"@types/mocha": "catalog:",
 		"@types/node": "20.16.15",
 		"@types/react": "19.2.14",
@@ -27783,7 +27747,7 @@
 		"@vscode/test-cli": "0.0.12",
 		"@vscode/test-electron": "2.5.2",
 		"@vscode/test-web": "0.0.80",
-		"@vscode/vsce": "3.7.1",
+		"@vscode/vsce": "3.8.0",
 		"@wc-toolkit/cem-sorter": "1.0.1",
 		"cheerio": "1.0.0-rc.12",
 		"circular-dependency-plugin": "5.2.2",
@@ -27815,8 +27779,8 @@
 		"lint-staged": "16.4.0",
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.10.2",
-		"ovsx": "0.10.10",
-		"playwright": "1.58.2",
+		"ovsx": "0.10.11",
+		"playwright": "1.59.1",
 		"prettier": "3.8.1",
 		"regex-to-strings": "2.1.0",
 		"sass-embedded": "1.98.0",
@@ -27827,7 +27791,7 @@
 		"svgo": "4.0.1",
 		"terser-webpack-plugin": "5.4.0",
 		"tinybench": "catalog:",
-		"ts-loader": "9.5.4",
+		"ts-loader": "9.5.7",
 		"typescript": "catalog:",
 		"typescript-eslint": "8.57.1",
 		"webpack": "5.105.4",
@@ -27850,9 +27814,7 @@
 	"resolutions": {
 		"@types/vscode": "1.101.0",
 		"esbuild": "0.28.0",
-		"handlebars": "4.7.9",
-		"https-proxy-agent": "5.0.1",
-		"node-fetch": "2.7.0"
+		"handlebars": "4.7.9"
 	},
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "prettier --write --experimental-cli --cache"

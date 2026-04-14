@@ -1,7 +1,6 @@
 import ProviderApis from '@gitkraken/provider-apis';
 import { version as codeVersion, env } from 'vscode';
-import type { Response as FetchResponse } from '@env/fetch.js';
-import { fetch as _fetch, getProxyAgent } from '@env/fetch.js';
+import { fetch as _fetch } from '@env/fetch.js';
 import { getPlatform } from '@env/platform.js';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
@@ -77,7 +76,6 @@ export class ProvidersApi {
 		private readonly container: Container,
 		private readonly authenticationService: IntegrationAuthenticationService,
 	) {
-		const proxyAgent = getProxyAgent();
 		const userAgent = `${
 			container.debugging ? 'GitLens-Debug' : container.prerelease ? 'GitLens-Pre' : 'GitLens'
 		}/${container.version} (${env.appName}/${codeVersion}; ${getPlatform()})`;
@@ -86,7 +84,6 @@ export class ProvidersApi {
 			...options
 		}: ProviderRequestOptions): Promise<ProviderRequestResponse<T>> => {
 			const response = await _fetch(url, {
-				agent: proxyAgent,
 				...options,
 				headers: {
 					'User-Agent': userAgent,
@@ -1166,7 +1163,7 @@ export class ProvidersApi {
 // This is copied over from the shared provider library because the current version is not respecting the "forceIsFetch: true"
 // option in the config and our custom fetch function isn't being wrapped by the necessary fetch wrapper. Remove this once the library
 // properly wraps our custom fetch and use `forceIsFetch: true` in the config.
-async function parseFetchResponseForApi<T>(response: FetchResponse): Promise<ProviderRequestResponse<T>> {
+async function parseFetchResponseForApi<T>(response: Response): Promise<ProviderRequestResponse<T>> {
 	const contentType = response.headers.get('content-type') || '';
 	let body = null;
 

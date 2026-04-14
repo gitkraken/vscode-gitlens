@@ -1,4 +1,3 @@
-import type { RequestInit } from '@env/fetch.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../container.js';
@@ -179,8 +178,9 @@ export class WorkspacesApi {
 		}
 
 		const addedWorkspaceIds = new Set<string>();
-		const json: { data: Record<string, CloudWorkspaceConnection<CloudWorkspaceData> | null> } | undefined =
-			await rsp.json();
+		const json = (await rsp.json()) as
+			| { data: Record<string, CloudWorkspaceConnection<CloudWorkspaceData> | null> }
+			| undefined;
 		if (json?.data == null) return undefined;
 		let outputData: WorkspacesResponse | undefined;
 		for (const workspaceData of Object.values(json.data)) {
