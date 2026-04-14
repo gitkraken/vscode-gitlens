@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.12.0] - 2026-04-14
+
 ### Added
 
 - Adds the ability to register the GitKraken MCP server with additional agents detected on your machine (e.g. Claude Desktop, Codex, Gemini CLI) &mdash; available after MCP installation or via the "Connect More Agents" action in the _Home_ view, _Welcome_ page ([#5096](https://github.com/gitkraken/vscode-gitlens/issues/5096))
@@ -6790,7 +6792,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.0...HEAD
+[17.12.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.1...gitkraken:v17.12.0
 [17.11.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.0...gitkraken:v17.11.1
 [17.11.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.10.2...gitkraken:v17.11.0
 [17.10.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.10.1...gitkraken:v17.10.2
