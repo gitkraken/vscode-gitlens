@@ -871,7 +871,7 @@ export class WebviewController<
 		return serialized;
 	}
 
-	@sequentialize()
+	@sequentialize({ getDedupingKey: (message: IpcMessage) => message.id })
 	@trace({
 		args: message => ({
 			message: `${message.id}|${message.method}${message.completionId ? `+${message.completionId}` : ''}`,

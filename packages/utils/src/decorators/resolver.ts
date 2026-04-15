@@ -1,3 +1,4 @@
+import { getScopedCounter } from '../counter.js';
 import { isLoggable } from '../loggable.js';
 
 export type Resolver<T extends (...args: any[]) => any> = (...args: Parameters<T>) => string;
@@ -41,7 +42,7 @@ export function defaultResolver(...args: unknown[]): string {
 	if (_defaultResolverOverride != null) return _defaultResolverOverride(...args);
 
 	if (args.length === 0) return '';
-	if (args.length > 1) return JSON.stringify(args);
+	if (args.length > 1) return safeStringify(args);
 
 	const [arg] = args;
 	if (arg == null) return '';
@@ -62,6 +63,33 @@ export function defaultResolver(...args: unknown[]): string {
 
 			if (isLoggable(arg)) return arg.toLoggable();
 
-			return JSON.stringify(arg);
+			return safeStringify(arg);
+	}
+}
+
+const _fallbackCounter = getScopedCounter();
+const _objectIds = new WeakMap<object, number>();
+
+/**
+ * JSON.stringify with protection against RangeError from objects
+ * that serialize beyond JavaScript's string length limit.
+ * Returns a stable identity per object via WeakMap.
+ */
+function safeStringify(value: unknown): string {
+	try {
+		return JSON.stringify(value);
+	} catch (ex) {
+		if (ex instanceof RangeError) {
+			if (value != null && typeof value === 'object') {
+				let id = _objectIds.get(value);
+				if (id == null) {
+					id = _fallbackCounter.next();
+					_objectIds.set(value, id);
+				}
+				return `#${id}`;
+			}
+			return `#${_fallbackCounter.next()}`;
+		}
+		throw ex;
 	}
 }
