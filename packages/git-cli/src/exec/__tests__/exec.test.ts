@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import * as process from 'process';
+import { execPath } from 'process';
 import * as sinon from 'sinon';
 import { CancelledRunError, RunError } from '../exec.errors.js';
 import { run, runSpawn } from '../exec.js';
@@ -13,7 +13,7 @@ function bufferLiteral(bytes: readonly number[]): string {
 }
 
 suite('Shell Test Suite', () => {
-	const nodeExecutable = process.execPath;
+	const nodeExecutable = execPath;
 
 	suite('run()', () => {
 		test('returns stdout and skips decode for utf8 output', async () => {

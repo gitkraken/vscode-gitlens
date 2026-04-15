@@ -9,7 +9,8 @@
 			"@gitlens/utils/*": ["./packages/utils/src/*"],
 			"@gitlens/git/*": ["./packages/git/src/*"],
 			"@gitlens/git-cli/*": ["./packages/git-cli/src/*"],
-			"@gitlens/git-github/*": ["./packages/plus/git-github/src/*"]
+			"@gitlens/git-github/*": ["./packages/plus/git-github/src/*"],
+			"@gitlens/agents/*": ["./packages/plus/agents/src/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.test.tsbuildinfo"
 	},
