@@ -33,5 +33,17 @@ export interface InactiveOverviewState {
 	fetch(): void;
 }
 
+/**
+ * Interface for the agent overview state consumed by child components via Lit context.
+ * Backed by a Resource in home.ts. Shows branches with active agent sessions.
+ */
+export interface AgentOverviewState {
+	readonly value: ReadableSignal<InactiveOverview>;
+	readonly loading: ReadableSignal<boolean>;
+	readonly error: ReadableSignal<string | undefined>;
+	fetch(): void;
+}
+
 export const activeOverviewStateContext = createContext<ActiveOverviewState>('activeOverviewState');
 export const inactiveOverviewStateContext = createContext<InactiveOverviewState>('inactiveOverviewState');
+export const agentOverviewStateContext = createContext<AgentOverviewState>('agentOverviewState');
