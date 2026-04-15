@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes an issue where custom AI provider URLs are ignored after updating to v17.12.0 ([#5147](https://github.com/gitkraken/vscode-gitlens/issues/5147))
+
 ## [17.12.0] - 2026-04-14
 
 ### Added

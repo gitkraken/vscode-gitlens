@@ -174,16 +174,6 @@ export function isProviderEnabledByOrg(type: AIProviders, orgAIConfig?: OrgAICon
 	return getOrgAIProviderOfType(type, orgAIConfig).enabled;
 }
 
-/**
- * If the input value (userUrl) matches to the org configuration it returns it.
- */
-export function ensureOrgConfiguredUrl(type: AIProviders, userUrl: null | undefined | string): string | undefined {
-	const provider = getOrgAIProviderOfType(type);
-	if (!provider.enabled) return undefined;
-
-	return provider.url || userUrl || undefined;
-}
-
 export async function ensureAccess(
 	container: Container,
 	options?: { showPicker?: boolean },

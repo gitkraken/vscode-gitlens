@@ -373,7 +373,11 @@ export class AIProviderService implements AIService, Disposable {
 				);
 			},
 			getProviderConfig: (type: string): { enabled: boolean; key?: string; url?: string } => {
-				return getOrgAIProviderOfType(type as AIProviders);
+				const orgConfig = getOrgAIProviderOfType(type as AIProviders);
+				if (orgConfig.url) return orgConfig;
+
+				const userUrl = configuration.get(`ai.${type}.url` as any) as string | undefined;
+				return { ...orgConfig, url: userUrl || undefined };
 			},
 			getOrPromptUrl: async (
 				providerId: string,
