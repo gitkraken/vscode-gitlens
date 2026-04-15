@@ -73,6 +73,13 @@ export class StashSaveCommand extends GlCommandBase {
 		} else if (context.type === 'scm-groups') {
 			args = await getStashSaveArgsForScmGroups(this.container, context, args);
 			if (args == null) return;
+		} else if (context.command === 'gitlens.stashSave.staged:scm') {
+			const repo = this.container.git.getBestRepository();
+			if (repo != null) {
+				args = await getStashSaveArgsForStagedScmGroup(repo, { ...args, repoPath: repo.path });
+			}
+
+			if (args == null) return;
 		} else if (context.command === 'gitlens.stashSave.unstaged:scm') {
 			const repo = this.container.git.getBestRepository();
 			if (repo != null) {
@@ -99,7 +106,7 @@ export class StashSaveCommand extends GlCommandBase {
 	}
 }
 
-async function getStashSaveArgsForScmStates(
+export async function getStashSaveArgsForScmStates(
 	container: Container,
 	context: CommandScmStatesContext,
 	args: StashSaveCommandArgs | undefined,
@@ -184,7 +191,7 @@ async function getStashSaveArgsForScmStates(
 	return args;
 }
 
-async function getStashSaveArgsForScmGroups(
+export async function getStashSaveArgsForScmGroups(
 	container: Container,
 	context: CommandScmGroupsContext,
 	args: StashSaveCommandArgs | undefined,
@@ -210,7 +217,7 @@ async function getStashSaveArgsForScmGroups(
 	return args;
 }
 
-async function getStashSaveArgsForStagedScmGroup(
+export async function getStashSaveArgsForStagedScmGroup(
 	repo: GlRepository,
 	args: StashSaveCommandArgs,
 ): Promise<StashSaveCommandArgs | undefined> {
@@ -245,11 +252,11 @@ async function getStashSaveArgsForStagedScmGroup(
 		return args;
 	}
 
-	args.onlyStaged = false;
-	if (hasWorking || hasUntracked) {
-		if (await repo?.git?.supports('git:stash:push:staged')) {
-			args.onlyStaged = true;
-		} else {
+	if (await repo?.git?.supports('git:stash:push:staged')) {
+		args.onlyStaged = true;
+	} else {
+		args.onlyStaged = false;
+		if (hasWorking || hasUntracked) {
 			const confirm = { title: 'Stash All' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
@@ -268,7 +275,7 @@ async function getStashSaveArgsForStagedScmGroup(
 	return args;
 }
 
-async function getStashSaveArgsForUnstagedScmGroup(
+export async function getStashSaveArgsForUnstagedScmGroup(
 	repo: GlRepository,
 	args: StashSaveCommandArgs,
 ): Promise<StashSaveCommandArgs | undefined> {
