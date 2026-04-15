@@ -11,6 +11,7 @@ import type { LaunchpadService } from '../rpc/launchpadService.js';
 import type { SharedWebviewServices } from '../rpc/services/common.js';
 import type { OrgSettings, RepositoriesState, RpcEventSubscription } from '../rpc/services/types.js';
 import type {
+	AgentSessionState,
 	GetOverviewBranchesResponse,
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
@@ -66,7 +67,10 @@ export interface HomeViewService {
 	/** Get branch skeletons (sync fields only) classified as active/recent/stale. Fast — no enrichment.
 	 * @param type - If specified, only returns the requested category. Omit for all categories.
 	 */
-	getOverviewBranches(type?: 'active' | 'inactive', signal?: AbortSignal): Promise<GetOverviewBranchesResponse>;
+	getOverviewBranches(
+		type?: 'active' | 'inactive' | 'agents',
+		signal?: AbortSignal,
+	): Promise<GetOverviewBranchesResponse>;
 
 	/** Get WIP status for specified branches. Lightweight — local git status only. */
 	getOverviewWip(branchIds: string[], signal?: AbortSignal): Promise<GetOverviewWipResponse>;
@@ -113,6 +117,14 @@ export interface HomeViewService {
 
 	/** Fired when the extension requests account focus. */
 	onFocusAccount: RpcEventSubscription<undefined>;
+
+	// --- Agent Sessions ---
+
+	/** Get current agent sessions. */
+	getAgentSessions(): Promise<AgentSessionState[]>;
+
+	/** Fired when agent sessions change. */
+	onAgentSessionsChanged: RpcEventSubscription<AgentSessionState[]>;
 
 	// --- Initial Context ---
 

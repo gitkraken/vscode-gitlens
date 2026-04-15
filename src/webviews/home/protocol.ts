@@ -7,6 +7,7 @@ import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperati
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { RemoteProviderSupportedFeatures } from '@gitlens/git/models/remoteProvider.js';
 import type { GitBranchMergedStatus } from '@gitlens/git/providers/branches.js';
+import type { AgentSessionPhase, AgentSessionStatus } from '../../agents/provider.js';
 import type { IntegrationDescriptor } from '../../constants.integrations.js';
 import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { RepositoryShape } from '../../git/models/repositoryShape.js';
@@ -55,6 +56,31 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 	previewEnabled: boolean;
 	newInstall: boolean;
 	hostAppName: string;
+	agentSessions?: AgentSessionState[];
+}
+
+export interface AgentSessionState {
+	readonly id: string;
+	readonly name: string;
+	readonly status: AgentSessionStatus;
+	readonly phase: AgentSessionPhase;
+	readonly statusDetail?: string;
+	readonly branch?: string;
+	readonly worktreeName?: string;
+	readonly isInWorkspace: boolean;
+	readonly hasPermissionRequest: boolean;
+	readonly subagentCount: number;
+	readonly workspacePath?: string;
+	readonly cwd?: string;
+	readonly lastActivityTimestamp?: number;
+	readonly phaseSinceTimestamp?: number;
+	readonly pendingPermissionDetail?: {
+		readonly toolName: string;
+		readonly toolDescription: string;
+		readonly toolInputDescription?: string;
+		readonly hasSuggestions?: boolean;
+	};
+	readonly lastPrompt?: string;
 }
 
 export interface SubscriptionState {
