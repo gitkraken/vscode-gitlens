@@ -84,6 +84,7 @@ suite('home actions', () => {
 				getWalkthroughProgress: async () => undefined,
 				getOverviewFilterState: async () => persisted,
 				setOverviewFilter: async () => filterRestore,
+				getAgentSessions: async () => [],
 			} as any,
 			{} as any,
 			{ getIntegrationStates: async () => [] } as any,
