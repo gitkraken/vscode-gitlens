@@ -36,6 +36,8 @@ export type GkConfigKeys =
 	| `branch.${string}.gk-last-accessed`
 	/** `gk-last-modified` — ISO 8601 timestamp of when the branch last received a commit */
 	| `branch.${string}.gk-last-modified`
+	/** `gk-agent-last-activity` — ISO 8601 timestamp of when an AI agent was last active on this branch */
+	| `branch.${string}.gk-agent-last-activity`
 	/** `gk-disposition` — user-assigned branch disposition: 'starred' or 'archived' */
 	| `branch.${string}.gk-disposition`
 	/** `gk.defaultRemote` — the user-designated default remote for the repository */

@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import {
+	getAgentSessionProviders,
 	getGkCliIntegrationProvider,
 	getMcpProviders,
 	getSharedGKStorageLocationProvider,
@@ -11,6 +12,7 @@ import {
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { AgentStatusService } from './agents/agentStatusService.js';
 import { FileAnnotationController } from './annotations/fileAnnotationController.js';
 import { LineAnnotationController } from './annotations/lineAnnotationController.js';
 import { ActionRunners } from './api/actionRunners.js';
@@ -188,6 +190,11 @@ export class Container {
 		},
 	};
 
+	private _agentStatusService: AgentStatusService | undefined;
+
+	get agentStatus(): AgentStatusService | undefined {
+		return this._agentStatusService;
+	}
 	private readonly _connection: ServerConnection;
 	private _disposables: Disposable[];
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
@@ -282,6 +289,11 @@ export class Container {
 
 		if (configuration.get('launchpad.indicator.enabled')) {
 			this._disposables.push((this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)));
+		}
+
+		const agentProviders = getAgentSessionProviders(this);
+		if (agentProviders.length > 0) {
+			this._disposables.push((this._agentStatusService = new AgentStatusService(this, agentProviders)));
 		}
 
 		if (configuration.get('terminalLinks.enabled')) {

@@ -10,7 +10,8 @@
 			"@gitlens/utils/*": ["./packages/utils/src/*"],
 			"@gitlens/git/*": ["./packages/git/src/*"],
 			"@gitlens/git-github/*": ["./packages/plus/git-github/src/*"],
-			"@gitlens/ai/*": ["./packages/plus/ai/src/*"]
+			"@gitlens/ai/*": ["./packages/plus/ai/src/*"],
+			"@gitlens/agents/*": ["./packages/plus/agents/src/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.browser.tsbuildinfo"
 	},
