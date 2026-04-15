@@ -240,7 +240,10 @@ class Logger {
 		if (o instanceof Error) return String(o);
 
 		if (Array.isArray(o)) {
-			return `[${o.map(i => this.toLoggable(i)).join(', ')}]`;
+			const maxItems = 10;
+			const items = o.length > maxItems ? o.slice(0, maxItems) : o;
+			const suffix = o.length > maxItems ? `, …+${o.length - maxItems}` : '';
+			return `[${items.map(i => this.toLoggable(i)).join(', ')}${suffix}]`;
 		}
 
 		const toLoggable = this.#provider?.toLoggable;

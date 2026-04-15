@@ -2341,7 +2341,7 @@ export class GitProviderService implements UnifiedDisposable {
 		return provider.isTracked(uri);
 	}
 
-	@gate()
+	@gate(repos => repos.map(r => r.id).join(','))
 	@debug()
 	async storeRepositoriesLocation(repos: GlRepository[]): Promise<void> {
 		const scope = getScopedLogger();
