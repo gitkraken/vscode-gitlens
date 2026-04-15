@@ -92,6 +92,15 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when user opts in to AI All Access */
 	'aiAllAccess/optedIn': void;
 
+	/** Sent when an agent hook is installed */
+	'agents/hookInstalled': AgentProviderEvent;
+	/** Sent when an agent session starts */
+	'agents/session/started': AgentProviderEvent;
+	/** Sent when an agent session ends */
+	'agents/session/ended': AgentProviderEvent;
+	/** Sent when a permission request is resolved */
+	'agents/permission/resolved': AgentPermissionResolvedEvent;
+
 	/** Sent when a CLI install attempt is started */
 	'cli/install/started': CLIInstallStartedEvent;
 	/** Sent when a CLI install attempt succeeds */
@@ -486,6 +495,16 @@ interface AccountValidationFailedEvent {
 	exception: string;
 	code: string | undefined;
 	statusCode: number | undefined;
+}
+
+interface AgentProviderEvent {
+	'agent.provider': string;
+}
+
+interface AgentPermissionResolvedEvent {
+	'agent.provider': string;
+	'permission.tool': string;
+	'permission.decision': string;
 }
 
 interface ActivateEvent extends ConfigEventData {

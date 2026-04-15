@@ -1,0 +1,39 @@
+{
+	"name": "@gitlens/agents",
+	"description": "GitLens Agents package",
+	"version": "0.0.1",
+	"license": "SEE LICENSE IN LICENSE",
+	"private": true,
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		},
+		"./providers/*.js": {
+			"types": "./dist/providers/*.d.ts",
+			"default": "./dist/providers/*.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -b",
+		"clean": "pnpx rimraf --glob dist out **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean:all": "pnpm run clean && pnpm run clean:deps",
+		"clean:deps": "pnpx rimraf --glob **/node_modules",
+		"clean:lint": "pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 --no-error-on-unmatched-pattern 'src/**/__tests__/**/*.test.ts'"
+	},
+	"dependencies": {
+		"@gitlens/utils": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/mocha": "catalog:",
+		"mocha": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}

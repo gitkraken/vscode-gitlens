@@ -21,6 +21,7 @@ export type BranchDisposition = 'starred' | 'archived';
 export interface BranchMetadata {
 	lastAccessedAt?: string;
 	lastModifiedAt?: string;
+	agentLastActivityAt?: string;
 	disposition?: BranchDisposition;
 }
 
