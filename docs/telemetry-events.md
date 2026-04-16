@@ -118,6 +118,16 @@
 }
 ```
 
+### agents/hookUninstalled
+
+> Sent when an agent hook is uninstalled
+
+```typescript
+{
+  'agent.provider': string
+}
+```
+
 ### agents/permission/resolved
 
 > Sent when a permission request is resolved

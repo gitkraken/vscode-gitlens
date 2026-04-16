@@ -80,7 +80,10 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.visualizeHistory.repo:home'
 	| 'gitlens.visualizeHistory.branch:home';
 
-type InternalAgentCommands = 'gitlens.agents.installClaudeHook' | 'gitlens.agents.resolvePermission';
+type InternalAgentCommands =
+	| 'gitlens.agents.installClaudeHook'
+	| 'gitlens.agents.uninstallClaudeHook'
+	| 'gitlens.agents.resolvePermission';
 
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 

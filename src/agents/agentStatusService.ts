@@ -81,6 +81,17 @@ export class AgentStatusService implements Disposable {
 					);
 				}
 			}),
+			registerCommand('gitlens.agents.uninstallClaudeHook', async () => {
+				try {
+					const { uninstallClaudeHook } = await import('@env/agents/uninstallClaudeHook.js');
+					await uninstallClaudeHook();
+					this.container.telemetry.sendEvent('agents/hookUninstalled', { 'agent.provider': 'claudeCode' });
+				} catch (ex) {
+					void window.showErrorMessage(
+						`Failed to uninstall Claude hook: ${ex instanceof Error ? ex.message : String(ex)}`,
+					);
+				}
+			}),
 			registerCommand('gitlens.agents.openSession', (sessionId?: string) => this.openSession(sessionId)),
 			registerCommand(
 				'gitlens.agents.resolvePermission',
