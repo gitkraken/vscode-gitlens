@@ -65,7 +65,10 @@ const builtInProviders: ProviderEntry[] = [
 
 const protocolRegex = /(\w+)\W*/;
 function cleanProtocol(scheme: string | undefined): string | undefined {
-	return scheme?.match(protocolRegex)?.[1] ?? undefined;
+	const protocol = scheme?.match(protocolRegex)?.[1];
+	// Only preserve web protocols; non-web schemes (e.g. `ssh`, `git`) must fall back to the
+	// provider's default so web URLs (commit/issue/PR pages) don't inherit an unreachable scheme
+	return protocol === 'http' || protocol === 'https' ? protocol : undefined;
 }
 
 function createProvider(
