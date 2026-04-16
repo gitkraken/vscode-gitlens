@@ -32,6 +32,10 @@
 			"icon": "$(hubot)",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.agents.uninstallClaudeHook": {
+			"label": "Uninstall Claude Hook",
+			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.ai.enable": {
 			"label": "Enable AI Features...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:gk:organization:ai:enabled"
