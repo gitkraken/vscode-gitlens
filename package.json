@@ -6357,6 +6357,11 @@
 				"icon": "$(hubot)"
 			},
 			{
+				"command": "gitlens.agents.uninstallClaudeHook",
+				"title": "Uninstall Claude Hook",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.ai.enable",
 				"title": "Enable AI Features...",
 				"category": "GitLens"
@@ -11963,6 +11968,10 @@
 				},
 				{
 					"command": "gitlens.agents.openSession",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.agents.uninstallClaudeHook",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
