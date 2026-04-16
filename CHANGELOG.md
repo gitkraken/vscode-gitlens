@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes an issue where the _Connect Remote Integration_, _Disconnect Remote Integration_, _Open Branches on Remote_, and _Open on Remote_ actions on remote nodes in the _Remotes_ view (and other tree views) fail with a "command not found" error &mdash; regression in v17.12.0 ([#5150](https://github.com/gitkraken/vscode-gitlens/issues/5150))
 - Fixes an issue where custom AI provider URLs are ignored after updating to v17.12.0 ([#5147](https://github.com/gitkraken/vscode-gitlens/issues/5147))
 - Fixes an issue where in a multi-repository scenario, clicking the Pull button on a specific branch of one repository will bring up a dialog asking you to select which repository to fetch ([#5015](https://github.com/gitkraken/vscode-gitlens/issues/5015))
 - Fixes an issue where opening a commit, issue, or pull request on the remote would open an unusable `ssh://` URL when the repository's remote used an `ssh://`-scheme URL &mdash; regression in v17.12.0 ([#5148](https://github.com/gitkraken/vscode-gitlens/issues/5148))

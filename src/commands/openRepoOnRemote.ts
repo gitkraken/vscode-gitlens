@@ -21,7 +21,12 @@ export interface OpenRepoOnRemoteCommandArgs {
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super(
-			['gitlens.openRepoOnRemote', 'gitlens.copyRemoteRepositoryUrl', 'gitlens.copyRemoteRepositoryUrl:views'],
+			[
+				'gitlens.openRepoOnRemote',
+				'gitlens.openRepoOnRemote:views',
+				'gitlens.copyRemoteRepositoryUrl',
+				'gitlens.copyRemoteRepositoryUrl:views',
+			],
 			['gitlens.openRepoInRemote'],
 		);
 	}
