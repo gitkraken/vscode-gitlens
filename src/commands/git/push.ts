@@ -127,7 +127,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					using step = steps.enterStep(Steps.PickRepos);
 
 					const result = yield* pickRepositoriesStep(state, context, step, {
-						skipIfPossible: !steps.isAtStep(Steps.PickRepos),
+						skipIfPossible: true,
 					});
 					if (result === StepResultBreak) {
 						state.repos = undefined!;
