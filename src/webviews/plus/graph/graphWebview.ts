@@ -1017,6 +1017,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case 'gitlens.stashesApply:views':
 				void StashActions.apply(repoPath);
 				return;
+			case 'gitlens.graph.pull':
+				void RepoActions.pull(repoPath);
+				return;
+			case 'gitlens.graph.push':
+				void RepoActions.push(repoPath);
+				return;
+			case 'gitlens.fetch:graph':
+				void RepoActions.fetch(repoPath);
+				return;
 			default:
 				void executeCommand(params.command as any, Uri.file(repoPath));
 		}
