@@ -46,7 +46,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 	}
 
 	constructor(private readonly container: Container) {
-		super('gitlens.connectRemoteProvider');
+		super(['gitlens.connectRemoteProvider', 'gitlens.connectRemoteProvider:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs): Promise<any> {
@@ -142,7 +142,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 	}
 
 	constructor(private readonly container: Container) {
-		super('gitlens.disconnectRemoteProvider');
+		super(['gitlens.disconnectRemoteProvider', 'gitlens.disconnectRemoteProvider:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: DisconnectRemoteProviderCommandArgs): Promise<void> {
