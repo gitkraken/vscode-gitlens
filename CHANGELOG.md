@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes an issue where custom AI provider URLs are ignored after updating to v17.12.0 ([#5147](https://github.com/gitkraken/vscode-gitlens/issues/5147))
 - Fixes an issue where in a multi-repository scenario, clicking the Pull button on a specific branch of one repository will bring up a dialog asking you to select which repository to fetch ([#5015](https://github.com/gitkraken/vscode-gitlens/issues/5015))
+- Fixes an issue where opening a commit, issue, or pull request on the remote would open an unusable `ssh://` URL when the repository's remote used an `ssh://`-scheme URL &mdash; regression in v17.12.0 ([#5148](https://github.com/gitkraken/vscode-gitlens/issues/5148))
 
 ## [17.12.0] - 2026-04-14
 
