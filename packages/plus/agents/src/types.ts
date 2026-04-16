@@ -1,6 +1,32 @@
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 
+export const claudeCodeNonBlockingHookEvents = [
+	'SessionStart',
+	'SessionEnd',
+	'UserPromptSubmit',
+	'PreToolUse',
+	'PostToolUse',
+	'PostToolUseFailure',
+	'Notification',
+	'Stop',
+	'StopFailure',
+	'SubagentStart',
+	'SubagentStop',
+	'TeammateIdle',
+	'TaskCompleted',
+	'InstructionsLoaded',
+	'ConfigChange',
+	'PreCompact',
+	'PostCompact',
+	'Elicitation',
+	'ElicitationResult',
+	'PermissionDenied',
+	'CwdChanged',
+] as const;
+
+export const claudeCodeBlockingHookEvents = ['PermissionRequest'] as const;
+
 export type AgentSessionStatus =
 	| 'thinking'
 	| 'tool_use'
