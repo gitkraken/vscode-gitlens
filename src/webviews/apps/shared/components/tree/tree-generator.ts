@@ -534,63 +534,66 @@ export class GlTreeGenerator extends GlElement {
 	}
 
 	override render(): unknown {
-		if (!this.treeItems?.length) {
-			if (this._filterText && this._model?.length) {
-				return html`${this.renderFilterBar()}
-					<div class="no-results">No results found</div>`;
-			}
-			return nothing;
-		}
+		const hasItems = Boolean(this.treeItems?.length);
+		const showNoResults = !hasItems && this._filterText && this._model?.length;
+
+		if (!hasItems && !showNoResults) return nothing;
 
 		// Container-focused approach: the scrollable div is the focusable element
 		// Use aria-activedescendant to indicate which tree item is active for screen readers
 		const activeDescendant = this._focusedItemPath ? `tree-item-${this._focusedItemPath}` : undefined;
 
-		// Use keyed directive to force virtualizer re-creation when model changes
-		// This prevents stale DOM node references in the repeat directive
+		// Keep a single top-level template across the has-results/no-results transition so Lit
+		// patches in place — swapping top-level templates would tear down the filter input and
+		// lose focus while the user is still typing.
 		return html`
 			${this.renderFilterBar()}
-			<div
-				${ref(this.scrollableRef)}
-				class="scrollable"
-				tabindex="0"
-				role="tree"
-				aria-label=${this.ariaLabel}
-				aria-multiselectable="false"
-				aria-activedescendant=${activeDescendant || nothing}
-				@keydown=${this.handleContainerKeydown}
-				@focus=${this.handleContainerFocus}
-				@blur=${this.handleContainerBlur}
-			>
-				${keyed(
-					this._virtualizerKey,
-					html`<lit-virtualizer
-						class="scrollable"
-						${ref(this.virtualizerRef)}
-						.items=${this.treeItems}
-						.keyFunction=${(item: TreeModelFlat) => item.path}
-						.layout=${flow({ direction: 'vertical' })}
-						.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
-						scroller
-					></lit-virtualizer>`,
-				)}
-			</div>
-			${this._hoverOpen && this._hoveredTooltip
-				? html`<gl-popover
-						?open=${this._hoverOpen}
-						.anchor=${this._hoveredAnchor}
-						.placement=${this.tooltipAnchorRight ? 'right-start' : 'bottom'}
-						trigger="manual"
-						hoist
-						.distance=${4}
-						@mouseenter=${() => clearTimeout(this._unhoverTimer)}
-						@mouseleave=${() => this.onTreeItemUnhover()}
-					>
-						<div slot="content" class="hover-content">
-							<gl-markdown density="compact" .markdown=${this._hoveredTooltip ?? ''}></gl-markdown>
+			${showNoResults
+				? html`<div class="no-results">No results found</div>`
+				: html`<div
+							${ref(this.scrollableRef)}
+							class="scrollable"
+							tabindex="0"
+							role="tree"
+							aria-label=${this.ariaLabel}
+							aria-multiselectable="false"
+							aria-activedescendant=${activeDescendant || nothing}
+							@keydown=${this.handleContainerKeydown}
+							@focus=${this.handleContainerFocus}
+							@blur=${this.handleContainerBlur}
+						>
+							${keyed(
+								this._virtualizerKey,
+								html`<lit-virtualizer
+									class="scrollable"
+									${ref(this.virtualizerRef)}
+									.items=${this.treeItems}
+									.keyFunction=${(item: TreeModelFlat) => item.path}
+									.layout=${flow({ direction: 'vertical' })}
+									.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
+									scroller
+								></lit-virtualizer>`,
+							)}
 						</div>
-					</gl-popover>`
-				: nothing}
+						${this._hoverOpen && this._hoveredTooltip
+							? html`<gl-popover
+									?open=${this._hoverOpen}
+									.anchor=${this._hoveredAnchor}
+									.placement=${this.tooltipAnchorRight ? 'right-start' : 'bottom'}
+									trigger="manual"
+									hoist
+									.distance=${4}
+									@mouseenter=${() => clearTimeout(this._unhoverTimer)}
+									@mouseleave=${() => this.onTreeItemUnhover()}
+								>
+									<div slot="content" class="hover-content">
+										<gl-markdown
+											density="compact"
+											.markdown=${this._hoveredTooltip ?? ''}
+										></gl-markdown>
+									</div>
+								</gl-popover>`
+							: nothing}`}
 		`;
 	}
 
