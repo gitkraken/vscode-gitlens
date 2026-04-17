@@ -8,6 +8,7 @@ import type {
 } from '@gitlens/git/models/rebase.js';
 import type { Config } from '../../config.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
+import type { WebviewItemContext } from '../../system/webview.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
 import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
@@ -64,6 +65,14 @@ export interface ConflictFileInfo {
 	/** Number of conflict markers in the file */
 	conflictCount?: number;
 }
+
+export interface ConflictFileContextValue {
+	type: 'rebaseConflict';
+	path: string;
+	conflictStatus: GitFileConflictStatus;
+}
+
+export type ConflictFileWebviewContext = WebviewItemContext<ConflictFileContextValue>;
 
 /** Reason the rebase is paused */
 export type RebasePauseReason = 'edit' | 'reword' | 'break' | 'conflict' | 'exec';
@@ -204,6 +213,22 @@ export interface OpenConflictChangesParams {
 	side: 'current' | 'incoming';
 }
 export const OpenConflictChangesCommand = new IpcCommand<OpenConflictChangesParams>(scope, 'conflicts/openChanges');
+
+export interface ResolveConflictParams {
+	path: string;
+	resolution: 'current' | 'incoming';
+}
+export const ResolveConflictCommand = new IpcCommand<ResolveConflictParams>(scope, 'conflicts/resolve');
+
+export interface StageConflictParams {
+	path: string;
+}
+export const StageConflictCommand = new IpcCommand<StageConflictParams>(scope, 'conflicts/stage');
+
+export interface ResolveAllConflictsParams {
+	resolution: 'current' | 'incoming';
+}
+export const ResolveAllConflictsCommand = new IpcCommand<ResolveAllConflictsParams>(scope, 'conflicts/resolveAll');
 
 // REQUESTS
 

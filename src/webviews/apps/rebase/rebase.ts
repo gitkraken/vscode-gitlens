@@ -37,10 +37,12 @@ import {
 	OpenConflictFileCommand,
 	RecomposeCommand,
 	ReorderCommand,
+	ResolveAllConflictsCommand,
 	RevealRefCommand,
 	SearchCommand,
 	ShiftEntriesCommand,
 	SkipCommand,
+	StageConflictCommand,
 	StartCommand,
 	SwitchCommand,
 	UpdateSelectionCommand,
@@ -56,6 +58,7 @@ import type {
 import type { LoggerContext } from '../shared/contexts/logger.js';
 import type { HostIpc } from '../shared/ipc.js';
 import type { GlRebaseEntryElement } from './components/rebase-entry.js';
+import { getConflictFileActions, getConflictFileContextData, getConflictStatusInfo } from './conflictStatus.utils.js';
 import { rebaseStyles } from './rebase.css.js';
 import { RebaseStateProvider } from './stateProvider.js';
 import '@lit-labs/virtualizer';
@@ -70,39 +73,6 @@ import '../shared/components/commit-sha.js';
 import '../shared/components/overlays/popover-confirm.js';
 import '../shared/components/overlays/tooltip.js';
 import '../shared/components/split-panel/split-panel.js';
-
-const conflictActions: Record<string, { label: string; color: string }> = {
-	A: { label: 'Added', color: 'var(--vscode-gitDecoration-addedResourceForeground)' },
-	D: { label: 'Deleted', color: 'var(--vscode-gitDecoration-deletedResourceForeground)' },
-	U: { label: 'Modified', color: 'var(--vscode-gitDecoration-modifiedResourceForeground)' },
-};
-
-function getConflictStatusInfo(
-	status: GitFileConflictStatus,
-	branchName?: string,
-): { label: string; color: string; description: string } | undefined {
-	// First char = current (ours in rebase = onto/target), second char = incoming (theirs in rebase = branch)
-	const currentAction = conflictActions[status[0]];
-	const incomingAction = conflictActions[status[1]];
-	if (currentAction == null || incomingAction == null) return undefined;
-
-	const color = currentAction.color === conflictActions.U.color ? incomingAction.color : currentAction.color;
-	const branch = branchName ? `$(git-branch) ${branchName}` : 'incoming';
-
-	if (status[0] === status[1]) {
-		return {
-			label: `${currentAction.label} (Both)`,
-			color: color,
-			description: `${currentAction.label} on both ${branch} and the target`,
-		};
-	}
-
-	return {
-		label: `${currentAction.label} (Current), ${incomingAction.label} (Incoming)`,
-		color: color,
-		description: `${incomingAction.label} on ${branch}\n${currentAction.label} on the target`,
-	};
-}
 
 const filesPanelDefaultPct = 50;
 const filesPanelMinPct = 10;
@@ -247,12 +217,31 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		document.addEventListener('keydown', this.onDocumentKeyDown);
+		this.addEventListener('contextmenu', this.onContextMenuProxy);
 	}
 
 	override disconnectedCallback(): void {
 		document.removeEventListener('keydown', this.onDocumentKeyDown);
+		this.removeEventListener('contextmenu', this.onContextMenuProxy);
 		super.disconnectedCallback?.();
 	}
+
+	// Bridges `data-vscode-context` out of the shadow DOM so VS Code's native context menu handler
+	// (which walks the light DOM from the event target) can find it on this host element.
+	private onContextMenuProxy = (e: MouseEvent) => {
+		const source = e
+			.composedPath()
+			.find(
+				(el): el is HTMLElement =>
+					el instanceof HTMLElement && el.tagName === 'GL-TREE-GENERATOR' && el.dataset.vscodeContext != null,
+			);
+		if (source == null) return;
+
+		this.dataset.vscodeContext = source.dataset.vscodeContext;
+		setTimeout(() => {
+			delete this.dataset.vscodeContext;
+		}, 100);
+	};
 
 	private onListKeyDown = (e: KeyboardEvent) => {
 		// Ctrl/Cmd+A: select all entries
@@ -1553,7 +1542,26 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				<gl-button
 					appearance="toolbar"
 					density="compact"
+					tooltip="Stage Current for All Conflicts"
+					aria-label="Stage Current for All Conflicts"
+					@click=${this.onStageAllCurrent}
+					><code-icon icon="gl-accept-all-left"></code-icon
+				></gl-button>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip="Stage Incoming for All Conflicts"
+					aria-label="Stage Incoming for All Conflicts"
+					@click=${this.onStageAllIncoming}
+					><code-icon icon="gl-accept-all-right"></code-icon
+				></gl-button>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
 					tooltip="${this._conflictFilesLayout === 'tree'
+						? 'Switch to List Layout'
+						: 'Switch to Tree Layout'}"
+					aria-label="${this._conflictFilesLayout === 'tree'
 						? 'Switch to List Layout'
 						: 'Switch to Tree Layout'}"
 					@click=${this.onToggleConflictFilesLayout}
@@ -1594,10 +1602,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				label: filename,
 				description: dir,
 				tooltip: this.getConflictTooltip(file.conflictStatus, file.conflictCount),
-				actions: [
-					{ icon: 'gl-diff-left', label: 'Open Current Changes', action: 'current-changes' },
-					{ icon: 'gl-diff-right', label: 'Open Incoming Changes', action: 'incoming-changes' },
-				],
+				actions: getConflictFileActions(file.conflictStatus),
+				contextData: getConflictFileContextData(file.path, file.conflictStatus),
 				decorations: this.getConflictDecorations(file.conflictStatus, file.conflictCount),
 			};
 		});
@@ -1628,14 +1634,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 						icon: { type: 'status', name: child.value.conflictStatus },
 						label: child.name,
 						tooltip: this.getConflictTooltip(child.value.conflictStatus, child.value.conflictCount),
-						actions: [
-							{ icon: 'gl-diff-left', label: 'Open Current Changes', action: 'current-changes' },
-							{
-								icon: 'gl-diff-right',
-								label: 'Open Incoming Changes',
-								action: 'incoming-changes',
-							},
-						],
+						actions: getConflictFileActions(child.value.conflictStatus),
+						contextData: getConflictFileContextData(child.value.path, child.value.conflictStatus),
 						decorations: this.getConflictDecorations(child.value.conflictStatus, child.value.conflictCount),
 					});
 				} else if (child.children != null && child.children.size > 0) {
@@ -1660,26 +1660,24 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private getConflictDecorations(
 		conflictStatus: GitFileConflictStatus,
 		conflictCount: number | undefined,
-	): TreeItemDecoration[] | undefined {
+	): TreeItemDecoration[] {
 		const info = getConflictStatusInfo(conflictStatus, this.state?.branch);
-		const decorations: TreeItemDecoration[] = [];
-
-		if (info != null) {
-			decorations.push({
+		const decorations: TreeItemDecoration[] = [
+			{
 				type: 'text',
 				label: conflictStatus,
 				tooltip: info.description,
 				color: info.color,
 				position: 'after',
-			});
-			decorations.push({
+			},
+			{
 				type: 'text',
 				label: info.label,
 				tooltip: info.label,
 				color: 'var(--vscode-descriptionForeground)',
 				position: 'before',
-			});
-		}
+			},
+		];
 
 		if (conflictCount != null && conflictCount > 0) {
 			decorations.push({
@@ -1687,22 +1685,17 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				label: pluralize('conflict', conflictCount),
 				count: conflictCount,
 				tooltip: pluralize('conflict', conflictCount),
-				color: info?.color ?? conflictActions.U.color,
+				color: info.color,
 				position: 'before',
 			});
 		}
 
-		return decorations.length ? decorations : undefined;
+		return decorations;
 	}
 
 	private getConflictTooltip(conflictStatus: GitFileConflictStatus, conflictCount: number | undefined): string {
 		const info = getConflictStatusInfo(conflictStatus, this.state?.branch);
-		const parts: string[] = [];
-
-		if (info != null) {
-			parts.push(`**${info.label}** (${conflictStatus})`);
-			parts.push(info.description);
-		}
+		const parts = [`**${info.label}** (${conflictStatus})`, info.description];
 
 		if (conflictCount != null && conflictCount > 0) {
 			parts.push(pluralize('conflict', conflictCount));
@@ -1726,8 +1719,19 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			case 'incoming-changes':
 				this._ipc.sendCommand(OpenConflictChangesCommand, { path: path, side: 'incoming' });
 				break;
+			case 'stage':
+				this._ipc.sendCommand(StageConflictCommand, { path: path });
+				break;
 		}
 	}
+
+	private onStageAllCurrent = () => {
+		this._ipc.sendCommand(ResolveAllConflictsCommand, { resolution: 'current' });
+	};
+
+	private onStageAllIncoming = () => {
+		this._ipc.sendCommand(ResolveAllConflictsCommand, { resolution: 'incoming' });
+	};
 
 	private onOpenConflictFile(path: string): void {
 		this._ipc.sendCommand(OpenConflictFileCommand, { path: path });

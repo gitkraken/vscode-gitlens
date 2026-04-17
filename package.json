@@ -8292,6 +8292,16 @@
 				"icon": "$(go-to-file)"
 			},
 			{
+				"command": "gitlens.rebase.stageCurrentChanges:rebase",
+				"title": "Stage Current Changes",
+				"icon": "$(reply)"
+			},
+			{
+				"command": "gitlens.rebase.stageIncomingChanges:rebase",
+				"title": "Stage Incoming Changes",
+				"icon": "$(forward)"
+			},
+			{
 				"command": "gitlens.recomposeBranch",
 				"title": "Recompose Commits (Preview)...",
 				"category": "GitLens"
@@ -13488,6 +13498,14 @@
 				},
 				{
 					"command": "gitlens.rebase.reopenAsTextEditor:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.rebase.stageCurrentChanges:rebase",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.rebase.stageIncomingChanges:rebase",
 					"when": "false"
 				},
 				{
@@ -26278,6 +26296,16 @@
 					"command": "gitlens.openPullRequestComparison:graph",
 					"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
 					"group": "4_gitlens_compare@1"
+				},
+				{
+					"command": "gitlens.rebase.stageCurrentChanges:rebase",
+					"when": "webviewItem =~ /gitlens:rebase:conflict\\+file\\b(?=.*?\\+canStageCurrent\\b)/ && webview == gitlens.rebase",
+					"group": "1_conflict@1"
+				},
+				{
+					"command": "gitlens.rebase.stageIncomingChanges:rebase",
+					"when": "webviewItem =~ /gitlens:rebase:conflict\\+file\\b(?=.*?\\+canStageIncoming\\b)/ && webview == gitlens.rebase",
+					"group": "1_conflict@2"
 				},
 				{
 					"command": "gitlens.connectRemoteProvider:graph",
