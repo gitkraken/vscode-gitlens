@@ -5286,6 +5286,32 @@
 				]
 			}
 		},
+		"gitlens.rebase.stageCurrentChanges:rebase": {
+			"label": "Stage Current Changes",
+			"icon": "$(reply)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:rebase:conflict\\+file\\b(?=.*?\\+canStageCurrent\\b)/ && webview == gitlens.rebase",
+						"group": "1_conflict",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.rebase.stageIncomingChanges:rebase": {
+			"label": "Stage Incoming Changes",
+			"icon": "$(forward)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:rebase:conflict\\+file\\b(?=.*?\\+canStageIncoming\\b)/ && webview == gitlens.rebase",
+						"group": "1_conflict",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.recomposeBranch": {
 			"label": "Recompose Commits (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"

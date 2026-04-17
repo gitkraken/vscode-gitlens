@@ -2,37 +2,60 @@ import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { TreeItemDecoration, TreeItemDecorationKind } from './base.js';
 
-export const conflictActions: Record<string, { label: string; kind: TreeItemDecorationKind }> = {
-	A: { label: 'Added', kind: 'added' },
-	D: { label: 'Deleted', kind: 'deleted' },
-	U: { label: 'Modified', kind: 'modified' },
-};
-
+// Decodes Git's two-character unmerged status codes. The `U` placeholder is context-dependent:
+// in `UA`/`AU` it means the side is absent; in `UD`/`DU`/`UU` it means the side has a modified version.
 export function getConflictStatusInfo(
 	status: GitFileConflictStatus,
 	branchName?: string,
 ): { label: string; kind: TreeItemDecorationKind; description: string } | undefined {
-	// First char = current (ours in rebase = onto/target), second char = incoming (theirs in rebase = branch)
-	const currentAction = conflictActions[status[0]];
-	const incomingAction = conflictActions[status[1]];
-	if (currentAction == null || incomingAction == null) return undefined;
-
-	const kind = currentAction.kind === conflictActions.U.kind ? incomingAction.kind : currentAction.kind;
 	const branch = branchName ? `$(git-branch) ${branchName}` : 'incoming';
 
-	if (status[0] === status[1]) {
-		return {
-			label: `${currentAction.label} (Both)`,
-			kind: kind,
-			description: `${currentAction.label} on both ${branch} and the target`,
-		};
+	switch (status) {
+		case 'UU':
+			return {
+				label: 'Modified (Both)',
+				kind: 'modified',
+				description: `Modified on both ${branch} and the target`,
+			};
+		case 'AA':
+			return {
+				label: 'Added (Both)',
+				kind: 'added',
+				description: `Added on both ${branch} and the target`,
+			};
+		case 'DD':
+			return {
+				label: 'Deleted (Both)',
+				kind: 'deleted',
+				description: `Deleted on both ${branch} and the target`,
+			};
+		case 'AU':
+			return {
+				label: 'Added by Current',
+				kind: 'added',
+				description: `Added on the target (conflict with ${branch} — possible rename or directory/file clash)`,
+			};
+		case 'UA':
+			return {
+				label: 'Added by Incoming',
+				kind: 'added',
+				description: `Added on ${branch} (conflict with the target — possible rename or directory/file clash)`,
+			};
+		case 'UD':
+			return {
+				label: 'Modified (Current), Deleted (Incoming)',
+				kind: 'deleted',
+				description: `Deleted on ${branch}\nModified on the target`,
+			};
+		case 'DU':
+			return {
+				label: 'Deleted (Current), Modified (Incoming)',
+				kind: 'deleted',
+				description: `Modified on ${branch}\nDeleted on the target`,
+			};
+		default:
+			return undefined;
 	}
-
-	return {
-		label: `${currentAction.label} (Current), ${incomingAction.label} (Incoming)`,
-		kind: kind,
-		description: `${incomingAction.label} on ${branch}\n${currentAction.label} on the target`,
-	};
 }
 
 export function getConflictDecorations(
@@ -66,7 +89,7 @@ export function getConflictDecorations(
 			label: pluralize('conflict', conflictCount),
 			count: conflictCount,
 			tooltip: pluralize('conflict', conflictCount),
-			kind: info?.kind ?? conflictActions.U.kind,
+			kind: info?.kind ?? 'modified',
 			position: 'before',
 		});
 	}

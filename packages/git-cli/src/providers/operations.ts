@@ -32,6 +32,7 @@ import {
 	gitConfigsPull,
 	GitErrors,
 	inferSigningFormatFromError,
+	maxGitCliLength,
 } from '../exec/git.js';
 
 export class OperationsGitSubProvider implements GitOperationsSubProvider {
@@ -86,6 +87,84 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				reason =>
 					new CheckoutError(
 						{ reason: reason ?? 'other', ref: ref, gitCommand: { repoPath: repoPath, args: params } },
+						ex,
+					),
+			);
+		}
+	}
+
+	@debug()
+	async checkoutConflictedPath(repoPath: string, path: string, side: 'ours' | 'theirs'): Promise<void> {
+		const scope = getScopedLogger();
+
+		[path, repoPath] = splitPath(path, repoPath, true);
+		const params = ['checkout', `--${side}`, '--', path];
+
+		try {
+			await this.git.run({ cwd: repoPath }, ...params);
+			this.context.hooks?.cache?.onReset?.(repoPath, 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['index']);
+		} catch (ex) {
+			scope?.error(ex);
+			throw getGitCommandError(
+				'checkout',
+				ex,
+				reason =>
+					new CheckoutError(
+						{ reason: reason ?? 'other', ref: side, gitCommand: { repoPath: repoPath, args: params } },
+						ex,
+					),
+			);
+		}
+	}
+
+	@debug()
+	async checkoutConflictedPaths(repoPath: string, paths: string[], side: 'ours' | 'theirs'): Promise<void> {
+		if (!paths.length) return;
+
+		const scope = getScopedLogger();
+		const normalized = paths.map(p => splitPath(p, repoPath, true)[0]);
+
+		// Build batches by accumulating the length of each path + a small per-arg overhead (separator +
+		// possible quoting), so a single long path — or just the overhead itself — can't push a batch
+		// past the CLI length limit. Always keep at least one path per batch, even if a lone path is
+		// longer than the limit (the OS may still accept it on some platforms).
+		const perArgOverhead = 3;
+		const batches: string[][] = [];
+		let current: string[] = [];
+		let currentLen = 0;
+		for (const p of normalized) {
+			const cost = p.length + perArgOverhead;
+			if (current.length > 0 && currentLen + cost > maxGitCliLength) {
+				batches.push(current);
+				current = [];
+				currentLen = 0;
+			}
+			current.push(p);
+			currentLen += cost;
+		}
+		if (current.length) {
+			batches.push(current);
+		}
+
+		try {
+			for (const batch of batches) {
+				await this.git.run({ cwd: repoPath }, 'checkout', `--${side}`, '--', ...batch);
+			}
+			this.context.hooks?.cache?.onReset?.(repoPath, 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['index']);
+		} catch (ex) {
+			scope?.error(ex);
+			throw getGitCommandError(
+				'checkout',
+				ex,
+				reason =>
+					new CheckoutError(
+						{
+							reason: reason ?? 'other',
+							ref: side,
+							gitCommand: { repoPath: repoPath, args: ['checkout', `--${side}`, '--', ...normalized] },
+						},
 						ex,
 					),
 			);
