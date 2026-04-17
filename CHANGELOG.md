@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.12.1] - 2026-04-17
+
 ### Fixed
 
 - Fixes an issue where the _Connect Remote Integration_, _Disconnect Remote Integration_, _Open Branches on Remote_, and _Open on Remote_ actions on remote nodes in the _Remotes_ view (and other tree views) fail with a "command not found" error &mdash; regression in v17.12.0 ([#5150](https://github.com/gitkraken/vscode-gitlens/issues/5150))
@@ -6800,7 +6802,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.1...HEAD
+[17.12.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.0...gitkraken:v17.12.1
 [17.12.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.1...gitkraken:v17.12.0
 [17.11.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.0...gitkraken:v17.11.1
 [17.11.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.10.2...gitkraken:v17.11.0
