@@ -1,5 +1,6 @@
 import type { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import { diffHunkRegex, diffRegex } from '@gitlens/git/parsers/diffParser.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { iterateAsyncByDelimiter, iterateByDelimiter } from '@gitlens/utils/string.js';
@@ -307,15 +308,25 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 			fields = iterateByDelimiter(record, fieldSep);
 
 			let fieldCount = 0;
+			let overflow = 0;
 			let field;
 
 			while (true) {
 				field = fields.next();
 				if (field.done) break;
-				if (fieldCount >= keys.length) continue; // Handle extra newlines at the end
+				if (fieldCount >= keys.length) {
+					overflow++;
+					continue;
+				}
 
 				count++;
 				entry[keys[fieldCount++]] = field.value as T[keyof T];
+			}
+
+			if (overflow > 0) {
+				Logger.warn(
+					`Git.LogParser.parse: record had ${overflow} extra field${overflow === 1 ? '' : 's'} beyond the expected ${keys.length} — possible format drift or embedded field separator`,
+				);
 			}
 
 			yield entry;
@@ -340,15 +351,25 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 			fields = iterateByDelimiter(record, fieldSep);
 
 			let fieldCount = 0;
+			let overflow = 0;
 			let field;
 
 			while (true) {
 				field = fields.next();
 				if (field.done) break;
-				if (fieldCount >= keys.length) continue; // Handle extra newlines at the end
+				if (fieldCount >= keys.length) {
+					overflow++;
+					continue;
+				}
 
 				count++;
 				entry[keys[fieldCount++]] = field.value as T[keyof T];
+			}
+
+			if (overflow > 0) {
+				Logger.warn(
+					`Git.LogParser.parseAsync: record had ${overflow} extra field${overflow === 1 ? '' : 's'} beyond the expected ${keys.length} — possible format drift or embedded field separator`,
+				);
 			}
 
 			yield entry;

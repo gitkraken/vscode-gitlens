@@ -121,8 +121,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		try {
 			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads']);
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
 			scope?.error(ex);
 			throw getGitCommandError(
@@ -662,8 +662,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				...args,
 			);
 
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads']);
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
 			scope?.error(ex);
 

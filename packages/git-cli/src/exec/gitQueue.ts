@@ -80,10 +80,10 @@ export class GitQueue {
 
 	/** Update configuration (e.g., when user changes settings) */
 	updateConfig(config: Partial<GitQueueConfig>): void {
-		if (config.maxConcurrent != null) {
+		if (config.maxConcurrent != null && config.maxConcurrent > 0) {
 			this._config.maxConcurrent = config.maxConcurrent;
 		}
-		if (config.maxQueueDepth != null) {
+		if (config.maxQueueDepth != null && config.maxQueueDepth > 0) {
 			this._config.maxQueueDepth = config.maxQueueDepth;
 		}
 	}

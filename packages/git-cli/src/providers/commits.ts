@@ -36,6 +36,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { isFolderGlob, normalizePath, splitPath, stripFolderGlob } from '@gitlens/utils/path.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
+import { escapeRegex } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
@@ -389,7 +390,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		options?: { authors?: GitUser[]; excludeMerges?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<LeftRightCommitCountResult | undefined> {
-		const authors = options?.authors?.length ? options.authors.map(a => `--author=^${a.name} <${a.email}>$`) : [];
+		const authors = options?.authors?.length
+			? options.authors.map(a => `--author=^${escapeRegex(a.name ?? '')} <${escapeRegex(a.email ?? '')}>$`)
+			: [];
 
 		const result = await this.git.exec(
 			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
@@ -482,7 +485,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			if (options?.authors?.length) {
-				args.push(...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
+				args.push(
+					...options.authors.map(
+						a => `--author=^${escapeRegex(a.name ?? '')} <${escapeRegex(a.email ?? '')}>$`,
+					),
+				);
 			}
 
 			let overrideHasMore;
@@ -1016,7 +1023,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					if (!args.includes('--use-mailmap')) {
 						args.push('--use-mailmap');
 					}
-					args.push(...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
+					args.push(
+						...options.authors.map(
+							a => `--author=^${escapeRegex(a.name ?? '')} <${escapeRegex(a.email ?? '')}>$`,
+						),
+					);
 				}
 
 				const pathspec =

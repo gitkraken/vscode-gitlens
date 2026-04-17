@@ -240,10 +240,10 @@ export function parseGitFileDiff(data: string, includeRawContent = false): Parse
 
 	const lines = data.split('\n');
 
-	// Skip header
+	// Skip header — match standard hunk headers only (`@@ ... @@`), NOT combined-diff headers (`@@@ ... @@@`)
 	let i = -1;
 	while (++i < lines.length) {
-		if (lines[i].startsWith('@@')) {
+		if (lines[i].startsWith('@@ ')) {
 			break;
 		}
 	}
@@ -252,7 +252,7 @@ export function parseGitFileDiff(data: string, includeRawContent = false): Parse
 	let line;
 	while (i < lines.length) {
 		line = lines[i];
-		if (!line.startsWith('@@')) {
+		if (!line.startsWith('@@ ')) {
 			i++;
 			continue;
 		}
@@ -270,7 +270,7 @@ export function parseGitFileDiff(data: string, includeRawContent = false): Parse
 		const contentStartLine = i;
 
 		// Parse hunks lines
-		while (i < lines.length && !line.startsWith('@@')) {
+		while (i < lines.length && !line.startsWith('@@ ')) {
 			switch (line[0]) {
 				// deleted
 				case '-': {
