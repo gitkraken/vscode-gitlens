@@ -78,7 +78,7 @@ function createProvider(
 	scheme: string | undefined,
 	context?: RemoteProviderContext,
 ): RemoteProvider | undefined {
-	const protocol = entry.protocol ?? cleanProtocol(scheme);
+	const protocol = cleanProtocol(entry.protocol ?? scheme);
 
 	if (entry.type === 'custom' && entry.urls != null) {
 		return new CustomRemoteProvider(domain, path, entry.urls, protocol, entry.name);
