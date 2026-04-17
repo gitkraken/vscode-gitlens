@@ -27649,7 +27649,7 @@
 		"rebuild": "pnpm run reset && pnpm run build",
 		"reset": "pnpm run clean && pnpm install --force",
 		"test": "vscode-test",
-		"test:packages": "pnpm -r --filter './packages/*' run test",
+		"test:packages": "pnpm -r --filter './packages/**' run test",
 		"test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
 		"workflow": "node --experimental-strip-types ./scripts/issues/workflow.mts",
 		"test:e2e:insiders": "set VSCODE_VERSION=insiders && playwright test -c tests/e2e/playwright.config.ts",
