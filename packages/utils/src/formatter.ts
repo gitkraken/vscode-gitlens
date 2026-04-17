@@ -111,7 +111,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		template = template.replace(spaceRegex, '\u00a0');
 		if (formatter instanceof Formatter) return interpolate(template, formatter);
 
-		let options: Options | undefined = undefined;
+		let options: Options;
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
 			options = {
 				dateFormat: dateFormatOrOptions,
@@ -155,7 +155,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		template = template.replace(spaceRegex, '\u00a0');
 		if (formatter instanceof Formatter) return interpolateAsync(template, formatter);
 
-		let options: Options | undefined = undefined;
+		let options: Options;
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
 			options = {
 				dateFormat: dateFormatOrOptions,

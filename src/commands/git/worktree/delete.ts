@@ -172,7 +172,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 
 			for (const uri of state.uris) {
 				let skipHasChangesPrompt = false;
-				let succeeded = false;
+				let succeeded: boolean;
 
 				const deleteBranches = state.flags.includes('--delete-branches');
 				let force = state.flags.includes('--force');
@@ -206,8 +206,6 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 						await state.repo.git.worktrees?.deleteWorktree(uri, { force: force });
 						succeeded = true;
 					} catch (ex) {
-						skipHasChangesPrompt = false;
-
 						if (WorktreeDeleteError.is(ex)) {
 							if (ex.details.reason === 'defaultWorkingTree') {
 								void window.showErrorMessage('Cannot delete the default worktree.');

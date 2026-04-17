@@ -147,7 +147,7 @@ export class AuthenticationConnection implements Disposable {
 		input.ignoreFocusOut = true;
 
 		const disposables: Disposable[] = [];
-		let code: string | undefined = undefined;
+		let code: string | undefined;
 
 		try {
 			if (cancellationToken.isCancellationRequested) return;

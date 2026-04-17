@@ -797,11 +797,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			similarityThreshold: options?.similarityThreshold ?? cfg?.commits.similarityThreshold,
 		};
 
-		let type: 'file' | 'folder' | 'submodule' = options.isFolder ? 'folder' : 'file';
 		if (isFolderGlob(relativePath)) {
 			relativePath = stripFolderGlob(relativePath);
 			options.isFolder = true;
-			type = 'folder';
 		} else if (options.isFolder == null) {
 			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, relativePath, rev || 'HEAD');
 			if (cancellation?.aborted) throw new CancellationError();
@@ -809,13 +807,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (tree?.type === 'commit') {
 				// It's a submodule — line ranges and rename tracking don't apply, and the rev may reference
 				// the submodule's internal SHA which isn't valid in the parent repo
-				type = 'submodule';
 				options.range = undefined;
 				options.renames = false;
 				// rev = undefined;
 			} else {
-				type = tree?.type === 'tree' ? 'folder' : 'file';
-				options.isFolder = type === 'folder';
+				options.isFolder = tree?.type === 'tree';
 			}
 		}
 

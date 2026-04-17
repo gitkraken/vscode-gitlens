@@ -298,7 +298,7 @@ export function createHunksFromDiffs(stagedDiffContent?: string, unstagedDiffCon
 	const allHunks: ComposerHunk[] = [];
 
 	let count = 0;
-	let hunks: ComposerHunk[] = [];
+	let hunks: ComposerHunk[];
 
 	if (stagedDiffContent) {
 		const stagedDiff = parseGitDiff(stagedDiffContent);
@@ -309,7 +309,7 @@ export function createHunksFromDiffs(stagedDiffContent?: string, unstagedDiffCon
 
 	if (unstagedDiffContent) {
 		const unstagedDiff = parseGitDiff(unstagedDiffContent);
-		({ hunks, count } = convertDiffToComposerHunks(unstagedDiff, 'unstaged', count));
+		({ hunks } = convertDiffToComposerHunks(unstagedDiff, 'unstaged', count));
 
 		allHunks.push(...hunks);
 	}

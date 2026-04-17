@@ -469,7 +469,6 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 				if (skipPrev > 0) {
 					skip += skipPrev;
-					skipPrev = 0;
 				}
 
 				if (rev !== 'HEAD' && skip === 0) {
@@ -934,6 +933,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
 				throw new Error(
 					'Unable to open changes because the specified diff tool cannot be found or no Git diff tool is configured',
+					{ cause: ex },
 				);
 			}
 
@@ -962,6 +962,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
 				throw new Error(
 					'Unable to open directory compare because the specified diff tool cannot be found or no Git diff tool is configured',
+					{ cause: ex },
 				);
 			}
 

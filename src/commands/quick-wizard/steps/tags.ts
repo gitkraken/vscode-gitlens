@@ -72,10 +72,8 @@ export async function* inputTagNameStep<
 				return [true, undefined];
 			}
 
-			let valid = true;
-
 			for (const repo of state.repos) {
-				valid = await repo.git.refs.checkIfCouldBeValidBranchOrTagName(value);
+				const valid = await repo.git.refs.checkIfCouldBeValidBranchOrTagName(value);
 				if (!valid) return [false, `'${value}' isn't a valid tag name`];
 
 				const alreadyExists = await repo.git.tags.getTag(value);

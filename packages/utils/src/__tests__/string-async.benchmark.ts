@@ -6,8 +6,8 @@
  * Tests realistic Git command streaming scenarios with various chunk sizes.
  */
 
-import { iterateAsyncByDelimiter } from '@gitlens/utils/string.js';
 import { Bench } from 'tinybench';
+import { iterateAsyncByDelimiter } from '@gitlens/utils/string.js';
 import {
 	consumeAsyncIterator,
 	displayAnalysisHeader,
@@ -27,7 +27,7 @@ async function* iterateAsyncByDelimiterGenerator(
 	delimiter: string,
 ): AsyncGenerator<string> {
 	const delimiterLen = delimiter.length;
-	let i = 0;
+	let i: number;
 	let j;
 	let buffer = '';
 	for await (const chunk of data) {

@@ -19,8 +19,8 @@ export function parseGitTree(data: string | undefined, ref: string, singleEntry:
 	let type: GitTreeType;
 	let path: string;
 
-	let startIndex = 0;
-	let endIndex = 0;
+	let startIndex: number;
+	let endIndex: number;
 
 	// Avoid generator if we are only parsing a single entry
 	for (let line of singleEntry ? data.split('\n') : iterateByDelimiter(data, '\n')) {

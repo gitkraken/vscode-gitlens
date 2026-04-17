@@ -234,7 +234,6 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitCommit }>(
 					if (date > nextTime) break;
 
 					index++;
-					time = undefined;
 					[, marker] = markers[index];
 				}
 

@@ -1839,7 +1839,6 @@ export class ViewCommands implements Disposable {
 			if (result == null) return;
 
 			if (result.length === 0) {
-				filter = false;
 				node.deleteState('filterCommits');
 			} else {
 				node.storeState('filterCommits', result);

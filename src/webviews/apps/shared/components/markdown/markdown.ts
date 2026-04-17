@@ -323,7 +323,7 @@ function renderThemeIconsWithinText(text: string): string {
 	let match: RegExpExecArray | null;
 
 	let textStart = 0;
-	let textStop = 0;
+	let textStop: number;
 	while ((match = themeIconsWithinTextRegex.exec(text)) !== null) {
 		textStop = match.index || 0;
 		if (textStart < textStop) {

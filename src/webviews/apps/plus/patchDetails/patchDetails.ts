@@ -436,6 +436,6 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 	private debouncedAttachState = debounce(this.attachState.bind(this), 100);
 }
 
-function assertsSerialized<T>(obj: unknown): asserts obj is Serialized<T> {}
+function assertsSerialized<T>(_obj: unknown): asserts _obj is Serialized<T> {}
 
 new PatchDetailsApp();

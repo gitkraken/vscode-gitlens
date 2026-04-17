@@ -108,7 +108,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 		}
 
 		const estimatedMaxCharacters = maxInputTokens! * estimatedCharactersPerToken;
-		let currentCharacters = getContextCharacters(template, currentContext);
+		const currentCharacters = getContextCharacters(template, currentContext);
 
 		// If over limit, try truncation handler or fail
 		if (currentCharacters > estimatedMaxCharacters) {
@@ -128,7 +128,6 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 					);
 				}
 				currentContext = truncatedContext;
-				currentCharacters = getContextCharacters(template, currentContext);
 				truncated = true;
 			} else {
 				// No handler provided and over limit - fail fast

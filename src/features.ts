@@ -71,7 +71,7 @@ export function isProFeature(feature: PlusFeatures): feature is ProFeatures {
 	}
 }
 
-export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFeatures {
+export function isAdvancedFeature(_feature: PlusFeatures): _feature is AdvancedFeatures {
 	return false;
 }
 

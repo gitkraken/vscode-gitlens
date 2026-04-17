@@ -5,12 +5,12 @@ packages:
 
 catalog:
     '@types/mocha': 10.0.10
-    '@types/sinon': 21.0.0
+    '@types/sinon': 21.0.1
     mocha: 11.7.5
-    sinon: 21.0.3
+    sinon: 21.1.0
     tinybench: 6.0.0
     tsx: 4.21.0
-    typescript: 6.0.2
+    typescript: 6.0.3
 
 blockExoticSubdeps: true
 enableGlobalVirtualStore: true
@@ -35,7 +35,15 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
+    - '@oxc-parser/*'
+    - '@oxc-project/types@0.125.0'
+    - '@prettier/plugin-oxc@0.1.4'
+    - '@typescript-eslint/*'
     - 'ovsx@0.10.11'
+    - 'oxc-parser@0.125.0'
+    - 'typescript@6.0.3'
+    - 'typescript-eslint@8.58.2'
+    - 'webpack@5.106.2'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

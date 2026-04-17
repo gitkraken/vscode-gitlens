@@ -90,13 +90,6 @@ export async function changesMessage(
 			}
 		}
 
-		let originalPath = commit.file.originalPath;
-		if (originalPath == null) {
-			if (uri.fsPath !== commit.file.uri.fsPath) {
-				originalPath = commit.file.path;
-			}
-		}
-
 		editorLine = commitLine.line - 1;
 		// TODO: Doesn't work with dirty files -- pass in editor? or contents?
 		let lineDiff = await container.git.getDiffForLine(uri, editorLine, ref, documentRev);

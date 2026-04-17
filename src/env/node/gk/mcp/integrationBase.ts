@@ -157,7 +157,9 @@ export abstract class GkMcpProviderBase implements Disposable {
 					parseEx,
 					`MCP config command returned non-JSON output (CLI ${cliInstall.version}): ${outputToLog}`,
 				);
-				throw new Error(`Invalid MCP config output from CLI ${cliInstall.version}: ${outputToLog}`);
+				throw new Error(`Invalid MCP config output from CLI ${cliInstall.version}: ${outputToLog}`, {
+					cause: parseEx,
+				});
 			}
 
 			if (!config.type || !config.command || !Array.isArray(config.args)) {

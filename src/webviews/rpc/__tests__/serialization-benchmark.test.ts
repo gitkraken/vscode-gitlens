@@ -425,7 +425,6 @@ suite('Serialization Benchmark Test Suite', () => {
 			}
 
 			// CI runners see higher relative variance, so allowing a wider threshold
-			// eslint-disable-next-line no-restricted-globals
 			const maxRatio = process.env.CI ? 10 : 5;
 			const fastest = Math.min(...timings);
 			const slowest = Math.max(...timings);

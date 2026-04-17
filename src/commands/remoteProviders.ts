@@ -155,7 +155,6 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 
 	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<void> {
 		let remote: GitRemote | undefined;
-		let repoPath;
 		if (args?.repoPath == null) {
 			const repos = new Map<GlRepository, GitRemote>();
 
@@ -168,9 +167,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 
 			if (repos.size === 0) return;
 			if (repos.size === 1) {
-				let repo;
-				[repo, remote] = first(repos)!;
-				repoPath = repo.path;
+				remote = first(repos)![1];
 			} else {
 				const pick = await showRepositoryPicker(
 					this.container,
@@ -180,20 +177,15 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 				);
 				if (pick == null) return;
 
-				repoPath = pick.path;
 				remote = repos.get(pick)!;
 			}
 		} else if (args?.remote == null) {
-			repoPath = args.repoPath;
-
-			remote = await getBestRemoteWithIntegration(repoPath, { includeDisconnected: false });
+			remote = await getBestRemoteWithIntegration(args.repoPath, { includeDisconnected: false });
 			if (remote == null) return;
 		} else {
-			repoPath = args.repoPath;
-
-			remote = (await this.container.git.getRepositoryService(repoPath).remotes.getRemotesWithProviders()).find(
-				(r: GitRemote) => r.name === args.remote,
-			);
+			remote = (
+				await this.container.git.getRepositoryService(args.repoPath).remotes.getRemotesWithProviders()
+			).find((r: GitRemote) => r.name === args.remote);
 			if (!remote || !remoteSupportsIntegration(remote)) return;
 		}
 

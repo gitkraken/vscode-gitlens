@@ -1,4 +1,3 @@
-import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from '@gitlens/git/utils/repository.utils.js';
 import { exhaustiveArray } from '@gitlens/utils/array.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { invalidateMemoized } from '@gitlens/utils/decorators/memoize.js';
@@ -7,6 +6,7 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import type { PromiseOrValue } from '@gitlens/utils/promise.js';
 import { CacheController, PromiseCache, PromiseMap, RepoPromiseCacheMap } from '@gitlens/utils/promiseCache.js';
 import type { Uri } from '@gitlens/utils/uri.js';
+import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from '@gitlens/git/utils/repository.utils.js';
 import type { GitResult } from './exec.types.js';
 import type { ProgressiveGitBlame } from './models/blame.js';
 import type { GitBranch } from './models/branch.js';

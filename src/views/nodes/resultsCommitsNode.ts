@@ -173,8 +173,6 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 
 			const result = await pauseOnCancelOrTimeout(this.getCommitsQueryResults(), undefined, 100);
 			if (!result.paused) {
-				state = this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed;
-
 				({ label, log } = result.value);
 
 				state = !log?.commits.size

@@ -1109,10 +1109,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async getSubscription(subscription?: Subscription) {
 		if (subscription != null) {
 			this._subscription = subscription;
-		} else if (this._subscription != null) {
-			subscription = this._subscription;
 		} else {
-			this._subscription = subscription = await this.container.subscription.getSubscription(true);
+			this._subscription ??= await this.container.subscription.getSubscription(true);
 		}
 
 		return this._subscription;

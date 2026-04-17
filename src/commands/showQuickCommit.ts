@@ -85,8 +85,6 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 
 			gitUri = getCommitGitUri(args.commit);
 			repoPath = args.commit.repoPath;
-
-			uri ??= args.commit.file?.uri;
 		}
 
 		if (args.sha == null) {

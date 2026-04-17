@@ -31,8 +31,8 @@ export function parseGitRemotes(
 
 	let remote: GitRemote | undefined;
 
-	let startIndex = 0;
-	let endIndex = 0;
+	let startIndex: number;
+	let endIndex: number;
 
 	for (let line of iterateByDelimiter(data, '\n')) {
 		line = line.trim();

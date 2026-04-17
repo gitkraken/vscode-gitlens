@@ -226,7 +226,7 @@ export class HostIpc implements Disposable {
 	}
 }
 
-export function assertsSerialized<T>(obj: unknown): asserts obj is Serialized<T> {}
+export function assertsSerialized<T>(_obj: unknown): asserts _obj is Serialized<T> {}
 
 function getQueueKey(method: string, id: string) {
 	return `${method}|${id}`;

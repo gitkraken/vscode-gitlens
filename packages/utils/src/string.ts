@@ -358,7 +358,6 @@ export function getTokensFromTemplate(template: string): TokenMatch[] {
 				if (start !== tokenPos) {
 					suffix = template.slice(start, tokenPos);
 				}
-				tokenPos++;
 			} else if (!isWordChar(template.charCodeAt(tokenPos))) {
 				const start = tokenPos++;
 				while (tokenPos < tokenEnd && !isWordChar(template.charCodeAt(tokenPos))) {

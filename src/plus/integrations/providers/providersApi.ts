@@ -1165,7 +1165,7 @@ export class ProvidersApi {
 // properly wraps our custom fetch and use `forceIsFetch: true` in the config.
 async function parseFetchResponseForApi<T>(response: Response): Promise<ProviderRequestResponse<T>> {
 	const contentType = response.headers.get('content-type') || '';
-	let body = null;
+	let body;
 
 	// parse the response body
 	if (contentType.startsWith('application/json')) {

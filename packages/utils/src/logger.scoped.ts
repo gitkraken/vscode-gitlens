@@ -1,8 +1,8 @@
+import { enterScope, exitScope, getCurrentScope, runInScope } from '#env/logScope.js';
 import { getScopedCounter } from './counter.js';
 import { getDurationMilliseconds, hrtime } from './hrtime.js';
 import type { LogLevel } from './logger.js';
 import { Logger } from './logger.js';
-import { enterScope, exitScope, getCurrentScope, runInScope } from '#env/logScope.js';
 
 /** Runs a function within a log scope context. */
 export { runInScope };

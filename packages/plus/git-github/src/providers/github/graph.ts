@@ -186,7 +186,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const rows: GitGraphRow[] = [];
 
-		let head = false;
+		let head: boolean;
 		let refHeads: GitGraphRowHead[];
 		let refRemoteHeads: GitGraphRowRemoteHead[];
 		let refTags: GitGraphRowTag[];

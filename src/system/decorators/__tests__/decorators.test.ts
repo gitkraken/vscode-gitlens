@@ -608,9 +608,8 @@ suite('Decorator Test Suite', () => {
 
 			// After timeout, the gate should be cleared and new calls allowed
 			// Create a fast-completing method to verify gate is cleared
-			let secondCallStarted = false;
 			const p2 = instance.method();
-			secondCallStarted = true;
+			const secondCallStarted = true;
 
 			// The second call should start (gate cleared), but will also timeout
 			assert.ok(secondCallStarted, 'Second call should start after gate cleared');

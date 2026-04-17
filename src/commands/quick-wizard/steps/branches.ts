@@ -72,10 +72,8 @@ export async function* inputBranchNameStep<
 				return [true, undefined];
 			}
 
-			let valid = true;
-
 			for (const repo of state.repos) {
-				valid = await repo.git.refs.checkIfCouldBeValidBranchOrTagName(value);
+				const valid = await repo.git.refs.checkIfCouldBeValidBranchOrTagName(value);
 				if (!valid) return [false, `'${value}' isn't a valid branch name`];
 
 				const alreadyExists = await repo.git.branches.getBranch(value);

@@ -4,8 +4,8 @@
  * Compares performance of generator-based vs iterator-based implementations for common iterable operations used throughout GitLens
  */
 
-import { chunk, filter, map, skip, take } from '@gitlens/utils/iterable.js';
 import { Bench } from 'tinybench';
+import { chunk, filter, map, skip, take } from '@gitlens/utils/iterable.js';
 import {
 	consumeIterator,
 	displayAnalysisHeader,

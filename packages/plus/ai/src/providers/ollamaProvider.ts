@@ -199,7 +199,10 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 					result: undefined,
 				};
 			} catch (err) {
-				throw new Error(`Failed to parse Ollama response: ${err instanceof Error ? err.message : String(err)}`);
+				throw new Error(
+					`Failed to parse Ollama response: ${err instanceof Error ? err.message : String(err)}`,
+					{ cause: err },
+				);
 			}
 		}
 	}

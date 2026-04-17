@@ -183,7 +183,7 @@ export class ConfiguredIntegrationService implements Disposable {
 				d.cloud === descriptor.cloud,
 		);
 
-		let changed = false;
+		let changed: boolean;
 		if (existing != null) {
 			if (existing.expiresAt === descriptor.expiresAt && existing.scopes === descriptor.scopes) {
 				return;

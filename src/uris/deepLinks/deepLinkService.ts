@@ -4,7 +4,6 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
-import type { RepositoryIdentity } from '@gitlens/git/models/repositoryIdentities.js';
 import { missingRepositoryId } from '@gitlens/git/models/repositoryIdentities.js';
 import type { GitTag } from '@gitlens/git/models/tag.js';
 import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
@@ -777,17 +776,8 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					let repoIdentity: RepositoryIdentity | undefined;
-
-					let mainIdToSearch = mainId;
-					let remoteUrlToSearch = remoteUrl;
-
-					if (repoIdentity != null) {
-						this._context.remoteUrl = repoIdentity.remote?.url ?? undefined;
-						remoteUrlToSearch = repoIdentity.remote?.url;
-						this._context.mainId = repoIdentity.initialCommitSha ?? undefined;
-						mainIdToSearch = repoIdentity.initialCommitSha;
-					}
+					const mainIdToSearch = mainId;
+					const remoteUrlToSearch = remoteUrl;
 
 					// Try to match a repo using the remote URL first, since that saves us some steps.
 					// As a fallback, try to match using the repo id.

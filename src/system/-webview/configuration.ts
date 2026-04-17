@@ -315,7 +315,7 @@ export class Configuration implements Disposable {
 		}
 	}
 
-	matches<S extends ConfigPath>(match: S, section: ConfigPath, value: unknown): value is ConfigPathValue<S> {
+	matches<S extends ConfigPath>(match: S, section: ConfigPath, _value: unknown): _value is ConfigPathValue<S> {
 		return match === section;
 	}
 

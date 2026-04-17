@@ -511,7 +511,6 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 			if (result == null) return;
 
 			if (result.length === 0) {
-				filter = false;
 				this.state.filterCommits.delete(repo.id);
 			} else {
 				this.state.filterCommits.set(repo.id, result);

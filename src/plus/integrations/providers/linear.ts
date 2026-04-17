@@ -183,7 +183,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		}
 		const api = await this.getProvidersApi();
 		let cursor = undefined;
-		let hasMore = false;
+		let hasMore: boolean;
 		let requestCount = 0;
 		const issues = [];
 		try {

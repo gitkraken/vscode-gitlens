@@ -27,9 +27,9 @@ export function parseGitLsFilesStaged(data: string | undefined, singleEntry: boo
 	let stage: number;
 	let path: string;
 
-	let startIndex = 0;
-	let endIndex = 0;
-	let tabIndex = 0;
+	let startIndex: number;
+	let endIndex: number;
+	let tabIndex: number;
 
 	// Avoid generator if we are only parsing a single entry
 	for (const line of singleEntry ? data.split('\0') : iterateByDelimiter(data, '\0')) {
@@ -89,9 +89,9 @@ export function parseGitConflictFiles(data: string | undefined, repoPath: string
 	let path: string;
 	let revision: GitConflictRevision;
 
-	let startIndex = 0;
-	let endIndex = 0;
-	let tabIndex = 0;
+	let startIndex: number;
+	let endIndex: number;
+	let tabIndex: number;
 
 	for (const line of iterateByDelimiter(data, '\0')) {
 		if (!line) continue;

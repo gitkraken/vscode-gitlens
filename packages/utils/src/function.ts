@@ -138,4 +138,4 @@ export function throttle<T extends (...args: any[]) => ReturnType<T>>(fn: T, del
 }
 
 //** Used to cause compile errors for exhaustive type checking */
-export function typeCheck<T>(value: T): asserts value is T {}
+export function typeCheck<T>(_value: T): asserts _value is T {}

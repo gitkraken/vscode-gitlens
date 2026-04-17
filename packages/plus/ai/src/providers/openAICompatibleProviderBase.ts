@@ -91,7 +91,9 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			if (ex instanceof AIError) throw ex;
 
 			debugger;
-			throw new Error(`Unable to ${getActionName(action)}: (${model.provider.name}) ${ex.message}`);
+			throw new Error(`Unable to ${getActionName(action)}: (${model.provider.name}) ${ex.message}`, {
+				cause: ex,
+			});
 		}
 	}
 

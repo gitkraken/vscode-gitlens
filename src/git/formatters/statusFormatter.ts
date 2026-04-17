@@ -80,7 +80,7 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 	}
 
 	get working(): string {
-		let icon = '';
+		let icon: string;
 		if (this._item.workingTreeStatus != null && this._item.indexStatus != null) {
 			icon = `${GlyphChars.Pencil}${GlyphChars.Space}${GlyphChars.SpaceThinnest}${GlyphChars.Check}`;
 		} else if (this._item.workingTreeStatus != null) {

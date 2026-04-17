@@ -5,8 +5,8 @@
  * to determine optimal thresholds for the maybeIterateByDelimiter() function.
  */
 
-import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import { Bench } from 'tinybench';
+import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import {
 	consumeArray,
 	consumeIterator,

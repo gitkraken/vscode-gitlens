@@ -179,6 +179,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						`Unable to ${getActionName(action)}: (${model.provider.name}${
 							ex.code ? `:${ex.code}` : ''
 						}) ${message}`,
+						{ cause: ex },
 					);
 				}
 			}
