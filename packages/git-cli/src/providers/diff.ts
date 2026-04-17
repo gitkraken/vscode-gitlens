@@ -843,9 +843,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		ref2: string | undefined,
 		options: { encoding?: string } | undefined,
 	): Promise<ParsedGitDiffHunks | undefined> {
+		// Include renames (R) and copies (C) so content diffs on renamed files still surface;
+		// --diff-filter runs after `-M` rename detection, so 'M' alone would drop valid rename diffs.
 		const result = await this.diff(repoPath, fileName, ref1, ref2, {
 			encoding: options?.encoding,
-			filters: ['M'],
+			filters: ['M', 'R', 'C'],
 			linesOfContext: 0,
 			renames: true,
 			similarityThreshold: this.context.config?.commits.similarityThreshold,
@@ -880,7 +882,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	): Promise<ParsedGitDiffHunks | undefined> {
 		const data = await this.diffContents(repoPath, fileName, ref, contents, {
 			encoding: options?.encoding,
-			filters: ['M'],
+			filters: ['M', 'R', 'C'],
 			similarityThreshold: this.context.config?.commits.similarityThreshold,
 		});
 		return parseGitFileDiff(data);

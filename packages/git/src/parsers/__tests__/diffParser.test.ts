@@ -460,6 +460,38 @@ suite('Diff Parser Test Suite', () => {
 			assert.strictEqual(result!.hunks.length, 1);
 			assert.strictEqual(result!.hunks[0].current.position.start, 1);
 		});
+
+		test('parses a renamed-file diff (rename with content changes)', () => {
+			// Reproduces what git emits with `-M --diff-filter=MRC` for a file that was
+			// renamed AND modified in a commit. Regression guard: before filters included
+			// R/C, hover/gutter diffs on renamed files silently returned no hunks.
+			const data = [
+				'diff --git a/src/old.ts b/src/new.ts',
+				'similarity index 82%',
+				'rename from src/old.ts',
+				'rename to src/new.ts',
+				'--- a/src/old.ts',
+				'+++ b/src/new.ts',
+				'@@ -1,3 +1,3 @@',
+				' const a = 1;',
+				'-const b = 2;',
+				'+const b = 3;',
+				' const c = 4;',
+			].join('\n');
+
+			const result = parseGitFileDiff(data);
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.hunks.length, 1);
+
+			const hunk = result!.hunks[0];
+			assert.strictEqual(hunk.current.position.start, 1);
+			assert.strictEqual(hunk.previous.position.start, 1);
+
+			const lines = [...hunk.lines.values()];
+			assert.strictEqual(lines.find(l => l.state === 'changed')?.previous, 'const b = 2;');
+			assert.strictEqual(lines.find(l => l.state === 'changed')?.current, 'const b = 3;');
+		});
 	});
 
 	suite('parseGitDiffNameStatusFiles', () => {
