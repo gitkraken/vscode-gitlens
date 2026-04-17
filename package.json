@@ -24273,8 +24273,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.commits",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.commits && !config.gitlens.views.scm.grouped.hiddenViews.commits && (gitlens:views:scm:grouped:view != commits || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@1",
-					"alt": "gitlens.views.scm.grouped.commits.detach"
+					"group": "navigation@1"
 				},
 				{
 					"submenu": "gitlens/views/grouped/commits",
@@ -24284,8 +24283,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.worktrees",
 					"when": "!gitlens:hasVirtualFolders && !gitlens:plus:disabled && view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees && !config.gitlens.views.scm.grouped.hiddenViews.worktrees && (gitlens:views:scm:grouped:view != worktrees || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@2",
-					"alt": "gitlens.views.scm.grouped.worktrees.detach"
+					"group": "navigation@2"
 				},
 				{
 					"submenu": "gitlens/views/grouped/worktrees",
@@ -24295,8 +24293,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.branches",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches && !config.gitlens.views.scm.grouped.hiddenViews.branches && (gitlens:views:scm:grouped:view != branches || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@3",
-					"alt": "gitlens.views.scm.grouped.branches.detach"
+					"group": "navigation@3"
 				},
 				{
 					"submenu": "gitlens/views/grouped/branches",
@@ -24306,14 +24303,12 @@
 				{
 					"command": "gitlens.views.scm.grouped.remotes",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.remotes && !config.gitlens.views.scm.grouped.hiddenViews.remotes && (gitlens:views:scm:grouped:view != remotes || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@4",
-					"alt": "gitlens.views.scm.grouped.remotes.detach"
+					"group": "navigation@4"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.stashes",
 					"when": "!gitlens:hasVirtualFolders && view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.stashes && !config.gitlens.views.scm.grouped.hiddenViews.stashes && (gitlens:views:scm:grouped:view != stashes || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@4",
-					"alt": "gitlens.views.scm.grouped.stashes.detach"
+					"group": "navigation@4"
 				},
 				{
 					"submenu": "gitlens/views/grouped/remotes",
@@ -24328,8 +24323,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.tags",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.tags && !config.gitlens.views.scm.grouped.hiddenViews.tags && (gitlens:views:scm:grouped:view != tags || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@6",
-					"alt": "gitlens.views.scm.grouped.tags.detach"
+					"group": "navigation@6"
 				},
 				{
 					"submenu": "gitlens/views/grouped/tags",
@@ -24339,8 +24333,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.contributors",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.contributors && !config.gitlens.views.scm.grouped.hiddenViews.contributors && (gitlens:views:scm:grouped:view != contributors || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@7",
-					"alt": "gitlens.views.scm.grouped.contributors.detach"
+					"group": "navigation@7"
 				},
 				{
 					"submenu": "gitlens/views/grouped/contributors",
@@ -24350,8 +24343,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.repositories",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.repositories && !config.gitlens.views.scm.grouped.hiddenViews.repositories && (gitlens:views:scm:grouped:view != repositories || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@8",
-					"alt": "gitlens.views.scm.grouped.repositories.detach"
+					"group": "navigation@8"
 				},
 				{
 					"submenu": "gitlens/views/grouped/repositories",
@@ -24361,8 +24353,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.fileHistory",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory && !config.gitlens.views.scm.grouped.hiddenViews.fileHistory && (gitlens:views:scm:grouped:view != fileHistory || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@9",
-					"alt": "gitlens.views.scm.grouped.fileHistory.detach"
+					"group": "navigation@9"
 				},
 				{
 					"submenu": "gitlens/views/grouped/fileHistory",
@@ -24372,8 +24363,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.launchpad",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.launchpad && !config.gitlens.views.scm.grouped.hiddenViews.launchpad && (gitlens:views:scm:grouped:view != launchpad || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@10",
-					"alt": "gitlens.views.scm.grouped.launchpad.detach"
+					"group": "navigation@10"
 				},
 				{
 					"submenu": "gitlens/views/grouped/launchpad",
@@ -24383,8 +24373,7 @@
 				{
 					"command": "gitlens.views.scm.grouped.searchAndCompare",
 					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.searchAndCompare && !config.gitlens.views.scm.grouped.hiddenViews.searchAndCompare && (gitlens:views:scm:grouped:view != searchAndCompare || gitlens:views:scm:grouped:welcome)",
-					"group": "navigation@11",
-					"alt": "gitlens.views.scm.grouped.searchAndCompare.detach"
+					"group": "navigation@11"
 				},
 				{
 					"submenu": "gitlens/views/grouped/searchAndCompare",
