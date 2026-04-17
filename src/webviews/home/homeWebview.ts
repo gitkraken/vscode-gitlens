@@ -876,7 +876,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const result: GetOverviewEnrichmentResponse = {};
 
 		// Shared launchpad promise for all branches in this batch
-		let launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined;
+		const launchpadPromise = isPro ? this.container.launchpad.getCategorizedItems() : undefined;
 
 		// Collect all enrichment promises, keyed by branch ID
 		interface BranchEnrichmentPromises {
