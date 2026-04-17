@@ -354,6 +354,12 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'rebaseEditor/action/openConflictFile': RebaseEditorOpenConflictFileEvent;
 	/** Sent when the user opens current or incoming changes for a conflict file */
 	'rebaseEditor/action/openConflictChanges': RebaseEditorOpenConflictChangesEvent;
+	/** Sent when the user resolves a single conflict file by taking one side */
+	'rebaseEditor/action/resolveConflict': RebaseEditorResolveConflictEvent;
+	/** Sent when the user stages a single conflict file (marks as resolved) */
+	'rebaseEditor/action/stageConflict': RebaseEditorStageConflictEvent;
+	/** Sent when the user resolves all conflict files by taking one side */
+	'rebaseEditor/action/resolveAllConflicts': RebaseEditorResolveAllConflictsEvent;
 	/** Sent when the user reveals a ref (commit/branch) in graph or commit details */
 	'rebaseEditor/action/revealRef': RebaseEditorRevealRefEvent;
 
@@ -1321,6 +1327,35 @@ interface RebaseEditorOpenConflictChangesEvent extends RebaseEditorContextEventD
 	side: 'current' | 'incoming';
 }
 
+interface RebaseEditorResolveConflictEvent extends RebaseEditorContextEventData {
+	/** Which side of the conflict was taken */
+	'conflict.resolution': 'current' | 'incoming';
+	/** File extension of the resolved conflict file (e.g. '.ts', '.json') */
+	'conflict.fileExtension': string;
+	/** Two-character conflict status (e.g. 'UU', 'AU') */
+	'conflict.status': string;
+}
+
+interface RebaseEditorStageConflictEvent extends RebaseEditorContextEventData {
+	/** File extension of the staged conflict file (e.g. '.ts', '.json') */
+	'conflict.fileExtension': string;
+	/** Two-character conflict status (e.g. 'UU', 'AU') */
+	'conflict.status': string;
+}
+
+interface RebaseEditorResolveAllConflictsEvent extends RebaseEditorContextEventData {
+	/** Which side of the conflict was taken for all files */
+	'conflict.resolution': 'current' | 'incoming';
+	/** Total number of conflicted files at the time of confirmation */
+	'conflict.fileCount': number;
+	/** Number of files successfully resolved (checked out or deleted, and then staged) */
+	'conflict.fileCount.resolved': number;
+	/** Number of files skipped because the requested side is unsupported for their status */
+	'conflict.fileCount.skipped': number;
+	/** Number of files whose resolution failed (checkout or staging error) */
+	'conflict.fileCount.failed': number;
+}
+
 interface RebaseEditorRevealRefEvent extends RebaseEditorContextEventData {
 	/** Type of ref being revealed */
 	'ref.type': 'commit' | 'branch';
@@ -1375,6 +1410,9 @@ export type RebaseEditorTelemetryEvent =
 	| 'rebaseEditor/action/showConflicts'
 	| 'rebaseEditor/action/openConflictFile'
 	| 'rebaseEditor/action/openConflictChanges'
+	| 'rebaseEditor/action/resolveConflict'
+	| 'rebaseEditor/action/stageConflict'
+	| 'rebaseEditor/action/resolveAllConflicts'
 	| 'rebaseEditor/action/revealRef'
 	| 'rebaseEditor/entries/changed'
 	| 'rebaseEditor/entries/moved'
