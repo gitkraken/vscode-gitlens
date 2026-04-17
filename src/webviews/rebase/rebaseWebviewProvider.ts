@@ -1,6 +1,7 @@
 import type { Disposable, TextDocument } from 'vscode';
 import { Uri, ViewColumn, window, workspace } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ProcessedRebaseTodo, RebaseTodoAction } from '@gitlens/git/models/rebase.js';
 import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -11,6 +12,7 @@ import { concat, filterMap, find, first, join, last, map } from '@gitlens/utils/
 import { Logger } from '@gitlens/utils/logger.js';
 import { extname, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
@@ -32,6 +34,7 @@ import {
 import { countConflictMarkers } from '../../git/utils/-webview/mergeConflicts.utils.js';
 import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
@@ -45,10 +48,12 @@ import type { ComposerWebviewShowingArgs } from '../plus/composer/registration.j
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
 import type { WebviewHost } from '../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs } from '../webviewsController.js';
+import { classifyConflictAction } from './conflictResolution.utils.js';
 import type {
 	Author,
 	Commit,
 	ConflictFileInfo,
+	ConflictFileWebviewContext,
 	RebaseActiveStatus,
 	RebaseEntry,
 	RebasePauseReason,
@@ -74,10 +79,13 @@ import {
 	OpenConflictFileCommand,
 	RecomposeCommand,
 	ReorderCommand,
+	ResolveAllConflictsCommand,
+	ResolveConflictCommand,
 	RevealRefCommand,
 	SearchCommand,
 	ShiftEntriesCommand,
 	SkipCommand,
+	StageConflictCommand,
 	StartCommand,
 	SwitchCommand,
 	UpdateSelectionCommand,
@@ -333,6 +341,239 @@ export class RebaseWebviewProvider implements Disposable {
 	private getConflictFileViewColumn(): ViewColumn {
 		const rebaseColumn = this.host.viewColumn;
 		return window.tabGroups.all.find(g => g.viewColumn !== rebaseColumn)?.viewColumn ?? ViewColumn.Beside;
+	}
+
+	@ipcCommand(ResolveConflictCommand)
+	@debug()
+	private async onResolveConflict(params: IpcParams<typeof ResolveConflictCommand>): Promise<void> {
+		await this.stageConflictResolution(params.path, params.resolution);
+	}
+
+	@command('gitlens.rebase.stageCurrentChanges:')
+	@debug()
+	private async onStageCurrentChangesFromContext(item: ConflictFileWebviewContext | undefined): Promise<void> {
+		const path = item?.webviewItemValue?.path;
+		if (path == null) return;
+		await this.stageConflictResolution(path, 'current');
+	}
+
+	@command('gitlens.rebase.stageIncomingChanges:')
+	@debug()
+	private async onStageIncomingChangesFromContext(item: ConflictFileWebviewContext | undefined): Promise<void> {
+		const path = item?.webviewItemValue?.path;
+		if (path == null) return;
+		await this.stageConflictResolution(path, 'incoming');
+	}
+
+	private async stageConflictResolution(path: string, resolution: 'current' | 'incoming'): Promise<void> {
+		const normalizedPath = normalizePath(path);
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
+		if (pausedStatus?.type !== 'rebase') {
+			Logger.warn('stageConflictResolution: unable to resolve — missing rebase status');
+			void window.showWarningMessage('Unable to resolve conflict — rebase status is no longer available');
+			return;
+		}
+
+		const conflictFiles = await svc.status.getConflictingFiles();
+		const conflictFile = conflictFiles.find(f => f.path === normalizedPath);
+		if (conflictFile == null) {
+			Logger.warn(`stageConflictResolution: file is no longer conflicted: ${normalizedPath}`);
+			return;
+		}
+
+		this.host.sendTelemetryEvent('rebaseEditor/action/resolveConflict', {
+			'conflict.resolution': resolution,
+			'conflict.fileExtension': extname(normalizedPath),
+			'conflict.status': conflictFile.conflictStatus,
+		});
+
+		try {
+			await this.applyConflictResolution(svc, normalizedPath, conflictFile.conflictStatus, resolution);
+		} catch (ex) {
+			void showGitErrorMessage(ex);
+		}
+	}
+
+	@ipcCommand(StageConflictCommand)
+	@debug()
+	private async onStageConflict(params: IpcParams<typeof StageConflictCommand>): Promise<void> {
+		const normalizedPath = normalizePath(params.path);
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
+		if (pausedStatus?.type !== 'rebase') {
+			Logger.warn('onStageConflict: unable to stage — missing rebase status');
+			return;
+		}
+
+		const conflictFiles = await svc.status.getConflictingFiles();
+		const conflictFile = conflictFiles.find(f => f.path === normalizedPath);
+		if (conflictFile == null) {
+			Logger.warn(`onStageConflict: file is no longer conflicted: ${normalizedPath}`);
+			return;
+		}
+
+		const uri = Uri.joinPath(Uri.file(this.repoPath), normalizedPath);
+		const markerCount = await this.countConflictMarkers(uri);
+		if (markerCount > 0) {
+			const proceed = await window.showWarningMessage(
+				`${normalizedPath} still contains ${pluralize('unresolved conflict marker', markerCount)}.\n\nStage anyway?`,
+				{ modal: true },
+				{ title: 'Stage Anyway' },
+			);
+			if (proceed == null) return;
+		}
+
+		this.host.sendTelemetryEvent('rebaseEditor/action/stageConflict', {
+			'conflict.fileExtension': extname(normalizedPath),
+			'conflict.status': conflictFile.conflictStatus,
+		});
+
+		try {
+			await svc.staging?.stageFile(normalizedPath);
+		} catch (ex) {
+			void showGitErrorMessage(ex);
+		}
+	}
+
+	@ipcCommand(ResolveAllConflictsCommand)
+	@debug()
+	private async onResolveAllConflicts(params: IpcParams<typeof ResolveAllConflictsCommand>): Promise<void> {
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
+		if (pausedStatus?.type !== 'rebase') {
+			Logger.warn('onResolveAllConflicts: unable to resolve — missing rebase status');
+			return;
+		}
+
+		const conflictFiles = await svc.status.getConflictingFiles();
+		if (!conflictFiles.length) return;
+
+		const confirmTitle = params.resolution === 'current' ? 'Stage All Current' : 'Stage All Incoming';
+		const discardedSide = params.resolution === 'current' ? 'incoming' : 'current';
+		const result = await window.showWarningMessage(
+			`Resolve all ${conflictFiles.length} conflicted files by staging the ${params.resolution} side?\n\nThis will discard the ${discardedSide} changes for every conflicted file.`,
+			{ modal: true },
+			{ title: confirmTitle },
+		);
+		if (result == null) return;
+
+		const toCheckoutOurs: string[] = [];
+		const toCheckoutTheirs: string[] = [];
+		const toDelete: string[] = [];
+		let skippedCount = 0;
+
+		for (const f of conflictFiles) {
+			const action = classifyConflictAction(f.conflictStatus, params.resolution);
+			switch (action) {
+				case 'delete':
+					toDelete.push(f.path);
+					break;
+				case 'take-ours':
+					toCheckoutOurs.push(f.path);
+					break;
+				case 'take-theirs':
+					toCheckoutTheirs.push(f.path);
+					break;
+				case 'unsupported':
+					// No content on the requested side (e.g., UA + take-current) — leave conflicted
+					skippedCount++;
+					break;
+			}
+		}
+
+		const failures: { paths: string[]; reason: unknown }[] = [];
+
+		if (toCheckoutOurs.length) {
+			try {
+				await svc.ops?.checkoutConflictedPaths?.(toCheckoutOurs, 'ours');
+			} catch (ex) {
+				failures.push({ paths: toCheckoutOurs, reason: ex });
+				toCheckoutOurs.length = 0;
+			}
+		}
+		if (toCheckoutTheirs.length) {
+			try {
+				await svc.ops?.checkoutConflictedPaths?.(toCheckoutTheirs, 'theirs');
+			} catch (ex) {
+				failures.push({ paths: toCheckoutTheirs, reason: ex });
+				toCheckoutTheirs.length = 0;
+			}
+		}
+
+		if (toDelete.length) {
+			// `git rm -f` removes the working-tree file and stages the deletion atomically,
+			// so a locked/permission-denied file fails loudly instead of silently leaving
+			// conflict markers staged via a follow-up `git add -A`.
+			try {
+				await svc.staging?.removeFiles(toDelete, { force: true });
+			} catch (ex) {
+				failures.push({ paths: toDelete, reason: ex });
+				toDelete.length = 0;
+			}
+		}
+
+		const toStage = [...toCheckoutOurs, ...toCheckoutTheirs];
+		if (toStage.length) {
+			try {
+				await svc.staging?.stageFiles(toStage);
+			} catch (ex) {
+				failures.push({ paths: toStage, reason: ex });
+			}
+		}
+
+		const failedCount = failures.reduce((n, f) => n + f.paths.length, 0);
+		const attempted = conflictFiles.length - skippedCount;
+		const resolvedCount = Math.max(0, attempted - failedCount);
+
+		this.host.sendTelemetryEvent('rebaseEditor/action/resolveAllConflicts', {
+			'conflict.resolution': params.resolution,
+			'conflict.fileCount': conflictFiles.length,
+			'conflict.fileCount.resolved': resolvedCount,
+			'conflict.fileCount.skipped': skippedCount,
+			'conflict.fileCount.failed': failedCount,
+		});
+
+		if (failedCount) {
+			void window.showErrorMessage(
+				`Failed to resolve ${failedCount} of ${attempted} conflicted ${failedCount === 1 ? 'file' : 'files'}. See logs for details.`,
+			);
+			for (const f of failures) {
+				const error = f.reason instanceof Error ? f.reason : new Error(String(f.reason));
+				for (const path of f.paths) {
+					Logger.error(error, `onResolveAllConflicts: ${path}`);
+				}
+			}
+		}
+	}
+
+	private async applyConflictResolution(
+		svc: ReturnType<Container['git']['getRepositoryService']>,
+		path: string,
+		status: GitFileConflictStatus,
+		resolution: 'current' | 'incoming',
+	): Promise<void> {
+		const action = classifyConflictAction(status, resolution);
+		switch (action) {
+			case 'delete':
+				// `git rm -f` removes the working-tree file and stages the deletion atomically,
+				// so a locked/permission-denied file fails loudly instead of silently leaving
+				// conflict markers staged via a follow-up `git add -A`.
+				await svc.staging?.removeFile(path, { force: true });
+				return;
+			case 'take-ours':
+				await svc.ops?.checkoutConflictedPath?.(path, 'ours');
+				break;
+			case 'take-theirs':
+				await svc.ops?.checkoutConflictedPath?.(path, 'theirs');
+				break;
+			case 'unsupported':
+				throw new Error(`Cannot take ${resolution} side for conflict status ${status}`);
+		}
+
+		await svc.staging?.stageFile(path);
 	}
 
 	@ipcCommand(AbortCommand)

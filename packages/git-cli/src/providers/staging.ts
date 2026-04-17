@@ -159,6 +159,38 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 	}
 
 	@debug()
+	async removeFile(repoPath: string, pathOrUri: string | Uri, options?: { force?: boolean }): Promise<void> {
+		const args = ['rm'];
+		if (options?.force) {
+			args.push('-f');
+		}
+		args.push('--', toFsPath(pathOrUri));
+		await this.git.run({ cwd: repoPath }, ...args);
+	}
+
+	@debug()
+	async removeFiles(repoPath: string, pathsOrUris: (string | Uri)[], options?: { force?: boolean }): Promise<void> {
+		const paths = pathsOrUris.map(toFsPath);
+		if (!paths.length) return;
+
+		const args: string[] = ['rm'];
+		if (options?.force) {
+			args.push('-f');
+		}
+		args.push('--');
+
+		// Calculate a safe batch size based on average path length
+		const avgPathLength = countStringLength(paths) / paths.length;
+		const batchSize = Math.max(1, Math.floor(maxGitCliLength / avgPathLength));
+
+		// Process files in batches (will be a single batch if under the limit)
+		const batches = chunk(paths, batchSize);
+		for (const batch of batches) {
+			await this.git.run({ cwd: repoPath }, ...args, ...batch);
+		}
+	}
+
+	@debug()
 	async stageAll(repoPath: string): Promise<void> {
 		await this.git.run({ cwd: repoPath }, 'add', '-A');
 	}

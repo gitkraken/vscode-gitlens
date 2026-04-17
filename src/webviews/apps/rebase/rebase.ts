@@ -36,10 +36,12 @@ import {
 	OpenConflictFileCommand,
 	RecomposeCommand,
 	ReorderCommand,
+	ResolveAllConflictsCommand,
 	RevealRefCommand,
 	SearchCommand,
 	ShiftEntriesCommand,
 	SkipCommand,
+	StageConflictCommand,
 	StartCommand,
 	SwitchCommand,
 	UpdateSelectionCommand,
@@ -58,8 +60,10 @@ import {
 	getConflictTooltip as getSharedConflictTooltip,
 } from '../shared/components/tree/conflictRendering.js';
 import type { LoggerContext } from '../shared/contexts/logger.js';
+import { ContextMenuProxyController } from '../shared/controllers/context-menu-proxy.js';
 import type { HostIpc } from '../shared/ipc.js';
 import type { GlRebaseEntryElement } from './components/rebase-entry.js';
+import { getConflictFileActions, getConflictFileContextData } from './conflictStatus.utils.js';
 import { rebaseStyles } from './rebase.css.js';
 import { RebaseStateProvider } from './stateProvider.js';
 import '@lit-labs/virtualizer';
@@ -106,6 +110,11 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private readonly _virtualizer?: LitVirtualizer;
 	private readonly virtualizerKeyFn = (entry: RebaseEntry) => entry.id;
 	private readonly virtualizerRenderFn = (entry: RebaseEntry, index: number) => this.renderEntry(entry, index);
+
+	// Bridges `data-vscode-context` out of nested shadow DOM (gl-tree-view) onto this host so VS
+	// Code's native context-menu integration — which walks the light DOM from the event target —
+	// can resolve contributed `webview/context` items for conflicted file rows.
+	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
 	/** Unified conflict detection state — single source of truth for both initial and dynamic checks */
 	@state() private _conflictResult: ConflictDetectionResult | undefined;
@@ -1523,7 +1532,28 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				<gl-button
 					appearance="toolbar"
 					density="compact"
-					tooltip="${this._conflictFilesLayout === 'tree' ? 'View as List' : 'View as Tree'}"
+					tooltip="Stage Current for All Conflicts"
+					aria-label="Stage Current for All Conflicts"
+					@click=${this.onStageAllCurrent}
+					><code-icon icon="gl-accept-all-left"></code-icon
+				></gl-button>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip="Stage Incoming for All Conflicts"
+					aria-label="Stage Incoming for All Conflicts"
+					@click=${this.onStageAllIncoming}
+					><code-icon icon="gl-accept-all-right"></code-icon
+				></gl-button>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip="${this._conflictFilesLayout === 'tree'
+						? 'Switch to List Layout'
+						: 'Switch to Tree Layout'}"
+					aria-label="${this._conflictFilesLayout === 'tree'
+						? 'Switch to List Layout'
+						: 'Switch to Tree Layout'}"
 					@click=${this.onToggleConflictFilesLayout}
 					><code-icon icon="${this._conflictFilesLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
 				></gl-button>
@@ -1562,10 +1592,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				label: filename,
 				description: dir,
 				tooltip: this.getConflictTooltip(file.conflictStatus, file.conflictCount),
-				actions: [
-					{ icon: 'gl-diff-left', label: 'Open Current Changes', action: 'current-changes' },
-					{ icon: 'gl-diff-right', label: 'Open Incoming Changes', action: 'incoming-changes' },
-				],
+				actions: getConflictFileActions(file.conflictStatus),
+				contextData: getConflictFileContextData(file.path, file.conflictStatus),
 				decorations: this.getConflictDecorations(file.conflictStatus, file.conflictCount),
 			};
 		});
@@ -1596,14 +1624,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 						icon: { type: 'status', name: child.value.conflictStatus },
 						label: child.name,
 						tooltip: this.getConflictTooltip(child.value.conflictStatus, child.value.conflictCount),
-						actions: [
-							{ icon: 'gl-diff-left', label: 'Open Current Changes', action: 'current-changes' },
-							{
-								icon: 'gl-diff-right',
-								label: 'Open Incoming Changes',
-								action: 'incoming-changes',
-							},
-						],
+						actions: getConflictFileActions(child.value.conflictStatus),
+						contextData: getConflictFileContextData(child.value.path, child.value.conflictStatus),
 						decorations: this.getConflictDecorations(child.value.conflictStatus, child.value.conflictCount),
 					});
 				} else if (child.children != null && child.children.size > 0) {
@@ -1651,8 +1673,19 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			case 'incoming-changes':
 				this._ipc.sendCommand(OpenConflictChangesCommand, { path: path, side: 'incoming' });
 				break;
+			case 'stage':
+				this._ipc.sendCommand(StageConflictCommand, { path: path });
+				break;
 		}
 	}
+
+	private onStageAllCurrent = () => {
+		this._ipc.sendCommand(ResolveAllConflictsCommand, { resolution: 'current' });
+	};
+
+	private onStageAllIncoming = () => {
+		this._ipc.sendCommand(ResolveAllConflictsCommand, { resolution: 'incoming' });
+	};
 
 	private onOpenConflictFile(path: string): void {
 		this._ipc.sendCommand(OpenConflictFileCommand, { path: path });

@@ -3601,6 +3601,64 @@ void
 }
 ```
 
+### rebaseEditor/action/resolveAllConflicts
+
+> Sent when the user resolves all conflict files by taking one side
+
+```typescript
+{
+  // Total number of conflicted files at the time of confirmation
+  'conflict.fileCount': number,
+  // Number of files whose resolution failed (checkout or staging error)
+  'conflict.fileCount.failed': number,
+  // Number of files successfully resolved (checked out or deleted, and then staged)
+  'conflict.fileCount.resolved': number,
+  // Number of files skipped because the requested side is unsupported for their status
+  'conflict.fileCount.skipped': number,
+  // Which side of the conflict was taken for all files
+  'conflict.resolution': 'current' | 'incoming',
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### rebaseEditor/action/resolveConflict
+
+> Sent when the user resolves a single conflict file by taking one side
+
+```typescript
+{
+  // File extension of the resolved conflict file (e.g. '.ts', '.json')
+  'conflict.fileExtension': string,
+  // Which side of the conflict was taken
+  'conflict.resolution': 'current' | 'incoming',
+  // Two-character conflict status (e.g. 'UU', 'AU')
+  'conflict.status': string,
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### rebaseEditor/action/revealRef
 
 > Sent when the user reveals a ref (commit/branch) in graph or commit details
@@ -3653,6 +3711,31 @@ void
 
 ```typescript
 {
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### rebaseEditor/action/stageConflict
+
+> Sent when the user stages a single conflict file (marks as resolved)
+
+```typescript
+{
+  // File extension of the staged conflict file (e.g. '.ts', '.json')
+  'conflict.fileExtension': string,
+  // Two-character conflict status (e.g. 'UU', 'AU')
+  'conflict.status': string,
   'context.ascending': boolean,
   'context.done.count': number,
   'context.hasConflicts': boolean,

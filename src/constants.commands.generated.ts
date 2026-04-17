@@ -283,6 +283,8 @@ export type ContributedCommands =
 	| 'gitlens.rebase.refresh'
 	| 'gitlens.rebase.reopenAsInteractiveEditor:editor/title'
 	| 'gitlens.rebase.reopenAsTextEditor:editor/title'
+	| 'gitlens.rebase.stageCurrentChanges:rebase'
+	| 'gitlens.rebase.stageIncomingChanges:rebase'
 	| 'gitlens.recomposeBranch:graph'
 	| 'gitlens.recomposeBranch:views'
 	| 'gitlens.recomposeFromCommit:graph'
