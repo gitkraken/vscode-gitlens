@@ -9,6 +9,7 @@ export type OnboardingKey = 'integrationBanner';
 export interface OnboardingState {
 	readonly banners: {
 		integrationBanner: boolean;
+		mcpBanner: boolean;
 	};
 	readonly walkthroughProgress: Signal.State<WalkthroughProgressState | undefined>;
 	/** Dismiss a banner by key. No-op before RPC connects; wired by root component. */
@@ -35,6 +36,7 @@ export function createOnboardingState(): OnboardingState {
 	return {
 		banners: signalObject({
 			integrationBanner: false,
+			mcpBanner: false,
 		}),
 		walkthroughProgress: signal<WalkthroughProgressState | undefined>(undefined),
 		dismiss: noop,
