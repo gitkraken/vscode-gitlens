@@ -1501,6 +1501,12 @@ type TimelineContextEventData = WebviewTelemetryContext & {
 };
 export type TimelineTelemetryContext = TimelineContextEventData;
 
+/** Telemetry context fields pushed from the Timeline webview to the host via RPC. */
+export type TimelineWebviewTelemetryContext = Pick<
+	TimelineContextEventData,
+	'context.period' | 'context.showAllBranches' | 'context.sliceBy'
+>;
+
 type TimelineShownEventData = TimelineContextEventData & FlattenedContextConfig<Config['visualHistory']>;
 export type TimelineShownTelemetryContext = TimelineShownEventData;
 

@@ -147,18 +147,30 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	override disconnectedCallback(): void {
-		document.removeEventListener('keydown', this.onDocumentKeyDown);
-		document.removeEventListener('keyup', this.onDocumentKeyUp);
+		// Destroy the chart first to stop any in-flight d3 transitions (e.g. circle `cy` tweens)
+		// before the DOM teardown surfaces NaN values to the console.
+		this._chart?.destroy();
+		this._chart = undefined;
+
+		// Cancel any in-flight renderChart so it can't call bb.generate/chart.load on a detached container.
+		this._chartAborter?.abort();
+		this._chartAborter = undefined;
 
 		this._loading?.cancel();
 
-		this._chart?.destroy();
-		this._chart = undefined;
+		document.removeEventListener('keydown', this.onDocumentKeyDown);
+		document.removeEventListener('keyup', this.onDocumentKeyUp);
 
 		super.disconnectedCallback?.();
 	}
 
 	override update(changedProperties: PropertyValues): void {
+		// Avoid re-entering the render pipeline after the element has been detached.
+		if (!this.isConnected) {
+			super.update(changedProperties);
+			return;
+		}
+
 		if (changedProperties.has('dataPromise') || this.dataPromise == null) {
 			this.updateChart();
 		}
@@ -747,7 +759,9 @@ export class GlTimelineChart extends GlElement {
 						y: {
 							max: 0,
 							min: minY,
-							padding: { top: 75, bottom: 75 },
+							// Compact (view placement) can render in very short sidebars; 75/75 padding
+							// would exceed the available height and make Billboard compute NaN scales.
+							padding: this.compact ? { top: 10, bottom: 10 } : { top: 75, bottom: 75 },
 							tick: {
 								format: (y: number) => {
 									if (this.compact) {
@@ -879,6 +893,12 @@ export class GlTimelineChart extends GlElement {
 					},
 				};
 
+				await this.waitForContainerSize(cancellation);
+				if (cancellation.aborted) {
+					loading?.cancel();
+					return;
+				}
+
 				this._chart = bb.generate(options);
 
 				const commit = data[0];
@@ -886,7 +906,13 @@ export class GlTimelineChart extends GlElement {
 				this._shaSelected = commit?.sha;
 
 				if (commit != null) {
-					this.selectDataPoint(new Date(commit.date), { select: true });
+					// Defer until after `onafterinit` has run `updateChartSize`; calling
+					// `selectDataPoint` against the un-resized chart expands a scatter circle
+					// against a half-resolved y-scale and emits `<circle> cy="NaN"` errors.
+					requestAnimationFrame(() => {
+						if (cancellation.aborted || this._chart == null) return;
+						this.selectDataPoint(new Date(commit.date), { select: true });
+					});
 				}
 			} else {
 				this._chart.config('axis.y.tick.values', yTickValues, false);
@@ -939,6 +965,33 @@ export class GlTimelineChart extends GlElement {
 				this.updateScrollerTrackPosition();
 			});
 		}
+	}
+
+	/**
+	 * Resolve once `chartContainer` has non-zero dimensions so Billboard can compute valid
+	 * scales. Generating with width=0 or height=0 produces NaN coordinates in the first frame.
+	 */
+	private waitForContainerSize(cancellation: AbortSignal): Promise<void> {
+		const rect = this.chartContainer.getBoundingClientRect();
+		if (rect.width > 0 && rect.height > 0) return Promise.resolve();
+
+		return new Promise<void>(resolve => {
+			let onAbort: () => void;
+			const observer = new ResizeObserver(entries => {
+				const { width, height } = entries[0].contentRect;
+				if (width > 0 && height > 0) {
+					observer.disconnect();
+					cancellation.removeEventListener('abort', onAbort);
+					resolve();
+				}
+			});
+			onAbort = (): void => {
+				observer.disconnect();
+				resolve();
+			};
+			cancellation.addEventListener('abort', onAbort, { once: true });
+			observer.observe(this.chartContainer);
+		});
 	}
 
 	private updateScrollerTrackPosition() {
