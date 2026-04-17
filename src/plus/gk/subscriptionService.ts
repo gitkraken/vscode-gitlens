@@ -53,7 +53,11 @@ import type {
 	TrackingContext,
 } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { AccountValidationError, RequestsAreBlockedTemporarilyError } from '../../errors.js';
+import {
+	AccountValidationError,
+	AuthenticationRequiredError,
+	RequestsAreBlockedTemporarilyError,
+} from '../../errors.js';
 import type { FeaturePreview, FeaturePreviews } from '../../features.js';
 import { featurePreviews, getFeaturePreviewLabel, getFeaturePreviewStatus } from '../../features.js';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
@@ -685,6 +689,8 @@ export class SubscriptionService implements Disposable {
 				return;
 			}
 		} catch (ex) {
+			if (ex instanceof AuthenticationRequiredError) return;
+
 			if (ex instanceof RequestsAreBlockedTemporarilyError) {
 				void window.showErrorMessage(
 					'Unable to reactivate trial: Too many failed requests. Please reload the window and try again.',
@@ -789,6 +795,8 @@ export class SubscriptionService implements Disposable {
 				return true;
 			}
 		} catch (ex) {
+			if (ex instanceof AuthenticationRequiredError) return false;
+
 			scope?.error(ex);
 			debugger;
 
@@ -1653,6 +1661,8 @@ export class SubscriptionService implements Disposable {
 		try {
 			await this.checkInAndValidate(this._session, source, { force: true });
 		} catch (ex) {
+			if (ex instanceof AuthenticationRequiredError) return undefined;
+
 			debugger;
 			scope?.error(ex);
 			return undefined;

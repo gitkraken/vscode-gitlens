@@ -12,6 +12,7 @@ import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { Schemes } from '../../../constants.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { AuthenticationRequiredError } from '../../../errors.js';
 import type { GlRepository } from '../../models/repository.js';
 
 export async function describePullRequestWithAI(
@@ -47,6 +48,8 @@ export async function describePullRequestWithAI(
 
 		return result?.result ? { title: result.result.summary, description: result.result.body } : undefined;
 	} catch (ex) {
+		if (ex instanceof AuthenticationRequiredError) return undefined;
+
 		void window.showErrorMessage(ex.message);
 		return undefined;
 	}

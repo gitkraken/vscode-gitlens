@@ -36,9 +36,7 @@ export class CloudIntegrationService {
 			return undefined;
 		}
 
-		return ((await providersRsp.json()) as { data?: unknown })?.data as Promise<
-			CloudIntegrationConnection[] | undefined
-		>;
+		return ((await providersRsp.json()) as { data?: unknown })?.data as CloudIntegrationConnection[] | undefined;
 	}
 
 	async getConnectionSession(
@@ -97,18 +95,18 @@ export class CloudIntegrationService {
 					{ organizationId: false },
 				);
 				if (newTokenRsp.ok) {
-					return ((await newTokenRsp.json()) as { data?: unknown })?.data as Promise<
-						CloudIntegrationAuthenticationSession | undefined
-					>;
+					return ((await newTokenRsp.json()) as { data?: unknown })?.data as
+						| CloudIntegrationAuthenticationSession
+						| undefined;
 				}
 			}
 
 			return undefined;
 		}
 
-		return ((await tokenRsp.json()) as { data?: unknown })?.data as Promise<
-			CloudIntegrationAuthenticationSession | undefined
-		>;
+		return ((await tokenRsp.json()) as { data?: unknown })?.data as
+			| CloudIntegrationAuthenticationSession
+			| undefined;
 	}
 
 	async disconnect(id: IntegrationIds): Promise<boolean> {

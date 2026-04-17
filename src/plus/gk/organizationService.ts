@@ -197,7 +197,16 @@ export class OrganizationService implements Disposable {
 			type MemberResponse = {
 				members: OrganizationMember[];
 			};
-			const rsp = await this.connection.fetchGkApi(`organization/${id}/members`, { method: 'GET' });
+			let rsp;
+			try {
+				rsp = await this.connection.fetchGkApi(`organization/${id}/members`, { method: 'GET' });
+			} catch (ex) {
+				if (ex instanceof AuthenticationRequiredError) return [];
+
+				debugger;
+				scope?.error(ex);
+				return [];
+			}
 			if (!rsp.ok) {
 				scope?.error(
 					undefined,
@@ -265,11 +274,20 @@ export class OrganizationService implements Disposable {
 
 		if (!this._organizationSettings?.has(id) || options?.force === true) {
 			await this.deleteStoredOrganizationSettings(id);
-			const rsp = await this.connection.fetchGkApi(
-				`v1/organizations/settings`,
-				{ method: 'GET' },
-				{ organizationId: id },
-			);
+			let rsp;
+			try {
+				rsp = await this.connection.fetchGkApi(
+					`v1/organizations/settings`,
+					{ method: 'GET' },
+					{ organizationId: id },
+				);
+			} catch (ex) {
+				if (ex instanceof AuthenticationRequiredError) return undefined;
+
+				debugger;
+				scope?.error(ex);
+				return undefined;
+			}
 			if (!rsp.ok) {
 				scope?.error(
 					undefined,

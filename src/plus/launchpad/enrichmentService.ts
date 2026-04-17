@@ -39,6 +39,8 @@ export class EnrichmentService implements Disposable {
 
 			if (!rsp.ok) throw new Error(`Unable to ${context} item '${id}':  (${rsp.status}) ${rsp.statusText}`);
 		} catch (ex) {
+			if (ex instanceof AuthenticationRequiredError) throw ex;
+
 			scope?.error(ex);
 			debugger;
 			throw ex;
@@ -115,6 +117,8 @@ export class EnrichmentService implements Disposable {
 			const result = (await rsp.json()) as Result;
 			return result.data;
 		} catch (ex) {
+			if (ex instanceof AuthenticationRequiredError) throw ex;
+
 			scope?.error(ex);
 			debugger;
 			throw ex;
@@ -166,6 +170,8 @@ export class EnrichmentService implements Disposable {
 			const result = (await rsp.json()) as Result;
 			return result.data;
 		} catch (ex) {
+			if (ex instanceof AuthenticationRequiredError) throw ex;
+
 			scope?.error(ex);
 			debugger;
 			throw ex;
