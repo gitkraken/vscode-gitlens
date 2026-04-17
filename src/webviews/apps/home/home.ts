@@ -369,6 +369,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 
 		// Populate initial banner state from onboarding service
 		this._onboardingState.banners.integrationBanner = !onboarding.isDismissed('home:integrationBanner');
+		this._onboardingState.banners.mcpBanner = !onboarding.isDismissed('mcp:banner');
 
 		// Set up event subscriptions FIRST (so we don't miss events during fetch)
 		const watchWipForRepo = (repoPath: string | undefined): void => {
@@ -479,12 +480,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	}
 
 	private renderMcpBanner(): unknown {
+		// Hide once the user has dismissed it via the onboarding service
+		if (!this._onboardingState.banners.mcpBanner) return nothing;
+
 		const aiState = this._aiState.state.get();
-
-		// Show banner when MCP is bundled (active via extension registration)
-		// The banner handles its own dismissal via storage command
-		if (!aiState.mcp.bundled) return nothing;
-
 		return html` <gl-mcp-banner source="home" .canAutoRegister=${aiState.mcp.bundled}></gl-mcp-banner> `;
 	}
 
