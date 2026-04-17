@@ -13,6 +13,17 @@ export interface GitOperationsSubProvider {
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
+	/**
+	 * Checks out one side of a conflicted path during a paused merge/rebase/cherry-pick.
+	 * Executes `git checkout --ours|--theirs -- <path>`, leaving the file unstaged.
+	 */
+	checkoutConflictedPath(repoPath: string, path: string, side: 'ours' | 'theirs'): Promise<void>;
+	/**
+	 * Checks out one side for multiple conflicted paths during a paused merge/rebase/cherry-pick.
+	 * Batches paths into `git checkout --ours|--theirs -- <paths...>`, chunked to stay under the
+	 * CLI length limit. Leaves files unstaged.
+	 */
+	checkoutConflictedPaths(repoPath: string, paths: string[], side: 'ours' | 'theirs'): Promise<void>;
 	cherryPick(
 		repoPath: string,
 		revs: string[],
