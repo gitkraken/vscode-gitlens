@@ -293,3 +293,7 @@ Use `resize_viewport` if you need a specific window size for responsive testing.
 | `--logs [pattern]`            | Search extension logs                            |
 | `--eval <expr>`               | Evaluate JS expression in extension host         |
 | `--pause <ms>`                | Wait specified duration                          |
+
+## Related skills
+
+- `/iterate-live` — the iterative working rhythm for UI-bearing work, which uses this skill's tools as its primitive. Use `/iterate-live` when touching UI; use this skill on its own for one-off inspection.
