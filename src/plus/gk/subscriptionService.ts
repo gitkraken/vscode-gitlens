@@ -27,6 +27,7 @@ import { debug, info, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { take } from '@gitlens/utils/event.js';
 import { once } from '@gitlens/utils/function.js';
+import { microhash } from '@gitlens/utils/hash.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { flatten } from '@gitlens/utils/object.js';
@@ -1320,7 +1321,13 @@ export class SubscriptionService implements Disposable {
 		return session;
 	}
 
-	@trace()
+	@trace({
+		args: (subscription, source, options) => ({
+			subscription: redactSubscription(subscription),
+			source: source,
+			options: options,
+		}),
+	})
 	private changeSubscription(
 		subscription: Optional<Subscription, 'state'> | undefined,
 		source: Source | undefined,
@@ -1852,4 +1859,26 @@ function getTrackingContextFromSource(source: Source | undefined): TrackingConte
 	}
 
 	return undefined;
+}
+
+function redactSubscription(
+	subscription: Optional<Subscription, 'state'> | undefined,
+): Optional<Subscription, 'state'> | undefined {
+	if (subscription == null) return subscription;
+
+	const redacted: Mutable<Optional<Subscription, 'state'>> = { ...subscription };
+	if (subscription.account != null) {
+		redacted.account = {
+			...subscription.account,
+			name: `<name:${microhash(subscription.account.name)}>`,
+			email: subscription.account.email != null ? `<email:${microhash(subscription.account.email)}>` : undefined,
+		};
+	}
+	if (subscription.activeOrganization != null) {
+		redacted.activeOrganization = {
+			...subscription.activeOrganization,
+			name: `<name:${microhash(subscription.activeOrganization.name)}>`,
+		};
+	}
+	return redacted;
 }
