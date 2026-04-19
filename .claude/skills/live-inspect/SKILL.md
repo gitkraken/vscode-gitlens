@@ -1,9 +1,9 @@
 ---
-name: inspect-live
+name: live-inspect
 description: Use when you need to visually inspect, interact with, or debug the running GitLens extension in VS Code — examining UI state, reading logs, checking feature flags, or verifying code changes against the live product
 ---
 
-# /inspect-live — Live Extension Inspection
+# /live-inspect — Live Extension Inspection
 
 Launch a real VS Code instance with GitLens loaded, then inspect UI elements, read logs, interact with views, and evaluate runtime values — all programmatically via Playwright.
 
@@ -296,4 +296,4 @@ Use `resize_viewport` if you need a specific window size for responsive testing.
 
 ## Related skills
 
-- `/iterate-live` — the iterative working rhythm for UI-bearing work, which uses this skill's tools as its primitive. Use `/iterate-live` when touching UI; use this skill on its own for one-off inspection.
+- `/live-exercise` — the iterative working rhythm for UI-bearing work, which uses this skill's tools as its primitive. Use `/live-exercise` when touching UI; use this skill on its own for one-off inspection.

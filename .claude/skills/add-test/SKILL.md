@@ -112,7 +112,7 @@ test.describe('Feature Name', () => {
 
 **Use the MCP server to explore, then write the test.** Don't guess at selectors — verify them live.
 
-1. **Explore with MCP first** — Use `/inspect-live` to launch VS Code and discover the right selectors:
+1. **Explore with MCP first** — Use `/live-inspect` to launch VS Code and discover the right selectors:
    ```
    launch {}
    execute_command { command: "gitlens.showHomeView" }

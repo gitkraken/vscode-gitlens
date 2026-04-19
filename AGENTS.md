@@ -252,7 +252,9 @@ Skills provide detailed, step-by-step workflows for common tasks. Invoke with `/
 | `/add-test`        | Generate unit or E2E test files                                             |
 | `/add-icon`        | Add icon to GL Icons font                                                   |
 | `/add-ai-provider` | Add a new AI provider integration                                           |
-| `/inspect-live`    | Launch VS Code with GitLens via Playwright inspect UI/logs                  |
+| `/live-inspect`    | Launch VS Code with GitLens via Playwright inspect UI/logs                  |
+| `/live-exercise`   | Live operation + audit + fix loop for UI-bearing work                       |
+| `/live-perf`       | Live performance measurement + improvement with three-tier discipline       |
 
 ### Canonical Examples
 
