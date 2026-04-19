@@ -83,13 +83,26 @@ export class GkCliIntegrationProvider implements Disposable {
 	private _cliCoreVersion: string | undefined;
 
 	constructor(private readonly container: Container) {
+		// Defer the `gk version` probe out of the first-render window so the 1.5–2 s
+		// subprocess doesn't contend with Graph/Home webview bootstrap on slower filesystems
+		// (e.g. WSL). Still fully async; just lands a couple of seconds later.
+		let deferredUpdate: ReturnType<typeof setTimeout> | undefined;
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			...this.registerCommands(),
 			this.container.onReady(() => {
 				this.onConfigurationChanged();
-				void this.ensureUpdateOrInstall();
+				deferredUpdate = setTimeout(() => {
+					deferredUpdate = undefined;
+					void this.ensureUpdateOrInstall();
+				}, 3000);
+			}),
+			new Disposable(() => {
+				if (deferredUpdate != null) {
+					clearTimeout(deferredUpdate);
+					deferredUpdate = undefined;
+				}
 			}),
 		);
 	}

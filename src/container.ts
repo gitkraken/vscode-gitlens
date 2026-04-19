@@ -338,8 +338,7 @@ export class Container {
 		if (this._ready) throw new Error('Container is already ready');
 
 		this._ready = true;
-		await this.registerGitProviders();
-		await this.registerMcpProviders();
+		await Promise.allSettled([this.registerGitProviders(), this.registerMcpProviders()]);
 		queueMicrotask(() => this._onReady.fire());
 	}
 
