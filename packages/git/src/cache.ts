@@ -24,7 +24,7 @@ import type { GitStash } from './models/stash.js';
 import type { GitTag } from './models/tag.js';
 import type { GitUser } from './models/user.js';
 import type { GitWorktree } from './models/worktree.js';
-import type { GitCommitReachability } from './providers/commits.js';
+import type { GitCommitReachability, LeftRightCommitCountResult } from './providers/commits.js';
 import type { GitContributorsResult } from './providers/contributors.js';
 import type { ResolvedRevision } from './providers/revision.js';
 import type { GitIgnoreFilter } from './watching/gitIgnoreFilter.js';
@@ -72,6 +72,7 @@ interface Caches {
 	gitIgnore: Map<RepoPath, GitIgnoreFilter> | undefined;
 	ignoreRevsFile: PromiseCache<string, boolean> | undefined;
 	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
+	leftRightCommitCount: RepoPromiseCacheMap<string, LeftRightCommitCountResult | undefined> | undefined;
 	pausedOperationStatus: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
 	reachability: RepoPromiseCacheMap<string, GitCommitReachability | undefined> | undefined;
 	resolvedRevisions: RepoPromiseCacheMap<string, ResolvedRevision> | undefined;
@@ -132,6 +133,7 @@ function createEmptyCaches(): AllCaches {
 		branches: undefined,
 		fileExistence: undefined,
 		ignoreRevsFile: undefined,
+		leftRightCommitCount: undefined,
 		configKeys: undefined,
 		configPatterns: undefined,
 		conflictDetection: undefined,
@@ -305,6 +307,29 @@ export class Cache implements Disposable {
 		}));
 	}
 
+	get leftRightCommitCount(): RepoPromiseCacheMap<string, LeftRightCommitCountResult | undefined> {
+		return (this._caches.leftRightCommitCount ??= new RepoPromiseCacheMap<
+			string,
+			LeftRightCommitCountResult | undefined
+		>({
+			createTTL: 1000 * 60 * 5, // 5 minutes max age — invalidated sooner on branch/remote changes
+			capacity: 50, // Limit to 50 ref-pairs per repo
+		}));
+	}
+
+	getLeftRightCommitCount(
+		repoPath: string,
+		key: string,
+		factory: () => PromiseOrValue<LeftRightCommitCountResult | undefined>,
+	): Promise<LeftRightCommitCountResult | undefined> {
+		const cached = this.leftRightCommitCount.get(repoPath, key);
+		if (cached != null) return cached;
+
+		const factoryPromise = Promise.resolve(factory());
+		this.leftRightCommitCount.set(repoPath, key, factoryPromise);
+		return factoryPromise;
+	}
+
 	get logShas(): RepoPromiseCacheMap<string, string[]> {
 		return (this._caches.logShas ??= new RepoPromiseCacheMap<string, string[]>({
 			createTTL: 1000 * 60 * 5, // 5 minutes max age
@@ -402,6 +427,7 @@ export class Cache implements Disposable {
 				keysToClear.add('branch');
 				keysToClear.add('conflictDetection');
 				keysToClear.add('currentBranchReference');
+				keysToClear.add('leftRightCommitCount');
 				keysToClear.add('reachability');
 				keysToClear.add('resolvedRevisions');
 			}

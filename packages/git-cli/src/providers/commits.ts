@@ -394,33 +394,44 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			? options.authors.map(a => `--author=^${escapeRegex(a.name ?? '')} <${escapeRegex(a.email ?? '')}>$`)
 			: [];
 
-		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
-			'rev-list',
-			'--left-right',
-			'--count',
-			...authors,
-			options?.excludeMerges ? '--no-merges' : undefined,
-			range,
-			'--',
-		);
-		if (result.cancelled || cancellation?.aborted) {
-			throw new CancellationError();
-		}
-		if (!result.stdout) return undefined;
+		const run = async (): Promise<LeftRightCommitCountResult | undefined> => {
+			const result = await this.git.exec(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+				'rev-list',
+				'--left-right',
+				'--count',
+				...authors,
+				options?.excludeMerges ? '--no-merges' : undefined,
+				range,
+				'--',
+			);
+			if (result.cancelled || cancellation?.aborted) {
+				throw new CancellationError();
+			}
+			if (!result.stdout) return undefined;
 
-		const parts = result.stdout.split('\t');
-		if (parts.length !== 2) return undefined;
+			const parts = result.stdout.split('\t');
+			if (parts.length !== 2) return undefined;
 
-		const [left, right] = parts;
-		const counts = {
-			left: parseInt(left, 10),
-			right: parseInt(right, 10),
+			const [left, right] = parts;
+			const counts = {
+				left: parseInt(left, 10),
+				right: parseInt(right, 10),
+			};
+
+			if (isNaN(counts.left) || isNaN(counts.right)) return undefined;
+
+			return counts;
 		};
 
-		if (isNaN(counts.left) || isNaN(counts.right)) return undefined;
+		// Author-filtered calls are one-off (e.g. "who made these commits") with low re-hit
+		// rate; skip the cache to protect its capacity for the hot no-author merge-target path.
+		if (authors.length > 0) return run();
 
-		return counts;
+		// Cache key: range + excludeMerges. RepositoryChange events affecting branches/remotes
+		// invalidate this cache via clearCaches('branches').
+		const cacheKey = `${range}\x1f${options?.excludeMerges ? 'no-merges' : ''}`;
+		return this.cache.getLeftRightCommitCount(repoPath, cacheKey, run);
 	}
 
 	@debug()
