@@ -28,6 +28,16 @@ const mappedAuthorRegex = /(.+)\s<(.+)>/;
 const emptyArray: readonly never[] = Object.freeze([]);
 
 /**
+ * Namespaces whose individual reads should be served from one --get-regex fetch instead
+ * of one `git config --get` per key. The regex cache backing getGkConfigRegex dedupes
+ * concurrent callers so a burst of per-branch reads produces a single subprocess.
+ */
+const gkConfigCacheableSets: readonly { match: RegExp; pattern: string }[] = [
+	{ match: /^branch\..+\.gk-associated-issues$/, pattern: '^branch\\..+\\.gk-associated-issues$' },
+	{ match: /^branch\..+\.gk-merge-target-user$/, pattern: '^branch\\..+\\.gk-merge-target-user$' },
+];
+
+/**
  * Parses git config --get-regex output into a Map.
  * The output format is "key value" per line, where key and value are space-separated.
  */
@@ -293,6 +303,18 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		options?: { type?: GitConfigType },
 	): Promise<string | undefined> {
 		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
+
+		// Per-branch keys are commonly read in fan-out loops (e.g. Home overview enrichment).
+		// Satisfy the read from a single --get-regex over the namespace instead of spawning
+		// one `git config --get` per branch.
+		const set = gkConfigCacheableSets.find(s => s.match.test(key));
+		if (set != null) {
+			return this.cache.getGkConfig(repoPath, key, async () => {
+				const entries = await this.getGkConfigRegex(repoPath, set.pattern);
+				return entries.get(key);
+			});
+		}
+
 		return this.cache.getGkConfig(repoPath, key, () => this.getGkConfigCore(repoPath, key, options));
 	}
 
