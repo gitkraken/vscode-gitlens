@@ -236,7 +236,12 @@ export class WebviewController<
 			const rpcServices = this.provider.getRpcServices?.(eventBuffer, tracker);
 			if (rpcServices != null) {
 				try {
-					this._rpcHost = new RpcHost(this.webview, rpcServices, undefined, tracker);
+					this._rpcHost = new RpcHost(
+						this.webview,
+						rpcServices,
+						{ webviewId: this.id, webviewInstanceId: this.instanceId },
+						tracker,
+					);
 					Logger.debug(`WebviewController(${this.id}): RPC host created, awaiting connect`);
 				} catch (ex) {
 					Logger.error(ex, `WebviewController(${this.id}): Failed to create RPC host`);

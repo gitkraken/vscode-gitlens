@@ -60,6 +60,9 @@ export async function restoreOverviewFilter(
  *
  * Layout-critical data is fetched first so the main content area
  * renders promptly. The `ready` signal gates rendering.
+ *
+ * Returns a promise that settles when the `ready` gate resolves (either set
+ * to true or `error` set). Callers can await this to race against a timeout.
  */
 export function populateInitialState(
 	state: HomeRootState,
@@ -69,24 +72,33 @@ export function populateInitialState(
 	_repositories: Awaited<Remote<HomeServices>['repositories']>,
 	ai: Awaited<Remote<HomeServices>['ai']>,
 	setOverviewFilter?: OverviewFilterSetter,
-): void {
+): Promise<void> {
 	// Layout-critical: set ready LAST since it's the render gate for main content.
 	// Restore the persisted overview filter onto the host before rendering children,
 	// so the first overview fetch uses the user's saved thresholds instead of defaults.
-	void Promise.all([home.getInitialContext(), restoreOverviewFilter(state.home, home, setOverviewFilter)]).then(
-		([ctx]) => {
+	//
+	// Use `Promise.allSettled` (not `Promise.all`) so a rejection from either side
+	// doesn't short-circuit the other — and more importantly, we always settle and
+	// therefore always either set `ready` or `error`, instead of leaving skeletons
+	// rendering forever.
+	const gate = Promise.allSettled([
+		home.getInitialContext(),
+		restoreOverviewFilter(state.home, home, setOverviewFilter),
+	]).then(([ctxResult]) => {
+		if (ctxResult.status === 'fulfilled') {
+			const ctx = ctxResult.value;
 			state.home.discovering.set(ctx.discovering);
 			state.home.repositories.set(ctx.repositories);
 			state.home.walkthroughSupported.set(ctx.walkthroughSupported);
 			state.home.newInstall.set(ctx.newInstall);
 			state.home.hostAppName.set(ctx.hostAppName);
 			state.home.ready.set(true); // render gate — set last
-		},
-		(ex: unknown) => {
+		} else {
+			const ex = ctxResult.reason;
 			Logger.error(ex, 'Home: Failed to fetch initial context');
 			state.home.error.set(ex instanceof Error ? ex.message : 'Failed to load');
-		},
-	);
+		}
+	});
 
 	// Header data: integrations chip
 	// Note: subscription, avatar, hasAccount, organizationsCount, orgSettings are bridged from host-side signals
@@ -101,6 +113,8 @@ export function populateInitialState(
 	void home.getWalkthroughProgress().then(w => state.onboarding.walkthroughProgress.set(w), noop);
 	void ai.getState().then(s => state.ai.state.set(s), noop);
 	// Launchpad summary is deferred — fetched when GlLaunchpad mounts (connectedCallback)
+
+	return gate;
 }
 
 export async function restoreOverviewRepositoryPath(

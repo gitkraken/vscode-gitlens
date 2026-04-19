@@ -6,6 +6,7 @@ import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { signalObject } from 'signal-utils/object';
 import { debounce } from '@gitlens/utils/debounce.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { OnboardingKeys } from '../../../constants.onboarding.js';
 import type { HomeServices } from '../../home/homeService.js';
 import type {
@@ -93,7 +94,11 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	 * RPC controller — manages connection lifecycle via Lit's ReactiveController pattern.
 	 */
 	private _rpc = new RpcController<HomeServices>(this, {
-		rpcOptions: { endpoint: () => this._host.createEndpoint() },
+		rpcOptions: {
+			webviewId: () => this._webview?.webviewId,
+			webviewInstanceId: () => this._webview?.webviewInstanceId,
+			endpoint: () => this._host.createEndpoint(),
+		},
 		onReady: services => this._onRpcReady(services),
 		onError: error => this._homeState.error.set(error.message),
 	});
@@ -132,6 +137,15 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	 */
 	private _stopAutoPersist?: () => void;
 
+	/**
+	 * AbortController for the `_onRpcReady` pipeline. Aborted on component disconnect,
+	 * or internally if a phase timeout fires, so downstream code can bail out of
+	 * hanging work. Skeleton-loader-forever used to be possible when a single RPC
+	 * response was never delivered; with this guard, any hang inside `_onRpcReady`
+	 * becomes a visible error banner within the phase timeout.
+	 */
+	private _readyAbort?: AbortController;
+
 	@query('gl-home-header')
 	private _header!: GlHomeHeader;
 
@@ -168,6 +182,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	}
 
 	override disconnectedCallback(): void {
+		// Abort any in-flight `_onRpcReady` work so phase timeouts don't fire after unmount
+		this._readyAbort?.abort();
+		this._readyAbort = undefined;
+
 		// Unsubscribe RPC event callbacks (before RPC connection is disposed)
 		this._unsubscribeEvents?.();
 		this._unsubscribeEvents = undefined;
@@ -213,6 +231,48 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	 * subscriptions and fetches initial state.
 	 */
 	private async _onRpcReady(services: Remote<HomeServices>): Promise<void> {
+		this._readyAbort?.abort();
+		this._readyAbort = new AbortController();
+		const abort = this._readyAbort;
+
+		/**
+		 * Bound an RPC-driven phase with a hard timeout. If the phase's underlying
+		 * RPC response is never delivered (skeleton-forever case from the log
+		 * investigation), this surfaces as an error banner instead of perpetual
+		 * skeletons. Cancels itself on unmount via the outer abort signal.
+		 */
+		const phaseTimeout = async <T>(phase: string, ms: number, promise: Promise<T>): Promise<T> => {
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			try {
+				return await Promise.race([
+					promise,
+					new Promise<never>((_resolve, reject) => {
+						timer = setTimeout(() => {
+							if (abort.signal.aborted) return;
+							Logger.warn(`Home: _onRpcReady phase "${phase}" timed out after ${ms}ms`);
+							abort.abort();
+							reject(new Error(`Home initialization timed out in phase: ${phase}`));
+						}, ms);
+					}),
+					new Promise<never>((_resolve, reject) => {
+						if (abort.signal.aborted) {
+							reject(new Error(`Home initialization aborted during phase: ${phase}`));
+							return;
+						}
+						abort.signal.addEventListener(
+							'abort',
+							() => reject(new Error(`Home initialization aborted during phase: ${phase}`)),
+							{ once: true },
+						);
+					}),
+				]);
+			} finally {
+				if (timer != null) {
+					clearTimeout(timer);
+				}
+			}
+		};
+
 		const root = this._rootState;
 
 		// Resolve all sub-services in parallel.
@@ -272,7 +332,11 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// Start auto-persistence before seeding any host-restored persisted values.
 		this._stopAutoPersist = this._homeState.startAutoPersist();
 
-		await restoreOverviewRepositoryPath(this._homeState, home);
+		await phaseTimeout(
+			'restoreOverviewRepositoryPath',
+			30_000,
+			restoreOverviewRepositoryPath(this._homeState, home),
+		);
 
 		// Create resource-backed overview states and provide to children
 		const syncOverviewRepositoryPath = (repoPath: string | undefined): void => {
@@ -414,19 +478,23 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				}
 			},
 		};
-		this._unsubscribeEvents = await setupSubscriptions(
-			root,
-			{
-				home: home,
-				launchpad: launchpad,
-				config: config,
-				subscription: subscription,
-				integrations: integrations,
-				repositories: repositories,
-				onboarding: onboarding,
-				ai: ai,
-			},
-			actions,
+		this._unsubscribeEvents = await phaseTimeout(
+			'setupSubscriptions',
+			30_000,
+			setupSubscriptions(
+				root,
+				{
+					home: home,
+					launchpad: launchpad,
+					config: config,
+					subscription: subscription,
+					integrations: integrations,
+					repositories: repositories,
+					onboarding: onboarding,
+					ai: ai,
+				},
+				actions,
+			),
 		);
 
 		// Start FS-level WIP watcher for the initial overview repo
@@ -452,8 +520,14 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this.disposables.push({ dispose: () => document.removeEventListener('visibilitychange', onVisibilityChange) });
 
 		// Populate signals progressively — each RPC sets its signal as it resolves,
-		// so the UI updates incrementally instead of waiting for everything.
-		populateInitialState(root, home, subscription, integrations, repositories, ai, syncInactiveOverviewFilter);
+		// so the UI updates incrementally instead of waiting for everything. Wrapped
+		// in a phase timeout so the gating `getInitialContext()` RPC can't leave the
+		// UI stuck on skeleton loaders if its response is never delivered.
+		await phaseTimeout(
+			'populateInitialState',
+			30_000,
+			populateInitialState(root, home, subscription, integrations, repositories, ai, syncInactiveOverviewFilter),
+		);
 	}
 
 	// ============================================================

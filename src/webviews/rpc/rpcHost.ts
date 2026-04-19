@@ -15,12 +15,26 @@ import { AbortSignalHandler } from '@eamodio/supertalk-core/handlers/abort-signa
 import { SignalHandler } from '@eamodio/supertalk-signals';
 import type { Disposable, Webview } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { WebviewIds } from '../../constants.views.js';
 import { rpcHandlers } from '../../system/rpc/handlers.js';
-import { supertalkLogger } from '../../system/rpc/logger.js';
+import { createSupertalkLogger, formatWebviewLogTag } from '../../system/rpc/logger.js';
 import type { SubscriptionTracker } from './eventVisibilityBuffer.js';
 import { createHostEndpoint } from './hostEndpoint.js';
 
 export interface RpcHostOptions {
+	/**
+	 * Webview identifier used to tag log lines produced by this RPC channel.
+	 * Example: `gitlens.views.home`.
+	 */
+	webviewId?: WebviewIds;
+
+	/**
+	 * Webview instance identifier appended to the log tag, matching the existing
+	 * `WebviewController(id|instance)` convention. Helpful when multiple instances
+	 * of the same webview (e.g. multiple Timeline panels) are active at once.
+	 */
+	webviewInstanceId?: string;
+
 	/**
 	 * Additional handlers beyond the default rpcHandlers.
 	 * The default handlers (Date, Map, Set, RegExp) and SignalHandler are always included.
@@ -93,6 +107,7 @@ export class RpcHost<TServices extends object> implements Disposable {
 	private readonly services: TServices;
 	private readonly options: RpcHostOptions | undefined;
 	private readonly tracker: SubscriptionTracker | undefined;
+	private readonly logPrefix: string;
 	private _exposed = false;
 	private endpoint: ReturnType<typeof createHostEndpoint>;
 	private connection: Connection;
@@ -104,18 +119,19 @@ export class RpcHost<TServices extends object> implements Disposable {
 		this.services = services;
 		this.options = options;
 		this.tracker = tracker;
+		this.logPrefix = `RpcHost(${formatWebviewLogTag(options?.webviewId, options?.webviewInstanceId)})`;
 		this.endpoint = createHostEndpoint(webview);
 
 		// Create the Connection (sets up message listener) but DON'T expose yet.
 		// The host will call expose() when WebviewReadyRequest is received.
 		this.connection = new Connection(this.endpoint, this.buildConnectionOptions());
-		Logger.debug('RpcHost: Connection created, awaiting WebviewReadyRequest');
+		Logger.debug(`${this.logPrefix}: Connection created, awaiting WebviewReadyRequest`);
 
 		// Diagnostic: warn if expose() is never called
 		this._connectTimer = setTimeout(() => {
 			this._connectTimer = undefined;
 			if (!this._exposed) {
-				Logger.warn('RpcHost: expose() has not been called after 30s — may indicate a load failure');
+				Logger.warn(`${this.logPrefix}: expose() has not been called after 30s — may indicate a load failure`);
 			}
 		}, 30_000);
 	}
@@ -138,7 +154,9 @@ export class RpcHost<TServices extends object> implements Disposable {
 		if (this._exposed) {
 			// Reconnection: clean up outstanding event subscriptions from the
 			// previous webview session, then tear down the old connection.
-			Logger.debug('RpcHost: Reconnecting — disposing tracked subscriptions and creating fresh connection');
+			Logger.debug(
+				`${this.logPrefix}: Reconnecting — disposing tracked subscriptions and creating fresh connection`,
+			);
 			this.tracker?.dispose();
 			this.connection.close();
 			this.endpoint.dispose();
@@ -148,7 +166,7 @@ export class RpcHost<TServices extends object> implements Disposable {
 		this._exposed = true;
 
 		this.connection.expose(this.services);
-		Logger.debug('RpcHost: Services exposed successfully');
+		Logger.debug(`${this.logPrefix}: Services exposed successfully`);
 	}
 
 	/**
@@ -192,7 +210,9 @@ export class RpcHost<TServices extends object> implements Disposable {
 			debug: this.options?.debug,
 			// Coalesce synchronous calls into a single postMessage
 			batching: true,
-			logger: supertalkLogger,
+			logger: createSupertalkLogger(
+				`host(${formatWebviewLogTag(this.options?.webviewId, this.options?.webviewInstanceId)})`,
+			),
 		};
 	}
 }

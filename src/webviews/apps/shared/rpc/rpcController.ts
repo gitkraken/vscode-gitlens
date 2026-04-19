@@ -25,6 +25,7 @@
  */
 import type { Remote } from '@eamodio/supertalk';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
+import { isErrorLike } from '@gitlens/utils/error.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { RpcClientOptions } from '../rpcClient.js';
 import { wrapServices } from '../rpcClient.js';
@@ -121,12 +122,32 @@ export class RpcController<TServices extends object> implements ReactiveControll
 		} catch (ex) {
 			if (signal.aborted) return;
 
-			const error = ex instanceof Error ? ex : new Error(String(ex));
-			Logger.error(error, 'RpcController: Failed to connect');
+			const error = toError(ex);
+			const idOpt = this.options?.rpcOptions?.webviewId;
+			const instanceOpt = this.options?.rpcOptions?.webviewInstanceId;
+			const id = typeof idOpt === 'function' ? idOpt() : idOpt;
+			const instance = typeof instanceOpt === 'function' ? instanceOpt() : instanceOpt;
+			const tag = instance != null ? `${id ?? '?'}|${instance}` : (id ?? '?');
+			Logger.error(error, `RpcController(${tag}): Failed to connect`);
 
 			if (this.options?.onError != null) {
 				this.options.onError(error);
 			}
 		}
 	}
+}
+
+/**
+ * Normalize an unknown thrown value into a real Error while preserving the original
+ * as `cause`. Uses `isErrorLike` so DOMException / cross-realm Errors (which fail
+ * `instanceof Error`) surface their `name`/`message` instead of `"[object Object]"`.
+ */
+function toError(ex: unknown): Error {
+	if (ex instanceof Error) return ex;
+	if (isErrorLike(ex)) {
+		const err = new Error(`${ex.name}: ${ex.message}`);
+		(err as { cause?: unknown }).cause = ex;
+		return err;
+	}
+	return new Error(String(ex));
 }

@@ -12,12 +12,29 @@ import { Connection } from '@eamodio/supertalk';
 import { AbortSignalHandler } from '@eamodio/supertalk-core/handlers/abort-signal.js';
 import { SignalHandler } from '@eamodio/supertalk-signals';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { WebviewIds } from '../../../constants.views.js';
 import { rpcHandlers } from '../../../system/rpc/handlers.js';
-import { supertalkLogger } from '../../../system/rpc/logger.js';
+import { createSupertalkLogger, formatWebviewLogTag } from '../../../system/rpc/logger.js';
 import { getHost } from './host/context.js';
 import type { DisposableEndpoint } from './webviewEndpoint.js';
 
 export interface RpcClientOptions {
+	/**
+	 * Webview identifier used to tag log lines produced by this RPC channel.
+	 * Example: `gitlens.views.home`. Falls back to `?` when not provided.
+	 *
+	 * Accepts a function to defer resolution for cases where the id isn't known
+	 * at `RpcController` construction time (e.g. Timeline serves both panel and
+	 * view modes and resolves its id during `connectedCallback`).
+	 */
+	webviewId?: WebviewIds | (() => WebviewIds | undefined);
+
+	/**
+	 * Webview instance identifier appended to the log tag, matching the existing
+	 * `WebviewController(id|instance)` convention. Same thunk support as {@link webviewId}.
+	 */
+	webviewInstanceId?: string | (() => string | undefined);
+
 	/**
 	 * Additional handlers beyond the default rpcHandlers.
 	 * The default handlers (Date, Map, Set, RegExp) and SignalHandler are always included.
@@ -64,7 +81,7 @@ export interface RpcClientOptions {
 	/**
 	 * Connection timeout in milliseconds.
 	 * If the host doesn't respond within this time, the connection attempt fails.
-	 * @default 10000 (10 seconds)
+	 * @default 60000 (60 seconds — allows for slow cold starts; warnings fire at 20s and 40s)
 	 */
 	timeout?: number;
 
@@ -121,6 +138,12 @@ export interface RpcConnection<TServices extends object> {
 export async function wrapServices<TServices extends object>(
 	options?: RpcClientOptions,
 ): Promise<RpcConnection<TServices>> {
+	const webviewId = typeof options?.webviewId === 'function' ? options.webviewId() : options?.webviewId;
+	const webviewInstanceId =
+		typeof options?.webviewInstanceId === 'function' ? options.webviewInstanceId() : options?.webviewInstanceId;
+	const webviewTag = formatWebviewLogTag(webviewId, webviewInstanceId);
+	const logPrefix = `RpcClient(${webviewTag})`;
+
 	const endpoint = options?.endpoint?.() ?? getHost().createEndpoint();
 
 	// Create SignalHandler for reactive state synchronization
@@ -138,22 +161,27 @@ export async function wrapServices<TServices extends object>(
 		debug: options?.debug,
 		// Coalesce synchronous calls into a single postMessage
 		batching: true,
-		logger: supertalkLogger,
+		logger: createSupertalkLogger(`client(${webviewTag})`),
 	};
 
 	// Create Connection (sets up message listener FIRST)
 	const connection = new Connection(endpoint, connectionOptions);
 
-	const timeoutMs = options?.timeout ?? 10_000;
-	let warnTimer: ReturnType<typeof setTimeout> | undefined;
+	const timeoutMs = options?.timeout ?? 60_000;
+	// Fixed (not timeout-relative) warn markers. At 20s we suspect extension-host
+	// slowness; at 40s we suspect a stuck peer. Only scheduled if timeout is long
+	// enough that they fire strictly before the timeout would.
+	const firstWarnMs = 20_000;
+	const secondWarnMs = 40_000;
+	const warnTimers: Array<ReturnType<typeof setTimeout>> = [];
 	let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
 	let abortListener: (() => void) | undefined;
 
 	const clearSetup = () => {
-		if (warnTimer != null) {
-			clearTimeout(warnTimer);
-			warnTimer = undefined;
+		for (const t of warnTimers) {
+			clearTimeout(t);
 		}
+		warnTimers.length = 0;
 		if (timeoutTimer != null) {
 			clearTimeout(timeoutTimer);
 			timeoutTimer = undefined;
@@ -180,15 +208,30 @@ export async function wrapServices<TServices extends object>(
 			throw getAbortError();
 		}
 
-		Logger.debug('RpcClient: Connecting to host...');
+		Logger.debug(`${logPrefix}: Connecting to host...`);
 
 		// Wait for the host to call expose() (triggered by WebviewReadyRequest)
 		// and send the ready signal. The Connection listener is already set up,
 		// so we just wait for the signal to arrive.
-		warnTimer = setTimeout(
-			() => Logger.warn(`RpcClient: Connection still pending after ${timeoutMs / 2}ms`),
-			timeoutMs / 2,
-		);
+		if (firstWarnMs < timeoutMs) {
+			warnTimers.push(
+				setTimeout(
+					() => Logger.warn(`${logPrefix}: Connection still pending after ${firstWarnMs}ms`),
+					firstWarnMs,
+				),
+			);
+		}
+		if (secondWarnMs < timeoutMs) {
+			warnTimers.push(
+				setTimeout(
+					() =>
+						Logger.warn(
+							`${logPrefix}: Connection still pending after ${secondWarnMs}ms — peer may be stuck`,
+						),
+					secondWarnMs,
+				),
+			);
+		}
 		const services = (await Promise.race([
 			connection.waitForReady(),
 			new Promise<never>(
@@ -208,17 +251,17 @@ export async function wrapServices<TServices extends object>(
 				: []),
 		])) as Remote<TServices>;
 		clearSetup();
-		Logger.debug('RpcClient: Connected to host successfully');
+		Logger.debug(`${logPrefix}: Connected to host successfully`);
 		return {
 			services: services,
 			dispose: () => {
-				Logger.debug('RpcClient: Disposing connection...');
+				Logger.debug(`${logPrefix}: Disposing connection...`);
 				disposeConnection();
 			},
 		};
 	} catch (ex) {
 		disposeConnection();
-		Logger.error(ex, 'RpcClient: Failed to connect to host');
+		Logger.error(ex, `${logPrefix}: Failed to connect to host`);
 		throw ex;
 	}
 }

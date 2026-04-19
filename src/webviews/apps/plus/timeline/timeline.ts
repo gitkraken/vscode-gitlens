@@ -69,7 +69,11 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 	private _chartDataPromise?: Promise<TimelineDatasetResult['dataset']>;
 
 	private _rpc = new RpcController<TimelineServices>(this, {
-		rpcOptions: { endpoint: () => this._host.createEndpoint() },
+		rpcOptions: {
+			webviewId: () => this._webview?.webviewId,
+			webviewInstanceId: () => this._webview?.webviewInstanceId,
+			endpoint: () => this._host.createEndpoint(),
+		},
 		onReady: services => this._onRpcReady(services),
 		onError: error => this._state.error.set(error.message),
 	});
