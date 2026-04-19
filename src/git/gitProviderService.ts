@@ -876,7 +876,7 @@ export class GitProviderService implements UnifiedDisposable {
 
 	async access(feature: PlusFeatures | undefined, repoPath: string | Uri): Promise<RepoFeatureAccess>;
 	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess>;
-	@trace({ exit: true })
+	@trace({ exit: r => `returned allowed=${r.allowed}, plan=${r.subscription.current.plan.effective.id}` })
 	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess> {
 		if (repoPath == null) {
 			let access = this._accessCache.get(feature);
@@ -904,7 +904,7 @@ export class GitProviderService implements UnifiedDisposable {
 		feature?: PlusFeatures,
 		repoPath?: string | Uri,
 	): Promise<FeatureAccess | RepoFeatureAccess>;
-	@trace({ exit: true })
+	@trace({ exit: r => `returned allowed=${r.allowed}, plan=${r.subscription.current.plan.effective.id}` })
 	private async accessCore(
 		feature?: PlusFeatures,
 		repoPath?: string | Uri,
