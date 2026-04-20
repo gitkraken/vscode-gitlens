@@ -37,11 +37,11 @@ export class CustomRemoteProvider extends RemoteProvider {
 
 	getUrlForAvatar(email: string, size: number): string | undefined {
 		if (this.urls.avatar != null) {
-			const [name, domain] = email.split('@');
+			const [emailName, domain] = email.split('@');
 			return this.encodeUrl(
 				interpolate(
 					this.urls.avatar,
-					this.getContext({ name: name, domain: domain, email: email, size: String(size) }),
+					this.getContext({ emailName: emailName, domain: domain, email: email, size: String(size) }),
 				),
 			);
 		}

@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds a close-tab warning banner to the _Interactive Rebase_ editor &mdash; displays a dismissible informational banner during the planning phase to clarify that closing the tab automatically starts the rebase ([#5123](https://github.com/gitkraken/vscode-gitlens/issues/5123))
-- Adds an optional `avatar` URL template to custom remotes in the `gitlens.remotes` setting &mdash; enables corporate and self-hosted setups to resolve commit-author avatars via a templated URL with `${email}`, `${name}`, `${domain}`, and `${size}` tokens ([#302](https://github.com/gitkraken/vscode-gitlens/issues/302)) &mdash; thanks to [PR #1636](https://github.com/gitkraken/vscode-gitlens/pull/1636) by Tmk ([@tmkx](https://github.com/tmkx))
+- Adds an optional `avatar` URL template to custom remotes in the `gitlens.remotes` setting &mdash; enables corporate and self-hosted setups to resolve commit-author avatars via a templated URL with `${email}`, `${emailName}`, `${domain}`, and `${size}` tokens ([#302](https://github.com/gitkraken/vscode-gitlens/issues/302)) &mdash; thanks to [PR #1636](https://github.com/gitkraken/vscode-gitlens/pull/1636) by Tmk ([@tmkx](https://github.com/tmkx))
 
 ### Fixed
 
