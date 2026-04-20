@@ -735,8 +735,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@debug()
-	async createBranch(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void> {
-		const args = ['branch', name, sha];
+	async createBranch(repoPath: string, name: string, ref: string, options?: { noTracking?: boolean }): Promise<void> {
+		const args = ['branch', name, ref];
 		if (options?.noTracking) {
 			args.push('--no-track');
 		}

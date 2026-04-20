@@ -7,11 +7,23 @@ export interface StashApplyResult {
 }
 
 export interface GitStashSubProvider {
+	/**
+	 * Applies a stash entry to the working tree.
+	 * @param stashNameOrSha Accepts `stash@{N}` (from the stash list) or a raw SHA (e.g. from
+	 * {@link createStash}). Note: `options.deleteAfter` (pop) requires a `stash@{N}` — git will
+	 * reject a raw SHA because pop can only drop list entries.
+	 */
 	applyStash(
 		repoPath: string,
-		stashName: string,
-		options?: { deleteAfter?: boolean | undefined },
+		stashNameOrSha: string,
+		options?: { deleteAfter?: boolean | undefined; index?: boolean | undefined },
 	): Promise<StashApplyResult>;
+	/**
+	 * Creates a stash commit without adding it to the stash list (plumbing — equivalent to
+	 * `git stash create`). Returns the created commit SHA, or `undefined` if there was nothing to
+	 * stash.
+	 */
+	createStash(repoPath: string, message?: string): Promise<string | undefined>;
 	getStash(
 		repoPath: string,
 		options?: {

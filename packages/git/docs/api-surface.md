@@ -211,7 +211,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `GitContributorsSubProvider`     | `providers/contributors.js`     | `GitContributorsResult`    |
 | `GitDiffSubProvider`             | `providers/diff.js`             |                            |
 | `GitGraphSubProvider`            | `providers/graph.js`            |                            |
-| `GitOperationsSubProvider`       | `providers/operations.js`       |                            |
+| `GitOperationsSubProvider`       | `providers/operations.js`       | `GitOperationResult`       |
 | `GitPatchSubProvider`            | `providers/patch.js`            |                            |
 | `GitPausedOperationsSubProvider` | `providers/pausedOperations.js` |                            |
 | `GitRefsSubProvider`             | `providers/refs.js`             |                            |
@@ -232,7 +232,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getBranchContributionsOverview(repoPath, ref, options?, cancellation?)`             | `BranchContributionsOverview \| undefined` |
 | `getBranchesWithCommits(repoPath, shas, branch?, options?, cancellation?)`           | `string[]`                                 |
 | `getDefaultBranchName(repoPath, remote?, cancellation?)`                             | `string \| undefined`                      |
-| `createBranch?(repoPath, name, sha, options?)`                                       | `void`                                     |
+| `createBranch?(repoPath, name, ref, options?)`                                       | `void`                                     |
 | `deleteLocalBranch?(repoPath, names, options?)`                                      | `void`                                     |
 | `deleteRemoteBranch?(repoPath, names, remote)`                                       | `void`                                     |
 | `getBranchMergedStatus?(repoPath, branch, into, cancellation?)`                      | `GitBranchMergedStatus`                    |
@@ -311,6 +311,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getDiff?(repoPath, to, from?, options?, cancellation?)`                                        | `GitDiff \| undefined`                           |
 | `getDiffFiles?(repoPath, contents, cancellation?)`                                              | `GitDiffFiles \| undefined`                      |
 | `getDiffStatus(repoPath, ref1OrRange, ref2?, options?)`                                         | `GitFile[] \| undefined`                         |
+| `getParsedDiff?(repoPath, to, from?, options?, cancellation?)`                                  | `ParsedGitDiff \| undefined`                     |
 | `getDiffTool?(repoPath?)`                                                                       | `string \| undefined`                            |
 | `getNextComparisonUris(repoPath, pathOrUri, rev, skip?, options?, cancellation?)`               | `NextComparisonUrisResult \| undefined`          |
 | `getPreviousComparisonUris(repoPath, pathOrUri, rev, skip?, unsaved?, options?, cancellation?)` | `PreviousComparisonUrisResult \| undefined`      |
@@ -319,6 +320,8 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `openDirectoryCompare?(repoPath, ref1, ref2?, tool?)`                                           | `void`                                           |
 | `getDiffForFile?(repoPath, path, ref1, ref2?, options?)`                                        | `ParsedGitDiffHunks \| undefined`                |
 | `getDiffForFileContents?(repoPath, path, ref, contents, options?)`                              | `ParsedGitDiffHunks \| undefined`                |
+
+`getParsedDiff` returns the fully parsed multi-file shape (each `ParsedGitDiffFile` has status + hunks). For rendering-friendly line ordering, split each `hunk.content` on newlines and read the `+`/`-`/` ` prefix on each line.
 
 ### GitGraphSubProvider
 
@@ -330,17 +333,20 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 ### GitOperationsSubProvider
 
-| Method                                 | Returns |
-| -------------------------------------- | ------- |
-| `checkout(repoPath, ref, options?)`    | `void`  |
-| `cherryPick(repoPath, revs, options?)` | `void`  |
-| `fetch(repoPath, options?)`            | `void`  |
-| `merge(repoPath, ref, options?)`       | `void`  |
-| `pull(repoPath, options?)`             | `void`  |
-| `push(repoPath, options?)`             | `void`  |
-| `rebase(repoPath, upstream, options?)` | `void`  |
-| `reset(repoPath, rev, options?)`       | `void`  |
-| `revert(repoPath, refs, options?)`     | `void`  |
+| Method                                 | Returns              |
+| -------------------------------------- | -------------------- |
+| `checkout(repoPath, ref, options?)`    | `void`               |
+| `cherryPick(repoPath, revs, options?)` | `GitOperationResult` |
+| `commit(repoPath, message, options?)`  | `void`               |
+| `fetch(repoPath, options?)`            | `void`               |
+| `merge(repoPath, ref, options?)`       | `GitOperationResult` |
+| `pull(repoPath, options?)`             | `void`               |
+| `push(repoPath, options?)`             | `void`               |
+| `rebase(repoPath, upstream, options?)` | `GitOperationResult` |
+| `reset(repoPath, rev, options?)`       | `void`               |
+| `revert(repoPath, refs, options?)`     | `GitOperationResult` |
+
+`GitOperationResult` (exported from `providers/operations.js`): `{ readonly conflicted: boolean; readonly conflicts?: GitConflictFile[] }`. Merge/rebase/cherry-pick/revert now return this shape — conflicts are returned (not thrown); hard failures (aborted, uncommittedChanges, alreadyInProgress, etc.) still throw.
 
 > Note: `clone` is on `GitProvider` directly (not on this sub-provider) — see Provider Interface above.
 
@@ -421,13 +427,16 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 | Method                                                        | Returns                 |
 | ------------------------------------------------------------- | ----------------------- |
-| `applyStash(repoPath, stashName, options?)`                   | `StashApplyResult`      |
+| `applyStash(repoPath, stashNameOrSha, options?)`              | `StashApplyResult`      |
+| `createStash(repoPath, message?)`                             | `string \| undefined`   |
 | `getStash(repoPath, options?, cancellation?)`                 | `GitStash \| undefined` |
 | `getStashCommitFiles(repoPath, ref, options?, cancellation?)` | `GitFileChange[]`       |
 | `deleteStash(repoPath, stashName, sha?)`                      | `void`                  |
 | `renameStash(repoPath, stashName, sha, message, stashOnRef?)` | `void`                  |
 | `saveStash(repoPath, message?, pathsOrUris?, options?)`       | `void`                  |
 | `saveSnapshot(repoPath, message?)`                            | `void`                  |
+
+`applyStash` accepts `stash@{N}` or a raw SHA (e.g. from `createStash`). Options: `deleteAfter` (pop instead of apply — requires `stash@{N}`; git rejects pop-by-SHA), `index` (restore the index state).
 
 `StashApplyResult` (exported from `providers/stash.js`): `{ readonly conflicted: boolean }`
 
@@ -545,6 +554,7 @@ All in `errors.js`. Each error class extends `GitCommandError<Details>` with a t
 | `BranchError`                  | `alreadyExists`, `notFullyMerged`, `invalidName`, `noRemoteReference`, `other`                                                     |
 | `CheckoutError`                | `invalidRef`, `pathspecNotFound`, `wouldOverwriteChanges`, `other`                                                                 |
 | `CherryPickError`              | `aborted`, `alreadyInProgress`, `conflicts`, `emptyCommit`, `wouldOverwriteChanges`, `other`                                       |
+| `CommitError`                  | `nothingToCommit`, `conflicts`, `noUserNameConfigured`, `other`                                                                    |
 | `FetchError`                   | `noFastForward`, `noRemote`, `remoteConnectionFailed`, `other`                                                                     |
 | `MergeError`                   | `alreadyMerged`, `conflicts`, `localChangesOverwritten`, ...                                                                       |
 | `PausedOperationAbortError`    | `nothingToAbort`                                                                                                                   |

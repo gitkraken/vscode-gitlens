@@ -5,6 +5,7 @@ import type {
 	BranchErrorReason,
 	CheckoutErrorReason,
 	CherryPickErrorReason,
+	CommitErrorReason,
 	FetchErrorReason,
 	GitCommandError,
 	MergeErrorReason,
@@ -89,6 +90,7 @@ export const GitErrors = {
 	notAValidObjectName: /Not a valid object name/i,
 	notAWorkingTree: /'(.*?)' is not a working tree/i,
 	noUserNameConfigured: /Please tell me who you are\./i,
+	nothingToCommit: /nothing(?: added)? to commit|no changes added to commit/i,
 	noPausedOperation:
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
 	permissionDenied: /Permission.*denied/i,
@@ -113,7 +115,8 @@ export const GitErrors = {
 	uncommittedChanges: /contains modified or untracked files/i,
 	unmergedChanges: /error:\s*you need to resolve your current index first/i,
 	unmergedFiles: /is not possible because you have unmerged files|You have unmerged files/i,
-	unresolvedConflicts: /You must edit all merge conflicts|Resolve all conflicts/i,
+	unresolvedConflicts:
+		/You must edit all merge conflicts|Resolve all conflicts|^CONFLICT \(|^Automatic merge failed|could not apply .*/im,
 	unsafeRepository:
 		/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m,
 	unstagedChanges: /You have unstaged changes/i,
@@ -178,6 +181,7 @@ type GitCommand =
 	| 'branch'
 	| 'checkout'
 	| 'cherry-pick'
+	| 'commit'
 	| 'fetch'
 	| 'merge'
 	| 'paused-operation-abort'
@@ -198,6 +202,7 @@ type GitCommandToReasonMap = {
 	branch: BranchErrorReason;
 	checkout: CheckoutErrorReason;
 	'cherry-pick': CherryPickErrorReason;
+	commit: CommitErrorReason;
 	fetch: FetchErrorReason;
 	merge: MergeErrorReason;
 	'paused-operation-abort': PausedOperationAbortErrorReason;
@@ -241,6 +246,15 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.conflict, 'conflicts'],
 			[GitErrors.cherryPickEmptyPrevious, 'emptyCommit'],
 			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	[
+		'commit',
+		[
+			[GitErrors.nothingToCommit, 'nothingToCommit'],
+			[GitErrors.unmergedFiles, 'conflicts'],
+			[GitErrors.unresolvedConflicts, 'conflicts'],
+			[GitErrors.noUserNameConfigured, 'noUserNameConfigured'],
 		],
 	],
 	[

@@ -7,6 +7,7 @@ import type { RemoteProvider, RemoteProviderId } from './models/remoteProvider.j
 import type { RepositoryChange } from './models/repository.js';
 import type { SearchQuery } from './models/search.js';
 import type { SigningFormat } from './models/signature.js';
+import type { GitConflictFile } from './models/staging.js';
 import type { RemoteProviderConfig } from './remotes/matcher.js';
 
 /**
@@ -119,8 +120,12 @@ export interface GitServiceHooks {
 	};
 	/** Git operation hooks */
 	readonly operations?: {
-		/** Called when a git command produced a conflict */
-		onConflicted?(command: GitConflictCommand): void;
+		/**
+		 * Called when a git command produced a conflict.
+		 * @param conflicts Optional conflicted file list. Populated for merge/rebase/cherry-pick/revert;
+		 * may be absent for stash operations or when the file list couldn't be read.
+		 */
+		onConflicted?(command: GitConflictCommand, conflicts?: GitConflictFile[]): void;
 		/** Called when getGitDir resolves to a non-existent .git directory or rev-parse fails */
 		onGitDirResolveFailed?(repoPath: string, gitDir: string, errorMessage: string): void;
 	};

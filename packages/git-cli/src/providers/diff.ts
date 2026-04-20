@@ -5,6 +5,7 @@ import type {
 	GitDiffFiles,
 	GitDiffFilter,
 	GitDiffShortStat,
+	ParsedGitDiff,
 	ParsedGitDiffHunks,
 } from '@gitlens/git/models/diff.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
@@ -12,6 +13,7 @@ import type { GitRevisionRange, GitRevisionRangeNotation } from '@gitlens/git/mo
 import { deletedOrMissing, rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import {
 	parseGitApplyFiles,
+	parseGitDiff,
 	parseGitDiffNumStatFiles,
 	parseGitDiffShortStat,
 	parseGitFileDiff,
@@ -145,6 +147,24 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };
 		return diff;
+	}
+
+	@debug()
+	async getParsedDiff(
+		repoPath: string,
+		to: string,
+		from?: string,
+		options?: {
+			context?: number;
+			notation?: GitRevisionRangeNotation;
+			uris?: (string | Uri)[];
+		},
+		cancellation?: AbortSignal,
+	): Promise<ParsedGitDiff | undefined> {
+		const diff = await this.getDiff(repoPath, to, from, options, cancellation);
+		if (!diff?.contents) return undefined;
+
+		return parseGitDiff(diff.contents);
 	}
 
 	@debug({ args: repoPath => ({ repoPath: repoPath }) })

@@ -83,7 +83,13 @@ export class RevertGitCommand extends QuickCommand<State> {
 		this.container.telemetry.sendEvent('gitCommand/run', { command: 'revert' });
 
 		try {
-			await state.repo.git.ops?.revert(refs, options);
+			const result = await state.repo.git.ops?.revert(refs, options);
+			if (result?.conflicted) {
+				void window.showWarningMessage(
+					'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the revert
 			if (RevertError.is(ex, 'aborted')) {
@@ -97,15 +103,6 @@ export class RevertGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to revert. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 				);
-				return;
-			}
-
-			if (RevertError.is(ex, 'conflicts')) {
-				this.container.telemetry.sendEvent('gitCommand/conflict', { command: 'revert' });
-				void window.showWarningMessage(
-					'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
-				);
-				void executeCommand('gitlens.showCommitsView');
 				return;
 			}
 

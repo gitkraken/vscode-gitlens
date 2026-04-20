@@ -1,8 +1,9 @@
 import type { Cache } from '@gitlens/git/cache.js';
-import type { GitServiceContext } from '@gitlens/git/context.js';
+import type { GitConflictCommand, GitServiceContext } from '@gitlens/git/context.js';
 import {
 	CheckoutError,
 	CherryPickError,
+	CommitError,
 	FetchError,
 	MergeError,
 	PullError,
@@ -12,11 +13,13 @@ import {
 	RevertError,
 } from '@gitlens/git/errors.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
-import type { GitOperationsSubProvider } from '@gitlens/git/providers/operations.js';
+import type { GitConflictFile } from '@gitlens/git/models/staging.js';
+import type { GitOperationResult, GitOperationsSubProvider } from '@gitlens/git/providers/operations.js';
 import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { normalizePath, splitPath } from '@gitlens/utils/path.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
@@ -87,7 +90,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		repoPath: string,
 		revs: string[],
 		options?: { edit?: boolean; noCommit?: boolean },
-	): Promise<void> {
+	): Promise<GitOperationResult> {
 		const scope = getScopedLogger();
 
 		const args = ['cherry-pick'];
@@ -123,15 +126,76 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
-			throw getGitCommandError(
+			const mapped = getGitCommandError(
 				'cherry-pick',
 				ex,
 				reason =>
 					new CherryPickError(
 						{ reason: reason ?? 'other', revs: revs, gitCommand: { repoPath: repoPath, args: args } },
 						ex as Error,
+					),
+			);
+			if (CherryPickError.is(mapped, 'conflicts')) {
+				return this.createConflictResult(repoPath, 'cherry-pick');
+			}
+			throw mapped;
+		}
+	}
+
+	@sequentialize({ getQueueKey: rp => rp })
+	@debug()
+	async commit(
+		repoPath: string,
+		message: string,
+		options?: {
+			all?: boolean;
+			allowEmpty?: boolean;
+			amend?: boolean;
+			author?: string;
+			date?: string;
+			signoff?: boolean;
+		},
+	): Promise<void> {
+		const scope = getScopedLogger();
+
+		const params = ['commit'];
+		if (options?.all) {
+			params.push('--all');
+		}
+		if (options?.allowEmpty) {
+			params.push('--allow-empty');
+		}
+		if (options?.amend) {
+			params.push('--amend');
+		}
+		if (options?.signoff) {
+			params.push('--signoff');
+		}
+		if (options?.author) {
+			params.push(`--author=${options.author}`);
+		}
+		if (options?.date) {
+			params.push(`--date=${options.date}`);
+		}
+		// Read commit message from stdin via -F - to avoid shell escaping issues
+		params.push('-F', '-');
+
+		try {
+			await this.git.exec({ cwd: repoPath, stdin: message, stdinEncoding: 'utf8', errors: 'throw' }, ...params);
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+		} catch (ex) {
+			scope?.error(ex);
+			throw getGitCommandError(
+				'commit',
+				ex,
+				reason =>
+					new CommitError(
+						{ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } },
+						ex,
 					),
 			);
 		}
@@ -226,7 +290,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		repoPath: string,
 		ref: string,
 		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
-	): Promise<void> {
+	): Promise<GitOperationResult> {
 		const scope = getScopedLogger();
 
 		const args = ['merge'];
@@ -256,9 +320,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
-			throw getGitCommandError(
+			const mapped = getGitCommandError(
 				'merge',
 				ex,
 				reason =>
@@ -267,6 +332,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						ex as Error,
 					),
 			);
+			if (MergeError.is(mapped, 'conflicts')) {
+				return this.createConflictResult(repoPath, 'merge');
+			}
+			throw mapped;
 		}
 	}
 
@@ -541,7 +610,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			onto?: string;
 			updateRefs?: boolean;
 		},
-	): Promise<void> {
+	): Promise<GitOperationResult> {
 		const scope = getScopedLogger();
 
 		const args = ['rebase'];
@@ -581,9 +650,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
-			throw getGitCommandError(
+			const mapped = getGitCommandError(
 				'rebase',
 				ex,
 				reason =>
@@ -596,6 +666,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						ex as Error,
 					),
 			);
+			if (RebaseError.is(mapped, 'conflicts')) {
+				return this.createConflictResult(repoPath, 'rebase');
+			}
+			throw mapped;
 		}
 	}
 
@@ -642,7 +716,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 	@sequentialize({ getQueueKey: rp => rp })
 	@debug()
-	async revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<void> {
+	async revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<GitOperationResult> {
 		const scope = getScopedLogger();
 
 		const args = ['revert'];
@@ -664,10 +738,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
 
-			throw getGitCommandError(
+			const mapped = getGitCommandError(
 				'revert',
 				ex,
 				reason =>
@@ -676,6 +751,26 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						ex as Error,
 					),
 			);
+			if (RevertError.is(mapped, 'conflicts')) {
+				return this.createConflictResult(repoPath, 'revert');
+			}
+			throw mapped;
 		}
+	}
+
+	private async createConflictResult(repoPath: string, command: GitConflictCommand): Promise<GitOperationResult> {
+		let conflicts: GitConflictFile[] | undefined;
+		try {
+			conflicts = await this.provider.status.getConflictingFiles(repoPath);
+		} catch (ex) {
+			// Don't let a secondary status-read failure mask the original conflict signal
+			Logger.warn(`Unable to read conflicting files after ${command}: ${ex}`);
+		}
+		// A conflicted op mutates the working tree, index, and paused-op state — invalidate caches
+		// and fire repository-change the same way the success path does, so downstream views refresh.
+		this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+		this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+		this.context.hooks?.operations?.onConflicted?.(command, conflicts);
+		return { conflicted: true, conflicts: conflicts };
 	}
 }

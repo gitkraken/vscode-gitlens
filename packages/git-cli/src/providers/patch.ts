@@ -107,12 +107,13 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.provider.ops?.cherryPick(targetPath, [rev], { noCommit: true });
-		} catch (ex) {
-			scope?.error(ex);
-			if (CherryPickError.is(ex, 'conflicts')) {
-				throw new ApplyPatchCommitError({ reason: 'appliedWithConflicts' }, ex);
+			const result = await this.provider.ops?.cherryPick(targetPath, [rev], { noCommit: true });
+			if (result?.conflicted) {
+				throw new ApplyPatchCommitError({ reason: 'appliedWithConflicts' });
 			}
+		} catch (ex) {
+			if (ex instanceof ApplyPatchCommitError) throw ex;
+			scope?.error(ex);
 
 			if (CherryPickError.is(ex, 'wouldOverwriteChanges')) {
 				throw new ApplyPatchCommitError({ reason: 'wouldOverwriteChanges' }, ex);

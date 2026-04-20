@@ -59,7 +59,11 @@ export interface GitBranchesSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<string | undefined>;
 
-	createBranch?(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void>;
+	/**
+	 * Creates a new local branch.
+	 * @param ref SHA or ref (branch, tag, remote-tracking ref) the new branch will point at.
+	 */
+	createBranch?(repoPath: string, name: string, ref: string, options?: { noTracking?: boolean }): Promise<void>;
 	deleteLocalBranch?(repoPath: string, names: string | string[], options?: { force?: boolean }): Promise<void>;
 	deleteRemoteBranch?(repoPath: string, names: string | string[], remote: string): Promise<void>;
 	getBranchMergedStatus?(

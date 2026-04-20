@@ -1,4 +1,11 @@
 import type { GitBranchReference, GitReference } from '../models/reference.js';
+import type { GitConflictFile } from '../models/staging.js';
+
+export interface GitOperationResult {
+	readonly conflicted: boolean;
+	/** Populated when {@link conflicted} is `true`. May be empty if the conflict file list couldn't be read. */
+	readonly conflicts?: GitConflictFile[];
+}
 
 export interface GitOperationsSubProvider {
 	checkout(
@@ -6,7 +13,23 @@ export interface GitOperationsSubProvider {
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
-	cherryPick(repoPath: string, revs: string[], options?: { edit?: boolean; noCommit?: boolean }): Promise<void>;
+	cherryPick(
+		repoPath: string,
+		revs: string[],
+		options?: { edit?: boolean; noCommit?: boolean },
+	): Promise<GitOperationResult>;
+	commit(
+		repoPath: string,
+		message: string,
+		options?: {
+			all?: boolean;
+			allowEmpty?: boolean;
+			amend?: boolean;
+			author?: string;
+			date?: string;
+			signoff?: boolean;
+		},
+	): Promise<void>;
 	fetch(
 		repoPath: string,
 		options?: {
@@ -21,7 +44,7 @@ export interface GitOperationsSubProvider {
 		repoPath: string,
 		ref: string,
 		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
-	): Promise<void>;
+	): Promise<GitOperationResult>;
 	pull(
 		repoPath: string,
 		options?: {
@@ -49,11 +72,11 @@ export interface GitOperationsSubProvider {
 			onto?: string;
 			updateRefs?: boolean;
 		},
-	): Promise<void>;
+	): Promise<GitOperationResult>;
 	reset(
 		repoPath: string,
 		rev: string,
 		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
 	): Promise<void>;
-	revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<void>;
+	revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<GitOperationResult>;
 }

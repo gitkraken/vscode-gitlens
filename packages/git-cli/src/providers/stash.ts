@@ -38,13 +38,24 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	@debug()
 	async applyStash(
 		repoPath: string,
-		stashName: string,
-		options?: { deleteAfter?: boolean },
+		stashNameOrSha: string,
+		options?: { deleteAfter?: boolean; index?: boolean },
 	): Promise<StashApplyResult> {
-		if (!stashName) return { conflicted: false };
+		if (!stashNameOrSha) return { conflicted: false };
 
-		const args = ['stash', options?.deleteAfter ? 'pop' : 'apply', stashName];
+		const args = ['stash', options?.deleteAfter ? 'pop' : 'apply'];
+		if (options?.index) {
+			args.push('--index');
+		}
+		args.push(stashNameOrSha);
+		return this.applyStashCore(repoPath, args, options?.deleteAfter ? 'stash-pop' : 'stash-apply');
+	}
 
+	private async applyStashCore(
+		repoPath: string,
+		args: string[],
+		conflictCommand: 'stash-apply' | 'stash-pop',
+	): Promise<StashApplyResult> {
 		try {
 			await this.git.exec({ cwd: repoPath }, ...args);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'stashes');
@@ -59,7 +70,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 						((ex.stdout?.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
 							ex.stdout?.includes('needs merge')))
 				) {
-					this.context.hooks?.operations?.onConflicted?.(options?.deleteAfter ? 'stash-pop' : 'stash-apply');
+					this.context.hooks?.operations?.onConflicted?.(conflictCommand);
 					return { conflicted: true };
 				}
 			}
@@ -74,6 +85,17 @@ export class StashGitSubProvider implements GitStashSubProvider {
 					),
 			);
 		}
+	}
+
+	@debug()
+	async createStash(repoPath: string, message?: string): Promise<string | undefined> {
+		const args = ['stash', 'create'];
+		if (message) {
+			args.push(message);
+		}
+
+		const result = await this.git.exec({ cwd: repoPath }, ...args);
+		return result.stdout.trim() || undefined;
 	}
 
 	@debug()

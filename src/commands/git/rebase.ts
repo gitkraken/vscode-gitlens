@@ -110,11 +110,25 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		this.container.telemetry.sendEvent('gitCommand/run', { command: 'rebase' });
 
 		try {
-			await state.repo.git.ops?.rebase(state.destination.ref, {
+			const result = await state.repo.git.ops?.rebase(state.destination.ref, {
 				editor: interactive ? await getHostEditorCommand(true) : undefined,
 				interactive: interactive,
 				updateRefs: updateRefs,
 			});
+			if (result?.conflicted) {
+				const openEditor = { title: 'Open Rebase Editor' };
+				void window
+					.showWarningMessage(
+						'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
+						openEditor,
+					)
+					.then(r => {
+						if (r === openEditor) {
+							void openRebaseEditor(this.container, state.repo.path);
+						}
+					});
+				void executeCommand('gitlens.showCommitsView');
+			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the rebase
 			if (RebaseError.is(ex, 'aborted')) {
@@ -128,23 +142,6 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to rebase. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 				);
-				return;
-			}
-
-			if (RebaseError.is(ex, 'conflicts')) {
-				this.container.telemetry.sendEvent('gitCommand/conflict', { command: 'rebase' });
-				const openEditor = { title: 'Open Rebase Editor' };
-				void window
-					.showWarningMessage(
-						'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
-						openEditor,
-					)
-					.then(result => {
-						if (result === openEditor) {
-							void openRebaseEditor(this.container, state.repo.path);
-						}
-					});
-				void executeCommand('gitlens.showCommitsView');
 				return;
 			}
 

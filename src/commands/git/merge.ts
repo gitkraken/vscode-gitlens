@@ -101,7 +101,13 @@ export class MergeGitCommand extends QuickCommand<State> {
 		this.container.telemetry.sendEvent('gitCommand/run', { command: 'merge' });
 
 		try {
-			await state.repo.git.ops?.merge(state.reference.ref, options);
+			const result = await state.repo.git.ops?.merge(state.reference.ref, options);
+			if (result?.conflicted) {
+				void window.showWarningMessage(
+					'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the merge
 			if (MergeError.is(ex, 'aborted')) {
@@ -115,15 +121,6 @@ export class MergeGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to merge. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 				);
-				return;
-			}
-
-			if (MergeError.is(ex, 'conflicts')) {
-				this.container.telemetry.sendEvent('gitCommand/conflict', { command: 'merge' });
-				void window.showWarningMessage(
-					'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
-				);
-				void executeCommand('gitlens.showCommitsView');
 				return;
 			}
 

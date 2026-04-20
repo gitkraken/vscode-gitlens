@@ -63,7 +63,12 @@ interface ApplyPatchCommitErrorDetails {
 }
 
 export class ApplyPatchCommitError extends GitCommandError<ApplyPatchCommitErrorDetails> {
-	static override is(ex: unknown, reason?: ApplyPatchCommitErrorReason): ex is ApplyPatchCommitError {
+	static override is(ex: unknown): ex is ApplyPatchCommitError;
+	static override is<R extends ApplyPatchCommitErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is ApplyPatchCommitError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: ApplyPatchCommitErrorReason): boolean {
 		return ex instanceof ApplyPatchCommitError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -92,6 +97,41 @@ export class ApplyPatchCommitError extends GitCommandError<ApplyPatchCommitError
 				}`;
 			case 'wouldOverwriteChanges':
 				return `${baseMessage} as some local changes would be overwritten`;
+			default:
+				return baseMessage;
+		}
+	}
+}
+
+export type CommitErrorReason = 'nothingToCommit' | 'conflicts' | 'noUserNameConfigured' | 'other';
+interface CommitErrorDetails {
+	reason?: CommitErrorReason;
+	gitCommand?: GitCommandContext;
+}
+
+export class CommitError extends GitCommandError<CommitErrorDetails> {
+	static override is(ex: unknown): ex is CommitError;
+	static override is<R extends CommitErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is CommitError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: CommitErrorReason): boolean {
+		return ex instanceof CommitError && (reason == null || ex.details.reason === reason);
+	}
+
+	constructor(details: CommitErrorDetails, original?: Error) {
+		super('Unable to commit', details, original);
+	}
+
+	protected override buildErrorMessage(details: CommitErrorDetails): string {
+		const baseMessage = 'Unable to commit';
+		switch (details.reason) {
+			case 'nothingToCommit':
+				return `${baseMessage} because there are no staged changes`;
+			case 'conflicts':
+				return `${baseMessage} because there are unresolved merge conflicts`;
+			case 'noUserNameConfigured':
+				return 'Please configure your git user name and email before committing';
 			default:
 				return baseMessage;
 		}
@@ -137,7 +177,12 @@ interface BranchErrorDetails {
 }
 
 export class BranchError extends GitCommandError<BranchErrorDetails> {
-	static override is(ex: unknown, reason?: BranchErrorReason): ex is BranchError {
+	static override is(ex: unknown): ex is BranchError;
+	static override is<R extends BranchErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is BranchError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: BranchErrorReason): boolean {
 		return ex instanceof BranchError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -175,7 +220,12 @@ interface CheckoutErrorDetails {
 }
 
 export class CheckoutError extends GitCommandError<CheckoutErrorDetails> {
-	static override is(ex: unknown, reason?: CheckoutErrorReason): ex is CheckoutError {
+	static override is(ex: unknown): ex is CheckoutError;
+	static override is<R extends CheckoutErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is CheckoutError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: CheckoutErrorReason): boolean {
 		return ex instanceof CheckoutError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -212,7 +262,12 @@ interface CherryPickErrorDetails {
 }
 
 export class CherryPickError extends GitCommandError<CherryPickErrorDetails> {
-	static override is(ex: unknown, reason?: CherryPickErrorReason): ex is CherryPickError {
+	static override is(ex: unknown): ex is CherryPickError;
+	static override is<R extends CherryPickErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is CherryPickError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: CherryPickErrorReason): boolean {
 		return ex instanceof CherryPickError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -255,7 +310,12 @@ interface FetchErrorDetails {
 }
 
 export class FetchError extends GitCommandError<FetchErrorDetails> {
-	static override is(ex: unknown, reason?: FetchErrorReason): ex is FetchError {
+	static override is(ex: unknown): ex is FetchError;
+	static override is<R extends FetchErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is FetchError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: FetchErrorReason): boolean {
 		return ex instanceof FetchError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -293,7 +353,12 @@ interface MergeErrorDetails {
 	gitCommand?: GitCommandContext;
 }
 export class MergeError extends GitCommandError<MergeErrorDetails> {
-	static override is(ex: unknown, reason?: MergeErrorReason): ex is MergeError {
+	static override is(ex: unknown): ex is MergeError;
+	static override is<R extends MergeErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is MergeError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: MergeErrorReason): boolean {
 		return ex instanceof MergeError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -329,7 +394,12 @@ interface PausedOperationAbortErrorDetails {
 }
 
 export class PausedOperationAbortError extends GitCommandError<PausedOperationAbortErrorDetails> {
-	static override is(ex: unknown, reason?: PausedOperationAbortErrorReason): ex is PausedOperationAbortError {
+	static override is(ex: unknown): ex is PausedOperationAbortError;
+	static override is<R extends PausedOperationAbortErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is PausedOperationAbortError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: PausedOperationAbortErrorReason): boolean {
 		return ex instanceof PausedOperationAbortError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -363,7 +433,12 @@ interface PausedOperationContinueErrorDetails {
 }
 
 export class PausedOperationContinueError extends GitCommandError<PausedOperationContinueErrorDetails> {
-	static override is(ex: unknown, reason?: PausedOperationContinueErrorReason): ex is PausedOperationContinueError {
+	static override is(ex: unknown): ex is PausedOperationContinueError;
+	static override is<R extends PausedOperationContinueErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is PausedOperationContinueError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: PausedOperationContinueErrorReason): boolean {
 		return ex instanceof PausedOperationContinueError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -411,7 +486,9 @@ interface PullErrorDetails {
 }
 
 export class PullError extends GitCommandError<PullErrorDetails> {
-	static override is(ex: unknown, reason?: PullErrorReason): ex is PullError {
+	static override is(ex: unknown): ex is PullError;
+	static override is<R extends PullErrorReason>(ex: unknown, reason: R): ex is PullError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: PullErrorReason): boolean {
 		return ex instanceof PullError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -467,7 +544,9 @@ interface PushErrorDetails {
 }
 
 export class PushError extends GitCommandError<PushErrorDetails> {
-	static override is(ex: unknown, reason?: PushErrorReason): ex is PushError {
+	static override is(ex: unknown): ex is PushError;
+	static override is<R extends PushErrorReason>(ex: unknown, reason: R): ex is PushError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: PushErrorReason): boolean {
 		return ex instanceof PushError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -521,7 +600,12 @@ interface RebaseErrorDetails {
 }
 
 export class RebaseError extends GitCommandError<RebaseErrorDetails> {
-	static override is(ex: unknown, reason?: RebaseErrorReason): ex is RebaseError {
+	static override is(ex: unknown): ex is RebaseError;
+	static override is<R extends RebaseErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is RebaseError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: RebaseErrorReason): boolean {
 		return ex instanceof RebaseError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -564,7 +648,12 @@ interface ResetErrorDetails {
 }
 
 export class ResetError extends GitCommandError<ResetErrorDetails> {
-	static override is(ex: unknown, reason?: ResetErrorReason): ex is ResetError {
+	static override is(ex: unknown): ex is ResetError;
+	static override is<R extends ResetErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is ResetError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: ResetErrorReason): boolean {
 		return ex instanceof ResetError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -609,7 +698,12 @@ interface RevertErrorDetails {
 }
 
 export class RevertError extends GitCommandError<RevertErrorDetails> {
-	static override is(ex: unknown, reason?: RevertErrorReason): ex is RevertError {
+	static override is(ex: unknown): ex is RevertError;
+	static override is<R extends RevertErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is RevertError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: RevertErrorReason): boolean {
 		return ex instanceof RevertError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -644,7 +738,12 @@ interface StashApplyErrorDetails {
 }
 
 export class StashApplyError extends GitCommandError<StashApplyErrorDetails> {
-	static override is(ex: unknown, reason?: StashApplyErrorReason): ex is StashApplyError {
+	static override is(ex: unknown): ex is StashApplyError;
+	static override is<R extends StashApplyErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is StashApplyError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: StashApplyErrorReason): boolean {
 		return ex instanceof StashApplyError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -669,7 +768,12 @@ interface StashPushErrorDetails {
 }
 
 export class StashPushError extends GitCommandError<StashPushErrorDetails> {
-	static override is(ex: unknown, reason?: StashPushErrorReason): ex is StashPushError {
+	static override is(ex: unknown): ex is StashPushError;
+	static override is<R extends StashPushErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is StashPushError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: StashPushErrorReason): boolean {
 		return ex instanceof StashPushError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -698,7 +802,9 @@ interface ShowErrorDetails {
 }
 
 export class ShowError extends GitCommandError<ShowErrorDetails> {
-	static override is(ex: unknown, reason?: ShowErrorReason): ex is ShowError {
+	static override is(ex: unknown): ex is ShowError;
+	static override is<R extends ShowErrorReason>(ex: unknown, reason: R): ex is ShowError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: ShowErrorReason): boolean {
 		return ex instanceof ShowError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -740,7 +846,9 @@ interface TagErrorDetails {
 }
 
 export class TagError extends GitCommandError<TagErrorDetails> {
-	static override is(ex: unknown, reason?: TagErrorReason): ex is TagError {
+	static override is(ex: unknown): ex is TagError;
+	static override is<R extends TagErrorReason>(ex: unknown, reason: R): ex is TagError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: TagErrorReason): boolean {
 		return ex instanceof TagError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -792,7 +900,12 @@ interface WorktreeCreateErrorDetails {
 }
 
 export class WorktreeCreateError extends GitCommandError<WorktreeCreateErrorDetails> {
-	static override is(ex: unknown, reason?: WorktreeCreateErrorReason): ex is WorktreeCreateError {
+	static override is(ex: unknown): ex is WorktreeCreateError;
+	static override is<R extends WorktreeCreateErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is WorktreeCreateError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: WorktreeCreateErrorReason): boolean {
 		return ex instanceof WorktreeCreateError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -819,7 +932,12 @@ interface WorktreeDeleteErrorDetails {
 }
 
 export class WorktreeDeleteError extends GitCommandError<WorktreeDeleteErrorDetails> {
-	static override is(ex: unknown, reason?: WorktreeDeleteErrorReason): ex is WorktreeDeleteError {
+	static override is(ex: unknown): ex is WorktreeDeleteError;
+	static override is<R extends WorktreeDeleteErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is WorktreeDeleteError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: WorktreeDeleteErrorReason): boolean {
 		return ex instanceof WorktreeDeleteError && (reason == null || ex.details.reason === reason);
 	}
 
@@ -972,7 +1090,12 @@ interface SigningErrorDetails {
 }
 
 export class SigningError extends GitCommandError<SigningErrorDetails> {
-	static override is(ex: unknown, reason?: SigningErrorReason): ex is SigningError {
+	static override is(ex: unknown): ex is SigningError;
+	static override is<R extends SigningErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is SigningError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: SigningErrorReason): boolean {
 		return ex instanceof SigningError && (reason == null || ex.details.reason === reason);
 	}
 

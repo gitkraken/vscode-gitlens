@@ -87,13 +87,19 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		this.container.telemetry.sendEvent('gitCommand/run', { command: 'cherry-pick' });
 
 		try {
-			await state.repo.git.ops?.cherryPick?.(
+			const result = await state.repo.git.ops?.cherryPick?.(
 				state.references.map(c => c.ref),
 				{
 					edit: state.flags.includes('--edit'),
 					noCommit: state.flags.includes('--no-commit'),
 				},
 			);
+			if (result?.conflicted) {
+				void window.showWarningMessage(
+					'Unable to cherry-pick due to conflicts. Resolve the conflicts before continuing, or abort the cherry-pick.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the cherry-pick
 			if (CherryPickError.is(ex, 'aborted')) {
@@ -107,15 +113,6 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to cherry-pick. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 				);
-				return;
-			}
-
-			if (CherryPickError.is(ex, 'conflicts')) {
-				this.container.telemetry.sendEvent('gitCommand/conflict', { command: 'cherry-pick' });
-				void window.showWarningMessage(
-					'Unable to cherry-pick due to conflicts. Resolve the conflicts before continuing, or abort the cherry-pick.',
-				);
-				void executeCommand('gitlens.showCommitsView');
 				return;
 			}
 
