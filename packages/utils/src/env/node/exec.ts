@@ -207,6 +207,11 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	 */
 	readonly stdinEncoding?: string;
 	readonly timeout?: number;
+	/**
+	 * When true, suppresses the `[EXEC]` stderr warning emitted on debug-enabled scopes.
+	 * Use for commands whose failure is expected (e.g. paired with `errors: 'ignore'`).
+	 */
+	readonly quiet?: boolean;
 }
 
 const bufferExceededRegex = /stdout maxBuffer( length)? exceeded/;
@@ -296,7 +301,7 @@ export function run<T extends number | string>(
 					return;
 				}
 
-				if (stderr && scope?.enabled('debug')) {
+				if (stderr && !options?.quiet && scope?.enabled('debug')) {
 					scope?.warn(`[EXEC] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 				}
 
@@ -413,7 +418,7 @@ export function runSpawn<T extends string | Buffer>(
 			if (code !== 0 || signal) {
 				const stdio = getStdio<string>(errorEncoding);
 				const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
-				if (stderr.length && scope?.enabled('debug')) {
+				if (stderr.length && !options?.quiet && scope?.enabled('debug')) {
 					scope?.warn(`[EXEC] '${command} ${args.join(' ')}' \u2022 ${stderr}`);
 				}
 
@@ -440,7 +445,7 @@ export function runSpawn<T extends string | Buffer>(
 
 			const stdio = getStdio<T>(encoding);
 			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
-			if (stderr.length && scope?.enabled('debug')) {
+			if (stderr.length && !options?.quiet && scope?.enabled('debug')) {
 				scope?.warn(
 					`[EXEC] '${command} ${args.join(' ')}' \u2022 ${typeof stderr === 'string' ? stderr : stderr.toString()}`,
 				);

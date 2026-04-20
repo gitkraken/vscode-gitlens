@@ -626,6 +626,7 @@ export class Git {
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
 			decode: this.options.decode,
 			env: this.buildEnv(options.env),
+			quiet: errorHandling === 'ignore',
 		};
 
 		const cacheKey = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
