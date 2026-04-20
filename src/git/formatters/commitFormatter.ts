@@ -837,6 +837,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (outputFormat === 'markdown') {
 			// Block image embeds to prevent tracking pixels from commit messages
 			message = message.replace(/!\[/g, '&#33;&#91;');
+			// Preserve line breaks — Markdown collapses a lone `\n` into whitespace, so convert single
+			// newlines into CommonMark hard line breaks (`  \n`); `\n\n` becomes `  \n  \n` which still
+			// parses as a blank line (paragraph break).
+			message = message.replace(/\n/g, '  \n');
 		}
 
 		if (this._options.messageAutolinks) {
