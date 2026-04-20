@@ -36,16 +36,22 @@ export class CustomRemoteProvider extends RemoteProvider {
 	}
 
 	getUrlForAvatar(email: string, size: number): string | undefined {
-		if (this.urls.avatar != null) {
-			const [emailName, domain] = email.split('@');
-			return this.encodeUrl(
-				interpolate(
-					this.urls.avatar,
-					this.getContext({ emailName: emailName, domain: domain, email: email, size: String(size) }),
-				),
-			);
-		}
-		return undefined;
+		if (this.urls.avatar == null) return undefined;
+
+		// Split on the last `@` so local-parts that contain `@` are preserved (per RFC 5322)
+		const at = email.lastIndexOf('@');
+		const emailName = at === -1 ? email : email.slice(0, at);
+		const domain = at === -1 ? '' : email.slice(at + 1);
+
+		// Component-encode identity values — commit emails are attacker-controllable and
+		// must never be able to inject URL-structural characters (`/`, `?`, `#`, ...) into the
+		// resulting URL
+		return interpolate(this.urls.avatar, {
+			email: encodeURIComponent(email),
+			emailName: encodeURIComponent(emailName),
+			domain: encodeURIComponent(domain),
+			size: String(size),
+		});
 	}
 
 	protected override getUrlForRepository(): string {
