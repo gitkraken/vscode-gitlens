@@ -51,6 +51,8 @@ jobs:
         needs: check
         runs-on: ubuntu-latest
         if: needs.check.outputs.status == 'changed'
+        permissions:
+            contents: write
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -74,6 +76,18 @@ jobs:
               run: pnpm vsce publish --no-dependencies --pre-release --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}
             - name: Publish extension to OpenVSIX
               run: pnpm ovsx publish ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_OPENVSIX_PAT }}
+            - name: Tag pre-release commit
+              env:
+                  TAG: releases/ext/pre/v${{ env.PACKAGE_VERSION }}
+              run: |
+                  git config user.name github-actions
+                  git config user.email github-actions@github.com
+                  if git ls-remote --exit-code --tags origin "$TAG" >/dev/null 2>&1; then
+                      echo "::warning::Tag $TAG already exists on origin; skipping tag push."
+                      exit 0
+                  fi
+                  git tag -a "$TAG" -m "Pre-release v${{ env.PACKAGE_VERSION }}"
+                  git push origin "$TAG"
             - name: Publish artifact
               uses: actions/upload-artifact@v4
               with:

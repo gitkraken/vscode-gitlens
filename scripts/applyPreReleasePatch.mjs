@@ -16,7 +16,7 @@ let packageJSON = JSON.stringify(
 		...pkg,
 		version: `${String(date.getFullYear())}.${date.getMonth() + 1}.${date.getDate()}${String(
 			date.getHours(),
-		).padStart(2, '0')}`,
+		).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`,
 	},
 	undefined,
 	'\t',
