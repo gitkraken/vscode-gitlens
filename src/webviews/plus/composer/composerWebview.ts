@@ -1664,9 +1664,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				await svc.ops?.reset(shas.at(-1)!, { mode: 'hard' });
 			}
 
-			// Pop the stash we created to restore what is left in the working tree
+			// Pop the stash we created to restore what is left in the working tree, preserving
+			// the original staged/unstaged split so the user's pre-composer workspace round-trips.
 			if (stashCommit && stashedSuccessfully) {
-				const stashResult = await svc.stash?.applyStash(stashCommit.stashName, { deleteAfter: true });
+				const stashResult = await svc.stash?.applyStash(stashCommit.stashName, {
+					deleteAfter: true,
+					index: true,
+				});
 				if (stashResult?.conflicted) {
 					void window.showInformationMessage('Stash applied with conflicts');
 				}
