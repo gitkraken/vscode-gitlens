@@ -285,6 +285,7 @@ export class GlSearchInput extends GlElement {
 
 		.example {
 			display: inline-block;
+			margin-left: 0.5em;
 		}
 
 		code {
