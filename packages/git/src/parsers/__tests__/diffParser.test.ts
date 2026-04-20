@@ -5,6 +5,7 @@ import {
 	countDiffLines,
 	parseGitDiff,
 	parseGitDiffNameStatusFiles,
+	parseGitDiffNumStatFiles,
 	parseGitDiffShortStat,
 	parseGitFileDiff,
 } from '../diffParser.js';
@@ -581,6 +582,203 @@ suite('Diff Parser Test Suite', () => {
 			assert.strictEqual(result![0].path, 'src/new.ts');
 			assert.strictEqual(result![1].status, 'D');
 			assert.strictEqual(result![1].path, 'src/removed.ts');
+		});
+	});
+
+	suite('parseGitDiffNumStatFiles', () => {
+		test('parses a modified file and populates stats', () => {
+			const data = '3\t1\tsrc/foo.ts\0';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'M');
+			assert.strictEqual(result![0].path, 'src/foo.ts');
+			assert.strictEqual(result![0].originalPath, undefined);
+			assert.strictEqual(result![0].repoPath, '/repo');
+			assert.deepStrictEqual(result![0].stats, { additions: 3, deletions: 1, changes: 4 });
+		});
+
+		test('parses an added file (promoted via summary)', () => {
+			const data = '5\t0\tsrc/new.ts\0 create mode 100644 src/new.ts\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'A');
+			assert.strictEqual(result![0].path, 'src/new.ts');
+			assert.deepStrictEqual(result![0].stats, { additions: 5, deletions: 0, changes: 5 });
+		});
+
+		test('parses a deleted file (promoted via summary)', () => {
+			const data = '0\t8\tsrc/old.ts\0 delete mode 100644 src/old.ts\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'D');
+			assert.strictEqual(result![0].path, 'src/old.ts');
+			assert.deepStrictEqual(result![0].stats, { additions: 0, deletions: 8, changes: 8 });
+		});
+
+		test('parses a rename from the numstat section', () => {
+			const data = '2\t3\t\0src/old.ts\0src/new.ts\0 rename src/old.ts => src/new.ts (92%)\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'R');
+			assert.strictEqual(result![0].path, 'src/new.ts');
+			assert.strictEqual(result![0].originalPath, 'src/old.ts');
+			assert.deepStrictEqual(result![0].stats, { additions: 2, deletions: 3, changes: 5 });
+		});
+
+		test('promotes copy to C via summary (full form)', () => {
+			const data = '2\t0\t\0src/original.ts\0src/copy.ts\0 copy src/original.ts => src/copy.ts (90%)\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'C');
+			assert.strictEqual(result![0].path, 'src/copy.ts');
+			assert.strictEqual(result![0].originalPath, 'src/original.ts');
+		});
+
+		test('promotes copy to C via summary (compact form)', () => {
+			const data = '1\t0\t\0src/original.ts\0src/copy.ts\0 copy src/{original.ts => copy.ts} (95%)\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'C');
+			assert.strictEqual(result![0].path, 'src/copy.ts');
+			assert.strictEqual(result![0].originalPath, 'src/original.ts');
+		});
+
+		test('promotes copy to C via summary (compact mid-form with suffix)', () => {
+			const data =
+				'1\t0\t\0packages/foo/src/baz.ts\0packages/bar/src/baz.ts\0' +
+				' copy packages/{foo => bar}/src/baz.ts (100%)\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'C');
+			assert.strictEqual(result![0].path, 'packages/bar/src/baz.ts');
+			assert.strictEqual(result![0].originalPath, 'packages/foo/src/baz.ts');
+		});
+
+		test('rename summary line leaves status as R (not promoted to C)', () => {
+			const data = '4\t2\t\0src/old.ts\0src/new.ts\0 rename src/{old.ts => new.ts} (90%)\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'R');
+			assert.strictEqual(result![0].path, 'src/new.ts');
+			assert.strictEqual(result![0].originalPath, 'src/old.ts');
+		});
+
+		test('promotes type change to T when mode family differs (file to symlink)', () => {
+			const data = '1\t1\tsrc/link.ts\0 mode change 100644 => 120000 src/link.ts\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'T');
+			assert.strictEqual(result![0].path, 'src/link.ts');
+		});
+
+		test('leaves status as M for permission-only mode changes', () => {
+			const data = '0\t0\tscripts/run.sh\0 mode change 100644 => 100755 scripts/run.sh\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'M');
+			assert.strictEqual(result![0].path, 'scripts/run.sh');
+		});
+
+		test('parses a binary file with zero stats', () => {
+			const data = '-\t-\tassets/icon.png\0 create mode 100644 assets/icon.png\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 1);
+			assert.strictEqual(result![0].status, 'A');
+			assert.strictEqual(result![0].path, 'assets/icon.png');
+			assert.deepStrictEqual(result![0].stats, { additions: 0, deletions: 0, changes: 0 });
+		});
+
+		test('parses an undetected rename as an A + D pair (renameLimit=0 fallback)', () => {
+			const data =
+				'0\t5\tsrc/old.ts\0' +
+				'5\t0\tsrc/new.ts\0' +
+				' create mode 100644 src/new.ts\n delete mode 100644 src/old.ts\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 2);
+
+			const deleted = result!.find(f => f.path === 'src/old.ts');
+			const added = result!.find(f => f.path === 'src/new.ts');
+			assert.ok(deleted, 'deleted entry should exist');
+			assert.ok(added, 'added entry should exist');
+			assert.strictEqual(deleted.status, 'D');
+			assert.strictEqual(added.status, 'A');
+		});
+
+		test('parses multiple mixed entries in one payload', () => {
+			const data =
+				'2\t1\tsrc/modified.ts\0' +
+				'10\t0\tsrc/added.ts\0' +
+				'0\t4\tsrc/deleted.ts\0' +
+				'3\t2\t\0src/old.ts\0src/renamed.ts\0' +
+				' create mode 100644 src/added.ts\n delete mode 100644 src/deleted.ts\n rename src/old.ts => src/renamed.ts (80%)\n';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 4);
+
+			const modified = result!.find(f => f.path === 'src/modified.ts');
+			const added = result!.find(f => f.path === 'src/added.ts');
+			const deleted = result!.find(f => f.path === 'src/deleted.ts');
+			const renamed = result!.find(f => f.path === 'src/renamed.ts');
+			assert.strictEqual(modified!.status, 'M');
+			assert.strictEqual(added!.status, 'A');
+			assert.strictEqual(deleted!.status, 'D');
+			assert.strictEqual(renamed!.status, 'R');
+			assert.strictEqual(renamed!.originalPath, 'src/old.ts');
+		});
+
+		test('handles a payload with only modifications (no summary section)', () => {
+			const data = '1\t1\ta.ts\x002\t0\tb.ts\0';
+
+			const result = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.notStrictEqual(result, undefined);
+			assert.strictEqual(result!.length, 2);
+			assert.strictEqual(result![0].status, 'M');
+			assert.strictEqual(result![1].status, 'M');
+		});
+
+		test('returns undefined for empty data', () => {
+			const result = parseGitDiffNumStatFiles('', '/repo');
+
+			assert.strictEqual(result, undefined);
 		});
 	});
 

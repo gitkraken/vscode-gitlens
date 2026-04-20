@@ -1,4 +1,4 @@
-import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import type {
@@ -26,7 +26,17 @@ const newModeRegex = /new mode (\d+)/;
 const similarityRegex = /similarity index (\d+)%/;
 const diffGitSplitRegex = /^diff --git /m;
 const diffGitLookaheadRegex = /^(?=diff --git )/m;
-const applyRenameSummaryRegex = /(rename) (.*?)\{?([^{]+?)\s+=>\s+(.+?)\}?(?: \(\d+%\))|(create|delete) mode \d+ (.+)/;
+// Matches summary lines from `git diff --summary` and `git apply --summary`:
+//   ` rename [prefix/]{old => new}[/suffix] (XX%)` or ` rename old => new (XX%)`
+//   ` copy   [prefix/]{old => new}[/suffix] (XX%)` or ` copy   old => new (XX%)`
+//   ` create|delete mode XXXXXX path`
+//   ` mode change XXXXXX => YYYYYY path`
+// The rename/copy alternative captures four parts so compact mid-form paths like
+// `a/b/{c => d}/e.txt` reconstruct correctly: prefix + oldLeaf + suffix and prefix + newLeaf + suffix.
+// `[^}]+` on the new-leaf forces greedy-with-backtracking so the leaf anchors at `}` in compact forms
+// and at ` (XX%)` otherwise — lazy `(.+?)` would push content into the suffix group.
+const diffSummaryRegex =
+	/(rename|copy) (.*?)\{?([^{]+?)\s+=>\s+([^}]+)\}?(.*?)(?: \(\d+%\))|(create|delete) mode \d+ (.+)|mode change (\d+) => (\d+) (.+)/;
 
 interface ParsedGitDiffFileResult {
 	status: GitFileStatus;
@@ -391,6 +401,147 @@ export function parseGitDiffNameStatusFiles(data: string, repoPath: string): Git
 	return files;
 }
 
+/**
+ * Parses the output of `git diff --numstat --summary -z`.
+ *
+ * Numstat records are null-separated:
+ *   `additions\tdeletions\tpath\0`
+ * Renames and copies have an empty path followed by two additional null-separated fields:
+ *   `additions\tdeletions\t\0oldPath\0newPath\0`
+ * The summary section (if any) follows the final null byte as newline-separated lines:
+ *   ` create mode 100644 path`
+ *   ` delete mode 100644 path`
+ *   ` rename old => new (100%)`
+ *   ` copy old => new (85%)`
+ *   ` mode change 100644 => 120000 path`
+ *
+ * Numstat alone cannot distinguish: rename vs. copy, or modified vs. type-changed.
+ * The summary pass refines those statuses: copies are promoted to `C`, and mode changes
+ * that cross the file-type boundary (regular file ↔ symlink ↔ gitlink, i.e. the high two
+ * octal digits differ) are promoted to `T`.
+ */
+export function parseGitDiffNumStatFiles(data: string, repoPath: string): GitFile[] | undefined {
+	using sw = maybeStopWatch('Git.parseDiffNumStatFiles', { log: { onlyExit: true, level: 'debug' } });
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
+
+	const files = new Map<string, GitFile>();
+
+	// Numstat records are \0-terminated; the summary (if any) lives after the final \0 as \n-separated lines.
+	// Slice explicitly rather than popping the last split element, so numstat and summary never get conflated.
+	const lastNullIndex = data.lastIndexOf('\0');
+	const numstatData = lastNullIndex === -1 ? data : data.substring(0, lastNullIndex);
+	const summary = lastNullIndex === -1 ? '' : data.substring(lastNullIndex + 1);
+
+	const fields = numstatData.split('\0');
+
+	let i = 0;
+	while (i < fields.length) {
+		const field = fields[i];
+		if (!field) {
+			i++;
+			continue;
+		}
+
+		const tabIndex1 = field.indexOf('\t');
+		if (tabIndex1 === -1) {
+			i++;
+			continue;
+		}
+		const tabIndex2 = field.indexOf('\t', tabIndex1 + 1);
+		if (tabIndex2 === -1) {
+			i++;
+			continue;
+		}
+
+		const insertionsStr = field.substring(0, tabIndex1);
+		const deletionsStr = field.substring(tabIndex1 + 1, tabIndex2);
+		let path = field.substring(tabIndex2 + 1);
+
+		let originalPath: string | undefined;
+		if (path === '') {
+			// Rename or copy: next two fields are oldPath and newPath (summary pass distinguishes R vs C)
+			if (i + 2 >= fields.length) break;
+			originalPath = fields[++i];
+			path = fields[++i];
+		}
+
+		// Binary files report `-` instead of a line count; preserve the explicit check for clarity
+		const additions = insertionsStr === '-' ? 0 : parseInt(insertionsStr, 10) || 0;
+		const deletions = deletionsStr === '-' ? 0 : parseInt(deletionsStr, 10) || 0;
+
+		const normalizedPath = normalizePath(path);
+		files.set(normalizedPath, {
+			repoPath: repoPath,
+			path: path,
+			originalPath: originalPath,
+			status: (originalPath ? 'R' : 'M') as GitFileStatus,
+			stats: { additions: additions, deletions: deletions, changes: additions + deletions },
+		});
+
+		i++;
+	}
+
+	// Refine statuses from the summary section:
+	//   create → A, delete → D, copy → C (renames already default to R from numstat),
+	//   mode change across file-type boundaries → T
+	if (summary) {
+		for (let line of summary.split('\n')) {
+			line = line.trim();
+			if (!line) continue;
+
+			const match = diffSummaryRegex.exec(line);
+			if (match == null) continue;
+
+			// Positional destructure matches diffSummaryRegex's 9 capture groups.
+			// Group 3 (original-leaf) is unused here — numstat already provides authoritative rename paths.
+			const [
+				,
+				renameOrCopy,
+				renameRoot,
+				,
+				renameNewLeaf,
+				renameSuffix,
+				createOrDelete,
+				createOrDeletePath,
+				oldMode,
+				newMode,
+				modeChangePath,
+			] = match;
+
+			if (createOrDelete != null) {
+				const file = files.get(normalizePath(createOrDeletePath));
+				if (file != null) {
+					file.status = (createOrDelete === 'create' ? 'A' : 'D') as GitFileStatus;
+				}
+			} else if (renameOrCopy === 'copy') {
+				// Numstat defaulted to R; promote to C. Reconstruct the full new-side path by
+				// concatenating prefix + new-leaf + suffix, covering all compact and non-compact forms.
+				const file = files.get(normalizePath(renameRoot + renameNewLeaf + renameSuffix));
+				if (file != null) {
+					file.status = 'C' as GitFileStatus;
+				}
+			} else if (modeChangePath != null) {
+				// File-type boundary: 100xxx = regular file, 120000 = symlink, 160000 = gitlink.
+				// Promote to T only when the high two octal digits differ (ignore permission-only changes).
+				if (oldMode.substring(0, 2) !== newMode.substring(0, 2)) {
+					const file = files.get(normalizePath(modeChangePath));
+					if (file != null) {
+						file.status = 'T' as GitFileStatus;
+					}
+				}
+			}
+			// Renames are already handled by the numstat section with -z
+		}
+	}
+
+	sw?.stop({ suffix: ` parsed ${files.size} files` });
+
+	return files.size > 0 ? [...files.values()] : undefined;
+}
+
 export function parseGitApplyFiles(data: string, repoPath: string): GitFileChange[] {
 	using sw = maybeStopWatch('Git.parseApplyFiles', { log: { onlyExit: true, level: 'debug' } });
 	if (!data) {
@@ -425,30 +576,42 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 		line = line.trim();
 		if (!line) continue;
 
-		const match = applyRenameSummaryRegex.exec(line);
+		const match = diffSummaryRegex.exec(line);
 		if (match == null) continue;
 
-		let [, rename, renameRoot, renameOriginalPath, renamePath, createOrDelete, createOrDeletePath] = match;
+		// Positional destructure matches diffSummaryRegex's 9 capture groups.
+		// mode-change groups (8–10) are unused here — git apply's summary does not emit them in practice.
+		const [
+			,
+			renameOrCopy,
+			renameRoot,
+			renameOriginalLeaf,
+			renameNewLeaf,
+			renameSuffix,
+			createOrDelete,
+			createOrDeletePath,
+		] = match;
 
-		if (rename != null) {
-			renamePath = normalizePath(joinPaths(renameRoot, renamePath));
-			renameOriginalPath = normalizePath(joinPaths(renameRoot, renameOriginalPath));
+		if (renameOrCopy != null) {
+			// Reconstruct both sides: prefix + leaf + suffix, handling all compact and non-compact forms.
+			const newPath = normalizePath(renameRoot + renameNewLeaf + renameSuffix);
+			const originalPath = normalizePath(renameRoot + renameOriginalLeaf + renameSuffix);
 
-			const file = files.get(renamePath)!;
+			const file = files.get(newPath)!;
 			files.set(
-				renamePath,
+				newPath,
 				new GitFileChange(
 					repoPath,
-					renamePath,
-					'R' as GitFileStatus,
-					getUri(renamePath),
-					renameOriginalPath,
-					getUri(renameOriginalPath),
+					newPath,
+					(renameOrCopy === 'copy' ? 'C' : 'R') as GitFileStatus,
+					getUri(newPath),
+					originalPath,
+					getUri(originalPath),
 					undefined,
 					file.stats,
 				),
 			);
-		} else {
+		} else if (createOrDelete != null) {
 			const file = files.get(normalizePath(createOrDeletePath))!;
 			files.set(
 				createOrDeletePath,

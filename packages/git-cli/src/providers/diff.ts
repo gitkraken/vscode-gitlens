@@ -12,7 +12,7 @@ import type { GitRevisionRange, GitRevisionRangeNotation } from '@gitlens/git/mo
 import { deletedOrMissing, rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import {
 	parseGitApplyFiles,
-	parseGitDiffNameStatusFiles,
+	parseGitDiffNumStatFiles,
 	parseGitDiffShortStat,
 	parseGitFileDiff,
 } from '@gitlens/git/parsers/diffParser.js';
@@ -185,7 +185,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			const result = await this.git.exec(
 				{ cwd: repoPath, configs: configs },
 				'diff',
-				'--name-status',
+				'--numstat',
+				'--summary',
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--no-ext-diff',
 				'-z',
@@ -197,8 +198,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			);
 			if (!result.stdout) return undefined;
 
-			const files = parseGitDiffNameStatusFiles(result.stdout, repoPath);
-			return files == null || files.length === 0 ? undefined : files;
+			return parseGitDiffNumStatFiles(result.stdout, repoPath);
 		} catch (_ex) {
 			return undefined;
 		}
