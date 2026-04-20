@@ -400,7 +400,29 @@ importers:
         specifier: 4.3.6
         version: 4.3.6
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      '@octokit/graphql':
+        specifier: 9.0.3
+        version: 9.0.3
+      '@octokit/request':
+        specifier: 10.0.8
+        version: 10.0.8
+      '@octokit/request-error':
+        specifier: 7.1.0
+        version: 7.1.0
+      '@octokit/types':
+        specifier: 16.0.0
+        version: 16.0.0
+      fast-string-truncated-width:
+        specifier: 3.0.3
+        version: 3.0.3
+      ignore:
+        specifier: 7.0.5
+        version: 7.0.5
+      vscode-uri:
+        specifier: 3.1.0
+        version: 3.1.0
 
   packages/git:
     dependencies:
