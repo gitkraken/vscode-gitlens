@@ -407,6 +407,10 @@ Missing any of those = UI readiness is unverified. "Code paths look clean" is no
 - `/simplify` — 3-agent parallel code cleanup (reuse / quality / efficiency); invoked from Phase 6.
 - `/live-perf` — performance measurement + evaluation + improvement; invoked from Phase 7. Owns all perf discipline (scope, three-tier classification, measure-first rules).
 
+**Interactive counterpart:**
+
+- `/live-pair` — user-driven pair-programming session; the user gives feedback, the agent edits/rebuilds/refreshes live. Use when iteration is exploratory/creative rather than audit-driven. When `/live-pair` detects a structural bug mid-session, it will flag and offer to delegate back to `/live-exercise`.
+
 **Static counterparts:**
 
 - `/ux-review` — static counterpart to L2/L3; useful for pre-merge review without running the extension

@@ -255,6 +255,7 @@ Skills provide detailed, step-by-step workflows for common tasks. Invoke with `/
 | `/live-inspect`    | Launch VS Code with GitLens via Playwright inspect UI/logs                  |
 | `/live-exercise`   | Live operation + audit + fix loop for UI-bearing work                       |
 | `/live-perf`       | Live performance measurement + improvement with three-tier discipline       |
+| `/live-pair`       | Interactive pair-programming with a live instance (user-driven feedback)    |
 
 ### Canonical Examples
 

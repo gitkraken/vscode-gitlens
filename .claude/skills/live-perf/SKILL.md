@@ -395,5 +395,6 @@ You MUST have:
 **Related:**
 
 - `/live-exercise` — the audit-and-fix loop that invokes this skill from Phase 7. Use `/live-exercise` first for functional/intent issues; use this skill for dedicated perf work.
+- `/live-pair` — interactive pair-programming counterpart. When a pair session surfaces "this feels slow," delegate here for measured tuning.
 - `/simplify` — code quality cleanup; different concern. Perf fixes can create drift that `/simplify` addresses.
 - `/deep-review` — static correctness tracing; complements live measurement by catching perf bugs that don't surface under current load.

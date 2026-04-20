@@ -296,4 +296,8 @@ Use `resize_viewport` if you need a specific window size for responsive testing.
 
 ## Related skills
 
-- `/live-exercise` — the iterative working rhythm for UI-bearing work, which uses this skill's tools as its primitive. Use `/live-exercise` when touching UI; use this skill on its own for one-off inspection.
+- `/live-exercise` — agent-driven iterative working rhythm for UI-bearing work (audit + fix loop), which uses this skill's tools as its primitive.
+- `/live-perf` — agent-driven performance measurement + improvement skill, also built on these primitives.
+- `/live-pair` — user-driven interactive pair-programming session; the user gives feedback, the agent edits/rebuilds/refreshes live.
+
+Use `/live-exercise`, `/live-perf`, or `/live-pair` when touching UI; use this skill on its own for one-off inspection.
