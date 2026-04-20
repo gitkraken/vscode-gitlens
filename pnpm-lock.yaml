@@ -400,6 +400,8 @@ importers:
         specifier: 4.3.6
         version: 4.3.6
 
+  packages/core: {}
+
   packages/git:
     dependencies:
       '@gitlens/utils':

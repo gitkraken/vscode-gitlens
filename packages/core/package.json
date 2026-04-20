@@ -1,0 +1,161 @@
+{
+	"name": "@gitkraken/core-gitlens",
+	"description": "GitLens core — shared Git / AI / GitHub primitives for internal GitKraken consumption",
+	"version": "0.1.0",
+	"license": "SEE LICENSE IN LICENSE",
+	"author": {
+		"name": "GitKraken",
+		"url": "https://gitkraken.com"
+	},
+	"homepage": "https://github.com/gitkraken/vscode-gitlens/tree/main/packages/core",
+	"bugs": {
+		"url": "https://github.com/gitkraken/vscode-gitlens/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/gitkraken/vscode-gitlens.git",
+		"directory": "packages/core"
+	},
+	"engines": {
+		"node": ">= 22.12.0"
+	},
+	"type": "module",
+	"sideEffects": false,
+	"publishConfig": {
+		"provenance": false
+	},
+	"files": [
+		"dist",
+		"src",
+		"LICENSE",
+		"LICENSE.plus",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"imports": {
+		"#env/*.js": {
+			"node": {
+				"types": "./dist/utils/env/node/*.d.ts",
+				"default": "./dist/utils/env/node/*.js"
+			},
+			"default": {
+				"types": "./dist/utils/env/browser/*.d.ts",
+				"default": "./dist/utils/env/browser/*.js"
+			}
+		}
+	},
+	"exports": {
+		"./package.json": "./package.json",
+		"./git-cli/*.js": {
+			"types": "./dist/git-cli/*.d.ts",
+			"default": "./dist/git-cli/*.js"
+		},
+		"./git-cli/exec/*.js": {
+			"types": "./dist/git-cli/exec/*.d.ts",
+			"default": "./dist/git-cli/exec/*.js"
+		},
+		"./git-cli/parsers/*.js": {
+			"types": "./dist/git-cli/parsers/*.d.ts",
+			"default": "./dist/git-cli/parsers/*.js"
+		},
+		"./git-cli/providers/*.js": {
+			"types": "./dist/git-cli/providers/*.d.ts",
+			"default": "./dist/git-cli/providers/*.js"
+		},
+		"./git/*.js": {
+			"types": "./dist/git/*.d.ts",
+			"default": "./dist/git/*.js"
+		},
+		"./git/models/*.js": {
+			"types": "./dist/git/models/*.d.ts",
+			"default": "./dist/git/models/*.js"
+		},
+		"./git/parsers/*.js": {
+			"types": "./dist/git/parsers/*.d.ts",
+			"default": "./dist/git/parsers/*.js"
+		},
+		"./git/providers/*.js": {
+			"types": "./dist/git/providers/*.d.ts",
+			"default": "./dist/git/providers/*.js"
+		},
+		"./git/providers/shared/*.js": {
+			"types": "./dist/git/providers/shared/*.d.ts",
+			"default": "./dist/git/providers/shared/*.js"
+		},
+		"./git/remotes/*.js": {
+			"types": "./dist/git/remotes/*.d.ts",
+			"default": "./dist/git/remotes/*.js"
+		},
+		"./git/utils/*.js": {
+			"types": "./dist/git/utils/*.d.ts",
+			"default": "./dist/git/utils/*.js"
+		},
+		"./git/watching/*.js": {
+			"types": "./dist/git/watching/*.d.ts",
+			"default": "./dist/git/watching/*.js"
+		},
+		"./plus/ai/*.js": {
+			"types": "./dist/plus/ai/*.d.ts",
+			"default": "./dist/plus/ai/*.js"
+		},
+		"./plus/ai/models/*.js": {
+			"types": "./dist/plus/ai/models/*.d.ts",
+			"default": "./dist/plus/ai/models/*.js"
+		},
+		"./plus/ai/providers/*.js": {
+			"types": "./dist/plus/ai/providers/*.d.ts",
+			"default": "./dist/plus/ai/providers/*.js"
+		},
+		"./plus/ai/utils/*.js": {
+			"types": "./dist/plus/ai/utils/*.d.ts",
+			"default": "./dist/plus/ai/utils/*.js"
+		},
+		"./plus/git-github/*.js": {
+			"types": "./dist/plus/git-github/*.d.ts",
+			"default": "./dist/plus/git-github/*.js"
+		},
+		"./plus/git-github/api/*.js": {
+			"types": "./dist/plus/git-github/api/*.d.ts",
+			"default": "./dist/plus/git-github/api/*.js"
+		},
+		"./plus/git-github/providers/*.js": {
+			"types": "./dist/plus/git-github/providers/*.d.ts",
+			"default": "./dist/plus/git-github/providers/*.js"
+		},
+		"./plus/git-github/providers/github/*.js": {
+			"types": "./dist/plus/git-github/providers/github/*.d.ts",
+			"default": "./dist/plus/git-github/providers/github/*.js"
+		},
+		"./utils/*.js": {
+			"types": "./dist/utils/*.d.ts",
+			"default": "./dist/utils/*.js"
+		},
+		"./utils/decorators/*.js": {
+			"types": "./dist/utils/decorators/*.d.ts",
+			"default": "./dist/utils/decorators/*.js"
+		},
+		"./utils/env/node/exec.js": {
+			"types": "./dist/utils/env/node/exec.d.ts",
+			"default": "./dist/utils/env/node/exec.js"
+		},
+		"./utils/function/*.js": {
+			"types": "./dist/utils/function/*.d.ts",
+			"default": "./dist/utils/function/*.js"
+		}
+	},
+	"dependencies": {
+		"@octokit/graphql": "9.0.3",
+		"@octokit/request": "10.0.8",
+		"@octokit/request-error": "7.1.0",
+		"@octokit/types": "16.0.0",
+		"fast-string-truncated-width": "3.0.3",
+		"ignore": "7.0.5",
+		"vscode-uri": "3.1.0"
+	},
+	"scripts": {
+		"build": "node scripts/bundle.mjs",
+		"bundle": "node scripts/bundle.mjs",
+		"clean": "pnpx rimraf --glob dist src LICENSE LICENSE.plus *.tgz",
+		"prepack": "node scripts/bundle.mjs"
+	}
+}

@@ -1,0 +1,7 @@
+{
+	"extends": "../../tsconfig.package.json",
+	"compilerOptions": {
+		"noEmit": true
+	},
+	"include": ["scripts/**/*"]
+}

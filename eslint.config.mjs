@@ -66,7 +66,15 @@ const filePatterns = {
 
 /** Ignore patterns for different contexts */
 const ignorePatterns = {
-	default: ['*.*', 'patches', 'scripts', 'src/@types', 'packages/git/test-harness', 'packages/git-cli/test-harness'],
+	default: [
+		'*.*',
+		'patches',
+		'scripts',
+		'src/@types',
+		'packages/core',
+		'packages/git/test-harness',
+		'packages/git-cli/test-harness',
+	],
 	extensionOnly: ['**/-webview/**/*', 'src/git/models/fileChange.ts'],
 	webviewOnly: ['src/**/webview/**/*', 'src/webviews/apps/**/*'],
 	nodeOnly: ['src/env/node/**/*'],
