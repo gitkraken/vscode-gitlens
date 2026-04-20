@@ -114,24 +114,8 @@ export class StashPushGitCommand extends QuickCommand<State> {
 
 			assertStepState<State<GlRepository>>(state);
 
-			if (steps.isAtStep(Steps.InputMessage) || state.message == null) {
-				using step = steps.enterStep(Steps.InputMessage);
-
-				if (state.message == null) {
-					const scmRepo = await state.repo.git.getScmRepository();
-					state.message = scmRepo?.inputBox.value;
-				}
-
-				const result = yield* this.inputMessageStep(state, context);
-				if (result === StepResultBreak) {
-					if (step.goBack() == null) break;
-					continue;
-				}
-
-				state.message = result;
-			}
-
-			if (this.confirm(confirmOverride ?? state.confirm)) {
+			// Skip if the user navigated back to InputMessage — otherwise confirmOverride would trap them in Confirm
+			if (!steps.isAtStep(Steps.InputMessage) && this.confirm(confirmOverride ?? state.confirm)) {
 				using step = steps.enterStep(Steps.Confirm);
 
 				const result = yield* this.confirmStep(state, context);
@@ -142,6 +126,24 @@ export class StashPushGitCommand extends QuickCommand<State> {
 				}
 
 				state.flags = result;
+			}
+
+			if (steps.isAtStep(Steps.InputMessage) || state.message == null) {
+				using step = steps.enterStep(Steps.InputMessage);
+
+				if (state.message == null) {
+					const scmRepo = await state.repo.git.getScmRepository();
+					state.message = scmRepo?.inputBox.value;
+				}
+
+				const result = yield* this.inputMessageStep(state, context);
+				if (result === StepResultBreak) {
+					state.message = undefined;
+					if (step.goBack() == null) break;
+					continue;
+				}
+
+				state.message = result;
 			}
 
 			try {
@@ -216,19 +218,34 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			tooltip: 'Generate Stash Message',
 		};
 
+		const annotations: string[] = [];
+		if (state.uris != null) {
+			annotations.push(
+				state.uris.length === 1 ? formatPath(state.uris[0], { fileOnly: true }) : `${state.uris.length} files`,
+			);
+		}
+
+		let scopeLabel: string | undefined;
+		if (state.flags.includes('--snapshot')) {
+			scopeLabel = 'Snapshot';
+		} else if (state.flags.includes('--staged')) {
+			scopeLabel = 'Staged';
+		} else if (state.flags.includes('--keep-index')) {
+			scopeLabel = 'Keep Staged';
+		}
+		if (scopeLabel != null) {
+			annotations.push(scopeLabel);
+		}
+		if (state.flags.includes('--include-untracked')) {
+			annotations.push('Include Untracked');
+		}
+
+		const annotation = annotations.length
+			? annotations.map(a => `${pad(GlyphChars.Dot, 2, 2)}${a}`).join('')
+			: undefined;
+
 		const step = createInputStep({
-			title: appendReposToTitle(
-				context.title,
-				state,
-				context,
-				state.uris != null
-					? `${pad(GlyphChars.Dot, 2, 2)}${
-							state.uris.length === 1
-								? formatPath(state.uris[0], { fileOnly: true })
-								: `${state.uris.length} files`
-						}`
-					: undefined,
-			),
+			title: appendReposToTitle(context.title, state, context, annotation),
 			placeholder: 'Stash message',
 			value: state.message,
 			prompt: 'Please provide a stash message',
@@ -242,21 +259,29 @@ export class StashPushGitCommand extends QuickCommand<State> {
 					using resume = step.freeze?.();
 
 					try {
-						let diff = await state.repo.git.diff.getDiff?.(
-							state.flags.includes('--staged') ? uncommittedStaged : uncommitted,
-							undefined,
-							state.uris?.length ? { uris: state.uris } : undefined,
-						);
+						const uris = state.uris?.length ? { uris: state.uris } : undefined;
 
-						if (!diff?.contents && !state.flags.includes('--staged')) {
-							diff = await state.repo.git.diff.getDiff?.(
-								uncommittedStaged,
-								undefined,
-								state.uris?.length ? { uris: state.uris } : undefined,
-							);
+						let contents: string | undefined;
+						if (state.flags.includes('--staged')) {
+							const diff = await state.repo.git.diff.getDiff?.(uncommittedStaged, undefined, uris);
+							contents = diff?.contents;
+						} else {
+							// `git stash push` (without --staged) captures both staged and unstaged tracked changes
+							const [stagedDiff, unstagedDiff] = await Promise.all([
+								state.repo.git.diff.getDiff?.(uncommittedStaged, undefined, uris),
+								state.repo.git.diff.getDiff?.(uncommitted, undefined, uris),
+							]);
+							const parts: string[] = [];
+							if (stagedDiff?.contents) {
+								parts.push(stagedDiff.contents);
+							}
+							if (unstagedDiff?.contents) {
+								parts.push(unstagedDiff.contents);
+							}
+							contents = parts.length ? parts.join('\n') : undefined;
 						}
 
-						if (!diff?.contents) {
+						if (!contents) {
 							void window.showInformationMessage('No changes to generate a stash message from.');
 							return;
 						}
@@ -272,7 +297,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 						);
 
 						const result = await this.container.ai.actions.generateStashMessage(
-							diff.contents,
+							contents,
 							{ source: 'quick-wizard' },
 							{ generating: generating },
 						);
