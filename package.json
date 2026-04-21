@@ -11869,6 +11869,34 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f12e"
 				}
+			},
+			"gitlens-accept-right": {
+				"description": "accept-right icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12f"
+				}
+			},
+			"gitlens-accept-left": {
+				"description": "accept-left icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f130"
+				}
+			},
+			"gitlens-accept-all-right": {
+				"description": "accept-all-right icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f131"
+				}
+			},
+			"gitlens-accept-all-left": {
+				"description": "accept-all-left icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f132"
+				}
 			}
 		},
 		"menus": {

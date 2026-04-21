@@ -67,5 +67,9 @@
   "repository-cloud": 61766,
   "provider-linear": 61767,
   "diff-right": 61723,
-  "diff-left": 61742
+  "diff-left": 61742,
+  "accept-right": 61743,
+  "accept-left": 61744,
+  "accept-all-right": 61745,
+  "accept-all-left": 61746
 }
