@@ -176,13 +176,9 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 			options.tokenOptions = tokenOptions;
 		}
 
-		if (this._formatter == null) {
-			this._formatter = new formatter(item, options);
-		} else {
-			this._formatter.reset(item, options);
-		}
-
-		return interpolateAsync(template, this._formatter);
+		// Always allocate a fresh formatter: `interpolateAsync` awaits between tokens, so a
+		// concurrent call that reset a shared instance would poison in-flight token resolution.
+		return interpolateAsync(template, new formatter(item, options));
 	}
 
 	static has<TOptions extends FormatOptions>(
