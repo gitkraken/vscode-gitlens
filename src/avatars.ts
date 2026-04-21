@@ -1,4 +1,5 @@
-import { EventEmitter, Uri } from 'vscode';
+import type { MessageItem } from 'vscode';
+import { EventEmitter, Uri, window, workspace } from 'vscode';
 import type { CommitAuthor } from '@gitlens/git/models/author.js';
 import { CustomRemoteProvider } from '@gitlens/git/remotes/custom.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
@@ -247,18 +248,19 @@ async function getAvatarUriFromRemoteProvider(
 				});
 			}
 
-			if (!account) {
+			if (!account?.avatarUrl) {
 				const remoteWithProvider = await Container.instance.git
 					.getRepositoryService(repoPathOrCommit.repoPath)
 					.remotes.getBestRemoteWithProvider();
 
 				if (remoteWithProvider?.provider instanceof CustomRemoteProvider) {
-					const avatarUrl = remoteWithProvider.provider.getUrlForAvatar(email, size);
+					const avatarUrl = getApprovedCustomRemoteAvatarUrl(remoteWithProvider.provider, email, size);
 					if (avatarUrl != null) {
 						avatar.uri = Uri.parse(avatarUrl);
 						avatar.timestamp = Date.now();
 						avatar.retries = 0;
 						avatarCache.set(`${md5(email.trim().toLowerCase())}:${size}`, { ...avatar });
+						_onDidFetchAvatar.fire({ email: email });
 						return avatar.uri;
 					}
 				}
@@ -314,6 +316,76 @@ export function getPresenceDataUri(status: ContactPresenceStatus): string {
 	}
 
 	return dataUri;
+}
+
+const promptedAvatarTemplates = new Set<string>();
+
+function getApprovedCustomRemoteAvatarUrl(
+	provider: CustomRemoteProvider,
+	email: string,
+	size: number,
+): string | undefined {
+	// Avatar templates from `gitlens.remotes` may originate from workspace settings
+	// — only honor them in a trusted workspace
+	if (!workspace.isTrusted) return undefined;
+
+	const template = provider.avatarUrlTemplate;
+	if (template == null) return undefined;
+
+	const approval = getAvatarTemplateApproval(template);
+	if (approval === 'allow') {
+		return provider.getUrlForAvatar(email, size);
+	}
+	if (approval === 'deny') {
+		return undefined;
+	}
+
+	// Unknown template — prompt the user (non-blocking) and fall through to fallback avatar
+	void promptForAvatarTemplateApproval(template);
+	return undefined;
+}
+
+function getAvatarTemplateApproval(template: string): 'allow' | 'deny' | undefined {
+	const approvals = Container.instance.storage.get('avatars:approvedRemoteTemplates');
+	if (approvals == null) return undefined;
+	return Object.hasOwn(approvals, template) ? approvals[template] : undefined;
+}
+
+async function setAvatarTemplateApproval(template: string, decision: 'allow' | 'deny'): Promise<void> {
+	const approvals: Record<string, 'allow' | 'deny'> = Object.create(null);
+	Object.assign(approvals, Container.instance.storage.get('avatars:approvedRemoteTemplates'));
+	approvals[template] = decision;
+	await Container.instance.storage.store('avatars:approvedRemoteTemplates', approvals);
+}
+
+async function promptForAvatarTemplateApproval(template: string): Promise<void> {
+	if (promptedAvatarTemplates.has(template)) return;
+
+	promptedAvatarTemplates.add(template);
+
+	const allow: MessageItem = { title: 'Allow' };
+	const deny: MessageItem = { title: 'Deny' };
+	const notNow: MessageItem = { title: 'Not Now', isCloseAffordance: true };
+
+	const result = await window.showInformationMessage(
+		`The \`gitlens.remotes\` setting in this workspace includes an avatar URL template that will be requested for every commit author.\n\nTemplate: ${template}\n\nDo you trust this workspace to make these requests?`,
+		allow,
+		deny,
+		notNow,
+	);
+
+	if (result === allow) {
+		await setAvatarTemplateApproval(template, 'allow');
+		resetAvatarCache('failed');
+	} else if (result === deny) {
+		await setAvatarTemplateApproval(template, 'deny');
+	}
+}
+
+export function resetApprovedAvatarTemplates(): Promise<void> {
+	promptedAvatarTemplates.clear();
+	resetAvatarCache('failed');
+	return Container.instance.storage.delete('avatars:approvedRemoteTemplates');
 }
 
 export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback'): void {
