@@ -9681,6 +9681,11 @@
 				"enablement": "false"
 			},
 			{
+				"command": "gitlens.views.graph.openInNewWindow",
+				"title": "Open in New Window",
+				"icon": "$(empty-window)"
+			},
+			{
 				"command": "gitlens.views.graph.openInTab",
 				"title": "Open in Editor",
 				"icon": "$(link-external)"
@@ -14531,6 +14536,10 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.viewOptionsTitle",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.graph.openInNewWindow",
 					"when": "false"
 				},
 				{
@@ -21667,9 +21676,10 @@
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.graph.openInTab",
+					"command": "gitlens.views.graph.openInNewWindow",
 					"when": "viewItem == gitlens:views:graph",
-					"group": "inline@-100"
+					"group": "inline@-100",
+					"alt": "gitlens.views.graph.openInTab"
 				},
 				{
 					"command": "gitlens.views.graph.refresh",
@@ -23912,9 +23922,10 @@
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.graph.openInTab",
+					"command": "gitlens.views.graph.openInNewWindow",
 					"when": "view == gitlens.views.graph",
-					"group": "navigation@-100"
+					"group": "navigation@-100",
+					"alt": "gitlens.views.graph.openInTab"
 				},
 				{
 					"command": "gitlens.views.graph.refresh",

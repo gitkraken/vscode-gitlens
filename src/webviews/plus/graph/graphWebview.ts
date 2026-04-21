@@ -593,6 +593,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this.host.is('view')) {
 			commands.push(
 				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
+				registerCommand(`${this.host.id}.openInNewWindow`, async () => {
+					await executeCommand<WebviewPanelShowCommandArgs<GraphWebviewShowingArgs>>(
+						'gitlens.showGraphPage',
+						undefined,
+						this.repository,
+					);
+					void executeCoreCommand('workbench.action.moveEditorToNewWindow');
+				}),
 				registerCommand(
 					`${this.host.id}.openInTab`,
 					() =>

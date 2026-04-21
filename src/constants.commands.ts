@@ -220,6 +220,7 @@ export type CoreCommands =
 	| 'workbench.action.closeAllEditors'
 	| 'workbench.action.closePanel'
 	| 'workbench.action.closeWindow'
+	| 'workbench.action.moveEditorToNewWindow'
 	| 'workbench.action.focusRightGroup'
 	| 'workbench.action.nextEditor'
 	| 'workbench.action.newGroupRight'

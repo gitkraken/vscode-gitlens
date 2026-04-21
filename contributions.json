@@ -10754,25 +10754,31 @@
 				]
 			}
 		},
-		"gitlens.views.graph.openInTab": {
-			"label": "Open in Editor",
-			"icon": "$(link-external)",
+		"gitlens.views.graph.openInNewWindow": {
+			"label": "Open in New Window",
+			"icon": "$(empty-window)",
 			"menus": {
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:graph",
 						"group": "inline",
-						"order": -100
+						"order": -100,
+						"alt": "gitlens.views.graph.openInTab"
 					}
 				],
 				"view/title": [
 					{
 						"when": "view == gitlens.views.graph",
 						"group": "navigation",
-						"order": -100
+						"order": -100,
+						"alt": "gitlens.views.graph.openInTab"
 					}
 				]
 			}
+		},
+		"gitlens.views.graph.openInTab": {
+			"label": "Open in Editor",
+			"icon": "$(link-external)"
 		},
 		"gitlens.views.graph.refresh": {
 			"label": "Refresh",

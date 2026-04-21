@@ -509,6 +509,7 @@ export type ContributedCommands =
 	| 'gitlens.views.fileHistory.setShowMergeCommitsOff'
 	| 'gitlens.views.fileHistory.setShowMergeCommitsOn'
 	| 'gitlens.views.fileHistory.viewOptionsTitle'
+	| 'gitlens.views.graph.openInNewWindow'
 	| 'gitlens.views.graph.openInTab'
 	| 'gitlens.views.graph.refresh'
 	| 'gitlens.views.graphDetails.refresh'
