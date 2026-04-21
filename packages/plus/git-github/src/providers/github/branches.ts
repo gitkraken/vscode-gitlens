@@ -8,6 +8,7 @@ import { debug } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
 import { emptyPagedResult } from '@gitlens/utils/paging.js';
+import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { toTokenInfo } from '../../api/tokenUtils.js';
 import { HeadType } from '../../context.js';
 import type { GitHubBranch } from '../../models.js';
@@ -30,12 +31,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return branch;
 		}
 
-		let branchPromise = this.cache.branch.get(repoPath);
-		if (branchPromise == null) {
-			async function load(this: BranchesGitSubProvider): Promise<GitBranch | undefined> {
+		return this.cache.branch.getOrCreate(
+			repoPath,
+			async (_cacheable, signal): Promise<GitBranch | undefined> => {
+				// Prefer the cache-provided aggregate signal (only fires when every joined
+				// caller aborts); fall back to this caller's cancellation for the first-caller path.
+				signal ??= cancellation;
 				const {
 					values: [branch],
-				} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
+				} = await this.getBranches(repoPath, { filter: b => b.current }, signal);
 				if (branch != null) return branch;
 
 				try {
@@ -64,13 +68,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					scope?.error(ex);
 					return undefined;
 				}
-			}
-
-			branchPromise = load.call(this);
-			this.cache.branch.set(repoPath, branchPromise);
-		}
-
-		return branchPromise;
+			},
+			cancellation,
+		);
 	}
 
 	@debug({ args: repoPath => ({ repoPath: repoPath }) })
@@ -82,103 +82,105 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			paging?: PagingOptions;
 			sort?: boolean | BranchSortOptions;
 		},
-		_cancellation?: AbortSignal,
+		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
+		const path = repoPath;
 
 		const scope = getScopedLogger();
 
-		let branchesPromise = options?.paging?.cursor ? undefined : this.cache.branches.get(repoPath);
-		if (branchesPromise == null) {
-			async function load(this: BranchesGitSubProvider): Promise<PagedResult<GitBranch>> {
-				try {
-					const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath!);
+		const load = async (cacheable?: CacheController): Promise<PagedResult<GitBranch>> => {
+			try {
+				const { metadata, github, session } = await this.provider.ensureRepositoryContext(path);
 
-					const branches: GitBranch[] = [];
+				const branches: GitBranch[] = [];
 
-					const commitOrdering = options?.ordering;
+				const commitOrdering = options?.ordering;
 
-					function addBranches(branch: GitHubBranch, current: boolean) {
-						const date = new Date(
-							commitOrdering === 'author-date' ? branch.target.authoredDate : branch.target.committedDate,
-						);
-						const ref = branch.target.oid;
+				function addBranches(branch: GitHubBranch, current: boolean) {
+					const date = new Date(
+						commitOrdering === 'author-date' ? branch.target.authoredDate : branch.target.committedDate,
+					);
+					const ref = branch.target.oid;
 
-						branches.push(
-							new GitBranch(
-								repoPath!,
-								`refs/heads/${branch.name}`,
-								current,
-								date,
-								undefined,
-								ref,
-								{
-									name: `origin/${branch.name}`,
-									missing: false,
-									state: { ahead: 0, behind: 0 },
-								},
-								false,
-							),
-							new GitBranch(
-								repoPath!,
-								`refs/remotes/origin/${branch.name}`,
-								false,
-								date,
-								undefined,
-								ref,
-								undefined,
-								false,
-							),
-						);
-					}
-
-					let currentBranch: string | undefined;
-
-					const revision = await metadata.getRevision();
-					switch (revision.type) {
-						case HeadType.Branch:
-							currentBranch = revision.name;
-							break;
-						case HeadType.RemoteBranch: {
-							const index = revision.name.indexOf(':');
-							currentBranch = index === -1 ? revision.name : revision.name.substring(index + 1);
-							break;
-						}
-					}
-
-					let cursor = options?.paging?.cursor;
-					const loadAll = cursor == null;
-
-					while (true) {
-						const result = await github.getBranches(
-							toTokenInfo(this.provider.authenticationProviderId, session),
-							metadata.repo.owner,
-							metadata.repo.name,
-							{ cursor: cursor },
-						);
-
-						for (const branch of result.values) {
-							addBranches(branch, branch.name === currentBranch);
-						}
-
-						if (!result.paging?.more || !loadAll) return { ...result, values: branches };
-
-						cursor = result.paging.cursor;
-					}
-				} catch (ex) {
-					scope?.error(ex);
-					debugger;
-
-					this.cache.branches.delete(repoPath!);
-					return emptyPagedResult;
+					branches.push(
+						new GitBranch(
+							path,
+							`refs/heads/${branch.name}`,
+							current,
+							date,
+							undefined,
+							ref,
+							{
+								name: `origin/${branch.name}`,
+								missing: false,
+								state: { ahead: 0, behind: 0 },
+							},
+							false,
+						),
+						new GitBranch(
+							path,
+							`refs/remotes/origin/${branch.name}`,
+							false,
+							date,
+							undefined,
+							ref,
+							undefined,
+							false,
+						),
+					);
 				}
-			}
 
-			branchesPromise = load.call(this);
-			if (options?.paging?.cursor == null) {
-				this.cache.branches.set(repoPath, branchesPromise);
+				let currentBranch: string | undefined;
+
+				const revision = await metadata.getRevision();
+				switch (revision.type) {
+					case HeadType.Branch:
+						currentBranch = revision.name;
+						break;
+					case HeadType.RemoteBranch: {
+						const index = revision.name.indexOf(':');
+						currentBranch = index === -1 ? revision.name : revision.name.substring(index + 1);
+						break;
+					}
+				}
+
+				let cursor = options?.paging?.cursor;
+				const loadAll = cursor == null;
+
+				while (true) {
+					const result = await github.getBranches(
+						toTokenInfo(this.provider.authenticationProviderId, session),
+						metadata.repo.owner,
+						metadata.repo.name,
+						{ cursor: cursor },
+					);
+
+					for (const branch of result.values) {
+						addBranches(branch, branch.name === currentBranch);
+					}
+
+					if (!result.paging?.more || !loadAll) return { ...result, values: branches };
+
+					cursor = result.paging.cursor;
+				}
+			} catch (ex) {
+				scope?.error(ex);
+				debugger;
+
+				// Mark the cache entry invalidated so the empty fallback self-evicts on settle
+				// rather than getting stuck serving stale emptiness to subsequent callers.
+				cacheable?.invalidate();
+				return emptyPagedResult;
 			}
-		}
+		};
+
+		// Bypass cache entirely for paged follow-ups — they're driven by an opaque cursor and
+		// don't represent "all branches".
+		const branchesPromise =
+			options?.paging?.cursor != null
+				? load()
+				: this.cache.branches.getOrCreate(path, cacheable => load(cacheable), cancellation);
 
 		let result = await branchesPromise;
 		if (options?.filter != null) {

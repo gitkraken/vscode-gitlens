@@ -41,6 +41,7 @@ interface PromiseCacheOptions {
 export class PromiseCache<K, V> {
 	private readonly cache = new Map<K, CacheEntry<V>>();
 	private readonly aborts = new Map<K, AbortAggregate>();
+	private readonly controllers = new Map<K, CacheController>();
 	private readonly options: PromiseCacheOptions;
 
 	constructor(options?: PromiseCacheOptions) {
@@ -52,13 +53,33 @@ export class PromiseCache<K, V> {
 			a.dispose();
 		}
 		this.aborts.clear();
+		this.controllers.clear();
 		this.cache.clear();
 	}
 
 	delete(key: K): void {
 		this.aborts.get(key)?.dispose();
 		this.aborts.delete(key);
+		this.controllers.delete(key);
 		this.cache.delete(key);
+	}
+
+	/**
+	 * Marks a cached entry as invalidated.
+	 * - If the entry has a `CacheController` (created via `getOrCreate`), it is soft-invalidated:
+	 *   existing waiters complete normally, new callers joining during the remainder of the
+	 *   in-flight operation share the same promise, and the entry self-evicts on settle.
+	 * - If the entry was set via plain `.set()` (no controller), it is hard-deleted — there is
+	 *   no in-flight factory to ride along with.
+	 *
+	 * No-op if the key is not cached.
+	 */
+	invalidate(key: K): void {
+		if (this.controllers.has(key)) {
+			this.controllers.get(key)!.invalidate();
+		} else {
+			this.delete(key);
+		}
 	}
 
 	keys(): IterableIterator<K> {
@@ -136,25 +157,27 @@ export class PromiseCache<K, V> {
 			entry.accessed = now;
 
 			// Cache hit — register this caller on the existing aggregate
-			this.aborts.get(key)?.add(cancellation);
-			return cancellation != null ? raceWithSignal(entry.promise, cancellation) : entry.promise;
+			const existingAborts = this.aborts.get(key);
+			const cleanup = existingAborts != null ? existingAborts.add(cancellation) : undefined;
+			return this.attachCallerLifecycle(entry.promise, cancellation, cleanup);
 		}
 
 		const cacheable = new CacheController();
-		let abortAgg: AbortAggregate | undefined;
-		if (cancellation != null) {
-			abortAgg = new AbortAggregate();
-			abortAgg.add(cancellation);
-			this.aborts.set(key, abortAgg);
-		}
+		// Always create the aggregate so subsequent callers (with or without signals) can contribute,
+		// and so delete/invalidate has a controller to interact with
+		const abortAgg = new AbortAggregate();
+		const cleanup = abortAgg.add(cancellation);
+		this.aborts.set(key, abortAgg);
+		this.controllers.set(key, cacheable);
 
-		const promise = factory(cacheable, abortAgg?.signal);
+		const promise = factory(cacheable, abortAgg.signal);
 		void promise.finally(() => {
 			if (cacheable.invalidated) {
 				this.cache.delete(key);
 			}
-			abortAgg?.dispose();
+			abortAgg.dispose();
 			this.aborts.delete(key);
+			this.controllers.delete(key);
 		});
 
 		if (options?.onError != null) {
@@ -230,7 +253,22 @@ export class PromiseCache<K, V> {
 			queueMicrotask(() => this.cleanup());
 		}
 
-		return cancellation != null ? raceWithSignal(entry.promise, cancellation) : entry.promise;
+		return this.attachCallerLifecycle(entry.promise, cancellation, cleanup);
+	}
+
+	private attachCallerLifecycle(
+		promise: Promise<V>,
+		cancellation: AbortSignal | undefined,
+		cleanup: (() => void) | undefined,
+	): Promise<V> {
+		const returned = cancellation != null ? raceWithSignal(promise, cancellation) : promise;
+		if (cleanup != null) {
+			// Release this caller's aggregate slot when their wait ends.
+			// Attach .catch to swallow any rejection in the cleanup chain so it doesn't surface
+			// as an unhandled rejection separate from the caller's own handling of `returned`.
+			void returned.finally(cleanup).catch(() => {});
+		}
+		return returned;
 	}
 
 	private cleanup(): void {
@@ -308,6 +346,7 @@ export class PromiseCache<K, V> {
 export class PromiseMap<K, V> {
 	private readonly cache = new Map<K, Promise<V>>();
 	private readonly aborts = new Map<K, AbortAggregate>();
+	private readonly controllers = new Map<K, CacheController>();
 
 	get [Symbol.toStringTag](): string {
 		return 'PromiseMap';
@@ -321,6 +360,10 @@ export class PromiseMap<K, V> {
 	 * - The factory receives an aggregate `AbortSignal` that only fires when **all** callers cancel
 	 * - The returned promise rejects with `CancellationError` if this caller's signal fires
 	 * - Other callers sharing the same cached promise are unaffected
+	 *
+	 * Callers without a `cancellation` signal count as "permanent" subscribers — the aggregate
+	 * cannot fire while at least one is active. The slot is released when the caller's returned
+	 * promise settles.
 	 */
 	getOrCreate(
 		key: K,
@@ -329,23 +372,23 @@ export class PromiseMap<K, V> {
 	): Promise<V> {
 		if (cancellation?.aborted) return Promise.reject(new CancellationError());
 
-		let promise = this.cache.get(key);
-		if (promise != null) {
+		const cached = this.cache.get(key);
+		if (cached != null) {
 			// Cache hit — register this caller on the existing aggregate
-			this.aborts.get(key)?.add(cancellation);
-			return cancellation != null ? raceWithSignal(promise, cancellation) : promise;
+			const aborts = this.aborts.get(key);
+			const cleanup = aborts != null ? aborts.add(cancellation) : undefined;
+			return this.attachCallerLifecycle(cached, cancellation, cleanup);
 		}
 
-		// Cache miss — create new entry
+		// Cache miss — always create the aggregate so subsequent callers (with or without signals)
+		// can contribute, and so delete/invalidate has a controller to interact with
 		const cacheable = new CacheController();
-		let aborts: AbortAggregate | undefined;
-		if (cancellation != null) {
-			aborts = new AbortAggregate();
-			aborts.add(cancellation);
-			this.aborts.set(key, aborts);
-		}
+		const aborts = new AbortAggregate();
+		const cleanup = aborts.add(cancellation);
+		this.aborts.set(key, aborts);
+		this.controllers.set(key, cacheable);
 
-		promise = factory(cacheable, aborts?.signal);
+		const promise = factory(cacheable, aborts.signal);
 
 		// Automatically remove failed promises from the cache
 		promise.catch(() => this.cache.delete(key));
@@ -353,13 +396,47 @@ export class PromiseMap<K, V> {
 			if (cacheable.invalidated) {
 				this.cache.delete(key);
 			}
-			aborts?.dispose();
+			aborts.dispose();
 			this.aborts.delete(key);
+			this.controllers.delete(key);
 		});
 
 		this.cache.set(key, promise);
 
-		return cancellation != null ? raceWithSignal(promise, cancellation) : promise;
+		return this.attachCallerLifecycle(promise, cancellation, cleanup);
+	}
+
+	private attachCallerLifecycle(
+		promise: Promise<V>,
+		cancellation: AbortSignal | undefined,
+		cleanup: (() => void) | undefined,
+	): Promise<V> {
+		const returned = cancellation != null ? raceWithSignal(promise, cancellation) : promise;
+		if (cleanup != null) {
+			// Release this caller's aggregate slot when their wait ends.
+			// Attach .catch to swallow any rejection in the cleanup chain so it doesn't surface
+			// as an unhandled rejection separate from the caller's own handling of `returned`.
+			void returned.finally(cleanup).catch(() => {});
+		}
+		return returned;
+	}
+
+	/**
+	 * Marks a cached entry as invalidated.
+	 * - If the entry has a `CacheController` (created via `getOrCreate`), it is soft-invalidated:
+	 *   existing waiters complete normally, new callers joining during the remainder of the
+	 *   in-flight operation share the same promise, and the entry self-evicts on settle.
+	 * - If the entry was set via plain `.set()` (no controller), it is hard-deleted — there is
+	 *   no in-flight factory to ride along with.
+	 *
+	 * No-op if the key is not cached.
+	 */
+	invalidate(key: K): void {
+		if (this.controllers.has(key)) {
+			this.controllers.get(key)!.invalidate();
+		} else {
+			this.delete(key);
+		}
 	}
 
 	/**
@@ -396,6 +473,7 @@ export class PromiseMap<K, V> {
 	delete(key: K): boolean {
 		this.aborts.get(key)?.dispose();
 		this.aborts.delete(key);
+		this.controllers.delete(key);
 		return this.cache.delete(key);
 	}
 
@@ -407,6 +485,7 @@ export class PromiseMap<K, V> {
 			a.dispose();
 		}
 		this.aborts.clear();
+		this.controllers.clear();
 		this.cache.clear();
 	}
 
@@ -569,6 +648,25 @@ export class RepoPromiseCacheMap<K, V> {
 	}
 
 	/**
+	 * Marks a cached entry as invalidated. See `PromiseCache.invalidate` for semantics.
+	 *
+	 * @param repoPath - The repository path
+	 * @param key - Optional specific key to invalidate. If omitted, invalidates every entry for the repository.
+	 */
+	invalidate(repoPath: string, key?: K): void {
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return;
+
+		if (key === undefined) {
+			for (const k of repoCache.keys()) {
+				repoCache.invalidate(k);
+			}
+		} else {
+			repoCache.invalidate(key);
+		}
+	}
+
+	/**
 	 * Deletes all keys matching a prefix from a repository's cache.
 	 * @param repoPath - The repository path
 	 * @param prefix - Key prefix to match
@@ -668,6 +766,25 @@ export class RepoPromiseMap<K, V> {
 		if (repoCache == null) return false;
 
 		return repoCache.delete(key);
+	}
+
+	/**
+	 * Marks a cached entry as invalidated. See `PromiseMap.invalidate` for semantics.
+	 *
+	 * @param repoPath - The repository path
+	 * @param key - Optional specific key to invalidate. If omitted, invalidates every entry for the repository.
+	 */
+	invalidate(repoPath: string, key?: K): void {
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return;
+
+		if (key === undefined) {
+			for (const k of repoCache.keys()) {
+				repoCache.invalidate(k);
+			}
+		} else {
+			repoCache.invalidate(key);
+		}
 	}
 
 	/**

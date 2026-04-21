@@ -100,29 +100,33 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			' Please install a more recent version of Git and try again.',
 		);
 
-		return this.cache.getWorktrees(repoPath, async commonPath => {
-			const [dataResult, branchesResult] = await Promise.allSettled([
-				this.git.exec({ cwd: commonPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
-				// Use commonPath to get shared branches (repoPath=commonPath, current=false)
-				// The worktree mapper will remap branches to the requester's context
-				this.provider.branches.getBranches(commonPath, undefined, cancellation),
-			]);
+		return this.cache.getWorktrees(
+			repoPath,
+			async (commonPath, _cacheable, signal) => {
+				// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
+				signal ??= cancellation;
+				const [dataResult, branchesResult] = await Promise.allSettled([
+					this.git.exec({ cwd: commonPath, cancellation: signal }, 'worktree', 'list', '--porcelain'),
+					this.provider.branches.getBranches(commonPath, undefined, signal),
+				]);
 
-			const getWorkspaceFolder: WorkspaceFolderResolver | undefined = this.context.workspace
-				? uri => {
-						const folder = this.context.workspace!.getFolder(uri.fsPath);
-						if (folder == null) return undefined;
-						return { uri: fileUri(folder.path), name: basename(folder.path) };
-					}
-				: undefined;
+				const getWorkspaceFolder: WorkspaceFolderResolver | undefined = this.context.workspace
+					? uri => {
+							const folder = this.context.workspace!.getFolder(uri.fsPath);
+							if (folder == null) return undefined;
+							return { uri: fileUri(folder.path), name: basename(folder.path) };
+						}
+					: undefined;
 
-			return parseGitWorktrees(
-				getSettledValue(dataResult)?.stdout,
-				commonPath,
-				getSettledValue(branchesResult)?.values ?? [],
-				getWorkspaceFolder,
-			);
-		});
+				return parseGitWorktrees(
+					getSettledValue(dataResult)?.stdout,
+					commonPath,
+					getSettledValue(branchesResult)?.values ?? [],
+					getWorkspaceFolder,
+				);
+			},
+			cancellation,
+		);
 	}
 
 	@debug()
@@ -148,8 +152,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		const pathStr = normalizePath(toFsPath(path));
 		args.push(pathStr);
 
+		let deleted = false;
 		try {
 			await this.git.exec({ cwd: repoPath, errors: 'throw' }, ...args);
+			deleted = true;
 		} catch (ex) {
 			scope?.error(ex);
 			const gitError = getGitCommandError(
@@ -168,6 +174,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				);
 				try {
 					await fs.rm(pathStr, { force: true, recursive: true });
+					deleted = true;
 					return;
 				} catch (ex) {
 					if (isWindows) {
@@ -197,6 +204,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 							try {
 								await deleteInUseSymlink(file);
 								await fs.rm(pathStr, { force: true, recursive: true, maxRetries: 1, retryDelay: 1 });
+								deleted = true;
 								return;
 							} catch (ex) {
 								scope?.error(ex, `Failed to forcefully delete '${pathStr}' because it is in use.`);
@@ -208,8 +216,14 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 			throw gitError;
 		} finally {
-			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+			if (deleted) {
+				// Clean up Cache registry + per-worktree cache entries for the deleted worktree.
+				// Order matters: unregister before emitting the repo-level change so any listener
+				// that re-queries worktree-aware state sees the registry already updated.
+				this.cache.unregisterRepoPath(pathStr);
+				this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+			}
 		}
 	}
 }

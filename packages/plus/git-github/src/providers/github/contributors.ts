@@ -221,12 +221,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			cacheKey += ':stats';
 		}
 
-		return this.cache.contributors.getOrCreate(
-			repoPath,
-			cacheKey,
-			getCore,
-			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
-		);
+		return this.cache.contributors.getOrCreate(repoPath, cacheKey, getCore, {
+			...(customCacheTTL ? { accessTTL: customCacheTTL } : undefined),
+			cancellation: cancellation,
+		});
 	}
 
 	@debug()

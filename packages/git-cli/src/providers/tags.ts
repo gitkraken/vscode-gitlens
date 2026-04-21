@@ -48,45 +48,51 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		const scope = getScopedLogger();
 
-		let tagsResult = await this.cache.getTags(repoPath, async commonPath => {
-			try {
-				const parser = getTagParser();
+		let tagsResult = await this.cache.getTags(
+			repoPath,
+			async (commonPath, _cacheable, signal) => {
+				// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
+				signal ??= cancellation;
+				try {
+					const parser = getTagParser();
 
-				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation },
-					'for-each-ref',
-					...parser.arguments,
-					'refs/tags/',
-				);
-				if (!result.stdout) return emptyPagedResult;
-
-				using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
-
-				const tags: GitTag[] = [];
-
-				for (const entry of parser.parse(result.stdout)) {
-					tags.push(
-						new GitTag(
-							commonPath,
-							entry.name,
-							entry.sha || entry.tagSha,
-							entry.message,
-							entry.date ? new Date(entry.date) : undefined,
-							entry.commitDate ? new Date(entry.commitDate) : undefined,
-						),
+					const result = await this.git.exec(
+						{ cwd: repoPath, cancellation: signal },
+						'for-each-ref',
+						...parser.arguments,
+						'refs/tags/',
 					);
+					if (!result.stdout) return emptyPagedResult;
+
+					using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
+
+					const tags: GitTag[] = [];
+
+					for (const entry of parser.parse(result.stdout)) {
+						tags.push(
+							new GitTag(
+								commonPath,
+								entry.name,
+								entry.sha || entry.tagSha,
+								entry.message,
+								entry.date ? new Date(entry.date) : undefined,
+								entry.commitDate ? new Date(entry.commitDate) : undefined,
+							),
+						);
+					}
+
+					sw?.stop({ suffix: ` parsed ${String(tags.length)} tags` });
+
+					return { values: tags };
+				} catch (ex) {
+					scope?.error(ex);
+					if (isCancellationError(ex)) throw ex;
+
+					return emptyPagedResult;
 				}
-
-				sw?.stop({ suffix: ` parsed ${String(tags.length)} tags` });
-
-				return { values: tags };
-			} catch (ex) {
-				scope?.error(ex);
-				if (isCancellationError(ex)) throw ex;
-
-				return emptyPagedResult;
-			}
-		});
+			},
+			cancellation,
+		);
 
 		if (options?.filter != null) {
 			tagsResult = {

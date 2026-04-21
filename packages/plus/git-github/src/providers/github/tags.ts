@@ -29,7 +29,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	async getTags(
 		repoPath: string | undefined,
 		options?: { filter?: (t: GitTag) => boolean; paging?: PagingOptions; sort?: boolean | TagSortOptions },
-		_cancellation?: AbortSignal,
+		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
@@ -37,60 +37,64 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		const tagsPromise = options?.paging?.cursor
 			? undefined
-			: this.cache.tags.getOrCreate(repoPath, async cancellable => {
-					try {
-						const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
+			: this.cache.tags.getOrCreate(
+					repoPath,
+					async cancellable => {
+						try {
+							const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
-						const tags: GitTag[] = [];
+							const tags: GitTag[] = [];
 
-						let cursor = options?.paging?.cursor;
-						const loadAll = cursor == null;
+							let cursor = options?.paging?.cursor;
+							const loadAll = cursor == null;
 
-						let authoredDate;
-						let committedDate;
+							let authoredDate;
+							let committedDate;
 
-						while (true) {
-							const result = await github.getTags(
-								toTokenInfo(this.provider.authenticationProviderId, session),
-								metadata.repo.owner,
-								metadata.repo.name,
-								{ cursor: cursor },
-							);
-
-							for (const tag of result.values) {
-								authoredDate =
-									tag.target.authoredDate ??
-									tag.target.target?.authoredDate ??
-									tag.target.tagger?.date;
-								committedDate =
-									tag.target.committedDate ??
-									tag.target.target?.committedDate ??
-									tag.target.tagger?.date;
-
-								tags.push(
-									new GitTag(
-										repoPath,
-										tag.name,
-										tag.target.target?.oid ?? tag.target.oid,
-										tag.target.message ?? tag.target.target?.message ?? '',
-										authoredDate != null ? new Date(authoredDate) : undefined,
-										committedDate != null ? new Date(committedDate) : undefined,
-									),
+							while (true) {
+								const result = await github.getTags(
+									toTokenInfo(this.provider.authenticationProviderId, session),
+									metadata.repo.owner,
+									metadata.repo.name,
+									{ cursor: cursor },
 								);
+
+								for (const tag of result.values) {
+									authoredDate =
+										tag.target.authoredDate ??
+										tag.target.target?.authoredDate ??
+										tag.target.tagger?.date;
+									committedDate =
+										tag.target.committedDate ??
+										tag.target.target?.committedDate ??
+										tag.target.tagger?.date;
+
+									tags.push(
+										new GitTag(
+											repoPath,
+											tag.name,
+											tag.target.target?.oid ?? tag.target.oid,
+											tag.target.message ?? tag.target.target?.message ?? '',
+											authoredDate != null ? new Date(authoredDate) : undefined,
+											committedDate != null ? new Date(committedDate) : undefined,
+										),
+									);
+								}
+
+								if (!result.paging?.more || !loadAll) return { ...result, values: tags };
+
+								cursor = result.paging.cursor;
 							}
+						} catch (ex) {
+							cancellable.invalidate();
+							scope?.error(ex);
+							debugger;
 
-							if (!result.paging?.more || !loadAll) return { ...result, values: tags };
-
-							cursor = result.paging.cursor;
+							return emptyPagedResult;
 						}
-					} catch (ex) {
-						cancellable.invalidate();
-						scope?.error(ex);
-						debugger;
-
-						return emptyPagedResult;
-					}
-				});
+					},
+					cancellation,
+				);
 
 		if (tagsPromise == null) {
 			return emptyPagedResult;

@@ -44,12 +44,19 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getScopedLogger();
 
-		const getCore = async (commonPath: string, cacheable?: CacheController): Promise<GitContributorsResult> => {
+		const getCore = async (
+			commonPath: string,
+			cacheable?: CacheController,
+			signal?: AbortSignal,
+		): Promise<GitContributorsResult> => {
+			// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
+			signal ??= cancellation;
+
 			const contributors = new Map<string, Mutable<GitContributor>>();
 
 			try {
 				const currentUser = await this.provider.config.getCurrentUser(repoPath);
-				if (cancellation?.aborted) throw new CancellationError();
+				if (signal?.aborted) throw new CancellationError();
 
 				const parser = getContributorsLogParser(options?.stats);
 
@@ -82,9 +89,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 				const timeoutSignal = timeout ? AbortSignal.timeout(timeout) : undefined;
 				const combinedSignal =
-					cancellation && timeoutSignal
-						? AbortSignal.any([cancellation, timeoutSignal])
-						: (cancellation ?? timeoutSignal);
+					signal && timeoutSignal ? AbortSignal.any([signal, timeoutSignal]) : (signal ?? timeoutSignal);
 
 				const stream = this.git.stream(
 					{ cwd: repoPath, cancellation: combinedSignal, configs: gitConfigsLog },
@@ -171,7 +176,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					contributors: [...contributors.values()],
 					cancelled: timeoutSignal?.aborted
 						? { reason: 'timedout' }
-						: cancellation?.aborted
+						: signal?.aborted
 							? { reason: 'cancelled' }
 							: undefined,
 				};
@@ -209,12 +214,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			customCacheTTL = timeout * 2;
 		}
 
-		return this.cache.getContributors(
-			repoPath,
-			cacheKey,
-			commonPath => getCore(commonPath),
-			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
-		);
+		return this.cache.getContributors(repoPath, cacheKey, getCore, {
+			...(customCacheTTL ? { accessTTL: customCacheTTL } : undefined),
+			cancellation: cancellation,
+		});
 	}
 
 	@debug()
@@ -233,7 +236,9 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			options = { ...options, all: true };
 		}
 
-		const getCore = async (commonPath: string, cacheable?: CacheController) => {
+		const getCore = async (commonPath: string, cacheable?: CacheController, signal?: AbortSignal) => {
+			// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
+			signal ??= cancellation;
 			try {
 				// eventually support `--group=author --group=trailer:co-authored-by`
 				const args = ['shortlog', '-s', '-e', '-n'];
@@ -255,7 +260,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				}
 
 				const currentUserPromise = this.provider.config.getCurrentUser(repoPath).catch(() => undefined);
-				const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, ...args);
+				const result = await this.git.exec({ cwd: repoPath, cancellation: signal }, ...args);
 				if (!result.stdout) return [];
 
 				const shortlog = parseShortlog(result.stdout, commonPath, await currentUserPromise);
@@ -279,12 +284,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			customCacheTTL = 1000 * 60 * 5; // 5 minutes
 		}
 
-		return this.cache.getContributorsLite(
-			repoPath,
-			cacheKey,
-			getCore,
-			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
-		);
+		return this.cache.getContributorsLite(repoPath, cacheKey, getCore, {
+			...(customCacheTTL ? { accessTTL: customCacheTTL } : undefined),
+			cancellation: cancellation,
+		});
 	}
 
 	@debug()

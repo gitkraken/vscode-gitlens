@@ -159,14 +159,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const scope = getScopedLogger();
 
-		const getCore = async (commonPath: string, cacheable?: CacheController): Promise<PagedResult<GitBranch>> => {
+		const getCore = async (
+			commonPath: string,
+			cacheable?: CacheController,
+			signal?: AbortSignal,
+		): Promise<PagedResult<GitBranch>> => {
+			// Prefer the aggregate signal from the cache when present; fall back to the caller's
+			// own cancellation when bypassing the cache (e.g. paging-cursor path).
+			signal ??= cancellation;
 			try {
 				const supported = await this.git.supported('git:for-each-ref');
 				const parser = getBranchParser(supported);
 
 				const [gitResult, defaultWorktreePathResult, metadataMapResult] = await Promise.allSettled([
 					this.git.exec(
-						{ cwd: commonPath, cancellation: cancellation },
+						{ cwd: commonPath, cancellation: signal },
 						'for-each-ref',
 						...parser.arguments,
 						'refs/heads/',
@@ -186,7 +193,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						commonPath,
 						metadataMap,
 						options?.ordering ?? this.context.config?.commits.ordering ?? undefined,
-						cancellation,
+						signal,
 					);
 					return current != null ? { values: [current] } : emptyPagedResult;
 				}
@@ -258,12 +265,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			shared: PagedResult<GitBranch>,
 			targetRepoPath: string,
 			commonPath: string,
+			mapperSignal?: AbortSignal,
 		): Promise<PagedResult<GitBranch>> => {
 			if (!shared.values.length) return shared;
 
+			// Prefer the mapper's per-entry aggregate signal when present; fall back to the
+			// caller's own cancellation when bypassing the cache (paging-cursor path).
+			mapperSignal ??= cancellation;
+
 			// Get current branch info and default worktree path for the target worktree
 			const [currentRefResult, defaultWorktreePathResult] = await Promise.allSettled([
-				this.getCurrentBranchReferenceCore(targetRepoPath, undefined, cancellation),
+				this.getCurrentBranchReferenceCore(targetRepoPath, undefined, mapperSignal),
 				this.provider.config.getDefaultWorktreePath?.(commonPath),
 			]);
 			const currentRef = getSettledValue(currentRefResult);
@@ -302,7 +314,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					targetRepoPath,
 					metadataMap,
 					options?.ordering ?? this.context.config?.commits.ordering ?? undefined,
-					cancellation,
+					mapperSignal,
 				);
 				if (current != null) {
 					// Replace if exists (by id), otherwise prepend
@@ -327,7 +339,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Still apply the mapper to ensure correct repoPath and current flag for the requesting worktree
 			result = await mapBranches(shared, repoPath, commonPath);
 		} else {
-			result = await this.cache.getBranches(repoPath, getCore, mapBranches);
+			result = await this.cache.getBranches(repoPath, getCore, mapBranches, cancellation);
 		}
 
 		if (options?.filter != null) {

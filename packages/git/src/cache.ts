@@ -1,10 +1,12 @@
 import { exhaustiveArray } from '@gitlens/utils/array.js';
+import { raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { invalidateMemoized } from '@gitlens/utils/decorators/memoize.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { PromiseOrValue } from '@gitlens/utils/promise.js';
-import { CacheController, PromiseCache, PromiseMap, RepoPromiseCacheMap } from '@gitlens/utils/promiseCache.js';
+import type { CacheController } from '@gitlens/utils/promiseCache.js';
+import { PromiseCache, PromiseMap, RepoPromiseCacheMap } from '@gitlens/utils/promiseCache.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from '@gitlens/git/utils/repository.utils.js';
 import type { GitResult } from './exec.types.js';
@@ -509,9 +511,25 @@ export class Cache implements Disposable {
 				cache.clear();
 			} else if (sharedCacheKeys.has(key)) {
 				const commonPath = this.getCommonPath(repoPath);
-				cache.delete(commonPath);
-				for (const worktreePath of this.getWorktreePaths(commonPath)) {
-					cache.delete(worktreePath);
+				// For shared caches, prefer `invalidate` where supported so in-flight work is
+				// shared across new callers and self-evicts on settle rather than spawning a
+				// duplicate factory. `invalidate` does the right thing per-entry: entries with
+				// a `CacheController` (created via `getOrCreate`) are marked invalidated; entries
+				// without one (created via plain `.set()`, e.g. per-worktree mapper results) are
+				// hard-deleted. Caches that don't support `invalidate` fall back to `delete`.
+				const invalidate = (cache as { invalidate?: (k: string) => void }).invalidate;
+				if (typeof invalidate === 'function') {
+					invalidate.call(cache, commonPath);
+					for (const worktreePath of this.getWorktreePaths(commonPath)) {
+						if (worktreePath === commonPath) continue;
+						invalidate.call(cache, worktreePath);
+					}
+				} else {
+					cache.delete(commonPath);
+					for (const worktreePath of this.getWorktreePaths(commonPath)) {
+						if (worktreePath === commonPath) continue;
+						cache.delete(worktreePath);
+					}
 				}
 			} else {
 				cache.delete(repoPath);
@@ -560,6 +578,69 @@ export class Cache implements Disposable {
 		worktrees.add(normalizedPath);
 	}
 
+	/**
+	 * Symmetric companion to `registerRepoPath`. Clears cache entries specific to `repoPath`
+	 * and removes the path from the registry.
+	 *
+	 * Call this when a worktree is deleted or a repo is closed so stale registry entries
+	 * and derived cache entries don't persist.
+	 *
+	 * Targeted — does NOT cascade to sibling worktrees sharing the same commonPath. The
+	 * shared commonPath entry in each shared cache is only evicted when unregistering the
+	 * last remaining worktree for that commonPath (otherwise siblings still depend on it).
+	 *
+	 * Uses soft-invalidate where supported so any in-flight factory/mapper keeps its abort
+	 * wiring intact — a caller whose signal aborts after unregister can still propagate
+	 * cancellation into the underlying work rather than leaving it orphaned. Controller-backed
+	 * entries self-evict on settle; plain `.set()`-based entries hard-delete immediately.
+	 *
+	 * No-op if `repoPath` is not registered.
+	 */
+	@debug({ onlyExit: true })
+	unregisterRepoPath(repoPath: string): void {
+		const commonPath = this._commonPathRegistry.get(repoPath) ?? repoPath;
+		const worktrees = this._worktreesByCommonPath.get(commonPath);
+		// After removing repoPath, would the commonPath have any worktrees left?
+		const isLastWorktree = worktrees == null || worktrees.size <= 1;
+
+		// Targeted per-repoPath cleanup: for per-worktree caches, clear this repoPath's
+		// entries. For shared caches, clear this repoPath's mapper entry (if it's a worktree
+		// distinct from commonPath); only evict the shared commonPath entry when this was the
+		// last worktree — otherwise siblings still rely on the shared data.
+		for (const key of Object.keys(this._caches) as (keyof AllCaches)[]) {
+			const cache = this._caches[key];
+			if (cache == null) continue;
+
+			// Prefer `invalidate` so in-flight abort wiring survives until the factory settles;
+			// fall back to `delete` for plain `Map`-typed caches that don't track promises.
+			const invalidate = (cache as { invalidate?: (k: string) => void }).invalidate;
+			const evict =
+				typeof invalidate === 'function'
+					? (k: string) => invalidate.call(cache, k)
+					: (k: string) => cache.delete(k);
+
+			if (sharedCacheKeys.has(key)) {
+				if (repoPath !== commonPath) {
+					evict(repoPath);
+				}
+				if (isLastWorktree) {
+					evict(commonPath);
+				}
+			} else {
+				evict(repoPath);
+			}
+		}
+
+		this._commonPathRegistry.delete(repoPath);
+
+		if (worktrees != null) {
+			worktrees.delete(repoPath);
+			if (worktrees.size === 0) {
+				this._worktreesByCommonPath.delete(commonPath);
+			}
+		}
+	}
+
 	@debug({ onlyExit: true })
 	reset(): void {
 		this._commonPathRegistry.clear();
@@ -574,7 +655,7 @@ export class Cache implements Disposable {
 		const hasAny = (...c: RepositoryChange[]) => c.some(ch => changesSet.has(ch));
 
 		if (hasAny('unknown', 'closed')) {
-			this.clearCaches(repoPath);
+			this.unregisterRepoPath(repoPath);
 			return;
 		}
 
@@ -647,40 +728,63 @@ export class Cache implements Disposable {
 
 	getBranches(
 		repoPath: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<PagedResult<GitBranch>>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
 		mapper: (
 			branches: PagedResult<GitBranch>,
 			targetRepoPath: string,
 			commonPath: string,
+			cancellation?: AbortSignal,
 		) => PromiseOrValue<PagedResult<GitBranch>>,
+		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitBranch>> {
-		const cached = this.branches.get(repoPath);
-		if (cached != null) return Promise.resolve(cached);
-
 		const commonPath = this.getCommonPath(repoPath);
 
-		let sharedPromise = this.sharedBranches.get(commonPath);
-		if (sharedPromise == null) {
-			const cacheable = new CacheController();
-
-			sharedPromise = Promise.resolve(factory(commonPath, cacheable));
-			this.sharedBranches.set(commonPath, sharedPromise);
-
-			void sharedPromise.finally(() => {
-				if (cacheable.invalidated) {
-					this.sharedBranches.delete(commonPath);
-					this.branches.delete(commonPath);
-					for (const worktreePath of this.getWorktreePaths(commonPath)) {
-						this.branches.delete(worktreePath);
+		// Register this caller with the shared factory's aggregate so that invariant 3
+		// (factory aborts iff every waiter has aborted) holds for same-`repoPath` cache hits too.
+		// The returned wrapped promise is deliberately discarded — we use the raw cached inner
+		// below to build the mapped entry. Swallow any rejection on this dangling reference so
+		// it doesn't surface as an unhandled rejection; the real caller-facing promise (via
+		// `branches.getOrCreate` below) is where caller cancellation flows to.
+		const registration = this.sharedBranches.getOrCreate(
+			commonPath,
+			(cacheable, signal) => {
+				const p = Promise.resolve(factory(commonPath, cacheable, signal));
+				// On factory invalidation, propagate to the derived per-worktree mapper entries
+				// via soft-invalidate — existing waiters on the mapper complete, and the entry
+				// self-evicts on mapper settle so the next callers build fresh derived entries.
+				void p.finally(() => {
+					if (cacheable.invalidated) {
+						this.branches.invalidate(commonPath);
+						for (const worktreePath of this.getWorktreePaths(commonPath)) {
+							this.branches.invalidate(worktreePath);
+						}
 					}
-				}
-			});
-		}
+				});
+				return p;
+			},
+			cancellation,
+		);
+		void registration.catch(() => {});
 
-		const mappedPromise = sharedPromise.then(shared => mapper(shared, repoPath, commonPath));
-		this.branches.set(repoPath, mappedPromise);
-
-		return mappedPromise;
+		// Build the per-`repoPath` mapped entry through `getOrCreate` so mapper internal git
+		// work (e.g. `getCurrentBranchReferenceCore`) runs under a mapper-level aggregate signal
+		// separate from the factory's. Subsequent same-`repoPath` cache hits register with this
+		// aggregate too — invariant 2/3 hold at the mapper level.
+		return this.branches.getOrCreate(
+			repoPath,
+			(_cacheable, mapperSignal) => {
+				// After `getOrCreate` above, `sharedBranches[commonPath]` holds the raw inner
+				// factory promise. Fall back to `registration` in the paranoid case where a
+				// synchronously-rejected factory got auto-evicted before we retrieve it.
+				const rawShared = this.sharedBranches.get(commonPath) ?? registration;
+				return Promise.resolve(rawShared).then(shared => mapper(shared, repoPath, commonPath, mapperSignal));
+			},
+			cancellation,
+		);
 	}
 
 	private static readonly globalConfigKey = '';
@@ -760,8 +864,12 @@ export class Cache implements Disposable {
 	async getContributors(
 		repoPath: string,
 		cacheKey: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<GitContributorsResult>,
-		options?: { accessTTL?: number },
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<GitContributorsResult>,
+		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributorsResult> {
 		return this.getSharedOrCreateWithKey(
 			this.contributors,
@@ -779,8 +887,12 @@ export class Cache implements Disposable {
 	async getContributorsLite(
 		repoPath: string,
 		cacheKey: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<GitContributor[]>,
-		options?: { accessTTL?: number },
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<GitContributor[]>,
+		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributor[]> {
 		return this.getSharedOrCreateWithKey(
 			this.contributorsLite,
@@ -825,147 +937,205 @@ export class Cache implements Disposable {
 
 	async getRemotes(
 		repoPath: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<GitRemote[]>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<GitRemote[]>,
+		cancellation?: AbortSignal,
 	): Promise<GitRemote[]> {
-		return this.getSharedOrCreate(this.remotes, repoPath, factory, (data, newRepoPath) =>
-			data.map(r => r.withRepoPath(newRepoPath)),
+		return this.getSharedOrCreate(
+			this.remotes,
+			repoPath,
+			factory,
+			(data, newRepoPath) => data.map(r => r.withRepoPath(newRepoPath)),
+			cancellation,
 		);
 	}
 
 	async getStash(
 		repoPath: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<GitStash>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<GitStash>,
+		cancellation?: AbortSignal,
 	): Promise<GitStash> {
-		return this.getSharedOrCreate(this.stashes, repoPath, factory, (data, newRepoPath) => ({
-			repoPath: newRepoPath,
-			stashes: new Map(
-				Array.from(data.stashes.entries(), ([sha, s]) => [sha, s.withRepoPath<GitStashCommit>(newRepoPath)]),
-			),
-		}));
+		return this.getSharedOrCreate(
+			this.stashes,
+			repoPath,
+			factory,
+			(data, newRepoPath) => ({
+				repoPath: newRepoPath,
+				stashes: new Map(
+					Array.from(data.stashes.entries(), ([sha, s]) => [
+						sha,
+						s.withRepoPath<GitStashCommit>(newRepoPath),
+					]),
+				),
+			}),
+			cancellation,
+		);
 	}
 
 	async getTags(
 		repoPath: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<PagedResult<GitTag>>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitTag>>,
+		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitTag>> {
-		return this.getSharedOrCreate(this.tags, repoPath, factory, (data, newRepoPath) => ({
-			...data,
-			values: data.values.map(t => t.withRepoPath(newRepoPath)),
-		}));
+		return this.getSharedOrCreate(
+			this.tags,
+			repoPath,
+			factory,
+			(data, newRepoPath) => ({ ...data, values: data.values.map(t => t.withRepoPath(newRepoPath)) }),
+			cancellation,
+		);
 	}
 
 	async getWorktrees(
 		repoPath: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<GitWorktree[]>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<GitWorktree[]>,
+		cancellation?: AbortSignal,
 	): Promise<GitWorktree[]> {
-		return this.getSharedOrCreate(this.worktrees, repoPath, factory, (data, newRepoPath) =>
-			data.map(w => w.withRepoPath(newRepoPath)),
+		return this.getSharedOrCreate(
+			this.worktrees,
+			repoPath,
+			factory,
+			(data, newRepoPath) => data.map(w => w.withRepoPath(newRepoPath)),
+			cancellation,
 		);
 	}
 
 	private async getSharedOrCreate<T>(
 		cache: PromiseMap<string, T>,
 		repoPath: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<T>,
+		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
 		mapper: (data: T, repoPath: string) => T,
+		cancellation?: AbortSignal,
 	): Promise<T> {
-		const cached = cache.get(repoPath);
-		if (cached != null) return cached;
-
 		const commonPath = this.getCommonPath(repoPath);
 
+		// Always register this caller with the shared factory's aggregate so same-`repoPath` and
+		// worktree-distinct concurrent callers both contribute — invariant 3 (factory aborts iff
+		// every waiter aborts) holds uniformly. The wrapped return is our caller-facing promise
+		// for the commonPath-keyed branch; the per-worktree branch uses `raceWithSignal` below.
+		const sharedPromise = cache.getOrCreate(
+			commonPath,
+			(cacheable, signal) => {
+				const p = Promise.resolve(factory(commonPath, cacheable, signal));
+				// On factory invalidation (without rejection), propagate to the derived per-worktree
+				// mapper entries so they don't persist past the shared factory's settle. Mapper
+				// entries cached via `cache.set()` have no controller, so `invalidate` hard-deletes.
+				void p.finally(() => {
+					if (cacheable.invalidated) {
+						for (const worktreePath of this.getWorktreePaths(commonPath)) {
+							if (worktreePath === commonPath) continue;
+							cache.invalidate(worktreePath);
+						}
+					}
+				});
+				return p;
+			},
+			cancellation,
+		);
+		// Swallow any rejection on the registration wrapper so it isn't surfaced as an unhandled
+		// rejection when we discard it below (existing-mapper path). The real caller-facing
+		// promise is the returned value.
+		void sharedPromise.catch(() => {});
+
 		if (commonPath !== repoPath) {
-			const commonResult = cache.get(commonPath);
-			if (commonResult != null) {
-				const mappedData = mapper(await commonResult, repoPath);
-				cache.set(repoPath, Promise.resolve(mappedData));
-				return mappedData;
+			// Reuse the cached mapped entry for this worktree if present; otherwise derive it off
+			// the raw inner shared promise so subsequent cache hits don't inherit the first
+			// caller's signal wrap.
+			const existing = cache.get(repoPath);
+			if (existing != null) {
+				return cancellation != null ? raceWithSignal(existing, cancellation) : existing;
 			}
+
+			const rawShared = cache.get(commonPath) ?? sharedPromise;
+			const mappedPromise = Promise.resolve(rawShared).then(data => mapper(data, repoPath));
+			cache.set(repoPath, mappedPromise);
+			return cancellation != null ? raceWithSignal(mappedPromise, cancellation) : mappedPromise;
 		}
 
-		const cacheable = new CacheController();
-
-		const factoryPromise = Promise.resolve(factory(commonPath, cacheable));
-		cache.set(commonPath, factoryPromise);
-
-		void factoryPromise.finally(() => {
-			if (cacheable.invalidated) {
-				cache.delete(commonPath);
-				if (commonPath !== repoPath) {
-					cache.delete(repoPath);
-				}
-			}
-		});
-
-		if (commonPath !== repoPath) {
-			const data = await factoryPromise;
-			const mappedData = mapper(data, repoPath);
-			cache.set(repoPath, Promise.resolve(mappedData));
-			return mappedData;
-		}
-
-		return factoryPromise;
+		return sharedPromise;
 	}
 
 	private async getSharedOrCreateWithKey<T>(
 		cache: RepoPromiseCacheMap<string, T>,
 		repoPath: string,
 		cacheKey: string,
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<T>,
+		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
 		mapper: (data: T, repoPath: string) => T,
-		options?: { accessTTL?: number },
+		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<T> {
-		const result = cache.get(repoPath, cacheKey);
-		if (result != null) return result;
-
 		const commonPath = this.getCommonPath(repoPath);
+		const cancellation = options?.cancellation;
+
+		// Always register with the shared factory's aggregate (see `getSharedOrCreate` comment).
+		const sharedPromise = cache.getOrCreate(
+			commonPath,
+			cacheKey,
+			(cacheable, signal) => {
+				const p = Promise.resolve(factory(commonPath, cacheable, signal));
+				// On factory invalidation (without rejection), propagate to the derived per-worktree
+				// mapper entries for this `cacheKey` so they don't persist past the shared factory's
+				// settle. Mapper entries cached via `cache.set()` have no controller, so `invalidate`
+				// hard-deletes.
+				void p.finally(() => {
+					if (cacheable.invalidated) {
+						for (const worktreePath of this.getWorktreePaths(commonPath)) {
+							if (worktreePath === commonPath) continue;
+							cache.invalidate(worktreePath, cacheKey);
+						}
+					}
+				});
+				return p;
+			},
+			options,
+		);
+		// Swallow any rejection on the registration wrapper so it isn't surfaced as an unhandled
+		// rejection when we discard it below (existing-mapper path).
+		void sharedPromise.catch(() => {});
 
 		if (commonPath !== repoPath) {
-			const commonResult = cache.get(commonPath, cacheKey);
-			if (commonResult != null) {
-				const mappedData = mapper(await commonResult, repoPath);
-				cache.set(repoPath, cacheKey, Promise.resolve(mappedData), options);
-				return mappedData;
+			const existing = cache.get(repoPath, cacheKey);
+			if (existing != null) {
+				return cancellation != null ? raceWithSignal(existing, cancellation) : existing;
 			}
+
+			const rawShared = cache.get(commonPath, cacheKey) ?? sharedPromise;
+			const mappedPromise = Promise.resolve(rawShared).then(data => mapper(data, repoPath));
+			cache.set(repoPath, cacheKey, mappedPromise, options);
+			return cancellation != null ? raceWithSignal(mappedPromise, cancellation) : mappedPromise;
 		}
 
-		const cacheable = new CacheController();
-
-		const factoryPromise = Promise.resolve(factory(commonPath, cacheable));
-		cache.set(commonPath, cacheKey, factoryPromise, options);
-
-		void factoryPromise.finally(() => {
-			if (cacheable.invalidated) {
-				cache.delete(commonPath, cacheKey);
-				if (commonPath !== repoPath) {
-					cache.delete(repoPath, cacheKey);
-				}
-			}
-		});
-
-		if (commonPath !== repoPath) {
-			const data = await factoryPromise;
-			const mappedData = mapper(data, repoPath);
-			cache.set(repoPath, cacheKey, Promise.resolve(mappedData), options);
-			return mappedData;
-		}
-
-		return factoryPromise;
+		return sharedPromise;
 	}
 
 	private async getSharedSimple<T>(
-		cache: { get(key: string): Promise<T> | undefined; set(key: string, promise: Promise<T>): unknown },
+		cache: PromiseMap<string, T> | PromiseCache<string, T>,
 		repoPath: string,
 		factory: (commonPath: string) => PromiseOrValue<T>,
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
 
-		const result = cache.get(commonPath);
-		if (result != null) return result;
-
-		const factoryPromise = Promise.resolve(factory(commonPath));
-		cache.set(commonPath, factoryPromise);
-		return factoryPromise;
+		// `PromiseMap.getOrCreate(key, factory, cancellation?)` and
+		// `PromiseCache.getOrCreate(key, factory, options?)` have different 3rd-argument shapes,
+		// so we dispatch on cache type. Both register a `CacheController` so `invalidate` works.
+		if (cache instanceof PromiseCache) {
+			return cache.getOrCreate(commonPath, () => Promise.resolve(factory(commonPath)));
+		}
+		return cache.getOrCreate(commonPath, () => Promise.resolve(factory(commonPath)));
 	}
 
 	private async getSharedSimpleWithKey<T>(
@@ -977,11 +1147,6 @@ export class Cache implements Disposable {
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
 
-		const result = cache.get(commonPath, cacheKey);
-		if (result != null) return result;
-
-		const factoryPromise = Promise.resolve(factory(commonPath));
-		cache.set(commonPath, cacheKey, factoryPromise, options);
-		return factoryPromise;
+		return cache.getOrCreate(commonPath, cacheKey, () => Promise.resolve(factory(commonPath)), options);
 	}
 }

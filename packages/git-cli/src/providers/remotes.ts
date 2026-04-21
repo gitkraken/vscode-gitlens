@@ -26,34 +26,44 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	async getRemotes(
 		repoPath: string | undefined,
 		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
-		_cancellation?: AbortSignal,
+		cancellation?: AbortSignal,
 	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
 		const scope = getScopedLogger();
 
-		let remotes = await this.cache.getRemotes(repoPath, async (commonPath, cacheable) => {
-			const configs = await this.context.remotes?.getCustomProviders?.(repoPath);
-			const remoteProviderMatcher = createRemoteProviderMatcher(configs, this.context.remotes);
+		let remotes = await this.cache.getRemotes(
+			repoPath,
+			async (commonPath, cacheable, signal) => {
+				// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
+				signal ??= cancellation;
+				const configs = await this.context.remotes?.getCustomProviders?.(repoPath);
+				const remoteProviderMatcher = createRemoteProviderMatcher(configs, this.context.remotes);
 
-			try {
-				const result = await this.git.exec(
-					{ cwd: repoPath, caching: { cache: this.cache.gitResults, commonPath: commonPath } },
-					'remote',
-					'-v',
-				);
+				try {
+					const result = await this.git.exec(
+						{
+							cwd: repoPath,
+							cancellation: signal,
+							caching: { cache: this.cache.gitResults, commonPath: commonPath },
+						},
+						'remote',
+						'-v',
+					);
 
-				// Fetch default remote name from GK config before parsing so it's set at construction time
-				const defaultName = await this.provider.config.getGkConfig?.(repoPath, 'gk.defaultRemote');
-				const remotes = parseGitRemotes(result.stdout, commonPath, remoteProviderMatcher, defaultName);
+					// Fetch default remote name from GK config before parsing so it's set at construction time
+					const defaultName = await this.provider.config.getGkConfig?.(repoPath, 'gk.defaultRemote');
+					const remotes = parseGitRemotes(result.stdout, commonPath, remoteProviderMatcher, defaultName);
 
-				return remotes;
-			} catch (ex) {
-				cacheable.invalidate();
-				scope?.error(ex);
-				return [];
-			}
-		});
+					return remotes;
+				} catch (ex) {
+					cacheable.invalidate();
+					scope?.error(ex);
+					return [];
+				}
+			},
+			cancellation,
+		);
 
 		if (options?.filter != null) {
 			remotes = remotes.filter(options.filter);
