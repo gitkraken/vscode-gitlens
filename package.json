@@ -11855,6 +11855,20 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f147"
 				}
+			},
+			"gitlens-diff-right": {
+				"description": "diff-right icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f11b"
+				}
+			},
+			"gitlens-diff-left": {
+				"description": "diff-left icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f12e"
+				}
 			}
 		},
 		"menus": {
