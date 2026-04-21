@@ -833,6 +833,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const localIntoBranch = await this.getLocalBranchByUpstream(repoPath, into.name, cancellation);
 			// If there is a local branch and it is not the branch we are checking, check if it has been merged into it
 			if (localIntoBranch != null && localIntoBranch.name !== branch.name) {
+				// Skip the second full merge-check cycle when the local branch points at the same commit as the remote —
+				// the merge-base/cherry/diff/apply pipeline would produce the same answer we already got for `into` above
+				if (localIntoBranch.sha != null && localIntoBranch.sha === into.sha) {
+					return { merged: false };
+				}
+
 				const result = await this.getBranchMergedStatusCore(repoPath, branch, localIntoBranch, cancellation);
 				if (result.merged) {
 					return {
