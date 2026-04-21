@@ -317,14 +317,15 @@ export class WebviewController<
 		command: GlWebviewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable {
-		return this._commandRegistrar.registerCommand(
-			this.provider,
-			this.id,
-			// We should be able to remove this in the future and always use the instanceId, but we need to do more testing to make sure each webview command always comes with the instanceId
-			this.descriptor.allowMultipleInstances ? this.instanceId : undefined,
-			command,
-			callback,
-		);
+		return this._commandRegistrar.registerCommand(this.provider, this.id, this.instanceId, command, callback);
+	}
+
+	registerWebviewCommandForId<T extends Partial<WebviewContext>>(
+		webviewId: string,
+		command: GlWebviewCommands,
+		callback: WebviewCommandCallback<T>,
+	): Disposable {
+		return this._commandRegistrar.registerCommand(this.provider, webviewId, this.instanceId, command, callback);
 	}
 
 	private _initializing: Promise<void> | undefined;

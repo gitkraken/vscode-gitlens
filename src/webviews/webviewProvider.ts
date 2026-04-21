@@ -149,5 +149,10 @@ export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 		command: GlWebviewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable;
+	registerWebviewCommandForId<T extends Partial<WebviewContext>>(
+		webviewId: string,
+		command: GlWebviewCommands,
+		callback: WebviewCommandCallback<T>,
+	): Disposable;
 	show(loading: boolean, options?: WebviewShowOptions, ...args: unknown[]): Promise<void>;
 }

@@ -20,7 +20,7 @@ export class WebviewCommandRegistrar implements Disposable {
 	registerCommand<T extends WebviewProvider<any>>(
 		provider: T,
 		id: string,
-		instanceId: string | undefined,
+		instanceId: string,
 		command: GlWebviewCommands,
 		callback: CommandCallback,
 	): Disposable {
@@ -44,6 +44,7 @@ export class WebviewCommandRegistrar implements Disposable {
 
 						const handler = handlers.get(key);
 						if (handler == null) {
+							debugger;
 							throw new Error(`Unable to find Command '${command}' registration for Webview '${key}'`);
 						}
 
