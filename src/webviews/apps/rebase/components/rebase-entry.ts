@@ -13,6 +13,7 @@ import { entryStyles } from './rebase-entry.css.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '../../shared/components/avatar/avatar-list.js';
+import '../../shared/components/shoelace-codicons.js';
 import '../../shared/components/chips/ref-overflow-chip.js';
 import '../../shared/components/markdown/markdown.js';
 import '../../shared/components/overlays/popover.js';

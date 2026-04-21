@@ -7,6 +7,7 @@ import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import '../code-icon.js';
+import '../shoelace-codicons.js';
 
 export const tagName = 'gl-select';
 

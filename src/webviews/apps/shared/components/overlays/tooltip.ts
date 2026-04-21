@@ -4,6 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { handleUnsafeOverlayContent } from './overlays.utils.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
+import '../shoelace-codicons.js';
 
 setDefaultAnimation('tooltip.show', null);
 setDefaultAnimation('tooltip.hide', null);

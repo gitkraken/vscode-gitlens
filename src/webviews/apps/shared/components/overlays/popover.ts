@@ -5,6 +5,7 @@ import { parseDuration, waitForEvent } from '../../dom.js';
 import { GlElement, observe } from '../element.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
 import '@shoelace-style/shoelace/dist/components/popup/popup.js';
+import '../shoelace-codicons.js';
 
 // Adapted from shoelace tooltip
 
@@ -163,8 +164,6 @@ export class GlPopover extends GlElement {
 				user-select: none;
 				-webkit-user-select: none;
 				max-width: min(var(--auto-size-available-width), var(--max-width, 70vw));
-				/* max-height: var(--auto-size-available-height);
-			overflow: auto; */
 				pointer-events: all;
 			}
 
