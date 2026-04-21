@@ -65,6 +65,7 @@ provider.dispose();
 | --------------------------------- | ---------------------- | --------------------------------------------------------- |
 | `GitService`                      | `service.js`           | Library entry point — provider routing + repo proxy cache |
 | `ProvidersChangeEvent`            | `service.js`           | Event payload for provider add/remove                     |
+| `ValidateRepoResult`              | `service.js`           | Return shape of `GitService.validateRepo`                 |
 | `RepositoryService`               | `repositoryService.js` | Repo-scoped sub-provider facade (repoPath auto-injected)  |
 | `SubProviderForRepo<T>`           | `repositoryService.js` | Type utility — removes repoPath from methods              |
 | `createSubProviderProxyForRepo()` | `repositoryService.js` | Creates repo-scoped wrapper                               |
@@ -75,6 +76,7 @@ provider.dispose();
 - `register(provider, canHandle): UnifiedDisposable`
 - `forRepo(repoUri): RepositoryService | undefined`
 - `closeRepo(repoUri): void`
+- `validateRepo(pathOrUri): Promise<ValidateRepoResult>` — pre-repo discovery: routes a candidate path to a provider and resolves repo identity (repoPath, gitDir, commonGitDir, superprojectPath) or reports unsafe/invalid. Delegates to `GitConfigSubProvider.getRepositoryInfo` under the hood. For a simple yes/no check, use `(await validateRepo(path)).valid`.
 - `getProvider(repoPath): { provider, path } | undefined`
 - `getProviders(): Iterable<GitProvider>`
 - `hasProviders: boolean`

@@ -21,6 +21,25 @@ export interface ProvidersChangeEvent {
 	readonly etag: number;
 }
 
+/**
+ * Result of {@link GitService.validateRepo}.
+ *
+ * - `valid: true, safe: true` — a usable git repository at `repoPath`; `gitDir` / `commonGitDir` / `superprojectPath` are populated when available
+ * - `valid: true, safe: false` — git detected unsafe (dubious) ownership at the given path; no `repoPath` is surfaced (the raw call doesn't carry one back)
+ * - `valid: false` — not a git repository, no registered provider can handle the path, or the routed provider doesn't implement `getRepositoryInfo`
+ */
+export type ValidateRepoResult =
+	| {
+			valid: true;
+			safe: true;
+			repoPath: string;
+			gitDir?: string;
+			commonGitDir?: string;
+			superprojectPath?: string;
+	  }
+	| { valid: true; safe: false }
+	| { valid: false };
+
 interface RegisteredProvider {
 	provider: GitProvider;
 	canHandle: (repoPath: string) => boolean;
@@ -195,6 +214,41 @@ export class GitService implements UnifiedDisposable {
 	closeRepo(repoUri: Uri | string): void {
 		const repoPath = getRepositoryKey(repoUri);
 		this._serviceCache.delete(repoPath);
+	}
+
+	/**
+	 * Validates whether `pathOrUri` points to (or resides inside) a git repository,
+	 * and returns information about it when it does.
+	 *
+	 * Routes the path to a registered provider and delegates to its config sub-provider's
+	 * `getRepositoryInfo` implementation, then normalizes the raw result into a clean
+	 * discriminated union. For a simple yes/no check, use `(await validateRepo(path)).valid`.
+	 *
+	 * Returns `{ valid: false }` if no provider can handle the path or if the routed
+	 * provider does not implement `getRepositoryInfo`.
+	 */
+	async validateRepo(pathOrUri: Uri | string): Promise<ValidateRepoResult> {
+		const key = getRepositoryKey(pathOrUri);
+		const routed = this.getProvider(key);
+		if (routed == null) return { valid: false };
+
+		const info = await routed.provider.config.getRepositoryInfo?.(routed.path);
+		if (info == null) return { valid: false };
+
+		if (Array.isArray(info)) {
+			if (info.length === 0) return { valid: false };
+			if (info[0] === false) return { valid: true, safe: false };
+			return { valid: true, safe: true, repoPath: info[1] };
+		}
+
+		return {
+			valid: true,
+			safe: true,
+			repoPath: info.repoPath,
+			gitDir: info.gitDir,
+			commonGitDir: info.commonGitDir,
+			superprojectPath: info.superprojectPath,
+		};
 	}
 }
 
