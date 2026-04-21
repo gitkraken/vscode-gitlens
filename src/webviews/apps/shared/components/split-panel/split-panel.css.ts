@@ -4,11 +4,11 @@ export const splitPanelStyles = css`
 	:host {
 		display: grid;
 		grid-template-columns:
-			min(var(--_start-size, 0px), calc(100% - var(--gl-split-panel-divider-width, 4px))) var(
-				--gl-split-panel-divider-width,
-				4px
+			var(
+				--gl-split-panel-start-size,
+				min(var(--_start-size, 0%), calc(100% - var(--gl-split-panel-divider-width, 4px)))
 			)
-			1fr;
+			var(--gl-split-panel-divider-width, 4px) 1fr;
 		grid-template-rows: 1fr;
 		height: 100%;
 		width: 100%;
@@ -18,26 +18,29 @@ export const splitPanelStyles = css`
 	:host([orientation='vertical']) {
 		grid-template-columns: 1fr;
 		grid-template-rows:
-			min(var(--_start-size, 0px), calc(100% - var(--gl-split-panel-divider-width, 4px))) var(
-				--gl-split-panel-divider-width,
-				4px
+			var(
+				--gl-split-panel-start-size,
+				min(var(--_start-size, 0%), calc(100% - var(--gl-split-panel-divider-width, 4px)))
 			)
-			1fr;
+			var(--gl-split-panel-divider-width, 4px) 1fr;
 	}
 
 	:host([dragging]) {
 		user-select: none;
 	}
 
-	.start,
-	.end {
-		overflow: visible;
-		min-height: 0;
-		min-width: 0;
-	}
-
+	/*
+	 * min-width / min-height must be 0 on the slotted grid items themselves.
+	 * Grid items default to min-*: auto (intrinsic content size), which prevents
+	 * them from shrinking in a single frame when the container narrows — causing
+	 * visible multi-frame "catch-up" jank during parent panel resizes. Targeting
+	 * the <slot> elements directly doesn't work because slots default to
+	 * display: contents and have no box.
+	 */
 	::slotted(*) {
 		height: 100%;
+		min-width: 0;
+		min-height: 0;
 	}
 
 	.divider {
@@ -69,6 +72,7 @@ export const splitPanelStyles = css`
 		background-color: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));
 	}
 
+	:host([dragging]) .divider,
 	.divider:active {
 		background-color: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));
 	}

@@ -104,9 +104,9 @@ function getConflictStatusInfo(
 	};
 }
 
-const filesPanelDefaultPercent = 0.5;
-const filesPanelMinHeight = 40;
-const filesPanelMaxPercent = 0.75; // 75% of the total height
+const filesPanelDefaultPct = 50;
+const filesPanelMinPct = 10;
+const filesPanelMaxPct = 75;
 
 const scrollZonePx = 80;
 const scrollSpeedPx = 8;
@@ -173,19 +173,18 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private _conflictTreeModel: TreeModel[] = [];
 	private _prevConflictFiles: ConflictFileInfo[] | undefined;
 
-	/** Split position in px (height of the entries/start panel). null = not yet measured. */
+	/** Split position as a percentage (0–100). null = use default on first render. */
 	@state() private _splitPosition: number | null = null;
 	@state() private _conflictFilesLayout: 'list' | 'tree' = 'list';
 
-	private _conflictPanelSnap = ({ pos, size }: { pos: number; size: number }) => {
-		const divider = 4;
-		const minPos = size - size * filesPanelMaxPercent; // entries panel min (files panel at max)
-		const maxPos = size - filesPanelMinHeight - divider; // entries panel max (files panel at min)
-		const defaultPos = size * (1 - filesPanelDefaultPercent) - divider;
+	private _conflictPanelSnap = ({ pos }: { pos: number }) => {
+		const minPos = 100 - filesPanelMaxPct; // entries panel min (files panel at max)
+		const maxPos = 100 - filesPanelMinPct; // entries panel max (files panel at min)
+		const defaultPos = 100 - filesPanelDefaultPct;
 
 		if (pos < minPos) return minPos;
 		if (pos > maxPos) return maxPos;
-		if (Math.abs(pos - defaultPos) <= 12) return defaultPos;
+		if (Math.abs(pos - defaultPos) <= 1.5) return defaultPos;
 		return pos;
 	};
 
@@ -1290,13 +1289,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	protected override updated(_changedProperties: PropertyValues): void {
 		// Initialize split position on first frame after the split panel mounts
 		if (this._splitPosition == null && this.hasConflictPanel) {
-			const splitEl = this.renderRoot?.querySelector<HTMLElement>('.conflict-split');
-			if (splitEl) {
-				const height = splitEl.clientHeight;
-				if (height > 0) {
-					this._splitPosition = height * (1 - filesPanelDefaultPercent) - 4;
-				}
-			}
+			this._splitPosition = 100 - filesPanelDefaultPct;
 		}
 
 		if (!this.pendingFocusId) return;
@@ -1567,7 +1560,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					><code-icon icon="${this._conflictFilesLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
 				></gl-button>
 			</div>
-			<gl-tree-generator
+			<gl-tree-view
 				class="conflict-panel__list"
 				filterable
 				filter-placeholder="Filter conflicted files..."
@@ -1575,7 +1568,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				.model=${this._conflictTreeModel}
 				@gl-tree-generated-item-selected=${this.onConflictTreeItemSelected}
 				@gl-tree-generated-item-action-clicked=${this.onConflictTreeActionClicked}
-			></gl-tree-generator>
+			></gl-tree-view>
 		</div>`;
 	}
 

@@ -33,9 +33,9 @@ import './sidebar/sidebar.js';
 import './sidebar/sidebar-panel.js';
 import '../../shared/components/mcp-banner.js';
 
-const sidebarDefaultWidth = 220;
-const sidebarMinWidth = 150;
-const sidebarMaxPercent = 0.375; // 37.5% of the total width
+const sidebarDefaultPct = 18;
+const sidebarMinPct = 12;
+const sidebarMaxPct = 37.5;
 
 @customElement('gl-graph-app')
 export class GraphApp extends SignalWatcher(LitElement) {
@@ -43,14 +43,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _selectionTrackingCounter = getScopedCounter();
 	private _lastSearchRequest: SearchQuery | undefined;
 
-	private _sidebarPosition = sidebarDefaultWidth;
+	private _sidebarPosition = sidebarDefaultPct;
 	private _lastSidebarPanel: GraphSidebarPanel | undefined;
-	private _sidebarSnap = ({ pos, size }: { pos: number; size: number }) => {
-		const max = size * sidebarMaxPercent;
-		if (pos < sidebarMinWidth / 2) return 0;
-		if (pos < sidebarMinWidth) return sidebarMinWidth;
-		if (pos > max) return max;
-		if (Math.abs(pos - sidebarDefaultWidth) <= 12) return sidebarDefaultWidth;
+	private _sidebarSnap = ({ pos }: { pos: number; size: number }) => {
+		if (pos < sidebarMinPct / 2) return 0;
+		if (pos < sidebarMinPct) return sidebarMinPct;
+		if (pos > sidebarMaxPct) return sidebarMaxPct;
+		if (Math.abs(pos - sidebarDefaultPct) <= 1.5) return sidebarDefaultPct;
 		return pos;
 	};
 
@@ -161,6 +160,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const isOpen = this.graphState.activeSidebarPanel != null;
 		return html`<gl-split-panel
 			class="graph__sidebar-split"
+			primary="start"
 			.position=${isOpen ? this._sidebarPosition : 0}
 			.snap=${this._sidebarSnap}
 			@gl-split-panel-change=${this.handleSplitChange}
