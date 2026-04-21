@@ -207,36 +207,22 @@ export const OpenConflictChangesCommand = new IpcCommand<OpenConflictChangesPara
 
 // REQUESTS
 
-export interface GetPotentialConflictsParams {
-	onto: string;
-	/** Commit SHAs to check for conflicts (from rebase-todo entries) */
-	commits: string[];
-	stopOnFirstConflict?: boolean;
-}
-export interface DidGetPotentialConflictsParams {
-	conflicts?: ConflictDetectionResult;
-}
-export const GetPotentialConflictsRequest = new IpcRequest<GetPotentialConflictsParams, DidGetPotentialConflictsParams>(
-	scope,
-	'conflicts/get',
-);
-
-/** Parameters for checking conflicts against the modified todo list */
-export interface GetTodoConflictsParams {
+export interface GetConflictsParams {
+	/** Distinguishes initial (on-load / upgrade) checks from dynamic (plan-modification / rebase-advance) checks */
+	trigger: 'initial' | 'todo';
 	/** The onto target SHA */
 	onto: string;
-	/** Commit SHAs in the modified order (as reordered by the user) - only non-dropped commits */
+	/** Commit SHAs to check for conflicts, in plan order */
 	commits: string[];
-	/** Optional base override - for paused rebases, use 'HEAD' since done entries have been applied */
+	/** Optional base override (e.g. 'HEAD' during an active rebase). Defaults to `onto`. */
 	base?: string;
+	/** Only honored when `trigger === 'initial'`. */
+	stopOnFirstConflict?: boolean;
 }
-export interface DidGetTodoConflictsParams {
+export interface DidGetConflictsParams {
 	conflicts?: ConflictDetectionResult;
 }
-export const GetTodoConflictsRequest = new IpcRequest<GetTodoConflictsParams, DidGetTodoConflictsParams>(
-	scope,
-	'conflicts/todo',
-);
+export const GetConflictsRequest = new IpcRequest<GetConflictsParams, DidGetConflictsParams>(scope, 'conflicts/get');
 
 // NOTIFICATIONS
 
