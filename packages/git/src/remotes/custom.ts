@@ -35,6 +35,10 @@ export class CustomRemoteProvider extends RemoteProvider {
 		return [];
 	}
 
+	get avatarUrlTemplate(): string | undefined {
+		return this.urls.avatar;
+	}
+
 	getUrlForAvatar(email: string, size: number): string | undefined {
 		if (this.urls.avatar == null) return undefined;
 
