@@ -33,8 +33,10 @@ export async function getAheadBehindFilesQuery(
 	const [filesResult, statsResult, workingFilesResult, workingStatsResult] = await Promise.allSettled([
 		svc.diff.getDiffStatus(comparison),
 		svc.diff.getChangedFilesCount(comparison),
-		compareWithWorkingTree ? svc.diff.getDiffStatus('HEAD') : undefined,
-		compareWithWorkingTree ? svc.diff.getChangedFilesCount('HEAD') : undefined,
+		compareWithWorkingTree ? svc.diff.getDiffStatus('HEAD', undefined, { includeUntracked: true }) : undefined,
+		compareWithWorkingTree
+			? svc.diff.getChangedFilesCount('HEAD', undefined, { includeUntracked: true })
+			: undefined,
 	]);
 
 	let files = getSettledValue(filesResult) ?? [];
@@ -59,8 +61,11 @@ export async function getAheadBehindFilesQuery(
 
 		const workingStats = getSettledValue(workingStatsResult);
 		if (workingStats != null) {
+			// When untracked files contributed to the working-tree stat, additions/deletions
+			// undercount them — mark the stat approximated so consumers can render accordingly.
+			const hasUntracked = files.some(f => f.status === '?');
 			if (stats == null) {
-				stats = workingStats;
+				stats = hasUntracked ? { ...workingStats, approximated: true } : workingStats;
 			} else {
 				stats = {
 					additions: stats.additions + workingStats.additions,
@@ -123,15 +128,26 @@ export async function getFilesQuery(
 
 	const svc = container.git.getRepositoryService(repoPath);
 
+	const includeUntracked = ref1 === '';
 	const [filesResult, statsResult] = await Promise.allSettled([
-		svc.diff.getDiffStatus(comparison),
-		ref1 === '' ? svc.diff.getChangedFilesCount('', comparison) : svc.diff.getChangedFilesCount(comparison),
+		svc.diff.getDiffStatus(comparison, undefined, { includeUntracked: includeUntracked }),
+		// For the working-tree branch, pass `('', comparison)` so `prepareToFromDiffArgs` routes
+		// through its `to === ''` branch and runs `git diff --shortstat <comparison>`
+		// (working tree vs comparison). Passing `(comparison, undefined)` would synthesize
+		// `<comparison>^ <comparison>` and return the commit's own delta instead.
+		includeUntracked
+			? svc.diff.getChangedFilesCount('', comparison, { includeUntracked: true })
+			: svc.diff.getChangedFilesCount(comparison),
 	]);
 
 	const files = getSettledValue(filesResult) ?? [];
+	let stats: FilesQueryResults['stats'] = getSettledValue(statsResult);
+	if (includeUntracked && stats != null && files.some(f => f.status === '?')) {
+		stats = { ...stats, approximated: true };
+	}
 	return {
 		label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 		files: files,
-		stats: getSettledValue(statsResult),
+		stats: stats,
 	};
 }

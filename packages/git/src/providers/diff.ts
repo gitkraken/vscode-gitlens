@@ -32,7 +32,7 @@ export interface GitDiffSubProvider {
 		repoPath: string,
 		to?: string,
 		from?: string,
-		options?: { uris?: (string | Uri)[] },
+		options?: { uris?: (string | Uri)[]; includeUntracked?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitDiffShortStat | undefined>;
 	getDiff?(
@@ -70,7 +70,13 @@ export interface GitDiffSubProvider {
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; path?: string; renameLimit?: number; similarityThreshold?: number },
+		options?: {
+			filters?: GitDiffFilter[];
+			includeUntracked?: boolean;
+			path?: string;
+			renameLimit?: number;
+			similarityThreshold?: number;
+		},
 	): Promise<GitFile[] | undefined>;
 	getDiffTool?(repoPath?: string): Promise<string | undefined>;
 	getNextComparisonUris(

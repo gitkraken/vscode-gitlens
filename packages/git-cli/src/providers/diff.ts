@@ -60,7 +60,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		to?: string,
 		from?: string,
-		options?: { uris?: (string | Uri)[] },
+		options?: { uris?: (string | Uri)[]; includeUntracked?: boolean },
 		_cancellation?: AbortSignal,
 	): Promise<GitDiffShortStat | undefined> {
 		const scope = getScopedLogger();
@@ -85,9 +85,24 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				'--',
 				...(options?.uris?.map(p => this.provider.getRelativePath(p, repoPath)) ?? []),
 			);
-			if (!result.stdout) return undefined;
 
-			return parseGitDiffShortStat(result.stdout);
+			const stat = result.stdout ? parseGitDiffShortStat(result.stdout) : undefined;
+
+			// Merge in untracked files when the comparison involves the working tree.
+			// Skip when a pathspec filter is active — mixing a path-filtered diff count with an
+			// unfiltered untracked count would silently produce wrong totals.
+			if (options?.includeUntracked && !options.uris?.length && isWorkingTreeComparison(to, from)) {
+				const untracked = (await this.provider.status?.getUntrackedFiles?.(repoPath)) ?? [];
+				if (untracked.length) {
+					return {
+						files: (stat?.files ?? 0) + untracked.length,
+						additions: stat?.additions ?? 0,
+						deletions: stat?.deletions ?? 0,
+					};
+				}
+			}
+
+			return stat;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.noMergeBase.test(msg)) {
@@ -194,7 +209,13 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; path?: string; renameLimit?: number; similarityThreshold?: number },
+		options?: {
+			filters?: GitDiffFilter[];
+			includeUntracked?: boolean;
+			path?: string;
+			renameLimit?: number;
+			similarityThreshold?: number;
+		},
 	): Promise<GitFile[] | undefined> {
 		try {
 			const similarityThreshold = options?.similarityThreshold;
@@ -216,9 +237,33 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				'--',
 				options?.path ? options.path : undefined,
 			);
-			if (!result.stdout) return undefined;
 
-			return parseGitDiffNumStatFiles(result.stdout, repoPath);
+			const files = result.stdout ? (parseGitDiffNumStatFiles(result.stdout, repoPath) ?? []) : [];
+
+			// Merge in untracked files when the comparison involves the working tree.
+			// Skip when `filters` excludes additions (untracked entries are semantically 'A'/added),
+			// or when `path` is a non-exact pathspec we can't reliably match against the untracked list.
+			if (
+				options?.includeUntracked &&
+				ref2 == null &&
+				typeof ref1OrRange === 'string' &&
+				!isRevisionRange(ref1OrRange) &&
+				!isUncommittedStaged(ref1OrRange) &&
+				filtersAllowUntracked(options.filters) &&
+				!isNonExactPathspec(options.path)
+			) {
+				const untracked = (await this.provider.status?.getUntrackedFiles?.(repoPath)) ?? [];
+				if (untracked.length) {
+					const seen = new Set(files.map(f => f.path));
+					for (const file of untracked) {
+						if (seen.has(file.path)) continue;
+						if (options.path && options.path !== file.path) continue;
+						files.push(file);
+					}
+				}
+			}
+
+			return files.length ? files : undefined;
 		} catch (_ex) {
 			return undefined;
 		}
@@ -993,6 +1038,37 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 }
+// Returns true when no --diff-filter is active or when it includes additions ('A' or '*').
+// Untracked files are semantically "added" — if a caller restricts filters to e.g. ['M'],
+// honor that and omit untracked.
+function filtersAllowUntracked(filters: GitDiffFilter[] | undefined): boolean {
+	if (!filters?.length) return true;
+	return filters.includes('A') || filters.includes('*');
+}
+
+// Returns true when the path is a git pathspec we can't match with simple equality
+// (directory prefix, glob, or magic pathspec). In that case, skip the untracked merge
+// rather than risk excluding legitimate matches or including wrong ones.
+function isNonExactPathspec(path: string | undefined): boolean {
+	if (!path) return false;
+	return path.endsWith('/') || /[*?[\]]|^:/.test(path);
+}
+
+// Returns true when the `git diff` invocation shape includes the working tree
+// (i.e. `git diff`, `git diff HEAD`, or `git diff <ref>` with no `from`), and
+// therefore untracked files are a meaningful addition to the result.
+function isWorkingTreeComparison(to: string | undefined, from: string | undefined): boolean {
+	if (to != null && isRevisionRange(to)) return false;
+	if (isUncommittedStaged(to)) return false;
+	// `to === uncommitted` always targets the working tree (`prepareToFromDiffArgs` sets
+	// `from = 'HEAD'` when omitted, or diffs against the caller-supplied `from`).
+	if (isUncommitted(to)) return true;
+	// `git diff <from>` — `to === ''` means the caller explicitly asked for working tree vs `from`
+	if (to === '') return from == null || !isUncommittedStaged(from);
+	// `git diff <to>` with no `from` — working tree vs `to`
+	return from == null;
+}
+
 function prepareToFromDiffArgs(
 	to: string,
 	from: string | undefined,

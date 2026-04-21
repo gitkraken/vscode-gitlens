@@ -59,7 +59,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		to?: string,
 		_from?: string,
-		_options?: { uris?: (string | Uri)[] },
+		_options?: { uris?: (string | Uri)[]; includeUntracked?: boolean },
 		_cancellation?: AbortSignal,
 	): Promise<GitDiffShortStat | undefined> {
 		// TODO@eamodio if there is no ref we can't return anything, until we can get at the change store from RemoteHub
@@ -79,7 +79,13 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
-		_options?: { filters?: GitDiffFilter[]; path?: string; renameLimit?: number; similarityThreshold?: number },
+		_options?: {
+			filters?: GitDiffFilter[];
+			includeUntracked?: boolean;
+			path?: string;
+			renameLimit?: number;
+			similarityThreshold?: number;
+		},
 	): Promise<GitFile[] | undefined> {
 		if (repoPath == null) return undefined;
 

@@ -108,3 +108,310 @@ suite('DiffSubProvider.getParsedDiff', () => {
 		}
 	});
 });
+
+suite('DiffSubProvider.includeUntracked', () => {
+	test('getDiffStatus(HEAD, includeUntracked) includes tracked + staged + untracked files', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'tracked.txt', 'original\n', 'Add tracked.txt');
+
+			// Modify the tracked file (working tree change)
+			writeFileSync(join(r.path, 'tracked.txt'), 'modified\n');
+			// Add a staged new file
+			writeFileSync(join(r.path, 'staged.txt'), 'staged content\n');
+			execFileSync('git', ['add', 'staged.txt'], { cwd: r.path, stdio: 'pipe' });
+			// Add an untracked file
+			writeFileSync(join(r.path, 'untracked.txt'), 'untracked content\n');
+
+			const filesWithout = await r.provider.diff.getDiffStatus(r.path, 'HEAD');
+			assert.ok(filesWithout, 'Without includeUntracked, should still return tracked + staged');
+			assert.ok(filesWithout.find(f => f.path === 'tracked.txt'));
+			assert.ok(filesWithout.find(f => f.path === 'staged.txt'));
+			assert.strictEqual(
+				filesWithout.find(f => f.path === 'untracked.txt'),
+				undefined,
+				'Without includeUntracked, untracked files should be absent',
+			);
+
+			const filesWith = await r.provider.diff.getDiffStatus(r.path, 'HEAD', undefined, {
+				includeUntracked: true,
+			});
+			assert.ok(filesWith, 'Files should not be undefined');
+			assert.ok(
+				filesWith.find(f => f.path === 'tracked.txt'),
+				'Should include modified tracked file',
+			);
+			assert.ok(
+				filesWith.find(f => f.path === 'staged.txt'),
+				'Should include staged file',
+			);
+			assert.ok(
+				filesWith.find(f => f.path === 'untracked.txt'),
+				'Should include untracked file',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getDiffStatus(HEAD, includeUntracked) returns untracked only in otherwise-clean repo', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'a\n', 'Add a.txt');
+			writeFileSync(join(r.path, 'new.txt'), 'new\n');
+
+			const files = await r.provider.diff.getDiffStatus(r.path, 'HEAD', undefined, { includeUntracked: true });
+			assert.ok(files, 'Expected at least the untracked file');
+			assert.strictEqual(files.length, 1);
+			assert.strictEqual(files[0].path, 'new.txt');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getDiffStatus with two refs ignores includeUntracked', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'a\n', 'Add a.txt');
+			addCommit(r.path, 'b.txt', 'b\n', 'Add b.txt');
+			writeFileSync(join(r.path, 'untracked.txt'), 'ignored\n');
+
+			// Two-ref form (ref2 != null) is not "working tree vs ref" — untracked should be skipped
+			const files = await r.provider.diff.getDiffStatus(r.path, 'HEAD', 'HEAD~1', {
+				includeUntracked: true,
+			});
+			assert.ok(files, 'Files should not be undefined');
+			assert.strictEqual(
+				files.find(f => f.path === 'untracked.txt'),
+				undefined,
+				'Untracked files should not be merged into a two-ref diff',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getChangedFilesCount(HEAD, includeUntracked) adds untracked count', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'tracked.txt', 'original\n', 'Add tracked.txt');
+
+			writeFileSync(join(r.path, 'tracked.txt'), 'modified\n');
+			writeFileSync(join(r.path, 'untracked.txt'), 'new\n');
+
+			const without = await r.provider.diff.getChangedFilesCount(r.path, 'HEAD');
+			assert.ok(without, 'Without includeUntracked, should still report tracked changes');
+			assert.strictEqual(without.files, 1);
+
+			const withUntracked = await r.provider.diff.getChangedFilesCount(r.path, 'HEAD', undefined, {
+				includeUntracked: true,
+			});
+			assert.ok(withUntracked, 'Stat should not be undefined');
+			assert.strictEqual(withUntracked.files, 2, 'Expected tracked + untracked count');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getChangedFilesCount("", <non-HEAD ref>) returns working-tree vs ref, not ref^..ref', async () => {
+		const r = createTestRepo();
+		try {
+			// main (HEAD): one commit with a.txt only.
+			// feature: adds b.txt in a second commit.
+			// Working tree stays on main (clean) — so b.txt does NOT exist on disk but DOES on feature.
+			addCommit(r.path, 'a.txt', 'v1\n', 'Add a.txt');
+			const mainRef = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: r.path }).toString().trim();
+			execFileSync('git', ['checkout', '-b', 'feature'], { cwd: r.path, stdio: 'pipe' });
+			addCommit(r.path, 'b.txt', 'new line\n', 'Add b.txt on feature');
+			execFileSync('git', ['checkout', mainRef], { cwd: r.path, stdio: 'pipe' });
+
+			// Working tree vs feature: b.txt exists on feature but not in working tree
+			// → diff reports b.txt as deleted (1 file, 1 deletion, 0 additions).
+			const workingTreeVsFeature = await r.provider.diff.getChangedFilesCount(r.path, '', 'feature');
+			assert.ok(workingTreeVsFeature, 'Expected a shortstat for working tree vs feature');
+			assert.strictEqual(workingTreeVsFeature.files, 1);
+			assert.strictEqual(workingTreeVsFeature.additions, 0);
+			assert.strictEqual(workingTreeVsFeature.deletions, 1);
+
+			// feature^..feature: b.txt was added (1 file, 1 addition, 0 deletions) — opposite direction.
+			const featureParentToFeature = await r.provider.diff.getChangedFilesCount(r.path, 'feature', undefined);
+			assert.ok(featureParentToFeature);
+			assert.strictEqual(featureParentToFeature.files, 1);
+			assert.strictEqual(featureParentToFeature.additions, 1);
+			assert.strictEqual(featureParentToFeature.deletions, 0);
+
+			// Hard guardrail: the two shapes MUST differ.
+			assert.notDeepStrictEqual(
+				workingTreeVsFeature,
+				featureParentToFeature,
+				'working-tree-vs-ref and ref^..ref must produce different stats',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getChangedFilesCount("", <non-HEAD ref>, includeUntracked) adds untracked count', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'v1\n', 'Add a.txt');
+			const mainRef = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: r.path }).toString().trim();
+			execFileSync('git', ['checkout', '-b', 'feature'], { cwd: r.path, stdio: 'pipe' });
+			addCommit(r.path, 'a.txt', 'v2\n', 'Modify a.txt on feature');
+			execFileSync('git', ['checkout', mainRef], { cwd: r.path, stdio: 'pipe' });
+
+			writeFileSync(join(r.path, 'untracked.txt'), 'new\n');
+
+			const without = await r.provider.diff.getChangedFilesCount(r.path, '', 'feature');
+			assert.ok(without);
+			assert.strictEqual(without.files, 1, 'Without includeUntracked, only the tracked diff file is counted');
+
+			const withUntracked = await r.provider.diff.getChangedFilesCount(r.path, '', 'feature', {
+				includeUntracked: true,
+			});
+			assert.ok(withUntracked);
+			assert.strictEqual(
+				withUntracked.files,
+				2,
+				'With includeUntracked on a non-HEAD working-tree comparison, untracked files must contribute to the count',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getDiffStatus("", <non-HEAD ref>, includeUntracked) merges untracked', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'v1\n', 'Add a.txt');
+			const mainRef = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: r.path }).toString().trim();
+			execFileSync('git', ['checkout', '-b', 'feature'], { cwd: r.path, stdio: 'pipe' });
+			addCommit(r.path, 'a.txt', 'v2\n', 'Modify a.txt on feature');
+			execFileSync('git', ['checkout', mainRef], { cwd: r.path, stdio: 'pipe' });
+
+			writeFileSync(join(r.path, 'untracked.txt'), 'new\n');
+
+			const files = await r.provider.diff.getDiffStatus(r.path, 'feature', undefined, {
+				includeUntracked: true,
+			});
+			assert.ok(files);
+			assert.ok(
+				files.find(f => f.path === 'a.txt'),
+				'Should include the tracked diff file',
+			);
+			assert.ok(
+				files.find(f => f.path === 'untracked.txt'),
+				'Should include the untracked file when comparing working tree vs feature',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getDiffStatus with options.path ignores non-matching untracked files', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'v1\n', 'Add a.txt');
+			writeFileSync(join(r.path, 'a.txt'), 'v2\n');
+			writeFileSync(join(r.path, 'other-untracked.txt'), 'new\n');
+
+			const files = await r.provider.diff.getDiffStatus(r.path, 'HEAD', undefined, {
+				includeUntracked: true,
+				path: 'a.txt',
+			});
+			assert.ok(files);
+			assert.strictEqual(
+				files.find(f => f.path === 'other-untracked.txt'),
+				undefined,
+				'Untracked files outside the path filter must not be merged',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getDiffStatus with filters that exclude additions omits untracked', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'v1\n', 'Add a.txt');
+			writeFileSync(join(r.path, 'a.txt'), 'v2\n');
+			writeFileSync(join(r.path, 'untracked.txt'), 'new\n');
+
+			const files = await r.provider.diff.getDiffStatus(r.path, 'HEAD', undefined, {
+				includeUntracked: true,
+				filters: ['M'],
+			});
+			assert.ok(files);
+			assert.strictEqual(
+				files.find(f => f.path === 'untracked.txt'),
+				undefined,
+				'Untracked files are "added" — a filter restricted to M must omit them',
+			);
+
+			// But filters including 'A' should still merge untracked
+			const withA = await r.provider.diff.getDiffStatus(r.path, 'HEAD', undefined, {
+				includeUntracked: true,
+				filters: ['M', 'A'],
+			});
+			assert.ok(withA);
+			assert.ok(
+				withA.find(f => f.path === 'untracked.txt'),
+				'Filters containing A should still include untracked files',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getChangedFilesCount("", <non-HEAD ref>, includeUntracked) adds untracked count', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'v1\n', 'Add a.txt');
+			const mainRef = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: r.path }).toString().trim();
+			execFileSync('git', ['checkout', '-b', 'feature'], { cwd: r.path, stdio: 'pipe' });
+			addCommit(r.path, 'b.txt', 'new line\n', 'Add b.txt on feature');
+			execFileSync('git', ['checkout', mainRef], { cwd: r.path, stdio: 'pipe' });
+
+			// Working tree on main is clean; feature has b.txt. Add an untracked file on disk.
+			writeFileSync(join(r.path, 'untracked.txt'), 'new\n');
+
+			const without = await r.provider.diff.getChangedFilesCount(r.path, '', 'feature');
+			assert.ok(without, 'Without includeUntracked, stats should still reflect working-tree vs feature');
+			assert.strictEqual(without.files, 1, 'Expected b.txt only (tracked diff)');
+
+			const withUntracked = await r.provider.diff.getChangedFilesCount(r.path, '', 'feature', {
+				includeUntracked: true,
+			});
+			assert.ok(withUntracked, 'Stat should not be undefined');
+			assert.strictEqual(
+				withUntracked.files,
+				2,
+				'Expected b.txt (tracked) + untracked.txt when includeUntracked is set for non-HEAD ref',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getChangedFilesCount with uris ignores includeUntracked', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'v1\n', 'Add a.txt');
+			writeFileSync(join(r.path, 'a.txt'), 'v2\n');
+			writeFileSync(join(r.path, 'untracked.txt'), 'new\n');
+
+			const stat = await r.provider.diff.getChangedFilesCount(r.path, 'HEAD', undefined, {
+				includeUntracked: true,
+				uris: ['a.txt'],
+			});
+			assert.ok(stat);
+			assert.strictEqual(
+				stat.files,
+				1,
+				'When a pathspec filter is active, untracked files must not be merged into the count',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+});
