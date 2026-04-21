@@ -54,7 +54,7 @@ jobs:
               run: pnpm --filter @gitkraken/core-gitlens run bundle
 
             - name: Pack tarball (artifact)
-              run: pnpm --filter @gitkraken/core-gitlens pack
+              run: pnpm --filter @gitkraken/core-gitlens pack --pack-destination packages/core
 
             - name: Upload tarball artifact
               uses: actions/upload-artifact@v4
