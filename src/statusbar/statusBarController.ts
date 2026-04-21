@@ -92,7 +92,6 @@ export class StatusBarController implements Disposable {
 		if (configuration.changed(e, 'defaultCurrentUserNameStyle')) {
 			this._selectedSha = undefined;
 			this.container.lineTracker.refresh();
-			return;
 		}
 
 		if (!configuration.changed(e, 'statusBar')) return;
