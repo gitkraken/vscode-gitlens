@@ -1058,15 +1058,20 @@ function isNonExactPathspec(path: string | undefined): boolean {
 // (i.e. `git diff`, `git diff HEAD`, or `git diff <ref>` with no `from`), and
 // therefore untracked files are a meaningful addition to the result.
 function isWorkingTreeComparison(to: string | undefined, from: string | undefined): boolean {
-	if (to != null && isRevisionRange(to)) return false;
-	if (isUncommittedStaged(to)) return false;
+	if (to == null) return true;
+	if (isRevisionRange(to) || isUncommittedStaged(to)) return false;
+
 	// `to === uncommitted` always targets the working tree (`prepareToFromDiffArgs` sets
 	// `from = 'HEAD'` when omitted, or diffs against the caller-supplied `from`).
 	if (isUncommitted(to)) return true;
+
 	// `git diff <from>` — `to === ''` means the caller explicitly asked for working tree vs `from`
 	if (to === '') return from == null || !isUncommittedStaged(from);
-	// `git diff <to>` with no `from` — working tree vs `to`
-	return from == null;
+
+	// `getChangedFilesCount` uses `prepareToFromDiffArgs`, which translates `to` (with no `from`)
+	// to `${to}^ ${to}` UNLESS `to` is HEAD or empty.
+	if (to.toUpperCase() === 'HEAD' && from == null) return true;
+	return false;
 }
 
 function prepareToFromDiffArgs(
