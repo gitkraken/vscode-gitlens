@@ -68,11 +68,11 @@ jobs:
               working-directory: packages/core
               run: npm publish --access public --dry-run
               env:
-                  NODE_AUTH_TOKEN: ${{ secrets.GITKRAKEN_NPM_TOKEN }}
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_GITKRAKEN }}
 
             - name: Publish
               if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
               working-directory: packages/core
               run: npm publish --access public
               env:
-                  NODE_AUTH_TOKEN: ${{ secrets.GITKRAKEN_NPM_TOKEN }}
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_GITKRAKEN }}
