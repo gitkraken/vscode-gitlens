@@ -1,4 +1,5 @@
-import { EventEmitter, Uri } from 'vscode';
+import type { MessageItem } from 'vscode';
+import { EventEmitter, Uri, window, workspace } from 'vscode';
 import type { CommitAuthor } from '@gitlens/git/models/author.js';
 import { CustomRemoteProvider } from '@gitlens/git/remotes/custom.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
@@ -253,7 +254,7 @@ async function getAvatarUriFromRemoteProvider(
 					.remotes.getBestRemoteWithProvider();
 
 				if (remoteWithProvider?.provider instanceof CustomRemoteProvider) {
-					const avatarUrl = remoteWithProvider.provider.getUrlForAvatar(email, size);
+					const avatarUrl = getApprovedCustomRemoteAvatarUrl(remoteWithProvider.provider, email, size);
 					if (avatarUrl != null) {
 						avatar.uri = Uri.parse(avatarUrl);
 						avatar.timestamp = Date.now();
@@ -314,6 +315,71 @@ export function getPresenceDataUri(status: ContactPresenceStatus): string {
 	}
 
 	return dataUri;
+}
+
+const promptedAvatarTemplates = new Set<string>();
+
+function getApprovedCustomRemoteAvatarUrl(
+	provider: CustomRemoteProvider,
+	email: string,
+	size: number,
+): string | undefined {
+	// Avatar templates from `gitlens.remotes` may originate from workspace settings
+	// — only honor them in a trusted workspace
+	if (!workspace.isTrusted) return undefined;
+
+	const template = provider.avatarUrlTemplate;
+	if (template == null) return undefined;
+
+	const approval = getAvatarTemplateApproval(template);
+	if (approval === 'allow') {
+		return provider.getUrlForAvatar(email, size);
+	}
+	if (approval === 'deny') {
+		return undefined;
+	}
+	// Unknown template — prompt the user (non-blocking) and fall through to fallback avatar
+	void promptForAvatarTemplateApproval(template);
+	return undefined;
+}
+
+function getAvatarTemplateApproval(template: string): 'allow' | 'deny' | undefined {
+	return Container.instance.storage.get('avatars:approvedRemoteTemplates')?.[template];
+}
+
+async function setAvatarTemplateApproval(template: string, decision: 'allow' | 'deny'): Promise<void> {
+	const approvals = { ...(Container.instance.storage.get('avatars:approvedRemoteTemplates') ?? {}) };
+	approvals[template] = decision;
+	await Container.instance.storage.store('avatars:approvedRemoteTemplates', approvals);
+}
+
+async function promptForAvatarTemplateApproval(template: string): Promise<void> {
+	if (promptedAvatarTemplates.has(template)) return;
+	promptedAvatarTemplates.add(template);
+
+	const allow: MessageItem = { title: 'Allow' };
+	const never: MessageItem = { title: 'Never' };
+	const notNow: MessageItem = { title: 'Not Now', isCloseAffordance: true };
+
+	const result = await window.showInformationMessage(
+		`GitLens wants to fetch contributor avatars from a URL configured by the current workspace. This URL will be requested for every commit author shown in this repository.\n\nTemplate: ${template}`,
+		allow,
+		never,
+		notNow,
+	);
+
+	if (result === allow) {
+		await setAvatarTemplateApproval(template, 'allow');
+		resetAvatarCache('failed');
+	} else if (result === never) {
+		await setAvatarTemplateApproval(template, 'deny');
+	}
+}
+
+export function resetApprovedAvatarTemplates(): Promise<void> {
+	promptedAvatarTemplates.clear();
+	resetAvatarCache('failed');
+	return Container.instance.storage.delete('avatars:approvedRemoteTemplates');
 }
 
 export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback'): void {
