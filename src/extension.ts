@@ -312,7 +312,12 @@ export function deactivate(): void {
 // }
 
 function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys | string)[]) {
-	context.globalState?.setKeysForSync([...keys, SyncedStorageKeys.Version, SyncedStorageKeys.PreReleaseVersion]);
+	context.globalState?.setKeysForSync([
+		...keys,
+		SyncedStorageKeys.ApprovedAvatarRemoteTemplates,
+		SyncedStorageKeys.Version,
+		SyncedStorageKeys.PreReleaseVersion,
+	]);
 }
 
 function setFeatureFlagTelemetryGlobalAttributes(container: Container): void {

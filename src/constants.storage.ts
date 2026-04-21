@@ -35,6 +35,7 @@ export type IntegrationAuthenticationKeys =
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
 	PreReleaseVersion = 'gitlens:synced:preVersion',
+	ApprovedAvatarRemoteTemplates = 'gitlens:avatars:approvedRemoteTemplates',
 }
 
 export type DeprecatedGlobalStorage = {
@@ -88,6 +89,7 @@ interface GlobalStorageCore {
 	avatars: [string, StoredAvatar][];
 	'ai:scope:compose:model': AIProviderAndModel;
 	'ai:scope:review:model': AIProviderAndModel;
+	'avatars:approvedRemoteTemplates': Record<string, 'allow' | 'deny'>;
 	'confirm:ai:generateCommits': boolean;
 	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
