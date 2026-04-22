@@ -19,6 +19,7 @@ import {
 	GetRowHoverRequest,
 	GetWipStatsRequest,
 	isSecondaryWipSha,
+	ResolveGraphScopeRequest,
 	UpdateGraphConfigurationCommand,
 } from '../../../plus/graph/protocol.js';
 import type { CustomEventType } from '../../shared/components/element.js';
@@ -26,12 +27,13 @@ import { ipcContext } from '../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
+import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
 import type { GlGraphHeader } from './graph-header.js';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
 import type { GlGraphHover } from './hover/graphHover.js';
 import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } from './minimap/minimap-container.js';
-import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap.js';
+import type { GraphMinimapDaySelectedEventDetail, GraphMinimapWheelEvent } from './minimap/minimap.js';
 import type { GlGraphSidebarPanel, GraphSidebarPanelSelectEventDetail } from './sidebar/sidebar-panel.js';
 import type { GraphSidebarToggleEventDetail } from './sidebar/sidebar.js';
 import './gate.js';
@@ -357,15 +359,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					?collapsed=${!minimapVisible}
 					.rows=${this.graphState.rows ?? []}
 					.rowsStats=${this.graphState.rowsStats}
+					.rowsStatsLoading=${this.graphState.rowsStatsLoading}
 					.dataType=${this.graphState.config?.minimapDataType ?? 'commits'}
 					.markerTypes=${this.graphState.config?.minimapMarkerTypes ?? []}
+					.reversed=${this.graphState.config?.minimapReversed ?? false}
 					.refMetadata=${this.graphState.refsMetadata}
 					.searchResults=${this.graphState.searchResults}
+					.scopeWindow=${this.deriveScopeWindow()}
 					.visibleDays=${this.graphState.visibleDays
 						? { ...this.graphState.visibleDays } // Need to clone the object since it is a signal proxy
 						: undefined}
+					.wipMetadataBySha=${this.graphState.wipMetadataBySha}
 					@gl-graph-minimap-selected=${this.handleMinimapDaySelected}
 					@gl-graph-minimap-config-change=${this.handleMinimapConfigChange}
+					@gl-graph-minimap-wheel=${this.handleMinimapWheel}
 				></gl-graph-minimap-container>
 				${this.renderGraphContent('end')}
 			</gl-split-panel>
@@ -384,6 +391,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
 					@row-action-hover=${this.handleGraphRowActionHover}
 					@rowhoverstart=${this.handleGraphRowHoverStart}
+					@rowhovertrack=${this.handleGraphRowHoverTrack}
 				></gl-graph-wrapper>
 			</div>
 		`;
@@ -663,7 +671,82 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		) {
 			return;
 		}
+		// Assign immediately so the graph visual responds without waiting on the host round-trip;
+		// mergeBase is backfilled below when the IPC resolves.
 		this.graphState.scope = scope;
+		void this.resolveScopeMergeBase(scope);
+	}
+
+	private _scopeRequestId = 0;
+	private _cachedScopeWindow:
+		| {
+				scope: AppState['scope'];
+				rows: GraphRow[] | undefined;
+				result: { start: number; end: number } | undefined;
+		  }
+		| undefined;
+
+	private deriveScopeWindow(): { start: number; end: number } | undefined {
+		const scope = this.graphState.scope;
+		const rows = this.graphState.rows;
+		if (scope?.mergeBase == null) return undefined;
+
+		const cache = this._cachedScopeWindow;
+		if (cache?.scope === scope && cache.rows === rows) {
+			return cache.result;
+		}
+
+		let result: { start: number; end: number } | undefined;
+		const tipRow = rows?.find(
+			r => r.heads?.some(h => h.id === scope.branchRef) || r.remotes?.some(re => re.id === scope.branchRef),
+		);
+		if (tipRow != null) {
+			let end = tipRow.date;
+			if (scope.upstreamRef != null) {
+				const upstreamRow = rows?.find(
+					r =>
+						r.remotes?.some(re => re.id === scope.upstreamRef) ||
+						r.heads?.some(h => h.id === scope.upstreamRef),
+				);
+				if (upstreamRow != null && upstreamRow.date > end) {
+					end = upstreamRow.date;
+				}
+			}
+			result = { start: scope.mergeBase.date, end: end };
+		}
+
+		this._cachedScopeWindow = { scope: scope, rows: rows, result: result };
+		return result;
+	}
+
+	private async resolveScopeMergeBase(scope: NonNullable<typeof this.graphState.scope>): Promise<void> {
+		const requestId = ++this._scopeRequestId;
+		const repoPath = scope.branchRef.split('|', 2)[0];
+		if (!repoPath) return;
+
+		let response;
+		try {
+			response = await this._ipc.sendRequest(ResolveGraphScopeRequest, {
+				repoPath: repoPath,
+				scope: {
+					branchRef: scope.branchRef,
+					branchName: scope.branchName,
+					upstreamRef: scope.upstreamRef,
+					mergeTargetTipSha: scope.mergeTargetTipSha,
+					additionalBranchRefs: scope.additionalBranchRefs,
+				},
+			});
+		} catch {
+			// Keep the optimistic scope without mergeBase; overlay will simply not render
+			return;
+		}
+
+		// Discard stale responses (a newer setScope has fired, or scope was cleared)
+		if (requestId !== this._scopeRequestId) return;
+		const latest = this.graphState.scope;
+		if (latest?.branchRef !== scope.branchRef) return;
+
+		this.graphState.scope = { ...latest, mergeBase: response?.scope.mergeBase };
 	}
 
 	private selectCommits = (shas: string[], options?: SelectCommitsOptions) => {
@@ -673,6 +756,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private getCommits = (shas: string[]) => {
 		return this.graph.getCommits(shas);
 	};
+
+	private handleMinimapWheel(e: GraphMinimapWheelEvent) {
+		this.graph?.scrollGraphBy(e.detail.deltaY);
+	}
 
 	private handleMinimapDaySelected(e: CustomEvent<GraphMinimapDaySelectedEventDetail>) {
 		if (!this.graphState.rows) return;
@@ -703,11 +790,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleMinimapConfigChange(e: CustomEvent<GraphMinimapConfigChangeEventDetail>) {
-		const { minimapDataType, markerType, checked } = e.detail;
+		const { minimapDataType, minimapReversed, markerType, checked } = e.detail;
 
 		if (minimapDataType != null) {
 			this._ipc.sendCommand(UpdateGraphConfigurationCommand, {
 				changes: { minimapDataType: minimapDataType },
+			});
+			return;
+		}
+
+		if (minimapReversed != null) {
+			this._ipc.sendCommand(UpdateGraphConfigurationCommand, {
+				changes: { minimapReversed: minimapReversed },
 			});
 			return;
 		}
@@ -869,7 +963,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		hover.requestMarkdown ??= this.getRowHoverPromise.bind(this);
 		hover.onRowHovered(graphRow, anchor);
+	}
 
+	private handleGraphRowHoverTrack({ detail: { graphZoneType, graphRow } }: CustomEventType<'rowhovertrack'>) {
+		if (graphZoneType === refZone) return;
 		this.minimapEl?.select(graphRow.date, true);
 	}
 

@@ -49,12 +49,12 @@
 
 	--color-graph-minimap-line0: var(--vscode-progressBar-background);
 	--color-graph-minimap-focusLine: var(--vscode-foreground);
-	--color-graph-minimap-visibleAreaBackground: var(--vscode-scrollbarSlider-background);
 
 	--color-graph-minimap-marker-head: var(--vscode-gitlens-graphMinimapMarkerHeadColor);
 	--color-graph-scroll-marker-head: var(--vscode-gitlens-graphScrollMarkerHeadColor);
 	--color-graph-minimap-marker-upstream: var(--vscode-gitlens-graphMinimapMarkerUpstreamColor);
 	--color-graph-scroll-marker-upstream: var(--vscode-gitlens-graphScrollMarkerUpstreamColor);
+	--color-graph-minimap-marker-worktree: var(--vscode-gitlens-graphMinimapMarkerWorktreeColor);
 	--color-graph-minimap-marker-highlights: var(--vscode-gitlens-graphMinimapMarkerHighlightsColor);
 	--color-graph-scroll-marker-highlights: var(--vscode-gitlens-graphScrollMarkerHighlightsColor);
 	--color-graph-minimap-marker-local-branches: var(--vscode-gitlens-graphMinimapMarkerLocalBranchesColor);

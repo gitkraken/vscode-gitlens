@@ -1018,11 +1018,19 @@
 						"scope": "window",
 						"order": 101
 					},
+					"gitlens.graph.minimap.reversed": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to reverse the minimap orientation in the _Commit Graph_ so that older commits appear on the left and newer commits on the right",
+						"scope": "window",
+						"order": 103
+					},
 					"gitlens.graph.minimap.additionalTypes": {
 						"type": "array",
 						"default": [
 							"localBranches",
-							"stashes"
+							"stashes",
+							"worktree"
 						],
 						"items": {
 							"type": "string",
@@ -1031,18 +1039,20 @@
 								"remoteBranches",
 								"pullRequests",
 								"stashes",
-								"tags"
+								"tags",
+								"worktree"
 							],
 							"enumDescriptions": [
 								"Marks the location of local branches",
 								"Marks the location of remote branches",
 								"Marks the location of pull requests",
 								"Marks the location of stashes",
-								"Marks the location of tags"
+								"Marks the location of tags",
+								"Marks the location of other worktrees (where each is checked out)"
 							]
 						},
 						"minItems": 0,
-						"maxItems": 5,
+						"maxItems": 6,
 						"uniqueItems": true,
 						"markdownDescription": "Specifies additional markers to show on the minimap in the _Commit Graph_",
 						"scope": "window",
@@ -6155,6 +6165,16 @@
 					"highContrastLight": "#8cd993",
 					"dark": "#09ae17",
 					"highContrast": "#09ae17"
+				}
+			},
+			{
+				"id": "gitlens.graphMinimapMarkerWorktreeColor",
+				"description": "Specifies the color marking other worktrees on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#a371d4",
+					"highContrastLight": "#a371d4",
+					"dark": "#b87cdf",
+					"highContrast": "#b87cdf"
 				}
 			},
 			{

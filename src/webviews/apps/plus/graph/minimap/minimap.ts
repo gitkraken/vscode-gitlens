@@ -1,13 +1,31 @@
-import type { Chart, DataItem, RegionOptions } from 'billboard.js';
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { debounce } from '@gitlens/utils/debounce.js';
+import { getCssVariable } from '@gitlens/utils/color.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
-import { first, flatMap, groupByMap, map, union } from '@gitlens/utils/iterable.js';
+import { groupByMap } from '@gitlens/utils/iterable.js';
 import { capitalize, pluralize } from '@gitlens/utils/string.js';
-import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb.d.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date.js';
+import type { Disposable } from '../../../shared/events.js';
+import { onDidChangeTheme } from '../../../shared/theme.js';
+import { getDay } from './minimapData.js';
+import type { MinimapDrawState, MinimapLayout, MinimapTheme, MinimapViewModel } from './minimapRenderer.js';
+import {
+	buildViewModel,
+	layout as computeLayout,
+	drawOverlay,
+	drawStatic,
+	hitTestScrollbar,
+	minZoomRangeMs,
+	scrollbarDeltaToTimestampShift,
+	sliceViewModel,
+	xToDay,
+	xToTimestamp,
+} from './minimapRenderer.js';
+
+const brushThresholdPx = 3;
+const scrollbarHeightPx = 8;
+const scrollbarFadeStep = 0.18; // ~6 frames from 0→1 at 60fps
 
 export interface BranchMarker {
 	type: 'branch';
@@ -39,7 +57,19 @@ export interface PullRequestMarker {
 	current?: undefined;
 }
 
-export type GraphMinimapMarker = BranchMarker | RemoteMarker | StashMarker | TagMarker | PullRequestMarker;
+export interface WorktreeMarker {
+	type: 'worktree';
+	name: string;
+	current?: undefined;
+}
+
+export type GraphMinimapMarker =
+	| BranchMarker
+	| RemoteMarker
+	| StashMarker
+	| TagMarker
+	| PullRequestMarker
+	| WorktreeMarker;
 
 export interface GraphMinimapSearchResultMarker {
 	type: 'search-result';
@@ -62,19 +92,24 @@ export interface GraphMinimapDaySelectedEventDetail {
 	sha?: string;
 }
 
-const markerZOrder = [
-	'marker-result',
-	'marker-head-arrow-left',
-	'marker-head-arrow-right',
-	'marker-head',
-	'marker-upstream',
-	'marker-pull-request',
-	'marker-branch',
-	'marker-stash',
-	'marker-remote',
-	'marker-tag',
-	'visible-area',
-];
+export type GraphMinimapWheelEvent = CustomEvent<GraphMinimapWheelEventDetail>;
+
+export interface GraphMinimapWheelEventDetail {
+	/** Vertical scroll delta in CSS pixels — `WheelEvent.deltaY` with `deltaMode` already normalized. */
+	deltaY: number;
+}
+
+export type GraphMinimapZoomChangeEvent = CustomEvent<GraphMinimapZoomChangeEventDetail>;
+
+export interface GraphMinimapZoomChangeEventDetail {
+	zoomed: boolean;
+}
+
+// CSS-pixel conversion constants for `WheelEvent.deltaMode`. Browsers report wheel deltas in three
+// units (pixels / lines / pages); these convert the non-pixel modes to pixels so the graph scroller
+// can apply the delta without caring about the wheel source.
+const wheelLineHeightPx = 16;
+const wheelPageHeightPx = 400;
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -83,6 +118,8 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		'gl-graph-minimap-selected': GraphMinimapDaySelectedEvent;
+		'gl-graph-minimap-wheel': GraphMinimapWheelEvent;
+		'gl-graph-minimap-zoom-change': GraphMinimapZoomChangeEvent;
 	}
 }
 
@@ -97,11 +134,15 @@ export class GlGraphMinimap extends GlElement {
 			background: var(--color-graph-background);
 		}
 
-		#chart {
+		#canvas {
+			display: block;
 			height: 100%;
-			width: calc(100% - 2rem);
-			overflow: hidden;
-			position: initial !important;
+			width: calc(100% - 2.5rem);
+			cursor: pointer;
+		}
+
+		#canvas:active {
+			cursor: ew-resize;
 		}
 
 		#spinner {
@@ -117,233 +158,14 @@ export class GlGraphMinimap extends GlElement {
 			display: none;
 		}
 
-		.bb svg {
-			font: 10px var(--font-family);
-			-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-		}
-
-		.bb-chart {
-			width: 100%;
-			height: 100%;
-		}
-
-		.bb-event-rect {
-			height: calc(100% + 2px);
-			transform: translateY(-5px);
-		}
-
-		/*-- Grid --*/
-		.bb-grid {
-			pointer-events: none;
-		}
-
-		.bb-xgrid-focus line {
-			stroke: var(--color-graph-minimap-focusLine);
-		}
-
-		/*-- Line --*/
-		.bb path,
-		.bb line {
-			fill: none;
-		}
-
-		/*-- Point --*/
-		.bb-circle._expanded_ {
-			fill: var(--color-background);
-			opacity: 1 !important;
-			fill-opacity: 1 !important;
-			stroke-opacity: 1 !important;
-			stroke-width: 1px;
-		}
-
-		.bb-selected-circle {
-			fill: var(--color-background);
-			opacity: 1 !important;
-			fill-opacity: 1 !important;
-			stroke-opacity: 1 !important;
-			stroke-width: 2px;
-		}
-
-		/*-- Bar --*/
-		.bb-bar {
-			stroke-width: 0;
-		}
-		.bb-bar._expanded_ {
-			fill-opacity: 0.75;
-		}
-
-		/*-- Regions --*/
-
-		.bb-regions {
-			pointer-events: none;
-		}
-
-		.bb-region > rect:not([x]) {
-			display: none;
-		}
-
-		.bb-region.visible-area {
-			fill: var(--color-graph-minimap-visibleAreaBackground);
-			/* transform: translateY(-4px); */
-		}
-		.bb-region.visible-area > rect {
-			height: 100%;
-		}
-
-		.bb-region.marker-result {
-			fill: var(--color-graph-minimap-marker-highlights);
-			transform: translateX(-1px);
-			z-index: 10;
-		}
-		.bb-region.marker-result > rect {
-			width: 2px;
-			height: 100%;
-		}
-
-		.bb-region.marker-head {
-			fill: var(--color-graph-minimap-marker-head);
-			stroke: var(--color-graph-minimap-marker-head);
-			transform: translateX(-1px);
-		}
-		.bb-region.marker-head > rect {
-			width: 1px;
-			height: 100%;
-		}
-
-		.bb-region.marker-head-arrow-left {
-			fill: var(--color-graph-minimap-marker-head);
-			stroke: var(--color-graph-minimap-marker-head);
-			transform: translate(-5px, -1px) skewX(45deg);
-		}
-		.bb-region.marker-head-arrow-left > rect {
-			width: 3px;
-			height: 3px;
-		}
-
-		.bb-region.marker-head-arrow-right {
-			fill: var(--color-graph-minimap-marker-head);
-			stroke: var(--color-graph-minimap-marker-head);
-			transform: translate(1px, -1px) skewX(-45deg);
-		}
-		.bb-region.marker-head-arrow-right > rect {
-			width: 3px;
-			height: 3px;
-		}
-
-		.bb-region.marker-upstream {
-			fill: var(--color-graph-minimap-marker-upstream);
-			stroke: var(--color-graph-minimap-marker-upstream);
-			transform: translateX(-1px);
-		}
-		.bb-region.marker-upstream > rect {
-			width: 1px;
-			height: 100%;
-		}
-
-		.bb-region.marker-pull-request {
-			fill: var(--color-graph-minimap-marker-pull-requests);
-			stroke: var(--color-graph-minimap-marker-pull-requests);
-			transform: translate(-2px, calc(var(--minimap-height, 40px) - 11px));
-		}
-		.bb-region.marker-pull-request > rect {
-			width: 3px;
-			height: 3px;
-		}
-
-		.bb-region.marker-branch {
-			fill: var(--color-graph-minimap-marker-local-branches);
-			stroke: var(--color-graph-minimap-marker-local-branches);
-			transform: translate(-2px, calc(var(--minimap-height, 40px) - 5px));
-		}
-		.bb-region.marker-branch > rect {
-			width: 3px;
-			height: 3px;
-		}
-
-		.bb-region.marker-remote {
-			fill: var(--color-graph-minimap-marker-remote-branches);
-			stroke: var(--color-graph-minimap-marker-remote-branches);
-			transform: translate(-2px, calc(var(--minimap-height, 40px) - 11px));
-		}
-		.bb-region.marker-remote > rect {
-			width: 3px;
-			height: 3px;
-		}
-
-		.bb-region.marker-stash {
-			fill: var(--color-graph-minimap-marker-stashes);
-			stroke: var(--color-graph-minimap-marker-stashes);
-			transform: translate(-2px, calc(var(--minimap-height, 40px) - 5px));
-		}
-		.bb-region.marker-stash > rect {
-			width: 3px;
-			height: 3px;
-		}
-
-		.bb-region.marker-tag {
-			fill: var(--color-graph-minimap-marker-tags);
-			stroke: var(--color-graph-minimap-marker-tags);
-			transform: translate(-2px, calc(var(--minimap-height, 40px) - 11px));
-		}
-		.bb-region.marker-tag > rect {
-			width: 3px;
-			height: 3px;
-		}
-
-		/*-- Zoom region --*/
-		/*
-	:host-context(.vscode-dark) .bb-zoom-brush {
-		fill: white;
-		fill-opacity: 0.2;
-	}
-	:host-context(.vscode-light) .bb-zoom-brush {
-		fill: black;
-		fill-opacity: 0.1;
-	}
-	*/
-
-		/*-- Brush --*/
-		/*
-	.bb-brush .extent {
-		fill-opacity: 0.1;
-	}
-	*/
-
-		/*-- Button --*/
-		/*
-	.bb-button {
-		position: absolute;
-		top: 2px;
-		right: 0;
-
-		color: var(--color-button-foreground);
-
-		font-size: var(--font-size);
-		font-family: var(--font-family);
-	}
-	.bb-button .bb-zoom-reset {
-		display: inline-block;
-		padding: 0.1rem 0.3rem;
-		cursor: pointer;
-		font-family: 'codicon';
-		font-display: block;
-
-		background-color: var(--color-button-background);
-
-		border: 1px solid var(--color-button-background);
-		border-radius: 3px;
-	}
-	*/
-
-		/*-- Tooltip --*/
-		.bb-tooltip-container {
-			top: unset !important;
+		#tooltip {
+			position: absolute;
+			top: calc(100% + 4px);
+			left: 0;
 			z-index: 10;
 			user-select: none;
+			pointer-events: none;
 			min-width: 300px;
-		}
-
-		.bb-tooltip {
 			display: flex;
 			flex-direction: column;
 			padding: 0.5rem 1rem;
@@ -354,29 +176,34 @@ export class GlGraphMinimap extends GlElement {
 			font-size: var(--font-size);
 			opacity: 1;
 			white-space: nowrap;
+			visibility: hidden;
 		}
 
-		.bb-tooltip .header {
+		#tooltip[data-visible='true'] {
+			visibility: visible;
+		}
+
+		#tooltip .header {
 			display: flex;
 			flex-direction: row;
 			justify-content: space-between;
 			gap: 1rem;
 		}
 
-		.bb-tooltip .header--title {
+		#tooltip .header--title {
 			font-weight: 600;
 		}
 
-		.bb-tooltip .header--description {
+		#tooltip .header--description {
 			font-weight: normal;
 			font-style: italic;
 		}
 
-		.bb-tooltip .changes {
+		#tooltip .changes {
 			margin: 0.5rem 0;
 		}
 
-		.bb-tooltip .results {
+		#tooltip .results {
 			display: flex;
 			font-size: 12px;
 			gap: 0.5rem;
@@ -386,7 +213,7 @@ export class GlGraphMinimap extends GlElement {
 			max-width: fit-content;
 		}
 
-		.bb-tooltip .results .result {
+		#tooltip .results .result {
 			border-radius: 3px;
 			padding: 0 4px;
 			background-color: var(--color-graph-minimap-tip-highlightBackground);
@@ -394,7 +221,7 @@ export class GlGraphMinimap extends GlElement {
 			color: var(--color-graph-minimap-tip-highlightForeground);
 		}
 
-		.bb-tooltip .refs {
+		#tooltip .refs {
 			display: flex;
 			font-size: 12px;
 			gap: 0.5rem;
@@ -403,49 +230,56 @@ export class GlGraphMinimap extends GlElement {
 			margin: 0.5rem 0;
 			max-width: fit-content;
 		}
-		.bb-tooltip .refs:empty {
+
+		#tooltip .refs:empty {
 			margin: 0;
 		}
 
-		.bb-tooltip .refs .branch {
+		#tooltip .refs .branch {
 			border-radius: 3px;
 			padding: 0 4px;
 			background-color: var(--color-graph-minimap-tip-branchBackground);
 			border: 1px solid var(--color-graph-minimap-tip-branchBorder);
 			color: var(--color-graph-minimap-tip-branchForeground);
 		}
-		.bb-tooltip .refs .branch.current {
+
+		#tooltip .refs .branch.current {
 			background-color: var(--color-graph-minimap-tip-headBackground);
 			border: 1px solid var(--color-graph-minimap-tip-headBorder);
 			color: var(--color-graph-minimap-tip-headForeground);
 		}
-		.bb-tooltip .refs .remote {
+
+		#tooltip .refs .remote {
 			border-radius: 3px;
 			padding: 0 4px;
 			background-color: var(--color-graph-minimap-tip-remoteBackground);
 			border: 1px solid var(--color-graph-minimap-tip-remoteBorder);
 			color: var(--color-graph-minimap-tip-remoteForeground);
 		}
-		.bb-tooltip .refs .remote.current {
+
+		#tooltip .refs .remote.current {
 			background-color: var(--color-graph-minimap-tip-upstreamBackground);
 			border: 1px solid var(--color-graph-minimap-tip-upstreamBorder);
 			color: var(--color-graph-minimap-tip-upstreamForeground);
 		}
-		.bb-tooltip .refs .stash {
+
+		#tooltip .refs .stash {
 			border-radius: 3px;
 			padding: 0 4px;
 			background-color: var(--color-graph-minimap-tip-stashBackground);
 			border: 1px solid var(--color-graph-minimap-tip-stashBorder);
 			color: var(--color-graph-minimap-tip-stashForeground);
 		}
-		.bb-tooltip .refs .pull-request {
+
+		#tooltip .refs .pull-request {
 			border-radius: 3px;
 			padding: 0 4px;
 			background-color: var(--color-graph-minimap-pullRequestBackground);
 			border: 1px solid var(--color-graph-minimap-pullRequestBorder);
 			color: var(--color-graph-minimap-pullRequestForeground);
 		}
-		.bb-tooltip .refs .tag {
+
+		#tooltip .refs .tag {
 			border-radius: 3px;
 			padding: 0 4px;
 			background-color: var(--color-graph-minimap-tip-tagBackground);
@@ -453,34 +287,112 @@ export class GlGraphMinimap extends GlElement {
 			color: var(--color-graph-minimap-tip-tagForeground);
 		}
 
-		.bb-event-rects,
-		.bb-event-rect {
-			cursor: pointer !important;
-		}
-		.bb-event-rects:active,
-		.bb-event-rect:active {
-			cursor: ew-resize !important;
+		#tooltip .refs .worktree {
+			border-radius: 3px;
+			padding: 0 4px;
+			background-color: var(--color-graph-minimap-marker-worktree);
+			border: 1px solid var(--color-graph-minimap-marker-worktree);
+			/* The purple background is mid-luminance in both themes, so editor-foreground (which flips
+			   light/dark with the theme) gives borderline contrast in dark themes. A fixed near-black
+			   yields ~5:1 on both purple variants. */
+			color: #1f1f1f;
 		}
 	`;
 
-	@query('#chart')
-	chartContainer!: HTMLDivElement;
-	private _chart!: Chart;
+	@query('#canvas')
+	private canvas!: HTMLCanvasElement;
+
+	@query('#tooltip')
+	private tooltipEl!: HTMLDivElement;
 
 	@query('#spinner')
-	spinner!: HTMLDivElement;
+	private spinner!: HTMLDivElement;
 
-	private _loadTimer: ReturnType<typeof setTimeout> | undefined;
+	private _ctx: CanvasRenderingContext2D | null = null;
+	private _staticCanvas: HTMLCanvasElement | undefined;
+	private _staticCtx: CanvasRenderingContext2D | null = null;
+	private _staticDirty = true;
+	// Resolved once per theme swap (invalidated by `onDidChangeTheme`) rather than every rAF —
+	// `getComputedStyle` + ~12 custom-property reads adds up on the hot draw path.
+	private _cachedTheme: MinimapTheme | undefined;
+	private _lastBackingW = 0;
+	private _lastBackingH = 0;
+	private _viewModel: MinimapViewModel | undefined;
+	private _layout: MinimapLayout | undefined;
+	private _lastLayoutDayCount: number | undefined;
+	private _hoverDay: number | undefined;
+	private _observedWidth = 0;
+	private _observedHeight = 0;
 
-	private _markerRegions: Iterable<RegionOptions> | undefined;
-	private _regions: RegionOptions[] | undefined;
+	private _drawRAF: number | undefined;
+	private _resizeObserver: ResizeObserver | undefined;
+	private _themeDisposable: Disposable | undefined;
+	// Cached bounding rect of the canvas relative to the viewport — populated lazily and invalidated
+	// on resize so pointer handlers re-read `getBoundingClientRect()` at most once per layout change.
+	private _canvasRect: DOMRect | undefined;
+	// Cached day-aligned `activeDay` — recomputed only when `activeDay` changes, reused every rAF.
+	private _activeDayNormalized: number | undefined;
+
+	// Zoom state. `_zoomOldest`/`_zoomNewest` hold the precise (possibly sub-day) window; we keep
+	// them separate from `_zoomedViewModel.days` (which are day-midnights) to preserve sub-bar
+	// precision during pan/thumb-drag so the window doesn't quantize after each adjustment.
+	private _zoomOldest: number | undefined;
+	private _zoomNewest: number | undefined;
+	private _zoomedViewModel: MinimapViewModel | undefined;
+
+	get zoomOldest(): number | undefined {
+		return this._zoomOldest;
+	}
+
+	get zoomNewest(): number | undefined {
+		return this._zoomNewest;
+	}
+
+	// Brush gesture state — lives only for the duration of a single pointerdown..pointerup.
+	private _pointerDownX: number | undefined;
+	private _brushing = false;
+	private _brushCurrentX: number | undefined;
+
+	// Scrollbar gesture state.
+	private _thumbDragging = false;
+	private _thumbDragStartX: number | undefined;
+	private _thumbDragStartOldest: number | undefined;
+	private _thumbDragStartNewest: number | undefined;
+
+	// Scrollbar fade animation — `_scrollbarOpacity` animates toward `_scrollbarTargetOpacity` one
+	// step per rAF, and `drawNow` self-reschedules until they converge.
+	private _scrollbarOpacity = 0;
+	private _scrollbarTargetOpacity = 0;
+	private _scrollbarHover = false;
+
+	// Per-frame draw state, pre-allocated so `drawNow` can mutate fields in place instead of
+	// allocating a fresh object (and two inner range objects) every rAF on a hot canvas surface.
+	private readonly _zoomRangeScratch = { oldest: 0, newest: 0 };
+	private readonly _brushRangeScratch = { startX: 0, endX: 0 };
+	private readonly _drawState: MinimapDrawState = {
+		viewModel: undefined!,
+		layout: undefined!,
+		markersByDay: undefined,
+		searchResultsByDay: undefined,
+		visibleDays: undefined,
+		activeDay: undefined,
+		hoverDay: undefined,
+		theme: undefined!,
+		fullTimelineOldest: undefined,
+		fullTimelineNewest: undefined,
+		zoomRange: undefined,
+		brushRange: undefined,
+		scrollbarOpacity: 0,
+		scrollbarHover: false,
+	};
 
 	@property({ type: Number })
 	activeDay: number | undefined;
 
 	@observe('activeDay')
 	private onActiveDayChanged() {
-		this.select(this.activeDay);
+		this._activeDayNormalized = this.activeDay == null ? undefined : getDay(this.activeDay);
+		this.requestDraw();
 	}
 
 	@property({ type: Object })
@@ -489,9 +401,21 @@ export class GlGraphMinimap extends GlElement {
 	@property({ type: String })
 	dataType: 'commits' | 'lines' = 'commits';
 
+	@property({ type: Boolean })
+	loading = false;
+
 	@observe(['data', 'dataType'])
 	private onDataChanged() {
-		this.handleDataChanged(false);
+		this.rebuildViewModel();
+		this.rebuildZoomedViewModel();
+		this.updateSpinner();
+		this.invalidateStatic();
+	}
+
+	@observe('loading')
+	private onLoadingChanged() {
+		this.updateSpinner();
+		this.invalidateStatic();
 	}
 
 	@property({ type: Object })
@@ -499,7 +423,7 @@ export class GlGraphMinimap extends GlElement {
 
 	@observe('markers')
 	private onMarkersChanged() {
-		this.handleDataChanged(true);
+		this.invalidateStatic();
 	}
 
 	@property({ type: Object })
@@ -507,48 +431,65 @@ export class GlGraphMinimap extends GlElement {
 
 	@observe('searchResults')
 	private onSearchResultsChanged() {
-		this._chart?.regions.remove({ classes: ['marker-result'] });
-		if (this.searchResults == null) return;
-		this._chart?.regions.add([...this.getSearchResultsRegions(this.searchResults)]);
+		this.invalidateStatic();
+	}
+
+	@property({ type: Boolean })
+	reversed = false;
+
+	@observe('reversed')
+	private onReversedChanged() {
+		// Layout stores `reversed` — clear it so `drawNow` rebuilds with the new orientation.
+		this._layout = undefined;
+		this.invalidateStatic();
 	}
 
 	@property({ type: Object })
 	visibleDays: { top: number; bottom: number } | undefined;
 
+	private _lastVisibleTop: number | undefined;
+	private _lastVisibleBottom: number | undefined;
+
 	@observe('visibleDays')
 	private onVisibleDaysChanged() {
-		this._chart?.regions.remove({ classes: ['visible-area'] });
-		if (this.visibleDays == null) return;
-
-		this._chart?.regions.add(this.getVisibleAreaRegion(this.visibleDays));
+		// `graph-app` re-renders with a fresh `{...visibleDays}` clone each pass (by necessity — the
+		// upstream signal proxy has stable identity), so this observer would otherwise fire on every
+		// host re-render. Short-circuit when top/bottom are unchanged so the hot scroll path stops
+		// scheduling no-op rAFs.
+		const top = this.visibleDays?.top;
+		const bottom = this.visibleDays?.bottom;
+		if (top === this._lastVisibleTop && bottom === this._lastVisibleBottom) return;
+		this._lastVisibleTop = top;
+		this._lastVisibleBottom = bottom;
+		this.requestDraw();
 	}
-
-	private _resizeObserver: ResizeObserver | undefined;
-	private _resizeRAF: number | undefined;
-	private _observedHeight = 0;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		this.handleDataChanged(false);
-
 		this._resizeObserver = new ResizeObserver(entries => {
 			const rect = entries[0]?.contentRect;
-			if (rect != null) {
-				const h = Math.round(rect.height);
-				if (h !== this._observedHeight) {
-					this._observedHeight = h;
-					this.style.setProperty('--minimap-height', `${h}px`);
-				}
+			if (rect == null) return;
+			const w = Math.round(rect.width);
+			const h = Math.round(rect.height);
+			// Any resize (including parent split-panel drags) potentially shifts the canvas origin,
+			// so drop the cached bounding rect so the next pointer event re-reads it.
+			this._canvasRect = undefined;
+			if (w !== this._observedWidth || h !== this._observedHeight) {
+				this._observedWidth = w;
+				this._observedHeight = h;
+				this.style.setProperty('--minimap-height', `${h}px`);
+				this.invalidateStatic();
 			}
-			// Coalesce to a single rAF to avoid thrashing during drag
-			if (this._resizeRAF != null) return;
-			this._resizeRAF = requestAnimationFrame(() => {
-				this._resizeRAF = undefined;
-				this._chart?.resize();
-			});
 		});
 		this._resizeObserver.observe(this);
+
+		this._themeDisposable = onDidChangeTheme(() => {
+			this._cachedTheme = undefined;
+			this.invalidateStatic();
+		});
+
+		window.addEventListener('keydown', this.onWindowKeyDown);
 	}
 
 	override disconnectedCallback(): void {
@@ -556,556 +497,769 @@ export class GlGraphMinimap extends GlElement {
 
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = undefined;
-		if (this._resizeRAF != null) {
-			cancelAnimationFrame(this._resizeRAF);
-			this._resizeRAF = undefined;
+
+		this._themeDisposable?.dispose();
+		this._themeDisposable = undefined;
+
+		window.removeEventListener('keydown', this.onWindowKeyDown);
+
+		if (this._drawRAF != null) {
+			cancelAnimationFrame(this._drawRAF);
+			this._drawRAF = undefined;
 		}
 
-		this._chart?.destroy();
-		this._chart = undefined!;
+		// Drop the offscreen buffer + theme cache; both are lazily rebuilt on the next attach.
+		this._staticCanvas = undefined;
+		this._staticCtx = null;
+		this._cachedTheme = undefined;
 	}
 
-	@debug({ onlyExit: true })
-	private handleDataChanged(markerChanged: boolean) {
-		if (this._loadTimer) {
-			clearTimeout(this._loadTimer);
-			this._loadTimer = undefined;
-		}
-
-		if (markerChanged) {
-			this._regions = undefined;
-			this._markerRegions = undefined;
-		}
-
-		this._loadTimer = setTimeout(() => this.loadChart(), 150);
-	}
-
-	private getInternalChart(): ChartInternal | undefined {
-		try {
-			const internal = (this._chart as unknown as ChartWithInternal)?.internal;
-			if (this._chart != null && internal == null) {
-				debugger;
-			}
-
-			return internal;
-		} catch {
-			debugger;
-			return undefined;
-		}
+	override firstUpdated(): void {
+		this._ctx = this.canvas.getContext('2d');
+		this.updateSpinner();
+		this.requestDraw();
 	}
 
 	select(date: number | Date | undefined, trackOnly: boolean = false): void {
 		if (date == null) {
-			this.unselect();
-
+			this.unselect(undefined, trackOnly);
 			return;
 		}
-
-		const d = this.getDataPoint(date);
-		if (d == null) return;
-
-		const internal = this.getInternalChart();
-		if (internal == null) return;
-
-		internal.showGridFocus([d]);
-
-		if (!trackOnly) {
-			const { index } = d;
-
-			if (index != null) {
-				this._chart.$.main.selectAll(`.bb-shape-${index}`).each(function (d2) {
-					internal.toggleShape?.(this, d2, index);
-				});
+		const day = getDay(date);
+		if (trackOnly) {
+			// Transient hover — e.g., graph row hover shadows through to the minimap without touching
+			// the persistent selection.
+			if (this._hoverDay !== day) {
+				this._hoverDay = day;
+				this.requestDraw();
 			}
-		}
-	}
-
-	unselect(date?: number | Date, focus: boolean = false): void {
-		if (focus) {
-			this.getInternalChart()?.hideGridFocus();
-
-			return;
-		}
-
-		if (date != null) {
-			const index = this.getIndex(date);
-			if (index == null) return;
-
-			this._chart?.unselect(undefined, [index]);
 		} else {
-			this._chart?.unselect();
+			this.activeDay = day;
 		}
 	}
 
-	private getDataPoint(date: number | Date): DataItem | undefined {
-		const timestamp = new Date(date).setHours(0, 0, 0, 0);
-		return this._chart
-			?.data()[0]
-			?.values.find(v => (typeof v.x === 'number' ? v.x : (v.x as unknown as Date).getTime()) === timestamp);
-	}
-
-	private getIndex(date: number | Date): number | undefined {
-		return this.getDataPoint(date)?.index;
-	}
-
-	private getMarkerRegions() {
-		if (this._markerRegions == null) {
-			if (this.markers != null) {
-				const regions = flatMap(this.markers, ([day, markers]) =>
-					flatMap<GraphMinimapMarker, RegionOptions>(markers, m =>
-						m.current && m.type === 'branch'
-							? [
-									{
-										axis: 'x',
-										start: day,
-										end: day,
-										class: 'marker-head',
-									} satisfies RegionOptions,
-									{
-										axis: 'x',
-										start: day,
-										end: day,
-										class: 'marker-head-arrow-left',
-									} satisfies RegionOptions,
-									{
-										axis: 'x',
-										start: day,
-										end: day,
-										class: 'marker-head-arrow-right',
-									} satisfies RegionOptions,
-								]
-							: [
-									{
-										axis: 'x',
-										start: day,
-										end: day,
-										class:
-											m.current && m.type === 'remote' ? 'marker-upstream' : `marker-${m.type}`,
-									} satisfies RegionOptions,
-								],
-					),
-				);
-				this._markerRegions = regions;
-			} else {
-				this._markerRegions = [];
+	unselect(_date?: number | Date, focus: boolean = false): void {
+		if (focus) {
+			// Clear only the transient hover; keep the persistent selection pinned.
+			if (this._hoverDay !== undefined) {
+				this._hoverDay = undefined;
+				this.requestDraw();
 			}
+		} else {
+			this.activeDay = undefined;
 		}
-		return this._markerRegions;
 	}
 
-	private getAllRegions() {
-		if (this._regions == null) {
-			let regions: Iterable<RegionOptions> = this.getMarkerRegions();
-
-			if (this.visibleDays != null) {
-				regions = union([this.getVisibleAreaRegion(this.visibleDays)], regions);
-			}
-
-			if (this.searchResults != null) {
-				regions = union(regions, this.getSearchResultsRegions(this.searchResults));
-			}
-
-			this._regions = [...regions].sort(
-				(a, b) => markerZOrder.indexOf(b.class ?? '') - markerZOrder.indexOf(a.class ?? ''),
-			);
+	private rebuildViewModel() {
+		if (!this.data?.size) {
+			this._viewModel = undefined;
+			return;
 		}
-		return this._regions;
+		const todayMidnight = new Date().setHours(0, 0, 0, 0);
+		this._viewModel = buildViewModel(this.data, this.dataType, todayMidnight);
 	}
 
-	private getSearchResultsRegions(searchResults: NonNullable<typeof this.searchResults>): Iterable<RegionOptions> {
-		return map(
-			searchResults.keys(),
-			day =>
-				({
-					axis: 'x',
-					start: day,
-					end: day,
-					class: 'marker-result',
-				}) satisfies RegionOptions,
-		);
+	private rebuildZoomedViewModel() {
+		if (this._viewModel == null || this._zoomOldest == null || this._zoomNewest == null) {
+			this._zoomedViewModel = undefined;
+			return;
+		}
+		// Source data may have shrunk or a day-boundary roll-over may have moved the full-timeline
+		// bounds; re-clamp the zoom window before re-slicing and reset to unzoomed if the intersection
+		// is empty or too narrow to be meaningful.
+		const fullOldest = this._viewModel.days.at(-1)!;
+		const fullNewest = this._viewModel.days[0];
+		const newest = Math.min(this._zoomNewest, fullNewest);
+		const oldest = Math.max(this._zoomOldest, fullOldest);
+		if (newest - oldest < minZoomRangeMs) {
+			this.resetZoom();
+			return;
+		}
+		this._zoomOldest = oldest;
+		this._zoomNewest = newest;
+		this._zoomedViewModel = sliceViewModel(this._viewModel, oldest, newest);
 	}
 
-	private getVisibleAreaRegion(visibleDays: NonNullable<typeof this.visibleDays>): RegionOptions {
-		return {
-			axis: 'x',
-			start: visibleDays.top,
-			end: visibleDays.bottom,
-			class: 'visible-area',
-		} satisfies RegionOptions;
+	get isZoomed(): boolean {
+		return this._zoomedViewModel != null;
 	}
 
-	private _loading: Promise<void> | undefined;
-	private loadChart() {
-		this._loading ??= this.loadChartCore().finally(() => (this._loading = undefined));
+	private get activeViewModel(): MinimapViewModel | undefined {
+		return this._zoomedViewModel ?? this._viewModel;
+	}
+
+	applyZoom(oldest: number, newest: number): void {
+		if (this._viewModel == null) return;
+		const fullOldest = this._viewModel.days.at(-1)!;
+		const fullNewest = this._viewModel.days[0];
+
+		// Enforce the 7-day floor with centered widening, then clamp to the full timeline. Clamping
+		// after widening preserves the minimum width even at the extreme ends of the timeline.
+		let zoomOldest = oldest;
+		let zoomNewest = newest;
+		if (zoomNewest - zoomOldest < minZoomRangeMs) {
+			const center = (zoomOldest + zoomNewest) / 2;
+			zoomOldest = center - minZoomRangeMs / 2;
+			zoomNewest = center + minZoomRangeMs / 2;
+		}
+		if (zoomNewest > fullNewest) {
+			const shift = zoomNewest - fullNewest;
+			zoomNewest -= shift;
+			zoomOldest -= shift;
+		}
+		if (zoomOldest < fullOldest) {
+			const shift = fullOldest - zoomOldest;
+			zoomOldest += shift;
+			zoomNewest += shift;
+		}
+		zoomOldest = Math.max(zoomOldest, fullOldest);
+		zoomNewest = Math.min(zoomNewest, fullNewest);
+		if (zoomNewest - zoomOldest < minZoomRangeMs) {
+			// Full timeline is narrower than the minimum zoom window — nothing worth zooming to.
+			return;
+		}
+
+		const wasZoomed = this._zoomedViewModel != null;
+		this._zoomOldest = zoomOldest;
+		this._zoomNewest = zoomNewest;
+		this._zoomedViewModel = sliceViewModel(this._viewModel, zoomOldest, zoomNewest);
+		this._scrollbarTargetOpacity = 1;
+		// Zoom window shifts invalidate every projection in the static layer — bar positions, marker
+		// positions, search-result bars, the activity spline — so rebuild on commit/pan/page-jump.
+		this.invalidateStatic();
+		if (!wasZoomed) {
+			this.emit('gl-graph-minimap-zoom-change', { zoomed: true });
+		}
+	}
+
+	resetZoom(): void {
+		if (this._zoomedViewModel == null) return;
+		this._zoomOldest = undefined;
+		this._zoomNewest = undefined;
+		this._zoomedViewModel = undefined;
+		this._scrollbarTargetOpacity = 0;
+		this._scrollbarHover = false;
+		this.invalidateStatic();
+		this.emit('gl-graph-minimap-zoom-change', { zoomed: false });
+	}
+
+	private commitBrush(startX: number, endX: number): void {
+		const active = this.activeViewModel;
+		if (active == null || this._layout == null) return;
+
+		const tsAtLo = xToTimestamp(Math.min(startX, endX), active, this._layout);
+		const tsAtHi = xToTimestamp(Math.max(startX, endX), active, this._layout);
+		if (tsAtLo == null || tsAtHi == null) return;
+
+		// Smaller x = newer day; larger x = older. Normalize into oldest/newest regardless.
+		this.applyZoom(Math.min(tsAtLo, tsAtHi), Math.max(tsAtLo, tsAtHi));
+	}
+
+	private applyThumbDrag(deltaX: number): void {
+		if (
+			this._viewModel == null ||
+			this._layout == null ||
+			this._thumbDragStartOldest == null ||
+			this._thumbDragStartNewest == null
+		) {
+			return;
+		}
+		const fullOldest = this._viewModel.days.at(-1)!;
+		const fullNewest = this._viewModel.days[0];
+		if (fullNewest <= fullOldest) return;
+		const shift = scrollbarDeltaToTimestampShift(deltaX, fullOldest, fullNewest, this._layout);
+
+		const width = this._thumbDragStartNewest - this._thumbDragStartOldest;
+		let newest = this._thumbDragStartNewest + shift;
+		let oldest = this._thumbDragStartOldest + shift;
+		// Clamp the whole window instead of each edge independently so the window's width doesn't
+		// collapse when it hits a timeline edge — it slides against the edge and stays the same size.
+		if (newest > fullNewest) {
+			newest = fullNewest;
+			oldest = newest - width;
+		}
+		if (oldest < fullOldest) {
+			oldest = fullOldest;
+			newest = oldest + width;
+		}
+		this.applyZoom(oldest, newest);
+	}
+
+	private pageJump(side: 'newer' | 'older'): void {
+		if (this._zoomOldest == null || this._zoomNewest == null || this._viewModel == null) return;
+		const fullOldest = this._viewModel.days.at(-1)!;
+		const fullNewest = this._viewModel.days[0];
+		const width = this._zoomNewest - this._zoomOldest;
+		let oldest: number;
+		let newest: number;
+		if (side === 'newer') {
+			newest = Math.min(fullNewest, this._zoomNewest + width);
+			oldest = newest - width;
+		} else {
+			oldest = Math.max(fullOldest, this._zoomOldest - width);
+			newest = oldest + width;
+		}
+		this.applyZoom(oldest, newest);
+	}
+
+	private updateSpinner() {
+		const hidden = this.data != null && !this.loading;
+		this.spinner?.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+	}
+
+	private requestDraw() {
+		if (this._drawRAF != null) return;
+		this._drawRAF = requestAnimationFrame(() => {
+			this._drawRAF = undefined;
+			this.drawNow();
+		});
+	}
+
+	private invalidateStatic() {
+		this._staticDirty = true;
+		this.requestDraw();
 	}
 
 	@debug({ onlyExit: true })
-	private async loadChartCore() {
-		if (!this.data?.size) {
-			// Hide spinner if data is an empty Map (no commits), show if data is undefined (still loading)
-			this.spinner.setAttribute('aria-hidden', this.data != null ? 'true' : 'false');
-
-			this._chart?.destroy();
-			this._chart = undefined!;
-
+	private drawNow() {
+		if (this._ctx == null || this._observedWidth === 0 || this._observedHeight === 0) return;
+		const dpr = window.devicePixelRatio || 1;
+		if (this._viewModel == null) {
+			const backingW = Math.round(this._observedWidth * dpr);
+			const backingH = Math.round(this._observedHeight * dpr);
+			if (this.canvas.width !== backingW) {
+				this.canvas.width = backingW;
+			}
+			if (this.canvas.height !== backingH) {
+				this.canvas.height = backingH;
+			}
+			this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			this._ctx.clearRect(0, 0, this._observedWidth, this._observedHeight);
+			this._staticDirty = true;
 			return;
 		}
 
-		const showLinesChanged = this.dataType === 'lines';
-
-		// Convert the map to an array dates and an array of stats
-		const dates = [];
-		const activity: number[] = [];
-		// const commits: number[] = [];
-		// const additions: number[] = [];
-		// const deletions: number[] = [];
-
-		const keys = this.data.keys();
-		const endDay = first(keys)!;
-
-		const startDate = new Date();
-		const endDate = new Date(endDay);
-
-		let day;
-		let stat;
-
-		let changesMax = 0;
-		let adds;
-		let changes;
-		let deletes;
-
-		const currentDate = startDate;
-		// eslint-disable-next-line no-unmodified-loop-condition -- currentDate is modified via .setDate
-		while (currentDate >= endDate) {
-			day = getDay(currentDate);
-
-			stat = this.data.get(day);
-			dates.push(day);
-
-			if (showLinesChanged) {
-				adds = stat?.activity?.additions ?? 0;
-				deletes = stat?.activity?.deletions ?? 0;
-				changes = adds + deletes;
-
-				// additions.push(adds);
-				// deletions.push(-deletes);
+		// Advance the scrollbar fade one step per frame and re-schedule until it settles; the rest
+		// of this method uses whatever value the animation lands on this frame.
+		if (this._scrollbarOpacity !== this._scrollbarTargetOpacity) {
+			if (this._scrollbarOpacity < this._scrollbarTargetOpacity) {
+				this._scrollbarOpacity = Math.min(
+					this._scrollbarTargetOpacity,
+					this._scrollbarOpacity + scrollbarFadeStep,
+				);
 			} else {
-				changes = stat?.commits ?? 0;
-
-				// additions.push(0);
-				// deletions.push(0);
+				this._scrollbarOpacity = Math.max(
+					this._scrollbarTargetOpacity,
+					this._scrollbarOpacity - scrollbarFadeStep,
+				);
 			}
-
-			changesMax = Math.max(changesMax, changes);
-			activity.push(changes);
-
-			currentDate.setDate(currentDate.getDate() - 1);
-		}
-
-		const regions = this.getAllRegions();
-
-		// Calculate the max value for the y-axis to avoid flattening the graph by calculating a z-score of the activity data to identify outliers
-
-		const sortedStats = [];
-
-		let sum = 0;
-		let sumOfSquares = 0;
-		for (const s of activity) {
-			// Remove all the 0s
-			if (s === 0) continue;
-
-			sortedStats.push(s);
-			sum += s;
-			sumOfSquares += s ** 2;
-		}
-
-		sortedStats.sort((a, b) => a - b);
-
-		const length = sortedStats.length;
-		const mean = sum / length;
-		const stdDev = Math.sqrt(sumOfSquares / length - mean ** 2);
-
-		// Loop backwards through the sorted stats to find the first non-outlier
-		let outlierBorderIndex = -1;
-		for (let i = length - 1; i >= 0; i--) {
-			// If the z-score ((p: number) => (p - mean) / stdDev) is less than or equal to 3, it's not an outlier
-			if (Math.abs((sortedStats[i] - mean) / stdDev) <= 3) {
-				outlierBorderIndex = i;
-				break;
+			if (this._scrollbarOpacity !== this._scrollbarTargetOpacity) {
+				this.requestDraw();
 			}
 		}
 
-		const q1 = sortedStats[Math.floor(length * 0.25)];
-		const q3 = sortedStats[Math.floor(length * 0.75)];
-		const max = sortedStats[length - 1];
+		const activeVM = this._zoomedViewModel ?? this._viewModel;
+		const cssWidth = this.canvas.clientWidth;
+		const cssHeight = this.canvas.clientHeight || this._observedHeight;
+		// Reuse the existing layout object when the inputs are unchanged — this runs every rAF during
+		// scroll/hover/fade/brush, so skipping the allocation matters on a hot canvas surface.
+		const dayCount = activeVM.days.length;
+		if (
+			this._layout?.width !== cssWidth ||
+			this._layout.height !== cssHeight ||
+			this._layout.dpr !== dpr ||
+			this._lastLayoutDayCount !== dayCount
+		) {
+			this._layout = computeLayout(cssWidth, cssHeight, dpr, dayCount, this.reversed);
+			this._lastLayoutDayCount = dayCount;
+		}
 
-		const iqr = q3 - q1;
-		const upperFence = q3 + 3 * iqr;
-		const outlierBorderMax = sortedStats[outlierBorderIndex];
+		let theme = this._cachedTheme;
+		if (theme == null) {
+			theme = this.resolveTheme();
+			this._cachedTheme = theme;
+			// Fresh theme resolution means either first paint or a theme-change invalidation —
+			// either way the static layer needs to pick up the new colors.
+			this._staticDirty = true;
+		}
 
-		// Use a mix of z-score vs IQR -- z-score seems to do better for smaller outliers, but IQR seems to do better for larger outliers
-		const yMax = Math.floor(
-			Math.min(
-				max,
-				upperFence > max - upperFence ? outlierBorderMax : upperFence + (outlierBorderMax - upperFence) / 2,
-			) +
-				upperFence * 0.1,
-		);
+		const backingW = Math.round(cssWidth * dpr);
+		const backingH = Math.round(cssHeight * dpr);
+		const sizeChanged = this._lastBackingW !== backingW || this._lastBackingH !== backingH;
+		if (sizeChanged) {
+			this._lastBackingW = backingW;
+			this._lastBackingH = backingH;
+			this._staticDirty = true;
+		}
+		// Writing `canvas.width`/`canvas.height` resets the 2D context state (transform, fill/stroke
+		// styles), so we only assign on actual backing-size change and skip `setTransform` when size
+		// is stable — the transform from the previous frame is still in effect.
+		if (this.canvas.width !== backingW) {
+			this.canvas.width = backingW;
+		}
+		if (this.canvas.height !== backingH) {
+			this.canvas.height = backingH;
+		}
 
-		if (this._chart == null) {
-			const { bb, selection, spline, zoom } = await import(
-				/* webpackChunkName: "lib-billboard" */ 'billboard.js'
-			);
-			this._chart = bb.generate({
-				bindto: this.chartContainer,
-				data: {
-					x: 'date',
-					axes: {
-						activity: 'y',
-					},
-					columns: [
-						['date', ...dates],
-						['activity', ...activity],
-					],
-					names: {
-						activity: 'Activity',
-					},
-					onclick: d => {
-						if (d.id !== 'activity') return;
-
-						const date = new Date(d.x);
-						const day = getDay(date);
-						const sha = this.searchResults?.get(day)?.sha ?? this.data?.get(day)?.sha;
-
-						queueMicrotask(() => {
-							this.emit('gl-graph-minimap-selected', { date: date, sha: sha });
-						});
-					},
-					selection: {
-						enabled: selection(),
-						grouped: true,
-						multiple: false,
-					},
-					colors: {
-						activity: 'var(--color-graph-minimap-line0)',
-					},
-					types: {
-						activity: spline(),
-					},
-				},
-				axis: {
-					x: {
-						inverted: true,
-						localtime: true,
-						type: 'timeseries',
-					},
-					y: {
-						min: 0,
-						max: yMax,
-					},
-				},
-				clipPath: false,
-				grid: {
-					front: false,
-					focus: {
-						show: true,
-					},
-				},
-				legend: {
-					show: false,
-				},
-				line: {
-					point: true,
-					zerobased: true,
-				},
-				padding: {
-					mode: 'fit',
-					// Negative `left` offsets most of billboard's reserved (but DOM-removed in
-					// onafterinit) y-axis space; leaves a small gap that matches the right margin.
-					bottom: -8,
-					left: -18,
-					right: 0,
-					top: 0,
-				},
-				point: {
-					show: true,
-					select: {
-						r: 5,
-					},
-					focus: {
-						only: true,
-						expand: {
-							enabled: true,
-							r: 3,
-						},
-					},
-					sensitivity: 100,
-				},
-				regions: regions,
-				spline: {
-					interpolation: {
-						type: 'monotone-x',
-					},
-				},
-				tooltip: {
-					contents: (data, _defaultTitleFormat, _defaultValueFormat, _color) => {
-						const date = new Date(data[0].x);
-
-						const day = getDay(date);
-						const stat = this.data?.get(day);
-						const markers = this.markers?.get(day);
-						const results = this.searchResults?.get(day);
-
-						let groups;
-						if (markers?.length) {
-							groups = groupByMap(markers, m => m.type);
-						}
-
-						const stashesCount = groups?.get('stash')?.length ?? 0;
-						const pullRequestsCount = groups?.get('pull-request')?.length ?? 0;
-
-						let commits;
-						let linesChanged;
-						let resultsCount;
-						if (stat?.commits) {
-							commits = pluralize('commit', stat.commits, { format: c => formatNumeric(c) });
-							if (results?.count) {
-								resultsCount = pluralize('matching commit', results.count);
-							}
-
-							if (this.dataType === 'lines') {
-								linesChanged = `${pluralize('file', stat?.files ?? 0, {
-									format: c => formatNumeric(c),
-									zero: 'No',
-								})}, ${pluralize(
-									'line',
-									(stat?.activity?.additions ?? 0) + (stat?.activity?.deletions ?? 0),
-									{
-										format: c => formatNumeric(c),
-										zero: 'No',
-									},
-								)} changed`;
-							}
-						} else {
-							commits = 'No commits';
-						}
-
-						return /*html*/ `<div class="bb-tooltip">
-						<div class="header">
-							<span class="header--title">${formatDate(date, 'MMMM Do, YYYY')}</span>
-							<span class="header--description">(${capitalize(fromNow(date))})</span>
-						</div>
-						<div class="changes">
-							<span>${commits}${linesChanged ? `, ${linesChanged}` : ''}</span>
-						</div>
-						${resultsCount ? /*html*/ `<div class="results"><span class="result">${resultsCount}</span></div>` : ''}
-						${
-							groups != null
-								? /*html*/ `
-						<div class="refs">${
-							stashesCount
-								? /*html*/ `<span class="stash">${pluralize('stash', stashesCount, {
-										plural: 'stashes',
-									})}</span>`
-								: ''
-						}${
-							groups
-								?.get('branch')
-								?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))
-								.map(
-									m => /*html*/ `<span class="branch${m.current ? ' current' : ''}">${m.name}</span>`,
-								)
-								.join('') ?? ''
-						}</div>
-						<div class="refs">${
-							pullRequestsCount
-								? /*html*/ `<span class="pull-request">${pluralize('pull request', pullRequestsCount, {
-										plural: 'pull requests',
-									})}</span>`
-								: ''
-						}${
-							groups
-								?.get('remote')
-								?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))
-								?.map(
-									m => /*html*/ `<span class="remote${m.current ? ' current' : ''}">${m.name}</span>`,
-								)
-								.join('') ?? ''
-						}${
-							groups
-								?.get('tag')
-								?.map(m => /*html*/ `<span class="tag">${m.name}</span>`)
-								.join('') ?? ''
-						}</div>`
-								: ''
-						}
-					</div>`;
-					},
-					grouped: true,
-					position: (_data, width, _height, element, pos) => {
-						// `pos.x` is chart-local (relative to the eventRect element), so clamp against
-						// the element's width — not `rect.right`, which is viewport-relative and
-						// undershoots by the chart's left offset.
-						const rect = (element as HTMLElement).getBoundingClientRect();
-						const x = Math.max(0, Math.min(pos.x, rect.width - width));
-						return { top: 0, left: x };
-					},
-				},
-				transition: {
-					duration: 0,
-				},
-				zoom: {
-					enabled: zoom(),
-					rescale: false,
-					type: 'wheel',
-					// Reset the active day when zooming because it fails to update properly
-					onzoom: debounce(() => this.onActiveDayChanged(), 250),
-				},
-				onafterinit: function () {
-					const xAxis = this.$.main.selectAll<Element, any>('.bb-axis-x').node();
-					xAxis?.remove();
-
-					const yAxis = this.$.main.selectAll<Element, any>('.bb-axis-y').node();
-					yAxis?.remove();
-
-					const grid = this.$.main.selectAll<Element, any>('.bb-grid').node();
-					try {
-						grid?.removeAttribute('clip-path');
-					} catch {}
-
-					// Move the regions to be after (on top of) the chart
-					const regions = this.$.main.selectAll<Element, any>('.bb-regions').node();
-					const chart = this.$.main.selectAll<Element, any>('.bb-chart').node();
-					if (regions != null && chart != null) {
-						chart.insertAdjacentElement('afterend', regions);
-					}
-				},
-			});
+		// Mutate the persistent scratch state in place — avoids allocating a fresh draw-state object
+		// plus two inner range objects every rAF on the hot canvas path.
+		const state = this._drawState;
+		state.viewModel = activeVM;
+		state.layout = this._layout;
+		state.markersByDay = this.markers;
+		state.searchResultsByDay = this.searchResults;
+		state.visibleDays = this.visibleDays;
+		state.activeDay = this._activeDayNormalized;
+		state.hoverDay = this._hoverDay;
+		state.theme = theme;
+		state.loading = this.loading;
+		state.fullTimelineOldest = this._viewModel.days.at(-1)!;
+		state.fullTimelineNewest = this._viewModel.days[0];
+		if (this._zoomOldest != null && this._zoomNewest != null) {
+			this._zoomRangeScratch.oldest = this._zoomOldest;
+			this._zoomRangeScratch.newest = this._zoomNewest;
+			state.zoomRange = this._zoomRangeScratch;
 		} else {
-			this._chart.load({
-				columns: [
-					['date', ...dates],
-					['activity', ...activity],
-				],
-			});
-			this._chart.axis.max({ y: yMax });
+			state.zoomRange = undefined;
+		}
+		if (this._brushing && this._pointerDownX != null && this._brushCurrentX != null) {
+			this._brushRangeScratch.startX = this._pointerDownX;
+			this._brushRangeScratch.endX = this._brushCurrentX;
+			state.brushRange = this._brushRangeScratch;
+		} else {
+			state.brushRange = undefined;
+		}
+		state.scrollbarOpacity = this._scrollbarOpacity;
+		state.scrollbarHover = this._scrollbarHover;
 
-			this._chart.regions(regions);
+		// Static layer: cached offscreen, rebuilt only when data/markers/search/theme/layout changed
+		if (this._staticCanvas == null) {
+			this._staticCanvas = document.createElement('canvas');
+			this._staticCtx = this._staticCanvas.getContext('2d');
+		}
+		let staticSizeChanged = false;
+		if (this._staticCanvas.width !== backingW) {
+			this._staticCanvas.width = backingW;
+			this._staticDirty = true;
+			staticSizeChanged = true;
+		}
+		if (this._staticCanvas.height !== backingH) {
+			this._staticCanvas.height = backingH;
+			this._staticDirty = true;
+			staticSizeChanged = true;
+		}
+		if (this._staticDirty && this._staticCtx != null) {
+			// Only reset the transform after a size write (which clears it) — subsequent rebuilds at
+			// the same size reuse the still-active transform from the previous rebuild.
+			if (staticSizeChanged) {
+				this._staticCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			}
+			this._staticCtx.clearRect(0, 0, cssWidth, cssHeight);
+			drawStatic(this._staticCtx, state);
+			this._staticDirty = false;
 		}
 
-		this.spinner.setAttribute('aria-hidden', 'true');
+		// Main canvas: blit the static cache, then draw the overlay on top. The `drawImage` fully
+		// covers the main canvas (static paints its own background first), so no `clearRect` is
+		// needed — save one canvas op per frame.
+		if (sizeChanged) {
+			this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		}
+		if (this._staticCanvas != null) {
+			this._ctx.drawImage(this._staticCanvas, 0, 0, cssWidth, cssHeight);
+		}
+		drawOverlay(this._ctx, state);
+	}
 
-		this.onActiveDayChanged();
+	private resolveTheme(): MinimapTheme {
+		const style = getComputedStyle(this);
+		return {
+			background: getCssVariable('--color-graph-background', style),
+			line: getCssVariable('--color-graph-minimap-line0', style),
+			focusLine: getCssVariable('--color-graph-minimap-focusLine', style),
+			markerHead: getCssVariable('--color-graph-minimap-marker-head', style),
+			markerUpstream: getCssVariable('--color-graph-minimap-marker-upstream', style),
+			markerWorktree: getCssVariable('--color-graph-minimap-marker-worktree', style),
+			markerLocalBranches: getCssVariable('--color-graph-minimap-marker-local-branches', style),
+			markerRemoteBranches: getCssVariable('--color-graph-minimap-marker-remote-branches', style),
+			markerPullRequests: getCssVariable('--color-graph-minimap-marker-pull-requests', style),
+			markerStashes: getCssVariable('--color-graph-minimap-marker-stashes', style),
+			markerTags: getCssVariable('--color-graph-minimap-marker-tags', style),
+			markerHighlights: getCssVariable('--color-graph-minimap-marker-highlights', style),
+			scrollThumb: getCssVariable('--vscode-scrollbarSlider-background', style),
+			scrollThumbHover: getCssVariable('--vscode-scrollbarSlider-hoverBackground', style),
+		};
+	}
+
+	// Best-effort pointer-capture release — the pointer may not have been captured (e.g. pointercancel
+	// raced pointerup) and DOM throws rather than reporting. Callers don't care either way.
+	private safeReleasePointerCapture(pointerId: number): void {
+		try {
+			this.canvas.releasePointerCapture(pointerId);
+		} catch {
+			// noop
+		}
+	}
+
+	private onPointerDown = (e: PointerEvent) => {
+		if (e.button !== 0) return;
+		if (this._viewModel == null || this._layout == null) return;
+		const rect = this.canvasRect;
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+
+		// Scrollbar region is only interactive while the zoom is live (fade-out phase is ignored so
+		// a click during the brief disappearing animation still hits the main minimap).
+		if (
+			this.isZoomed &&
+			this._zoomOldest != null &&
+			this._zoomNewest != null &&
+			y >= this._layout.height - scrollbarHeightPx
+		) {
+			const fullOldest = this._viewModel.days.at(-1)!;
+			const fullNewest = this._viewModel.days[0];
+			const hit = hitTestScrollbar(
+				x,
+				y,
+				this._layout,
+				{ oldest: this._zoomOldest, newest: this._zoomNewest },
+				fullOldest,
+				fullNewest,
+			);
+			if (hit?.kind === 'thumb') {
+				this._thumbDragging = true;
+				this._thumbDragStartX = x;
+				this._thumbDragStartOldest = this._zoomOldest;
+				this._thumbDragStartNewest = this._zoomNewest;
+				this.canvas.setPointerCapture(e.pointerId);
+				e.preventDefault();
+			} else if (hit?.kind === 'track') {
+				this.pageJump(hit.side);
+			}
+			return;
+		}
+
+		// Minimap body: start a potential click or brush. Capture the pointer so a brush that leaves
+		// the canvas mid-drag still delivers pointermove/pointerup to us.
+		this._pointerDownX = x;
+		this._brushing = false;
+		this._brushCurrentX = undefined;
+		this.canvas.setPointerCapture(e.pointerId);
+	};
+
+	private onPointerMove = (e: PointerEvent) => {
+		if (this._viewModel == null || this._layout == null) return;
+		const rect = this.canvasRect;
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+
+		if (this._thumbDragging && this._thumbDragStartX != null) {
+			this.applyThumbDrag(x - this._thumbDragStartX);
+			return;
+		}
+
+		if (this._pointerDownX != null) {
+			const dx = Math.abs(x - this._pointerDownX);
+			if (this._brushing || dx > brushThresholdPx) {
+				if (!this._brushing) {
+					this._brushing = true;
+					this.hideTooltip();
+					if (this._hoverDay !== undefined) {
+						this._hoverDay = undefined;
+					}
+				}
+				this._brushCurrentX = x;
+				this.requestDraw();
+				return;
+			}
+			// Below the brush threshold — fall through to hover behavior so a slow click doesn't
+			// stop updating the hover indicator.
+		}
+
+		// Suppress chart-scrubbing (hover focus line, dot, tooltip) while the pointer is over the
+		// scrollbar region — that zone is reserved for zoom navigation and reading day values of the
+		// chart from it is misleading when the pointer isn't actually over the chart.
+		const overScrollbar = this.isZoomed && y >= this._layout.height - scrollbarHeightPx;
+		if (overScrollbar !== this._scrollbarHover) {
+			this._scrollbarHover = overScrollbar;
+			this.requestDraw();
+		}
+		if (overScrollbar) {
+			if (this._hoverDay !== undefined) {
+				this._hoverDay = undefined;
+				this.requestDraw();
+			}
+			this.hideTooltip();
+			return;
+		}
+
+		const active = this.activeViewModel;
+		if (active == null) return;
+		const day = xToDay(x, active, this._layout);
+		if (day == null) {
+			if (this._hoverDay !== undefined) {
+				this._hoverDay = undefined;
+				this.requestDraw();
+			}
+			this.hideTooltip();
+			return;
+		}
+		const dayChanged = day !== this._hoverDay;
+		this._hoverDay = day;
+		if (dayChanged) {
+			this.populateTooltipContent(this.tooltipEl, day);
+			this.tooltipEl.setAttribute('data-visible', 'true');
+			this.requestDraw();
+		}
+		this.repositionTooltip(x);
+	};
+
+	private onPointerUp = (e: PointerEvent) => {
+		this.safeReleasePointerCapture(e.pointerId);
+
+		if (this._thumbDragging) {
+			this._thumbDragging = false;
+			this._thumbDragStartX = undefined;
+			this._thumbDragStartOldest = undefined;
+			this._thumbDragStartNewest = undefined;
+			return;
+		}
+
+		if (this._brushing && this._pointerDownX != null && this._brushCurrentX != null) {
+			this.commitBrush(this._pointerDownX, this._brushCurrentX);
+			this._pointerDownX = undefined;
+			this._brushCurrentX = undefined;
+			this._brushing = false;
+			return;
+		}
+
+		// Bare click — map against the active (possibly zoomed) view model.
+		if (this._pointerDownX != null && this._layout != null) {
+			const active = this.activeViewModel;
+			const x = e.clientX - this.canvasRect.left;
+			this._pointerDownX = undefined;
+			if (active == null) return;
+			const day = xToDay(x, active, this._layout);
+			if (day == null) return;
+			const sha = this.searchResults?.get(day)?.sha ?? this.data?.get(day)?.sha;
+			queueMicrotask(() => {
+				this.emit('gl-graph-minimap-selected', { date: new Date(day), sha: sha });
+			});
+		}
+	};
+
+	private onPointerCancel = (e: PointerEvent) => {
+		this.safeReleasePointerCapture(e.pointerId);
+		this._thumbDragging = false;
+		this._thumbDragStartX = undefined;
+		this._thumbDragStartOldest = undefined;
+		this._thumbDragStartNewest = undefined;
+		this._pointerDownX = undefined;
+		this._brushing = false;
+		this._brushCurrentX = undefined;
+		this.requestDraw();
+	};
+
+	private onPointerLeave = () => {
+		// Keep brush/thumb state intact — pointer capture will keep events flowing to us — but clear
+		// the passive hover indicator so it doesn't linger after the pointer exits the canvas.
+		if (this._brushing || this._thumbDragging) return;
+		if (this._hoverDay !== undefined) {
+			this._hoverDay = undefined;
+			this.requestDraw();
+		}
+		if (this._scrollbarHover) {
+			this._scrollbarHover = false;
+			this.requestDraw();
+		}
+		this.hideTooltip();
+	};
+
+	private onDblClick = (e: MouseEvent) => {
+		// Any double-click inside the minimap resets the zoom — the scrollbar track is still the
+		// most discoverable reset target, but restricting only to it is frustrating in practice.
+		if (!this.isZoomed) return;
+		e.preventDefault();
+		this.resetZoom();
+	};
+
+	private onWindowKeyDown = (e: KeyboardEvent): void => {
+		if (e.key === 'Escape' && this.isZoomed) {
+			this.resetZoom();
+		}
+	};
+
+	private get canvasRect(): DOMRect {
+		return (this._canvasRect ??= this.canvas.getBoundingClientRect());
+	}
+
+	private onWheel = (e: WheelEvent) => {
+		if (this._viewModel == null) return;
+		const deltaY =
+			e.deltaMode === WheelEvent.DOM_DELTA_LINE
+				? e.deltaY * wheelLineHeightPx
+				: e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+					? e.deltaY * wheelPageHeightPx
+					: e.deltaY;
+		if (deltaY === 0) return;
+		e.preventDefault();
+		this.emit('gl-graph-minimap-wheel', { deltaY: deltaY });
+	};
+
+	private hideTooltip() {
+		if (this.tooltipEl != null) {
+			this.tooltipEl.setAttribute('data-visible', 'false');
+		}
+	}
+
+	private repositionTooltip(pointerX: number) {
+		const hostWidth = this.clientWidth;
+		const tooltipWidth = this.tooltipEl.offsetWidth;
+		const x = Math.max(0, Math.min(pointerX - tooltipWidth / 2, hostWidth - tooltipWidth));
+		this.tooltipEl.style.transform = `translateX(${x}px)`;
+	}
+
+	private populateTooltipContent(el: HTMLElement, day: number): void {
+		const stat = this.data?.get(day);
+		const markers = this.markers?.get(day);
+		const results = this.searchResults?.get(day);
+
+		let groups: Map<GraphMinimapMarker['type'], GraphMinimapMarker[]> | undefined;
+		if (markers?.length) {
+			groups = groupByMap(markers, m => m.type);
+		}
+
+		const stashesCount = groups?.get('stash')?.length ?? 0;
+		const pullRequestsCount = groups?.get('pull-request')?.length ?? 0;
+
+		const date = new Date(day);
+		const doc = el.ownerDocument;
+
+		// Clear previous content
+		el.replaceChildren();
+
+		// Header
+		const header = doc.createElement('div');
+		header.className = 'header';
+		const title = doc.createElement('span');
+		title.className = 'header--title';
+		title.textContent = formatDate(date, 'MMMM Do, YYYY');
+		const desc = doc.createElement('span');
+		desc.className = 'header--description';
+		desc.textContent = `(${capitalize(fromNow(date))})`;
+		header.append(title, desc);
+		el.append(header);
+
+		// Changes summary
+		const changes = doc.createElement('div');
+		changes.className = 'changes';
+		const changesSpan = doc.createElement('span');
+		if (stat?.commits) {
+			let text = pluralize('commit', stat.commits, { format: c => formatNumeric(c) });
+			if (this.dataType === 'lines') {
+				text += `, ${pluralize('file', stat.files ?? 0, {
+					format: c => formatNumeric(c),
+					zero: 'No',
+				})}, ${pluralize('line', (stat.activity?.additions ?? 0) + (stat.activity?.deletions ?? 0), {
+					format: c => formatNumeric(c),
+					zero: 'No',
+				})} changed`;
+			}
+			changesSpan.textContent = text;
+		} else {
+			changesSpan.textContent = 'No commits';
+		}
+		changes.append(changesSpan);
+		el.append(changes);
+
+		// Search results count
+		if (stat?.commits && results?.count) {
+			const resultsDiv = doc.createElement('div');
+			resultsDiv.className = 'results';
+			const resultSpan = doc.createElement('span');
+			resultSpan.className = 'result';
+			resultSpan.textContent = pluralize('matching commit', results.count);
+			resultsDiv.append(resultSpan);
+			el.append(resultsDiv);
+		}
+
+		if (groups != null) {
+			// Refs row 1: stashes + branches + worktrees (HEAD-class refs grouped together)
+			const refs1 = doc.createElement('div');
+			refs1.className = 'refs';
+			if (stashesCount > 0) {
+				const s = doc.createElement('span');
+				s.className = 'stash';
+				s.textContent = pluralize('stash', stashesCount, { plural: 'stashes' });
+				refs1.append(s);
+			}
+			const branches = groups.get('branch');
+			if (branches != null) {
+				const sorted = branches.toSorted((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1));
+				for (const m of sorted) {
+					const s = doc.createElement('span');
+					s.className = m.current ? 'branch current' : 'branch';
+					s.textContent = m.name;
+					refs1.append(s);
+				}
+			}
+			const worktrees = groups.get('worktree');
+			if (worktrees != null) {
+				for (const m of worktrees) {
+					const s = doc.createElement('span');
+					s.className = 'worktree';
+					s.textContent = m.name;
+					refs1.append(s);
+				}
+			}
+			el.append(refs1);
+
+			// Refs row 2: pull-requests + remotes + tags
+			const refs2 = doc.createElement('div');
+			refs2.className = 'refs';
+			if (pullRequestsCount > 0) {
+				const s = doc.createElement('span');
+				s.className = 'pull-request';
+				s.textContent = pluralize('pull request', pullRequestsCount, { plural: 'pull requests' });
+				refs2.append(s);
+			}
+			const remotes = groups.get('remote');
+			if (remotes != null) {
+				const sorted = remotes.toSorted((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1));
+				for (const m of sorted) {
+					const s = doc.createElement('span');
+					s.className = m.current ? 'remote current' : 'remote';
+					s.textContent = m.name;
+					refs2.append(s);
+				}
+			}
+			const tags = groups.get('tag');
+			if (tags != null) {
+				for (const m of tags) {
+					const s = doc.createElement('span');
+					s.className = 'tag';
+					s.textContent = m.name;
+					refs2.append(s);
+				}
+			}
+			el.append(refs2);
+		}
 	}
 
 	override render(): unknown {
 		return html`
+			<canvas
+				id="canvas"
+				@pointerdown=${this.onPointerDown}
+				@pointermove=${this.onPointerMove}
+				@pointerup=${this.onPointerUp}
+				@pointercancel=${this.onPointerCancel}
+				@pointerleave=${this.onPointerLeave}
+				@dblclick=${this.onDblClick}
+				@wheel=${{ handleEvent: this.onWheel, passive: false }}
+			></canvas>
+			<div id="tooltip" data-visible="false"></div>
 			<div id="spinner"><code-icon icon="loading" modifier="spin"></code-icon></div>
-			<div id="chart"></div>
 		`;
 	}
-}
-
-function getDay(date: number | Date): number {
-	return new Date(date).setHours(0, 0, 0, 0);
 }

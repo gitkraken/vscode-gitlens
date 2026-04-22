@@ -132,7 +132,8 @@ export type GraphMinimapMarkerTypes =
 	| 'remoteBranches'
 	| 'stashes'
 	| 'tags'
-	| 'upstream';
+	| 'upstream'
+	| 'worktree';
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
@@ -151,6 +152,7 @@ export interface GraphScope {
 	upstreamRef?: string;
 	/** SHA of the merge-target tip commit. Its ancestors are NOT walked — the tip is kept as a marker. */
 	mergeTargetTipSha?: string;
+	mergeBase?: { sha: string; date: number };
 	/**
 	 * Additional ref ids to include in the scope. Each tip becomes an anchor (same treatment as
 	 * branchRef — shows all refs, acts as visibility floor) and its ancestors contribute to
@@ -289,6 +291,7 @@ export interface GraphComponentConfig {
 	minimap?: boolean;
 	minimapDataType?: Config['graph']['minimap']['dataType'];
 	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
+	minimapReversed?: boolean;
 	multiSelectionMode?: GraphMultiSelectionMode;
 	onlyFollowFirstParent?: boolean;
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
@@ -470,6 +473,21 @@ export interface DidChooseFileParams {
 	files: string[] | undefined;
 }
 export const ChooseFileRequest = new IpcRequest<ChooseFileParams, DidChooseFileParams>(scope, 'chooseFile');
+
+export interface ResolvedGraphScope extends GraphScope {
+	mergeBase?: { sha: string; date: number };
+}
+export interface ResolveGraphScopeParams {
+	repoPath: string;
+	scope: GraphScope;
+}
+export interface DidResolveGraphScopeParams {
+	scope: ResolvedGraphScope;
+}
+export const ResolveGraphScopeRequest = new IpcRequest<ResolveGraphScopeParams, DidResolveGraphScopeParams>(
+	scope,
+	'scope/resolve',
+);
 
 export interface EnsureRowParams {
 	id: string;
