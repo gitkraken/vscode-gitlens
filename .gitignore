@@ -1,6 +1,7 @@
 !.claude/settings.json
 .claude/settings.local.json
 .claude/worktrees/**
+.claude/*.lock
 .codex
 .DS_Store
 .work/
