@@ -48,6 +48,7 @@ import { getScopedLogger, maybeStartScopedLogger } from '@gitlens/utils/logger.s
 import { getScheme, isAbsolute, maybeUri, normalizePath } from '@gitlens/utils/path.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { VisitedPathsTrie } from '@gitlens/utils/trie.js';
 import { areUrisEqual, coerceUri, getRepositoryKey } from '@gitlens/utils/uri.js';
 import { resetAvatarCache } from '../avatars.js';
@@ -154,8 +155,18 @@ export class GitProviderService implements UnifiedDisposable {
 			});
 		}
 
-		this.clearAccessCache();
-		this._reposVisibilityCache = undefined;
+		// Pure-add of worktrees whose common repo is already known can't change aggregate visibility
+		// or access (shared remotes), so the cache wipe would be wasted work. See `hasKnownCommonRepo`.
+		let needsInvalidation = false;
+		if (removed?.length) {
+			needsInvalidation = true;
+		} else if (added?.length) {
+			needsInvalidation = !this.allHaveKnownCommonRepo(added);
+		}
+		if (needsInvalidation) {
+			this.clearAccessCache();
+			this._reposVisibilityCache.invalidate('visibility');
+		}
 
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
@@ -166,6 +177,23 @@ export class GitProviderService implements UnifiedDisposable {
 			}
 			this.processPendingRepositoryOperations();
 		}
+	}
+
+	// True when `repo` is a worktree whose common repository is registered with the service (open
+	// or closed). A registered common repo guarantees the repo-family's identity/remotes are known
+	// to GitLens — either the common repo's own add event processed storage/telemetry when it was
+	// first opened, or a sibling entry (e.g. the opened URI form for a canonical-URI closed
+	// duplicate) did. Since the worktree inherits the common repo's remotes and initial-commit
+	// sha, the worktree's add can safely skip visibility invalidation and the remote-context
+	// rescan. Uses exact-path lookup (not `getRepository`'s `getClosest`) to avoid matching an
+	// unrelated ancestor repo. (A non-worktree always has `commonUri == null`, so this returns
+	// false for non-worktrees without a separate `isWorktree` check.)
+	private hasKnownCommonRepo(repo: GlRepository): boolean {
+		return repo.commonUri != null && this._repositories.get(repo.commonUri) != null;
+	}
+
+	private allHaveKnownCommonRepo(added: GlRepository[]): boolean {
+		return added.length > 0 && added.every(r => this.hasKnownCommonRepo(r));
 	}
 
 	private processPendingRepositoryOperations = debounce(() => {
@@ -815,7 +843,7 @@ export class GitProviderService implements UnifiedDisposable {
 				}
 			}
 
-			this.updateContext();
+			this.updateContext({ skipRemotes: this.allHaveKnownCommonRepo(added) });
 
 			if (added.length) {
 				this._etag = Date.now();
@@ -1000,7 +1028,12 @@ export class GitProviderService implements UnifiedDisposable {
 		if (allowed === false) throw new AccessDeniedError(subscription.current, subscription.required);
 	}
 
-	private _reposVisibilityCache: RepositoriesVisibility | undefined;
+	/** Single-value cache for the aggregate `visibility()` result. Handles coalescing, soft-
+	 * invalidation (in-flight callers ride the same promise; entry self-evicts on settle), and
+	 * stale-compute detection via `CacheController.invalidated` — the factory skips telemetry + the
+	 * final cache write when an invalidation happened mid-flight. Uses a `'visibility'` sentinel
+	 * key to make the single-value intent explicit (pattern: `composerWebview.ts`). */
+	private readonly _reposVisibilityCache = new PromiseCache<'visibility', RepositoriesVisibility>();
 	private _repoVisibilityCache: Map<string, RepositoryVisibilityInfo> | undefined;
 
 	private ensureRepoVisibilityCache(): void {
@@ -1096,18 +1129,21 @@ export class GitProviderService implements UnifiedDisposable {
 	@trace({ exit: true })
 	async visibility(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
 		if (repoPath == null) {
-			let visibility = this._reposVisibilityCache;
-			if (visibility == null) {
-				visibility = await this.visibilityCore();
-				if (this.container.telemetry.enabled) {
+			// Coalescing, soft-invalidation, and stale-compute detection are handled by PromiseCache:
+			// - concurrent callers share one in-flight promise (no parallel `visibilityCore` runs)
+			// - a mid-flight invalidation flips `controller.invalidated`; the factory skips telemetry
+			//   for the stale value (callers still receive it, matching prior semantics) and the
+			//   entry self-evicts on settle so the next call starts fresh
+			return this._reposVisibilityCache.getOrCreate('visibility', async controller => {
+				const visibility = await this.visibilityCore();
+				if (!controller.invalidated && this.container.telemetry.enabled) {
 					this.container.telemetry.setGlobalAttribute('repositories.visibility', visibility);
 					this.container.telemetry.sendEvent('repositories/visibility', {
 						'repositories.visibility': visibility,
 					});
 				}
-				this._reposVisibilityCache = visibility;
-			}
-			return visibility;
+				return visibility;
+			});
 		}
 
 		const { path: cacheKey } = this.getProvider(repoPath);
@@ -1239,7 +1275,7 @@ export class GitProviderService implements UnifiedDisposable {
 
 	private _sendProviderContextTelemetryDebounced: Deferrable<() => void> | undefined;
 
-	private updateContext() {
+	private updateContext(options?: { skipRemotes?: boolean }) {
 		if (this.container.deactivating) return;
 
 		const openRepositoryCount = this.openRepositoryCount;
@@ -1256,6 +1292,15 @@ export class GitProviderService implements UnifiedDisposable {
 		});
 
 		if (!hasRepositories) return;
+
+		// The remote/integration scan iterates every open repo and fetches their remotes. Callers
+		// that know no remote-affecting change occurred (e.g. a pure-worktree add whose primary is
+		// already tracked — the worktree shares the primary's remotes) can pass `skipRemotes: true`
+		// to avoid the cascade while still keeping the cheap per-repo-count attributes fresh.
+		if (options?.skipRemotes) {
+			this._providers.forEach(p => p.updateContext?.());
+			return;
+		}
 
 		// Don't block for the remote context updates (because it can block other downstream requests during initialization)
 		async function updateRemoteContext(this: GitProviderService) {
@@ -2193,7 +2238,7 @@ export class GitProviderService implements UnifiedDisposable {
 
 					this._pendingRepositories.delete(key);
 
-					this.updateContext();
+					this.updateContext({ skipRemotes: this.allHaveKnownCommonRepo(added) });
 
 					if (added.length) {
 						this._etag = Date.now();
