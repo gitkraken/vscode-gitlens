@@ -292,6 +292,16 @@ export class GlGraph extends LitElement {
 	}): void => {
 		// Fire immediately so downstream can cancel unhover timers before the debounced hover arrives
 		this.dispatchEvent(new CustomEvent('rowhoverstart', { bubbles: true, composed: true }));
+		// Lightweight immediate fire for consumers (e.g. the minimap) that need to track the hovered
+		// row without waiting for the 250ms debounce below — the debounced `rowhover` is cancelled by
+		// fast row-to-row transit so any consumer relying on it would lose updates.
+		this.dispatchEvent(
+			new CustomEvent('rowhovertrack', {
+				detail: { graphZoneType: detail.graphZoneType, graphRow: detail.graphRow },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 		this._handleRowHoverDebounced(detail);
 	};
 
@@ -351,6 +361,10 @@ declare global {
 			currentTarget: HTMLElement;
 		}>;
 		rowhoverstart: CustomEvent<void>;
+		rowhovertrack: CustomEvent<{
+			graphZoneType: GraphZoneType;
+			graphRow: GraphRow;
+		}>;
 		rowunhover: CustomEvent<{
 			graphZoneType: GraphZoneType;
 			graphRow: GraphRow;

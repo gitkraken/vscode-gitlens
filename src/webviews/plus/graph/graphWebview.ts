@@ -306,6 +306,7 @@ import {
 	JumpToHeadRequest,
 	makeSecondaryWipSha,
 	OpenPullRequestDetailsCommand,
+	ResolveGraphScopeRequest,
 	RowActionCommand,
 	SearchCancelCommand,
 	SearchHistoryDeleteRequest,
@@ -2231,6 +2232,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					case 'minimapDataType':
 						void configuration.updateEffective('graph.minimap.dataType', params.changes[key]);
 						break;
+					case 'minimapReversed':
+						void configuration.updateEffective('graph.minimap.reversed', params.changes[key]);
+						break;
 					case 'minimapMarkerTypes': {
 						const additionalTypes: GraphMinimapMarkersAdditionalTypes[] = [];
 
@@ -2242,6 +2246,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								case 'stashes':
 								case 'tags':
 								case 'pullRequests':
+								case 'worktree':
 									additionalTypes.push(marker);
 									break;
 							}
@@ -3742,6 +3747,80 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			: undefined;
 	}
 
+	@ipcRequest(ResolveGraphScopeRequest)
+	private async onResolveGraphScope(
+		params: IpcParams<typeof ResolveGraphScopeRequest>,
+	): Promise<IpcResponse<typeof ResolveGraphScopeRequest>> {
+		const mergeBase = await this.resolveMergeBaseForBranch(
+			params.repoPath,
+			params.scope.branchRef,
+			params.scope.branchName,
+			params.scope.upstreamRef,
+		);
+		return { scope: { ...params.scope, mergeBase: mergeBase } };
+	}
+
+	private async resolveMergeBaseForBranch(
+		repoPath: string,
+		branchRefId: string,
+		branchName: string,
+		upstreamRefId: string | undefined,
+	): Promise<{ sha: string; date: number } | undefined> {
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const branchRef = gitRefFromGraphBranchId(branchRefId) ?? branchName;
+		const upstreamRef = upstreamRefId != null ? gitRefFromGraphBranchId(upstreamRefId) : undefined;
+
+		let mergeBaseSha: string | undefined;
+		if (upstreamRef != null) {
+			try {
+				mergeBaseSha = await svc.refs.getMergeBase(branchRef, upstreamRef);
+			} catch {
+				// fall through to base-branch discovery
+			}
+		}
+
+		if (mergeBaseSha == null) {
+			let baseBranch: string | undefined;
+			try {
+				baseBranch =
+					(await svc.branches.getBaseBranchName?.(branchName)) ??
+					(await svc.branches.getDefaultBranchName?.());
+			} catch {
+				// APIs may not be available
+			}
+
+			const candidates = baseBranch ? [baseBranch] : ['main', 'master', 'develop'];
+			for (const candidate of candidates) {
+				if (candidate === branchName) continue;
+				try {
+					const result = await svc.refs.getMergeBase(branchRef, candidate);
+					if (result) {
+						mergeBaseSha = result;
+						break;
+					}
+				} catch {
+					// try next candidate
+				}
+			}
+		}
+
+		if (mergeBaseSha == null) return undefined;
+
+		try {
+			const commit = await svc.commits.getCommit(mergeBaseSha);
+			const date = commit?.author?.date;
+			if (commit != null && date != null) {
+				return {
+					sha: commit.sha,
+					date: typeof date === 'number' ? date : new Date(date).getTime(),
+				};
+			}
+		} catch {
+			// no date available
+		}
+		return undefined;
+	}
+
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
 		undefined;
 	private _lastUserSelectionTime: number = 0;
@@ -4697,6 +4776,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			minimap: configuration.get('graph.minimap.enabled'),
 			minimapDataType: configuration.get('graph.minimap.dataType'),
 			minimapMarkerTypes: this.getMinimapMarkerTypes(),
+			minimapReversed: configuration.get('graph.minimap.reversed'),
 			multiSelectionMode: configuration.get('graph.multiselect'),
 			onlyFollowFirstParent: configuration.get('graph.onlyFollowFirstParent'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
@@ -7410,6 +7490,12 @@ function convertRefToGraphRefType(ref: GitReference): GraphRefType | undefined {
 
 function convertSelectedRows(selectedRows: Record<string, SelectedRowState> | undefined): GraphSelectedRows {
 	return filterMapObject(selectedRows, (_, v) => (v.selected ? true : undefined));
+}
+
+// GitLens branch ids: `{repoPath}|heads/{name}` or `{repoPath}|remotes/{name}`
+function gitRefFromGraphBranchId(id: string): string | undefined {
+	const idx = id.indexOf('|');
+	return idx === -1 ? undefined : `refs/${id.substring(idx + 1)}`;
 }
 
 export function updateSearchMode<T extends GitGraphSearch | undefined>(

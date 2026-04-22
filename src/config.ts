@@ -121,7 +121,8 @@ export type GraphMinimapMarkersAdditionalTypes =
 	| 'remoteBranches'
 	| 'stashes'
 	| 'tags'
-	| 'pullRequests';
+	| 'pullRequests'
+	| 'worktree';
 export type GravatarDefaultStyle = 'wavatar' | 'identicon' | 'monsterid' | 'mp' | 'retro' | 'robohash';
 export type HeatmapLocations = 'gutter' | 'line' | 'overview';
 export type KeyMap = 'alternate' | 'chorded' | 'none';
@@ -439,6 +440,7 @@ export interface GraphConfig {
 		readonly enabled: boolean;
 		readonly dataType: 'commits' | 'lines';
 		readonly additionalTypes: GraphMinimapMarkersAdditionalTypes[];
+		readonly reversed: boolean;
 	};
 	readonly multiselect: GraphMultiSelectionMode;
 	readonly onlyFollowFirstParent: boolean;

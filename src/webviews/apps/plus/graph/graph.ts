@@ -112,14 +112,8 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			return percent * (max - min) + min;
 		};
 
-		// minimap and scroll markers
-
-		let c = Color.fromCssVariable('--vscode-scrollbarSlider-background', e.computedStyle);
-		rootStyle.setProperty(
-			'--color-graph-minimap-visibleAreaBackground',
-			c.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.1)).toString(),
-		);
-
+		// minimap tip colors (dark themes only)
+		let c: Color;
 		if (!e.isLightTheme) {
 			c = Color.fromCssVariable('--color-graph-scroll-marker-local-branches', e.computedStyle);
 			rootStyle.setProperty(

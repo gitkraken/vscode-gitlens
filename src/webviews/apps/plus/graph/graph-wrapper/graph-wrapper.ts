@@ -120,6 +120,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.ref = ref;
 	};
 
+	scrollGraphBy(deltaY: number): void {
+		if (this.ref == null) return;
+		this.ref.setScrollTop((this.ref.scrollTop ?? 0) + deltaY);
+	}
+
 	@state()
 	private theming?: GraphWrapperTheming;
 
