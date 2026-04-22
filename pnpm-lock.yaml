@@ -53,12 +53,18 @@ importers:
       '@eamodio/supertalk-signals':
         specifier: 0.0.6
         version: 0.0.6(signal-polyfill@0.2.2)
+      '@gitkraken/compose-tools':
+        specifier: 0.1.0
+        version: 0.1.0
       '@gitkraken/gitkraken-components':
         specifier: 13.0.0-vnext.28
         version: 13.0.0-vnext.28(dragula@3.7.3)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@gitkraken/provider-apis':
         specifier: 0.40.0
         version: 0.40.0(encoding@0.1.13)
+      '@gitkraken/shared-tools':
+        specifier: 0.1.0
+        version: 0.1.0
       '@gitlens/ai':
         specifier: workspace:*
         version: link:packages/plus/ai
@@ -967,6 +973,10 @@ packages:
   '@github/catalyst@1.8.0':
     resolution: {integrity: sha512-uLpi/D/mKfylYaFLfzNuloXNENi0AlcM0Z7hwYLH8Z030jBCr+ueMdX2xLxCzpMH/keYXKh0uPrHSMfcbxU6KA==}
 
+  '@gitkraken/compose-tools@0.1.0':
+    resolution: {integrity: sha512-cn5cC+KtjwaEY+RzKbN54OqtyfiXnhz1Djp03zVOi2dNYF80w8LlzGCCt9KlSKbnqO+WPgn2jabKNnrBTnxeBg==}
+    engines: {node: '>= 22'}
+
   '@gitkraken/gitkraken-components@13.0.0-vnext.28':
     resolution: {integrity: sha512-8U9O5fN6yS13yTK2bU6vcIeNa7/yeU8o/2X5z3rvf3kM7AvRx4hTVjW8mbQZu1cNVqxv9k3tmN1C25EEmAOXCw==}
     engines: {node: '>= 22.12.0', pnpm: '>= 10.0.0'}
@@ -978,6 +988,10 @@ packages:
   '@gitkraken/provider-apis@0.40.0':
     resolution: {integrity: sha512-OEQkUVAOONyEANVLQhDrIzskbON56RBPxet0R+m8CQXmiND5CpvNON0f1GUfEsI2vomWZr/UkcB4Nj8NCowIAg==}
     engines: {node: '>= 20'}
+
+  '@gitkraken/shared-tools@0.1.0':
+    resolution: {integrity: sha512-iUt55WcZ2/K2NPqZ1tmghkBIBMaLJyUn6MNBzvnNAX0vQcnaL/xCx+mTW+UHeISYk72QX2TxHqPD+O/cGqv5sg==}
+    engines: {node: '>= 22'}
 
   '@graphql-typed-document-node/core@3.2.0':
     resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
@@ -7392,6 +7406,11 @@ snapshots:
 
   '@github/catalyst@1.8.0': {}
 
+  '@gitkraken/compose-tools@0.1.0':
+    dependencies:
+      '@gitkraken/shared-tools': 0.1.0
+      zod: 4.3.6
+
   '@gitkraken/gitkraken-components@13.0.0-vnext.28(dragula@3.7.3)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
     dependencies:
       '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -7412,6 +7431,8 @@ snapshots:
       js-base64: 3.7.5
     transitivePeerDependencies:
       - encoding
+
+  '@gitkraken/shared-tools@0.1.0': {}
 
   '@graphql-typed-document-node/core@3.2.0(graphql@15.10.2)':
     dependencies:

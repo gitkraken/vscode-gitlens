@@ -1352,7 +1352,7 @@ export class ComposerApp extends LitElement {
 		if (this.state.generatingCommits) {
 			return this.renderLoadingDialog(
 				'Generating Commits',
-				'Commits are being generated.',
+				this.state.generatingCommitsStatus ?? 'Commits are being generated.',
 				this.handleCancelGenerateCommits,
 			);
 		}
