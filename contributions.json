@@ -4938,7 +4938,7 @@
 		},
 		"gitlens.rebase.abort:editor/title": {
 			"label": "Abort Rebase",
-			"icon": "$(circle-slash)",
+			"icon": "$(gitlens-abort)",
 			"menus": {
 				"editor/title": [
 					{
@@ -12112,7 +12112,7 @@
 		},
 		"gitlens.views.pausedOperation.abort": {
 			"label": "Abort",
-			"icon": "$(circle-slash)",
+			"icon": "$(gitlens-abort)",
 			"menus": {
 				"view/item/context": [
 					{
@@ -12130,7 +12130,7 @@
 		},
 		"gitlens.views.pausedOperation.continue": {
 			"label": "Continue",
-			"icon": "$(debug-continue)",
+			"icon": "$(gitlens-continue)",
 			"menus": {
 				"view/item/context": [
 					{
@@ -12166,7 +12166,7 @@
 		},
 		"gitlens.views.pausedOperation.skip": {
 			"label": "Skip",
-			"icon": "$(debug-step-over)",
+			"icon": "$(gitlens-skip)",
 			"menus": {
 				"view/item/context": [
 					{

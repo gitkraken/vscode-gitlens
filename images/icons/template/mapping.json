@@ -71,5 +71,9 @@
   "accept-right": 61743,
   "accept-left": 61744,
   "accept-all-right": 61745,
-  "accept-all-left": 61746
+  "accept-all-left": 61746,
+  "continue": 61768,
+  "skip": 61769,
+  "abort": 61770,
+  "pause": 61771
 }

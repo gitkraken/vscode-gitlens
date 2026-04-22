@@ -15,7 +15,7 @@ export class RebaseCommitNode extends CommitNode {
 		item.description = CommitFormatter.fromTemplate(`\${message}`, this.commit, {
 			messageTruncateAtNewLine: true,
 		});
-		item.iconPath = new ThemeIcon('debug-pause');
+		item.iconPath = new ThemeIcon('gitlens-pause');
 
 		return item;
 	}

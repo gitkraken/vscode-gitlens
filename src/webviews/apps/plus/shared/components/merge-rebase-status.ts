@@ -214,14 +214,14 @@ export class GlMergeConflictWarning extends LitElement {
 			${when(
 				status !== 'revert' && !(status === 'rebase' && this.conflicts),
 				() => html`
-					<action-item label="Continue" icon="debug-continue" href=${this.onContinueUrl}></action-item>
+					<action-item label="Continue" icon="gl-continue" href=${this.onContinueUrl}></action-item>
 				`,
 			)}
 			${when(
 				status !== 'merge',
-				() => html`<action-item label="Skip" icon="debug-step-over" href=${this.onSkipUrl}></action-item>`,
+				() => html`<action-item label="Skip" icon="gl-skip" href=${this.onSkipUrl}></action-item>`,
 			)}
-			<action-item label="Abort" href=${this.onAbortUrl} icon="circle-slash"></action-item>
+			<action-item label="Abort" href=${this.onAbortUrl} icon="gl-abort"></action-item>
 		</action-nav>`;
 	}
 }

@@ -8199,7 +8199,7 @@
 			{
 				"command": "gitlens.rebase.abort:editor/title",
 				"title": "Abort Rebase",
-				"icon": "$(circle-slash)"
+				"icon": "$(gitlens-abort)"
 			},
 			{
 				"command": "gitlens.rebase.continue:editor/title",
@@ -10038,12 +10038,12 @@
 			{
 				"command": "gitlens.views.pausedOperation.abort",
 				"title": "Abort",
-				"icon": "$(circle-slash)"
+				"icon": "$(gitlens-abort)"
 			},
 			{
 				"command": "gitlens.views.pausedOperation.continue",
 				"title": "Continue",
-				"icon": "$(debug-continue)"
+				"icon": "$(gitlens-continue)"
 			},
 			{
 				"command": "gitlens.views.pausedOperation.open",
@@ -10053,7 +10053,7 @@
 			{
 				"command": "gitlens.views.pausedOperation.skip",
 				"title": "Skip",
-				"icon": "$(debug-step-over)"
+				"icon": "$(gitlens-skip)"
 			},
 			{
 				"command": "gitlens.views.publishRepository",
@@ -11896,6 +11896,34 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f132"
+				}
+			},
+			"gitlens-continue": {
+				"description": "continue icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f148"
+				}
+			},
+			"gitlens-skip": {
+				"description": "skip icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f149"
+				}
+			},
+			"gitlens-abort": {
+				"description": "abort icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f14a"
+				}
+			},
+			"gitlens-pause": {
+				"description": "pause icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f14b"
 				}
 			}
 		},

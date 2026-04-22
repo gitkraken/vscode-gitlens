@@ -1486,9 +1486,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		if (pauseReason === 'conflict') {
 			icon = 'warning';
 		} else if (pauseReason === 'edit' || pauseReason === 'break' || pauseReason === 'exec') {
-			icon = 'debug-pause';
+			icon = 'gl-pause';
 		} else {
-			icon = 'debug-continue';
+			icon = 'gl-continue';
 		}
 
 		// Build status message based on pause reason
