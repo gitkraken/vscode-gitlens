@@ -656,6 +656,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.aiExcludedFiles=${this._state.aiExcludedFiles.get()}
 			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.aiModel=${this._state.aiModel.get()}
+			.progressMessage=${this._state.composeProgressMessage.get()}
+			?applying=${this._state.composeApplying.get()}
 			?forward-available=${this._state.composeForwardAvailable.get()}
 			@compose-generate=${handleCompose}
 			@compose-refine=${handleCompose}

@@ -61,6 +61,17 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property()
 	errorMessage?: string;
 
+	/** Latest phase label streamed from the host while compose is running. Falls back to a
+	 *  generic "Composing changes…" when null/undefined. */
+	@property()
+	progressMessage?: string;
+
+	/** When true, the panel renders an uncancellable "Applying commits…" overlay covering the
+	 *  plan. Driven by `composeApplying` in details state — set between an apply-plan click
+	 *  and the IPC's resolution. */
+	@property({ type: Boolean, reflect: true })
+	applying = false;
+
 	@property({ type: Array })
 	commits?: ProposedCommit[];
 
@@ -203,6 +214,13 @@ export class GlDetailsComposeModePanel extends LitElement {
 	}
 
 	private renderContent() {
+		// Applying takes precedence — once an apply IPC is in flight, the plan is no longer
+		// editable and the action is uncancellable, so we render a loading overlay regardless
+		// of whether `status` is still 'ready'.
+		if (this.applying) {
+			return renderLoadingState('Applying commits…');
+		}
+
 		if (this.status === 'idle') {
 			return this.renderIdleState();
 		}
@@ -210,7 +228,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		if (this.status === 'loading') {
 			// Cancel chip lets the user abort an in-flight AI call; the orchestrator wires
 			// `compose-cancel` to the actual cancellation plumbing.
-			return html`${renderLoadingState('Composing changes...')}${this.renderCancelButton()}`;
+			return html`${renderLoadingState(this.progressMessage ?? 'Composing changes…')}${this.renderCancelButton()}`;
 		}
 
 		if (this.status === 'error') {

@@ -254,6 +254,13 @@ function createTransientState() {
 	const reviewForwardAvailable = signal(false);
 	const composeForwardAvailable = signal(false);
 
+	// Compose progress + apply state. `composeProgressMessage` mirrors the latest phase label
+	// streamed by the library while compose is running (cleared to undefined when the run ends).
+	// `composeApplying` is true between an apply-plan click and the IPC's resolution — drives
+	// the panel's uncancellable "applying" overlay.
+	const composeProgressMessage = signal<string | undefined>(undefined);
+	const composeApplying = signal(false);
+
 	// Compare-mode UI settings (not fetched data — user's interactive choices while in
 	// compare mode)
 	const branchCompareLeftRef = signal<string | undefined>(undefined);
@@ -304,6 +311,8 @@ function createTransientState() {
 		wipStale: wipStale,
 		reviewForwardAvailable: reviewForwardAvailable,
 		composeForwardAvailable: composeForwardAvailable,
+		composeProgressMessage: composeProgressMessage,
+		composeApplying: composeApplying,
 
 		branchCompareLeftRef: branchCompareLeftRef,
 		branchCompareLeftRefType: branchCompareLeftRefType,

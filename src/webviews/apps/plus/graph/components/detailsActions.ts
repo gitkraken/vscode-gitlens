@@ -366,6 +366,10 @@ export class DetailsActions {
 	private async subscribeEvents(): Promise<void> {
 		const unsubscribe = await subscribeAll([
 			() => this.services.ai.onModelChanged(model => this.state.aiModel.set(model)),
+			() =>
+				this.services.graphInspect.onComposeProgress(event => {
+					this.state.composeProgressMessage.set(event?.message);
+				}),
 		]);
 		if (this._disposed) {
 			unsubscribe();
@@ -1722,6 +1726,7 @@ export class DetailsActions {
 		const composeValue = this.resources.compose.value.get();
 		if (!repoPath || !composeValue || !('result' in composeValue)) return;
 
+		this.state.composeApplying.set(true);
 		try {
 			const result = await this.services.graphInspect.commitCompose(repoPath, {
 				commits: composeValue.result.commits,
@@ -1740,6 +1745,8 @@ export class DetailsActions {
 			}
 		} catch {
 			this.resources.compose.mutate({ error: { message: 'Failed to commit plan.' } });
+		} finally {
+			this.state.composeApplying.set(false);
 		}
 	}
 
@@ -1752,6 +1759,7 @@ export class DetailsActions {
 		const composeValue = this.resources.compose.value.get();
 		if (!repoPath || !composeValue || !('result' in composeValue)) return;
 
+		this.state.composeApplying.set(true);
 		try {
 			const result = await this.services.graphInspect.commitCompose(repoPath, {
 				commits: composeValue.result.commits,
@@ -1771,6 +1779,8 @@ export class DetailsActions {
 			}
 		} catch {
 			this.resources.compose.mutate({ error: { message: 'Failed to commit.' } });
+		} finally {
+			this.state.composeApplying.set(false);
 		}
 	}
 

@@ -1,6 +1,7 @@
 import type { emptySetMarker, GraphRefOptData, GraphSearchMode } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, env, ProgressLocation, Uri, ViewColumn, window } from 'vscode';
+import { createGraphComposeIntegration } from '@env/coretools/composer.js';
 import { isClaudeAvailable } from '@env/providers.js';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
@@ -213,11 +214,16 @@ import { getOverviewEnrichment, getOverviewWip, getOverviewWipBasic } from '../.
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
-import type { ComposerHunk } from '../composer/protocol.js';
 import type { ComposerCommandArgs } from '../composer/registration.js';
 import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
-import { checkForAbandonedComposeStashes, executeComposeCommit } from './composeCommitService.js';
+import type { GraphComposeIntegration } from './compose/integration.js';
+import {
+	checkForAbandonedComposeStashes,
+	executeComposeCommit,
+	isComposeCancelled,
+	libraryPlanToProposedCommits,
+} from './compose/utils.js';
 import type {
 	CommitDetails,
 	CompareDiff,
@@ -239,10 +245,8 @@ import type {
 	BranchComparisonCommit,
 	BranchComparisonContributor,
 	BranchComparisonFile,
-	ComposeRewriteKind,
+	ComposeProgressUpdate,
 	GraphServices,
-	ProposedCommit,
-	ProposedCommitFile,
 	ScopeSelection,
 } from './graphService.js';
 import {
@@ -417,8 +421,6 @@ type CancellableOperations =
 	| 'wipStats'
 	| 'workingTree';
 
-const anchorRank: Record<ProposedCommitFile['anchor'], number> = { committed: 0, staged: 1, unstaged: 2 };
-
 const { command, getCommands } = createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'graph'>>();
 
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
@@ -464,6 +466,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		readonly registration: Disposable;
 		sessionId?: string;
 	};
+	private _composeToolsForGraph?: GraphComposeIntegration;
+	private readonly _activeComposeCacheKeys = new Map<string, string>();
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _pendingWorktreeChanges?: Parameters<typeof getWorktreeHasWorkingChanges>[1][];
 	private _hoverCache = new Map<string, Promise<string>>();
@@ -611,6 +615,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this._composeVirtual;
 	}
 
+	private getOrCreateComposeToolsForGraph(): GraphComposeIntegration | undefined {
+		this._composeToolsForGraph ??= createGraphComposeIntegration(this.container);
+		return this._composeToolsForGraph;
+	}
+
 	/** Per-secondary-WIP filesystem watchers, keyed by synthetic `worktree-wip::<path>` sha. */
 	private readonly _wipWatches = new Map<string, Disposable>();
 
@@ -625,6 +634,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private readonly _sidebarWorktreeEvent = createRpcEvent<{
 		changes: Record<string, boolean | undefined>;
 	}>('sidebarWorktreeState', 'save-last');
+	private readonly _composeProgressEvent = createRpcEvent<ComposeProgressUpdate | undefined>(
+		'composeProgress',
+		'save-last',
+	);
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
 		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
@@ -1207,109 +1220,42 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							return { error: { message: 'Compose is only supported for working changes.' } };
 						}
 
-						const svc = this.container.git.getRepositoryService(repoPath);
-
-						// Gather diffs — get staged and unstaged separately for hunk creation
-						const { createHunksFromDiffs } = await import(
-							/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'
-						);
-						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
-						const filterDiffIfNeeded = async (
-							contents: string | undefined,
-						): Promise<string | undefined> => {
-							if (!contents?.trim()) return contents;
-							if (!excluded?.size) return contents;
-							const { filterDiffFiles } = await import(
-								/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
-							);
-							return filterDiffFiles(contents, paths => paths.filter(p => !excluded.has(p)));
-						};
-
-						// Surface untracked files in the unstaged diff: bare `git diff` doesn't include
-						// them, so we mark them intent-to-add inside a *temporary* index (the real
-						// index is untouched) and run the diff against it. Mirrors the standalone
-						// Composer's `getComposerDiffs` flow. Skipped when `includeUnstaged` is false
-						// — untracked files are by definition unstaged, so they don't belong in a
-						// staged-only compose.
-						await using untrackedIndex =
-							scope.includeUnstaged && svc.staging != null && svc.status != null
-								? await (async () => {
-										const untracked = (await svc.status.getUntrackedFiles?.()) ?? [];
-										if (!untracked.length) return undefined;
-										const index = await svc.staging!.createTemporaryIndex('current');
-										await svc.staging!.stageFiles(
-											untracked.map(f => f.path),
-											{ intentToAdd: true, index: index },
-										);
-										return index;
-									})()
-								: undefined;
-
-						const [stagedDiffRaw, unstagedDiffRaw] = await Promise.all([
-							scope.includeStaged
-								? svc.diff?.getDiff?.(uncommittedStaged, undefined, { index: untrackedIndex })
-								: Promise.resolve(undefined),
-							scope.includeUnstaged
-								? svc.diff?.getDiff?.(uncommitted, undefined, { index: untrackedIndex })
-								: Promise.resolve(undefined),
-						]);
-						signal?.throwIfAborted();
-
-						const stagedContents = await filterDiffIfNeeded(stagedDiffRaw?.contents);
-						const unstagedContents = await filterDiffIfNeeded(unstagedDiffRaw?.contents);
-						signal?.throwIfAborted();
-
-						const hunks = createHunksFromDiffs(stagedContents, unstagedContents);
-
-						// If including unpushed commits, gather their diffs as hunks
-						for (const sha of scope.includeShas) {
-							const commitDiff = await svc.diff?.getDiff?.(sha);
-							signal?.throwIfAborted();
-							const filtered = await filterDiffIfNeeded(commitDiff?.contents);
-							signal?.throwIfAborted();
-
-							if (filtered?.trim()) {
-								const commitHunks = createHunksFromDiffs(filtered, undefined);
-								for (const h of commitHunks) {
-									h.index = hunks.length + 1;
-									h.source = 'commits';
-									hunks.push(h);
-								}
-							}
+						const composeTools = this.getOrCreateComposeToolsForGraph();
+						if (composeTools == null) {
+							return { error: { message: 'Compose is not available in this environment.' } };
 						}
 
-						if (hunks.length === 0) {
-							return { error: { message: 'No changes found to compose.' } };
+						const repo = this.container.git.getRepository(repoPath);
+						if (repo == null) {
+							return { error: { message: 'Repository not found.' } };
 						}
 
-						const hunkMap = hunks.map(h => ({
-							index: h.index,
-							hunkHeader: h.hunkHeader,
-						}));
+						const priorKey = this._activeComposeCacheKeys.get(repoPath);
+						if (priorKey != null) {
+							composeTools.discardCachedPlan(priorKey);
+							this._activeComposeCacheKeys.delete(repoPath);
+						}
 
-						signal?.throwIfAborted();
+						this._composeProgressEvent.fire({ phase: 'collecting', message: 'Preparing changes…' });
 
-						const result = await this.container.ai.actions.generateCommits(
-							hunks,
-							[],
-							[],
-							hunkMap,
-							{ source: 'graph' },
-							{
-								cancellation: cancellation,
-								customInstructions: instructions,
+						const planResult = await composeTools.generatePlanForGraphDetails({
+							repo: repo,
+							scope: scope,
+							customInstructions: instructions,
+							excludedFiles: excludedFiles,
+							cancellation: cancellation,
+							telemetrySource: { source: 'graph' },
+							onProgress: event => {
+								this._composeProgressEvent.fire({ phase: event.phase, message: event.message });
 							},
-						);
+						});
+						signal?.throwIfAborted();
 
-						if (result === 'cancelled' || result == null) {
-							return { error: { message: 'Composition was cancelled.' } };
-						}
+						this._activeComposeCacheKeys.set(repoPath, planResult.cacheKey);
 
-						// Build a path -> WIP file lookup so each proposed commit's files carry the
-						// real status/originalPath used for context menus and inline actions.
+						const svc = this.container.git.getRepositoryService(repoPath);
 						const wipStatus = await svc.status.getStatus(undefined, signal);
 						signal?.throwIfAborted();
-
 						const wipByPath = new Map<string, { status: GitFileStatus; originalPath?: string }>();
 						if (wipStatus?.files) {
 							for (const f of wipStatus.files) {
@@ -1319,123 +1265,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							}
 						}
 
-						// Resolve HEAD up front so the per-file anchor logic can reference it.
 						const headCommit = await svc.commits.getCommit('HEAD');
 						signal?.throwIfAborted();
-						const headSha = headCommit?.sha;
 
-						// Build exact per-commit patches from the already-assembled hunks. Reuses the
-						// composer's `createCombinedDiffForCommit` so the same patch shape the
-						// composer preview renders is the one the rewriter applies.
+						const baseAnchorSha =
+							planResult.kind === 'wip-only' ? planResult.headSha : planResult.rewriteFromSha;
+						const baseAnchorCommit =
+							baseAnchorSha === planResult.headSha
+								? headCommit
+								: baseAnchorSha === rootSha
+									? undefined
+									: await svc.commits.getCommit(baseAnchorSha);
+						signal?.throwIfAborted();
+
 						const { createCombinedDiffForCommit } = await import(
 							/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'
 						);
+						const { commits, commitHunksByIndex } = libraryPlanToProposedCommits(
+							planResult,
+							repoPath,
+							wipByPath,
+							createCombinedDiffForCommit,
+						);
 
-						// Transform AI result to ProposedCommit format. Capture per-commit hunks on the
-						// side so the virtual content provider can synthesize per-commit file content
-						// without re-walking the AI output.
-						const commitHunksByIndex: ComposerHunk[][] = [];
-						const commits: ProposedCommit[] = result.commits.map((c, i): ProposedCommit => {
-							const commitHunks = c.hunks
-								.map(h => hunks.find(hk => hk.index === h.hunk))
-								.filter((h): h is NonNullable<typeof h> => h != null);
-							commitHunksByIndex[i] = commitHunks;
-
-							const filesByPath = new Map<string, ProposedCommitFile>();
-							for (const h of commitHunks) {
-								// Anchor each file to its topmost contributing layer: unstaged > staged > committed.
-								// File rows in the tree collapse hunks across layers, so the right-click and inline
-								// actions need to operate on the layer that's actually editable from this panel.
-								const hunkAnchor: ProposedCommitFile['anchor'] =
-									h.source === 'unstaged'
-										? 'unstaged'
-										: h.source === 'staged'
-											? 'staged'
-											: 'committed';
-
-								const existing = filesByPath.get(h.fileName);
-								const anchor =
-									existing == null || anchorRank[hunkAnchor] > anchorRank[existing.anchor]
-										? hunkAnchor
-										: existing.anchor;
-
-								const wip = wipByPath.get(h.fileName);
-								filesByPath.set(h.fileName, {
-									repoPath: repoPath,
-									path: h.fileName,
-									status: wip?.status ?? 'M',
-									originalPath: wip?.originalPath ?? h.originalFileName,
-									staged: anchor === 'staged',
-									anchor: anchor,
-									anchorSha: anchor === 'committed' ? headSha : undefined,
-								});
-							}
-							const files = [...filesByPath.values()];
-							const additions = commitHunks.reduce((sum, h) => sum + (h.additions ?? 0), 0);
-							const deletions = commitHunks.reduce((sum, h) => sum + (h.deletions ?? 0), 0);
-							const { patch } = createCombinedDiffForCommit(commitHunks);
-
-							return {
-								id: `compose-${String(i)}`,
-								message: c.message,
-								files: files,
-								additions: additions,
-								deletions: deletions,
-								patch: patch,
-							};
-						});
-
-						// Determine rewrite anchor from the selected scope.
-						const hasWip = scope.includeStaged || scope.includeUnstaged;
-						const hasCommits = scope.includeShas.length > 0;
-						const kind: ComposeRewriteKind = hasCommits
-							? hasWip
-								? 'wip+commits'
-								: 'commits-only'
-							: 'wip-only';
-
-						let rewriteFromSha = headSha ?? 'HEAD';
-						let selectedShas: string[] | undefined;
-						if (hasCommits) {
-							// Selected SHAs in child-first (topological) order as they appear in the branch.
-							// Walk HEAD back and keep only SHAs the user selected; the last kept is the oldest.
-							const selectedSet = new Set(scope.includeShas);
-							const ordered: string[] = [];
-							let cursor = headCommit;
-							while (cursor != null && ordered.length < selectedSet.size) {
-								if (selectedSet.has(cursor.sha)) {
-									ordered.push(cursor.sha);
-								}
-								const parent = cursor.parents[0];
-								if (parent == null) break;
-								cursor = await svc.commits.getCommit(parent);
-							}
-							selectedShas = ordered;
-							const oldest = ordered.at(-1);
-							if (oldest != null) {
-								const oldestCommit = await svc.commits.getCommit(oldest);
-								const parent = oldestCommit?.parents[0];
-								if (parent != null) {
-									rewriteFromSha = parent;
-								} else {
-									// Root commit — rewrite from the empty tree sentinel.
-									rewriteFromSha = rootSha;
-								}
-							}
-						}
-
-						// Start a virtual compose session so the compose panel can open per-proposed-commit
-						// diffs via the gitlens-virtual:// FS provider. Anchor the chain at rewriteFromSha
-						// (what the plan builds on top of), so LHS of compose commit 0's "compare previous"
-						// resolves against the rewriter's real anchor.
-						const virtualComposeBase = headSha != null ? rewriteFromSha : undefined;
-						if (virtualComposeBase != null && commits.length > 0) {
+						if (commits.length > 0) {
 							const { provider } = this.getOrCreateComposeVirtual();
 							const sessionId = provider.startSession(
 								{
 									repoPath: repoPath,
-									baseSha: virtualComposeBase,
-									baseLabel: shortenRevision(virtualComposeBase),
+									baseSha: planResult.rewriteFromSha,
+									baseLabel: shortenRevision(planResult.rewriteFromSha),
 									commits: commits.map((commit, i) => ({
 										id: commit.id,
 										message: commit.message,
@@ -1446,8 +1305,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							);
 							this._composeVirtual!.sessionId = sessionId;
 
-							// Stamp a virtual ref onto each proposed commit so the webview can pass it back
-							// through file-open events without knowing the namespace or sessionId itself.
 							for (const commit of commits) {
 								commit.virtualRef = {
 									namespace: GraphComposeVirtualNamespace,
@@ -1459,21 +1316,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 						return {
 							result: {
-								commits: commits,
+								commits: commits.toReversed(),
 								baseCommit: {
-									sha: headCommit?.sha ?? 'HEAD',
-									message: headCommit?.message?.split('\n')[0] ?? '',
-									author: headCommit?.author?.name,
-									date: headCommit?.author?.date?.toISOString(),
-									rewriteFromSha: rewriteFromSha,
-									kind: kind,
-									selectedShas: selectedShas,
+									sha: baseAnchorSha,
+									message: baseAnchorCommit?.message?.split('\n')[0] ?? '',
+									author: baseAnchorCommit?.author?.name,
+									date: baseAnchorCommit?.author?.date?.toISOString(),
+									rewriteFromSha: planResult.rewriteFromSha,
+									kind: planResult.kind,
+									selectedShas: planResult.selectedShas,
 								},
 							},
 						};
 					} catch (ex) {
-						if (isCancellationError(ex)) {
-							return { error: { message: 'Composition was cancelled.' } };
+						if (isCancellationError(ex) || isComposeCancelled(ex)) {
+							return { cancelled: true };
 						}
 						return {
 							error: {
@@ -1481,10 +1338,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							},
 						};
 					} finally {
+						this._composeProgressEvent.fire(undefined);
 						disposeCancellation();
 					}
 				},
-				commitCompose: async (repoPath, plan) => executeComposeCommit(this.container, repoPath, plan),
+				onComposeProgress: this._composeProgressEvent.subscribe(buffer, tracker),
+				commitCompose: async (repoPath, plan) => {
+					const composeTools = this.getOrCreateComposeToolsForGraph();
+					if (composeTools == null) {
+						return { error: { message: 'Compose is not available in this environment.' } };
+					}
+					const cacheKey = this._activeComposeCacheKeys.get(repoPath);
+					if (cacheKey == null) {
+						return { error: { message: 'No active compose plan; please regenerate.' } };
+					}
+					try {
+						return await executeComposeCommit(this.container, repoPath, plan, composeTools, cacheKey);
+					} finally {
+						this._activeComposeCacheKeys.delete(repoPath);
+					}
+				},
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
 					// Phase 1 — counts + the unified All Files diff. Smallest payload to land the user
 					// on a useful panel; per-side commits + their files are fetched on demand via

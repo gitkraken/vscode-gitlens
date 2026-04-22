@@ -157,6 +157,18 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.clearEnrichmentCaches();
 			this.ensureSubscription(this.host.repoPath);
 		}
+
+		// Trigger 3 — compose returned a cancelled sentinel (e.g. user dismissed the
+		// large-prompt warning). Mirror the loading-screen Cancel behavior: exit compose
+		// mode entirely. Resetting the resource first prevents the sentinel from re-firing
+		// this trigger if the user re-enters compose mode for the same selection.
+		if (this.actions.state.activeMode.get() === 'compose') {
+			const composeValue = this.actions.resources.compose.value.get();
+			if (composeValue != null && 'cancelled' in composeValue && composeValue.cancelled === true) {
+				this.actions.resources.compose.reset();
+				this.exitMode(this.host.currentSelection());
+			}
+		}
 	}
 
 	/**
@@ -451,7 +463,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		back: (): void => {
 			if (this.actions.resources.compose.status.get() === 'success') {
 				const value = this.actions.resources.compose.value.get();
-				if (value != null) {
+				if (value != null && 'result' in value) {
 					this._composeBackSnapshot = value;
 					this.actions.state.composeForwardAvailable.set(true);
 				}

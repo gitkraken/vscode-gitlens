@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
-import type { AIConversation } from '@gitlens/ai/models/conversation.js';
+import { createComposerComposeIntegration } from '@env/coretools/composer.js';
+import { AIConversation } from '@gitlens/ai/models/conversation.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
 import { md5, sha256 } from '@gitlens/utils/crypto.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -28,6 +29,7 @@ import { onDidChangeContext } from '../../../system/-webview/context.js';
 import type { IpcParams } from '../../ipc/handlerRegistry.js';
 import { ipcCommand } from '../../ipc/handlerRegistry.js';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider.js';
+import type { ComposerComposeIntegration } from './compose/integration.js';
 import type {
 	ComposerBaseCommit,
 	ComposerCommit,
@@ -57,6 +59,7 @@ import {
 	DidGenerateCommitsNotification,
 	DidIndexChangeNotification,
 	DidLoadingErrorNotification,
+	DidProgressGeneratingCommitsNotification,
 	DidReloadComposerNotification,
 	DidSafetyErrorNotification,
 	DidStartCommittingNotification,
@@ -91,6 +94,8 @@ import {
 	validateResultingDiff,
 	validateSafetyState,
 } from './utils/composer.utils.js';
+
+const useComposeToolsLibrary = false;
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -131,10 +136,20 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	// Suppress the large prompt warning after the first successful AI action in this session
 	private _suppressLargePromptWarning = false;
 
+	// Compose-tools integration. Node-only — the webworker build resolves
+	// `@env/coretools/composer.js` to a browser stub that returns undefined, which
+	// causes onGenerateCommits to fall through to the legacy path. Holds the
+	// two-phase cache between onGenerateCommits and onFinishAndCommit when the
+	// library route is active.
+	private readonly _composeTools: ComposerComposeIntegration | undefined;
+	/** Cache key returned by integration.generatePlan — consumed by the library-backed onFinishAndCommit. */
+	private _currentComposePlanCacheKey: string | undefined;
+
 	constructor(
 		protected readonly container: Container,
 		protected readonly host: WebviewHost<'gitlens.composer'>,
 	) {
+		this._composeTools = useComposeToolsLibrary ? createComposerComposeIntegration(container) : undefined;
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
@@ -1199,19 +1214,103 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Call the AI service
 			void this.container.usage.track(`action:gitlens.ai.generateCommits:happened`).catch();
-			const result = await this.container.ai.actions.generateCommits(
-				hunks,
-				existingCommits,
-				this._recompose?.enabled ? (this._recompose.messages ?? []) : [],
-				hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
-				{ source: 'composer', correlationId: this.host.instanceId },
-				{
-					cancellation: this._generateCommitsCancellation.token,
-					customInstructions: params.customInstructions,
-					conversation: conversation,
-					suppressLargePromptWarning: this._suppressLargePromptWarning,
-				},
-			);
+
+			// Route through @gitkraken/compose-tools when available.
+			// - `_composeTools` is undefined in the webworker/browser build (node-only library).
+			// - `commitsToReplace` (subset re-generation) stays on legacy: the splice logic
+			//   that renumbers `_hunks` + remaps commit hunkIndices needs careful coordination
+			//   with the library's own indexing, and we don't yet have a pre-supplied-hunks
+			//   plan-only mode to hand off.
+			const hasCommitsToReplace = Boolean(params.commitsToReplace?.commits?.length);
+			const useLibraryRoute =
+				this._composeTools != null && this._currentRepository != null && !hasCommitsToReplace;
+			let result: Awaited<ReturnType<typeof this.container.ai.actions.generateCommits>>;
+			if (useLibraryRoute && this._composeTools != null && this._currentRepository != null) {
+				// Discard any prior cached plan from an earlier compose click in this session.
+				if (this._currentComposePlanCacheKey != null) {
+					this._composeTools.discardCachedPlan(this._currentComposePlanCacheKey);
+					this._currentComposePlanCacheKey = undefined;
+				}
+
+				const inRecompose = this._recompose?.enabled && this._safetyState?.hashes.commits;
+				let librarySource: import('./compose/integration.js').ComposerSource;
+				if (inRecompose && this._safetyState?.baseSha != null && this._safetyState?.headSha != null) {
+					librarySource = {
+						type: 'commit-range',
+						branch: this._recompose?.branchName ?? '',
+						from: this._safetyState.baseSha,
+						to: this._safetyState.headSha,
+					};
+				} else {
+					const stagedOnly = !this._context.diff.unstagedIncluded;
+					librarySource = { type: 'workdir', stagedOnly: stagedOnly };
+				}
+
+				// Dispose the repo subscription while the library runs: even though the
+				// library writes only to a temp GIT_INDEX_FILE, it still spawns git
+				// processes that touch `.git/objects/` (write-tree, hash-object) and the
+				// repo watcher can register those as index changes. Re-subscribe when done.
+				// Matches the pattern used in onFinishAndCommit for the same reason.
+				this._repositorySubscription?.dispose();
+				this._repositorySubscription = undefined;
+
+				try {
+					const planResult = await this._composeTools.generatePlan({
+						repo: this._currentRepository,
+						source: librarySource,
+						customInstructions: params.customInstructions,
+						cancellation: this._generateCommitsCancellation.token,
+						telemetrySource: { source: 'composer', correlationId: this.host.instanceId },
+						suppressLargePromptWarning: this._suppressLargePromptWarning,
+						onProgress: event => {
+							void this.host.notify(DidProgressGeneratingCommitsNotification, {
+								phase: event.phase,
+								message: event.message,
+							});
+						},
+					});
+					this._currentComposePlanCacheKey = planResult.cacheKey;
+
+					// The library re-parses the source (workdir or commit range) into its
+					// own hunk sequence, and commit.hunkIndices reference that sequence.
+					// The library's parse can diverge from `createHunksFromDiffs` in both
+					// ordering and hunk splits (GitLens concatenates staged+unstaged diffs;
+					// the library uses a single tree-to-tree diff). Always adopt the
+					// library's hunks so the commit references line up with the UI state.
+					this._hunks = planResult.hunks;
+
+					result = {
+						commits: planResult.commits.map(c => ({
+							message: c.message.content,
+							explanation: c.aiExplanation ?? '',
+							hunks: c.hunkIndices.map(i => ({ hunk: i })),
+						})),
+						// Library path doesn't produce an AIConversation, so "try again with same
+						// hunks" re-runs the full AI pipeline rather than resuming a prior session.
+						conversation: conversation ?? new AIConversation(),
+					};
+				} finally {
+					// Restore subscription so user-driven index changes after compose are
+					// observed again.
+					if (this._currentRepository != null) {
+						this.subscribeToRepository(this._currentRepository);
+					}
+				}
+			} else {
+				result = await this.container.ai.actions.generateCommits(
+					hunks,
+					existingCommits,
+					this._recompose?.enabled ? (this._recompose.messages ?? []) : [],
+					hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
+					{ source: 'composer', correlationId: this.host.instanceId },
+					{
+						cancellation: this._generateCommitsCancellation.token,
+						customInstructions: params.customInstructions,
+						conversation: conversation,
+						suppressLargePromptWarning: this._suppressLargePromptWarning,
+					},
+				);
+			}
 
 			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommits.cancelledCount++;
@@ -1270,10 +1369,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					this._recompose.locked = false;
 				}
 
+				// When the library drove generation, `this._hunks` has been replaced
+				// with the library's own parse (see the workdir / recompose branch
+				// above). Ship those hunks to the webview so commit.hunkIndices line
+				// up with the UI state. Recompose (legacy or library) also needs a
+				// hunk refresh because the combined diff was rebuilt.
+				const shouldSendHunks = useLibraryRoute || this._recompose?.enabled === true;
 				await this.host.notify(DidGenerateCommitsNotification, {
 					commits: newCommits,
-					// In recompose mode, we generated a new combined diff and hunks, so we need to pass the hunks back to state
-					hunks: this._recompose?.enabled ? this._hunks : undefined,
+					hunks: shouldSendHunks ? this._hunks : undefined,
 					replacedCommitIds: params.commitsToReplace?.commits.map(c => c.id),
 				});
 			} else if (result === 'cancelled') {
@@ -1483,6 +1587,85 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				});
 				return;
 			}
+
+			// Library route: if generatePlan was run via library (cache key present),
+			// route apply through applyComposePlan. The library handles its own safety
+			// check (snapshot captured at compose time), commit chain construction,
+			// stash management, and ref update. Defaults pick the right target from
+			// the stored source (commit-range → rewrite-range, workdir → head).
+			if (this._composeTools != null && this._currentComposePlanCacheKey != null) {
+				// Dispose subscription while the library runs git ops.
+				this._repositorySubscription?.dispose();
+				this._repositorySubscription = undefined;
+
+				try {
+					const signingConfig = await repo.git.config.getSigningConfig?.();
+					const signing = signingConfig?.enabled
+						? {
+								enabled: true,
+								signingKey: signingConfig.signingKey,
+								gpgProgram: signingConfig.gpgProgram,
+							}
+						: undefined;
+
+					const result = await this._composeTools.applyPlan({
+						repo: repo,
+						cacheKey: this._currentComposePlanCacheKey,
+						commits: params.commits,
+						signing: signing,
+						telemetrySource: { source: 'composer', correlationId: this.host.instanceId },
+					});
+
+					this._currentComposePlanCacheKey = undefined;
+					this._context.commits.finalCount = Object.keys(result.commitShas ?? {}).length;
+					this.host.sendTelemetryEvent('composer/action/finishAndCommit');
+					await this.host.notify(DidFinishCommittingNotification, undefined);
+					void commands.executeCommand('workbench.action.closeActiveEditor');
+					return;
+				} catch (error) {
+					const errCode = (error as { code?: string })?.code;
+					const errMsg = error instanceof Error ? error.message : 'unknown error';
+
+					await this.host.notify(DidFinishCommittingNotification, undefined);
+
+					if (errCode === 'CANCELLED') {
+						// User-initiated cancel — no error telemetry, no error notification.
+						return;
+					}
+
+					if (errCode === 'SAFETY_CHECK_FAILED') {
+						this._context.errors.safety.count++;
+						this._context.errors.operation.count++;
+						this._context.operations.finishAndCommit.errorCount++;
+						this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+							'failure.reason': 'error',
+							'failure.error.message': errMsg,
+						});
+						await this.host.notify(DidSafetyErrorNotification, { error: errMsg });
+						return;
+					}
+
+					// CHERRY_PICK_CONFLICT, OPERATION_FAILED, INTERNAL, unknown — all surface
+					// as a generic apply failure. `detail` on GitError may carry more info
+					// (e.g. conflictingCommit) for diagnostics.
+					this._context.errors.operation.count++;
+					this._context.operations.finishAndCommit.errorCount++;
+					this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+						'failure.reason': 'error',
+						'failure.error.message': errMsg,
+					});
+					void window.showErrorMessage(`Failed to commit changes: ${errMsg}`);
+					return;
+				} finally {
+					if (this._currentRepository != null) {
+						this.subscribeToRepository(this._currentRepository);
+					}
+				}
+			}
+
+			// Legacy path — runs when no library cache key (generatePlan was not routed
+			// through the library, e.g. because `_composeTools` is undefined in the
+			// browser build, or the user is in a flow the library doesn't yet handle).
 
 			const commitHunkIndices = params.commits.flatMap(c => c.hunkIndices);
 			const hunks: ComposerHunk[] = [];

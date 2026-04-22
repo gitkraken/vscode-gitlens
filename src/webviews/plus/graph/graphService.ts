@@ -8,6 +8,8 @@ import type { RpcEventSubscription } from '../../rpc/services/types.js';
 import type { CommitDetails, CommitFileChange, CompareDiff, Wip } from './detailsProtocol.js';
 import type { DidGetCountParams, DidGetSidebarDataParams, GraphSidebarPanel } from './protocol.js';
 
+export type ComposeProgressUpdate = { phase: string; message: string };
+
 export type ScopeSelection =
 	| { type: 'commit'; sha: string }
 	| {
@@ -73,7 +75,8 @@ export type ComposeBaseCommit = {
 
 export type ComposeResult =
 	| { result: { commits: ProposedCommit[]; baseCommit: ComposeBaseCommit } }
-	| { error: { message: string } };
+	| { error: { message: string } }
+	| { cancelled: true };
 
 export type ComposeCommitPlan = {
 	commits: ProposedCommit[];
@@ -216,6 +219,9 @@ export interface GraphInspectService {
 		signal?: AbortSignal,
 	): Promise<ComposeResult>;
 	commitCompose(repoPath: string, plan: ComposeCommitPlan): Promise<CommitResult>;
+	/** Streams human-readable progress messages while {@link composeChanges} runs. `undefined`
+	 *  fires when no compose is in flight (entry/exit clearing). */
+	readonly onComposeProgress: RpcEventSubscription<ComposeProgressUpdate | undefined>;
 	/** Phase 1 of the branch-compare progressive load — counts + All Files only. Triggered on
 	 *  refs/wip change. Per-side commit + file data is fetched separately via {@link getBranchComparisonSide}. */
 	getBranchComparisonSummary(

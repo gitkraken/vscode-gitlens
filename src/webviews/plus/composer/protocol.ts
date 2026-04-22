@@ -87,6 +87,12 @@ export interface State extends WebviewState<'gitlens.composer'> {
 		filesChanged: boolean;
 	};
 	generatingCommits: boolean;
+	/**
+	 * Human-readable status of the currently running compose phase (e.g. "Analyzing changes…").
+	 * Emitted by the library route's onProgress hook. Null when no granular progress is available
+	 * (legacy AI path, or before the first phase event arrives).
+	 */
+	generatingCommitsStatus: string | null;
 	generatingCommitMessage: string | null; // commitId of the commit currently generating a message, or null
 	committing: boolean; // true when finish and commit is in progress
 	safetyError: string | null; // error message if safety validation failed, or null
@@ -137,6 +143,7 @@ export const initialState: Omit<State, keyof WebviewState<'gitlens.composer'>> =
 		filesChanged: true,
 	},
 	generatingCommits: false,
+	generatingCommitsStatus: null,
 	generatingCommitMessage: null,
 	committing: false,
 	safetyError: null,
@@ -352,6 +359,16 @@ export const OnResetCommand = new IpcCommand<void>(ipcScope, 'onReset');
 
 // Notifications sent from host to webview
 export const DidStartGeneratingNotification = new IpcNotification<void>(ipcScope, 'didStartGenerating');
+export interface DidProgressGeneratingCommitsParams {
+	/** Machine-identifier for the phase (e.g. 'analyzing', 'grouping', 'ordering'). */
+	phase: string;
+	/** Human-readable label to show in the loading dialog (e.g. 'Analyzing changes…'). */
+	message: string;
+}
+export const DidProgressGeneratingCommitsNotification = new IpcNotification<DidProgressGeneratingCommitsParams>(
+	ipcScope,
+	'didProgressGeneratingCommits',
+);
 export const DidStartGeneratingCommitMessageNotification = new IpcNotification<{ commitId: string }>(
 	ipcScope,
 	'didStartGeneratingCommitMessage',

@@ -13,6 +13,7 @@ import {
 	DidGenerateCommitsNotification,
 	DidIndexChangeNotification,
 	DidLoadingErrorNotification,
+	DidProgressGeneratingCommitsNotification,
 	DidReloadComposerNotification,
 	DidSafetyErrorNotification,
 	DidStartCommittingNotification,
@@ -35,6 +36,18 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 				const updatedState = {
 					...this._state,
 					generatingCommits: true,
+					generatingCommitsStatus: null,
+					timestamp: Date.now(),
+				};
+
+				(this as any)._state = updatedState;
+				this.provider.setValue(this._state, true);
+				break;
+			}
+			case DidProgressGeneratingCommitsNotification.is(msg): {
+				const updatedState = {
+					...this._state,
+					generatingCommitsStatus: msg.params.message,
 					timestamp: Date.now(),
 				};
 
@@ -84,6 +97,7 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 				const updatedState = {
 					...this._state,
 					generatingCommits: false,
+					generatingCommitsStatus: null,
 					commits: newCommits,
 					hunks: (msg.params.hunks ?? this._state.hunks).map(hunk => ({
 						...hunk,
@@ -165,6 +179,7 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 					safetyError: null, // Clear any existing safety errors
 					// Clear any ongoing operations
 					generatingCommits: false,
+					generatingCommitsStatus: null,
 					generatingCommitMessage: null,
 					committing: false,
 					// Reset working directory change flag on reload
@@ -227,6 +242,7 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 					},
 					// Clear any loading states since the operation failed
 					generatingCommits: false,
+					generatingCommitsStatus: null,
 					generatingCommitMessage: null,
 					timestamp: Date.now(),
 				};
@@ -251,6 +267,7 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 				const updatedState = {
 					...this._state,
 					generatingCommits: false,
+					generatingCommitsStatus: null,
 					timestamp: Date.now(),
 				};
 
