@@ -32,7 +32,7 @@ export async function subscribeAll(
 	subscriptions: Array<() => Promise<Unsubscribe> | Unsubscribe>,
 ): Promise<Unsubscribe> {
 	const results = await Promise.allSettled(subscriptions.map(fn => fn() as Promise<Unsubscribe>));
-	const unsubscribers: Unsubscribe[] = [];
+	const unsubscribers: Array<() => void> = [];
 	for (const result of results) {
 		if (result.status === 'fulfilled' && typeof result.value === 'function') {
 			unsubscribers.push(result.value);

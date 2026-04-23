@@ -216,7 +216,7 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			}));
 
 			const handler = sinon.spy();
-			const unsubscribe = subscriber(handler);
+			const unsubscribe = subscriber(handler) as () => void;
 
 			assert.strictEqual(typeof unsubscribe, 'function');
 			unsubscribe();
@@ -286,7 +286,7 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			});
 
 			const handler = sinon.spy();
-			const unsubscribe = subscriber(handler);
+			const unsubscribe = subscriber(handler) as () => void;
 
 			// Add a pending entry
 			buffer.setVisible(false);
@@ -429,7 +429,7 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			const event = createRpcEvent<string>('key', 'save-last');
 			const subscriber = event.subscribe();
 			const cb = sinon.spy();
-			const unsub = subscriber(cb);
+			const unsub = subscriber(cb) as () => void;
 
 			unsub();
 			event.fire('hello');

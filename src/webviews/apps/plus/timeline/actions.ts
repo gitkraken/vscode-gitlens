@@ -85,15 +85,30 @@ export class TimelineActions {
 		this.unwatchWip();
 	}
 
-	/** Subscribe to FS changes for a repo so the WIP pseudo-commit row refreshes on file saves. */
+	/**
+	 * Subscribe to FS changes for a repo so the WIP pseudo-commit row refreshes on file saves.
+	 *
+	 * Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>`, so the call
+	 * must be awaited — a synchronous assignment captures the Promise (not callable).
+	 */
 	private watchWip(repoPath: string): void {
 		if (repoPath === this._wipWatchRepoPath) return;
 
 		this._wipWatchUnsubscribe?.();
+		this._wipWatchUnsubscribe = undefined;
 		this._wipWatchRepoPath = repoPath;
-		this._wipWatchUnsubscribe = this._repository.onRepositoryWorkingChanged(repoPath, () => {
-			void this.fetchTimeline();
-		});
+
+		void (async () => {
+			const unsubscribe = (await this._repository.onRepositoryWorkingChanged(repoPath, () => {
+				void this.fetchTimeline();
+			})) as unknown as (() => void) | undefined;
+			if (typeof unsubscribe !== 'function') return;
+			if (this._wipWatchRepoPath !== repoPath) {
+				unsubscribe();
+				return;
+			}
+			this._wipWatchUnsubscribe = unsubscribe;
+		})();
 	}
 
 	/** Stop watching WIP changes for the current repo. */

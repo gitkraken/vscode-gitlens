@@ -90,15 +90,40 @@ export function createSidebarActions(): SidebarActions {
 		filterMode: 'filter',
 
 		initialize: function (svc: GraphSidebarService) {
+			// Clean up previous subscriptions on re-initialization (e.g. RPC reconnection)
+			unsubscribeConfig?.();
+			unsubscribeWorktree?.();
+			unsubscribeConfig = undefined;
+			unsubscribeWorktree = undefined;
+
 			service = svc;
 
-			unsubscribeConfig = service.onSidebarInvalidated(() => {
-				actions.invalidateAll();
-			});
-
-			unsubscribeWorktree = service.onWorktreeStateChanged(({ changes }) => {
-				actions.applyWorktreeChanges(changes);
-			});
+			// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>`, so
+			// the call must be awaited — synchronous assignment captures the Promise
+			// (not callable) and breaks teardown with `is not a function`.
+			const activeSvc = svc;
+			void (async () => {
+				const unsub = (await activeSvc.onSidebarInvalidated(() => {
+					actions.invalidateAll();
+				})) as unknown as (() => void) | undefined;
+				if (typeof unsub !== 'function') return;
+				if (service !== activeSvc) {
+					unsub();
+					return;
+				}
+				unsubscribeConfig = unsub;
+			})();
+			void (async () => {
+				const unsub = (await activeSvc.onWorktreeStateChanged(({ changes }) => {
+					actions.applyWorktreeChanges(changes);
+				})) as unknown as (() => void) | undefined;
+				if (typeof unsub !== 'function') return;
+				if (service !== activeSvc) {
+					unsub();
+					return;
+				}
+				unsubscribeWorktree = unsub;
+			})();
 
 			actions.fetchCounts();
 		},

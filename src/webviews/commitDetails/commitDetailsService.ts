@@ -20,6 +20,7 @@
  */
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { SharedWebviewServices } from '../rpc/services/common.js';
+import type { Unsubscribe } from '../rpc/services/types.js';
 import type { CommitDetails, Mode, Wip } from './protocol.js';
 
 // ============================================================
@@ -118,13 +119,13 @@ export interface CommitInspectService {
 	 * View-specific: includes search context and passive flag, and filters
 	 * based on the view's attachedTo configuration.
 	 */
-	onCommitSelected(callback: (event: CommitSelectionEvent) => void): () => void;
+	onCommitSelected(callback: (event: CommitSelectionEvent) => void): Unsubscribe;
 
 	/**
 	 * Fired when the host opens WIP mode on an already-live webview.
 	 * The webview should switch to WIP mode and fetch WIP data.
 	 */
-	onShowWip(callback: (event: ShowWipEvent) => void): () => void;
+	onShowWip(callback: (event: ShowWipEvent) => void): Unsubscribe;
 
 	// ── Initialization ──
 

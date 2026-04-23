@@ -436,14 +436,26 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this._onboardingState.banners.mcpBanner = !onboarding.isDismissed('mcp:banner');
 
 		// Set up event subscriptions FIRST (so we don't miss events during fetch)
+		// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>`, so the
+		// call must be awaited — a synchronous assignment captures the Promise (not callable).
+		let watchWipRepoPath: string | undefined;
 		const watchWipForRepo = (repoPath: string | undefined): void => {
 			this._wipWatchUnsubscribe?.();
 			this._wipWatchUnsubscribe = undefined;
-			if (repoPath != null) {
-				this._wipWatchUnsubscribe = repository.onRepositoryWorkingChanged(repoPath, () => {
+			watchWipRepoPath = repoPath;
+			if (repoPath == null) return;
+
+			void (async () => {
+				const unsubscribe = (await repository.onRepositoryWorkingChanged(repoPath, () => {
 					this._refreshOverviewDebounced();
-				});
-			}
+				})) as unknown as (() => void) | undefined;
+				if (typeof unsubscribe !== 'function') return;
+				if (watchWipRepoPath !== repoPath) {
+					unsubscribe();
+					return;
+				}
+				this._wipWatchUnsubscribe = unsubscribe;
+			})();
 		};
 		const replaceOverview = (): void => {
 			this._refreshOverviewDebounced.cancel();

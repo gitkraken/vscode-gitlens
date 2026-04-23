@@ -136,15 +136,32 @@ export class CommitDetailsActions {
 		this.resources.generate.cancel();
 	}
 
-	/** Subscribe to FS changes for a WIP repo. Unsubscribes from previous repo if different. */
+	/**
+	 * Subscribe to FS changes for a WIP repo. Unsubscribes from previous repo if different.
+	 *
+	 * Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>`, so the call
+	 * must be awaited — a synchronous assignment captures the Promise (not callable)
+	 * and breaks teardown with `is not a function`.
+	 */
 	private watchWipRepo(repoPath: string): void {
 		if (repoPath === this._wipWatchRepoPath) return;
 
 		this._wipWatchUnsubscribe?.();
+		this._wipWatchUnsubscribe = undefined;
 		this._wipWatchRepoPath = repoPath;
-		this._wipWatchUnsubscribe = this.services.repository.onRepositoryWorkingChanged(repoPath, () => {
-			void this.fetchWipState(repoPath);
-		});
+
+		void (async () => {
+			const unsubscribe = (await this.services.repository.onRepositoryWorkingChanged(repoPath, () => {
+				void this.fetchWipState(repoPath);
+			})) as unknown as (() => void) | undefined;
+			if (typeof unsubscribe !== 'function') return;
+			// Repo changed again (or was cleared) while awaiting — drop this subscription.
+			if (this._wipWatchRepoPath !== repoPath) {
+				unsubscribe();
+				return;
+			}
+			this._wipWatchUnsubscribe = unsubscribe;
+		})();
 	}
 
 	/** Stop watching WIP repo FS changes. */

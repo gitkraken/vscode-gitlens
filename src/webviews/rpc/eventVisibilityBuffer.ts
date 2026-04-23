@@ -32,11 +32,13 @@ export class SubscriptionTracker implements Disposable {
 	 * Register an unsubscribe function for tracking.
 	 * @returns A wrapped unsubscribe that also removes itself from the tracker.
 	 */
-	track(unsubscribe: Unsubscribe): Unsubscribe {
+	track(unsubscribe: Unsubscribe): () => void {
 		this._unsubscribes.add(unsubscribe);
 		return () => {
 			this._unsubscribes.delete(unsubscribe);
-			unsubscribe();
+			// Cast is safe: `Unsubscribe` is `(() => void) | Promise<() => void>` because the webview-client side
+			// receives it async over RPC, but host-side callers always produce a synchronous `() => void`.
+			(unsubscribe as () => void)();
 		};
 	}
 
@@ -46,7 +48,9 @@ export class SubscriptionTracker implements Disposable {
 	 */
 	dispose(): void {
 		for (const unsub of this._unsubscribes) {
-			unsub();
+			// Cast is safe: `Unsubscribe` is `(() => void) | Promise<() => void>` because the webview-client side
+			// receives it async over RPC, but host-side callers always produce a synchronous `() => void`.
+			(unsub as () => void)();
 		}
 		this._unsubscribes.clear();
 	}
