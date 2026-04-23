@@ -236,12 +236,18 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				buffer,
 				'agentSessions',
 				'save-last',
-				buffered =>
-					this.container.agentStatus != null
-						? this.container.agentStatus.onDidChange(() => {
-								buffered(this.getAgentSessionsState());
-							})
-						: { dispose: () => {} },
+				buffered => {
+					if (this.container.agentStatus == null) return { dispose: () => {} };
+
+					let lastSerialized = '';
+					return this.container.agentStatus.onDidChange(() => {
+						const state = this.getAgentSessionsState();
+						const serialized = JSON.stringify(state);
+						if (serialized === lastSerialized) return;
+						lastSerialized = serialized;
+						buffered(state);
+					});
+				},
 				undefined,
 				tracker,
 			),
@@ -1232,10 +1238,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}));
 	}
 
+	private _lastBadgeWaiting = -1;
+
 	private updateAgentBadge(): void {
 		const service = this.container.agentStatus;
 		if (service == null) {
-			this.host.badge = undefined;
+			if (this._lastBadgeWaiting !== 0) {
+				this._lastBadgeWaiting = 0;
+				this.host.badge = undefined;
+			}
 			return;
 		}
 
@@ -1243,6 +1254,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			s => !s.isSubagent && (s.status === 'waiting' || s.status === 'permission_requested'),
 		).length;
 
+		if (waiting === this._lastBadgeWaiting) return;
+		this._lastBadgeWaiting = waiting;
 		this.host.badge = waiting > 0 ? { tooltip: `${waiting} agent(s) need attention`, value: waiting } : undefined;
 	}
 

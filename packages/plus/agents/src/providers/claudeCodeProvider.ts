@@ -2,8 +2,10 @@ import { readdir, readFile } from 'fs/promises';
 import { join, sep } from 'path';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import { disposableInterval } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { truncate } from '@gitlens/utils/string.js';
 import { agentDiscoveryDir, AgentIpcServer } from '../agentIpcServer.js';
 import { deriveStatusFromEvent, describeToolInput, isProcessAlive, rehydrateSubagents } from '../stateMachine.js';
 import type {
@@ -11,37 +13,15 @@ import type {
 	AgentSession,
 	AgentSessionProvider,
 	AgentSessionStatus,
+	ClaudeCodeHookEvent,
 	PendingPermission,
+	PermissionDecision,
 	PermissionSuggestion,
 } from '../types.js';
 import { getPhaseForStatus } from '../types.js';
 
 interface AgentSessionEvent {
-	event:
-		| 'SessionStart'
-		| 'SessionEnd'
-		| 'UserPromptSubmit'
-		| 'PreToolUse'
-		| 'PostToolUse'
-		| 'PostToolUseFailure'
-		| 'Notification'
-		| 'Stop'
-		| 'StopFailure'
-		| 'SubagentStart'
-		| 'SubagentStop'
-		| 'TeammateIdle'
-		| 'TaskCompleted'
-		| 'InstructionsLoaded'
-		| 'ConfigChange'
-		| 'WorktreeCreate'
-		| 'WorktreeRemove'
-		| 'PreCompact'
-		| 'PostCompact'
-		| 'Elicitation'
-		| 'ElicitationResult'
-		| 'PermissionRequest'
-		| 'PermissionDenied'
-		| 'CwdChanged';
+	event: ClaudeCodeHookEvent;
 	sessionId: string;
 	cwd: string;
 	pid?: number;
@@ -65,7 +45,7 @@ interface PermissionResponse {
 	hookSpecificOutput: {
 		hookEventName: 'PermissionRequest';
 		decision: {
-			behavior: 'allow' | 'deny';
+			behavior: PermissionDecision;
 			updatedPermissions?: PermissionSuggestion[];
 		};
 	};
@@ -81,7 +61,6 @@ interface PendingPermissionEntry {
 interface SessionBookkeeping {
 	activeToolCount: number;
 	pendingPermission?: PendingPermission;
-	phaseSince: Date;
 }
 
 const staleCheckIntervalMs = 60 * 1000; // 1 minute
@@ -111,6 +90,15 @@ interface DiscoveryFile {
 	workspacePaths?: string[];
 }
 
+interface SessionContext {
+	pid?: number;
+	workspacePath?: string;
+	isInWorkspace?: boolean;
+	cwd?: string;
+	planFile?: string;
+	sessionName?: string;
+}
+
 type SerializedAgentSession = Omit<AgentSession, 'lastActivity' | 'phaseSince' | 'subagents'> & {
 	lastActivity: string;
 	phaseSince: string;
@@ -134,7 +122,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private readonly _pendingPermissions = new Map<string, PendingPermissionEntry>();
 	private readonly _sessionBookkeeping = new Map<string, SessionBookkeeping>();
 	private _workspacePaths: string[] = [];
-	private _staleCheckTimer: ReturnType<typeof setInterval> | undefined;
+	private _staleCheckTimer: UnifiedDisposable | undefined;
 
 	constructor(private readonly callbacks: AgentProviderCallbacks) {}
 
@@ -154,8 +142,6 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	updateWorkspacePaths(workspacePaths: string[]): void {
 		this._workspacePaths = workspacePaths;
 
-		// Reclassify existing sessions — folders may have been added/removed,
-		// so `isInWorkspace` can flip either way.
 		let changed = false;
 		for (let i = 0; i < this._sessions.length; i++) {
 			const s = this._sessions[i];
@@ -168,7 +154,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				changed = true;
 			}
 		}
-		if (changed) this._onDidChangeSessions.fire();
+		if (changed) {
+			this._onDidChangeSessions.fire();
+		}
 
 		if (this._ipcServer == null) {
 			// Server wasn't started yet — bootstrap. The `.then` re-issues the
@@ -182,10 +170,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	dispose(): void {
 		this.stop();
-		if (this._staleCheckTimer != null) {
-			clearInterval(this._staleCheckTimer);
-			this._staleCheckTimer = undefined;
-		}
+		this._staleCheckTimer?.dispose();
+		this._staleCheckTimer = undefined;
 		for (const d of this._handlerDisposables) {
 			d.dispose();
 		}
@@ -212,9 +198,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			const server = new AgentIpcServer();
 			await server.start({ workspacePaths: workspacePaths });
 
-			// Register all handlers immediately after server start so the
-			// server can accept requests (especially permission requests) with
-			// zero delay — before any async restoration work.
+			// Register handlers before any async work so blocking permission requests aren't delayed.
 			this._handlerDisposables = [
 				server.registerHandler('agents/session', (request, searchParams) => {
 					if (request != null) {
@@ -241,87 +225,48 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			this._ipcServer = server;
 
-			// Restore sessions via gkcli after handlers are registered
 			await this.syncSessions();
-
-			// Query peers for sessions they know about (fire-and-forget)
 			void this.querySiblingWindowSessions();
 
-			// Start periodic sync to discover new sessions and remove phantom ones
-			if (this._staleCheckTimer != null) {
-				clearInterval(this._staleCheckTimer);
-			}
-			this._staleCheckTimer = setInterval(() => {
-				void this.syncSessions();
-			}, staleCheckIntervalMs);
+			this._staleCheckTimer?.dispose();
+			this._staleCheckTimer = disposableInterval(() => void this.syncSessions(), staleCheckIntervalMs);
 		} catch (ex) {
 			Logger.error(ex, 'ClaudeCodeProvider.ensureIpcServer');
 		}
 	}
 
-	/**
-	 * Derives session status directly from hook lifecycle events rather than
-	 * reading the transcript file. Uses `activeToolCount` to correctly track
-	 * parallel tool execution — status only transitions from `tool_use` to
-	 * `thinking` when ALL concurrent tools have completed.
-	 *
-	 * SessionStart → waiting (resets tool count)
-	 * UserPromptSubmit → thinking
-	 * PreToolUse → tool_use (increments tool count)
-	 * PostToolUse / PostToolUseFailure → thinking only when tool count reaches 0
-	 * Stop / StopFailure → waiting (resets tool count)
-	 * Notification → dispatches on notificationType (idle_prompt, permission_prompt, elicitation_dialog)
-	 * PermissionDenied → decrements tool count, transitions accordingly
-	 * Elicitation → permission_requested
-	 * ElicitationResult → tool_use if tools active, else thinking
-	 * CwdChanged → updates cwd only
-	 * SubagentStart / SubagentStop → manages subagent list
-	 * PreCompact → compacting
-	 * PostCompact → thinking
-	 * SessionEnd → removes session
-	 * TeammateIdle / TaskCompleted / InstructionsLoaded / ConfigChange /
-	 * WorktreeCreate / WorktreeRemove → not yet handled (intentional no-op)
-	 */
 	private handleSessionEvent(event: AgentSessionEvent, isBlocking: boolean): Promise<PermissionResponse | void> {
 		const isInWorkspace = this.matchesWorkspace(event.matchedWorkspacePath);
-		const eventContext = {
+		const eventContext: SessionContext = {
 			pid: event.pid,
-			matchedWorkspacePath: event.matchedWorkspacePath,
+			workspacePath: event.matchedWorkspacePath,
 			isInWorkspace: isInWorkspace,
 			cwd: event.cwd,
 			planFile: event.planFile,
 			sessionName: event.sessionName,
 		};
-		const sessionTag = `[session=${event.sessionId.substring(0, 8)}(${event.sessionName ?? 'unnamed'})]`;
+		const tag = this.sessionTag(event.sessionId, event.sessionName ?? 'unnamed');
 
 		if (event.event === 'SessionStart' || event.event === 'SessionEnd') {
-			Logger.info(`ClaudeCodeProvider.handleSessionEvent: ${event.event} ${sessionTag}`);
+			Logger.info(`ClaudeCodeProvider.handleSessionEvent: ${event.event} ${tag}`);
 		} else {
 			Logger.debug(
-				`ClaudeCodeProvider.handleSessionEvent: ${event.event} ${sessionTag}${event.toolName ? ` tool=${event.toolName}` : ''}${event.agentId ? ` agent=${event.agentId}` : ''}${event.notificationType ? ` type=${event.notificationType}` : ''}`,
+				`ClaudeCodeProvider.handleSessionEvent: ${event.event} ${tag}${event.toolName ? ` tool=${event.toolName}` : ''}${event.agentId ? ` agent=${event.agentId}` : ''}${event.notificationType ? ` type=${event.notificationType}` : ''}`,
 			);
 		}
 
 		switch (event.event) {
 			case 'SessionStart': {
-				const { index } = this.ensureSession(
-					event.sessionId,
-					event.pid,
-					event.matchedWorkspacePath,
-					isInWorkspace,
-					event.cwd,
-					event.planFile,
-					event.sessionName,
-				);
-				// Reset to a clean 'idle' state in case the session already
-				// existed (e.g. implicitly created by an earlier hook event)
-				this.resetBookkeeping(event.sessionId, 'idle');
+				const { index } = this.ensureSession(event.sessionId, eventContext);
+				this.resetBookkeeping(event.sessionId);
+				const prev = this._sessions[index];
+				const newPhase = getPhaseForStatus('idle');
 				this._sessions[index] = {
-					...this._sessions[index],
-					pid: event.pid ?? this._sessions[index].pid,
+					...prev,
+					pid: event.pid ?? prev.pid,
 					status: 'idle',
-					phase: getPhaseForStatus('idle'),
-					phaseSince: this.getBookkeeping(event.sessionId).phaseSince,
+					phase: newPhase,
+					phaseSince: prev.phase !== newPhase ? new Date() : prev.phaseSince,
 					statusDetail: undefined,
 					pendingPermission: undefined,
 					lastActivity: new Date(),
@@ -349,19 +294,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 
 			case 'UserPromptSubmit': {
-				const { index } = this.ensureSession(
-					event.sessionId,
-					event.pid,
-					event.matchedWorkspacePath,
-					isInWorkspace,
-					event.cwd,
-					event.planFile,
-					event.sessionName,
-				);
+				const { index } = this.ensureSession(event.sessionId, eventContext);
 				if (event.prompt) {
 					this._sessions[index] = {
 						...this._sessions[index],
-						lastPrompt: event.prompt.length > 500 ? event.prompt.slice(0, 500) : event.prompt,
+						lastPrompt: truncate(event.prompt, 500),
 					};
 				}
 				this.clearStalePermission(event.sessionId, 'UserPromptSubmit');
@@ -397,7 +334,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					pending.reject(new Error('Session stopped'));
 					this._pendingPermissions.delete(event.sessionId);
 				}
-				this.resetBookkeeping(event.sessionId, 'idle');
+				this.resetBookkeeping(event.sessionId);
 				this.updateSessionStatus(event.sessionId, 'idle', eventContext);
 				break;
 			}
@@ -429,8 +366,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				break;
 
 			case 'PermissionRequest': {
-				// Read from hookInput (raw passthrough) with fallback to top-level
-				// fields for backward compatibility with older CLI versions.
+				// hookInput is the raw passthrough; fall back to top-level fields for older CLI versions.
 				const hookInput = event.hookInput;
 				const toolInput = (hookInput?.tool_input as Record<string, unknown> | undefined) ?? event.toolInput;
 				if (isBlocking && toolInput != null) {
@@ -439,11 +375,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					const toolInputDescription = (toolInput.description as string | undefined) || undefined;
 
 					return new Promise<PermissionResponse>((resolve, reject) => {
-						// If there's already a pending permission for this session, deny the old one
 						const existing = this._pendingPermissions.get(event.sessionId);
 						if (existing != null) {
 							Logger.debug(
-								`ClaudeCodeProvider.handleSessionEvent: auto-denying stale permission ${sessionTag} tool=${existing.toolName}`,
+								`ClaudeCodeProvider.handleSessionEvent: auto-denying stale permission ${tag} tool=${existing.toolName}`,
 							);
 							existing.resolve({
 								hookSpecificOutput: {
@@ -527,14 +462,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				break;
 
 			case 'SubagentStart': {
-				const { index: parentIdx } = this.ensureSession(
-					event.sessionId,
-					event.pid,
-					event.matchedWorkspacePath,
-					isInWorkspace,
-					event.cwd,
-					event.planFile,
-				);
+				const { index: parentIdx } = this.ensureSession(event.sessionId, eventContext);
 				const parent = this._sessions[parentIdx];
 				if (event.agentId) {
 					const now = new Date();
@@ -559,14 +487,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 
 			case 'SubagentStop': {
-				const { index: parentIdx } = this.ensureSession(
-					event.sessionId,
-					event.pid,
-					event.matchedWorkspacePath,
-					isInWorkspace,
-					event.cwd,
-					event.planFile,
-				);
+				const { index: parentIdx } = this.ensureSession(event.sessionId, eventContext);
 				const parentSession = this._sessions[parentIdx];
 				if (parentSession.subagents != null && event.agentId) {
 					const filtered = parentSession.subagents.filter(s => s.id !== event.agentId);
@@ -594,38 +515,34 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		return Promise.resolve();
 	}
 
+	private sessionTag(sessionId: string, name?: string): string {
+		return name != null
+			? `[session=${sessionId.substring(0, 8)}(${name})]`
+			: `[session=${sessionId.substring(0, 8)}]`;
+	}
+
 	private getBookkeeping(sessionId: string): SessionBookkeeping {
 		let bk = this._sessionBookkeeping.get(sessionId);
 		if (bk == null) {
-			bk = { activeToolCount: 0, phaseSince: new Date() };
+			bk = { activeToolCount: 0 };
 			this._sessionBookkeeping.set(sessionId, bk);
 		}
 		return bk;
 	}
 
-	private resetBookkeeping(sessionId: string, newStatus: AgentSessionStatus): void {
+	private resetBookkeeping(sessionId: string): void {
 		const bk = this.getBookkeeping(sessionId);
-		const oldPhase = this._sessions.find(s => s.id === sessionId)?.phase;
-		const newPhase = getPhaseForStatus(newStatus);
 		bk.activeToolCount = 0;
 		bk.pendingPermission = undefined;
-		if (oldPhase !== newPhase) {
-			bk.phaseSince = new Date();
-		}
 	}
 
-	/**
-	 * Clears a pending permission that was resolved outside of GitLens (e.g.
-	 * the user approved/denied in the CLI terminal). Resolves the blocking
-	 * promise with 'deny' (safe no-op — the tool already ran or was denied)
-	 * and clears the bookkeeping so the sticky guard in updateSessionStatus
-	 * no longer blocks transitions.
-	 */
+	// Called when a pending permission was resolved outside GitLens (e.g. via the CLI terminal).
+	// The 'deny' response is a safe no-op since the tool has already run or been denied upstream.
 	private clearStalePermission(sessionId: string, reason: string): void {
 		const bk = this.getBookkeeping(sessionId);
 		if (bk.pendingPermission == null) return;
 
-		Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} [session=${sessionId.substring(0, 8)}]`);
+		Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
 
 		const pending = this._pendingPermissions.get(sessionId);
 		if (pending != null) {
@@ -640,14 +557,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	resolvePermission(
 		sessionId: string,
-		decision: 'allow' | 'deny',
+		decision: PermissionDecision,
 		updatedPermissions?: PermissionSuggestion[],
 	): void {
 		const pending = this._pendingPermissions.get(sessionId);
 		if (pending == null) return;
 
 		Logger.debug(
-			`ClaudeCodeProvider.resolvePermission: ${decision} [session=${sessionId.substring(0, 8)}] tool=${pending.toolName}`,
+			`ClaudeCodeProvider.resolvePermission: ${decision} ${this.sessionTag(sessionId)} tool=${pending.toolName}`,
 		);
 		pending.resolve({
 			hookSpecificOutput: {
@@ -665,7 +582,6 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const bk = this.getBookkeeping(sessionId);
 		bk.pendingPermission = undefined;
 
-		// Derive status from tool count instead of hardcoding 'thinking'
 		const nextStatus = bk.activeToolCount > 0 ? 'tool_use' : 'thinking';
 		this.updateSessionStatus(sessionId, nextStatus);
 	}
@@ -681,20 +597,16 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	private updateSessionWithPermission(sessionId: string, permission: PendingPermission, pid?: number): void {
-		const { index } = this.ensureSession(sessionId, pid);
+		const { index } = this.ensureSession(sessionId, { pid: pid });
 
 		const prev = this._sessions[index];
 		const newPhase = getPhaseForStatus('permission_requested');
-		const bk = this.getBookkeeping(sessionId);
-		bk.pendingPermission = permission;
-		if (prev.phase !== newPhase) {
-			bk.phaseSince = new Date();
-		}
+		this.getBookkeeping(sessionId).pendingPermission = permission;
 		this._sessions[index] = {
 			...prev,
 			status: 'permission_requested',
 			phase: newPhase,
-			phaseSince: bk.phaseSince,
+			phaseSince: prev.phase !== newPhase ? new Date() : prev.phaseSince,
 			statusDetail: permission.toolDescription,
 			pendingPermission: permission,
 			lastActivity: new Date(),
@@ -705,25 +617,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private updateSessionStatus(
 		sessionId: string,
 		status: AgentSessionStatus,
-		options?: {
-			statusDetail?: string;
-			pid?: number;
-			matchedWorkspacePath?: string;
-			isInWorkspace?: boolean;
-			cwd?: string;
-			planFile?: string;
-			sessionName?: string;
-		},
+		options?: SessionContext & { statusDetail?: string },
 	): void {
-		const { index, changed: metadataChanged } = this.ensureSession(
-			sessionId,
-			options?.pid,
-			options?.matchedWorkspacePath,
-			options?.isInWorkspace,
-			options?.cwd,
-			options?.planFile,
-			options?.sessionName,
-		);
+		const { index, changed: metadataChanged } = this.ensureSession(sessionId, options);
 
 		const prev = this._sessions[index];
 		const bk = this.getBookkeeping(sessionId);
@@ -749,15 +645,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 
 		const newPhase = getPhaseForStatus(status);
-		if (prev.phase !== newPhase) {
-			bk.phaseSince = new Date();
-		}
-
 		this._sessions[index] = {
 			...prev,
 			status: status,
 			phase: newPhase,
-			phaseSince: bk.phaseSince,
+			phaseSince: prev.phase !== newPhase ? new Date() : prev.phaseSince,
 			statusDetail: statusDetail,
 			pendingPermission: status === 'permission_requested' ? bk.pendingPermission : undefined,
 			lastActivity: new Date(),
@@ -772,27 +664,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 	}
 
-	/**
-	 * Returns the index of an existing session, or creates a new one if a
-	 * session with this ID doesn't exist yet. This handles the case where a
-	 * Claude Code session was already running before GitLens started —
-	 * the `session-start` hook will have already fired, so we allow any
-	 * subsequent hook event to implicitly start the session.
-	 */
-	private ensureSession(
-		sessionId: string,
-		pid?: number,
-		workspacePath?: string,
-		isInWorkspace?: boolean,
-		cwd?: string,
-		planFile?: string,
-		sessionName?: string,
-	): { index: number; changed: boolean } {
+	private ensureSession(sessionId: string, context?: SessionContext): { index: number; changed: boolean } {
+		const { pid, workspacePath, isInWorkspace, cwd, planFile, sessionName } = context ?? {};
+
 		let index = this._sessions.findIndex(s => s.id === sessionId);
 		if (index < 0) {
 			const now = new Date();
-			const bk = this.getBookkeeping(sessionId);
-			bk.phaseSince = now;
 			index = this._sessions.length;
 			this._sessions.push({
 				id: sessionId,
@@ -810,21 +687,16 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				isInWorkspace: isInWorkspace ?? false,
 			});
 			Logger.debug(
-				`ClaudeCodeProvider.ensureSession: implicitly created [session=${sessionId.substring(0, 8)}(${sessionName ?? 'unnamed'})]`,
+				`ClaudeCodeProvider.ensureSession: implicitly created ${this.sessionTag(sessionId, sessionName ?? 'unnamed')}`,
 			);
 			this._onDidChangeSessions.fire();
 
-			// Resolve branch & worktree info asynchronously from the cwd
 			if (cwd != null) {
 				void this.resolveGitInfo(sessionId, cwd);
 			}
 			return { index: index, changed: true };
 		}
 
-		// Update fields that may have been missing or stale when the
-		// session was first created (e.g. restored from disk without a
-		// matched workspace, or created by the permission handler before
-		// a session-start event arrived).
 		const existing = this._sessions[index];
 		const updatedPid = pid != null && existing.pid == null ? pid : existing.pid;
 		const updatedWorkspacePath = workspacePath || existing.workspacePath;
@@ -854,7 +726,6 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			changed = true;
 		}
 
-		// Re-resolve git info if we now have a cwd but didn't before
 		if (cwd != null && existing.branch == null) {
 			void this.resolveGitInfo(sessionId, cwd);
 		}
@@ -903,30 +774,35 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 	}
 
-	/**
-	 * Queries gkcli for persisted session state, adding newly discovered
-	 * alive sessions to memory and removing in-memory sessions whose
-	 * processes are no longer alive.
-	 */
+	private pruneDeadSessions(): boolean {
+		const kept: AgentSession[] = [];
+		const removedIds: string[] = [];
+		for (const s of this._sessions) {
+			if (s.pid == null || isProcessAlive(s.pid)) {
+				kept.push(s);
+			} else {
+				removedIds.push(s.id);
+			}
+		}
+		if (removedIds.length === 0) return false;
+
+		this._sessions = kept;
+		for (const id of removedIds) {
+			this._sessionBookkeeping.delete(id);
+		}
+		Logger.debug(
+			`ClaudeCodeProvider.syncSessions: removed ${removedIds.length} stale session(s): ${removedIds.map(id => id.substring(0, 8)).join(', ')}`,
+		);
+		return true;
+	}
+
 	private async syncSessions(): Promise<void> {
 		let sessions: SessionFileData[];
 		try {
 			const output = await this.callbacks.runCLICommand(['ai', 'hook', 'list-sessions', '--json']);
 			sessions = JSON.parse(output) as SessionFileData[];
 		} catch {
-			// CLI not available or command failed — only clean up stale in-memory sessions
-			const before = this._sessions.length;
-			const removedIds = new Set(
-				this._sessions.filter(s => s.pid != null && !isProcessAlive(s.pid)).map(s => s.id),
-			);
-			this._sessions = this._sessions.filter(s => s.pid == null || isProcessAlive(s.pid));
-			if (this._sessions.length !== before) {
-				for (const id of removedIds) {
-					this._sessionBookkeeping.delete(id);
-				}
-				Logger.debug(
-					`ClaudeCodeProvider.syncSessions: removed ${removedIds.size} stale session(s): ${Array.from(removedIds, id => id.substring(0, 8)).join(', ')}`,
-				);
+			if (this.pruneDeadSessions()) {
 				this._onDidChangeSessions.fire();
 			}
 			return;
@@ -983,17 +859,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 		}
 
-		// Remove in-memory sessions whose PIDs are no longer alive
-		const before = this._sessions.length;
-		const removedIds = new Set(this._sessions.filter(s => s.pid != null && !isProcessAlive(s.pid)).map(s => s.id));
-		this._sessions = this._sessions.filter(s => s.pid == null || isProcessAlive(s.pid));
-		if (this._sessions.length !== before) {
-			for (const id of removedIds) {
-				this._sessionBookkeeping.delete(id);
-			}
-			Logger.debug(
-				`ClaudeCodeProvider.syncSessions: removed ${removedIds.size} stale session(s): ${Array.from(removedIds, id => id.substring(0, 8)).join(', ')}`,
-			);
+		if (this.pruneDeadSessions()) {
 			changed = true;
 		}
 
@@ -1011,74 +877,77 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 
 		const ownPort = this._ipcServer?.port;
+
+		const peerBatches = await Promise.all(
+			files
+				.filter(f => f.startsWith('gitlens-ipc-server-') && f.endsWith('.json'))
+				.map(async f => this.fetchPeerSessions(join(agentDiscoveryDir, f), ownPort)),
+		);
+
 		let changed = false;
+		for (const peerSessions of peerBatches) {
+			if (peerSessions == null) continue;
 
-		for (const file of files) {
-			if (!file.startsWith('gitlens-ipc-server-') || !file.endsWith('.json')) continue;
+			for (const peerSession of peerSessions) {
+				const peerActivity = new Date(peerSession.lastActivity);
+				const peerPhaseSince = new Date(peerSession.phaseSince);
 
-			let discovery: DiscoveryFile;
-			try {
-				const raw = await readFile(join(agentDiscoveryDir, file), 'utf8');
-				discovery = JSON.parse(raw) as DiscoveryFile;
-			} catch {
-				continue;
-			}
-
-			if (ownPort != null && discovery.port === ownPort) continue;
-
-			try {
-				const response = await fetch(`${discovery.address}/agents/sessions/list`, {
-					method: 'POST',
-					headers: {
-						Authorization: `Bearer ${discovery.token}`,
-						'Content-Type': 'application/json',
-					},
-					body: '{}',
-					signal: AbortSignal.timeout(2000),
-				});
-
-				if (!response.ok) continue;
-
-				const peerSessions = (await response.json()) as SerializedAgentSession[];
-				for (const peerSession of peerSessions) {
-					const peerActivity = new Date(peerSession.lastActivity);
-					const peerPhaseSince = new Date(peerSession.phaseSince);
-
-					const existing = this._sessions.find(s => s.id === peerSession.id);
-					if (existing != null) {
-						// Only overwrite if peer has newer data
-						if (peerActivity > existing.lastActivity) {
-							const idx = this._sessions.indexOf(existing);
-							this._sessions[idx] = {
-								...existing,
-								status: peerSession.status,
-								phase: peerSession.phase,
-								phaseSince: peerPhaseSince,
-								statusDetail: peerSession.statusDetail,
-								lastActivity: peerActivity,
-								subagents: rehydrateSubagents(peerSession.subagents),
-							};
-							changed = true;
-						}
-					} else {
-						const isInWorkspace = this.matchesWorkspace(peerSession.workspacePath);
-						this._sessions.push({
-							...peerSession,
-							lastActivity: peerActivity,
+				const existing = this._sessions.find(s => s.id === peerSession.id);
+				if (existing != null) {
+					if (peerActivity > existing.lastActivity) {
+						const idx = this._sessions.indexOf(existing);
+						this._sessions[idx] = {
+							...existing,
+							status: peerSession.status,
+							phase: peerSession.phase,
 							phaseSince: peerPhaseSince,
-							isInWorkspace: isInWorkspace,
+							statusDetail: peerSession.statusDetail,
+							lastActivity: peerActivity,
 							subagents: rehydrateSubagents(peerSession.subagents),
-						});
+						};
 						changed = true;
 					}
+				} else {
+					this._sessions.push({
+						...peerSession,
+						lastActivity: peerActivity,
+						phaseSince: peerPhaseSince,
+						isInWorkspace: this.matchesWorkspace(peerSession.workspacePath),
+						subagents: rehydrateSubagents(peerSession.subagents),
+					});
+					changed = true;
 				}
-			} catch {
-				// Peer unavailable — skip
 			}
 		}
 
 		if (changed) {
 			this._onDidChangeSessions.fire();
+		}
+	}
+
+	private async fetchPeerSessions(
+		path: string,
+		ownPort: number | undefined,
+	): Promise<SerializedAgentSession[] | undefined> {
+		let discovery: DiscoveryFile;
+		try {
+			discovery = JSON.parse(await readFile(path, 'utf8')) as DiscoveryFile;
+		} catch {
+			return undefined;
+		}
+		if (ownPort != null && discovery.port === ownPort) return undefined;
+
+		try {
+			const response = await fetch(`${discovery.address}/agents/sessions/list`, {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${discovery.token}`, 'Content-Type': 'application/json' },
+				body: '{}',
+				signal: AbortSignal.timeout(2000),
+			});
+			if (!response.ok) return undefined;
+			return (await response.json()) as SerializedAgentSession[];
+		} catch {
+			return undefined;
 		}
 	}
 }
