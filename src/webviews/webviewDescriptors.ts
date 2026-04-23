@@ -49,6 +49,7 @@ export interface WebviewViewDescriptor<ID extends WebviewViewIds = WebviewViewId
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly type: WebviewViewTypeFromId<ID>;
 	readonly plusFeature: boolean;
+	readonly location?: 'panel';
 	readonly webviewOptions?: WebviewOptions;
 	readonly webviewHostOptions?: {
 		readonly retainContextWhenHidden?: boolean;

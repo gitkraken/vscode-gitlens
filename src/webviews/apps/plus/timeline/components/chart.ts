@@ -62,7 +62,7 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	@property()
-	placement: 'editor' | 'view' = 'editor';
+	placement: 'editor' | 'view' | 'panel' = 'editor';
 
 	@property()
 	dateFormat!: string;

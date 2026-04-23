@@ -40,15 +40,11 @@ html {
 
 body {
 	padding: 0;
-	background-color: var(--color-view-background);
+	background-color: var(--color-background);
 	color: var(--color-view-foreground);
 	font-family: var(--font-family);
 	min-height: 100%;
 	line-height: 1.4;
 	font-size: var(--vscode-font-size);
 	height: 100%;
-}
-
-body[data-placement='editor'] {
-	background-color: var(--color-background);
 }

@@ -94,6 +94,14 @@
 	--gl-overlay-color: var(--vscode-widget-shadow);
 }
 
+body[data-placement='view'] {
+	--color-background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+body[data-placement='panel'] {
+	--color-background: var(--vscode-panel-background, var(--vscode-editor-background));
+}
+
 @include utils.dark-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--color-alert-infoHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-infoBackground));
 	--color-alert-warningHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-warningBackground));

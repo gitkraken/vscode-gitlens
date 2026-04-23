@@ -15,10 +15,16 @@ export const titlebarStyles = css`
 	.titlebar {
 		background: var(--titlebar-bg);
 		color: var(--titlebar-fg);
-		padding: 0.6rem 0.8rem;
+		padding: 0.5rem 0.8rem;
 		font-size: 1.3rem;
 		flex-wrap: wrap;
 	}
+
+	:host-context(body[data-placement='panel']) .titlebar {
+		border-top: 1px solid transparent;
+		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
+	}
+
 	.titlebar,
 	.titlebar__row,
 	.titlebar__group {

@@ -755,7 +755,11 @@ export class WebviewController<
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
 			this.getWebRoot(),
-			this.is('editor') ? 'editor' : 'view',
+			this.is('editor')
+				? 'editor'
+				: (this.descriptor as WebviewViewDescriptor).location === 'panel'
+					? 'panel'
+					: 'view',
 			serialized,
 			head,
 			body,
@@ -1003,7 +1007,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	cspNonce: string,
 	root: string,
 	webRoot: string,
-	placement: 'editor' | 'view',
+	placement: 'editor' | 'view' | 'panel',
 	bootstrap?: SerializedState | string,
 	head?: string,
 	body?: string,

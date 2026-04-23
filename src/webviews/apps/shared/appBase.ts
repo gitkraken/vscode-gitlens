@@ -62,7 +62,7 @@ export abstract class GlWebviewApp extends GlElement {
 	};
 
 	@property({ type: String }) name!: string;
-	@property({ type: String }) placement: 'editor' | 'view' = 'editor';
+	@property({ type: String }) placement: 'editor' | 'view' | 'panel' = 'editor';
 
 	@provide({ context: ipcContext })
 	protected _ipc!: HostIpc;
@@ -216,7 +216,7 @@ export abstract class App<
 	private readonly _webview: WebviewContext;
 
 	protected state: State;
-	protected readonly placement: 'editor' | 'view';
+	protected readonly placement: 'editor' | 'view' | 'panel';
 
 	constructor(protected readonly appName: string) {
 		const disposables: Disposable[] = [];
@@ -230,7 +230,7 @@ export abstract class App<
 		this.state = (window as any).bootstrap;
 		(window as any).bootstrap = undefined;
 
-		this.placement = (document.body.getAttribute('data-placement') ?? 'editor') as 'editor' | 'view';
+		this.placement = (document.body.getAttribute('data-placement') ?? 'editor') as 'editor' | 'view' | 'panel';
 
 		this._logger = new LoggerContext(appName);
 		this.log('opening...');
