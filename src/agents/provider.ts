@@ -1,4 +1,3 @@
-// Re-export all types for backward compatibility with in-extension and webview consumers
 export {
 	type AgentProviderCallbacks,
 	type AgentSession,
@@ -7,5 +6,6 @@ export {
 	type AgentSessionStatus,
 	getPhaseForStatus,
 	type PendingPermission,
+	type PermissionDecision,
 	type PermissionSuggestion,
 } from '@gitlens/agents/types.js';

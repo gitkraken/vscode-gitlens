@@ -133,7 +133,6 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 				}
 			},
 			runCLICommand: (args, opts) => runCLICommand(args, opts),
-			onGateDeadlock: info => getTelementryService()?.sendEvent('op/gate/deadlock', info),
 			resolveGitInfo: async cwd => {
 				const opts = { cwd: cwd, errors: 'ignore' as const, timeout: 5000 };
 				const [branchResult, toplevelResult, commonDirResult, gitDirResult] = await Promise.all([
