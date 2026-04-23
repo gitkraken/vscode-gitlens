@@ -116,7 +116,16 @@ export async function getMcpProviders(container: Container): Promise<Disposable[
 export function getAgentSessionProviders(container: Container): AgentSessionProvider[] {
 	return [
 		new ClaudeCodeProvider({
-			sendTelemetryEvent: (name, props) => container.telemetry.sendEvent(name as any, props as any),
+			onSessionStarted: provider =>
+				container.telemetry.sendEvent('agents/session/started', { 'agent.provider': provider }),
+			onSessionEnded: provider =>
+				container.telemetry.sendEvent('agents/session/ended', { 'agent.provider': provider }),
+			onPermissionResolved: info =>
+				container.telemetry.sendEvent('agents/permission/resolved', {
+					'agent.provider': info.provider,
+					'permission.tool': info.tool,
+					'permission.decision': info.decision,
+				}),
 			onBranchAgentActivity: cwd => {
 				const repo = container.git.getRepository(cwd);
 				if (repo != null) {
@@ -124,7 +133,7 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 				}
 			},
 			runCLICommand: (args, opts) => runCLICommand(args, opts),
-			onGateDeadlock: info => getTelementryService()?.sendEvent('op/gate/deadlock', info as any),
+			onGateDeadlock: info => getTelementryService()?.sendEvent('op/gate/deadlock', info),
 			resolveGitInfo: async cwd => {
 				const opts = { cwd: cwd, errors: 'ignore' as const, timeout: 5000 };
 				const [branchResult, toplevelResult, commonDirResult, gitDirResult] = await Promise.all([
