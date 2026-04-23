@@ -405,16 +405,17 @@ export class GlPopover extends GlElement {
 	};
 
 	private _skipHideOnClick = false;
-	private readonly handleTriggerMouseDown = () => {
+	private readonly handleTriggerMouseDown = (e: MouseEvent) => {
 		if (this.hasTrigger('click') && this.hasTrigger('focus') && !this.matches(':focus-within')) {
 			this._skipHideOnClick = true;
 		} else {
 			this._skipHideOnClick = false;
 		}
 
-		// Suppress and hide hover-triggered popovers on mousedown to prevent
-		// them from being included in drag images
-		if (this.open && this._triggeredBy === 'hover') {
+		// Suppress and hide hover-triggered popovers on mousedown to prevent them from being included
+		// in drag images — but not when the mousedown originates inside the popover body, so users can
+		// interact with controls in a hover-opened popover.
+		if (this.open && this._triggeredBy === 'hover' && !e.composedPath().includes(this.body)) {
 			this.suppressed = true;
 			void this.hide();
 		}
