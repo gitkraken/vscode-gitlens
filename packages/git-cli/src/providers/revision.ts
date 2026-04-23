@@ -36,16 +36,20 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
-	exists(repoPath: string, path: string, revOrOptions?: string | { untracked?: boolean }): Promise<boolean> {
+	exists(
+		repoPath: string,
+		path: string,
+		revOrOptions?: string | { untracked?: 'only' | 'include' },
+	): Promise<boolean> {
 		let rev: string | undefined;
-		let untracked: boolean | undefined;
+		let untracked: 'only' | 'include' | undefined;
 		if (typeof revOrOptions === 'string') {
 			rev = revOrOptions;
 		} else if (revOrOptions != null) {
 			untracked = revOrOptions.untracked;
 		}
 
-		const cacheKey = `${path}\0${rev ?? ''}\0${untracked ? 'u' : ''}`;
+		const cacheKey = `${path}\0${rev ?? ''}\0${untracked ?? ''}`;
 		return this.cache.fileExistence.getOrCreate(repoPath, cacheKey, async () => {
 			const args = ['ls-files'];
 			if (rev) {
@@ -54,8 +58,11 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 				} else if (isUncommittedStaged(rev)) {
 					args.push('--stage');
 				}
-			} else if (untracked) {
+			} else if (untracked === 'only') {
 				args.push('-o');
+			} else if (untracked === 'include') {
+				// Tracked (cached) OR untracked (others)
+				args.push('-c', '-o');
 			}
 
 			const result = await this.git.exec({ cwd: repoPath, errors: 'ignore' }, ...args, '--', path);

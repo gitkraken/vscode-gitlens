@@ -235,7 +235,11 @@ export async function openMultipleChanges(
 		}
 
 		const lhs =
-			file.status === 'A' ? undefined : (await svc.getBestRevisionUri(file.originalPath ?? file.path, refs.lhs))!;
+			file.status === 'A'
+				? undefined
+				: file.status === '?'
+					? svc.getRevisionUri(deletedOrMissing, file.originalPath ?? file.path)
+					: (await svc.getBestRevisionUri(file.originalPath ?? file.path, refs.lhs))!;
 
 		const uri = (file.status === 'D' ? lhs : rhs) ?? svc.getAbsoluteUri(file.path, refs.repoPath);
 		if (rhs?.scheme === 'untitled' && lhs == null) continue;

@@ -865,13 +865,10 @@ export class GlCliGitProvider implements GlGitProvider {
 				if (resolved !== false) return this.getAbsoluteUri(resolved[0], resolved[1]);
 			}
 
-			// Make sure the file exists in the repo
-			let exists = await this.provider.revision.exists?.(repoPath, path);
-			if (exists) return this.getAbsoluteUri(path, repoPath);
-
-			// Check if the file exists untracked
-			exists = await this.provider.revision.exists?.(repoPath, path, { untracked: true });
-			if (exists) return this.getAbsoluteUri(path, repoPath);
+			// Make sure the file exists in the working tree (tracked or untracked)
+			if (await this.provider.revision.exists?.(repoPath, path, { untracked: 'include' })) {
+				return this.getAbsoluteUri(path, repoPath);
+			}
 
 			return undefined;
 		}
@@ -975,7 +972,8 @@ export class GlCliGitProvider implements GlGitProvider {
 		let result;
 		let rev;
 		do {
-			if (await this.provider.revision.exists?.(repoPath, relativePath)) break;
+			// Break if the path exists in the working tree (tracked or untracked) — the fs.stat check below verifies the file
+			if (await this.provider.revision.exists?.(repoPath, relativePath, { untracked: 'include' })) break;
 
 			// TODO: Add caching
 
