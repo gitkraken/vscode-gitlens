@@ -3,7 +3,7 @@ import type { RpcEventSubscription } from '../../rpc/services/types.js';
 import type { DidGetCountParams, DidGetSidebarDataParams, GraphSidebarPanel } from './protocol.js';
 
 export interface GraphSidebarService {
-	getSidebarData(panel: GraphSidebarPanel): Promise<DidGetSidebarDataParams>;
+	getSidebarData(panel: GraphSidebarPanel, signal?: AbortSignal): Promise<DidGetSidebarDataParams>;
 	getSidebarCounts(): Promise<DidGetCountParams>;
 	toggleLayout(panel: GraphSidebarPanel): void;
 	refresh(panel: GraphSidebarPanel): void;

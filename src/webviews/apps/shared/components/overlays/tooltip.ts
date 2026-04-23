@@ -25,6 +25,7 @@ export class GlTooltip extends LitElement {
 		sl-tooltip::part(body) {
 			border: 1px solid var(--gl-tooltip-border-color);
 			box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
+			text-transform: var(--gl-tooltip-text-transform, none);
 		}
 
 		sl-tooltip::part(base__arrow) {
@@ -35,7 +36,9 @@ export class GlTooltip extends LitElement {
 		:host {
 			max-width: inherit;
 			overflow: inherit;
-			text-transform: var(--gl-tooltip-text-transform, inherit);
+			text-transform: var(--gl-tooltip-text-transform, none);
+			max-width: inherit;
+			overflow: inherit;
 		}
 
 		:host([data-current-placement^='top']) sl-tooltip::part(base__arrow) {

@@ -23,6 +23,11 @@ export interface SidebarActions {
 	filterText: string;
 	filterMode: 'filter' | 'highlight';
 
+	/** Per-panel tree expansion state — survives panel switches */
+	readonly expandedPaths: Record<GraphSidebarPanel, Set<string>>;
+	/** Per-panel selected item path — survives panel switches */
+	readonly selectedPath: Record<GraphSidebarPanel, string | undefined>;
+
 	initialize(service: GraphSidebarService): void;
 	fetchPanel(panel: GraphSidebarPanel): void;
 	fetchCounts(): void;
@@ -46,9 +51,9 @@ export function createSidebarActions(): SidebarActions {
 
 	function createPanelResource(panel: GraphSidebarPanel) {
 		return createResource<DidGetSidebarDataParams | undefined>(
-			async (_signal: AbortSignal) => {
+			async (signal: AbortSignal) => {
 				if (service == null) return undefined;
-				return service.getSidebarData(panel);
+				return service.getSidebarData(panel, signal);
 			},
 			{ initialValue: undefined },
 		);
@@ -83,11 +88,29 @@ export function createSidebarActions(): SidebarActions {
 		}
 	}
 
+	const expandedPaths: Record<GraphSidebarPanel, Set<string>> = {
+		branches: new Set(),
+		remotes: new Set(),
+		stashes: new Set(),
+		tags: new Set(),
+		worktrees: new Set(),
+	};
+
+	const selectedPath: Record<GraphSidebarPanel, string | undefined> = {
+		branches: undefined,
+		remotes: undefined,
+		stashes: undefined,
+		tags: undefined,
+		worktrees: undefined,
+	};
+
 	const actions: SidebarActions = {
 		state: state,
 		activePanel: undefined,
 		filterText: '',
 		filterMode: 'filter',
+		expandedPaths: expandedPaths,
+		selectedPath: selectedPath,
 
 		initialize: function (svc: GraphSidebarService) {
 			// Clean up previous subscriptions on re-initialization (e.g. RPC reconnection)
@@ -126,9 +149,14 @@ export function createSidebarActions(): SidebarActions {
 			})();
 
 			actions.fetchCounts();
+
+			if (actions.activePanel != null) {
+				actions.fetchPanel(actions.activePanel);
+			}
 		},
 
 		fetchPanel: function (panel: GraphSidebarPanel) {
+			if (service == null) return;
 			void panels[panel].fetch();
 		},
 
@@ -140,21 +168,23 @@ export function createSidebarActions(): SidebarActions {
 		},
 
 		invalidateAll: function () {
-			// Cancel any in-flight fetches and reset panel values so they refetch
-			for (const r of Object.values(panels)) {
+			for (const [panel, r] of Object.entries(panels)) {
+				if (panel === actions.activePanel) continue;
 				r.cancel();
 				r.mutate(undefined);
 			}
 			actions.fetchCounts();
 
-			// Refetch the active panel so it doesn't get stuck in skeleton state
+			// Always refetch the active panel — Resource's cancelPrevious
+			// handles dedup, and this ensures recovery if a prior fetch got stuck
 			if (actions.activePanel != null) {
 				actions.fetchPanel(actions.activePanel);
 			}
 		},
 
 		refresh: function (panel: GraphSidebarPanel) {
-			actions.invalidateAll();
+			panels[panel].cancel();
+			panels[panel].mutate(undefined);
 			service?.refresh(panel);
 		},
 

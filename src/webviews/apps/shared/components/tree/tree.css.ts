@@ -217,6 +217,14 @@ export const treeItemStyles = [
 			display: none;
 		}
 
+		/* Tooltip wrapper around the checkbox has display: block + line-height from the host,
+		   which adds inline leading and pushes the checkbox 1px above the row. Center-fit it. */
+		gl-tooltip:has(> .checkbox) {
+			display: inline-flex;
+			align-items: center;
+			line-height: 0;
+		}
+
 		.checkbox {
 			position: relative;
 			display: inline-flex;
@@ -230,10 +238,11 @@ export const treeItemStyles = [
 			margin-right: 0.6rem;
 		}
 
-		.checkbox:has(:checked) {
-			color: var(--vscode-inputOption-activeForeground);
-			border-color: var(--vscode-inputOption-activeBorder);
-			background-color: var(--vscode-inputOption-activeBackground);
+		.checkbox:has(:checked),
+		.checkbox:has(:indeterminate) {
+			color: var(--vscode-checkbox-foreground);
+			border-color: var(--vscode-checkbox-selectBorder);
+			background-color: var(--vscode-checkbox-selectBackground);
 		}
 
 		.checkbox:has(:disabled) {
@@ -256,9 +265,16 @@ export const treeItemStyles = [
 			cursor: default;
 		}
 
-		.checkbox__check {
+		.checkbox__check,
+		.checkbox__dash {
+			position: absolute;
+			top: 0;
+			left: 0;
 			width: 1.6rem;
 			aspect-ratio: 1 / 1;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
 			opacity: 0;
 			transition: opacity 0.1s linear;
 			color: var(--vscode-checkbox-foreground);
@@ -266,6 +282,10 @@ export const treeItemStyles = [
 		}
 
 		.checkbox__input:checked + .checkbox__check {
+			opacity: 1;
+		}
+
+		.checkbox__input:indeterminate ~ .checkbox__dash {
 			opacity: 1;
 		}
 
@@ -283,6 +303,11 @@ export const treeItemStyles = [
 		::slotted([slot='decorations-before'].decoration-text) {
 			font-size: var(--gl-decoration-before-font-size, inherit);
 			opacity: var(--gl-decoration-before-opacity, 1);
+		}
+
+		::slotted([slot='decorations-after'].decoration-text) {
+			font-size: var(--gl-decoration-after-font-size, inherit);
+			opacity: var(--gl-decoration-after-opacity, 1);
 		}
 
 		/* High Contrast Mode Support */
@@ -310,7 +335,8 @@ export const treeItemStyles = [
 				border: 1px solid CanvasText;
 			}
 
-			.checkbox:has(:checked) {
+			.checkbox:has(:checked),
+			.checkbox:has(:indeterminate) {
 				background-color: Highlight;
 				border-color: CanvasText;
 			}

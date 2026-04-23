@@ -440,7 +440,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return proxyServices({
 			...base,
 			sidebar: {
-				getSidebarData: panel => this.onGetSidebarData({ panel: panel }),
+				getSidebarData: (panel, signal) => this.onGetSidebarData({ panel: panel }, signal),
 				getSidebarCounts: () => this.onGetCounts(),
 				toggleLayout: panel => this.onSidebarToggleLayout({ panel: panel }),
 				refresh: panel => this.onSidebarRefresh({ panel: panel }),
@@ -682,8 +682,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
-	private async onGetSidebarData(params: { panel: GraphSidebarPanel }) {
+	private async onGetSidebarData(params: { panel: GraphSidebarPanel }, signal?: AbortSignal) {
 		const graph = this._graph ?? (await this._graphLoading?.catch(() => undefined));
+		signal?.throwIfAborted();
 		if (graph == null) return { panel: params.panel, items: [] };
 
 		switch (params.panel) {

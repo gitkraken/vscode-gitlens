@@ -31,6 +31,9 @@ export class Checkbox extends GlElement {
 	@property({ type: Boolean, reflect: true })
 	checked: boolean = false;
 
+	@property({ type: Boolean, reflect: true })
+	indeterminate: boolean = false;
+
 	constructor() {
 		super();
 		this._defaultChecked = this.checked;
@@ -38,14 +41,17 @@ export class Checkbox extends GlElement {
 
 	private handleChange(e: Event) {
 		this.checked = (e.target as HTMLInputElement).checked;
+		this.indeterminate = false;
 		const event = new CustomEvent('gl-change-value');
 		this.dispatchEvent(event);
 	}
 
 	private renderCheck() {
-		if (!this.checked) return undefined;
+		if (this.indeterminate) {
+			return html`<code-icon icon="dash"></code-icon>`;
+		}
 
-		return html` <code-icon icon="check"></code-icon> `;
+		return html`<code-icon icon="check" style="visibility: ${this.checked ? 'visible' : 'hidden'}"></code-icon>`;
 	}
 
 	override render(): unknown {
@@ -58,7 +64,7 @@ export class Checkbox extends GlElement {
 				@change=${this.handleChange}
 			/>
 			<div class="control">${this.renderCheck()}</div>
-			<slot class="label-text"></slot>
+			<slot class="label-text" part="label"></slot>
 		</label>`;
 	}
 }

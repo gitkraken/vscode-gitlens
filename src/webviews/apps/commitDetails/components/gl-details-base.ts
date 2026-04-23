@@ -18,7 +18,7 @@ import '../../shared/components/webview-pane.js';
 import '../../shared/components/actions/action-item.js';
 import '../../shared/components/actions/action-nav.js';
 import '../../shared/components/code-icon.js';
-import '../../shared/components/tree/tree-generator.js';
+import '../../shared/components/tree/tree-view.js';
 
 type Files = Mutable<NonNullable<NonNullable<State['commit']>['files']>>;
 export type File = Files[0];
@@ -441,7 +441,7 @@ export class GlDetailsBase extends LitElement {
 	}
 
 	protected renderTreeFileModel(treeModel: TreeModel[]): TemplateResult<1> {
-		return html`<gl-tree-generator
+		return html`<gl-tree-view
 			.model=${treeModel}
 			.guides=${this.indentGuides}
 			.filtered=${this.searchContext != null && this._filterMode !== 'off'}
@@ -450,7 +450,7 @@ export class GlDetailsBase extends LitElement {
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}
-		></gl-tree-generator>`;
+		></gl-tree-view>`;
 	}
 
 	// Tree Model action events

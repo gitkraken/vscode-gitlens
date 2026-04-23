@@ -59,7 +59,7 @@ import type { GlRebaseEntryElement } from './components/rebase-entry.js';
 import { rebaseStyles } from './rebase.css.js';
 import { RebaseStateProvider } from './stateProvider.js';
 import '@lit-labs/virtualizer';
-import '../shared/components/tree/tree-generator.js';
+import '../shared/components/tree/tree-view.js';
 import './components/conflict-indicator.js';
 import './components/rebase-entry.js';
 import '../shared/components/banner/banner.js';

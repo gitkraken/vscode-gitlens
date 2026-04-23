@@ -5,9 +5,9 @@ export const checkboxBaseStyles = css`
 		--checkbox-foreground: var(--vscode-checkbox-foreground);
 		--checkbox-background: var(--vscode-checkbox-background);
 		--checkbox-border: var(--vscode-checkbox-border);
-		--checkbox-checked-foreground: var(--vscode-inputOption-activeForeground);
-		--checkbox-checked-background: var(--vscode-inputOption-activeBackground);
-		--checkbox-checked-border: var(--vscode-inputOption-activeBorder);
+		--checkbox-checked-foreground: var(--vscode-checkbox-foreground);
+		--checkbox-checked-background: var(--vscode-checkbox-selectBackground);
+		--checkbox-checked-border: var(--vscode-checkbox-selectBorder);
 		--checkbox-active-background: var(--vscode-checkbox-selectBackground);
 		--checkbox-active-border: var(--vscode-checkbox-selectBorder);
 		--checkbox-hover-background: var(--vscode-inputOption-hoverBackground);
@@ -59,6 +59,7 @@ export const checkboxBaseStyles = css`
 		color: var(--checkbox-foreground);
 		background: var(--checkbox-background);
 		border: var(--checkbox-border-width, 1px) solid var(--vscode-checkbox-border);
+		left: 1px;
 	}
 
 	.input:hover + .control {
@@ -76,7 +77,8 @@ export const checkboxBaseStyles = css`
 		border-color: var(--checkbox-active-border);
 	}
 
-	:host([checked]) .control {
+	:host([checked]) .control,
+	:host([indeterminate]) .control {
 		color: var(--checkbox-checked-foreground);
 		background-color: var(--checkbox-checked-background);
 		border-color: var(--checkbox-checked-border);

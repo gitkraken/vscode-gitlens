@@ -2,6 +2,7 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { styleMap } from 'lit/directives/style-map.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
@@ -33,7 +34,8 @@ import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
-import '../../../shared/components/tree/tree-generator.js';
+import '../../../shared/components/progress.js';
+import '../../../shared/components/tree/tree-view.js';
 
 interface PanelAction {
 	icon: string;
@@ -43,19 +45,16 @@ interface PanelAction {
 
 interface PanelConfig {
 	title: string;
-	icon: string;
 	actions?: PanelAction[];
 }
 
 const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 	worktrees: {
 		title: 'Worktrees',
-		icon: 'gl-worktrees-view',
 		actions: [{ icon: 'add', tooltip: 'Create Worktree...', command: 'gitlens.views.title.createWorktree' }],
 	},
 	branches: {
 		title: 'Branches',
-		icon: 'gl-branches-view',
 		actions: [
 			{ icon: 'gl-switch', tooltip: 'Switch to Branch...', command: 'gitlens.switchToAnotherBranch:views' },
 			{ icon: 'add', tooltip: 'Create Branch...', command: 'gitlens.views.title.createBranch' },
@@ -63,12 +62,10 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 	},
 	remotes: {
 		title: 'Remotes',
-		icon: 'gl-remotes-view',
 		actions: [{ icon: 'add', tooltip: 'Add Remote...', command: 'gitlens.views.addRemote' }],
 	},
 	stashes: {
 		title: 'Stashes',
-		icon: 'gl-stashes-view',
 		actions: [
 			{ icon: 'gl-stash-save', tooltip: 'Stash All Changes...', command: 'gitlens.stashSave:views' },
 			{ icon: 'gl-stash-pop', tooltip: 'Apply Stash...', command: 'gitlens.stashesApply:views' },
@@ -76,7 +73,6 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 	},
 	tags: {
 		title: 'Tags',
-		icon: 'gl-tags-view',
 		actions: [{ icon: 'add', tooltip: 'Create Tag...', command: 'gitlens.views.title.createTag' }],
 	},
 };
@@ -164,9 +160,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				height: 100%;
 				overflow: visible;
-				background-color: var(--color-graph-background);
+				background-color: var(--titlebar-bg);
 				z-index: 1;
 				animation: panel-enter 0.2s ease-out;
+				border-right: 1px solid transparent;
+				border-color: var(--vscode-sideBar-border, transparent);
 			}
 
 			@media (prefers-reduced-motion: reduce) {
@@ -183,6 +181,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			.header {
+				position: relative;
 				display: flex;
 				align-items: center;
 				gap: 0.6rem;
@@ -190,10 +189,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				font-size: 1.1rem;
 				font-weight: 600;
 				text-transform: uppercase;
-				color: var(--vscode-sideBarSectionHeader-foreground);
-				background-color: var(--vscode-sideBarSectionHeader-background);
-				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-				border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+				color: var(--titlebar-fg);
+				background-color: var(--titlebar-bg);
+				border-bottom: 1px solid transparent;
+				border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 				flex: none;
 				min-height: 2.2rem;
 			}
@@ -223,7 +222,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				min-height: 0;
 			}
 
-			gl-tree-generator {
+			gl-tree-view {
 				height: 100%;
 				--gitlens-gutter-width: 0.8rem;
 			}
@@ -289,10 +288,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleContextMenuProxy = (e: MouseEvent) => {
 		// The event has already crossed the shadow DOM boundary (composed: true)
-		// Check if the originating tree-generator set data-vscode-context
+		// Check if the originating tree-view set data-vscode-context
 		const path = e.composedPath();
 		const source = path.find(
-			el => el instanceof HTMLElement && el.tagName === 'GL-TREE-GENERATOR' && el.dataset.vscodeContext,
+			el => el instanceof HTMLElement && el.tagName === 'GL-TREE-VIEW' && el.dataset.vscodeContext,
 		) as HTMLElement | undefined;
 		if (!source) return;
 
@@ -303,15 +302,45 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}, 100);
 	};
 
+	private _pendingFocus = false;
+
+	focusFilter(): void {
+		if (this.activePanel == null) {
+			this._pendingFocus = false;
+			return;
+		}
+
+		const treeView = this.shadowRoot?.querySelector<HTMLElement & { updateComplete?: Promise<unknown> }>(
+			'gl-tree-view',
+		);
+		if (treeView == null) {
+			// Tree-view isn't rendered yet (data still loading). Retry when it appears.
+			this._pendingFocus = true;
+			return;
+		}
+
+		this._pendingFocus = false;
+		const ready = treeView.updateComplete ?? Promise.resolve();
+		void Promise.resolve(ready).then(() => treeView.focus());
+	}
+
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		if (changedProperties.has('activePanel') && this._actions != null) {
 			// Keep the actions module in sync so invalidateAll can refetch
 			this._actions.activePanel = this.activePanel;
 
-			const panel = this.activePanel;
-			if (panel != null && this._actions.state.panels[panel].value.get() == null) {
-				this._actions.fetchPanel(panel);
+			// Always fetch on panel switch — data may be stale even if non-null.
+			// The Resource's cancelPrevious handles dedup.
+			// Overview panel manages its own data via IPC, skip sidebar fetch.
+			if (this.activePanel != null) {
+				this._actions.fetchPanel(this.activePanel);
 			}
+		}
+	}
+
+	override updated(_changedProperties: Map<PropertyKey, unknown>): void {
+		if (this._pendingFocus) {
+			this.focusFilter();
 		}
 	}
 
@@ -322,41 +351,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const resource = this._actions?.state.panels[this.activePanel];
 		const data = resource?.value.get();
 		const hasError = resource?.error.get() != null;
-
-		const hasLayout = this.activePanel !== 'stashes';
-		const currentLayout = data?.layout;
+		const isLoading = resource?.loading.get() ?? false;
 
 		return html`<div class="panel">
-			<div class="header">
-				<code-icon icon="${config.icon}"></code-icon>
-				<span class="header-title">${config.title}</span>
-				<div class="header-actions">
-					${config.actions?.map(
-						a =>
-							html`<gl-button
-								appearance="toolbar"
-								density="compact"
-								tooltip="${a.tooltip}"
-								@click=${() => this.handleAction(a.command)}
-								><code-icon icon="${a.icon}"></code-icon
-							></gl-button>`,
-					)}
-					${hasLayout
-						? html`<gl-button
-								appearance="toolbar"
-								density="compact"
-								tooltip="${currentLayout === 'tree'
-									? 'Switch to List Layout'
-									: 'Switch to Tree Layout'}"
-								@click=${this.handleToggleLayout}
-								><code-icon icon="${currentLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
-							></gl-button>`
-						: nothing}
-					<gl-button appearance="toolbar" density="compact" tooltip="Refresh" @click=${this.handleRefresh}
-						><code-icon icon="refresh"></code-icon
-					></gl-button>
-				</div>
-			</div>
+			${this.renderHeader(config, isLoading, data?.layout)}
 			<div class="content">
 				${hasError
 					? html`<div class="empty">Failed to load data</div>`
@@ -367,11 +365,57 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
+	private renderHeader(config: PanelConfig, isLoading: boolean, currentLayout: 'tree' | 'list' | undefined) {
+		const hasLayout =
+			this.activePanel === 'worktrees' ||
+			this.activePanel === 'branches' ||
+			this.activePanel === 'remotes' ||
+			this.activePanel === 'tags';
+
+		return html`<div class="header">
+			<span class="header-title">${config.title}</span>
+			<div class="header-actions">
+				${config.actions?.map(
+					a =>
+						html`<gl-button
+							appearance="toolbar"
+							density="compact"
+							tooltip="${a.tooltip}"
+							@click=${() => this.handleAction(a.command)}
+							><code-icon icon="${a.icon}"></code-icon
+						></gl-button>`,
+				)}
+				${hasLayout
+					? html`<gl-button
+							appearance="toolbar"
+							density="compact"
+							tooltip="${currentLayout === 'tree' ? 'Switch to List Layout' : 'Switch to Tree Layout'}"
+							@click=${this.handleToggleLayout}
+							><code-icon icon="${currentLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
+						></gl-button>`
+					: nothing}
+				<gl-button appearance="toolbar" density="compact" tooltip="Refresh" @click=${this.handleRefresh}
+					><code-icon icon="refresh"></code-icon
+				></gl-button>
+			</div>
+			<progress-indicator position="bottom" ?active=${isLoading}></progress-indicator>
+		</div>`;
+	}
+
 	private renderTreeContent(config: (typeof panelConfig)[GraphSidebarPanel], data: DidGetSidebarDataParams): unknown {
 		const model = this.buildTreeModel(data);
 		if (model.length === 0) return html`<div class="empty">No items</div>`;
 
-		return html`<gl-tree-generator
+		// Automatically track/restore tree expansion state per panel.
+		// On first build (set empty): seed the set from the model's natural defaults.
+		// On subsequent builds: override the model's expansion with the remembered set.
+		if (this.activePanel != null) {
+			const paths = this._actions.expandedPaths[this.activePanel];
+			applyOrSeedExpansion(model, paths);
+		}
+
+		return html`<gl-tree-view
+			focused-path=${this._actions.selectedPath[this.activePanel!] ?? nothing}
 			.model=${model}
 			filterable
 			tooltip-anchor-right
@@ -383,7 +427,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			@gl-tree-filter-mode-changed=${this.handleFilterModeChanged}
 			@gl-tree-generated-item-selected=${this.handleTreeItemSelected}
 			@gl-tree-generated-item-action-clicked=${this.handleTreeItemAction}
-		></gl-tree-generator>`;
+			@gl-tree-expansion-changed=${this.handleTreeExpansionChanged}
+		></gl-tree-view>`;
 	}
 
 	private renderSkeleton(): unknown {
@@ -393,7 +438,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				w => html`
 					<div class="skeleton">
 						<div class="skeleton-icon"></div>
-						<div class="skeleton-text" style="width: ${w}%"></div>
+						<div class="skeleton-text" style=${styleMap({ width: `${w}%` })}></div>
 					</div>
 				`,
 			)}
@@ -738,7 +783,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this._actions?.executeAction(command, node.contextData as string | undefined);
 	}
 
-	private handleTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail & { context?: SidebarItemContext }>) {
+	private handleTreeItemSelected(
+		e: CustomEvent<TreeItemSelectionDetail & { context?: SidebarItemContext; node?: { path?: string } }>,
+	) {
+		if (this.activePanel != null && e.detail.node?.path != null) {
+			this._actions.selectedPath[this.activePanel] = e.detail.node.path;
+		}
+
 		const context = e.detail.context;
 		const sha = context?.[0];
 		if (sha == null) return;
@@ -750,5 +801,42 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				composed: true,
 			}),
 		);
+	}
+
+	private handleTreeExpansionChanged = (e: CustomEvent<{ path: string; expanded: boolean }>) => {
+		if (this.activePanel == null) return;
+		const paths = this._actions.expandedPaths[this.activePanel];
+		if (e.detail.expanded) {
+			paths.add(e.detail.path);
+		} else {
+			paths.delete(e.detail.path);
+		}
+	};
+}
+
+/**
+ * Automatically tracks/restores tree expansion state.
+ * - First call (set empty): seeds the set from the model's natural `expanded` defaults.
+ * - Subsequent calls (set populated): overrides the model's expansion with the remembered set.
+ */
+function applyOrSeedExpansion(model: TreeModel<unknown>[], paths: Set<string>): void {
+	const seeding = paths.size === 0;
+	walkExpansion(model, paths, seeding);
+}
+
+function walkExpansion(model: TreeModel<unknown>[], paths: Set<string>, seeding: boolean): void {
+	for (const node of model) {
+		if (node.branch) {
+			if (seeding) {
+				if (node.expanded) {
+					paths.add(node.path);
+				}
+			} else {
+				node.expanded = paths.has(node.path);
+			}
+		}
+		if (node.children != null) {
+			walkExpansion(node.children, paths, seeding);
+		}
 	}
 }

@@ -16,8 +16,16 @@ export interface TreeItemBase {
 
 	// checkbox
 	checkable: boolean;
-	checked?: boolean;
+	checked?: boolean | 'indeterminate';
 	disableCheck?: boolean;
+	checkableTooltip?: string;
+
+	/**
+	 * Indicates the file has hunks in BOTH staged and unstaged. Set by gl-wip-tree-pane
+	 * during deduplication so per-file action callbacks can offer Stage AND Unstage actions
+	 * for mixed files instead of the single direction inferred from `file.staged`.
+	 */
+	mixed?: boolean;
 }
 
 export interface TreeItemAction {
@@ -80,7 +88,8 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	icon?:
 		| string
 		| { type: 'status'; name: GitFileStatus }
-		| { type: 'branch'; status?: string; worktree?: boolean; hasChanges?: boolean };
+		| { type: 'branch'; status?: string; worktree?: boolean; hasChanges?: boolean }
+		| { type: 'file-icon'; filename: string };
 	description?: string;
 	context?: Context;
 	actions?: TreeItemAction[];

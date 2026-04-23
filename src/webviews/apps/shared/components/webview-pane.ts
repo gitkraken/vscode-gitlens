@@ -16,7 +16,7 @@ export class WebviewPane extends LitElement {
 			:host {
 				display: flex;
 				flex-direction: column;
-				background-color: var(--vscode-sideBar-background);
+				/* background-color: var(--vscode-sideBar-background); */
 				min-height: 23px;
 			}
 
@@ -33,7 +33,7 @@ export class WebviewPane extends LitElement {
 				position: relative;
 			}
 
-			.header:focus-within {
+			:host([collapsable]) .header:focus-within {
 				outline: 1px solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 			}

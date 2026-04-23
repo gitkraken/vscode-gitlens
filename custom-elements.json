@@ -38371,7 +38371,7 @@
         {
           "kind": "class",
           "description": "",
-          "name": "GlTreeGenerator",
+          "name": "GlTreeView",
           "members": [
             {
               "kind": "field",
@@ -38946,24 +38946,24 @@
             "name": "GlElement",
             "module": "/src/webviews/apps/shared/components/element"
           },
-          "tagName": "gl-tree-generator",
+          "tagName": "gl-tree-view",
           "customElement": true
         }
       ],
       "exports": [
         {
           "kind": "custom-element-definition",
-          "name": "gl-tree-generator",
+          "name": "gl-tree-view",
           "declaration": {
-            "name": "GlTreeGenerator",
+            "name": "GlTreeView",
             "module": "src/webviews/apps/shared/components/tree/tree-generator.ts"
           }
         },
         {
           "kind": "js",
-          "name": "GlTreeGenerator",
+          "name": "GlTreeView",
           "declaration": {
-            "name": "GlTreeGenerator",
+            "name": "GlTreeView",
             "module": "src/webviews/apps/shared/components/tree/tree-generator.ts"
           }
         }

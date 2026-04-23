@@ -12,7 +12,7 @@ import type {
 	TreeItemSelectionDetail,
 	TreeModel,
 } from '../../../shared/components/tree/base.js';
-import '../../../shared/components/tree/tree-generator.js';
+import '../../../shared/components/tree/tree-view.js';
 import '../../../shared/components/skeleton-loader.js';
 import '../../../shared/components/actions/action-item.js';
 
@@ -63,13 +63,13 @@ export class GlTreeBase extends GlElement {
 	}
 
 	protected renderTreeView(treeModel: TreeModel[], guides: 'none' | 'onHover' | 'always' = 'none'): TemplateResult {
-		return html`<gl-tree-generator
+		return html`<gl-tree-view
 			.model=${treeModel}
 			.guides=${guides}
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}
-		></gl-tree-generator>`;
+		></gl-tree-view>`;
 	}
 
 	protected renderFiles(files: GitFileChangeShape[], isTree = false, compact = false, level = 2): TreeModel[] {

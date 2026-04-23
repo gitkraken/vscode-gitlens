@@ -47,14 +47,16 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			flex-direction: column;
 			align-items: center;
 			gap: 1.4rem;
-			background-color: var(--color-graph-background);
+			background-color: var(--titlebar-bg);
 			color: var(--titlebar-fg);
 			width: 2.6rem;
 			font-size: 9px;
 			font-weight: 600;
 			height: 100%;
-			padding: 3rem 0;
+			padding: 0.5rem 0;
 			z-index: 1040;
+			border-right: 1px solid transparent;
+			border-color: var(--vscode-activityBar-border, transparent);
 		}
 
 		gl-tooltip {

@@ -6,6 +6,7 @@ import type { TreeItemCheckedDetail, TreeItemSelectionDetail } from './base.js';
 import { treeItemStyles } from './tree.css.js';
 import '../actions/action-nav.js';
 import '../code-icon.js';
+import '../overlays/tooltip.js';
 
 @customElement('gl-tree-item')
 export class GlTreeItem extends GlElement {
@@ -42,11 +43,14 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean })
 	checkable = false;
 
-	@property({ type: Boolean })
-	checked = false;
+	@property()
+	checked: boolean | 'indeterminate' = false;
 
 	@property({ type: Boolean })
 	disableCheck = false;
+
+	@property({ attribute: 'checkable-tooltip' })
+	checkableTooltip?: string;
 
 	@property({ type: Boolean })
 	showIcon = true;
@@ -159,20 +163,27 @@ export class GlTreeItem extends GlElement {
 		if (!this.checkable) {
 			return nothing;
 		}
-		return html`<span class="checkbox"
+		const checkbox = html`<span class="checkbox"
 			><input
 				class="checkbox__input"
 				id="checkbox"
 				type="checkbox"
-				.checked=${this.checked}
+				.checked=${this.checked === true}
+				.indeterminate=${this.checked === 'indeterminate'}
 				?disabled=${this.disableCheck}
 				@change=${this.onCheckboxChange}
 				@click=${this.onCheckboxClick} /><code-icon icon="check" size="14" class="checkbox__check"></code-icon
+			><code-icon icon="dash" size="14" class="checkbox__dash"></code-icon
 		></span>`;
+		return this.checkableTooltip
+			? html`<gl-tooltip hoist placement="right"
+					>${checkbox}<span slot="content">${this.checkableTooltip}</span></gl-tooltip
+				>`
+			: checkbox;
 	}
 
 	private renderActions() {
-		return html`<action-nav class="actions"><slot name="actions"></slot></action-nav>`;
+		return html`<action-nav class="actions" part="actions"><slot name="actions"></slot></action-nav>`;
 	}
 
 	private renderBefore() {
@@ -189,6 +200,7 @@ export class GlTreeItem extends GlElement {
 			<button
 				id="button"
 				class="item"
+				part="item"
 				type="button"
 				tabindex=${this.tabIndex}
 				@click=${this.onButtonClick}
@@ -196,8 +208,8 @@ export class GlTreeItem extends GlElement {
 				@contextmenu=${this.onButtonContextMenu}
 			>
 				${when(this.showIcon, () => html`<slot name="icon" class="icon"></slot>`)}
-				<span class="text">
-					<slot class="main"></slot>
+				<span class="text" part="text">
+					<slot class="main" part="main"></slot>
 					<slot name="description" class="description"></slot>
 				</span>
 			</button>
@@ -285,9 +297,10 @@ export class GlTreeItem extends GlElement {
 	private onCheckboxChange(e: Event) {
 		e.preventDefault();
 		e.stopPropagation();
-		this.checked = (e.target as HTMLInputElement).checked;
+		const newChecked = (e.target as HTMLInputElement).checked;
+		this.checked = newChecked;
 
-		this.emit('gl-tree-item-checked', { node: this, checked: this.checked });
+		this.emit('gl-tree-item-checked', { node: this, checked: newChecked });
 	}
 }
 
