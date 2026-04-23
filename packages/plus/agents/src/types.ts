@@ -17,6 +17,8 @@ export const claudeCodeNonBlockingHookEvents = [
 	'TaskCompleted',
 	'InstructionsLoaded',
 	'ConfigChange',
+	'WorktreeCreate',
+	'WorktreeRemove',
 	'PreCompact',
 	'PostCompact',
 	'Elicitation',
@@ -26,6 +28,12 @@ export const claudeCodeNonBlockingHookEvents = [
 ] as const;
 
 export const claudeCodeBlockingHookEvents = ['PermissionRequest'] as const;
+
+export type ClaudeCodeHookEvent =
+	| (typeof claudeCodeNonBlockingHookEvents)[number]
+	| (typeof claudeCodeBlockingHookEvents)[number];
+
+export type PermissionDecision = 'allow' | 'deny';
 
 export type AgentSessionStatus =
 	| 'thinking'
@@ -104,7 +112,7 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 
 	resolvePermission?(
 		sessionId: string,
-		decision: 'allow' | 'deny',
+		decision: PermissionDecision,
 		updatedPermissions?: PermissionSuggestion[],
 	): void;
 }
@@ -117,7 +125,7 @@ export interface AgentProviderCallbacks {
 	onSessionEnded?(provider: string): void;
 
 	/** Report that a permission request was resolved. No-op if the host has no telemetry. */
-	onPermissionResolved?(info: { provider: string; tool: string; decision: 'allow' | 'deny' }): void;
+	onPermissionResolved?(info: { provider: string; tool: string; decision: PermissionDecision }): void;
 
 	/** Notify the host that a branch has agent activity. */
 	onBranchAgentActivity?(cwd: string): void;
@@ -131,13 +139,6 @@ export interface AgentProviderCallbacks {
 	 * - Inject any environment-specific flags (e.g. `--insiders` when the host has insiders mode enabled)
 	 */
 	runCLICommand(args: string[], options?: { cwd?: string }): Promise<string>;
-
-	/**
-	 * Report gate decorator deadlocks for diagnostics.
-	 * Called when a `@gate()`-decorated method times out.
-	 * Optional — deadlocks are still resolved regardless.
-	 */
-	onGateDeadlock?(info: { key: string; prop: string; timeout: number; status: 'warning' | 'aborted' }): void;
 
 	/**
 	 * Resolve git metadata (branch, worktree, repo root) for a session's cwd.

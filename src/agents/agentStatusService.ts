@@ -3,7 +3,7 @@ import { commands, EventEmitter, Uri, window, workspace } from 'vscode';
 import type { Container } from '../container.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { registerCommand } from '../system/-webview/command.js';
-import type { AgentSession, AgentSessionProvider, PermissionSuggestion } from './provider.js';
+import type { AgentSession, AgentSessionProvider, PermissionDecision, PermissionSuggestion } from './provider.js';
 
 export class AgentStatusService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -54,14 +54,13 @@ export class AgentStatusService implements Disposable {
 
 	resolvePermission(
 		sessionId: string,
-		decision: 'allow' | 'deny',
+		decision: PermissionDecision,
 		updatedPermissions?: PermissionSuggestion[],
 	): void {
 		for (const provider of this._providers) {
 			const session = provider.sessions.find(s => s.id === sessionId);
 			if (session != null) {
-				// Only resolve permissions on sessions in this workspace — other
-				// sessions' permissions are handled by their own GitLens instance
+				// Sessions outside this workspace are owned by another GitLens instance; let it resolve them.
 				if (!session.isInWorkspace) return;
 				provider.resolvePermission?.(sessionId, decision, updatedPermissions);
 				return;
@@ -96,7 +95,7 @@ export class AgentStatusService implements Disposable {
 			registerCommand('gitlens.agents.openSession', (sessionId?: string) => this.openSession(sessionId)),
 			registerCommand(
 				'gitlens.agents.resolvePermission',
-				(args?: { sessionId: string; decision: 'allow' | 'deny'; alwaysAllow?: boolean }) => {
+				(args?: { sessionId: string; decision: PermissionDecision; alwaysAllow?: boolean }) => {
 					if (args?.sessionId == null || args.decision == null) return;
 
 					let updatedPermissions: PermissionSuggestion[] | undefined;
