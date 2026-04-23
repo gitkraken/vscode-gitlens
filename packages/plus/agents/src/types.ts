@@ -100,6 +100,7 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 
 	start(workspacePaths: string[]): void;
 	stop(): void;
+	updateWorkspacePaths?(workspacePaths: string[]): void;
 
 	resolvePermission?(
 		sessionId: string,
@@ -109,8 +110,14 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 }
 
 export interface AgentProviderCallbacks {
-	/** Report telemetry events. No-op if the host has no telemetry. */
-	sendTelemetryEvent?(name: string, properties: Record<string, string>): void;
+	/** Report that an agent session started. No-op if the host has no telemetry. */
+	onSessionStarted?(provider: string): void;
+
+	/** Report that an agent session ended. No-op if the host has no telemetry. */
+	onSessionEnded?(provider: string): void;
+
+	/** Report that a permission request was resolved. No-op if the host has no telemetry. */
+	onPermissionResolved?(info: { provider: string; tool: string; decision: 'allow' | 'deny' }): void;
 
 	/** Notify the host that a branch has agent activity. */
 	onBranchAgentActivity?(cwd: string): void;
@@ -130,7 +137,7 @@ export interface AgentProviderCallbacks {
 	 * Called when a `@gate()`-decorated method times out.
 	 * Optional — deadlocks are still resolved regardless.
 	 */
-	onGateDeadlock?(info: { key: string; timeout: number }): void;
+	onGateDeadlock?(info: { key: string; prop: string; timeout: number; status: 'warning' | 'aborted' }): void;
 
 	/**
 	 * Resolve git metadata (branch, worktree, repo root) for a session's cwd.

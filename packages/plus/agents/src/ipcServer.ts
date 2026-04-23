@@ -18,7 +18,7 @@ export async function createIpcServer<Request = unknown, Response = void>(): Pro
 	return new Promise<IpcServer<Request, Response>>((resolve, reject) => {
 		try {
 			server.on('error', ex => {
-				Logger.error(ex, 'Cli Integration IPC server error');
+				Logger.error(ex, 'IPC server error');
 				reject(ex);
 			});
 
@@ -52,7 +52,7 @@ export class IpcServer<Request = unknown, Response = void> implements UnifiedDis
 	) {
 		server
 			.on('listening', () => {
-				Logger.trace(`Cli Integration IPC server listening on ${this.ipcAddress}`);
+				Logger.trace(`IPC server listening on ${this.ipcAddress}`);
 			})
 			.on('request', this.onRequest.bind(this));
 	}

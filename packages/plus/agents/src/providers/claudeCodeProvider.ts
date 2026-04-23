@@ -151,6 +151,35 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// IPC server stays up intentionally — hooks fire even when the window is unfocused
 	}
 
+	updateWorkspacePaths(workspacePaths: string[]): void {
+		this._workspacePaths = workspacePaths;
+
+		// Reclassify existing sessions — folders may have been added/removed,
+		// so `isInWorkspace` can flip either way.
+		let changed = false;
+		for (let i = 0; i < this._sessions.length; i++) {
+			const s = this._sessions[i];
+			const nextIsInWorkspace = this.matchesWorkspace(s.workspacePath);
+			const subagents = s.subagents?.map(sub =>
+				sub.isInWorkspace === nextIsInWorkspace ? sub : { ...sub, isInWorkspace: nextIsInWorkspace },
+			);
+			if (s.isInWorkspace !== nextIsInWorkspace || subagents !== s.subagents) {
+				this._sessions[i] = { ...s, isInWorkspace: nextIsInWorkspace, subagents: subagents };
+				changed = true;
+			}
+		}
+		if (changed) this._onDidChangeSessions.fire();
+
+		if (this._ipcServer == null) {
+			// Server wasn't started yet — bootstrap. The `.then` re-issues the
+			// path update after the (gated) `ensureIpcServer` completes, in
+			// case it deduped with an in-flight `start()` that used stale paths.
+			void this.ensureIpcServer(workspacePaths).then(() => this._ipcServer?.updateWorkspacePaths(workspacePaths));
+		} else {
+			void this._ipcServer.updateWorkspacePaths(workspacePaths);
+		}
+	}
+
 	dispose(): void {
 		this.stop();
 		if (this._staleCheckTimer != null) {
@@ -250,6 +279,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	 * PreCompact → compacting
 	 * PostCompact → thinking
 	 * SessionEnd → removes session
+	 * TeammateIdle / TaskCompleted / InstructionsLoaded / ConfigChange /
+	 * WorktreeCreate / WorktreeRemove → not yet handled (intentional no-op)
 	 */
 	private handleSessionEvent(event: AgentSessionEvent, isBlocking: boolean): Promise<PermissionResponse | void> {
 		const isInWorkspace = this.matchesWorkspace(event.matchedWorkspacePath);
@@ -296,7 +327,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					lastActivity: new Date(),
 				};
 				this._onDidChangeSessions.fire();
-				this.callbacks.sendTelemetryEvent?.('agents/session/started', { 'agent.provider': this.id });
+				this.callbacks.onSessionStarted?.(this.id);
 				break;
 			}
 
@@ -313,7 +344,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					this._onDidChangeSessions.fire();
 				}
 				this._sessionBookkeeping.delete(event.sessionId);
-				this.callbacks.sendTelemetryEvent?.('agents/session/ended', { 'agent.provider': this.id });
+				this.callbacks.onSessionEnded?.(this.id);
 				break;
 			}
 
@@ -549,6 +580,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				}
 				break;
 			}
+
+			case 'TeammateIdle':
+			case 'TaskCompleted':
+			case 'InstructionsLoaded':
+			case 'ConfigChange':
+			case 'WorktreeCreate':
+			case 'WorktreeRemove':
+				// Not yet handled — intentional no-op.
+				break;
 		}
 
 		return Promise.resolve();
@@ -615,10 +655,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				decision: { behavior: decision, updatedPermissions: updatedPermissions },
 			},
 		});
-		this.callbacks.sendTelemetryEvent?.('agents/permission/resolved', {
-			'agent.provider': this.id,
-			'permission.tool': pending.toolName,
-			'permission.decision': decision,
+		this.callbacks.onPermissionResolved?.({
+			provider: this.id,
+			tool: pending.toolName,
+			decision: decision,
 		});
 		this._pendingPermissions.delete(sessionId);
 

@@ -29,12 +29,19 @@ export class AgentIpcServer implements UnifiedDisposable {
 			Logger.debug(`AgentIpcServer listening on ${this._server.ipcAddress}`);
 		} catch (ex) {
 			Logger.error(ex, 'AgentIpcServer.start');
+			this._server?.dispose();
 			this._server = undefined;
 		}
 	}
 
 	get port(): number | undefined {
 		return this._server?.ipcPort;
+	}
+
+	async updateWorkspacePaths(paths: string[]): Promise<void> {
+		this._workspacePaths = paths;
+		if (this._server == null) return;
+		await this.writeDiscoveryFile();
 	}
 
 	registerHandler(name: string, handler: IpcHandler<unknown, unknown>): UnifiedDisposable | undefined {

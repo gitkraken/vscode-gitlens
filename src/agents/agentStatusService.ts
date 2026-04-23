@@ -30,6 +30,7 @@ export class AgentStatusService implements Disposable {
 					this.stopProviders();
 				}
 			}),
+			workspace.onDidChangeWorkspaceFolders(() => this.onWorkspaceFoldersChanged()),
 			...this.registerCommands(),
 		);
 
@@ -256,6 +257,20 @@ export class AgentStatusService implements Disposable {
 	private stopProviders(): void {
 		for (const provider of this._providers) {
 			provider.stop();
+		}
+	}
+
+	private onWorkspaceFoldersChanged(): void {
+		// Do NOT early-return on an empty list — providers need to reclassify
+		// existing sessions' `isInWorkspace` when the last folder is removed.
+		const paths = this.getWorkspacePaths();
+
+		for (const provider of this._providers) {
+			if (provider.updateWorkspacePaths != null) {
+				provider.updateWorkspacePaths(paths);
+			} else if (paths.length > 0) {
+				provider.start(paths);
+			}
 		}
 	}
 }
