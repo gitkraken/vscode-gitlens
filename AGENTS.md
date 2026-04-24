@@ -246,6 +246,7 @@ Skills provide detailed, step-by-step workflows for common tasks. Invoke with `/
 | `/a11y-audit`      | Audit a component/file/directory for WCAG 2.1 AA accessibility              |
 | `/a11y-flow-audit` | Audit a page or flow for WCAG 2.1 AA composition-level compliance           |
 | `/a11y-remediate`  | Turn /a11y-audit findings into a leader-facing remediation proposal         |
+| `/modern-css`      | Guide CSS authoring/review — modern patterns, tokens, shadow DOM safety     |
 | `/commit`          | Git commit with GitLens conventions                                         |
 | `/create-issue`    | Create GitHub issues from code changes                                      |
 | `/audit-commits`   | Audit commit range for issues and CHANGELOG entries                         |
