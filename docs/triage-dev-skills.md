@@ -15,16 +15,22 @@ How to use the issue workflow skills to triage, investigate, prioritize, update 
 
 ### Dev Pipeline — Scope, plan, and review implementation
 
-| Skill             | Purpose                                                 | Modifies code? |
-| ----------------- | ------------------------------------------------------- | -------------- |
-| `/dev-scope`      | Define what and why — bridge from triage to planning    | No             |
-| `/deep-planning`  | Design technical approach — trade-offs and alternatives | No             |
-| `/challenge-plan` | Stress-test the plan before implementation              | No             |
-| `/deep-review`    | Post-implementation code review against goals           | No             |
-| `/ux-review`      | Post-implementation UX review against goals             | No             |
-| `/commit`         | Create well-formatted git commits                       | **Yes**        |
+| Skill             | Purpose                                                                                | Modifies code?   |
+| ----------------- | -------------------------------------------------------------------------------------- | ---------------- |
+| `/dev-scope`      | Define what and why — bridge from triage to planning                                   | No               |
+| `/analyze`        | Devil's-advocate design analysis — use when no plan/goals doc exists yet               | No               |
+| `/deep-planning`  | Design technical approach — trade-offs and alternatives                                | No               |
+| `/challenge-plan` | Stress-test the plan before implementation                                             | No               |
+| `/worktree`       | Create isolated git worktree for implementation (after plan is ready)                  | **Yes** (branch) |
+| `/iterate-live`   | Live UI working loop — use during implementation for any UI-bearing change             | No               |
+| `/review`         | Lightweight static code review against GitLens standards (lighter than `/deep-review`) | No               |
+| `/deep-review`    | Post-implementation code review against goals — traces code paths                      | No               |
+| `/ux-review`      | Post-implementation UX review against goals                                            | No               |
+| `/commit`         | Create well-formatted git commits                                                      | **Yes**          |
+| `/audit-commits`  | Audit commits for linked issues and CHANGELOG entries                                  | **Yes**          |
+| `/create-issue`   | Create GitHub follow-up issues from uncommitted work or commits                        | **Yes** (GitHub) |
 
-All analysis skills are read-only. Only `/update-issues` modifies GitHub state (with confirmation), and `/commit` modifies git state.
+All analysis skills are read-only. `/update-issues`, `/commit`, `/audit-commits`, `/create-issue`, and `/worktree` all have real-world side effects (GitHub, git, filesystem) — each requires confirmation before applying.
 
 ---
 
@@ -51,6 +57,8 @@ All analysis skills are read-only. Only `/update-issues` modifies GitHub state (
 | Review implementation against goals                | `/deep-review branch --scope .work/dev/5096/`                                                                           |
 | Review UX against goals                            | `/ux-review branch --scope .work/dev/5096/`                                                                             |
 | Run the full triage pipeline via script            | `pnpm workflow triage recent`                                                                                           |
+| Triage specific issues via script                  | `pnpm workflow triage single 5096 5084`                                                                                 |
+| Audit old backlog issues via script                | `pnpm workflow triage audit --older-than 365d`                                                                          |
 | Run the full dev pipeline via script               | `pnpm workflow dev 5096`                                                                                                |
 | Run a pipeline with second-opinion review          | `pnpm workflow triage recent --rubber-duck`                                                                             |
 
@@ -293,12 +301,16 @@ TRIAGE PIPELINE                         DEV PIPELINE
    ↓ INVESTIGATION-DECISIONS.json          ↓ plan.md
 /prioritize (rank & recommend)          /challenge-plan (stress-test plan)
    ↓ RESOLUTIONS.json                      ↓ challenge.md
-/update-issues (apply to GitHub)        ── IMPLEMENTATION (you write code) ──
-   ↓ ACTIONS.md                         /deep-review (code review)
-[GitHub Updated]                           ↓ review.md
+/update-issues (apply to GitHub)        /worktree (isolate the branch)
+   ↓ ACTIONS.md                         ── IMPLEMENTATION (you write code) ──
+[GitHub Updated]                             /iterate-live (for UI work)
+                                        /deep-review (code review)
+                                           ↓ review.md
                                         /ux-review (UX review)
                                            ↓ ux-review.md
                                         /commit
+                                        /audit-commits (verify CHANGELOG)
+                                        /create-issue (file follow-ups)
 ```
 
 The bridge between pipelines is `/dev-scope`. It reads investigation reports (if they exist) and imports root cause, effort, and risk data into the goals document — so `/deep-planning` doesn't re-investigate from scratch.
@@ -313,6 +325,8 @@ The bridge between pipelines is `/dev-scope`. It reads investigation reports (if
 /dev-scope 5096
 /deep-planning --scope .work/dev/5096/
 /challenge-plan --scope .work/dev/5096/
+/worktree feature/#5096-<slug>
+── implement changes ──
 ```
 
 1. `/dev-scope 5096` fetches the GitHub issue, verifies claims against the codebase, and produces `goals.md` — defining success criteria, UX flow, code landscape, and constraints. If an investigation report exists, it imports root cause and effort data.
@@ -321,6 +335,7 @@ The bridge between pipelines is `/dev-scope`. It reads investigation reports (if
    - **Ready** — proceed to implementation
    - **Needs Revision** — plan has issues that should be addressed first
    - **Reconsider** — blocking issues found, needs human judgment
+4. `/worktree` spins up an isolated git worktree following GitLens conventions (sibling directory, typed branch prefix). Implementation happens there, keeping your main workspace clean.
 
 **Workflow B — Scope a feature idea (no issue):**
 
@@ -338,13 +353,15 @@ Same pipeline, but starting from a description instead of a GitHub issue number.
 /deep-review branch --scope .work/dev/5096/
 /ux-review branch --scope .work/dev/5096/
 /commit
+/audit-commits
 ```
 
 After implementing the changes, run reviews against the goals document:
 
-1. `/deep-review` traces code paths for correctness, verifying the implementation matches success criteria
+1. `/deep-review` traces code paths for correctness, verifying the implementation matches success criteria. For smaller change sets, `/review` is the lighter static alternative.
 2. `/ux-review` walks through user flows, checking discoverability, accessibility, and workflow continuity
 3. `/commit` creates a well-formatted commit following GitLens conventions
+4. `/audit-commits` verifies each user-facing commit has a linked issue and a CHANGELOG entry — use `/create-issue` to file any follow-ups it surfaces
 
 **Workflow D — End-to-end from triage to implementation:**
 
@@ -354,13 +371,36 @@ After implementing the changes, run reviews against the goals document:
 /dev-scope 5096
 /deep-planning --scope .work/dev/5096/
 /challenge-plan --scope .work/dev/5096/
-── implement changes ──
+/worktree feature/#5096-<slug>
+── implement changes ── (use /iterate-live if UI-bearing)
 /deep-review branch --scope .work/dev/5096/
 /ux-review branch --scope .work/dev/5096/
 /commit
+/audit-commits
 ```
 
 The complete journey from raw issue to merged code.
+
+**Workflow E — UI-bearing implementation loop:**
+
+For any change that touches visible UI (panels, webviews, editor decorations), use `/iterate-live` as the working rhythm during implementation instead of relying on static review alone:
+
+```
+── inside the implementation phase ──
+/iterate-live
+```
+
+`/iterate-live` keeps a live VS Code instance in the loop via the `vscode-inspector` MCP, measures actual runtime state (not diffs), and dispatches parallel fixes between rebuilds. Not a one-off audit — it's the default rhythm when you're editing UI. It does not replace `/deep-review` or `/ux-review`, which still run afterward against `goals.md`.
+
+**Workflow F — Lightweight exploration without a plan:**
+
+When you're earlier than a formal plan — evaluating a direction, comparing approaches, or stress-testing an idea that doesn't yet have a `goals.md` — use `/analyze` instead of `/challenge-plan`:
+
+```
+/analyze "add natural language search to the command palette"
+```
+
+`/analyze` performs devil's-advocate design evaluation without needing scoped artifacts. Once you're ready to commit to a direction, graduate to `/dev-scope` → `/deep-planning` → `/challenge-plan`.
 
 ---
 
@@ -511,13 +551,14 @@ Every skill works standalone or chained. Here are all supported input modes:
 
 ### `/triage`
 
-| Input            | Example                                           |
-| ---------------- | ------------------------------------------------- |
-| Single issue     | `/triage 5096`                                    |
-| Multiple issues  | `/triage 5096 5084 5070`                          |
-| Recent batch     | `/triage recent --since 7d`                       |
-| Historical batch | `/triage audit --older-than 180d --batch-size 50` |
-| Filtered batch   | `/triage audit --older-than 180d --type bug`      |
+| Input                   | Example                                                        |
+| ----------------------- | -------------------------------------------------------------- |
+| Single issue            | `/triage 5096`                                                 |
+| Multiple issues         | `/triage 5096 5084 5070`                                       |
+| Recent batch            | `/triage recent --since 7d`                                    |
+| Historical batch        | `/triage audit --older-than 180d --batch-size 50`              |
+| Filtered batch          | `/triage audit --older-than 180d --type bug`                   |
+| Skip claim trust-verify | `/triage 5096 --skip-trust` (use for team-member-filed issues) |
 
 **Output:** `.work/triage/reports/YYYY-MM-DD-TRIAGE-REPORT.md` + `YYYY-MM-DD-DECISIONS.json`
 
@@ -604,6 +645,64 @@ Every skill works standalone or chained. Here are all supported input modes:
 
 **Output:** `.work/dev/{identifier}/ux-review.md`
 
+### `/analyze`
+
+| Input           | Example                                                       |
+| --------------- | ------------------------------------------------------------- |
+| Idea / decision | `/analyze "add natural language search"`                      |
+| Proposed change | `/analyze <description of change touching core abstractions>` |
+
+**When to use vs `/challenge-plan`:** `/analyze` works without a `goals.md`/`plan.md` — use it when you're earlier in the thinking. `/challenge-plan` is the formal gate once scoped artifacts exist.
+
+### `/review`
+
+| Input                | Example                                 |
+| -------------------- | --------------------------------------- |
+| Staged changes       | `/review` (default)                     |
+| All uncommitted      | `/review all`                           |
+| Specific file        | `/review file:src/views/commitsView.ts` |
+| Current PR           | `/review pr`                            |
+| Impact audit         | `/review impact`                        |
+| Full (code + impact) | `/review full`                          |
+
+**When to use vs `/deep-review`:** `/review` is a static checklist against GitLens standards — lighter and faster. `/deep-review` traces code paths against a `goals.md` for correctness.
+
+### `/worktree`
+
+| Input          | Example                                  |
+| -------------- | ---------------------------------------- |
+| Typed branch   | `/worktree feature/#5096-natural-search` |
+| Session-scoped | `/worktree bug/graph-performance`        |
+
+**Side effect:** creates a sibling directory under `<repo>.worktrees/` following GitLens conventions, plus the branch.
+
+### `/iterate-live`
+
+| Input   | Example                                                      |
+| ------- | ------------------------------------------------------------ |
+| Default | `/iterate-live` (uses current branch + vscode-inspector MCP) |
+
+**When to use:** during implementation of any UI-bearing change (panels, webviews, decorations). Not a one-off audit — the default working rhythm. Requires `vscode-inspector` MCP and a passing `pnpm run build:quick`.
+
+### `/audit-commits`
+
+| Input     | Example                              |
+| --------- | ------------------------------------ |
+| Since tag | `/audit-commits v17.0.0`             |
+| Default   | `/audit-commits` (prompts for a tag) |
+
+**Output:** list of user-facing commits missing linked issues or `[Unreleased]` CHANGELOG entries, with confirmation before creating issues or editing the CHANGELOG.
+
+### `/create-issue`
+
+| Input         | Example                        |
+| ------------- | ------------------------------ |
+| Uncommitted   | `/create-issue uncommitted`    |
+| Single commit | `/create-issue abc123`         |
+| Commit range  | `/create-issue abc123..def456` |
+
+**Side effect:** creates a GitHub issue after user confirmation, then adds a CHANGELOG `[Unreleased]` entry after a second confirmation.
+
 ---
 
 ## Pipeline Chains
@@ -651,10 +750,10 @@ Scope an issue, design the approach, and stress-test it. The standard pre-implem
 ### Dev: Post-Implementation Reviews
 
 ```
-/deep-review branch --scope .work/dev/5096/ → /ux-review branch --scope .work/dev/5096/ → /commit
+/deep-review branch --scope .work/dev/5096/ → /ux-review branch --scope .work/dev/5096/ → /commit → /audit-commits
 ```
 
-After implementing, review code and UX against the goals document.
+After implementing, review code and UX against the goals document, then commit and verify CHANGELOG/issue links. Use `/create-issue` to capture any follow-ups surfaced during review.
 
 ### Cross-Pipeline: Triage to Dev
 
@@ -701,7 +800,7 @@ All dev artifacts are written to `.work/dev/{identifier}/` where identifier is a
 
 ## Safety Model
 
-1. **Analysis is read-only** — `/triage`, `/investigate`, `/prioritize`, `/dev-scope`, `/deep-planning`, `/challenge-plan`, `/deep-review`, and `/ux-review` never modify GitHub issues or code
+1. **Analysis is read-only** — `/triage`, `/investigate`, `/prioritize`, `/dev-scope`, `/analyze`, `/deep-planning`, `/challenge-plan`, `/review`, `/deep-review`, `/ux-review`, and `/iterate-live` never modify GitHub issues or committed code
 2. **Update requires confirmation** — `/update-issues` always shows a dry-run first and requires explicit approval
 3. **Pre-flight checks** — `/update-issues` verifies current issue state before each action, skipping stale or redundant changes
 4. **Close confirmation** — Closing issues requires per-issue approval
@@ -709,6 +808,7 @@ All dev artifacts are written to `.work/dev/{identifier}/` where identifier is a
 6. **Human-in-the-loop** — All close recommendations require human approval (`requiresHumanApproval: true`)
 7. **Challenge gate** — The workflow script stops if `/challenge-plan` returns "Reconsider" or "Needs Revision", preventing implementation on a flawed plan
 8. **Implementation boundary** — The workflow script never implements code automatically; it stops after the challenge stage and waits for manual `--skip-to review`
+9. **Side-effect skills confirm before acting** — `/worktree` creates branches + directories, `/commit` writes commits, `/audit-commits` edits the CHANGELOG, and `/create-issue` files GitHub issues. Each requires confirmation before applying.
 
 ---
 
