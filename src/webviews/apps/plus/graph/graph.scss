@@ -13,12 +13,14 @@
 
 @include utils.dark-theme {
 	--popover-bg: var(--color-background--lighten-15);
-	--titlebar-bg: var(--color-background--lighten-075);
+	// --titlebar-bg: var(--color-background--lighten-075);
+	--titlebar-bg: var(--color-background);
 }
 
 @include utils.light-theme {
 	--popover-bg: var(--color-background--darken-15);
-	--titlebar-bg: var(--color-background--darken-075);
+	// --titlebar-bg: var(--color-background--darken-075);
+	--titlebar-bg: var(--color-background);
 }
 
 :root {
@@ -109,13 +111,15 @@
 	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
 
 	--graph-column-scrollbar-thickness: 14px;
+
+	--color-graph-background: var(--vscode-editor-background, var(--color-background));
 }
 
 @include utils.dark-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--graph-theme-opacity-factor: '1';
 
 	--color-graph-actionbar-background: color-mix(in srgb, #fff 5%, var(--color-background));
-	--color-graph-background: color-mix(in srgb, #fff 5%, var(--color-background));
+	--color-graph-background1: color-mix(in srgb, #fff 5%, var(--color-background));
 	--color-graph-background2: color-mix(in srgb, #fff 10%, var(--color-background));
 }
 
@@ -123,7 +127,7 @@
 	--graph-theme-opacity-factor: '0.5';
 
 	--color-graph-actionbar-background: color-mix(in srgb, #000 5%, var(--color-background));
-	--color-graph-background: color-mix(in srgb, #000 5%, var(--color-background));
+	--color-graph-background1: color-mix(in srgb, #000 5%, var(--color-background));
 	--color-graph-background2: color-mix(in srgb, #000 10%, var(--color-background));
 }
 
@@ -1293,6 +1297,8 @@ web-graph {
 		flex: 1;
 		overflow: hidden;
 		z-index: 0;
+		border: 1px solid transparent;
+		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 	}
 
 	&__panes {
@@ -1300,39 +1306,250 @@ web-graph {
 	}
 
 	&__graph-pane {
-		display: grid;
-		grid-template-columns: min-content 1fr;
-		grid-template-rows: auto 1fr;
-		grid-template-areas: 'minimap minimap' 'sidebar main';
+		display: flex;
+		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-
-		gl-graph-minimap-container {
-			grid-area: minimap;
-		}
-
-		gl-graph-sidebar {
-			grid-area: sidebar;
-		}
-
-		gl-graph-wrapper {
-			grid-area: main;
-		}
 	}
 
-	&__sidebar-split {
-		grid-area: main;
+	&__graph-pane-body {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+
+		gl-graph-sidebar {
+			flex: none;
+		}
+
+		.graph__sidebar-split,
+		.graph__graph-content {
+			flex: 1;
+			min-width: 0;
+		}
 	}
 
 	&__graph-content {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
 		height: 100%;
+		overflow: hidden;
 		position: relative;
 		z-index: 0;
+
+		gl-graph-minimap-container {
+			position: relative;
+			// Above the gitkraken-components graph internals, which use z-indexes up to 16 —
+			// ensures the minimap's Billboard.js tooltips and settings popover render over the graph.
+			z-index: 100;
+		}
+
+		.graph__minimap-split {
+			flex: 1;
+			min-height: 0;
+		}
+
+		.graph__graph-column {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-height: 0;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		// Light DOM custom elements default to display:inline — force block for flex sizing
+		gl-graph-wrapper,
+		gl-graph-wrapper > gl-graph {
+			display: block;
+			height: 100%;
+		}
+
+		gl-graph-wrapper {
+			flex: 1;
+			min-height: 0;
+			overflow: hidden;
+		}
 	}
 	&__graph-root {
 		width: 100%;
 		height: 100%;
 	}
+
+	&__details-pane {
+		// Provide the CSS variables that details-base.scss normally sets on :root
+		--gitlens-gutter-width: 20px;
+		--gitlens-scrollbar-gutter-width: 10px;
+		--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+
+		height: 100%;
+		overflow: hidden;
+		background-color: var(--vscode-sideBar-background, var(--color-background));
+		color: var(--vscode-sideBar-foreground, var(--color-foreground));
+		border-left: 1px solid var(--vscode-sideBar-border);
+		display: flex;
+		flex-direction: column;
+		font-size: var(--font-size);
+
+		gl-graph-details-panel {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-height: 0;
+			overflow: hidden;
+			background-color: var(--titlebar-bg);
+		}
+
+		// Override graph-column scrollbar thickness for the details pane
+		--graph-column-scrollbar-thickness: 10px;
+
+		.details-content {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-height: 0;
+			overflow-y: auto;
+			scrollbar-gutter: auto;
+			position: relative;
+			border-color: transparent;
+			transition: border-color 1s linear;
+		}
+
+		&:hover .details-content,
+		&:focus-within .details-content {
+			border-color: var(--vscode-scrollbarSlider-background);
+			transition: none;
+		}
+
+		gl-commit-details,
+		gl-wip-details,
+		gl-graph-compare-panel,
+		gl-graph-review-panel,
+		gl-graph-compose-panel {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-height: 0;
+			overflow: visible;
+		}
+
+		.commit-panel {
+			&__files {
+				display: flex;
+				flex-direction: column;
+				flex: 1;
+				min-height: 100px;
+				overflow: visible;
+			}
+		}
+	}
+}
+
+.graph__details-split {
+	--gl-split-panel-divider-hit-area: var(--vscode-sash-hoverSize, 8px);
+
+	// Keep divider width stable (4px) when disabled so the graph pane width
+	// doesn't shift when selection toggles (e.g. applying a scope clears the
+	// current selection, which disables the split). Suppress interactive
+	// visuals instead of collapsing the track.
+	&[disabled]::part(divider) {
+		pointer-events: none;
+		cursor: default;
+	}
+}
+
+@keyframes details-fade-in {
+	from {
+		opacity: 0;
+		transform: translateX(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.details-opening {
+	animation: details-fade-in 0.2s ease-out;
+	overflow: hidden;
+}
+
+@keyframes skeleton-pulse {
+	0%,
+	100% {
+		opacity: 0.15;
+	}
+	50% {
+		opacity: 0.25;
+	}
+}
+
+.details-skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: 1.2rem;
+	padding: 1.2rem;
+
+	&__header {
+		display: flex;
+		align-items: center;
+		gap: 0.8rem;
+	}
+
+	&__avatar {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background: var(--color-foreground);
+		animation: skeleton-pulse 1.5s ease-in-out infinite;
+	}
+
+	&__lines {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		flex: 1;
+	}
+
+	&__line {
+		height: 10px;
+		border-radius: 3px;
+		background: var(--color-foreground);
+		animation: skeleton-pulse 1.5s ease-in-out infinite;
+	}
+
+	&__line--short {
+		height: 8px;
+	}
+
+	&__bar {
+		height: 28px;
+		border-radius: 4px;
+		background: var(--color-foreground);
+		animation: skeleton-pulse 1.5s ease-in-out infinite;
+	}
+
+	&__body {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+}
+
+.details-loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2rem 1.2rem;
+	color: var(--vscode-descriptionForeground, var(--color-foreground--50));
+	font-size: 1.2rem;
+}
+
+.details-stale {
+	opacity: 0.85;
+	pointer-events: none;
+	transition: opacity 0.5s ease-out 0.5s;
 }
 
 .graph-row-actions {
@@ -1343,6 +1560,16 @@ web-graph {
 
 	gl-button {
 		height: 100%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
 	}
 }
 

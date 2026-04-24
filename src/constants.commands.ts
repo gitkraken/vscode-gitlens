@@ -33,11 +33,17 @@ export type GlCommandsDeprecated =
 	| 'gitlens.showFileHistoryInView';
 
 type InternalGraphWebviewCommands =
+	| 'gitlens.deleteBranchOrWorktree:graph'
+	| 'gitlens.git.branch.setMergeTarget:graph'
+	| 'gitlens.mergeIntoCurrent:graph'
+	| 'gitlens.openMergeTargetComparison:graph'
 	| 'gitlens.pausedOperation.abort:graph'
 	| 'gitlens.pausedOperation.continue:graph'
 	| 'gitlens.pausedOperation.open:graph'
 	| 'gitlens.pausedOperation.showConflicts:graph'
 	| 'gitlens.pausedOperation.skip:graph'
+	| 'gitlens.pushBranch:graph'
+	| 'gitlens.rebaseCurrentOnto:graph'
 	| 'gitlens.visualizeHistory.repo:graph';
 
 type InternalHomeWebviewCommands =
@@ -245,13 +251,17 @@ export type CoreCommands =
 	| `${ViewIds}.${'focus' | 'open' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
 
 export type CoreGitCommands =
+	| 'git.commit'
+	| 'git.commitAmend'
 	| 'git.fetch'
 	| 'git.publish'
 	| 'git.pull'
 	| 'git.pullRebase'
 	| 'git.push'
 	| 'git.pushForce'
-	| 'git.undoCommit';
+	| 'git.stageAll'
+	| 'git.undoCommit'
+	| 'git.unstageAll';
 
 type ExtractSuffix<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? V : never;
 type FilterCommands<Prefix extends string, U, Suffix extends string = ''> = U extends `${Prefix}${infer V}${Suffix}`

@@ -12,28 +12,35 @@ import { serializeWebviewItemContext } from '../../../../system/webview.js';
 import type { DetailsItemTypedContext, DraftState, Wip } from '../../../commitDetails/protocol.js';
 import type { ComposerCommandArgs } from '../../../plus/composer/registration.js';
 import type { Change } from '../../../plus/patchDetails/protocol.js';
-import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
+import type { TreeItemAction, TreeItemBase, TreeItemCheckedDetail } from '../../shared/components/tree/base.js';
+import { detailsBaseStyles } from './gl-details-base.css.js';
 import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
 import type { CreatePatchState, GenerateState } from './gl-inspect-patch.js';
+import { wipDetailsStyles } from './gl-wip-details.css.js';
 import '../../shared/components/button.js';
 import '../../shared/components/button-container.js';
+import '../../shared/components/branch-name.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/panes/pane-group.js';
 import '../../shared/components/avatar/avatar.js';
+import '../../shared/components/chips/action-chip.js';
+import '../../shared/components/commit/commit-stats.js';
 import '../../shared/components/pills/tracking.js';
+import '../../shared/components/tree/gl-wip-tree-pane.js';
 import './gl-inspect-patch.js';
 
 @customElement('gl-wip-details')
 export class GlWipDetails extends GlDetailsBase {
 	static override styles = [
+		...detailsBaseStyles,
+		wipDetailsStyles,
 		css`
 			:host {
 				--gl-avatar-size: 1.6rem;
 			}
 		`,
 	];
-	override readonly tab = 'wip';
 
 	@property({ type: Object })
 	wip?: Wip;
@@ -52,6 +59,12 @@ export class GlWipDetails extends GlDetailsBase {
 
 	@property({ type: Boolean })
 	experimentalComposerEnabled = false;
+
+	@property({ type: String, attribute: 'worktree-path' })
+	worktreePath?: string;
+
+	@property({ type: Boolean, attribute: 'checkbox-mode' })
+	checkboxMode = false;
 
 	@state()
 	get inReview(): boolean {
@@ -127,14 +140,10 @@ export class GlWipDetails extends GlDetailsBase {
 		}
 	}
 
-	override get filesChangedPaneLabel(): string {
-		return 'Working Changes';
-	}
+	protected override renderChangedFilesSlottedContent(): TemplateResult<1> | typeof nothing {
+		if (this.variant === 'embedded' || !this.files?.length) return nothing;
 
-	protected override renderChangedFilesActions(): TemplateResult<1> | undefined {
-		if (!this.files?.length) return undefined;
-
-		return html`<div class="section section--actions">
+		return html`<div slot="before-tree" class="section section--actions">
 			<button-container>
 				<gl-button
 					full
@@ -397,6 +406,10 @@ export class GlWipDetails extends GlDetailsBase {
 	override render(): unknown {
 		if (this.wip == null) return nothing;
 
+		if (this.variant === 'embedded') {
+			return this.renderEmbedded();
+		}
+
 		return html`
 			${this.renderActions()}
 			<webview-pane-group flexible>
@@ -406,19 +419,133 @@ export class GlWipDetails extends GlDetailsBase {
 		`;
 	}
 
-	override getFileActions(file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {
+	private renderEmbedded() {
+		if (this.checkboxMode) {
+			return html`<div class="files">
+				<webview-pane-group flexible> ${this.renderChangedFiles('wip')} </webview-pane-group>
+			</div>`;
+		}
+		return html`
+			${this.renderEmbeddedHeader()}
+			<div class="files">
+				<webview-pane-group flexible> ${this.renderChangedFiles('wip')} </webview-pane-group>
+			</div>
+		`;
+	}
+
+	override renderChangedFiles(_mode: 'wip'): TemplateResult<1> {
+		return html`
+			<gl-wip-tree-pane
+				.files=${this.files}
+				.preferences=${this.preferences}
+				.collapsable=${this.filesCollapsable}
+				?show-file-icons=${this.fileIcons}
+				?checkable=${this.checkboxMode}
+				.fileActions=${this._getFileActions}
+				.fileContext=${this._getFileContext}
+				.searchContext=${this.searchContext}
+				@file-checked=${this._onFileChecked}
+			>
+				${this.renderChangedFilesSlottedContent()}
+			</gl-wip-tree-pane>
+		`;
+	}
+
+	protected override onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context as unknown as File[];
+		const repoPath = file.repoPath ?? this.wip?.repo?.path;
+		if (!repoPath) return;
+
+		const detail = {
+			path: file.path,
+			repoPath: repoPath,
+			status: file.status,
+			staged: file.staged,
+		};
+
+		this.dispatchEvent(
+			new CustomEvent(e.detail.checked ? 'file-stage' : 'file-unstage', {
+				detail: detail,
+			}),
+		);
+	}
+
+	private renderEmbeddedHeader() {
+		const wip = this.wip;
+		if (!wip) return nothing;
+
+		const branchName = wip.branch?.name;
+		const filesCount = this.filesCount;
+		const stagedCount = this.files?.filter(f => f.staged)?.length ?? 0;
+		const unstagedCount = filesCount - stagedCount;
+
+		return html`<div class="header">
+			<div class="header__identity">
+				<code-icon class="header__wip-icon" icon="diff"></code-icon>
+				<div class="header__identity-left">
+					<span class="header__wip-title">Working Changes</span>
+					<span class="header__wip-subtitle">
+						${this.worktreePath
+							? html`<code-icon icon="folder"></code-icon> ${this.worktreePath}`
+							: html`${stagedCount > 0 || unstagedCount > 0
+									? `${stagedCount} staged · ${unstagedCount} unstaged`
+									: 'No changes'}`}
+					</span>
+				</div>
+				<div class="header__identity-right">
+					<div class="header__actions">
+						<gl-action-chip
+							icon="close"
+							label="Close"
+							overlay="tooltip"
+							@click=${() =>
+								this.dispatchEvent(new CustomEvent('close-details', { bubbles: true, composed: true }))}
+						></gl-action-chip>
+					</div>
+				</div>
+			</div>
+			<div class="header__branch-row">
+				${branchName
+					? html`<gl-branch-name
+							class="header__branch-pill"
+							appearance="pill"
+							.name=${branchName}
+						></gl-branch-name>`
+					: nothing}
+				${filesCount > 0
+					? html`<commit-stats modified="${filesCount}" symbol="icons" appearance="pill"></commit-stats>`
+					: nothing}
+			</div>
+		</div>`;
+	}
+
+	override getFileActions(file: File, options?: Partial<TreeItemBase>): TreeItemAction[] {
 		const openFile = {
 			icon: 'go-to-file',
 			label: 'Open file',
 			action: 'file-open',
 		};
-		if (file.staged === true) {
-			return [openFile, { icon: 'remove', label: 'Unstage changes', action: 'file-unstage' }];
+		const stage = { icon: 'plus', label: 'Stage changes', action: 'file-stage' };
+		const unstage = { icon: 'remove', label: 'Unstage changes', action: 'file-unstage' };
+		// Mixed = file has hunks in BOTH staged and unstaged. Always show both directions so the
+		// user can act on either side without first unstaging the other — including in
+		// checkboxMode (which the graph context uses), where the single-direction inline action
+		// would otherwise hide the other half.
+		if (options?.mixed) {
+			return [openFile, stage, unstage];
 		}
-		return [openFile, { icon: 'plus', label: 'Stage changes', action: 'file-stage' }];
+		if (this.checkboxMode) {
+			return [openFile];
+		}
+		if (file.staged === true) {
+			return [openFile, unstage];
+		}
+		return [openFile, stage];
 	}
 
-	override getFileContextData(file: File): string | undefined {
+	override getFileContext(file: File): string | undefined {
 		if (!this.wip?.repo?.path) return undefined;
 
 		const context: DetailsItemTypedContext = {

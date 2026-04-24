@@ -1,10 +1,13 @@
 import type { emptySetMarker, GraphRefOptData, GraphSearchMode } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent } from 'vscode';
-import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
+import { CancellationTokenSource, Disposable, env, ProgressLocation, Uri, window } from 'vscode';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitContributor } from '@gitlens/git/models/contributor.js';
+import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitGraph, GitGraphRowType } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
@@ -18,8 +21,9 @@ import type {
 	GitTagReference,
 } from '@gitlens/git/models/reference.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
-import { uncommitted } from '@gitlens/git/models/revision.js';
+import { rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import {
 	getBranchId,
 	getBranchNameWithoutRemote,
@@ -45,7 +49,8 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { count, find, join, last } from '@gitlens/utils/iterable.js';
-import { filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { areEqual, filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
 import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
@@ -58,13 +63,13 @@ import { parseCommandContext } from '../../../commands/commandContext.utils.js';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard.js';
 import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard.js';
+import { openExplainDocument } from '../../../commands/explainBase.js';
 import type { ExplainBranchCommandArgs } from '../../../commands/explainBranch.js';
 import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
 import type { ExplainStashCommandArgs } from '../../../commands/explainStash.js';
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage.js';
-import type { InspectCommandArgs } from '../../../commands/inspect.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
@@ -101,7 +106,6 @@ import {
 	openFiles,
 	openFilesAtRevision,
 	openOnlyChangedFiles,
-	showCommitInGraphDetailsView,
 	undoCommit,
 } from '../../../git/actions/commit.js';
 import * as ContributorActions from '../../../git/actions/contributor.js';
@@ -131,6 +135,7 @@ import {
 	setBranchDisposition,
 } from '../../../git/utils/-webview/branch.utils.js';
 import {
+	formatCommitStats,
 	getCommitAssociatedPullRequest,
 	getCommitEnrichedAutolinks,
 	isCommitSigned,
@@ -148,8 +153,11 @@ import {
 	getWorktreesByBranch,
 } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
+import { shouldUseSinglePass } from '../../../plus/ai/actions/reviewChanges.js';
+import { prepareCompareDataForAIRequest } from '../../../plus/ai/utils/-webview/ai.utils.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService.js';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/associateIssueWithBranch.js';
@@ -167,6 +175,7 @@ import {
 import type { ConfigPath } from '../../../system/-webview/configuration.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
+import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode.js';
@@ -174,18 +183,38 @@ import { createCommandDecorator, getWebviewCommand } from '../../../system/decor
 import { serializeWebviewItemContext } from '../../../system/webview.js';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode.js';
+import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
+import { getFileCommitFromContext, isDetailsFileContext } from '../../commitDetails/commitDetailsWebview.utils.js';
+import { DetailsFileCommands, getDetailsFileCommands } from '../../commitDetails/detailsFileCommands.js';
 import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
 import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import { createSharedServices, proxyServices } from '../../rpc/services/common.js';
+import type { BranchAndTargetRefs, BranchRef } from '../../shared/branchRefs.js';
+import type { GetOverviewEnrichmentResponse, GetOverviewWipResponse } from '../../shared/overviewBranches.js';
+import { getBranchOverviewType, toOverviewBranch } from '../../shared/overviewBranches.js';
+import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
 import type { ComposerCommandArgs } from '../composer/registration.js';
+import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
-import type { GraphServices } from './graphService.js';
+import { checkForAbandonedComposeStashes, executeComposeCommit } from './composeCommitService.js';
+import type { CommitDetails, CompareDiff, DetailsItemContext, GitBranchShape, Wip } from './detailsProtocol.js';
+import { messageHeadlineSplitterToken } from './detailsProtocol.js';
+import { getScopeFiles } from './graphScopeService.js';
+import type {
+	BranchCommitEntry,
+	BranchCommitsResult,
+	BranchComparisonCommit,
+	ComposeRewriteKind,
+	GraphServices,
+	ProposedCommitFile,
+	ScopeSelection,
+} from './graphService.js';
 import {
 	formatRepositories,
 	hasGitReference,
@@ -197,6 +226,7 @@ import {
 } from './graphWebview.utils.js';
 import type {
 	BranchState,
+	GetWipStatsResponse,
 	GraphBranchContextValue,
 	GraphColumnConfig,
 	GraphColumnName,
@@ -214,6 +244,7 @@ import type {
 	GraphItemTypedContext,
 	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadataType,
+	GraphOverviewData,
 	GraphRefMetadata,
 	GraphRefMetadataType,
 	GraphRefType,
@@ -226,6 +257,7 @@ import type {
 	GraphSidebarPanel,
 	GraphStashContextValue,
 	GraphTagContextValue,
+	GraphWipMetadataBySha,
 	GraphWorkingTreeStats,
 	State,
 } from './protocol.js';
@@ -242,6 +274,8 @@ import {
 	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
+	DidChangeOverviewNotification,
+	DidChangeOverviewWipNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -250,8 +284,10 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
+	DidChangeWipStaleNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
+	DidRequestInspectNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
 	DoubleClickedCommand,
@@ -260,8 +296,15 @@ import {
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
+	GetOverviewEnrichmentRequest,
+	GetOverviewRequest,
+	GetOverviewWipRequest,
 	GetRowHoverRequest,
+	getSecondaryWipPath,
+	GetWipStatsRequest,
+	isSecondaryWipSha,
 	JumpToHeadRequest,
+	makeSecondaryWipSha,
 	OpenPullRequestDetailsCommand,
 	RowActionCommand,
 	SearchCancelCommand,
@@ -271,6 +314,7 @@ import {
 	SearchOpenInViewCommand,
 	SearchRequest,
 	supportedRefMetadataTypes,
+	SyncWipWatchesCommand,
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
@@ -311,7 +355,29 @@ const compactGraphColumnsSettings: GraphColumnsSettings = {
 	sha: { width: 130, isHidden: false, order: 6 },
 };
 
-type CancellableOperations = 'branchState' | 'hover' | 'computeIncludedRefs' | 'search' | 'state';
+/**
+ * Grace period before a secondary-WIP filesystem watcher is disposed after its row leaves the
+ * viewport. Lets scroll-past-then-back reuse the live watcher instead of thrashing.
+ */
+const wipWatchGracePeriodMs = 30_000;
+
+// Minimal template used for the first line of the WIP row hover (avatar + author). The rest of the WIP
+// tooltip is built directly in `getWipTooltip` to accommodate the optional worktree path and the
+// "No working changes" fallback, neither of which is representable via formatter tokens.
+const wipAuthorTemplate =
+	// eslint-disable-next-line no-template-curly-in-string
+	'${avatar} &nbsp;__${author}__';
+
+type CancellableOperations =
+	| 'branchState'
+	| 'hover'
+	| 'computeIncludedRefs'
+	| 'search'
+	| 'state'
+	| 'wipStats'
+	| 'workingTree';
+
+const anchorRank: Record<ProposedCommitFile['anchor'], number> = { committed: 0, staged: 1, unstaged: 2 };
 
 const { command, getCommands } = createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'graph'>>();
 
@@ -360,6 +426,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
 		[DidChangeNotification, this.notifyDidChangeState],
+		[DidChangeOverviewNotification, this.notifyDidChangeOverview],
 		[DidChangeRefsVisibilityNotification, this.notifyDidChangeRefsVisibility],
 		[DidChangeScrollMarkersNotification, this.notifyDidChangeScrollMarkers],
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
@@ -381,6 +448,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _lastFetchedDisposable: Disposable | undefined;
 	private _searchHistory: SearchHistory | undefined;
 
+	// Tracked across `notifyDidChangeWorkingTree` calls so we can skip redundant sends when
+	// git emits a change event but the resolved stats/metadata are identical to what the webview already has.
+	private _lastSentWorkingTreeStats:
+		| GraphWorkingTreeStats
+		| { added: number; deleted: number; modified: number }
+		| undefined;
+	private _lastSentWipMetadataBySha: GraphWipMetadataBySha | undefined;
+	// Count of staged files included in the last sent stats. Stats counts (added/deleted/
+	// modified) DON'T change when a file moves from unstaged → staged via SCM, so the dedup
+	// would otherwise drop those notifications and the WIP file list would go stale.
+	private _lastSentStagedCount: number | undefined;
+
+	// Coalesce concurrent `notifyDidChangeState` calls; skip when a fresh full-state send just happened
+	// (via bootstrap or a prior notify). This prevents the second `getState`/`getGraph` pipeline run
+	// that otherwise fires when `onRepositoryChanged` trips during the repo-subscription wiring right after bootstrap.
+	private _pendingStateNotify: Promise<boolean> | undefined;
+	/** In-flight state build (from bootstrap or a notify); shared so concurrent callers coalesce. */
+	private _pendingStateOp: Promise<unknown> | undefined;
+	private _lastStateSentAt: number | undefined;
+	/** Trailing flush scheduled when notify was skipped inside the freshness window. */
+	private _stateFreshnessRetryTimer: ReturnType<typeof setTimeout> | undefined;
+	private static readonly stateFreshnessMs = 500;
+
 	private isWindowFocused: boolean = true;
 
 	private get graphRowProcessor(): GlGraphRowProcessor {
@@ -399,15 +489,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			this.container.storage.onDidChange(this.onStorageChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
-			this.container.git.onDidChangeRepositories(async () => {
+			this.container.git.onDidChangeRepositories(async e => {
 				if (this._etag !== this.container.git.etag) {
 					if (this._discovering != null) {
 						this._etag = await this._discovering;
 						if (this._etag === this.container.git.etag) return;
+					}
+
+					// Skip full state refresh when the change is irrelevant to the graph view. The primary
+					// trigger we need to avoid is worktree discovery during scroll (which bombards the graph
+					// with $1MB state re-sends). Worktrees share their primary repo's remotes/branches/stash/
+					// tags — nothing in the graph's state depends on them being in `openRepositories` beyond
+					// the repositories selector list, which is recomputed on the next legitimate state refresh.
+					const added = e.added ?? [];
+					const removed = e.removed ?? [];
+					if (removed.length === 0 && (added.length === 0 || added.every(r => r.isWorktree))) {
+						this._etag = this.container.git.etag;
+						return;
 					}
 
 					this.updateState();
@@ -426,8 +529,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	dispose(): void {
+		for (const t of this._wipWatchRemoveTimers.values()) {
+			clearTimeout(t);
+		}
+		this._wipWatchRemoveTimers.clear();
+		for (const d of this._wipWatches.values()) {
+			d.dispose();
+		}
+		this._wipWatches.clear();
+		this._flushWipStaleDebounced?.cancel();
+		this._pendingStaleShas.clear();
 		this._disposable.dispose();
 	}
+
+	/** Per-secondary-WIP filesystem watchers, keyed by synthetic `worktree-wip::<path>` sha. */
+	private readonly _wipWatches = new Map<string, Disposable>();
+
+	/** Pending watcher-disposal timers; entries here mean "watcher is lingering past viewport exit". */
+	private readonly _wipWatchRemoveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+	/** Pending WIP stale shas waiting to be flushed as a single notification. */
+	private readonly _pendingStaleShas = new Set<string>();
+	private _flushWipStaleDebounced: Deferrable<() => void> | undefined;
 
 	private readonly _sidebarInvalidatedEvent = createRpcEvent<undefined>('sidebarInvalidated', 'signal');
 	private readonly _sidebarWorktreeEvent = createRpcEvent<{
@@ -439,6 +562,903 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		return proxyServices({
 			...base,
+			graphInspect: {
+				getAiExcludedFiles: async (repoPath: string, filePaths: string[]) => {
+					const { AIIgnoreCache } = await import(
+						/* webpackChunkName: "ai" */ '../../../plus/ai/aiIgnoreCache.js'
+					);
+					const aiIgnore = new AIIgnoreCache(this.container, repoPath);
+					const included = await aiIgnore.excludeIgnored(filePaths);
+					const includedSet = new Set(included);
+					return filePaths.filter(p => !includedSet.has(p));
+				},
+				getScopeFiles: async (repoPath: string, scope: ScopeSelection, signal?: AbortSignal) =>
+					getScopeFiles(this.container, repoPath, scope, signal),
+				getBranchCommits: async (repoPath: string, signal?: AbortSignal) => {
+					signal?.throwIfAborted();
+					try {
+						const svc = this.container.git.getRepositoryService(repoPath);
+						const branch = await svc.branches.getBranch();
+						if (!branch) return { commits: [] };
+
+						const upstreamRef = branch.upstream?.name;
+						const hasUpstream = upstreamRef != null && !branch.upstream?.missing;
+						const aheadCount = hasUpstream ? (branch.upstream!.state.ahead ?? 0) : 0;
+
+						let logRef: string;
+						let mergeBaseSha: string | undefined;
+						if (hasUpstream && upstreamRef) {
+							// Has upstream: show commits since upstream
+							logRef = `${upstreamRef}..HEAD`;
+							// The upstream tip is the effective merge base
+							mergeBaseSha = upstreamRef;
+						} else {
+							// No upstream: determine the base branch and find merge base
+							// Try provider APIs first, then fall back to common branch names
+							let baseBranch: string | undefined;
+							try {
+								baseBranch =
+									(await svc.branches.getBaseBranchName?.(branch.name)) ??
+									(await svc.branches.getDefaultBranchName?.());
+							} catch {
+								// APIs may not be available
+							}
+
+							const candidates = baseBranch ? [baseBranch] : ['main', 'master', 'develop'];
+
+							for (const candidate of candidates) {
+								if (candidate === branch.name) continue;
+								try {
+									const result = await svc.refs.getMergeBase(branch.ref, candidate);
+									if (result) {
+										mergeBaseSha = result;
+										break;
+									}
+								} catch (ex) {
+									console.log(`[compose] getMergeBase(${branch.ref}, ${candidate}) threw: ${ex}`);
+								}
+							}
+
+							logRef = mergeBaseSha ? `${mergeBaseSha}..HEAD` : 'HEAD';
+						}
+
+						const log = await svc.commits.getLog(logRef, {
+							limit: logRef === 'HEAD' ? 20 : 100,
+						});
+						signal?.throwIfAborted();
+
+						if (!log?.commits?.size) return { commits: [] };
+
+						const entries: BranchCommitEntry[] = [];
+						const avatarPromises: Promise<void>[] = [];
+						let index = 0;
+						for (const [sha, commit] of log.commits) {
+							const fileCount =
+								commit.stats?.files != null
+									? typeof commit.stats.files === 'number'
+										? commit.stats.files
+										: commit.stats.files.added +
+											commit.stats.files.deleted +
+											commit.stats.files.changed
+									: 0;
+
+							// With upstream: commits within ahead count are unpushed, rest are pushed
+							// Without upstream: all branch commits since merge base are unpushed
+							const isPushed = hasUpstream ? index >= aheadCount : false;
+
+							const entry: BranchCommitEntry = {
+								sha: sha,
+								message: commit.message ?? '',
+								author: commit.author?.name ?? '',
+								date: commit.author?.date != null ? String(commit.author.date) : '',
+								fileCount: fileCount,
+								additions: commit.stats?.additions,
+								deletions: commit.stats?.deletions,
+								pushed: isPushed,
+							};
+							entries.push(entry);
+
+							if (commit.author?.email) {
+								const email = commit.author.email;
+								const result = getAvatarUri(email, { ref: sha, repoPath: repoPath }, { size: 16 });
+								if (result instanceof Promise) {
+									avatarPromises.push(
+										result.then(uri => {
+											entry.avatarUrl = uri.toString();
+										}),
+									);
+								} else {
+									entry.avatarUrl = result.toString();
+								}
+							}
+							index++;
+						}
+						await Promise.allSettled(avatarPromises);
+
+						// Resolve the merge base commit message
+						let mergeBase: BranchCommitsResult['mergeBase'];
+						if (mergeBaseSha) {
+							try {
+								const mbCommit = await svc.commits.getCommit(mergeBaseSha);
+								signal?.throwIfAborted();
+								if (mbCommit) {
+									const mbEntry: NonNullable<typeof mergeBase> = {
+										sha: mbCommit.sha,
+										message: mbCommit.message?.split('\n')[0] ?? '',
+										author: mbCommit.author?.name,
+										date: mbCommit.author?.date != null ? String(mbCommit.author.date) : undefined,
+									};
+									if (mbCommit.author?.email) {
+										const avatarResult = getAvatarUri(
+											mbCommit.author.email,
+											{ ref: mbCommit.sha, repoPath: repoPath },
+											{ size: 16 },
+										);
+										if (avatarResult instanceof Promise) {
+											mbEntry.avatarUrl = (await avatarResult).toString();
+										} else {
+											mbEntry.avatarUrl = avatarResult.toString();
+										}
+									}
+									mergeBase = mbEntry;
+								}
+							} catch {
+								// If we can't resolve it, just use the SHA
+								mergeBase = { sha: mergeBaseSha, message: '' };
+							}
+						}
+
+						return { commits: entries, mergeBase: mergeBase };
+					} catch {
+						return { commits: [] };
+					}
+				},
+				getCommit: async (
+					repoPath: string,
+					sha: string,
+					signal?: AbortSignal,
+				): Promise<CommitDetails | undefined> => {
+					signal?.throwIfAborted();
+					const commit =
+						this._graph?.stashes?.get(sha) ??
+						(await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha));
+					if (commit == null) return undefined;
+					signal?.throwIfAborted();
+					return this.getCoreCommitDetails(commit);
+				},
+				getSearchContext: (sha: string): Promise<GitCommitSearchContext | undefined> => {
+					return Promise.resolve(this.getSearchContext(sha));
+				},
+				getCompareDiff: async (
+					repoPath: string,
+					from: string,
+					to: string,
+					signal?: AbortSignal,
+				): Promise<CompareDiff | undefined> => {
+					signal?.throwIfAborted();
+					const svc = this.container.git.getRepositoryService(repoPath);
+					const comparison = `${from}..${to}`;
+					const [filesResult, countResult] = await Promise.allSettled([
+						svc.diff.getDiffStatus(comparison),
+						svc.commits.getCommitCount(comparison, signal),
+					]);
+					signal?.throwIfAborted();
+					const files = getSettledValue(filesResult);
+					let additions = 0;
+					let deletions = 0;
+					const changedFiles = { added: 0, deleted: 0, changed: 0 };
+					const mappedFiles =
+						files?.map(f => {
+							if (f.stats != null) {
+								additions += f.stats.additions;
+								deletions += f.stats.deletions;
+							}
+							switch (f.status) {
+								case 'A':
+								case '?':
+									changedFiles.added++;
+									break;
+								case 'D':
+									changedFiles.deleted++;
+									break;
+								default:
+									changedFiles.changed++;
+									break;
+							}
+							return {
+								repoPath: repoPath,
+								path: f.path,
+								status: f.status,
+								originalPath: f.originalPath,
+								staged: false,
+								stats: f.stats,
+							};
+						}) ?? [];
+					return {
+						files: mappedFiles,
+						stats:
+							files != null
+								? { files: changedFiles, additions: additions, deletions: deletions }
+								: undefined,
+						commitCount: getSettledValue(countResult),
+					};
+				},
+				getWip: async (repoPath: string, signal?: AbortSignal): Promise<Wip | undefined> => {
+					signal?.throwIfAborted();
+
+					// Secondary worktrees may not be pre-registered as Repository instances;
+					// open them on demand — closed, so they don't surface in the VS Code UI.
+					const repo =
+						this.container.git.getRepository(repoPath) ??
+						(await this.container.git.getOrOpenRepository(Uri.file(repoPath), { closeOnOpen: true }));
+					if (repo == null) return undefined;
+
+					const svc = this.container.git.getRepositoryService(repoPath);
+					const status = await svc.status.getStatus();
+					if (status == null) return undefined;
+					signal?.throwIfAborted();
+
+					const files: GitFileChangeShape[] = [];
+					for (const file of status.files) {
+						const change = {
+							repoPath: file.repoPath,
+							path: file.path,
+							status: file.status,
+							originalPath: file.originalPath,
+							staged: file.staged,
+						};
+						files.push(change);
+						if (file.staged && file.wip) {
+							files.push({ ...change, staged: false });
+						}
+					}
+
+					const branch = await repo.git.branches.getBranch(status.branch);
+					signal?.throwIfAborted();
+
+					let branchShape: GitBranchShape | undefined;
+					if (branch != null) {
+						branchShape = {
+							name: branch.name,
+							repoPath: branch.repoPath,
+							upstream: branch.upstream,
+							tracking: {
+								ahead: branch.upstream?.state.ahead ?? 0,
+								behind: branch.upstream?.state.behind ?? 0,
+							},
+							reference: getReferenceFromBranch(branch),
+						};
+					}
+
+					return {
+						changes: {
+							repository: { name: repo.name, path: repo.path, uri: repo.uri.toString() },
+							branchName: status.branch,
+							files: files,
+						},
+						repositoryCount: this.container.git.openRepositoryCount,
+						branch: branchShape,
+						repo: {
+							uri: repo.uri.toString(),
+							name: repo.name,
+							path: repo.path,
+						},
+					};
+				},
+				explainCommit: async (
+					repoPath: string,
+					sha: string,
+					prompt?: string,
+					signal?: AbortSignal,
+				): Promise<ExplainResult> => {
+					try {
+						signal?.throwIfAborted();
+						await executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
+							repoPath: repoPath,
+							rev: sha,
+							prompt: prompt || undefined,
+							source: { source: 'graph', context: { type: 'commit' } },
+						});
+						return { result: { summary: '', body: '' } };
+					} catch (ex) {
+						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					}
+				},
+				explainCompare: async (
+					repoPath: string,
+					fromSha: string,
+					toSha: string,
+					prompt?: string,
+					signal?: AbortSignal,
+				): Promise<ExplainResult> => {
+					try {
+						signal?.throwIfAborted();
+						const svc = this.container.git.getRepositoryService(repoPath);
+						const data = await prepareCompareDataForAIRequest(svc, toSha, fromSha);
+						if (data == null) {
+							return { error: { message: 'No changes found between the selected commits' } };
+						}
+
+						const fromShort = shortenRevision(fromSha);
+						const toShort = shortenRevision(toSha);
+						const changes = {
+							diff: data.diff,
+							message: `Changes between ${fromShort} and ${toShort}:\n\n${data.logMessages}`,
+							instructions: prompt || undefined,
+						};
+
+						const result = await this.container.ai.actions.explainChanges(
+							changes,
+							{ source: 'graph', context: { type: 'compare' } },
+							{
+								progress: {
+									location: ProgressLocation.Notification,
+									title: `Explaining changes between ${fromShort}..${toShort}...`,
+								},
+							},
+						);
+
+						if (result === 'cancelled' || result == null) {
+							return { result: { summary: '', body: '' } };
+						}
+
+						const { promise, model } = result;
+
+						openExplainDocument(
+							this.container,
+							promise,
+							`/explain/compare/${fromSha}/${toSha}`,
+							model,
+							'explain-compare',
+							{
+								header: {
+									title: 'Comparison Summary',
+									subtitle: `${fromShort}..${toShort}`,
+								},
+								command: {
+									label: 'Explain Comparison',
+									name: 'gitlens.ai.explainCommit' as const,
+									args: { repoPath: repoPath, rev: toSha, source: { source: 'graph' } },
+								},
+							},
+						);
+
+						return { result: { summary: '', body: '' } };
+					} catch (ex) {
+						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					}
+				},
+				reviewChanges: async (repoPath, scope, prompt, excludedFiles, signal) => {
+					try {
+						signal?.throwIfAborted();
+
+						const reviewType = this.getReviewTypeForScope(scope);
+						const data = await this.getDiffForScope(repoPath, scope, signal);
+						if (!data) return { error: { message: 'No changes found.' } };
+
+						// Filter out user-excluded files before review
+						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
+						if (excluded?.size) {
+							const { filterDiffFiles } = await import(
+								/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
+							);
+							data.diff = await filterDiffFiles(data.diff, paths => paths.filter(p => !excluded.has(p)));
+							signal?.throwIfAborted();
+
+							if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
+						}
+
+						// Adaptive strategy: single-pass for small diffs, two-pass for large. The
+						// threshold is scoped to the selected model's input-context budget — a 1M-
+						// token model happily single-passes a 100KB diff that an 8k-context model
+						// couldn't. `{ silent: true }` avoids prompting the user from a background
+						// fetch; on an unset model the helper falls back to a conservative default.
+						const aiModel = await this.container.ai.getModel({ silent: true });
+						signal?.throwIfAborted();
+						if (shouldUseSinglePass(data.diff, aiModel)) {
+							const result = await this.container.ai.actions.reviewChanges(
+								{ diff: data.diff, message: data.message, instructions: prompt || undefined },
+								{ source: 'graph', context: { type: reviewType, mode: 'single-pass' } },
+								{
+									progress: {
+										location: ProgressLocation.Notification,
+										title: 'Reviewing changes...',
+									},
+								},
+							);
+
+							if (result === 'cancelled' || result == null) {
+								return { error: { message: 'Review was cancelled.' } };
+							}
+
+							const response = await result.promise;
+							if (response === 'cancelled' || response == null) {
+								return { error: { message: 'Review was cancelled.' } };
+							}
+
+							return { result: response.result };
+						}
+
+						// Two-pass: build file manifest from the (already filtered) diff
+						const { parseGitDiff, countDiffInsertionsAndDeletions } = await import(
+							/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
+						);
+						signal?.throwIfAborted();
+						const parsed = parseGitDiff(data.diff);
+						const parsedFiles = parsed.files.map(f => {
+							const { insertions, deletions } = countDiffInsertionsAndDeletions(f);
+							return { path: f.path, status: 'M', additions: insertions, deletions: deletions };
+						});
+						const fileManifest = JSON.stringify(parsedFiles);
+
+						const overviewResult = await this.container.ai.actions.reviewOverview(
+							{ files: fileManifest, message: data.message, instructions: prompt || undefined },
+							{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
+							{
+								progress: {
+									location: ProgressLocation.Notification,
+									title: 'Analyzing changes...',
+								},
+							},
+						);
+
+						if (overviewResult === 'cancelled' || overviewResult == null) {
+							return { error: { message: 'Review was cancelled.' } };
+						}
+
+						const overviewResponse = await overviewResult.promise;
+						if (overviewResponse === 'cancelled' || overviewResponse == null) {
+							return { error: { message: 'Review was cancelled.' } };
+						}
+
+						return { result: overviewResponse.result };
+					} catch (ex) {
+						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					}
+				},
+				reviewFocusArea: async (
+					repoPath,
+					scope,
+					focusAreaId,
+					focusAreaFiles,
+					overviewContext,
+					prompt,
+					excludedFiles,
+					signal,
+				) => {
+					try {
+						signal?.throwIfAborted();
+
+						const reviewType = this.getReviewTypeForScope(scope);
+						const data = await this.getDiffForScope(repoPath, scope, signal);
+						if (!data) return { error: { message: 'No changes found for this focus area.' } };
+
+						// Filter diff to only include focus area files, excluding user-excluded files
+						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
+						const { filterDiffFiles } = await import(
+							/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
+						);
+						const filteredDiff = await filterDiffFiles(data.diff, () =>
+							excluded?.size ? focusAreaFiles.filter(f => !excluded.has(f)) : focusAreaFiles,
+						);
+						signal?.throwIfAborted();
+
+						if (!filteredDiff?.trim()) {
+							return { error: { message: 'No diff content found for the specified files.' } };
+						}
+
+						const result = await this.container.ai.actions.reviewFocusArea(
+							{
+								diff: filteredDiff,
+								overview: overviewContext,
+								message: data.message,
+								focusArea: focusAreaFiles.join(', '),
+								instructions: prompt || undefined,
+							},
+							focusAreaId,
+							{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
+							{
+								progress: {
+									location: ProgressLocation.Notification,
+									title: 'Reviewing focus area...',
+								},
+							},
+						);
+
+						if (result === 'cancelled' || result == null) {
+							return { error: { message: 'Review was cancelled.' } };
+						}
+
+						const response = await result.promise;
+						if (response === 'cancelled' || response == null) {
+							return { error: { message: 'Review was cancelled.' } };
+						}
+
+						return { result: response.result };
+					} catch (ex) {
+						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					}
+				},
+				generateCommitMessage: async repoPath => {
+					// Pass the Repository (not a raw diff) so the AI service applies its
+					// staged-first → unstaged-fallback convention. The previous implementation
+					// always grabbed the full uncommitted diff (staged + unstaged), which produced
+					// messages that didn't match what the user was about to commit on a
+					// staging-aware repo.
+					try {
+						const repo = this.container.git.getRepository(repoPath);
+						if (repo == null) return undefined;
+
+						const result = await this.container.ai.actions.generateCommitMessage(
+							repo,
+							{ source: 'graph-details' },
+							{
+								progress: {
+									location: ProgressLocation.Notification,
+									title: 'Generating commit message...',
+								},
+							},
+						);
+						if (result === 'cancelled' || result == null) return undefined;
+
+						return result.result;
+					} catch (ex) {
+						// Surface the failure instead of silently returning so regressions are visible.
+						Logger.error(ex, 'graph.generateCommitMessage');
+						return undefined;
+					}
+				},
+				composeChanges: async (repoPath, scope, instructions, excludedFiles, signal) => {
+					try {
+						signal?.throwIfAborted();
+
+						if (scope.type !== 'wip') {
+							return { error: { message: 'Compose is only supported for working changes.' } };
+						}
+
+						const svc = this.container.git.getRepositoryService(repoPath);
+
+						// Gather diffs — get staged and unstaged separately for hunk creation
+						const { createHunksFromDiffs } = await import(
+							/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'
+						);
+						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
+						const filterDiffIfNeeded = async (
+							contents: string | undefined,
+						): Promise<string | undefined> => {
+							if (!contents?.trim()) return contents;
+							if (!excluded?.size) return contents;
+							const { filterDiffFiles } = await import(
+								/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
+							);
+							return filterDiffFiles(contents, paths => paths.filter(p => !excluded.has(p)));
+						};
+
+						const [stagedDiffRaw, unstagedDiffRaw] = await Promise.all([
+							scope.includeStaged ? svc.diff?.getDiff?.(uncommittedStaged) : Promise.resolve(undefined),
+							scope.includeUnstaged ? svc.diff?.getDiff?.(uncommitted) : Promise.resolve(undefined),
+						]);
+						signal?.throwIfAborted();
+
+						const stagedContents = await filterDiffIfNeeded(stagedDiffRaw?.contents);
+						const unstagedContents = await filterDiffIfNeeded(unstagedDiffRaw?.contents);
+						signal?.throwIfAborted();
+
+						const hunks = createHunksFromDiffs(stagedContents, unstagedContents);
+
+						// If including unpushed commits, gather their diffs as hunks
+						for (const sha of scope.includeShas) {
+							const commitDiff = await svc.diff?.getDiff?.(sha);
+							signal?.throwIfAborted();
+							const filtered = await filterDiffIfNeeded(commitDiff?.contents);
+							signal?.throwIfAborted();
+
+							if (filtered?.trim()) {
+								const commitHunks = createHunksFromDiffs(filtered, undefined);
+								for (const h of commitHunks) {
+									h.index = hunks.length + 1;
+									h.source = 'commits';
+									hunks.push(h);
+								}
+							}
+						}
+
+						if (hunks.length === 0) {
+							return { error: { message: 'No changes found to compose.' } };
+						}
+
+						const hunkMap = hunks.map(h => ({
+							index: h.index,
+							hunkHeader: h.hunkHeader,
+						}));
+
+						signal?.throwIfAborted();
+
+						const result = await this.container.ai.actions.generateCommits(
+							hunks,
+							[],
+							[],
+							hunkMap,
+							{ source: 'graph' },
+							{
+								customInstructions: instructions,
+								progress: {
+									location: ProgressLocation.Notification,
+									title: 'Composing changes...',
+								},
+							},
+						);
+
+						if (result === 'cancelled' || result == null) {
+							return { error: { message: 'Composition was cancelled.' } };
+						}
+
+						// Build a path -> WIP file lookup so each proposed commit's files carry the
+						// real status/originalPath used for context menus and inline actions.
+						const wipStatus = await svc.status.getStatus(signal);
+						signal?.throwIfAborted();
+
+						const wipByPath = new Map<string, { status: GitFileStatus; originalPath?: string }>();
+						if (wipStatus?.files) {
+							for (const f of wipStatus.files) {
+								if (!wipByPath.has(f.path)) {
+									wipByPath.set(f.path, { status: f.status, originalPath: f.originalPath });
+								}
+							}
+						}
+
+						// Resolve HEAD up front so the per-file anchor logic can reference it.
+						const headCommit = await svc.commits.getCommit('HEAD');
+						signal?.throwIfAborted();
+						const headSha = headCommit?.sha;
+
+						// Build exact per-commit patches from the already-assembled hunks. Reuses the
+						// composer's `createCombinedDiffForCommit` so the same patch shape the
+						// composer preview renders is the one the rewriter applies.
+						const { createCombinedDiffForCommit } = await import(
+							/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'
+						);
+
+						// Transform AI result to ProposedCommit format
+						const commits = result.commits.map((c, i) => {
+							const commitHunks = c.hunks
+								.map(h => hunks.find(hk => hk.index === h.hunk))
+								.filter((h): h is NonNullable<typeof h> => h != null);
+
+							const filesByPath = new Map<string, ProposedCommitFile>();
+							for (const h of commitHunks) {
+								// Anchor each file to its topmost contributing layer: unstaged > staged > committed.
+								// File rows in the tree collapse hunks across layers, so the right-click and inline
+								// actions need to operate on the layer that's actually editable from this panel.
+								const hunkAnchor: ProposedCommitFile['anchor'] =
+									h.source === 'unstaged'
+										? 'unstaged'
+										: h.source === 'staged'
+											? 'staged'
+											: 'committed';
+
+								const existing = filesByPath.get(h.fileName);
+								const anchor =
+									existing == null || anchorRank[hunkAnchor] > anchorRank[existing.anchor]
+										? hunkAnchor
+										: existing.anchor;
+
+								const wip = wipByPath.get(h.fileName);
+								filesByPath.set(h.fileName, {
+									repoPath: repoPath,
+									path: h.fileName,
+									status: wip?.status ?? 'M',
+									originalPath: wip?.originalPath ?? h.originalFileName,
+									staged: anchor === 'staged',
+									anchor: anchor,
+									anchorSha: anchor === 'committed' ? headSha : undefined,
+								});
+							}
+							const files = [...filesByPath.values()];
+							const additions = commitHunks.reduce((sum, h) => sum + (h.additions ?? 0), 0);
+							const deletions = commitHunks.reduce((sum, h) => sum + (h.deletions ?? 0), 0);
+							const { patch } = createCombinedDiffForCommit(commitHunks);
+
+							return {
+								id: `compose-${String(i)}`,
+								message: c.message,
+								files: files,
+								additions: additions,
+								deletions: deletions,
+								patch: patch,
+							};
+						});
+
+						// Determine rewrite anchor from the selected scope.
+						const hasWip = scope.includeStaged || scope.includeUnstaged;
+						const hasCommits = scope.includeShas.length > 0;
+						const kind: ComposeRewriteKind = hasCommits
+							? hasWip
+								? 'wip+commits'
+								: 'commits-only'
+							: 'wip-only';
+
+						let rewriteFromSha = headSha ?? 'HEAD';
+						let selectedShas: string[] | undefined;
+						if (hasCommits) {
+							// Selected SHAs in child-first (topological) order as they appear in the branch.
+							// Walk HEAD back and keep only SHAs the user selected; the last kept is the oldest.
+							const selectedSet = new Set(scope.includeShas);
+							const ordered: string[] = [];
+							let cursor = headCommit;
+							while (cursor != null && ordered.length < selectedSet.size) {
+								if (selectedSet.has(cursor.sha)) {
+									ordered.push(cursor.sha);
+								}
+								const parent = cursor.parents[0];
+								if (parent == null) break;
+								cursor = await svc.commits.getCommit(parent);
+							}
+							selectedShas = ordered;
+							const oldest = ordered.at(-1);
+							if (oldest != null) {
+								const oldestCommit = await svc.commits.getCommit(oldest);
+								const parent = oldestCommit?.parents[0];
+								if (parent != null) {
+									rewriteFromSha = parent;
+								} else {
+									// Root commit — rewrite from the empty tree sentinel.
+									rewriteFromSha = rootSha;
+								}
+							}
+						}
+
+						return {
+							result: {
+								commits: commits,
+								baseCommit: {
+									sha: headCommit?.sha ?? 'HEAD',
+									message: headCommit?.message?.split('\n')[0] ?? '',
+									author: headCommit?.author?.name,
+									date: headCommit?.author?.date?.toISOString(),
+									rewriteFromSha: rewriteFromSha,
+									kind: kind,
+									selectedShas: selectedShas,
+								},
+							},
+						};
+					} catch (ex) {
+						if (isCancellationError(ex)) {
+							return { error: { message: 'Composition was cancelled.' } };
+						}
+						return {
+							error: {
+								message: ex instanceof Error ? ex.message : String(ex),
+							},
+						};
+					}
+				},
+				commitCompose: async (repoPath, plan) => executeComposeCommit(this.container, repoPath, plan),
+				getBranchComparison: async (repoPath, leftRef, rightRef, options, signal) => {
+					signal?.throwIfAborted();
+					try {
+						const svc = this.container.git.getRepositoryService(repoPath);
+
+						// Two-dot for logs (commits reachable from one side but not the other)
+						const aheadLogRange = `${rightRef}..${leftRef}`;
+						const behindLogRange = `${leftRef}..${rightRef}`;
+						// Three-dot for diffs (merge-base → tip), to isolate each side's changes
+						const aheadDiffRange = `${rightRef}...${leftRef}`;
+						const behindDiffRange = `${leftRef}...${rightRef}`;
+
+						const scopedDiffRange = options?.scopeToCommit
+							? `${options.scopeToCommit}~1..${options.scopeToCommit}`
+							: undefined;
+
+						const [countsResult, aheadFilesResult, behindFilesResult, aheadLogResult, behindLogResult] =
+							await Promise.allSettled([
+								svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
+								svc.diff.getDiffStatus(scopedDiffRange ?? aheadDiffRange),
+								svc.diff.getDiffStatus(scopedDiffRange ?? behindDiffRange),
+								svc.commits.getLog(aheadLogRange, { limit: 100 }),
+								svc.commits.getLog(behindLogRange, { limit: 100 }),
+							]);
+						signal?.throwIfAborted();
+
+						const counts = getSettledValue(countsResult);
+						const aheadCount = counts?.left ?? 0;
+						const behindCount = counts?.right ?? 0;
+
+						const mapFiles = (files: GitFile[] | undefined) =>
+							files?.map(f => ({
+								repoPath: repoPath,
+								path: f.path,
+								status: f.status,
+								originalPath: f.originalPath,
+								staged: false,
+								stats: f.stats,
+							})) ?? [];
+
+						const mappedAheadFiles = mapFiles(getSettledValue(aheadFilesResult));
+						const mappedBehindFiles = mapFiles(getSettledValue(behindFilesResult));
+
+						const mapLog = async (
+							log: Awaited<ReturnType<typeof svc.commits.getLog>> | undefined,
+						): Promise<BranchComparisonCommit[]> => {
+							if (!log?.commits?.size) return [];
+
+							const commits: BranchComparisonCommit[] = [];
+							const avatarPromises: Promise<void>[] = [];
+
+							for (const [sha, commit] of log.commits) {
+								const commitStats = commit.stats;
+								const entry: BranchComparisonCommit = {
+									sha: sha,
+									shortSha: sha.substring(0, 7),
+									message: commit.message ?? '',
+									author: commit.author?.name ?? '',
+									authorEmail: commit.author?.email,
+									date: commit.author?.date != null ? String(commit.author.date) : '',
+									additions: commitStats?.additions,
+									deletions: commitStats?.deletions,
+								};
+								commits.push(entry);
+
+								if (commit.author?.email) {
+									const email = commit.author.email;
+									const result = getAvatarUri(email, { ref: sha, repoPath: repoPath }, { size: 16 });
+									if (result instanceof Promise) {
+										avatarPromises.push(
+											result.then(uri => {
+												entry.avatarUrl = uri.toString();
+											}),
+										);
+									} else {
+										entry.avatarUrl = result.toString();
+									}
+								}
+							}
+							await Promise.allSettled(avatarPromises);
+							return commits;
+						};
+
+						const [aheadCommits, behindCommits] = await Promise.all([
+							mapLog(getSettledValue(aheadLogResult)),
+							mapLog(getSettledValue(behindLogResult)),
+						]);
+
+						return {
+							aheadCount: aheadCount,
+							behindCount: behindCount,
+							aheadCommits: aheadCommits,
+							behindCommits: behindCommits,
+							aheadFiles: mappedAheadFiles,
+							behindFiles: mappedBehindFiles,
+						};
+					} catch {
+						return undefined;
+					}
+				},
+				chooseRef: async (repoPath, title, picked) => {
+					const result = await showReferencePicker2(repoPath, title, 'Choose a branch or tag', {
+						include: ['branches', 'tags'],
+						picked: picked,
+					});
+					const pick = result?.value;
+					return pick?.sha != null ? { name: pick.name, sha: pick.sha } : undefined;
+				},
+				getDefaultComparisonRef: async repoPath => {
+					try {
+						const svc = this.container.git.getRepositoryService(repoPath);
+						const branch = await svc.branches.getBranch();
+						if (!branch) return undefined;
+
+						if (branch.upstream?.name && !branch.upstream.missing) {
+							return branch.upstream.name;
+						}
+
+						const name = await svc.branches.getDefaultBranchName();
+						return name ?? undefined;
+					} catch {
+						return undefined;
+					}
+				},
+			},
 			sidebar: {
 				getSidebarData: (panel, signal) => this.onGetSidebarData({ panel: panel }, signal),
 				getSidebarCounts: () => this.onGetCounts(),
@@ -449,6 +1469,50 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onWorktreeStateChanged: this._sidebarWorktreeEvent.subscribe(buffer, tracker),
 			},
 		} satisfies GraphServices);
+	}
+
+	private async getCoreCommitDetails(commit: GitCommit): Promise<CommitDetails> {
+		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
+		const [commitResult, avatarUriResult, committerAvatarUriResult] = await Promise.allSettled([
+			!commit.hasFullDetails()
+				? GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } }).then(() => commit)
+				: commit,
+			getAvatarUri(commit.author.email, { ref: commit.sha, repoPath: commit.repoPath }, { size: 32 }),
+			hasDistinctCommitter
+				? getAvatarUri(commit.committer.email, { ref: commit.sha, repoPath: commit.repoPath }, { size: 32 })
+				: Promise.resolve(undefined),
+		]);
+
+		commit = getSettledValue(commitResult, commit);
+		const avatarUri = getSettledValue(avatarUriResult);
+		const committerAvatarUri = hasDistinctCommitter ? getSettledValue(committerAvatarUriResult) : undefined;
+
+		let message = CommitFormatter.fromTemplate(`\${message}`, commit);
+		const index = message.indexOf('\n');
+		if (index !== -1) {
+			message = `${message.substring(0, index)}${messageHeadlineSplitterToken}${message.substring(index + 1)}`;
+		}
+
+		return {
+			repoPath: commit.repoPath,
+			sha: commit.sha,
+			shortSha: commit.shortSha,
+			author: { ...commit.author, avatar: avatarUri?.toString(true) },
+			committer: { ...commit.committer, avatar: committerAvatarUri?.toString(true) },
+			message: message,
+			parents: commit.parents,
+			stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,
+			stashOnRef: commit.refType === 'stash' ? commit.stashOnRef : undefined,
+			files: (commit.isUncommitted ? commit.anyFiles : commit.fileset?.files)?.map(f => ({
+				repoPath: f.repoPath,
+				path: f.path,
+				status: f.status,
+				originalPath: f.originalPath,
+				staged: f.staged,
+				stats: f.stats,
+			})),
+			stats: commit.stats,
+		};
 	}
 
 	canReuseInstance(...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>): boolean | undefined {
@@ -574,6 +1638,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
+		// Non-blocking: surface any compose stashes from interrupted runs so the user can
+		// recover without digging through `git stash list`. Scoped to the current repo —
+		// multi-repo users will see one notification per repo as they view each.
+		const repoPathForScan = this.repository?.path;
+		if (repoPathForScan != null) {
+			void checkForAbandonedComposeStashes(this.container, repoPathForScan);
+		}
+
 		return [true, this.getShownTelemetryContext()];
 	}
 
@@ -583,8 +1655,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	includeBootstrap(_deferrable?: boolean): Promise<State> {
-		return this.getState(true);
+	async includeBootstrap(_deferrable?: boolean): Promise<State> {
+		// Mark a state op as in-flight for the duration of the bootstrap so any `notifyDidChangeState`
+		// triggered by repo-change events during the bootstrap window waits on this op, then finds the
+		// state already fresh and skips the redundant getState/getGraph pipeline.
+		const op = this.getState(true).finally(() => {
+			this._lastStateSentAt = Date.now();
+			this._pendingStateOp = undefined;
+		});
+		this._pendingStateOp = op;
+		return op;
 	}
 
 	registerCommands(): Disposable[] {
@@ -620,8 +1700,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			);
 		}
 
+		// Register file action commands for the embedded details panel (graphDetails context)
+		this.registerDetailsFileCommands(commands);
+
 		return commands;
 	}
+
+	private registerDetailsFileCommands(commands: Disposable[]): void {
+		const fileCommands = new DetailsFileCommands(this.container);
+		for (const { command: cmd, handler } of getDetailsFileCommands()) {
+			commands.push(
+				this.host.registerWebviewCommandForId(
+					this.host.id,
+					getWebviewCommand(cmd, 'graphDetails'),
+					async (item?: DetailsItemContext) => {
+						if (!isDetailsFileContext(item)) return;
+
+						const [commit, file, comparison] = await getFileCommitFromContext(
+							this.container,
+							item.webviewItemValue,
+						);
+						if (commit == null) return;
+
+						return void handler.call(fileCommands, commit, file, undefined, comparison);
+					},
+				),
+			);
+		}
+	}
+
 	onWindowFocusChanged(focused: boolean): void {
 		this.isWindowFocused = focused;
 	}
@@ -680,6 +1787,76 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			worktrees: graph.worktrees != null ? graph.worktrees.length - 1 : undefined,
 			tags: tags.values.length,
 		};
+	}
+
+	@ipcRequest(GetOverviewRequest)
+	private onGetOverview(): GraphOverviewData {
+		return this.getOverviewData();
+	}
+
+	@ipcRequest(GetOverviewWipRequest)
+	private async onGetOverviewWip(params: IpcParams<typeof GetOverviewWipRequest>): Promise<GetOverviewWipResponse> {
+		if (params.branchIds.length === 0 || this._graph == null || this.repository == null) return {};
+
+		const data = this._graph;
+		return getOverviewWip(
+			this.container,
+			data.branches.values(),
+			data.worktreesByBranch ?? new Map(),
+			params.branchIds,
+		);
+	}
+
+	@ipcRequest(GetOverviewEnrichmentRequest)
+	private async onGetOverviewEnrichment(
+		params: IpcParams<typeof GetOverviewEnrichmentRequest>,
+	): Promise<GetOverviewEnrichmentResponse> {
+		if (params.branchIds.length === 0 || this._graph == null || this.repository == null) return {};
+
+		const subscription = await this.container.subscription.getSubscription();
+		const isPro = isSubscriptionTrialOrPaidFromState(subscription.state);
+
+		return getOverviewEnrichment(this.container, this._graph.branches.values(), params.branchIds, {
+			isPro: isPro,
+			resolveLaunchpad: true,
+		});
+	}
+
+	@ipcRequest(GetWipStatsRequest)
+	private async onGetWipStats(params: IpcParams<typeof GetWipStatsRequest>): Promise<GetWipStatsResponse> {
+		const response: GetWipStatsResponse = {};
+		if (params.shas.length === 0) return response;
+
+		// When the user has disabled per-worktree WIP stats, short-circuit the library-triggered
+		// missing-stats calls. The GK component's `requestedMissingWipStats` dedup marks each sha
+		// as "asked" on first request and never re-asks, so leaving `workDirStats` undefined keeps
+		// the stats pill hidden. Selection-driven fetches pass `force: true` to bypass the gate.
+		if (!params.force && !configuration.get('graph.showWorktreeWipStats')) {
+			return response;
+		}
+
+		const cancellation = this.createCancellation('wipStats');
+		const signal = toAbortSignal(cancellation.token);
+
+		await Promise.allSettled(
+			params.shas.map(async sha => {
+				if (!isSecondaryWipSha(sha)) return;
+				const path = getSecondaryWipPath(sha);
+
+				const svc = this.container.git.getRepositoryService(path);
+				const status = await svc.status.getStatus(signal);
+				if (cancellation.token.isCancellationRequested) return;
+
+				const diff = status?.diffStatus;
+				response[sha] = {
+					added: diff?.added ?? 0,
+					deleted: diff?.deleted ?? 0,
+					modified: diff?.changed ?? 0,
+				};
+			}),
+		);
+
+		return response;
 	}
 
 	private async onGetSidebarData(params: { panel: GraphSidebarPanel }, signal?: AbortSignal) {
@@ -1188,6 +2365,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	@trace({ args: false })
+	private onStorageChanged(e: StorageChangeEvent): void {
+		if (e.type !== 'workspace' || !e.keys.includes('graph:state')) return;
+
+		// If the minimap just became visible and we skipped stats on the last fetch, refetch now
+		if (
+			this.isMinimapVisible() &&
+			configuration.get('graph.minimap.enabled') &&
+			configuration.get('graph.minimap.dataType') === 'lines' &&
+			!this._graph?.includes?.stats
+		) {
+			this.updateState();
+		}
+	}
+
+	private isMinimapVisible(): boolean {
+		return this.container.storage.getWorkspace('graph:state')?.panels?.minimap?.visible ?? true;
+	}
+
 	private getOrgSettings(): State['orgSettings'] {
 		return {
 			ai: getContext('gitlens:gk:organization:ai:enabled', true),
@@ -1208,6 +2404,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		// Index-only changes (staging/unstaging) don't affect the graph structure,
+		// but do affect working tree stats — use the lightweight refresh path
+		if (e.changed('index')) {
+			void this.notifyDidChangeWorkingTree();
+		}
+
 		if (
 			!e.changed(
 				'config',
@@ -1237,8 +2439,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		if (e.changed('head')) {
-			this.setSelectedRows(undefined);
+		// Invalidate sidebar panels only for changes that actually affect their data. Skipping this for
+		// config/unknown/pausedOp changes prevents the sidebar from showing a spinner during unrelated
+		// repo activity (e.g. worktrees discovered during graph scroll fire `unknown` repo events).
+		if (e.changed('heads', 'remotes', 'stash', 'tags')) {
+			this.notifySidebarInvalidated();
 		}
 
 		// Unless we don't know what changed, update the state immediately
@@ -1394,12 +2599,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				let cache = true;
 				let commit;
+				let secondaryWorktree;
 				try {
-					const svc = this.container.git.getRepositoryService(this._graph.repoPath);
+					const isSecondaryWip = params.type === 'work-dir-changes' && isSecondaryWipSha(id);
+					const hoverRepoPath = isSecondaryWip ? getSecondaryWipPath(id) : this._graph.repoPath;
+					const svc = this.container.git.getRepositoryService(hoverRepoPath);
 					switch (params.type) {
 						case 'work-dir-changes':
 							cache = false;
-							commit = await svc.commits.getCommit(uncommitted, toAbortSignal(cancellation.token));
+							[commit, secondaryWorktree] = await Promise.all([
+								svc.commits.getCommit(uncommitted, toAbortSignal(cancellation.token)),
+								isSecondaryWip
+									? svc.worktrees?.getWorktree(
+											wt => wt.path === hoverRepoPath,
+											toAbortSignal(cancellation.token),
+										)
+									: undefined,
+							]);
 							break;
 						case 'stash-node': {
 							const stash = await svc.stash?.getStash(undefined, toAbortSignal(cancellation.token));
@@ -1430,10 +2646,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						});
 					}
 
-					markdown = this.getCommitTooltip(commit, cancellation.token).catch((ex: unknown) => {
-						this._hoverCache.delete(id);
-						throw ex;
-					});
+					markdown = this.getCommitTooltip(commit, cancellation.token, secondaryWorktree).catch(
+						(ex: unknown) => {
+							this._hoverCache.delete(id);
+							throw ex;
+						},
+					);
 					if (cache) {
 						this._hoverCache.set(id, markdown);
 					}
@@ -1456,15 +2674,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return hover;
 	}
 
-	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
+	private async getCommitTooltip(
+		commit: GitCommit,
+		cancellation: CancellationToken,
+		worktree?: GitWorktree | undefined,
+	) {
+		if (commit.isUncommitted) {
+			return this.getWipTooltip(commit, cancellation, worktree);
+		}
+
 		const template = configuration.get(
 			`views.formats.${GitCommit.isStash(commit) ? 'stashes' : 'commits'}.tooltip`,
 		);
 
 		const showSignature =
-			configuration.get('signing.showSignatureBadges') &&
-			!commit.isUncommitted &&
-			CommitFormatter.has(template, 'signature');
+			configuration.get('signing.showSignatureBadges') && CommitFormatter.has(template, 'signature');
 
 		const svc = this.container.git.getRepositoryService(commit.repoPath);
 		const [remotesResult, _, signedResult] = await Promise.allSettled([
@@ -1502,7 +2726,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._getBranchesAndTagsTips ??= await svc.getBranchesAndTagsTipsLookup();
 
-		const tooltip = await CommitFormatter.fromTemplateAsync(
+		return CommitFormatter.fromTemplateAsync(
 			template,
 			commit,
 			{ source: 'graph' },
@@ -1519,8 +2743,41 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// unpublished: this.unpublished,
 			},
 		);
+	}
 
-		return tooltip;
+	private async getWipTooltip(
+		commit: GitCommit,
+		cancellation: CancellationToken,
+		worktree?: GitWorktree,
+	): Promise<string> {
+		const [authorLine] = await Promise.all([
+			CommitFormatter.fromTemplateAsync(
+				wipAuthorTemplate,
+				commit,
+				{ source: 'graph' },
+				{ outputFormat: 'markdown' },
+			),
+			GitCommit.ensureFullDetails(commit, { include: { stats: true } }),
+		]);
+
+		if (cancellation.isCancellationRequested) throw new CancellationError();
+
+		const workingTreeLine =
+			worktree != null ? `\`Working Tree\` &nbsp;$(folder) \`${worktree.uri.fsPath}\`` : '`Working Tree`';
+
+		const statsShort = formatCommitStats(commit.stats, 'stats', { color: true });
+		const statsExpanded = formatCommitStats(commit.stats, 'expanded', {
+			addParenthesesToFileStats: true,
+			color: true,
+			separator: ', ',
+		});
+		const statsLine = statsShort
+			? statsExpanded
+				? `${statsShort} ${statsExpanded}`
+				: statsShort
+			: 'No working changes';
+
+		return `${authorLine}\\\n${workingTreeLine}\\\n${statsLine}`;
 	}
 
 	@ipcRequest(EnsureRowRequest)
@@ -1794,6 +3051,76 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.updateRefsMetadata();
 	}
 
+	@ipcCommand(SyncWipWatchesCommand)
+	@debug()
+	private async onSyncWipWatches(params: IpcParams<typeof SyncWipWatchesCommand>) {
+		const wanted = new Set(params.shas);
+
+		// Schedule lazy disposal for watchers whose row left the viewport, or cancel a pending
+		// disposal if the row is back in view. Rapid scroll-past-then-back reuses the same watcher.
+		for (const sha of this._wipWatches.keys()) {
+			if (wanted.has(sha)) {
+				const pending = this._wipWatchRemoveTimers.get(sha);
+				if (pending != null) {
+					clearTimeout(pending);
+					this._wipWatchRemoveTimers.delete(sha);
+				}
+				continue;
+			}
+
+			if (this._wipWatchRemoveTimers.has(sha)) continue;
+
+			const timer = setTimeout(() => {
+				this._wipWatchRemoveTimers.delete(sha);
+				const d = this._wipWatches.get(sha);
+				if (d == null) return;
+				this._wipWatches.delete(sha);
+				d.dispose();
+			}, wipWatchGracePeriodMs);
+			this._wipWatchRemoveTimers.set(sha, timer);
+		}
+
+		// Open watchers for newly visible shas.
+		for (const sha of wanted) {
+			if (this._wipWatches.has(sha)) continue;
+			if (!isSecondaryWipSha(sha)) continue;
+
+			const path = getSecondaryWipPath(sha);
+			const repo =
+				this.container.git.getRepository(path) ??
+				(await this.container.git.getOrOpenRepository(Uri.file(path), { closeOnOpen: true }));
+			if (repo == null) continue;
+			// Double-check: another concurrent call may have claimed this sha while we awaited.
+			if (this._wipWatches.has(sha) || !wanted.has(sha)) continue;
+
+			this._wipWatches.set(
+				sha,
+				Disposable.from(
+					repo.watchWorkingTree(500),
+					repo.onDidChangeWorkingTree(() => this.queueWipStale(sha)),
+				),
+			);
+		}
+	}
+
+	private queueWipStale(sha: string) {
+		this._pendingStaleShas.add(sha);
+		this._flushWipStaleDebounced ??= debounce(this.flushWipStale.bind(this), 250);
+		this._flushWipStaleDebounced();
+	}
+
+	private flushWipStale() {
+		if (this._pendingStaleShas.size === 0) return;
+		const shas = [...this._pendingStaleShas];
+		this._pendingStaleShas.clear();
+		this.notifyWipStale(shas);
+	}
+
+	private notifyWipStale(shas: string[]) {
+		if (!this.host.ready || !this.host.visible) return;
+		void this.host.notify(DidChangeWipStaleNotification, { shas: shas });
+	}
+
 	@ipcCommand(GetMoreRowsCommand)
 	@trace()
 	private async onGetMoreRows(params: IpcParams<typeof GetMoreRowsCommand>, sendSelectedRows: boolean = false) {
@@ -1827,24 +3154,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@ipcCommand(RowActionCommand)
 	@debug()
 	private async onRowAction(params: IpcParams<typeof RowActionCommand>) {
-		const repoPath = this._graph?.repoPath;
-		if (repoPath == null) return;
+		const primaryRepoPath = this._graph?.repoPath;
+		if (primaryRepoPath == null) return;
+
+		const rowRepoPath =
+			params.row.type === 'work-dir-changes' && isSecondaryWipSha(params.row.id)
+				? getSecondaryWipPath(params.row.id)
+				: primaryRepoPath;
 
 		switch (params.action) {
 			case 'compose-commits':
 				await executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
-					repoPath: repoPath,
+					repoPath: rowRepoPath,
 					source: 'graph',
 				});
 				break;
 			case 'generate-commit-message':
 				await executeCommand<GenerateCommitMessageCommandArgs>('gitlens.ai.generateCommitMessage', {
-					repoPath: repoPath,
+					repoPath: rowRepoPath,
 					source: 'graph',
 				});
 				break;
 			case 'stash-save':
-				await StashActions.push(repoPath);
+				await StashActions.push(rowRepoPath);
 				break;
 			// case 'recompose-branch': {
 			// 	const row = this._graph?.rows.find(r => r.sha === params.row.id);
@@ -2423,6 +3755,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Track when user explicitly selects
 		this._lastUserSelectionTime = Date.now();
+		this._honorSelectedId = true;
 
 		this._fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 50);
 		this._fireSelectionChangedDebounced(item?.id, item?.type);
@@ -2445,9 +3778,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				commit: commits[0],
 				interaction: 'passive',
 				preserveFocus: true,
-				preserveVisibility: this._firstSelection
-					? this._showDetailsView === false
-					: this._showDetailsView !== 'selection',
+				// The embedded details panel handles inspection; suppress sidebar auto-reveal
+				preserveVisibility: true,
 				searchContext: this.getSearchContext(id),
 			},
 			{ source: this.host.id },
@@ -2760,13 +4092,108 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return false;
 		}
 
-		return this.host.notify(DidChangeWorkingTreeNotification, {
-			stats: (await this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges)) ?? {
-				added: 0,
-				deleted: 0,
-				modified: 0,
-			},
+		const cancellation = this.createCancellation('workingTree');
+
+		const [stats, wipMetadataBySha, stagedCount] = await Promise.all([
+			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges, cancellation.token),
+			this.getWipMetadataBySha(cancellation.token),
+			this.getStagedFileCount(cancellation.token),
+		]);
+
+		if (cancellation.token.isCancellationRequested) return false;
+
+		const resolvedStats = stats ?? { added: 0, deleted: 0, modified: 0 };
+
+		// Skip the notification (and the cascading overview WIP notification) when nothing actually changed.
+		// Repository change/FS watcher events fire on any git activity, not just stat-affecting changes, so
+		// without this the webview re-renders on every unrelated git config/branch/stash tick.
+		// We include `stagedCount` separately because moving a file from unstaged → staged (or
+		// vice versa, e.g. via VS Code's SCM panel) doesn't change the added/deleted/modified
+		// totals — the dedup would otherwise drop those notifications and leave the WIP file
+		// list stale until something else perturbs the watcher.
+		if (
+			this._lastSentWorkingTreeStats !== undefined &&
+			areEqual(resolvedStats, this._lastSentWorkingTreeStats) &&
+			areEqual(wipMetadataBySha, this._lastSentWipMetadataBySha) &&
+			stagedCount === this._lastSentStagedCount
+		) {
+			return false;
+		}
+
+		this._lastSentWorkingTreeStats = resolvedStats;
+		this._lastSentWipMetadataBySha = wipMetadataBySha;
+		this._lastSentStagedCount = stagedCount;
+
+		const result = this.host.notify(DidChangeWorkingTreeNotification, {
+			stats: resolvedStats,
+			wipMetadataBySha: wipMetadataBySha,
 		});
+
+		// Also push WIP updates for overview branches — only when the primary repo actually changed.
+		void this.notifyDidChangeOverviewWip();
+
+		return result;
+	}
+
+	private async notifyDidChangeOverviewWip() {
+		if (!this.host.ready || !this.host.visible) return;
+		if (this._graph == null) return;
+
+		const worktreesByBranch = this._graph.worktreesByBranch ?? new Map();
+		const branchIds: string[] = [];
+		for (const branch of this._graph.branches.values()) {
+			if (branch.remote) continue;
+			if (branch.current || worktreesByBranch.get(branch.id)?.opened) {
+				branchIds.push(branch.id);
+			}
+		}
+		if (branchIds.length === 0) return;
+
+		const wip = await this.onGetOverviewWip({ branchIds: branchIds });
+
+		void this.host.notify(DidChangeOverviewWipNotification, { wip: wip });
+	}
+
+	@trace()
+	private async notifyDidChangeOverview() {
+		if (!this.host.ready || !this.host.visible) {
+			this.host.addPendingIpcNotification(DidChangeOverviewNotification, this._ipcNotificationMap, this);
+			return false;
+		}
+
+		return this.host.notify(DidChangeOverviewNotification, {
+			overview: this.getOverviewData(),
+		});
+	}
+
+	private getOverviewData(): GraphOverviewData {
+		const active: GraphOverviewData['active'] = [];
+		const recent: GraphOverviewData['recent'] = [];
+
+		if (this._graph == null || this.repository == null) {
+			return { active: active, recent: recent };
+		}
+
+		const data = this._graph;
+		const worktreesByBranch = data.worktreesByBranch ?? new Map();
+
+		for (const branch of data.branches.values()) {
+			if (branch.remote) continue;
+
+			const branchType = getBranchOverviewType(branch, worktreesByBranch, 'OneWeek', 'OneYear');
+			switch (branchType) {
+				case 'active':
+					active.push(toOverviewBranch(branch, worktreesByBranch, true));
+					break;
+				case 'recent':
+					recent.push(toOverviewBranch(branch, worktreesByBranch, false));
+					break;
+			}
+		}
+
+		recent.sort((a, b) => (b.timestamp ?? -1) - (a.timestamp ?? -1));
+
+		return { active: active, recent: recent };
 	}
 
 	@trace()
@@ -2801,19 +4228,63 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@trace()
-	private async notifyDidChangeState() {
+	private async notifyDidChangeState(): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeNotification, this._ipcNotificationMap, this);
 			return false;
 		}
 
+		// Coalesce: if a notify is already in flight, piggyback on it.
+		if (this._pendingStateNotify != null) return this._pendingStateNotify;
+
+		// If bootstrap (or another op) is building state right now, wait for it — afterwards the freshness
+		// check below will skip the redundant work. Handles repo-change events firing during bootstrap.
+		if (this._pendingStateOp != null) {
+			await this._pendingStateOp.catch(() => undefined);
+		}
+
+		// Within the freshness window: defer rather than drop. A trailing flush at the window boundary
+		// coalesces the rapid-fire notifies that follow bootstrap or repo subscription wiring, so legitimate
+		// changes that land during the window aren't silently lost.
+		if (this._lastStateSentAt != null) {
+			const elapsed = Date.now() - this._lastStateSentAt;
+			if (elapsed < GraphWebviewProvider.stateFreshnessMs) {
+				this._stateFreshnessRetryTimer ??= setTimeout(() => {
+					this._stateFreshnessRetryTimer = undefined;
+					void this.notifyDidChangeState();
+				}, GraphWebviewProvider.stateFreshnessMs - elapsed);
+				return false;
+			}
+		}
+
+		if (this._stateFreshnessRetryTimer != null) {
+			clearTimeout(this._stateFreshnessRetryTimer);
+			this._stateFreshnessRetryTimer = undefined;
+		}
 		this._notifyDidChangeStateDebounced?.cancel();
-		const state = await this.getState();
 
-		// Notify sidebar AFTER state (and graph) is loaded so data fetches see the new graph
-		this._sidebarInvalidatedEvent.fire(undefined);
+		const promise = (async () => {
+			try {
+				const op = this.getState();
+				this._pendingStateOp = op;
+				const state = await op;
 
-		return this.host.notify(DidChangeNotification, { state: state });
+				// Sidebar invalidation is intentionally NOT fired here — firing on every state notify causes
+				// the sidebar to reset its counts + show a spinner on unrelated repo activity (e.g. new worktrees
+				// discovered during graph scroll). The sidebar's counts/panels only need refreshing when
+				// branches/remotes/tags/stashes actually change, which is handled by targeted invalidations in
+				// `onRepositoryChanged` and the cold-open microtask.
+
+				const result = await this.host.notify(DidChangeNotification, { state: state });
+				this._lastStateSentAt = Date.now();
+				return result;
+			} finally {
+				this._pendingStateNotify = undefined;
+				this._pendingStateOp = undefined;
+			}
+		})();
+		this._pendingStateNotify = promise;
+		return promise;
 	}
 
 	private ensureRepositorySubscriptions(force?: boolean) {
@@ -2830,7 +4301,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._repositoryEventsDisposable = Disposable.from(
 			repo.onDidChange(this.onRepositoryChanged, this),
-			repo.watchWorkingTree(1000),
+			repo.watchWorkingTree(500),
 			repo.onDidChangeWorkingTree(this.onRepositoryWorkingTreeChanged, this),
 			onDidChangeContext(key => {
 				if (key !== 'gitlens:repos:withHostingIntegrationsConnected') return;
@@ -3230,8 +4701,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			onlyFollowFirstParent: configuration.get('graph.onlyFollowFirstParent'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			scrollMarkerTypes: this.getScrollMarkerTypes(),
+			showDetailsView: this._showDetailsView,
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
+			showWorktreeWipStats: configuration.get('graph.showWorktreeWipStats'),
 			sidebar: configuration.get('graph.sidebar.enabled') ?? true,
 			stickyTimeline: configuration.get('graph.stickyTimeline'),
 		};
@@ -3310,6 +4783,49 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			item.webview = this.host.id;
 		}
 		return item;
+	}
+
+	private async getWipMetadataBySha(cancellation?: CancellationToken): Promise<GraphWipMetadataBySha | undefined> {
+		if (this.repository == null) return undefined;
+
+		const worktrees = await this.repository.git.worktrees?.getWorktrees(toAbortSignal(cancellation));
+		if (worktrees == null || worktrees.length === 0) return undefined;
+
+		// All known worktrees other than the primary (which is already covered by workingTreeStats).
+		// Emit row-anchor metadata only; workDirStats are fetched on-demand via GetWipStatsRequest
+		// when the GK component fires onWipShasMissingStats for visible rows.
+		const result: GraphWipMetadataBySha = {};
+		for (const wt of worktrees) {
+			if (wt.type === 'bare' || wt.sha == null) continue;
+			if (wt.uri.fsPath === this.repository.path) continue;
+
+			result[makeSecondaryWipSha(wt.uri.fsPath)] = {
+				repoPath: wt.uri.fsPath,
+				parentSha: wt.sha,
+				label: wt.name,
+			};
+		}
+
+		return Object.keys(result).length > 0 ? result : undefined;
+	}
+
+	/**
+	 * Returns the count of staged files in the primary repo, used by `notifyDidChangeWorkingTree`
+	 * to detect SCM-driven stage/unstage changes that don't shift the added/deleted/modified
+	 * totals. Mixed files (path appears in both staged and unstaged) count once for staged.
+	 */
+	private async getStagedFileCount(cancellation?: CancellationToken): Promise<number> {
+		if (this.repository == null) return 0;
+		const svc = this.container.git.getRepositoryService(this.repository.path);
+		const status = await svc.status.getStatus(toAbortSignal(cancellation));
+		if (status?.files == null) return 0;
+		const stagedPaths = new Set<string>();
+		for (const f of status.files) {
+			if (f.staged) {
+				stagedPaths.add(f.path);
+			}
+		}
+		return stagedPaths.size;
 	}
 
 	private async getWorkingTreeStatsAndPausedOperations(
@@ -3400,7 +4916,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.setSelectedRows(uncommitted);
 			selectedId = this._selectedId;
 		}
-		this._honorSelectedId = false;
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
@@ -3411,7 +4926,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				include: {
 					stats:
 						(configuration.get('graph.minimap.enabled') &&
-							configuration.get('graph.minimap.dataType') === 'lines') ||
+							configuration.get('graph.minimap.dataType') === 'lines' &&
+							this.isMinimapVisible()) ||
 						!columnSettings.changes.isHidden,
 				},
 				limit: limit,
@@ -3427,6 +4943,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges, cancellation.token),
 			this.repository.git.branches.getBranch(undefined, toAbortSignal(cancellation.token)),
 			this.repository.getLastFetched(),
+			this.getWipMetadataBySha(cancellation.token),
 		]);
 
 		let data;
@@ -3457,7 +4974,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		const [accessResult, workingStatsResult, branchResult, lastFetchedResult] = await promises;
+		const [accessResult, workingStatsResult, branchResult, lastFetchedResult, wipMetadataResult] = await promises;
 		if (cancellation.token.isCancellationRequested) throw new CancellationError();
 
 		const [access, visibility] = getSettledValue(accessResult) ?? [];
@@ -3537,6 +5054,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch', true);
 		const featurePreview = this.getFeaturePreview();
 
+		const storedPanels = this.container.storage.getWorkspace('graph:state')?.panels;
+
 		const result: State = {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
@@ -3583,13 +5102,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			excludeTypes: refsVisibility.excludeTypes,
 			includeOnlyRefs: refsVisibility.includeOnlyRefs,
 			nonce: this.host.cspNonce,
-			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
+			workingTreeStats: (this._lastSentWorkingTreeStats = getSettledValue(workingStatsResult) ?? {
+				added: 0,
+				deleted: 0,
+				modified: 0,
+			}),
+			wipMetadataBySha: (this._lastSentWipMetadataBySha = getSettledValue(wipMetadataResult)),
 			searchMode: searchMode,
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
 			orgSettings: this.getOrgSettings(),
+			overview: this.getOverviewData(),
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			searchRequest: searchRequest,
+			detailsVisible: storedPanels?.details?.visible ?? true,
+			detailsPosition: storedPanels?.details?.position,
+			sidebarVisible: storedPanels?.sidebar?.visible ?? false,
+			activeSidebarPanel: storedPanels?.sidebar?.activePanel,
+			sidebarPosition: storedPanels?.sidebar?.position,
+			minimapVisible: storedPanels?.minimap?.visible ?? true,
+			minimapPosition: storedPanels?.minimap?.position,
 		};
 		return result;
 	}
@@ -3816,8 +5348,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private resetRepositoryState() {
+		this._honorSelectedId = false;
 		this._getBranchesAndTagsTips = undefined;
 		this._searchHistory = undefined;
+		this._lastSentWorkingTreeStats = undefined;
+		this._lastSentWipMetadataBySha = undefined;
+		this._lastSentStagedCount = undefined;
+		this._lastStateSentAt = undefined;
+		this._pendingStateNotify = undefined;
+		this._pendingStateOp = undefined;
+		if (this._stateFreshnessRetryTimer != null) {
+			clearTimeout(this._stateFreshnessRetryTimer);
+			this._stateFreshnessRetryTimer = undefined;
+		}
 		this.setGraph(undefined);
 		this.setSelectedRows(undefined);
 	}
@@ -3862,6 +5405,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.cancelOperation('computeIncludedRefs');
 		} else {
 			void graph.rowsStatsDeferred?.promise.then(() => void this.notifyDidChangeRowsStats(graph));
+			void this.notifyDidChangeOverview();
 		}
 	}
 
@@ -3979,9 +5523,49 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@command('gitlens.fetch:')
 	@debug()
-	private fetch(item?: GraphItemContext) {
+	private async fetch(item?: GraphItemContext | BranchRef) {
+		if (item != null && 'branchId' in item) {
+			await branchRefCommands.fetchBranch(this.container, item);
+			return;
+		}
 		const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
 		void RepoActions.fetch(this.repository, ref);
+	}
+
+	@command('gitlens.git.branch.setMergeTarget:')
+	@debug()
+	private changeBranchMergeTarget(ref: BranchAndTargetRefs) {
+		branchRefCommands.changeBranchMergeTarget(ref);
+	}
+
+	@command('gitlens.mergeIntoCurrent:')
+	@debug()
+	private async mergeIntoCurrent(ref: BranchRef) {
+		await branchRefCommands.mergeIntoCurrent(this.container, ref);
+	}
+
+	@command('gitlens.rebaseCurrentOnto:')
+	@debug()
+	private async rebaseCurrentOnto(ref: BranchRef) {
+		await branchRefCommands.rebaseCurrentOnto(this.container, ref);
+	}
+
+	@command('gitlens.pushBranch:')
+	@debug()
+	private async pushBranch(ref: BranchRef) {
+		await branchRefCommands.pushBranch(this.container, ref);
+	}
+
+	@command('gitlens.openMergeTargetComparison:')
+	@debug()
+	private openMergeTargetComparison(ref: BranchAndTargetRefs) {
+		return branchRefCommands.openMergeTargetComparison(this.container, ref);
+	}
+
+	@command('gitlens.deleteBranchOrWorktree:')
+	@debug()
+	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
+		await branchRefCommands.deleteBranchOrWorktree(this.container, ref, mergeTarget);
 	}
 
 	@command('gitlens.fetchRemote:')
@@ -4322,11 +5906,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		if (this.host.is('view')) {
-			return void showCommitInGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
-		}
-
-		return executeCommand<InspectCommandArgs>('gitlens.showInDetailsView', { ref: ref });
+		// Open in the embedded details panel
+		return this.host.notify(DidRequestInspectNotification, { sha: ref.ref, repoPath: ref.repoPath });
 	}
 
 	@command('gitlens.graph.commitViaSCM')
@@ -5183,6 +6764,113 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@command('gitlens.recomposeFromCommit:')
 	private recomposeFromCommitCommand(item?: GraphItemContext) {
 		return this.recomposeFromCommit(item);
+	}
+
+	private getReviewTypeForScope(scope: ScopeSelection): 'wip' | 'compare' | 'commit' {
+		switch (scope.type) {
+			case 'wip':
+				return 'wip';
+			case 'compare':
+				return 'compare';
+			default:
+				return 'commit';
+		}
+	}
+
+	private async getDiffForScope(
+		repoPath: string,
+		scope: ScopeSelection,
+		signal?: AbortSignal,
+	): Promise<{ diff: string; message: string } | undefined> {
+		const svc = this.container.git.getRepositoryService(repoPath);
+
+		if (scope.type === 'commit') {
+			const diffResult = await svc.diff?.getDiff?.(scope.sha);
+			signal?.throwIfAborted();
+			if (!diffResult?.contents) return undefined;
+
+			const commit = await svc.commits.getCommit(scope.sha);
+			signal?.throwIfAborted();
+			return { diff: diffResult.contents, message: commit?.message ?? '' };
+		}
+
+		if (scope.type === 'compare') {
+			if (scope.includeShas?.length) {
+				const parts: string[] = [];
+				const messages: string[] = [];
+				for (const sha of scope.includeShas) {
+					const diff = await svc.diff?.getDiff?.(sha);
+					signal?.throwIfAborted();
+					if (diff?.contents) {
+						parts.push(diff.contents);
+					}
+					const c = await svc.commits.getCommit(sha);
+					signal?.throwIfAborted();
+					if (c) {
+						messages.push(`${shortenRevision(c.sha)}: ${c.message ?? ''}`);
+					}
+				}
+				if (!parts.length) return undefined;
+				return {
+					diff: parts.join('\n'),
+					message: `Selected commits between ${shortenRevision(scope.fromSha)} and ${shortenRevision(scope.toSha)}:\n\n${messages.join('\n')}`,
+				};
+			}
+
+			const data = await prepareCompareDataForAIRequest(svc, scope.toSha, scope.fromSha);
+			signal?.throwIfAborted();
+			if (!data) return undefined;
+
+			return {
+				diff: data.diff,
+				message: `Changes between ${shortenRevision(scope.fromSha)} and ${shortenRevision(scope.toSha)}:\n\n${data.logMessages}`,
+			};
+		}
+
+		// WIP scope — gather parts based on selection
+		const parts: string[] = [];
+		const labels: string[] = [];
+
+		if (scope.includeUnstaged) {
+			const d = await svc.diff?.getDiff?.(uncommitted);
+			signal?.throwIfAborted();
+			if (d?.contents) {
+				parts.push(d.contents);
+			}
+			labels.push('unstaged');
+		}
+		if (scope.includeStaged) {
+			const d = await svc.diff?.getDiff?.(uncommittedStaged);
+			signal?.throwIfAborted();
+			if (d?.contents) {
+				parts.push(d.contents);
+			}
+			labels.push('staged');
+		}
+		const commitMessages: string[] = [];
+		for (const sha of scope.includeShas) {
+			const d = await svc.diff?.getDiff?.(sha);
+			signal?.throwIfAborted();
+			if (d?.contents) {
+				parts.push(d.contents);
+			}
+			const c = await svc.commits.getCommit(sha);
+			signal?.throwIfAborted();
+			if (c) {
+				commitMessages.push(`${shortenRevision(c.sha)}: ${c.message ?? ''}`);
+			}
+		}
+
+		if (!parts.length) return undefined;
+
+		let message = labels.length ? `Working changes (${labels.join(' + ')})` : 'Working changes';
+		if (scope.includeShas.length) {
+			message += ` + ${scope.includeShas.length} commit(s)`;
+			if (commitMessages.length) {
+				message += `:\n\n${commitMessages.join('\n')}`;
+			}
+		}
+		return { diff: parts.join('\n'), message: message };
 	}
 
 	@command('gitlens.ai.explainCommit:')

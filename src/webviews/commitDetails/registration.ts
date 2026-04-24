@@ -41,6 +41,7 @@ export function registerGraphDetailsWebviewView(
 			trackingFeature: 'graphDetailsView',
 			type: 'graphDetails',
 			plusFeature: false,
+			location: 'panel',
 			webviewHostOptions: {
 				retainContextWhenHidden: true,
 			},

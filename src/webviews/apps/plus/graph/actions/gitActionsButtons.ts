@@ -3,22 +3,48 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
-import type { BranchState, State } from '../../../../plus/graph/protocol.js';
+import type { StashSaveCommandArgs } from '../../../../../commands/stashSave.js';
+import { createCommandLink } from '../../../../../system/commands.js';
+import type { BranchState, GraphWorkingTreeStats, State } from '../../../../plus/graph/protocol.js';
 import { inlineCode } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
 import { actionButton, linkBase } from '../styles/graph.css.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-git-actions-buttons')
 export class GitActionsButtons extends LitElement {
-	static override styles = css`
-		:host {
-			display: contents;
-		}
-	`;
+	static override styles = [
+		linkBase,
+		actionButton,
+		ruleStyles,
+		css`
+			:host {
+				display: contents;
+			}
+
+			.wip-button {
+				padding: 0;
+				background-color: transparent;
+				gap: 0;
+			}
+
+			.wip-button:hover {
+				background-color: transparent;
+			}
+
+			gl-tooltip {
+				margin-left: 0.4rem;
+			}
+
+			commit-stats {
+				line-height: 2.2rem;
+			}
+		`,
+	];
 
 	@property({ type: Object })
 	branchState?: BranchState;
@@ -30,7 +56,16 @@ export class GitActionsButtons extends LitElement {
 	lastFetched?: Date;
 
 	@property({ type: Object })
+	workingTreeStats?: GraphWorkingTreeStats;
+
+	@property({ type: Object })
 	state!: State;
+
+	private get hasWorkingChanges(): boolean {
+		const stats = this.workingTreeStats;
+		if (stats == null) return false;
+		return stats.added + stats.deleted + stats.modified + (stats.renamed ?? 0) > 0;
+	}
 
 	private get fetchedText() {
 		if (!this.lastFetched) return undefined;
@@ -43,6 +78,10 @@ export class GitActionsButtons extends LitElement {
 		}
 
 		return lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
+	}
+
+	private onJumpToWip() {
+		this.dispatchEvent(new CustomEvent('jump-to-wip', { bubbles: true, composed: true }));
 	}
 
 	override render() {
@@ -58,6 +97,48 @@ export class GitActionsButtons extends LitElement {
 				.fetchedText=${this.fetchedText}
 				.state=${this.state}
 			></gl-fetch-button>
+			${this.hasWorkingChanges
+				? html`<gl-tooltip placement="bottom">
+							<a class="action-button wip-button" @click=${this.onJumpToWip}>
+								<code-icon class="action-button__icon" icon="gl-wip"></code-icon>
+								<commit-stats
+									added=${this.workingTreeStats!.added || undefined}
+									modified=${this.workingTreeStats!.modified || undefined}
+									removed=${this.workingTreeStats!.deleted || undefined}
+									symbol="icons"
+									appearance="pill"
+									no-tooltip
+								></commit-stats>
+							</a>
+							<span slot="content">
+								Working Changes
+								<br />
+								${this.workingTreeStats!.added
+									? html`${pluralize('file', this.workingTreeStats!.added)} added<br />`
+									: nothing}
+								${this.workingTreeStats!.modified
+									? html`${pluralize('file', this.workingTreeStats!.modified)} modified<br />`
+									: nothing}
+								${this.workingTreeStats!.deleted
+									? html`${pluralize('file', this.workingTreeStats!.deleted)} deleted<br />`
+									: nothing}
+								<hr />
+								Click to jump to WIP
+							</span>
+						</gl-tooltip>
+						<gl-tooltip placement="bottom">
+							<a
+								href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
+									repoPath: this.state.selectedRepository,
+								})}
+								class="action-button"
+								aria-label="Stash Changes..."
+							>
+								<code-icon class="action-button__icon" icon="gl-stash-save"></code-icon>
+							</a>
+							<span slot="content">Stash Changes...</span>
+						</gl-tooltip>`
+				: nothing}
 		`;
 	}
 }

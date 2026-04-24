@@ -16,6 +16,8 @@ import {
 	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
+	DidChangeOverviewNotification,
+	DidChangeOverviewWipNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -24,10 +26,13 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
+	DidChangeWipStaleNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
+	DidRequestInspectNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
+	GetOverviewEnrichmentRequest,
 } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
@@ -49,6 +54,21 @@ export function isGraphSearchResultsError(
 	results: GraphSearchResults | GraphSearchResultsError,
 ): results is GraphSearchResultsError {
 	return 'error' in results;
+}
+
+/**
+ * Returns the scope with `mergeTargetTipSha` backfilled from the branch's enrichment, or the
+ * original scope reference when nothing needs to change. Callers use reference-equality to know
+ * whether they need to publish a new scope value.
+ */
+export function reconcileScopeMergeTarget(
+	scope: AppState['scope'],
+	enrichment: AppState['overviewEnrichment'],
+): AppState['scope'] {
+	if (scope == null) return scope;
+	const sha = enrichment?.[scope.branchRef]?.mergeTarget?.sha;
+	if (sha == null || sha === scope.mergeTargetTipSha) return scope;
+	return { ...scope, mergeTargetTipSha: sha };
 }
 
 function getSearchResultModel(searchResults: State['searchResults']): {
@@ -84,6 +104,24 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor activeSidebarPanel: AppState['activeSidebarPanel'];
+
+	@signalState()
+	accessor detailsVisible: AppState['detailsVisible'];
+
+	@signalState()
+	accessor detailsPosition: AppState['detailsPosition'];
+
+	@signalState()
+	accessor sidebarVisible: AppState['sidebarVisible'];
+
+	@signalState()
+	accessor sidebarPosition: AppState['sidebarPosition'];
+
+	@signalState()
+	accessor minimapVisible: AppState['minimapVisible'];
+
+	@signalState()
+	accessor minimapPosition: AppState['minimapPosition'];
 
 	get isBusy(): AppState['isBusy'] {
 		return this.loading || this.searching || /*this.rowsStatsLoading ||*/ false;
@@ -193,6 +231,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor workingTreeStats: State['workingTreeStats'];
 
 	@signalState()
+	accessor wipMetadataBySha: State['wipMetadataBySha'];
+
+	@signalState()
+	accessor scope: AppState['scope'];
+
+	@signalState()
 	accessor useNaturalLanguageSearch: State['useNaturalLanguageSearch'] | undefined;
 
 	@signalState()
@@ -212,6 +256,28 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor orgSettings: State['orgSettings'];
+
+	@signalState()
+	accessor overview: State['overview'];
+
+	@signalState()
+	accessor overviewWip: AppState['overviewWip'];
+
+	@signalState<AppState['overviewEnrichment']>(undefined, {
+		// When enrichment arrives (or refreshes) for the currently-scoped branch, backfill the
+		// scope's `mergeTargetTipSha` so the graph's merge-target anchor appears without requiring
+		// the user to re-scope.
+		afterChange: (target: GraphStateProvider, value) => {
+			const next = reconcileScopeMergeTarget(target.scope, value);
+			if (next !== target.scope) {
+				target.scope = next;
+			}
+		},
+	})
+	accessor overviewEnrichment: AppState['overviewEnrichment'];
+
+	/** Fingerprint of the overview we last fetched enrichment for — avoids duplicate requests. */
+	private _enrichmentFingerprint: string | undefined;
 
 	mcpBannerCollapsed?: boolean | undefined;
 
@@ -245,6 +311,54 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 
 		this.updateState(this._state, true);
+		// Bootstrap may carry overview data; fetch enrichment eagerly so the scope popover
+		// path (which doesn't require the overview sidebar to be mounted) can resolve
+		// merge-target refs for focused branches.
+		this.ensureOverviewEnrichmentFetched(this._state.overview);
+	}
+
+	private ensureOverviewEnrichmentFetched(overview: State['overview']): void {
+		if (overview == null) return;
+		const branchIds = [...overview.active.map(b => b.id), ...overview.recent.map(b => b.id)];
+		if (branchIds.length === 0) return;
+
+		const fingerprint = branchIds.toSorted().join(',');
+		if (fingerprint === this._enrichmentFingerprint) return;
+		this._enrichmentFingerprint = fingerprint;
+
+		void this.ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: branchIds }).then(result => {
+			// Only publish when the overview fingerprint hasn't moved on — a newer overview
+			// in flight will trigger its own fetch whose result is authoritative.
+			if (this._enrichmentFingerprint === fingerprint) {
+				this.overviewEnrichment = { ...this.overviewEnrichment, ...result };
+			}
+		});
+	}
+
+	/** In-flight single-branch enrichment fetches, keyed by branch id, so concurrent callers share one request. */
+	private _adhocEnrichmentPromises = new Map<string, Promise<void>>();
+
+	/**
+	 * Fetch enrichment for a single branch that isn't covered by the overview (e.g. a branch picked
+	 * from the header scope popover that isn't active or recent). Merges the result into
+	 * `overviewEnrichment` so the reactive `syncScopeMergeTarget` hook can anchor the scope.
+	 */
+	ensureEnrichmentForBranch(branchId: string): Promise<void> {
+		if (this.overviewEnrichment?.[branchId] != null) return Promise.resolve();
+
+		const existing = this._adhocEnrichmentPromises.get(branchId);
+		if (existing != null) return existing;
+
+		const promise = this.ipc
+			.sendRequest(GetOverviewEnrichmentRequest, { branchIds: [branchId] })
+			.then(result => {
+				this.overviewEnrichment = { ...this.overviewEnrichment, ...result };
+			})
+			.finally(() => {
+				this._adhocEnrichmentPromises.delete(branchId);
+			});
+		this._adhocEnrichmentPromises.set(branchId, promise);
+		return promise;
 	}
 
 	protected onMessageReceived(msg: IpcMessage): void {
@@ -252,9 +366,24 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		const updates: Partial<State> = {};
 		switch (true) {
-			case DidChangeNotification.is(msg):
-				this.updateState(msg.params.state);
+			case DidChangeNotification.is(msg): {
+				// Preserve client-side wipMetadataBySha.workDirStats (populated via GetWipStatsRequest)
+				// across full-state pushes — the server only sends anchor info.
+				const incoming = msg.params.state;
+				const next =
+					incoming.wipMetadataBySha != null
+						? {
+								...incoming,
+								wipMetadataBySha: mergeWipMetadata(
+									this._state.wipMetadataBySha,
+									incoming.wipMetadataBySha,
+								),
+							}
+						: incoming;
+				this.updateState(next);
+				this.ensureOverviewEnrichmentFetched(next.overview);
 				break;
+			}
 
 			case DidFetchNotification.is(msg):
 				this._state.lastFetched = msg.params.lastFetched;
@@ -409,6 +538,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ selectedRows: msg.params.selection });
 				break;
 
+			case DidRequestInspectNotification.is(msg):
+				this.host.dispatchEvent(
+					new CustomEvent('gl-graph-request-inspect', {
+						detail: { sha: msg.params.sha, repoPath: msg.params.repoPath },
+						bubbles: true,
+					}),
+				);
+				break;
+
 			case DidChangeGraphConfigurationNotification.is(msg):
 				this.updateState({ config: msg.params.config });
 				break;
@@ -424,13 +562,40 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ orgSettings: msg.params.orgSettings });
 				break;
 
+			case DidChangeOverviewNotification.is(msg):
+				this.updateState({ overview: msg.params.overview });
+				this.ensureOverviewEnrichmentFetched(msg.params.overview);
+				break;
+
+			case DidChangeOverviewWipNotification.is(msg):
+				this.overviewWip = msg.params.wip;
+				break;
+
 			case DidChangeMcpBanner.is(msg):
 				this.updateState({ mcpBannerCollapsed: msg.params });
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg):
-				this.updateState({ workingTreeStats: msg.params.stats });
+				this.updateState({
+					workingTreeStats: msg.params.stats,
+					wipMetadataBySha: mergeWipMetadata(this._state.wipMetadataBySha, msg.params.wipMetadataBySha),
+				});
 				break;
+
+			case DidChangeWipStaleNotification.is(msg): {
+				const current = this._state.wipMetadataBySha;
+				if (current == null) break;
+				// Produce a new reference so the GK component's dedup resets and re-requests stats
+				// for any currently-visible entries marked stale.
+				const next = { ...current };
+				for (const sha of msg.params.shas) {
+					const prev = next[sha];
+					if (prev == null) continue;
+					next[sha] = { ...prev, workDirStatsStale: true };
+				}
+				this.updateState({ wipMetadataBySha: next });
+				break;
+			}
 
 			case DidChangeRepoConnectionNotification.is(msg):
 				this.updateState({ repositories: msg.params.repositories });
@@ -543,4 +708,40 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this.options.onStateUpdate?.(partial);
 		this.fireProviderUpdate();
 	}
+}
+
+export function mergeWipMetadata(
+	prev: State['wipMetadataBySha'],
+	incoming: State['wipMetadataBySha'],
+): State['wipMetadataBySha'] {
+	if (incoming == null) return undefined;
+	if (prev == null) return incoming;
+
+	const incomingKeys = Object.keys(incoming);
+	const prevKeys = Object.keys(prev);
+	let changed = incomingKeys.length !== prevKeys.length;
+
+	const result: NonNullable<State['wipMetadataBySha']> = {};
+	for (const [sha, entry] of Object.entries(incoming)) {
+		const prevEntry = prev[sha];
+		// Preserve per-row derived fields fetched client-side via GetWipStatsRequest; anchor fields come from `entry`.
+		// Without this, the library's resolveWipState falls back to the primary's workDirStats for secondary rows
+		// between when the server rebuilds anchors and when fresh stats arrive, causing a visible flash.
+		result[sha] =
+			prevEntry != null
+				? { ...entry, workDirStats: prevEntry.workDirStats, workDirStatsStale: prevEntry.workDirStatsStale }
+				: entry;
+
+		if (changed) continue;
+		if (
+			entry.repoPath !== prevEntry?.repoPath ||
+			entry.parentSha !== prevEntry?.parentSha ||
+			entry.label !== prevEntry?.label
+		) {
+			changed = true;
+		}
+	}
+
+	// Preserve reference when nothing changed so downstream reactive consumers don't churn.
+	return changed ? result : prev;
 }

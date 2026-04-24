@@ -227,6 +227,9 @@ interface AIConfig {
 	readonly explainChanges: {
 		readonly customInstructions: string;
 	};
+	readonly reviewChanges: {
+		readonly customInstructions: string;
+	};
 	readonly generateChangelog: {
 		readonly customInstructions: string;
 	};
@@ -453,6 +456,7 @@ export interface GraphConfig {
 	readonly showGhostRefsOnRowHover: boolean;
 	readonly showRemoteNames: boolean;
 	readonly showUpstreamStatus: boolean;
+	readonly showWorktreeWipStats: boolean;
 	readonly sidebar: {
 		readonly enabled: boolean;
 	};
@@ -1095,6 +1099,7 @@ export type CoreConfig = {
 		readonly autoRepositoryDetection: boolean | 'subFolders' | 'openEditors';
 		readonly enabled: boolean;
 		readonly enableCommitSigning: boolean;
+		readonly enableSmartCommit: boolean;
 		readonly fetchOnPull: boolean;
 		readonly path: string | string[] | null;
 		readonly pullTags: boolean;

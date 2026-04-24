@@ -488,19 +488,27 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 		const editorHoverSource = { source: this._options.source.source, detail: 'actions-row' };
+		const isGraphSource = this._options.source.source === 'graph';
+
+		// When displayed inside the graph, render the sha as plain text — otherwise link to Inspect.
+		const shaOrInspectLink = (shaText: string) =>
+			isGraphSource
+				? shaText
+				: `[${shaText}](${InspectCommand.createMarkdownCommandLink(
+						this._item.sha,
+						this._item.repoPath,
+						editorHoverSource,
+					)} "Inspect Commit Details")`;
 
 		let commands;
 		if (this._item.isUncommitted) {
 			const { previousLineComparisonUris: diffUris } = this._options;
 			if (diffUris?.previous != null) {
-				commands = `[\`${this._padOrTruncate(
+				const shaText = `\`${this._padOrTruncate(
 					shortenRevision(isUncommittedStaged(diffUris.current.sha) ? diffUris.current.sha : uncommitted),
 					this._options.tokenOptions.commands,
-				)}\`](${InspectCommand.createMarkdownCommandLink(
-					this._item.sha,
-					this._item.repoPath,
-					editorHoverSource,
-				)} "Inspect Commit Details")`;
+				)}\``;
+				commands = shaOrInspectLink(shaText);
 
 				commands += ` &nbsp;[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 					lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.uri },
@@ -517,14 +525,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					editorHoverSource,
 				)} "Open Blame Prior to this Change")`;
 			} else {
-				commands = `[\`${this._padOrTruncate(
+				const shaText = `\`${this._padOrTruncate(
 					shortenRevision(this._item.isUncommittedStaged ? uncommittedStaged : uncommitted),
 					this._options.tokenOptions.commands,
-				)}\`](${InspectCommand.createMarkdownCommandLink(
-					this._item.sha,
-					this._item.repoPath,
-					editorHoverSource,
-				)} "Inspect Commit Details")`;
+				)}\``;
+				commands = shaOrInspectLink(shaText);
 			}
 
 			if (this._options.ai?.enabled && this._options.ai?.allowed) {
@@ -538,11 +543,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return commands;
 		}
 
-		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${InspectCommand.createMarkdownCommandLink(
-			this._item.sha,
-			this._item.repoPath,
-			editorHoverSource,
-		)} "Inspect Commit Details")`;
+		const shaText = `\`$(git-commit) ${this.id}\``;
+		commands = `---\n\n${shaOrInspectLink(shaText)}`;
 
 		commands += ` &nbsp;[$(copy)](${CopyShaToClipboardCommand.createMarkdownCommandLink(
 			this._item.sha,
@@ -775,10 +777,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		switch (this._options.outputFormat) {
 			case 'markdown':
 				icon = icon ? `$(${icon}) ` : '';
-				link = `[\`${icon}${label}\`](${InspectCommand.createMarkdownCommandLink({
-					ref: getReferenceFromRevision(this._item),
-					source: this._options.source,
-				})} "Inspect Commit Details")`;
+				link =
+					this._options.source.source === 'graph'
+						? `\`${icon}${label}\``
+						: `[\`${icon}${label}\`](${InspectCommand.createMarkdownCommandLink({
+								ref: getReferenceFromRevision(this._item),
+								source: this._options.source,
+							})} "Inspect Commit Details")`;
 				break;
 			case 'html':
 				icon = icon ? `<span class="codicon codicon-${icon}"></span>` : '';
