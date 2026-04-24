@@ -19,4 +19,6 @@ export interface GitStagingSubProvider {
 	unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	unstageFiles(repoPath: string, pathsOrUris: (string | Uri)[]): Promise<void>;
 	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
+	stageAll(repoPath: string): Promise<void>;
+	unstageAll(repoPath: string): Promise<void>;
 }

@@ -157,4 +157,14 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 	async unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'reset', '-q', '--', toFsPath(directoryOrUri));
 	}
+
+	@debug()
+	async stageAll(repoPath: string): Promise<void> {
+		await this.git.exec({ cwd: repoPath }, 'add', '-A');
+	}
+
+	@debug()
+	async unstageAll(repoPath: string): Promise<void> {
+		await this.git.exec({ cwd: repoPath }, 'reset', '-q');
+	}
 }
