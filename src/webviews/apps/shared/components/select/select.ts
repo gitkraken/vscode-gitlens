@@ -50,7 +50,6 @@ export class GlSelect extends LitElement {
 	private handleChange(e: Event) {
 		const select = e.target as SlSelect;
 		this.value = select.value as string;
-		console.log('[REBASE] select handleChange', { value: this.value });
 
 		// Emit custom event for consistency with other gl-* components
 		const changeEvent = new CustomEvent('gl-change-value', {
@@ -66,46 +65,9 @@ export class GlSelect extends LitElement {
 			composed: true,
 		});
 		this.dispatchEvent(nativeChangeEvent);
-		console.log('[REBASE] select events dispatched');
-	}
-
-	private handleShow() {
-		console.log('[REBASE] select sl-show fired');
-		// Log popup state
-		requestAnimationFrame(() => {
-			const popup = this.selectElement?.shadowRoot?.querySelector('sl-popup');
-			console.log('[REBASE] select popup element:', popup);
-			if (popup) {
-				const style = getComputedStyle(popup);
-				console.log('[REBASE] select popup style:', {
-					display: style.display,
-					visibility: style.visibility,
-					opacity: style.opacity,
-					zIndex: style.zIndex,
-					position: style.position,
-				});
-			}
-			// Check for hoisted popup in document
-			const hoistedPopups = document.querySelectorAll('sl-popup');
-			console.log('[REBASE] hoisted popups in document:', hoistedPopups.length);
-		});
-	}
-
-	private handleHide() {
-		console.log('[REBASE] select sl-hide fired');
-	}
-
-	private handleClick(e: MouseEvent) {
-		console.log('[REBASE] select clicked', { target: e.target, currentTarget: e.currentTarget });
 	}
 
 	override render() {
-		console.log('[REBASE] select render', {
-			value: this.value,
-			optionCount: this.options.length,
-			hoist: this.hoist,
-			size: this.size,
-		});
 		return html`
 			<sl-select
 				value=${this.value}
@@ -114,9 +76,6 @@ export class GlSelect extends LitElement {
 				?hoist=${this.hoist}
 				size=${this.size}
 				@sl-change=${this.handleChange}
-				@sl-show=${this.handleShow}
-				@sl-hide=${this.handleHide}
-				@click=${this.handleClick}
 			>
 				<code-icon icon="chevron-down" slot="expand-icon"></code-icon>
 				${this.options.map(
