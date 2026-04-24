@@ -20,9 +20,11 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 	constructor(
 		private readonly container: Container,
 		private readonly asWebviewUri: (uri: Uri) => Uri,
+		private readonly getPinnedRefId: () => string | undefined = () => undefined,
 	) {}
 
 	processRow(row: GitGraphRow, context: GraphContext): void {
+		const pinnedRefId = this.getPinnedRefId();
 		const groupedRefs = new Map<
 			string,
 			{ head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }
@@ -60,7 +62,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 								: ''
 					}${branch?.starred ? '+starred' : ''}${
 						branch?.upstream?.state.ahead ? '+ahead' : ''
-					}${branch?.upstream?.state.behind ? '+behind' : ''}`,
+					}${branch?.upstream?.state.behind ? '+behind' : ''}${head.id === pinnedRefId ? '+pinned' : ''}`,
 					webviewItemValue: {
 						type: 'branch',
 						ref: createReference(head.name, context.repoPath, {
@@ -100,7 +102,9 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 				)?.toString(true);
 
 				const ctx: GraphItemRefContext<GraphBranchContextValue> = {
-					webviewItem: `gitlens:branch+remote${context.branches.get(fullName)?.starred ? '+starred' : ''}`,
+					webviewItem: `gitlens:branch+remote${context.branches.get(fullName)?.starred ? '+starred' : ''}${
+						remoteHead.id === pinnedRefId ? '+pinned' : ''
+					}`,
 					webviewItemValue: {
 						type: 'branch',
 						ref: createReference(fullName, context.repoPath, {

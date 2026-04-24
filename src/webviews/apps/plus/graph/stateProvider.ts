@@ -22,6 +22,7 @@ import {
 	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
 	DidChangeOverviewWipNotification,
+	DidChangePinnedRefNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -274,6 +275,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor includeOnlyRefs: State['includeOnlyRefs'];
+
+	@signalState()
+	accessor pinnedRef: State['pinnedRef'];
 
 	@signalState()
 	accessor featurePreview: State['featurePreview'];
@@ -545,6 +549,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					excludeTypes: msg.params.excludeTypes,
 					includeOnlyRefs: msg.params.includeOnlyRefs,
 				});
+				break;
+
+			case DidChangePinnedRefNotification.is(msg):
+				this.updateState({ pinnedRef: msg.params.pinnedRef });
 				break;
 
 			case DidChangeRefsMetadataNotification.is(msg):

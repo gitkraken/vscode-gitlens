@@ -260,21 +260,43 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private async handleJumpToRef(e: MouseEvent) {
 		const ref = await this.onJumpToRefPromise(e.altKey);
 		if (ref != null) {
-			const id = await this.ensureSearchResultRow(ref.sha);
-			if (id == null) return;
-
-			// Select the commit and check if it's filtered out
-			const rows = this.selectCommits?.([id], { ensureVisible: true });
-
-			// If loaded but filtered out, show warning
-			if (rows?.[0]?.hidden) {
-				this._searchResultHidden = true;
-			}
+			await this.jumpToSha(ref.sha);
 		}
 	}
 
 	private handleJumpToWip() {
 		this.selectCommits?.(['work-dir-changes'], { ensureVisible: true });
+	}
+
+	private async handleJumpToPinnedBranch() {
+		const pinnedRef = this.graphState.pinnedRef;
+		if (pinnedRef == null) return;
+
+		let sha = pinnedRef.sha;
+		if (sha == null) {
+			const rows = this.graphState.rows;
+			if (rows != null) {
+				for (const row of rows) {
+					if (row.heads?.some(h => h.id === pinnedRef.id) || row.remotes?.some(r => r.id === pinnedRef.id)) {
+						sha = row.sha;
+						break;
+					}
+				}
+			}
+		}
+		if (sha == null) return;
+
+		await this.jumpToSha(sha);
+	}
+
+	private async jumpToSha(sha: string) {
+		const id = await this.ensureSearchResultRow(sha);
+		if (id == null) return;
+
+		const rows = this.selectCommits?.([id], { ensureVisible: true });
+		if (rows?.[0]?.hidden) {
+			this._searchResultHidden = true;
+		}
 	}
 
 	private onOpenPullRequest(pr: NonNullable<NonNullable<State['branchState']>['pr']>): void {
@@ -954,6 +976,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										</issue-pull-request>
 									</div>
 								</gl-popover>
+							`,
+						)}
+						${when(
+							state.pinnedRef != null,
+							() => html`
+								<gl-button
+									class="jump-to-pinned-branch"
+									appearance="toolbar"
+									@click=${this.handleJumpToPinnedBranch}
+								>
+									<code-icon icon="pinned"></code-icon>
+									<span slot="tooltip">Jump to pinned branch</span>
+								</gl-button>
 							`,
 						)}
 						<gl-ref-button

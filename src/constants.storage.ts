@@ -406,6 +406,7 @@ export interface StoredGraphFilters {
 	includeOnlyRefs?: Record<string, StoredGraphIncludeOnlyRef>;
 	excludeRefs?: Record<string, StoredGraphExcludedRef>;
 	excludeTypes?: Record<StoredGraphExcludeTypes, boolean>;
+	pinnedRef?: StoredGraphPinnedRef;
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
@@ -431,6 +432,13 @@ export interface StoredGraphExcludedRef {
 }
 
 export interface StoredGraphIncludeOnlyRef {
+	id: string;
+	type: StoredGraphRefType;
+	name: string;
+	owner?: string;
+}
+
+export interface StoredGraphPinnedRef {
 	id: string;
 	type: StoredGraphRefType;
 	name: string;

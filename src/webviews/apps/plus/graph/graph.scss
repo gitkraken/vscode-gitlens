@@ -888,6 +888,13 @@ button:not([disabled]),
 		}
 	}
 
+	&--pin {
+		&::before {
+			font-family: codicon;
+			@include iconUtils.codicon('pinned');
+		}
+	}
+
 	&--issue-github,
 	&--issue-githubEnterprise {
 		&::before {
