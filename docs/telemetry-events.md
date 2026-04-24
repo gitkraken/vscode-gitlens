@@ -122,7 +122,7 @@ void
 
 ```typescript
 {
-  'changeType': 'wip' | 'stash' | 'commit' | 'branch' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
+  'changeType': 'wip' | 'stash' | 'commit' | 'branch' | 'compare' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
   'correlationId': string,
@@ -174,7 +174,7 @@ void
   'model.provider.name': string,
   'sentiment': 'helpful' | 'unhelpful',
   // The AI feature that feedback was submitted for
-  'type': 'explain-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-codeSuggestion' | 'generate-create-pullRequest' | 'generate-commits' | 'generate-searchQuery',
+  'type': 'explain-changes' | 'review-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-codeSuggestion' | 'generate-create-pullRequest' | 'generate-commits' | 'generate-searchQuery',
   // Custom feedback provided (if any)
   'unhelpful.custom': string,
   // Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values
@@ -474,6 +474,52 @@ or
   'output.length': number,
   'retry.count': number,
   'type': 'stashMessage',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
+}
+```
+
+### ai/review
+
+> Sent when reviewing changes from wip, commits, or commit ranges
+
+```typescript
+{
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
+  'correlationId': string,
+  'customInstructions.commitMessage.setting.length': number,
+  'customInstructions.commitMessage.setting.used': boolean,
+  'customInstructions.length': number,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'customInstructions.used': boolean,
+  'diff.files.count': number,
+  'diff.hash': string,
+  'diff.hunks.count': number,
+  'diff.lines.count': number,
+  'duration': number,
+  'failed': boolean,
+  'failed.cancelled.reason': 'large-prompt',
+  'failed.error': string,
+  'failed.error.detail': string,
+  'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
+  'id': string,
+  'input.length': number,
+  'model.id': string,
+  'model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'model.provider.name': string,
+  'output.length': number,
+  'retry.count': number,
+  'reviewMode': 'single-pass' | 'two-pass',
+  'reviewType': 'wip' | 'commit' | 'compare',
+  'type': 'review',
   'usage.completionTokens': number,
   'usage.limits.limit': number,
   'usage.limits.resetsOn': string,
@@ -2623,6 +2669,7 @@ or
   'context.config.showGhostRefsOnRowHover': boolean,
   'context.config.showRemoteNames': boolean,
   'context.config.showUpstreamStatus': boolean,
+  'context.config.showWorktreeWipStats': boolean,
   'context.config.sidebar.enabled': boolean,
   'context.config.statusBar.enabled': boolean,
   'context.config.stickyTimeline': boolean,

@@ -78,6 +78,26 @@ interface ReviewPullRequestPromptTemplateContext {
 	instructions?: string;
 }
 
+interface ReviewChangesPromptTemplateContext {
+	diff: string;
+	message: string;
+	instructions?: string;
+}
+
+interface ReviewOverviewPromptTemplateContext {
+	files: string;
+	message: string;
+	instructions?: string;
+}
+
+interface ReviewDetailPromptTemplateContext {
+	diff: string;
+	overview: string;
+	message: string;
+	focusArea: string;
+	instructions?: string;
+}
+
 interface StartWorkIssuePromptTemplateContext {
 	issue: string;
 	instructions?: string;
@@ -91,6 +111,9 @@ export type PromptTemplateType =
 	| 'generate-commits'
 	| 'generate-searchQuery'
 	| 'explain-changes'
+	| 'review-changes'
+	| 'review-overview'
+	| 'review-detail'
 	| 'start-review-pullRequest'
 	| 'start-work-issue';
 
@@ -115,6 +138,12 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? SearchQueryPromptTemplateContext
 	: T extends 'explain-changes'
 	? ExplainChangesPromptTemplateContext
+	: T extends 'review-changes'
+	? ReviewChangesPromptTemplateContext
+	: T extends 'review-overview'
+	? ReviewOverviewPromptTemplateContext
+	: T extends 'review-detail'
+	? ReviewDetailPromptTemplateContext
 	: T extends 'start-review-pullRequest'
 	? ReviewPullRequestPromptTemplateContext
 	: T extends 'start-work-issue'

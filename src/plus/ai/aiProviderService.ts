@@ -271,7 +271,7 @@ export interface AIRequestProvider {
 	 */
 	getMessages: (
 		model: AIModel,
-		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+		reporting: TelemetryEvents['ai/generate' | 'ai/explain' | 'ai/review'],
 		cancellation: CancellationToken,
 		maxInputTokens: number,
 		retries: number,
@@ -293,8 +293,8 @@ export interface AIRequestProvider {
 		model: AIModel,
 		attempt: number,
 	) => {
-		key: 'ai/generate' | 'ai/explain';
-		data: TelemetryEvents['ai/generate' | 'ai/explain'];
+		key: 'ai/generate' | 'ai/explain' | 'ai/review';
+		data: TelemetryEvents['ai/generate' | 'ai/explain' | 'ai/review'];
 	};
 }
 
@@ -1314,7 +1314,7 @@ export class AIProviderService implements AIService, Disposable {
 		context: PromptTemplateContext<T>,
 		maxInputTokens: number | undefined,
 		retries: number | undefined,
-		reporting: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
+		reporting: TelemetryEvents['ai/generate' | 'ai/explain' | 'ai/review'] | undefined,
 		truncationHandler?: TruncationHandler<T>,
 		options?: ResolvePromptOptions,
 	): Promise<{ prompt: string; truncated: boolean }>;
@@ -1336,7 +1336,7 @@ export class AIProviderService implements AIService, Disposable {
 		context: PromptTemplateContext<T>,
 		maxInputTokens?: number | undefined,
 		retries?: number | undefined,
-		reporting?: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
+		reporting?: TelemetryEvents['ai/generate' | 'ai/explain' | 'ai/review'] | undefined,
 		truncationHandler?: TruncationHandler<T>,
 		options?: ResolvePromptOptions,
 	): Promise<{ prompt: string; truncated: boolean }> {

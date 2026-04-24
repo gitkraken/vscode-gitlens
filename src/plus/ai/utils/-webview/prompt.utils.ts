@@ -15,6 +15,9 @@ import {
 	generateCreatePullRequest,
 	generateSearchQuery,
 	generateStashMessage,
+	reviewChanges,
+	reviewDetail,
+	reviewOverview,
 	reviewPullRequest,
 	startWorkFromIssue,
 } from '@gitlens/ai/prompts.js';
@@ -25,6 +28,26 @@ import type { TelemetryEvents } from '../../../../constants.telemetry.js';
 import { AIError, AIErrorReason } from '../../../../errors.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { showLargePromptWarning, showPromptTruncationWarning } from './ai.utils.js';
+
+/**
+ * Merges custom user-configured instructions and per-request user guidance into a single instructions block.
+ * `userGuidanceHeader` is the natural-language header prepended to the user guidance (e.g. "The user provided ...:").
+ * Returns an empty string when both inputs are empty.
+ */
+export function mergeUserInstructions(
+	customInstructions: string | null | undefined,
+	userGuidance: string | null | undefined,
+	userGuidanceHeader: string,
+): string {
+	let instructions = '';
+	if (customInstructions) {
+		instructions += customInstructions;
+	}
+	if (userGuidance) {
+		instructions += `${instructions ? '\n\n' : ''}${userGuidanceHeader}\n${userGuidance}`;
+	}
+	return instructions;
+}
 
 export function getLocalPromptTemplate<T extends PromptTemplateType>(
 	template: T,
@@ -49,6 +72,12 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return generateCommits as PromptTemplate<T>;
 		case 'explain-changes':
 			return explainChanges as PromptTemplate<T>;
+		case 'review-changes':
+			return reviewChanges as PromptTemplate<T>;
+		case 'review-overview':
+			return reviewOverview as PromptTemplate<T>;
+		case 'review-detail':
+			return reviewDetail as PromptTemplate<T>;
 		case 'start-review-pullRequest':
 			return reviewPullRequest as PromptTemplate<T>;
 		case 'start-work-issue':
@@ -69,7 +98,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 	templateContext: PromptTemplateContext<T>,
 	maxInputTokens: number | undefined,
 	retries: number | undefined,
-	reporting: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
+	reporting: TelemetryEvents['ai/generate' | 'ai/explain' | 'ai/review'] | undefined,
 	truncationHandler?: TruncationHandler<T>,
 	options?: ResolvePromptOptions,
 ): Promise<{ prompt: string; truncated: boolean }>;
@@ -93,7 +122,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 	templateContext: PromptTemplateContext<T>,
 	maxInputTokens?: number | undefined,
 	retries?: number | undefined,
-	reporting?: TelemetryEvents['ai/generate' | 'ai/explain'] | undefined,
+	reporting?: TelemetryEvents['ai/generate' | 'ai/explain' | 'ai/review'] | undefined,
 	truncationHandler?: TruncationHandler<T>,
 	options?: ResolvePromptOptions,
 ): Promise<{ prompt: string; truncated: boolean }> {

@@ -52,7 +52,9 @@ type DiffTemplateType =
 	| 'generate-create-cloudPatch'
 	| 'generate-create-codeSuggestion'
 	| 'generate-create-pullRequest'
-	| 'explain-changes';
+	| 'explain-changes'
+	| 'review-changes'
+	| 'review-detail';
 
 /** File type base scores (0-100, higher = more important) */
 const fileTypeScores: Record<string, number> = {

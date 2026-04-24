@@ -526,3 +526,132 @@ You can use GitKraken MCP tools to gather additional context about the repositor
 
 Now, proceed with your analysis and provide a comprehensive review of the PR. Return only the relevant information without any additional text.`,
 };
+
+export const reviewChanges: PromptTemplate<'review-changes'> = {
+	id: 'review-changes',
+	variables: ['diff', 'message', 'instructions'],
+	template: `You are an expert code reviewer analyzing a set of code changes. Your goal is to identify meaningful issues — bugs, logic errors, security vulnerabilities, missing error handling, and potential regressions — while ignoring style preferences and linter-level concerns. Focus on problems a careful human reviewer would catch.
+
+Examine the following code changes in Git diff format:
+<~~diff~~>
+\${diff}
+</~~diff~~>
+
+Author's description of the changes:
+<~~message~~>
+\${message}
+</~~message~~>
+
+Produce a structured review in the following XML format. Include ONLY the XML tags described — no other text:
+
+<overview>
+A concise 1-3 sentence summary of what these changes do and their overall quality. Note any systemic concerns.
+</overview>
+<focus-areas>
+<area severity="critical|warning|suggestion" files="comma-separated file paths">
+<label>Short title of the concern (under 60 chars)</label>
+<rationale>Why this matters — what could go wrong or what is suboptimal</rationale>
+<findings>
+<finding severity="critical|warning|suggestion" file="path/to/file.ts" lines="start-end">
+<title>Specific issue title</title>
+<description>Clear explanation of the problem and how to address it</description>
+</finding>
+</findings>
+</area>
+</focus-areas>
+
+Guidelines:
+- Severity levels: "critical" = bugs, security issues, data loss risks; "warning" = logic concerns, missing error handling, potential regressions; "suggestion" = improvements, maintainability, performance
+- Group related findings into focus areas by theme, not by file
+- If changes look correct and well-structured, say so in the overview and include zero focus areas
+- 3-5 high-quality findings are better than 15 low-quality ones
+- Reference specific lines from the diff when possible
+- Do not flag style issues, naming preferences, or things a linter would catch
+- Base conclusions only on the code shown — do not speculate about unseen code
+
+\${instructions}
+
+Review the changes and produce the structured XML output above.`,
+};
+
+export const reviewOverview: PromptTemplate<'review-overview'> = {
+	id: 'review-overview',
+	variables: ['files', 'message', 'instructions'],
+	template: `You are an expert code reviewer performing an initial assessment of a set of code changes. You are given a file manifest (not full diffs) — use the file paths, change types, and line counts to identify which areas deserve closer inspection.
+
+File manifest (JSON array of changed files):
+<~~files~~>
+\${files}
+</~~files~~>
+
+Author's description of the changes:
+<~~message~~>
+\${message}
+</~~message~~>
+
+Produce a structured assessment in the following XML format. Include ONLY the XML tags described — no other text:
+
+<overview>
+A concise 1-3 sentence summary of the scope and nature of these changes based on the file manifest and description.
+</overview>
+<focus-areas>
+<area severity="critical|warning|suggestion" files="comma-separated file paths">
+<label>Short title of the area to inspect (under 60 chars)</label>
+<rationale>Why this area deserves closer review — based on the types of files changed, the volume of changes, and potential risk</rationale>
+</area>
+</focus-areas>
+
+Guidelines:
+- Severity reflects potential risk: "critical" = security-sensitive files, auth/crypto/payment paths, database migrations; "warning" = core logic changes, API changes, large modifications; "suggestion" = refactoring, config changes, documentation
+- Rank focus areas from highest to lowest risk
+- Group related files into focus areas by theme
+- Include 2-6 focus areas. If changes are very simple, fewer is fine
+- Do NOT include <findings> — those come in a later pass when full diffs are available
+
+\${instructions}
+
+Assess the changes and produce the structured XML output above.`,
+};
+
+export const reviewDetail: PromptTemplate<'review-detail'> = {
+	id: 'review-detail',
+	variables: ['diff', 'overview', 'message', 'focusArea', 'instructions'],
+	template: `You are an expert code reviewer performing a detailed inspection of specific files that were flagged for closer review. You have the context from an initial overview assessment.
+
+Initial overview of the full changeset:
+<~~overview~~>
+\${overview}
+</~~overview~~>
+
+Focus area being inspected: \${focusArea}
+
+Author's description of the changes:
+<~~message~~>
+\${message}
+</~~message~~>
+
+Code changes for the files in this focus area (Git diff format):
+<~~diff~~>
+\${diff}
+</~~diff~~>
+
+Produce detailed findings in the following XML format. Include ONLY the XML tags — no other text:
+
+<findings>
+<finding severity="critical|warning|suggestion" file="path/to/file.ts" lines="start-end">
+<title>Specific issue title</title>
+<description>Clear explanation of the problem and how to address it</description>
+</finding>
+</findings>
+
+Guidelines:
+- Severity: "critical" = bugs, security, data loss; "warning" = logic concerns, error handling, regressions; "suggestion" = improvements, maintainability
+- Reference specific line numbers from the diff
+- Be concrete — explain what the problem is and how to fix it
+- If the code in this area looks correct, return an empty <findings></findings> block
+- Do not flag style issues or things a linter would catch
+
+\${instructions}
+
+Inspect the diff for this focus area and produce the structured XML findings above.`,
+};

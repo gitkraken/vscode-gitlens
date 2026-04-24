@@ -4,6 +4,8 @@ export function getActionName(action: AIActionType): string {
 	switch (action) {
 		case 'explain-changes':
 			return 'Explain Changes';
+		case 'review-changes':
+			return 'Review Changes';
 		case 'generate-commitMessage':
 			return 'Generate Commit Message';
 		case 'generate-stashMessage':

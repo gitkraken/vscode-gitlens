@@ -68,6 +68,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when explaining changes from wip, commits, stashes, patches, etc. */
 	'ai/explain': AIExplainEvent;
 
+	/** Sent when reviewing changes from wip, commits, or commit ranges */
+	'ai/review': AIReviewEvent;
+
 	/** Sent when generating summaries from commits, stashes, patches, etc. */
 	'ai/generate': AIGenerateEvent;
 
@@ -538,7 +541,19 @@ interface AIEventDataSendBase extends AIEventDataBase {
 
 interface AIExplainEvent extends AIEventDataSendBase {
 	type: 'change';
-	changeType: 'wip' | 'stash' | 'commit' | 'branch' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
+	changeType:
+		| 'wip'
+		| 'stash'
+		| 'commit'
+		| 'branch'
+		| 'compare'
+		| `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
+}
+
+interface AIReviewEvent extends AIEventDataSendBase {
+	type: 'review';
+	reviewType: 'commit' | 'wip' | 'compare';
+	reviewMode: 'single-pass' | 'two-pass';
 }
 
 export interface AIGenerateChangelogEventData extends AIEventDataSendBase {
