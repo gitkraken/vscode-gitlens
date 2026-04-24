@@ -35,15 +35,8 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - '@oxc-parser/*'
-    - '@oxc-project/types@0.125.0'
-    - '@prettier/plugin-oxc@0.1.4'
-    - '@typescript-eslint/*'
-    - 'ovsx@0.10.11'
-    - 'oxc-parser@0.125.0'
-    - 'typescript@6.0.3'
-    - 'typescript-eslint@8.58.2'
-    - 'webpack@5.106.2'
+    - '@swc/*'
+    - 'marked@18.0.2'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch
