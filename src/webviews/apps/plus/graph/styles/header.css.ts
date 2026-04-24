@@ -24,7 +24,6 @@ export const titlebarStyles = css`
 		border-top: 1px solid transparent;
 		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 	}
-
 	.titlebar,
 	.titlebar__row,
 	.titlebar__group {
@@ -47,7 +46,24 @@ export const titlebarStyles = css`
 
 	.titlebar__row {
 		flex: 0 0 100%;
+		border-top: 1px solid transparent;
+		border-bottom: 1px solid transparent;
+		margin: -0.5rem -0.8rem;
+		padding: 0.5rem 0.8rem;
 	}
+
+	.titlebar__row--filtered {
+		background: color-mix(in srgb, var(--vscode-statusBarItem-prominentBackground) 18%, transparent);
+		border-top-color: color-mix(in srgb, var(--vscode-statusBarItem-prominentBackground) 45%, transparent);
+		border-bottom-color: color-mix(in srgb, var(--vscode-statusBarItem-prominentBackground) 30%, transparent);
+	}
+
+	.titlebar__row--scoped {
+		background: color-mix(in srgb, var(--vscode-statusBarItem-warningBackground) 18%, transparent);
+		border-top-color: color-mix(in srgb, var(--vscode-statusBarItem-warningBackground) 45%, transparent);
+		border-bottom-color: color-mix(in srgb, var(--vscode-statusBarItem-warningBackground) 30%, transparent);
+	}
+
 	.titlebar__row--wrap {
 		display: grid;
 		grid-auto-flow: column;
@@ -129,63 +145,6 @@ export const graphHeaderControlStyles = css`
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
-	}
-	.button-group:hover,
-	.button-group:focus-within {
-		background-color: var(--color-graph-actionbar-selectedBackground);
-		border-radius: 3px;
-	}
-
-	.button-group > *:not(:first-child),
-	.button-group > *:not(:first-child) .action-button {
-		display: flex;
-		border-top-left-radius: 0;
-		border-bottom-left-radius: 0;
-	}
-	.button-group > *:not(:first-child) .action-button {
-		padding-left: 0.5rem;
-		padding-right: 0.5rem;
-		height: 100%;
-	}
-
-	.button-group:hover > *:not(:last-child),
-	.button-group:active > *:not(:last-child),
-	.button-group:focus-within > *:not(:last-child),
-	.button-group:hover > *:not(:last-child) .action-button,
-	.button-group:active > *:not(:last-child) .action-button,
-	.button-group:focus-within > *:not(:last-child) .action-button {
-		border-top-right-radius: 0;
-		border-bottom-right-radius: 0;
-	}
-
-	.minimap-marker-swatch {
-		display: inline-block;
-		width: 1rem;
-		height: 1rem;
-		border-radius: 2px;
-		transform: scale(1.6);
-		margin-left: 0.3rem;
-		margin-right: 1rem;
-	}
-
-	.minimap-marker-swatch[data-marker='localBranches'] {
-		background-color: var(--color-graph-minimap-marker-local-branches);
-	}
-
-	.minimap-marker-swatch[data-marker='pullRequests'] {
-		background-color: var(--color-graph-minimap-marker-pull-requests);
-	}
-
-	.minimap-marker-swatch[data-marker='remoteBranches'] {
-		background-color: var(--color-graph-minimap-marker-remote-branches);
-	}
-
-	.minimap-marker-swatch[data-marker='stashes'] {
-		background-color: var(--color-graph-minimap-marker-stashes);
-	}
-
-	.minimap-marker-swatch[data-marker='tags'] {
-		background-color: var(--color-graph-minimap-marker-tags);
 	}
 
 	gl-search-box::part(search) {

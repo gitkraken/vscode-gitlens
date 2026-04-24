@@ -8,7 +8,6 @@ import { capitalize, pluralize } from '@gitlens/utils/string.js';
 import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb.d.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date.js';
-import '../../../shared/components/overlays/tooltip.js';
 
 export interface BranchMarker {
 	type: 'branch';
@@ -94,14 +93,13 @@ export class GlGraphMinimap extends GlElement {
 			display: flex;
 			position: relative;
 			width: 100%;
-			min-height: 24px;
-			height: 40px;
-			background: var(--color-background);
+			height: 100%;
+			background: var(--color-graph-background);
 		}
 
 		#chart {
 			height: 100%;
-			width: calc(100% - 1rem);
+			width: calc(100% - 2rem);
 			overflow: hidden;
 			position: initial !important;
 		}
@@ -117,18 +115,6 @@ export class GlGraphMinimap extends GlElement {
 
 		#spinner[aria-hidden='true'] {
 			display: none;
-		}
-
-		.legend {
-			position: absolute;
-			top: 0;
-			right: 0;
-			bottom: 0;
-			display: flex;
-			align-items: center;
-			z-index: 1;
-			opacity: 0.7;
-			cursor: help;
 		}
 
 		.bb svg {
@@ -257,7 +243,7 @@ export class GlGraphMinimap extends GlElement {
 		.bb-region.marker-pull-request {
 			fill: var(--color-graph-minimap-marker-pull-requests);
 			stroke: var(--color-graph-minimap-marker-pull-requests);
-			transform: translate(-2px, 29px);
+			transform: translate(-2px, calc(var(--minimap-height, 40px) - 11px));
 		}
 		.bb-region.marker-pull-request > rect {
 			width: 3px;
@@ -267,7 +253,7 @@ export class GlGraphMinimap extends GlElement {
 		.bb-region.marker-branch {
 			fill: var(--color-graph-minimap-marker-local-branches);
 			stroke: var(--color-graph-minimap-marker-local-branches);
-			transform: translate(-2px, 35px);
+			transform: translate(-2px, calc(var(--minimap-height, 40px) - 5px));
 		}
 		.bb-region.marker-branch > rect {
 			width: 3px;
@@ -277,7 +263,7 @@ export class GlGraphMinimap extends GlElement {
 		.bb-region.marker-remote {
 			fill: var(--color-graph-minimap-marker-remote-branches);
 			stroke: var(--color-graph-minimap-marker-remote-branches);
-			transform: translate(-2px, 29px);
+			transform: translate(-2px, calc(var(--minimap-height, 40px) - 11px));
 		}
 		.bb-region.marker-remote > rect {
 			width: 3px;
@@ -287,7 +273,7 @@ export class GlGraphMinimap extends GlElement {
 		.bb-region.marker-stash {
 			fill: var(--color-graph-minimap-marker-stashes);
 			stroke: var(--color-graph-minimap-marker-stashes);
-			transform: translate(-2px, 35px);
+			transform: translate(-2px, calc(var(--minimap-height, 40px) - 5px));
 		}
 		.bb-region.marker-stash > rect {
 			width: 3px;
@@ -297,7 +283,7 @@ export class GlGraphMinimap extends GlElement {
 		.bb-region.marker-tag {
 			fill: var(--color-graph-minimap-marker-tags);
 			stroke: var(--color-graph-minimap-marker-tags);
-			transform: translate(-2px, 29px);
+			transform: translate(-2px, calc(var(--minimap-height, 40px) - 11px));
 		}
 		.bb-region.marker-tag > rect {
 			width: 3px;
@@ -537,14 +523,43 @@ export class GlGraphMinimap extends GlElement {
 		this._chart?.regions.add(this.getVisibleAreaRegion(this.visibleDays));
 	}
 
+	private _resizeObserver: ResizeObserver | undefined;
+	private _resizeRAF: number | undefined;
+	private _observedHeight = 0;
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
 		this.handleDataChanged(false);
+
+		this._resizeObserver = new ResizeObserver(entries => {
+			const rect = entries[0]?.contentRect;
+			if (rect != null) {
+				const h = Math.round(rect.height);
+				if (h !== this._observedHeight) {
+					this._observedHeight = h;
+					this.style.setProperty('--minimap-height', `${h}px`);
+				}
+			}
+			// Coalesce to a single rAF to avoid thrashing during drag
+			if (this._resizeRAF != null) return;
+			this._resizeRAF = requestAnimationFrame(() => {
+				this._resizeRAF = undefined;
+				this._chart?.resize();
+			});
+		});
+		this._resizeObserver.observe(this);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
+
+		this._resizeObserver?.disconnect();
+		this._resizeObserver = undefined;
+		if (this._resizeRAF != null) {
+			cancelAnimationFrame(this._resizeRAF);
+			this._resizeRAF = undefined;
+		}
 
 		this._chart?.destroy();
 		this._chart = undefined!;
@@ -905,8 +920,10 @@ export class GlGraphMinimap extends GlElement {
 				},
 				padding: {
 					mode: 'fit',
+					// Negative `left` offsets most of billboard's reserved (but DOM-removed in
+					// onafterinit) y-axis space; leaves a small gap that matches the right margin.
 					bottom: -8,
-					left: 0,
+					left: -18,
 					right: 0,
 					top: 0,
 				},
@@ -925,9 +942,6 @@ export class GlGraphMinimap extends GlElement {
 					sensitivity: 100,
 				},
 				regions: regions,
-				resize: {
-					auto: true,
-				},
 				spline: {
 					interpolation: {
 						type: 'monotone-x',
@@ -1029,11 +1043,11 @@ export class GlGraphMinimap extends GlElement {
 					},
 					grouped: true,
 					position: (_data, width, _height, element, pos) => {
-						let { x } = pos;
+						// `pos.x` is chart-local (relative to the eventRect element), so clamp against
+						// the element's width — not `rect.right`, which is viewport-relative and
+						// undershoots by the chart's left offset.
 						const rect = (element as HTMLElement).getBoundingClientRect();
-						if (x + width > rect.right) {
-							x = rect.right - width;
-						}
+						const x = Math.max(0, Math.min(pos.x, rect.width - width));
 						return { top: 0, left: x };
 					},
 				},
@@ -1088,14 +1102,6 @@ export class GlGraphMinimap extends GlElement {
 		return html`
 			<div id="spinner"><code-icon icon="loading" modifier="spin"></code-icon></div>
 			<div id="chart"></div>
-			<gl-tooltip>
-				<div class="legend">
-					<code-icon icon="${this.dataType === 'lines' ? 'request-changes' : 'git-commit'}"></code-icon>
-				</div>
-				<div slot="content">
-					${this.dataType === 'lines' ? 'Showing lines changed per day' : 'Showing commits per day'}
-				</div>
-			</gl-tooltip>
 		`;
 	}
 }
