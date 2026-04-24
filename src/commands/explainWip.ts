@@ -18,6 +18,7 @@ import { ExplainCommandBase } from './explainBase.js';
 
 export interface ExplainWipCommandArgs extends ExplainBaseArgs {
 	staged?: boolean;
+	prompt?: string;
 }
 
 @command()
@@ -98,6 +99,7 @@ export class ExplainWipCommand extends ExplainCommandBase {
 				{
 					diff: diff.contents,
 					message: `${capitalize(label)} changes in ${repoName}`,
+					instructions: args.prompt,
 				},
 				{
 					...args.source,
