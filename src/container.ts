@@ -24,6 +24,8 @@ import type { GlCommands } from './constants.commands.js';
 import { extensionPrefix } from './constants.js';
 import { MarkdownContentProvider } from './documents/markdown.js';
 import { EventBus } from './eventBus.js';
+import type { FeatureFlagService } from './featureFlags/featureFlagService.js';
+import { ConfigCatFeatureFlagService } from './featureFlags/featureFlagService.js';
 import { GitFileSystemProvider } from './git/fsProvider.js';
 import { GitProviderService } from './git/gitProviderService.js';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider.js';
@@ -434,6 +436,14 @@ export class Container {
 		}
 
 		return this._cloudIntegrations;
+	}
+
+	private _featureFlags: FeatureFlagService | undefined;
+	get featureFlags(): FeatureFlagService {
+		if (this._featureFlags == null) {
+			this._disposables.push((this._featureFlags = new ConfigCatFeatureFlagService(this)));
+		}
+		return this._featureFlags;
 	}
 
 	private _drafts: DraftService | undefined;
