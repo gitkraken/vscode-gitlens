@@ -214,6 +214,7 @@ import type {
 	GraphItemTypedContext,
 	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadataType,
+	GraphPinnedRef,
 	GraphRefMetadata,
 	GraphRefMetadataType,
 	GraphRefType,
@@ -242,6 +243,7 @@ import {
 	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
+	DidChangePinnedRefNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -276,6 +278,7 @@ import {
 	UpdateGraphConfigurationCommand,
 	UpdateGraphSearchModeCommand,
 	UpdateIncludedRefsCommand,
+	UpdatePinnedRefCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from './protocol.js';
@@ -384,8 +387,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private isWindowFocused: boolean = true;
 
 	private get graphRowProcessor(): GlGraphRowProcessor {
-		return (this._graphRowProcessor ??= new GlGraphRowProcessor(this.container, uri =>
-			this.host.asWebviewUri(uri),
+		return (this._graphRowProcessor ??= new GlGraphRowProcessor(
+			this.container,
+			uri => this.host.asWebviewUri(uri),
+			() => this.getFiltersByRepo(this._graph?.repoPath)?.pinnedRef?.id,
 		));
 	}
 
@@ -715,6 +720,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getSidebarBranches(graph: GitGraph) {
 		const providerByRemote = this.getProviderByRemote(graph);
+		const pinnedRefId = this.getFiltersByRepo(graph.repoPath)?.pinnedRef?.id;
 
 		const branchCfg = configuration.get('views.branches.branches');
 		const sorted = sortBranches(
@@ -753,7 +759,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						b.upstream != null && !b.upstream.missing ? '+tracking' : ''
 					}${hasWorktree ? '+worktree' : ''}${
 						b.current || isCheckedOut ? '+checkedout' : ''
-					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}`,
+					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}${
+						pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''
+					}`,
 					webviewItemValue: {
 						type: 'branch',
 						ref: createReference(b.name, graph.repoPath, {
@@ -773,6 +781,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getSidebarRemotes(graph: GitGraph) {
 		const sorted = sortRemotes([...graph.remotes.values()]);
 		const branchOrderBy = configuration.get('sortBranchesBy');
+		const pinnedRefId = this.getFiltersByRepo(graph.repoPath)?.pinnedRef?.id;
 		const branchesByRemote = new Map<string, GitBranch[]>();
 		for (const b of graph.branches.values()) {
 			if (!b.remote) continue;
@@ -795,7 +804,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					sha: b.sha,
 					menuContext: serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>({
 						webview: this.host.id,
-						webviewItem: `gitlens:branch+remote`,
+						webviewItem: `gitlens:branch+remote${
+							pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''
+						}`,
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(b.name, graph.repoPath, {
@@ -1303,6 +1314,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@ipcCommand(UpdateRefsVisibilityCommand)
 	private onRefsVisibilityChanged(params: IpcParams<typeof UpdateRefsVisibilityCommand>) {
 		this.updateExcludedRefs(this._graph?.repoPath, params.refs, params.visible);
+	}
+
+	@ipcCommand(UpdatePinnedRefCommand)
+	private onPinnedRefChanged(params: IpcParams<typeof UpdatePinnedRefCommand>) {
+		this.updatePinnedRef(this._graph?.repoPath, params.ref);
 	}
 
 	@ipcCommand(DoubleClickedCommand)
@@ -2578,6 +2594,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@trace()
+	private async notifyDidChangePinnedRef(params?: IpcParams<typeof DidChangePinnedRefNotification>) {
+		if (!this.host.ready || !this.host.visible) {
+			this.host.addPendingIpcNotification(DidChangePinnedRefNotification, this._ipcNotificationMap, this);
+			return false;
+		}
+
+		if (params == null) {
+			const filters = this.getFiltersByRepo(this._graph?.repoPath);
+			params = { pinnedRef: this.getPinnedRef(filters, this._graph) };
+		}
+
+		return this.host.notify(DidChangePinnedRefNotification, params);
+	}
+
+	@trace()
 	private async notifyDidChangeRefsVisibility(params?: IpcParams<typeof DidChangeRefsVisibilityNotification>) {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeRefsVisibilityNotification, this._ipcNotificationMap, this);
@@ -3013,6 +3044,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// return filteredHiddenRefsById;
 
 		return excludeRefs;
+	}
+
+	private getPinnedRef(
+		filters: StoredGraphFilters | undefined,
+		graph: GitGraph | undefined,
+	): GraphPinnedRef | undefined {
+		const stored = filters?.pinnedRef;
+		if (stored == null) return undefined;
+
+		const pinned: GraphPinnedRef = { ...stored };
+		if (graph != null) {
+			for (const branch of graph.branches.values()) {
+				if (branch.id === stored.id) {
+					pinned.sha = branch.sha;
+					break;
+				}
+			}
+		}
+		return pinned;
 	}
 
 	private async getIncludedRefs(
@@ -3582,6 +3632,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			excludeRefs: refsVisibility.excludeRefs,
 			excludeTypes: refsVisibility.excludeTypes,
 			includeOnlyRefs: refsVisibility.includeOnlyRefs,
+			pinnedRef: this.getPinnedRef(filters, data),
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			searchMode: searchMode,
@@ -3629,6 +3680,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.updateFiltersByRepo(repoPath, { excludeRefs: storedExcludeRefs });
 		void this.notifyDidChangeRefsVisibility();
+	}
+
+	private updatePinnedRef(repoPath: string | undefined, ref: GraphPinnedRef | null) {
+		if (repoPath == null) return;
+
+		const storedPinnedRef =
+			ref != null
+				? { id: ref.id, type: ref.type as StoredGraphRefType, name: ref.name, owner: ref.owner }
+				: undefined;
+
+		void this.updateFiltersByRepo(repoPath, { pinnedRef: storedPinnedRef });
+		void this.notifyDidChangePinnedRef();
+		this.updateState();
 	}
 
 	private updateFiltersByRepo(repoPath: string | undefined, updates: Partial<StoredGraphFilters>) {
@@ -4617,6 +4681,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@command('gitlens.graph.hideRefGroup')
 	private hideRefGroup(item?: GraphItemContext) {
 		return this.hideRef(item, { group: true });
+	}
+
+	@command('gitlens.graph.pinBranchToLeft')
+	@debug()
+	private pinBranchToLeft(item?: GraphItemContext) {
+		if (!isGraphItemRefContext(item)) return Promise.resolve();
+
+		const { ref } = item.webviewItemValue;
+		if (ref.refType !== 'branch' || ref.id == null) return Promise.resolve();
+
+		const remote = ref.remote;
+		this.updatePinnedRef(this._graph?.repoPath, {
+			id: ref.id,
+			name: remote ? getBranchNameWithoutRemote(ref.name) : ref.name,
+			owner: remote ? getRemoteNameFromBranchName(ref.name) : undefined,
+			type: remote ? 'remote' : 'head',
+		});
+		return Promise.resolve();
+	}
+
+	@command('gitlens.graph.unpinBranchFromLeft')
+	@debug()
+	private unpinBranchFromLeft(_item?: GraphItemContext) {
+		this.updatePinnedRef(this._graph?.repoPath, null);
+		return Promise.resolve();
 	}
 
 	@command('gitlens.graph.soloBranch')

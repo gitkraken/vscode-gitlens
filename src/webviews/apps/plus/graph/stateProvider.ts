@@ -16,6 +16,7 @@ import {
 	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
+	DidChangePinnedRefNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -302,6 +303,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					excludeTypes: msg.params.excludeTypes,
 					includeOnlyRefs: msg.params.includeOnlyRefs,
 				});
+				break;
+
+			case DidChangePinnedRefNotification.is(msg):
+				this.updateState({ pinnedRef: msg.params.pinnedRef });
 				break;
 
 			case DidChangeRefsMetadataNotification.is(msg):

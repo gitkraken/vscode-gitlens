@@ -93,6 +93,9 @@ export class GlGraph extends LitElement {
 	includeOnlyRefs?: GraphWrapperProps['includeOnlyRefs'];
 
 	@property({ type: Object })
+	pinnedRef?: GraphWrapperProps['pinnedRef'];
+
+	@property({ type: Object })
 	rowsStats?: GraphWrapperProps['rowsStats'];
 
 	@property({ type: Boolean })

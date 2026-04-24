@@ -244,6 +244,33 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
+	private async handleJumpToPinnedBranch() {
+		const pinnedRef = this.graphState.pinnedRef;
+		if (pinnedRef == null) return;
+
+		let sha = pinnedRef.sha;
+		if (sha == null) {
+			const rows = this.graphState.rows;
+			if (rows != null) {
+				for (const row of rows) {
+					if (row.heads?.some(h => h.id === pinnedRef.id) || row.remotes?.some(r => r.id === pinnedRef.id)) {
+						sha = row.sha;
+						break;
+					}
+				}
+			}
+		}
+		if (sha == null) return;
+
+		const id = await this.ensureSearchResultRow(sha);
+		if (id == null) return;
+
+		const rows = this.selectCommits?.([id], { ensureVisible: true });
+		if (rows?.[0]?.hidden) {
+			this._searchResultHidden = true;
+		}
+	}
+
 	private onOpenPullRequest(pr: NonNullable<NonNullable<State['branchState']>['pr']>): void {
 		this._ipc.sendCommand(OpenPullRequestDetailsCommand, { id: pr.id });
 	}
@@ -999,6 +1026,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										</issue-pull-request>
 									</div>
 								</gl-popover>
+							`,
+						)}
+						${when(
+							state.pinnedRef != null,
+							() => html`
+								<gl-button
+									class="jump-to-pinned-branch"
+									appearance="toolbar"
+									@click=${this.handleJumpToPinnedBranch}
+								>
+									<code-icon icon="pinned"></code-icon>
+									<span slot="tooltip">Jump to pinned branch</span>
+								</gl-button>
 							`,
 						)}
 						<gl-ref-button
