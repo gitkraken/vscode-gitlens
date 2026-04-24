@@ -29,6 +29,20 @@ export interface FileShowOptions {
 	readonly preview?: boolean;
 }
 
+/**
+ * Arguments for opening a file set in VS Code's native multi-diff editor.
+ *
+ * `rhs === ''` means working tree (WIP). The host forces multi-diff regardless
+ * of the `views.openChangesInMultiDiffEditor` setting.
+ */
+export interface OpenMultipleChangesArgs {
+	readonly files: readonly GitFileChangeShape[];
+	readonly repoPath: string;
+	readonly lhs: string;
+	readonly rhs: string;
+	readonly title?: string;
+}
+
 // ============================================================
 // Serialized Types
 // ============================================================

@@ -444,11 +444,19 @@ export class GlWipDetails extends GlDetailsBase {
 				.fileActions=${this._getFileActions}
 				.fileContext=${this._getFileContext}
 				.searchContext=${this.searchContext}
+				.multiDiff=${this.getMultiDiffRefs()}
 				@file-checked=${this._onFileChecked}
 			>
 				${this.renderChangedFilesSlottedContent()}
 			</gl-wip-tree-pane>
 		`;
+	}
+
+	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
+		const repoPath = this.wip?.repo?.path ?? this.files?.find(f => f.repoPath)?.repoPath;
+		if (!repoPath) return undefined;
+
+		return { repoPath: repoPath, lhs: 'HEAD', rhs: '', title: 'Working Changes' };
 	}
 
 	protected override onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {

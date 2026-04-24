@@ -6,6 +6,7 @@ import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
@@ -19,6 +20,7 @@ import type {
 	State,
 } from '../../../../plus/graph/detailsProtocol.js';
 import { messageHeadlineSplitterToken } from '../../../../plus/graph/detailsProtocol.js';
+import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { redispatch } from '../../../shared/components/element.js';
 import { elementBase, scrollbarThinFor, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
@@ -190,11 +192,15 @@ export class GlGraphComparePanel extends LitElement {
 													.fileActions=${this.fileActions}
 													.fileContext=${this.getFileContext}
 													.searchContext=${this.searchContext}
+													.buttons=${this.getMultiDiffRefs()
+														? ['layout', 'search', 'multi-diff']
+														: undefined}
 													@file-compare-previous=${this.handleFileCompareBetween}
 													@file-open=${this.redispatch}
 													@file-compare-working=${this.redispatch}
 													@file-more-actions=${this.redispatch}
 													@change-files-layout=${this.redispatch}
+													@gl-file-tree-pane-open-multi-diff=${this.handleOpenMultiDiff}
 												></gl-file-tree-pane>
 											</webview-pane-group>
 										</div>`,
@@ -243,6 +249,42 @@ export class GlGraphComparePanel extends LitElement {
 			new CustomEvent('file-compare-between', { detail: e.detail, bubbles: true, composed: true }),
 		);
 	}
+
+	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
+		const files = this.files;
+		if (!files?.length) return undefined;
+		const repoPath = this.commitFrom?.repoPath ?? this.commitTo?.repoPath;
+		const lhs = this.swapped ? this.commitTo?.sha : this.commitFrom?.sha;
+		const rhs = this.swapped ? this.commitFrom?.sha : this.commitTo?.sha;
+		if (!repoPath || !lhs || !rhs) return undefined;
+
+		return {
+			repoPath: repoPath,
+			lhs: lhs,
+			rhs: rhs,
+			title: `Changes between ${shortenRevision(lhs)} and ${shortenRevision(rhs)}`,
+		};
+	}
+
+	private handleOpenMultiDiff = (): void => {
+		const refs = this.getMultiDiffRefs();
+		const files = this.files;
+		if (!refs || !files?.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('open-multiple-changes', {
+				detail: {
+					files: files,
+					repoPath: refs.repoPath,
+					lhs: refs.lhs,
+					rhs: refs.rhs,
+					title: refs.title,
+				} satisfies OpenMultipleChangesArgs,
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private redispatch = redispatch.bind(this);
 

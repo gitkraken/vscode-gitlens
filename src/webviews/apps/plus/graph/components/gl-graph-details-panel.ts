@@ -8,6 +8,7 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
+import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import type { DetailsActions } from './detailsActions.js';
 import { scopeSelectionEqual } from './detailsActions.js';
@@ -451,6 +452,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 											@unstage-all=${this.handleUnstageAll}
 											@stash-save=${() => this._actions.stashSave(this.effectiveRepoPath)}
 											@change-files-layout=${this.handleChangeFilesLayout}
+											@open-multiple-changes=${this.handleOpenMultipleChanges}
 										></gl-wip-details>
 									</div>
 									<gl-commit-box
@@ -608,6 +610,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._actions.switchCompareTab(e.detail.tab, repoPath)}
 			@scope-to-commit=${(e: CustomEvent<{ sha: string | undefined }>) =>
 				this._actions.selectCompareCommit(e.detail.sha, repoPath)}
+			@open-multiple-changes=${this.handleOpenMultipleChanges}
 		></gl-graph-wip-compare-panel>`;
 	}
 
@@ -685,6 +688,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._actions.openOnRemote(commit.repoPath ?? this.repoPath, e.detail.sha)}
 			@change-files-layout=${this.handleChangeFilesLayout}
 			@toggle-mode=${this.handleToggleMode}
+			@open-multiple-changes=${this.handleOpenMultipleChanges}
 		></gl-commit-details>`;
 	}
 
@@ -748,6 +752,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@select-commit=${(e: CustomEvent<{ sha: string }>) => this.handleSelectCommit(e.detail.sha)}
 			@change-files-layout=${this.handleChangeFilesLayout}
 			@toggle-mode=${this.handleToggleMode}
+			@open-multiple-changes=${this.handleOpenMultipleChanges}
 		></gl-graph-compare-panel>`;
 	}
 
@@ -923,6 +928,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleChangeFilesLayout = (e: CustomEvent<{ layout: ViewFilesLayout }>) => {
 		this._actions.changeFilesLayout(e.detail.layout);
+	};
+
+	private handleOpenMultipleChanges = (e: CustomEvent<OpenMultipleChangesArgs>) => {
+		this._actions.openMultipleChanges(e.detail);
 	};
 }
 

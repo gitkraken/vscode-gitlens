@@ -2,9 +2,10 @@ import type { TextDocumentShowOptions, TextEditor, ViewColumn } from 'vscode';
 import { env, Range, Uri, window, workspace } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
-import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import { deletedOrMissing, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { createReference, getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import {
 	createRevisionRange,
@@ -264,6 +265,74 @@ export async function openMultipleChangesWithWorking(
 		openIndividually,
 		options,
 	);
+}
+
+/**
+ * Open working-tree changes in VS Code's multi-diff editor with per-file
+ * staged-vs-unstaged routing.
+ *
+ * For each file, routes based on the `staged` flag:
+ * - `staged: true`  → HEAD  ↔ index  (staged diff)
+ * - `staged: false` → index ↔ working tree (unstaged diff)
+ *
+ * A file that appears twice (once staged, once unstaged) yields two entries
+ * with different diffs instead of two identical HEAD↔working-tree entries.
+ */
+export async function openWipMultipleChanges(
+	container: Container,
+	files: readonly GitFileChangeShape[],
+	repoPath: string,
+	options?: ShowOptions,
+): Promise<void> {
+	if (
+		!(await confirmOpenIfNeeded(files, {
+			message: `Are you sure you want to view the changes for all ${files.length} files?`,
+			confirmButton: 'View Changes',
+			threshold: filesOpenMultiDiffThreshold,
+		}))
+	) {
+		return;
+	}
+
+	let title;
+	if (options != null) {
+		({ title, ...options } = options);
+	}
+	title ??= 'Working Changes';
+
+	const svc = container.git.getRepositoryService(repoPath);
+
+	const resources: Parameters<typeof openChangesEditor>[0] = [];
+	for (const file of files) {
+		const staged = file.staged === true;
+		const lhsRef = staged ? 'HEAD' : uncommittedStaged;
+		const rhsRef = staged ? uncommittedStaged : '';
+
+		let rhs = file.status === 'D' ? undefined : (await svc.getBestRevisionUri(file.path, rhsRef))!;
+		if (rhsRef === '' && rhs != null) {
+			rhs = await svc.getWorkingUri(rhs);
+		} else if (rhsRef === '' && rhs == null) {
+			rhs = Uri.from({
+				scheme: 'untitled',
+				authority: '',
+				path: svc.getAbsoluteUri(file.path, repoPath).fsPath,
+			});
+		}
+
+		const lhs =
+			file.status === 'A'
+				? undefined
+				: file.status === '?'
+					? svc.getRevisionUri(deletedOrMissing, file.originalPath ?? file.path)
+					: (await svc.getBestRevisionUri(file.originalPath ?? file.path, lhsRef))!;
+
+		const uri = (file.status === 'D' ? lhs : rhs) ?? svc.getAbsoluteUri(file.path, repoPath);
+		if (rhs?.scheme === 'untitled' && lhs == null) continue;
+
+		resources.push({ uri: uri, lhs: lhs, rhs: rhs });
+	}
+
+	await openChangesEditor(resources, title, options);
 }
 
 export async function openChanges(

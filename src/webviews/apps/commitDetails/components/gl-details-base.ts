@@ -5,6 +5,7 @@ import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { FileShowOptions, Preferences, State } from '../../../commitDetails/protocol.js';
+import type { OpenMultipleChangesArgs } from '../../shared/actions/file.js';
 import { renderCommitStatsIcons } from '../../shared/components/commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
@@ -61,8 +62,16 @@ export class GlDetailsBase extends LitElement {
 
 	protected renderChangedFiles(
 		_mode: Mode,
-		options?: { stats?: import('@gitlens/git/models/commit.js').GitCommitStats },
+		options?: {
+			stats?: import('@gitlens/git/models/commit.js').GitCommitStats;
+			multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
+		},
 	): TemplateResult<1> {
+		const multiDiff = options?.multiDiff;
+		const buttons: ('layout' | 'search' | 'multi-diff')[] | undefined = multiDiff
+			? ['layout', 'search', 'multi-diff']
+			: undefined;
+
 		return html`
 			<gl-file-tree-pane
 				.files=${this.files}
@@ -73,7 +82,9 @@ export class GlDetailsBase extends LitElement {
 				.fileActions=${this._getFileActions}
 				.fileContext=${this._getFileContext}
 				.searchContext=${this.searchContext}
+				.buttons=${buttons}
 				@file-checked=${this._onFileChecked}
+				@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
 			>
 				${options?.stats
 					? html`<span slot="subtitle" style="opacity: 1">${this.renderCommitStats(options.stats)}</span>`
@@ -81,6 +92,25 @@ export class GlDetailsBase extends LitElement {
 				${this.renderChangedFilesSlottedContent()}
 			</gl-file-tree-pane>
 		`;
+	}
+
+	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; title?: string }): void {
+		const files = this.files;
+		if (!files?.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('open-multiple-changes', {
+				detail: {
+					files: files,
+					repoPath: refs.repoPath,
+					lhs: refs.lhs,
+					rhs: refs.rhs,
+					title: refs.title,
+				} satisfies OpenMultipleChangesArgs,
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	protected onFileChecked(_e: CustomEvent): void {

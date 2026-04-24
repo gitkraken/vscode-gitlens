@@ -210,6 +210,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		const hasSubPanel = this.subPanelContent != null && this.subPanelContent !== nothing;
 		const hasMessage = !this.isUncommitted;
 		const fileMode = this.isStash ? 'stash' : 'commit';
+		const renderOpts = { multiDiff: this.getMultiDiffRefs() };
 
 		return html`
 			${hasSubPanel ? nothing : this.renderHiddenNotice()} ${this.renderEmbeddedAuthorHeader()}
@@ -234,15 +235,29 @@ export class GlCommitDetails extends GlDetailsBase {
 									${this.renderEmbeddedAutolinks()} ${this.renderEmbeddedExplainInput()}
 									<div class="files">
 										<webview-pane-group flexible>
-											${this.renderChangedFiles(fileMode)}
+											${this.renderChangedFiles(fileMode, renderOpts)}
 										</webview-pane-group>
 									</div>
 								</div>
 							</gl-split-panel>`
 						: html`<div class="files">
-								<webview-pane-group flexible> ${this.renderChangedFiles(fileMode)} </webview-pane-group>
+								<webview-pane-group flexible>
+									${this.renderChangedFiles(fileMode, renderOpts)}
+								</webview-pane-group>
 							</div>`}`}
 		`;
+	}
+
+	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
+		const commit = this.commit;
+		if (!commit) return undefined;
+
+		return {
+			repoPath: commit.repoPath,
+			lhs: commit.parents[0] ?? '',
+			rhs: commit.sha,
+			title: `Changes in ${commit.shortSha}`,
+		};
 	}
 
 	private renderEmbeddedAuthorHeader() {

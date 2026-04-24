@@ -4,6 +4,7 @@ import { customElement, property } from 'lit/decorators.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { Preferences } from '../../../../commitDetails/protocol.js';
+import type { OpenMultipleChangesArgs } from '../../actions/file.js';
 import { renderCommitStatsIcons } from '../commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from './base.js';
 import type { FileGroup } from './file-tree-utils.js';
@@ -55,6 +56,9 @@ export class GlWipTreePane extends LitElement {
 
 	@property({ attribute: false })
 	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean };
+
+	@property({ attribute: false })
+	multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
 
 	private _effectiveFiles: Files = [];
 	private _effectiveStates?: Map<string, { state?: 'checked' | 'mixed'; disabled?: boolean }>;
@@ -141,6 +145,10 @@ export class GlWipTreePane extends LitElement {
 
 	override render() {
 		const files = (this.files as Files) ?? [];
+		const multiDiff = this.multiDiff;
+		const buttons: ('layout' | 'search' | 'multi-diff')[] | undefined = multiDiff
+			? ['layout', 'search', 'multi-diff']
+			: undefined;
 
 		return html`<gl-file-tree-pane
 			.files=${this._effectiveFiles}
@@ -155,9 +163,11 @@ export class GlWipTreePane extends LitElement {
 			?checkable=${this.checkable}
 			.checkableStates=${this._effectiveStates}
 			.checkableStateDefault=${this.checkableStateDefault}
+			.buttons=${buttons}
 			check-verb="Stage"
 			uncheck-verb="Unstage"
 			@gl-check-all=${this.onCheckAll}
+			@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
 		>
 			<span slot="subtitle" style="opacity: 1">${this.renderStats()}</span>
 			${files.length > 0
@@ -177,6 +187,25 @@ export class GlWipTreePane extends LitElement {
 
 	private onStashSave() {
 		this.dispatchEvent(new CustomEvent('stash-save', { bubbles: true, composed: true }));
+	}
+
+	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; title?: string }): void {
+		const files = this.files;
+		if (!files?.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('open-multiple-changes', {
+				detail: {
+					files: files,
+					repoPath: refs.repoPath,
+					lhs: refs.lhs,
+					rhs: refs.rhs,
+					title: refs.title,
+				} satisfies OpenMultipleChangesArgs,
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private renderStats() {
