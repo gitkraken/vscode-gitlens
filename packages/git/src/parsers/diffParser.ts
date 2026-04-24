@@ -364,43 +364,6 @@ export function parseGitFileDiff(data: string, includeRawContent = false): Parse
 	};
 }
 
-export function parseGitDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
-	using sw = maybeStopWatch('Git.parseDiffNameStatusFiles', { log: { onlyExit: true, level: 'debug' } });
-	if (!data) {
-		sw?.stop({ suffix: ` no data` });
-		return undefined;
-	}
-
-	const files: GitFile[] = [];
-
-	let status;
-
-	const fields = data.split('\0');
-	for (let i = 0; i < fields.length - 1; i++) {
-		status = fields[i][0];
-		if (status === '.') {
-			status = '?';
-		}
-
-		let originalPath;
-		// Renamed files are old followed by the new path
-		if (status === 'R' || status === 'C') {
-			if (i + 1 >= fields.length - 1) break;
-
-			originalPath = fields[++i];
-		}
-		if (i + 1 >= fields.length) break;
-
-		const path = fields[++i];
-
-		files.push({ status: status as GitFileStatus, path: path, originalPath: originalPath, repoPath: repoPath });
-	}
-
-	sw?.stop({ suffix: ` parsed ${files.length} files` });
-
-	return files;
-}
-
 /**
  * Parses the output of `git diff --numstat --summary -z`.
  *

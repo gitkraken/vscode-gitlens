@@ -4,7 +4,6 @@ import {
 	countDiffInsertionsAndDeletions,
 	countDiffLines,
 	parseGitDiff,
-	parseGitDiffNameStatusFiles,
 	parseGitDiffNumStatFiles,
 	parseGitDiffShortStat,
 	parseGitFileDiff,
@@ -492,96 +491,6 @@ suite('Diff Parser Test Suite', () => {
 			const lines = [...hunk.lines.values()];
 			assert.strictEqual(lines.find(l => l.state === 'changed')?.previous, 'const b = 2;');
 			assert.strictEqual(lines.find(l => l.state === 'changed')?.current, 'const b = 3;');
-		});
-	});
-
-	suite('parseGitDiffNameStatusFiles', () => {
-		test('parses a modified file', () => {
-			const data = 'M\0src/foo.ts\0';
-
-			const result = parseGitDiffNameStatusFiles(data, '/repo');
-
-			assert.notStrictEqual(result, undefined);
-			assert.strictEqual(result!.length, 1);
-			assert.strictEqual(result![0].status, 'M');
-			assert.strictEqual(result![0].path, 'src/foo.ts');
-			assert.strictEqual(result![0].originalPath, undefined);
-			assert.strictEqual(result![0].repoPath, '/repo');
-		});
-
-		test('parses a renamed file with old and new paths', () => {
-			const data = 'R100\0src/old.ts\0src/new.ts\0';
-
-			const result = parseGitDiffNameStatusFiles(data, '/repo');
-
-			assert.notStrictEqual(result, undefined);
-			assert.strictEqual(result!.length, 1);
-			assert.strictEqual(result![0].status, 'R');
-			assert.strictEqual(result![0].path, 'src/new.ts');
-			assert.strictEqual(result![0].originalPath, 'src/old.ts');
-		});
-
-		test('parses a copied file with old and new paths', () => {
-			const data = 'C100\0src/original.ts\0src/copy.ts\0';
-
-			const result = parseGitDiffNameStatusFiles(data, '/repo');
-
-			assert.notStrictEqual(result, undefined);
-			assert.strictEqual(result!.length, 1);
-			assert.strictEqual(result![0].status, 'C');
-			assert.strictEqual(result![0].path, 'src/copy.ts');
-			assert.strictEqual(result![0].originalPath, 'src/original.ts');
-		});
-
-		test('parses multiple files of different types', () => {
-			const data = 'M\0src/modified.ts\0A\0src/added.ts\0D\0src/deleted.ts\0R100\0src/old.ts\0src/renamed.ts\0';
-
-			const result = parseGitDiffNameStatusFiles(data, '/repo');
-
-			assert.notStrictEqual(result, undefined);
-			assert.strictEqual(result!.length, 4);
-
-			assert.strictEqual(result![0].status, 'M');
-			assert.strictEqual(result![0].path, 'src/modified.ts');
-
-			assert.strictEqual(result![1].status, 'A');
-			assert.strictEqual(result![1].path, 'src/added.ts');
-
-			assert.strictEqual(result![2].status, 'D');
-			assert.strictEqual(result![2].path, 'src/deleted.ts');
-
-			assert.strictEqual(result![3].status, 'R');
-			assert.strictEqual(result![3].path, 'src/renamed.ts');
-			assert.strictEqual(result![3].originalPath, 'src/old.ts');
-		});
-
-		test('returns undefined for empty data', () => {
-			const result = parseGitDiffNameStatusFiles('', '/repo');
-
-			assert.strictEqual(result, undefined);
-		});
-
-		test('converts dot status to question mark', () => {
-			const data = '.\0src/unchanged.ts\0';
-
-			const result = parseGitDiffNameStatusFiles(data, '/repo');
-
-			assert.notStrictEqual(result, undefined);
-			assert.strictEqual(result!.length, 1);
-			assert.strictEqual(result![0].status, '?');
-		});
-
-		test('parses added and deleted files', () => {
-			const data = 'A\0src/new.ts\0D\0src/removed.ts\0';
-
-			const result = parseGitDiffNameStatusFiles(data, '/repo');
-
-			assert.notStrictEqual(result, undefined);
-			assert.strictEqual(result!.length, 2);
-			assert.strictEqual(result![0].status, 'A');
-			assert.strictEqual(result![0].path, 'src/new.ts');
-			assert.strictEqual(result![1].status, 'D');
-			assert.strictEqual(result![1].path, 'src/removed.ts');
 		});
 	});
 
