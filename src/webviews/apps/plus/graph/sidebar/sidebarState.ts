@@ -60,6 +60,7 @@ export function createSidebarActions(): SidebarActions {
 	}
 
 	const panels: Record<GraphSidebarPanel, Resource<DidGetSidebarDataParams | undefined>> = {
+		overview: createPanelResource('overview'),
 		branches: createPanelResource('branches'),
 		remotes: createPanelResource('remotes'),
 		stashes: createPanelResource('stashes'),
@@ -89,6 +90,7 @@ export function createSidebarActions(): SidebarActions {
 	}
 
 	const expandedPaths: Record<GraphSidebarPanel, Set<string>> = {
+		overview: new Set(),
 		branches: new Set(),
 		remotes: new Set(),
 		stashes: new Set(),
@@ -97,6 +99,7 @@ export function createSidebarActions(): SidebarActions {
 	};
 
 	const selectedPath: Record<GraphSidebarPanel, string | undefined> = {
+		overview: undefined,
 		branches: undefined,
 		remotes: undefined,
 		stashes: undefined,

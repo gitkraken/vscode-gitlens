@@ -22,7 +22,7 @@ import {
 	tagTooltip,
 	worktreeTooltip,
 } from '../../../../plus/graph/sidebarTooltips.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -32,6 +32,7 @@ import type {
 } from '../../../shared/components/tree/base.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
+import '../overview/graph-overview.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/progress.js';
@@ -49,6 +50,13 @@ interface PanelConfig {
 }
 
 const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
+	overview: {
+		title: 'Overview',
+		actions: [
+			{ icon: 'add', tooltip: 'Create Worktree...', command: 'gitlens.views.title.createWorktree' },
+			{ icon: 'rocket', tooltip: 'Start Work', command: 'gitlens.startWork' },
+		],
+	},
 	worktrees: {
 		title: 'Worktrees',
 		actions: [{ icon: 'add', tooltip: 'Create Worktree...', command: 'gitlens.views.title.createWorktree' }],
@@ -143,6 +151,7 @@ function leafToTreeModel(leaf: LeafProps, path: string, level: number): TreeMode
 export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	static override styles = [
 		scrollableBase,
+		subPanelEnterStyles,
 		css`
 			@keyframes panel-enter {
 				from {
@@ -162,14 +171,31 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				overflow: visible;
 				background-color: var(--titlebar-bg);
 				z-index: 1;
-				animation: panel-enter 0.2s ease-out;
 				border-right: 1px solid transparent;
 				border-color: var(--vscode-sideBar-border, transparent);
 			}
 
+			/* Play enter animations only when the parent signals the user-visible moment —
+			   the element is always mounted (inside the split-panel's start slot) so an
+			   unconditional :host animation would fire at 0 width where the user can't see it.
+			     [opening]   — sidebar went from hidden to visible (slide in from -8px X)
+			     [switching] — active panel changed while visible (slide in from 4px Y, matches
+			                   the sub-panel-enter used by review/compose/compare panes) */
+			:host([opening]) {
+				animation: panel-enter 0.2s ease-out;
+			}
+			:host([switching]) {
+				animation: sub-panel-enter 0.2s ease-out;
+			}
+
 			@media (prefers-reduced-motion: reduce) {
-				:host {
-					animation: none;
+				/* Near-zero duration, NOT animation:none, so the animationend event still
+				   fires — the graph-app updated() hook depends on it to remove the opening
+				   / switching attribute and detach the once-listener. animation:none
+				   dispatches no event, so the listener would leak per toggle. */
+				:host([opening]),
+				:host([switching]) {
+					animation-duration: 0.01ms;
 				}
 			}
 
@@ -305,7 +331,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private _pendingFocus = false;
 
 	focusFilter(): void {
-		if (this.activePanel == null) {
+		if (this.activePanel == null || this.activePanel === 'overview') {
 			this._pendingFocus = false;
 			return;
 		}
@@ -332,7 +358,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// Always fetch on panel switch — data may be stale even if non-null.
 			// The Resource's cancelPrevious handles dedup.
 			// Overview panel manages its own data via IPC, skip sidebar fetch.
-			if (this.activePanel != null) {
+			if (this.activePanel != null && this.activePanel !== 'overview') {
 				this._actions.fetchPanel(this.activePanel);
 			}
 		}
@@ -348,6 +374,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (this.activePanel == null) return nothing;
 
 		const config = panelConfig[this.activePanel];
+
+		if (this.activePanel === 'overview') {
+			return html`<div class="panel">
+				${this.renderHeader(config, false, undefined)}
+				<div class="content">
+					<gl-graph-overview></gl-graph-overview>
+				</div>
+			</div>`;
+		}
+
 		const resource = this._actions?.state.panels[this.activePanel];
 		const data = resource?.value.get();
 		const hasError = resource?.error.get() != null;
@@ -773,6 +809,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleRefresh() {
 		if (this.activePanel == null) return;
+		if (this.activePanel === 'overview') {
+			const overview = this.shadowRoot?.querySelector('gl-graph-overview') as
+				| (HTMLElement & { refresh?: () => void })
+				| null;
+			overview?.refresh?.();
+			return;
+		}
 		this._actions?.refresh(this.activePanel);
 	}
 
