@@ -14,9 +14,10 @@ import { registerIconLibrary } from '@shoelace-style/shoelace/dist/utilities/ico
  * any fetch — eliminating the CSP errors without shipping unused Bootstrap-icon SVGs.
  */
 let registered = false;
-
-export function stubShoelaceSystemIcons(): void {
+function register(): void {
 	if (registered) return;
 	registered = true;
 	registerIconLibrary('system', { resolver: () => '' });
 }
+
+register();

@@ -5,7 +5,7 @@ import { parseDuration, waitForEvent } from '../../dom.js';
 import { GlElement, observe } from '../element.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
 import '@shoelace-style/shoelace/dist/components/popup/popup.js';
-import '../shoelace-codicons.js';
+import '../shoelace-stub.js';
 
 // Adapted from shoelace tooltip
 
