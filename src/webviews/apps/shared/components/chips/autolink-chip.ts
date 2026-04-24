@@ -9,7 +9,7 @@ import '../overlays/popover.js';
 export class GlAutolinkChip extends LitElement {
 	static override styles = css`
 		:host {
-			display: contents;
+			display: inline-flex;
 		}
 
 		.chip--opened::part(icon) {
@@ -47,6 +47,15 @@ export class GlAutolinkChip extends LitElement {
 	@property()
 	identifier = '';
 
+	@property()
+	author?: string;
+
+	@property({ type: Boolean })
+	isDraft?: boolean;
+
+	@property()
+	reviewDecision?: string;
+
 	@property({ type: Boolean })
 	details = false;
 
@@ -54,7 +63,13 @@ export class GlAutolinkChip extends LitElement {
 		const { icon, modifier } = getAutolinkIcon(this.type, this.status);
 
 		return html`<gl-popover hoist>
-			<gl-action-chip exportparts="icon" slot="anchor" icon=${icon} class="chip--${modifier}"
+			<gl-action-chip
+				exportparts="icon"
+				slot="anchor"
+				icon=${icon}
+				overlay="none"
+				label=${this.getAccessibleLabel()}
+				class="chip--${modifier}"
 				><span part="label">${this.identifier}</span></gl-action-chip
 			>
 			<div slot="content">
@@ -67,9 +82,17 @@ export class GlAutolinkChip extends LitElement {
 					.date=${this.date}
 					.dateFormat=${this.dateFormat}
 					.dateStyle=${this.dateStyle}
+					.author=${this.author}
+					?isDraft=${this.isDraft}
+					.reviewDecision=${this.reviewDecision}
 					?details=${this.details}
 				></issue-pull-request>
 			</div>
 		</gl-popover>`;
+	}
+
+	private getAccessibleLabel(): string {
+		const typeLabel = this.type === 'pr' ? 'Pull request' : this.type === 'issue' ? 'Issue' : 'Autolink';
+		return this.name ? `${typeLabel} ${this.identifier} - ${this.name}` : `${typeLabel} ${this.identifier}`;
 	}
 }

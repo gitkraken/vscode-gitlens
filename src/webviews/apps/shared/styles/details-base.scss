@@ -1,6 +1,7 @@
 @use '../../shared/styles/utils';
 @use './theme';
 @use './scrollbars';
+@use './tokens';
 
 :root {
 	--gitlens-gutter-width: 20px;
@@ -143,6 +144,7 @@ ul {
 }
 
 .message-block {
+	position: relative;
 	font-size: 1.3rem;
 	border: 1px solid var(--vscode-input-border);
 	background: var(--vscode-input-background);
@@ -156,13 +158,25 @@ ul {
 		overflow-x: hidden;
 		max-height: 9rem;
 
-		> * {
-			white-space: break-spaces;
-		}
-
 		strong {
 			font-weight: 600;
 			font-size: 1.4rem;
+		}
+	}
+
+	&__copy {
+		position: absolute;
+		bottom: 0.4rem;
+		right: 0.4rem;
+		z-index: 1;
+		opacity: 0.7;
+		transition: opacity 0.15s ease;
+		color: var(--vscode-descriptionForeground);
+
+		&:hover,
+		&:focus-within {
+			opacity: 1;
+			color: var(--vscode-foreground);
 		}
 	}
 }
@@ -193,9 +207,13 @@ ul {
 
 	gl-action-chip::part(icon),
 	gl-autolink-chip::part(icon),
-	gl-commit-date,
-	.reachability-summary code-icon {
+	gl-commit-date {
 		--code-icon-size: 1.3rem;
+	}
+
+	.reachability-summary code-icon,
+	.reachability-summary gl-action-chip::part(icon) {
+		--code-icon-size: 12px;
 	}
 
 	gl-commit-date {
@@ -218,11 +236,24 @@ ul {
 	gap: 0.6rem;
 	align-items: center;
 	overflow: hidden;
+	flex: 1 1 0;
+	min-width: 0;
+
+	code-icon,
+	gl-action-chip::part(icon) {
+		--code-icon-size: 12px;
+	}
+
+	gl-action-chip::part(base) {
+		overflow: hidden;
+	}
 }
 
 .reachability-range-chip-wrapper {
-	display: inline-block;
+	display: inline-flex;
 	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
 
 	@media (max-width: 768px) {
 		flex: 1 1 100%;
@@ -230,22 +261,19 @@ ul {
 }
 
 .reachability-range-chip {
-	color: var(--color-foreground);
-	opacity: 0.8;
+	color: var(--color-foreground--65);
 	border-radius: 0.3rem;
 	padding: 0.1rem 0.25rem;
 	--chip-text-transform: none;
+	--chip-background: transparent;
 	display: inline-flex !important;
 	min-width: 0;
 	max-width: 100%;
 	width: auto;
-	transition:
-		opacity 0.3s ease-in-out,
-		color 0.3s ease-in-out;
+	overflow: hidden;
 
 	&:hover,
 	&:focus {
-		color: var(--color-foreground);
 		opacity: 1;
 	}
 
@@ -254,23 +282,16 @@ ul {
 	}
 
 	&--local-branch {
-		background-color: color-mix(
-			in srgb,
-			var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor) 75%,
-			transparent
-		);
+		color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
+		font-weight: 600;
 	}
 
 	&--remote-branch {
-		background-color: color-mix(
-			in srgb,
-			var(--vscode-gitlens-graphScrollMarkerRemoteBranchesColor) 55%,
-			transparent
-		);
+		color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
 	}
 
 	&--tag {
-		background-color: var(--vscode-gitlens-graphScrollMarkerTagsColor);
+		color: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 70%, var(--color-foreground) 30%);
 	}
 
 	&--current &__label {
@@ -281,15 +302,16 @@ ul {
 		flex: 1 1 auto;
 		min-width: 0;
 		max-width: 100%;
-		width: 100%;
 		padding-left: 0.25rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		font-size: 0.95em;
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
+		font-size: inherit;
+
+		code-icon {
+			vertical-align: middle;
+			margin-right: 0.2rem;
+		}
 	}
 
 	&__ellipsis {
@@ -300,7 +322,8 @@ ul {
 	&__count {
 		padding-left: 0.4rem;
 		font-weight: 600;
-		font-size: 0.85em;
+		font-size: 10px;
+		color: var(--color-foreground--50);
 	}
 }
 
@@ -360,7 +383,7 @@ gl-autolink-chip::part(label) {
 	overflow: auto;
 	scrollbar-gutter: stable;
 	color: var(--vscode-sideBar-foreground);
-	background-color: var(--vscode-sideBar-background);
+	background-color: var(--color-background);
 
 	[aria-hidden='true'] {
 		display: none;

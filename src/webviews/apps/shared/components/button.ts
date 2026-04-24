@@ -237,6 +237,12 @@ export class GlButton extends LitElement {
 				width: max-content;
 			}
 
+			/* Give solid-filled buttons a bit more horizontal breathing room */
+			:host(:not([appearance])) .control,
+			:host([appearance='secondary']) .control {
+				padding-inline: 0.8rem;
+			}
+
 			:host([density='compact']) .control {
 				padding: var(--button-compact-padding);
 			}

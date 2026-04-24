@@ -15,6 +15,7 @@ declare global {
 		'gl-split-panel-change': CustomEvent<{ position: number }>;
 		'gl-split-panel-drag-end': CustomEvent<{ position: number }>;
 		'gl-split-panel-dblclick': CustomEvent<void>;
+		'gl-split-panel-closed-change': CustomEvent<{ closed: boolean; position: number }>;
 	}
 }
 
@@ -68,6 +69,14 @@ export class GlSplitPanel extends LitElement {
 		const old = this._position;
 		this._position = clampPosition(value);
 		this.updateCachedPrimaryPx();
+		// Emit closed-change on programmatic prop updates too (not just user interactions);
+		// otherwise a consumer-initiated open (`.position=22`) leaves the internal
+		// `_closedState` stale and the next user drag-to-close misses its transition. Skip
+		// until `connectedCallback` has seeded the baseline — `_closedState === undefined`
+		// marks "not yet seeded". Consumer handlers are idempotent so an echo is safe.
+		if (this._closedState !== undefined) {
+			this.emitClosedIfChanged();
+		}
 		this.requestUpdate('position', old);
 	}
 
@@ -103,6 +112,15 @@ export class GlSplitPanel extends LitElement {
 	/** Whether resizing is disabled. */
 	@property({ type: Boolean, reflect: true })
 	disabled = false;
+
+	/**
+	 * Tracks the last-emitted closed state. `undefined` doubles as the "not yet seeded"
+	 * sentinel — `emitClosedIfChanged` short-circuits until `connectedCallback` seeds the
+	 * baseline, which prevents spurious mount-time events for the value the consumer just
+	 * rendered (e.g. on first mount with `detailsVisible=false`, the initial `.position=100`
+	 * binding would otherwise emit `closed:true` to a consumer that already knows).
+	 */
+	private _closedState: boolean | undefined;
 
 	@query('.divider')
 	private dividerEl!: HTMLElement;
@@ -153,6 +171,12 @@ export class GlSplitPanel extends LitElement {
 			this._resizeObserver!.observe(this);
 			const rect = this.getBoundingClientRect();
 			this._size = Math.round(this.isHorizontal ? rect.width : rect.height);
+			// Seed initial closed state so transition-detection has a baseline. Setting it to
+			// a non-undefined value also flips the position setter's "not seeded" gate, so
+			// subsequent programmatic updates emit transitions. Without a `primary` there is
+			// no closed edge; seed as `false` to unlock the gate while keeping the setter's
+			// `computeClosed` always returning `false` (no transitions will ever fire).
+			this._closedState = this.primary != null ? this.computeClosed(this._position) : false;
 			// Re-apply snap now that container size is known so pixel-aware snap
 			// functions can clamp initial position (from restored/default percentage).
 			const snapped = this.applySnap(this._position);
@@ -212,6 +236,39 @@ export class GlSplitPanel extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('gl-split-panel-change', {
 				detail: { position: this._position },
+			}),
+		);
+		this.emitClosedIfChanged();
+	}
+
+	/**
+	 * Closed state is exact-edge: `primary='end'` → closed at 100, `primary='start'` → closed
+	 * at 0. Snap functions are expected to land on the edge when the user drags a pane to hide
+	 * it (e.g. `if (pos < min/2) return 0`). Without a `primary`, there's no dedicated panel
+	 * to close, so no event is emitted.
+	 */
+	private computeClosed(pos: number): boolean {
+		if (this.primary == null) return false;
+		return this.primary === 'end' ? pos >= 100 : pos <= 0;
+	}
+
+	/**
+	 * Emits `gl-split-panel-closed-change` only when the closed state transitions. The initial
+	 * closed state is seeded (without emitting) in `connectedCallback` so consumers receive an
+	 * event only for genuine user-driven transitions, not the value they just rendered.
+	 */
+	private emitClosedIfChanged(): void {
+		if (this.primary == null) return;
+		const closed = this.computeClosed(this._position);
+		if (this._closedState === closed) return;
+		this._closedState = closed;
+		// Do NOT bubble — split-panels are legitimately nested (details > sidebar > minimap),
+		// so bubbling would fire outer handlers for an inner split's transition, corrupting
+		// unrelated visibility/position state. Listeners bind directly via `@event=` so they
+		// fire regardless.
+		this.dispatchEvent(
+			new CustomEvent('gl-split-panel-closed-change', {
+				detail: { closed: closed, position: this._position },
 			}),
 		);
 	}

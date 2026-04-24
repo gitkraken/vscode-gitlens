@@ -1,0 +1,17 @@
+// Shared design tokens. Applied at :root so custom properties inherit across shadow boundaries.
+// Consumed by both base.scss (graph / settings / welcome) and details-base.scss (commitDetails / rebase / timeline / etc.).
+
+:root {
+	// Font-size scale (1rem = 10px via html font-size: 62.5%)
+	--gl-font-micro: 1rem; // 10px — tiny badge counts only
+	--gl-font-sm: 1.1rem; // 11px — secondary metadata, dates, stats, chips, tracking
+	--gl-font-base: 1.3rem; // 13px — primary body text, messages, controls
+	--gl-font-lg: 1.4rem; // 14px — emphasized headline (commit message subject)
+
+	// Input max-width (AI input / action input)
+	--gl-max-input: 560px;
+
+	// Horizontal padding for detail panels (embedded + standalone). Component hosts may override.
+	--gl-panel-padding-left: 1.2rem;
+	--gl-panel-padding-right: 1.2rem;
+}

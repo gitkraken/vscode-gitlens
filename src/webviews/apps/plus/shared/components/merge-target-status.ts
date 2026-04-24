@@ -4,19 +4,22 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { SubscriptionState } from '../../../../../constants.subscription.js';
-import type { BranchAndTargetRefs, BranchRef, GetOverviewBranch } from '../../../../home/protocol.js';
+import type { BranchAndTargetRefs, BranchRef } from '../../../../shared/branchRefs.js';
+import type { OverviewBranch, OverviewBranchMergeTarget } from '../../../../shared/overviewBranches.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import { elementBase, linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
-import { chipStyles } from '../../shared/components/chipStyles.js';
+import { chipStyles } from './chipStyles.js';
+import './feature-gate-plus-state.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/ref-button.js';
-import '../../shared/components/feature-gate-plus-state.js';
+
+type MergeTargetPromise = Promise<OverviewBranchMergeTarget | undefined> | undefined;
 
 const mergeTargetStyles = css`
 	.header__actions {
@@ -83,6 +86,11 @@ const mergeTargetStyles = css`
 
 	.status--in-sync .status-indicator {
 		color: var(--color-status--in-sync);
+	}
+
+	.status--loading {
+		cursor: default;
+		color: var(--color-foreground--50);
 	}
 
 	.status--merge-conflict {
@@ -223,26 +231,41 @@ export class GlMergeTargetStatus extends LitElement {
 	private _webview!: WebviewContext;
 
 	@property({ type: Object })
-	branch!: Pick<GetOverviewBranch, 'repoPath' | 'id' | 'name' | 'opened' | 'upstream' | 'worktree'>;
+	branch!: Pick<OverviewBranch, 'repoPath' | 'id' | 'name' | 'opened' | 'upstream' | 'worktree'>;
+
+	@property({ type: Boolean, reflect: true })
+	loading = false;
 
 	@state()
-	private _target: Awaited<GetOverviewBranch['mergeTarget']>;
-	get target(): Awaited<GetOverviewBranch['mergeTarget']> {
+	private _target: Awaited<MergeTargetPromise>;
+	get target(): Awaited<MergeTargetPromise> {
 		return this._target;
 	}
 
-	private _targetPromise: GetOverviewBranch['mergeTarget'];
-	get targetPromise(): GetOverviewBranch['mergeTarget'] {
+	private _targetPromise: MergeTargetPromise;
+	get targetPromise(): MergeTargetPromise {
 		return this._targetPromise;
 	}
 	@property({ type: Object })
-	set targetPromise(value: GetOverviewBranch['mergeTarget']) {
+	set targetPromise(value: MergeTargetPromise) {
 		if (this._targetPromise === value) return;
 
 		this._targetPromise = value;
-		void this._targetPromise?.then(
-			r => (this._target = r),
-			() => (this._target = undefined),
+		if (value == null) {
+			this._target = undefined;
+			return;
+		}
+		void value.then(
+			r => {
+				if (this._targetPromise === value) {
+					this._target = r;
+				}
+			},
+			() => {
+				if (this._targetPromise === value) {
+					this._target = undefined;
+				}
+			},
 		);
 	}
 
@@ -292,7 +315,17 @@ export class GlMergeTargetStatus extends LitElement {
 	}
 
 	override render(): unknown {
-		if (!this.status && !this.conflicts) return nothing;
+		if (!this.status && !this.conflicts) {
+			if (this.loading) {
+				return html`<gl-tooltip content="Checking merge target status…">
+					<span class="chip status--loading" aria-busy="true">
+						<code-icon class="icon" icon="gl-merge-target" size="18"></code-icon>
+						<code-icon class="status-indicator" icon="sync" size="12"></code-icon>
+					</span>
+				</gl-tooltip>`;
+			}
+			return nothing;
+		}
 
 		let icon;
 		let status;
@@ -556,6 +589,7 @@ export class GlMergeTargetStatus extends LitElement {
 								},
 							)}"
 							appearance="toolbar"
+							@click=${(e: MouseEvent) => this.onCompareClick(e, targetRef.branchName)}
 							><code-icon icon="git-compare"></code-icon>
 							<span slot="tooltip"
 								>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)}
@@ -573,7 +607,21 @@ export class GlMergeTargetStatus extends LitElement {
 		>`;
 	}
 
-	private renderInlineTargetEdit(target: Awaited<GetOverviewBranch['mergeTarget']>) {
+	private onCompareClick(e: MouseEvent, targetBranchName: string) {
+		const event = new CustomEvent('compare-with-merge-target', {
+			detail: { rightRef: targetBranchName, rightRefType: 'branch' },
+			bubbles: true,
+			composed: true,
+			cancelable: true,
+		});
+		this.dispatchEvent(event);
+
+		if (event.defaultPrevented) {
+			e.preventDefault();
+		}
+	}
+
+	private renderInlineTargetEdit(target: Awaited<MergeTargetPromise>) {
 		return html`<gl-button
 			class="target-edit"
 			appearance="toolbar"
