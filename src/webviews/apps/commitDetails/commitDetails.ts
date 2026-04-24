@@ -9,6 +9,7 @@ import type { ViewFilesLayout } from '../../../config.js';
 import type { InspectWebviewTelemetryContext } from '../../../constants.telemetry.js';
 import type { CommitDetailsServices } from '../../commitDetails/commitDetailsService.js';
 import type { ExecuteCommitActionsParams } from '../../commitDetails/protocol.js';
+import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane.js';
 import { DOM } from '../shared/dom.js';
@@ -595,6 +596,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 									actions?.openFileComparePrevious(e.detail, e.detail.showOptions)}
 								@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.executeFileAction(e.detail, e.detail.showOptions)}
+								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
+									actions?.openMultipleChanges(e.detail)}
 							></gl-commit-details>`,
 						() =>
 							html`<gl-wip-details
@@ -640,6 +643,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@gl-patch-file-unstage=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.unstageFile(e.detail)}
 								@gl-patch-create-cancelled=${() => actions?.changeReviewMode(false)}
+								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
+									actions?.openMultipleChanges(e.detail)}
 							></gl-wip-details>`,
 					)}
 				</main>

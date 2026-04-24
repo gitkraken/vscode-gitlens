@@ -1,9 +1,11 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { CommitFileChange, DetailsItemTypedContext, Preferences } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchComparisonCommit } from '../../../../plus/graph/graphService.js';
+import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { redispatch } from '../../../shared/components/element.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
 import { elementBase, scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
@@ -323,12 +325,14 @@ export class GlGraphWipComparePanel extends LitElement {
 					?show-file-icons=${true}
 					.fileActions=${this.fileActions}
 					.fileContext=${this._getFileContext}
+					.buttons=${this.getMultiDiffRefs() ? ['layout', 'search', 'multi-diff'] : undefined}
 					empty-text="No changes"
 					@file-compare-previous=${this.redispatch}
 					@file-open=${this.redispatch}
 					@file-compare-working=${this.redispatch}
 					@file-more-actions=${this.redispatch}
 					@change-files-layout=${this.redispatch}
+					@gl-file-tree-pane-open-multi-diff=${this.handleOpenMultiDiff}
 				>
 					${isScoped
 						? html`<gl-tooltip slot="header-badge" hoist placement="top">
@@ -358,6 +362,42 @@ export class GlGraphWipComparePanel extends LitElement {
 	}
 
 	private redispatch = redispatch.bind(this);
+
+	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
+		const files = this.compareFiles;
+		if (!files?.length) return undefined;
+		const repoPath = this.repoPath;
+		const lhs = this.leftRef;
+		const rhs = this.rightRef;
+		if (!repoPath || !lhs || !rhs) return undefined;
+
+		return {
+			repoPath: repoPath,
+			lhs: lhs,
+			rhs: rhs,
+			title: `Changes between ${shortenRevision(lhs)} and ${shortenRevision(rhs)}`,
+		};
+	}
+
+	private handleOpenMultiDiff = (): void => {
+		const refs = this.getMultiDiffRefs();
+		const files = this.compareFiles;
+		if (!refs || !files?.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('open-multiple-changes', {
+				detail: {
+					files: files,
+					repoPath: refs.repoPath,
+					lhs: refs.lhs,
+					rhs: refs.rhs,
+					title: refs.title,
+				} satisfies OpenMultipleChangesArgs,
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private getRefIcon(refType?: 'branch' | 'tag' | 'commit'): string {
 		switch (refType) {

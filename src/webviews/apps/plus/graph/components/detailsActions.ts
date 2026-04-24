@@ -33,6 +33,7 @@ import type {
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
+import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import * as fileActions from '../../../shared/actions/file.js';
 import { enrichmentGuard, noop } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
@@ -966,6 +967,10 @@ export class DetailsActions {
 
 	executeFileAction(detail: FileChangeListItemDetail, ref?: string): void {
 		fileActions.executeFileAction(this.services.files, detail, detail.showOptions, ref);
+	}
+
+	openMultipleChanges(args: OpenMultipleChangesArgs): void {
+		fileActions.openMultipleChanges(this.services.files, args);
 	}
 
 	stageFile(detail: FileChangeListItemDetail): void {

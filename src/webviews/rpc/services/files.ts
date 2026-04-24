@@ -18,12 +18,14 @@ import {
 	openChangesWithWorking,
 	openFile,
 	openFileOnRemote,
+	openMultipleChanges,
+	openWipMultipleChanges,
 	showDetailsQuickPick,
 } from '../../../git/actions/commit.js';
 import { GitUri } from '../../../git/gitUri.js';
 import { getCommitAndFileByPath } from '../../../git/utils/-webview/commit.utils.js';
 import { executeCommand } from '../../../system/-webview/command.js';
-import type { FileShowOptions } from './types.js';
+import type { FileShowOptions, OpenMultipleChangesArgs } from './types.js';
 
 export class FilesService {
 	constructor(private readonly container: Container) {}
@@ -121,6 +123,38 @@ export class FilesService {
 		if (commit == null) return;
 
 		void showDetailsQuickPick(commit, resolved);
+	}
+
+	/**
+	 * Open all files in VS Code's native multi-diff editor.
+	 *
+	 * Forces `openIndividually: false` so the multi-diff path is always taken,
+	 * bypassing the `views.openChangesInMultiDiffEditor` setting. The large-set
+	 * threshold warning still applies.
+	 */
+	async openMultipleChanges(args: OpenMultipleChangesArgs): Promise<void> {
+		if (!args.files.length) return;
+
+		// WIP mode: route per-file so a path that appears as both staged and unstaged
+		// yields two entries with different diffs (HEAD↔index and index↔working) instead
+		// of two identical HEAD↔working-tree entries.
+		if (args.rhs === '') {
+			await openWipMultipleChanges(
+				this.container,
+				args.files,
+				args.repoPath,
+				args.title != null ? { title: args.title } : undefined,
+			);
+			return;
+		}
+
+		await openMultipleChanges(
+			this.container,
+			args.files,
+			{ repoPath: args.repoPath, lhs: args.lhs, rhs: args.rhs },
+			false,
+			args.title != null ? { title: args.title } : undefined,
+		);
 	}
 
 	// ============================================================

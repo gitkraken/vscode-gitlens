@@ -8,11 +8,11 @@
  * `TextDocumentShowOptions` that crosses the RPC boundary safely.
  */
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import type { FileShowOptions } from '../../../rpc/services/types.js';
+import type { FileShowOptions, OpenMultipleChangesArgs } from '../../../rpc/services/types.js';
 import { fireAndForget } from './rpc.js';
 
 // Re-export for consumers that import from this module
-export type { FileShowOptions } from '../../../rpc/services/types.js';
+export type { FileShowOptions, OpenMultipleChangesArgs } from '../../../rpc/services/types.js';
 
 // ============================================================
 // File Operations (fire-and-forget — backend opens editors)
@@ -83,4 +83,11 @@ export function executeFileAction(
 	ref?: string,
 ): void {
 	fireAndForget(commands.executeFileAction(file, showOptions, ref), 'file action');
+}
+
+export function openMultipleChanges(
+	commands: { openMultipleChanges(args: OpenMultipleChangesArgs): Promise<void> },
+	args: OpenMultipleChangesArgs,
+): void {
+	fireAndForget(commands.openMultipleChanges(args), 'open multiple changes');
 }

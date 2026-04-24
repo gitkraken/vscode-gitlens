@@ -100,7 +100,7 @@ export class GlFileTreePane extends LitElement {
 	badge?: string | number;
 
 	@property({ attribute: false })
-	buttons?: ('layout' | 'search')[];
+	buttons?: ('layout' | 'search' | 'multi-diff')[];
 
 	// --- Checkbox ---
 
@@ -187,6 +187,7 @@ export class GlFileTreePane extends LitElement {
 		const effectiveBadge = this.badge ?? (fileCount > 0 ? fileCount : undefined);
 		const showLayout = this.buttons?.includes('layout') ?? true;
 		const showSearch = this.buttons?.includes('search') ?? true;
+		const showMultiDiff = (this.buttons?.includes('multi-diff') ?? false) && fileCount > 0;
 
 		return html`
 			<webview-pane exportparts="header, content" .collapsable=${this.collapsable} expanded flexible>
@@ -199,6 +200,14 @@ export class GlFileTreePane extends LitElement {
 				<div class="header-actions" slot="actions">
 					<slot name="leading-actions" class="leading-actions"></slot>
 					<action-nav>
+						${showMultiDiff
+							? html`<action-item
+									data-action="multi-diff"
+									label="Open All Changes"
+									icon="diff-multiple"
+									@click=${this.onOpenMultiDiff}
+								></action-item>`
+							: nothing}
 						${this.searchContext != null
 							? renderFilterAction(
 									this._filterMode,
@@ -300,6 +309,12 @@ export class GlFileTreePane extends LitElement {
 		e.preventDefault();
 		e.stopPropagation();
 		this._showFilter = !this._showFilter;
+	}
+
+	private onOpenMultiDiff(e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+		this.dispatchEvent(new CustomEvent('gl-file-tree-pane-open-multi-diff', { bubbles: true, composed: true }));
 	}
 
 	private onToggleFilter(e: Event) {

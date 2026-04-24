@@ -33,6 +33,7 @@ import type { Draft } from '../../../plus/drafts/models/drafts.js';
 import type { CommitDetailsServices, InitialContext } from '../../commitDetails/commitDetailsService.js';
 import type { CommitDetails, FileShowOptions, Mode, Wip, WipChange } from '../../commitDetails/protocol.js';
 import { messageHeadlineSplitterToken } from '../../commitDetails/protocol.js';
+import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import * as fileActions from '../shared/actions/file.js';
 import * as gitActions from '../shared/actions/git.js';
 import * as prActions from '../shared/actions/pr.js';
@@ -449,6 +450,10 @@ export class CommitDetailsActions {
 
 	executeFileAction(file: GitFileChangeShape, showOptions?: FileShowOptions): void {
 		fileActions.executeFileAction(this.services.files, file, showOptions, this.getCurrentRef());
+	}
+
+	openMultipleChanges(args: OpenMultipleChangesArgs): void {
+		fileActions.openMultipleChanges(this.services.files, args);
 	}
 
 	// ============================================================
