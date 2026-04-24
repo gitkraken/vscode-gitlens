@@ -213,7 +213,7 @@ export interface CommitInspectService {
 	 * @param sha - Commit SHA (use 'wip' for uncommitted changes)
 	 * @param signal - Optional AbortSignal for cooperative cancellation
 	 */
-	explainCommit(repoPath: string, sha: string, signal?: AbortSignal): Promise<ExplainResult>;
+	explainCommit(repoPath: string, sha: string, prompt?: string, signal?: AbortSignal): Promise<ExplainResult>;
 
 	/**
 	 * Generate AI title and description for WIP changes.

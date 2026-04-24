@@ -12,6 +12,7 @@ import type { Container } from '../../../container.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { AIService } from './ai.js';
 import { AutolinksService } from './autolinks.js';
+import { BranchesService } from './branches.js';
 import { CommandsService } from './commands.js';
 import { ConfigService } from './config.js';
 import { DraftsService } from './drafts.js';
@@ -47,6 +48,7 @@ export interface SharedWebviewServices {
 	readonly onboarding: OnboardingRpcService;
 	readonly ai: AIService;
 	readonly autolinks: AutolinksService;
+	readonly branches: BranchesService;
 	readonly commands: CommandsService;
 	readonly telemetry: TelemetryService;
 	readonly files: FilesService;
@@ -87,6 +89,7 @@ export function createSharedServices(
 		onboarding: new OnboardingRpcService(container, buffer, tracker),
 		ai: new AIService(container, buffer, tracker),
 		autolinks: new AutolinksService(container),
+		branches: new BranchesService(container),
 		commands: new CommandsService(container, host),
 		telemetry: new TelemetryService(host, updateTelemetryContext),
 		files: new FilesService(container),

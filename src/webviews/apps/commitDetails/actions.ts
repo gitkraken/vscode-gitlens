@@ -22,6 +22,7 @@
 import type { Remote } from '@eamodio/supertalk';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { PullRequestRefs } from '@gitlens/git/models/pullRequest.js';
+import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.ts';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -86,7 +87,7 @@ export interface CommitDetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
 	readonly wip: Resource<Wip | undefined, [string | undefined]>;
 	readonly reachability: Resource<GitCommitReachability | undefined>;
-	readonly explain: Resource<ExplainState | undefined>;
+	readonly explain: Resource<ExplainState | undefined, [string | undefined]>;
 	readonly generate: Resource<GenerateState | undefined>;
 }
 
@@ -406,12 +407,6 @@ export class CommitDetailsActions {
 		gitActions.pull(this.services.repository, repoPath);
 	}
 
-	publish(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-		gitActions.publish(this.services.repository, repoPath);
-	}
-
 	switchBranch(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
@@ -477,6 +472,23 @@ export class CommitDetailsActions {
 	 */
 	executeCommand(command: GlExtensionCommands, ...args: unknown[]): void {
 		fireAndForget(this.services.commands.execute(command, ...args), `command: ${command}`);
+	}
+
+	openOnRemote(repoPath: string | undefined, sha: string): void {
+		if (!repoPath) return;
+		void this.services.commands.execute('gitlens.openOnRemote', {
+			repoPath: repoPath,
+			resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
+		});
+	}
+
+	changeFilesLayout(layout: ViewFilesLayout): void {
+		const prefs = this.state.preferences.get();
+		if (!prefs?.files) return;
+
+		const files = { ...prefs.files, layout: layout };
+		this.state.preferences.set({ ...prefs, files: files });
+		void this.services.config.update('views.commitDetails.files.layout', layout);
 	}
 
 	// ============================================================
@@ -567,11 +579,11 @@ export class CommitDetailsActions {
 	 * Generate an AI explanation of the current commit.
 	 * Resource handles cancel-previous and staleness.
 	 */
-	async explainCommit(): Promise<void> {
+	async explainCommit(prompt?: string): Promise<void> {
 		const commit = this.state.currentCommit.get();
 		if (!commit) return;
 
-		await this.resources.explain.fetch();
+		await this.resources.explain.fetch(prompt);
 	}
 
 	/**
@@ -730,27 +742,32 @@ export class CommitDetailsActions {
 
 				// Basic autolinks + linkified message (gated on autolinks config)
 				if (this.state.capabilities.autolinksEnabled) {
-					void this.services.autolinks.getCommitAutolinks(repoPath, sha, messageHeadlineSplitterToken).then(
-						guard(r => {
-							if (r != null) {
-								this.state.autolinks.set(r.autolinks);
-								this.state.formattedMessage.set(r.formattedMessage);
-							}
-						}),
-						noop,
-					);
+					const isStash = commit.stashNumber != null;
+					void this.services.autolinks
+						.getCommitAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash)
+						.then(
+							guard(r => {
+								if (r != null) {
+									this.state.autolinks.set(r.autolinks);
+									this.state.formattedMessage.set(r.formattedMessage);
+								}
+							}),
+							noop,
+						);
 
 					// Enriched autolinks — resolved issues + enriched linkified message
-					void this.services.autolinks.getEnrichedAutolinks(repoPath, sha, messageHeadlineSplitterToken).then(
-						guard(r => {
-							if (r != null) {
-								this.state.autolinkedIssues.set(r.autolinkedIssues);
-								// Enriched formatted message overrides basic (has issue titles in tooltips)
-								this.state.formattedMessage.set(r.formattedMessage);
-							}
-						}),
-						noop,
-					);
+					void this.services.autolinks
+						.getEnrichedAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash)
+						.then(
+							guard(r => {
+								if (r != null) {
+									this.state.autolinkedIssues.set(r.autolinkedIssues);
+									// Enriched formatted message overrides basic (has issue titles in tooltips)
+									this.state.formattedMessage.set(r.formattedMessage);
+								}
+							}),
+							noop,
+						);
 				}
 
 				// Associated PR (via shared pull requests service)
@@ -765,6 +782,14 @@ export class CommitDetailsActions {
 				void this.services.repository.getCommitSignature(repoPath, sha).then(
 					guard(sig => {
 						this.state.signature.set(sig);
+					}),
+					noop,
+				);
+
+				// Check if repo has remotes (for "Open on Remote" action)
+				void this.services.repository.hasRemotes(repoPath).then(
+					guard(has => {
+						this.state.hasRemotes.set(has);
 					}),
 					noop,
 				);
@@ -840,7 +865,11 @@ export class CommitDetailsActions {
 						'views.commitDetails.autolinks.enabled',
 						'ai.experimental.composer.enabled',
 					),
-					this.services.config.getManyCore('workbench.tree.renderIndentGuides', 'workbench.tree.indent'),
+					this.services.config.getManyCore(
+						'workbench.tree.renderIndentGuides',
+						'workbench.tree.indent',
+						'git.enableSmartCommit',
+					),
 					this.services.ai.isEnabled(),
 				]);
 
@@ -855,7 +884,7 @@ export class CommitDetailsActions {
 				autolinksEnabled,
 				experimentalComposerEnabled,
 			] = getSettledValue(configResult) ?? [];
-			const [indentGuides, indent] = getSettledValue(coreConfigResult) ?? [];
+			const [indentGuides, indent, enableSmartCommit] = getSettledValue(coreConfigResult) ?? [];
 			const aiEnabled = getSettledValue(aiEnabledResult);
 
 			this.state.preferences.set({
@@ -874,6 +903,7 @@ export class CommitDetailsActions {
 				indentGuides: indentGuides ?? 'onHover',
 				indent: indent,
 				aiEnabled: aiEnabled ?? false,
+				enableSmartCommit: enableSmartCommit ?? false,
 				showSignatureBadges: showSignatureBadges ?? false,
 			});
 			if (autolinksEnabled != null) {
@@ -918,7 +948,7 @@ export class CommitDetailsActions {
 				this.fetch();
 				break;
 			case 'publish-branch':
-				this.publish();
+				this.push();
 				break;
 			case 'switch':
 				this.switchBranch();

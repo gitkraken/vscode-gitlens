@@ -20,9 +20,9 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../../container.js';
 import type { FeatureAccess, PlusFeatures } from '../../../features.js';
+import * as BranchActions from '../../../git/actions/branch.js';
 import * as RepoActions from '../../../git/actions/repository.js';
 import { getCommitSignature } from '../../../git/utils/-webview/commit.utils.js';
-import { executeCoreGitCommand } from '../../../system/-webview/command.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { bufferEventHandler } from '../eventVisibilityBuffer.js';
@@ -172,6 +172,11 @@ export class RepositoryService {
 		return serialize(access) as FeatureAccess;
 	}
 
+	async hasRemotes(repoPath: string): Promise<boolean> {
+		const remotes = await this.container.git.getRepositoryService(repoPath).remotes.getRemotes();
+		return remotes.length > 0;
+	}
+
 	// ============================================================
 	// Git Actions
 	// ============================================================
@@ -188,6 +193,35 @@ export class RepositoryService {
 	 */
 	async unstageFile(file: GitFileChangeShape): Promise<void> {
 		await this.container.git.getRepositoryService(file.repoPath).staging?.unstageFile(file.path);
+	}
+
+	/**
+	 * Stage all working tree changes.
+	 */
+	async stageAll(repoPath: string): Promise<void> {
+		await this.container.git.getRepositoryService(repoPath).staging?.stageAll();
+	}
+
+	/**
+	 * Unstage all staged changes.
+	 */
+	async unstageAll(repoPath: string): Promise<void> {
+		await this.container.git.getRepositoryService(repoPath).staging?.unstageAll();
+	}
+
+	/**
+	 * Commit staged changes.
+	 */
+	async commit(repoPath: string, message: string, options?: { all?: boolean; amend?: boolean }): Promise<void> {
+		await this.container.git.getRepositoryService(repoPath).ops?.commit(message, options);
+	}
+
+	/**
+	 * Get the last commit message (for amend mode).
+	 */
+	async getLastCommitMessage(repoPath: string): Promise<string | undefined> {
+		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit('HEAD');
+		return commit?.message;
 	}
 
 	/**
@@ -212,17 +246,17 @@ export class RepositoryService {
 	}
 
 	/**
-	 * Publish branch to remote.
-	 */
-	async publish(repoPath: string): Promise<void> {
-		await executeCoreGitCommand('git.publish', Uri.file(repoPath));
-	}
-
-	/**
 	 * Switch branches.
 	 */
 	async switchBranch(repoPath: string): Promise<void> {
 		await RepoActions.switchTo(repoPath);
+	}
+
+	/**
+	 * Create a new branch.
+	 */
+	async createBranch(repoPath: string): Promise<void> {
+		await BranchActions.create(repoPath);
 	}
 
 	// ============================================================
@@ -303,6 +337,7 @@ function serializeCommit(commit: GitCommit): SerializedGitCommit {
 		message: commit.message,
 		summary: commit.summary,
 		stashNumber: commit.stashNumber,
+		stashOnRef: commit.stashOnRef,
 		refType: commit.refType,
 	};
 }

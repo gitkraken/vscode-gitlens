@@ -195,6 +195,7 @@ export interface SerializedGitCommit {
 	readonly message: string | undefined;
 	readonly summary: string;
 	readonly stashNumber: string | undefined;
+	readonly stashOnRef: string | undefined;
 	readonly refType: 'revision' | 'stash';
 }
 

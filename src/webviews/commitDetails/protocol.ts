@@ -1,8 +1,9 @@
 import type { GitCommitIdentityShape, GitCommitStats } from '@gitlens/git/models/commit.js';
-import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { CurrentUserNameStyle } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
@@ -31,11 +32,20 @@ export interface CommitSummary {
 	parents: string[];
 	repoPath: string;
 	stashNumber?: string;
+	stashOnRef?: string;
 }
 
+export type CommitFileChange = GitFileChangeShape & { stats?: GitFileChangeStats };
+
 export interface CommitDetails extends CommitSummary {
-	files?: readonly GitFileChangeShape[];
+	files?: readonly CommitFileChange[];
 	stats?: GitCommitStats;
+}
+
+export interface CompareDiff {
+	files: readonly CommitFileChange[];
+	stats?: GitCommitStats;
+	commitCount?: number;
 }
 
 export interface Preferences {
@@ -48,6 +58,7 @@ export interface Preferences {
 	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
 	aiEnabled: boolean;
+	enableSmartCommit: boolean;
 	showSignatureBadges: boolean;
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
@@ -62,6 +73,8 @@ export interface GitBranchShape {
 		ahead: number;
 		behind: number;
 	};
+	/** Full reference, for command-link args (associate-issue, etc.) that need a GitBranchReference. */
+	reference?: GitBranchReference;
 }
 
 export interface Wip {
@@ -143,6 +156,7 @@ export interface DetailsFileContextValue {
 	path: string;
 	repoPath: string;
 	sha?: string;
+	comparisonSha?: string;
 	stashNumber?: string;
 	staged?: boolean;
 	status?: GitFileStatus;

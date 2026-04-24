@@ -57,6 +57,23 @@ export function openFileComparePrevious(
 	fireAndForget(commands.openFileComparePrevious(file, showOptions, ref), 'compare file with previous');
 }
 
+export function openFileCompareBetween(
+	commands: {
+		openFileCompareBetween(
+			file: GitFileChangeShape,
+			showOptions?: FileShowOptions,
+			lhsRef?: string,
+			rhsRef?: string,
+		): Promise<void>;
+	},
+	file: GitFileChangeShape,
+	showOptions?: FileShowOptions,
+	lhsRef?: string,
+	rhsRef?: string,
+): void {
+	fireAndForget(commands.openFileCompareBetween(file, showOptions, lhsRef, rhsRef), 'compare file between refs');
+}
+
 export function executeFileAction(
 	commands: {
 		executeFileAction(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void>;
