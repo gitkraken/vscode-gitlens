@@ -243,6 +243,9 @@ Skills provide detailed, step-by-step workflows for common tasks. Invoke with `/
 | `/review`          | Code review against standards + impact completeness audit                   |
 | `/deep-review`     | Deep merge-blocking review — traces code paths for correctness              |
 | `/ux-review`       | UX review — traces user flows against goals doc                             |
+| `/a11y-audit`      | Audit a component/file/directory for WCAG 2.1 AA accessibility              |
+| `/a11y-flow-audit` | Audit a page or flow for WCAG 2.1 AA composition-level compliance           |
+| `/a11y-remediate`  | Turn /a11y-audit findings into a leader-facing remediation proposal         |
 | `/commit`          | Git commit with GitLens conventions                                         |
 | `/create-issue`    | Create GitHub issues from code changes                                      |
 | `/audit-commits`   | Audit commit range for issues and CHANGELOG entries                         |
