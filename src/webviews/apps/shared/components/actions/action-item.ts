@@ -28,6 +28,20 @@ export class ActionItem extends LitElement {
 			cursor: pointer;
 		}
 
+		.icon-wrapper {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		code-icon[part~='icon-outline'] {
+			position: absolute;
+			inset: 0;
+			display: none;
+			pointer-events: none;
+		}
+
 		:host(:focus-within) {
 			${focusOutline}
 		}
@@ -80,6 +94,9 @@ export class ActionItem extends LitElement {
 
 	@property({ attribute: 'alt-icon' })
 	altIcon?: string;
+
+	@property({ attribute: 'outline-icon' })
+	outlineIcon?: string;
 
 	@property({ type: Boolean })
 	disabled = false;
@@ -171,7 +188,14 @@ export class ActionItem extends LitElement {
 					tabindex="0"
 					@keydown=${this.handleLinkKeydown}
 				>
-					<code-icon part="icon" icon="${this.effectiveIcon}"></code-icon>
+					<span class="icon-wrapper">
+						<code-icon part="icon" icon="${this.effectiveIcon}"></code-icon>
+						<code-icon
+							part="icon-outline"
+							icon="${this.outlineIcon ?? this.effectiveIcon}"
+							aria-hidden="true"
+						></code-icon>
+					</span>
 				</a>
 			</gl-tooltip>
 		`;

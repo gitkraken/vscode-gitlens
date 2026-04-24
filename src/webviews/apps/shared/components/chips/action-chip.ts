@@ -54,6 +54,7 @@ export class ActionChip extends LitElement {
 				color: inherit;
 				max-width: 100%;
 				min-width: 2rem;
+				max-width: 100%;
 				height: 2rem;
 				color: inherit;
 				padding: 0.2rem;
@@ -90,7 +91,7 @@ export class ActionChip extends LitElement {
 	label?: string;
 
 	@property()
-	overlay: 'tooltip' | 'popover' = 'tooltip';
+	overlay: 'tooltip' | 'popover' | 'none' = 'tooltip';
 
 	@property()
 	icon = '';
@@ -102,7 +103,7 @@ export class ActionChip extends LitElement {
 	private defaultFocusEl!: HTMLElement;
 
 	override render(): unknown {
-		if (!this.label) {
+		if (!this.label || this.overlay === 'none') {
 			return this.renderContent();
 		}
 
@@ -126,14 +127,28 @@ export class ActionChip extends LitElement {
 
 		if (this.href) {
 			return html`
-				<a class="chip" part="base" ?disabled=${this.disabled} href=${this.href} slot=${slot}>
+				<a
+					class="chip"
+					part="base"
+					?disabled=${this.disabled}
+					href=${this.href}
+					slot=${slot}
+					aria-label=${ifDefined(this.label)}
+				>
 					${iconHtml}<slot></slot>
 				</a>
 			`;
 		}
 
 		return html`
-			<button class="chip" part="base" type="button" ?disabled=${this.disabled} slot=${slot}>
+			<button
+				class="chip"
+				part="base"
+				type="button"
+				?disabled=${this.disabled}
+				slot=${slot}
+				aria-label=${ifDefined(this.label)}
+			>
 				${iconHtml}<slot></slot>
 			</button>
 		`;

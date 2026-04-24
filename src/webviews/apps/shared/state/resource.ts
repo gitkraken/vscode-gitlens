@@ -19,6 +19,8 @@ export interface Resource<T, TArgs extends unknown[] = []> {
 	refetch(): Promise<void>;
 	mutate(value: T): void;
 	cancel(): void;
+	/** Cancel any in-flight fetch and clear value/error/status back to the initial idle state. */
+	reset(): void;
 	dispose(): void;
 }
 
@@ -32,8 +34,9 @@ export function createResource<T, TArgs extends unknown[] = []>(
 	options?: ResourceOptions<T>,
 ): Resource<T, TArgs> {
 	const cancelPrevious = options?.cancelPrevious ?? true;
+	const initialValue = options?.initialValue as T;
 
-	const _value = litSignal<T>(options?.initialValue as T);
+	const _value = litSignal<T>(initialValue);
 	const _loading = litSignal(false);
 	const _error = litSignal<string | undefined>(undefined);
 	const _hasResolved = litSignal(false);
@@ -102,6 +105,14 @@ export function createResource<T, TArgs extends unknown[] = []>(
 		_hasResolved.set(true);
 	}
 
+	function reset(): void {
+		cancel();
+		_value.set(initialValue);
+		_error.set(undefined);
+		_hasResolved.set(false);
+		_lastArgs = undefined;
+	}
+
 	function dispose(): void {
 		_disposed = true;
 		cancel();
@@ -117,6 +128,7 @@ export function createResource<T, TArgs extends unknown[] = []>(
 		refetch: refetch,
 		mutate: mutate,
 		cancel: cancel,
+		reset: reset,
 		dispose: dispose,
 	};
 }

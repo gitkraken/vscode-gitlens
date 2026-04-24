@@ -37,6 +37,9 @@ export class GlCommitSha extends LitElement {
 	@property({ type: String })
 	sha?: string;
 
+	@property({ type: String })
+	icon: string = 'git-commit';
+
 	@property({ type: Number })
 	size: number = 12;
 
@@ -53,26 +56,59 @@ export class GlCommitSha extends LitElement {
 			return html`<span part="label" class="label--uncommitted">${this.label}</span>`;
 		}
 
-		return html`<code-icon part="icon" class="icon" icon="git-commit" size="${this.size}"></code-icon
+		return html`<code-icon part="icon" class="icon" icon="${this.icon}" size="${this.size}"></code-icon
 			><span part="label">${this.label}</span>`;
 	}
 }
 
 @customElement('gl-commit-sha-copy')
 export class GlCommitShaCopy extends LitElement {
-	static override styles = styles;
+	static override styles = [
+		styles,
+		css`
+			:host(:focus) {
+				outline: none;
+			}
+		`,
+	];
 
 	@property({ type: String })
 	sha?: string;
 
+	@property({ type: String })
+	icon: string = 'git-commit';
+
 	@property({ type: Number })
 	size: number = 12;
+
+	@property({ reflect: true })
+	appearance?: 'toolbar';
+
+	@property({ type: String, attribute: 'copy-label' })
+	copyLabel: string = 'Copy';
+
+	@property({ type: String, attribute: 'copied-label' })
+	copiedLabel: string = 'Copied!';
+
+	@property({ type: String, attribute: 'tooltip-placement' })
+	tooltipPlacement: string = 'top';
 
 	override render(): unknown {
 		if (this.sha == null) return nothing;
 
-		return html`<gl-copy-container .content=${this.sha} placement="top">
-			<gl-commit-sha exportparts="icon, label" .sha=${this.sha} .size=${this.size}></gl-commit-sha>
+		return html`<gl-copy-container
+			.content=${this.sha}
+			placement="${this.tooltipPlacement}"
+			.copyLabel=${this.copyLabel}
+			.copiedLabel=${this.copiedLabel}
+			.appearance=${this.appearance}
+		>
+			<gl-commit-sha
+				exportparts="icon, label"
+				.sha=${this.sha}
+				.icon=${this.icon}
+				.size=${this.size}
+			></gl-commit-sha>
 		</gl-copy-container>`;
 	}
 }

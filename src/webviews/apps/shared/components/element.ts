@@ -1,6 +1,19 @@
 import type { PropertyValues } from 'lit';
 import { LitElement } from 'lit';
 
+/**
+ * Re-dispatches a bubbling, composed copy of an incoming event from the host element.
+ * Use as an inline handler to forward a Shadow-DOM child's custom event up to ancestors
+ * without hand-writing a dedicated redispatcher per event type.
+ */
+export function redispatch(this: HTMLElement, e: Event): void {
+	if (e instanceof CustomEvent) {
+		this.dispatchEvent(new CustomEvent(e.type, { detail: e.detail, bubbles: true, composed: true }));
+	} else {
+		this.dispatchEvent(new Event(e.type, { bubbles: true, composed: true }));
+	}
+}
+
 export type CustomEventType<T extends keyof GlobalEventHandlersEventMap> =
 	GlobalEventHandlersEventMap[T] extends CustomEvent<infer D>
 		? [D] extends [never]

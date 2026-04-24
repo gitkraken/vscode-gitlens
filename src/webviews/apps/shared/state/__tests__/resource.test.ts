@@ -200,6 +200,59 @@ suite('createResource Test Suite', () => {
 		});
 	});
 
+	suite('reset()', () => {
+		test('should clear value, error, and status to idle', async () => {
+			const resource = createResource<number | undefined>(async () => 42);
+			await resource.fetch();
+			assert.strictEqual(resource.value.get(), 42);
+			assert.strictEqual(resource.status.get(), 'success');
+
+			resource.reset();
+
+			assert.strictEqual(resource.value.get(), undefined, 'reset should clear value');
+			assert.strictEqual(resource.error.get(), undefined, 'reset should clear error');
+			assert.strictEqual(resource.status.get(), 'idle', 'reset should return status to idle');
+		});
+
+		test('should restore initialValue when provided', async () => {
+			const resource = createResource<number>(async () => 42, { initialValue: 7 });
+			await resource.fetch();
+			resource.reset();
+
+			assert.strictEqual(resource.value.get(), 7, 'reset should restore initialValue');
+		});
+
+		test('should abort in-flight fetch', async () => {
+			let aborted = false;
+			const resource = createResource<number>(async signal => {
+				signal.addEventListener('abort', () => (aborted = true));
+				await new Promise(r => setTimeout(r, 100));
+				return 42;
+			});
+
+			const fetchPromise = resource.fetch();
+			resource.reset();
+			await fetchPromise;
+
+			assert.ok(aborted, 'reset should abort in-flight fetch');
+		});
+
+		test('should clear refetch args so refetch becomes a no-op', async () => {
+			let fetchCount = 0;
+			const resource = createResource<number, [number]>(async (_signal, n) => {
+				fetchCount++;
+				return n;
+			});
+			await resource.fetch(99);
+			assert.strictEqual(fetchCount, 1);
+
+			resource.reset();
+			await resource.refetch();
+
+			assert.strictEqual(fetchCount, 1, 'refetch after reset should not invoke fetcher');
+		});
+	});
+
 	suite('dispose()', () => {
 		test('should prevent future fetches', async () => {
 			let fetchCount = 0;

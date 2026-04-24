@@ -71,6 +71,36 @@ export class IssuePullRequest extends GlElement {
 			grid-row: 1 / 3;
 			margin: 0;
 		}
+
+		.badge {
+			display: inline-block;
+			padding: 0.1rem 0.4rem;
+			font-size: 0.9em;
+			line-height: 1;
+			border-radius: 0.3rem;
+			border: 1px solid var(--color-foreground--50);
+			opacity: 0.8;
+		}
+
+		.review {
+			grid-column: 2;
+			margin: 0;
+			display: flex;
+			align-items: center;
+			gap: 0.3rem;
+		}
+
+		.review--approved {
+			color: var(--vscode-gitlens-mergedPullRequestIconColor);
+		}
+
+		.review--changes-requested {
+			color: var(--vscode-gitlens-closedPullRequestIconColor);
+		}
+
+		.review--review-required {
+			opacity: 0.8;
+		}
 	`;
 
 	@property()
@@ -100,8 +130,28 @@ export class IssuePullRequest extends GlElement {
 	@property({ type: Boolean, reflect: true })
 	compact?: boolean;
 
+	@property()
+	author?: string;
+
+	@property({ type: Boolean })
+	isDraft?: boolean;
+
+	@property()
+	reviewDecision?: string;
+
 	@property({ type: Boolean })
 	details = false;
+
+	private get typeLabel() {
+		switch (this.type) {
+			case 'issue':
+				return 'Issue ';
+			case 'pr':
+				return 'PR ';
+			default:
+				return '';
+		}
+	}
 
 	private renderDate() {
 		if (!this.date) return nothing;
@@ -128,7 +178,12 @@ export class IssuePullRequest extends GlElement {
 			<p class="title">
 				<a href="${this.url}">${this.name}</a>
 			</p>
-			<p class="date">${this.identifier} ${this.status ? this.status : nothing} ${this.renderDate()}</p>
+			<p class="date">
+				${this.typeLabel}${this.identifier}${this.author ? html` by ${this.author}` : nothing}
+				${this.isDraft ? html` <span class="badge">Draft</span>` : nothing}
+				${this.status ? html` ${this.status}` : nothing} ${this.renderDate()}
+			</p>
+			${this.renderReviewDecision()}
 			${when(
 				this.details === true,
 				() => html`
@@ -140,6 +195,35 @@ export class IssuePullRequest extends GlElement {
 				`,
 			)}
 		`;
+	}
+
+	private renderReviewDecision() {
+		if (!this.reviewDecision || this.type !== 'pr') return nothing;
+
+		let label: string;
+		let icon: string;
+		let cls: string;
+		switch (this.reviewDecision) {
+			case 'Approved':
+				label = 'Approved';
+				icon = 'pass';
+				cls = 'review--approved';
+				break;
+			case 'ChangesRequested':
+				label = 'Changes Requested';
+				icon = 'request-changes';
+				cls = 'review--changes-requested';
+				break;
+			case 'ReviewRequired':
+				label = 'Review Required';
+				icon = 'comment-unresolved';
+				cls = 'review--review-required';
+				break;
+			default:
+				return nothing;
+		}
+
+		return html`<p class="review ${cls}"><code-icon icon=${icon}></code-icon> ${label}</p>`;
 	}
 
 	private onDetailsClicked() {
