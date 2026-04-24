@@ -419,6 +419,8 @@ export interface UpdateIncludedRefsParams {
 }
 export const UpdateIncludedRefsCommand = new IpcCommand<UpdateIncludedRefsParams>(scope, 'filters/update/includedRefs');
 
+export const ResetGraphFiltersCommand = new IpcCommand(scope, 'filters/reset');
+
 export interface UpdateSelectionParams {
 	selection: GraphSelection[];
 }

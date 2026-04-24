@@ -306,6 +306,7 @@ import {
 	JumpToHeadRequest,
 	makeSecondaryWipSha,
 	OpenPullRequestDetailsCommand,
+	ResetGraphFiltersCommand,
 	ResolveGraphScopeRequest,
 	RowActionCommand,
 	SearchCancelCommand,
@@ -3760,7 +3761,41 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return { scope: { ...params.scope, mergeBase: mergeBase } };
 	}
 
+	/**
+	 * Session cache for resolved merge-bases, keyed by `repoPath|branchRef|upstreamRef`. Merge-bases
+	 * are stable as long as history isn't rewritten, so caching for the webview's lifetime is safe;
+	 * a graph refresh recreates the provider and clears it. Coalesces in-flight resolves per key so
+	 * concurrent consumers share one git operation.
+	 */
+	private readonly _mergeBaseCache = new Map<string, { sha: string; date: number } | undefined>();
+	private readonly _mergeBaseInFlight = new Map<string, Promise<{ sha: string; date: number } | undefined>>();
+
 	private async resolveMergeBaseForBranch(
+		repoPath: string,
+		branchRefId: string,
+		branchName: string,
+		upstreamRefId: string | undefined,
+	): Promise<{ sha: string; date: number } | undefined> {
+		const cacheKey = `${repoPath}|${branchRefId}|${upstreamRefId ?? ''}`;
+		if (this._mergeBaseCache.has(cacheKey)) {
+			return this._mergeBaseCache.get(cacheKey);
+		}
+		const inFlight = this._mergeBaseInFlight.get(cacheKey);
+		if (inFlight != null) return inFlight;
+
+		const promise = this.computeMergeBaseForBranch(repoPath, branchRefId, branchName, upstreamRefId)
+			.then(result => {
+				this._mergeBaseCache.set(cacheKey, result);
+				return result;
+			})
+			.finally(() => {
+				this._mergeBaseInFlight.delete(cacheKey);
+			});
+		this._mergeBaseInFlight.set(cacheKey, promise);
+		return promise;
+	}
+
+	private async computeMergeBaseForBranch(
 		repoPath: string,
 		branchRefId: string,
 		branchName: string,
@@ -5410,6 +5445,43 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 
 		void this.updateFiltersByRepo(repoPath, { excludeTypes: excludeTypes });
+		void this.notifyDidChangeRefsVisibility();
+	}
+
+	@ipcCommand(ResetGraphFiltersCommand)
+	private onResetFilters() {
+		this.resetFilters(this._graph?.repoPath);
+	}
+
+	private resetFilters(repoPath: string | undefined) {
+		if (repoPath == null) return;
+
+		const filters = this.getFiltersByRepo(repoPath);
+		if (filters == null) return;
+
+		const cleared = {
+			'cleared.branchesVisibility': filters.branchesVisibility != null,
+			'cleared.excludeTypes': hasKeys(filters.excludeTypes),
+			'cleared.includeOnlyRefs': hasKeys(filters.includeOnlyRefs),
+			'cleared.excludeRefs': hasKeys(filters.excludeRefs),
+		};
+
+		if (
+			!cleared['cleared.branchesVisibility'] &&
+			!cleared['cleared.excludeTypes'] &&
+			!cleared['cleared.includeOnlyRefs'] &&
+			!cleared['cleared.excludeRefs']
+		) {
+			return;
+		}
+
+		this.host.sendTelemetryEvent('graph/filters/cleared', cleared);
+
+		const filtersByRepo = this.container.storage.getWorkspace('graph:filtersByRepo');
+		void this.container.storage.storeWorkspace(
+			'graph:filtersByRepo',
+			updateRecordValue(filtersByRepo, repoPath, undefined),
+		);
 		void this.notifyDidChangeRefsVisibility();
 	}
 

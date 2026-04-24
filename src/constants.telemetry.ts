@@ -228,6 +228,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/columns/changed': GraphColumnsChangedEvent;
 	/** Sent when the user changes the filters on the Commit Graph */
 	'graph/filters/changed': GraphFiltersChangedEvent;
+	/** Sent when the user clears all filters on the Commit Graph */
+	'graph/filters/cleared': GraphFiltersClearedEvent;
 	/** Sent when the user selects (clicks on) a day on the minimap on the Commit Graph */
 	'graph/minimap/day/selected': GraphContextEventData;
 	/** Sent when the user changes the current repository on the Commit Graph */
@@ -896,6 +898,13 @@ interface GraphColumnsChangedEvent extends GraphColumnEventData, GraphContextEve
 interface GraphFiltersChangedEvent extends GraphContextEventData {
 	key: string;
 	value: boolean;
+}
+
+interface GraphFiltersClearedEvent extends GraphContextEventData {
+	'cleared.branchesVisibility': boolean;
+	'cleared.excludeTypes': boolean;
+	'cleared.includeOnlyRefs': boolean;
+	'cleared.excludeRefs': boolean;
 }
 
 interface GraphRepositoryChangedEvent extends RepositoryEventData, GraphContextEventData {}

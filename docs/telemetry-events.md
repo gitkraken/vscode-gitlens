@@ -2495,6 +2495,28 @@ or
 }
 ```
 
+### graph/filters/cleared
+
+> Sent when the user clears all filters on the Commit Graph
+
+```typescript
+{
+  'cleared.branchesVisibility': boolean,
+  'cleared.excludeRefs': boolean,
+  'cleared.excludeTypes': boolean,
+  'cleared.includeOnlyRefs': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graph/minimap/day/selected
 
 > Sent when the user selects (clicks on) a day on the minimap on the Commit Graph
