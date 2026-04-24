@@ -25,10 +25,6 @@ export function pull(git: { pull(repoPath: string): Promise<void> }, repoPath: s
 	fireAndForget(git.pull(repoPath), 'pull');
 }
 
-export function publish(git: { publish(repoPath: string): Promise<void> }, repoPath: string): void {
-	fireAndForget(git.publish(repoPath), 'publish');
-}
-
 export function switchBranch(git: { switchBranch(repoPath: string): Promise<void> }, repoPath: string): void {
 	fireAndForget(git.switchBranch(repoPath), 'switch branch');
 }

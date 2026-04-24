@@ -12,7 +12,6 @@
 
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Container } from '../../../container.js';
 import {
 	openChanges,
@@ -21,7 +20,9 @@ import {
 	openFileOnRemote,
 	showDetailsQuickPick,
 } from '../../../git/actions/commit.js';
-import { getCommitForFile } from '../../../git/utils/-webview/commit.utils.js';
+import { GitUri } from '../../../git/gitUri.js';
+import { getCommitAndFileByPath } from '../../../git/utils/-webview/commit.utils.js';
+import { executeCommand } from '../../../system/-webview/command.js';
 import type { FileShowOptions } from './types.js';
 
 export class FilesService {
@@ -84,6 +85,31 @@ export class FilesService {
 	}
 
 	/**
+	 * Compare a file between two specific refs (e.g. for commit range comparisons).
+	 *
+	 * Opens a diff editor showing the file at `lhsRef` vs `rhsRef`.
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async openFileCompareBetween(
+		file: GitFileChangeShape,
+		showOptions?: FileShowOptions,
+		lhsRef?: string,
+		rhsRef?: string,
+	): Promise<void> {
+		if (file.repoPath == null || lhsRef == null || rhsRef == null) return;
+
+		const lhsUri = GitUri.fromFile(file.originalPath ?? file.path, file.repoPath, lhsRef);
+		const rhsUri = GitUri.fromFile(file, file.repoPath, rhsRef);
+
+		void executeCommand('gitlens.diffWith', {
+			repoPath: file.repoPath,
+			lhs: { sha: lhsRef, uri: lhsUri },
+			rhs: { sha: rhsRef, uri: rhsUri },
+			showOptions: { preserveFocus: true, preview: true, ...showOptions },
+		});
+	}
+
+	/**
 	 * Show the file actions quick pick menu.
 	 *
 	 * Resolves the commit from `file.repoPath` + `ref`, then shows
@@ -101,28 +127,11 @@ export class FilesService {
 	// Private Helpers
 	// ============================================================
 
-	/**
-	 * Resolve a `GitFileChangeShape` + optional ref into a commit and file pair.
-	 *
-	 * This replicates the logic from `CommitDetailsWebviewProvider.getFileCommitFromParams`
-	 * but is decoupled from the webview provider instance.
-	 */
 	async #getFileCommit(
 		file: GitFileChangeShape,
 		ref?: string,
 	): Promise<[commit: GitCommit, file: GitFileChange] | [commit?: undefined, file?: undefined]> {
 		if (file.repoPath == null) return [];
-
-		const svc = this.container.git.getRepositoryService(file.repoPath);
-
-		let commit: GitCommit | undefined;
-		if (ref != null && ref !== uncommitted) {
-			commit = await svc.commits.getCommit(ref);
-		} else {
-			commit = await svc.commits.getCommit(uncommitted);
-		}
-
-		commit = commit != null ? await getCommitForFile(commit, file.path, file.staged) : undefined;
-		return commit != null ? [commit, commit.file!] : [];
+		return getCommitAndFileByPath(file.repoPath, file.path, ref, file.staged);
 	}
 }

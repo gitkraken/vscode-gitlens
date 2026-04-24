@@ -1,19 +1,11 @@
 import { Disposable, env, Uri, window, workspace } from 'vscode';
-import { PushError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import type { Issue } from '@gitlens/git/models/issue.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
-import type { GitRemote } from '@gitlens/git/models/remote.js';
-import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
-import type { GitStatus } from '@gitlens/git/models/status.js';
-import { GitWorktree } from '@gitlens/git/models/worktree.js';
-import type { BranchContributionsOverview } from '@gitlens/git/providers/branches.js';
-import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getComparisonRefsForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
-import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { sortBranches } from '@gitlens/git/utils/sorting.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
@@ -22,7 +14,6 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import { SubscriptionManager } from '@gitlens/utils/subscriptionManager.js';
 import { ActionRunnerType } from '../../api/actionRunners.js';
 import type { CreatePullRequestActionContext } from '../../api/gitlens.d.js';
-import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import { getAvatarUriFromGravatarEmail } from '../../avatars.js';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch.js';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip.js';
@@ -49,20 +40,15 @@ import * as RepoActions from '../../git/actions/repository.js';
 import { revealWorktree } from '../../git/actions/worktree.js';
 import { executeGitCommand } from '../../git/actions.js';
 import type { GlRepository } from '../../git/models/repository.js';
-import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils.js';
 import {
 	getBranchAssociatedPullRequest,
-	getBranchEnrichedAutolinks,
-	getBranchMergeTargetInfo,
 	getBranchRemote,
 	getBranchWorktree,
 } from '../../git/utils/-webview/branch.utils.js';
-import { getContributorAvatarUri } from '../../git/utils/-webview/contributor.utils.js';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils.js';
 import { remoteSupportsIntegration } from '../../git/utils/-webview/remote.utils.js';
 import { toRepositoryShapeWithProvider } from '../../git/utils/-webview/repository.utils.js';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils.js';
-import { showGitErrorMessage } from '../../messages.js';
 import { showPatchesView } from '../../plus/drafts/actions.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
@@ -70,8 +56,6 @@ import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscrip
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService.js';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService.js';
 import { providersMetadata } from '../../plus/integrations/providers/models.js';
-import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider.js';
-import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider.js';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../quickpicks/repositoryPicker.js';
 import {
@@ -87,16 +71,17 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
 import { isWebviewContext } from '../../system/webview.js';
-import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
-import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
 import type { ComposerCommandArgs } from '../plus/composer/registration.js';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
 import type { Change } from '../plus/patchDetails/protocol.js';
+import * as branchRefCommands from '../plus/shared/branchRefCommands.js';
 import type { TimelineCommandArgs } from '../plus/timeline/registration.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVisibilityBuffer.js';
 import { createRpcEvent, createRpcEventSubscription } from '../rpc/eventVisibilityBuffer.js';
 import { LaunchpadService } from '../rpc/launchpadService.js';
 import { createSharedServices, proxyServices } from '../rpc/services/common.js';
+import { getBranchOverviewType, toOverviewBranch } from '../shared/overviewBranches.js';
+import { getOverviewEnrichment, getOverviewWip } from '../shared/overviewEnrichment.utils.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
 import type { HomeServices, HomeViewService, WalkthroughProgressState } from './homeService.js';
@@ -105,7 +90,6 @@ import type {
 	BranchRef,
 	CreatePullRequestCommandArgs,
 	DidChangeRepositoriesParams,
-	GetOverviewBranch,
 	GetOverviewBranchesResponse,
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
@@ -114,11 +98,8 @@ import type {
 	OpenInTimelineParams,
 	OpenWorktreeCommandArgs,
 	OverviewBranch,
-	OverviewBranchEnrichment,
 	OverviewFilters,
-	OverviewRecentThreshold,
 	OverviewRepository,
-	OverviewStaleThreshold,
 	State,
 	SubscriptionState,
 } from './protocol.js';
@@ -130,18 +111,6 @@ interface RepositoryBranchData {
 	branches: GitBranch[];
 	worktreesByBranch: Map<string, GitWorktree>;
 }
-
-type BranchMergeTargetStatusInfo = Awaited<GetOverviewBranch['mergeTarget']>;
-type ContributorsInfo = Awaited<GetOverviewBranch['contributors']>;
-type LaunchpadItemInfo = Awaited<NonNullable<Awaited<GetOverviewBranch['pr']>>['launchpad']>;
-type PullRequestInfo = Awaited<GetOverviewBranch['pr']>;
-
-const thresholdValues: Record<OverviewStaleThreshold | OverviewRecentThreshold, number> = {
-	OneDay: 1000 * 60 * 60 * 24 * 1,
-	OneWeek: 1000 * 60 * 60 * 24 * 7,
-	OneMonth: 1000 * 60 * 60 * 24 * 30,
-	OneYear: 1000 * 60 * 60 * 24 * 365,
-};
 
 const { command, getCommands } = createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'home'>>();
 
@@ -523,33 +492,19 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@debug()
 	private changeBranchMergeTarget(ref: BranchAndTargetRefs) {
 		this.container.telemetry.sendEvent('home/changeBranchMergeTarget');
-		void executeCommand<BranchGitCommandArgs>('gitlens.git.branch.setMergeTarget', {
-			command: 'branch',
-			state: {
-				subcommand: 'mergeTarget',
-				repo: ref.repoPath,
-				reference: ref.branchName,
-				suggestedMergeTarget: ref.mergeTargetName,
-			},
-		});
+		branchRefCommands.changeBranchMergeTarget(ref);
 	}
 
 	@command('gitlens.mergeIntoCurrent:')
 	@debug({ args: ref => ({ ref: ref.branchId }) })
-	private async mergeIntoCurrent(ref: BranchRef) {
-		const { repo, branch } = await this.getRepoInfoFromRef(ref);
-		if (branch == null) return;
-
-		void RepoActions.merge(repo, getReferenceFromBranch(branch));
+	private mergeIntoCurrent(ref: BranchRef) {
+		return branchRefCommands.mergeIntoCurrent(this.container, ref);
 	}
 
 	@command('gitlens.rebaseCurrentOnto:')
 	@debug({ args: ref => ({ ref: ref.branchId }) })
-	private async rebaseCurrentOnto(ref: BranchRef) {
-		const { repo, branch } = await this.getRepoInfoFromRef(ref);
-		if (branch == null) return;
-
-		void RepoActions.rebase(repo, getReferenceFromBranch(branch));
+	private rebaseCurrentOnto(ref: BranchRef) {
+		return branchRefCommands.rebaseCurrentOnto(this.container, ref);
 	}
 
 	@command('gitlens.ai.explainBranch:')
@@ -758,7 +713,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		// Classify and build skeletons — skip unneeded categories when type filter is specified
 		const staleBranches: GitBranch[] = [];
 		for (const branch of branches) {
-			const branchType = this.getBranchOverviewType(branch, worktreesByBranch);
+			const branchType = getBranchOverviewType(
+				branch,
+				worktreesByBranch,
+				this._overviewBranchFilter.recent.threshold,
+				this._overviewBranchFilter.stale.threshold,
+			);
 			switch (branchType) {
 				case 'active':
 					if (type !== 'inactive') {
@@ -803,56 +763,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { branches, worktreesByBranch } = await this.getBranchesData(repo, false, signal);
 		signal?.throwIfAborted();
 
-		const result: GetOverviewWipResponse = {};
-		const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
-		let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
-
-		for (const branchId of branchIds) {
-			const branch = branches.find(b => b.id === branchId);
-			if (branch == null) continue;
-
-			const wt = worktreesByBranch.get(branchId);
-			if (wt != null) {
-				statusPromises.set(branchId, GitWorktree.getStatus(wt));
-			} else if (branch.current) {
-				repoStatusPromise ??= this.container.git.getRepositoryService(branch.repoPath).status.getStatus();
-				statusPromises.set(branchId, repoStatusPromise);
-			}
-		}
-
-		const isActive = (branchId: string) => {
-			const branch = branches.find(b => b.id === branchId);
-			return branch != null && (branch.current || worktreesByBranch.get(branchId)?.opened === true);
-		};
-
-		await Promise.allSettled(
-			Array.from(statusPromises.entries(), async ([branchId, statusPromise]) => {
-				const branch = branches.find(b => b.id === branchId)!;
-				const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-					statusPromise,
-					isActive(branchId)
-						? this.container.git
-								.getRepositoryService(branch.repoPath)
-								.pausedOps?.getPausedOperationStatus?.()
-						: undefined,
-				]);
-
-				const status = getSettledValue(statusResult);
-				const pausedOpStatus = getSettledValue(pausedOpStatusResult);
-
-				if (status != null || pausedOpStatus != null) {
-					result[branchId] = {
-						workingTreeState: status?.diffStatus,
-						hasConflicts: status?.hasConflicts,
-						conflictsCount: status?.conflicts.length,
-						pausedOpStatus: pausedOpStatus,
-					};
-				}
-			}),
-		);
-
-		signal?.throwIfAborted();
-		return result;
+		return getOverviewWip(this.container, branches, worktreesByBranch, branchIds, { signal: signal });
 	}
 
 	private async getOverviewEnrichment(
@@ -873,99 +784,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { branches } = getSettledValue(branchesAndWorktreesResult)!;
 		const isPro = getSettledValue(proSubscriptionResult)!;
 
-		const result: GetOverviewEnrichmentResponse = {};
-
-		// Shared launchpad promise for all branches in this batch
-		const launchpadPromise = isPro ? this.container.launchpad.getCategorizedItems() : undefined;
-
-		// Collect all enrichment promises, keyed by branch ID
-		interface BranchEnrichmentPromises {
-			remote?: Promise<GitRemote | undefined>;
-			pr?: Promise<PullRequestInfo>;
-			autolinks?: Promise<Map<string, EnrichedAutolink> | undefined>;
-			issues?: Promise<Issue[] | undefined>;
-			contributors?: Promise<BranchContributionsOverview | undefined>;
-			mergeTarget?: Promise<BranchMergeTargetStatusInfo>;
-		}
-
-		const enrichmentPromises = new Map<string, BranchEnrichmentPromises>();
-
-		for (const branchId of branchIds) {
-			const branch = branches.find(b => b.id === branchId);
-			if (branch == null) continue;
-
-			const promises: BranchEnrichmentPromises = {};
-
-			if (branch.upstream?.missing === false) {
-				promises.remote = getBranchRemote(this.container, branch);
-			}
-
-			if (isPro) {
-				const associatedPR = getBranchAssociatedPullRequest(this.container, branch, { avatarSize: 64 });
-				promises.pr = getPullRequestInfo(this.container, branch, launchpadPromise, associatedPR);
-				promises.autolinks = getBranchEnrichedAutolinks(this.container, branch);
-				promises.issues = getAssociatedIssuesForBranch(this.container, branch).then(issues => issues.value);
-				promises.contributors = this.container.git
-					.getRepositoryService(branch.repoPath)
-					.branches.getBranchContributionsOverview(branch.ref, { associatedPullRequest: associatedPR });
-				if (branch.current) {
-					promises.mergeTarget = getBranchMergeTargetStatusInfo(this.container, branch);
-				}
-			}
-
-			enrichmentPromises.set(branchId, promises);
-		}
-
-		// Resolve all enrichment in parallel per branch
-		await Promise.allSettled(
-			Array.from(enrichmentPromises.entries(), async ([branchId, promises]) => {
-				const enrichment: OverviewBranchEnrichment = {};
-
-				const [remoteResult, prResult, autolinksResult, issuesResult, contributorsResult, mergeTargetResult] =
-					await Promise.allSettled([
-						promises.remote,
-						promises.pr,
-						promises.autolinks?.then(a => getAutolinkIssuesInfo(a)),
-						promises.issues?.then(
-							issues =>
-								issues?.map(i => ({
-									id: i.number || i.id,
-									title: i.title,
-									state: i.state,
-									url: i.url,
-								})) ?? [],
-						),
-						getContributorsInfo(this.container, promises.contributors),
-						promises.mergeTarget,
-					]);
-
-				const remote = getSettledValue(remoteResult);
-				if (remote != null) {
-					enrichment.remote = {
-						name: remote.name,
-						provider: remote.provider
-							? {
-									name: remote.provider.name,
-									icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-									url: await remote.provider.url({ type: RemoteResourceType.Repo }),
-									supportedFeatures: remote.provider.supportedFeatures,
-								}
-							: undefined,
-					};
-				}
-
-				enrichment.pr = getSettledValue(prResult);
-				enrichment.autolinks = getSettledValue(autolinksResult);
-				enrichment.issues = getSettledValue(issuesResult);
-				enrichment.contributors = getSettledValue(contributorsResult);
-				enrichment.mergeTarget = getSettledValue(mergeTargetResult);
-
-				result[branchId] = enrichment;
-			}),
-		);
-
-		signal?.throwIfAborted();
-		return result;
+		return getOverviewEnrichment(this.container, branches, branchIds, {
+			isPro: isPro,
+			signal: signal,
+		});
 	}
 
 	private async formatRepository(repo: GlRepository, signal?: AbortSignal): Promise<OverviewRepository> {
@@ -1180,115 +1002,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			mergeTarget: mergeTarget?.branchId,
 		}),
 	})
-	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
-		const { repo, branch } = await this.getRepoInfoFromRef(ref);
-		if (branch == null) return;
-
-		const worktree =
-			branch.worktree === false
-				? undefined
-				: (branch.worktree ?? (await getBranchWorktree(this.container, branch)));
-
-		if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
-			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
-			const confirm = await window.showWarningMessage(
-				`Before deleting the current branch '${branch.name}', you will be switched to '${mergeTargetLocalBranchName}'.`,
-				{ modal: true },
-				{ title: 'Continue' },
-			);
-			if (confirm?.title !== 'Continue') return;
-
-			try {
-				await this.container.git.getRepositoryService(ref.repoPath).ops?.checkout(mergeTargetLocalBranchName);
-			} catch (ex) {
-				void showGitErrorMessage(ex, `Unable to switch to branch '${mergeTargetLocalBranchName}'`);
-				return;
-			}
-
-			void executeGitCommand({
-				command: 'branch',
-				state: {
-					subcommand: 'delete',
-					repo: ref.repoPath,
-					references: branch,
-				},
-			});
-		} else if (repo != null && worktree != null && !worktree.isDefault) {
-			const commonRepo = await repo.git.getOrOpenCommonRepository();
-			const defaultWorktree = await repo.git.worktrees?.getWorktree(w => w.isDefault);
-			if (defaultWorktree == null || commonRepo == null) return;
-
-			const confirm = await window.showWarningMessage(
-				`Before deleting the worktree for '${branch.name}', you will be switched to the default worktree.`,
-				{ modal: true },
-				{ title: 'Continue' },
-			);
-			if (confirm?.title !== 'Continue') return;
-
-			const schemeOverride = configuration.get('deepLinks.schemeOverride');
-			const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
-			const deleteBranchDeepLink = {
-				url: `${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
-					DeepLinkType.Repository
-				}/-/${DeepLinkType.Branch}/${encodeURIComponent(branch.name)}?path=${encodeURIComponent(
-					commonRepo.path,
-				)}&action=delete-branch`,
-				repoPath: commonRepo.path,
-				useProgress: false,
-				state: DeepLinkServiceState.GoToTarget,
-			};
-
-			void executeGitCommand({
-				command: 'worktree',
-				state: {
-					subcommand: 'open',
-					repo: defaultWorktree.repoPath,
-					worktree: defaultWorktree,
-					onWorkspaceChanging: async (_isNewWorktree?: boolean) => {
-						await this.container.storage.storeSecret(
-							'deepLinks:pending',
-							JSON.stringify(deleteBranchDeepLink),
-						);
-						// Close the current window. This should only occur if there was already a different
-						// window open for the default worktree.
-						setTimeout(() => {
-							void executeCoreCommand('workbench.action.closeWindow');
-						}, 2000);
-					},
-					worktreeDefaultOpen: 'current',
-				},
-			});
-		}
+	private deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
+		return branchRefCommands.deleteBranchOrWorktree(this.container, ref, mergeTarget);
 	}
 
 	@command('gitlens.pushBranch:')
 	@debug({
 		args: ref => ({ ref: `${ref.branchId}, upstream: ${ref.branchUpstreamName}` }),
 	})
-	private async pushBranch(ref: BranchRef) {
-		try {
-			await this.container.git.getRepositoryService(ref.repoPath).ops?.push({
-				reference: {
-					name: ref.branchName,
-					ref: ref.branchId,
-					refType: 'branch',
-					remote: false,
-					repoPath: ref.repoPath,
-					upstream: ref.branchUpstreamName
-						? {
-								name: ref.branchUpstreamName,
-								missing: false,
-							}
-						: undefined,
-				},
-			});
-		} catch (ex) {
-			if (PushError.is(ex)) {
-				void showGitErrorMessage(ex);
-			} else {
-				void showGitErrorMessage(ex, 'Unable to push branch');
-			}
-		}
+	private pushBranch(ref: BranchRef) {
+		return branchRefCommands.pushBranch(this.container, ref);
 	}
 
 	@command('gitlens.openMergeTargetComparison:')
@@ -1298,7 +1021,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}),
 	})
 	private mergeTargetCompare(ref: BranchAndTargetRefs) {
-		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.branchName, ref.mergeTargetName);
+		return branchRefCommands.openMergeTargetComparison(this.container, ref);
 	}
 
 	@command('gitlens.openPullRequestComparison:')
@@ -1455,36 +1178,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void RepoActions.fetch(repo, getReferenceFromBranch(branch));
 	}
 
-	private getBranchOverviewType(
-		branch: GitBranch,
-		worktreesByBranch: Map<string, GitWorktree>,
-	): 'active' | 'recent' | 'stale' | undefined {
-		if (branch.current || worktreesByBranch.get(branch.id)?.opened) {
-			return 'active';
-		}
-
-		const timestamp = branch.effectiveDate?.getTime();
-		if (timestamp != null) {
-			const now = Date.now();
-
-			const recentThreshold = now - thresholdValues[this._overviewBranchFilter.recent.threshold];
-			if (timestamp > recentThreshold) {
-				return 'recent';
-			}
-
-			const staleThreshold = now - thresholdValues[this._overviewBranchFilter.stale.threshold];
-			if (timestamp < staleThreshold) {
-				return 'stale';
-			}
-		}
-
-		if (branch.upstream?.missing) {
-			return 'stale';
-		}
-
-		return undefined;
-	}
-
 	private async getPullRequestFromRef(ref: BranchRef): Promise<PullRequest | undefined> {
 		const { branch } = await this.getRepoInfoFromRef(ref);
 		return branch != null ? getBranchAssociatedPullRequest(this.container, branch) : undefined;
@@ -1500,178 +1193,4 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const branch = await repo.git.branches.getBranch(ref.branchName);
 		return { repo: repo, branch: branch };
 	}
-}
-
-function toOverviewBranch(
-	branch: GitBranch,
-	worktreesByBranch: Map<string, GitWorktree>,
-	opened: boolean,
-): OverviewBranch {
-	const wt = worktreesByBranch.get(branch.id);
-	return {
-		reference: getReferenceFromBranch(branch),
-		repoPath: branch.repoPath,
-		id: branch.id,
-		name: branch.name,
-		opened: opened,
-		timestamp: branch.effectiveDate?.getTime(),
-		status: branch.status,
-		upstream: branch.upstream,
-		worktree: wt ? { name: wt.name, uri: wt.uri.toString(), isDefault: wt.isDefault } : undefined,
-	};
-}
-
-async function getAutolinkIssuesInfo(links: Map<string, EnrichedAutolink> | undefined) {
-	if (links == null) return [];
-
-	const results = await Promise.allSettled(
-		filterMap([...links.values()], async autolink => {
-			const issueOrPullRequest = autolink?.[0];
-			if (issueOrPullRequest == null) return undefined;
-
-			const issue = await issueOrPullRequest;
-			if (issue == null) return undefined;
-
-			return { id: issue.id, title: issue.title, url: issue.url, state: issue.state };
-		}),
-	);
-
-	return results.map(r => (r.status === 'fulfilled' ? r.value : undefined)).filter(r => r != null);
-}
-
-async function getContributorsInfo(
-	_container: Container,
-	contributorsPromise: Promise<BranchContributionsOverview | undefined> | undefined,
-) {
-	if (contributorsPromise == null) return [];
-
-	const contributors = await contributorsPromise;
-	if (contributors?.contributors == null) return [];
-
-	const result = await Promise.allSettled(
-		contributors.contributors.map(
-			async c =>
-				({
-					name: c.name ?? '',
-					email: c.email ?? '',
-					current: c.current,
-					timestamp: c.latestCommitDate?.getTime(),
-					count: c.contributionCount,
-					stats: c.stats,
-					avatarUrl: (await getContributorAvatarUri(c))?.toString(),
-				}) satisfies NonNullable<ContributorsInfo>[0],
-		),
-	);
-	return result.map(r => (r.status === 'fulfilled' ? r.value : undefined)).filter(r => r != null);
-}
-
-async function getBranchMergeTargetStatusInfo(
-	container: Container,
-	branch: GitBranch,
-): Promise<BranchMergeTargetStatusInfo> {
-	const info = await getBranchMergeTargetInfo(container, branch, {
-		associatedPullRequest: getBranchAssociatedPullRequest(container, branch),
-	});
-
-	let targetResult;
-	if (!info.mergeTargetBranch.paused && info.mergeTargetBranch.value) {
-		targetResult = info.mergeTargetBranch.value;
-	}
-
-	const target = targetResult ?? info.baseBranch ?? info.defaultBranch;
-	if (target == null) return undefined;
-
-	const svc = container.git.getRepositoryService(branch.repoPath);
-	const targetBranch = await svc.branches.getBranch(target);
-	if (targetBranch == null) return undefined;
-
-	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
-		svc.commits.getLeftRightCommitCount(createRevisionRange(targetBranch.name, branch.ref, '...'), {
-			excludeMerges: true,
-		}),
-		svc.branches.getPotentialMergeConflicts?.(branch.name, targetBranch.name),
-		svc.branches.getBranchMergedStatus?.(branch, targetBranch),
-	]);
-
-	const counts = getSettledValue(countsResult);
-	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
-	const mergedStatus = getSettledValue(mergedStatusResult);
-
-	return {
-		repoPath: branch.repoPath,
-		id: targetBranch.id,
-		name: targetBranch.name,
-		status: status,
-		mergedStatus: mergedStatus,
-		potentialConflicts: getSettledValue(conflictResult),
-		targetBranch: targetBranch.name,
-		baseBranch: info.baseBranch,
-		defaultBranch: info.defaultBranch,
-	};
-}
-
-async function getLaunchpadItemInfo(
-	container: Container,
-	pr: PullRequest,
-	launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined,
-): Promise<LaunchpadItemInfo> {
-	launchpadPromise ??= container.launchpad.getCategorizedItems();
-	let result = await launchpadPromise;
-	if (!result.items) return undefined;
-
-	let lpi = result.items.find(i => i.url === pr.url);
-	if (lpi == null) {
-		// result = await container.launchpad.getCategorizedItems({ search: pr.url });
-		result = await container.launchpad.getCategorizedItems({ search: [pr] });
-		if (!result.items) return undefined;
-
-		lpi = result.items.find(i => i.url === pr.url);
-	}
-
-	if (lpi == null) return undefined;
-
-	return {
-		uuid: lpi.uuid,
-		category: lpi.actionableCategory,
-		groups: getLaunchpadItemGroups(lpi),
-		suggestedActions: lpi.suggestedActions,
-
-		failingCI: lpi.failingCI,
-		hasConflicts: lpi.hasConflicts,
-
-		review: {
-			decision: lpi.reviewDecision,
-			reviews: lpi.reviews ?? [],
-			counts: {
-				approval: lpi.approvalReviewCount,
-				changeRequest: lpi.changeRequestReviewCount,
-				comment: lpi.commentReviewCount,
-				codeSuggest: lpi.codeSuggestionsCount,
-			},
-		},
-
-		author: lpi.author,
-		createdDate: lpi.createdDate,
-
-		viewer: { ...lpi.viewer, enrichedItems: undefined },
-	};
-}
-
-async function getPullRequestInfo(
-	container: Container,
-	branch: GitBranch,
-	launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined,
-	associatedPullRequest?: Promise<PullRequest | undefined>,
-): Promise<PullRequestInfo> {
-	const pr = await (associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch, { avatarSize: 64 }));
-	if (pr == null) return undefined;
-
-	return {
-		id: pr.id,
-		url: pr.url,
-		state: pr.state,
-		title: pr.title,
-		draft: pr.isDraft,
-		launchpad: getLaunchpadItemInfo(container, pr, launchpadPromise),
-	};
 }
