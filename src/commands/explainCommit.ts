@@ -15,6 +15,7 @@ import { ExplainCommandBase } from './explainBase.js';
 
 export interface ExplainCommitCommandArgs extends ExplainBaseArgs {
 	rev?: string;
+	prompt?: string;
 }
 
 @command()
@@ -86,6 +87,7 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining commit...' },
+					prompt: args.prompt,
 				},
 			);
 
@@ -105,6 +107,7 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 					args: {
 						repoPath: svc.path,
 						rev: commit.ref,
+						prompt: args.prompt,
 						source: args.source,
 					},
 				},

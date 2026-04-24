@@ -13,6 +13,7 @@ import { ExplainCommandBase } from './explainBase.js';
 
 export interface ExplainStashCommandArgs extends ExplainBaseArgs {
 	rev?: string;
+	prompt?: string;
 }
 
 @command()
@@ -73,6 +74,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining stash...' },
+					prompt: args.prompt,
 				},
 			);
 
@@ -89,7 +91,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				command: {
 					label: 'Explain Stash Changes',
 					name: 'gitlens.ai.explainStash',
-					args: { repoPath: svc.path, ref: commit.ref, source: args.source },
+					args: { repoPath: svc.path, rev: commit.ref, prompt: args.prompt, source: args.source },
 				},
 			});
 		} catch (ex) {
