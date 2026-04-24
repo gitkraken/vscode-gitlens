@@ -4,9 +4,8 @@ import { consume } from '@lit/context';
 import { computed, SignalWatcher } from '@lit-labs/signals';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -14,7 +13,6 @@ import { debounce } from '@gitlens/utils/decorators/debounce.js';
 import { hasTruthyKeys } from '@gitlens/utils/object.js';
 import { wait } from '@gitlens/utils/promise.js';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
-import type { GraphBranchesVisibility } from '../../../../config.js';
 import { GlyphChars } from '../../../../constants.js';
 import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
@@ -24,11 +22,8 @@ import type {
 	DidChooseRefParams,
 	GraphExcludedRef,
 	GraphExcludeRefs,
-	GraphExcludeTypes,
-	GraphMinimapMarkerTypes,
 	GraphSearchResults,
 	State,
-	UpdateGraphConfigurationParams,
 } from '../../../plus/graph/protocol.js';
 import {
 	ChooseRefRequest,
@@ -39,13 +34,9 @@ import {
 	SearchCancelCommand,
 	SearchOpenInViewCommand,
 	SearchRequest,
-	UpdateExcludeTypesCommand,
-	UpdateGraphConfigurationCommand,
 	UpdateGraphSearchModeCommand,
-	UpdateIncludedRefsCommand,
 	UpdateRefsVisibilityCommand,
 } from '../../../plus/graph/protocol.js';
-import type { RadioGroup } from '../../shared/components/radio/radio-group.js';
 import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group.js';
 import type { GlSearchBox } from '../../shared/components/search/search-box.js';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-input.js';
@@ -57,17 +48,17 @@ import type { WebviewContext } from '../../shared/contexts/webview.js';
 import { webviewContext } from '../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
+import { getDisplayedMode, isGraphFiltered } from './components/gl-scope-popover.js';
 import { graphStateContext } from './context.js';
+import { sidebarActionsContext } from './sidebar/sidebarContext.js';
+import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError } from './stateProvider.js';
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css.js';
-import '@shoelace-style/shoelace/dist/components/option/option.js';
-import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '../../shared/components/branch-name.js';
+import '../../shared/components/shoelace-stub.js';
 import '../../shared/components/button.js';
-import '../../shared/components/checkbox/checkbox.js';
 import '../../shared/components/code-icon.js';
-import '../../shared/components/menu/menu-divider.js';
 import '../../shared/components/menu/menu-item.js';
 import '../../shared/components/menu/menu-label.js';
 import '../../shared/components/progress.js';
@@ -145,10 +136,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 				border: 1px solid var(--vscode-panel-border);
 			}
-
-			sl-select menu-divider {
-				margin: 0.1rem 0;
-			}
 		`,
 	];
 
@@ -161,6 +148,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
 
+	@consume({ context: sidebarActionsContext, subscribe: true })
+	private _sidebarActions?: SidebarActions;
+
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
 
@@ -170,6 +160,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	getCommits?: (shas: string[]) => ReadonlyGraphRow[];
 	// Function to select commits on the graph, passed from graph-app
 	selectCommits?: (shas: string[], options?: SelectCommitsOptions) => ReadonlyGraphRow[];
+
+	@property({ type: Boolean, attribute: 'details-visible' })
+	detailsVisible = false;
+
+	@property({ type: Boolean, attribute: 'minimap-visible' })
+	minimapVisible = true;
+
+	@property({ type: Boolean, attribute: 'has-selected-commit' })
+	hasSelectedCommit = false;
 
 	get hasFilters() {
 		if (this.graphState.config?.onlyFollowFirstParent) return true;
@@ -228,6 +227,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
+	private handleSidebarToggled() {
+		this.dispatchEvent(new CustomEvent('toggle-sidebar', { bubbles: true, composed: true }));
+	}
+
+	private handleToggleDetails() {
+		this.dispatchEvent(new CustomEvent('toggle-details', { bubbles: true, composed: true }));
+	}
+
 	private async handleJumpToRef(e: MouseEvent) {
 		const ref = await this.onJumpToRefPromise(e.altKey);
 		if (ref != null) {
@@ -244,20 +251,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
+	private handleJumpToWip() {
+		this.selectCommits?.(['work-dir-changes' as string], { ensureVisible: true });
+	}
+
 	private onOpenPullRequest(pr: NonNullable<NonNullable<State['branchState']>['pr']>): void {
 		this._ipc.sendCommand(OpenPullRequestDetailsCommand, { id: pr.id });
 	}
 
 	private onSearchOpenInView() {
 		this._ipc.sendCommand(SearchOpenInViewCommand, { search: { ...this._searchQuery } });
-	}
-
-	private onExcludeTypesChanged(key: keyof GraphExcludeTypes, value: boolean) {
-		this._ipc.sendCommand(UpdateExcludeTypesCommand, { key: key, value: value });
-	}
-
-	private onRefIncludesChanged(branchesVisibility: GraphBranchesVisibility, refs?: GraphRefOptData[]) {
-		this._ipc.sendCommand(UpdateIncludedRefsCommand, { branchesVisibility: branchesVisibility, refs: refs });
 	}
 
 	private _activeRowInfoCache: { row: string; info: { date: number; id: string } } | undefined;
@@ -454,43 +457,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private handleFilterChange(e: CustomEvent) {
-		const $el = e.target as HTMLInputElement;
-		if ($el == null) return;
-
-		const { checked } = $el;
-
-		switch ($el.value) {
-			case 'mergeCommits':
-				this.changeGraphConfiguration({ dimMergeCommits: checked });
-				break;
-
-			case 'onlyFollowFirstParent':
-				this.changeGraphConfiguration({ onlyFollowFirstParent: checked });
-				break;
-
-			case 'remotes':
-			case 'stashes':
-			case 'tags': {
-				const key = $el.value satisfies keyof GraphExcludeTypes;
-				const currentFilter = this.graphState.excludeTypes?.[key];
-				if ((currentFilter == null && checked) || (currentFilter != null && currentFilter !== checked)) {
-					this.onExcludeTypesChanged(key, checked);
-				}
-				break;
-			}
-		}
-	}
-
 	private handleOnToggleRefsVisibilityClick(_event: any, refs: GraphExcludedRef[], visible: boolean) {
 		this._ipc.sendCommand(UpdateRefsVisibilityCommand, { refs: refs, visible: visible });
-	}
-
-	private handleBranchesVisibility(e: CustomEvent) {
-		const $el = e.target as HTMLSelectElement;
-		if ($el == null) return;
-
-		this.onRefIncludesChanged($el.value as GraphBranchesVisibility);
 	}
 
 	private handleSearch() {
@@ -878,42 +846,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	handleMinimapToggled() {
-		this.changeGraphConfiguration({ minimap: !this.graphState.config?.minimap });
-	}
-
-	private changeGraphConfiguration(changes: UpdateGraphConfigurationParams['changes']) {
-		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: changes });
-	}
-
-	private handleMinimapDataTypeChanged(e: Event) {
-		if (this.graphState.config == null) return;
-
-		const $el = e.target as RadioGroup;
-		const minimapDataType = $el.value === 'lines' ? 'lines' : 'commits';
-		if (this.graphState.config.minimapDataType === minimapDataType) return;
-
-		this.changeGraphConfiguration({ minimapDataType: minimapDataType });
-	}
-
-	private handleMinimapAdditionalTypesChanged(e: Event) {
-		if (this.graphState.config?.minimapMarkerTypes == null) return;
-
-		const $el = e.target as HTMLInputElement;
-		const value = $el.value as GraphMinimapMarkerTypes;
-
-		if ($el.checked) {
-			if (!this.graphState.config.minimapMarkerTypes.includes(value)) {
-				const minimapMarkerTypes = [...this.graphState.config.minimapMarkerTypes, value];
-				this.changeGraphConfiguration({ minimapMarkerTypes: minimapMarkerTypes });
-			}
-		} else {
-			const index = this.graphState.config.minimapMarkerTypes.indexOf(value);
-			if (index !== -1) {
-				const minimapMarkerTypes = [...this.graphState.config.minimapMarkerTypes];
-				minimapMarkerTypes.splice(index, 1);
-				this.changeGraphConfiguration({ minimapMarkerTypes: minimapMarkerTypes });
-			}
-		}
+		this.dispatchEvent(new CustomEvent('toggle-minimap', { bubbles: true, composed: true }));
 	}
 
 	@debounce(250)
@@ -1030,7 +963,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							.branchName=${branch?.name}
 							.branchState=${branchState}
 							.lastFetched=${lastFetched}
+							.workingTreeStats=${this.graphState.workingTreeStats}
 							.state=${this.graphState}
+							@jump-to-wip=${this.handleJumpToWip}
 						></gl-git-actions-buttons>
 					`,
 				)}
@@ -1152,49 +1087,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	private renderBranchVisibility(repo: RepositoryShape | undefined) {
-		const { branchesVisibility } = this.graphState;
-
-		return html`<gl-tooltip placement="top" content="Branches Visibility">
-			<sl-select value=${ifDefined(branchesVisibility)} @sl-change=${this.handleBranchesVisibility} hoist>
-				<code-icon icon="chevron-down" slot="expand-icon"></code-icon>
-				<sl-option value="all" ?disabled=${repo?.virtual}> All Branches </sl-option>
-				<sl-option value="current">Current Branch</sl-option>
-				<menu-divider></menu-divider>
-				<sl-option value="smart" ?disabled=${repo?.virtual}>
-					Smart Branches
-					${when(
-						!repo?.virtual,
-						() => html`
-							<gl-tooltip placement="right" slot="suffix">
-								<code-icon icon="info"></code-icon>
-								<span slot="content">
-									Shows only relevant branches
-									<br />
-									<br />
-									<i>Includes the current branch, its upstream, and its base or target branch</i>
-								</span>
-							</gl-tooltip>
-						`,
-						() => html` <code-icon icon="info" slot="suffix"></code-icon> `,
-					)}
-				</sl-option>
-				<sl-option value="favorited" ?disabled=${repo?.virtual}>
-					Favorited Branches
-					<gl-tooltip placement="right" slot="suffix">
-						<code-icon icon="info"></code-icon>
-						<span slot="content">
-							Shows only branches that have been starred as favorites
-							<br />
-							<br />
-							<i>Also includes the current branch</i>
-						</span>
-					</gl-tooltip>
-				</sl-option>
-			</sl-select>
-		</gl-tooltip>`;
-	}
-
 	private renderHiddenRefs(excludeRefs: GraphExcludeRefs | undefined) {
 		if (!hasTruthyKeys(excludeRefs)) return nothing;
 
@@ -1251,7 +1143,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const {
 			config,
 			excludeRefs,
-			excludeTypes,
 			searching,
 			searchMode,
 			searchResults,
@@ -1259,89 +1150,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			useNaturalLanguageSearch,
 		} = this.graphState;
 
+		const scoped = getDisplayedMode(this.graphState) === 'scoped';
+		const filtered = isGraphFiltered(this.graphState);
+		const rowClass = scoped ? 'titlebar__row--scoped' : filtered ? 'titlebar__row--filtered' : '';
+
 		return html`
-			<div class="titlebar__row">
+			<div class="titlebar__row ${rowClass}">
 				<div class="titlebar__group">
-					${this.renderBranchVisibility(repo)} ${this.renderHiddenRefs(excludeRefs)}
-					<gl-popover
-						class="popover"
-						placement="bottom-start"
-						trigger="click focus"
-						?arrow=${false}
-						distance=${0}
-					>
-						<gl-tooltip placement="top" slot="anchor">
-							<button type="button" class="action-button">
-								<code-icon icon=${`filter${this.hasFilters ? '-filled' : ''}`}></code-icon>
-								<code-icon
-									class="action-button__more"
-									icon="chevron-down"
-									aria-hidden="true"
-								></code-icon>
-							</button>
-							<span slot="content">Graph Filtering</span>
-						</gl-tooltip>
-						<div slot="content">
-							<menu-label>Graph Filters</menu-label>
-							${when(
-								repo?.virtual !== true,
-								() => html`
-									<menu-item role="none">
-										<gl-tooltip
-											placement="right"
-											content="Only follow the first parent of merge commits to provide a more linear history"
-										>
-											<gl-checkbox
-												value="onlyFollowFirstParent"
-												@gl-change-value=${this.handleFilterChange}
-												?checked=${config?.onlyFollowFirstParent ?? false}
-											>
-												Simplify Merge History
-											</gl-checkbox>
-										</gl-tooltip>
-									</menu-item>
-									<menu-divider></menu-divider>
-									<menu-item role="none">
-										<gl-checkbox
-											value="remotes"
-											@gl-change-value=${this.handleFilterChange}
-											?checked=${excludeTypes?.remotes ?? false}
-										>
-											Hide Remote-only Branches
-										</gl-checkbox>
-									</menu-item>
-									<menu-item role="none">
-										<gl-checkbox
-											value="stashes"
-											@gl-change-value=${this.handleFilterChange}
-											?checked=${excludeTypes?.stashes ?? false}
-										>
-											Hide Stashes
-										</gl-checkbox>
-									</menu-item>
-								`,
-							)}
-							<menu-item role="none">
-								<gl-checkbox
-									value="tags"
-									@gl-change-value=${this.handleFilterChange}
-									?checked=${excludeTypes?.tags ?? false}
-								>
-									Hide Tags
-								</gl-checkbox>
-							</menu-item>
-							<menu-divider></menu-divider>
-							<menu-item role="none">
-								<gl-checkbox
-									value="mergeCommits"
-									@gl-change-value=${this.handleFilterChange}
-									?checked=${config?.dimMergeCommits ?? false}
-								>
-									Dim Merge Commit Rows
-								</gl-checkbox>
-							</menu-item>
-						</div>
-					</gl-popover>
+					<gl-scope-popover .repo=${repo}></gl-scope-popover> ${this.renderHiddenRefs(excludeRefs)}
 					<span>
 						<span class="action-divider"></span>
 					</span>
@@ -1371,101 +1187,38 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						<span class="action-divider"></span>
 					</span>
 					<span class="button-group">
-						<gl-tooltip placement="bottom">
-							<button
-								type="button"
-								role="checkbox"
-								class="action-button"
-								aria-label="Toggle Minimap"
-								aria-checked=${config?.minimap ?? false}
-								@click=${() => this.handleMinimapToggled()}
-							>
-								<code-icon class="action-button__icon" icon="graph-line"></code-icon>
-							</button>
-							<span slot="content">Toggle Minimap</span>
-						</gl-tooltip>
-						<gl-popover
-							class="popover"
-							placement="bottom-end"
-							trigger="click focus"
-							?arrow=${false}
-							distance=${0}
-						>
-							<gl-tooltip placement="top" distance=${7} slot="anchor">
-								<button type="button" class="action-button" aria-label="Minimap Options">
+						${when(
+							config?.sidebar,
+							() => html`
+								<gl-button
+									appearance="toolbar"
+									tooltip="Toggle Side Bar"
+									@click=${this.handleSidebarToggled}
+								>
 									<code-icon
-										class="action-button__more"
-										icon="chevron-down"
-										aria-hidden="true"
+										icon=${(this.graphState.sidebarVisible ?? false) &&
+										this.graphState.activeSidebarPanel != null
+											? 'layout-sidebar-left'
+											: 'layout-sidebar-left-off'}
 									></code-icon>
-								</button>
-								<span slot="content">Minimap Options</span>
-							</gl-tooltip>
-							<div slot="content">
-								<menu-label>Minimap</menu-label>
-								<menu-item role="none">
-									<gl-radio-group
-										value=${config?.minimapDataType ?? 'commits'}
-										@gl-change-value=${this.handleMinimapDataTypeChanged}
-									>
-										<gl-radio name="minimap-datatype" value="commits"> Commits </gl-radio>
-										<gl-radio name="minimap-datatype" value="lines"> Lines Changed </gl-radio>
-									</gl-radio-group>
-								</menu-item>
-								<menu-divider></menu-divider>
-								<menu-label>Markers</menu-label>
-								<menu-item role="none">
-									<gl-checkbox
-										value="localBranches"
-										@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-										?checked=${config?.minimapMarkerTypes?.includes('localBranches') ?? false}
-									>
-										<span class="minimap-marker-swatch" data-marker="localBranches"></span>
-										Local Branches
-									</gl-checkbox>
-								</menu-item>
-								<menu-item role="none">
-									<gl-checkbox
-										value="remoteBranches"
-										@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-										?checked=${config?.minimapMarkerTypes?.includes('remoteBranches') ?? true}
-									>
-										<span class="minimap-marker-swatch" data-marker="remoteBranches"></span>
-										Remote Branches
-									</gl-checkbox>
-								</menu-item>
-								<menu-item role="none">
-									<gl-checkbox
-										value="pullRequests"
-										@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-										?checked=${config?.minimapMarkerTypes?.includes('pullRequests') ?? true}
-									>
-										<span class="minimap-marker-swatch" data-marker="pullRequests"></span>
-										Pull Requests
-									</gl-checkbox>
-								</menu-item>
-								<menu-item role="none">
-									<gl-checkbox
-										value="stashes"
-										@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-										?checked=${config?.minimapMarkerTypes?.includes('stashes') ?? false}
-									>
-										<span class="minimap-marker-swatch" data-marker="stashes"></span>
-										Stashes
-									</gl-checkbox>
-								</menu-item>
-								<menu-item role="none">
-									<gl-checkbox
-										value="tags"
-										@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-										?checked=${config?.minimapMarkerTypes?.includes('tags') ?? true}
-									>
-										<span class="minimap-marker-swatch" data-marker="tags"></span>
-										Tags
-									</gl-checkbox>
-								</menu-item>
-							</div>
-						</gl-popover>
+								</gl-button>
+							`,
+						)}
+						<gl-button
+							appearance="toolbar"
+							tooltip="Toggle Minimap"
+							@click=${() => this.handleMinimapToggled()}
+						>
+							<code-icon
+								icon=${config?.minimap && this.minimapVisible ? 'layout-panel' : 'layout-panel-off'}
+								style="transform: rotate(180deg)"
+							></code-icon>
+						</gl-button>
+						<gl-button appearance="toolbar" tooltip="Toggle Details" @click=${this.handleToggleDetails}>
+							<code-icon
+								icon=${this.detailsVisible ? 'layout-sidebar-right' : 'layout-sidebar-right-off'}
+							></code-icon>
+						</gl-button>
 					</span>
 				</div>
 			</div>
