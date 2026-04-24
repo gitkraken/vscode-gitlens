@@ -2,7 +2,9 @@ import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CommitError, MergeError } from '@gitlens/git/errors.js';
+import type { SigningErrorReason } from '@gitlens/git/errors.js';
+import { CommitError, MergeError, SigningError } from '@gitlens/git/errors.js';
+import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import { addCommit, createBranch, createTestRepo } from './helpers.js';
 
 suite('OperationsGitSubProvider.merge', () => {
@@ -178,6 +180,75 @@ suite('OperationsGitSubProvider.commit', () => {
 			assert.strictEqual(log[0], 'amended');
 			// The original commit was amended, not appended — check that only one commit exists after initial
 			assert.strictEqual(log.length, 2, 'Expected 2 commits total (initial + amended)');
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+suite('OperationsGitSubProvider signing', () => {
+	test('commit throws SigningError and fires onSigningFailed when gpg program fails', async () => {
+		const calls: Array<{ reason: SigningErrorReason; format: SigningFormat; source: unknown }> = [];
+		const r = createTestRepo({
+			hooks: {
+				commits: {
+					onSigningFailed: (reason, format, source) =>
+						calls.push({ reason: reason, format: format, source: source }),
+				},
+			},
+		});
+		try {
+			execFileSync('git', ['config', 'commit.gpgsign', 'true'], { cwd: r.path, stdio: 'pipe' });
+			execFileSync('git', ['config', 'gpg.format', 'openpgp'], { cwd: r.path, stdio: 'pipe' });
+			execFileSync('git', ['config', 'gpg.program', 'node --eval process.exit(1)'], {
+				cwd: r.path,
+				stdio: 'pipe',
+			});
+
+			writeFileSync(join(r.path, 'signed.txt'), 'content\n');
+			execFileSync('git', ['add', 'signed.txt'], { cwd: r.path, stdio: 'pipe' });
+
+			const sentinel = { caller: 'test-sentinel' };
+			await assert.rejects(
+				() => r.provider.ops.commit(r.path, 'should fail to sign', { source: sentinel }),
+				ex =>
+					SigningError.is(ex) &&
+					// Any real signing reason is acceptable — different git versions emit different stderr.
+					['passphraseFailed', 'noKey', 'gpgNotFound'].includes(ex.details.reason ?? 'unknown'),
+				'Expected a SigningError (not CommitError) when gpg sign fails',
+			);
+
+			assert.strictEqual(calls.length, 1, 'Expected onSigningFailed hook to fire exactly once');
+			assert.ok(
+				['passphraseFailed', 'noKey', 'gpgNotFound'].includes(calls[0].reason),
+				`Unexpected hook reason: ${calls[0].reason}`,
+			);
+			// getSigningConfig reads gpg.format from the repo config we set above.
+			assert.strictEqual(calls[0].format, 'openpgp');
+			assert.strictEqual(calls[0].source, sentinel, 'Expected `source` to be threaded to the hook');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('non-signing commit failures still throw CommitError (baseline)', async () => {
+		const calls: unknown[] = [];
+		const r = createTestRepo({
+			hooks: {
+				commits: {
+					onSigningFailed: (...args) => calls.push(args),
+				},
+			},
+		});
+		try {
+			// No signing configured; a clean-tree commit should yield CommitError('nothingToCommit'),
+			// not SigningError, and the hook must not fire.
+			await assert.rejects(
+				() => r.provider.ops.commit(r.path, 'empty commit'),
+				ex => CommitError.is(ex, 'nothingToCommit'),
+				'Expected CommitError with reason nothingToCommit',
+			);
+			assert.strictEqual(calls.length, 0, 'onSigningFailed must not fire for non-signing failures');
 		} finally {
 			r.cleanup();
 		}

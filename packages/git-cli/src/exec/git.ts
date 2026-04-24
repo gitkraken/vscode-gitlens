@@ -17,6 +17,7 @@ import type {
 	ResetErrorReason,
 	RevertErrorReason,
 	ShowErrorReason,
+	SigningErrorReason,
 	StashApplyErrorReason,
 	StashPushErrorReason,
 	TagErrorReason,
@@ -24,6 +25,7 @@ import type {
 	WorktreeDeleteErrorReason,
 } from '@gitlens/git/errors.js';
 import { WorkspaceUntrustedError } from '@gitlens/git/errors.js';
+import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import { CancellationError, getAbortSignalId, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { getDurationMilliseconds, hrtime } from '@gitlens/utils/hrtime.js';
@@ -74,6 +76,8 @@ export const GitErrors = {
 	detachedHead: /You are in 'detached HEAD' state/i,
 	entryNotUpToDate: /error:\s*Entry ['"].+['"] not uptodate\. Cannot merge\./i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
+	gpgNotFound: /gpg:?\s*(?:command\s+)?not found|'gpg' is not recognized as|cannot run gpg:/i,
+	gpgSignFailed: /^error:\s*gpg failed to sign the data/im,
 	invalidName: /fatal:\s*'.+?' is not a valid branch name/i,
 	invalidLineCount: /file .+? has only (\d+) lines/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
@@ -106,6 +110,8 @@ export const GitErrors = {
 	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnectionFailed: /Could not read from remote repository/i,
 	remoteRejected: /rejected because the remote contains work/i,
+	signingKeyNotAvailable: /secret key not available|no secret key|no signing key/i,
+	sshNotFound: /ssh-keygen[^\n]*(?:not found|No such file or directory|is not recognized)/i,
 	stashConflictingStagedAndUnstagedLines: /Cannot remove worktree changes/i,
 	stashNothingToSave: /No local changes to save/i,
 	stashSavedWorkingDirAndIndexState: /Saved working directory and index state/i,
@@ -411,6 +417,52 @@ export function getGitCommandError<T extends GitCommand, TReturn extends GitComm
 	}
 
 	return creator(undefined);
+}
+
+function extractSigningErrorText(ex: unknown): string {
+	if (ex == null) return '';
+	if (ex instanceof GitError) return ex.stderr || ex.stdout || ex.message || '';
+	if (ex instanceof Error) return ex.message || '';
+	if (typeof ex === 'string') return ex;
+	if (typeof ex === 'number' || typeof ex === 'boolean' || typeof ex === 'bigint') return String(ex);
+	if (typeof ex === 'object' && 'message' in ex && typeof ex.message === 'string') return ex.message;
+	return '';
+}
+
+/**
+ * Classifies a Git error as a signing-related failure using the {@link GitErrors}
+ * signing regexes. Returns the matched {@link SigningErrorReason}, or `undefined`
+ * when the error is not a recognized signing failure.
+ *
+ * Precedence is significant: `passphraseFailed` (gpg sign failure) is checked
+ * before `noKey`, matching the ordering used historically in patch.ts — a
+ * combined stderr like "error: gpg failed to sign … gpg: No secret key"
+ * resolves to `passphraseFailed`, the outer cause.
+ */
+export function classifySigningError(ex: unknown): SigningErrorReason | undefined {
+	const text = extractSigningErrorText(ex);
+	if (!text) return undefined;
+	if (GitErrors.gpgSignFailed.test(text)) return 'passphraseFailed';
+	if (GitErrors.signingKeyNotAvailable.test(text)) return 'noKey';
+	if (GitErrors.gpgNotFound.test(text)) return 'gpgNotFound';
+	if (GitErrors.sshNotFound.test(text)) return 'sshNotFound';
+	return undefined;
+}
+
+/**
+ * Infers the {@link SigningFormat} from stderr hints (e.g., mentions of
+ * `ssh-keygen` or `gpg.ssh.*` config keys). Returns `undefined` when no hints
+ * are present so callers can supply their own default (typically `'gpg'`).
+ *
+ * Used as a fallback when `config.getSigningConfig` is unavailable or rejects
+ * on the error path.
+ */
+export function inferSigningFormatFromError(ex: unknown): SigningFormat | undefined {
+	const text = extractSigningErrorText(ex);
+	if (!text) return undefined;
+	if (/\bssh-keygen\b|gpg\.ssh\.(?:program|allowedsignersfile)/i.test(text)) return 'ssh';
+	if (/\bgpg\b/i.test(text)) return 'gpg';
+	return undefined;
 }
 
 export interface GitOptions {

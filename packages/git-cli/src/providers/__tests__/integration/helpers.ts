@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, wr
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { FileSystemProvider, GitServiceContext } from '@gitlens/git/context.js';
+import type { FileSystemProvider, GitServiceContext, GitServiceHooks } from '@gitlens/git/context.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
@@ -59,9 +59,10 @@ function ensureLogger() {
 	});
 }
 
-function createMinimalContext(): GitServiceContext {
+function createMinimalContext(hooks?: GitServiceHooks): GitServiceContext {
 	return {
 		fs: createNodeFs(),
+		hooks: hooks,
 	};
 }
 
@@ -96,7 +97,7 @@ function createNodeFs(): FileSystemProvider {
  *
  * Call `cleanup()` in your `teardown()` / `suiteTeardown()`.
  */
-export function createTestRepo(): TestRepo {
+export function createTestRepo(options?: { hooks?: GitServiceHooks }): TestRepo {
 	ensureLogger();
 
 	const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-'));
@@ -120,7 +121,7 @@ export function createTestRepo(): TestRepo {
 		env: { ...process.env, GIT_COMMITTER_DATE: '2024-01-01T00:00:00Z', GIT_AUTHOR_DATE: '2024-01-01T00:00:00Z' },
 	});
 
-	const context = createMinimalContext();
+	const context = createMinimalContext(options?.hooks);
 	const provider = new CliGitProvider({
 		context: context,
 		locator: getGitLocation,

@@ -1,5 +1,5 @@
 import { window } from 'vscode';
-import { RevertError } from '@gitlens/git/errors.js';
+import { RevertError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
@@ -114,7 +114,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			void showGitErrorMessage(ex, RevertError.is(ex) ? undefined : 'Unable to revert');
+			void showGitErrorMessage(ex, RevertError.is(ex) || SigningError.is(ex) ? undefined : 'Unable to revert');
 		}
 	}
 

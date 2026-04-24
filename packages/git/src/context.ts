@@ -113,9 +113,18 @@ export interface GitServiceHooks {
 	};
 	/** Commit lifecycle hooks */
 	readonly commits?: {
-		/** Called when a commit is signed successfully */
+		/**
+		 * Called when a commit is signed successfully.
+		 *
+		 * Note: currently fired only from explicit-sign paths in the patch provider
+		 * (where signing is requested via `-S` and confirmed up front). Operations
+		 * that sign implicitly via `commit.gpgsign=true` (`commit`, `merge`, `pull`,
+		 * `rebase`, `revert`, `cherryPick`) do not fire this hook because the
+		 * library cannot cheaply confirm that signing actually occurred without an
+		 * extra `git config`/`log --show-signature` call.
+		 */
 		onSigned?(format: SigningFormat, source?: unknown): void;
-		/** Called when commit signing fails */
+		/** Called when commit signing fails — fired from all signing-capable paths. */
 		onSigningFailed?(reason: SigningErrorReason, format: SigningFormat, source?: unknown): void;
 	};
 	/** Git operation hooks */

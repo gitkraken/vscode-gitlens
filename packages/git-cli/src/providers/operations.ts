@@ -11,8 +11,10 @@ import {
 	RebaseError,
 	ResetError,
 	RevertError,
+	SigningError,
 } from '@gitlens/git/errors.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
+import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { GitConflictFile } from '@gitlens/git/models/staging.js';
 import type { GitOperationResult, GitOperationsSubProvider } from '@gitlens/git/providers/operations.js';
 import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
@@ -24,7 +26,13 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { normalizePath, splitPath } from '@gitlens/utils/path.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { Git, PushForceOptions } from '../exec/git.js';
-import { getGitCommandError, gitConfigsPull, GitErrors } from '../exec/git.js';
+import {
+	classifySigningError,
+	getGitCommandError,
+	gitConfigsPull,
+	GitErrors,
+	inferSigningFormatFromError,
+} from '../exec/git.js';
 
 export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	constructor(
@@ -89,7 +97,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	async cherryPick(
 		repoPath: string,
 		revs: string[],
-		options?: { edit?: boolean; noCommit?: boolean },
+		options?: { edit?: boolean; noCommit?: boolean; source?: unknown },
 	): Promise<GitOperationResult> {
 		const scope = getScopedLogger();
 
@@ -129,6 +137,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
+			await this.throwIfSigningError(repoPath, args, ex, options?.source);
 			const mapped = getGitCommandError(
 				'cherry-pick',
 				ex,
@@ -157,6 +166,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			author?: string;
 			date?: string;
 			signoff?: boolean;
+			source?: unknown;
 		},
 	): Promise<void> {
 		const scope = getScopedLogger();
@@ -189,6 +199,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
 			scope?.error(ex);
+			await this.throwIfSigningError(repoPath, params, ex, options?.source);
 			throw getGitCommandError(
 				'commit',
 				ex,
@@ -289,7 +300,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	async merge(
 		repoPath: string,
 		ref: string,
-		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
+		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean; source?: unknown },
 	): Promise<GitOperationResult> {
 		const scope = getScopedLogger();
 
@@ -323,6 +334,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
+			await this.throwIfSigningError(repoPath, args, ex, options?.source);
 			const mapped = getGitCommandError(
 				'merge',
 				ex,
@@ -343,7 +355,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	@debug()
 	async pull(
 		repoPath: string,
-		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
+		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean; source?: unknown },
 	): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -360,6 +372,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					await this.pullCore(normalizePath(worktree.uri.fsPath), {
 						rebase: options?.rebase,
 						tags: options?.tags,
+						source: options?.source,
 					});
 					this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'tags');
 					this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'remotes', 'index']);
@@ -373,6 +386,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			await this.pullCore(repoPath, {
 				rebase: options?.rebase,
 				tags: options?.tags,
+				source: options?.source,
 			});
 
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'tags');
@@ -383,7 +397,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 	}
 
-	private async pullCore(repoPath: string, options: { rebase?: boolean; tags?: boolean }): Promise<void> {
+	private async pullCore(
+		repoPath: string,
+		options: { rebase?: boolean; tags?: boolean; source?: unknown },
+	): Promise<void> {
 		const params = ['pull'];
 
 		if (options.tags) {
@@ -397,6 +414,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.exec({ cwd: repoPath, configs: gitConfigsPull }, ...params);
 		} catch (ex) {
+			await this.throwIfSigningError(repoPath, params, ex, options.source);
 			throw getGitCommandError(
 				'pull',
 				ex,
@@ -609,6 +627,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			interactive?: boolean;
 			onto?: string;
 			updateRefs?: boolean;
+			source?: unknown;
 		},
 	): Promise<GitOperationResult> {
 		const scope = getScopedLogger();
@@ -653,6 +672,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
+			await this.throwIfSigningError(repoPath, args, ex, options?.source);
 			const mapped = getGitCommandError(
 				'rebase',
 				ex,
@@ -716,7 +736,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 	@sequentialize({ getQueueKey: rp => rp })
 	@debug()
-	async revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<GitOperationResult> {
+	async revert(
+		repoPath: string,
+		refs: string[],
+		options?: { editMessage?: boolean; source?: unknown },
+	): Promise<GitOperationResult> {
 		const scope = getScopedLogger();
 
 		const args = ['revert'];
@@ -741,6 +765,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
+			await this.throwIfSigningError(repoPath, args, ex, options?.source);
 
 			const mapped = getGitCommandError(
 				'revert',
@@ -756,6 +781,40 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 			throw mapped;
 		}
+	}
+
+	/**
+	 * Classifies `ex` as a signing failure; if so, fires the `commits.onSigningFailed`
+	 * hook and throws a typed {@link SigningError}. Callers should invoke this first
+	 * in their catch blocks, before falling through to command-specific error mapping
+	 * via {@link getGitCommandError}.
+	 *
+	 * `SigningFormat` is read opportunistically from `config.getSigningConfig`, with
+	 * {@link inferSigningFormatFromError} as a stderr-based fallback and `'gpg'` as
+	 * the final default.
+	 */
+	private async throwIfSigningError(
+		repoPath: string,
+		args: readonly (string | undefined)[],
+		ex: unknown,
+		source?: unknown,
+	): Promise<void> {
+		const reason = classifySigningError(ex);
+		if (reason == null) return;
+
+		let format: SigningFormat | undefined;
+		try {
+			format = (await this.provider.config.getSigningConfig?.(repoPath))?.format;
+		} catch {
+			// Fall through — config read failed; use stderr-inferred format or gpg default
+		}
+		format ??= inferSigningFormatFromError(ex) ?? 'gpg';
+
+		this.context.hooks?.commits?.onSigningFailed?.(reason, format, source);
+		throw new SigningError(
+			{ reason: reason, gitCommand: { repoPath: repoPath, args: args } },
+			ex instanceof Error ? ex : undefined,
+		);
 	}
 
 	private async createConflictResult(repoPath: string, command: GitConflictCommand): Promise<GitOperationResult> {

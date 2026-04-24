@@ -1,5 +1,5 @@
 import { ThemeIcon, window } from 'vscode';
-import { CherryPickError } from '@gitlens/git/errors.js';
+import { CherryPickError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
@@ -153,7 +153,10 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			void showGitErrorMessage(ex, CherryPickError.is(ex) ? undefined : 'Unable to cherry-pick');
+			void showGitErrorMessage(
+				ex,
+				CherryPickError.is(ex) || SigningError.is(ex) ? undefined : 'Unable to cherry-pick',
+			);
 		}
 	}
 
