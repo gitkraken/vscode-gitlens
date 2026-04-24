@@ -560,6 +560,7 @@ export type ContributedCommands =
 	| 'gitlens.views.openChanges:commitDetails'
 	| 'gitlens.views.openChanges:graphDetails'
 	| 'gitlens.views.openChangesWithMergeBase'
+	| 'gitlens.views.openChangesWithMergeBase:graphDetails'
 	| 'gitlens.views.openChangesWithWorking'
 	| 'gitlens.views.openChangesWithWorking:commitDetails'
 	| 'gitlens.views.openChangesWithWorking:graphDetails'

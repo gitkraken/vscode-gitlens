@@ -44,6 +44,7 @@ import type {
 	State,
 	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol.js';
+import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
 import type { GlButton } from '../../../shared/components/button.js';
 import type { CodeIcon } from '../../../shared/components/code-icon.js';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react.jsx';
@@ -72,7 +73,10 @@ export type GraphWrapperProps = Pick<
 	| 'rowsStatsLoading'
 	| 'workingTreeStats'
 > &
-	Pick<GraphStateProvider, 'activeRow' | 'searchMode' | 'searchResults'> & { theming?: GraphWrapperTheming };
+	Pick<GraphStateProvider, 'activeRow' | 'scope' | 'searchMode' | 'searchResults' | 'wipMetadataBySha'> & {
+		theming?: GraphWrapperTheming;
+		wipShasSettleDelayMs?: number;
+	};
 
 export interface GraphWrapperEvents {
 	onChangeColumns?: (columns: GraphColumnsConfig) => void;
@@ -103,6 +107,9 @@ export interface GraphWrapperEvents {
 		graphRow: GraphRow;
 	}) => void;
 	onRowActionHover?: () => void;
+	onScopeAnchorsUnreachable?: (unreachableAnchors: Set<string>) => void;
+	onWipShasMissingStats?: (shas: Record<string, true>) => void;
+	onVisibleWipShasChanged?: (shas: Record<string, true>) => void;
 }
 
 const getGraphDateFormatter = (config: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -706,8 +713,11 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 				if (cancellation.aborted) return {};
 
 				if (row.type === 'work-dir-changes') {
-					adornments[row.sha] = { visibility: true };
-					break;
+					const isSecondaryWip = isSecondaryWipSha(row.sha);
+					adornments[row.sha] = {
+						visibility: isSecondaryWip ? ['hover', 'focus', 'selected'] : true,
+					};
+					continue;
 				}
 
 				// TODO@eamodio after release
@@ -880,6 +890,13 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			themeOpacityFactor={props.theming?.themeOpacityFactor}
 			useAuthorInitialsForAvatars={!config.avatars}
 			workDirStats={props.workingTreeStats}
+			wipVisibility="always"
+			wipNodeMetadataBySha={props.wipMetadataBySha}
+			wipShasSettleDelayMs={props.wipShasSettleDelayMs}
+			scope={props.scope}
+			onScopeAnchorsUnreachable={initProps.onScopeAnchorsUnreachable}
+			onWipShasMissingStats={initProps.onWipShasMissingStats}
+			onVisibleWipShasChanged={initProps.onVisibleWipShasChanged}
 		/>
 	);
 });

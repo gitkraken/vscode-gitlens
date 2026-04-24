@@ -48,8 +48,41 @@ import type { WebviewItemContext, WebviewItemGroupContext } from '../../../syste
 import type { IpcScope } from '../../ipc/models/ipc.js';
 import { IpcCommand, IpcNotification, IpcRequest } from '../../ipc/models/ipc.js';
 import type { WebviewState } from '../../protocol.js';
+import type {
+	GetOverviewEnrichmentResponse,
+	GetOverviewWipResponse,
+	OverviewBranch,
+} from '../../shared/overviewBranches.js';
+
+/** Prefix for synthetic row ids + shas that represent a secondary-worktree WIP row. */
+export const secondaryWipShaPrefix = 'worktree-wip::';
+
+export function isSecondaryWipSha(sha: string): boolean {
+	return sha.startsWith(secondaryWipShaPrefix);
+}
+
+export function getSecondaryWipPath(sha: string): string {
+	return sha.slice(secondaryWipShaPrefix.length);
+}
+
+export function makeSecondaryWipSha(path: string): string {
+	return `${secondaryWipShaPrefix}${path}`;
+}
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
+export type {
+	GetOverviewEnrichmentResponse,
+	GetOverviewWipResponse,
+	OverviewBranch,
+	OverviewBranchContributor,
+	OverviewBranchEnrichment,
+	OverviewBranchIssue,
+	OverviewBranchLaunchpadItem,
+	OverviewBranchMergeTarget,
+	OverviewBranchPullRequest,
+	OverviewBranchRemote,
+	OverviewBranchWip,
+} from '../../shared/overviewBranches.js';
 
 export const scope: IpcScope = 'graph';
 
@@ -76,6 +109,7 @@ export interface GraphSelection {
 	type: GitGraphRowType;
 	active: boolean;
 	hidden: boolean;
+	repoPath?: string;
 }
 
 export type GraphScrollMarkerTypes =
@@ -102,7 +136,31 @@ export type GraphMinimapMarkerTypes =
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
-export type GraphSidebarPanel = 'branches' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
+export type GraphSidebarPanel = 'branches' | 'overview' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
+
+export interface GraphOverviewData {
+	active: OverviewBranch[];
+	recent: OverviewBranch[];
+}
+
+export interface GraphScope {
+	branchName: string;
+	/** Full ref id of the specific branch to scope to (e.g. 'refs/heads/feature/x'). NOT necessarily HEAD. */
+	branchRef: string;
+	/** Full ref id of the branch's upstream (e.g. 'refs/remotes/origin/feature/x'). */
+	upstreamRef?: string;
+	/** SHA of the merge-target tip commit. Its ancestors are NOT walked — the tip is kept as a marker. */
+	mergeTargetTipSha?: string;
+	/**
+	 * Additional ref ids to include in the scope. Each tip becomes an anchor (same treatment as
+	 * branchRef — shows all refs, acts as visibility floor) and its ancestors contribute to
+	 * visibleShas subject to the mergeTarget exclusion.
+	 *
+	 * Primary use case: branches stacked on top of the focal branch (e.g. F2, F3 stacked on F1).
+	 * The helper makes no stackedness check — any refs are valid (siblings, comparisons, etc.).
+	 */
+	additionalBranchRefs?: string[];
+}
 
 export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.graph'> {
 	windowFocused?: boolean;
@@ -130,6 +188,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
+	wipMetadataBySha?: GraphWipMetadataBySha;
 	searchMode?: GraphSearchMode;
 	/** Search query to be executed once */
 	searchRequest?: SearchQuery;
@@ -140,12 +199,21 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 	featurePreview?: FeaturePreview;
 	orgSettings?: { ai: boolean; drafts: boolean };
+	overview?: GraphOverviewData;
 	mcpBannerCollapsed?: boolean;
+
+	// Persisted UI state (from `graph:state` workspace memento)
+	detailsVisible?: boolean;
+	detailsPosition?: number;
+	sidebarVisible?: boolean;
+	activeSidebarPanel?: GraphSidebarPanel;
+	sidebarPosition?: number;
+	minimapVisible?: boolean;
+	minimapPosition?: number;
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
 	activeRow?: string;
-	activeSidebarPanel?: GraphSidebarPanel;
 	visibleDays?: {
 		top: number;
 		bottom: number;
@@ -167,6 +235,21 @@ export type GraphWorkingTreeStats = WorkDirStats & {
 	hasConflicts?: boolean;
 	pausedOpStatus?: GitPausedOperationStatus;
 };
+
+export interface GraphWipNodeMetadata {
+	/** Omit to have the GK component request it via `onWipShasMissingStats`. */
+	workDirStats?: WorkDirStats;
+	/** Keep the current stats visible while asking for fresh ones (stale-while-revalidate). */
+	workDirStatsStale?: boolean;
+	/** Host-only: used by the webview to construct the synthetic row and by details panel routing. Not consumed by the GK component. */
+	repoPath: string;
+	/** Host-only: the worktree HEAD sha this WIP row should be anchored at (used as `parents`). */
+	parentSha: string;
+	/** Host-only: user-visible suffix for the row message (e.g. worktree name). */
+	label: string;
+}
+
+export type GraphWipMetadataBySha = Record<string, GraphWipNodeMetadata>;
 
 export interface GraphPaging {
 	startingCursor?: string;
@@ -210,8 +293,10 @@ export interface GraphComponentConfig {
 	onlyFollowFirstParent?: boolean;
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
+	showDetailsView?: 'open' | 'selection' | false;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
+	showWorktreeWipStats?: boolean;
 	sidebar: boolean;
 	stickyTimeline?: boolean;
 }
@@ -435,6 +520,48 @@ export type DidGetCountParams =
 	| undefined;
 export const GetCountsRequest = new IpcRequest<void, DidGetCountParams>(scope, 'counts');
 
+export const GetOverviewRequest = new IpcRequest<void, GraphOverviewData>(scope, 'overview/get');
+
+export interface GetOverviewWipParams {
+	branchIds: string[];
+}
+export const GetOverviewWipRequest = new IpcRequest<GetOverviewWipParams, GetOverviewWipResponse>(
+	scope,
+	'overview/wip/get',
+);
+
+export interface GetOverviewEnrichmentParams {
+	branchIds: string[];
+}
+export const GetOverviewEnrichmentRequest = new IpcRequest<GetOverviewEnrichmentParams, GetOverviewEnrichmentResponse>(
+	scope,
+	'overview/enrichment/get',
+);
+
+export interface GetWipStatsParams {
+	shas: string[];
+	/**
+	 * When true, bypass the `graph.showWorktreeWipStats` gate and always compute stats for the
+	 * requested shas. Used by the selection-driven fetch path so clicking a worktree WIP row still
+	 * populates its stats when the setting is disabled.
+	 */
+	force?: boolean;
+}
+export type GetWipStatsResponse = Record<string, WorkDirStats | undefined>;
+export const GetWipStatsRequest = new IpcRequest<GetWipStatsParams, GetWipStatsResponse>(scope, 'wip/stats/get');
+
+export interface SyncWipWatchesParams {
+	/** Full set of currently-visible secondary WIP shas. Host diffs against its subscription set. */
+	shas: string[];
+}
+export const SyncWipWatchesCommand = new IpcCommand<SyncWipWatchesParams>(scope, 'wip/watches/sync');
+
+export interface DidChangeWipStaleParams {
+	/** Secondary WIP shas whose cached stats should be marked stale — triggers a re-fetch on next render. */
+	shas: string[];
+}
+export const DidChangeWipStaleNotification = new IpcNotification<DidChangeWipStaleParams>(scope, 'wip/stale/didChange');
+
 export interface GraphSidebarBranch {
 	name: string;
 	sha?: string;
@@ -560,6 +687,19 @@ export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope
 
 // NOTIFICATIONS
 
+export interface DidChangeOverviewParams {
+	overview: GraphOverviewData;
+}
+export const DidChangeOverviewNotification = new IpcNotification<DidChangeOverviewParams>(scope, 'overview/didChange');
+
+export interface DidChangeOverviewWipParams {
+	wip: GetOverviewWipResponse;
+}
+export const DidChangeOverviewWipNotification = new IpcNotification<DidChangeOverviewWipParams>(
+	scope,
+	'overview/wip/didChange',
+);
+
 export interface DidChangeRepoConnectionParams {
 	repositories?: GraphRepository[];
 }
@@ -674,8 +814,15 @@ export const DidChangeSelectionNotification = new IpcNotification<DidChangeSelec
 	'selection/didChange',
 );
 
+export interface DidRequestInspectParams {
+	sha: string;
+	repoPath: string;
+}
+export const DidRequestInspectNotification = new IpcNotification<DidRequestInspectParams>(scope, 'inspect/didRequest');
+
 export interface DidChangeWorkingTreeParams {
 	stats: WorkDirStats;
+	wipMetadataBySha?: GraphWipMetadataBySha;
 }
 export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWorkingTreeParams>(
 	scope,

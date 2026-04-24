@@ -160,6 +160,14 @@ export function getCommitAuthorCachedAvatarUri(commit: GitCommit, options?: { si
 	return getCachedAvatarUri(commit.author.email, options);
 }
 
+export function getCommitCommitterAvatarUri(
+	commit: GitCommit,
+	options?: { defaultStyle?: GravatarDefaultStyle; size?: number },
+): Uri | Promise<Uri> {
+	if (commit.committer.avatarUrl != null) return Uri.parse(commit.committer.avatarUrl);
+	return getAvatarUri(commit.committer.email, commit, options);
+}
+
 // #endregion
 
 // #region Stats formatting
@@ -313,6 +321,26 @@ export async function getCommitForFile(
 		sha: foundFile.staged ? uncommittedStaged : commit.sha,
 		fileset: { ...commit.fileset!, filtered: { files: [foundFile], pathspec: path } },
 	});
+}
+
+/**
+ * Resolves a path + ref pair into a `(commit, file)` tuple. If `ref` is nullish or the uncommitted sentinel,
+ * the lookup targets the uncommitted commit for the repo; otherwise the specified ref. Returns `[]` if the
+ * commit cannot be resolved or the file is missing from it.
+ */
+export async function getCommitAndFileByPath(
+	repoPath: string,
+	path: string,
+	ref: string | undefined,
+	staged: boolean | undefined,
+): Promise<[commit: GitCommit, file: GitFileChange] | [commit?: undefined, file?: undefined]> {
+	const svc = Container.instance.git.getRepositoryService(repoPath);
+	const sha = ref != null && ref !== uncommitted ? ref : uncommitted;
+	const commit = await svc.commits.getCommit(sha);
+	if (commit == null) return [];
+
+	const matched = await getCommitForFile(commit, path, staged);
+	return matched != null ? [matched, matched.file!] : [];
 }
 
 export async function getCommitsForFiles(

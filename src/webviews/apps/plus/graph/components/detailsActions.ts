@@ -1,0 +1,1175 @@
+/**
+ * Actions for the Graph Details panel.
+ *
+ * Actions are methods that:
+ * 1. Update local state (via signals from DetailsState)
+ * 2. Make RPC calls to the backend (via resolved services)
+ *
+ * Follows the same resolve-once pattern as CommitDetailsActions:
+ * resolved sub-services + state + resources are injected via constructor.
+ *
+ * Patterns used:
+ * - Resources: commit, wip, compare, branchCompare, review, compose resources
+ *   handle fetch/cancel/staleness (replaces manual AbortController management)
+ * - enrichmentGuard: prevents stale enrichment callbacks from writing data
+ *   for a commit/WIP that has since been replaced by a newer fetch
+ */
+import type { Remote } from '@eamodio/supertalk';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { areEqual } from '@gitlens/utils/array.js';
+import { pluralize } from '@gitlens/utils/string.js';
+import type { ViewFilesLayout } from '../../../../../config.js';
+import type { CommitDetails, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
+import { messageHeadlineSplitterToken } from '../../../../plus/graph/detailsProtocol.js';
+import type {
+	BranchComparisonOptions,
+	BranchComparisonResult,
+	ComposeResult,
+	GraphServices,
+	ReviewResult,
+	ScopeSelection,
+} from '../../../../plus/graph/graphService.js';
+import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
+import * as fileActions from '../../../shared/actions/file.js';
+import { enrichmentGuard, noop } from '../../../shared/actions/rpc.js';
+import { subscribeAll } from '../../../shared/events/subscriptions.js';
+import type { Resource } from '../../../shared/state/resource.js';
+import type { DetailsState } from './detailsState.js';
+import type { ScopeItem } from './gl-details-scope-pane.js';
+
+/** Structural equality for `ScopeSelection`. Used to avoid redundant signal sets and RPC fetches. */
+export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelection | undefined): boolean {
+	if (a === b) return true;
+	if (a == null || b == null) return false;
+	if (a.type !== b.type) return false;
+	if (a.type === 'commit' && b.type === 'commit') return a.sha === b.sha;
+	if (a.type === 'compare' && b.type === 'compare') {
+		return a.fromSha === b.fromSha && a.toSha === b.toSha && areEqual(a.includeShas, b.includeShas);
+	}
+	if (a.type === 'wip' && b.type === 'wip') {
+		return (
+			a.includeStaged === b.includeStaged &&
+			a.includeUnstaged === b.includeUnstaged &&
+			areEqual(a.includeShas, b.includeShas)
+		);
+	}
+	return false;
+}
+
+type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
+
+export interface ResolvedServices {
+	readonly files: ResolvedSubService<'files'>;
+	readonly graphInspect: ResolvedSubService<'graphInspect'>;
+	readonly autolinks: ResolvedSubService<'autolinks'>;
+	readonly branches: ResolvedSubService<'branches'>;
+	readonly pullRequests: ResolvedSubService<'pullRequests'>;
+	readonly repository: ResolvedSubService<'repository'>;
+	readonly config: ResolvedSubService<'config'>;
+	readonly storage: ResolvedSubService<'storage'>;
+	readonly subscription: ResolvedSubService<'subscription'>;
+	readonly integrations: ResolvedSubService<'integrations'>;
+	readonly commands: ResolvedSubService<'commands'>;
+	readonly ai: ResolvedSubService<'ai'>;
+}
+
+export interface DetailsResources {
+	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
+	readonly wip: Resource<Wip | undefined, [string]>;
+	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
+	readonly branchCompare: Resource<
+		BranchComparisonResult | undefined,
+		[string, string, string, BranchComparisonOptions]
+	>;
+	readonly review: Resource<ReviewResult, [string, ScopeSelection, string | undefined, string[] | undefined]>;
+	readonly compose: Resource<ComposeResult, [string, ScopeSelection, string | undefined, string[] | undefined]>;
+	readonly scopeFiles: Resource<GitFileChangeShape[], [string, ScopeSelection]>;
+}
+
+export class DetailsActions {
+	private _lastFetchedKey?: string;
+	private _pendingStagingOp?: Promise<void>;
+	private _disposed = false;
+	private _eventUnsubscribe?: () => void;
+
+	private _branchCommitsController?: AbortController;
+	private _aiExcludedFilesGeneration = 0;
+
+	constructor(
+		readonly state: DetailsState,
+		readonly services: ResolvedServices,
+		readonly resources: DetailsResources,
+	) {}
+
+	private clearCompareCore(): void {
+		this.state.commitFrom.set(undefined);
+		this.state.commitTo.set(undefined);
+		this.state.compareFiles.set(undefined);
+		this.state.compareStats.set(undefined);
+		this.state.compareBetweenCount.set(undefined);
+	}
+
+	private clearBranchCompareData(): void {
+		this.state.branchCompareAheadCount.set(0);
+		this.state.branchCompareBehindCount.set(0);
+		this.state.branchCompareAheadCommits.set([]);
+		this.state.branchCompareBehindCommits.set([]);
+		this.state.branchCompareAheadFiles.set([]);
+		this.state.branchCompareBehindFiles.set([]);
+	}
+
+	private clearCompareEnrichment(): void {
+		this.state.compareAutolinks.set(undefined);
+		this.state.compareEnrichedItems.set(undefined);
+		this.state.compareEnrichmentLoading.set(false);
+		this.state.signatureFrom.set(undefined);
+		this.state.signatureTo.set(undefined);
+	}
+
+	dispose(): void {
+		this._disposed = true;
+		this._branchCommitsController?.abort();
+		this.resources.commit.dispose();
+		this.resources.wip.dispose();
+		this.resources.compare.dispose();
+		this.resources.branchCompare.dispose();
+		this.resources.review.dispose();
+		this.resources.compose.dispose();
+		this._eventUnsubscribe?.();
+		this._eventUnsubscribe = undefined;
+	}
+
+	isCompare(shas?: string[]): boolean {
+		return shas != null && shas.length >= 2;
+	}
+
+	isWip(sha?: string): boolean {
+		return sha === uncommitted;
+	}
+
+	fromSha(shas: string[] | undefined, swapped: boolean): string | undefined {
+		if (!shas?.length || shas.length < 2) return undefined;
+		return swapped ? shas[0] : shas.at(-1);
+	}
+
+	toSha(shas: string[] | undefined, swapped: boolean): string | undefined {
+		if (!shas?.length || shas.length < 2) return undefined;
+		return swapped ? shas.at(-1) : shas[0];
+	}
+
+	async fetchCapabilities(): Promise<void> {
+		const s = this.services;
+
+		const [
+			pullRequestExpanded,
+			[avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges],
+			[indentGuides, indent, enableSmartCommit],
+			aiEnabled,
+			aiModel,
+			autolinksEnabled,
+			integrations,
+			hasAccount,
+			orgSettings,
+		] = await Promise.all([
+			s.storage.getWorkspace('views:commitDetails:pullRequestExpanded'),
+			s.config.getMany(
+				'views.commitDetails.avatars',
+				'defaultCurrentUserNameStyle',
+				'defaultDateFormat',
+				'defaultDateStyle',
+				'views.commitDetails.files',
+				'signing.showSignatureBadges',
+			),
+			s.config.getManyCore('workbench.tree.renderIndentGuides', 'workbench.tree.indent', 'git.enableSmartCommit'),
+			s.ai.isEnabled(),
+			s.ai.getModel(),
+			s.config.get('views.commitDetails.autolinks.enabled'),
+			s.integrations.getIntegrationStates(),
+			s.subscription.hasAccount(),
+			s.subscription.getOrgSettings(),
+		]);
+
+		this.state.preferences.set({
+			pullRequestExpanded: pullRequestExpanded ?? true,
+			avatars: avatars,
+			currentUserNameStyle: currentUserNameStyle ?? 'you',
+			dateFormat: dateFormat ?? 'MMMM Do, YYYY h:mma',
+			dateStyle: dateStyle ?? 'relative',
+			files: files,
+			indentGuides: indentGuides ?? 'onHover',
+			indent: indent,
+			aiEnabled: aiEnabled,
+			enableSmartCommit: enableSmartCommit ?? false,
+			showSignatureBadges: showSignatureBadges,
+		});
+		this.state.autolinksEnabled.set(autolinksEnabled ?? true);
+		this.state.hasIntegrationsConnected.set(integrations?.some(i => i.connected) ?? false);
+		this.state.hasAccount.set(hasAccount ?? false);
+		this.state.orgSettings.set(orgSettings ?? { ai: false, drafts: false });
+		this.state.aiModel.set(aiModel);
+
+		// Subscribe to AI model so the picker chip stays in sync with native quickpick changes.
+		void this.subscribeEvents();
+	}
+
+	private async subscribeEvents(): Promise<void> {
+		const unsubscribe = await subscribeAll([
+			() => this.services.ai.onModelChanged(model => this.state.aiModel.set(model)),
+		]);
+		if (this._disposed) {
+			unsubscribe();
+			return;
+		}
+		this._eventUnsubscribe = unsubscribe;
+	}
+
+	switchAIModel(): void {
+		// Reuses VS Code's native AI provider quickpick — keeps a single point of truth for
+		// model selection and avoids re-implementing the picker in the webview.
+		void this.services.commands.execute('gitlens.ai.switchProvider', { source: 'graph-details' as const });
+	}
+
+	refreshWip(): void {
+		this._lastFetchedKey = undefined;
+	}
+
+	async fetchDetails(
+		sha: string | undefined,
+		repoPath: string | undefined,
+		graphReachability?: GitCommitReachability,
+	): Promise<void> {
+		const s = this.services;
+
+		const key = `${sha}:${repoPath}`;
+		if (key === this._lastFetchedKey) return;
+
+		// Clear compare state when switching back to single-commit mode
+		this.clearCompareCore();
+		this.clearCompareEnrichment();
+		this.state.compareExplainBusy.set(false);
+
+		if (!sha || !repoPath) {
+			this._lastFetchedKey = undefined;
+			return;
+		}
+
+		this._lastFetchedKey = key;
+
+		this.state.autolinks.set(undefined);
+		this.state.formattedMessage.set(undefined);
+		this.state.autolinkedIssues.set(undefined);
+		this.state.pullRequest.set(undefined);
+		this.state.signature.set(undefined);
+		this.state.reachability.set(graphReachability ?? { partial: true, refs: [] });
+		this.state.reachabilityState.set('loaded');
+		this.state.explain.set(undefined);
+		this.state.searchContext.set(undefined);
+
+		// Fire hasRemotes check in parallel with the main fetch
+		void s.repository.hasRemotes(repoPath).then(has => {
+			if (this._lastFetchedKey === key) {
+				this.state.hasRemotes.set(has);
+			}
+		});
+
+		// Fire search-context fetch in parallel — it drives match highlighting + filter button
+		// in the embedded file trees. Skip for WIP since it has no graph SHA to look up.
+		if (sha !== uncommitted) {
+			void s.graphInspect.getSearchContext(sha).then(ctx => {
+				if (this._lastFetchedKey === key) {
+					this.state.searchContext.set(ctx);
+				}
+			}, noop);
+		}
+
+		try {
+			if (sha === uncommitted) {
+				this.state.wipAutolinks.set(undefined);
+				this.state.wipIssues.set(undefined);
+				this.state.wipMergeTarget.set(undefined);
+				this.state.wipMergeTargetLoading.set(true);
+
+				await this.resources.wip.fetch(repoPath);
+
+				if (this._lastFetchedKey !== key) return;
+				if (this.resources.wip.status.get() === 'success') {
+					const wip = this.resources.wip.value.get();
+					this.state.wip.set(wip);
+					if (this.state.activeMode.get() != null) {
+						this.state.wipStale.set(true);
+					}
+
+					const branchName = wip?.branch?.name;
+					if (branchName != null) {
+						this.fetchWipBranchEnrichment(repoPath, branchName);
+					} else {
+						this.state.wipMergeTargetLoading.set(false);
+					}
+				} else {
+					this.state.wipMergeTargetLoading.set(false);
+				}
+			} else {
+				await this.resources.commit.fetch(repoPath, sha);
+
+				if (this._lastFetchedKey !== key) return;
+				if (this.resources.commit.status.get() === 'success') {
+					const commit = this.resources.commit.value.get();
+					this.state.commit.set(commit);
+
+					if (commit != null) {
+						this.fetchEnrichment(repoPath, sha);
+					}
+				}
+			}
+		} catch {
+			if (this._lastFetchedKey === key) {
+				this.state.commit.set(undefined);
+				this.state.wip.set(undefined);
+				this.state.wipMergeTargetLoading.set(false);
+			}
+		}
+	}
+
+	private fetchEnrichment(repoPath: string, sha: string): void {
+		const s = this.services;
+		const guard = <T>(onResult: (value: T) => void) => enrichmentGuard<T>(this.resources.commit, onResult);
+
+		if (this.state.autolinksEnabled.get()) {
+			const isStash = this.state.commit.get()?.stashNumber != null;
+
+			void s.autolinks.getCommitAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash).then(
+				guard(r => {
+					if (r != null) {
+						this.state.autolinks.set(r.autolinks);
+						this.state.formattedMessage.set(r.formattedMessage);
+					}
+				}),
+				noop,
+			);
+
+			void s.autolinks.getEnrichedAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash).then(
+				guard(r => {
+					if (r != null) {
+						this.state.autolinkedIssues.set(r.autolinkedIssues);
+						this.state.formattedMessage.set(r.formattedMessage);
+					}
+				}),
+				noop,
+			);
+		}
+
+		void s.pullRequests.getPullRequestForCommit(repoPath, sha).then(
+			guard(pr => {
+				this.state.pullRequest.set(pr);
+			}),
+			noop,
+		);
+
+		void s.repository.getCommitSignature(repoPath, sha).then(
+			guard(sig => {
+				this.state.signature.set(sig);
+			}),
+			noop,
+		);
+	}
+
+	private fetchWipBranchEnrichment(repoPath: string, branchName: string): void {
+		const s = this.services;
+		const guard = <T>(onResult: (value: T) => void) => enrichmentGuard<T>(this.resources.wip, onResult);
+
+		void s.autolinks.getBranchAutolinks(repoPath, branchName).then(
+			guard(autolinks => this.state.wipAutolinks.set(autolinks)),
+			noop,
+		);
+
+		void s.branches.getAssociatedIssues(repoPath, branchName).then(
+			guard(issues => this.state.wipIssues.set(issues)),
+			noop,
+		);
+
+		this.state.wipMergeTargetLoading.set(true);
+		const clearLoading = guard<void>(() => this.state.wipMergeTargetLoading.set(false));
+		void s.branches
+			.getMergeTargetStatus(repoPath, branchName)
+			.then(
+				guard(status => this.state.wipMergeTarget.set(status)),
+				noop,
+			)
+			.finally(() => clearLoading());
+	}
+
+	/** Re-fetch WIP branch enrichment in response to out-of-band git-config changes. */
+	refreshWipBranchEnrichment(): void {
+		const wip = this.state.wip.get();
+		const branchName = wip?.branch?.name;
+		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
+		if (!branchName || !repoPath) return;
+
+		this.fetchWipBranchEnrichment(repoPath, branchName);
+	}
+
+	async removeAssociatedIssue(entityId: string): Promise<void> {
+		const wip = this.state.wip.get();
+		const branchName = wip?.branch?.name;
+		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
+		if (!branchName || !repoPath) return;
+
+		// Optimistic update — remove locally so the chip disappears immediately.
+		// Real reconciliation happens via the onRepositoryChanged (gkConfig) subscription
+		// that re-fires fetchWipBranchEnrichment when the git config write lands.
+		const previous = this.state.wipIssues.get();
+		if (previous?.length) {
+			this.state.wipIssues.set(previous.filter(i => i.entityId !== entityId));
+		}
+
+		try {
+			await this.services.branches.removeAssociatedIssue(repoPath, branchName, entityId);
+		} catch {
+			// Revert the optimistic update on failure; the gkConfig event won't fire.
+			this.state.wipIssues.set(previous);
+		}
+	}
+
+	async loadReachability(): Promise<void> {
+		const commit = this.state.commit.get();
+		if (!commit) return;
+
+		this.state.reachabilityState.set('loading');
+		try {
+			const result = await this.services.repository.getCommitReachability(commit.repoPath, commit.sha);
+			this.state.reachability.set(result);
+			this.state.reachabilityState.set('loaded');
+		} catch {
+			this.state.reachabilityState.set('error');
+		}
+	}
+
+	refreshReachability(): void {
+		this.state.reachability.set(undefined);
+		this.state.reachabilityState.set('idle');
+		void this.loadReachability();
+	}
+
+	async explainCommit(prompt?: string): Promise<void> {
+		const commit = this.state.commit.get();
+		if (!commit) return;
+
+		try {
+			const result = await this.services.graphInspect.explainCommit(commit.repoPath, commit.sha, prompt);
+			if ('error' in result && result.error) {
+				this.state.explain.set({ error: result.error });
+			} else if ('result' in result && result.result) {
+				this.state.explain.set({ result: result.result });
+			}
+		} catch {
+			this.state.explain.set({ error: { message: 'Failed to explain commit' } });
+		}
+	}
+
+	async fetchCompareDetails(shas: string[] | undefined, repoPath: string | undefined): Promise<void> {
+		const swapped = this.state.swapped.get();
+		const fromSha = this.fromSha(shas, swapped);
+		const toSha = this.toSha(shas, swapped);
+
+		const key = `compare:${fromSha}:${toSha}:${repoPath}`;
+		if (key === this._lastFetchedKey) return;
+
+		if (!fromSha || !toSha || !repoPath) {
+			this.clearCompareCore();
+			this._lastFetchedKey = undefined;
+			return;
+		}
+
+		this._lastFetchedKey = key;
+		this.clearCompareEnrichment();
+		// Search context only applies in single-commit selection — clear on entering compare.
+		this.state.searchContext.set(undefined);
+
+		try {
+			const comparePromise = this.resources.compare.fetch(repoPath, fromSha, toSha);
+
+			// Fetch the two commit details in parallel while the compare resource runs
+			const [commitFrom, commitTo] = await Promise.all([
+				this.services.graphInspect.getCommit(repoPath, fromSha),
+				this.services.graphInspect.getCommit(repoPath, toSha),
+				comparePromise,
+			]);
+
+			if (this._lastFetchedKey !== key) return;
+
+			this.state.commitFrom.set(commitFrom);
+			this.state.commitTo.set(commitTo);
+
+			if (this.resources.compare.status.get() === 'success') {
+				const diff = this.resources.compare.value.get();
+				this.state.compareFiles.set(diff?.files);
+				this.state.compareStats.set(diff?.stats);
+				this.state.compareBetweenCount.set(diff?.commitCount);
+			}
+
+			this.fetchCompareEnrichment(repoPath, fromSha, toSha, shas);
+		} catch {
+			if (this._lastFetchedKey === key) {
+				this.clearCompareCore();
+			}
+		}
+	}
+
+	private fetchCompareEnrichment(repoPath: string, fromSha: string, toSha: string, shas: string[] | undefined): void {
+		const s = this.services;
+		const guard = <T>(onResult: (value: T) => void) => enrichmentGuard<T>(this.resources.compare, onResult);
+
+		void s.repository.getCommitSignature(repoPath, fromSha).then(
+			guard(sig => {
+				this.state.signatureFrom.set(sig);
+			}),
+			noop,
+		);
+
+		void s.repository.getCommitSignature(repoPath, toSha).then(
+			guard(sig => {
+				this.state.signatureTo.set(sig);
+			}),
+			noop,
+		);
+
+		if (!this.state.autolinksEnabled.get() || !shas?.length) return;
+
+		void s.autolinks.getAutolinksForCommits(repoPath, shas).then(
+			guard(autolinks => {
+				this.state.compareAutolinks.set(autolinks.length > 0 ? autolinks : undefined);
+			}),
+			noop,
+		);
+	}
+
+	async enrichAutolinks(repoPath: string, shas: string[]): Promise<void> {
+		const gen = this.resources.compare.generationId.get();
+		this.state.compareEnrichmentLoading.set(true);
+
+		try {
+			const items = await this.services.autolinks.enrichAutolinksForCommits(repoPath, shas);
+			if (this.resources.compare.generationId.get() !== gen) return;
+			this.state.compareEnrichedItems.set(items);
+		} catch {
+			// Leave undefined so the enrich button remains visible for retry
+		} finally {
+			if (this.resources.compare.generationId.get() === gen) {
+				this.state.compareEnrichmentLoading.set(false);
+			}
+		}
+	}
+
+	swap(shas: string[] | undefined): void {
+		this.state.swapped.set(!this.state.swapped.get());
+
+		// Swap cached commit/signature data in-place
+		const tmpCommit = this.state.commitFrom.get();
+		this.state.commitFrom.set(this.state.commitTo.get());
+		this.state.commitTo.set(tmpCommit);
+
+		const tmpSig = this.state.signatureFrom.get();
+		this.state.signatureFrom.set(this.state.signatureTo.get());
+		this.state.signatureTo.set(tmpSig);
+
+		// Only re-fetch the diff (direction-dependent)
+		void this.fetchSwappedDiff(shas);
+	}
+
+	private async fetchSwappedDiff(shas: string[] | undefined): Promise<void> {
+		const swapped = this.state.swapped.get();
+		const fromSha = this.fromSha(shas, swapped);
+		const toSha = this.toSha(shas, swapped);
+		const repoPath = this.state.commitFrom.get()?.repoPath;
+
+		if (!fromSha || !toSha || !repoPath) return;
+
+		const key = `compare:${fromSha}:${toSha}:${repoPath}`;
+		this._lastFetchedKey = key;
+
+		await this.resources.compare.fetch(repoPath, fromSha, toSha);
+
+		if (this._lastFetchedKey !== key) return;
+		if (this.resources.compare.status.get() === 'success') {
+			const diff = this.resources.compare.value.get();
+			this.state.compareFiles.set(diff?.files);
+			this.state.compareStats.set(diff?.stats);
+		}
+	}
+
+	compareExplain(shas: string[] | undefined, repoPath: string | undefined, prompt?: string): void {
+		const swapped = this.state.swapped.get();
+		const fromSha = this.fromSha(shas, swapped);
+		const toSha = this.toSha(shas, swapped);
+		if (!fromSha || !toSha || !repoPath) return;
+
+		this.state.compareExplainBusy.set(true);
+		void this.services.graphInspect.explainCompare(repoPath, fromSha, toSha, prompt).finally(() => {
+			this.state.compareExplainBusy.set(false);
+		});
+	}
+
+	async initCompareDefaults(repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+
+		const defaultRef = await this.services.graphInspect.getDefaultComparisonRef(repoPath);
+		this.state.branchCompareRightRef.set(defaultRef ?? 'main');
+		void this.fetchCompareData(repoPath);
+	}
+
+	async fetchCompareData(repoPath: string | undefined): Promise<void> {
+		const leftRef = this.state.branchCompareLeftRef.get();
+		const rightRef = this.state.branchCompareRightRef.get();
+		if (!repoPath || !leftRef || !rightRef) return;
+
+		const options: BranchComparisonOptions = {
+			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+			scopeToCommit: this.state.branchCompareSelectedCommitSha.get(),
+		};
+
+		await this.resources.branchCompare.fetch(repoPath, leftRef, rightRef, options);
+
+		if (this.resources.branchCompare.status.get() === 'success') {
+			const result = this.resources.branchCompare.value.get();
+			if (result) {
+				this.state.branchCompareAheadCount.set(result.aheadCount);
+				this.state.branchCompareBehindCount.set(result.behindCount);
+				this.state.branchCompareAheadCommits.set(result.aheadCommits);
+				this.state.branchCompareBehindCommits.set(result.behindCommits);
+				this.state.branchCompareAheadFiles.set(result.aheadFiles.slice());
+				this.state.branchCompareBehindFiles.set(result.behindFiles.slice());
+			} else {
+				this.clearBranchCompareData();
+			}
+		}
+	}
+
+	async changeCompareRef(side: 'left' | 'right', repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+
+		const currentRef =
+			side === 'left' ? this.state.branchCompareLeftRef.get() : this.state.branchCompareRightRef.get();
+		const result = await this.services.graphInspect.chooseRef(
+			repoPath,
+			'Choose a Reference to Compare',
+			currentRef,
+		);
+		if (!result) return;
+
+		if (side === 'left') {
+			this.state.branchCompareLeftRef.set(result.name);
+		} else {
+			this.state.branchCompareRightRef.set(result.name);
+		}
+		void this.fetchCompareData(repoPath);
+	}
+
+	swapCompareRefs(repoPath: string | undefined): void {
+		const temp = this.state.branchCompareLeftRef.get();
+		this.state.branchCompareLeftRef.set(this.state.branchCompareRightRef.get());
+		this.state.branchCompareRightRef.set(temp);
+		this.state.branchCompareActiveTab.set('ahead');
+		this.state.branchCompareSelectedCommitSha.set(undefined);
+		void this.fetchCompareData(repoPath);
+	}
+
+	toggleCompareWorkingTree(repoPath: string | undefined): void {
+		this.state.branchCompareIncludeWorkingTree.set(!this.state.branchCompareIncludeWorkingTree.get());
+		void this.fetchCompareData(repoPath);
+	}
+
+	switchCompareTab(tab: 'ahead' | 'behind', repoPath: string | undefined): void {
+		this.state.branchCompareActiveTab.set(tab);
+		this.state.branchCompareSelectedCommitSha.set(undefined);
+		void this.fetchCompareData(repoPath);
+	}
+
+	selectCompareCommit(sha: string | undefined, repoPath: string | undefined): void {
+		this.state.branchCompareSelectedCommitSha.set(sha);
+		void this.fetchCompareData(repoPath);
+	}
+
+	async fetchBranchCommits(repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+
+		this._branchCommitsController?.abort();
+		const controller = new AbortController();
+		this._branchCommitsController = controller;
+
+		this.state.branchCommitsFetching.set(true);
+		try {
+			const result = await this.services.graphInspect.getBranchCommits(repoPath, controller.signal);
+			if (controller.signal.aborted) return;
+
+			this.state.branchCommits.set(result.commits);
+			this.state.branchMergeBase.set(result.mergeBase);
+		} finally {
+			if (this._branchCommitsController === controller) {
+				this._branchCommitsController = undefined;
+				this.state.branchCommitsFetching.set(false);
+			}
+		}
+
+		// Late-arriving branch commits: if we entered a WIP review/compose mode before commits
+		// loaded, the default scope had includeShas=[] and the file list missed every unpushed
+		// commit's contribution. Re-build the default scope now and re-fetch files — but only
+		// if the user hasn't manually adjusted the picker (current scope's includeShas matches
+		// what buildDefaultScope would have produced if it had been called with empty branchCommits).
+		const activeMode = this.state.activeMode.get();
+		const activeContext = this.state.activeModeContext.get();
+		if (activeContext !== 'wip' || (activeMode !== 'review' && activeMode !== 'compose')) return;
+
+		const currentScope = this.state.scope.get();
+		if (currentScope?.type !== 'wip') return;
+		// User-adjusted heuristic: if includeShas is non-empty the user (or a previous late
+		// arrival) has already populated it — don't overwrite.
+		if ((currentScope.includeShas?.length ?? 0) > 0) return;
+
+		// Rebuild the WIP scope directly — the late-arriving branch commits are the only thing
+		// that changed vs the scope the controller built at mode entry. Kept inline (not going
+		// through the controller) because this is a data-flow concern, not user intent.
+		const commits = this.state.branchCommits.get();
+		const refreshedIncludeShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
+		if (refreshedIncludeShas.length === 0) return;
+		const refreshedScope: ScopeSelection = {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: true,
+			includeShas: refreshedIncludeShas,
+		};
+
+		this.state.scope.set(refreshedScope);
+		const wipRepoPath = this.state.wip.get()?.repo?.path ?? repoPath;
+		void this.resources.scopeFiles.fetch(wipRepoPath, refreshedScope);
+	}
+
+	buildWipScopeItems(): ScopeItem[] | undefined {
+		const wip = this.state.wip.get();
+		if (!wip) return undefined;
+
+		const items: ScopeItem[] = [];
+		const files = wip.changes?.files ?? [];
+		const unstaged = files.filter(f => !f.staged);
+		const staged = files.filter(f => f.staged);
+
+		if (unstaged.length > 0) {
+			const added = unstaged.filter(f => f.status === 'A' || f.status === '?').length;
+			const deleted = unstaged.filter(f => f.status === 'D').length;
+			const modified = unstaged.length - added - deleted;
+			items.push({
+				id: 'unstaged',
+				label: 'Unstaged changes',
+				additions: added || undefined,
+				deletions: deleted || undefined,
+				modified: modified || undefined,
+				fileCount: unstaged.length,
+				state: 'uncommitted',
+			});
+		}
+		if (staged.length > 0) {
+			const added = staged.filter(f => f.status === 'A' || f.status === '?').length;
+			const deleted = staged.filter(f => f.status === 'D').length;
+			const modified = staged.length - added - deleted;
+			items.push({
+				id: 'staged',
+				label: 'Staged changes',
+				additions: added || undefined,
+				deletions: deleted || undefined,
+				modified: modified || undefined,
+				fileCount: staged.length,
+				state: 'uncommitted',
+			});
+		}
+
+		const branchCommits = this.state.branchCommits.get();
+		if (branchCommits?.length) {
+			for (const commit of branchCommits) {
+				items.push({
+					id: commit.sha,
+					label: commit.message.split('\n')[0],
+					fileCount: commit.fileCount || undefined,
+					additions: commit.additions || undefined,
+					deletions: commit.deletions || undefined,
+					state: commit.pushed ? 'pushed' : 'unpushed',
+					author: commit.author,
+					avatarUrl: commit.avatarUrl,
+					date: commit.date ? new Date(commit.date).getTime() : undefined,
+				});
+			}
+		} else {
+			const ahead = wip.branch?.tracking?.ahead ?? 0;
+			if (ahead > 0) {
+				items.push({
+					id: 'unpushed',
+					label: pluralize('unpushed commit', ahead),
+					state: 'unpushed',
+				});
+			}
+		}
+
+		const mergeBase = this.state.branchMergeBase.get();
+		if (mergeBase) {
+			items.push({
+				id: `merge-base:${mergeBase.sha}`,
+				label: mergeBase.message || mergeBase.sha.substring(0, 7),
+				state: 'merge-base',
+				author: mergeBase.author,
+				avatarUrl: mergeBase.avatarUrl,
+				date: mergeBase.date ? new Date(mergeBase.date).getTime() : undefined,
+			});
+		}
+
+		return items;
+	}
+
+	async fetchAiExcludedFiles(
+		repoPath: string | undefined,
+		sha: string | undefined,
+		shas: string[] | undefined,
+	): Promise<void> {
+		const files = this.getReviewFiles(sha, shas);
+		if (!repoPath || !files?.length) return;
+
+		const generation = ++this._aiExcludedFilesGeneration;
+		const paths = files.map(f => f.path);
+		const excluded = await this.services.graphInspect.getAiExcludedFiles(repoPath, paths);
+		if (this._aiExcludedFilesGeneration !== generation) return;
+
+		this.state.aiExcludedFiles.set(excluded);
+	}
+
+	private getReviewFiles(sha: string | undefined, shas: string[] | undefined) {
+		// Use activeModeContext when in a mode to avoid stale data from selection changes
+		const ctx = this.state.activeModeContext.get();
+		if (ctx === 'wip' || (!ctx && this.isWip(sha))) return undefined;
+		if (ctx === 'compare' || (!ctx && this.isCompare(shas))) return this.state.compareFiles.get();
+		return this.state.commit.get()?.files;
+	}
+
+	/**
+	 * Translate a scope-picker selection into a `ScopeSelection`. Applied on scope-change.
+	 *
+	 * Takes the selected IDs directly (passed via the scope-change event detail) instead of
+	 * walking back through the picker DOM, because the orchestrator's light-DOM `querySelector`
+	 * can't reach into the review/compose panel's shadow root where the picker actually lives.
+	 */
+	buildScopeFromPicker(
+		selectedIds: ReadonlySet<string> | undefined,
+		scopeItems: ScopeItem[] | undefined,
+	): ScopeSelection | undefined {
+		const current = this.state.scope.get();
+		if (!current || !selectedIds || !scopeItems) return current;
+
+		const pickedShas = scopeItems
+			.filter(
+				i => (i.state === 'unpushed' || i.state === 'pushed') && selectedIds.has(i.id) && i.id !== 'unpushed',
+			)
+			.map(i => i.id);
+
+		if (current.type === 'wip') {
+			return {
+				type: 'wip',
+				includeStaged: selectedIds.has('staged'),
+				includeUnstaged: selectedIds.has('unstaged'),
+				includeShas: pickedShas,
+			};
+		}
+		if (current.type === 'compare') {
+			return {
+				...current,
+				includeShas: pickedShas.length > 0 ? pickedShas : undefined,
+			};
+		}
+		return current;
+	}
+
+	openFileByPath(filePath: string, repoPath: string | undefined): void {
+		if (!repoPath) return;
+		const file = { repoPath: repoPath, path: filePath, status: 'M' as const };
+		void this.services.files.openFile(file);
+	}
+
+	async composeCommitAll(
+		repoPath: string | undefined,
+		sha: string | undefined,
+		graphReachability?: GitCommitReachability,
+	): Promise<void> {
+		const composeValue = this.resources.compose.value.get();
+		if (!repoPath || !composeValue || !('result' in composeValue)) return;
+
+		try {
+			const result = await this.services.graphInspect.commitCompose(repoPath, {
+				commits: composeValue.result.commits,
+				base: composeValue.result.baseCommit,
+				mode: 'all',
+			});
+			if ('error' in result && result.error) {
+				this.resources.compose.mutate({ error: { message: result.error.message } });
+			} else {
+				this.state.activeMode.set(null);
+				this.state.activeModeContext.set(null);
+				this.resources.compose.cancel();
+				this.refreshWip();
+				void this.fetchDetails(sha, repoPath, graphReachability);
+			}
+		} catch {
+			this.resources.compose.mutate({ error: { message: 'Failed to commit plan.' } });
+		}
+	}
+
+	async composeCommitTo(repoPath: string | undefined, upToIndex: number): Promise<void> {
+		const composeValue = this.resources.compose.value.get();
+		if (!repoPath || !composeValue || !('result' in composeValue)) return;
+
+		try {
+			const result = await this.services.graphInspect.commitCompose(repoPath, {
+				commits: composeValue.result.commits,
+				base: composeValue.result.baseCommit,
+				mode: 'up-to',
+				upToIndex: upToIndex,
+			});
+			if ('error' in result && result.error) {
+				this.resources.compose.mutate({ error: { message: result.error.message } });
+			}
+		} catch {
+			this.resources.compose.mutate({ error: { message: 'Failed to commit.' } });
+		}
+	}
+
+	openComposer(repoPath: string | undefined): void {
+		if (!repoPath) return;
+		void this.services.commands.execute('gitlens.composeCommits', { repoPath: repoPath, source: 'graph' });
+	}
+
+	openFile(detail: FileChangeListItemDetail, ref?: string): void {
+		fileActions.openFile(this.services.files, detail, detail.showOptions, ref);
+	}
+
+	openFileOnRemote(detail: FileChangeListItemDetail, ref?: string): void {
+		fileActions.openFileOnRemote(this.services.files, detail, ref);
+	}
+
+	openFileCompareWorking(detail: FileChangeListItemDetail, ref?: string): void {
+		fileActions.openFileCompareWorking(this.services.files, detail, detail.showOptions, ref);
+	}
+
+	openFileComparePrevious(detail: FileChangeListItemDetail, ref?: string): void {
+		fileActions.openFileComparePrevious(this.services.files, detail, detail.showOptions, ref);
+	}
+
+	openFileCompareBetween(detail: FileChangeListItemDetail, fromRef?: string, toRef?: string): void {
+		fileActions.openFileCompareBetween(this.services.files, detail, detail.showOptions, fromRef, toRef);
+	}
+
+	executeFileAction(detail: FileChangeListItemDetail, ref?: string): void {
+		fileActions.executeFileAction(this.services.files, detail, detail.showOptions, ref);
+	}
+
+	stageFile(detail: FileChangeListItemDetail): void {
+		this.optimisticallyUpdateFileStaged(detail.path, true);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFile(detail));
+	}
+
+	unstageFile(detail: FileChangeListItemDetail): void {
+		this.optimisticallyUpdateFileStaged(detail.path, false);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFile(detail));
+	}
+
+	stageAll(repoPath: string | undefined): void {
+		if (!repoPath) return;
+		this.optimisticallyUpdateAllFilesStaged(true);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageAll(repoPath));
+	}
+
+	unstageAll(repoPath: string | undefined): void {
+		if (!repoPath) return;
+		this.optimisticallyUpdateAllFilesStaged(false);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageAll(repoPath));
+	}
+
+	/**
+	 * After a stage/unstage RPC completes, force a WIP re-fetch from the host. The host's
+	 * `notifyDidChangeWorkingTree` deduplicates by added/deleted/modified counts, so a pure
+	 * staging change (same counts, different sides) gets dropped — the panel would keep showing
+	 * stale duplicate entries for a mixed file until something else perturbs the watcher.
+	 */
+	private async runStagingOp(op: Promise<void>): Promise<void> {
+		try {
+			await op;
+		} finally {
+			const wipRepoPath = this.state.wip.get()?.repo?.path;
+			if (wipRepoPath != null) {
+				void this.refetchWipQuiet(wipRepoPath);
+			}
+		}
+	}
+
+	/**
+	 * Re-fetch the WIP file list without clearing enrichment (autolinks, issues, merge target,
+	 * etc.). The new payload's data replaces the old in-place — no transient empty state, no
+	 * flicker of the merge-target badge or autolink chips. Used by the staging-op path and by
+	 * the orchestrator's workingTreeStats-change handler — anywhere the file list may have
+	 * shifted but the surrounding enrichment is still valid.
+	 */
+	async refetchWipQuiet(repoPath: string): Promise<void> {
+		// Bypass the fetch dedup so we always re-query.
+		this._lastFetchedKey = undefined;
+		await this.resources.wip.fetch(repoPath);
+		if (this.resources.wip.status.get() !== 'success') return;
+		const wip = this.resources.wip.value.get();
+		if (wip == null) return;
+		// Replace WIP + only re-fire branch enrichment if the branch identity actually changed.
+		const prev = this.state.wip.get();
+		this.state.wip.set(wip);
+		const branchName = wip.branch?.name;
+		if (branchName != null && prev?.branch?.name !== branchName) {
+			this.fetchWipBranchEnrichment(repoPath, branchName);
+		}
+	}
+
+	private optimisticallyUpdateFileStaged(filePath: string, newStaged: boolean): void {
+		const wip = this.state.wip.get();
+		if (!wip?.changes?.files) return;
+
+		// Direction-aware: only mutate the entry currently on the OPPOSITE side of `newStaged`.
+		// For a mixed file (path appears twice — once staged, once unstaged), this collapses to
+		// the correct single entry instead of flipping both, which would briefly show fully
+		// staged/unstaged then flicker back to mixed when the next status fetch returns.
+		const priorStaged = !newStaged;
+		let changed = false;
+		const nextFiles = wip.changes.files.map(f => {
+			if (f.path !== filePath || f.staged !== priorStaged) return f;
+			changed = true;
+			return { ...f, staged: newStaged };
+		});
+		if (!changed) return;
+
+		this.state.wip.set({ ...wip, changes: { ...wip.changes, files: nextFiles } });
+	}
+
+	private optimisticallyUpdateAllFilesStaged(staged: boolean): void {
+		const wip = this.state.wip.get();
+		if (!wip?.changes?.files) return;
+
+		let changed = false;
+		const nextFiles = wip.changes.files.map(f => {
+			if (f.staged === staged) return f;
+			changed = true;
+			return { ...f, staged: staged };
+		});
+		if (!changed) return;
+
+		this.state.wip.set({ ...wip, changes: { ...wip.changes, files: nextFiles } });
+	}
+
+	canCommit(): boolean {
+		const message = this.state.commitMessage.get();
+		const isAmend = this.state.amend.get();
+		const wip = this.state.wip.get();
+		const prefs = this.state.preferences.get();
+		const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
+		const smartCommit = prefs?.enableSmartCommit ?? false;
+		const hasChanges = (wip?.changes?.files?.length ?? 0) > 0;
+		return (Boolean(message.trim()) && (hasStagedFiles || (smartCommit && hasChanges))) || isAmend;
+	}
+
+	async commit(repoPath: string | undefined, sha: string | undefined): Promise<void> {
+		if (!repoPath || !this.canCommit()) return;
+
+		const message = this.state.commitMessage.get();
+		const isAmend = this.state.amend.get();
+		const wip = this.state.wip.get();
+		const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
+		const smartCommit = this.state.preferences.get()?.enableSmartCommit ?? false;
+
+		// Wait for any in-flight staging operations
+		if (this._pendingStagingOp != null) {
+			await this._pendingStagingOp;
+			this._pendingStagingOp = undefined;
+		}
+
+		const all = !hasStagedFiles && smartCommit;
+
+		try {
+			await this.services.repository.commit(repoPath, message, { amend: isAmend, all: all });
+			this.state.commitMessage.set('');
+			this.state.amend.set(false);
+			this.state.commitError.set(undefined);
+			this.refreshWip();
+			void this.fetchDetails(sha, repoPath);
+		} catch (ex) {
+			this.state.commitError.set(ex instanceof Error ? ex.message : 'Commit failed');
+		}
+	}
+
+	async generateMessage(repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+
+		this.state.generating.set(true);
+		try {
+			const result = await this.services.graphInspect.generateCommitMessage(repoPath);
+			if (result) {
+				this.state.commitMessage.set(result.body ? `${result.summary}\n\n${result.body}` : result.summary);
+			}
+		} finally {
+			this.state.generating.set(false);
+		}
+	}
+
+	async loadLastCommitMessage(repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+
+		const message = await this.services.repository.getLastCommitMessage(repoPath);
+		if (message && this.state.amend.get()) {
+			this.state.commitMessage.set(message);
+		}
+	}
+
+	switchBranch(repoPath: string | undefined): void {
+		if (!repoPath) return;
+		void this.services.repository.switchBranch(repoPath);
+	}
+
+	createBranch(repoPath: string | undefined): void {
+		if (!repoPath) return;
+		void this.services.repository.createBranch(repoPath);
+	}
+
+	stashSave(repoPath: string | undefined): void {
+		if (!repoPath) return;
+		void this.services.commands.execute('gitlens.stashSave', { repoPath: repoPath });
+	}
+
+	applyStash(repoPath: string | undefined): void {
+		if (!repoPath) return;
+		void this.services.commands.execute('gitlens.stashesApply', { repoPath: repoPath });
+	}
+
+	createWorktree(): void {
+		void this.services.commands.execute('gitlens.views.createWorktree');
+	}
+
+	startWork(): void {
+		void this.services.commands.execute('gitlens.startWork', { source: 'graph-details' as const });
+	}
+
+	openOnRemote(repoPath: string | undefined, sha: string): void {
+		if (!repoPath) return;
+		void this.services.commands.execute('gitlens.openOnRemote', {
+			repoPath: repoPath,
+			resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
+		});
+	}
+
+	changeFilesLayout(layout: ViewFilesLayout): void {
+		const prefs = this.state.preferences.get();
+		if (!prefs?.files) return;
+
+		const files = { ...prefs.files, layout: layout };
+		this.state.preferences.set({ ...prefs, files: files });
+		void this.services.config.update('views.commitDetails.files.layout', layout);
+	}
+}

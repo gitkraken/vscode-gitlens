@@ -111,6 +111,10 @@ export function createCommitDetailsState(storage?: HostStorage) {
 		experimentalComposerEnabled: false,
 	});
 
+	// ── Repository context ──
+
+	const hasRemotes = signal(false);
+
 	// ── Enrichment (fire-and-forget, not resources) ──
 
 	const autolinks = signal<Autolink[] | undefined>(undefined);
@@ -199,6 +203,9 @@ export function createCommitDetailsState(storage?: HostStorage) {
 		orgSettings: orgSettings,
 		hasAccount: hasAccount,
 		capabilities: capabilities,
+
+		// Repository context
+		hasRemotes: hasRemotes,
 
 		// Enrichment
 		autolinks: autolinks,

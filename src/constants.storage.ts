@@ -12,6 +12,7 @@ import type { OrganizationSettings } from './plus/gk/models/organization.js';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 import type { IntegrationConnectedKey } from './plus/integrations/models/integration.js';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
+import type { GraphSidebarPanel } from './webviews/plus/graph/protocol.js';
 
 export type SecretKeys =
 	| IntegrationAuthenticationKeys
@@ -190,6 +191,7 @@ interface WorkspaceStorageCore {
 	gitPath: string;
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
+	'graph:state': StoredGraphState;
 	/** Unified onboarding/dismissible UI state (workspace-scoped items) */
 	'onboarding:state': OnboardingStorage;
 	'starred:repositories': StoredStarred;
@@ -369,6 +371,24 @@ export interface StoredGraphColumn {
 	isHidden?: boolean;
 	mode?: string;
 	width?: number;
+}
+
+export interface StoredGraphState {
+	panels?: {
+		details?: {
+			visible?: boolean;
+			position?: number;
+		};
+		sidebar?: {
+			visible?: boolean;
+			position?: number;
+			activePanel?: GraphSidebarPanel;
+		};
+		minimap?: {
+			visible?: boolean;
+			position?: number;
+		};
+	};
 }
 
 export type StoredGraphExcludeTypes = 'remotes' | 'stashes' | 'tags';

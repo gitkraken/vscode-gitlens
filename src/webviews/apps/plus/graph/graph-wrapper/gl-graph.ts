@@ -102,6 +102,15 @@ export class GlGraph extends LitElement {
 	workingTreeStats?: GraphWrapperProps['workingTreeStats'];
 
 	@property({ type: Object })
+	wipMetadataBySha?: GraphWrapperProps['wipMetadataBySha'];
+
+	@property({ type: Number, attribute: 'wip-shas-settle-delay-ms' })
+	wipShasSettleDelayMs?: number;
+
+	@property({ type: Object })
+	scope?: GraphWrapperProps['scope'];
+
+	@property({ type: Object })
 	theming?: GraphWrapperProps['theming'];
 
 	@property({ type: String })
@@ -179,8 +188,14 @@ export class GlGraph extends LitElement {
 				theming: this.theming,
 				windowFocused: this.windowFocused,
 				workingTreeStats: this.workingTreeStats,
+				wipMetadataBySha: this.wipMetadataBySha,
+				wipShasSettleDelayMs: this.wipShasSettleDelayMs,
+				scope: this.scope,
 
 				onChangeColumns: this.handleChangeColumns,
+				onScopeAnchorsUnreachable: this.handleScopeAnchorsUnreachable,
+				onWipShasMissingStats: this.handleWipShasMissingStats,
+				onVisibleWipShasChanged: this.handleVisibleWipShasChanged,
 				onChangeRefsVisibility: this.handleChangeRefsVisibility,
 				onChangeSelection: this.handleChangeSelection,
 				onChangeVisibleDays: this.handleChangeVisibleDays,
@@ -293,6 +308,18 @@ export class GlGraph extends LitElement {
 		this._handleRowHoverDebounced.cancel();
 		this.dispatchEvent(new CustomEvent('row-action-hover', { bubbles: true, composed: true }));
 	};
+
+	private handleScopeAnchorsUnreachable = (unreachableAnchors: Set<string>): void => {
+		this.dispatchEvent(new CustomEvent('scopeanchorsunreachable', { detail: unreachableAnchors }));
+	};
+
+	private handleWipShasMissingStats = (shas: Record<string, true>): void => {
+		this.dispatchEvent(new CustomEvent('wipshasmissingstats', { detail: shas }));
+	};
+
+	private handleVisibleWipShasChanged = (shas: Record<string, true>): void => {
+		this.dispatchEvent(new CustomEvent('visiblewipshaschanged', { detail: shas }));
+	};
 }
 
 // Define the element in the custom elements registry
@@ -329,5 +356,8 @@ declare global {
 			graphRow: GraphRow;
 			relatedTarget: EventTarget | null;
 		}>;
+		scopeanchorsunreachable: CustomEvent<Set<string>>;
+		wipshasmissingstats: CustomEvent<Record<string, true>>;
+		visiblewipshaschanged: CustomEvent<Record<string, true>>;
 	}
 }

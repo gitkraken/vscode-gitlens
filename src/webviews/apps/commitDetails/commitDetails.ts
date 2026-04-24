@@ -199,11 +199,11 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 				if (commit == null) return undefined;
 				return repository.getCommitReachability(commit.repoPath, commit.sha, _signal);
 			}),
-			explain: createResource<ExplainState | undefined>(async signal => {
+			explain: createResource<ExplainState | undefined, [string | undefined]>(async (signal, prompt) => {
 				const commit = s.currentCommit.get();
 				if (commit == null) return undefined;
 				try {
-					const result = await inspect.explainCommit(commit.repoPath, commit.sha, signal);
+					const result = await inspect.explainCommit(commit.repoPath, commit.sha, prompt, signal);
 					if (result.error) {
 						return { error: { message: result.error.message ?? 'Error retrieving content' } };
 					}
@@ -318,7 +318,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 				'expanded-change',
 				e => this.onExpandedChange(e.detail, 'pullrequest'),
 			),
-			DOM.on('[data-action="explain-commit"]', 'click', () => void actions.explainCommit()),
 			DOM.on('[data-action="switch-ai"]', 'click', () => actions.executeCommand('gitlens.ai.switchProvider')),
 		);
 	}
@@ -553,25 +552,39 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 						currentMode === 'commit',
 						() =>
 							html`<gl-commit-details
+								variant="embedded"
+								file-icons
+								?panel-actions=${false}
 								.commit=${commit}
-								.autolinks=${s.autolinks.get()}
-								.formattedMessage=${s.formattedMessage.get()}
-								.signature=${s.signature.get()}
-								.autolinksEnabled=${s.capabilities.autolinksEnabled}
-								.autolinkedIssues=${s.autolinkedIssues.get()}
-								.pullRequest=${s.pullRequest.get()}
-								.hasAccount=${s.hasAccount.get()}
-								.hasIntegrationsConnected=${s.capabilities.hasIntegrationsConnected}
+								.loading=${resources?.commit.loading.get() ?? false}
 								.files=${commit?.files}
-								.explain=${explain}
 								.preferences=${prefs}
 								.orgSettings=${org}
 								.isUncommitted=${s.isUncommitted.get()}
+								.filesCollapsable=${false}
+								.autolinksEnabled=${s.capabilities.autolinksEnabled}
+								.autolinks=${s.autolinks.get()}
+								.formattedMessage=${s.formattedMessage.get()}
+								.autolinkedIssues=${s.autolinkedIssues.get()}
+								.pullRequest=${s.pullRequest.get()}
+								.signature=${s.signature.get()}
+								.hasAccount=${s.hasAccount.get()}
+								.hasIntegrationsConnected=${s.capabilities.hasIntegrationsConnected}
+								.hasRemotes=${s.hasRemotes.get()}
+								.explain=${explain}
 								.searchContext=${searchCtx}
 								.reachability=${reach}
 								.reachabilityState=${reachState}
+								.branchName=${commit?.stashOnRef ?? this.getCommitBranchName(reach)}
+								.aiEnabled=${org?.ai !== false}
+								@explain-commit=${(e: CustomEvent<{ prompt?: string }>) =>
+									void actions?.explainCommit(e.detail?.prompt)}
 								@load-reachability=${() => void actions?.loadReachability()}
 								@refresh-reachability=${() => actions?.refreshReachability()}
+								@open-on-remote=${(e: CustomEvent<{ sha: string }>) =>
+									actions?.openOnRemote(commit?.repoPath, e.detail.sha)}
+								@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) =>
+									actions?.changeFilesLayout(e.detail.layout)}
 								@file-open-on-remote=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.openFileOnRemote(e.detail)}
 								@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
@@ -637,6 +650,18 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	// ============================================================
 	// Event handlers
 	// ============================================================
+
+	private getCommitBranchName(reachability: GitCommitReachability | undefined): string | undefined {
+		if (!reachability?.refs?.length) return undefined;
+
+		const branches = reachability.refs.filter(
+			(r): r is Extract<typeof r, { refType: 'branch' }> => r.refType === 'branch',
+		);
+		const current = branches.find(r => r.current);
+		if (current) return current.name;
+		if (branches.length > 0) return branches[0].name;
+		return undefined;
+	}
 
 	private onBranchAction(name: string): void {
 		this._actions?.handleBranchAction(name);

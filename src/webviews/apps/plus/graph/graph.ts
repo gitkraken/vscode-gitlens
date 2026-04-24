@@ -9,6 +9,7 @@ import { GlAppHost } from '../../shared/appHost.js';
 import type { HostIpc } from '../../shared/ipc.js';
 import { RpcController } from '../../shared/rpc/rpcController.js';
 import type { ThemeChangeEvent } from '../../shared/theme.js';
+import { graphServicesContext } from './context.js';
 import type { GraphApp } from './graph-app.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import { createSidebarActions } from './sidebar/sidebarState.js';
@@ -32,11 +33,18 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		initialValue: this._sidebarActions,
 	});
 
+	private _servicesProvider = new ContextProvider(this, {
+		context: graphServicesContext,
+		initialValue: undefined,
+	});
+
 	private _rpc = new RpcController<GraphServices>(this, {
 		onReady: services => this._onRpcReady(services),
 	});
 
 	private async _onRpcReady(services: import('@eamodio/supertalk').Remote<GraphServices>): Promise<void> {
+		this._servicesProvider.setValue(services);
+
 		const sidebar = await services.sidebar;
 		this._sidebarActions.initialize(sidebar);
 	}
