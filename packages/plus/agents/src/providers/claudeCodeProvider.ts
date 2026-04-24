@@ -108,6 +108,10 @@ type SerializedAgentSession = Omit<AgentSession, 'lastActivity' | 'phaseSince' |
 	})[];
 };
 
+function normalizeWorkspacePath(value: string | null | undefined): string | undefined {
+	return value ? value : undefined;
+}
+
 export class ClaudeCodeProvider implements AgentSessionProvider {
 	readonly id = 'claudeCode';
 	readonly name = 'Claude Code';
@@ -239,7 +243,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const isInWorkspace = this.matchesWorkspace(event.matchedWorkspacePath);
 		const eventContext: SessionContext = {
 			pid: event.pid,
-			workspacePath: event.matchedWorkspacePath,
+			workspacePath: normalizeWorkspacePath(event.matchedWorkspacePath),
 			isInWorkspace: isInWorkspace,
 			cwd: event.cwd,
 			planFile: event.planFile,
@@ -845,7 +849,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				pid: data.pid,
 				lastActivity: activityDate,
 				isSubagent: false,
-				workspacePath: data.matchedWorkspacePath ?? undefined,
+				workspacePath: normalizeWorkspacePath(data.matchedWorkspacePath),
 				cwd: data.cwd,
 				planFile: data.planFile ?? undefined,
 				isInWorkspace: isInWorkspace,
@@ -912,6 +916,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						...peerSession,
 						lastActivity: peerActivity,
 						phaseSince: peerPhaseSince,
+						workspacePath: normalizeWorkspacePath(peerSession.workspacePath),
 						isInWorkspace: this.matchesWorkspace(peerSession.workspacePath),
 						subagents: rehydrateSubagents(peerSession.subagents),
 					});
