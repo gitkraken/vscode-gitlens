@@ -18,8 +18,9 @@ interface Icon {
 	icon: string;
 	tooltip: string;
 }
-type IconTypes = 'branches' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
+type IconTypes = 'branches' | 'overview' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
 const icons: Icon[] = [
+	{ type: 'overview', icon: 'home', tooltip: 'Overview' },
 	{ type: 'worktrees', icon: 'gl-worktrees-view', tooltip: 'Worktrees' },
 	{ type: 'branches', icon: 'gl-branches-view', tooltip: 'Branches' },
 	{ type: 'remotes', icon: 'gl-remotes-view', tooltip: 'Remotes' },
@@ -87,6 +88,10 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			color: var(--vscode-activityBar-foreground, var(--color-foreground));
 		}
 
+		.item.overview {
+			padding: 0.6rem 0;
+		}
+
 		.indicator {
 			position: absolute;
 			left: 0;
@@ -129,12 +134,15 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	get include(): undefined | IconTypes[] {
 		const repo = this._state.repositories?.find(item => item.id === this._state.selectedRepository);
 		return repo?.virtual
-			? (['branches', 'remotes', 'tags'] as const)
-			: (['branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
+			? (['overview', 'branches', 'remotes', 'tags'] as const)
+			: (['overview', 'branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
 	}
 
 	@property({ type: String, attribute: 'active-panel' })
 	activePanel: GraphSidebarPanel | undefined;
+
+	@property({ type: Boolean, attribute: 'sidebar-visible' })
+	sidebarVisible = false;
 
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _actions!: SidebarActions;
@@ -146,7 +154,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 	override render(): unknown {
 		return html`<section class="sidebar">
-			${this.activePanel != null
+			${this.sidebarVisible && this.activePanel != null
 				? html`<div
 						class=${classMap({
 							indicator: true,
@@ -173,10 +181,17 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	override updated(changedProperties: PropertyValues): void {
 		super.updated(changedProperties);
 
-		if (changedProperties.has('activePanel')) {
-			const prev = changedProperties.get('activePanel') as GraphSidebarPanel | undefined;
-			if (prev == null && this.activePanel != null) {
-				// Panel just opened — indicator was just created, suppress transition for one frame
+		if (changedProperties.has('activePanel') || changedProperties.has('sidebarVisible')) {
+			const prevActive = changedProperties.has('activePanel')
+				? (changedProperties.get('activePanel') as GraphSidebarPanel | undefined)
+				: this.activePanel;
+			const prevVisible = changedProperties.has('sidebarVisible')
+				? ((changedProperties.get('sidebarVisible') as boolean | undefined) ?? false)
+				: this.sidebarVisible;
+			const wasShowing = prevVisible && prevActive != null;
+			const isShowing = this.sidebarVisible && this.activePanel != null;
+			if (!wasShowing && isShowing) {
+				// Indicator was just created — suppress transition for one frame
 				const indicator = this.renderRoot.querySelector<HTMLElement>('.indicator');
 				if (indicator != null) {
 					indicator.classList.add('no-transition');
@@ -213,20 +228,24 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	private renderIcon(icon: Icon) {
 		if (this.include != null && !this.include.includes(icon.type)) return;
 
-		const isActive = this.activePanel === icon.type;
+		const isActive = this.sidebarVisible && this.activePanel === icon.type;
 
 		return html`<gl-tooltip placement="right" content="${icon.tooltip}">
 			<button
-				class=${classMap({ item: true, active: isActive })}
+				class=${classMap({ item: true, active: isActive, overview: icon.type === 'overview' })}
 				@click=${() => this.handleIconClick(icon)}
 				aria-pressed=${isActive}
 			>
 				<code-icon icon="${icon.icon}"></code-icon>
-				${this._actions?.state.countsLoading.get()
-					? html`<span class="count"><code-icon icon="loading" modifier="spin" size="9"></code-icon></span>`
-					: this._actions?.state.countsError.get()
-						? html`<span class="count error"><code-icon icon="warning" size="9"></code-icon></span>`
-						: renderCount(this._actions?.state.counts.get()?.[icon.type])}
+				${icon.type !== 'overview'
+					? this._actions?.state.countsLoading.get()
+						? html`<span class="count"
+								><code-icon icon="loading" modifier="spin" size="9"></code-icon
+							></span>`
+						: this._actions?.state.countsError.get()
+							? html`<span class="count error"><code-icon icon="warning" size="9"></code-icon></span>`
+							: renderCount(this._actions?.state.counts.get()?.[icon.type])
+					: nothing}
 			</button>
 		</gl-tooltip>`;
 	}
