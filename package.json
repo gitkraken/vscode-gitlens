@@ -7709,6 +7709,10 @@
 				"title": "Open Changed & Close Unchanged Files"
 			},
 			{
+				"command": "gitlens.graph.pinBranchToLeft",
+				"title": "Pin to Left"
+			},
+			{
 				"command": "gitlens.graph.pull",
 				"title": "Pull",
 				"icon": "$(repo-pull)",
@@ -7906,6 +7910,10 @@
 				"title": "Undo Commit",
 				"icon": "$(discard)",
 				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.graph.unpinBranchFromLeft",
+				"title": "Unpin from Left"
 			},
 			{
 				"command": "gitlens.inviteToLiveShare",
@@ -13126,6 +13134,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.pinBranchToLeft",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.pull",
 					"when": "false"
 				},
@@ -13287,6 +13299,10 @@
 				},
 				{
 					"command": "gitlens.graph.undoCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.unpinBranchFromLeft",
 					"when": "false"
 				},
 				{
@@ -26259,6 +26275,16 @@
 					"command": "gitlens.graph.hideRemoteBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
 					"group": "8_gitlens_actions@11"
+				},
+				{
+					"command": "gitlens.graph.pinBranchToLeft",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
+					"group": "8_gitlens_actions@13"
+				},
+				{
+					"command": "gitlens.graph.unpinBranchFromLeft",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
+					"group": "8_gitlens_actions@13"
 				},
 				{
 					"command": "gitlens.openWorktree:graph",

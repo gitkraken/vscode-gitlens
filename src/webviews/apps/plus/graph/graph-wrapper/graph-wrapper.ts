@@ -307,6 +307,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.excludeRefs=${graphState.excludeRefs}
 			.excludeTypes=${graphState.excludeTypes}
 			.includeOnlyRefs=${graphState.includeOnlyRefs}
+			.pinnedRef=${graphState.pinnedRef}
 			?loading=${graphState.loading}
 			nonce=${ifDefined(graphState.nonce)}
 			.paging=${graphState.paging}
