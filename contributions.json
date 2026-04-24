@@ -3451,6 +3451,18 @@
 				]
 			}
 		},
+		"gitlens.graph.pinBranchToLeft": {
+			"label": "Pin to Left",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 13
+					}
+				]
+			}
+		},
 		"gitlens.graph.pull": {
 			"label": "Pull",
 			"icon": "$(repo-pull)",
@@ -4015,6 +4027,18 @@
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.unpinBranchFromLeft": {
+			"label": "Unpin from Left",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 13
 					}
 				]
 			}
