@@ -1,9 +1,11 @@
 import { sortCompare } from '@gitlens/utils/string.js';
+import { compareByVersionDescending } from '@gitlens/utils/version.js';
 import type { GitBranch } from '../models/branch.js';
 import type { GitContributor } from '../models/contributor.js';
 import type { GitRemote } from '../models/remote.js';
 import type { GitTag } from '../models/tag.js';
 import type { GitWorktree } from '../models/worktree.js';
+import type { GitCommitReachability } from '../providers/commits.js';
 
 export type BranchSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
 export type TagSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
@@ -23,6 +25,25 @@ export interface BranchSortOptions {
 	missingUpstream?: boolean;
 	orderBy?: BranchSorting;
 	openedWorktreesByBranch?: Set<string>;
+}
+
+/**
+ * Comparator for sorting reachable refs to match `git for-each-ref` ordering: current first,
+ * local before remote, tags by version descending. Use with `.sort()` or `.toSorted()`.
+ */
+export function compareReachableRefs(
+	a: GitCommitReachability['refs'][number],
+	b: GitCommitReachability['refs'][number],
+): number {
+	if (a.current && !b.current) return -1;
+	if (!a.current && b.current) return 1;
+	if (a.refType === 'branch' && b.refType === 'branch') {
+		if (a.remote !== b.remote) return a.remote ? 1 : -1;
+	}
+	if (a.refType === 'tag' && b.refType === 'tag') {
+		return compareByVersionDescending(a.name, b.name);
+	}
+	return 0;
 }
 
 export function sortBranches(branches: GitBranch[], options?: BranchSortOptions): GitBranch[] {

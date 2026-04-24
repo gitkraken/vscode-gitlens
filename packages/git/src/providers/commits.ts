@@ -68,6 +68,7 @@ export interface IncomingActivityOptions extends GitLogOptionsBase {
 }
 
 export interface GitCommitReachability {
+	readonly partial?: boolean;
 	readonly refs: (
 		| { readonly refType: 'branch'; readonly name: string; readonly remote: boolean; readonly current?: boolean }
 		| { readonly refType: 'tag'; readonly name: string; readonly current?: never }

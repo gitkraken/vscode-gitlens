@@ -1,3 +1,4 @@
+import type { GitCommitReachability } from '../providers/commits.js';
 import type { GitBranch } from './branch.js';
 import type { GitStashCommit } from './commit.js';
 import type { GitRemote } from './remote.js';
@@ -77,7 +78,7 @@ export interface GitGraphRow {
 	tags?: GitGraphRowTag[];
 	contexts?: GitGraphRowContexts;
 	stats?: GitGraphRowStats;
-	reachableFromBranches?: string[];
+	reachability?: GitCommitReachability;
 	isCurrentUser?: boolean;
 }
 
@@ -97,8 +98,6 @@ export interface GitGraph {
 
 	/** SHAs reachable from HEAD (for enrichment: marking commits on the current branch) */
 	readonly reachableFromHEAD?: ReadonlySet<string>;
-	/** Map of SHA → set of branch names reachable from that SHA (for enrichment: branch context) */
-	readonly reachableFromBranches?: ReadonlyMap<string, ReadonlySet<string>>;
 
 	/** The rows for the set of commits requested */
 	readonly rows: GitGraphRow[];
@@ -179,6 +178,5 @@ export interface GraphContext {
 	readonly branchIdOfMainWorktree: string | undefined;
 	readonly stashes: ReadonlyMap<string, GitStashCommit> | undefined;
 	readonly reachableFromHEAD: ReadonlySet<string>;
-	readonly reachableFromBranches: ReadonlyMap<string, ReadonlySet<string>>;
 	readonly avatars: Map<string, string>;
 }

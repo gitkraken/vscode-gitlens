@@ -5084,9 +5084,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		for (const sha of commitShas) {
 			const row = graph.rows.find(r => r.sha === sha);
-			if (row?.reachableFromBranches) {
-				for (const branchName of row.reachableFromBranches) {
-					branchCounts.set(branchName, (branchCounts.get(branchName) ?? 0) + 1);
+			if (row?.reachability) {
+				for (const ref of row.reachability.refs) {
+					if (ref.refType === 'branch' && !ref.remote) {
+						branchCounts.set(ref.name, (branchCounts.get(ref.name) ?? 0) + 1);
+					}
 				}
 			}
 		}
@@ -5126,12 +5128,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (graph == null) return;
 
 		const row = graph.rows.find(r => r.sha === ref.ref);
-		if (row?.reachableFromBranches?.length !== 1) {
+		const localBranches = row?.reachability?.refs.filter(r => r.refType === 'branch' && !r.remote);
+		if (localBranches?.length !== 1) {
 			void window.showErrorMessage('Unable to recompose: commit must belong to exactly one local branch');
 			return;
 		}
 
-		const branchName = row.reachableFromBranches[0];
+		const branchName = localBranches[0].name;
 		const branch = graph.branches.get(branchName);
 		if (branch == null) {
 			void window.showErrorMessage(`Branch '${branchName}' not found`);

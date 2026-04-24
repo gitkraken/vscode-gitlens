@@ -24,6 +24,7 @@ import type {
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { GitGraphSubProvider } from '@gitlens/git/providers/graph.js';
 import {
 	getBranchId,
@@ -33,6 +34,7 @@ import {
 import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '@gitlens/git/utils/search.utils.js';
+import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
 import { getTagId } from '@gitlens/git/utils/tag.utils.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
 import { getWorktreeId, groupWorktreesByBranch } from '@gitlens/git/utils/worktree.utils.js';
@@ -55,6 +57,8 @@ import {
 import { convertStashesToStdin } from './stash.js';
 
 const progressiveSearchResultsBatchTimeMs = 500; // Send updates every 500ms (2 updates/second)
+
+type ReachableRef = GitCommitReachability['refs'][number];
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
 	constructor(
@@ -138,7 +142,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
-		const reachableFromBranches = new Map<string, Set<string>>();
+
+		// Map<sha, Map<refKey, ref>> — inner map deduplicates refs during propagation
+		const reachableRefs = new Map<string, Map<string, ReachableRef>>();
 		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
 		let pendingRowsStatsCount = 0;
 		let iterations = 0;
@@ -218,7 +224,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								branchIdOfMainWorktree: branchIdOfMainWorktree,
 								stashes: gitStash?.stashes,
 								reachableFromHEAD: reachableFromHEAD,
-								reachableFromBranches: reachableFromBranches,
 								avatars: avatars,
 							}
 						: undefined;
@@ -340,34 +345,46 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 					}
 
-					if (refHeads.length > 0) {
-						let branches = reachableFromBranches.get(shaOrRemapped);
-						if (branches == null) {
-							branches = new Set<string>();
-							reachableFromBranches.set(shaOrRemapped, branches);
+					// Seed reachability from all ref types on this commit
+					if (refHeads.length > 0 || refRemoteHeads.length > 0 || refTags.length > 0) {
+						let refs = reachableRefs.get(shaOrRemapped);
+						if (refs == null) {
+							refs = new Map<string, ReachableRef>();
+							reachableRefs.set(shaOrRemapped, refs);
 						}
-						for (const refHead of refHeads) {
-							branches.add(refHead.name);
+						for (const h of refHeads) {
+							const key = `b:${h.name}`;
+							refs.set(key, { refType: 'branch', name: h.name, remote: false, current: h.isCurrentHead });
+						}
+						for (const r of refRemoteHeads) {
+							const name = `${r.owner}/${r.name}`;
+							refs.set(`r:${name}`, { refType: 'branch', name: name, remote: true });
+						}
+						for (const t of refTags) {
+							refs.set(`t:${t.name}`, { refType: 'tag', name: t.name });
 						}
 					}
 
-					const currentBranches = reachableFromBranches.get(shaOrRemapped);
-					if (currentBranches != null && currentBranches.size > 0) {
+					// Propagate reachability to parents
+					const currentRefs = reachableRefs.get(shaOrRemapped);
+					if (currentRefs != null && currentRefs.size > 0) {
 						for (parent of parents) {
-							let parentBranches = reachableFromBranches.get(parent);
-							if (parentBranches == null) {
-								parentBranches = new Set<string>();
-								reachableFromBranches.set(parent, parentBranches);
+							let parentRefs = reachableRefs.get(parent);
+							if (parentRefs == null) {
+								parentRefs = new Map<string, ReachableRef>();
+								reachableRefs.set(parent, parentRefs);
 							}
-							for (const branchName of currentBranches) {
-								parentBranches.add(branchName);
+							for (const [key, ref] of currentRefs) {
+								if (!parentRefs.has(key)) {
+									parentRefs.set(key, ref);
+								}
 							}
 						}
 					}
 
 					stash = gitStash?.stashes.get(shaOrRemapped);
 					if (stash != null) {
-						const branches = reachableFromBranches.get(shaOrRemapped);
+						const refs = reachableRefs.get(shaOrRemapped);
 						const row: GitGraphRow = {
 							sha: shaOrRemapped,
 							// Always only return the first parent for stashes, as it is a Git implementation for the index and untracked files
@@ -381,7 +398,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							heads: refHeads,
 							remotes: refRemoteHeads,
 							tags: refTags,
-							reachableFromBranches: branches ? [...branches] : undefined,
+							reachability: refs?.size
+								? { partial: true, refs: [...refs.values()].sort(compareReachableRefs) }
+								: undefined,
 							isCurrentUser: true,
 						};
 						rowProcessor?.processRow(row, graphCtx!);
@@ -397,7 +416,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					} else {
 						isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
 
-						const branches = reachableFromBranches.get(shaOrRemapped);
+						const refs = reachableRefs.get(shaOrRemapped);
 						const row: GitGraphRow = {
 							sha: shaOrRemapped,
 							parents: onlyFollowFirstParent ? parents.slice(0, 1) : parents,
@@ -410,7 +429,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							heads: refHeads,
 							remotes: refRemoteHeads,
 							tags: refTags,
-							reachableFromBranches: branches ? [...branches] : undefined,
+							reachability: refs?.size
+								? { partial: true, refs: [...refs.values()].sort(compareReachableRefs) }
+								: undefined,
 							isCurrentUser: isCurrentUser || undefined,
 						};
 						rowProcessor?.processRow(row, graphCtx!);
@@ -485,7 +506,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					worktrees: worktrees,
 					worktreesByBranch: worktreesByBranch,
 					reachableFromHEAD: reachableFromHEAD,
-					reachableFromBranches: reachableFromBranches,
 					rows: rows,
 					id: sha ?? rev,
 					rowsStats: rowStats,

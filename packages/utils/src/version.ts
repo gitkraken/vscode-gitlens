@@ -55,6 +55,54 @@ export function fromVersion(v: Version, includePre?: boolean): `${number}.${numb
 	return `${v.major}.${v.minor}.${v.patch}${includePre && v.pre ? `-${v.pre}` : ''}`;
 }
 
+/**
+ * Compares two strings using version-aware sorting in descending order,
+ * matching git's `--sort=-version:refname` (based on glibc's `strverscmp`).
+ *
+ * Walks character-by-character: non-digit runs are compared lexicographically,
+ * digit runs are compared numerically. No prefix stripping (git only strips
+ * prefixes when `versionsort.prefix` is configured).
+ */
+export function compareByVersionDescending(a: string, b: string): number {
+	return -compareByVersion(a, b);
+}
+
+/**
+ * Compares two strings using version-aware sorting in ascending order,
+ * matching git's `--sort=version:refname` (based on glibc's `strverscmp`).
+ */
+export function compareByVersion(a: string, b: string): number {
+	let i = 0;
+	let j = 0;
+	while (i < a.length && j < b.length) {
+		const ca = a.charCodeAt(i);
+		const cb = b.charCodeAt(j);
+		const aIsDigit = ca >= 48 && ca <= 57; // '0'-'9'
+		const bIsDigit = cb >= 48 && cb <= 57;
+
+		if (aIsDigit && bIsDigit) {
+			// Both in a digit run — compare numerically
+			let numA = 0;
+			while (i < a.length && a.charCodeAt(i) >= 48 && a.charCodeAt(i) <= 57) {
+				numA = numA * 10 + (a.charCodeAt(i) - 48);
+				i++;
+			}
+			let numB = 0;
+			while (j < b.length && b.charCodeAt(j) >= 48 && b.charCodeAt(j) <= 57) {
+				numB = numB * 10 + (b.charCodeAt(j) - 48);
+				j++;
+			}
+			if (numA !== numB) return numA - numB;
+		} else {
+			// Compare non-digit characters lexicographically
+			if (ca !== cb) return ca - cb;
+			i++;
+			j++;
+		}
+	}
+	return a.length - b.length;
+}
+
 export function satisfies(
 	v: string | Version | null | undefined,
 	requirement: `${'=' | '>' | '>=' | '<' | '<='} ${string}`,

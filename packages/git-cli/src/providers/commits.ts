@@ -27,6 +27,7 @@ import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { createUncommittedChangesCommit } from '@gitlens/git/utils/commit.utils.js';
 import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '@gitlens/git/utils/revision.utils.js';
 import { parseSearchQueryGitCommand } from '@gitlens/git/utils/search.utils.js';
+import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
@@ -255,8 +256,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					}
 				}
 
-				// Sort to move tags to the end, preserving order within each type
-				refs.sort((a, b) => (a.refType !== b.refType ? (a.refType === 'tag' ? 1 : -1) : 0));
+				// git already returns sorted by -HEAD, -committerdate, -version:refname;
+				// compareReachableRefs refines by current-first / local-before-remote / tag-version.
+				refs.sort(compareReachableRefs);
 
 				return { refs: refs };
 			} catch (ex) {

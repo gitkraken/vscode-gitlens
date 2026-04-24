@@ -165,8 +165,8 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 		} else {
 			const isCurrentUser = row.isCurrentUser ?? false;
 			const isHeadCommit = row.heads?.some(h => h.isCurrentHead) ?? false;
-			const branches = context.reachableFromBranches.get(row.sha);
-			const isUniqueToBranch = branches?.size === 1;
+			const localBranches = row.reachability?.refs.filter(r => r.refType === 'branch' && !r.remote);
+			const isUniqueToBranch = localBranches?.length === 1;
 
 			contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 				webviewItem: `gitlens:commit${isHeadCommit ? '+HEAD' : ''}${
