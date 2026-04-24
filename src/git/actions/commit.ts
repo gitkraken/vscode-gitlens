@@ -29,7 +29,7 @@ import type { Source } from '../../constants.telemetry.js';
 import { Container } from '../../container.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker.js';
-import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command.js';
+import { executeCommand, executeEditorCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getOrOpenTextEditor, openChangesEditor, openTextEditors } from '../../system/-webview/vscode/editors.js';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
@@ -825,10 +825,11 @@ export async function openOnlyChangedFiles(_container: Container, commitOrFiles:
 
 export async function undoCommit(container: Container, commit: GitRevisionReference): Promise<void> {
 	const svc = container.git.getRepositoryService(commit.repoPath);
-	const scmRepo = await svc.getOrOpenScmRepository();
-	const scmCommit = await scmRepo?.getCommit('HEAD');
+	if (svc.ops == null) return;
 
-	if (scmCommit?.hash !== commit.ref) {
+	const headCommit = await svc.commits.getCommit('HEAD');
+
+	if (headCommit?.sha !== commit.ref) {
 		void window.showWarningMessage(
 			`Commit ${getReferenceLabel(commit, {
 				capitalize: true,
@@ -860,7 +861,21 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 		if (result !== confirm) return;
 	}
 
-	await executeCoreGitCommand('git.undoCommit', commit.repoPath);
+	let message;
+
+	const scmRepo = await svc.getScmRepository();
+	if (scmRepo != null) {
+		try {
+			await GitCommit.ensureFullDetails(headCommit);
+		} catch {}
+		message = headCommit.message ?? headCommit.summary;
+	}
+
+	await svc.ops.reset('HEAD~1', { mode: 'soft' });
+
+	if (scmRepo != null && message) {
+		scmRepo.inputBox.value = message;
+	}
 }
 
 async function confirmOpenIfNeeded(
