@@ -19,7 +19,6 @@ import {
 	GetRowHoverRequest,
 	GetWipStatsRequest,
 	isSecondaryWipSha,
-	ResolveGraphScopeRequest,
 	UpdateGraphConfigurationCommand,
 } from '../../../plus/graph/protocol.js';
 import type { CustomEventType } from '../../shared/components/element.js';
@@ -387,6 +386,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
 					@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
 					@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
+					@gl-graph-row-double-click=${this.handleGraphRowDoubleClick}
 					@gl-graph-row-hover=${this.handleGraphRowHover}
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
 					@row-action-hover=${this.handleGraphRowActionHover}
@@ -671,13 +671,54 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		) {
 			return;
 		}
-		// Assign immediately so the graph visual responds without waiting on the host round-trip;
-		// mergeBase is backfilled below when the IPC resolves.
-		this.graphState.scope = scope;
-		void this.resolveScopeMergeBase(scope);
+		// Fill in a provisional mergeBase from already-loaded rows so the minimap zooms and the dim
+		// bands appear instantly. `resolveScopeMergeBase` backfills the authoritative value (cached
+		// on both sides of the IPC) — it's a no-op on re-picks of the same branch.
+		const provisionalMergeBase = this.resolveProvisionalMergeBase(scope);
+		this.graphState.scope = provisionalMergeBase != null ? { ...scope, mergeBase: provisionalMergeBase } : scope;
+		void this.graphState.resolveScopeMergeBase(scope);
 	}
 
-	private _scopeRequestId = 0;
+	private resolveProvisionalMergeBase(
+		scope: NonNullable<typeof this.graphState.scope>,
+	): { sha: string; date: number } | undefined {
+		const rows = this.graphState.rows;
+		if (rows == null || rows.length === 0) return undefined;
+
+		// Require the branch's own tip row so we can guard against base-branch candidates that moved
+		// PAST the branch tip (which would produce an inverted {start > end} window).
+		const tipRow = rows.find(
+			r => r.heads?.some(h => h.id === scope.branchRef) || r.remotes?.some(re => re.id === scope.branchRef),
+		);
+		if (tipRow == null) return undefined;
+		const tipDate = tipRow.date;
+
+		// Preferred: upstream tip row — merge-base(branch, upstream) is the upstream tip when the branch
+		// is ahead or synced, which is the common case.
+		if (scope.upstreamRef != null) {
+			const upstreamRow = rows.find(
+				r =>
+					r.remotes?.some(re => re.id === scope.upstreamRef) ||
+					r.heads?.some(h => h.id === scope.upstreamRef),
+			);
+			if (upstreamRow != null && upstreamRow.date <= tipDate) {
+				return { sha: upstreamRow.sha, date: upstreamRow.date };
+			}
+		}
+
+		// Fallback: a common base branch that's loaded in the graph AND is older than the branch tip.
+		// If main has moved past the branch tip, it's not a valid provisional — skip it and let the IPC
+		// backfill the authoritative merge-base.
+		for (const name of ['main', 'master', 'develop']) {
+			if (name === scope.branchName) continue;
+			const row = rows.find(r => r.heads?.some(h => h.name === name));
+			if (row != null && row.date <= tipDate) {
+				return { sha: row.sha, date: row.date };
+			}
+		}
+		return undefined;
+	}
+
 	private _cachedScopeWindow:
 		| {
 				scope: AppState['scope'];
@@ -717,36 +758,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		this._cachedScopeWindow = { scope: scope, rows: rows, result: result };
 		return result;
-	}
-
-	private async resolveScopeMergeBase(scope: NonNullable<typeof this.graphState.scope>): Promise<void> {
-		const requestId = ++this._scopeRequestId;
-		const repoPath = scope.branchRef.split('|', 2)[0];
-		if (!repoPath) return;
-
-		let response;
-		try {
-			response = await this._ipc.sendRequest(ResolveGraphScopeRequest, {
-				repoPath: repoPath,
-				scope: {
-					branchRef: scope.branchRef,
-					branchName: scope.branchName,
-					upstreamRef: scope.upstreamRef,
-					mergeTargetTipSha: scope.mergeTargetTipSha,
-					additionalBranchRefs: scope.additionalBranchRefs,
-				},
-			});
-		} catch {
-			// Keep the optimistic scope without mergeBase; overlay will simply not render
-			return;
-		}
-
-		// Discard stale responses (a newer setScope has fired, or scope was cleared)
-		if (requestId !== this._scopeRequestId) return;
-		const latest = this.graphState.scope;
-		if (latest?.branchRef !== scope.branchRef) return;
-
-		this.graphState.scope = { ...latest, mergeBase: response?.scope.mergeBase };
 	}
 
 	private selectCommits = (shas: string[], options?: SelectCommitsOptions) => {
@@ -931,6 +942,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleGraphRowContextMenu(_e: CustomEventType<'gl-graph-row-context-menu'>) {
 		this.graphHover.hide();
+	}
+
+	private handleGraphRowDoubleClick(_e: CustomEventType<'gl-graph-row-double-click'>) {
+		if (this.graphState.detailsVisible) return;
+		this.setDetailsVisible(true);
+		this.ensureDetailsPosition();
 	}
 
 	private handleGraphRowHover({

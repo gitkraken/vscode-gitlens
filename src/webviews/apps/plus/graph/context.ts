@@ -31,6 +31,14 @@ export interface AppState extends State {
 
 	/** Fetch enrichment for a branch not covered by the overview — used by the header scope popover. */
 	ensureEnrichmentForBranch(branchId: string): Promise<void>;
+
+	/**
+	 * Resolve the authoritative `mergeBase` for a scope and patch it onto the current scope signal.
+	 * Called by pickers (scope popover, overview card) at the moment of selection so the concern of
+	 * "completing" a scope lives with whoever picks it rather than with downstream consumers. Cheap
+	 * on re-picks due to session caching (webview-side + server-side).
+	 */
+	resolveScopeMergeBase(scope: GraphScope): Promise<void>;
 }
 
 export const graphStateContext = createContext<AppState>('graph-state-context');

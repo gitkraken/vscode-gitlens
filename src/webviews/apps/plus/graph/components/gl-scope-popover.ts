@@ -16,6 +16,7 @@ import type {
 	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol.js';
 import {
+	ResetGraphFiltersCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateIncludedRefsCommand,
@@ -630,17 +631,7 @@ export class GlScopePopover extends SignalWatcher(LitElement) {
 		if (this.graphState.scope != null) {
 			this.graphState.scope = undefined;
 		}
-		if (this.graphState.branchesVisibility !== 'all') {
-			this.onRefIncludesChanged('all');
-		}
-		const { excludeTypes } = this.graphState;
-		if (excludeTypes != null) {
-			for (const key of ['remotes', 'stashes', 'tags'] as const) {
-				if (excludeTypes[key]) {
-					this.onExcludeTypesChanged(key, false);
-				}
-			}
-		}
+		this._ipc.sendCommand(ResetGraphFiltersCommand, undefined);
 		this.hideModePopover();
 	};
 

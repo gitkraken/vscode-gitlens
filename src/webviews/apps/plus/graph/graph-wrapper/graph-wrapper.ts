@@ -80,6 +80,7 @@ declare global {
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
 		'gl-graph-mouse-leave': CustomEvent<void>;
 		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
+		'gl-graph-row-double-click': CustomEvent<{ graphRow: GraphRow; preserveFocus?: boolean }>;
 		'gl-graph-row-hover': CustomEvent<{
 			graphZoneType: GraphZoneType;
 			graphRow: GraphRow;
@@ -378,6 +379,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onRowDoubleClick({ detail: { row, preserveFocus } }: CustomEventType<'graph-doubleclickrow'>) {
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-row-double-click', {
+				detail: { graphRow: row, preserveFocus: preserveFocus },
+			}),
+		);
 		this._ipc.sendCommand(DoubleClickedCommand, {
 			type: 'row',
 			row: { id: row.sha, type: row.type },

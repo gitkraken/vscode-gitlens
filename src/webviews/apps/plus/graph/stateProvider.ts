@@ -4,6 +4,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
+	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
 	State,
@@ -33,6 +34,7 @@ import {
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
 	GetOverviewEnrichmentRequest,
+	ResolveGraphScopeRequest,
 } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
@@ -338,6 +340,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** In-flight single-branch enrichment fetches, keyed by branch id, so concurrent callers share one request. */
 	private _adhocEnrichmentPromises = new Map<string, Promise<void>>();
 
+	/** Session cache of resolved merge-bases, keyed by `repoPath|branchRef|upstreamRef`. */
+	private _mergeBaseCache = new Map<string, { sha: string; date: number } | undefined>();
+	/** In-flight merge-base resolves, deduped per cache key. */
+	private _mergeBasePromises = new Map<string, Promise<{ sha: string; date: number } | undefined>>();
+
 	/**
 	 * Fetch enrichment for a single branch that isn't covered by the overview (e.g. a branch picked
 	 * from the header scope popover that isn't active or recent). Merges the result into
@@ -359,6 +366,52 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			});
 		this._adhocEnrichmentPromises.set(branchId, promise);
 		return promise;
+	}
+
+	async resolveScopeMergeBase(scope: GraphScope): Promise<void> {
+		const repoPath = scope.branchRef.split('|', 2)[0];
+		if (!repoPath) return;
+
+		const cacheKey = `${repoPath}|${scope.branchRef}|${scope.upstreamRef ?? ''}`;
+
+		// Cache hit — patch and return without IPC.
+		if (this._mergeBaseCache.has(cacheKey)) {
+			this.patchScopeMergeBase(scope, this._mergeBaseCache.get(cacheKey));
+			return;
+		}
+
+		let promise = this._mergeBasePromises.get(cacheKey);
+		if (promise == null) {
+			promise = this.ipc
+				.sendRequest(ResolveGraphScopeRequest, {
+					repoPath: repoPath,
+					scope: scope,
+				})
+				.then(r => r?.scope.mergeBase)
+				.catch(() => undefined)
+				.finally(() => {
+					this._mergeBasePromises.delete(cacheKey);
+				});
+			this._mergeBasePromises.set(cacheKey, promise);
+		}
+
+		const mergeBase = await promise;
+		this._mergeBaseCache.set(cacheKey, mergeBase);
+		this.patchScopeMergeBase(scope, mergeBase);
+	}
+
+	private patchScopeMergeBase(scope: GraphScope, mergeBase: { sha: string; date: number } | undefined): void {
+		if (mergeBase == null) return;
+		// Only patch if the live scope still points at the same branch (user may have re-scoped
+		// or cleared while the resolve was in flight).
+		const current = this.scope;
+		if (current?.branchRef !== scope.branchRef) return;
+		// Skip if the authoritative mergeBase matches what's already on the scope — prevents a
+		// redundant signal update that would re-zoom the minimap needlessly.
+		if (current.mergeBase?.sha === mergeBase.sha && current.mergeBase?.date === mergeBase.date) {
+			return;
+		}
+		this.scope = { ...current, mergeBase: mergeBase };
 	}
 
 	protected onMessageReceived(msg: IpcMessage): void {
