@@ -22,6 +22,11 @@ export const wipComparePanelStyles = css`
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
+		position: relative;
+	}
+
+	.wip-compare-panel > progress-indicator {
+		top: 0;
 	}
 
 	/* Compare bar: left ref / WT toggle / swap / right ref. The swap chip gets explicit
@@ -30,6 +35,7 @@ export const wipComparePanelStyles = css`
 	.wip-compare-bar {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
 		gap: 6px;
 		min-width: 0;
 		padding: 0.5rem 1.2rem;
@@ -47,14 +53,14 @@ export const wipComparePanelStyles = css`
 	}
 
 	.wip-compare-bar__group gl-branch-name {
-		min-width: 0;
+		min-width: 5rem;
 		overflow: hidden;
 	}
 
-	/* Refs flex equally so neither dominates; min-width:0 lets the inner button ellipsize.
+	/* Refs flex equally so neither dominates.
 	   The right-side ref also flexes 0 1 auto so it can shrink under tight viewports. */
 	.wip-compare-ref {
-		min-width: 0;
+		min-width: 5rem;
 		max-width: 100%;
 		overflow: hidden;
 	}
@@ -69,15 +75,17 @@ export const wipComparePanelStyles = css`
 
 	/* Tooltip wrappers around the branch buttons must take up flexible space and clip overflow
 	   so the inner gl-branch-name's label can ellipsize. */
-	.wip-compare-bar > gl-tooltip {
+	.wip-compare-bar > gl-tooltip,
+	.wip-compare-bar__group > gl-tooltip {
 		display: flex;
-		min-width: 0;
+		min-width: 5rem;
 		flex: 0 1 auto;
 		overflow: hidden;
 	}
 
-	.wip-compare-bar > gl-tooltip > gl-branch-name {
-		min-width: 0;
+	.wip-compare-bar > gl-tooltip > gl-branch-name,
+	.wip-compare-bar__group > gl-tooltip > gl-branch-name {
+		min-width: 5rem;
 		max-width: 100%;
 		overflow: hidden;
 	}
@@ -106,7 +114,6 @@ export const wipComparePanelStyles = css`
 	.wip-compare-tabs {
 		display: flex;
 		border-bottom: 2px solid var(--vscode-sideBarSectionHeader-border);
-		background: var(--gl-metadata-bar-bg);
 		flex: none;
 	}
 
@@ -132,6 +139,10 @@ export const wipComparePanelStyles = css`
 			background-color 0.15s;
 	}
 
+	.wip-compare-tab--all {
+		color: var(--vscode-foreground);
+	}
+
 	.wip-compare-tab--ahead {
 		color: var(--gl-tracking-ahead, #4ec9b0);
 	}
@@ -147,9 +158,14 @@ export const wipComparePanelStyles = css`
 		opacity: 0.85;
 	}
 
+	.wip-compare-tab--active-all,
 	.wip-compare-tab--active-ahead,
 	.wip-compare-tab--active-behind {
 		opacity: 1;
+	}
+
+	.wip-compare-tab--active-all {
+		border-bottom-color: var(--vscode-foreground);
 	}
 
 	.wip-compare-tab--active-ahead {
@@ -180,12 +196,26 @@ export const wipComparePanelStyles = css`
 		line-height: 1;
 	}
 
+	.wip-compare-tab--all .wip-compare-tab__count {
+		background-color: color-mix(in srgb, var(--vscode-foreground) 60%, transparent);
+	}
+
 	.wip-compare-tab--ahead .wip-compare-tab__count {
 		background-color: color-mix(in srgb, var(--gl-tracking-ahead, #4ec9b0) 90%, transparent);
 	}
 
 	.wip-compare-tab--behind .wip-compare-tab__count {
 		background-color: color-mix(in srgb, var(--gl-tracking-behind, #ce9178) 90%, transparent);
+	}
+
+	/* All Files mode — full-width file tree, no commit pane. */
+
+	.wip-compare-all {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
 	/* Split panel — divides the commit list and the files tree vertically. */
@@ -233,59 +263,48 @@ export const wipComparePanelStyles = css`
 		border-color: transparent;
 	}
 
-	/* Tighten the commit list's leading gutter so rows start near the panel edge instead of
-	   inheriting the tree-view's default indent column. Both --gl-tree-indent (gl-tree's own var)
-	   and --gitlens-tree-indent (downstream tree-item connector size) need to be zeroed. */
+	/* Zero out the tree's indent columns (flat list — no nesting). No outer padding here;
+	   horizontal insets live on the tree-item host so they match the scope-pane row rhythm. */
 	.wip-compare-commits gl-tree {
 		display: block;
 		--gl-tree-indent: 0;
 		--gitlens-tree-indent: 0;
-		padding-inline: 0.4rem;
 	}
 
+	/* Minimal insets so the row content hugs the panel edges. Left gutter is just enough that the
+	   3px selected-row rail (drawn as an inset shadow on the host) sits flush against the avatar
+	   without overlapping it. Padding-y is small; the row's natural two-line height drives height. */
 	.wip-compare-commit {
-		--gitlens-gutter-width: 0.4rem;
+		--gitlens-gutter-width: 0.3rem;
 		--gl-popover-anchor-width: 100%;
-		/* Two-line gl-commit-row needs the host to grow past tree-item's default fixed height.
-		   Auto + min-height matches the row's natural ~3.4rem (one msg line + meta line + padding). */
-		height: auto;
-		min-height: 3.4rem;
-		line-height: 1.4;
+		--gl-tree-item-min-height: 2.4rem;
+		--gl-tree-item-padding-y: 0.2rem;
+		padding-right: 0.2rem;
 	}
 
+	/* This consumer doesn't slot any actions; tree-item's show-on-hover behavior would otherwise
+	   add a 0.4rem margin on hover and shift the date column leftward each time. Hide outright. */
 	.wip-compare-commit::part(actions) {
 		display: none;
 	}
 
-	.wip-compare-commit::part(text) {
-		line-height: 1.4;
-		display: inline-block;
-	}
-
-	.wip-compare-commit::part(main) {
-		flex: 1;
-		min-width: 0;
-		align-items: flex-start;
-	}
-
-	/* Align the tree-item row chrome with the multi-commit pole-card padding so both
-	   presentations of gl-commit-row read the same. */
-	.wip-compare-commit::part(item) {
-		padding: 0.55rem 1.2rem;
-		gap: 0.4rem;
-		align-items: center;
-	}
-
-	.wip-compare-commit gl-commit-row {
-		flex: 1;
-		min-width: 0;
-	}
-
-	/* Selected-commit marker: 3px LEFT edge in the prominent color so the user can see at a
-	   glance which row is filtering the file list. Complements the scoped header treatment.
-	   Positioned at the very left of the row so it reads as a vertical "rail" indicator. */
-	.wip-compare-commit--selected::part(item) {
+	/* Selected/scoping commit row — full-row tint + 3px left rail in the same warning hue used
+	   by the graph header's focus-branch scope chip (both pull from --vscode-statusBarItem-
+	   warningBackground). The shared color says "this row is the active scope filtering the file
+	   pane below". The tint OVERRIDES tree-item's default --vscode-list-*SelectionBackground so
+	   the row reads as a scope indicator, not a generic list selection. The rail is on the host
+	   (not ::part(item)) so it sits flush with the panel edge. */
+	.wip-compare-commit--selected,
+	.wip-compare-commit--selected:hover {
+		background-color: color-mix(in srgb, var(--vscode-statusBarItem-warningBackground) 18%, transparent);
 		box-shadow: inset 3px 0 0 0 var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground));
+	}
+
+	/* Strengthen the tint when the selected row is also focused (keyboard / active click) so the
+	   focused state still reads through the warning tint. */
+	.wip-compare-commit--selected[focused],
+	.wip-compare-commit--selected:focus-within {
+		background-color: color-mix(in srgb, var(--vscode-statusBarItem-warningBackground) 28%, transparent);
 	}
 
 	/* Empty states */
@@ -307,6 +326,8 @@ export const wipComparePanelStyles = css`
 
 	/* Scope-to-commit tag (mirrors the graph header's filtered titlebar tint). */
 
+	/* Scope chip uses the SAME warning hue as the selected row + the graph header's focus-branch
+	   scope chip (mode-chip--scoped). Three indicators of the same scope state line up in color. */
 	.wip-compare-scope-tag {
 		display: inline-flex;
 		align-items: center;
@@ -317,16 +338,16 @@ export const wipComparePanelStyles = css`
 		border-radius: 0.3rem;
 		font-size: 1.2rem;
 		font-weight: normal;
-		color: var(--vscode-statusBarItem-prominentForeground, var(--vscode-foreground));
+		color: var(--vscode-statusBarItem-warningForeground, var(--vscode-foreground));
 		background: color-mix(
 			in srgb,
-			var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 30%,
+			var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 30%,
 			transparent
 		);
 		border: 1px solid
 			color-mix(
 				in srgb,
-				var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 55%,
+				var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 55%,
 				transparent
 			);
 		flex: none;
@@ -335,7 +356,7 @@ export const wipComparePanelStyles = css`
 	.wip-compare-scope-tag:hover {
 		background: color-mix(
 			in srgb,
-			var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 42%,
+			var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 42%,
 			transparent
 		);
 	}
@@ -389,23 +410,266 @@ export const wipComparePanelStyles = css`
 		background-color: inherit;
 	}
 
+	/* Line-stats summary in the file pane header. Color matches the per-file +N -N annotations. */
+	.wip-compare-stats {
+		display: inline-flex;
+		gap: 0.6rem;
+		margin-inline-start: 0.4rem;
+		font-size: var(--gl-font-micro);
+		font-weight: normal;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.wip-compare-stats__additions {
+		color: var(--vscode-gitDecoration-addedResourceForeground);
+	}
+
+	.wip-compare-stats__deletions {
+		color: var(--vscode-gitDecoration-deletedResourceForeground);
+	}
+
+	/* Scoped file-pane header uses the SAME warning hue as the selected commit row + the graph
+	   header's focus-branch scope chip — visual rhyme tells the user "this header is scoped to the
+	   row that's highlighted above". The base gl-file-tree-pane.css strips border-top with
+	   !important (intentional default for the unscoped case); we restore it here with !important
+	   so the scoped header reads as its own banded region. */
 	.wip-compare-files--scoped gl-file-tree-pane::part(header) {
 		background-color: color-mix(
 			in srgb,
-			var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 18%,
+			var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 18%,
 			transparent
 		);
 		border-top: 1px solid
 			color-mix(
 				in srgb,
-				var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 45%,
+				var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 60%,
 				transparent
-			);
+			) !important;
 		border-bottom: 1px solid
 			color-mix(
 				in srgb,
-				var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 30%,
+				var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 40%,
 				transparent
 			);
+	}
+
+	/* Autolinks chip strip — mirrors the multi-select compare panel's .compare-enrichment
+	   treatment (font-size, padding, color tweak for the autolink-settings info chip) so the
+	   "No Autolinks Found" affordance reads identically across both panels.
+	   Allows the chip strip to wrap to multiple rows when there are too many to fit one line. */
+	.wip-compare-enrichment {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		padding: 0.4rem 1.2rem;
+		font-size: var(--gl-font-sm);
+		flex: none;
+		min-width: 0;
+	}
+
+	.wip-compare-enrichment gl-action-chip[data-action='autolink-settings'] {
+		color: var(--color-foreground--65);
+		--code-icon-size: 12px;
+	}
+
+	.wip-compare-enrichment gl-action-chip::part(base) {
+		gap: 0.4rem;
+	}
+
+	.wip-compare-enrichment gl-action-chip::part(icon) {
+		line-height: 1;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	/* Files / Contributors view selector — slotted into the pane's title slot, so it must
+	   visually sit inline with the title text it replaces (no margin/padding around the
+	   popover; the trigger button supplies its own hit-target padding). The 0-padding
+	   tooltip override removes the body inset so menu rows hug the popover edges. */
+	.wip-compare-view-selector {
+		display: inline-flex;
+		--sl-tooltip-padding: 0;
+	}
+
+	.wip-compare-view-trigger {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		background: transparent;
+		border: 1px solid transparent;
+		color: inherit;
+		font-family: inherit;
+		font-size: inherit;
+		font-weight: inherit;
+		text-transform: inherit;
+		letter-spacing: inherit;
+		padding: 0.1rem 0.4rem;
+		margin-inline-start: -0.4rem;
+		border-radius: 3px;
+		cursor: pointer;
+	}
+
+	.wip-compare-view-trigger:hover,
+	.wip-compare-view-trigger:focus-visible {
+		background: var(--vscode-toolbar-hoverBackground);
+		outline: none;
+	}
+
+	.wip-compare-view-trigger__label {
+		text-transform: inherit;
+		letter-spacing: inherit;
+	}
+
+	/* Reset inherited title styles inside the popover menu. text-transform/letter-spacing
+	   are inheritable AND cross slot boundaries, so without this the menu items render in
+	   the pane title's uppercase tracking. Also normalize weight + spacing for clean rows.
+	   menu-list has a default padding-bottom: 0.6rem — zero it so rows hug the popover. */
+	.wip-compare-view-menu {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		text-transform: none;
+		letter-spacing: normal;
+		font-weight: normal;
+		font-size: var(--gl-font-base);
+		min-width: 16rem;
+		padding: 0.4rem 0;
+	}
+
+	.wip-compare-view-menu menu-item {
+		display: flex;
+		align-items: center;
+	}
+
+	.wip-compare-view-menu menu-item code-icon {
+		margin-right: 0.6rem;
+		opacity: 0.75;
+	}
+
+	/* Contributors list */
+	.wip-compare-contributors {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+		flex: 1 1 auto;
+		overflow-y: auto;
+	}
+
+	.wip-compare-contributors--loading,
+	.wip-compare-contributors--empty,
+	.wip-compare-files--loading {
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		color: var(--vscode-descriptionForeground);
+		padding: 2rem 1.2rem;
+	}
+
+	/* File-section loading container — sits in the gl-file-tree-pane "before-tree" slot in place
+	   of the "No changes" empty text while the comparison is being recomputed. */
+	.wip-compare-files--loading {
+		display: flex;
+		text-align: center;
+	}
+
+	/* Per-side loading container — replaces the entire split-panel (commit list + files) when
+	   the side's Phase 2 fetch hasn't returned yet. Centered fill so the user sees the panel
+	   is working, not empty. */
+	.wip-compare-side-loading {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		color: var(--vscode-descriptionForeground);
+		padding: 2rem 1.2rem;
+	}
+
+	/* Inline autolinks loading state — slots into the chip-overflow as a single non-chip
+	   pseudo-row, replacing the "No autolinks found" affordance during a comparison change. */
+	.wip-compare-enrichment__loading {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		color: var(--vscode-descriptionForeground);
+		font-size: var(--gl-font-sm);
+	}
+
+	/* Badge spinner — match the count text size so a "3"→spinner→"5" transition doesn't shift
+	   tab widths. line-height:1 keeps the badge height locked. */
+	.wip-compare-tab__count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.wip-compare-tab__count-spinner {
+		--code-icon-size: var(--gl-font-micro);
+		line-height: 1;
+	}
+
+	.wip-compare-contributor {
+		display: flex;
+		align-items: center;
+		gap: 0.8rem;
+		padding: 0.5rem 1.2rem;
+		min-width: 0;
+	}
+
+	.wip-compare-contributor:hover {
+		background: var(--vscode-list-hoverBackground);
+	}
+
+	.wip-compare-contributor gl-avatar {
+		flex: none;
+		width: 24px;
+		height: 24px;
+	}
+
+	.wip-compare-contributor__info {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		flex: 1 1 auto;
+		gap: 0.1rem;
+	}
+
+	.wip-compare-contributor__name {
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.wip-compare-contributor__you {
+		font-weight: 400;
+		font-size: 0.9em;
+		color: var(--vscode-descriptionForeground);
+		margin-left: 0.3rem;
+	}
+
+	.wip-compare-contributor__stats {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.6rem;
+		color: var(--vscode-descriptionForeground);
+		font-size: 1.1rem;
+	}
+
+	.wip-compare-contributor__diffstat {
+		display: inline-flex;
+		gap: 0.4rem;
+	}
+
+	.wip-compare-contributor__additions {
+		color: var(--vscode-gitDecoration-addedResourceForeground);
+	}
+
+	.wip-compare-contributor__deletions {
+		color: var(--vscode-gitDecoration-deletedResourceForeground);
 	}
 `;

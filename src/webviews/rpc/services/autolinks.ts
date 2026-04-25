@@ -98,11 +98,18 @@ export class AutolinksService {
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const commits = await Promise.all(shas.map(sha => svc.commits.getCommit(sha)));
 		const messages = commits.map(c => c?.message).filter(m => m != null);
-		if (!messages.length) return [];
+		return this.parseAutolinksFromMessages(repoPath, messages);
+	}
 
-		const remote = await getBestRemoteWithIntegration(repoPath, { includeDisconnected: true });
-		const autolinks = await this.container.autolinks.getAutolinks(messages.join('\n'), remote);
-		return [...map(autolinks.values(), serializeAutolink)];
+	/**
+	 * Get basic autolinks for a comparison range (`fromSha..toSha`). Enumerates every commit in
+	 * the range via `getLog` so autolinks reflect the full range (matches the diff/files), not
+	 * just the user's explicit selection — which can be a subset of the range when commits are
+	 * picked individually with cmd/ctrl-click rather than as a contiguous range.
+	 */
+	async getAutolinksForCompareRange(repoPath: string, fromSha: string, toSha: string): Promise<Autolink[]> {
+		const messages = await this.getCompareRangeMessages(repoPath, fromSha, toSha);
+		return this.parseAutolinksFromMessages(repoPath, messages);
 	}
 
 	/**
@@ -114,6 +121,44 @@ export class AutolinksService {
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const commits = await Promise.all(shas.map(sha => svc.commits.getCommit(sha)));
 		const messages = commits.map(c => c?.message).filter(m => m != null);
+		return this.resolveEnrichedAutolinksFromMessages(repoPath, messages);
+	}
+
+	/** Range-based variant of `enrichAutolinksForCommits`. See `getAutolinksForCompareRange`. */
+	async enrichAutolinksForCompareRange(
+		repoPath: string,
+		fromSha: string,
+		toSha: string,
+	): Promise<IssueOrPullRequest[]> {
+		const messages = await this.getCompareRangeMessages(repoPath, fromSha, toSha);
+		return this.resolveEnrichedAutolinksFromMessages(repoPath, messages);
+	}
+
+	private async getCompareRangeMessages(repoPath: string, fromSha: string, toSha: string): Promise<string[]> {
+		const log = await this.container.git.getRepositoryService(repoPath).commits.getLog(`${fromSha}..${toSha}`);
+		if (log == null) return [];
+
+		const messages: string[] = [];
+		for (const commit of log.commits.values()) {
+			if (commit.message != null) {
+				messages.push(commit.message);
+			}
+		}
+		return messages;
+	}
+
+	private async parseAutolinksFromMessages(repoPath: string, messages: string[]): Promise<Autolink[]> {
+		if (!messages.length) return [];
+
+		const remote = await getBestRemoteWithIntegration(repoPath, { includeDisconnected: true });
+		const autolinks = await this.container.autolinks.getAutolinks(messages.join('\n'), remote);
+		return [...map(autolinks.values(), serializeAutolink)];
+	}
+
+	private async resolveEnrichedAutolinksFromMessages(
+		repoPath: string,
+		messages: string[],
+	): Promise<IssueOrPullRequest[]> {
 		if (!messages.length) return [];
 
 		const remote = await getBestRemoteWithIntegration(repoPath);

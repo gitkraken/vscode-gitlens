@@ -55,6 +55,12 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean })
 	showIcon = true;
 
+	// Opts the host out of the single-line tree-row layout (fixed height, inline text, nowrap).
+	// Use when the default slot hosts a multi-line / card component; consumer drives row height
+	// via --gl-tree-item-min-height / --gl-tree-item-padding-y.
+	@property({ type: Boolean, reflect: true })
+	rich = false;
+
 	@property({ type: Boolean, reflect: true })
 	matched = false;
 

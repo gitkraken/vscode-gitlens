@@ -41,9 +41,8 @@ export class GlCommitRow extends LitElement {
 
 		.avatar {
 			grid-area: avatar;
-			--gl-avatar-size: 2rem;
-			align-self: start;
-			margin-top: 0.1rem;
+			--gl-avatar-size: 2.4rem;
+			align-self: center;
 			flex-shrink: 0;
 		}
 

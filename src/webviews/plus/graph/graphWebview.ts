@@ -5,7 +5,6 @@ import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitContributor } from '@gitlens/git/models/contributor.js';
-import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitGraph, GitGraphRowType } from '@gitlens/git/models/graph.js';
@@ -210,6 +209,7 @@ import type {
 	BranchCommitEntry,
 	BranchCommitsResult,
 	BranchComparisonCommit,
+	BranchComparisonContributor,
 	ComposeRewriteKind,
 	GraphServices,
 	ProposedCommitFile,
@@ -1336,38 +1336,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				},
 				commitCompose: async (repoPath, plan) => executeComposeCommit(this.container, repoPath, plan),
-				getBranchComparison: async (repoPath, leftRef, rightRef, options, signal) => {
+				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, _options, signal) => {
+					// Phase 1 — counts + the unified All Files diff. Smallest payload to land the user
+					// on a useful panel; per-side commits + their files are fetched on demand via
+					// `getBranchComparisonSide`.
 					signal?.throwIfAborted();
 					try {
 						const svc = this.container.git.getRepositoryService(repoPath);
 
-						// Two-dot for logs (commits reachable from one side but not the other)
-						const aheadLogRange = `${rightRef}..${leftRef}`;
-						const behindLogRange = `${leftRef}..${rightRef}`;
-						// Three-dot for diffs (merge-base → tip), to isolate each side's changes
-						const aheadDiffRange = `${rightRef}...${leftRef}`;
-						const behindDiffRange = `${leftRef}...${rightRef}`;
+						// Two-dot for the unified "All Files" view — matches Search & Compare's
+						// `ref2..ref1` semantics so a file modified on both sides shows once with a
+						// single combined diff (one click → one unambiguous diff).
+						const allDiffRange = `${rightRef}..${leftRef}`;
 
-						const scopedDiffRange = options?.scopeToCommit
-							? `${options.scopeToCommit}~1..${options.scopeToCommit}`
-							: undefined;
-
-						const [countsResult, aheadFilesResult, behindFilesResult, aheadLogResult, behindLogResult] =
-							await Promise.allSettled([
-								svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
-								svc.diff.getDiffStatus(scopedDiffRange ?? aheadDiffRange),
-								svc.diff.getDiffStatus(scopedDiffRange ?? behindDiffRange),
-								svc.commits.getLog(aheadLogRange, { limit: 100 }),
-								svc.commits.getLog(behindLogRange, { limit: 100 }),
-							]);
+						const [countsResult, allFilesResult] = await Promise.allSettled([
+							svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
+							svc.diff.getDiffStatus(allDiffRange),
+						]);
 						signal?.throwIfAborted();
 
 						const counts = getSettledValue(countsResult);
 						const aheadCount = counts?.left ?? 0;
 						const behindCount = counts?.right ?? 0;
 
-						const mapFiles = (files: GitFile[] | undefined) =>
-							files?.map(f => ({
+						const mappedAllFiles =
+							getSettledValue(allFilesResult)?.map(f => ({
 								repoPath: repoPath,
 								path: f.path,
 								status: f.status,
@@ -1376,62 +1369,127 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								stats: f.stats,
 							})) ?? [];
 
-						const mappedAheadFiles = mapFiles(getSettledValue(aheadFilesResult));
-						const mappedBehindFiles = mapFiles(getSettledValue(behindFilesResult));
-
-						const mapLog = async (
-							log: Awaited<ReturnType<typeof svc.commits.getLog>> | undefined,
-						): Promise<BranchComparisonCommit[]> => {
-							if (!log?.commits?.size) return [];
-
-							const commits: BranchComparisonCommit[] = [];
-							const avatarPromises: Promise<void>[] = [];
-
-							for (const [sha, commit] of log.commits) {
-								const commitStats = commit.stats;
-								const entry: BranchComparisonCommit = {
-									sha: sha,
-									shortSha: sha.substring(0, 7),
-									message: commit.message ?? '',
-									author: commit.author?.name ?? '',
-									authorEmail: commit.author?.email,
-									date: commit.author?.date != null ? String(commit.author.date) : '',
-									additions: commitStats?.additions,
-									deletions: commitStats?.deletions,
-								};
-								commits.push(entry);
-
-								if (commit.author?.email) {
-									const email = commit.author.email;
-									const result = getAvatarUri(email, { ref: sha, repoPath: repoPath }, { size: 16 });
-									if (result instanceof Promise) {
-										avatarPromises.push(
-											result.then(uri => {
-												entry.avatarUrl = uri.toString();
-											}),
-										);
-									} else {
-										entry.avatarUrl = result.toString();
-									}
-								}
-							}
-							await Promise.allSettled(avatarPromises);
-							return commits;
-						};
-
-						const [aheadCommits, behindCommits] = await Promise.all([
-							mapLog(getSettledValue(aheadLogResult)),
-							mapLog(getSettledValue(behindLogResult)),
-						]);
-
 						return {
 							aheadCount: aheadCount,
 							behindCount: behindCount,
-							aheadCommits: aheadCommits,
-							behindCommits: behindCommits,
-							aheadFiles: mappedAheadFiles,
-							behindFiles: mappedBehindFiles,
+							allFilesCount: mappedAllFiles.length,
+							allFiles: mappedAllFiles,
 						};
+					} catch {
+						return undefined;
+					}
+				},
+				getBranchComparisonSide: async (repoPath, leftRef, rightRef, side, _options, signal) => {
+					// Phase 2 — that side's commits with per-commit files inline. `getLog`'s default
+					// `includeFiles: true` populates each commit's `fileset.files`, so this is a single
+					// log call with no follow-up diff fan-out.
+					signal?.throwIfAborted();
+					try {
+						const svc = this.container.git.getRepositoryService(repoPath);
+
+						// Two-dot range — commits reachable from one side but not the other.
+						const range = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
+
+						const log = await svc.commits.getLog(range, { limit: 100 });
+						signal?.throwIfAborted();
+						if (!log?.commits?.size) return { commits: [] };
+
+						const commits: BranchComparisonCommit[] = [];
+						const avatarPromises: Promise<void>[] = [];
+
+						for (const [sha, commit] of log.commits) {
+							const commitStats = commit.stats;
+							const entry: BranchComparisonCommit = {
+								sha: sha,
+								shortSha: sha.substring(0, 7),
+								message: commit.message ?? '',
+								author: commit.author?.name ?? '',
+								authorEmail: commit.author?.email,
+								date: commit.author?.date != null ? String(commit.author.date) : '',
+								additions: commitStats?.additions,
+								deletions: commitStats?.deletions,
+								files:
+									commit.fileset?.files?.map(f => ({
+										repoPath: repoPath,
+										path: f.path,
+										status: f.status,
+										originalPath: f.originalPath,
+										staged: false,
+										stats: f.stats,
+									})) ?? [],
+							};
+							commits.push(entry);
+
+							if (commit.author?.email) {
+								const email = commit.author.email;
+								const result = getAvatarUri(email, { ref: sha, repoPath: repoPath }, { size: 16 });
+								if (result instanceof Promise) {
+									avatarPromises.push(
+										result.then(uri => {
+											entry.avatarUrl = uri.toString();
+										}),
+									);
+								} else {
+									entry.avatarUrl = result.toString();
+								}
+							}
+						}
+						await Promise.allSettled(avatarPromises);
+
+						return { commits: commits };
+					} catch {
+						return undefined;
+					}
+				},
+				getContributorsForBranchComparison: async (repoPath, leftRef, rightRef, scope, signal) => {
+					signal?.throwIfAborted();
+					try {
+						const svc = this.container.git.getRepositoryService(repoPath);
+
+						// Two-dot for ahead/behind (commits only on one side); three-dot for the
+						// symmetric "all" union — matches the ranges used by `getBranchComparison`.
+						const rev =
+							scope === 'ahead'
+								? `${rightRef}..${leftRef}`
+								: scope === 'behind'
+									? `${leftRef}..${rightRef}`
+									: `${leftRef}...${rightRef}`;
+
+						const result = await svc.contributors.getContributors(rev, { stats: true }, signal);
+						signal?.throwIfAborted();
+
+						const contributors: BranchComparisonContributor[] = [];
+						const avatarPromises: Promise<void>[] = [];
+						for (const c of result.contributors) {
+							const stats = c.stats;
+							const entry: BranchComparisonContributor = {
+								name: c.name,
+								email: c.email,
+								avatarUrl: c.avatarUrl,
+								commits: c.contributionCount,
+								additions: stats?.additions ?? 0,
+								deletions: stats?.deletions ?? 0,
+								files: typeof stats?.files === 'number' ? stats.files : 0,
+								current: c.current || undefined,
+							};
+							contributors.push(entry);
+
+							if (entry.avatarUrl == null && c.email) {
+								const avatar = getAvatarUri(c.email, undefined, { size: 16 });
+								if (avatar instanceof Promise) {
+									avatarPromises.push(
+										avatar.then(uri => {
+											entry.avatarUrl = uri.toString();
+										}),
+									);
+								} else {
+									entry.avatarUrl = avatar.toString();
+								}
+							}
+						}
+						await Promise.allSettled(avatarPromises);
+
+						return { contributors: contributors };
 					} catch {
 						return undefined;
 					}

@@ -142,7 +142,7 @@ export const detailsScopePaneStyles = css`
 	}
 
 	.scope-row__avatar {
-		--gl-avatar-size: 1.8rem;
+		--gl-avatar-size: 2.2rem;
 		flex-shrink: 0;
 		margin-left: auto;
 	}
@@ -184,7 +184,7 @@ export const detailsScopePaneStyles = css`
 		content: '';
 		position: absolute;
 		top: 0;
-		bottom: 0;
+		bottom: -2px;
 		left: calc(1.2rem + 7px);
 		width: 2px;
 		transform: translateX(-50%);

@@ -84,6 +84,9 @@ export class GlGraphComparePanel extends LitElement {
 	autolinks?: Autolink[];
 
 	@property({ type: Boolean })
+	autolinksLoading = false;
+
+	@property({ type: Boolean })
 	loading = false;
 
 	@property({ type: Number })
@@ -140,6 +143,13 @@ export class GlGraphComparePanel extends LitElement {
 	@state() private _enrichmentNoneFound = false;
 	private _enrichmentNoneFoundTimer?: ReturnType<typeof setTimeout>;
 
+	/**
+	 * True when the comparison identity (which commits are being compared) just changed and the
+	 * new fetch hasn't returned yet. Distinct from `loading`, which fires for any refresh —
+	 * this only fires when the *content* is genuinely going to change.
+	 */
+	@state() private _comparisonChanging = false;
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
@@ -153,6 +163,16 @@ export class GlGraphComparePanel extends LitElement {
 
 	protected override willUpdate(changedProperties: PropertyValues): void {
 		super.willUpdate(changedProperties);
+
+		const identityChanged =
+			changedProperties.has('commitFrom') ||
+			changedProperties.has('commitTo') ||
+			changedProperties.has('swapped');
+		if (identityChanged && this.loading) {
+			this._comparisonChanging = true;
+		} else if (changedProperties.has('loading') && !this.loading) {
+			this._comparisonChanging = false;
+		}
 
 		if (changedProperties.has('enrichedItems')) {
 			clearTimeout(this._enrichmentNoneFoundTimer);
@@ -456,10 +476,22 @@ export class GlGraphComparePanel extends LitElement {
 		const hasAutolinks = autolinks.length > 0;
 		const hasEnriched = enriched.length > 0;
 		const hasChips = hasAutolinks || hasEnriched;
+		// Show the loading state until BOTH the comparison fetch AND the autolinks fetch settle —
+		// the autolinks request is fired after `compare` resolves, so there's a window where
+		// `_comparisonChanging` is false but chips haven't arrived yet. Without `autolinksLoading`
+		// the strip flashes "Learn about autolinks" before the chips populate.
+		const isLoadingEmpty = (this._comparisonChanging || this.autolinksLoading) && !hasChips;
 
 		return html`<div class="compare-enrichment">
 			<gl-chip-overflow max-rows="1">
-				${hasChips ? nothing : html`<span slot="prefix">${this.renderLearnAboutAutolinks(true)}</span>`}
+				${hasChips
+					? nothing
+					: isLoadingEmpty
+						? html`<span slot="prefix" class="compare-enrichment__loading" aria-busy="true">
+								<code-icon icon="loading" modifier="spin"></code-icon>
+								<span>Loading autolinks…</span>
+							</span>`
+						: html`<span slot="prefix">${this.renderLearnAboutAutolinks(true)}</span>`}
 				${hasAutolinks
 					? autolinks.map(autolink => {
 							const name = autolink.description ?? autolink.title ?? `${autolink.prefix}${autolink.id}`;

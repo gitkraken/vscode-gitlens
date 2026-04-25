@@ -179,6 +179,15 @@ export const comparePanelStyles = css`
 		align-items: center;
 	}
 
+	/* Inline autolinks loading state — replaces "No autolinks found" while the comparison
+	   identity (commits) is changing. */
+	.compare-enrichment__loading {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		color: var(--vscode-descriptionForeground);
+	}
+
 	.pole-popover {
 		display: flex;
 		flex-direction: column;

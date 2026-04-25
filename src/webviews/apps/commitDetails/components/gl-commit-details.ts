@@ -125,6 +125,14 @@ export class GlCommitDetails extends GlDetailsBase {
 	@state()
 	private _userAdjustedSplitter = false;
 
+	/**
+	 * True when the commit identity (sha) just changed and the new fetch hasn't returned yet.
+	 * Distinct from `loading`, which fires for any refresh — this only fires when the *content*
+	 * is genuinely going to change, so we can avoid flashing loaders on autolink/PR refresh.
+	 */
+	@state()
+	private _commitChanging = false;
+
 	private _messagePanelSnap = ({ pos }: { pos: number }) => {
 		return Math.max(5, Math.min(pos, 60));
 	};
@@ -162,6 +170,22 @@ export class GlCommitDetails extends GlDetailsBase {
 		this._scrollbarObserver = undefined;
 		this._userAdjustedSplitter = false;
 		this._messagePanelHeight = undefined;
+	}
+
+	protected override willUpdate(changedProperties: Map<string, any>): void {
+		super.willUpdate?.(changedProperties);
+
+		if (changedProperties.has('commit')) {
+			const prev = changedProperties.get('commit') as State['commit'] | undefined;
+			const prevSha = prev?.sha;
+			const nextSha = this.commit?.sha;
+			if (prevSha !== nextSha && this.loading) {
+				this._commitChanging = true;
+			}
+		}
+		if (changedProperties.has('loading') && !this.loading) {
+			this._commitChanging = false;
+		}
 	}
 
 	override updated(changedProperties: Map<string, any>): void {
@@ -628,12 +652,14 @@ export class GlCommitDetails extends GlDetailsBase {
 
 	private renderAutoLinksChips() {
 		const autolinkState = this.autolinkState;
-		if (autolinkState == null) return this.renderLearnAboutAutolinks(true);
+		if (autolinkState == null) {
+			return this._commitChanging ? this.renderAutolinksLoading() : this.renderLearnAboutAutolinks(true);
+		}
 
 		const { autolinks, issues, prs, size } = autolinkState;
 
 		if (size === 0) {
-			return this.renderLearnAboutAutolinks(true);
+			return this._commitChanging ? this.renderAutolinksLoading() : this.renderLearnAboutAutolinks(true);
 		}
 
 		return html`<gl-chip-overflow max-rows="1">
@@ -687,6 +713,13 @@ export class GlCommitDetails extends GlDetailsBase {
 			${this.renderAutoLinksPopover(autolinks, prs, issues)}
 			<span slot="suffix">${this.renderLearnAboutAutolinks()}</span>
 		</gl-chip-overflow>`;
+	}
+
+	private renderAutolinksLoading() {
+		return html`<span class="autolinks-loading" aria-busy="true">
+			<code-icon icon="loading" modifier="spin"></code-icon>
+			<span>Loading autolinks…</span>
+		</span>`;
 	}
 
 	private renderAutoLinksPopover(autolinks: Autolink[], prs: PullRequestShape[], issues: IssueOrPullRequest[]) {
