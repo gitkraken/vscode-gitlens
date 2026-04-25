@@ -571,11 +571,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// The left ref has a worktree if it matches the current branch (which is always in a worktree)
 		const hasWorktree = this._state.branchCompareLeftRef.get() === branch?.name;
 		const activeTab = this._state.branchCompareActiveTab.get();
-		const compareFiles =
-			activeTab === 'ahead'
-				? this._state.branchCompareAheadFiles.get()
-				: this._state.branchCompareBehindFiles.get();
+		const allFiles = this._state.branchCompareAllFiles.get() ?? [];
 		const leftRef = this._state.branchCompareLeftRef.get();
+
+		const autolinksByScope = this._state.branchCompareAutolinksByScope.get();
+		const enrichedByScope = this._state.branchCompareEnrichedAutolinksByScope.get();
+		const contributorsByScope = this._state.branchCompareContributorsByScope.get();
+		const activeView = this._state.branchCompareActiveView.get();
 
 		return html`<gl-graph-wip-compare-panel
 			.branchName=${branch?.name}
@@ -589,12 +591,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.hasWorktree=${hasWorktree}
 			.aheadCount=${this._state.branchCompareAheadCount.get()}
 			.behindCount=${this._state.branchCompareBehindCount.get()}
+			.allFilesCount=${this._state.branchCompareAllFilesCount.get()}
 			.aheadCommits=${this._state.branchCompareAheadCommits.get()}
 			.behindCommits=${this._state.branchCompareBehindCommits.get()}
-			.compareFiles=${compareFiles}
-			.loading=${this._actions.resources.branchCompare.loading.get()}
+			.aheadLoaded=${this._state.branchCompareAheadLoaded.get()}
+			.behindLoaded=${this._state.branchCompareBehindLoaded.get()}
+			.allFiles=${allFiles}
+			.loading=${this._actions.resources.branchCompareSummary.loading.get() ||
+			this._actions.resources.branchCompareSide.loading.get()}
 			.activeTab=${activeTab}
 			.selectedCommitSha=${this._state.branchCompareSelectedCommitSha.get()}
+			.activeView=${activeView}
+			.autolinks=${autolinksByScope.get(activeTab) ?? []}
+			.enrichedItems=${enrichedByScope.get(activeTab) ?? []}
+			.contributors=${contributorsByScope.get(activeTab) ?? []}
+			.contributorsLoading=${this._state.branchCompareContributorsLoading.get()}
+			.enrichmentLoading=${this._state.branchCompareEnrichmentLoading.get()}
+			.enrichmentRequested=${this._state.branchCompareEnrichmentRequested.get()}
+			.autolinksEnabled=${this._state.autolinksEnabled.get()}
+			.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
+			.hasAccount=${this._state.hasAccount.get()}
 			@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
 				this._actions.openFile(e.detail, this.compareFileRef(leftRef))}
 			@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
@@ -608,10 +624,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				void this._actions.changeCompareRef(e.detail.side, repoPath)}
 			@swap-refs=${() => this._actions.swapCompareRefs(repoPath)}
 			@toggle-working-tree=${() => this._actions.toggleCompareWorkingTree(repoPath)}
-			@switch-tab=${(e: CustomEvent<{ tab: 'ahead' | 'behind' }>) =>
+			@switch-tab=${(e: CustomEvent<{ tab: 'all' | 'ahead' | 'behind' }>) =>
 				this._actions.switchCompareTab(e.detail.tab, repoPath)}
 			@scope-to-commit=${(e: CustomEvent<{ sha: string | undefined }>) =>
 				this._actions.selectCompareCommit(e.detail.sha, repoPath)}
+			@switch-view=${(e: CustomEvent<{ view: 'files' | 'contributors' }>) =>
+				this._actions.setBranchCompareActiveView(e.detail.view, repoPath)}
+			@request-enrichment=${() => this._actions.requestBranchCompareEnrichment(repoPath)}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
 		></gl-graph-wip-compare-panel>`;
 	}
@@ -718,6 +737,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.preferences=${this._state.preferences.get()}
 			.orgSettings=${this._state.orgSettings.get()}
 			.autolinks=${this._state.compareAutolinks.get()}
+			.autolinksLoading=${this._state.compareAutolinksLoading.get()}
 			.autolinksEnabled=${this._state.autolinksEnabled.get()}
 			.hasAccount=${this._state.hasAccount.get()}
 			.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
@@ -750,7 +770,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@swap-selection=${() => this._actions.swap(shas)}
 			@gl-explain=${(e: CustomEvent<{ prompt?: string }>) =>
 				this._actions.compareExplain(shas, repoPath, e.detail?.prompt)}
-			@enrich-autolinks=${() => void this._actions.enrichAutolinks(repoPath!, shas!)}
+			@enrich-autolinks=${() => {
+				const fromSha = this._actions.fromSha(shas, swapped);
+				const toSha = this._actions.toSha(shas, swapped);
+				if (repoPath != null && fromSha != null && toSha != null) {
+					void this._actions.enrichAutolinks(repoPath, fromSha, toSha);
+				}
+			}}
 			@select-commit=${(e: CustomEvent<{ sha: string }>) => this.handleSelectCommit(e.detail.sha)}
 			@change-files-layout=${this.handleChangeFilesLayout}
 			@toggle-mode=${this.handleToggleMode}

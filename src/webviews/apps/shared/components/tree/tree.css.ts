@@ -41,6 +41,31 @@ export const treeItemStyles = [
 			display: none;
 		}
 
+		/* Rich mode: host a multi-line / card component (e.g. gl-commit-row) in the default slot.
+		   Relaxes the single-line tree-row constraints so the consumer's content drives row height. */
+		:host([rich]) {
+			height: auto;
+			min-height: var(--gl-tree-item-min-height, 2.2rem);
+			line-height: normal;
+			padding-top: var(--gl-tree-item-padding-y, 0.4rem);
+			padding-bottom: var(--gl-tree-item-padding-y, 0.4rem);
+		}
+
+		:host([rich]) .item {
+			align-items: stretch;
+		}
+
+		:host([rich]) .text {
+			line-height: normal;
+			white-space: normal;
+			text-overflow: clip;
+		}
+
+		:host([rich]) .main,
+		:host([rich]) .description {
+			display: block;
+		}
+
 		:host(:hover) {
 			color: var(--vscode-list-hoverForeground);
 			background-color: var(--vscode-list-hoverBackground);

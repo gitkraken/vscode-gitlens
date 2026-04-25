@@ -256,9 +256,8 @@ export class GlFileTreePane extends LitElement {
 	}
 
 	private renderTitle(badge?: string | number): TemplateResult {
-		return html`<span>${this.header}</span>${badge != null ? html`<gl-badge>${badge}</gl-badge>` : nothing}<slot
-				name="header-badge"
-			></slot>`;
+		return html`<slot name="title-content"><span>${this.header}</span></slot
+			>${badge != null ? html`<gl-badge>${badge}</gl-badge>` : nothing}<slot name="header-badge"></slot>`;
 	}
 
 	private renderCheckboxTitle(_fileCount: number, badge?: string | number): TemplateResult {

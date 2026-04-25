@@ -1,4 +1,4 @@
-import { css, unsafeCSS } from 'lit';
+import { css } from 'lit';
 import { focusOutline } from './a11y.css.js';
 
 export const elementBase = css`

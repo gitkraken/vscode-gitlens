@@ -69,9 +69,19 @@ export async function resolveDetailsActions(
 		compare: createResource((signal, repoPath: string, fromSha: string, toSha: string) =>
 			graphInspect.getCompareDiff(repoPath, fromSha, toSha, signal),
 		),
-		branchCompare: createResource(
+		branchCompareSummary: createResource(
 			(signal, repoPath: string, leftRef: string, rightRef: string, options: BranchComparisonOptions) =>
-				graphInspect.getBranchComparison(repoPath, leftRef, rightRef, options, signal),
+				graphInspect.getBranchComparisonSummary(repoPath, leftRef, rightRef, options, signal),
+		),
+		branchCompareSide: createResource(
+			(
+				signal,
+				repoPath: string,
+				leftRef: string,
+				rightRef: string,
+				side: 'ahead' | 'behind',
+				options: BranchComparisonOptions,
+			) => graphInspect.getBranchComparisonSide(repoPath, leftRef, rightRef, side, options, signal),
 		),
 		review: createResource(
 			(

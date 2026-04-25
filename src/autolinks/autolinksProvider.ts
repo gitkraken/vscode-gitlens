@@ -10,7 +10,7 @@ import { join, map } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { escapeMarkdown, unescapeMarkdown } from '@gitlens/utils/markdown.js';
 import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
-import { PromiseCache } from '@gitlens/utils/promiseCache.js';
+import { PromiseCache, PromiseMap } from '@gitlens/utils/promiseCache.js';
 import { capitalize, encodeHtmlWeak, getSuperscript } from '@gitlens/utils/string.js';
 import type { OpenIssueActionContext } from '../api/gitlens.d.js';
 import { OpenIssueOnRemoteCommand } from '../commands/openIssueOnRemote.js';
@@ -55,6 +55,7 @@ export class AutolinksProvider implements Disposable {
 	private _disposable: Disposable | undefined;
 	private _references: GlCacheableAutolinkReference[] = [];
 	private _refsetCache = new PromiseCache<string | undefined, RefSet[]>({ accessTTL: 1000 * 60 * 60 });
+	private _inflightEnrichmentCache = new PromiseMap<string, Map<string, EnrichedAutolink> | undefined>();
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -67,17 +68,20 @@ export class AutolinksProvider implements Disposable {
 
 	dispose(): void {
 		this._disposable?.dispose();
+		this._inflightEnrichmentCache.clear();
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
 			this.setAutolinksFromConfig();
 			this._refsetCache.clear();
+			this._inflightEnrichmentCache.clear();
 		}
 	}
 
 	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
 		this._refsetCache.clear();
+		this._inflightEnrichmentCache.clear();
 	}
 
 	private setAutolinksFromConfig() {
@@ -182,11 +186,11 @@ export class AutolinksProvider implements Disposable {
 		return { id: autolink.id, key: `${autolink.prefix}${autolink.id}` };
 	}
 
-	async getEnrichedAutolinks(
+	getEnrichedAutolinks(
 		message: string,
 		remote: GitRemote | undefined,
 	): Promise<Map<string, EnrichedAutolink> | undefined>;
-	async getEnrichedAutolinks(
+	getEnrichedAutolinks(
 		autolinks: Map<string, Autolink>,
 		remote: GitRemote | undefined,
 	): Promise<Map<string, EnrichedAutolink> | undefined>;
@@ -197,7 +201,21 @@ export class AutolinksProvider implements Disposable {
 			remote: remote?.remoteKey,
 		}),
 	})
-	async getEnrichedAutolinks(
+	getEnrichedAutolinks(
+		messageOrAutolinks: string | Map<string, Autolink>,
+		remote: GitRemote | undefined,
+	): Promise<Map<string, EnrichedAutolink> | undefined> {
+		const remoteKey = remote?.remoteKey ?? '';
+		const key =
+			typeof messageOrAutolinks === 'string'
+				? `m:${remoteKey}:${messageOrAutolinks}`
+				: `a:${remoteKey}:${[...messageOrAutolinks.keys()].sort().join('|')}`;
+		return this._inflightEnrichmentCache.getOrCreate(key, () =>
+			this.enrichAutolinksCore(messageOrAutolinks, remote),
+		);
+	}
+
+	private async enrichAutolinksCore(
 		messageOrAutolinks: string | Map<string, Autolink>,
 		remote: GitRemote | undefined,
 	): Promise<Map<string, EnrichedAutolink> | undefined> {

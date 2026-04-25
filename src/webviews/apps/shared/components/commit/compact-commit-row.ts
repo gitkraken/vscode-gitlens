@@ -1,12 +1,12 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
+import { scrollableBase } from '../styles/lit/base.css.js';
 import type { CompactCommitAuthor } from './commit-popover-content.js';
 import { commitPopoverStyles, getCommitHeadline, renderCommitPopoverContent } from './commit-popover-content.js';
 import '../code-icon.js';
 import '../overlays/popover.js';
 import '../avatar/avatar.js';
-import { scrollableBase } from '../styles/lit/base.css.js';
 
 export type { CompactCommitAuthor } from './commit-popover-content.js';
 export type CompactCommitRowVariant = 'avatar' | 'dot';

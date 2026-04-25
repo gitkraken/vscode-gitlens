@@ -70,13 +70,21 @@ export type ComposeCommitPlan = {
 
 export type CommitResult = { success: true } | { success: true; warning: string } | { error: { message: string } };
 
-export type BranchComparisonResult = {
+/** Phase 1 of the branch-compare progressive load: counts + the All Files diff. Smallest payload
+ *  needed to render the panel meaningfully. Per-side commits + files are fetched lazily on tab
+ *  activation via {@link BranchComparisonSide}. */
+export type BranchComparisonSummary = {
 	aheadCount: number;
 	behindCount: number;
-	aheadCommits: BranchComparisonCommit[];
-	behindCommits: BranchComparisonCommit[];
-	aheadFiles: readonly CommitFileChange[];
-	behindFiles: readonly CommitFileChange[];
+	allFilesCount: number;
+	/** Files from the unified 2-dot `right..left` diff, used by the "All Files" tab. */
+	allFiles: readonly CommitFileChange[];
+};
+
+/** Phase 2: a single side's commits, with per-commit files inline so selection scoping is purely
+ *  client-side. Cached per `(repoPath, leftRef, rightRef, side, includeWorkingTree)`. */
+export type BranchComparisonSide = {
+	commits: BranchComparisonCommit[];
 };
 
 export type BranchComparisonCommit = {
@@ -89,11 +97,30 @@ export type BranchComparisonCommit = {
 	date: string;
 	additions?: number;
 	deletions?: number;
+	/** This commit's file changes — included inline so selecting the commit can filter the file
+	 *  list without an additional fetch. */
+	files: CommitFileChange[];
 };
 
 export type BranchComparisonOptions = {
 	includeWorkingTree?: boolean;
-	scopeToCommit?: string;
+};
+
+export type BranchComparisonContributorsScope = 'all' | 'ahead' | 'behind';
+
+export type BranchComparisonContributor = {
+	name: string;
+	email?: string;
+	avatarUrl?: string;
+	commits: number;
+	additions: number;
+	deletions: number;
+	files: number;
+	current?: boolean;
+};
+
+export type BranchComparisonContributorsResult = {
+	contributors: BranchComparisonContributor[];
 };
 
 export type BranchCommitEntry = {
@@ -160,13 +187,33 @@ export interface GraphInspectService {
 		signal?: AbortSignal,
 	): Promise<ComposeResult>;
 	commitCompose(repoPath: string, plan: ComposeCommitPlan): Promise<CommitResult>;
-	getBranchComparison(
+	/** Phase 1 of the branch-compare progressive load — counts + All Files only. Triggered on
+	 *  refs/wip change. Per-side commit + file data is fetched separately via {@link getBranchComparisonSide}. */
+	getBranchComparisonSummary(
 		repoPath: string,
 		leftRef: string,
 		rightRef: string,
 		options?: BranchComparisonOptions,
 		signal?: AbortSignal,
-	): Promise<BranchComparisonResult | undefined>;
+	): Promise<BranchComparisonSummary | undefined>;
+	/** Phase 2 — that side's commits with per-commit files inline. Lazy on first activation of
+	 *  Ahead or Behind. Subsequent tab switches and commit selections on that side are pure
+	 *  client-side filtering. */
+	getBranchComparisonSide(
+		repoPath: string,
+		leftRef: string,
+		rightRef: string,
+		side: 'ahead' | 'behind',
+		options?: BranchComparisonOptions,
+		signal?: AbortSignal,
+	): Promise<BranchComparisonSide | undefined>;
+	getContributorsForBranchComparison(
+		repoPath: string,
+		leftRef: string,
+		rightRef: string,
+		scope: BranchComparisonContributorsScope,
+		signal?: AbortSignal,
+	): Promise<BranchComparisonContributorsResult | undefined>;
 	chooseRef(repoPath: string, title: string, picked?: string): Promise<{ name: string; sha: string } | undefined>;
 	getDefaultComparisonRef(repoPath: string): Promise<string | undefined>;
 }

@@ -46,7 +46,7 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
  * - repo-change subscription (installed/torn down via `hostConnected`/`hostDisconnected`)
  *
  * **Delegates to {@link DetailsActions}** for data operations only — fetch helpers
- * (`fetchDetails`, `fetchCompareDetails`, `fetchAiExcludedFiles`, `fetchCompareData`,
+ * (`fetchDetails`, `fetchCompareDetails`, `fetchAiExcludedFiles`, `refreshCompare`,
  * `fetchBranchCommits`, `initCompareDefaults`), mutation helpers (`refreshWip`), and
  * shared predicates (`isWip`, `isCompare`, `buildScopeFromPicker`).
  *
@@ -175,17 +175,22 @@ export class DetailsWorkflowController implements ReactiveController {
 			// otherwise multi-commit pivot picks up a stale `commit` from a prior selection.
 			const wip = state.wip.get();
 			const commitTo = state.commitTo.get();
+			const commitFrom = state.commitFrom.get();
 			const commit = state.commit.get();
 			let leftRef: string | undefined;
 			let leftRefType: 'branch' | 'commit' | undefined;
+			let rightRef: string | undefined;
+			let rightRefType: 'branch' | 'commit' | undefined;
 			if (isWip) {
 				leftRef = wip?.branch?.name;
 				leftRefType = 'branch';
-			} else if (isCompare && commitTo) {
-				// Pivot from a multi-commit compare panel: the right side of the existing
-				// comparison becomes the left side of the new ref-to-ref comparison.
+			} else if (isCompare && commitTo && commitFrom) {
+				// Pivot from a multi-commit compare panel: the two sides of the existing
+				// comparison become the left and right sides of the new ref-to-ref comparison.
 				leftRef = commitTo.shortSha;
 				leftRefType = 'commit';
+				rightRef = commitFrom.shortSha;
+				rightRefType = 'commit';
 			} else if (commit) {
 				// Use the branch name if the commit is a branch tip, otherwise the SHA.
 				const branchRefs = state.reachability
@@ -207,15 +212,27 @@ export class DetailsWorkflowController implements ReactiveController {
 			state.branchCompareBehindCount.set(0);
 			state.branchCompareAheadCommits.set([]);
 			state.branchCompareBehindCommits.set([]);
-			state.branchCompareAheadFiles.set([]);
-			state.branchCompareBehindFiles.set([]);
-			state.branchCompareActiveTab.set('ahead');
-			state.branchCompareSelectedCommitSha.set(undefined);
+			state.branchCompareAheadLoaded.set(false);
+			state.branchCompareBehindLoaded.set(false);
+			state.branchCompareAllFiles.set([]);
+			state.branchCompareActiveTab.set('all');
+			state.branchCompareSelectedCommitShaByTab.set(new Map());
+			state.branchCompareActiveView.set('files');
+			state.branchCompareEnrichmentRequested.set(false);
+			state.branchCompareAutolinksByScope.set(new Map());
+			state.branchCompareEnrichedAutolinksByScope.set(new Map());
+			state.branchCompareContributorsByScope.set(new Map());
+			state.branchCompareEnrichmentLoading.set(false);
+			state.branchCompareContributorsLoading.set(false);
 
 			if (compareOverrides?.rightRef) {
 				state.branchCompareRightRef.set(compareOverrides.rightRef);
 				state.branchCompareRightRefType.set(compareOverrides.rightRefType ?? 'branch');
-				void this.actions.fetchCompareData(repoPath);
+				void this.actions.refreshCompare(repoPath);
+			} else if (rightRef) {
+				state.branchCompareRightRef.set(rightRef);
+				state.branchCompareRightRefType.set(rightRefType);
+				void this.actions.refreshCompare(repoPath);
 			} else {
 				state.branchCompareRightRef.set(undefined);
 				state.branchCompareRightRefType.set(undefined);

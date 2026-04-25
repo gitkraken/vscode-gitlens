@@ -62,7 +62,6 @@ export class GlCommitBox extends LitElement {
 	private renderTextarea() {
 		const firstLine = this.message.split('\n')[0] ?? '';
 		const len = firstLine.length;
-		const countClass = len > 72 ? 'char-count--over' : len > 50 ? 'char-count--warn' : '';
 		const modifier = isMac ? '\u2318' : 'Ctrl+';
 
 		return html`
@@ -74,27 +73,29 @@ export class GlCommitBox extends LitElement {
 					@input=${this.onMessageInput}
 					@keydown=${this.onMessageKeydown}
 				></textarea>
-				${len > 0 ? html`<span class="char-count ${countClass}">${len}</span>` : nothing}
-				${when(
-					this.aiEnabled,
-					() => html`
-						<gl-button
-							class="sparkle"
-							appearance="toolbar"
-							density="compact"
-							tooltip=${this.generating
-								? 'Generating commit message…'
-								: 'Generate commit message with AI'}
-							?disabled=${this.generating}
-							aria-busy=${this.generating ? 'true' : 'false'}
-							@click=${this.onGenerateMessage}
-						>
-							${this.generating
-								? html`<code-icon icon="loading" modifier="spin"></code-icon>`
-								: html`<code-icon icon="sparkle"></code-icon>`}
-						</gl-button>
-					`,
-				)}
+				<div class="controls">
+					${len > 50 ? html`<span class="char-count">${len}</span>` : nothing}
+					${when(
+						this.aiEnabled,
+						() => html`
+							<gl-button
+								class="sparkle"
+								appearance="toolbar"
+								density="compact"
+								tooltip=${this.generating
+									? 'Generating commit message…'
+									: 'Generate commit message with AI'}
+								?disabled=${this.generating}
+								aria-busy=${this.generating ? 'true' : 'false'}
+								@click=${this.onGenerateMessage}
+							>
+								${this.generating
+									? html`<code-icon icon="loading" modifier="spin"></code-icon>`
+									: html`<code-icon icon="sparkle"></code-icon>`}
+							</gl-button>
+						`,
+					)}
+				</div>
 			</div>
 		`;
 	}

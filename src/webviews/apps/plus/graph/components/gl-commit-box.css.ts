@@ -29,6 +29,11 @@ export const commitBoxStyles = css`
 		white-space: nowrap;
 	}
 
+	/* Shift the content when the scrollbar appears, without JS observer.
+	   We use a pseudo-element trick or has() pseudo-class to detect scrollbar but unfortunately
+	   there's no pure CSS way to detect a scrollbar reliably cross-browser.
+	   However, we can just give enough padding to the textarea so the scrollbar doesn't overlap text,
+	   and keep the buttons fixed. */
 	.message {
 		position: relative;
 		display: flex;
@@ -50,9 +55,27 @@ export const commitBoxStyles = css`
 		line-height: 1.6;
 		padding: 0.6rem 3rem 0.6rem 0.8rem;
 		field-sizing: content;
-		scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
 		margin: 0;
 		max-width: none;
+		scrollbar-gutter: stable;
+		transition: padding-right 0.2s ease;
+	}
+
+	.message:has(.textarea:not(:placeholder-shown)) .textarea {
+		padding-right: 3.8rem;
+	}
+
+	.message:has(.char-count) .textarea {
+		padding-right: 6.2rem;
+	}
+
+	.textarea::-webkit-scrollbar-thumb {
+		border-color: transparent;
+	}
+
+	.textarea:hover::-webkit-scrollbar-thumb,
+	.textarea:focus-within::-webkit-scrollbar-thumb {
+		border-color: var(--vscode-scrollbarSlider-background);
 	}
 
 	.textarea:focus {
@@ -68,33 +91,30 @@ export const commitBoxStyles = css`
 		background-color: transparent;
 	}
 
-	/* Character count sits flush below the AI sparkle button so the two badges share the
-	   same right edge, reading as a vertical pairing. Brighter than disabled-foreground so
-	   the count is legible at a glance — falls back to the warning/error tints once the
-	   subject line nears the recommended length. */
-	.char-count {
-		position: absolute;
-		top: 2.8rem;
-		right: 0.4rem;
-		min-width: 2.4rem;
-		text-align: center;
-		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--85);
-		pointer-events: none;
-	}
-
-	.char-count--warn {
-		color: var(--vscode-editorWarning-foreground);
-	}
-
-	.char-count--over {
-		color: var(--vscode-editorError-foreground);
-	}
-
-	.sparkle {
+	.controls {
 		position: absolute;
 		top: 0.4rem;
 		right: 0.4rem;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		transition: right 0.2s ease;
+		pointer-events: none;
+	}
+
+	/* Shift left when a scrollbar is rendered (using scroll-timeline state detection via CSS if available)
+	   For now, we use :not(:placeholder-shown) as a heuristic (if there is content, there might be a scrollbar). */
+	.message:has(.textarea:not(:placeholder-shown)) .controls {
+		right: 1.2rem;
+	}
+
+	.char-count {
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-editorWarning-foreground);
+	}
+
+	.sparkle {
+		pointer-events: auto;
 	}
 
 	.commit-btn {

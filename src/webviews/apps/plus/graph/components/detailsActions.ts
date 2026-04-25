@@ -25,8 +25,10 @@ import type { ViewFilesLayout } from '../../../../../config.js';
 import type { CommitDetails, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import { messageHeadlineSplitterToken } from '../../../../plus/graph/detailsProtocol.js';
 import type {
+	BranchComparisonContributorsScope,
 	BranchComparisonOptions,
-	BranchComparisonResult,
+	BranchComparisonSide,
+	BranchComparisonSummary,
 	ComposeResult,
 	GraphServices,
 	ReviewResult,
@@ -81,9 +83,16 @@ export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
 	readonly wip: Resource<Wip | undefined, [string]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
-	readonly branchCompare: Resource<
-		BranchComparisonResult | undefined,
+	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
+	readonly branchCompareSummary: Resource<
+		BranchComparisonSummary | undefined,
 		[string, string, string, BranchComparisonOptions]
+	>;
+	/** Phase 2 — that side's commits with per-commit files inline. Keyed on
+	 *  `(repoPath, leftRef, rightRef, side, options)` so 'ahead' and 'behind' cache independently. */
+	readonly branchCompareSide: Resource<
+		BranchComparisonSide | undefined,
+		[string, string, string, 'ahead' | 'behind', BranchComparisonOptions]
 	>;
 	readonly review: Resource<ReviewResult, [string, ScopeSelection, string | undefined, string[] | undefined]>;
 	readonly compose: Resource<ComposeResult, [string, ScopeSelection, string | undefined, string[] | undefined]>;
@@ -97,6 +106,7 @@ export class DetailsActions {
 	private _eventUnsubscribe?: () => void;
 
 	private _branchCommitsController?: AbortController;
+	private _enrichmentController?: AbortController;
 	private _aiExcludedFilesGeneration = 0;
 
 	constructor(
@@ -118,12 +128,15 @@ export class DetailsActions {
 		this.state.branchCompareBehindCount.set(0);
 		this.state.branchCompareAheadCommits.set([]);
 		this.state.branchCompareBehindCommits.set([]);
-		this.state.branchCompareAheadFiles.set([]);
-		this.state.branchCompareBehindFiles.set([]);
+		this.state.branchCompareAllFiles.set([]);
+		this.state.branchCompareAllFilesCount.set(0);
+		this.state.branchCompareAheadLoaded.set(false);
+		this.state.branchCompareBehindLoaded.set(false);
 	}
 
 	private clearCompareEnrichment(): void {
 		this.state.compareAutolinks.set(undefined);
+		this.state.compareAutolinksLoading.set(false);
 		this.state.compareEnrichedItems.set(undefined);
 		this.state.compareEnrichmentLoading.set(false);
 		this.state.signatureFrom.set(undefined);
@@ -133,14 +146,29 @@ export class DetailsActions {
 	dispose(): void {
 		this._disposed = true;
 		this._branchCommitsController?.abort();
+		this._enrichmentController?.abort();
 		this.resources.commit.dispose();
 		this.resources.wip.dispose();
 		this.resources.compare.dispose();
-		this.resources.branchCompare.dispose();
+		this.resources.branchCompareSummary.dispose();
+		this.resources.branchCompareSide.dispose();
 		this.resources.review.dispose();
 		this.resources.compose.dispose();
 		this._eventUnsubscribe?.();
 		this._eventUnsubscribe = undefined;
+	}
+
+	/**
+	 * Aborts the previous enrichment batch (autolinks, PRs, signature, merge target, etc.) and
+	 * returns a fresh signal that subsequent enrichment callbacks should check before writing
+	 * state — so a slow merge-target lookup from a prior selection can't keep the loading flag
+	 * stuck on or clobber the new selection's enrichment.
+	 */
+	private resetEnrichment(): AbortSignal {
+		this._enrichmentController?.abort();
+		const controller = new AbortController();
+		this._enrichmentController = controller;
+		return controller.signal;
 	}
 
 	isCompare(shas?: string[]): boolean {
@@ -247,6 +275,10 @@ export class DetailsActions {
 		const key = `${sha}:${repoPath}`;
 		if (key === this._lastFetchedKey) return;
 
+		// New selection — abort any in-flight enrichment so a stale merge-target / PR / autolink
+		// fetch from a prior selection can't write state (or pin the loading flag) over the new one.
+		const enrichSignal = this.resetEnrichment();
+
 		// Clear compare state when switching back to single-commit mode
 		this.clearCompareCore();
 		this.clearCompareEnrichment();
@@ -305,7 +337,7 @@ export class DetailsActions {
 
 					const branchName = wip?.branch?.name;
 					if (branchName != null) {
-						this.fetchWipBranchEnrichment(repoPath, branchName);
+						this.fetchWipBranchEnrichment(repoPath, branchName, enrichSignal);
 					} else {
 						this.state.wipMergeTargetLoading.set(false);
 					}
@@ -321,7 +353,7 @@ export class DetailsActions {
 					this.state.commit.set(commit);
 
 					if (commit != null) {
-						this.fetchEnrichment(repoPath, sha);
+						this.fetchEnrichment(repoPath, sha, enrichSignal);
 					}
 				}
 			}
@@ -334,9 +366,13 @@ export class DetailsActions {
 		}
 	}
 
-	private fetchEnrichment(repoPath: string, sha: string): void {
+	private fetchEnrichment(repoPath: string, sha: string, signal: AbortSignal): void {
 		const s = this.services;
-		const guard = <T>(onResult: (value: T) => void) => enrichmentGuard<T>(this.resources.commit, onResult);
+		const guard = <T>(onResult: (value: T) => void) =>
+			enrichmentGuard<T>(this.resources.commit, value => {
+				if (signal.aborted) return;
+				onResult(value);
+			});
 
 		if (this.state.autolinksEnabled.get()) {
 			const isStash = this.state.commit.get()?.stashNumber != null;
@@ -377,9 +413,13 @@ export class DetailsActions {
 		);
 	}
 
-	private fetchWipBranchEnrichment(repoPath: string, branchName: string): void {
+	private fetchWipBranchEnrichment(repoPath: string, branchName: string, signal: AbortSignal): void {
 		const s = this.services;
-		const guard = <T>(onResult: (value: T) => void) => enrichmentGuard<T>(this.resources.wip, onResult);
+		const guard = <T>(onResult: (value: T) => void) =>
+			enrichmentGuard<T>(this.resources.wip, value => {
+				if (signal.aborted) return;
+				onResult(value);
+			});
 
 		void s.autolinks.getBranchAutolinks(repoPath, branchName).then(
 			guard(autolinks => this.state.wipAutolinks.set(autolinks)),
@@ -392,14 +432,19 @@ export class DetailsActions {
 		);
 
 		this.state.wipMergeTargetLoading.set(true);
-		const clearLoading = guard<void>(() => this.state.wipMergeTargetLoading.set(false));
 		void s.branches
 			.getMergeTargetStatus(repoPath, branchName)
 			.then(
 				guard(status => this.state.wipMergeTarget.set(status)),
 				noop,
 			)
-			.finally(() => clearLoading());
+			.finally(() => {
+				// Always clear the loading flag for THIS batch unless a newer batch has taken over
+				// (signaled by abort). Without the abort gate, the prior `guard()`-wrapped clear
+				// would skip on stale generations and leave the flag stuck at `true`.
+				if (signal.aborted) return;
+				this.state.wipMergeTargetLoading.set(false);
+			});
 	}
 
 	/** Re-fetch WIP branch enrichment in response to out-of-band git-config changes. */
@@ -409,7 +454,7 @@ export class DetailsActions {
 		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
 		if (!branchName || !repoPath) return;
 
-		this.fetchWipBranchEnrichment(repoPath, branchName);
+		this.fetchWipBranchEnrichment(repoPath, branchName, this.resetEnrichment());
 	}
 
 	async removeAssociatedIssue(entityId: string): Promise<void> {
@@ -478,6 +523,9 @@ export class DetailsActions {
 		const key = `compare:${fromSha}:${toSha}:${repoPath}`;
 		if (key === this._lastFetchedKey) return;
 
+		// New selection — abort any in-flight enrichment from a prior selection.
+		const enrichSignal = this.resetEnrichment();
+
 		if (!fromSha || !toSha || !repoPath) {
 			this.clearCompareCore();
 			this._lastFetchedKey = undefined;
@@ -511,7 +559,7 @@ export class DetailsActions {
 				this.state.compareBetweenCount.set(diff?.commitCount);
 			}
 
-			this.fetchCompareEnrichment(repoPath, fromSha, toSha, shas);
+			this.fetchCompareEnrichment(repoPath, fromSha, toSha, enrichSignal);
 		} catch {
 			if (this._lastFetchedKey === key) {
 				this.clearCompareCore();
@@ -519,9 +567,13 @@ export class DetailsActions {
 		}
 	}
 
-	private fetchCompareEnrichment(repoPath: string, fromSha: string, toSha: string, shas: string[] | undefined): void {
+	private fetchCompareEnrichment(repoPath: string, fromSha: string, toSha: string, signal: AbortSignal): void {
 		const s = this.services;
-		const guard = <T>(onResult: (value: T) => void) => enrichmentGuard<T>(this.resources.compare, onResult);
+		const guard = <T>(onResult: (value: T) => void) =>
+			enrichmentGuard<T>(this.resources.compare, value => {
+				if (signal.aborted) return;
+				onResult(value);
+			});
 
 		void s.repository.getCommitSignature(repoPath, fromSha).then(
 			guard(sig => {
@@ -537,22 +589,37 @@ export class DetailsActions {
 			noop,
 		);
 
-		if (!this.state.autolinksEnabled.get() || !shas?.length) return;
+		if (!this.state.autolinksEnabled.get()) return;
 
-		void s.autolinks.getAutolinksForCommits(repoPath, shas).then(
-			guard(autolinks => {
-				this.state.compareAutolinks.set(autolinks.length > 0 ? autolinks : undefined);
-			}),
-			noop,
-		);
+		// Range-based — covers every commit in `from..to`, not just the user's explicit shas
+		// (which can be a subset of the range when commits are picked individually with
+		// cmd/ctrl-click rather than as a contiguous shift-click range).
+		const gen = this.resources.compare.generationId.get();
+		this.state.compareAutolinksLoading.set(true);
+		void s.autolinks
+			.getAutolinksForCompareRange(repoPath, fromSha, toSha)
+			.then(
+				guard(autolinks => {
+					this.state.compareAutolinks.set(autolinks.length > 0 ? autolinks : undefined);
+				}),
+				noop,
+			)
+			.finally(() => {
+				// Only clear the loading flag for THIS batch — a newer fetch (signaled via abort
+				// or generation bump) has already taken over and reset the flag through
+				// clearCompareEnrichment, so we'd otherwise stomp on its in-flight state.
+				if (signal.aborted) return;
+				if (this.resources.compare.generationId.get() !== gen) return;
+				this.state.compareAutolinksLoading.set(false);
+			});
 	}
 
-	async enrichAutolinks(repoPath: string, shas: string[]): Promise<void> {
+	async enrichAutolinks(repoPath: string, fromSha: string, toSha: string): Promise<void> {
 		const gen = this.resources.compare.generationId.get();
 		this.state.compareEnrichmentLoading.set(true);
 
 		try {
-			const items = await this.services.autolinks.enrichAutolinksForCommits(repoPath, shas);
+			const items = await this.services.autolinks.enrichAutolinksForCompareRange(repoPath, fromSha, toSha);
 			if (this.resources.compare.generationId.get() !== gen) return;
 			this.state.compareEnrichedItems.set(items);
 		} catch {
@@ -618,34 +685,95 @@ export class DetailsActions {
 
 		const defaultRef = await this.services.graphInspect.getDefaultComparisonRef(repoPath);
 		this.state.branchCompareRightRef.set(defaultRef ?? 'main');
-		void this.fetchCompareData(repoPath);
+		this.clearBranchCompareEnrichmentCaches();
+		void this.refreshCompare(repoPath);
 	}
 
-	async fetchCompareData(repoPath: string | undefined): Promise<void> {
+	/**
+	 * Refresh on a comparison-identity change (refs / wip / initial entry). Triggers Phase 1
+	 * (summary) immediately, and Phase 2 (active side's commits + files) only if the user is
+	 * already sitting on Ahead or Behind. The 'all' tab has all the data it needs from Phase 1.
+	 */
+	async refreshCompare(repoPath: string | undefined): Promise<void> {
+		await this.fetchCompareSummary(repoPath);
+		const tab = this.state.branchCompareActiveTab.get();
+		if (tab === 'ahead' || tab === 'behind') {
+			void this.fetchCompareSide(repoPath, tab);
+		}
+	}
+
+	/** Phase 1 — counts + the All Files diff. Cheap, runs on every comparison-identity change. */
+	async fetchCompareSummary(repoPath: string | undefined): Promise<void> {
 		const leftRef = this.state.branchCompareLeftRef.get();
 		const rightRef = this.state.branchCompareRightRef.get();
 		if (!repoPath || !leftRef || !rightRef) return;
 
 		const options: BranchComparisonOptions = {
 			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
-			scopeToCommit: this.state.branchCompareSelectedCommitSha.get(),
 		};
 
-		await this.resources.branchCompare.fetch(repoPath, leftRef, rightRef, options);
+		await this.resources.branchCompareSummary.fetch(repoPath, leftRef, rightRef, options);
 
-		if (this.resources.branchCompare.status.get() === 'success') {
-			const result = this.resources.branchCompare.value.get();
-			if (result) {
-				this.state.branchCompareAheadCount.set(result.aheadCount);
-				this.state.branchCompareBehindCount.set(result.behindCount);
-				this.state.branchCompareAheadCommits.set(result.aheadCommits);
-				this.state.branchCompareBehindCommits.set(result.behindCommits);
-				this.state.branchCompareAheadFiles.set(result.aheadFiles.slice());
-				this.state.branchCompareBehindFiles.set(result.behindFiles.slice());
-			} else {
-				this.clearBranchCompareData();
-			}
+		if (this.resources.branchCompareSummary.status.get() !== 'success') return;
+		const result = this.resources.branchCompareSummary.value.get();
+		if (!result) {
+			this.clearBranchCompareData();
+			return;
 		}
+
+		this.state.branchCompareAheadCount.set(result.aheadCount);
+		this.state.branchCompareBehindCount.set(result.behindCount);
+		this.state.branchCompareAllFiles.set(result.allFiles.slice());
+		this.state.branchCompareAllFilesCount.set(result.allFilesCount);
+
+		// Seed enrichment for the active scope. Both calls no-op on cache hit.
+		void this.fetchBranchCompareAutolinks(repoPath);
+		if (this.state.branchCompareActiveView.get() === 'contributors') {
+			void this.fetchBranchCompareContributors(repoPath);
+		}
+	}
+
+	/**
+	 * Phase 2 — that side's commits with per-commit files inline. After this lands, *all*
+	 * interactions on that side (tab switches, commit selection, deselect) are pure client-side.
+	 */
+	async fetchCompareSide(repoPath: string | undefined, side: 'ahead' | 'behind'): Promise<void> {
+		const leftRef = this.state.branchCompareLeftRef.get();
+		const rightRef = this.state.branchCompareRightRef.get();
+		if (!repoPath || !leftRef || !rightRef) return;
+
+		const options: BranchComparisonOptions = {
+			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+		};
+
+		await this.resources.branchCompareSide.fetch(repoPath, leftRef, rightRef, side, options);
+
+		if (this.resources.branchCompareSide.status.get() !== 'success') return;
+		const result = this.resources.branchCompareSide.value.get();
+		if (!result) return;
+
+		if (side === 'ahead') {
+			this.state.branchCompareAheadCommits.set(result.commits);
+			this.state.branchCompareAheadLoaded.set(true);
+		} else {
+			this.state.branchCompareBehindCommits.set(result.commits);
+			this.state.branchCompareBehindLoaded.set(true);
+		}
+
+		// Side commits arrived → re-seed enrichment for the active scope (autolinks may pick up
+		// new shas, contributors view may need refresh).
+		void this.fetchBranchCompareAutolinks(repoPath);
+		if (this.state.branchCompareActiveView.get() === 'contributors') {
+			void this.fetchBranchCompareContributors(repoPath);
+		}
+	}
+
+	/** Phase 2 only if not already loaded for the current refs/wip. Cheap to call defensively. */
+	async fetchCompareSideIfNeeded(repoPath: string | undefined, side: 'ahead' | 'behind'): Promise<void> {
+		const loaded =
+			side === 'ahead' ? this.state.branchCompareAheadLoaded.get() : this.state.branchCompareBehindLoaded.get();
+		if (loaded) return;
+		await this.fetchCompareSide(repoPath, side);
 	}
 
 	async changeCompareRef(side: 'left' | 'right', repoPath: string | undefined): Promise<void> {
@@ -665,32 +793,177 @@ export class DetailsActions {
 		} else {
 			this.state.branchCompareRightRef.set(result.name);
 		}
-		void this.fetchCompareData(repoPath);
+		// Comparison identity changed — invalidate per-side loaded flags so the next activation
+		// triggers a fresh fetch. (Resource itself is keyed on refs, so the cached entry is
+		// already isolated.)
+		this.state.branchCompareAheadLoaded.set(false);
+		this.state.branchCompareBehindLoaded.set(false);
+		this.clearBranchCompareEnrichmentCaches();
+		void this.refreshCompare(repoPath);
 	}
 
 	swapCompareRefs(repoPath: string | undefined): void {
 		const temp = this.state.branchCompareLeftRef.get();
 		this.state.branchCompareLeftRef.set(this.state.branchCompareRightRef.get());
 		this.state.branchCompareRightRef.set(temp);
-		this.state.branchCompareActiveTab.set('ahead');
-		this.state.branchCompareSelectedCommitSha.set(undefined);
-		void this.fetchCompareData(repoPath);
+		this.state.branchCompareActiveTab.set('all');
+		// Comparison identity changed — old commit selections no longer apply to the new range.
+		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
+		this.state.branchCompareAheadLoaded.set(false);
+		this.state.branchCompareBehindLoaded.set(false);
+		this.clearBranchCompareEnrichmentCaches();
+		void this.refreshCompare(repoPath);
 	}
 
 	toggleCompareWorkingTree(repoPath: string | undefined): void {
 		this.state.branchCompareIncludeWorkingTree.set(!this.state.branchCompareIncludeWorkingTree.get());
-		void this.fetchCompareData(repoPath);
+		this.state.branchCompareAheadLoaded.set(false);
+		this.state.branchCompareBehindLoaded.set(false);
+		void this.refreshCompare(repoPath);
 	}
 
-	switchCompareTab(tab: 'ahead' | 'behind', repoPath: string | undefined): void {
+	switchCompareTab(tab: 'all' | 'ahead' | 'behind', repoPath: string | undefined): void {
 		this.state.branchCompareActiveTab.set(tab);
-		this.state.branchCompareSelectedCommitSha.set(undefined);
-		void this.fetchCompareData(repoPath);
+		// 'all' tab is fully served by Phase 1; only Ahead/Behind require Phase 2. The IfNeeded
+		// variant no-ops if already loaded for the current refs/wip — second switch into a side
+		// is instant.
+		if (tab === 'ahead' || tab === 'behind') {
+			void this.fetchCompareSideIfNeeded(repoPath, tab);
+		}
 	}
 
-	selectCompareCommit(sha: string | undefined, repoPath: string | undefined): void {
-		this.state.branchCompareSelectedCommitSha.set(sha);
-		void this.fetchCompareData(repoPath);
+	selectCompareCommit(sha: string | undefined, _repoPath: string | undefined): void {
+		const tab = this.state.branchCompareActiveTab.get();
+		// 'all' tab has no commit list, so it has no per-commit selection to persist.
+		if (tab === 'all') return;
+		const next = new Map(this.state.branchCompareSelectedCommitShaByTab.get());
+		if (sha) {
+			next.set(tab, sha);
+		} else {
+			next.delete(tab);
+		}
+		this.state.branchCompareSelectedCommitShaByTab.set(next);
+		// No fetch — files for this commit are already present inline on the loaded side.
+		// The panel filters to `commits.find(c => c.sha === sha).files` purely client-side.
+	}
+
+	private clearBranchCompareEnrichmentCaches(): void {
+		this.state.branchCompareAutolinksByScope.set(new Map());
+		this.state.branchCompareEnrichedAutolinksByScope.set(new Map());
+		this.state.branchCompareContributorsByScope.set(new Map());
+		this.state.branchCompareEnrichmentLoading.set(false);
+		this.state.branchCompareContributorsLoading.set(false);
+		this.state.branchCompareEnrichmentRequested.set(false);
+	}
+
+	private getShasInScope(scope: BranchComparisonContributorsScope): string[] {
+		const ahead = this.state.branchCompareAheadCommits.get();
+		const behind = this.state.branchCompareBehindCommits.get();
+		if (scope === 'ahead') return ahead.map(c => c.sha);
+		if (scope === 'behind') return behind.map(c => c.sha);
+		return [...ahead.map(c => c.sha), ...behind.map(c => c.sha)];
+	}
+
+	async fetchBranchCompareAutolinks(
+		repoPath: string | undefined,
+		scope?: BranchComparisonContributorsScope,
+	): Promise<void> {
+		if (!repoPath || !this.state.autolinksEnabled.get()) return;
+
+		const activeScope = scope ?? this.state.branchCompareActiveTab.get();
+		if (this.state.branchCompareAutolinksByScope.get().has(activeScope)) return;
+
+		const shas = this.getShasInScope(activeScope);
+		if (!shas.length) return;
+
+		try {
+			const autolinks = await this.services.autolinks.getAutolinksForCommits(repoPath, shas);
+			const next = new Map(this.state.branchCompareAutolinksByScope.get());
+			next.set(activeScope, autolinks);
+			this.state.branchCompareAutolinksByScope.set(next);
+
+			// If the user has already opted into enrichment for this comparison, fan it out for
+			// the newly-fetched scope too — keeps the popover content consistent across tabs.
+			if (this.state.branchCompareEnrichmentRequested.get()) {
+				void this.fetchBranchCompareEnrichment(repoPath, activeScope);
+			}
+		} catch {
+			// Leave the cache untouched; a future fetch can retry.
+		}
+	}
+
+	async fetchBranchCompareEnrichment(
+		repoPath: string | undefined,
+		scope?: BranchComparisonContributorsScope,
+	): Promise<void> {
+		if (!repoPath || !this.state.autolinksEnabled.get()) return;
+
+		const activeScope = scope ?? this.state.branchCompareActiveTab.get();
+		if (this.state.branchCompareEnrichedAutolinksByScope.get().has(activeScope)) return;
+
+		const shas = this.getShasInScope(activeScope);
+		if (!shas.length) return;
+
+		this.state.branchCompareEnrichmentLoading.set(true);
+		try {
+			const items = await this.services.autolinks.enrichAutolinksForCommits(repoPath, shas);
+			const next = new Map(this.state.branchCompareEnrichedAutolinksByScope.get());
+			next.set(activeScope, items);
+			this.state.branchCompareEnrichedAutolinksByScope.set(next);
+		} catch {
+			// Leave the cache without an entry so a future request can retry.
+		} finally {
+			this.state.branchCompareEnrichmentLoading.set(false);
+		}
+	}
+
+	async fetchBranchCompareContributors(
+		repoPath: string | undefined,
+		scope?: BranchComparisonContributorsScope,
+	): Promise<void> {
+		if (!repoPath) return;
+
+		const activeScope = scope ?? this.state.branchCompareActiveTab.get();
+		if (this.state.branchCompareContributorsByScope.get().has(activeScope)) return;
+
+		const leftRef = this.state.branchCompareLeftRef.get();
+		const rightRef = this.state.branchCompareRightRef.get();
+		if (!leftRef || !rightRef) return;
+
+		this.state.branchCompareContributorsLoading.set(true);
+		try {
+			const result = await this.services.graphInspect.getContributorsForBranchComparison(
+				repoPath,
+				leftRef,
+				rightRef,
+				activeScope,
+			);
+			const next = new Map(this.state.branchCompareContributorsByScope.get());
+			next.set(activeScope, result?.contributors ?? []);
+			this.state.branchCompareContributorsByScope.set(next);
+		} catch {
+			// Leave the cache without an entry so a future request can retry.
+		} finally {
+			this.state.branchCompareContributorsLoading.set(false);
+		}
+	}
+
+	setBranchCompareActiveView(view: 'files' | 'contributors', repoPath: string | undefined): void {
+		if (this.state.branchCompareActiveView.get() === view) return;
+
+		this.state.branchCompareActiveView.set(view);
+		if (view === 'contributors') {
+			void this.fetchBranchCompareContributors(repoPath);
+		}
+	}
+
+	requestBranchCompareEnrichment(repoPath: string | undefined): void {
+		if (this.state.branchCompareEnrichmentRequested.get()) {
+			void this.fetchBranchCompareEnrichment(repoPath);
+			return;
+		}
+		this.state.branchCompareEnrichmentRequested.set(true);
+		void this.fetchBranchCompareEnrichment(repoPath);
 	}
 
 	async fetchBranchCommits(repoPath: string | undefined): Promise<void> {
@@ -1031,7 +1304,7 @@ export class DetailsActions {
 		this.state.wip.set(wip);
 		const branchName = wip.branch?.name;
 		if (branchName != null && prev?.branch?.name !== branchName) {
-			this.fetchWipBranchEnrichment(repoPath, branchName);
+			this.fetchWipBranchEnrichment(repoPath, branchName, this.resetEnrichment());
 		}
 	}
 

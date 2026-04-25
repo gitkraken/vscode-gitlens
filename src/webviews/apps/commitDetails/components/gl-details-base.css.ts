@@ -121,6 +121,15 @@ export const detailsBaseStyles = [
 			--code-icon-size: 1.3rem;
 		}
 
+		/* Inline autolinks loading state — replaces "No autolinks found" while the commit
+		   identity (sha) is changing. */
+		.autolinks-loading {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+			color: var(--vscode-descriptionForeground);
+		}
+
 		.message-block-row--actions .reachability-summary code-icon,
 		.message-block-row--actions .reachability-summary gl-action-chip::part(icon) {
 			--code-icon-size: 12px;

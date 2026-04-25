@@ -19,6 +19,7 @@
  * `state.durable.commit.get()`); the two layers are visible only via the targeted reset
  * methods (`resetDurable`, `resetTransient`) and the comments below.
  */
+import { Signal } from '@lit-labs/signals';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -33,7 +34,13 @@ import type {
 	Preferences,
 	Wip,
 } from '../../../../plus/graph/detailsProtocol.js';
-import type { BranchCommitEntry, BranchComparisonCommit, ScopeSelection } from '../../../../plus/graph/graphService.js';
+import type {
+	BranchCommitEntry,
+	BranchComparisonCommit,
+	BranchComparisonContributor,
+	BranchComparisonContributorsScope,
+	ScopeSelection,
+} from '../../../../plus/graph/graphService.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue } from '../../../../shared/overviewBranches.js';
@@ -71,6 +78,7 @@ function createDurableState() {
 	const compareFiles = signal<readonly GitFileChangeShape[] | undefined>(undefined);
 	const compareBetweenCount = signal<number | undefined>(undefined);
 	const compareAutolinks = signal<Autolink[] | undefined>(undefined);
+	const compareAutolinksLoading = signal(false);
 	const signatureFrom = signal<CommitSignatureShape | undefined>(undefined);
 	const signatureTo = signal<CommitSignatureShape | undefined>(undefined);
 	const compareEnrichedItems = signal<IssueOrPullRequest[] | undefined>(undefined);
@@ -98,13 +106,37 @@ function createDurableState() {
 	>(undefined);
 	const branchCommitsFetching = signal(false);
 
-	// Branch comparison results (the fetched ahead/behind/files data)
+	// Branch comparison results — split across the two phases of the progressive load.
+	// Phase 1 (Summary): counts + the All Files diff. Lands on refs/wip change.
 	const branchCompareAheadCount = signal(0);
 	const branchCompareBehindCount = signal(0);
+	const branchCompareAllFiles = signal<CommitFileChange[]>([]);
+	const branchCompareAllFilesCount = signal(0);
+	// Phase 2 (Side): per-side commits, each carrying its `files` inline. Loaded lazily on
+	// first activation of Ahead or Behind. Per-commit selection scoping is then a pure
+	// client-side filter — no fetch.
 	const branchCompareAheadCommits = signal<BranchComparisonCommit[]>([]);
 	const branchCompareBehindCommits = signal<BranchComparisonCommit[]>([]);
-	const branchCompareAheadFiles = signal<CommitFileChange[]>([]);
-	const branchCompareBehindFiles = signal<CommitFileChange[]>([]);
+	// Per-side "loaded for the current refs/wip" flag. Drives the per-tab loading state in the
+	// panel. Cleared whenever the comparison identity changes.
+	const branchCompareAheadLoaded = signal(false);
+	const branchCompareBehindLoaded = signal(false);
+
+	// Branch-comparison enrichment caches keyed by scope (active tab). Switching tabs
+	// reads from these maps; only newly-visited scopes trigger a fetch. Caches reset only
+	// when the comparison refs change (see `resetBranchCompareCaches` action).
+	// (Per-commit attribution isn't possible here: getAutolinksForCommits joins messages
+	// into one parse pass on the server. Cross-scope overlap is deduped one layer down by
+	// AutolinksProvider's in-flight PromiseMap.)
+	const branchCompareAutolinksByScope = signal<Map<BranchComparisonContributorsScope, Autolink[]>>(new Map());
+	const branchCompareEnrichedAutolinksByScope = signal<Map<BranchComparisonContributorsScope, IssueOrPullRequest[]>>(
+		new Map(),
+	);
+	const branchCompareContributorsByScope = signal<
+		Map<BranchComparisonContributorsScope, BranchComparisonContributor[]>
+	>(new Map());
+	const branchCompareEnrichmentLoading = signal(false);
+	const branchCompareContributorsLoading = signal(false);
 
 	// Capabilities
 	const preferences = signal<Preferences | undefined>(undefined);
@@ -131,6 +163,7 @@ function createDurableState() {
 		compareFiles: compareFiles,
 		compareBetweenCount: compareBetweenCount,
 		compareAutolinks: compareAutolinks,
+		compareAutolinksLoading: compareAutolinksLoading,
 		signatureFrom: signatureFrom,
 		signatureTo: signatureTo,
 		compareEnrichedItems: compareEnrichedItems,
@@ -154,10 +187,18 @@ function createDurableState() {
 
 		branchCompareAheadCount: branchCompareAheadCount,
 		branchCompareBehindCount: branchCompareBehindCount,
+		branchCompareAllFiles: branchCompareAllFiles,
+		branchCompareAllFilesCount: branchCompareAllFilesCount,
 		branchCompareAheadCommits: branchCompareAheadCommits,
 		branchCompareBehindCommits: branchCompareBehindCommits,
-		branchCompareAheadFiles: branchCompareAheadFiles,
-		branchCompareBehindFiles: branchCompareBehindFiles,
+		branchCompareAheadLoaded: branchCompareAheadLoaded,
+		branchCompareBehindLoaded: branchCompareBehindLoaded,
+
+		branchCompareAutolinksByScope: branchCompareAutolinksByScope,
+		branchCompareEnrichedAutolinksByScope: branchCompareEnrichedAutolinksByScope,
+		branchCompareContributorsByScope: branchCompareContributorsByScope,
+		branchCompareEnrichmentLoading: branchCompareEnrichmentLoading,
+		branchCompareContributorsLoading: branchCompareContributorsLoading,
 
 		preferences: preferences,
 		orgSettings: orgSettings,
@@ -209,8 +250,20 @@ function createTransientState() {
 	const branchCompareRightRef = signal<string | undefined>(undefined);
 	const branchCompareRightRefType = signal<'branch' | 'tag' | 'commit' | undefined>(undefined);
 	const branchCompareIncludeWorkingTree = signal(false);
-	const branchCompareActiveTab = signal<'ahead' | 'behind'>('ahead');
-	const branchCompareSelectedCommitSha = signal<string | undefined>(undefined);
+	const branchCompareActiveTab = signal<'all' | 'ahead' | 'behind'>('all');
+	// Per-tab "scope to this commit" selection. Persisted across tab switches so that returning
+	// to e.g. Ahead with a previously-selected commit X restores the scoped file view (alongside
+	// the cached scroll/expand state). The 'all' tab has no commit list so isn't keyed here.
+	const branchCompareSelectedCommitShaByTab = signal<Map<'ahead' | 'behind', string>>(new Map());
+	// Active-tab convenience: derived from the per-tab map and the active tab. Read-only — to
+	// mutate, write to `branchCompareSelectedCommitShaByTab` directly via `selectCompareCommit`.
+	const branchCompareSelectedCommitSha = new Signal.Computed<string | undefined>(() => {
+		const tab = branchCompareActiveTab.get();
+		if (tab === 'all') return undefined;
+		return branchCompareSelectedCommitShaByTab.get().get(tab);
+	});
+	const branchCompareActiveView = signal<'files' | 'contributors'>('files');
+	const branchCompareEnrichmentRequested = signal(false);
 
 	// Commit input form
 	const commitMessage = signal('');
@@ -239,7 +292,10 @@ function createTransientState() {
 		branchCompareRightRefType: branchCompareRightRefType,
 		branchCompareIncludeWorkingTree: branchCompareIncludeWorkingTree,
 		branchCompareActiveTab: branchCompareActiveTab,
+		branchCompareSelectedCommitShaByTab: branchCompareSelectedCommitShaByTab,
 		branchCompareSelectedCommitSha: branchCompareSelectedCommitSha,
+		branchCompareActiveView: branchCompareActiveView,
+		branchCompareEnrichmentRequested: branchCompareEnrichmentRequested,
 
 		commitMessage: commitMessage,
 		amend: amend,
