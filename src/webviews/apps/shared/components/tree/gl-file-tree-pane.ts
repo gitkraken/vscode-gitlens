@@ -132,6 +132,24 @@ export class GlFileTreePane extends LitElement {
 	@property({ attribute: 'uncheck-verb' })
 	uncheckVerb?: string;
 
+	/**
+	 * When `true` (default) and `checkable` is on, the count badge shows "x of y" while only a
+	 * subset is checked, and falls back to "y" once everything is checked. Consumers whose
+	 * "checked" state means something other than "selected for this operation" (e.g. the WIP
+	 * staged/unstaged tree where checked == staged) should set this to `false` to keep the
+	 * badge as a simple total.
+	 */
+	@property({ type: Boolean, attribute: 'selection-badge' })
+	selectionBadge = true;
+
+	/**
+	 * Optional label appended to the subset badge (e.g. "Staged"). When set, reads as
+	 * "x of y <label>" while partial and "y <label>" when fully checked. Ignored when
+	 * `selectionBadge` is false.
+	 */
+	@property({ attribute: 'selection-badge-label' })
+	selectionBadgeLabel?: string;
+
 	@state() private _filterMode: 'off' | 'mixed' | 'matched' = 'mixed';
 	@state() private _showFilter = false;
 
@@ -230,7 +248,9 @@ export class GlFileTreePane extends LitElement {
 					</action-nav>
 				</div>
 				<slot name="before-tree"></slot>
-				${this.renderTreeFileModel(treeModel)}
+				${fileCount === 0 && this.emptyText
+					? html`<div class="tree-empty">${this.emptyText}</div>`
+					: this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;
 	}
@@ -267,6 +287,22 @@ export class GlFileTreePane extends LitElement {
 		const noneChecked = checkedCount === 0 && mixedCount === 0;
 		const indeterminate = !allChecked && !noneChecked;
 
+		// In selection-badge mode, surface "x of y" while only a subset is checked so users see
+		// the running selection size without opening the tree. Once everything is checked, fall
+		// back to the simple total (or "y <label>" if a label is set so the count keeps its
+		// semantic identity). Mixed (partially staged) files count as checked for this display
+		// so the count tracks what an "include all" action would actually act on.
+		let effectiveBadge = badge;
+		if (this.selectionBadge && this.checkable && totalFiles > 0) {
+			const selected = checkedCount + mixedCount;
+			const label = this.selectionBadgeLabel;
+			if (selected < totalFiles) {
+				effectiveBadge = label ? `${selected} of ${totalFiles} ${label}` : `${selected} of ${totalFiles}`;
+			} else if (label) {
+				effectiveBadge = `${totalFiles} ${label}`;
+			}
+		}
+
 		const checkbox = html`<gl-checkbox
 			.checked=${allChecked}
 			.indeterminate=${indeterminate}
@@ -293,7 +329,8 @@ export class GlFileTreePane extends LitElement {
 						: `${checkVerb} All`
 				: undefined;
 
-		const label = badge == null ? html`${this.header}` : html`${this.header} <gl-badge>${badge}</gl-badge>`;
+		const label =
+			effectiveBadge == null ? html`${this.header}` : html`${this.header} <gl-badge>${effectiveBadge}</gl-badge>`;
 
 		return html`<span class="checkbox-header" @click=${(e: Event) => e.stopPropagation()}>
 			${tooltipText

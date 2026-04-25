@@ -249,7 +249,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 			// Selection moved — invalidate the Forward chip snapshots so we never restore an
 			// AI result captured for a different commit/WIP after the user navigates elsewhere.
-			if (this._workflow) {
+			// Skip while a mode is active: the details pane is scope-locked to the entry-time
+			// selection, so external graph navigation must not mutate mode-owned state.
+			if (this._workflow && this._state.activeMode.get() == null) {
 				this._workflow.review.invalidateSnapshot();
 				this._workflow.compose.invalidateSnapshot();
 			}

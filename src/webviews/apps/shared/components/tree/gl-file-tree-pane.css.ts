@@ -37,8 +37,8 @@ export const fileTreeStyles = css`
 	}
 
 	webview-pane::part(header) {
-		border-top: none;
 		background-color: inherit;
+		border-top: none !important;
 	}
 
 	.header-actions {
@@ -90,6 +90,15 @@ export const fileTreeStyles = css`
 		align-items: center;
 		gap: 0.6rem;
 		color: var(--vscode-sideBarSectionHeader-foreground);
+	}
+
+	/* Standalone empty state — used when there are no files. Mirrors the editor's empty-state
+	   pattern (italic, centered, muted) so it reads as a section message rather than a list row. */
+	.tree-empty {
+		padding: 1.6rem 0;
+		text-align: center;
+		font-style: italic;
+		color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
 	}
 
 	action-item.active-toggle {

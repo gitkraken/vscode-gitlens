@@ -13,11 +13,12 @@ export const comparePanelStyles = css`
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.4rem var(--gl-panel-padding-right, 1.2rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
+		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
 		gap: 0.6rem;
 		flex: none;
+		min-height: var(--gl-metadata-bar-min-height);
 		font-size: var(--gl-font-sm);
-		background-color: color-mix(in srgb, var(--color-background) 95%, var(--color-foreground) 5%);
+		background-color: var(--gl-metadata-bar-bg);
 		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
@@ -52,7 +53,6 @@ export const comparePanelStyles = css`
 		display: flex;
 		flex-direction: column;
 		flex: none;
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.pole-card__popover {
@@ -244,11 +244,25 @@ export const comparePanelStyles = css`
 		overflow: auto;
 	}
 
+	.pole-popover:hover .scrollable,
+	.pole-popover:focus-within .scrollable {
+		border-color: var(--vscode-scrollbarSlider-background);
+		transition: none;
+	}
+
 	.pole-popover__date {
 		font-size: var(--gl-font-sm);
 		color: var(--color-foreground--50);
 		flex-shrink: 0;
 		white-space: nowrap;
+	}
+
+	.compare-section {
+		display: flex;
+		flex-direction: column;
+		flex: none;
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		padding-bottom: 0.4rem;
 	}
 
 	.compare-files {
@@ -257,7 +271,6 @@ export const comparePanelStyles = css`
 		flex: 1;
 		min-height: 12rem;
 		overflow: hidden;
-		margin-top: 0.4rem;
 		padding-left: 0.6rem;
 		padding-right: 0.6rem;
 	}

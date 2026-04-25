@@ -18,12 +18,15 @@ export class FormattedDate extends LitElement {
 	@property()
 	tooltip = '';
 
+	@property({ type: Boolean })
+	short = false;
+
 	get absoluteDate(): string {
 		return formatDate(this.date, this.format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	get dateLabel(): string {
-		return this.dateStyle === 'relative' ? fromNow(this.date) : this.absoluteDate;
+		return this.dateStyle === 'relative' ? fromNow(this.date, this.short) : this.absoluteDate;
 	}
 
 	override render(): unknown {

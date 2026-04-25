@@ -10,16 +10,22 @@ export {
 } from './shared-panel.css.js';
 
 export const composePanelStyles = css`
-	/* Matches the fade+slide-up entrance used by other graph details sub-panels so compose
-	   mode animates in instead of popping. @keyframes sub-panel-enter is provided by
-	   subPanelEnterStyles in the component's styles array. */
+	/* Slide-up entrance with overflow pinned to hidden until animationend so the inner
+	   scroll containers don't flicker a scrollbar as the transform settles. After the
+	   animation completes, :host([data-anim-done]) below restores overflow-y: auto. */
 	:host {
 		animation: sub-panel-enter 0.2s ease-out;
+		overflow: hidden;
+	}
+
+	:host([data-anim-done]) {
+		overflow-y: auto;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		:host {
 			animation: none;
+			overflow-y: auto;
 		}
 	}
 
@@ -34,6 +40,46 @@ export const composePanelStyles = css`
 		margin: 0.4rem 1.2rem 0;
 	}
 
+	/* Restore Previous bar — full-width strip rendered immediately after the (optional) stale
+	   banner, before the scope split or idle hero. Replaces the right-aligned chip from the
+	   shared review panel styles for compose mode. */
+	.review-forward {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		width: auto;
+		margin: 0;
+		padding: 0.6rem 1.2rem;
+		border: none;
+		border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-sideBarSectionHeader-border));
+		background: transparent;
+		color: var(--vscode-descriptionForeground);
+		font-size: var(--gl-font-sm);
+		text-align: left;
+		cursor: pointer;
+		flex: none;
+		align-self: stretch;
+		border-radius: 0;
+	}
+
+	.review-forward:hover,
+	.review-forward:focus-visible {
+		background: var(--vscode-list-hoverBackground);
+		color: var(--vscode-foreground);
+		outline: none;
+	}
+
+	.review-forward > code-icon {
+		font-size: 1.2rem;
+		opacity: 0.85;
+	}
+	.review-forward__action {
+		margin-left: auto;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
 	.compose-plan {
 		flex: 1;
 		min-height: 0;
@@ -44,28 +90,13 @@ export const composePanelStyles = css`
 	.compose-plan__header {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
-		padding: 0.6rem 1.2rem;
+		gap: 0.4rem;
+		padding: 0.4rem 0.8rem;
 		flex: none;
 	}
 
 	.compose-plan__back {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 20px;
-		height: 20px;
-		border: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-radius: 3px;
-		background: transparent;
-		color: var(--vscode-charts-purple, #7c3aed);
-		cursor: pointer;
-		--code-icon-size: 12px;
 		flex-shrink: 0;
-	}
-
-	.compose-plan__back:hover {
-		background: var(--vscode-list-hoverBackground);
 	}
 
 	.compose-plan__title {
@@ -77,15 +108,28 @@ export const composePanelStyles = css`
 	.compose-plan__count {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.3rem;
+		gap: 0.6rem;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 		margin-left: auto;
 	}
 
-	.compose-plan__count > code-icon {
+	.compose-plan__count-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+
+	.compose-plan__count-item > code-icon {
 		font-size: 1.2rem;
 		opacity: 0.85;
+	}
+
+	/* Cancel affordance below the loading spinner — lets the user abort an in-flight
+	   Compose or Refine call without waiting on the AI to resolve. */
+	.compose-cancel {
+		align-self: center;
+		margin-bottom: 1.2rem;
 	}
 
 	.compose-plan__list {
@@ -110,12 +154,37 @@ export const composePanelStyles = css`
 		overflow: hidden;
 	}
 
+	/* Border on the bottom of the scope section (proposed-commits list) so the divider
+	   sits flush against it. */
+	.compose-plan__split-start {
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+	}
+
+	/* Commit All row sits between the proposed-commits list and the file-tree-pane inside the
+	   split-end slot. Fixed-height row at the top of the column so the file pane fills the rest. */
+	.compose-plan__commit-all {
+		flex: none;
+		display: flex;
+		padding: 0.6rem 1.2rem;
+	}
+
+	.compose-plan__commit-all > gl-button {
+		width: 100%;
+	}
+
+	/* Fallback container for when no commit is selected — Commit All renders below the AI input
+	   instead of inside the split because there is no split. */
 	.compose-plan__actions {
 		flex: none;
 		display: flex;
 		gap: 0.4rem;
 		padding: 0.6rem 1.2rem;
 		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+	}
+
+	.compose-plan__actions > .compose-plan__commit-all {
+		flex: 1;
+		padding: 0;
 	}
 
 	.compose-commit {
@@ -273,15 +342,10 @@ export const composePanelStyles = css`
 		color: var(--vscode-descriptionForeground);
 	}
 
-	gl-file-tree-pane {
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-	}
-
 	/* When the splitter is in play, the file-tree-pane sits in a flex column inside the
 	   split-end slot. Drop the standalone margin-top so the split divider sits flush against
 	   the file-tree-pane's header (the divider IS the visual separator now). */
 	.compose-plan__split-end > gl-file-tree-pane {
-		border-top: none;
 		margin-top: 0;
 	}
 `;

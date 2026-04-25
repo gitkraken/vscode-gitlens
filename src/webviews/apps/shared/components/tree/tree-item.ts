@@ -46,7 +46,7 @@ export class GlTreeItem extends GlElement {
 	@property()
 	checked: boolean | 'indeterminate' = false;
 
-	@property({ type: Boolean })
+	@property({ type: Boolean, reflect: true, attribute: 'disable-check' })
 	disableCheck = false;
 
 	@property({ attribute: 'checkable-tooltip' })

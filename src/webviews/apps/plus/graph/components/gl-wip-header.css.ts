@@ -23,12 +23,24 @@ export const wipHeaderStyles = css`
 		white-space: nowrap;
 	}
 
+	/* Secondary row beneath the WIP title — branch name, tracking pill, and branch ops.
+	   Visually matches the metadata bar in single/multi-commit details so the panel chrome
+	   reads as one piece (background, top/bottom borders). The shared CSS variables come
+	   from gl-details-base.css.ts. */
 	.graph-details-header__branch-row {
 		display: flex;
 		align-items: center;
 		gap: 0.6rem;
-		padding: 0.2rem 1rem 0.6rem 1.2rem;
-		min-height: 3.2rem;
+		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.6rem var(--gl-panel-padding-left, 1.2rem);
+		min-height: var(--gl-metadata-bar-min-height, 3.2rem);
+		background-color: var(--gl-metadata-bar-bg);
+		border-top: 1px solid var(--gl-metadata-bar-border);
+	}
+
+	/* When the issues row follows, drop the branch row's bottom border so the two rows
+	   read as a single tinted strip; the issues row carries the trailing border. */
+	.graph-details-header__branch-row:has(+ .graph-details-header__issues) {
+		padding-bottom: 0.4rem;
 	}
 
 	.branch-identity,
@@ -98,10 +110,17 @@ export const wipHeaderStyles = css`
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
-		padding: 0 1rem 0.6rem 1.2rem;
+		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
 		min-width: 0;
 		font-size: var(--gl-font-sm);
+		background-color: var(--gl-metadata-bar-bg);
+		border-bottom: 1px solid var(--gl-metadata-bar-border);
 		--gl-chip-overflow-gap: 0.4rem;
+	}
+
+	/* When no issues row follows, the branch row owns the trailing border instead. */
+	.graph-details-header__branch-row:not(:has(+ .graph-details-header__issues)) {
+		border-bottom: 1px solid var(--gl-metadata-bar-border);
 	}
 
 	.graph-details-header__issues-chips {

@@ -2,7 +2,7 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { isMac } from '@env/platform.js';
-import { elementBase, scrollbarThinFor } from '../../../shared/components/styles/lit/base.css.js';
+import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { commitBoxStyles } from './gl-commit-box.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/branch-name.js';
@@ -11,7 +11,7 @@ import '../../../shared/components/code-icon.js';
 
 @customElement('gl-commit-box')
 export class GlCommitBox extends LitElement {
-	static override styles = [elementBase, commitBoxStyles, scrollbarThinFor('.textarea')];
+	static override styles = [elementBase, commitBoxStyles, scrollableBase];
 
 	@property()
 	message = '';
@@ -68,7 +68,7 @@ export class GlCommitBox extends LitElement {
 		return html`
 			<div class="message">
 				<textarea
-					class="textarea"
+					class="textarea scrollable"
 					.value=${this.message}
 					placeholder=${`Commit message (${modifier}Enter to commit)`}
 					@input=${this.onMessageInput}

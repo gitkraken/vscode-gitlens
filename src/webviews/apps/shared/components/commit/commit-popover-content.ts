@@ -74,6 +74,11 @@ export const commitPopoverStyles = css`
 		max-height: 10rem;
 		overflow: auto;
 	}
+	.commit-popover-content:hover .scrollable,
+	.commit-popover-content:focus-within .scrollable {
+		border-color: var(--vscode-scrollbarSlider-background);
+		transition: none;
+	}
 	.commit-popover-content__sha {
 		display: inline-flex;
 		align-items: center;
@@ -129,6 +134,6 @@ export function renderCommitPopoverContent(
 					><code-icon icon="git-commit"></code-icon>${shortSha}</span
 				>`
 			: nothing}
-		${fullMessage ? html`<div class="commit-popover-content__message">${fullMessage}</div>` : nothing}
+		${fullMessage ? html`<div class="commit-popover-content__message scrollable">${fullMessage}</div>` : nothing}
 	</div>`;
 }

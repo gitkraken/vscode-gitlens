@@ -16,7 +16,11 @@ import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProt
 import type { ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import { redispatch } from '../../../shared/components/element.js';
-import { elementBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
+import {
+	elementBase,
+	metadataBarVarsBase,
+	subPanelEnterStyles,
+} from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { GlDetailsScopePane, ScopeItem } from './gl-details-scope-pane.js';
 import {
@@ -32,8 +36,11 @@ import { renderErrorState, renderLoadingState } from './shared-panel-templates.j
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/ai-input.js';
+import '../../../shared/components/chips/action-chip.js';
+import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/split-panel/split-panel.js';
+import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-details-scope-pane.js';
 
@@ -51,6 +58,7 @@ export interface ReviewDrillDetail {
 export class GlGraphReviewPanel extends LitElement {
 	static override styles = [
 		elementBase,
+		metadataBarVarsBase,
 		subPanelEnterStyles,
 		panelHostStyles,
 		panelActionInputStyles,
@@ -131,13 +139,25 @@ export class GlGraphReviewPanel extends LitElement {
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
-			this._aiExcludedSet = this.aiExcludedFiles?.length ? new Set(this.aiExcludedFiles) : undefined;
-			if (this.aiExcludedFiles?.length) {
-				const next = new Set(this._excludedFiles);
-				for (const path of this.aiExcludedFiles) {
-					next.add(path);
+			const next = this.aiExcludedFiles?.length ? new Set(this.aiExcludedFiles) : undefined;
+			const prev = this._aiExcludedSet;
+			const sameSize = (next?.size ?? 0) === (prev?.size ?? 0);
+			const sameContent = sameSize && (!next || [...next].every(p => prev?.has(p)));
+			if (!sameContent) {
+				this._aiExcludedSet = next;
+				if (this.aiExcludedFiles?.length) {
+					const merged = new Set(this._excludedFiles);
+					let dirty = false;
+					for (const path of this.aiExcludedFiles) {
+						if (!merged.has(path)) {
+							merged.add(path);
+							dirty = true;
+						}
+					}
+					if (dirty) {
+						this._excludedFiles = merged;
+					}
 				}
-				this._excludedFiles = next;
 			}
 		}
 
@@ -147,16 +167,16 @@ export class GlGraphReviewPanel extends LitElement {
 			// the "X of N files excluded" counts.
 			const current = new Set((this.files ?? []).map(f => f.path));
 			let changed = false;
-			const next = new Set<string>();
+			const pruned = new Set<string>();
 			for (const path of this._excludedFiles) {
 				if (current.has(path)) {
-					next.add(path);
+					pruned.add(path);
 				} else {
 					changed = true;
 				}
 			}
 			if (changed) {
-				this._excludedFiles = next;
+				this._excludedFiles = pruned;
 			}
 		}
 	}
@@ -190,7 +210,7 @@ export class GlGraphReviewPanel extends LitElement {
 		}
 
 		if (this.status === 'loading') {
-			return renderLoadingState('Analyzing changes...');
+			return this.renderLoadingWithCancel();
 		}
 
 		if (this.status === 'error') {
@@ -199,10 +219,25 @@ export class GlGraphReviewPanel extends LitElement {
 
 		if (this.status !== 'ready' || !this.result) return nothing;
 
-		return html`${this.renderReadyHeader()}
+		return html`${this.renderReadyHeader()} ${this.renderReadyMetadataBar()}
 			<div class="review-results scrollable">
 				${this.stale ? this.renderStaleBanner() : nothing} ${this.renderOverview()} ${this.renderFocusAreas()}
 			</div>`;
+	}
+
+	private renderLoadingWithCancel() {
+		return html`<div class="review-loading-wrap">
+			${renderLoadingState('Analyzing changes...')}
+			<gl-action-chip
+				class="review-cancel"
+				icon="stop-circle"
+				label="Cancel"
+				overlay="tooltip"
+				@click=${this.handleCancel}
+			>
+				Cancel
+			</gl-action-chip>
+		</div>`;
 	}
 
 	private renderReadyHeader() {
@@ -212,19 +247,64 @@ export class GlGraphReviewPanel extends LitElement {
 		const scopeLabel = this.scopeSummary();
 
 		return html`<div class="review-header">
-			<button
+			<gl-button
 				class="review-header__back"
-				title="Back to Files"
-				aria-label="Back to Files"
+				appearance="toolbar"
+				density="compact"
+				tooltip="Back to Files"
 				@click=${this.handleBack}
 			>
 				<code-icon icon="arrow-left"></code-icon>
-			</button>
+			</gl-button>
 			<span class="review-header__title">Reviewing ${scopeLabel}</span>
 			<span class="review-header__count">
 				<code-icon icon="file"></code-icon>
 				${pluralize('file', includedCount)}
 			</span>
+		</div>`;
+	}
+
+	private renderReadyMetadataBar() {
+		const scope = this.scope;
+		if (!scope) return nothing;
+
+		// Compare-style scopes render their own compact bar so the result view matches the
+		// single-commit framing. Single-commit and WIP scopes inherit the host's bar.
+		if (scope.type !== 'compare') return nothing;
+
+		const fromSha = scope.fromSha;
+		const toSha = scope.toSha;
+		if (!fromSha || !toSha) return nothing;
+
+		const includedCount = scope.includeShas?.length ?? 0;
+
+		return html`<div class="review-metadata">
+			<div class="review-metadata__left">
+				<gl-commit-sha-copy
+					class="review-metadata__sha"
+					appearance="toolbar"
+					tooltip-placement="bottom"
+					copy-label="Copy SHA"
+					copied-label="Copied!"
+					.sha=${fromSha}
+					icon="git-commit"
+				></gl-commit-sha-copy>
+				<span class="review-metadata__dots">..</span>
+				<gl-commit-sha-copy
+					class="review-metadata__sha"
+					appearance="toolbar"
+					tooltip-placement="bottom"
+					copy-label="Copy SHA"
+					copied-label="Copied!"
+					.sha=${toSha}
+					icon="git-commit"
+				></gl-commit-sha-copy>
+			</div>
+			${includedCount > 0
+				? html`<div class="review-metadata__right">
+						<span class="review-metadata__count">${pluralize('commit', includedCount)} selected</span>
+					</div>`
+				: nothing}
 		</div>`;
 	}
 
@@ -269,6 +349,7 @@ export class GlGraphReviewPanel extends LitElement {
 		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
 
 		return html`
+			${this.forwardAvailable ? this.renderForwardBanner() : nothing}
 			${scope.type === 'wip'
 				? html`<gl-split-panel
 						orientation="vertical"
@@ -295,27 +376,33 @@ export class GlGraphReviewPanel extends LitElement {
 					busy-label="Reviewing changes…"
 					event-name="review-run"
 					placeholder='Instructions — e.g. "Focus on security and error handling"'
-					.busy=${this.status === 'loading'}
 					?disabled=${!hasSelectedFiles}
 					@input=${this.onAiInputType}
 				>
 					<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 				</gl-ai-input>
-				${this.forwardAvailable ? this.renderForwardChip() : nothing}
 			</div>
 		`;
 	}
 
-	private renderForwardChip() {
+	private renderForwardBanner() {
 		return html`<button
-			class="review-forward"
-			title="Restore previous review without re-running"
+			class="review-forward-banner"
+			type="button"
+			title="Return to the completed review"
 			@click=${this.handleForward}
 		>
-			<code-icon icon="discard" rotate="180"></code-icon>
-			<span>Restore Previous</span>
+			<code-icon icon="layout-sidebar-right"></code-icon>
+			<span class="review-forward-banner__label">Review Plan Available</span>
+			<span class="review-forward-banner__action">
+				Return to Review <code-icon icon="arrow-right"></code-icon>
+			</span>
 		</button>`;
 	}
+
+	private handleCancel = (): void => {
+		this.dispatchEvent(new CustomEvent('review-cancel', { bubbles: true, composed: true }));
+	};
 
 	private handleForward = (): void => {
 		// Orchestrator owns the snapshot — it'll mutate the resource back to the prior value
@@ -338,44 +425,49 @@ export class GlGraphReviewPanel extends LitElement {
 
 		const aiExcluded = this._aiExcludedSet;
 
-		// Build checkableStates from exclusion/disabled sets
+		// Build checkableStates from exclusion/disabled sets. AI-excluded files are forced to
+		// the unchecked + disabled visual: willUpdate adds them to `_excludedFiles` so `checked`
+		// resolves false, leaving `state: undefined` and `disabled: true` (the file-tree-pane
+		// then renders the checkbox as unchecked + non-interactive).
 		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean }>();
 		for (const file of renderFiles) {
+			const aiDisabled = aiExcluded?.has(file.path) ?? false;
 			const checked = !this._excludedFiles.has(file.path);
-			const disabled = aiExcluded?.has(file.path) ?? false;
-			if (checked || disabled) {
+			if (checked || aiDisabled) {
 				checkableStates.set(file.path, {
 					...(checked ? { state: 'checked' as const } : {}),
-					...(disabled ? { disabled: true } : {}),
+					...(aiDisabled ? { disabled: true } : {}),
 				});
 			}
 		}
 
 		return html`<div class="scope-files__tree">
-			<gl-file-tree-pane
-				.files=${renderFiles}
-				?checkable=${true}
-				?show-file-icons=${true}
-				.collapsable=${false}
-				.filesLayout=${{ layout: this.fileLayout }}
-				.checkableStates=${checkableStates}
-				.fileActions=${this.fileActionsForFile}
-				.fileContext=${this.getFileContext}
-				.searchContext=${this.searchContext}
-				check-verb="Include"
-				uncheck-verb="Exclude"
-				empty-text="No files changed"
-				@file-checked=${this.onFileChecked}
-				@gl-check-all=${this.onToggleCheckAll}
-				@file-open=${this.redispatch}
-				@file-stage=${this.redispatch}
-				@file-unstage=${this.redispatch}
-				@file-compare-working=${this.redispatch}
-				@file-open-on-remote=${this.redispatch}
-				@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
-					this.fileLayout = e.detail.layout;
-				}}
-			></gl-file-tree-pane>
+			<webview-pane-group flexible>
+				<gl-file-tree-pane
+					.files=${renderFiles}
+					?checkable=${true}
+					?show-file-icons=${true}
+					.collapsable=${false}
+					.filesLayout=${{ layout: this.fileLayout }}
+					.checkableStates=${checkableStates}
+					.fileActions=${this.fileActionsForFile}
+					.fileContext=${this.getFileContext}
+					.searchContext=${this.searchContext}
+					check-verb="Include"
+					uncheck-verb="Exclude"
+					empty-text="No files changed"
+					@file-checked=${this.onFileChecked}
+					@gl-check-all=${this.onToggleCheckAll}
+					@file-open=${this.redispatch}
+					@file-stage=${this.redispatch}
+					@file-unstage=${this.redispatch}
+					@file-compare-working=${this.redispatch}
+					@file-open-on-remote=${this.redispatch}
+					@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
+						this.fileLayout = e.detail.layout;
+					}}
+				></gl-file-tree-pane>
+			</webview-pane-group>
 		</div>`;
 	}
 

@@ -78,28 +78,13 @@ export const reviewPanelStyles = css`
 	.review-header {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: 0.4rem;
 		padding: 0.6rem 1.2rem;
 		flex: none;
 	}
 
 	.review-header__back {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 20px;
-		height: 20px;
-		border: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-radius: 3px;
-		background: transparent;
-		color: var(--vscode-charts-purple, #7c3aed);
-		cursor: pointer;
-		--code-icon-size: 12px;
 		flex-shrink: 0;
-	}
-
-	.review-header__back:hover {
-		background: var(--vscode-list-hoverBackground);
 	}
 
 	.review-header__title {
@@ -122,8 +107,113 @@ export const reviewPanelStyles = css`
 		opacity: 0.85;
 	}
 
+	/* Compact metadata bar for compare-style review (multi-commit selection). Mirrors the
+	   single-commit case (rendered by the host gl-commit-details) and the comparison metadata
+	   bar in gl-graph-compare-panel — keeps the result framing consistent across scopes. */
+	.review-metadata {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
+		gap: 0.6rem;
+		flex: none;
+		min-height: var(--gl-metadata-bar-min-height);
+		font-size: var(--gl-font-sm);
+		background-color: var(--gl-metadata-bar-bg);
+		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+	}
+
+	.review-metadata__left {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+	}
+
+	.review-metadata__sha {
+		flex-shrink: 0;
+		font-size: var(--gl-font-base);
+	}
+
+	.review-metadata__dots {
+		color: var(--color-foreground--50);
+		font-family: var(--vscode-editor-font-family, monospace);
+	}
+
+	.review-metadata__right {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		flex-shrink: 0;
+	}
+
+	.review-metadata__count {
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
 	.stale-banner {
 		margin-bottom: 0.8rem;
+	}
+
+	/* Restore-Previous banner: full-width bar pinned right after the header (above the file
+	   curation) so it's the user's first signal that they can return to the prior result
+	   without re-running the AI. Stays muted at rest, sharpens to foreground colour on hover. */
+	.review-forward-banner {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		width: 100%;
+		padding: 0.8rem 1.2rem;
+		flex: none;
+		font: inherit;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+		background: transparent;
+		border: none;
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.review-forward-banner:hover {
+		color: var(--vscode-foreground);
+		background: var(--vscode-list-hoverBackground);
+	}
+
+	.review-forward-banner:focus-visible {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	.review-forward-banner > code-icon {
+		flex-shrink: 0;
+	}
+
+	.review-forward-banner__label {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* Loading state wrapper for the in-flight review — centers the shared spinner and the
+	   Cancel chip as a vertical column so the spinner stays visually anchored. */
+	.review-loading-wrap {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
+		flex: 1;
+		min-height: 0;
+	}
+
+	.review-cancel {
+		padding-bottom: 1.2rem;
 	}
 
 	/* Review scope toggle */
@@ -170,6 +260,14 @@ export const reviewPanelStyles = css`
 		padding: 1.5rem 1rem;
 		color: var(--vscode-charts-green, #4ec9b0);
 		font-weight: 500;
+	}
+
+	.review-forward-banner__action {
+		margin-left: auto;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
 	}
 
 	/* Review areas */
