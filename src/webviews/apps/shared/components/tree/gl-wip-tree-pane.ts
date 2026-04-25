@@ -164,6 +164,7 @@ export class GlWipTreePane extends LitElement {
 			.checkableStates=${this._effectiveStates}
 			.checkableStateDefault=${this.checkableStateDefault}
 			.buttons=${buttons}
+			selection-badge-label="Staged"
 			check-verb="Stage"
 			uncheck-verb="Unstage"
 			@gl-check-all=${this.onCheckAll}

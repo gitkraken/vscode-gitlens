@@ -68,12 +68,18 @@ export const commitBoxStyles = css`
 		background-color: transparent;
 	}
 
+	/* Character count sits flush below the AI sparkle button so the two badges share the
+	   same right edge, reading as a vertical pairing. Brighter than disabled-foreground so
+	   the count is legible at a glance — falls back to the warning/error tints once the
+	   subject line nears the recommended length. */
 	.char-count {
 		position: absolute;
-		bottom: 0.4rem;
-		right: 3.2rem;
+		top: 2.8rem;
+		right: 0.4rem;
+		min-width: 2.4rem;
+		text-align: center;
 		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--25);
+		color: var(--color-foreground--85);
 		pointer-events: none;
 	}
 

@@ -53,7 +53,7 @@ export const commitDetailsStyles = css`
 
 	/* Child Shadow DOM component overrides */
 	:host([variant='embedded']) webview-pane::part(header) {
-		border-top: none;
+		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 		padding-right: calc(var(--gl-panel-padding-right) - 0.4rem);
 		background-color: inherit;
 	}
@@ -97,10 +97,11 @@ export const commitDetailsStyles = css`
 		padding: 0 var(--gl-panel-padding-right) 0 var(--gl-panel-padding-left);
 		gap: 0.6rem;
 		flex: none;
+		min-height: var(--gl-metadata-bar-min-height);
 		font-size: var(--gl-font-sm);
-		background-color: color-mix(in srgb, var(--color-background) 95%, var(--color-foreground) 5%);
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		background-color: var(--gl-metadata-bar-bg);
+		border-top: 1px solid var(--gl-metadata-bar-border);
+		border-bottom: 1px solid var(--gl-metadata-bar-border);
 	}
 	:host([variant='embedded']) .metadata-bar:has(+ .reachability) {
 		border-bottom: none;
@@ -214,8 +215,8 @@ export const commitDetailsStyles = css`
 		padding: 0.2rem var(--gl-panel-padding-right) 0.4rem var(--gl-panel-padding-left);
 		font-size: var(--gl-font-base);
 		flex: none;
-		background-color: color-mix(in srgb, var(--color-background) 95%, var(--color-foreground) 5%);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		background-color: var(--gl-metadata-bar-bg);
+		border-bottom: 1px solid var(--gl-metadata-bar-border);
 	}
 
 	:host([variant='embedded']) .reachability__load-all {

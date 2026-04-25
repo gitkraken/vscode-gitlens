@@ -22,7 +22,12 @@ import type {
 import { messageHeadlineSplitterToken } from '../../../../plus/graph/detailsProtocol.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { redispatch } from '../../../shared/components/element.js';
-import { elementBase, scrollbarThinFor, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
+import {
+	elementBase,
+	metadataBarVarsBase,
+	scrollableBase,
+	subPanelEnterStyles,
+} from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import { comparePanelStyles, panelActionInputStyles, panelHostStyles } from './gl-graph-compare-panel.css.js';
@@ -52,11 +57,12 @@ import './gl-commit-row.js';
 export class GlGraphComparePanel extends LitElement {
 	static override styles = [
 		elementBase,
+		metadataBarVarsBase,
 		panelHostStyles,
 		panelActionInputStyles,
 		comparePanelStyles,
 		subPanelEnterStyles,
-		scrollbarThinFor('.pole-popover__message'),
+		scrollableBase,
 	];
 
 	@property({ type: Object })
@@ -180,7 +186,10 @@ export class GlGraphComparePanel extends LitElement {
 						${cache(
 							hasSubPanel
 								? html`<div class="sub-panel-enter">${this.subPanelContent}</div>`
-								: html`${this.renderPoles()} ${this.renderAutolinksRow()} ${this.renderExplainInput()}
+								: html`<div class="compare-section">
+											${this.renderPoles()} ${this.renderAutolinksRow()}
+											${this.renderExplainInput()}
+										</div>
 										<div class="compare-files">
 											<webview-pane-group flexible>
 												<gl-file-tree-pane
@@ -298,7 +307,7 @@ export class GlGraphComparePanel extends LitElement {
 			.modes=${modes}
 			style="--mode-header-bg: var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background)))"
 		>
-			<span class="compare-header__title">Comparing Between Commits</span>
+			<span class="compare-header__title">Comparing References</span>
 		</gl-details-header>`;
 	}
 
@@ -421,7 +430,9 @@ export class GlGraphComparePanel extends LitElement {
 							.committerEmail=${commit.committer?.email}
 						></gl-signature-details>`
 					: nothing}
-				<div class="pole-popover__message">${message.replaceAll(messageHeadlineSplitterToken, '\n')}</div>
+				<span class="pole-popover__message scrollable"
+					>${message.replaceAll(messageHeadlineSplitterToken, '\n')}</span
+				>
 			</div>
 		</gl-popover>`;
 	}

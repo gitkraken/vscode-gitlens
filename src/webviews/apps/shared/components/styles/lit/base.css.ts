@@ -83,33 +83,6 @@ export const inlineCode = css`
 `;
 
 /**
- * Always-visible thin scrollbar scoped to specific element(s). Pass one or more selectors
- * (use `:host` for the component itself) — they're joined and the thumb/width rules apply to each.
- * Matches the visual contract of `scrollableBase` but with scrollbars always visible.
- */
-export function scrollbarThinFor(...selectors: string[]) {
-	const sel = unsafeCSS(selectors.join(', '));
-	return css`
-		${sel} {
-			scrollbar-width: thin;
-			scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
-		}
-		${sel}::-webkit-scrollbar {
-			width: 10px;
-		}
-		${sel}::-webkit-scrollbar-thumb {
-			background-color: var(--vscode-scrollbarSlider-background);
-		}
-		${sel}::-webkit-scrollbar-thumb:hover {
-			background-color: var(--vscode-scrollbarSlider-hoverBackground);
-		}
-		${sel}::-webkit-scrollbar-thumb:active {
-			background-color: var(--vscode-scrollbarSlider-activeBackground);
-		}
-	`;
-}
-
-/**
  * Fade + slide-up entrance for a sub-panel. Consumer markup: `<div class="sub-panel-enter">…`.
  * Respects `prefers-reduced-motion`.
  */
@@ -149,5 +122,19 @@ export const panelBase = css`
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;
+	}
+`;
+
+/**
+ * Shared metadata-bar visual contract — the tinted strip beneath a panel title used by
+ * single-commit details, multi-commit compare, the WIP secondary header, and review/compose
+ * results. Consumers read `var(--gl-metadata-bar-bg)` etc.; defining the variables on `:host`
+ * keeps any panel that adopts these styles in sync without re-declaring the literal values.
+ */
+export const metadataBarVarsBase = css`
+	:host {
+		--gl-metadata-bar-bg: color-mix(in srgb, var(--color-background) 95%, var(--color-foreground) 5%);
+		--gl-metadata-bar-border: var(--vscode-sideBarSectionHeader-border, var(--color-foreground--25));
+		--gl-metadata-bar-min-height: 2.94rem;
 	}
 `;

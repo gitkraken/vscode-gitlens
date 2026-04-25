@@ -1,11 +1,12 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { fromNow } from '@gitlens/utils/date.js';
-import { elementBase, scrollbarThinFor } from '../../../shared/components/styles/lit/base.css.js';
+import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { detailsScopePaneStyles } from './gl-details-scope-pane.css.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/formatted-date.js';
+import '../../../shared/components/overlays/tooltip.js';
 
 export type ScopeItemState = 'uncommitted' | 'unpushed' | 'pushed' | 'merge-base';
 
@@ -28,7 +29,7 @@ export interface ScopeChangeDetail {
 
 @customElement('gl-details-scope-pane')
 export class GlDetailsScopePane extends LitElement {
-	static override styles = [elementBase, detailsScopePaneStyles, scrollbarThinFor('.details-scope-pane')];
+	static override styles = [elementBase, scrollableBase, detailsScopePaneStyles];
 
 	@property({ type: Array })
 	items: ScopeItem[] = [];
@@ -48,6 +49,7 @@ export class GlDetailsScopePane extends LitElement {
 
 	private _scrollInterval: ReturnType<typeof setInterval> | undefined;
 	private _dragAc: AbortController | undefined;
+	private _previousBodyCursor: string | undefined;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -60,6 +62,7 @@ export class GlDetailsScopePane extends LitElement {
 		this._dragAc?.abort();
 		this._dragAc = undefined;
 		this.stopScrolling();
+		this.restoreBodyCursor();
 	}
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
@@ -97,16 +100,16 @@ export class GlDetailsScopePane extends LitElement {
 		this._userRangeEndId = undefined;
 	}
 
-	/** Effective start: resolves stored ID to index, falls back to 0. */
+	/** Effective start: resolves stored ID to index, falls back to default-start. */
 	private get rangeStart(): number {
 		if (this._userRangeStartId != null) {
 			const idx = this.items.findIndex(item => item.id === this._userRangeStartId);
-			return idx >= 0 ? idx : 0;
+			return idx >= 0 ? idx : this.defaultStart;
 		}
-		return 0;
+		return this.defaultStart;
 	}
 
-	/** Effective end: resolves stored ID to index, falls back to last non-pushed item. */
+	/** Effective end: resolves stored ID to index, falls back to default-end. */
 	private get rangeEnd(): number {
 		if (this._userRangeEndId != null) {
 			const idx = this.items.findIndex(item => item.id === this._userRangeEndId);
@@ -115,15 +118,37 @@ export class GlDetailsScopePane extends LitElement {
 		return this.defaultEnd;
 	}
 
-	/** Index of the last non-pushed item, or -1 if none. */
+	/**
+	 * Default start index. If any uncommitted (WIP) items exist, start at the first one
+	 * so the default selection covers only the WIP rows. Otherwise start at 0.
+	 */
+	private get defaultStart(): number {
+		const firstWip = this.items.findIndex(i => i.state === 'uncommitted');
+		if (firstWip >= 0) return firstWip;
+		return 0;
+	}
+
+	/**
+	 * Default end index, derived from items:
+	 *  - If any WIP items exist, end at the last WIP item (select WIP only).
+	 *  - Else, end at the last unpushed (non-pushed, non-merge-base) item.
+	 *  - Else, end at the first item.
+	 */
 	private get defaultEnd(): number {
-		let last = -1;
+		let lastWip = -1;
+		let lastUnpushed = -1;
 		for (let i = 0; i < this.items.length; i++) {
-			if (this.items[i].state !== 'pushed' && this.items[i].state !== 'merge-base') {
-				last = i;
+			const state = this.items[i].state;
+			if (state === 'uncommitted') {
+				lastWip = i;
+			}
+			if (state !== 'pushed' && state !== 'merge-base') {
+				lastUnpushed = i;
 			}
 		}
-		return last;
+		if (lastWip >= 0) return lastWip;
+		if (lastUnpushed >= 0) return lastUnpushed;
+		return 0;
 	}
 
 	/** Last index that a drag handle can land on (excludes merge-base items). */
@@ -148,15 +173,18 @@ export class GlDetailsScopePane extends LitElement {
 		// so users can discover that the start of the range is also draggable.
 		const showStartHandle = this.mode === 'review' && this.items.length > 1;
 
-		return html`<div class="details-scope-pane ${this._dragging ? 'details-scope-pane--dragging' : ''}">
+		return html`<div class="details-scope-pane scrollable ${this._dragging ? 'details-scope-pane--dragging' : ''}">
 			${this.items.map((item, i) => {
 				const isInRange = i >= activeStart && i <= activeEnd;
 				const isAtEnd = i === activeEnd;
 				const isAtStart = i === activeStart;
+				// Handle's connector should match the upper commit's state, just like
+				// row connectors: 'start' sits below items[i-1], 'end' sits below items[i].
+				const startUpperState = i > 0 ? this.items[i - 1].state : undefined;
 				return html`
-					${isAtStart && showStartHandle ? this.renderHandle('start') : nothing}
+					${isAtStart && showStartHandle ? this.renderHandle('start', startUpperState) : nothing}
 					${this.renderItem(item, i, isInRange)}
-					${isAtEnd && showEndHandle ? this.renderHandle('end') : nothing}
+					${isAtEnd && showEndHandle ? this.renderHandle('end', item.state) : nothing}
 				`;
 			})}
 			${this.loading ? this.renderLoading() : nothing}
@@ -176,14 +204,27 @@ export class GlDetailsScopePane extends LitElement {
 			? 'scope-row scope-row--merge-base'
 			: `scope-row ${isInRange ? 'scope-row--included' : 'scope-row--excluded'}`;
 
-		return html`<div class=${rowClass} role="listitem" data-index=${index} data-state=${item.state}>
+		const prevState = index > 0 ? this.items[index - 1].state : nothing;
+		return html`<div
+			class=${rowClass}
+			role="listitem"
+			data-index=${index}
+			data-state=${item.state}
+			data-prev-state=${prevState}
+		>
 			<span class="scope-row__dot-col">
 				${!isFirst ? html`<span class="scope-row__connector scope-row__connector--above"></span>` : nothing}
 				${this.renderDot(item.state)}
 				${!isLast ? html`<span class="scope-row__connector scope-row__connector--below"></span>` : nothing}
 			</span>
-			<span class="scope-row__label">${item.label}</span>
-			${item.date != null ? html`<span class="scope-row__date">${fromNow(item.date, true)}</span>` : nothing}
+			${isMergeBase || item.state === 'uncommitted'
+				? html`<span class="scope-row__label">${item.label}</span>`
+				: html`<gl-tooltip class="scope-row__label" content=${item.label} placement="bottom-start"
+						><span class="scope-row__label-text">${item.label}</span></gl-tooltip
+					>`}
+			${!isMergeBase && item.date != null
+				? html`<formatted-date class="scope-row__date" .date=${new Date(item.date)} short></formatted-date>`
+				: nothing}
 			${hasStats
 				? html`<commit-stats
 						class="scope-row__stats"
@@ -199,20 +240,22 @@ export class GlDetailsScopePane extends LitElement {
 							symbol="icons"
 						></commit-stats>`
 					: nothing}
-			${item.avatarUrl
+			${!isMergeBase && item.avatarUrl
 				? html`<gl-avatar
 						class="scope-row__avatar"
 						.src=${item.avatarUrl}
 						.name=${item.author ?? ''}
 					></gl-avatar>`
 				: nothing}
+			${isMergeBase ? html`<span class="scope-row__base-tag">Base</span>` : nothing}
 		</div>`;
 	}
 
-	private renderHandle(type: 'start' | 'end') {
+	private renderHandle(type: 'start' | 'end', upperState: ScopeItemState | undefined) {
 		const isActive = this._dragging === type;
 		return html`<div
 			class="scope-handle ${isActive ? 'scope-handle--active' : ''}"
+			data-state=${upperState ?? nothing}
 			@pointerdown=${(e: PointerEvent) => this.handlePointerDown(e, type)}
 		>
 			<div class="scope-handle__bar"></div>
@@ -220,7 +263,8 @@ export class GlDetailsScopePane extends LitElement {
 	}
 
 	private renderLoading() {
-		return html`<div class="scope-row scope-row--loading" role="listitem">
+		const prevState = this.items.at(-1)?.state ?? nothing;
+		return html`<div class="scope-row scope-row--loading" role="listitem" data-prev-state=${prevState}>
 			<span class="scope-row__dot-col">
 				<span class="scope-row__connector scope-row__connector--above"></span>
 				<code-icon icon="loading" modifier="spin"></code-icon>
@@ -251,14 +295,24 @@ export class GlDetailsScopePane extends LitElement {
 		this._dragging = type;
 		this._dragPreview = type === 'end' ? this.rangeEnd : this.rangeStart;
 
-		// Use document-level listeners so drag works even when pointer leaves the webview
+		// Force the resize cursor globally for the duration of the drag so it doesn't
+		// snap back to default whenever the pointer leaves the thumb element. Guard the
+		// snapshot so a re-entrant drag doesn't capture our own override as the "original".
+		if (this._previousBodyCursor === undefined) {
+			this._previousBodyCursor = document.documentElement.style.cursor;
+		}
+		document.documentElement.style.setProperty('cursor', 'ns-resize', 'important');
+
+		// Use window-level listeners so move/up events keep firing while the pointer
+		// is outside the pane bounds — otherwise the preview state stops updating
+		// (the drag looks "stuck") until the cursor re-enters.
 		this._dragAc?.abort();
 		const ac = new AbortController();
 		this._dragAc = ac;
 
-		document.addEventListener('pointermove', this._onDragMove, { signal: ac.signal });
-		document.addEventListener('pointerup', this._onDragEnd, { signal: ac.signal });
-		document.addEventListener('pointercancel', this._onDragEnd, { signal: ac.signal });
+		window.addEventListener('pointermove', this._onDragMove, { signal: ac.signal });
+		window.addEventListener('pointerup', this._onDragEnd, { signal: ac.signal });
+		window.addEventListener('pointercancel', this._onDragEnd, { signal: ac.signal });
 	}
 
 	private _onDragMove = (e: PointerEvent): void => {
@@ -298,6 +352,7 @@ export class GlDetailsScopePane extends LitElement {
 		this._dragAc?.abort();
 		this._dragAc = undefined;
 		this.stopScrolling();
+		this.restoreBodyCursor();
 
 		if (this._dragPreview != null) {
 			const item = this.items[this._dragPreview];
@@ -315,6 +370,13 @@ export class GlDetailsScopePane extends LitElement {
 		this._dragPreview = undefined;
 	};
 
+	private restoreBodyCursor(): void {
+		if (this._previousBodyCursor !== undefined) {
+			document.documentElement.style.cursor = this._previousBodyCursor;
+			this._previousBodyCursor = undefined;
+		}
+	}
+
 	private handleEdgeScroll(e: PointerEvent, container: HTMLElement): void {
 		const rect = container.getBoundingClientRect();
 		const edgeZone = 40; // px from edge to start scrolling
@@ -324,18 +386,19 @@ export class GlDetailsScopePane extends LitElement {
 		const distFromBottom = rect.bottom - e.clientY;
 
 		if (distFromTop < edgeZone && container.scrollTop > 0) {
-			this.startScrolling(container, -scrollSpeed);
+			this.startScrolling(container, -scrollSpeed, e);
 		} else if (distFromBottom < edgeZone && container.scrollTop < container.scrollHeight - container.clientHeight) {
-			this.startScrolling(container, scrollSpeed);
+			this.startScrolling(container, scrollSpeed, e);
 		} else {
 			this.stopScrolling();
 		}
 	}
 
-	private startScrolling(container: HTMLElement, speed: number): void {
+	private startScrolling(container: HTMLElement, speed: number, e: PointerEvent): void {
 		if (this._scrollInterval != null) return;
 		this._scrollInterval = setInterval(() => {
 			container.scrollTop += speed;
+			this._onDragMove(e);
 		}, 16);
 	}
 

@@ -8,7 +8,12 @@ import type { BranchComparisonCommit } from '../../../../plus/graph/graphService
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { redispatch } from '../../../shared/components/element.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
-import { elementBase, scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
+import {
+	elementBase,
+	metadataBarVarsBase,
+	scrollableBase,
+	subPanelEnterStyles,
+} from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 import { wipComparePanelStyles } from './gl-graph-wip-compare-panel.css.js';
 import './gl-commit-row.js';
@@ -17,7 +22,6 @@ import '../../../shared/components/branch-name.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/panes/pane-group.js';
-import '../../../shared/components/skeleton-loader.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/tree/tree.js';
 import '../../../shared/components/tree/tree-item.js';
@@ -29,7 +33,13 @@ export interface CompareRefsChangeRefDetail {
 
 @customElement('gl-graph-wip-compare-panel')
 export class GlGraphWipComparePanel extends LitElement {
-	static override styles = [elementBase, scrollableBase, wipComparePanelStyles, subPanelEnterStyles];
+	static override styles = [
+		elementBase,
+		metadataBarVarsBase,
+		scrollableBase,
+		wipComparePanelStyles,
+		subPanelEnterStyles,
+	];
 
 	@property({ attribute: 'branch-name' })
 	branchName?: string;
@@ -91,9 +101,9 @@ export class GlGraphWipComparePanel extends LitElement {
 	override render(): unknown {
 		// Always render bar + tabs + split, even when there are zero commits on either side.
 		// Tabs show counts of 0; the empty state lives INSIDE the file section so the whole
-		// panel fades in uniformly with no skeleton-then-pop or whole-section disappearance.
-		const showLoadingList = this.loading && this.aheadCommits.length === 0 && this.behindCommits.length === 0;
-
+		// panel fades in uniformly. The ahead/behind list area stays blank during loading —
+		// the panel-level loading indicator covers that case so a list-area skeleton would
+		// just cause an ugly flash.
 		return html`<div class="wip-compare-panel">
 			${this.renderComparisonBar()} ${this.renderTabs()}
 			<gl-split-panel
@@ -103,9 +113,7 @@ export class GlGraphWipComparePanel extends LitElement {
 				position="25"
 				.snap=${this.splitSnap}
 			>
-				<div slot="start" class="wip-compare-split__start">
-					${showLoadingList ? this.renderListSkeleton() : this.renderCommitList()}
-				</div>
+				<div slot="start" class="wip-compare-split__start">${this.renderCommitList()}</div>
 				<div slot="end" class="wip-compare-split__end">${this.renderFileSection()}</div>
 			</gl-split-panel>
 		</div>`;
@@ -121,12 +129,6 @@ export class GlGraphWipComparePanel extends LitElement {
 		if (size - startPx < minEnd) return ((size - minEnd) / size) * 100;
 		return pos;
 	};
-
-	private renderListSkeleton() {
-		return html`<div class="wip-compare-list-skeleton" aria-busy="true" aria-live="polite">
-			<skeleton-loader lines="3"></skeleton-loader>
-		</div>`;
-	}
 
 	private get fileActions(): TreeItemAction[] {
 		return [

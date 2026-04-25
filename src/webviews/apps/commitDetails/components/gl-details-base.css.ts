@@ -1,10 +1,16 @@
 import { css } from 'lit';
-import { elementBase, scrollableBase, subPanelEnterStyles } from '../../shared/components/styles/lit/base.css.js';
+import {
+	elementBase,
+	metadataBarVarsBase,
+	scrollableBase,
+	subPanelEnterStyles,
+} from '../../shared/components/styles/lit/base.css.js';
 
 export const detailsBaseStyles = [
 	elementBase,
 	scrollableBase,
 	subPanelEnterStyles,
+	metadataBarVarsBase,
 	css`
 		:host {
 			display: contents;

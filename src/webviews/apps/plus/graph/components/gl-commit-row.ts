@@ -88,6 +88,17 @@ export class GlCommitRow extends LitElement {
 			flex-shrink: 0;
 		}
 
+		/* When the host opts into right-aligned date layout (date-position="right"),
+		   the leading dot is hidden and the date is pushed to the far edge. Used by the
+		   multi-commit pole-card and ahead/behind list so the row reads "sha · author … date". */
+		:host([date-position='right']) .date {
+			margin-left: auto;
+		}
+
+		:host([date-position='right']) .dot--before-date {
+			display: none;
+		}
+
 		.stats {
 			display: inline-flex;
 			align-items: center;
@@ -116,6 +127,16 @@ export class GlCommitRow extends LitElement {
 	@property({ type: Object })
 	preferences?: Preferences;
 
+	/**
+	 * Controls where the date renders within the meta row.
+	 * - `right` (default): date is pushed to the far edge of the row, separator dot hidden,
+	 *   so the row reads "sha · author … date". Used by the multi-commit pole-card and the
+	 *   ahead/behind list — both consumers want a right-aligned timestamp.
+	 * - `inline`: date follows the author with a leading separator dot for tighter rows.
+	 */
+	@property({ reflect: true, attribute: 'date-position' })
+	datePosition: 'inline' | 'right' = 'right';
+
 	override render(): unknown {
 		const commit = this.commit;
 		if (!commit) return nothing;
@@ -129,7 +150,7 @@ export class GlCommitRow extends LitElement {
 				<span class="sha">${commit.shortSha}</span>
 				<span class="dot" aria-hidden="true">·</span>
 				<span class="author">${commit.author}</span>
-				<span class="dot" aria-hidden="true">·</span>
+				<span class="dot dot--before-date" aria-hidden="true">·</span>
 				<formatted-date
 					class="date"
 					.date=${new Date(commit.date)}

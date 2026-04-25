@@ -24,28 +24,16 @@ export const wipComparePanelStyles = css`
 		overflow: hidden;
 	}
 
-	/* Skeleton — only the commit-list area; bar + tabs render immediately from props. */
-
-	.wip-compare-list-skeleton {
-		display: flex;
-		flex-direction: column;
-		gap: 0.8rem;
-		padding: 0.8rem 1.2rem;
-	}
-
-	.wip-compare-list-skeleton skeleton-loader {
-		--skeleton-line-height: 2.4;
-	}
-
 	/* Compare bar: left ref / WT toggle / swap / right ref. The swap chip gets explicit
 	   inline margins so the WT toggle doesn't visually merge with it. */
 
 	.wip-compare-bar {
 		display: flex;
 		align-items: center;
-		gap: 1.2rem;
+		gap: 6px;
+		min-width: 0;
 		padding: 0.5rem 1.2rem;
-		background: var(--color-background--level-05);
+		background: var(--gl-metadata-bar-bg);
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 		flex: none;
 	}
@@ -55,11 +43,16 @@ export const wipComparePanelStyles = css`
 		align-items: center;
 		gap: 0.4rem;
 		min-width: 0;
-		flex: 1 1 0;
+		flex: 0 1 auto;
+	}
+
+	.wip-compare-bar__group gl-branch-name {
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	/* Refs flex equally so neither dominates; min-width:0 lets the inner button ellipsize.
-	   The right-side ref also flexes 1 1 0 so the layout stays balanced. */
+	   The right-side ref also flexes 0 1 auto so it can shrink under tight viewports. */
 	.wip-compare-ref {
 		min-width: 0;
 		max-width: 100%;
@@ -75,26 +68,27 @@ export const wipComparePanelStyles = css`
 	}
 
 	/* Tooltip wrappers around the branch buttons must take up flexible space and clip overflow
-	   so the inner gl-branch-name's label can ellipsize. Each side gets equal share. */
+	   so the inner gl-branch-name's label can ellipsize. */
 	.wip-compare-bar > gl-tooltip {
 		display: flex;
 		min-width: 0;
-		flex: 1 1 0;
+		flex: 0 1 auto;
 		overflow: hidden;
 	}
 
 	.wip-compare-bar > gl-tooltip > gl-branch-name {
 		min-width: 0;
 		max-width: 100%;
+		overflow: hidden;
 	}
 
 	.wip-compare-swap {
-		flex-shrink: 0;
+		flex: 0 0 auto;
 		margin-inline: 0.2rem;
 	}
 
 	.wip-compare-wt-toggle {
-		flex-shrink: 0;
+		flex: 0 0 auto;
 	}
 
 	.wip-compare-wt-toggle--active {
@@ -112,7 +106,7 @@ export const wipComparePanelStyles = css`
 	.wip-compare-tabs {
 		display: flex;
 		border-bottom: 2px solid var(--vscode-sideBarSectionHeader-border);
-		background: var(--color-background--level-05);
+		background: var(--gl-metadata-bar-bg);
 		flex: none;
 	}
 
@@ -210,15 +204,33 @@ export const wipComparePanelStyles = css`
 		overflow: hidden;
 	}
 
-	/* Commit list — gl-tree with shared gl-commit-row content. Inherits .scrollable behavior
-	   (fade-on-hover) from elementBase via the .scrollable class on the container. */
+	.wip-compare-split__start {
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+	}
+
+	/* Commit list scrollbar is gated to commit-list hover/focus-within (not the host-hover
+	   pattern from scrollableBase) so it doesn't flash when the user hovers the file pane. */
 
 	.wip-compare-commits {
 		height: 100%;
 		min-height: 0;
 		overflow-y: auto;
-		border-bottom: 1px solid
-			color-mix(in srgb, var(--color-foreground) 15%, var(--vscode-panel-border, transparent));
+	}
+
+	.wip-compare-commits.scrollable {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	.wip-compare-commits.scrollable:hover,
+	.wip-compare-commits.scrollable:focus-within {
+		border-color: var(--vscode-scrollbarSlider-background);
+		transition: none;
+	}
+
+	:host(:hover) .wip-compare-commits.scrollable:not(:hover):not(:focus-within),
+	:host(:focus-within) .wip-compare-commits.scrollable:not(:hover):not(:focus-within) {
+		border-color: transparent;
 	}
 
 	/* Tighten the commit list's leading gutter so rows start near the panel edge instead of
@@ -254,6 +266,19 @@ export const wipComparePanelStyles = css`
 		flex: 1;
 		min-width: 0;
 		align-items: flex-start;
+	}
+
+	/* Align the tree-item row chrome with the multi-commit pole-card padding so both
+	   presentations of gl-commit-row read the same. */
+	.wip-compare-commit::part(item) {
+		padding: 0.55rem 1.2rem;
+		gap: 0.4rem;
+		align-items: center;
+	}
+
+	.wip-compare-commit gl-commit-row {
+		flex: 1;
+		min-width: 0;
 	}
 
 	/* Selected-commit marker: 3px LEFT edge in the prominent color so the user can see at a
@@ -362,8 +387,6 @@ export const wipComparePanelStyles = css`
 	.wip-compare-files gl-file-tree-pane::part(header) {
 		padding-right: calc(1.2rem - 0.6rem);
 		background-color: inherit;
-		border-top: 1px solid transparent;
-		border-bottom: 1px solid transparent;
 	}
 
 	.wip-compare-files--scoped gl-file-tree-pane::part(header) {
@@ -372,15 +395,17 @@ export const wipComparePanelStyles = css`
 			var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 18%,
 			transparent
 		);
-		border-top-color: color-mix(
-			in srgb,
-			var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 45%,
-			transparent
-		);
-		border-bottom-color: color-mix(
-			in srgb,
-			var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 30%,
-			transparent
-		);
+		border-top: 1px solid
+			color-mix(
+				in srgb,
+				var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 45%,
+				transparent
+			);
+		border-bottom: 1px solid
+			color-mix(
+				in srgb,
+				var(--vscode-statusBarItem-prominentBackground, var(--vscode-toolbar-hoverBackground)) 30%,
+				transparent
+			);
 	}
 `;

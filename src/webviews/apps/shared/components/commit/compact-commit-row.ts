@@ -6,6 +6,7 @@ import { commitPopoverStyles, getCommitHeadline, renderCommitPopoverContent } fr
 import '../code-icon.js';
 import '../overlays/popover.js';
 import '../avatar/avatar.js';
+import { scrollableBase } from '../styles/lit/base.css.js';
 
 export type { CompactCommitAuthor } from './commit-popover-content.js';
 export type CompactCommitRowVariant = 'avatar' | 'dot';
@@ -14,6 +15,7 @@ export type CompactCommitDotState = 'uncommitted' | 'unpushed' | 'pushed';
 @customElement('gl-compact-commit-row')
 export class GlCompactCommitRow extends LitElement {
 	static override styles = [
+		scrollableBase,
 		commitPopoverStyles,
 		css`
 			:host {

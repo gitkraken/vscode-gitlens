@@ -31,6 +31,7 @@ import '../../../shared/components/ai-input.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/split-panel/split-panel.js';
+import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-details-scope-pane.js';
 
@@ -116,13 +117,25 @@ export class GlGraphComposePanel extends LitElement {
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
-			this._aiExcludedSet = this.aiExcludedFiles?.length ? new Set(this.aiExcludedFiles) : undefined;
-			if (this.aiExcludedFiles?.length) {
-				const next = new Set(this._excludedFiles);
-				for (const path of this.aiExcludedFiles) {
-					next.add(path);
+			const next = this.aiExcludedFiles?.length ? new Set(this.aiExcludedFiles) : undefined;
+			const prev = this._aiExcludedSet;
+			const sameSize = (next?.size ?? 0) === (prev?.size ?? 0);
+			const sameContent = sameSize && (!next || [...next].every(p => prev?.has(p)));
+			if (!sameContent) {
+				this._aiExcludedSet = next;
+				if (this.aiExcludedFiles?.length) {
+					const merged = new Set(this._excludedFiles);
+					let dirty = false;
+					for (const path of this.aiExcludedFiles) {
+						if (!merged.has(path)) {
+							merged.add(path);
+							dirty = true;
+						}
+					}
+					if (dirty) {
+						this._excludedFiles = merged;
+					}
 				}
-				this._excludedFiles = next;
 			}
 		}
 
@@ -161,7 +174,21 @@ export class GlGraphComposePanel extends LitElement {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
 		this.setAttribute('aria-label', 'Compose Changes');
+		// Flip overflow from hidden to auto only after the slide-up settles, preventing
+		// scrollbar flicker as the transform animates.
+		this.addEventListener('animationend', this.onAnimationEnd);
 	}
+
+	override disconnectedCallback(): void {
+		this.removeEventListener('animationend', this.onAnimationEnd);
+		super.disconnectedCallback?.();
+	}
+
+	private onAnimationEnd = (e: AnimationEvent): void => {
+		if (e.animationName === 'sub-panel-enter') {
+			this.setAttribute('data-anim-done', '');
+		}
+	};
 
 	private handleForward = (): void => {
 		this.dispatchEvent(new CustomEvent('compose-forward', { bubbles: true, composed: true }));
@@ -180,12 +207,29 @@ export class GlGraphComposePanel extends LitElement {
 	private renderForwardChip() {
 		return html`<button
 			class="review-forward"
-			title="Restore previous compose without re-running"
+			title="Return to the completed compose plan"
 			@click=${this.handleForward}
 		>
-			<code-icon icon="discard" rotate="180"></code-icon>
-			<span>Restore Previous</span>
+			<code-icon icon="layout-sidebar-right"></code-icon>
+			<span>Compose Plan Available</span>
+			<span class="review-forward__action"> Return to Plan <code-icon icon="arrow-right"></code-icon> </span>
 		</button>`;
+	}
+
+	private handleCancel = (): void => {
+		this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true }));
+	};
+
+	private renderCancelChip() {
+		return html`<gl-action-chip
+			class="compose-cancel"
+			icon="stop-circle"
+			label="Cancel"
+			overlay="tooltip"
+			@click=${this.handleCancel}
+		>
+			<span>Cancel</span>
+		</gl-action-chip>`;
 	}
 
 	override render() {
@@ -198,7 +242,9 @@ export class GlGraphComposePanel extends LitElement {
 		}
 
 		if (this.status === 'loading') {
-			return renderLoadingState('Composing changes...');
+			// Cancel chip lets the user abort an in-flight AI call; the orchestrator wires
+			// `compose-cancel` to the actual cancellation plumbing.
+			return html`${renderLoadingState('Composing changes...')}${this.renderCancelChip()}`;
 		}
 
 		if (this.status === 'error') {
@@ -233,11 +279,13 @@ export class GlGraphComposePanel extends LitElement {
 			>
 				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 			</gl-ai-input>
-			${this.forwardAvailable ? this.renderForwardChip() : nothing}
 		</div>`;
+
+		const forwardBar = this.forwardAvailable ? this.renderForwardChip() : nothing;
 
 		if (!hasPicker) {
 			return html`
+				${forwardBar}
 				<div class="review-idle">
 					<div class="review-idle__scope">
 						<code-icon icon="wand"></code-icon>
@@ -253,6 +301,7 @@ export class GlGraphComposePanel extends LitElement {
 		}
 
 		return html`
+			${forwardBar}
 			<gl-split-panel
 				orientation="vertical"
 				primary="start"
@@ -295,28 +344,30 @@ export class GlGraphComposePanel extends LitElement {
 		}
 
 		return html`<div class="scope-files__tree">
-			<gl-file-tree-pane
-				.files=${files}
-				?checkable=${true}
-				?show-file-icons=${true}
-				.collapsable=${false}
-				.filesLayout=${{ layout: this.fileLayout }}
-				.checkableStates=${checkableStates}
-				.fileActions=${this.idleFileActionsForFile}
-				.fileContext=${this.getIdleFileContext}
-				.searchContext=${this.searchContext}
-				check-verb="Include"
-				uncheck-verb="Exclude"
-				empty-text="No files changed"
-				@file-checked=${this.onFileChecked}
-				@gl-check-all=${this.onToggleCheckAll}
-				@file-open=${this.redispatch}
-				@file-stage=${this.redispatch}
-				@file-unstage=${this.redispatch}
-				@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
-					this.fileLayout = e.detail.layout;
-				}}
-			></gl-file-tree-pane>
+			<webview-pane-group flexible>
+				<gl-file-tree-pane
+					.files=${files}
+					?checkable=${true}
+					?show-file-icons=${true}
+					.collapsable=${false}
+					.filesLayout=${{ layout: this.fileLayout }}
+					.checkableStates=${checkableStates}
+					.fileActions=${this.idleFileActionsForFile}
+					.fileContext=${this.getIdleFileContext}
+					.searchContext=${this.searchContext}
+					check-verb="Include"
+					uncheck-verb="Exclude"
+					empty-text="No files changed"
+					@file-checked=${this.onFileChecked}
+					@gl-check-all=${this.onToggleCheckAll}
+					@file-open=${this.redispatch}
+					@file-stage=${this.redispatch}
+					@file-unstage=${this.redispatch}
+					@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
+						this.fileLayout = e.detail.layout;
+					}}
+				></gl-file-tree-pane>
+			</webview-pane-group>
 		</div>`;
 	}
 
@@ -391,6 +442,12 @@ export class GlGraphComposePanel extends LitElement {
 
 		const filesContent = this.renderSelectedCommitFiles();
 		const hasFiles = filesContent !== nothing;
+		const isLoading = this.status === 'loading';
+		const totalFiles = this.commits.reduce((sum, c) => sum + c.files.length, 0);
+
+		const commitAllRow = html`<div class="compose-plan__commit-all">
+			<gl-button full @click=${this.handleCommitAll}>Commit All</gl-button>
+		</div>`;
 
 		const listEl = html`<div class="compose-plan__list scrollable">
 			${this.commits.map((commit, i) => this.renderProposedCommit(commit, i))}
@@ -400,7 +457,7 @@ export class GlGraphComposePanel extends LitElement {
 		const body = hasFiles
 			? html`<gl-split-panel class="compose-plan__split" orientation="vertical" primary="end" position="50">
 					<div slot="start" class="compose-plan__split-start">${listEl}</div>
-					<div slot="end" class="compose-plan__split-end">${filesContent}</div>
+					<div slot="end" class="compose-plan__split-end">${commitAllRow}${filesContent}</div>
 				</gl-split-panel>`
 			: listEl;
 
@@ -408,13 +465,25 @@ export class GlGraphComposePanel extends LitElement {
 			<div class="compose-plan">
 				${this.stale ? this.renderStaleBanner() : nothing}
 				<div class="compose-plan__header">
-					<button class="compose-plan__back" @click=${this.handleBack}>
+					<gl-button
+						class="compose-plan__back"
+						appearance="toolbar"
+						density="compact"
+						tooltip="Back to Compose"
+						@click=${this.handleBack}
+					>
 						<code-icon icon="arrow-left"></code-icon>
-					</button>
+					</gl-button>
 					<span class="compose-plan__title">Compose Plan</span>
 					<span class="compose-plan__count">
-						<code-icon icon="git-commit"></code-icon>
-						${pluralize('commit', this.commits.length)}
+						<span class="compose-plan__count-item">
+							<code-icon icon="git-commit"></code-icon>
+							${pluralize('commit', this.commits.length)}
+						</span>
+						<span class="compose-plan__count-item">
+							<code-icon icon="files"></code-icon>
+							${pluralize('file', totalFiles)}
+						</span>
 					</span>
 				</div>
 				${body}
@@ -428,14 +497,11 @@ export class GlGraphComposePanel extends LitElement {
 				busy-label="Recomposing…"
 				event-name="compose-refine"
 				placeholder='Refine — e.g. "Merge commits 1 and 2, they&apos;re related"'
-				.busy=${this.status === 'loading'}
+				.busy=${isLoading}
 			>
 				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 			</gl-ai-input>
-			<div class="compose-plan__actions">
-				<gl-button full @click=${this.handleCommitAll}>Commit All</gl-button>
-				<gl-button full appearance="secondary" @click=${this.handleOpenComposer}>Open in Composer</gl-button>
-			</div>
+			${hasFiles ? nothing : html`<div class="compose-plan__actions">${commitAllRow}</div>`}
 		`;
 	}
 
@@ -514,7 +580,7 @@ export class GlGraphComposePanel extends LitElement {
 			.filesLayout=${{ layout: this._fileLayout }}
 			.collapsable=${false}
 			show-file-icons
-			header="Changes"
+			header="File Changes"
 			.fileActions=${this.fileActionsForFile}
 			.fileContext=${this.getFileContext}
 			@file-open=${this.redispatch}
@@ -599,9 +665,5 @@ export class GlGraphComposePanel extends LitElement {
 				composed: true,
 			}),
 		);
-	}
-
-	private handleOpenComposer(): void {
-		this.dispatchEvent(new CustomEvent('compose-open-composer', { bubbles: true, composed: true }));
 	}
 }

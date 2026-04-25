@@ -139,6 +139,7 @@ export const panelScopeSplitStyles = css`
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.scope-split__files {
@@ -164,6 +165,12 @@ export const panelScopeSplitStyles = css`
 		margin-top: 0.4rem;
 		padding-left: 0.6rem;
 		padding-right: 0.6rem;
+	}
+
+	.scope-files__tree webview-pane-group {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
 	}
 `;
 
