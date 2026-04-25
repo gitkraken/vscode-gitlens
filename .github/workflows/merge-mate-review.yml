@@ -1,7 +1,7 @@
 name: Merge Mate Review
 on:
     issue_comment:
-        types: [edited]
+        types: [created]
     workflow_dispatch:
         inputs:
             pr-number:
@@ -15,9 +15,15 @@ on:
                 options:
                     - apply
                     - undo
+            trigger-mode:
+                description: 'Trigger source'
+                required: false
+                default: workflow_dispatch
+                type: string
 permissions:
     contents: write
     pull-requests: write
+    issues: write
     id-token: write
 concurrency:
     group: merge-mate-review-${{ github.event.issue.number || inputs.pr-number }}
@@ -28,12 +34,13 @@ jobs:
             github.event_name == 'workflow_dispatch' ||
             (
                 github.event.issue.pull_request &&
-                github.event.comment.user.login == 'github-actions[bot]' &&
+                github.event.sender.type != 'Bot' &&
                 contains(fromJSON('["eamodio", "d13", "ramin-t", "sergeibbb", "justinrobots", "ianhattendorf"]'), github.event.sender.login)
             )
         runs-on: ubuntu-latest
         steps:
-            - uses: gitkraken/merge-mate-action/review@v0.2
+            - uses: gitkraken/merge-mate-action/review@v0.3.0
               with:
-                  pr-number: ${{ inputs.pr-number }}
+                  pr-number: ${{ github.event.issue.number || inputs.pr-number }}
                   action: ${{ inputs.action }}
+                  trigger-mode: ${{ inputs.trigger-mode }}
