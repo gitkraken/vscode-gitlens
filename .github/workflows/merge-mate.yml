@@ -11,9 +11,9 @@ on:
                 options:
                     - resolved-only
                     - auto
-                    - hidden-only
+                    - review
                     - dry-run
-                default: hidden-only
+                default: review
 permissions:
     contents: write
     pull-requests: write
@@ -22,11 +22,11 @@ jobs:
     sync:
         runs-on: ubuntu-latest
         steps:
-            - uses: gitkraken/merge-mate-action/sync@v0.2
+            - uses: gitkraken/merge-mate-action/sync@v0.3.0
               with:
                   ai-provider: gitkraken
                   ai-api-key: ${{ secrets.GK_AI_PROVISIONER_TOKEN }}
-                  apply-policy: ${{ inputs.apply-policy || 'hidden-only' }}
+                  apply-policy: ${{ inputs.apply-policy || 'review' }}
                   pr-filter: |
                       target-branches:
                           - "main"
