@@ -225,7 +225,7 @@ export class OnboardingService implements Disposable {
 		const onboarding = this.getOnboarding(scope);
 		const dismissed = onboarding.items[key]?.dismissedAt != null;
 
-		updateRecordValue(onboarding.items, key, undefined);
+		onboarding.items = updateRecordValue(onboarding.items, key, undefined);
 
 		await this.saveOnboarding(scope, onboarding);
 		if (dismissed) {
