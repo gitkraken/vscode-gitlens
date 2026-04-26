@@ -65,7 +65,7 @@ export class GlDetailsWipHeader extends LitElement {
 		>
 			<div class="graph-details-header__title-group">
 				<span class="graph-details-header__wip-title"
-					>${this.activeMode === 'compare' ? 'Compare References' : 'Working Changes'}</span
+					>${this.activeMode === 'compare' ? 'Comparing References' : 'Working Changes'}</span
 				>
 				${this.activeMode !== 'compare'
 					? files.length > 0

@@ -197,11 +197,13 @@ export async function executeComposeCommit(
 			};
 		}
 	} catch (ex) {
+		const warning = `Compose committed but restoring working changes failed: ${
+			ex instanceof Error ? ex.message : String(ex)
+		}. Stash "${stashLabel}" preserved for manual recovery.`;
+		void window.showWarningMessage(warning);
 		return {
 			success: true as const,
-			warning: `Compose committed but restoring working changes failed: ${
-				ex instanceof Error ? ex.message : String(ex)
-			}. Stash "${stashLabel}" preserved for manual recovery.`,
+			warning: warning,
 		};
 	}
 

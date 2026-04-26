@@ -12,4 +12,16 @@ export const badgeBase = css`
 		padding: 0 0.8rem 0.1rem;
 		white-space: nowrap;
 	}
+
+	:host([appearance='filled']) .badge {
+		background-color: var(--vscode-badge-background);
+		color: var(--vscode-badge-foreground);
+		border: none;
+		font-weight: 500;
+		line-height: 1;
+		min-width: 1.6rem;
+		justify-content: center;
+		padding: 0.2rem 0.4rem;
+		border-radius: 0.4rem;
+	}
 `;

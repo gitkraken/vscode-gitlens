@@ -27,18 +27,13 @@ import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
-import type {
-	CommitDetails,
-	CommitFileChange,
-	CommitSignatureShape,
-	Preferences,
-	Wip,
-} from '../../../../plus/graph/detailsProtocol.js';
+import type { CommitDetails, CommitSignatureShape, Preferences, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	BranchCommitEntry,
 	BranchComparisonCommit,
 	BranchComparisonContributor,
 	BranchComparisonContributorsScope,
+	BranchComparisonFile,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
@@ -108,12 +103,14 @@ function createDurableState() {
 		{ sha: string; message: string; author?: string; avatarUrl?: string; date?: string } | undefined
 	>(undefined);
 	const branchCommitsFetching = signal(false);
+	const branchCommitsHasMore = signal(false);
+	const branchCommitsLoadingMore = signal(false);
 
 	// Branch comparison results — split across the two phases of the progressive load.
 	// Phase 1 (Summary): counts + the All Files diff. Lands on refs/wip change.
 	const branchCompareAheadCount = signal(0);
 	const branchCompareBehindCount = signal(0);
-	const branchCompareAllFiles = signal<CommitFileChange[]>([]);
+	const branchCompareAllFiles = signal<BranchComparisonFile[]>([]);
 	const branchCompareAllFilesCount = signal(0);
 	// Phase 2 (Side): per-side commits, each carrying its `files` inline. Loaded lazily on
 	// first activation of Ahead or Behind. Per-commit selection scoping is then a pure
@@ -187,6 +184,8 @@ function createDurableState() {
 		branchCommits: branchCommits,
 		branchMergeBase: branchMergeBase,
 		branchCommitsFetching: branchCommitsFetching,
+		branchCommitsHasMore: branchCommitsHasMore,
+		branchCommitsLoadingMore: branchCommitsLoadingMore,
 
 		branchCompareAheadCount: branchCompareAheadCount,
 		branchCompareBehindCount: branchCompareBehindCount,
@@ -253,6 +252,7 @@ function createTransientState() {
 	const branchCompareRightRef = signal<string | undefined>(undefined);
 	const branchCompareRightRefType = signal<'branch' | 'tag' | 'commit' | undefined>(undefined);
 	const branchCompareIncludeWorkingTree = signal(false);
+	const branchCompareStale = signal(false);
 	const branchCompareActiveTab = signal<'all' | 'ahead' | 'behind'>('all');
 	// Per-tab "scope to this commit" selection. Persisted across tab switches so that returning
 	// to e.g. Ahead with a previously-selected commit X restores the scoped file view (alongside
@@ -294,6 +294,7 @@ function createTransientState() {
 		branchCompareRightRef: branchCompareRightRef,
 		branchCompareRightRefType: branchCompareRightRefType,
 		branchCompareIncludeWorkingTree: branchCompareIncludeWorkingTree,
+		branchCompareStale: branchCompareStale,
 		branchCompareActiveTab: branchCompareActiveTab,
 		branchCompareSelectedCommitShaByTab: branchCompareSelectedCommitShaByTab,
 		branchCompareSelectedCommitSha: branchCompareSelectedCommitSha,

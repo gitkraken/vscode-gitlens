@@ -17,7 +17,7 @@ import { resolveDetailsActions } from './detailsResolver.js';
 import type { DetailsContext, DetailsState } from './detailsState.js';
 import { createDetailsState } from './detailsState.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
-import type { ReviewDrillDetail, ReviewOpenFileDetail } from './gl-details-review-mode-panel.js';
+import type { ReviewAnalyzeAreaDetail, ReviewOpenFileDetail } from './gl-details-review-mode-panel.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
@@ -202,26 +202,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			if (this.isMultiCommit) {
 				void this._actions.fetchCompareDetails(this.shas, this.repoPath);
 			} else {
-				void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
+				// Only ask the host for search-context when the graph actually has search results —
+				// the host returns undefined when there's no active search, so the IPC is wasted in
+				// the common no-search case.
+				const searchActive = this._graphState?.searchResults != null;
+				void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability, {
+					searchActive: searchActive,
+				});
 			}
 		}
-	}
 
-	override updated(changedProperties: Map<string, unknown>): void {
-		if (changedProperties.has('_remoteServices') && this._remoteServices != null && !this._servicesResolved) {
-			this._servicesResolved = true;
-			void this.resolveServices(this._remoteServices);
-		}
-
-		// React to repo-relevant signal changes (working tree, branch state). WIP data refreshes
-		// even during active modes so the scope picker and file list stay current. The scope
-		// picker uses ID-based selection, so item list changes don't clobber the user's drag.
-		//
-		// We only check OBJECT IDENTITY here — the host's `notifyDidChangeWorkingTree` does the
-		// authoritative dedup (including a stagedCount fingerprint so external SCM stage/unstage
-		// fires through). A value-based equality check at this layer would silently drop those
-		// staging-only notifications because added/deleted/modified totals don't change when a
-		// file moves between staged and unstaged.
 		if (this._graphState != null) {
 			const wts = this._graphState.workingTreeStats;
 			const bs = this._graphState.branchState;
@@ -236,18 +226,31 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._lastWorkingTreeStats = wts;
 				this._lastBranchState = bs;
 				if (this.isWip) {
-					// Quiet refresh: replace the WIP file list without clearing enrichment, so
-					// the merge-target badge / autolinks / issues don't flicker through empty.
 					const repoPath = this.effectiveRepoPath;
 					if (repoPath != null) {
 						void this._actions?.refetchWipQuiet(repoPath);
 					}
-					// Also refresh branch commits when in a mode that shows the scope picker
 					if (this._state.activeMode.get() != null) {
 						void this._actions?.fetchBranchCommits(this.effectiveRepoPath);
 					}
 				}
 			}
+		}
+
+		// Resolve content for this render cycle here (not in render) so render stays free of
+		// `this` assignments. willUpdate runs synchronously immediately before render, so the
+		// cached value is always fresh by the time render reads it.
+		const current = this._actions != null ? this.resolveContent() : undefined;
+		this._resolvedThisCycle = current;
+		if (current != null) {
+			this._lastResolved = current;
+		}
+	}
+
+	override updated(changedProperties: Map<string, unknown>): void {
+		if (changedProperties.has('_remoteServices') && this._remoteServices != null && !this._servicesResolved) {
+			this._servicesResolved = true;
+			void this.resolveServices(this._remoteServices);
 		}
 
 		if (changedProperties.has('sha') || changedProperties.has('shas') || changedProperties.has('repoPath')) {
@@ -269,13 +272,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// signal-driven re-render). Repo-change subscription re-wires via the controller's
 			// hostUpdate hook.
 		}
-
-		// Cache the currently-resolved content so the next render can reuse it during a
-		// transient data clear (prevents the skeleton from flashing while a fetch is in flight).
-		const current = this.resolveContent();
-		if (current != null) {
-			this._lastResolved = current;
-		}
 	}
 
 	private async resolveServices(services: Remote<GraphServices>): Promise<void> {
@@ -292,7 +288,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, this.repoPath);
 		} else {
-			void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
+			// Mirror the willUpdate path: only fire searchContext IPC when the graph has live
+			// search results. Without this, a panel that resolves services while search is active
+			// would skip getSearchContext for the initial selection until the user changes shas.
+			const searchActive = this._graphState?.searchResults != null;
+			void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability, {
+				searchActive: searchActive,
+			});
 		}
 
 		// If we're in a mode that needs branch commits and they haven't loaded yet, fetch now
@@ -307,6 +309,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private _lastResolved: ResolvedContent | undefined;
+	private _resolvedThisCycle: ResolvedContent | undefined;
 
 	private resolveByContext(ctx: DetailsContext): ResolvedContent {
 		switch (ctx) {
@@ -337,12 +340,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		const current = this.resolveContent();
+		const current = this._resolvedThisCycle;
 		// Preserve the last-rendered content while a fetch is in flight so we don't flash to
 		// a skeleton on transient signal clears (e.g. sha → uncommittedSha swap). Only reuse
 		// the cache when the effective context matches — otherwise we'd show stale wip content
-		// while the user navigated to a commit (or vice versa). The cache itself is written
-		// in updated() so render stays free of `this` assignments.
+		// while the user navigated to a commit (or vice versa).
 		const resolved =
 			current ??
 			(this.isLoading && this._lastResolved?.context === this.effectiveContext ? this._lastResolved : undefined);
@@ -401,28 +403,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.mergeTargetStatus=${this._state.wipMergeTarget.get()}
 				.mergeTargetStatusLoading=${this._state.wipMergeTargetLoading.get()}
 				@toggle-mode=${this.handleToggleMode}
-				@refresh-wip=${() => {
-					this._actions.refreshWip();
-					void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
-				}}
-				@switch-branch=${() => this._actions.switchBranch(this.effectiveRepoPath)}
-				@create-branch=${() => this._actions.createBranch(this.effectiveRepoPath)}
-				@compare-with-merge-target=${(
-					e: CustomEvent<{ rightRef: string; rightRefType: 'branch' | 'commit' }>,
-				) => {
-					e.preventDefault();
-					this.suppressContentOverflow();
-					this._workflow.toggleMode('compare', this.currentSelection(), {
-						rightRef: e.detail.rightRef,
-						rightRefType: e.detail.rightRefType,
-					});
-				}}
-				@publish-branch=${() => void this._actions.services.repository.push(this.effectiveRepoPath!)}
-				@pull=${() => void this._actions.services.repository.pull(this.effectiveRepoPath!)}
-				@push=${() => void this._actions.services.repository.push(this.effectiveRepoPath!)}
-				@fetch=${() => void this._actions.services.repository.fetch(this.effectiveRepoPath!)}
-				@remove-associated-issue=${(e: CustomEvent<{ entityId: string }>) =>
-					void this._actions.removeAssociatedIssue(e.detail.entityId)}
+				@refresh-wip=${this.handleRefreshWip}
+				@switch-branch=${this.handleSwitchBranch}
+				@create-branch=${this.handleCreateBranch}
+				@compare-with-merge-target=${this.handleCompareWithMergeTarget}
+				@publish-branch=${this.handlePublishBranch}
+				@pull=${this.handlePull}
+				@push=${this.handlePush}
+				@fetch=${this.handleFetch}
+				@remove-associated-issue=${this.handleRemoveAssociatedIssue}
 			></gl-details-wip-header>
 			${activeMode === 'review'
 				? this.renderReviewMode()
@@ -451,7 +440,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 											@file-unstage=${this.handleFileUnstage}
 											@stage-all=${this.handleStageAll}
 											@unstage-all=${this.handleUnstageAll}
-											@stash-save=${() => this._actions.stashSave(this.effectiveRepoPath)}
+											@stash-save=${this.handleStashSave}
 											@change-files-layout=${this.handleChangeFilesLayout}
 											@open-multiple-changes=${this.handleOpenMultipleChanges}
 										></gl-details-wip-panel>
@@ -464,39 +453,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.canCommit=${this._actions.canCommit()}
 										.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
 										.commitError=${this._state.commitError.get()}
-										@message-change=${(e: CustomEvent<{ value: string }>) => {
-											this._state.commitMessage.set(e.detail.value);
-											this._state.commitError.set(undefined);
-										}}
-										@amend-change=${(e: CustomEvent<{ checked: boolean }>) => {
-											this._state.amend.set(e.detail.checked);
-											if (e.detail.checked) {
-												void this._actions.loadLastCommitMessage(this.effectiveRepoPath);
-											} else {
-												this._state.commitMessage.set('');
-											}
-										}}
-										@commit=${() => void this._actions.commit(this.effectiveRepoPath, this.sha)}
-										@generate-message=${() =>
-											void this._actions.generateMessage(this.effectiveRepoPath)}
-										@compose=${() => this._workflow.toggleMode('compose', this.currentSelection())}
+										@message-change=${this.handleCommitMessageChange}
+										@amend-change=${this.handleAmendChange}
+										@commit=${this.handleCommit}
+										@generate-message=${this.handleGenerateMessage}
+										@compose=${this.handleCompose}
 									></gl-commit-box>
 								`
 							: html`
 									<gl-details-wip-empty-pane
 										.wip=${wip}
 										.aiEnabled=${false}
-										@switch-branch=${() => this._actions.switchBranch(this.effectiveRepoPath)}
-										@create-branch=${() => this._actions.createBranch(this.effectiveRepoPath)}
-										@start-work=${() => this._actions.startWork()}
-										@apply-stash=${() => this._actions.applyStash(this.effectiveRepoPath)}
-										@new-worktree=${() => this._actions.createWorktree()}
-										@publish-branch=${() =>
-											void this._actions.services.repository.push(this.effectiveRepoPath!)}
-										@pull=${() =>
-											void this._actions.services.repository.pull(this.effectiveRepoPath!)}
-										@push=${() =>
-											void this._actions.services.repository.push(this.effectiveRepoPath!)}
+										@switch-branch=${this.handleSwitchBranch}
+										@create-branch=${this.handleCreateBranch}
+										@start-work=${this.handleStartWork}
+										@apply-stash=${this.handleApplyStash}
+										@new-worktree=${this.handleNewWorktree}
+										@publish-branch=${this.handlePublishBranch}
+										@pull=${this.handlePull}
+										@push=${this.handlePush}
 									></gl-details-wip-empty-pane>
 								`}
 		`;
@@ -539,6 +514,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.errorMessage=${composeError}
 			.repoPath=${this.effectiveRepoPath}
 			.stale=${this._state.wipStale.get()}
+			.scope=${this._state.scope.get()}
 			.scopeItems=${scopeItems}
 			.scopeLoading=${this._state.branchCommitsFetching.get()}
 			.files=${composeFiles}
@@ -554,10 +530,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@compose-commit-all=${() =>
 				void this._actions.composeCommitAll(this.effectiveRepoPath, this.sha, this.graphReachability)}
 			@compose-commit-to=${(e: CustomEvent<{ upToIndex: number }>) =>
-				void this._actions.composeCommitTo(this.effectiveRepoPath, e.detail.upToIndex)}
+				void this._actions.composeCommitTo(
+					this.effectiveRepoPath,
+					e.detail.upToIndex,
+					this.sha,
+					this.graphReachability,
+				)}
 			@compose-open-composer=${() => this._actions.openComposer(this.effectiveRepoPath)}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
+			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}
 			@file-open=${this.handleComposeFileOpen}
 			@file-stage=${this.handleFileStage}
 			@file-unstage=${this.handleFileUnstage}
@@ -588,6 +570,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.rightRef=${this._state.branchCompareRightRef.get()}
 			.rightRefType=${this._state.branchCompareRightRefType.get()}
 			.includeWorkingTree=${this._state.branchCompareIncludeWorkingTree.get()}
+			.stale=${this._state.branchCompareStale.get()}
 			.hasWorktree=${hasWorktree}
 			.aheadCount=${this._state.branchCompareAheadCount.get()}
 			.behindCount=${this._state.branchCompareBehindCount.get()}
@@ -599,6 +582,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.allFiles=${allFiles}
 			.loading=${this._actions.resources.branchCompareSummary.loading.get() ||
 			this._actions.resources.branchCompareSide.loading.get()}
+			.errorMessage=${this._actions.resources.branchCompareSummary.error.get() ??
+			this._actions.resources.branchCompareSide.error.get()}
 			.activeTab=${activeTab}
 			.selectedCommitSha=${this._state.branchCompareSelectedCommitSha.get()}
 			.activeView=${activeView}
@@ -624,6 +609,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				void this._actions.changeCompareRef(e.detail.side, repoPath)}
 			@swap-refs=${() => this._actions.swapCompareRefs(repoPath)}
 			@toggle-working-tree=${() => this._actions.toggleCompareWorkingTree(repoPath)}
+			@refresh-compare=${() => this._actions.refreshBranchCompare(repoPath)}
 			@switch-tab=${(e: CustomEvent<{ tab: 'all' | 'ahead' | 'behind' }>) =>
 				this._actions.switchCompareTab(e.detail.tab, repoPath)}
 			@scope-to-commit=${(e: CustomEvent<{ sha: string | undefined }>) =>
@@ -835,7 +821,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					scopeItems ?? undefined,
 				);
 			}}
-			@review-drill=${(e: CustomEvent<ReviewDrillDetail>) => this.handleReviewDrill(e)}
+			@review-analyze-area=${(e: CustomEvent<ReviewAnalyzeAreaDetail>) => this.handleReviewAnalyzeArea(e)}
 			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) =>
 				this._actions.openFileByPath(e.detail.filePath, this.effectiveRepoPath)}
 			@review-back=${() => this._workflow.review.back()}
@@ -843,6 +829,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@review-forward-invalidate=${() => this._workflow.review.invalidateSnapshot()}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
+			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}
 			@file-open=${this.handleReviewFileOpen}
 			@file-stage=${this.handleFileStage}
 			@file-unstage=${this.handleFileUnstage}
@@ -879,7 +866,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.openFile(e.detail);
 	};
 
-	private async handleReviewDrill(e: CustomEvent<ReviewDrillDetail>): Promise<void> {
+	private async handleReviewAnalyzeArea(e: CustomEvent<ReviewAnalyzeAreaDetail>): Promise<void> {
 		const repoPath = this.effectiveRepoPath;
 		const scope = this._state.scope.get();
 		const reviewValue = this._actions.resources.review.value.get();
@@ -919,6 +906,65 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleSelectCommit(sha: string) {
 		this.dispatchEvent(new CustomEvent('select-commit', { detail: { sha: sha }, bubbles: true, composed: true }));
 	}
+
+	private handleRefreshWip = () => {
+		this._actions.refreshWip();
+		void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
+	};
+
+	private handleSwitchBranch = () => this._actions.switchBranch(this.effectiveRepoPath);
+
+	private handleCreateBranch = () => this._actions.createBranch(this.effectiveRepoPath);
+
+	private handlePublishBranch = () => void this._actions.services.repository.push(this.effectiveRepoPath!);
+
+	private handlePull = () => void this._actions.services.repository.pull(this.effectiveRepoPath!);
+
+	private handlePush = () => void this._actions.services.repository.push(this.effectiveRepoPath!);
+
+	private handleFetch = () => void this._actions.services.repository.fetch(this.effectiveRepoPath!);
+
+	private handleRemoveAssociatedIssue = (e: CustomEvent<{ entityId: string }>) =>
+		void this._actions.removeAssociatedIssue(e.detail.entityId);
+
+	private handleStashSave = () => this._actions.stashSave(this.effectiveRepoPath);
+
+	private handleStartWork = () => this._actions.startWork();
+
+	private handleApplyStash = () => this._actions.applyStash(this.effectiveRepoPath);
+
+	private handleNewWorktree = () => this._actions.createWorktree();
+
+	private handleCompareWithMergeTarget = (
+		e: CustomEvent<{ rightRef: string; rightRefType: 'branch' | 'commit' }>,
+	) => {
+		e.preventDefault();
+		this.suppressContentOverflow();
+		this._workflow.toggleMode('compare', this.currentSelection(), {
+			rightRef: e.detail.rightRef,
+			rightRefType: e.detail.rightRefType,
+		});
+	};
+
+	private handleCommitMessageChange = (e: CustomEvent<{ value: string }>) => {
+		this._state.commitMessage.set(e.detail.value);
+		this._state.commitError.set(undefined);
+	};
+
+	private handleAmendChange = (e: CustomEvent<{ checked: boolean }>) => {
+		this._state.amend.set(e.detail.checked);
+		if (e.detail.checked) {
+			void this._actions.loadLastCommitMessage(this.effectiveRepoPath);
+		} else {
+			this._state.commitMessage.set('');
+		}
+	};
+
+	private handleCommit = () => void this._actions.commit(this.effectiveRepoPath, this.sha);
+
+	private handleGenerateMessage = () => void this._actions.generateMessage(this.effectiveRepoPath);
+
+	private handleCompose = () => this._workflow.toggleMode('compose', this.currentSelection());
 
 	private handleFileOpen = (e: CustomEvent<FileChangeListItemDetail>) => {
 		this._actions.openFile(e.detail, this.sha);

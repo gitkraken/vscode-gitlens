@@ -62,10 +62,15 @@ export class GlTreeBase extends GlElement {
 		return html`<action-item data-switch-value="${value}" label="${label}" icon="${icon}"></action-item>`;
 	}
 
-	protected renderTreeView(treeModel: TreeModel[], guides: 'none' | 'onHover' | 'always' = 'none'): TemplateResult {
+	protected renderTreeView(
+		treeModel: TreeModel[],
+		guides: 'none' | 'onHover' | 'always' = 'none',
+		emptyText?: string,
+	): TemplateResult {
 		return html`<gl-tree-view
 			.model=${treeModel}
 			.guides=${guides}
+			empty-text=${emptyText ?? nothing}
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}

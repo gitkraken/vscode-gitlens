@@ -64,7 +64,7 @@ export class GlFileTreePane extends LitElement {
 	header = 'Files changed';
 
 	@property({ attribute: 'empty-text' })
-	emptyText? = 'No Files';
+	emptyText = 'No Files';
 
 	/**
 	 * Actions to display on individual file tree items.
@@ -110,12 +110,14 @@ export class GlFileTreePane extends LitElement {
 	/**
 	 * Per-file checkbox state. Files absent from map fall back to checkableStateDefault.
 	 * state and disabled are orthogonal — a file can be checked+disabled.
+	 * `disabledReason` overrides the default include/exclude tooltip when the row is disabled
+	 * (e.g. "Excluded by AI ignore rules") so users understand WHY they can't toggle it.
 	 */
 	@property({ attribute: false })
-	checkableStates?: Map<string, { state?: 'checked' | 'mixed'; disabled?: boolean }>;
+	checkableStates?: Map<string, { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string }>;
 
 	@property({ attribute: false })
-	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean };
+	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string };
 
 	/**
 	 * Verb for the "check" action (e.g. "Stage" for WIP, "Include" for Review).
@@ -154,6 +156,7 @@ export class GlFileTreePane extends LitElement {
 	@state() private _showFilter = false;
 
 	private _cachedTreeModel?: TreeModel[];
+	private _pendingScrollRestore?: number;
 
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		// Rebuild cached tree model when tree-structure-relevant properties change.
@@ -174,6 +177,31 @@ export class GlFileTreePane extends LitElement {
 		) {
 			const files = (this.files as Files) ?? [];
 
+			// Only when `files` actually changed: capture scroll position if the new path-set
+			// mostly overlaps the old (>50%) — keeps scroll across a re-fetch of the same view,
+			// drops it on a real navigation (different commit / repo).
+			if (changedProperties.has('files')) {
+				const prev = changedProperties.get('files') as readonly FileItem[] | undefined;
+				if (prev?.length && files.length) {
+					const prevPaths = new Set<string>();
+					for (const f of prev) {
+						prevPaths.add(f.path);
+					}
+					let overlap = 0;
+					for (const f of files) {
+						if (prevPaths.has(f.path)) {
+							overlap++;
+						}
+					}
+					if (overlap / Math.max(prevPaths.size, files.length) > 0.5) {
+						const scrollable = this.getTreeScrollContainer();
+						if (scrollable != null) {
+							this._pendingScrollRestore = scrollable.scrollTop;
+						}
+					}
+				}
+			}
+
 			this._cachedTreeModel = buildGroupedTree({
 				files: files,
 				isTree: isTreeLayout(this.fileLayout, files.length, this.filesLayout?.threshold ?? 5),
@@ -185,6 +213,28 @@ export class GlFileTreePane extends LitElement {
 				fileToModel: (file, opts, flat) => this.fileToTreeModel(file, opts, flat),
 			});
 		}
+	}
+
+	override updated(): void {
+		if (this._pendingScrollRestore != null) {
+			const scrollable = this.getTreeScrollContainer();
+			if (scrollable != null) {
+				scrollable.scrollTop = this._pendingScrollRestore;
+			}
+			this._pendingScrollRestore = undefined;
+		}
+	}
+
+	/**
+	 * Resolves the actual scroll container inside the inner gl-tree-view. The tree-view's
+	 * host has overflow:hidden — the real scroller is the `#tree-list .scrollable` div in
+	 * its (open) shadow root. Returns undefined if the tree-view hasn't rendered yet
+	 * (e.g. when the file list is empty and the empty-state is shown instead).
+	 */
+	private getTreeScrollContainer(): HTMLElement | undefined {
+		const treeView = this.renderRoot?.querySelector('gl-tree-view');
+		const scrollable = treeView?.shadowRoot?.querySelector<HTMLElement>('#tree-list');
+		return scrollable ?? undefined;
 	}
 
 	private get fileLayout(): ViewFilesLayout {
@@ -248,16 +298,16 @@ export class GlFileTreePane extends LitElement {
 					</action-nav>
 				</div>
 				<slot name="before-tree"></slot>
-				${fileCount === 0 && this.emptyText
-					? html`<div class="tree-empty">${this.emptyText}</div>`
-					: this.renderTreeFileModel(treeModel)}
+				${this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;
 	}
 
 	private renderTitle(badge?: string | number): TemplateResult {
 		return html`<slot name="title-content"><span>${this.header}</span></slot
-			>${badge != null ? html`<gl-badge>${badge}</gl-badge>` : nothing}<slot name="header-badge"></slot>`;
+			>${badge != null ? html`<gl-badge appearance="filled">${badge}</gl-badge>` : nothing}<slot
+				name="header-badge"
+			></slot>`;
 	}
 
 	private renderCheckboxTitle(_fileCount: number, badge?: string | number): TemplateResult {
@@ -329,7 +379,9 @@ export class GlFileTreePane extends LitElement {
 				: undefined;
 
 		const label =
-			effectiveBadge == null ? html`${this.header}` : html`${this.header} <gl-badge>${effectiveBadge}</gl-badge>`;
+			effectiveBadge == null
+				? html`${this.header}`
+				: html`${this.header} <gl-badge appearance="filled">${effectiveBadge}</gl-badge>`;
 
 		return html`<span class="checkbox-header" @click=${(e: Event) => e.stopPropagation()}>
 			${tooltipText
@@ -437,11 +489,13 @@ export class GlFileTreePane extends LitElement {
 			const entry = this.checkableStates?.get(file.path);
 			const s = entry?.state ?? this.checkableStateDefault?.state;
 			const disabled = entry?.disabled ?? this.checkableStateDefault?.disabled ?? false;
+			const disabledReason = entry?.disabledReason ?? this.checkableStateDefault?.disabledReason;
 
 			const checkVerb = this.checkVerb;
 			const uncheckVerb = this.uncheckVerb;
-			const tooltip =
-				checkVerb && uncheckVerb
+			const tooltip = disabled
+				? disabledReason
+				: checkVerb && uncheckVerb
 					? s === 'checked'
 						? `${uncheckVerb} ${fileName}`
 						: `${checkVerb} ${fileName}`
@@ -475,6 +529,10 @@ export class GlFileTreePane extends LitElement {
 	}
 
 	private renderTreeFileModel(treeModel: TreeModel[]): TemplateResult<1> {
+		// In matched-filter mode the search context is what's filtering the list, so when nothing
+		// passes through, "No matching files" reads more accurately than the generic empty-text.
+		const matchedEmpty = this._filterMode === 'matched' && this.searchContext != null;
+		const emptyText = matchedEmpty ? 'No matching files' : this.emptyText;
 		return html`<gl-tree-view
 			.model=${treeModel}
 			.guides=${this.indentGuides}
@@ -482,7 +540,7 @@ export class GlFileTreePane extends LitElement {
 			filter-mode=${this._filterMode === 'mixed' ? 'highlight' : 'filter'}
 			?filterable=${this._showFilter}
 			filter-placeholder="Filter files..."
-			empty-text=${this.emptyText ?? 'No Files'}
+			empty-text=${emptyText}
 			style="--gl-decoration-before-font-size: 0.9em; --gl-decoration-before-opacity: 0.8; --gl-decoration-after-font-size: 0.9em; --gl-decoration-after-opacity: 0.8"
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}

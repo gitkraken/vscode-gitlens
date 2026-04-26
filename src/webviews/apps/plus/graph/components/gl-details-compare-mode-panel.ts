@@ -4,13 +4,18 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
-import type { CommitFileChange, DetailsItemTypedContext, Preferences } from '../../../../plus/graph/detailsProtocol.js';
-import type { BranchComparisonCommit, BranchComparisonContributor } from '../../../../plus/graph/graphService.js';
+import type { DetailsItemTypedContext, Preferences } from '../../../../plus/graph/detailsProtocol.js';
+import type {
+	BranchComparisonCommit,
+	BranchComparisonContributor,
+	BranchComparisonFile,
+} from '../../../../plus/graph/graphService.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { redispatch } from '../../../shared/components/element.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
@@ -21,6 +26,7 @@ import {
 	subPanelEnterStyles,
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
+import type { FileGroup } from '../../../shared/components/tree/file-tree-utils.js';
 import { compareModePanelStyles } from './gl-details-compare-mode-panel.css.js';
 import './gl-commit-row.js';
 import '../../../shared/components/code-icon.js';
@@ -79,6 +85,9 @@ export class GlDetailsCompareModePanel extends LitElement {
 	@property({ type: Boolean, attribute: 'include-working-tree' })
 	includeWorkingTree = false;
 
+	@property({ type: Boolean })
+	stale = false;
+
 	@property({ type: Boolean, attribute: 'has-worktree' })
 	hasWorktree = false;
 
@@ -101,7 +110,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	 *  diff). Distinct from the per-side commits so the All tab is renderable as soon as the
 	 *  summary lands, before either side's commits arrive. */
 	@property({ type: Array })
-	allFiles: CommitFileChange[] = [];
+	allFiles: BranchComparisonFile[] = [];
 
 	/** Phase 2 loaded flags — per-side. False until that side's commits have been fetched
 	 *  (lazy, on first activation). The panel uses these to render a loading state in the
@@ -114,6 +123,9 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	@property({ type: Boolean })
 	loading = false;
+
+	@property()
+	errorMessage?: string;
 
 	@property({ attribute: 'active-tab' })
 	activeTab: 'all' | 'ahead' | 'behind' = 'all';
@@ -163,6 +175,14 @@ export class GlDetailsCompareModePanel extends LitElement {
 	@state()
 	private _comparisonChanging = false;
 
+	private readonly fileSourceGrouping = {
+		getGroup: (file: BranchComparisonFile) => file.source ?? 'comparison',
+		groups: [
+			{ key: 'comparison', label: 'Comparison Changes' },
+			{ key: 'workingTree', label: 'Working Tree Changes' },
+		] satisfies FileGroup[],
+	};
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
@@ -196,39 +216,57 @@ export class GlDetailsCompareModePanel extends LitElement {
 		// list area stays blank during loading — the panel-level loading indicator covers that
 		// case so a list-area skeleton would just cause an ugly flash.
 		//
-		// In Contributors view, the right pane is always full-width regardless of tab —
-		// the active tab still scopes which commits' contributors are shown, but there's
-		// no commit-list interplay so the split layout would just waste space.
+		// The view selector (Files Changed ↔ Contributors) swaps the right-side pane only — the
+		// commit list on Ahead/Behind stays put so users keep their commit context when toggling.
 		//
 		// `cache()` keys on template literal identity, so each branch below is at its own source
 		// location → distinct template → cache() preserves each branch's DOM (scroll position,
 		// tree expand state, file-tree filter input, gl-split-panel position) independently when
-		// the user toggles between tabs / views. Coming back to a previously-active tab restores
-		// its prior gl-file-tree-pane instance instead of mounting a fresh one.
+		// the user toggles between tabs. Coming back to a previously-active tab restores its
+		// prior gl-file-tree-pane instance instead of mounting a fresh one.
 		return html`<div class="wip-compare-panel">
 			<progress-indicator position="top" ?active=${this.loading}></progress-indicator>
-			${this.renderComparisonBar()} ${this.renderTabs()}
+			${this.renderComparisonBar()} ${this.renderTabs()} ${this.renderStaleBanner()} ${this.renderError()}
 			${cache(
-				this.activeView === 'contributors'
-					? this.renderContributorsTab()
-					: this.activeTab === 'all'
-						? this.renderAllFilesTab()
-						: this.activeTab === 'ahead'
-							? this.renderAheadTab()
-							: this.renderBehindTab(),
+				this.activeTab === 'all'
+					? this.renderAllFilesTab()
+					: this.activeTab === 'ahead'
+						? this.renderAheadTab()
+						: this.renderBehindTab(),
 			)}
 		</div>`;
 	}
 
-	private renderContributorsTab() {
-		return html`<div class="wip-compare-all" data-tab="contributors">
-			${this.renderAutolinksRow()}${this.renderContributorsSection()}
+	private renderError() {
+		if (!this.errorMessage) return nothing;
+		return html`<div class="wip-compare-error" role="alert">
+			<code-icon icon="error"></code-icon>
+			<span>${this.errorMessage}</span>
 		</div>`;
+	}
+
+	private renderStaleBanner() {
+		if (!this.stale) return nothing;
+		return html`<div class="wip-compare-stale" role="status">
+			<code-icon icon="warning"></code-icon>
+			<span>Working tree data changed since this comparison was loaded.</span>
+			<gl-action-chip
+				icon="sync"
+				label="Refresh Comparison"
+				overlay="tooltip"
+				@click=${this.dispatchRefreshCompare}
+				><span>Refresh</span></gl-action-chip
+			>
+		</div>`;
+	}
+
+	private renderRightPane(files: BranchComparisonFile[]) {
+		return this.activeView === 'contributors' ? this.renderContributorsSection() : this.renderFileSection(files);
 	}
 
 	private renderAllFilesTab() {
 		return html`<div class="wip-compare-all" data-tab="all">
-			${this.renderAutolinksRow()}${this.renderFileSection(this.allFiles)}
+			${this.renderAutolinksRow()}${this.renderRightPane(this.allFiles)}
 		</div>`;
 	}
 
@@ -250,7 +288,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		>
 			<div slot="start" class="wip-compare-split__start">${this.renderCommitList(this.aheadCommits)}</div>
 			<div slot="end" class="wip-compare-split__end">
-				${this.renderAutolinksRow()}${this.renderFileSection(files)}
+				${this.renderAutolinksRow()}${this.renderRightPane(files)}
 			</div>
 		</gl-split-panel>`;
 	}
@@ -273,25 +311,26 @@ export class GlDetailsCompareModePanel extends LitElement {
 		>
 			<div slot="start" class="wip-compare-split__start">${this.renderCommitList(this.behindCommits)}</div>
 			<div slot="end" class="wip-compare-split__end">
-				${this.renderAutolinksRow()}${this.renderFileSection(files)}
+				${this.renderAutolinksRow()}${this.renderRightPane(files)}
 			</div>
 		</gl-split-panel>`;
 	}
 
 	/** Derive the file list to show on a side: scoped to the active tab's selected commit when
 	 *  one is set (instant client-side filter — no fetch), otherwise the union of all commits'
-	 *  files deduped by path. Per-file stats are summed across commits in the union case so the
-	 *  row reflects cumulative churn over the side's range. */
-	private filesForSelection(commits: BranchComparisonCommit[]): CommitFileChange[] {
+	 *  files deduped by source + path. Per-file stats are summed across commits in the union case
+	 *  so the row reflects cumulative churn over the side's range. */
+	private filesForSelection(commits: BranchComparisonCommit[]): BranchComparisonFile[] {
 		const sel = this.selectedCommitSha;
 		if (sel) return commits.find(c => c.sha === sel)?.files ?? [];
 
-		const map = new Map<string, CommitFileChange>();
+		const map = new Map<string, BranchComparisonFile>();
 		for (const c of commits) {
 			for (const f of c.files) {
-				const existing = map.get(f.path);
+				const key = `${f.source ?? 'comparison'}:${f.path}`;
+				const existing = map.get(key);
 				if (existing == null) {
-					map.set(f.path, { ...f, stats: f.stats ? { ...f.stats } : undefined });
+					map.set(key, { ...f, stats: f.stats ? { ...f.stats } : undefined });
 					continue;
 				}
 				if (existing.stats && f.stats) {
@@ -317,20 +356,18 @@ export class GlDetailsCompareModePanel extends LitElement {
 		return pos;
 	};
 
-	private get fileActions(): TreeItemAction[] {
-		return [
-			{
-				icon: 'go-to-file',
-				label: 'Open File',
-				action: 'file-open',
-			},
-			{
-				icon: 'git-compare',
-				label: 'Open Changes with Working File',
-				action: 'file-compare-working',
-			},
-		];
-	}
+	private static readonly _fileActions: TreeItemAction[] = [
+		{
+			icon: 'go-to-file',
+			label: 'Open File',
+			action: 'file-open',
+		},
+		{
+			icon: 'git-compare',
+			label: 'Open Changes with Working File',
+			action: 'file-compare-working',
+		},
+	];
 
 	private renderComparisonBar() {
 		const leftRef = this.leftRef ?? this.branchName ?? 'HEAD';
@@ -371,17 +408,26 @@ export class GlDetailsCompareModePanel extends LitElement {
 				overlay="tooltip"
 				@click=${this.dispatchSwapRefs}
 			></gl-action-chip>
-			<gl-tooltip hoist placement="bottom">
-				<gl-branch-name
-					class="wip-compare-ref wip-compare-ref--behind"
-					appearance="button"
-					chevron
-					.name=${rightRef || 'Choose…'}
-					.icon=${this.getRefIcon(this.rightRefType)}
-					@click=${() => this.dispatchChangeRef('right')}
-				></gl-branch-name>
-				<span slot="content">${rightTooltip}</span>
-			</gl-tooltip>
+			<div class="wip-compare-bar__group">
+				<gl-tooltip hoist placement="bottom">
+					<gl-branch-name
+						class="wip-compare-ref wip-compare-ref--behind"
+						appearance="button"
+						chevron
+						.name=${rightRef || 'Choose…'}
+						.icon=${this.getRefIcon(this.rightRefType)}
+						@click=${() => this.dispatchChangeRef('right')}
+					></gl-branch-name>
+					<span slot="content">${rightTooltip}</span>
+				</gl-tooltip>
+				<gl-action-chip
+					class="wip-compare-refresh"
+					icon="refresh"
+					label="Refresh Comparison"
+					overlay="tooltip"
+					@click=${this.dispatchRefreshCompare}
+				></gl-action-chip>
+			</div>
 		</div>`;
 	}
 
@@ -497,30 +543,43 @@ export class GlDetailsCompareModePanel extends LitElement {
 		</gl-tree-item>`;
 	}
 
-	private _getFileContext = (file: CommitFileChange) => this.getFileContext(file);
+	private _getFileContext = (file: BranchComparisonFile) => this.getFileContext(file);
 
-	private getFileContext(file: CommitFileChange): string | undefined {
+	private getFileContext(file: BranchComparisonFile): string | undefined {
 		const leftRef = this.leftRef;
 		const rightRef = this.rightRef;
 		const repoPath = this.repoPath;
 		if (!leftRef || !rightRef || !repoPath) return undefined;
 
-		const context: DetailsItemTypedContext = {
-			webviewItem: 'gitlens:file:comparison',
-			webviewItemValue: {
-				type: 'file',
-				path: file.path,
-				repoPath: repoPath,
-				sha: leftRef,
-				comparisonSha: rightRef,
-				status: file.status,
-			},
-		};
+		const context: DetailsItemTypedContext =
+			file.source === 'workingTree'
+				? {
+						webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+						webviewItemValue: {
+							type: 'file',
+							path: file.path,
+							repoPath: repoPath,
+							sha: uncommitted,
+							staged: file.staged,
+							status: file.status,
+						},
+					}
+				: {
+						webviewItem: 'gitlens:file:comparison',
+						webviewItemValue: {
+							type: 'file',
+							path: file.path,
+							repoPath: repoPath,
+							sha: leftRef,
+							comparisonSha: rightRef,
+							status: file.status,
+						},
+					};
 
 		return serializeWebviewItemContext(context);
 	}
 
-	private renderFileSection(files: CommitFileChange[]) {
+	private renderFileSection(files: BranchComparisonFile[]) {
 		const isScoped = this.selectedCommitSha != null;
 		const containerClass = `wip-compare-files${isScoped ? ' wip-compare-files--scoped' : ''}`;
 		const stats = this.computeFileStats(files);
@@ -539,11 +598,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 			<webview-pane-group flexible>
 				<gl-file-tree-pane
 					.files=${files}
+					.grouping=${this.getFileGrouping(files)}
 					.filesLayout=${this.preferences?.files}
 					.showIndentGuides=${this.preferences?.indentGuides}
 					.collapsable=${false}
 					?show-file-icons=${true}
-					.fileActions=${this.fileActions}
+					.fileActions=${GlDetailsCompareModePanel._fileActions}
 					.fileContext=${this._getFileContext}
 					.buttons=${this.getMultiDiffRefs(files) ? ['layout', 'search', 'multi-diff'] : undefined}
 					empty-text=${isLoadingEmpty ? '' : 'No changes'}
@@ -594,7 +654,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		</div>`;
 	}
 
-	private computeFileStats(files: CommitFileChange[]): { additions: number; deletions: number } | undefined {
+	private computeFileStats(files: BranchComparisonFile[]): { additions: number; deletions: number } | undefined {
 		if (!files?.length) return undefined;
 
 		let additions = 0;
@@ -610,14 +670,35 @@ export class GlDetailsCompareModePanel extends LitElement {
 		return { additions: additions, deletions: deletions };
 	}
 
+	private getFileGrouping(files: readonly BranchComparisonFile[]) {
+		return files.some(f => f.source === 'workingTree') ? this.fileSourceGrouping : undefined;
+	}
+
+	private _cachedMergedAutolinks?: {
+		autolinksRef: Autolink[] | undefined;
+		enrichedRef: IssueOrPullRequest[] | undefined;
+		out: { autolinks: Autolink[]; enriched: IssueOrPullRequest[] };
+	};
+
 	private getMergedAutolinks() {
+		const autolinks = this.autolinks;
 		const enriched = this.enrichedItems;
-		if (!enriched?.length) {
-			return { autolinks: this.autolinks ?? [], enriched: [] as IssueOrPullRequest[] };
+
+		const cached = this._cachedMergedAutolinks;
+		if (cached?.autolinksRef === autolinks && cached.enrichedRef === enriched) {
+			return cached.out;
 		}
-		const enrichedIds = new Set(enriched.map(i => i.id));
-		const remaining = this.autolinks?.filter(a => !enrichedIds.has(a.id)) ?? [];
-		return { autolinks: remaining, enriched: enriched };
+
+		let out: { autolinks: Autolink[]; enriched: IssueOrPullRequest[] };
+		if (!enriched?.length) {
+			out = { autolinks: autolinks ?? [], enriched: [] };
+		} else {
+			const enrichedIds = new Set(enriched.map(i => i.id));
+			const remaining = autolinks?.filter(a => !enrichedIds.has(a.id)) ?? [];
+			out = { autolinks: remaining, enriched: enriched };
+		}
+		this._cachedMergedAutolinks = { autolinksRef: autolinks, enrichedRef: enriched, out: out };
+		return out;
 	}
 
 	private renderAutolinksRow() {
@@ -828,8 +909,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 		return html`<div class="wip-compare-files">
 			<webview-pane-group flexible>
 				<webview-pane expanded flexible .collapsable=${false}>
-					<span slot="title">${this.renderViewSelector()}</span>
-					${showCount !== nothing ? html`<gl-badge slot="title">${showCount}</gl-badge>` : nothing} ${body}
+					<span slot="title" class="wip-compare-contributors-title">
+						${this.renderViewSelector()}
+						${showCount !== nothing ? html`<gl-badge appearance="filled">${showCount}</gl-badge>` : nothing}
+					</span>
+					${body}
 				</webview-pane>
 			</webview-pane-group>
 		</div>`;
@@ -864,7 +948,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	private redispatch = redispatch.bind(this);
 
 	private getMultiDiffRefs(
-		files: CommitFileChange[],
+		files: BranchComparisonFile[],
 	): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
 		if (!files?.length) return undefined;
 		const repoPath = this.repoPath;
@@ -872,17 +956,23 @@ export class GlDetailsCompareModePanel extends LitElement {
 		const rhs = this.rightRef;
 		if (!repoPath || !lhs || !rhs) return undefined;
 
+		const hasComparisonFiles = files.some(f => f.source !== 'workingTree');
+		const hasWorkingTreeFiles = files.some(f => f.source === 'workingTree');
+		if (hasComparisonFiles && hasWorkingTreeFiles) return undefined;
+
 		return {
 			repoPath: repoPath,
 			lhs: lhs,
-			rhs: rhs,
-			title: `Changes between ${shortenRevision(lhs)} and ${shortenRevision(rhs)}`,
+			rhs: hasWorkingTreeFiles ? '' : rhs,
+			title: hasWorkingTreeFiles
+				? `Working tree changes from ${shortenRevision(lhs)}`
+				: `Changes between ${shortenRevision(lhs)} and ${shortenRevision(rhs)}`,
 		};
 	}
 
 	/** The active tab's files — used by event handlers (e.g. multi-diff) which only fire from the
 	 *  visible tab. Mirrors the per-tab render branches' file derivation. */
-	private get activeFiles(): CommitFileChange[] {
+	private get activeFiles(): BranchComparisonFile[] {
 		if (this.activeTab === 'all') return this.allFiles;
 		const commits = this.activeTab === 'ahead' ? this.aheadCommits : this.behindCommits;
 		return this.filesForSelection(commits);
@@ -950,6 +1040,10 @@ export class GlDetailsCompareModePanel extends LitElement {
 	private dispatchToggleWorkingTree() {
 		this.dispatchEvent(new CustomEvent('toggle-working-tree', { bubbles: true, composed: true }));
 	}
+
+	private dispatchRefreshCompare = () => {
+		this.dispatchEvent(new CustomEvent('refresh-compare', { bubbles: true, composed: true }));
+	};
 
 	private dispatchSwitchTab(tab: 'all' | 'ahead' | 'behind') {
 		this.dispatchEvent(

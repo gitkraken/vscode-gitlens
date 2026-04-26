@@ -33,8 +33,6 @@ export class GlTree extends LitElement {
 	}
 
 	private handleSlotChange() {
-		console.log('handleSlotChange');
-
 		if (!this.treeItems?.length) return;
 
 		const keyHandler = this.handleKeydown.bind(this);

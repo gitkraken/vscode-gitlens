@@ -185,19 +185,7 @@ export function buildFileTree<T extends GitFileChangeShape>(
 		filteredFiles = files.filter(f => matchedPaths.has(f.path));
 	}
 
-	if (!filteredFiles.length) {
-		return [
-			{
-				label: filterMode === 'matched' && searchContext != null ? 'No matching files' : 'No changes',
-				path: '',
-				level: options.level,
-				branch: false,
-				checkable: false,
-				expanded: true,
-				checked: false,
-			},
-		];
-	}
+	if (!filteredFiles.length) return [];
 
 	const children: TreeModel[] = [];
 	if (isTree) {

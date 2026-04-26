@@ -443,18 +443,5 @@ export const detailsBaseStyles = [
 		:host([variant='embedded']) gl-badge {
 			font-size: var(--gl-font-micro);
 		}
-
-		:host([variant='embedded']) gl-badge::part(base) {
-			background-color: var(--vscode-badge-background);
-			color: var(--vscode-badge-foreground);
-			border: none;
-			font-variant: normal;
-			font-weight: 500;
-			line-height: 1;
-			min-width: 1.6rem;
-			justify-content: center;
-			padding: 0.2rem 0.4rem;
-			border-radius: 0.4rem;
-		}
 	`,
 ];

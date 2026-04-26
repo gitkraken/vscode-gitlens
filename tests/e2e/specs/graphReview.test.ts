@@ -42,8 +42,65 @@ test.describe('Review & Compose Sub-Panels', () => {
 	test.setTimeout(90000);
 
 	let graphWebview: FrameLocator;
+	let dispose: (() => Promise<void>) | undefined;
+
+	async function ensureDetailsPanelOpen(): Promise<void> {
+		const toggleButton = graphWebview.locator('gl-button[aria-label$="Details Panel"]').first();
+		await expect(toggleButton).toBeVisible({ timeout: MaxTimeout });
+
+		if ((await toggleButton.getAttribute('aria-label')) === 'Show Details Panel') {
+			await toggleButton.click();
+			await expect(graphWebview.locator('gl-button[aria-label="Hide Details Panel"]').first()).toBeVisible({
+				timeout: MaxTimeout,
+			});
+		}
+	}
+
+	async function selectWip(): Promise<void> {
+		await ensureDetailsPanelOpen();
+
+		const existingWipHeader = graphWebview.locator('gl-details-wip-header gl-details-header').first();
+		if (await existingWipHeader.isVisible().catch(() => false)) {
+			return;
+		}
+
+		const closeButton = graphWebview
+			.locator(
+				'gl-details-commit-panel gl-action-chip[icon="close"], gl-details-multicommit-panel gl-action-chip[icon="close"]',
+			)
+			.first();
+		if (await closeButton.isVisible().catch(() => false)) {
+			await closeButton.click();
+			await ensureDetailsPanelOpen();
+			await expect(existingWipHeader).toBeVisible({ timeout: MaxTimeout });
+			return;
+		}
+
+		const overviewButton = graphWebview.locator('gl-button[data-action="wip"]').first();
+		if (await overviewButton.isVisible().catch(() => false)) {
+			await overviewButton.click();
+			await ensureDetailsPanelOpen();
+			await expect(existingWipHeader).toBeVisible({ timeout: MaxTimeout });
+			return;
+		}
+
+		const wipRow = graphWebview.getByText(/Working (Changes|Tree)/).first();
+		await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
+		await wipRow.click();
+		await ensureDetailsPanelOpen();
+		await expect(graphWebview.locator('gl-details-wip-header')).toBeVisible({ timeout: MaxTimeout });
+	}
 
 	test.beforeAll(async ({ vscode }) => {
+		const sim = await vscode.gitlens.startSubscriptionSimulation({
+			state: 6 /* SubscriptionState.Paid */,
+			planId: 'pro',
+		});
+		dispose = () => {
+			sim[Symbol.dispose]();
+			return Promise.resolve();
+		};
+
 		await vscode.gitlens.showCommitGraphView();
 		await vscode.gitlens.panel.open();
 
@@ -56,7 +113,12 @@ test.describe('Review & Compose Sub-Panels', () => {
 	});
 
 	test.afterAll(async ({ vscode }) => {
+		await dispose?.();
 		await vscode.gitlens.resetUI();
+	});
+
+	test.beforeEach(async () => {
+		await selectWip();
 	});
 
 	// Exit any active mode after each test
@@ -68,7 +130,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 	});
 
 	test('WIP header shows review (checklist) and compose (wand) toggle chips', async () => {
-		const header = graphWebview.locator('.graph-details-header');
+		const header = graphWebview.locator('gl-details-wip-header gl-details-header');
 		await expect(header).toBeVisible({ timeout: 30000 });
 
 		const reviewChip = header.locator('gl-action-chip[icon="checklist"]');
@@ -86,7 +148,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(reviewPanel).toBeVisible({ timeout: MaxTimeout });
 
 		// Header should have purple tint
-		const header = graphWebview.locator('.graph-details-header--mode-active');
+		const header = graphWebview.locator('gl-details-wip-header gl-details-header .mode-header--active');
 		await expect(header).toBeVisible();
 
 		// Review chip should be active
@@ -125,7 +187,9 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(wipDetails).toBeVisible({ timeout: MaxTimeout });
 
 		// Header tint should be gone
-		await expect(graphWebview.locator('.graph-details-header--mode-active')).not.toBeVisible();
+		await expect(
+			graphWebview.locator('gl-details-wip-header gl-details-header .mode-header--active'),
+		).not.toBeVisible();
 	});
 
 	test('clicking compose chip enters compose mode with idle state', async () => {
@@ -140,7 +204,9 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(activeChip).toBeVisible();
 
 		// Header should have purple tint
-		await expect(graphWebview.locator('.graph-details-header--mode-active')).toBeVisible();
+		await expect(
+			graphWebview.locator('gl-details-wip-header gl-details-header .mode-header--active'),
+		).toBeVisible();
 	});
 
 	test('compose idle shows explain input with "Compose" button', async () => {
@@ -186,7 +252,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await reviewChip.click();
 
 		// Header should remain visible
-		const header = graphWebview.locator('.graph-details-header');
+		const header = graphWebview.locator('gl-details-wip-header gl-details-header');
 		await expect(header).toBeVisible();
 
 		// Branch row should remain visible
@@ -199,7 +265,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(branchRow).toBeVisible({ timeout: 30000 });
 
 		// Create branch icon should be in branch row
-		const createBranchChip = branchRow.locator('gl-action-chip[icon="git-branch-create"]');
+		const createBranchChip = branchRow.locator('gl-action-chip[icon="custom-start-work"]');
 		await expect(createBranchChip).toBeVisible();
 
 		// Review/compose chips should NOT be in branch row

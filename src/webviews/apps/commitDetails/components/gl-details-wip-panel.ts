@@ -532,20 +532,17 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	override getFileActions(file: File, options?: Partial<TreeItemBase>): TreeItemAction[] {
 		const openFile = {
 			icon: 'go-to-file',
-			label: 'Open file',
+			label: 'Open File',
 			action: 'file-open',
 		};
-		const stage = { icon: 'plus', label: 'Stage changes', action: 'file-stage' };
-		const unstage = { icon: 'remove', label: 'Unstage changes', action: 'file-unstage' };
-		// Mixed = file has hunks in BOTH staged and unstaged. Always show both directions so the
-		// user can act on either side without first unstaging the other — including in
-		// checkboxMode (which the graph context uses), where the single-direction inline action
-		// would otherwise hide the other half.
+
+		if (this.checkboxMode) return [openFile];
+
+		const stage = { icon: 'plus', label: 'Stage Changes', action: 'file-stage' };
+		const unstage = { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' };
+
 		if (options?.mixed) {
 			return [openFile, stage, unstage];
-		}
-		if (this.checkboxMode) {
-			return [openFile];
 		}
 		if (file.staged === true) {
 			return [openFile, unstage];

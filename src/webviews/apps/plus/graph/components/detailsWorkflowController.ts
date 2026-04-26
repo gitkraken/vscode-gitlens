@@ -3,6 +3,7 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { ComposeResult, ReviewResult, ScopeSelection } from '../../../../plus/graph/graphService.js';
+import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import type { DetailsActions } from './detailsActions.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
 
@@ -155,8 +156,6 @@ export class DetailsWorkflowController implements ReactiveController {
 				} else {
 					resources.review.cancel();
 				}
-				state.aiExcludedFiles.set(undefined);
-				void this.actions.fetchAiExcludedFiles(repoPath, sha, shas);
 			} else {
 				const composeHasValue = resources.compose.value.get() != null;
 				if (composeHasValue && this._composeFetchedForSelection !== newKey) {
@@ -167,6 +166,8 @@ export class DetailsWorkflowController implements ReactiveController {
 					resources.compose.cancel();
 				}
 			}
+			state.aiExcludedFiles.set(undefined);
+			void this.actions.fetchAiExcludedFiles(repoPath, sha, shas);
 		}
 
 		if (mode === 'compare') {
@@ -411,13 +412,40 @@ export class DetailsWorkflowController implements ReactiveController {
 			};
 		}
 		if (isWip) {
+			const wip = this.actions.state.wip.get();
+			const files = wip?.changes?.files ?? [];
+			const hasUnstaged = files.some(f => !f.staged);
+			const hasStaged = files.some(f => f.staged);
+
+			// Working/staged changes win over commits — if the user has either, default to those.
+			if (hasUnstaged || hasStaged) {
+				return {
+					type: 'wip',
+					includeUnstaged: hasUnstaged,
+					includeStaged: hasStaged,
+					includeShas: [],
+				};
+			}
+
+			// No working/staged changes — fall back to unpushed commits if any.
 			const commits = this.actions.state.branchCommits.get();
-			return {
-				type: 'wip',
-				includeStaged: true,
-				includeUnstaged: true,
-				includeShas: commits?.filter(c => !c.pushed).map(c => c.sha) ?? [],
-			};
+			const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
+			if (unpushedShas.length > 0) {
+				return { type: 'wip', includeUnstaged: false, includeStaged: false, includeShas: unpushedShas };
+			}
+
+			// No unpushed — fall back to the most recent commit (HEAD = first entry, log is newest-first).
+			if (commits?.length) {
+				return {
+					type: 'wip',
+					includeUnstaged: false,
+					includeStaged: false,
+					includeShas: [commits[0].sha],
+				};
+			}
+
+			// Commits not loaded yet — defer; fetchBranchCommits will re-derive once they arrive.
+			return { type: 'wip', includeUnstaged: false, includeStaged: false, includeShas: [] };
 		}
 		if (sha) return { type: 'commit', sha: sha };
 		return undefined;
@@ -458,12 +486,28 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		const gen = this._subscriptionGen.next();
 		void (async () => {
-			const unsubscribe = (await this.actions.services.repository.onRepositoryChanged(repoPath, data => {
-				if (!this.host.isWipSelection()) return;
-				const relevant = data.changes.some(c => c === 'gkConfig' || c === 'config' || c === 'heads');
-				if (!relevant) return;
-				this.actions.refreshWipBranchEnrichment();
-			})) as unknown as (() => void) | undefined;
+			const unsubscribe = await subscribeAll([
+				() =>
+					this.actions.services.repository.onRepositoryChanged(repoPath, data => {
+						if (this.host.isWipSelection()) {
+							const relevant = data.changes.some(
+								c => c === 'gkConfig' || c === 'config' || c === 'heads',
+							);
+							if (relevant) {
+								this.actions.refreshWipBranchEnrichment();
+							}
+						}
+
+						const compareRelevant = data.changes.some(c => c === 'index' || c === 'head' || c === 'heads');
+						if (compareRelevant) {
+							this.actions.markBranchCompareStale();
+						}
+					}),
+				() =>
+					this.actions.services.repository.onRepositoryWorkingChanged(repoPath, () =>
+						this.actions.markBranchCompareStale(),
+					),
+			]);
 			if (typeof unsubscribe !== 'function') return;
 			if (gen !== this._subscriptionGen.current || this._subscribedRepoPath !== repoPath) {
 				unsubscribe();

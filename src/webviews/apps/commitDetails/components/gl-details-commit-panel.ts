@@ -313,6 +313,10 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		}
 
 		const { isStash } = this;
+		const slot =
+			this.activeMode === 'compare'
+				? html`<span class="compare-header__title">Comparing References</span>`
+				: authorTemplate;
 
 		return html`<gl-details-header
 			.activeMode=${this.activeMode}
@@ -320,7 +324,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			.modes=${this.computeCommitModes()}
 			style="--mode-header-bg: var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background)))"
 		>
-			${authorTemplate}
+			${slot}
 			${when(
 				!isStash && this.hasRemotes && this.activeMode == null,
 				() =>
@@ -581,7 +585,46 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		`;
 	}
 
+	private _cachedAutolinkState?: {
+		autolinksEnabled: boolean;
+		isUncommitted: boolean;
+		autolinksRef: Autolink[] | undefined;
+		autolinkedIssuesRef: IssueOrPullRequest[] | undefined;
+		pullRequestRef: PullRequestShape | undefined;
+		out: { autolinks: Autolink[]; issues: IssueOrPullRequest[]; prs: PullRequestShape[]; size: number } | undefined;
+	};
+
 	private get autolinkState() {
+		const autolinksEnabled = this.autolinksEnabled;
+		const isUncommitted = this.isUncommitted;
+		const autolinksRef = this.autolinks;
+		const autolinkedIssuesRef = this.autolinkedIssues;
+		const pullRequestRef = this.pullRequest;
+
+		const cached = this._cachedAutolinkState;
+		if (
+			cached?.autolinksEnabled === autolinksEnabled &&
+			cached.isUncommitted === isUncommitted &&
+			cached.autolinksRef === autolinksRef &&
+			cached.autolinkedIssuesRef === autolinkedIssuesRef &&
+			cached.pullRequestRef === pullRequestRef
+		) {
+			return cached.out;
+		}
+
+		const out = this.computeAutolinkState();
+		this._cachedAutolinkState = {
+			autolinksEnabled: autolinksEnabled,
+			isUncommitted: isUncommitted,
+			autolinksRef: autolinksRef,
+			autolinkedIssuesRef: autolinkedIssuesRef,
+			pullRequestRef: pullRequestRef,
+			out: out,
+		};
+		return out;
+	}
+
+	private computeAutolinkState() {
 		if (!this.autolinksEnabled || this.isUncommitted) return undefined;
 
 		const deduped = new Map<

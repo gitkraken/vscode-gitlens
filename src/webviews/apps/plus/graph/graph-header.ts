@@ -1194,7 +1194,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							() => html`
 								<gl-button
 									appearance="toolbar"
-									tooltip="Toggle Side Bar"
+									tooltip=${(this.graphState.sidebarVisible ?? false) &&
+									this.graphState.activeSidebarPanel != null
+										? 'Hide Side Bar'
+										: 'Show Side Bar'}
+									aria-label=${(this.graphState.sidebarVisible ?? false) &&
+									this.graphState.activeSidebarPanel != null
+										? 'Hide Side Bar'
+										: 'Show Side Bar'}
 									@click=${this.handleSidebarToggled}
 								>
 									<code-icon
@@ -1208,7 +1215,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						)}
 						<gl-button
 							appearance="toolbar"
-							tooltip="Toggle Minimap"
+							tooltip=${config?.minimap && this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
+							aria-label=${config?.minimap && this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
 							@click=${() => this.handleMinimapToggled()}
 						>
 							<code-icon
@@ -1216,7 +1224,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								style="transform: rotate(180deg)"
 							></code-icon>
 						</gl-button>
-						<gl-button appearance="toolbar" tooltip="Toggle Details" @click=${this.handleToggleDetails}>
+						<gl-button
+							appearance="toolbar"
+							tooltip=${this.detailsVisible ? 'Hide Details Panel' : 'Show Details Panel'}
+							aria-label=${this.detailsVisible ? 'Hide Details Panel' : 'Show Details Panel'}
+							@click=${this.handleToggleDetails}
+						>
 							<code-icon
 								icon=${this.detailsVisible ? 'layout-sidebar-right' : 'layout-sidebar-right-off'}
 							></code-icon>

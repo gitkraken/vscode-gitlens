@@ -218,7 +218,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 													.showIndentGuides=${this.preferences?.indentGuides}
 													.collapsable=${this.filesCollapsable}
 													?show-file-icons=${this.fileIcons}
-													.fileActions=${this.fileActions}
+													.fileActions=${GlDetailsMultiCommitPanel._fileActions}
 													.fileContext=${this.getFileContext}
 													.searchContext=${this.searchContext}
 													.buttons=${this.getMultiDiffRefs()
@@ -238,20 +238,18 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		`;
 	}
 
-	private get fileActions(): TreeItemAction[] {
-		return [
-			{
-				icon: 'go-to-file',
-				label: 'Open File',
-				action: 'file-open',
-			},
-			{
-				icon: 'git-compare',
-				label: 'Open Changes with Working File',
-				action: 'file-compare-working',
-			},
-		];
-	}
+	private static readonly _fileActions: TreeItemAction[] = [
+		{
+			icon: 'go-to-file',
+			label: 'Open File',
+			action: 'file-open',
+		},
+		{
+			icon: 'git-compare',
+			label: 'Open Changes with Working File',
+			action: 'file-compare-working',
+		},
+	];
 
 	private getFileContext = (file: GitFileChangeShape): string | undefined => {
 		const sha = this.commitTo?.sha;
@@ -457,18 +455,31 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		</gl-popover>`;
 	}
 
+	private _cachedMergedAutolinks?: {
+		autolinksRef: Autolink[] | undefined;
+		enrichedRef: IssueOrPullRequest[] | undefined;
+		out: { autolinks: Autolink[]; enriched: IssueOrPullRequest[] };
+	};
+
 	private getMergedAutolinks() {
 		const autolinks = this.autolinks;
 		const enriched = this.enrichedItems;
 
-		if (!enriched?.length) {
-			return { autolinks: autolinks ?? [], enriched: [] };
+		const cached = this._cachedMergedAutolinks;
+		if (cached != null && cached.autolinksRef === autolinks && cached.enrichedRef === enriched) {
+			return cached.out;
 		}
 
-		// Enriched items upgrade matching basic autolinks — deduplicate by ID
-		const enrichedIds = new Set(enriched.map(i => i.id));
-		const remaining = autolinks?.filter(a => !enrichedIds.has(a.id)) ?? [];
-		return { autolinks: remaining, enriched: enriched };
+		let out: { autolinks: Autolink[]; enriched: IssueOrPullRequest[] };
+		if (!enriched?.length) {
+			out = { autolinks: autolinks ?? [], enriched: [] };
+		} else {
+			const enrichedIds = new Set(enriched.map(i => i.id));
+			const remaining = autolinks?.filter(a => !enrichedIds.has(a.id)) ?? [];
+			out = { autolinks: remaining, enriched: enriched };
+		}
+		this._cachedMergedAutolinks = { autolinksRef: autolinks, enrichedRef: enriched, out: out };
+		return out;
 	}
 
 	private renderAutolinksRow() {

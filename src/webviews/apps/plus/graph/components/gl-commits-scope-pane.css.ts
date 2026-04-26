@@ -1,9 +1,11 @@
 import { css, unsafeCSS } from 'lit';
 
-/* State colors: uncommitted=yellow, unpushed=green, pushed=grey */
+/* State colors: uncommitted=amber, unpushed=tracking-ahead teal, pushed=muted */
 const uncommittedColor = unsafeCSS('var(--vscode-gitlens-decorations-worktreeUncommittedForeground, #e2c08d)');
-const unpushedColor = unsafeCSS('var(--vscode-gitlens-decorations-addedForeground, #73c991)');
-const pushedColor = unsafeCSS('var(--vscode-descriptionForeground, #888)');
+const unpushedColor = unsafeCSS('var(--gl-tracking-ahead, #4ec9b0)');
+const pushedColor = unsafeCSS('var(--color-foreground--75)');
+const mergeBaseColor = unsafeCSS('var(--color-foreground--50)');
+const connectorPushedColor = unsafeCSS('color-mix(in srgb, var(--color-foreground, #888) 25%, transparent)');
 const bgColor = unsafeCSS('var(--vscode-sideBar-background, var(--color-background, #1e1e1e))');
 
 export const commitsScopePaneStyles = css`
@@ -77,13 +79,14 @@ export const commitsScopePaneStyles = css`
 	}
 
 	/* Connector lines — span the dot-col with square ends so they don't render
-	   a visible rounded cap near the dot edge. */
+	   a visible rounded cap near the dot edge. Default (pushed/merge-base)
+	   is a desaturated grey so visual emphasis stays on the in-scope chain. */
 	.scope-row__connector {
 		position: absolute;
 		left: 50%;
 		width: 2px;
 		transform: translateX(-50%);
-		background: var(--color-graph-track, ${pushedColor});
+		background: ${connectorPushedColor};
 	}
 
 	/* The full gap between two dots takes the UPPER commit's color: the row's
@@ -105,15 +108,15 @@ export const commitsScopePaneStyles = css`
 		background: ${unpushedColor};
 	}
 
-	/* Connectors stop short of the dot edge (dot radius 0.8rem + 2px gap) so
+	/* Connectors stop short of the dot edge (dot radius 0.6rem + 2px gap) so
 	   the line reads as joining dots rather than running through them. */
 	.scope-row__connector--above {
 		top: 0;
-		bottom: calc(50% + 0.8rem + 2px);
+		bottom: calc(50% + 0.6rem + 2px);
 	}
 
 	.scope-row__connector--below {
-		top: calc(50% + 0.8rem + 2px);
+		top: calc(50% + 0.6rem + 2px);
 		bottom: 0;
 	}
 
@@ -153,6 +156,7 @@ export const commitsScopePaneStyles = css`
 		flex-shrink: 0;
 		margin-left: auto;
 		font-size: var(--gl-font-micro);
+		font-style: normal;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		padding: 0.1rem 0.4rem;
@@ -188,7 +192,7 @@ export const commitsScopePaneStyles = css`
 		left: calc(1.2rem + 7px);
 		width: 2px;
 		transform: translateX(-50%);
-		background: var(--color-graph-track, ${pushedColor});
+		background: ${connectorPushedColor};
 	}
 
 	.scope-handle[data-state='uncommitted']::before {
@@ -210,14 +214,21 @@ export const commitsScopePaneStyles = css`
 	}
 
 	.scope-handle:hover .scope-handle__bar,
+	.scope-handle:focus-visible .scope-handle__bar,
 	.scope-handle--active .scope-handle__bar {
 		opacity: 0.85;
+	}
+
+	.scope-handle:focus-visible {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
 	}
 
 	/*
 	 * Dot state indicators
 	 * All dots render at the same outer diameter (12px) using box-sizing: border-box
-	 * so border-based dots don't grow larger than filled ones.
+	 * so border-based dots don't grow larger than filled ones. Sized to read as
+	 * deliberate timeline markers rather than incidental punctuation.
 	 */
 	.dot-uncommitted,
 	.dot-unpushed,
@@ -232,26 +243,27 @@ export const commitsScopePaneStyles = css`
 		box-sizing: border-box;
 	}
 
-	/* Uncommitted: dotted hollow circle (yellow) */
-	.dot-uncommitted {
+	/* Uncommitted: hollow ring in amber to read as the WIP/in-flight marker. */
+	.scope-row[data-state='uncommitted'] .dot-uncommitted {
 		border: 2px dotted ${uncommittedColor};
 		background: ${bgColor};
 	}
 
-	/* Unpushed: solid hollow circle (green) */
-	.dot-unpushed {
+	/* Unpushed: filled in tracking-ahead teal — matches ahead-tracking pills. */
+	.scope-row[data-state='unpushed'] .dot-unpushed {
 		border: 3px solid ${unpushedColor};
 		background: ${bgColor};
 	}
 
-	/* Pushed: filled circle (gray) */
-	.dot-pushed {
+	/* Pushed: muted filled circle — pushed commits are context, not focus. */
+	.scope-row[data-state='pushed'] .dot-pushed {
 		background: ${pushedColor};
 	}
 
-	/* Merge base: filled circle (gray, same as pushed) */
-	.dot-merge-base {
-		background: ${pushedColor};
+	/* Merge base: open ring in a quieter foreground tone — reads as a
+	   boundary marker, not another commit dot. */
+	.scope-row[data-state='merge-base'] .dot-merge-base {
+		background: ${mergeBaseColor};
 	}
 
 	/* Merge base row — matches the --excluded/--loading pattern so any
@@ -268,5 +280,31 @@ export const commitsScopePaneStyles = css`
 	.scope-row--merge-base gl-avatar::part(avatar),
 	.scope-row--merge-base .scope-row__dot-col > * {
 		opacity: 0.5;
+	}
+
+	/* Load-more row: a button styled like a row that lets users extend the loaded
+	   commit window back toward the merge base on demand. */
+	.scope-row--load-more {
+		appearance: none;
+		width: 100%;
+		border: none;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.scope-row--load-more:hover:not(:disabled) {
+		background: var(--vscode-list-hoverBackground);
+	}
+
+	.scope-row--load-more:disabled {
+		cursor: default;
+		opacity: 0.7;
+	}
+
+	.scope-row--load-more code-icon {
+		color: var(--vscode-descriptionForeground);
 	}
 `;

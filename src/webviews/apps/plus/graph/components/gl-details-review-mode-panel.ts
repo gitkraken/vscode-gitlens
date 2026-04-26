@@ -39,6 +39,7 @@ import '../../../shared/components/ai-input.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/gl-ai-model-chip.js';
+import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
@@ -49,7 +50,7 @@ export interface ReviewOpenFileDetail {
 	line?: number;
 }
 
-export interface ReviewDrillDetail {
+export interface ReviewAnalyzeAreaDetail {
 	focusAreaId: string;
 	files: string[];
 }
@@ -359,7 +360,11 @@ export class GlDetailsReviewModePanel extends LitElement {
 						.snap=${this._scopeSplitSnap}
 					>
 						<div slot="start" class="scope-split__picker">
-							<gl-commits-scope-pane .items=${this.scopeItems} mode="review"></gl-commits-scope-pane>
+							<gl-commits-scope-pane
+								.items=${this.scopeItems}
+								.selection=${this.scopeSelectionIds()}
+								mode="review"
+							></gl-commits-scope-pane>
 						</div>
 						<div slot="end" class="scope-split__files">
 							<div class="scope-files">${this.renderFileCuration()}</div>
@@ -386,18 +391,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	private renderForwardBanner() {
-		return html`<button
-			class="review-forward-banner"
-			type="button"
-			title="Return to the completed review"
-			@click=${this.handleForward}
-		>
-			<code-icon icon="layout-sidebar-right"></code-icon>
-			<span class="review-forward-banner__label">Review Plan Available</span>
-			<span class="review-forward-banner__action">
-				Return to Review <code-icon icon="arrow-right"></code-icon>
-			</span>
-		</button>`;
+		return html`<gl-tooltip hoist placement="bottom" content="Resume Last Review">
+			<button class="review-forward-banner" type="button" @click=${this.handleForward}>
+				<code-icon icon="history"></code-icon>
+				<span class="review-forward-banner__label">Resume Last Review</span>
+				<code-icon class="review-forward-banner__action" icon="arrow-right"></code-icon>
+			</button>
+		</gl-tooltip>`;
 	}
 
 	private handleCancel = (): void => {
@@ -429,14 +429,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// the unchecked + disabled visual: willUpdate adds them to `_excludedFiles` so `checked`
 		// resolves false, leaving `state: undefined` and `disabled: true` (the file-tree-pane
 		// then renders the checkbox as unchecked + non-interactive).
-		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean }>();
+		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>();
 		for (const file of renderFiles) {
 			const aiDisabled = aiExcluded?.has(file.path) ?? false;
 			const checked = !this._excludedFiles.has(file.path);
 			if (checked || aiDisabled) {
 				checkableStates.set(file.path, {
 					...(checked ? { state: 'checked' as const } : {}),
-					...(aiDisabled ? { disabled: true } : {}),
+					...(aiDisabled ? { disabled: true, disabledReason: 'Excluded by AI ignore rules' } : {}),
 				});
 			}
 		}
@@ -472,9 +472,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	private fileActionsForFile = (_file: GitFileChangeShape): TreeItemAction[] => {
-		// Mirrors `gl-details-wip-panel`' `checkboxMode` short-circuit: the review file tree is always
-		// checkable, so inline icons stay limited to Open File. Stage/Unstage and other actions
-		// remain available via the right-click context menu (driven by `webviewItem`).
 		return [{ icon: 'go-to-file', label: 'Open File', action: 'file-open' }];
 	};
 
@@ -577,6 +574,16 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return Math.max(15, Math.min(pos, maxPercent));
 	};
 
+	private scopeSelectionIds(): readonly string[] | undefined {
+		const scope = this.scope;
+		if (scope?.type !== 'wip') return undefined;
+		return [
+			...(scope.includeUnstaged ? ['unstaged'] : []),
+			...(scope.includeStaged ? ['staged'] : []),
+			...scope.includeShas,
+		];
+	}
+
 	private renderOverview() {
 		if (!this.result?.overview) return nothing;
 
@@ -608,7 +615,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const hasError = this._errorAreas.has(area.id);
 		const hasFindings = area.findings != null && area.findings.length > 0;
 		const isTwoPass = this.result?.mode === 'two-pass';
-		const needsDrill = isTwoPass && !hasFindings && !isLoading && !hasError;
+		const needsAnalyze = isTwoPass && !hasFindings && !isLoading && !hasError;
 
 		return html`<div class="review-area ${isExpanded ? 'review-area--expanded' : ''}">
 			<button
@@ -644,8 +651,11 @@ export class GlDetailsReviewModePanel extends LitElement {
 									</button>`,
 							)}
 						</div>
-						${needsDrill
-							? html`<button class="review-area__drill-btn" @click=${() => this.handleDrill(area)}>
+						${needsAnalyze
+							? html`<button
+									class="review-area__analyze-btn"
+									@click=${() => this.handleAnalyzeArea(area)}
+								>
 									<code-icon icon="search"></code-icon>
 									Review Files
 								</button>`
@@ -660,7 +670,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 							? html`<div class="review-area__error">
 									<code-icon icon="error"></code-icon>
 									Failed to review files.
-									<button class="review-area__retry-btn" @click=${() => this.handleDrill(area)}>
+									<button class="review-area__retry-btn" @click=${() => this.handleAnalyzeArea(area)}>
 										Retry
 									</button>
 								</div>`
@@ -756,10 +766,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 		this._expandedAreas = next;
 	}
 
-	private handleDrill(area: AIReviewFocusArea): void {
+	private handleAnalyzeArea(area: AIReviewFocusArea): void {
 		this._expandedAreas = new Set([...this._expandedAreas, area.id]);
 		this.dispatchEvent(
-			new CustomEvent<ReviewDrillDetail>('review-drill', {
+			new CustomEvent<ReviewAnalyzeAreaDetail>('review-analyze-area', {
 				detail: { focusAreaId: area.id, files: [...area.files] },
 				bubbles: true,
 				composed: true,

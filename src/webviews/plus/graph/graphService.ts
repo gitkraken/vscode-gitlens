@@ -70,6 +70,11 @@ export type ComposeCommitPlan = {
 
 export type CommitResult = { success: true } | { success: true; warning: string } | { error: { message: string } };
 
+export type BranchComparisonFile = CommitFileChange & {
+	/** Marks files added from the current worktree when compare's worktree toggle is enabled. */
+	source?: 'comparison' | 'workingTree';
+};
+
 /** Phase 1 of the branch-compare progressive load: counts + the All Files diff. Smallest payload
  *  needed to render the panel meaningfully. Per-side commits + files are fetched lazily on tab
  *  activation via {@link BranchComparisonSide}. */
@@ -77,8 +82,8 @@ export type BranchComparisonSummary = {
 	aheadCount: number;
 	behindCount: number;
 	allFilesCount: number;
-	/** Files from the unified 2-dot `right..left` diff, used by the "All Files" tab. */
-	allFiles: readonly CommitFileChange[];
+	/** Files from the unified 2-dot `right..left` diff, plus current worktree files when enabled. */
+	allFiles: readonly BranchComparisonFile[];
 };
 
 /** Phase 2: a single side's commits, with per-commit files inline so selection scoping is purely
@@ -99,7 +104,7 @@ export type BranchComparisonCommit = {
 	deletions?: number;
 	/** This commit's file changes — included inline so selecting the commit can filter the file
 	 *  list without an additional fetch. */
-	files: CommitFileChange[];
+	files: BranchComparisonFile[];
 };
 
 export type BranchComparisonOptions = {
@@ -138,11 +143,20 @@ export type BranchCommitEntry = {
 export type BranchCommitsResult = {
 	commits: BranchCommitEntry[];
 	mergeBase?: { sha: string; message: string; author?: string; avatarUrl?: string; date?: string };
+	hasMore: boolean;
 };
+
+export interface BranchCommitsOptions {
+	limit?: number;
+}
 
 export interface GraphInspectService {
 	getAiExcludedFiles(repoPath: string, filePaths: string[]): Promise<string[]>;
-	getBranchCommits(repoPath: string, signal?: AbortSignal): Promise<BranchCommitsResult>;
+	getBranchCommits(
+		repoPath: string,
+		options?: BranchCommitsOptions,
+		signal?: AbortSignal,
+	): Promise<BranchCommitsResult>;
 	getCommit(repoPath: string, sha: string, signal?: AbortSignal): Promise<CommitDetails | undefined>;
 	getCompareDiff(repoPath: string, from: string, to: string, signal?: AbortSignal): Promise<CompareDiff | undefined>;
 	/**

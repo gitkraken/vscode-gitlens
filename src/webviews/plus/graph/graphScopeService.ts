@@ -97,15 +97,18 @@ export async function getScopeFiles(
 			if (!includeAsStaged && !includeAsUnstaged) continue;
 
 			if (byPath.has(f.path)) continue;
-			// Staged layer takes precedence when both layers are in scope so the entry
-			// accurately carries `staged: true`; the coalesced `f.status` still reflects
-			// the index status when present (see statusFile.ts `status` getter).
+			// Unstaged layer takes precedence when both layers are in scope so the entry
+			// matches the `unstaged > staged > committed` ranking applied by the AI-compose
+			// path (see `anchorRank` in graphWebview.ts). Right-click actions on a
+			// mixed-state file then operate on the unstaged hunks (the topmost editable layer).
+			// The coalesced `f.status` still reflects the index status when present (see
+			// statusFile.ts `status` getter), which only affects the visual M/A/D letter.
 			byPath.set(f.path, {
 				repoPath: repoPath,
 				path: f.path,
 				status: f.status,
 				originalPath: f.originalPath,
-				staged: includeAsStaged,
+				staged: includeAsStaged && !includeAsUnstaged,
 			});
 		}
 	}

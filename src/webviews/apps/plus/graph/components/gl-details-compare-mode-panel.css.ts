@@ -60,7 +60,7 @@ export const compareModePanelStyles = css`
 	/* Refs flex equally so neither dominates.
 	   The right-side ref also flexes 0 1 auto so it can shrink under tight viewports. */
 	.wip-compare-ref {
-		min-width: 5rem;
+		min-width: 2.5rem;
 		max-width: 100%;
 		overflow: hidden;
 	}
@@ -78,7 +78,7 @@ export const compareModePanelStyles = css`
 	.wip-compare-bar > gl-tooltip,
 	.wip-compare-bar__group > gl-tooltip {
 		display: flex;
-		min-width: 5rem;
+		min-width: 2.5rem;
 		flex: 0 1 auto;
 		overflow: hidden;
 	}
@@ -99,6 +99,10 @@ export const compareModePanelStyles = css`
 		flex: 0 0 auto;
 	}
 
+	.wip-compare-refresh {
+		flex: 0 0 auto;
+	}
+
 	.wip-compare-wt-toggle--active {
 		color: var(--gl-tracking-ahead, #4ec9b0);
 		background: color-mix(in srgb, var(--gl-tracking-ahead, #4ec9b0) 12%, transparent);
@@ -115,6 +119,39 @@ export const compareModePanelStyles = css`
 		display: flex;
 		border-bottom: 2px solid var(--vscode-sideBarSectionHeader-border);
 		flex: none;
+	}
+
+	.wip-compare-error {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.6rem 1.2rem;
+		color: var(--vscode-editorError-foreground);
+		background: var(--vscode-inputValidation-errorBackground);
+		border-bottom: 1px solid var(--vscode-inputValidation-errorBorder);
+		font-size: var(--gl-font-base);
+		flex: none;
+	}
+
+	.wip-compare-stale {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.6rem 1.2rem;
+		color: var(--vscode-inputValidation-warningForeground);
+		background: var(--vscode-inputValidation-warningBackground);
+		border-bottom: 1px solid var(--vscode-inputValidation-warningBorder);
+		font-size: var(--gl-font-base);
+		flex: none;
+	}
+
+	.wip-compare-stale span {
+		min-width: 0;
+		flex: 1 1 auto;
+	}
+
+	.wip-compare-stale gl-action-chip {
+		flex: 0 0 auto;
 	}
 
 	.wip-compare-tab {
@@ -405,9 +442,18 @@ export const compareModePanelStyles = css`
 		overflow: hidden;
 	}
 
-	.wip-compare-files gl-file-tree-pane::part(header) {
+	.wip-compare-files :is(gl-file-tree-pane, webview-pane)::part(header) {
 		padding-right: calc(1.2rem - 0.6rem);
 		background-color: inherit;
+		border-top: none;
+	}
+
+	/* Match the inline-flex/gap treatment that gl-file-tree-pane applies to its title slot, so the
+	   Contributors header (selector + count badge) aligns identically to the Files Changed header. */
+	.wip-compare-contributors-title {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
 	}
 
 	/* Line-stats summary in the file pane header. Color matches the per-file +N -N annotations. */
