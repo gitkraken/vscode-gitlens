@@ -74,19 +74,25 @@ export const treeItemStyles = [
 		}
 
 		/* Disabled state — propagated from disable-check so AI-excluded files (or any other
-		   row that shouldn't be acted on) read as visually inactive. The checkbox stays
-		   interactive-looking (it is already dimmed via .checkbox:has(:disabled)), but the
-		   label, icon, and actions go muted so the row clearly cannot be operated on. */
+		   row that shouldn't be acted on) read as visually inactive AND inert (clicking the
+		   row will not open the file or trigger any action — same UX as a disabled menu item).
+		   The checkbox visual is already dimmed via .checkbox:has(:disabled) and the underlying
+		   <input> is :disabled, so it cannot be activated regardless. */
 		:host([disable-check]) .item,
 		:host([disable-check]) slot[name='decorations-before'],
 		:host([disable-check]) slot[name='decorations-after'],
 		:host([disable-check]) .actions {
-			opacity: 0.5;
+			opacity: 0.7;
 			color: var(--vscode-disabledForeground, inherit);
 		}
 
 		:host([disable-check]) .item {
 			cursor: default;
+			pointer-events: none;
+		}
+
+		:host([disable-check]) .actions {
+			pointer-events: none;
 		}
 
 		:host([disable-check]:hover) {

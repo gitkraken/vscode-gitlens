@@ -316,6 +316,9 @@ export class GlButton extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	truncate = false;
 
+	@property({ type: String, attribute: 'aria-label' })
+	override ariaLabel: string | null = null;
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
@@ -363,6 +366,7 @@ export class GlButton extends LitElement {
 		if (this.href != null) {
 			return html`<a
 				class="control"
+				aria-label=${ifDefined(this.ariaLabel)}
 				tabindex="${ifDefined(this.disabled === false ? undefined : -1)}"
 				href=${this.href}
 				@keypress=${(e: KeyboardEvent) => this.onLinkKeypress(e)}
@@ -372,6 +376,7 @@ export class GlButton extends LitElement {
 		return html`<button
 			class="control"
 			role=${ifDefined(this.role)}
+			aria-label=${ifDefined(this.ariaLabel)}
 			aria-checked=${ifDefined(this.ariaChecked)}
 			?disabled=${this.disabled}
 		>

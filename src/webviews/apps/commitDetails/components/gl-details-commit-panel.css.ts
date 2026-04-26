@@ -1,6 +1,12 @@
 import { css } from 'lit';
 
 export const detailsCommitPanelStyles = css`
+	.compare-header__title {
+		font-weight: 500;
+		font-size: var(--gl-font-base);
+		color: var(--color-foreground--85);
+	}
+
 	/* Split panel layout */
 	:host([variant='embedded']) .split {
 		flex: 1;

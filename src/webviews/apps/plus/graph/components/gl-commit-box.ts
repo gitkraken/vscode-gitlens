@@ -74,7 +74,6 @@ export class GlCommitBox extends LitElement {
 					@keydown=${this.onMessageKeydown}
 				></textarea>
 				<div class="controls">
-					${len > 50 ? html`<span class="char-count">${len}</span>` : nothing}
 					${when(
 						this.aiEnabled,
 						() => html`
@@ -96,6 +95,7 @@ export class GlCommitBox extends LitElement {
 						`,
 					)}
 				</div>
+				${len > 50 ? html`<span class="char-count">${len}</span>` : nothing}
 			</div>
 		`;
 	}

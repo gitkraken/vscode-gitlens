@@ -280,7 +280,7 @@ export class GlDraftDetails extends GlTreeBase {
 					${when(
 						this.state?.draft?.patches == null,
 						() => this.renderLoading(),
-						() => this.renderTreeView(this.treeModel, this.state?.preferences?.indentGuides),
+						() => this.renderTreeView(this.treeModel, this.state?.preferences?.indentGuides, 'No files'),
 					)}
 				</div>
 			</webview-pane>

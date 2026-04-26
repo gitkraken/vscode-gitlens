@@ -38,7 +38,7 @@ export const fileTreeStyles = css`
 
 	webview-pane::part(header) {
 		background-color: inherit;
-		border-top: none !important;
+		border-top: var(--gl-file-tree-pane-header-border-top, none);
 	}
 
 	.header-actions {
@@ -54,19 +54,6 @@ export const fileTreeStyles = css`
 
 	gl-badge {
 		font-size: var(--gl-font-micro);
-	}
-
-	gl-badge::part(base) {
-		background-color: var(--vscode-badge-background);
-		color: var(--vscode-badge-foreground);
-		border: none;
-		font-variant: normal;
-		font-weight: 500;
-		line-height: 1;
-		min-width: 1.6rem;
-		justify-content: center;
-		padding: 0.2rem 0.4rem;
-		border-radius: 0.4rem;
 	}
 
 	.checkbox-header {
@@ -90,15 +77,6 @@ export const fileTreeStyles = css`
 		align-items: center;
 		gap: 0.6rem;
 		color: var(--vscode-sideBarSectionHeader-foreground);
-	}
-
-	/* Standalone empty state — used when there are no files. Mirrors the editor's empty-state
-	   pattern (italic, centered, muted) so it reads as a section message rather than a list row. */
-	.tree-empty {
-		padding: 1.6rem 0;
-		text-align: center;
-		font-style: italic;
-		color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
 	}
 
 	action-item.active-toggle {

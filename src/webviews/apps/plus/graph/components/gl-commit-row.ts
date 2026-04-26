@@ -87,10 +87,20 @@ export class GlCommitRow extends LitElement {
 			flex-shrink: 0;
 		}
 
-		/* When the host opts into right-aligned date layout (date-position="right"),
-		   the leading dot is hidden and the date is pushed to the far edge. Used by the
-		   multi-commit pole-card and ahead/behind list so the row reads "sha · author … date". */
-		:host([date-position='right']) .date {
+		/* Trailing group keeps the date and stats glued together at the row's right edge so the
+		   row reads "sha · author … date stats" rather than letting each tail piece independently
+		   absorb the remaining space (which would split them across the row). */
+		.trailing {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.6rem;
+			flex-shrink: 0;
+		}
+
+		/* When the host opts into right-aligned date layout (date-position="right"), the leading
+		   dot is hidden and the trailing group is pushed to the far edge. Used by the multi-commit
+		   pole-card and ahead/behind list. */
+		:host([date-position='right']) .trailing {
 			margin-left: auto;
 		}
 
@@ -104,7 +114,6 @@ export class GlCommitRow extends LitElement {
 			gap: 0.4rem;
 			flex-shrink: 0;
 			font-family: var(--vscode-editor-font-family, monospace);
-			margin-left: auto;
 		}
 
 		.stats__added {
@@ -149,14 +158,16 @@ export class GlCommitRow extends LitElement {
 				<span class="sha">${commit.shortSha}</span>
 				<span class="dot" aria-hidden="true">·</span>
 				<span class="author">${commit.author}</span>
-				<span class="dot dot--before-date" aria-hidden="true">·</span>
-				<formatted-date
-					class="date"
-					.date=${new Date(commit.date)}
-					.format=${this.preferences?.dateFormat}
-					.dateStyle=${this.preferences?.dateStyle ?? 'relative'}
-				></formatted-date>
-				${this.renderStats(commit)}
+				<span class="trailing">
+					<span class="dot dot--before-date" aria-hidden="true">·</span>
+					<formatted-date
+						class="date"
+						.date=${new Date(commit.date)}
+						.format=${this.preferences?.dateFormat}
+						.dateStyle=${this.preferences?.dateStyle ?? 'relative'}
+					></formatted-date>
+					${this.renderStats(commit)}
+				</span>
 			</span>
 		</div>`;
 	}

@@ -207,9 +207,11 @@ import { messageHeadlineSplitterToken } from './detailsProtocol.js';
 import { getScopeFiles } from './graphScopeService.js';
 import type {
 	BranchCommitEntry,
+	BranchCommitsOptions,
 	BranchCommitsResult,
 	BranchComparisonCommit,
 	BranchComparisonContributor,
+	BranchComparisonFile,
 	ComposeRewriteKind,
 	GraphServices,
 	ProposedCommitFile,
@@ -423,6 +425,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _graphRowProcessor?: GlGraphRowProcessor;
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _hoverCache = new Map<string, Promise<string>>();
+	/** LRU-capped per-AI-request diff cache. Cap is small because only one review and one
+	 *  compose can be active at a time — the only legitimate concurrent keys are (review, compose,
+	 *  + a couple of variants from changing excludedFiles within a session). */
+	private readonly _graphDetailsDiffCache = new Map<string, { diff: string; message: string }>();
+	private static readonly _diffCacheCap = 4;
 
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean>>([
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
@@ -576,65 +583,68 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 				getScopeFiles: async (repoPath: string, scope: ScopeSelection, signal?: AbortSignal) =>
 					getScopeFiles(this.container, repoPath, scope, signal),
-				getBranchCommits: async (repoPath: string, signal?: AbortSignal) => {
+				getBranchCommits: async (repoPath: string, options?: BranchCommitsOptions, signal?: AbortSignal) => {
 					signal?.throwIfAborted();
+					const branchCommitsPageSize = 100;
+					const limit = options?.limit ?? branchCommitsPageSize;
 					try {
 						const svc = this.container.git.getRepositoryService(repoPath);
 						const branch = await svc.branches.getBranch();
-						if (!branch) return { commits: [] };
+						if (!branch) return { commits: [], hasMore: false };
 
 						const upstreamRef = branch.upstream?.name;
 						const hasUpstream = upstreamRef != null && !branch.upstream?.missing;
 						const aheadCount = hasUpstream ? (branch.upstream!.state.ahead ?? 0) : 0;
 
-						let logRef: string;
+						// Always compute merge base against the base branch — even when an upstream
+						// exists — so the picker can extend the scope into already-pushed commits.
 						let mergeBaseSha: string | undefined;
-						if (hasUpstream && upstreamRef) {
-							// Has upstream: show commits since upstream
-							logRef = `${upstreamRef}..HEAD`;
-							// The upstream tip is the effective merge base
-							mergeBaseSha = upstreamRef;
-						} else {
-							// No upstream: determine the base branch and find merge base
-							// Try provider APIs first, then fall back to common branch names
-							let baseBranch: string | undefined;
-							try {
-								baseBranch =
-									(await svc.branches.getBaseBranchName?.(branch.name)) ??
-									(await svc.branches.getDefaultBranchName?.());
-							} catch {
-								// APIs may not be available
-							}
-
-							const candidates = baseBranch ? [baseBranch] : ['main', 'master', 'develop'];
-
-							for (const candidate of candidates) {
-								if (candidate === branch.name) continue;
-								try {
-									const result = await svc.refs.getMergeBase(branch.ref, candidate);
-									if (result) {
-										mergeBaseSha = result;
-										break;
-									}
-								} catch (ex) {
-									console.log(`[compose] getMergeBase(${branch.ref}, ${candidate}) threw: ${ex}`);
-								}
-							}
-
-							logRef = mergeBaseSha ? `${mergeBaseSha}..HEAD` : 'HEAD';
+						let baseBranch: string | undefined;
+						try {
+							baseBranch =
+								(await svc.branches.getBaseBranchName?.(branch.name)) ??
+								(await svc.branches.getDefaultBranchName?.());
+						} catch {
+							// APIs may not be available
 						}
 
-						const log = await svc.commits.getLog(logRef, {
-							limit: logRef === 'HEAD' ? 20 : 100,
-						});
+						const candidates = baseBranch ? [baseBranch] : ['main', 'master', 'develop'];
+						for (const candidate of candidates) {
+							if (candidate === branch.name) continue;
+							try {
+								const result = await svc.refs.getMergeBase(branch.ref, candidate);
+								if (result) {
+									mergeBaseSha = result;
+									break;
+								}
+							} catch (ex) {
+								Logger.debug(
+									`getMergeBase(${branch.ref}, ${candidate}) failed: ${String(ex)}`,
+									'graph.compose',
+								);
+							}
+						}
+
+						// Fallback: if no base branch matched but we have an upstream, use the
+						// upstream tip — preserves prior behavior so we never regress.
+						if (mergeBaseSha == null && hasUpstream && upstreamRef != null) {
+							mergeBaseSha = upstreamRef;
+						}
+
+						const logRef = mergeBaseSha ? `${mergeBaseSha}..HEAD` : 'HEAD';
+						const effectiveLimit = logRef === 'HEAD' ? 20 : limit;
+						// Request one extra so we can detect "more available" without a separate count.
+						const log = await svc.commits.getLog(logRef, { limit: effectiveLimit + 1 });
 						signal?.throwIfAborted();
 
-						if (!log?.commits?.size) return { commits: [] };
+						if (!log?.commits?.size) return { commits: [], hasMore: false };
 
 						const entries: BranchCommitEntry[] = [];
-						const avatarPromises: Promise<void>[] = [];
 						let index = 0;
+						const total = log.commits.size;
+						const hasMore = total > effectiveLimit;
 						for (const [sha, commit] of log.commits) {
+							if (index >= effectiveLimit) break;
 							const fileCount =
 								commit.stats?.files != null
 									? typeof commit.stats.files === 'number'
@@ -660,22 +670,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							};
 							entries.push(entry);
 
-							if (commit.author?.email) {
-								const email = commit.author.email;
-								const result = getAvatarUri(email, { ref: sha, repoPath: repoPath }, { size: 16 });
-								if (result instanceof Promise) {
-									avatarPromises.push(
-										result.then(uri => {
-											entry.avatarUrl = uri.toString();
-										}),
-									);
-								} else {
-									entry.avatarUrl = result.toString();
-								}
-							}
+							this.setAvatarIfCached(entry, commit.author?.email, sha, repoPath);
 							index++;
 						}
-						await Promise.allSettled(avatarPromises);
 
 						// Resolve the merge base commit message
 						let mergeBase: BranchCommitsResult['mergeBase'];
@@ -690,18 +687,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 										author: mbCommit.author?.name,
 										date: mbCommit.author?.date != null ? String(mbCommit.author.date) : undefined,
 									};
-									if (mbCommit.author?.email) {
-										const avatarResult = getAvatarUri(
-											mbCommit.author.email,
-											{ ref: mbCommit.sha, repoPath: repoPath },
-											{ size: 16 },
-										);
-										if (avatarResult instanceof Promise) {
-											mbEntry.avatarUrl = (await avatarResult).toString();
-										} else {
-											mbEntry.avatarUrl = avatarResult.toString();
-										}
-									}
+									this.setAvatarIfCached(mbEntry, mbCommit.author?.email, mbCommit.sha, repoPath);
 									mergeBase = mbEntry;
 								}
 							} catch {
@@ -710,9 +696,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							}
 						}
 
-						return { commits: entries, mergeBase: mergeBase };
+						return { commits: entries, mergeBase: mergeBase, hasMore: hasMore };
 					} catch {
-						return { commits: [] };
+						return { commits: [], hasMore: false };
 					}
 				},
 				getCommit: async (
@@ -935,6 +921,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						signal?.throwIfAborted();
 
 						const reviewType = this.getReviewTypeForScope(scope);
+						const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
+						this._graphDetailsDiffCache.delete(diffCacheKey);
 						const data = await this.getDiffForScope(repoPath, scope, signal);
 						if (!data) return { error: { message: 'No changes found.' } };
 
@@ -949,6 +937,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 							if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
 						}
+						this.setDiffCacheEntry(diffCacheKey, { diff: data.diff, message: data.message });
 
 						// Adaptive strategy: single-pass for small diffs, two-pass for large. The
 						// threshold is scoped to the selected model's input-context budget — a 1M-
@@ -1032,8 +1021,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						signal?.throwIfAborted();
 
 						const reviewType = this.getReviewTypeForScope(scope);
-						const data = await this.getDiffForScope(repoPath, scope, signal);
+						const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
+						const cachedData = this._graphDetailsDiffCache.get(diffCacheKey);
+						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, signal));
 						if (!data) return { error: { message: 'No changes found for this focus area.' } };
+						if (cachedData == null) {
+							this.setDiffCacheEntry(diffCacheKey, data);
+						} else {
+							this.touchDiffCacheEntry(diffCacheKey);
+						}
 
 						// Filter diff to only include focus area files, excluding user-excluded files
 						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
@@ -1336,163 +1332,152 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				},
 				commitCompose: async (repoPath, plan) => executeComposeCommit(this.container, repoPath, plan),
-				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, _options, signal) => {
+				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
 					// Phase 1 — counts + the unified All Files diff. Smallest payload to land the user
 					// on a useful panel; per-side commits + their files are fetched on demand via
 					// `getBranchComparisonSide`.
 					signal?.throwIfAborted();
-					try {
-						const svc = this.container.git.getRepositoryService(repoPath);
+					const svc = this.container.git.getRepositoryService(repoPath);
 
-						// Two-dot for the unified "All Files" view — matches Search & Compare's
-						// `ref2..ref1` semantics so a file modified on both sides shows once with a
-						// single combined diff (one click → one unambiguous diff).
-						const allDiffRange = `${rightRef}..${leftRef}`;
+					// Two-dot for the unified "All Files" view — matches Search & Compare's
+					// `ref2..ref1` semantics so a file modified on both sides shows once with a
+					// single combined diff (one click → one unambiguous diff).
+					const allDiffRange = `${rightRef}..${leftRef}`;
 
-						const [countsResult, allFilesResult] = await Promise.allSettled([
-							svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
-							svc.diff.getDiffStatus(allDiffRange),
-						]);
-						signal?.throwIfAborted();
+					const [counts, comparisonFiles, workingTreeFiles] = await Promise.all([
+						svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
+						svc.diff.getDiffStatus(allDiffRange),
+						this.getBranchComparisonWorkingTreeFiles(
+							repoPath,
+							leftRef,
+							options?.includeWorkingTree === true,
+							signal,
+						),
+					]);
+					signal?.throwIfAborted();
 
-						const counts = getSettledValue(countsResult);
-						const aheadCount = counts?.left ?? 0;
-						const behindCount = counts?.right ?? 0;
+					const aheadCount = counts?.left ?? 0;
+					const behindCount = counts?.right ?? 0;
 
-						const mappedAllFiles =
-							getSettledValue(allFilesResult)?.map(f => ({
-								repoPath: repoPath,
-								path: f.path,
-								status: f.status,
-								originalPath: f.originalPath,
-								staged: false,
-								stats: f.stats,
-							})) ?? [];
-
-						return {
-							aheadCount: aheadCount,
-							behindCount: behindCount,
-							allFilesCount: mappedAllFiles.length,
-							allFiles: mappedAllFiles,
-						};
-					} catch {
-						return undefined;
+					const mappedAllFiles: BranchComparisonFile[] = [];
+					for (const f of comparisonFiles ?? []) {
+						mappedAllFiles.push({
+							repoPath: repoPath,
+							path: f.path,
+							status: f.status,
+							originalPath: f.originalPath,
+							staged: false,
+							stats: f.stats,
+							source: 'comparison',
+						});
 					}
+
+					const allFiles = [...mappedAllFiles, ...workingTreeFiles];
+					return {
+						aheadCount: aheadCount,
+						behindCount: behindCount,
+						allFilesCount: allFiles.length,
+						allFiles: allFiles,
+					};
 				},
-				getBranchComparisonSide: async (repoPath, leftRef, rightRef, side, _options, signal) => {
+				getBranchComparisonSide: async (repoPath, leftRef, rightRef, side, options, signal) => {
 					// Phase 2 — that side's commits with per-commit files inline. `getLog`'s default
 					// `includeFiles: true` populates each commit's `fileset.files`, so this is a single
 					// log call with no follow-up diff fan-out.
 					signal?.throwIfAborted();
-					try {
-						const svc = this.container.git.getRepositoryService(repoPath);
+					const svc = this.container.git.getRepositoryService(repoPath);
 
-						// Two-dot range — commits reachable from one side but not the other.
-						const range = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
+					// Two-dot range — commits reachable from one side but not the other.
+					const range = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
+					const [log, workingTreeFiles] = await Promise.all([
+						svc.commits.getLog(range, { limit: 100, includeFiles: true }, signal),
+						side === 'ahead'
+							? this.getBranchComparisonWorkingTreeFiles(
+									repoPath,
+									leftRef,
+									options?.includeWorkingTree === true,
+									signal,
+								)
+							: Promise.resolve([]),
+					]);
+					signal?.throwIfAborted();
 
-						const log = await svc.commits.getLog(range, { limit: 100 });
-						signal?.throwIfAborted();
-						if (!log?.commits?.size) return { commits: [] };
-
-						const commits: BranchComparisonCommit[] = [];
-						const avatarPromises: Promise<void>[] = [];
-
-						for (const [sha, commit] of log.commits) {
-							const commitStats = commit.stats;
-							const entry: BranchComparisonCommit = {
-								sha: sha,
-								shortSha: sha.substring(0, 7),
-								message: commit.message ?? '',
-								author: commit.author?.name ?? '',
-								authorEmail: commit.author?.email,
-								date: commit.author?.date != null ? String(commit.author.date) : '',
-								additions: commitStats?.additions,
-								deletions: commitStats?.deletions,
-								files:
-									commit.fileset?.files?.map(f => ({
-										repoPath: repoPath,
-										path: f.path,
-										status: f.status,
-										originalPath: f.originalPath,
-										staged: false,
-										stats: f.stats,
-									})) ?? [],
-							};
-							commits.push(entry);
-
-							if (commit.author?.email) {
-								const email = commit.author.email;
-								const result = getAvatarUri(email, { ref: sha, repoPath: repoPath }, { size: 16 });
-								if (result instanceof Promise) {
-									avatarPromises.push(
-										result.then(uri => {
-											entry.avatarUrl = uri.toString();
-										}),
-									);
-								} else {
-									entry.avatarUrl = result.toString();
-								}
-							}
-						}
-						await Promise.allSettled(avatarPromises);
-
-						return { commits: commits };
-					} catch {
-						return undefined;
+					const commits: BranchComparisonCommit[] = [];
+					if (workingTreeFiles.length) {
+						commits.push({
+							sha: uncommitted,
+							shortSha: 'WIP',
+							message: 'Working Tree Changes',
+							author: '',
+							date: '',
+							files: workingTreeFiles,
+						});
 					}
+
+					for (const [sha, commit] of log?.commits ?? []) {
+						const commitStats = commit.stats;
+						const entry: BranchComparisonCommit = {
+							sha: sha,
+							shortSha: sha.substring(0, 7),
+							message: commit.message ?? '',
+							author: commit.author?.name ?? '',
+							authorEmail: commit.author?.email,
+							date: commit.author?.date != null ? String(commit.author.date) : '',
+							additions: commitStats?.additions,
+							deletions: commitStats?.deletions,
+							files:
+								commit.anyFiles?.map(f => ({
+									repoPath: repoPath,
+									path: f.path,
+									status: f.status,
+									originalPath: f.originalPath,
+									staged: false,
+									stats: f.stats,
+									source: 'comparison' as const,
+								})) ?? [],
+						};
+						this.setAvatarIfCached(entry, commit.author?.email, sha, repoPath);
+						commits.push(entry);
+					}
+
+					return { commits: commits };
 				},
 				getContributorsForBranchComparison: async (repoPath, leftRef, rightRef, scope, signal) => {
 					signal?.throwIfAborted();
-					try {
-						const svc = this.container.git.getRepositoryService(repoPath);
+					const svc = this.container.git.getRepositoryService(repoPath);
 
-						// Two-dot for ahead/behind (commits only on one side); three-dot for the
-						// symmetric "all" union — matches the ranges used by `getBranchComparison`.
-						const rev =
-							scope === 'ahead'
-								? `${rightRef}..${leftRef}`
-								: scope === 'behind'
-									? `${leftRef}..${rightRef}`
-									: `${leftRef}...${rightRef}`;
+					// Two-dot for ahead/behind (commits only on one side); three-dot for the
+					// symmetric "all" union — matches the ranges used by `getBranchComparison`.
+					const rev =
+						scope === 'ahead'
+							? `${rightRef}..${leftRef}`
+							: scope === 'behind'
+								? `${leftRef}..${rightRef}`
+								: `${leftRef}...${rightRef}`;
 
-						const result = await svc.contributors.getContributors(rev, { stats: true }, signal);
-						signal?.throwIfAborted();
+					const result = await svc.contributors.getContributors(rev, { stats: true }, signal);
+					signal?.throwIfAborted();
 
-						const contributors: BranchComparisonContributor[] = [];
-						const avatarPromises: Promise<void>[] = [];
-						for (const c of result.contributors) {
-							const stats = c.stats;
-							const entry: BranchComparisonContributor = {
-								name: c.name,
-								email: c.email,
-								avatarUrl: c.avatarUrl,
-								commits: c.contributionCount,
-								additions: stats?.additions ?? 0,
-								deletions: stats?.deletions ?? 0,
-								files: typeof stats?.files === 'number' ? stats.files : 0,
-								current: c.current || undefined,
-							};
-							contributors.push(entry);
-
-							if (entry.avatarUrl == null && c.email) {
-								const avatar = getAvatarUri(c.email, undefined, { size: 16 });
-								if (avatar instanceof Promise) {
-									avatarPromises.push(
-										avatar.then(uri => {
-											entry.avatarUrl = uri.toString();
-										}),
-									);
-								} else {
-									entry.avatarUrl = avatar.toString();
-								}
-							}
+					const contributors: BranchComparisonContributor[] = [];
+					for (const c of result.contributors) {
+						const stats = c.stats;
+						const entry: BranchComparisonContributor = {
+							name: c.name,
+							email: c.email,
+							avatarUrl: c.avatarUrl,
+							commits: c.contributionCount,
+							additions: stats?.additions ?? 0,
+							deletions: stats?.deletions ?? 0,
+							files: typeof stats?.files === 'number' ? stats.files : 0,
+							current: c.current || undefined,
+						};
+						if (entry.avatarUrl == null) {
+							this.setAvatarIfCached(entry, c.email, undefined, undefined);
 						}
-						await Promise.allSettled(avatarPromises);
-
-						return { contributors: contributors };
-					} catch {
-						return undefined;
+						contributors.push(entry);
 					}
+
+					return { contributors: contributors };
 				},
 				chooseRef: async (repoPath, title, picked) => {
 					const result = await showReferencePicker2(repoPath, title, 'Choose a branch or tag', {
@@ -5567,6 +5552,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._lastStateSentAt = undefined;
 		this._pendingStateNotify = undefined;
 		this._pendingStateOp = undefined;
+		this._graphDetailsDiffCache.clear();
 		if (this._stateFreshnessRetryTimer != null) {
 			clearTimeout(this._stateFreshnessRetryTimer);
 			this._stateFreshnessRetryTimer = undefined;
@@ -6985,6 +6971,89 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			default:
 				return 'commit';
 		}
+	}
+
+	private setAvatarIfCached(
+		entry: { avatarUrl?: string },
+		email: string | undefined,
+		ref: string | undefined,
+		repoPath: string | undefined,
+	): void {
+		if (!email) return;
+
+		const avatar =
+			ref != null && repoPath != null
+				? getAvatarUri(email, { ref: ref, repoPath: repoPath }, { size: 16 })
+				: getAvatarUri(email, undefined, { size: 16 });
+		if (!(avatar instanceof Promise)) {
+			entry.avatarUrl = avatar.toString();
+		} else {
+			void avatar.catch(() => undefined);
+		}
+	}
+
+	private async getBranchComparisonWorkingTreeFiles(
+		repoPath: string,
+		leftRef: string,
+		includeWorkingTree: boolean,
+		signal?: AbortSignal,
+	): Promise<BranchComparisonFile[]> {
+		if (!includeWorkingTree) return [];
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const branch = await svc.branches.getBranch();
+		signal?.throwIfAborted();
+		if (branch == null || (leftRef !== 'HEAD' && leftRef !== branch.name && leftRef !== branch.ref)) return [];
+
+		const status = await svc.status.getStatus(signal);
+		signal?.throwIfAborted();
+
+		const files: BranchComparisonFile[] = [];
+		const seen = new Set<string>();
+		for (const f of status?.files ?? []) {
+			if (!seen.has(f.path)) {
+				seen.add(f.path);
+				files.push({
+					repoPath: f.repoPath,
+					path: f.path,
+					status: f.status,
+					originalPath: f.originalPath,
+					staged: f.staged,
+					source: 'workingTree',
+				});
+			}
+		}
+
+		return files;
+	}
+
+	private getDiffCacheKey(repoPath: string, scope: ScopeSelection, excludedFiles?: readonly string[]): string {
+		return JSON.stringify({
+			repoPath: repoPath,
+			scope: scope,
+			excludedFiles: excludedFiles?.toSorted(),
+		});
+	}
+
+	/** LRU set: append the new entry at the end of the Map's insertion order, evicting the oldest
+	 *  entries until size <= cap. Map preserves insertion order, so the first key is the LRU. */
+	private setDiffCacheEntry(key: string, value: { diff: string; message: string }): void {
+		this._graphDetailsDiffCache.delete(key);
+		this._graphDetailsDiffCache.set(key, value);
+		while (this._graphDetailsDiffCache.size > GraphWebviewProvider._diffCacheCap) {
+			const oldest = this._graphDetailsDiffCache.keys().next().value;
+			if (oldest == null) break;
+			this._graphDetailsDiffCache.delete(oldest);
+		}
+	}
+
+	/** Promote an existing entry to MRU (called on cache hits) so a long focus-area analyze on one
+	 *  scope doesn't get evicted by interleaved AI calls on other scopes. */
+	private touchDiffCacheEntry(key: string): void {
+		const value = this._graphDetailsDiffCache.get(key);
+		if (value == null) return;
+		this._graphDetailsDiffCache.delete(key);
+		this._graphDetailsDiffCache.set(key, value);
 	}
 
 	private async getDiffForScope(

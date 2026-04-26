@@ -8,7 +8,7 @@ import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
-import type { ProposedCommit, ProposedCommitFile } from '../../../../plus/graph/graphService.js';
+import type { ProposedCommit, ProposedCommitFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import { redispatch } from '../../../shared/components/element.js';
 import { elementBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
@@ -30,6 +30,7 @@ import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
@@ -70,6 +71,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 	@property({ type: Array })
 	scopeItems?: ScopeItem[];
+
+	@property({ type: Object })
+	scope?: ScopeSelection;
 
 	@property({ type: Boolean })
 	stale = false;
@@ -205,15 +209,13 @@ export class GlDetailsComposeModePanel extends LitElement {
 	}
 
 	private renderForwardChip() {
-		return html`<button
-			class="review-forward"
-			title="Return to the completed compose plan"
-			@click=${this.handleForward}
-		>
-			<code-icon icon="layout-sidebar-right"></code-icon>
-			<span>Compose Plan Available</span>
-			<span class="review-forward__action"> Return to Plan <code-icon icon="arrow-right"></code-icon> </span>
-		</button>`;
+		return html`<gl-tooltip hoist placement="bottom" content="Resume Last Compose">
+			<button class="review-forward" @click=${this.handleForward}>
+				<code-icon icon="history"></code-icon>
+				<span>Resume Last Compose</span>
+				<code-icon class="review-forward__action" icon="arrow-right"></code-icon>
+			</button>
+		</gl-tooltip>`;
 	}
 
 	private handleCancel = (): void => {
@@ -312,6 +314,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 				<div slot="start" class="scope-split__picker">
 					<gl-commits-scope-pane
 						.items=${this.scopeItems ?? []}
+						.selection=${this.scopeSelectionIds()}
 						?loading=${this.scopeLoading}
 						mode="compose"
 					></gl-commits-scope-pane>
@@ -331,14 +334,14 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 		const aiExcluded = this._aiExcludedSet;
 
-		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean }>();
+		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>();
 		for (const file of files) {
 			const checked = !this._excludedFiles.has(file.path);
 			const disabled = aiExcluded?.has(file.path) ?? false;
 			if (checked || disabled) {
 				checkableStates.set(file.path, {
 					...(checked ? { state: 'checked' as const } : {}),
-					...(disabled ? { disabled: true } : {}),
+					...(disabled ? { disabled: true, disabledReason: 'Excluded by AI ignore rules' } : {}),
 				});
 			}
 		}
@@ -429,6 +432,16 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const maxPercent = Math.min(70, (scopeEl.contentHeight / size) * 100);
 		return Math.max(15, Math.min(pos, maxPercent));
 	};
+
+	private scopeSelectionIds(): readonly string[] | undefined {
+		const scope = this.scope;
+		if (scope?.type !== 'wip') return undefined;
+		return [
+			...(scope.includeUnstaged ? ['unstaged'] : []),
+			...(scope.includeStaged ? ['staged'] : []),
+			...scope.includeShas,
+		];
+	}
 
 	private renderStaleBanner() {
 		return html`<div class="stale-banner" role="status">
@@ -593,17 +606,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 		></gl-file-tree-pane>`;
 	}
 
-	private fileActionsForFile = (file: ProposedCommitFile): TreeItemAction[] => {
-		const actions: TreeItemAction[] = [{ icon: 'go-to-file', label: 'Open File', action: 'file-open' }];
-		// Files anchored to a committed (unpushed) source aren't in the working tree, so stage/unstage
-		// don't apply — the right-click menu surfaces commit-style actions instead.
-		if (file.anchor === 'committed') return actions;
-		if (file.staged === true) {
-			actions.push({ icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' });
-		} else {
-			actions.push({ icon: 'plus', label: 'Stage Changes', action: 'file-stage' });
-		}
-		return actions;
+	private fileActionsForFile = (_file: ProposedCommitFile): TreeItemAction[] => {
+		return [{ icon: 'go-to-file', label: 'Open File', action: 'file-open' }];
 	};
 
 	private getFileContext = (file: ProposedCommitFile): string | undefined => {

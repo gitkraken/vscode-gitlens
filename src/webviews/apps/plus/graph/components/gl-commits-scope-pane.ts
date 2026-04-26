@@ -8,7 +8,7 @@ import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/formatted-date.js';
 import '../../../shared/components/overlays/tooltip.js';
 
-export type ScopeItemState = 'uncommitted' | 'unpushed' | 'pushed' | 'merge-base';
+export type ScopeItemState = 'uncommitted' | 'unpushed' | 'pushed' | 'merge-base' | 'load-more';
 
 export interface ScopeItem {
 	id: string;
@@ -41,6 +41,10 @@ export class GlCommitsScopePane extends LitElement {
 	@property()
 	mode: 'compose' | 'review' = 'compose';
 
+	/** Controlled selected IDs from the current ScopeSelection. Must represent a contiguous range. */
+	@property({ type: Array })
+	selection?: readonly string[];
+
 	// Range is stored as item IDs so selection survives item list updates.
 	@state() private _userRangeStartId: string | undefined;
 	@state() private _userRangeEndId: string | undefined;
@@ -50,6 +54,8 @@ export class GlCommitsScopePane extends LitElement {
 	private _scrollInterval: ReturnType<typeof setInterval> | undefined;
 	private _dragAc: AbortController | undefined;
 	private _previousBodyCursor: string | undefined;
+	private _dragMoveRaf: number | undefined;
+	private _lastDragMoveEvent: PointerEvent | undefined;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -63,6 +69,36 @@ export class GlCommitsScopePane extends LitElement {
 		this._dragAc = undefined;
 		this.stopScrolling();
 		this.restoreBodyCursor();
+		if (this._dragMoveRaf != null) {
+			cancelAnimationFrame(this._dragMoveRaf);
+			this._dragMoveRaf = undefined;
+		}
+		this._lastDragMoveEvent = undefined;
+	}
+
+	override firstUpdated(): void {
+		this.scrollEndHandleIntoView();
+	}
+
+	override updated(changedProperties: Map<string, unknown>): void {
+		// Only re-scroll when items go from empty → populated (late branchCommits arrival).
+		// Skip during user drag, and skip on selection-only changes — that would yank the
+		// viewport after every drag end.
+		if (this._dragging) return;
+		if (!changedProperties.has('items')) return;
+		const prev = changedProperties.get('items') as ScopeItem[] | undefined;
+		if (!prev?.length && this.items.length > 0) {
+			this.scrollEndHandleIntoView();
+		}
+	}
+
+	private scrollEndHandleIntoView(): void {
+		requestAnimationFrame(() => {
+			const handle = this.renderRoot.querySelector<HTMLElement>(
+				'.scope-handle[aria-label="End of selected scope"]',
+			);
+			handle?.scrollIntoView({ block: 'end', behavior: 'auto' });
+		});
 	}
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
@@ -72,7 +108,11 @@ export class GlCommitsScopePane extends LitElement {
 		// re-emit `scope-change` here — only user drag (`_onDragEnd`) is a legitimate emit
 		// site. Re-emitting on every items-ref change couples unrelated graph-state ticks to
 		// scope-file refetches and the host-graph re-render path.
-		if (changedProperties.has('items') && !this._dragging) {
+		if ((changedProperties.has('items') || changedProperties.has('selection')) && !this._dragging) {
+			if (this.selection != null) {
+				this.syncSelectionRange();
+				return;
+			}
 			if (this._userRangeStartId != null && !this.items.some(i => i.id === this._userRangeStartId)) {
 				this._userRangeStartId = undefined;
 			}
@@ -98,6 +138,29 @@ export class GlCommitsScopePane extends LitElement {
 	reset(): void {
 		this._userRangeStartId = undefined;
 		this._userRangeEndId = undefined;
+	}
+
+	private syncSelectionRange(): void {
+		if (!this.selection?.length) {
+			this._userRangeStartId = undefined;
+			this._userRangeEndId = undefined;
+			return;
+		}
+
+		const selected = new Set(this.selection);
+		let start = -1;
+		let end = -1;
+		for (let i = 0; i < this.items.length; i++) {
+			if (!selected.has(this.items[i].id)) continue;
+			if (start === -1) {
+				start = i;
+			}
+			end = i;
+		}
+		if (start === -1 || end === -1) return;
+
+		this._userRangeStartId = this.items[start].id;
+		this._userRangeEndId = this.items[end].id;
 	}
 
 	/** Effective start: resolves stored ID to index, falls back to default-start. */
@@ -131,7 +194,7 @@ export class GlCommitsScopePane extends LitElement {
 	/**
 	 * Default end index, derived from items:
 	 *  - If any WIP items exist, end at the last WIP item (select WIP only).
-	 *  - Else, end at the last unpushed (non-pushed, non-merge-base) item.
+	 *  - Else, end at the last unpushed (non-pushed, non-merge-base, non-load-more) item.
 	 *  - Else, end at the first item.
 	 */
 	private get defaultEnd(): number {
@@ -142,7 +205,7 @@ export class GlCommitsScopePane extends LitElement {
 			if (state === 'uncommitted') {
 				lastWip = i;
 			}
-			if (state !== 'pushed' && state !== 'merge-base') {
+			if (state !== 'pushed' && state !== 'merge-base' && state !== 'load-more') {
 				lastUnpushed = i;
 			}
 		}
@@ -151,10 +214,10 @@ export class GlCommitsScopePane extends LitElement {
 		return 0;
 	}
 
-	/** Last index that a drag handle can land on (excludes merge-base items). */
+	/** Last index that a drag handle can land on (excludes merge-base and load-more items). */
 	private get maxDraggableIndex(): number {
 		let last = this.items.length - 1;
-		while (last >= 0 && this.items[last].state === 'merge-base') {
+		while (last >= 0 && (this.items[last].state === 'merge-base' || this.items[last].state === 'load-more')) {
 			last--;
 		}
 		return last;
@@ -192,6 +255,8 @@ export class GlCommitsScopePane extends LitElement {
 	}
 
 	private renderItem(item: ScopeItem, index: number, isInRange: boolean) {
+		if (item.state === 'load-more') return this.renderLoadMore(item, index);
+
 		const isFirst = index === 0;
 		const isLast = !this.loading && index === this.items.length - 1;
 		const isMergeBase = item.state === 'merge-base';
@@ -255,12 +320,51 @@ export class GlCommitsScopePane extends LitElement {
 		const isActive = this._dragging === type;
 		return html`<div
 			class="scope-handle ${isActive ? 'scope-handle--active' : ''}"
+			role="slider"
+			tabindex="0"
+			aria-label=${type === 'start' ? 'Start of selected scope' : 'End of selected scope'}
+			aria-orientation="vertical"
+			aria-valuemin="1"
+			aria-valuemax=${Math.max(1, this.maxDraggableIndex + 1)}
+			aria-valuenow=${(type === 'start' ? this.rangeStart : this.rangeEnd) + 1}
+			aria-valuetext=${this.items[type === 'start' ? this.rangeStart : this.rangeEnd]?.label ?? ''}
 			data-state=${upperState ?? nothing}
 			@pointerdown=${(e: PointerEvent) => this.handlePointerDown(e, type)}
+			@keydown=${(e: KeyboardEvent) => this.handleHandleKeydown(e, type)}
 		>
 			<div class="scope-handle__bar"></div>
 		</div>`;
 	}
+
+	private renderLoadMore(item: ScopeItem, index: number) {
+		const prevState = index > 0 ? this.items[index - 1].state : nothing;
+		const isLoading = item.label === 'Loading…';
+		return html`<button
+			class="scope-row scope-row--load-more"
+			role="listitem"
+			data-index=${index}
+			data-state=${item.state}
+			data-prev-state=${prevState}
+			?disabled=${isLoading}
+			@click=${this.handleLoadMore}
+		>
+			<span class="scope-row__dot-col">
+				<span class="scope-row__connector scope-row__connector--above"></span>
+				<code-icon
+					icon=${isLoading ? 'loading' : 'fold-down'}
+					?modifier=${isLoading ? 'spin' : false}
+				></code-icon>
+				<span class="scope-row__connector scope-row__connector--below"></span>
+			</span>
+			<span class="scope-row__label--dimmed">${item.label}</span>
+		</button>`;
+	}
+
+	private handleLoadMore = (e: MouseEvent): void => {
+		e.preventDefault();
+		e.stopPropagation();
+		this.dispatchEvent(new CustomEvent('load-more', { bubbles: true, composed: true }));
+	};
 
 	private renderLoading() {
 		const prevState = this.items.at(-1)?.state ?? nothing;
@@ -283,6 +387,8 @@ export class GlCommitsScopePane extends LitElement {
 				return html`<span class="dot-pushed"></span>`;
 			case 'merge-base':
 				return html`<span class="dot-merge-base"></span>`;
+			case 'load-more':
+				return nothing;
 		}
 	}
 
@@ -315,7 +421,67 @@ export class GlCommitsScopePane extends LitElement {
 		window.addEventListener('pointercancel', this._onDragEnd, { signal: ac.signal });
 	}
 
+	private handleHandleKeydown(e: KeyboardEvent, type: 'start' | 'end'): void {
+		let delta;
+		switch (e.key) {
+			case 'ArrowUp':
+			case 'ArrowLeft':
+				delta = -1;
+				break;
+			case 'ArrowDown':
+			case 'ArrowRight':
+				delta = 1;
+				break;
+			case 'Home':
+				delta = -Infinity;
+				break;
+			case 'End':
+				delta = Infinity;
+				break;
+			default:
+				return;
+		}
+
+		e.preventDefault();
+		e.stopPropagation();
+
+		const maxIndex = this.maxDraggableIndex;
+		if (maxIndex < 0) return;
+
+		if (type === 'start') {
+			const current = this.rangeStart;
+			const next =
+				delta === -Infinity
+					? 0
+					: delta === Infinity
+						? this.rangeEnd
+						: Math.min(this.rangeEnd, Math.max(0, current + delta));
+			this._userRangeStartId = this.items[next]?.id;
+		} else {
+			const current = this.rangeEnd;
+			const next =
+				delta === -Infinity
+					? this.rangeStart
+					: delta === Infinity
+						? maxIndex
+						: Math.max(this.rangeStart, Math.min(maxIndex, current + delta));
+			this._userRangeEndId = this.items[next]?.id;
+		}
+		this.emitScopeChange();
+	}
+
 	private _onDragMove = (e: PointerEvent): void => {
+		this._lastDragMoveEvent = e;
+		if (this._dragMoveRaf != null) return;
+		this._dragMoveRaf = requestAnimationFrame(() => {
+			this._dragMoveRaf = undefined;
+			const last = this._lastDragMoveEvent;
+			if (last == null) return;
+			this._processDragMove(last);
+		});
+	};
+
+	private _processDragMove(e: PointerEvent): void {
 		const scrollContainer = this.renderRoot.querySelector<HTMLElement>('.details-scope-pane');
 		if (scrollContainer) {
 			this.handleEdgeScroll(e, scrollContainer);
@@ -346,13 +512,18 @@ export class GlCommitsScopePane extends LitElement {
 				this._dragPreview = Math.min(clamped, this.rangeEnd);
 			}
 		}
-	};
+	}
 
 	private _onDragEnd = (): void => {
 		this._dragAc?.abort();
 		this._dragAc = undefined;
 		this.stopScrolling();
 		this.restoreBodyCursor();
+		if (this._dragMoveRaf != null) {
+			cancelAnimationFrame(this._dragMoveRaf);
+			this._dragMoveRaf = undefined;
+		}
+		this._lastDragMoveEvent = undefined;
 
 		if (this._dragPreview != null) {
 			const item = this.items[this._dragPreview];

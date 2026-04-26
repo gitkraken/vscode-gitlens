@@ -52,16 +52,19 @@ export class GlWipTreePane extends LitElement {
 	checkable = false;
 
 	@property({ attribute: false })
-	checkableStates?: Map<string, { state?: 'checked' | 'mixed'; disabled?: boolean }>;
+	checkableStates?: Map<string, { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string }>;
 
 	@property({ attribute: false })
-	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean };
+	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string };
 
 	@property({ attribute: false })
 	multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
 
 	private _effectiveFiles: Files = [];
-	private _effectiveStates?: Map<string, { state?: 'checked' | 'mixed'; disabled?: boolean }>;
+	private _effectiveStates?: Map<
+		string,
+		{ state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string }
+	>;
 	private _grouping?: { getGroup: (file: FileItem) => string; groups: FileGroup[] };
 	private _wrappedActions:
 		| TreeItemAction[]
@@ -131,7 +134,7 @@ export class GlWipTreePane extends LitElement {
 
 		// When a file appears in BOTH staged and unstaged, downstream action callbacks need to
 		// know so they can offer Stage AND Unstage actions instead of one inferred from the
-		// canonical (staged) FileItem we kept during dedup.
+		// canonical (unstaged) FileItem we kept during dedup.
 		const callerActions = this.fileActions;
 		this._wrappedActions =
 			typeof callerActions === 'function'
@@ -222,8 +225,13 @@ export class GlWipTreePane extends LitElement {
 			const idx = seen.get(f.path);
 			if (idx != null) {
 				mixedPaths.add(f.path);
-				// Keep the staged version as the canonical entry
-				if (f.staged && !deduped[idx].staged) {
+				// Keep the unstaged version as canonical so single-row mixed files expose
+				// `staged: false` — matching the `unstaged > staged > committed` precedence
+				// applied by the AI-compose path (see `anchorRank` in graphWebview.ts).
+				// Inline tree actions still see `options.mixed === true` (wrapped above) and
+				// offer both Stage and Unstage; this only fixes the right-click menu, which
+				// keys off `webviewItem` derived from `file.staged`.
+				if (!f.staged && deduped[idx].staged) {
 					deduped[idx] = f;
 				}
 			} else {

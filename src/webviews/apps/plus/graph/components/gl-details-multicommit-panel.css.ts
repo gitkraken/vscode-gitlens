@@ -253,10 +253,18 @@ export const multiCommitPanelStyles = css`
 		overflow: auto;
 	}
 
-	.pole-popover:hover .scrollable,
-	.pole-popover:focus-within .scrollable {
+	/* Pole popover content is portaled by gl-popover (hoist), so scrollableBase's
+	   :host(:hover) gate never matches when the user is hovering the popover.
+	   Force the scrollbar slider to be visible via the same border-color trick the
+	   shared mixin uses, so future tweaks to scrollbar slider colors flow through. */
+	.pole-popover__message.scrollable {
 		border-color: var(--vscode-scrollbarSlider-background);
-		transition: none;
+	}
+	.pole-popover__message.scrollable::-webkit-scrollbar-thumb:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+	.pole-popover__message.scrollable::-webkit-scrollbar-thumb:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
 	}
 
 	.pole-popover__date {

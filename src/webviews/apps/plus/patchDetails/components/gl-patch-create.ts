@@ -482,17 +482,7 @@ export class GlPatchCreate extends GlTreeBase {
 
 	private renderTreeViewWithModel() {
 		if (this.createChanges == null || this.createChanges.length === 0) {
-			return this.renderTreeView([
-				{
-					label: 'No changes',
-					path: '',
-					level: 1,
-					branch: false,
-					checkable: false,
-					expanded: true,
-					checked: false,
-				},
-			]);
+			return this.renderTreeView([], 'none', 'No changes');
 		}
 
 		const treeModel: TreeModel[] = [];
@@ -515,7 +505,7 @@ export class GlPatchCreate extends GlTreeBase {
 				treeModel.push(...tree);
 			}
 		}
-		return this.renderTreeView(treeModel, this.state?.preferences?.indentGuides);
+		return this.renderTreeView(treeModel, this.state?.preferences?.indentGuides, 'No changes');
 	}
 
 	private getTreeForChange(change: Change, isMulti = false, isTree = false, compact = true): TreeModel[] | undefined {
@@ -819,17 +809,16 @@ export class GlPatchCreate extends GlTreeBase {
 	): { icon: string; label: string; action: string }[] {
 		const openFile = {
 			icon: 'go-to-file',
-			label: 'Open file',
+			label: 'Open File',
 			action: 'file-open',
 		};
 
-		if (this.review) {
-			return [openFile];
-		}
+		if (this.review) return [openFile];
+
 		if (file.staged === true) {
-			return [openFile, { icon: 'remove', label: 'Unstage changes', action: 'file-unstage' }];
+			return [openFile, { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' }];
 		}
-		return [openFile, { icon: 'plus', label: 'Stage changes', action: 'file-stage' }];
+		return [openFile, { icon: 'plus', label: 'Stage Changes', action: 'file-stage' }];
 	}
 
 	override getRepoActions(

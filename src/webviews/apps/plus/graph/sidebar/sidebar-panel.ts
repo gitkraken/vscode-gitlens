@@ -440,7 +440,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private renderTreeContent(config: (typeof panelConfig)[GraphSidebarPanel], data: DidGetSidebarDataParams): unknown {
 		const model = this.buildTreeModel(data);
-		if (model.length === 0) return html`<div class="empty">No items</div>`;
 
 		// Automatically track/restore tree expansion state per panel.
 		// On first build (set empty): seed the set from the model's natural defaults.

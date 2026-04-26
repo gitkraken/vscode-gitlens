@@ -151,6 +151,8 @@ export class GlTreeView extends GlElement {
 				border-radius: 1px;
 			}
 
+			/* Shared by both the no-data case (emptyText) and the filter-yields-no-matches
+			   case ("No results found"); class name dates from the latter. */
 			.no-results {
 				padding: 1rem;
 				color: var(--vscode-descriptionForeground);
@@ -660,10 +662,7 @@ export class GlTreeView extends GlElement {
 	override render(): unknown {
 		const hasItems = Boolean(this.treeItems?.length);
 		const showNoResults = !hasItems && this._filterText && this._model?.length;
-		// When emptyText was overridden by the consumer, render the empty branch even with no
-		// model (e.g. compare panel's "No changes"). The default 'No items' string suppresses
-		// itself to preserve the historical pre-existing-empty-state behavior of file trees.
-		const showEmptyText = !hasItems && !showNoResults && this.emptyText !== 'No items';
+		const showEmptyText = !hasItems && !showNoResults && Boolean(this.emptyText);
 
 		if (!hasItems && !showNoResults && !showEmptyText) return nothing;
 

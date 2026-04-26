@@ -16,13 +16,16 @@
  */
 import type { Remote } from '@eamodio/supertalk';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
-import type { CommitDetails, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
+import type { CommitDetails, CommitSignatureShape, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import { messageHeadlineSplitterToken } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	BranchComparisonContributorsScope,
@@ -34,6 +37,8 @@ import type {
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
+import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
+import type { OverviewBranchIssue } from '../../../../shared/overviewBranches.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import * as fileActions from '../../../shared/actions/file.js';
@@ -99,6 +104,26 @@ export interface DetailsResources {
 	readonly scopeFiles: Resource<GitFileChangeShape[], [string, ScopeSelection]>;
 }
 
+interface WipBranchEnrichmentCacheEntry {
+	autolinks?: OverviewBranchIssue[];
+	issues?: OverviewBranchIssue[];
+	mergeTarget?: BranchMergeTargetStatus;
+}
+
+interface CommitEnrichmentCacheEntry {
+	commit?: CommitDetails;
+	autolinks?: Autolink[];
+	formattedMessage?: string;
+	autolinkedIssues?: IssueOrPullRequest[];
+	pullRequest?: PullRequestShape | undefined;
+	signature?: CommitSignatureShape | undefined;
+	hasPullRequest?: boolean;
+	hasSignature?: boolean;
+}
+
+const wipEnrichmentCacheLimit = 8;
+const commitEnrichmentCacheLimit = 32;
+
 export class DetailsActions {
 	private _lastFetchedKey?: string;
 	private _pendingStagingOp?: Promise<void>;
@@ -106,8 +131,16 @@ export class DetailsActions {
 	private _eventUnsubscribe?: () => void;
 
 	private _branchCommitsController?: AbortController;
+	private _branchCommitsLoadMoreController?: AbortController;
 	private _enrichmentController?: AbortController;
 	private _aiExcludedFilesGeneration = 0;
+
+	/** Branch-keyed cache of WIP enrichment (autolinks/issues/mergeTarget). Populated on first
+	 *  successful fetch; consulted on subsequent visits to hydrate state synchronously and avoid
+	 *  the visible chip flash-out → flash-in (especially mergeTarget which costs ~250ms). */
+	private _wipEnrichmentCache = new Map<string, WipBranchEnrichmentCacheEntry>();
+	/** SHA-keyed cache of commit enrichment (autolinks/PR/signature). Same purpose as wip cache. */
+	private _commitEnrichmentCache = new Map<string, CommitEnrichmentCacheEntry>();
 
 	constructor(
 		readonly state: DetailsState,
@@ -143,10 +176,45 @@ export class DetailsActions {
 		this.state.signatureTo.set(undefined);
 	}
 
+	private updateWipEnrichmentCache(
+		key: string,
+		patch: Partial<WipBranchEnrichmentCacheEntry>,
+	): WipBranchEnrichmentCacheEntry {
+		const existing = this._wipEnrichmentCache.get(key);
+		const next: WipBranchEnrichmentCacheEntry = { ...(existing ?? {}), ...patch };
+		// LRU touch
+		this._wipEnrichmentCache.delete(key);
+		this._wipEnrichmentCache.set(key, next);
+		while (this._wipEnrichmentCache.size > wipEnrichmentCacheLimit) {
+			const oldest = this._wipEnrichmentCache.keys().next().value;
+			if (oldest == null) break;
+			this._wipEnrichmentCache.delete(oldest);
+		}
+		return next;
+	}
+
+	private updateCommitEnrichmentCache(
+		key: string,
+		patch: Partial<CommitEnrichmentCacheEntry>,
+	): CommitEnrichmentCacheEntry {
+		const existing = this._commitEnrichmentCache.get(key);
+		const next: CommitEnrichmentCacheEntry = { ...(existing ?? {}), ...patch };
+		this._commitEnrichmentCache.delete(key);
+		this._commitEnrichmentCache.set(key, next);
+		while (this._commitEnrichmentCache.size > commitEnrichmentCacheLimit) {
+			const oldest = this._commitEnrichmentCache.keys().next().value;
+			if (oldest == null) break;
+			this._commitEnrichmentCache.delete(oldest);
+		}
+		return next;
+	}
+
 	dispose(): void {
 		this._disposed = true;
 		this._branchCommitsController?.abort();
 		this._enrichmentController?.abort();
+		this._wipEnrichmentCache.clear();
+		this._commitEnrichmentCache.clear();
 		this.resources.commit.dispose();
 		this.resources.wip.dispose();
 		this.resources.compare.dispose();
@@ -263,12 +331,20 @@ export class DetailsActions {
 
 	refreshWip(): void {
 		this._lastFetchedKey = undefined;
+		// Drop cached wip enrichment for the current branch so the next fetch is authoritative.
+		const wip = this.state.wip.get();
+		const branchName = wip?.branch?.name;
+		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
+		if (branchName != null && repoPath != null) {
+			this._wipEnrichmentCache.delete(`${branchName}:${repoPath}`);
+		}
 	}
 
 	async fetchDetails(
 		sha: string | undefined,
 		repoPath: string | undefined,
 		graphReachability?: GitCommitReachability,
+		options?: { searchActive?: boolean },
 	): Promise<void> {
 		const s = this.services;
 
@@ -291,11 +367,36 @@ export class DetailsActions {
 
 		this._lastFetchedKey = key;
 
-		this.state.autolinks.set(undefined);
-		this.state.formattedMessage.set(undefined);
-		this.state.autolinkedIssues.set(undefined);
-		this.state.pullRequest.set(undefined);
-		this.state.signature.set(undefined);
+		// For commit selections, hydrate enrichment from cache if we've seen this sha before.
+		// Misses (or WIP) get cleared to undefined so stale prior-selection chips don't linger.
+		const commitCacheHit = sha !== uncommitted ? this._commitEnrichmentCache.get(`${sha}:${repoPath}`) : undefined;
+		if (commitCacheHit != null) {
+			// Hydrate the commit itself first so the displayed metadata + chips match the same sha.
+			// Otherwise the await commit.fetch leaves _state.commit pointing at the prior selection
+			// for ~30ms, mismatching the freshly-set enrichment.
+			if (commitCacheHit.commit != null) {
+				this.state.commit.set(commitCacheHit.commit);
+			}
+			this.state.autolinks.set(commitCacheHit.autolinks);
+			this.state.formattedMessage.set(commitCacheHit.formattedMessage);
+			this.state.autolinkedIssues.set(commitCacheHit.autolinkedIssues);
+			if (commitCacheHit.hasPullRequest) {
+				this.state.pullRequest.set(commitCacheHit.pullRequest);
+			} else {
+				this.state.pullRequest.set(undefined);
+			}
+			if (commitCacheHit.hasSignature) {
+				this.state.signature.set(commitCacheHit.signature);
+			} else {
+				this.state.signature.set(undefined);
+			}
+		} else {
+			this.state.autolinks.set(undefined);
+			this.state.formattedMessage.set(undefined);
+			this.state.autolinkedIssues.set(undefined);
+			this.state.pullRequest.set(undefined);
+			this.state.signature.set(undefined);
+		}
 		this.state.reachability.set(graphReachability ?? { partial: true, refs: [] });
 		this.state.reachabilityState.set('loaded');
 		this.state.explain.set(undefined);
@@ -309,8 +410,10 @@ export class DetailsActions {
 		});
 
 		// Fire search-context fetch in parallel — it drives match highlighting + filter button
-		// in the embedded file trees. Skip for WIP since it has no graph SHA to look up.
-		if (sha !== uncommitted) {
+		// in the embedded file trees. Skip for WIP (no graph SHA to look up) and skip when no
+		// search is active in the graph (host would just return undefined — saves an RPC roundtrip
+		// per click in the common no-search case).
+		if (sha !== uncommitted && options?.searchActive) {
 			void s.graphInspect.getSearchContext(sha).then(ctx => {
 				if (this._lastFetchedKey === key) {
 					this.state.searchContext.set(ctx);
@@ -320,10 +423,10 @@ export class DetailsActions {
 
 		try {
 			if (sha === uncommitted) {
-				this.state.wipAutolinks.set(undefined);
-				this.state.wipIssues.set(undefined);
-				this.state.wipMergeTarget.set(undefined);
-				this.state.wipMergeTargetLoading.set(true);
+				// Don't eager-clear WIP enrichment — keep prior chips visible until either a cache
+				// hit (in fetchWipBranchEnrichment) replaces them or the network fetch returns.
+				// Avoids the flash-out → flash-in cycle on revisit. Loading flag is only set when
+				// we know we don't have cached merge-target data (set in fetchWipBranchEnrichment).
 
 				await this.resources.wip.fetch(repoPath);
 
@@ -351,8 +454,8 @@ export class DetailsActions {
 				if (this.resources.commit.status.get() === 'success') {
 					const commit = this.resources.commit.value.get();
 					this.state.commit.set(commit);
-
 					if (commit != null) {
+						this.updateCommitEnrichmentCache(`${sha}:${repoPath}`, { commit: commit });
 						this.fetchEnrichment(repoPath, sha, enrichSignal);
 					}
 				}
@@ -368,6 +471,7 @@ export class DetailsActions {
 
 	private fetchEnrichment(repoPath: string, sha: string, signal: AbortSignal): void {
 		const s = this.services;
+		const cacheKey = `${sha}:${repoPath}`;
 		const guard = <T>(onResult: (value: T) => void) =>
 			enrichmentGuard<T>(this.resources.commit, value => {
 				if (signal.aborted) return;
@@ -380,6 +484,10 @@ export class DetailsActions {
 			void s.autolinks.getCommitAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash).then(
 				guard(r => {
 					if (r != null) {
+						this.updateCommitEnrichmentCache(cacheKey, {
+							autolinks: r.autolinks,
+							formattedMessage: r.formattedMessage,
+						});
 						this.state.autolinks.set(r.autolinks);
 						this.state.formattedMessage.set(r.formattedMessage);
 					}
@@ -390,6 +498,10 @@ export class DetailsActions {
 			void s.autolinks.getEnrichedAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash).then(
 				guard(r => {
 					if (r != null) {
+						this.updateCommitEnrichmentCache(cacheKey, {
+							autolinkedIssues: r.autolinkedIssues,
+							formattedMessage: r.formattedMessage,
+						});
 						this.state.autolinkedIssues.set(r.autolinkedIssues);
 						this.state.formattedMessage.set(r.formattedMessage);
 					}
@@ -400,6 +512,7 @@ export class DetailsActions {
 
 		void s.pullRequests.getPullRequestForCommit(repoPath, sha).then(
 			guard(pr => {
+				this.updateCommitEnrichmentCache(cacheKey, { pullRequest: pr, hasPullRequest: true });
 				this.state.pullRequest.set(pr);
 			}),
 			noop,
@@ -407,6 +520,7 @@ export class DetailsActions {
 
 		void s.repository.getCommitSignature(repoPath, sha).then(
 			guard(sig => {
+				this.updateCommitEnrichmentCache(cacheKey, { signature: sig, hasSignature: true });
 				this.state.signature.set(sig);
 			}),
 			noop,
@@ -415,6 +529,32 @@ export class DetailsActions {
 
 	private fetchWipBranchEnrichment(repoPath: string, branchName: string, signal: AbortSignal): void {
 		const s = this.services;
+		const cacheKey = `${branchName}:${repoPath}`;
+		const cached = this._wipEnrichmentCache.get(cacheKey);
+
+		// Hydrate from cache synchronously so chips are visible immediately. We still kick off the
+		// network refresh below to keep the data fresh — the cache provides instant continuity, the
+		// fetch provides eventual consistency.
+		if (cached != null) {
+			if (cached.autolinks !== undefined) {
+				this.state.wipAutolinks.set(cached.autolinks);
+			}
+			if (cached.issues !== undefined) {
+				this.state.wipIssues.set(cached.issues);
+			}
+			if (cached.mergeTarget !== undefined) {
+				this.state.wipMergeTarget.set(cached.mergeTarget);
+			}
+			// Only show loading if we have no cached merge-target value at all.
+			this.state.wipMergeTargetLoading.set(cached.mergeTarget === undefined);
+		} else {
+			// First visit to this branch — clear any prior-branch values and show loading.
+			this.state.wipAutolinks.set(undefined);
+			this.state.wipIssues.set(undefined);
+			this.state.wipMergeTarget.set(undefined);
+			this.state.wipMergeTargetLoading.set(true);
+		}
+
 		const guard = <T>(onResult: (value: T) => void) =>
 			enrichmentGuard<T>(this.resources.wip, value => {
 				if (signal.aborted) return;
@@ -422,20 +562,28 @@ export class DetailsActions {
 			});
 
 		void s.autolinks.getBranchAutolinks(repoPath, branchName).then(
-			guard(autolinks => this.state.wipAutolinks.set(autolinks)),
+			guard(autolinks => {
+				this.updateWipEnrichmentCache(cacheKey, { autolinks: autolinks });
+				this.state.wipAutolinks.set(autolinks);
+			}),
 			noop,
 		);
 
 		void s.branches.getAssociatedIssues(repoPath, branchName).then(
-			guard(issues => this.state.wipIssues.set(issues)),
+			guard(issues => {
+				this.updateWipEnrichmentCache(cacheKey, { issues: issues });
+				this.state.wipIssues.set(issues);
+			}),
 			noop,
 		);
 
-		this.state.wipMergeTargetLoading.set(true);
 		void s.branches
 			.getMergeTargetStatus(repoPath, branchName)
 			.then(
-				guard(status => this.state.wipMergeTarget.set(status)),
+				guard(status => {
+					this.updateWipEnrichmentCache(cacheKey, { mergeTarget: status });
+					this.state.wipMergeTarget.set(status);
+				}),
 				noop,
 			)
 			.finally(() => {
@@ -454,6 +602,10 @@ export class DetailsActions {
 		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
 		if (!branchName || !repoPath) return;
 
+		// Force a real network fetch — drop cached values so fetchWipBranchEnrichment sees a miss
+		// and goes through the loading-state path. Used in response to out-of-band git-config
+		// writes where the cache is known to be stale.
+		this._wipEnrichmentCache.delete(`${branchName}:${repoPath}`);
 		this.fetchWipBranchEnrichment(repoPath, branchName, this.resetEnrichment());
 	}
 
@@ -467,8 +619,12 @@ export class DetailsActions {
 		// Real reconciliation happens via the onRepositoryChanged (gkConfig) subscription
 		// that re-fires fetchWipBranchEnrichment when the git config write lands.
 		const previous = this.state.wipIssues.get();
+		const cacheKey = `${branchName}:${repoPath}`;
+		const previousCache = this._wipEnrichmentCache.get(cacheKey);
 		if (previous?.length) {
-			this.state.wipIssues.set(previous.filter(i => i.entityId !== entityId));
+			const next = previous.filter(i => i.entityId !== entityId);
+			this.state.wipIssues.set(next);
+			this.updateWipEnrichmentCache(cacheKey, { issues: next });
 		}
 
 		try {
@@ -476,6 +632,9 @@ export class DetailsActions {
 		} catch {
 			// Revert the optimistic update on failure; the gkConfig event won't fire.
 			this.state.wipIssues.set(previous);
+			if (previousCache !== undefined) {
+				this._wipEnrichmentCache.set(cacheKey, previousCache);
+			}
 		}
 	}
 
@@ -540,17 +699,34 @@ export class DetailsActions {
 		try {
 			const comparePromise = this.resources.compare.fetch(repoPath, fromSha, toSha);
 
-			// Fetch the two commit details in parallel while the compare resource runs
-			const [commitFrom, commitTo] = await Promise.all([
-				this.services.graphInspect.getCommit(repoPath, fromSha),
-				this.services.graphInspect.getCommit(repoPath, toSha),
-				comparePromise,
-			]);
+			// Reuse cached commit shells (populated by single-commit visits) to skip the
+			// two getCommit IPC roundtrips when we've seen these shas before. Saves ~30ms each
+			// and avoids re-serializing two ~40KB payloads.
+			const cachedFrom = this._commitEnrichmentCache.get(`${fromSha}:${repoPath}`)?.commit;
+			const cachedTo = this._commitEnrichmentCache.get(`${toSha}:${repoPath}`)?.commit;
+
+			const fromPromise: Promise<CommitDetails | undefined> =
+				cachedFrom != null
+					? Promise.resolve(cachedFrom)
+					: this.services.graphInspect.getCommit(repoPath, fromSha);
+			const toPromise: Promise<CommitDetails | undefined> =
+				cachedTo != null ? Promise.resolve(cachedTo) : this.services.graphInspect.getCommit(repoPath, toSha);
+
+			const [commitFrom, commitTo] = await Promise.all([fromPromise, toPromise, comparePromise]);
 
 			if (this._lastFetchedKey !== key) return;
 
 			this.state.commitFrom.set(commitFrom);
 			this.state.commitTo.set(commitTo);
+
+			// Write fresh shells back into the single-commit cache so future single-commit
+			// visits (or repeat compare visits) skip the IPC.
+			if (commitFrom != null && cachedFrom == null) {
+				this.updateCommitEnrichmentCache(`${fromSha}:${repoPath}`, { commit: commitFrom });
+			}
+			if (commitTo != null && cachedTo == null) {
+				this.updateCommitEnrichmentCache(`${toSha}:${repoPath}`, { commit: commitTo });
+			}
 
 			if (this.resources.compare.status.get() === 'success') {
 				const diff = this.resources.compare.value.get();
@@ -575,19 +751,35 @@ export class DetailsActions {
 				onResult(value);
 			});
 
-		void s.repository.getCommitSignature(repoPath, fromSha).then(
-			guard(sig => {
-				this.state.signatureFrom.set(sig);
-			}),
-			noop,
-		);
+		// Reuse signatures from the single-commit cache when present (`hasSignature: true` means
+		// we've previously resolved this sha's signature, even if the value is `undefined` —
+		// signatures are immutable per-sha, so the cached value is authoritative).
+		const cachedFromEntry = this._commitEnrichmentCache.get(`${fromSha}:${repoPath}`);
+		const cachedToEntry = this._commitEnrichmentCache.get(`${toSha}:${repoPath}`);
 
-		void s.repository.getCommitSignature(repoPath, toSha).then(
-			guard(sig => {
-				this.state.signatureTo.set(sig);
-			}),
-			noop,
-		);
+		if (cachedFromEntry?.hasSignature) {
+			this.state.signatureFrom.set(cachedFromEntry.signature);
+		} else {
+			void s.repository.getCommitSignature(repoPath, fromSha).then(
+				guard(sig => {
+					this.updateCommitEnrichmentCache(`${fromSha}:${repoPath}`, { signature: sig, hasSignature: true });
+					this.state.signatureFrom.set(sig);
+				}),
+				noop,
+			);
+		}
+
+		if (cachedToEntry?.hasSignature) {
+			this.state.signatureTo.set(cachedToEntry.signature);
+		} else {
+			void s.repository.getCommitSignature(repoPath, toSha).then(
+				guard(sig => {
+					this.updateCommitEnrichmentCache(`${toSha}:${repoPath}`, { signature: sig, hasSignature: true });
+					this.state.signatureTo.set(sig);
+				}),
+				noop,
+			);
+		}
 
 		if (!this.state.autolinksEnabled.get()) return;
 
@@ -695,11 +887,26 @@ export class DetailsActions {
 	 * already sitting on Ahead or Behind. The 'all' tab has all the data it needs from Phase 1.
 	 */
 	async refreshCompare(repoPath: string | undefined): Promise<void> {
+		this.state.branchCompareStale.set(false);
 		await this.fetchCompareSummary(repoPath);
 		const tab = this.state.branchCompareActiveTab.get();
 		if (tab === 'ahead' || tab === 'behind') {
 			void this.fetchCompareSide(repoPath, tab);
 		}
+	}
+
+	refreshBranchCompare(repoPath: string | undefined): void {
+		this.state.branchCompareStale.set(false);
+		this.state.branchCompareAheadLoaded.set(false);
+		this.state.branchCompareBehindLoaded.set(false);
+		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
+		this.clearBranchCompareEnrichmentCaches();
+		void this.refreshCompare(repoPath);
+	}
+
+	markBranchCompareStale(): void {
+		if (this.state.activeMode.get() !== 'compare' || !this.state.branchCompareIncludeWorkingTree.get()) return;
+		this.state.branchCompareStale.set(true);
 	}
 
 	/** Phase 1 — counts + the All Files diff. Cheap, runs on every comparison-identity change. */
@@ -817,8 +1024,11 @@ export class DetailsActions {
 
 	toggleCompareWorkingTree(repoPath: string | undefined): void {
 		this.state.branchCompareIncludeWorkingTree.set(!this.state.branchCompareIncludeWorkingTree.get());
+		this.state.branchCompareStale.set(false);
 		this.state.branchCompareAheadLoaded.set(false);
 		this.state.branchCompareBehindLoaded.set(false);
+		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
+		this.clearBranchCompareEnrichmentCaches();
 		void this.refreshCompare(repoPath);
 	}
 
@@ -975,11 +1185,12 @@ export class DetailsActions {
 
 		this.state.branchCommitsFetching.set(true);
 		try {
-			const result = await this.services.graphInspect.getBranchCommits(repoPath, controller.signal);
+			const result = await this.services.graphInspect.getBranchCommits(repoPath, undefined, controller.signal);
 			if (controller.signal.aborted) return;
 
 			this.state.branchCommits.set(result.commits);
 			this.state.branchMergeBase.set(result.mergeBase);
+			this.state.branchCommitsHasMore.set(result.hasMore);
 		} finally {
 			if (this._branchCommitsController === controller) {
 				this._branchCommitsController = undefined;
@@ -988,36 +1199,71 @@ export class DetailsActions {
 		}
 
 		// Late-arriving branch commits: if we entered a WIP review/compose mode before commits
-		// loaded, the default scope had includeShas=[] and the file list missed every unpushed
-		// commit's contribution. Re-build the default scope now and re-fetch files — but only
-		// if the user hasn't manually adjusted the picker (current scope's includeShas matches
-		// what buildDefaultScope would have produced if it had been called with empty branchCommits).
+		// loaded, the default scope may have been computed without them. Re-derive only if the
+		// current scope still looks like the "deferred" default — i.e. no working/staged files
+		// were selected and includeShas is empty. Once the user drags or working changes are
+		// included, we leave it alone.
 		const activeMode = this.state.activeMode.get();
 		const activeContext = this.state.activeModeContext.get();
 		if (activeContext !== 'wip' || (activeMode !== 'review' && activeMode !== 'compose')) return;
 
 		const currentScope = this.state.scope.get();
 		if (currentScope?.type !== 'wip') return;
-		// User-adjusted heuristic: if includeShas is non-empty the user (or a previous late
-		// arrival) has already populated it — don't overwrite.
+		if (currentScope.includeStaged || currentScope.includeUnstaged) return;
 		if ((currentScope.includeShas?.length ?? 0) > 0) return;
 
-		// Rebuild the WIP scope directly — the late-arriving branch commits are the only thing
-		// that changed vs the scope the controller built at mode entry. Kept inline (not going
-		// through the controller) because this is a data-flow concern, not user intent.
+		// Mirror buildDefaultScope's priority: unpushed commits → most recent commit (HEAD).
 		const commits = this.state.branchCommits.get();
-		const refreshedIncludeShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
+		const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
+		const refreshedIncludeShas = unpushedShas.length > 0 ? unpushedShas : commits?.length ? [commits[0].sha] : [];
 		if (refreshedIncludeShas.length === 0) return;
 		const refreshedScope: ScopeSelection = {
 			type: 'wip',
-			includeStaged: true,
-			includeUnstaged: true,
+			includeStaged: false,
+			includeUnstaged: false,
 			includeShas: refreshedIncludeShas,
 		};
 
 		this.state.scope.set(refreshedScope);
 		const wipRepoPath = this.state.wip.get()?.repo?.path ?? repoPath;
 		void this.resources.scopeFiles.fetch(wipRepoPath, refreshedScope);
+	}
+
+	/**
+	 * Load the next page of branch commits — extends the current commits list back toward the
+	 * merge base. Re-runs the host `getBranchCommits` with a larger limit (idempotent: `git log
+	 * -n` always returns from HEAD, so the larger response supersedes the smaller one).
+	 */
+	async loadMoreBranchCommits(repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+		if (this.state.branchCommitsLoadingMore.get()) return;
+		if (!this.state.branchCommitsHasMore.get()) return;
+
+		const currentCount = this.state.branchCommits.get()?.length ?? 0;
+		const nextLimit = currentCount + 100;
+
+		this._branchCommitsLoadMoreController?.abort();
+		const controller = new AbortController();
+		this._branchCommitsLoadMoreController = controller;
+
+		this.state.branchCommitsLoadingMore.set(true);
+		try {
+			const result = await this.services.graphInspect.getBranchCommits(
+				repoPath,
+				{ limit: nextLimit },
+				controller.signal,
+			);
+			if (controller.signal.aborted) return;
+
+			this.state.branchCommits.set(result.commits);
+			this.state.branchMergeBase.set(result.mergeBase);
+			this.state.branchCommitsHasMore.set(result.hasMore);
+		} finally {
+			if (this._branchCommitsLoadMoreController === controller) {
+				this._branchCommitsLoadMoreController = undefined;
+				this.state.branchCommitsLoadingMore.set(false);
+			}
+		}
 	}
 
 	buildWipScopeItems(): ScopeItem[] | undefined {
@@ -1084,6 +1330,16 @@ export class DetailsActions {
 			}
 		}
 
+		// Load-more sits between the loaded commits and the merge-base footer when the host
+		// indicates there are more commits to load.
+		if (this.state.branchCommitsHasMore.get()) {
+			items.push({
+				id: 'load-more',
+				label: this.state.branchCommitsLoadingMore.get() ? 'Loading…' : 'Load more commits',
+				state: 'load-more',
+			});
+		}
+
 		const mergeBase = this.state.branchMergeBase.get();
 		if (mergeBase) {
 			items.push({
@@ -1116,9 +1372,14 @@ export class DetailsActions {
 	}
 
 	private getReviewFiles(sha: string | undefined, shas: string[] | undefined) {
+		// Prefer the resolved scope file list (covers branch-commit files added via the scope picker)
+		// over the context's static file list. Falls back to the context's files until scope resolves.
+		const scoped = this.resources.scopeFiles.value.get();
+		if (scoped?.length) return scoped;
+
 		// Use activeModeContext when in a mode to avoid stale data from selection changes
 		const ctx = this.state.activeModeContext.get();
-		if (ctx === 'wip' || (!ctx && this.isWip(sha))) return undefined;
+		if (ctx === 'wip' || (!ctx && this.isWip(sha))) return this.state.wip.get()?.changes?.files;
 		if (ctx === 'multicommit' || (!ctx && this.isMultiCommit(shas))) return this.state.compareFiles.get();
 		return this.state.commit.get()?.files;
 	}
@@ -1185,7 +1446,8 @@ export class DetailsActions {
 			} else {
 				this.state.activeMode.set(null);
 				this.state.activeModeContext.set(null);
-				this.resources.compose.cancel();
+				this.resources.compose.reset();
+				this.state.composeForwardAvailable.set(false);
 				this.refreshWip();
 				void this.fetchDetails(sha, repoPath, graphReachability);
 			}
@@ -1194,7 +1456,12 @@ export class DetailsActions {
 		}
 	}
 
-	async composeCommitTo(repoPath: string | undefined, upToIndex: number): Promise<void> {
+	async composeCommitTo(
+		repoPath: string | undefined,
+		upToIndex: number,
+		sha?: string,
+		graphReachability?: GitCommitReachability,
+	): Promise<void> {
 		const composeValue = this.resources.compose.value.get();
 		if (!repoPath || !composeValue || !('result' in composeValue)) return;
 
@@ -1207,6 +1474,13 @@ export class DetailsActions {
 			});
 			if ('error' in result && result.error) {
 				this.resources.compose.mutate({ error: { message: result.error.message } });
+			} else {
+				this.state.activeMode.set(null);
+				this.state.activeModeContext.set(null);
+				this.resources.compose.reset();
+				this.state.composeForwardAvailable.set(false);
+				this.refreshWip();
+				void this.fetchDetails(sha, repoPath, graphReachability);
 			}
 		} catch {
 			this.resources.compose.mutate({ error: { message: 'Failed to commit.' } });

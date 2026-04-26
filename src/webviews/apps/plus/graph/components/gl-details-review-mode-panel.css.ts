@@ -378,7 +378,7 @@ export const reviewModePanelStyles = css`
 		text-decoration: underline;
 	}
 
-	.review-area__drill-btn {
+	.review-area__analyze-btn {
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
@@ -392,7 +392,7 @@ export const reviewModePanelStyles = css`
 		cursor: pointer;
 	}
 
-	.review-area__drill-btn:hover {
+	.review-area__analyze-btn:hover {
 		background: var(--vscode-button-hoverBackground);
 	}
 

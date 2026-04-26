@@ -65,19 +65,6 @@ export const commitBoxStyles = css`
 		padding-right: 3.8rem;
 	}
 
-	.message:has(.char-count) .textarea {
-		padding-right: 6.2rem;
-	}
-
-	.textarea::-webkit-scrollbar-thumb {
-		border-color: transparent;
-	}
-
-	.textarea:hover::-webkit-scrollbar-thumb,
-	.textarea:focus-within::-webkit-scrollbar-thumb {
-		border-color: var(--vscode-scrollbarSlider-background);
-	}
-
 	.textarea:focus {
 		border-color: var(--vscode-focusBorder);
 		outline: none;
@@ -109,8 +96,16 @@ export const commitBoxStyles = css`
 	}
 
 	.char-count {
+		position: absolute;
+		bottom: 0.4rem;
+		right: 0.8rem;
 		font-size: var(--gl-font-sm);
-		color: var(--vscode-editorWarning-foreground);
+		color: var(--vscode-descriptionForeground, var(--color-foreground--65));
+		pointer-events: none;
+	}
+
+	.message:has(.textarea:not(:placeholder-shown)) .char-count {
+		right: 1.6rem;
 	}
 
 	.sparkle {
