@@ -6,7 +6,7 @@ import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue } from '../../../../shared/overviewBranches.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
-import { wipHeaderStyles } from './gl-wip-header.css.js';
+import { detailsWipHeaderStyles } from './gl-details-wip-header.css.js';
 import '../../shared/components/merge-target-status.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/chips/autolink-chip.js';
@@ -19,9 +19,9 @@ import '../../../shared/components/code-icon.js';
 import '../../../shared/components/details-header/gl-details-header.js';
 import '../../../shared/components/overlays/tooltip.js';
 
-@customElement('gl-wip-header')
-export class GlWipHeader extends LitElement {
-	static override styles = [elementBase, metadataBarVarsBase, wipHeaderStyles];
+@customElement('gl-details-wip-header')
+export class GlDetailsWipHeader extends LitElement {
+	static override styles = [elementBase, metadataBarVarsBase, detailsWipHeaderStyles];
 
 	@property({ type: Object }) wip?: Wip;
 	@property() activeMode?: 'review' | 'compose' | 'compare' | null;

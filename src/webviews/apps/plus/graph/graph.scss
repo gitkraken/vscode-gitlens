@@ -1422,11 +1422,11 @@ web-graph {
 			transition: none;
 		}
 
-		gl-commit-details,
-		gl-wip-details,
-		gl-graph-compare-panel,
-		gl-graph-review-panel,
-		gl-graph-compose-panel {
+		gl-details-commit-panel,
+		gl-details-wip-panel,
+		gl-details-multicommit-panel,
+		gl-details-review-mode-panel,
+		gl-details-compose-mode-panel {
 			display: flex;
 			flex-direction: column;
 			flex: 1;

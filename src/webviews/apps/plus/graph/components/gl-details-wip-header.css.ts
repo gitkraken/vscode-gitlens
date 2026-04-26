@@ -1,6 +1,6 @@
 import { css } from 'lit';
 
-export const wipHeaderStyles = css`
+export const detailsWipHeaderStyles = css`
 	:host {
 		display: contents;
 	}

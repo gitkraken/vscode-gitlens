@@ -30,7 +30,7 @@ import {
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
-import { comparePanelStyles, panelActionInputStyles, panelHostStyles } from './gl-graph-compare-panel.css.js';
+import { multiCommitPanelStyles, panelActionInputStyles, panelHostStyles } from './gl-details-multicommit-panel.css.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit-sha.js';
@@ -53,14 +53,14 @@ import '../../../shared/components/tree/gl-file-tree-pane.js';
 import '../../../shared/components/details-header/gl-details-header.js';
 import './gl-commit-row.js';
 
-@customElement('gl-graph-compare-panel')
-export class GlGraphComparePanel extends LitElement {
+@customElement('gl-details-multicommit-panel')
+export class GlDetailsMultiCommitPanel extends LitElement {
 	static override styles = [
 		elementBase,
 		metadataBarVarsBase,
 		panelHostStyles,
 		panelActionInputStyles,
-		comparePanelStyles,
+		multiCommitPanelStyles,
 		subPanelEnterStyles,
 		scrollableBase,
 	];

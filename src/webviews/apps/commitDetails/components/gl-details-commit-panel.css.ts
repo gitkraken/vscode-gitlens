@@ -1,6 +1,6 @@
 import { css } from 'lit';
 
-export const commitDetailsStyles = css`
+export const detailsCommitPanelStyles = css`
 	/* Split panel layout */
 	:host([variant='embedded']) .split {
 		flex: 1;

@@ -14,23 +14,29 @@ import type { DetailsActions } from './detailsActions.js';
 import { scopeSelectionEqual } from './detailsActions.js';
 import { detailsActionsContext, detailsStateContext, detailsWorkflowContext } from './detailsContext.js';
 import { resolveDetailsActions } from './detailsResolver.js';
-import type { DetailsState } from './detailsState.js';
+import type { DetailsContext, DetailsState } from './detailsState.js';
 import { createDetailsState } from './detailsState.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
-import type { ReviewDrillDetail, ReviewOpenFileDetail } from './gl-graph-review-panel.js';
-import '../../../commitDetails/components/gl-commit-details.js';
-import '../../../commitDetails/components/gl-wip-details.js';
+import type { ReviewDrillDetail, ReviewOpenFileDetail } from './gl-details-review-mode-panel.js';
+import '../../../commitDetails/components/gl-details-commit-panel.js';
+import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/progress.js';
-import './gl-graph-compare-panel.js';
-import './gl-graph-compose-panel.js';
-import './gl-graph-review-panel.js';
+import './gl-details-multicommit-panel.js';
+import './gl-details-compose-mode-panel.js';
+import './gl-details-review-mode-panel.js';
 import './gl-commit-box.js';
-import './gl-graph-wip-compare-panel.js';
-import './gl-wip-empty-state.js';
-import './gl-wip-header.js';
+import './gl-details-compare-mode-panel.js';
+import './gl-details-wip-empty-pane.js';
+import './gl-details-wip-header.js';
+
+interface ResolvedContent {
+	content: ReturnType<typeof html> | typeof nothing;
+	ariaLabel: string;
+	context: DetailsContext;
+}
 
 @customElement('gl-graph-details-panel')
 export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
@@ -72,7 +78,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@property({ type: Object })
 	graphReachability?: GitCommitReachability;
 
-	private get isCompare(): boolean {
+	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
 	}
 
@@ -81,8 +87,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** Returns the effective context, respecting mode lock when active. */
-	private get effectiveContext(): 'wip' | 'commit' | 'compare' {
-		return this._state.activeModeContext.get() ?? (this.isCompare ? 'compare' : this.isWip ? 'wip' : 'commit');
+	private get effectiveContext(): DetailsContext {
+		return (
+			this._state.activeModeContext.get() ?? (this.isMultiCommit ? 'multicommit' : this.isWip ? 'wip' : 'commit')
+		);
 	}
 
 	private get effectiveRepoPath(): string | undefined {
@@ -191,7 +199,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this._state.activeMode.get() == null &&
 			(changedProperties.has('sha') || changedProperties.has('shas') || changedProperties.has('repoPath'))
 		) {
-			if (this.isCompare) {
+			if (this.isMultiCommit) {
 				void this._actions.fetchCompareDetails(this.shas, this.repoPath);
 			} else {
 				void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
@@ -281,7 +289,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		// Fetch capabilities in parallel
 		void this._actions.fetchCapabilities();
-		if (this.isCompare) {
+		if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, this.repoPath);
 		} else {
 			void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
@@ -298,42 +306,33 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private _lastResolved:
-		| {
-				content: ReturnType<typeof html> | typeof nothing;
-				ariaLabel: string;
-				context: 'wip' | 'commit' | 'compare';
-		  }
-		| undefined;
+	private _lastResolved: ResolvedContent | undefined;
 
-	private resolveContent():
-		| {
-				content: ReturnType<typeof html> | typeof nothing;
-				ariaLabel: string;
-				context: 'wip' | 'commit' | 'compare';
-		  }
-		| undefined {
+	private resolveByContext(ctx: DetailsContext): ResolvedContent {
+		switch (ctx) {
+			case 'multicommit':
+				return {
+					ariaLabel: 'Multiple commits selected',
+					content: this.renderMultiCommit(),
+					context: 'multicommit',
+				};
+			case 'wip':
+				return { ariaLabel: 'Working changes details', content: this.renderWip(), context: 'wip' };
+			case 'commit':
+				return { ariaLabel: 'Commit details', content: this.renderCommit(), context: 'commit' };
+		}
+	}
+
+	private resolveContent(): ResolvedContent | undefined {
 		// When in a mode, lock rendering to the context that was active when the mode was entered.
 		const ctx = this._state.activeModeContext.get();
-		if (ctx != null) {
-			if (ctx === 'compare') {
-				return { ariaLabel: 'Comparing commits', content: this.renderCompare(), context: 'compare' };
-			}
-			if (ctx === 'wip') {
-				return { ariaLabel: 'Working changes details', content: this.renderWip(), context: 'wip' };
-			}
-			return { ariaLabel: 'Commit details', content: this.renderCommit(), context: 'commit' };
-		}
+		if (ctx != null) return this.resolveByContext(ctx);
 
-		if (this.isCompare && this._state.commitFrom.get() != null && this._state.commitTo.get() != null) {
-			return { ariaLabel: 'Comparing commits', content: this.renderCompare(), context: 'compare' };
+		if (this.isMultiCommit && this._state.commitFrom.get() != null && this._state.commitTo.get() != null) {
+			return this.resolveByContext('multicommit');
 		}
-		if (this.isWip && this._state.wip.get() != null) {
-			return { ariaLabel: 'Working changes details', content: this.renderWip(), context: 'wip' };
-		}
-		if (this._state.commit.get() != null) {
-			return { ariaLabel: 'Commit details', content: this.renderCommit(), context: 'commit' };
-		}
+		if (this.isWip && this._state.wip.get() != null) return this.resolveByContext('wip');
+		if (this._state.commit.get() != null) return this.resolveByContext('commit');
 		return undefined;
 	}
 
@@ -392,7 +391,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
 
 		return html`
-			<gl-wip-header
+			<gl-details-wip-header
 				.wip=${wip}
 				.activeMode=${activeMode}
 				.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
@@ -424,17 +423,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@fetch=${() => void this._actions.services.repository.fetch(this.effectiveRepoPath!)}
 				@remove-associated-issue=${(e: CustomEvent<{ entityId: string }>) =>
 					void this._actions.removeAssociatedIssue(e.detail.entityId)}
-			></gl-wip-header>
+			></gl-details-wip-header>
 			${activeMode === 'review'
-				? this.renderReviewBody()
+				? this.renderReviewMode()
 				: activeMode === 'compose'
-					? this.renderComposeBody()
+					? this.renderComposeMode()
 					: activeMode === 'compare'
-						? this.renderCompareRefsBody()
+						? this.renderCompareMode()
 						: hasChanges
 							? html`
 									<div class="commit-panel__files">
-										<gl-wip-details
+										<gl-details-wip-panel
 											variant="embedded"
 											file-icons
 											checkbox-mode
@@ -455,7 +454,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 											@stash-save=${() => this._actions.stashSave(this.effectiveRepoPath)}
 											@change-files-layout=${this.handleChangeFilesLayout}
 											@open-multiple-changes=${this.handleOpenMultipleChanges}
-										></gl-wip-details>
+										></gl-details-wip-panel>
 									</div>
 									<gl-commit-box
 										.message=${this._state.commitMessage.get()}
@@ -484,7 +483,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									></gl-commit-box>
 								`
 							: html`
-									<gl-wip-empty-state
+									<gl-details-wip-empty-pane
 										.wip=${wip}
 										.aiEnabled=${false}
 										@switch-branch=${() => this._actions.switchBranch(this.effectiveRepoPath)}
@@ -498,16 +497,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 											void this._actions.services.repository.pull(this.effectiveRepoPath!)}
 										@push=${() =>
 											void this._actions.services.repository.push(this.effectiveRepoPath!)}
-									></gl-wip-empty-state>
+									></gl-details-wip-empty-pane>
 								`}
 		`;
 	}
 
-	private renderComposeBody() {
+	private renderComposeMode() {
 		const scopeItems = this._actions.buildWipScopeItems();
 		const handleCompose = (e: CustomEvent<{ prompt?: string }>) => {
-			const panel =
-				this.querySelector<import('./gl-graph-compose-panel.js').GlGraphComposePanel>('gl-graph-compose-panel');
+			const panel = this.querySelector<import('./gl-details-compose-mode-panel.js').GlDetailsComposeModePanel>(
+				'gl-details-compose-mode-panel',
+			);
 			const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
 			this._workflow.runCompose(
 				this.effectiveRepoPath,
@@ -532,7 +532,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const fallbackFiles = this._state.wip.get()?.changes?.files;
 		const composeFiles = scopeFilesValue ?? fallbackFiles;
 
-		return html`<gl-graph-compose-panel
+		return html`<gl-details-compose-mode-panel
 			.status=${mappedComposeStatus}
 			.commits=${composeResult?.commits}
 			.baseCommit=${composeResult?.baseCommit}
@@ -562,10 +562,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@file-stage=${this.handleFileStage}
 			@file-unstage=${this.handleFileUnstage}
 			@change-files-layout=${this.handleChangeFilesLayout}
-		></gl-graph-compose-panel>`;
+		></gl-details-compose-mode-panel>`;
 	}
 
-	private renderCompareRefsBody() {
+	private renderCompareMode() {
 		const branch = this._state.wip.get()?.branch;
 		const repoPath = this.effectiveRepoPath;
 		// The left ref has a worktree if it matches the current branch (which is always in a worktree)
@@ -579,7 +579,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const contributorsByScope = this._state.branchCompareContributorsByScope.get();
 		const activeView = this._state.branchCompareActiveView.get();
 
-		return html`<gl-graph-wip-compare-panel
+		return html`<gl-details-compare-mode-panel
 			.branchName=${branch?.name}
 			.repoPath=${repoPath}
 			.preferences=${this._state.preferences.get()}
@@ -632,7 +632,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._actions.setBranchCompareActiveView(e.detail.view, repoPath)}
 			@request-enrichment=${() => this._actions.requestBranchCompareEnrichment(repoPath)}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
-		></gl-graph-wip-compare-panel>`;
+		></gl-details-compare-mode-panel>`;
 	}
 
 	/** When the user has scoped the compare file list to a single commit, file actions should
@@ -663,12 +663,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const activeMode = this._state.activeMode.get();
 		const subPanelContent =
 			activeMode === 'review'
-				? this.renderReviewBody()
+				? this.renderReviewMode()
 				: activeMode === 'compare'
-					? this.renderCompareRefsBody()
+					? this.renderCompareMode()
 					: nothing;
 
-		return html`<gl-commit-details
+		return html`<gl-details-commit-panel
 			variant="embedded"
 			file-icons
 			compare-enabled
@@ -710,16 +710,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@change-files-layout=${this.handleChangeFilesLayout}
 			@toggle-mode=${this.handleToggleMode}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
-		></gl-commit-details>`;
+		></gl-details-commit-panel>`;
 	}
 
-	private renderCompare() {
+	private renderMultiCommit() {
 		const activeMode = this._state.activeMode.get();
 		const subPanelContent =
 			activeMode === 'review'
-				? this.renderReviewBody()
+				? this.renderReviewMode()
 				: activeMode === 'compare'
-					? this.renderCompareRefsBody()
+					? this.renderCompareMode()
 					: nothing;
 		const swapped = this._state.swapped.get();
 		const shas = this.effectiveShas;
@@ -727,7 +727,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const rawBetweenCount = this._state.compareBetweenCount.get();
 		const betweenCount = Math.max(0, rawBetweenCount != null ? rawBetweenCount - 1 : (shas?.length ?? 0) - 2);
 
-		return html`<gl-graph-compare-panel
+		return html`<gl-details-multicommit-panel
 			variant="embedded"
 			file-icons
 			.commitFrom=${this._state.commitFrom.get()}
@@ -781,17 +781,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@change-files-layout=${this.handleChangeFilesLayout}
 			@toggle-mode=${this.handleToggleMode}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
-		></gl-graph-compare-panel>`;
+		></gl-details-multicommit-panel>`;
 	}
 
-	private renderReviewBody() {
+	private renderReviewMode() {
 		const ctx = this.effectiveContext;
 		const scopeFilesValue = this._actions.resources.scopeFiles.value.get();
 		// Fall back to the context's file list until the scoped fetch resolves (avoids flash of empty tree).
 		const fallbackFiles =
 			ctx === 'wip'
 				? this._state.wip.get()?.changes?.files
-				: ctx === 'compare'
+				: ctx === 'multicommit'
 					? this._state.compareFiles.get()
 					: this._state.commit.get()?.files;
 		const reviewFiles = scopeFilesValue ?? fallbackFiles;
@@ -808,7 +808,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const mappedReviewStatus: 'idle' | 'loading' | 'ready' | 'error' =
 			reviewStatus === 'success' ? (reviewResult != null ? 'ready' : 'idle') : reviewStatus;
 
-		return html`<gl-graph-review-panel
+		return html`<gl-details-review-mode-panel
 			.scope=${this._state.scope.get()}
 			.result=${reviewResult}
 			.status=${mappedReviewStatus}
@@ -823,8 +823,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?forward-available=${this._state.reviewForwardAvailable.get()}
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				const panel =
-					this.querySelector<import('./gl-graph-review-panel.js').GlGraphReviewPanel>(
-						'gl-graph-review-panel',
+					this.querySelector<import('./gl-details-review-mode-panel.js').GlDetailsReviewModePanel>(
+						'gl-details-review-mode-panel',
 					);
 				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
 				this._workflow.runReview(
@@ -849,11 +849,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@file-compare-working=${this.handleFileCompareWorking}
 			@file-open-on-remote=${this.handleFileOpenOnRemote}
 			@change-files-layout=${this.handleChangeFilesLayout}
-		></gl-graph-review-panel>`;
+		></gl-details-review-mode-panel>`;
 	}
 
 	private handleScopeChange(
-		scopeItems: import('./gl-details-scope-pane.js').ScopeItem[] | undefined,
+		scopeItems: import('./gl-commits-scope-pane.js').ScopeItem[] | undefined,
 		selectedIds: ReadonlySet<string> | undefined,
 	): void {
 		const newScope = this._actions.buildScopeFromPicker(selectedIds, scopeItems);
@@ -888,7 +888,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const { focusAreaId, files } = e.detail;
 		const panel =
-			this.querySelector<import('./gl-graph-review-panel.js').GlGraphReviewPanel>('gl-graph-review-panel');
+			this.querySelector<import('./gl-details-review-mode-panel.js').GlDetailsReviewModePanel>(
+				'gl-details-review-mode-panel',
+			);
 		panel?.setFocusAreaLoading(focusAreaId);
 
 		const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;

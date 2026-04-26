@@ -16,8 +16,8 @@ import type { TreeItemAction, TreeItemBase, TreeItemCheckedDetail } from '../../
 import { detailsBaseStyles } from './gl-details-base.css.js';
 import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
+import { detailsWipPanelStyles } from './gl-details-wip-panel.css.js';
 import type { CreatePatchState, GenerateState } from './gl-inspect-patch.js';
-import { wipDetailsStyles } from './gl-wip-details.css.js';
 import '../../shared/components/button.js';
 import '../../shared/components/button-container.js';
 import '../../shared/components/branch-name.js';
@@ -30,11 +30,11 @@ import '../../shared/components/pills/tracking.js';
 import '../../shared/components/tree/gl-wip-tree-pane.js';
 import './gl-inspect-patch.js';
 
-@customElement('gl-wip-details')
-export class GlWipDetails extends GlDetailsBase {
+@customElement('gl-details-wip-panel')
+export class GlDetailsWipPanel extends GlDetailsBase {
 	static override styles = [
 		...detailsBaseStyles,
-		wipDetailsStyles,
+		detailsWipPanelStyles,
 		css`
 			:host {
 				--gl-avatar-size: 1.6rem;
@@ -586,6 +586,6 @@ export class GlWipDetails extends GlDetailsBase {
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'gl-wip-details': GlWipDetails;
+		'gl-details-wip-panel': GlDetailsWipPanel;
 	}
 }

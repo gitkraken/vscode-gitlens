@@ -14,16 +14,16 @@ import { redispatch } from '../../../shared/components/element.js';
 import { elementBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
-import type { GlDetailsScopePane, ScopeItem } from './gl-details-scope-pane.js';
+import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
 import {
-	composePanelStyles,
+	composeModePanelStyles,
 	panelActionInputStyles,
 	panelErrorStyles,
 	panelHostStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
-} from './gl-graph-compose-panel.css.js';
+} from './gl-details-compose-mode-panel.css.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/chips/action-chip.js';
@@ -33,14 +33,14 @@ import '../../../shared/components/button.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
-import './gl-details-scope-pane.js';
+import './gl-commits-scope-pane.js';
 
 export interface ComposeCommitDetail {
 	upToIndex: number;
 }
 
-@customElement('gl-graph-compose-panel')
-export class GlGraphComposePanel extends LitElement {
+@customElement('gl-details-compose-mode-panel')
+export class GlDetailsComposeModePanel extends LitElement {
 	static override styles = [
 		elementBase,
 		subPanelEnterStyles,
@@ -50,7 +50,7 @@ export class GlGraphComposePanel extends LitElement {
 		panelErrorStyles,
 		panelStaleBannerStyles,
 		panelScopeSplitStyles,
-		composePanelStyles,
+		composeModePanelStyles,
 	];
 
 	@property({ attribute: 'status' })
@@ -110,7 +110,7 @@ export class GlGraphComposePanel extends LitElement {
 
 	/** Picker selection IDs (within shadow root) for the orchestrator's scope-fetch flow. */
 	get selectedIds(): ReadonlySet<string> | undefined {
-		const picker = this.renderRoot.querySelector<GlDetailsScopePane>('gl-details-scope-pane');
+		const picker = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');
 		if (picker == null) return undefined;
 		return new Set(picker.selectedIds);
 	}
@@ -310,11 +310,11 @@ export class GlGraphComposePanel extends LitElement {
 				.snap=${this._scopeSplitSnap}
 			>
 				<div slot="start" class="scope-split__picker">
-					<gl-details-scope-pane
+					<gl-commits-scope-pane
 						.items=${this.scopeItems ?? []}
 						?loading=${this.scopeLoading}
 						mode="compose"
-					></gl-details-scope-pane>
+					></gl-commits-scope-pane>
 				</div>
 				<div slot="end" class="scope-split__files">
 					<div class="scope-files">${this.renderFileCuration()}</div>
@@ -423,7 +423,7 @@ export class GlGraphComposePanel extends LitElement {
 	}
 
 	private _scopeSplitSnap = ({ pos, size }: { pos: number; size: number }): number => {
-		const scopeEl = this.renderRoot.querySelector<GlDetailsScopePane>('gl-details-scope-pane');
+		const scopeEl = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');
 		if (!scopeEl || size <= 0) return Math.max(15, Math.min(pos, 70));
 
 		const maxPercent = Math.min(70, (scopeEl.contentHeight / size) * 100);

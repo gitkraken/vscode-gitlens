@@ -1,6 +1,6 @@
 import { css } from 'lit';
 
-export const wipComparePanelStyles = css`
+export const compareModePanelStyles = css`
 	:host {
 		display: flex;
 		flex-direction: column;

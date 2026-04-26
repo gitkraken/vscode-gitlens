@@ -94,7 +94,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(activeChip).toBeVisible();
 
 		// WIP details and commit bottom should be hidden
-		const wipDetails = graphWebview.locator('gl-wip-details');
+		const wipDetails = graphWebview.locator('gl-details-wip-panel');
 		await expect(wipDetails).not.toBeVisible();
 		const commitBottom = graphWebview.locator('.commit-panel__bottom');
 		await expect(commitBottom).not.toBeVisible();
@@ -121,7 +121,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(graphWebview.locator('.review-panel')).not.toBeVisible({ timeout: MaxTimeout });
 
 		// WIP details should be back
-		const wipDetails = graphWebview.locator('gl-wip-details');
+		const wipDetails = graphWebview.locator('gl-details-wip-panel');
 		await expect(wipDetails).toBeVisible({ timeout: MaxTimeout });
 
 		// Header tint should be gone

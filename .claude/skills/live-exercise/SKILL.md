@@ -241,7 +241,7 @@ Bad subagent prompt (will produce static-only verification):
 
 Good subagent prompt:
 
-> Verify compare mode by: (1) launch `mcp__vscode-inspector__launch`; (2) show the graph, click one commit, Ctrl+click another; (3) `read_console { level: "error" }`; (4) inspect that `gl-graph-compare-panel` renders with non-empty `commitFrom`/`commitTo`; (5) evaluate handler fired via `window.__lastCompareEvent`; (6) report console errors and any rendering failures. Do NOT ship based on `tsc` alone.
+> Verify compare mode by: (1) launch `mcp__vscode-inspector__launch`; (2) show the graph, click one commit, Ctrl+click another; (3) `read_console { level: "error" }`; (4) inspect that `gl-details-multicommit-panel` renders with non-empty `commitFrom`/`commitTo`; (5) evaluate handler fired via `window.__lastCompareEvent`; (6) report console errors and any rendering failures. Do NOT ship based on `tsc` alone.
 
 ### 5. Verify & loop
 

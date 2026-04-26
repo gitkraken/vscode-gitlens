@@ -9,7 +9,7 @@ export {
 	panelStaleBannerStyles,
 } from './shared-panel.css.js';
 
-export const reviewPanelStyles = css`
+export const reviewModePanelStyles = css`
 	/* Matches the fade+slide-up entrance used by other graph details sub-panels so review
 	   mode animates in instead of popping. @keyframes sub-panel-enter is provided by
 	   subPanelEnterStyles in the component's styles array. */
@@ -108,8 +108,8 @@ export const reviewPanelStyles = css`
 	}
 
 	/* Compact metadata bar for compare-style review (multi-commit selection). Mirrors the
-	   single-commit case (rendered by the host gl-commit-details) and the comparison metadata
-	   bar in gl-graph-compare-panel — keeps the result framing consistent across scopes. */
+	   single-commit case (rendered by the host gl-details-commit-panel) and the comparison metadata
+	   bar in gl-details-multicommit-panel — keeps the result framing consistent across scopes. */
 	.review-metadata {
 		display: flex;
 		align-items: center;

@@ -46,6 +46,9 @@ import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue } from '../../../../shared/overviewBranches.js';
 import { createSignalGroup } from '../../../shared/state/signals.js';
 
+/** Selection-shape vocabulary. Identifies which kind of selection the details panel is showing. */
+export type DetailsContext = 'wip' | 'commit' | 'multicommit';
+
 export interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
@@ -226,7 +229,7 @@ function createTransientState() {
 
 	// Workflow state machine
 	const activeMode = signal<'review' | 'compose' | 'compare' | null>(null);
-	const activeModeContext = signal<'wip' | 'commit' | 'compare' | null>(null);
+	const activeModeContext = signal<DetailsContext | null>(null);
 	const activeModeRepoPath = signal<string | undefined>(undefined);
 	const activeModeSha = signal<string | undefined>(undefined);
 	const activeModeShas = signal<string[] | undefined>(undefined);

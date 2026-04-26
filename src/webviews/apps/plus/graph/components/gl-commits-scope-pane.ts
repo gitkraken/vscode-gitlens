@@ -1,7 +1,7 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
-import { detailsScopePaneStyles } from './gl-details-scope-pane.css.js';
+import { commitsScopePaneStyles } from './gl-commits-scope-pane.css.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/commit/commit-stats.js';
@@ -27,9 +27,9 @@ export interface ScopeChangeDetail {
 	selectedIds: string[];
 }
 
-@customElement('gl-details-scope-pane')
-export class GlDetailsScopePane extends LitElement {
-	static override styles = [elementBase, scrollableBase, detailsScopePaneStyles];
+@customElement('gl-commits-scope-pane')
+export class GlCommitsScopePane extends LitElement {
+	static override styles = [elementBase, scrollableBase, commitsScopePaneStyles];
 
 	@property({ type: Array })
 	items: ScopeItem[] = [];

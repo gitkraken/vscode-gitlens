@@ -21,7 +21,7 @@ import {
 	subPanelEnterStyles,
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
-import { wipComparePanelStyles } from './gl-graph-wip-compare-panel.css.js';
+import { compareModePanelStyles } from './gl-details-compare-mode-panel.css.js';
 import './gl-commit-row.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/badges/badge.js';
@@ -48,13 +48,13 @@ export interface CompareRefsChangeRefDetail {
 	side: 'left' | 'right';
 }
 
-@customElement('gl-graph-wip-compare-panel')
-export class GlGraphWipComparePanel extends LitElement {
+@customElement('gl-details-compare-mode-panel')
+export class GlDetailsCompareModePanel extends LitElement {
 	static override styles = [
 		elementBase,
 		metadataBarVarsBase,
 		scrollableBase,
-		wipComparePanelStyles,
+		compareModePanelStyles,
 		subPanelEnterStyles,
 	];
 
