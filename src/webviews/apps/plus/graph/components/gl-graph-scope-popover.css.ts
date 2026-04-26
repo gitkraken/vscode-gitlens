@@ -1,6 +1,6 @@
 import { css } from 'lit';
 
-export const scopePopoverStyles = css`
+export const graphScopePopoverStyles = css`
 	:host {
 		display: inline-flex;
 		align-items: center;

@@ -16,10 +16,10 @@ import type {
 } from '../../../commitDetails/protocol.js';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
-import { commitDetailsStyles } from './gl-commit-details.css.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
 import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
+import { detailsCommitPanelStyles } from './gl-details-commit-panel.css.js';
 import '../../shared/components/button.js';
 import '../../shared/components/chips/action-chip.js';
 import '../../shared/components/chips/autolink-chip.js';
@@ -48,9 +48,9 @@ interface ExplainState {
 	result?: { summary: string; body: string };
 }
 
-@customElement('gl-commit-details')
-export class GlCommitDetails extends GlDetailsBase {
-	static override styles = [...detailsBaseStyles, commitDetailsStyles];
+@customElement('gl-details-commit-panel')
+export class GlDetailsCommitPanel extends GlDetailsBase {
+	static override styles = [...detailsBaseStyles, detailsCommitPanelStyles];
 
 	@property({ type: Object })
 	commit?: State['commit'];

@@ -1,7 +1,7 @@
 /**
- * Tree Generator E2E Tests
+ * Tree View E2E Tests
  *
- * Verifies the tree-generator component (gl-tree-generator) correctly renders
+ * Verifies the tree-view component (gl-tree-view) correctly renders
  * and updates when the model changes — particularly that the virtualizer reuses
  * DOM nodes via keyFunction without requiring full recreation, preserving scroll
  * position and focus state across model transitions.
@@ -91,14 +91,14 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
 }
 
 async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
-	const commitDetails = graphWebview.locator('gl-commit-details').first();
-	const wipDetails = graphWebview.locator('gl-wip-details').first();
-	const comparePanel = graphWebview.locator('gl-graph-compare-panel').first();
+	const commitDetails = graphWebview.locator('gl-details-commit-panel').first();
+	const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
+	const comparePanel = graphWebview.locator('gl-details-multicommit-panel').first();
 	await expect(commitDetails.or(wipDetails).or(comparePanel)).toBeVisible({ timeout: 30000 });
 }
 
 async function waitForTreeItems(graphWebview: FrameLocator): Promise<void> {
-	const treeItem = graphWebview.locator('gl-tree-generator gl-tree-item').first();
+	const treeItem = graphWebview.locator('gl-tree-view gl-tree-item').first();
 	await expect(treeItem).toBeVisible({ timeout: 15000 });
 }
 
@@ -106,7 +106,7 @@ async function waitForTreeItems(graphWebview: FrameLocator): Promise<void> {
 // Tree Rendering After Model Change
 // ============================================================================
 
-test.describe('Tree Generator - Model Updates', () => {
+test.describe('Tree View - Model Updates', () => {
 	test.describe.configure({ mode: 'serial' });
 
 	let graphWebview: FrameLocator;
@@ -133,7 +133,7 @@ test.describe('Tree Generator - Model Updates', () => {
 		await waitForTreeItems(graphWebview);
 
 		// Should show the file from this commit
-		const treeItems = graphWebview.locator('gl-tree-generator gl-tree-item');
+		const treeItems = graphWebview.locator('gl-tree-view gl-tree-item');
 		await expect(treeItems.first()).toBeVisible({ timeout: MaxTimeout });
 	});
 
@@ -144,7 +144,7 @@ test.describe('Tree Generator - Model Updates', () => {
 		await waitForTreeItems(graphWebview);
 
 		// Verify first commit shows greeting.ts
-		const greetingItem = graphWebview.locator('gl-tree-generator gl-tree-item').filter({ hasText: 'greeting.ts' });
+		const greetingItem = graphWebview.locator('gl-tree-view gl-tree-item').filter({ hasText: 'greeting.ts' });
 		await expect(greetingItem.first()).toBeVisible({ timeout: MaxTimeout });
 
 		// Switch to second commit
@@ -153,7 +153,7 @@ test.describe('Tree Generator - Model Updates', () => {
 		await waitForTreeItems(graphWebview);
 
 		// Verify second commit shows math.ts, not greeting.ts (no stale items)
-		const mathItem = graphWebview.locator('gl-tree-generator gl-tree-item').filter({ hasText: 'math.ts' });
+		const mathItem = graphWebview.locator('gl-tree-view gl-tree-item').filter({ hasText: 'math.ts' });
 		await expect(mathItem.first()).toBeVisible({ timeout: MaxTimeout });
 
 		// greeting.ts should no longer be visible
@@ -173,11 +173,11 @@ test.describe('Tree Generator - Model Updates', () => {
 		await waitForTreeItems(graphWebview);
 
 		// Final commit should show utils.ts
-		const utilsItem = graphWebview.locator('gl-tree-generator gl-tree-item').filter({ hasText: 'utils.ts' });
+		const utilsItem = graphWebview.locator('gl-tree-view gl-tree-item').filter({ hasText: 'utils.ts' });
 		await expect(utilsItem.first()).toBeVisible({ timeout: MaxTimeout });
 
 		// Previous commits' files should not be visible
-		const greetingItem = graphWebview.locator('gl-tree-generator gl-tree-item').filter({ hasText: 'greeting.ts' });
+		const greetingItem = graphWebview.locator('gl-tree-view gl-tree-item').filter({ hasText: 'greeting.ts' });
 		await expect(greetingItem.first()).not.toBeVisible({ timeout: MaxTimeout });
 	});
 
@@ -187,7 +187,7 @@ test.describe('Tree Generator - Model Updates', () => {
 		await waitForDetailsLoaded(graphWebview);
 		await waitForTreeItems(graphWebview);
 
-		const greetingItem = graphWebview.locator('gl-tree-generator gl-tree-item').filter({ hasText: 'greeting.ts' });
+		const greetingItem = graphWebview.locator('gl-tree-view gl-tree-item').filter({ hasText: 'greeting.ts' });
 		await expect(greetingItem.first()).toBeVisible({ timeout: MaxTimeout });
 
 		// Switch to math commit
@@ -204,7 +204,7 @@ test.describe('Tree Generator - Model Updates', () => {
 		await expect(greetingItem.first()).toBeVisible({ timeout: MaxTimeout });
 
 		// math.ts should not be visible
-		const mathItem = graphWebview.locator('gl-tree-generator gl-tree-item').filter({ hasText: 'math.ts' });
+		const mathItem = graphWebview.locator('gl-tree-view gl-tree-item').filter({ hasText: 'math.ts' });
 		await expect(mathItem.first()).not.toBeVisible({ timeout: MaxTimeout });
 	});
 
@@ -217,7 +217,7 @@ test.describe('Tree Generator - Model Updates', () => {
 		}
 		await wipButton.click();
 
-		const wipDetails = graphWebview.locator('gl-wip-details').first();
+		const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
 		await expect(wipDetails).toBeVisible({ timeout: 15000 });
 
 		// Now switch to a regular commit
@@ -226,7 +226,7 @@ test.describe('Tree Generator - Model Updates', () => {
 		await waitForTreeItems(graphWebview);
 
 		// Tree should show the commit's file, not WIP files
-		const greetingItem = graphWebview.locator('gl-tree-generator gl-tree-item').filter({ hasText: 'greeting.ts' });
+		const greetingItem = graphWebview.locator('gl-tree-view gl-tree-item').filter({ hasText: 'greeting.ts' });
 		await expect(greetingItem.first()).toBeVisible({ timeout: MaxTimeout });
 	});
 });

@@ -1,6 +1,6 @@
 import { css } from 'lit';
 
-export const wipEmptyStateStyles = css`
+export const detailsWipEmptyPaneStyles = css`
 	:host {
 		display: block;
 		padding: 1rem 1.2rem 1.6rem;

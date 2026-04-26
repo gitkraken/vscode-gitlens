@@ -48,7 +48,7 @@ import type { WebviewContext } from '../../shared/contexts/webview.js';
 import { webviewContext } from '../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
-import { getDisplayedMode, isGraphFiltered } from './components/gl-scope-popover.js';
+import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-popover.js';
 import { graphStateContext } from './context.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
@@ -1157,7 +1157,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return html`
 			<div class="titlebar__row ${rowClass}">
 				<div class="titlebar__group">
-					<gl-scope-popover .repo=${repo}></gl-scope-popover> ${this.renderHiddenRefs(excludeRefs)}
+					<gl-graph-scope-popover .repo=${repo}></gl-graph-scope-popover> ${this.renderHiddenRefs(
+						excludeRefs,
+					)}
 					<span>
 						<span class="action-divider"></span>
 					</span>

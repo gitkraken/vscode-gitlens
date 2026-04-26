@@ -4,7 +4,7 @@ import { areEqual } from '@gitlens/utils/array.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { ComposeResult, ReviewResult, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { DetailsActions } from './detailsActions.js';
-import type { ScopeItem } from './gl-details-scope-pane.js';
+import type { ScopeItem } from './gl-commits-scope-pane.js';
 
 export type DetailsMode = 'review' | 'compose' | 'compare';
 
@@ -48,7 +48,7 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
  * **Delegates to {@link DetailsActions}** for data operations only — fetch helpers
  * (`fetchDetails`, `fetchCompareDetails`, `fetchAiExcludedFiles`, `refreshCompare`,
  * `fetchBranchCommits`, `initCompareDefaults`), mutation helpers (`refreshWip`), and
- * shared predicates (`isWip`, `isCompare`, `buildScopeFromPicker`).
+ * shared predicates (`isWip`, `isMultiCommit`, `buildScopeFromPicker`).
  *
  * A {@link getScopedCounter} generation guards the async subscribe RPC against rapid
  * repoPath toggles (A → B → A within the round-trip) so stale listeners can't leak.
@@ -120,7 +120,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 
 		const isWip = this.actions.isWip(sha);
-		const isCompare = this.actions.isCompare(shas);
+		const isMultiCommit = this.actions.isMultiCommit(shas);
 
 		// Activation guards — only apply when entering a mode.
 		if (mode === 'compose' && !isWip) return;
@@ -133,7 +133,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		// Initialize mode-specific state.
 		if (mode === 'review' || mode === 'compose') {
-			const scope = this.buildDefaultScope(sha, isWip, isCompare);
+			const scope = this.buildDefaultScope(sha, isWip, isMultiCommit);
 			if (scope) {
 				state.scope.set(scope);
 				resources.scopeFiles.cancel();
@@ -171,7 +171,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		if (mode === 'compare') {
 			// Determine left ref based on context. Order matters: check the active selection
-			// shape (isWip / isCompare) BEFORE falling back to lingering single-commit state,
+			// shape (isWip / isMultiCommit) BEFORE falling back to lingering single-commit state,
 			// otherwise multi-commit pivot picks up a stale `commit` from a prior selection.
 			const wip = state.wip.get();
 			const commitTo = state.commitTo.get();
@@ -184,7 +184,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (isWip) {
 				leftRef = wip?.branch?.name;
 				leftRefType = 'branch';
-			} else if (isCompare && commitTo && commitFrom) {
+			} else if (isMultiCommit && commitTo && commitFrom) {
 				// Pivot from a multi-commit compare panel: the two sides of the existing
 				// comparison become the left and right sides of the new ref-to-ref comparison.
 				leftRef = commitTo.shortSha;
@@ -242,7 +242,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		state.activeMode.set(mode);
 		state.wipStale.set(false);
-		state.activeModeContext.set(isCompare ? 'compare' : isWip ? 'wip' : 'commit');
+		state.activeModeContext.set(isMultiCommit ? 'multicommit' : isWip ? 'wip' : 'commit');
 		state.activeModeRepoPath.set(repoPath);
 		state.activeModeSha.set(sha);
 		state.activeModeShas.set(shas);
@@ -291,7 +291,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// fetchCompareDetails early-return on a cache hit, so when selection didn't change
 		// this is a no-op (avoids a visible skeleton flash while the wip/commit resource
 		// reloads into data we already have).
-		if (this.actions.isCompare(shas)) {
+		if (this.actions.isMultiCommit(shas)) {
 			void this.actions.fetchCompareDetails(shas, repoPath);
 		} else {
 			void this.actions.fetchDetails(sha, repoPath, graphReachability);
@@ -398,8 +398,12 @@ export class DetailsWorkflowController implements ReactiveController {
 	// region Private helpers
 
 	/** Build a default {@link ScopeSelection} for entering review/compose mode. */
-	private buildDefaultScope(sha: string | undefined, isWip: boolean, isCompare: boolean): ScopeSelection | undefined {
-		if (isCompare && this.actions.state.commitFrom.get() && this.actions.state.commitTo.get()) {
+	private buildDefaultScope(
+		sha: string | undefined,
+		isWip: boolean,
+		isMultiCommit: boolean,
+	): ScopeSelection | undefined {
+		if (isMultiCommit && this.actions.state.commitFrom.get() && this.actions.state.commitTo.get()) {
 			return {
 				type: 'compare',
 				fromSha: this.actions.state.commitFrom.get()!.sha,

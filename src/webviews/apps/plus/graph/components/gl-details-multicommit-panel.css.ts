@@ -2,7 +2,7 @@ import { css } from 'lit';
 
 export { panelActionInputStyles, panelHostStyles } from './shared-panel.css.js';
 
-export const comparePanelStyles = css`
+export const multiCommitPanelStyles = css`
 	.compare-header__title {
 		font-weight: 500;
 		font-size: var(--gl-font-base);

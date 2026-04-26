@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { GitBranchShape, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
-import { wipEmptyStateStyles } from './gl-wip-empty-state.css.js';
+import { detailsWipEmptyPaneStyles } from './gl-details-wip-empty-pane.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 
@@ -20,9 +20,9 @@ function getRemoteNameFromUpstream(upstreamName: string | undefined): string {
 	return slash > 0 ? upstreamName.slice(0, slash) : upstreamName;
 }
 
-@customElement('gl-wip-empty-state')
-export class GlWipEmptyState extends LitElement {
-	static override styles = [elementBase, wipEmptyStateStyles];
+@customElement('gl-details-wip-empty-pane')
+export class GlDetailsWipEmptyPane extends LitElement {
+	static override styles = [elementBase, detailsWipEmptyPaneStyles];
 
 	@property({ type: Object }) wip?: Wip;
 	@property({ type: Boolean }) aiEnabled = false;
@@ -165,6 +165,6 @@ export class GlWipEmptyState extends LitElement {
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'gl-wip-empty-state': GlWipEmptyState;
+		'gl-details-wip-empty-pane': GlDetailsWipEmptyPane;
 	}
 }

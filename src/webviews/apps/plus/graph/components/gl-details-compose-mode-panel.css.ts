@@ -9,7 +9,7 @@ export {
 	panelStaleBannerStyles,
 } from './shared-panel.css.js';
 
-export const composePanelStyles = css`
+export const composeModePanelStyles = css`
 	/* Slide-up entrance with overflow pinned to hidden until animationend so the inner
 	   scroll containers don't flicker a scrollbar as the transform settles. After the
 	   animation completes, :host([data-anim-done]) below restores overflow-y: auto. */

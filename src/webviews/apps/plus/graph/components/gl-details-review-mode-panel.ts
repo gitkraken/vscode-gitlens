@@ -22,7 +22,7 @@ import {
 	subPanelEnterStyles,
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
-import type { GlDetailsScopePane, ScopeItem } from './gl-details-scope-pane.js';
+import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
 import {
 	panelActionInputStyles,
 	panelErrorStyles,
@@ -30,8 +30,8 @@ import {
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
-	reviewPanelStyles,
-} from './gl-graph-review-panel.css.js';
+	reviewModePanelStyles,
+} from './gl-details-review-mode-panel.css.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
@@ -42,7 +42,7 @@ import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
-import './gl-details-scope-pane.js';
+import './gl-commits-scope-pane.js';
 
 export interface ReviewOpenFileDetail {
 	filePath: string;
@@ -54,8 +54,8 @@ export interface ReviewDrillDetail {
 	files: string[];
 }
 
-@customElement('gl-graph-review-panel')
-export class GlGraphReviewPanel extends LitElement {
+@customElement('gl-details-review-mode-panel')
+export class GlDetailsReviewModePanel extends LitElement {
 	static override styles = [
 		elementBase,
 		metadataBarVarsBase,
@@ -66,7 +66,7 @@ export class GlGraphReviewPanel extends LitElement {
 		panelErrorStyles,
 		panelStaleBannerStyles,
 		panelScopeSplitStyles,
-		reviewPanelStyles,
+		reviewModePanelStyles,
 	];
 
 	@property({ type: Object })
@@ -126,7 +126,7 @@ export class GlGraphReviewPanel extends LitElement {
 	 * via `querySelector` (which doesn't pierce shadow boundaries).
 	 */
 	get selectedIds(): ReadonlySet<string> | undefined {
-		const picker = this.renderRoot.querySelector<GlDetailsScopePane>('gl-details-scope-pane');
+		const picker = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');
 		if (picker == null) return undefined;
 		return new Set(picker.selectedIds);
 	}
@@ -359,7 +359,7 @@ export class GlGraphReviewPanel extends LitElement {
 						.snap=${this._scopeSplitSnap}
 					>
 						<div slot="start" class="scope-split__picker">
-							<gl-details-scope-pane .items=${this.scopeItems} mode="review"></gl-details-scope-pane>
+							<gl-commits-scope-pane .items=${this.scopeItems} mode="review"></gl-commits-scope-pane>
 						</div>
 						<div slot="end" class="scope-split__files">
 							<div class="scope-files">${this.renderFileCuration()}</div>
@@ -472,7 +472,7 @@ export class GlGraphReviewPanel extends LitElement {
 	}
 
 	private fileActionsForFile = (_file: GitFileChangeShape): TreeItemAction[] => {
-		// Mirrors `gl-wip-details`' `checkboxMode` short-circuit: the review file tree is always
+		// Mirrors `gl-details-wip-panel`' `checkboxMode` short-circuit: the review file tree is always
 		// checkable, so inline icons stay limited to Open File. Stage/Unstage and other actions
 		// remain available via the right-click context menu (driven by `webviewItem`).
 		return [{ icon: 'go-to-file', label: 'Open File', action: 'file-open' }];
@@ -569,7 +569,7 @@ export class GlGraphReviewPanel extends LitElement {
 	}
 
 	private _scopeSplitSnap = ({ pos, size }: { pos: number; size: number }): number => {
-		const scopeEl = this.renderRoot.querySelector<GlDetailsScopePane>('gl-details-scope-pane');
+		const scopeEl = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');
 		if (!scopeEl || size <= 0) return Math.max(15, Math.min(pos, 70));
 
 		// Cap at scope picker's intrinsic content height so it can't expand beyond its content

@@ -6,7 +6,7 @@ const unpushedColor = unsafeCSS('var(--vscode-gitlens-decorations-addedForegroun
 const pushedColor = unsafeCSS('var(--vscode-descriptionForeground, #888)');
 const bgColor = unsafeCSS('var(--vscode-sideBar-background, var(--color-background, #1e1e1e))');
 
-export const detailsScopePaneStyles = css`
+export const commitsScopePaneStyles = css`
 	:host {
 		display: flex;
 		flex: 1;

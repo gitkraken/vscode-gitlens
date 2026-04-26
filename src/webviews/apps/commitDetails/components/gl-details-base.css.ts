@@ -413,7 +413,7 @@ export const detailsBaseStyles = [
 			overflow: hidden;
 		}
 	`,
-	// Embedded split-panel handle (used by both gl-commit-details and gl-wip-details)
+	// Embedded split-panel handle (used by both gl-details-commit-panel and gl-details-wip-panel)
 	css`
 		:host([variant='embedded']) .split__handle {
 			position: relative;

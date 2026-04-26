@@ -27,7 +27,7 @@ import { ipcContext } from '../../../shared/contexts/ipc.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from '../sidebar/sidebarContext.js';
 import type { SidebarActions } from '../sidebar/sidebarState.js';
-import { scopePopoverStyles } from './gl-scope-popover.css.js';
+import { graphScopePopoverStyles } from './gl-graph-scope-popover.css.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
@@ -40,7 +40,7 @@ import '../../../shared/components/tree/tree-view.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'gl-scope-popover': GlScopePopover;
+		'gl-graph-scope-popover': GlGraphScopePopover;
 	}
 }
 
@@ -61,9 +61,9 @@ export function isGraphFiltered(graphState: typeof graphStateContext.__context__
 	return hasActiveHideToggles(graphState);
 }
 
-@customElement('gl-scope-popover')
-export class GlScopePopover extends SignalWatcher(LitElement) {
-	static override styles = [scopePopoverStyles];
+@customElement('gl-graph-scope-popover')
+export class GlGraphScopePopover extends SignalWatcher(LitElement) {
+	static override styles = [graphScopePopoverStyles];
 
 	@consume({ context: ipcContext })
 	private _ipc!: typeof ipcContext.__context__;

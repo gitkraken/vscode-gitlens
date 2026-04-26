@@ -29,8 +29,8 @@ import '../shared/components/gl-error-banner.js';
 import '../shared/components/indicators/indicator.js';
 import '../shared/components/overlays/tooltip.js';
 import '../shared/components/pills/tracking.js';
-import './components/gl-commit-details.js';
-import './components/gl-wip-details.js';
+import './components/gl-details-commit-panel.js';
+import './components/gl-details-wip-panel.js';
 import './components/gl-inspect-nav.js';
 import './components/gl-status-nav.js';
 
@@ -275,7 +275,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	/**
 	 * Set up DOM event listeners for data-action buttons inside child templates.
 	 * These use document-level delegation because the buttons are rendered by
-	 * child components (gl-commit-details, gl-wip-details) in light DOM.
+	 * child components (gl-details-commit-panel, gl-details-wip-panel) in light DOM.
 	 * Custom events from named child elements use template @event bindings instead.
 	 */
 	private setupDomListeners(): void {
@@ -552,7 +552,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 					${when(
 						currentMode === 'commit',
 						() =>
-							html`<gl-commit-details
+							html`<gl-details-commit-panel
 								variant="embedded"
 								file-icons
 								?panel-actions=${false}
@@ -598,9 +598,9 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 									actions?.executeFileAction(e.detail, e.detail.showOptions)}
 								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
 									actions?.openMultipleChanges(e.detail)}
-							></gl-commit-details>`,
+							></gl-details-commit-panel>`,
 						() =>
-							html`<gl-wip-details
+							html`<gl-details-wip-panel
 								.experimentalComposerEnabled=${experimentalComposer}
 								.wip=${wip}
 								.pullRequest=${s.pullRequest.get()}
@@ -645,7 +645,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@gl-patch-create-cancelled=${() => actions?.changeReviewMode(false)}
 								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
 									actions?.openMultipleChanges(e.detail)}
-							></gl-wip-details>`,
+							></gl-details-wip-panel>`,
 					)}
 				</main>
 			</div>

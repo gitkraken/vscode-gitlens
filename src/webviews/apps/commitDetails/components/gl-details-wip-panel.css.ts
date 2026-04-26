@@ -1,6 +1,6 @@
 import { css } from 'lit';
 
-export const wipDetailsStyles = css`
+export const detailsWipPanelStyles = css`
 	:host([variant='embedded']) {
 		--gl-tree-view-margin-top: -0.2rem;
 		--gl-tree-view-filterable-margin-top: -0.4rem;

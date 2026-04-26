@@ -41,7 +41,7 @@ import { enrichmentGuard, noop } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import type { DetailsState } from './detailsState.js';
-import type { ScopeItem } from './gl-details-scope-pane.js';
+import type { ScopeItem } from './gl-commits-scope-pane.js';
 
 /** Structural equality for `ScopeSelection`. Used to avoid redundant signal sets and RPC fetches. */
 export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelection | undefined): boolean {
@@ -171,7 +171,7 @@ export class DetailsActions {
 		return controller.signal;
 	}
 
-	isCompare(shas?: string[]): boolean {
+	isMultiCommit(shas?: string[]): boolean {
 		return shas != null && shas.length >= 2;
 	}
 
@@ -1119,7 +1119,7 @@ export class DetailsActions {
 		// Use activeModeContext when in a mode to avoid stale data from selection changes
 		const ctx = this.state.activeModeContext.get();
 		if (ctx === 'wip' || (!ctx && this.isWip(sha))) return undefined;
-		if (ctx === 'compare' || (!ctx && this.isCompare(shas))) return this.state.compareFiles.get();
+		if (ctx === 'multicommit' || (!ctx && this.isMultiCommit(shas))) return this.state.compareFiles.get();
 		return this.state.commit.get()?.files;
 	}
 

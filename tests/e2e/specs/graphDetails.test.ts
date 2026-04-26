@@ -105,9 +105,9 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
  */
 async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
 	// Wait for any of the detail sub-components to render (indicates RPC data loaded)
-	const commitDetails = graphWebview.locator('gl-commit-details').first();
-	const wipDetails = graphWebview.locator('gl-wip-details').first();
-	const comparePanel = graphWebview.locator('gl-graph-compare-panel').first();
+	const commitDetails = graphWebview.locator('gl-details-commit-panel').first();
+	const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
+	const comparePanel = graphWebview.locator('gl-details-multicommit-panel').first();
 	await expect(commitDetails.or(wipDetails).or(comparePanel)).toBeVisible({ timeout: 30000 });
 }
 
@@ -141,8 +141,8 @@ test.describe('Graph Details - Panel Visibility', () => {
 		await waitForDetailsLoaded(graphWebview);
 
 		// Either commit details or WIP details should be visible (depends on auto-selection)
-		const commitDetails = graphWebview.locator('gl-commit-details').first();
-		const wipDetails = graphWebview.locator('gl-wip-details').first();
+		const commitDetails = graphWebview.locator('gl-details-commit-panel').first();
+		const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
 		await expect(commitDetails.or(wipDetails)).toBeVisible({ timeout: 30000 });
 
 		// Toggle button should be visible with "Hide" label
@@ -155,7 +155,7 @@ test.describe('Graph Details - Panel Visibility', () => {
 		await waitForDetailsLoaded(graphWebview);
 
 		// Commit details component should be visible
-		await expect(graphWebview.locator('gl-commit-details').first()).toBeVisible({ timeout: MaxTimeout });
+		await expect(graphWebview.locator('gl-details-commit-panel').first()).toBeVisible({ timeout: MaxTimeout });
 
 		// Toggle button should be visible with "Hide" label
 		const toggleButton = graphWebview.locator('button[aria-label="Hide Details Panel"]');
@@ -179,7 +179,7 @@ test.describe('Graph Details - Panel Visibility', () => {
 		await showButton.click();
 
 		// Details should reappear
-		await expect(graphWebview.locator('gl-commit-details').first()).toBeVisible({ timeout: MaxTimeout });
+		await expect(graphWebview.locator('gl-details-commit-panel').first()).toBeVisible({ timeout: MaxTimeout });
 	});
 
 	test('should close details panel via close button', async () => {
@@ -187,7 +187,7 @@ test.describe('Graph Details - Panel Visibility', () => {
 		await waitForDetailsLoaded(graphWebview);
 
 		// Click the close action chip in the commit details header
-		const closeButton = graphWebview.locator('gl-commit-details gl-action-chip[icon="close"]').first();
+		const closeButton = graphWebview.locator('gl-details-commit-panel gl-action-chip[icon="close"]').first();
 		await expect(closeButton).toBeVisible({ timeout: MaxTimeout });
 		await closeButton.click();
 
@@ -226,20 +226,20 @@ test.describe('Graph Details - Single Commit', () => {
 		await waitForDetailsLoaded(graphWebview);
 
 		// Commit details component should be visible
-		const commitDetails = graphWebview.locator('gl-commit-details').first();
+		const commitDetails = graphWebview.locator('gl-details-commit-panel').first();
 		await expect(commitDetails).toBeVisible({ timeout: MaxTimeout });
 
 		// Author element should be present
-		const author = graphWebview.locator('gl-commit-details gl-commit-author').first();
+		const author = graphWebview.locator('gl-details-commit-panel gl-commit-author').first();
 		await expect(author).toBeVisible({ timeout: MaxTimeout });
 
 		// Commit message should be visible in the embedded message area
-		const messageArea = graphWebview.locator('gl-commit-details .embedded-message').first();
+		const messageArea = graphWebview.locator('gl-details-commit-panel .embedded-message').first();
 		await expect(messageArea).toBeVisible({ timeout: MaxTimeout });
 		await expect(messageArea.getByText('Add greeting module')).toBeVisible();
 
 		// Metadata bar with SHA should be present
-		const metadataBar = graphWebview.locator('gl-commit-details .embedded-metadata-bar').first();
+		const metadataBar = graphWebview.locator('gl-details-commit-panel .embedded-metadata-bar').first();
 		await expect(metadataBar).toBeVisible({ timeout: MaxTimeout });
 	});
 
@@ -249,11 +249,11 @@ test.describe('Graph Details - Single Commit', () => {
 
 		// The embedded split panel holds the message (start) and files section (end).
 		// Check for the vertical split panel structure with the files container.
-		const embeddedSplit = graphWebview.locator('gl-commit-details gl-split-panel.embedded-split').first();
+		const embeddedSplit = graphWebview.locator('gl-details-commit-panel gl-split-panel.embedded-split').first();
 		await expect(embeddedSplit).toBeVisible({ timeout: 15000 });
 
 		// The bottom section (files + autolinks) should exist in the DOM
-		const bottomSection = graphWebview.locator('gl-commit-details .embedded-bottom-section').first();
+		const bottomSection = graphWebview.locator('gl-details-commit-panel .embedded-bottom-section').first();
 		await expect(bottomSection).toBeAttached({ timeout: MaxTimeout });
 	});
 
@@ -312,7 +312,7 @@ test.describe('Graph Details - WIP Mode', () => {
 		await wipButton.click();
 
 		// WIP details component should appear
-		const wipDetails = graphWebview.locator('gl-wip-details').first();
+		const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
 		await expect(wipDetails).toBeVisible({ timeout: 15000 });
 
 		// Should show "Working Changes" title
@@ -329,11 +329,11 @@ test.describe('Graph Details - WIP Mode', () => {
 		}
 		await wipButton.click();
 
-		const wipDetails = graphWebview.locator('gl-wip-details').first();
+		const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
 		await expect(wipDetails).toBeVisible({ timeout: 15000 });
 
 		// The branch row should show the branch name
-		const branchRow = graphWebview.locator('gl-wip-details .embedded-header__branch-row').first();
+		const branchRow = graphWebview.locator('gl-details-wip-panel .embedded-header__branch-row').first();
 		await expect(branchRow).toBeVisible({ timeout: MaxTimeout });
 	});
 
@@ -345,11 +345,11 @@ test.describe('Graph Details - WIP Mode', () => {
 		}
 		await wipButton.click();
 
-		const wipDetails = graphWebview.locator('gl-wip-details').first();
+		const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
 		await expect(wipDetails).toBeVisible({ timeout: 15000 });
 
 		// Click close button
-		const closeButton = graphWebview.locator('gl-wip-details gl-action-chip[icon="close"]').first();
+		const closeButton = graphWebview.locator('gl-details-wip-panel gl-action-chip[icon="close"]').first();
 		await expect(closeButton).toBeVisible({ timeout: MaxTimeout });
 		await closeButton.click();
 
