@@ -1,6 +1,6 @@
 ---
 name: live-exercise
-description: Use whenever you're working on, verifying, ship-gating, or auditing a feature or change set with visible UI — keep a running instance in the loop and exercise it as a user would. Applies functional walk-through + intent compliance (cold-read when no spec) always; polish heuristics, improvement hunting, simplify, and performance sweep activate on signal or end-of-loop prompt. Not for pure-logic diff review.
+description: Use whenever you're working on, verifying, ship-gating, or auditing a feature or change set with visible UI — keep a running instance in the loop and exercise it as a user would. Adaptive depth from tactical fix-loop to ship-gate audit. Not for pure-logic diff review.
 ---
 
 # /live-exercise — Live functionality, intent, and quality loop
@@ -109,11 +109,7 @@ Discipline:
 
 ## Adaptive depth — no upfront prompt
 
-The skill never asks "what mode?" at start. Context signals drive depth.
-
-- **Tactical by default**: L1 + L2 always; L3 observed but non-blocking; L4 off.
-- **Comprehensive mode** activates automatically when any of: explicit signal words ("audit/polish/ship-gate/elevate"), presence of `goals.md`, L2 surfaced ambiguity/can't-form-intent, repeated invocations on the same feature.
-- **Phase 6 simplify** and **Phase 7 perf** gate at end-of-loop — signal → auto, otherwise prompt once.
+The skill never asks "what mode?" at start. Tactical by default (L1 + L2 active, L3 observed, L4 off). The lens table above lists L4 triggers; when any fire, comprehensive mode activates automatically. Phase 6 and 7 gate at end-of-loop (see "Convergence" below).
 
 ## The loop
 
@@ -262,33 +258,13 @@ When agents complete:
 6. Update the findings doc — ✅ the resolved items, add new `I2-*` entries.
 7. **Loop to step 4** if there are new unambiguous fixes.
 
-### 6. Simplify — end-of-loop, gated
+### 6 & 7 — End-of-loop gates: Simplify, then Performance
 
-Once Phase 5 converges (nothing new), decide whether to run simplify:
+Phases 6 and 7 share the same gating: **explicit signal** ("done/ship-gate/polish/audit") → run automatically; **no signal** → prompt once, default N. Once opted in for the session, the phase remains part of the convergence loop — no re-prompts on subsequent passes. Either phase producing changes loops back to Phase 5 (re-sweep all active lenses); simplification can introduce regressions (removed "redundant" state that was actually load-bearing, collapsed templates that rendered differently in different contexts), so the re-sweep is non-negotiable.
 
-1. **Explicit signal present** (user said "done/ship-gate/polish/audit") → run `/simplify` automatically.
-2. **No signal** → **prompt once**: "Parallel dispatch accumulates drift. Run `/simplify` now? (y/N)" Default N. User opts in.
+**6. Simplify** — invokes `/simplify` (3 parallel review agents: reuse, quality, efficiency). After it runs: `pnpm run build:quick` + `git diff` + loop back to Phase 5.
 
-Simplify dispatches 3 parallel review agents (reuse, quality, efficiency) and applies fixes. After it runs:
-
-- `pnpm run build:quick`. Fix breakage.
-- **`git diff`** — same rule; trust nothing blindly.
-- **Loop back to Phase 5** — teardown + relaunch, re-measure, re-sweep all active lenses. Simplification can introduce regressions (removed a "redundant" state that was actually load-bearing; collapsed two templates that rendered in different contexts).
-
-Once simplify has been opted into (or signaled) for the session, it remains part of the convergence loop — no re-prompts on subsequent passes.
-
-### 7. Performance sweep — end-of-loop, gated (delegated to `/live-perf`)
-
-Runs **after Phase 6 simplify has converged**, with the same gating:
-
-1. **Explicit signal present** → invoke `/live-perf` automatically.
-2. **No signal** → **prompt once**: "Run perf sweep? (y/N)" Default N. On yes, invoke `/live-perf`.
-
-The `/live-perf` skill owns scope, measurement discipline, and the three-tier classification (measured / conventions / speculation). See `/live-perf` for full details. From this loop's perspective:
-
-- If `/live-perf` produces changes → **loop back to Phase 5** (re-sweep all active lenses).
-- Once opted in for the session, `/live-perf` remains part of the convergence loop — no re-prompts on subsequent passes.
-- Perf findings use `P`-prefix IDs (`PR` regression, `PC` convention, `PS` speculation) and can live in the same `findings.md` or delegated out — `/live-perf` handles artifact placement.
+**7. Performance** — invokes `/live-perf` after Phase 6 converges. `/live-perf` owns scope, measurement discipline, and the three-tier classification (see `/live-perf`). Perf findings use `P`-prefix IDs (`PR` regression, `PC` convention, `PS` speculation) and can live in the same `findings.md` or delegated out.
 
 ## Convergence — full exit criterion
 
@@ -391,6 +367,26 @@ You MUST have:
 
 Missing any of those = UI readiness is unverified. "Code paths look clean" is not evidence.
 
+## Exercising Pro-gated features
+
+Features gated by subscription (Commit Graph beyond local repos, Launchpad, Worktrees, Cloud Patches, Composer, all AI features, Drafts, Workspaces, etc.) won't unlock without a Paid/Trial session. Use the **subscription simulator** documented in `/live-inspect` (section: "Exercising Pro-gated features"). Pass `dismissOnboarding: true` on the start call to pre-dismiss every GitLens onboarding overlay — they intercept clicks during automation. State (subscription + onboarding flags) is restored when you call with `state: null`.
+
+```
+execute_command { command: "gitlens.plus.simulate.subscription", args: [{ "state": "Paid", "planId": "pro", "dismissOnboarding": true }] }
+```
+
+Other states for boundary-case sweeps: `"Community"` (paywall UX), `"TrialExpired"` / `"TrialReactivationEligible"` (trial-end UX), `"VerificationRequired"` (email-verify gate), or `"Paid"` with `planId: "advanced" | "teams" | "enterprise"` for plan-tier differences. See `/live-inspect` for the full reference.
+
+## Exercising AI features
+
+Real AI provider calls are non-deterministic and can't be asserted against. Use the **AI simulator** documented in `/live-inspect` (section: "Exercising AI features") — it's Pro-gated, so the subscription simulator above is a prerequisite.
+
+Loop-specific notes:
+
+- **Per finding**: inject content with a unique assertion sentinel before triggering the feature; assert against it in the rendered surface. **Clear between findings** (`{ op: "clear" }`) — leftover injects leak between scenarios.
+- **Negative-path findings (error/cancel/slow/invalid UX)**: switch the global `mode` instead of injecting per call.
+- **Phase 4 dispatch**: subagents don't auto-load `/live-inspect`. When dispatching a fix agent that touches an AI surface, embed the inject command, the content to inject, and the assertion target directly in the agent's prompt.
+
 ## Output artifacts
 
 - `.tasks/<feature>-exercise/findings.md` — severity + status table + detailed entries across lenses + perf
@@ -403,16 +399,16 @@ Missing any of those = UI readiness is unverified. "Code paths look clean" is no
 
 **REQUIRED BACKGROUND:**
 
-- `/live-inspect` — primitive MCP tool reference; used throughout this skill. You'll use its tools for every sweep, verification, and measurement.
-- `/simplify` — 3-agent parallel code cleanup (reuse / quality / efficiency); invoked from Phase 6.
-- `/live-perf` — performance measurement + evaluation + improvement; invoked from Phase 7. Owns all perf discipline (scope, three-tier classification, measure-first rules).
+- `/live-inspect` — primitive MCP tool reference, used throughout
+- `/simplify` — 3-agent parallel code cleanup; invoked from Phase 6
+- `/live-perf` — perf measurement + improvement; invoked from Phase 7
 
 **Interactive counterpart:**
 
-- `/live-pair` — user-driven pair-programming session; the user gives feedback, the agent edits/rebuilds/refreshes live. Use when iteration is exploratory/creative rather than audit-driven. When `/live-pair` detects a structural bug mid-session, it will flag and offer to delegate back to `/live-exercise`.
+- `/live-pair` — user-driven pair-programming. Use when iteration is exploratory/creative; delegates back here on structural bugs.
 
 **Static counterparts:**
 
-- `/ux-review` — static counterpart to L2/L3; useful for pre-merge review without running the extension
-- `/deep-review` — static counterpart to L1 correctness; complements this skill's live handler verification
+- `/ux-review` — static L2/L3 counterpart
+- `/deep-review` — static L1 correctness counterpart
 - `/review` — standards + completeness diff review

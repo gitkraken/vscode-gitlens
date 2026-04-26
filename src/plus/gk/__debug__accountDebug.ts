@@ -5,6 +5,8 @@ import type { Container } from '../../container.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import { registerCommand } from '../../system/-webview/command.js';
+import type { OnboardingSnapshot } from '../__debug__onboardingHelper.js';
+import { dismissAllOnboarding, restoreOnboarding } from '../__debug__onboardingHelper.js';
 import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './models/checkin.js';
 import type { Organization } from './models/organization.js';
 import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './models/subscription.js';
@@ -36,13 +38,21 @@ interface SimulatedFeaturePreviews {
 }
 
 export type SimulationState =
-	| { state: null; reactivatedTrial?: never; expiredPaid?: never; planId?: never; featurePreviews?: never }
+	| {
+			state: null;
+			reactivatedTrial?: never;
+			expiredPaid?: never;
+			planId?: never;
+			featurePreviews?: never;
+			dismissOnboarding?: never;
+	  }
 	| {
 			state: SubscriptionState.Community;
 			reactivatedTrial?: never;
 			expiredPaid?: never;
 			planId?: never;
 			featurePreviews?: SimulatedFeaturePreviews;
+			dismissOnboarding?: boolean;
 	  }
 	| {
 			state: Exclude<SubscriptionState, SubscriptionState.Trial | SubscriptionState.Paid>;
@@ -50,6 +60,7 @@ export type SimulationState =
 			expiredPaid?: never;
 			planId?: never;
 			featurePreviews?: never;
+			dismissOnboarding?: boolean;
 	  }
 	| {
 			state: SubscriptionState.Trial;
@@ -57,6 +68,7 @@ export type SimulationState =
 			expiredPaid?: never;
 			planId?: Extract<'advanced' | 'student', SubscriptionPlanIds>;
 			featurePreviews?: never;
+			dismissOnboarding?: boolean;
 	  }
 	| {
 			state: SubscriptionState.Paid;
@@ -64,12 +76,14 @@ export type SimulationState =
 			expiredPaid?: boolean;
 			planId?: PaidSubscriptionPlanIds;
 			featurePreviews?: never;
+			dismissOnboarding?: boolean;
 	  };
 
 type SimulateQuickPickItem = QuickPickItemOfT<SimulationState>;
 
 class AccountDebug {
 	private simulatingPick: SimulateQuickPickItem | undefined;
+	private onboardingSnapshot: OnboardingSnapshot | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -77,7 +91,7 @@ class AccountDebug {
 	) {
 		this.container.context.subscriptions.push(
 			registerCommand(
-				'gitlens.plus.simulateSubscription',
+				'gitlens.plus.simulate.subscription',
 				(state?: SimulationState) => this.simulateSubscription(state),
 				undefined,
 				{ returnResult: true },
@@ -309,12 +323,24 @@ class AccountDebug {
 		this.service.restoreFeaturePreviews();
 		this.service.restoreSession();
 		this.service.changeSubscription(this.service.getStoredSubscription(), undefined, { store: false });
+
+		if (this.onboardingSnapshot != null) {
+			const snapshot = this.onboardingSnapshot;
+			this.onboardingSnapshot = undefined;
+			void restoreOnboarding(this.container, snapshot);
+		}
 	}
 
 	private async startSimulation(simulatedState: SimulationState | undefined): Promise<boolean> {
 		if (simulatedState?.state == null) {
 			this.endSimulation();
 			return false;
+		}
+
+		// Snapshot + dismiss onboarding only on first start that requests it; subsequent
+		// starts don't re-snapshot (preserves the original "what was undismissed" record).
+		if (simulatedState.dismissOnboarding && this.onboardingSnapshot == null) {
+			this.onboardingSnapshot = await dismissAllOnboarding(this.container);
 		}
 
 		const { state, reactivatedTrial, expiredPaid, planId, featurePreviews } = simulatedState;

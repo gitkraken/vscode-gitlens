@@ -15,6 +15,7 @@ import {
 	openAICompatibleProviderDescriptor,
 	openAIProviderDescriptor,
 	openRouterProviderDescriptor,
+	simulatorProviderDescriptor,
 	vscodeProviderDescriptor,
 	xAIProviderDescriptor,
 } from '@gitlens/ai/constants.js';
@@ -252,6 +253,16 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 	],
 ]);
 
+if (DEBUG) {
+	supportedAIProviders.set('simulator', {
+		...simulatorProviderDescriptor,
+		type: lazy(
+			async () =>
+				(await import(/* webpackChunkName: "__debug__" */ './__debug__simulatorProvider.js')).SimulatorProvider,
+		),
+	});
+}
+
 export interface AIRequestProvider {
 	/**
 	 * Get the messages for the current conversation state.
@@ -333,6 +344,12 @@ export class AIProviderService implements AIService, Disposable {
 		private readonly connection: ServerConnection,
 	) {
 		this._disposable = this.container.subscription.onDidChange(() => this._promptTemplates.clear());
+
+		if (DEBUG) {
+			void import(/* webpackChunkName: "__debug__" */ './__debug__aiSimulator.js').then(m =>
+				m.registerAISimulator(this.container),
+			);
+		}
 	}
 
 	dispose(): void {

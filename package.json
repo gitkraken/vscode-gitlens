@@ -8132,7 +8132,12 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.plus.simulateSubscription",
+				"command": "gitlens.plus.simulate.ai",
+				"title": "Simulate AI Provider (Debugging)",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.plus.simulate.subscription",
 				"title": "Simulate Subscription (Debugging)",
 				"category": "GitLens"
 			},
@@ -13351,7 +13356,11 @@
 					"when": "!gitlens:plus"
 				},
 				{
-					"command": "gitlens.plus.simulateSubscription",
+					"command": "gitlens.plus.simulate.ai",
+					"when": "gitlens:enabled && gitlens:debugging"
+				},
+				{
+					"command": "gitlens.plus.simulate.subscription",
 					"when": "gitlens:enabled && gitlens:debugging"
 				},
 				{

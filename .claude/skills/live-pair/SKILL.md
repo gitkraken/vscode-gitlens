@@ -1,6 +1,6 @@
 ---
 name: live-pair
-description: Use when you want to iterate on a feature interactively with the user watching a running instance — launch the extension, user provides feedback by chat, agent edits/rebuilds/refreshes, user sees the change immediately. Pair-programming rhythm for UI-heavy work, redesigns, copy tightening, layout exploration, or any "let me just show you what I want" session. Ephemeral — conversation is the log. Not for systematic audit (/live-exercise) or perf-tuning (/live-perf).
+description: Use when you want to iterate on a feature interactively with the user watching a running instance — pair-programming rhythm for UI-heavy work, redesigns, copy tightening, layout exploration, or any "let me just show you what I want" session. Not for systematic audit (/live-exercise) or perf-tuning (/live-perf).
 ---
 
 # /live-pair — Interactive pair-programming with a live instance
@@ -220,11 +220,11 @@ You MUST have:
 
 **REQUIRED BACKGROUND:**
 
-- `/live-inspect` — primitive MCP tools (launch, screenshot, execute_command, rebuild_and_reload, refresh commands). Used throughout this skill.
+- `/live-inspect` — primitive MCP tools (launch, screenshot, execute_command, rebuild_and_reload, refresh commands)
 
 **Related:**
 
-- `/live-exercise` — agent-driven audit counterpart. Delegate here when feedback implies structural issues.
-- `/live-perf` — agent-driven performance counterpart. Delegate here when feedback implies "this is slow."
-- `/commit` — used at exit for committing the iteration session.
-- `/simplify` — code-quality cleanup. Run at session end if the iteration accumulated drift.
+- `/live-exercise` — agent-driven audit counterpart; delegate here on structural issues
+- `/live-perf` — agent-driven perf counterpart; delegate here on "this feels slow"
+- `/commit` — exit-time commit of the session
+- `/simplify` — code-quality cleanup if iteration accumulated drift

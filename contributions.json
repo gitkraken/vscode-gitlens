@@ -4692,7 +4692,11 @@
 			"label": "Sign Up for GitKraken...",
 			"commandPalette": "!gitlens:plus"
 		},
-		"gitlens.plus.simulateSubscription": {
+		"gitlens.plus.simulate.ai": {
+			"label": "Simulate AI Provider (Debugging)",
+			"commandPalette": "gitlens:enabled && gitlens:debugging"
+		},
+		"gitlens.plus.simulate.subscription": {
 			"label": "Simulate Subscription (Debugging)",
 			"commandPalette": "gitlens:enabled && gitlens:debugging"
 		},

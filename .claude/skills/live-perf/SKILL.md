@@ -1,6 +1,6 @@
 ---
 name: live-perf
-description: Use when you want to measure and improve the performance of a feature in the running extension — exercise it as a user (don't change it), read logs/counters/Performance API to capture metrics, then fix measured regressions and GitLens convention violations under a three-tier discipline (measured / conventions / speculation). Standalone for perf-tuning an existing feature; also invoked by /live-exercise Phase 7. Not for static code review without measurement.
+description: Use when you want to measure and improve the performance of a feature in the running extension, hunt regressions, or perf-tune before shipping. Standalone for perf-tuning an existing feature; also invoked by /live-exercise Phase 7. Not for static code review without measurement.
 ---
 
 # /live-perf — Live performance measurement and improvement
@@ -390,11 +390,11 @@ You MUST have:
 
 **REQUIRED BACKGROUND:**
 
-- `/live-inspect` — primitive MCP tool reference. You'll use `evaluate_in_webview`, `read_logs`, `evaluate`, `read_console` throughout.
+- `/live-inspect` — primitive MCP tool reference (`evaluate_in_webview`, `read_logs`, `evaluate`, `read_console`)
 
 **Related:**
 
-- `/live-exercise` — the audit-and-fix loop that invokes this skill from Phase 7. Use `/live-exercise` first for functional/intent issues; use this skill for dedicated perf work.
-- `/live-pair` — interactive pair-programming counterpart. When a pair session surfaces "this feels slow," delegate here for measured tuning.
-- `/simplify` — code quality cleanup; different concern. Perf fixes can create drift that `/simplify` addresses.
-- `/deep-review` — static correctness tracing; complements live measurement by catching perf bugs that don't surface under current load.
+- `/live-exercise` — invokes this skill from Phase 7; use it first for functional/intent issues
+- `/live-pair` — interactive counterpart; delegates here on "this feels slow" signals
+- `/simplify` — code-quality cleanup after perf fixes
+- `/deep-review` — static correctness tracing; catches perf bugs that don't surface under current load

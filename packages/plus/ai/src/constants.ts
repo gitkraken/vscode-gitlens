@@ -13,6 +13,7 @@ export type AIProviders =
 	| 'openai'
 	| 'openaicompatible'
 	| 'openrouter'
+	| 'simulator'
 	| 'vscode'
 	| 'xai';
 export type AIPrimaryProviders = Extract<AIProviders, 'gitkraken' | 'vscode'>;
@@ -117,5 +118,12 @@ export const ollamaProviderDescriptor: AIProviderDescriptor<'ollama'> = {
 	name: 'Ollama',
 	primary: false,
 	requiresAccount: true,
+	requiresUserKey: false,
+} as const;
+export const simulatorProviderDescriptor: AIProviderDescriptor<'simulator'> = {
+	id: 'simulator',
+	name: 'Simulator (Debugging)',
+	primary: false,
+	requiresAccount: false,
 	requiresUserKey: false,
 } as const;

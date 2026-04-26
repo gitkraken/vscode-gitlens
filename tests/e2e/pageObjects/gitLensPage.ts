@@ -24,11 +24,11 @@ export class GitLensPage extends VSCodePage {
 	async startSubscriptionSimulation(
 		state: SimulationState = { state: 6 /*SubscriptionState.Paid*/, planId: 'pro' },
 	): Promise<{ success: boolean } & Disposable> {
-		if (!(await this.waitForCommand('gitlens.plus.simulateSubscription'))) {
-			throw new Error('gitlens.plus.simulateSubscription command not found');
+		if (!(await this.waitForCommand('gitlens.plus.simulate.subscription'))) {
+			throw new Error('gitlens.plus.simulate.subscription command not found');
 		}
 
-		const success = await this.executeCommand<boolean>('gitlens.plus.simulateSubscription', state);
+		const success = await this.executeCommand<boolean>('gitlens.plus.simulate.subscription', state);
 		// Wait for the subscription change event to propagate through the system
 		await this.page.waitForTimeout(ShortTimeout);
 		return {
@@ -40,7 +40,7 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async stopSubscriptionSimulation(): Promise<void> {
-		await this.executeCommand('gitlens.plus.simulateSubscription', { state: null });
+		await this.executeCommand('gitlens.plus.simulate.subscription', { state: null });
 	}
 
 	/**
