@@ -11,7 +11,7 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { RunError } from '../exec/exec.errors.js';
 import type { Git } from '../exec/git.js';
-import { gitConfigsLog, GitError } from '../exec/git.js';
+import { classifySigningError, gitConfigsLog, GitError } from '../exec/git.js';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
 	constructor(
@@ -260,33 +260,11 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 			// Handle signing-specific errors
 			if (shouldSign && ex instanceof Error) {
-				const errorMessage = ex.message.toLowerCase();
-				const gitCommand: GitCommandContext = { repoPath: repoPath, args: ['commit-tree'] };
-				let signingError: SigningError | undefined;
-
-				if (errorMessage.includes('gpg failed to sign') || errorMessage.includes('error: gpg')) {
-					signingError = new SigningError({ reason: 'passphraseFailed', gitCommand: gitCommand }, ex);
-				} else if (
-					errorMessage.includes('secret key not available') ||
-					errorMessage.includes('no secret key') ||
-					errorMessage.includes('no signing key')
-				) {
-					signingError = new SigningError({ reason: 'noKey', gitCommand: gitCommand }, ex);
-				} else if (
-					errorMessage.includes('gpg: command not found') ||
-					(errorMessage.includes('gpg') && errorMessage.includes('not found'))
-				) {
-					signingError = new SigningError({ reason: 'gpgNotFound', gitCommand: gitCommand }, ex);
-				} else if (errorMessage.includes('ssh-keygen') && errorMessage.includes('not found')) {
-					signingError = new SigningError({ reason: 'sshNotFound', gitCommand: gitCommand }, ex);
-				}
-
-				if (signingError != null) {
-					this.context.hooks?.commits?.onSigningFailed?.(
-						signingError.details.reason ?? 'unknown',
-						_signingFormat,
-						options?.source,
-					);
+				const reason = classifySigningError(ex);
+				if (reason != null) {
+					const gitCommand: GitCommandContext = { repoPath: repoPath, args: ['commit-tree'] };
+					const signingError = new SigningError({ reason: reason, gitCommand: gitCommand }, ex);
+					this.context.hooks?.commits?.onSigningFailed?.(reason, _signingFormat, options?.source);
 					throw signingError;
 				}
 			}

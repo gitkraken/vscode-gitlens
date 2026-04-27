@@ -1,5 +1,5 @@
 import { ThemeIcon, window } from 'vscode';
-import { MergeError } from '@gitlens/git/errors.js';
+import { MergeError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
@@ -132,7 +132,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			void showGitErrorMessage(ex, MergeError.is(ex) ? undefined : 'Unable to merge');
+			void showGitErrorMessage(ex, MergeError.is(ex) || SigningError.is(ex) ? undefined : 'Unable to merge');
 		}
 	}
 

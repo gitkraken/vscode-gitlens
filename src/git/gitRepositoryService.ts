@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
-import { CheckoutError, FetchError, PullError, PushError } from '@gitlens/git/errors.js';
+import { CheckoutError, FetchError, PullError, PushError, SigningError } from '@gitlens/git/errors.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
@@ -367,7 +367,7 @@ export class GitRepositoryService {
 		} catch (ex) {
 			Logger.error(ex);
 
-			if (PullError.is(ex)) {
+			if (PullError.is(ex) || SigningError.is(ex)) {
 				void showGitErrorMessage(ex);
 			} else {
 				void showGitErrorMessage(ex, 'Unable to pull');

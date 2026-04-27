@@ -16,7 +16,7 @@ export interface GitOperationsSubProvider {
 	cherryPick(
 		repoPath: string,
 		revs: string[],
-		options?: { edit?: boolean; noCommit?: boolean },
+		options?: { edit?: boolean; noCommit?: boolean; source?: unknown },
 	): Promise<GitOperationResult>;
 	commit(
 		repoPath: string,
@@ -28,6 +28,7 @@ export interface GitOperationsSubProvider {
 			author?: string;
 			date?: string;
 			signoff?: boolean;
+			source?: unknown;
 		},
 	): Promise<void>;
 	fetch(
@@ -43,7 +44,7 @@ export interface GitOperationsSubProvider {
 	merge(
 		repoPath: string,
 		ref: string,
-		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
+		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean; source?: unknown },
 	): Promise<GitOperationResult>;
 	pull(
 		repoPath: string,
@@ -51,6 +52,7 @@ export interface GitOperationsSubProvider {
 			branch?: GitBranchReference | undefined;
 			rebase?: boolean | undefined;
 			tags?: boolean | undefined;
+			source?: unknown;
 		},
 	): Promise<void>;
 	push(
@@ -71,6 +73,7 @@ export interface GitOperationsSubProvider {
 			interactive?: boolean;
 			onto?: string;
 			updateRefs?: boolean;
+			source?: unknown;
 		},
 	): Promise<GitOperationResult>;
 	reset(
@@ -78,5 +81,9 @@ export interface GitOperationsSubProvider {
 		rev: string,
 		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
 	): Promise<void>;
-	revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<GitOperationResult>;
+	revert(
+		repoPath: string,
+		refs: string[],
+		options?: { editMessage?: boolean; source?: unknown },
+	): Promise<GitOperationResult>;
 }

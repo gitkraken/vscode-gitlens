@@ -1,5 +1,5 @@
 import { ThemeIcon, window } from 'vscode';
-import { RebaseError } from '@gitlens/git/errors.js';
+import { RebaseError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
@@ -161,7 +161,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			void showGitErrorMessage(ex, RebaseError.is(ex) ? undefined : 'Unable to rebase');
+			void showGitErrorMessage(ex, RebaseError.is(ex) || SigningError.is(ex) ? undefined : 'Unable to rebase');
 		}
 	}
 

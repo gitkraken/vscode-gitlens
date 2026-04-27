@@ -1,6 +1,13 @@
 import * as assert from 'assert';
 import { RunError } from '../exec.errors.js';
-import { getGitCommandError, GitError, GitErrors, GitWarnings } from '../git.js';
+import {
+	classifySigningError,
+	getGitCommandError,
+	GitError,
+	GitErrors,
+	GitWarnings,
+	inferSigningFormatFromError,
+} from '../git.js';
 
 /**
  * Helper: creates a GitError wrapping a RunError with the given stderr.
@@ -436,5 +443,172 @@ suite('getGitCommandError() Test Suite', () => {
 	test('maps fetch stderr to "remoteConnectionFailed" reason', () => {
 		const ex = makeGitError('fatal: Could not read from remote repository.');
 		assert.strictEqual(captureReason('fetch', ex), 'remoteConnectionFailed');
+	});
+});
+
+suite('Signing Errors Test Suite', () => {
+	suite('GitErrors signing regexes', () => {
+		test('gpgSignFailed matches standard gpg sign failure', () => {
+			const stderr = 'error: gpg failed to sign the data\nfatal: failed to write commit object';
+			assert.ok(GitErrors.gpgSignFailed.test(stderr));
+		});
+
+		test('gpgSignFailed matches with CRLF line endings', () => {
+			const stderr = 'error: gpg failed to sign the data\r\nfatal: failed to write commit object\r\n';
+			assert.ok(GitErrors.gpgSignFailed.test(stderr));
+		});
+
+		test('gpgSignFailed does NOT match unrelated gpg config error', () => {
+			// Intentional narrowing vs. the old patch.ts substring check which matched
+			// any "error: gpg" prefix and falsely classified config errors as passphrase failures.
+			const stderr = 'error: gpg.format is set to an invalid value';
+			assert.ok(!GitErrors.gpgSignFailed.test(stderr));
+		});
+
+		test('signingKeyNotAvailable matches "No secret key"', () => {
+			const stderr = 'gpg: skipped "ABC123": No secret key';
+			assert.ok(GitErrors.signingKeyNotAvailable.test(stderr));
+		});
+
+		test('signingKeyNotAvailable matches "signing failed: No secret key"', () => {
+			const stderr = 'gpg: signing failed: No secret key';
+			assert.ok(GitErrors.signingKeyNotAvailable.test(stderr));
+		});
+
+		test('signingKeyNotAvailable matches "no signing key"', () => {
+			const stderr = 'error: no signing key found';
+			assert.ok(GitErrors.signingKeyNotAvailable.test(stderr));
+		});
+
+		test('gpgNotFound matches POSIX shell "not found"', () => {
+			const stderr = 'sh: 1: gpg: not found';
+			assert.ok(GitErrors.gpgNotFound.test(stderr));
+		});
+
+		test('gpgNotFound matches Windows "not recognized as"', () => {
+			const stderr = "'gpg' is not recognized as an internal or external command";
+			assert.ok(GitErrors.gpgNotFound.test(stderr));
+		});
+
+		test('gpgNotFound matches "cannot run gpg"', () => {
+			const stderr = 'error: cannot run gpg: No such file or directory';
+			assert.ok(GitErrors.gpgNotFound.test(stderr));
+		});
+
+		test('gpgNotFound does NOT match "gpg-agent: signing failed"', () => {
+			const stderr = 'gpg-agent: signing failed: Operation cancelled';
+			assert.ok(!GitErrors.gpgNotFound.test(stderr));
+		});
+
+		test('sshNotFound matches "unable to start ssh-keygen"', () => {
+			const stderr = 'error: unable to start ssh-keygen: No such file or directory';
+			assert.ok(GitErrors.sshNotFound.test(stderr));
+		});
+
+		test('sshNotFound matches Windows "not recognized"', () => {
+			const stderr = "'ssh-keygen' is not recognized as an internal or external command";
+			assert.ok(GitErrors.sshNotFound.test(stderr));
+		});
+
+		test('sshNotFound does NOT match unrelated ssh connection error', () => {
+			const stderr = 'ssh: connect to host example.com port 22: Connection refused';
+			assert.ok(!GitErrors.sshNotFound.test(stderr));
+		});
+	});
+
+	suite('classifySigningError', () => {
+		test('returns "passphraseFailed" for gpg sign failure stderr', () => {
+			const ex = new GitError(
+				new RunError({ message: '', cmd: 'git commit', code: 1 }, '', 'error: gpg failed to sign the data'),
+			);
+			assert.strictEqual(classifySigningError(ex), 'passphraseFailed');
+		});
+
+		test('returns "noKey" for "No secret key" stderr', () => {
+			const ex = new GitError(
+				new RunError({ message: '', cmd: 'git commit', code: 1 }, '', 'gpg: signing failed: No secret key'),
+			);
+			assert.strictEqual(classifySigningError(ex), 'noKey');
+		});
+
+		test('returns "gpgNotFound" for POSIX shell not-found', () => {
+			const ex = new GitError(
+				new RunError({ message: '', cmd: 'git commit', code: 1 }, '', 'sh: 1: gpg: not found'),
+			);
+			assert.strictEqual(classifySigningError(ex), 'gpgNotFound');
+		});
+
+		test('returns "sshNotFound" for ssh-keygen unavailable', () => {
+			const ex = new GitError(
+				new RunError(
+					{ message: '', cmd: 'git commit', code: 1 },
+					'',
+					'error: unable to start ssh-keygen: No such file or directory',
+				),
+			);
+			assert.strictEqual(classifySigningError(ex), 'sshNotFound');
+		});
+
+		test('returns undefined when stderr is not signing-related', () => {
+			const ex = new GitError(
+				new RunError(
+					{ message: '', cmd: 'git commit', code: 1 },
+					'',
+					'error: pathspec "foo" did not match any files',
+				),
+			);
+			assert.strictEqual(classifySigningError(ex), undefined);
+		});
+
+		test('precedence: "passphraseFailed" wins over "noKey" when both appear', () => {
+			// Preserves the ordering from patch.ts's original classifier: the outer
+			// "gpg failed to sign" cause takes precedence over the inner "No secret key".
+			const ex = new GitError(
+				new RunError(
+					{ message: '', cmd: 'git commit', code: 1 },
+					'',
+					'error: gpg failed to sign the data\ngpg: signing failed: No secret key',
+				),
+			);
+			assert.strictEqual(classifySigningError(ex), 'passphraseFailed');
+		});
+
+		test('reads Error.message when passed a plain Error (non-GitError)', () => {
+			const ex = new Error('error: gpg failed to sign the data');
+			assert.strictEqual(classifySigningError(ex), 'passphraseFailed');
+		});
+
+		test('returns undefined for null/undefined/empty input', () => {
+			assert.strictEqual(classifySigningError(undefined), undefined);
+			assert.strictEqual(classifySigningError(null), undefined);
+			assert.strictEqual(classifySigningError(''), undefined);
+		});
+	});
+
+	suite('inferSigningFormatFromError', () => {
+		test('returns "ssh" when stderr mentions ssh-keygen', () => {
+			const ex = new Error('error: unable to start ssh-keygen');
+			assert.strictEqual(inferSigningFormatFromError(ex), 'ssh');
+		});
+
+		test('returns "ssh" when stderr mentions gpg.ssh.* config', () => {
+			const ex = new Error('error: gpg.ssh.allowedSignersFile is unset');
+			assert.strictEqual(inferSigningFormatFromError(ex), 'ssh');
+		});
+
+		test('returns "gpg" when stderr mentions gpg but not ssh', () => {
+			const ex = new Error('error: gpg failed to sign the data');
+			assert.strictEqual(inferSigningFormatFromError(ex), 'gpg');
+		});
+
+		test('returns "ssh" when both ssh-keygen and gpg appear (ssh wins)', () => {
+			const ex = new Error('error: unable to start ssh-keygen\ngpg: fallback not attempted');
+			assert.strictEqual(inferSigningFormatFromError(ex), 'ssh');
+		});
+
+		test('returns undefined for unrelated stderr', () => {
+			const ex = new Error('fatal: not a git repository');
+			assert.strictEqual(inferSigningFormatFromError(ex), undefined);
+		});
 	});
 });
