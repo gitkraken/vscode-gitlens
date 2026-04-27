@@ -50,6 +50,7 @@ import { equalsIgnoreCase, interpolate } from '@gitlens/utils/string.js';
 import { compare, fromString } from '@gitlens/utils/version.js';
 import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git.d.js';
 import { Schemes } from '../../../constants.js';
+import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type { Features } from '../../../features.js';
 import { gitMinimumVersion } from '../../../features.js';
@@ -339,6 +340,7 @@ export class GlCliGitProvider implements GlGitProvider {
 
 				const closed = [...closing];
 				closing.clear();
+				scope?.info(`fireRepositoryClosed: firing ${closed.length} closed repo(s) from vscode.git`);
 				for (const uri of closed) {
 					this._onDidCloseRepository.fire({ uri: uri, source: 'scm' });
 				}
@@ -351,6 +353,7 @@ export class GlCliGitProvider implements GlGitProvider {
 				const opened = [...opening];
 				opening.clear();
 
+				scope?.info(`fireRepositoryOpened: firing ${opened.length} opened repo(s) from vscode.git`);
 				for (const uri of opened) {
 					this._onDidOpenRepository.fire({ uri: uri, source: 'scm' });
 				}
@@ -360,11 +363,26 @@ export class GlCliGitProvider implements GlGitProvider {
 				scmGit.onDidCloseRepository(e => {
 					if (this.container.deactivating) return;
 
+					scope?.info(`SCM.onDidCloseRepository(${e.rootUri.toString(true)})`);
+					// Track user-close intent immediately (before the 1s debounce), so any
+					// re-open paths during the debounce window can short-circuit.
+					const repo = this.container.git.getRepository(e.rootUri);
+					if (repo != null) {
+						repo.closedByUser = true;
+					}
+
 					closing.add(e.rootUri);
 					fireRepositoryClosed();
 				}),
 				scmGit.onDidOpenRepository(e => {
 					if (this.container.deactivating) return;
+
+					scope?.info(`SCM.onDidOpenRepository(${e.rootUri.toString(true)})`);
+					// Clear any prior user-close intent immediately so subsequent paths see it as open.
+					const repo = this.container.git.getRepository(e.rootUri);
+					if (repo != null) {
+						repo.closedByUser = false;
+					}
 
 					opening.add(e.rootUri);
 					fireRepositoryOpened();
@@ -434,6 +452,8 @@ export class GlCliGitProvider implements GlGitProvider {
 	): Promise<GlRepository[]> {
 		if (uri.scheme !== Schemes.File) return [];
 
+		const scope = getScopedLogger();
+
 		try {
 			const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection') ?? true;
 
@@ -453,6 +473,9 @@ export class GlCliGitProvider implements GlGitProvider {
 			);
 
 			if (!options?.silent && (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders')) {
+				scope?.info(
+					`auto-opening ${repositories.length} discovered repo(s) in SCM (autoRepositoryDetection=${String(autoRepositoryDetection)})`,
+				);
 				for (const repository of repositories) {
 					void this.getOrOpenScmRepository(repository.uri);
 				}
@@ -672,7 +695,21 @@ export class GlCliGitProvider implements GlGitProvider {
 			const repo = this.container.git.getRepository(uri);
 			if (repo != null) {
 				if (repo.closed && silent === false) {
-					repo.closed = false;
+					if (repo.closedByUser) {
+						scope?.info(
+							`found ${
+								root ? 'root ' : ''
+							}repository in '${uri.fsPath}'; skipping - already known and closed (by user) (not auto-reopening)`,
+						);
+					} else {
+						repo.closed = false;
+						scope?.info(
+							`found ${
+								root ? 'root ' : ''
+							}repository in '${uri.fsPath}'; skipping - already known; flipped closed→open`,
+						);
+					}
+					return;
 				}
 				scope?.info(`found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - already open`);
 				return;
@@ -1476,23 +1513,38 @@ export class GlCliGitProvider implements GlGitProvider {
 	}
 
 	@debug({ exit: true })
-	async getOrOpenScmRepository(repoPath: string | Uri): Promise<ScmRepository | undefined> {
+	async getOrOpenScmRepository(repoPath: string | Uri, source?: Source): Promise<ScmRepository | undefined> {
 		const scope = getScopedLogger();
 
 		try {
 			const uri = repoPath instanceof Uri ? repoPath : Uri.file(repoPath);
+
+			// Defense-in-depth: if GitLens knows this repo as user-closed, don't ask vscode.git
+			// to re-open it on our behalf \u2014 that's the loop we're guarding against.
+			const known = this.container.git.getRepository(uri);
+			if (known?.closedByUser) {
+				scope?.info(
+					`skipping opening the SCM repository for '${uri.toString(true)}'${
+						source != null ? ` (source=${source.source})` : ''
+					}: tracked currently as closed (by user)`,
+				);
+				return undefined;
+			}
+
 			const gitApi = await this.getScmGitApi();
 			if (gitApi == null) return undefined;
 
 			// `getRepository` will return an opened repository that "contains" that path, so for nested repositories, we need to force the opening of the nested path, otherwise we will only get the root repository
 			let repo = gitApi.getRepository(uri);
 			if (repo == null || (repo != null && repo.rootUri.toString() !== uri.toString())) {
-				scope?.trace(
-					repo == null
-						? '\u2022 no existing repository found, opening repository...'
-						: `\u2022 existing, non-matching repository '${repo.rootUri.toString(
-								true,
-							)}' found, opening repository...`,
+				scope?.info(
+					`opening the SCM repository for '${uri.toString(true)}'${
+						source != null ? ` (source=${source.source})` : ''
+					}: ${
+						repo == null
+							? 'no existing repository found'
+							: `existing, non-matching repository '${repo.rootUri.toString(true)}'`
+					}`,
 				);
 				repo = await gitApi.openRepository?.(uri);
 			}

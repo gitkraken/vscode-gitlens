@@ -20,7 +20,9 @@ export function* pickContributorsStep<
 	options?: { picked?: string | string[]; placeholder?: string },
 ): StepResultGenerator<GitContributor[]> {
 	async function getItems() {
-		const message = (await state.repo.git.getOrOpenScmRepository())?.inputBox.value;
+		const message = (
+			await state.repo.git.getOrOpenScmRepository({ source: 'quick-wizard', detail: 'contributors' })
+		)?.inputBox.value;
 
 		const items = [];
 

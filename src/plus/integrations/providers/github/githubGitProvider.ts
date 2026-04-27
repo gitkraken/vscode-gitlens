@@ -27,6 +27,7 @@ import { asSettled, getSettledValue } from '@gitlens/utils/promise.js';
 import { joinUriPath, parseUri } from '@gitlens/utils/uri.js';
 import { GitCloudHostIntegrationId } from '../../../../constants.integrations.js';
 import { Schemes } from '../../../../constants.js';
+import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
@@ -380,7 +381,7 @@ export class GlGitHubGitProvider implements GlGitProvider {
 		return undefined;
 	}
 
-	async getOrOpenScmRepository(_repoPath: string): Promise<ScmRepository | undefined> {
+	async getOrOpenScmRepository(_repoPath: string, _source?: Source): Promise<ScmRepository | undefined> {
 		return undefined;
 	}
 

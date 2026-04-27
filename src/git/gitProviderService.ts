@@ -654,25 +654,43 @@ export class GitProviderService implements UnifiedDisposable {
 				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
 				using scope = maybeStartScopedLogger(
-					`${getLoggableName(provider)}.onDidCloseRepository(e=${e.uri.toString()})`,
+					`${getLoggableName(provider)}.onDidCloseRepository(e=${e.uri.toString()}, source=${e.source ?? 'gitlens'})`,
 				);
-				scope?.trace(`repository=${Logger.toLoggable(repository)}`);
+				const wasClosed = repository?.closed;
 
 				if (repository != null) {
+					if (e.source === 'scm') {
+						repository.closedByUser = true;
+					}
 					repository.closed = true;
 				}
+
+				scope?.info(
+					`repository=${Logger.toLoggable(repository)}, closed:${wasClosed ?? '<no-repo>'}→true${
+						e.source === 'scm' ? ' (closedByUser=true)' : ''
+					}`,
+				);
 			}),
 			provider.onDidOpenRepository(e => {
 				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
 				using scope = maybeStartScopedLogger(
-					`${getLoggableName(provider)}.onDidOpenRepository(e=${e.uri.toString()})`,
+					`${getLoggableName(provider)}.onDidOpenRepository(e=${e.uri.toString()}, source=${e.source ?? 'gitlens'})`,
 				);
-				scope?.trace(`repository=${Logger.toLoggable(repository)}`);
+				const wasClosed = repository?.closed;
 
 				if (repository != null) {
+					if (e.source === 'scm') {
+						repository.closedByUser = false;
+					}
 					repository.closed = false;
+					scope?.info(
+						`repository=${Logger.toLoggable(repository)}, closed:${wasClosed ?? '<no-repo>'}→false${
+							e.source === 'scm' ? ' (closedByUser cleared)' : ''
+						}`,
+					);
 				} else {
+					scope?.info(`repository=<unknown>; deferring to getOrOpenRepository`);
 					void this.getOrOpenRepository(e.uri, e.source === 'scm' ? { detectNested: true } : undefined);
 				}
 			}),

@@ -13,6 +13,7 @@ import { groupByFilterMap } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { GlyphChars, Schemes } from '../constants.js';
+import type { Source } from '../constants.telemetry.js';
 import type { EventBus } from '../eventBus.js';
 import type { FeatureAccess, Features, PlusFeatures } from '../features.js';
 import { showGitErrorMessage } from '../messages.js';
@@ -193,8 +194,8 @@ export class GitRepositoryService {
 	}
 
 	@debug()
-	getOrOpenScmRepository(): Promise<ScmRepository | undefined> {
-		return this._provider.getOrOpenScmRepository(this.path);
+	getOrOpenScmRepository(source?: Source): Promise<ScmRepository | undefined> {
+		return this._provider.getOrOpenScmRepository(this.path, source);
 	}
 
 	@debug({ exit: true })

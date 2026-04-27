@@ -50,7 +50,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 	}
 
 	private async execute(state: StepState<State<GlRepository, GitContributor[]>>) {
-		const scmRepo = await state.repo.git.getOrOpenScmRepository();
+		const scmRepo = await state.repo.git.getOrOpenScmRepository({ source: 'quick-wizard', detail: 'coauthors' });
 		if (scmRepo == null) return;
 
 		let message = scmRepo.inputBox.value;

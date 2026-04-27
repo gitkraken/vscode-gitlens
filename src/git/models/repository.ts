@@ -106,6 +106,15 @@ export class GlRepository extends Repository implements Disposable {
 		return this._orderByLastFetched;
 	}
 
+	private _closedByUser = false;
+	/** Specifies whether the repository was explicitly closed by the user via VS Code's built-in SCM */
+	get closedByUser(): boolean {
+		return this._closedByUser;
+	}
+	set closedByUser(value: boolean) {
+		this._closedByUser = value;
+	}
+
 	get starred(): boolean {
 		const starred = this.container.storage.getWorkspace('starred:repositories');
 		return starred?.[this.id] === true;
@@ -126,6 +135,9 @@ export class GlRepository extends Repository implements Disposable {
 		scope?.trace(`setting closed=${closed}`);
 
 		if (!closed) {
+			// Repo is open — clear any prior user-close intent so the flag never lingers
+			// on an open repo (only meaningful while closed=true).
+			this._closedByUser = false;
 			// Track access when repository is reopened
 			queueMicrotask(() => void this.git.branches.onCurrentBranchAccessed?.());
 		}

@@ -7,6 +7,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { Commit, InputBox } from '../@types/vscode.git.d.js';
 import type { ForcePushMode } from '../@types/vscode.git.enums.js';
+import type { Source } from '../constants.telemetry.js';
 import type { Features } from '../features.js';
 import type { GitUri } from './gitUri.js';
 import type { GlRepository, RepositoryChangeEvent } from './models/repository.js';
@@ -64,7 +65,7 @@ export interface GlGitProvider extends UnifiedDisposable {
 
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
-	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
+	getOrOpenScmRepository(repoPath: string, source?: Source): Promise<ScmRepository | undefined>;
 
 	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;
 	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
