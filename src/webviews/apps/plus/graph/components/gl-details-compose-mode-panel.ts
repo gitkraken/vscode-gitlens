@@ -596,8 +596,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 			header="File Changes"
 			.fileActions=${this.fileActionsForFile}
 			.fileContext=${this.getFileContext}
-			@file-open=${this.redispatch}
-			@file-compare-previous=${this.handleFileCompareAsOpen}
+			@file-open=${this.forwardFileEventWithVirtualRef}
+			@file-compare-previous=${this.forwardFileEventWithVirtualRef}
 			@file-stage=${this.redispatch}
 			@file-unstage=${this.redispatch}
 			@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
@@ -644,9 +644,18 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 	private redispatch = redispatch.bind(this);
 
-	/** Re-dispatch `file-compare-previous` as `file-open` (the composer maps the "compare" affordance to open). */
-	private handleFileCompareAsOpen = (e: CustomEvent<FileChangeListItemDetail>): void => {
-		this.dispatchEvent(new CustomEvent('file-open', { detail: e.detail, bubbles: true, composed: true }));
+	/**
+	 * Forward `file-open` / `file-compare-previous` with the selected proposed commit's virtual ref
+	 * attached on the detail as `virtualRef`, so the details panel can route them through
+	 * `FilesService.openVirtualFile*` — synthesizing per-commit content via the virtual FS provider
+	 * instead of trying to resolve a non-existent SHA. Falls back to a plain re-dispatch when no
+	 * session is active (virtualRef is absent), which preserves today's working-tree behavior.
+	 */
+	private forwardFileEventWithVirtualRef = (e: CustomEvent<FileChangeListItemDetail>): void => {
+		const commit = this.commits?.find(c => c.id === this._selectedCommitId);
+		const virtualRef = commit?.virtualRef;
+		const detail = virtualRef != null ? { ...e.detail, virtualRef: virtualRef } : e.detail;
+		this.dispatchEvent(new CustomEvent(e.type, { detail: detail, bubbles: true, composed: true }));
 	};
 
 	private handleBack(): void {

@@ -1478,6 +1478,16 @@ export class DetailsActions {
 		fileActions.openFileCompareBetween(this.services.files, detail, detail.showOptions, fromRef, toRef);
 	}
 
+	/** Open the virtual revision of `detail` via the virtual FS provider (no real SHA needed). */
+	openVirtualFile(detail: FileChangeListItemDetail, ref: fileActions.VirtualRefShape): void {
+		fileActions.openVirtualFile(this.services.files, ref, detail, detail.showOptions);
+	}
+
+	/** Diff the virtual revision against its virtual (or real) parent via the virtual FS service. */
+	openVirtualFileComparePrevious(detail: FileChangeListItemDetail, ref: fileActions.VirtualRefShape): void {
+		fileActions.openVirtualFileComparePrevious(this.services.files, ref, detail, detail.showOptions);
+	}
+
 	executeFileAction(detail: FileChangeListItemDetail, ref?: string): void {
 		fileActions.executeFileAction(this.services.files, detail, detail.showOptions, ref);
 	}

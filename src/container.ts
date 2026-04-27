@@ -70,6 +70,7 @@ import { DeepLinkService } from './uris/deepLinks/deepLinkService.js';
 import { UriService } from './uris/uriService.js';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider.js';
 import { Views } from './views/views.js';
+import { VirtualFileSystemService } from './virtual/virtualFileSystemService.js';
 import { VslsController } from './vsls/vsls.js';
 import {
 	registerComposerWebviewCommands,
@@ -229,6 +230,7 @@ export class Container {
 		this._disposables.push((this._eventBus = new EventBus()));
 		this._disposables.push((this._git = new GitProviderService(this)));
 		this._disposables.push(new GitFileSystemProvider(this));
+		this._disposables.push((this._virtualFs = new VirtualFileSystemService(this)));
 
 		this._disposables.push((this._deepLinks = new DeepLinkService(this)));
 
@@ -511,6 +513,11 @@ export class Container {
 	private readonly _markdownProvider: MarkdownContentProvider;
 	get markdown(): MarkdownContentProvider {
 		return this._markdownProvider;
+	}
+
+	private readonly _virtualFs: VirtualFileSystemService;
+	get virtualFs(): VirtualFileSystemService {
+		return this._virtualFs;
 	}
 
 	private readonly _git: GitProviderService;

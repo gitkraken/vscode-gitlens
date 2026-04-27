@@ -6,7 +6,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
-import type { GraphServices } from '../../../../plus/graph/graphService.js';
+import type { GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -541,6 +541,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
 			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}
 			@file-open=${this.handleComposeFileOpen}
+			@file-compare-previous=${this.handleComposeFileComparePrevious}
 			@file-stage=${this.handleFileStage}
 			@file-unstage=${this.handleFileUnstage}
 			@change-files-layout=${this.handleChangeFilesLayout}
@@ -862,8 +863,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleComposeFileOpen = (e: CustomEvent<FileChangeListItemDetail>) => {
-		// Compose files are working-tree changes — open without a ref so the working file is shown.
+		// Prefer the virtual ref attached by gl-graph-compose-panel so the file opens at the
+		// *virtual* state produced by that proposed commit. Falls back to working-tree when the
+		// virtual session isn't active (e.g. handler start failed).
+		const virtualRef = (e.detail as FileChangeListItemDetail & { virtualRef?: VirtualRefShape }).virtualRef;
+		if (virtualRef != null) {
+			this._actions.openVirtualFile(e.detail, virtualRef);
+			return;
+		}
 		this._actions.openFile(e.detail);
+	};
+
+	private handleComposeFileComparePrevious = (e: CustomEvent<FileChangeListItemDetail>) => {
+		// Per-proposed-commit "compare with previous" only makes sense against the virtual chain;
+		// drop the event when no virtual ref is attached rather than silently opening a non-sensical diff.
+		const virtualRef = (e.detail as FileChangeListItemDetail & { virtualRef?: VirtualRefShape }).virtualRef;
+		if (virtualRef == null) return;
+		this._actions.openVirtualFileComparePrevious(e.detail, virtualRef);
 	};
 
 	private async handleReviewAnalyzeArea(e: CustomEvent<ReviewAnalyzeAreaDetail>): Promise<void> {
