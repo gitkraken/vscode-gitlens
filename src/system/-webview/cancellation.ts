@@ -55,13 +55,12 @@ export function fromAbortSignal(signal: AbortSignal | CancellationToken | undefi
 	if (isCancellationToken(signal)) return { token: signal, dispose: () => {} };
 
 	const source = new CancellationTokenSource();
+	const onAbort = () => source.cancel();
 	if (signal.aborted) {
 		source.cancel();
-		return { token: source.token, dispose: () => source.dispose() };
+	} else {
+		signal.addEventListener('abort', onAbort, { once: true });
 	}
-
-	const onAbort = () => source.cancel();
-	signal.addEventListener('abort', onAbort, { once: true });
 	return {
 		token: source.token,
 		dispose: () => {

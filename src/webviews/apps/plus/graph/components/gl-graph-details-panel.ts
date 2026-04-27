@@ -17,6 +17,7 @@ import { detailsActionsContext, detailsStateContext, detailsWorkflowContext } fr
 import { resolveDetailsActions } from './detailsResolver.js';
 import type { DetailsContext, DetailsState } from './detailsState.js';
 import { createDetailsState } from './detailsState.js';
+import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
 import type { ReviewAnalyzeAreaDetail, ReviewOpenFileDetail } from './gl-details-review-mode-panel.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
@@ -120,15 +121,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this._state.activeModeShas.get() ?? this.shas;
 	}
 
-	/** The current selection passed into workflow transitions. */
-	private currentSelection(): {
-		sha: string | undefined;
-		shas: string[] | undefined;
-		repoPath: string | undefined;
-		graphReachability?: import('@gitlens/git/providers/commits.js').GitCommitReachability;
-		commitLite?: CommitDetails;
-		commitLites?: Record<string, CommitDetails>;
-	} {
+	private currentSelection(): DetailsSelection {
 		return {
 			sha: this.sha,
 			shas: this.shas,
