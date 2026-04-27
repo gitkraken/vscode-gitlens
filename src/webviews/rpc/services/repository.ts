@@ -159,8 +159,14 @@ export class RepositoryService {
 		return this.container.git.getRepositoryService(repoPath).commits.getCommitReachability?.(sha, signal);
 	}
 
-	async getCommitSignature(repoPath: string, sha: string): Promise<CommitSignatureShape | undefined> {
+	async getCommitSignature(
+		repoPath: string,
+		sha: string,
+		signal?: AbortSignal,
+	): Promise<CommitSignatureShape | undefined> {
+		signal?.throwIfAborted();
 		const signature = await getCommitSignature(repoPath, sha);
+		signal?.throwIfAborted();
 		return signature != null ? serializeSignature(signature) : undefined;
 	}
 

@@ -31,9 +31,15 @@ export class BranchesService {
 	 * Get the merge target status for a branch along with the branch shape the
 	 * `gl-merge-target-status` component expects as its `branch` prop.
 	 */
-	async getMergeTargetStatus(repoPath: string, branchName: string): Promise<BranchMergeTargetStatus | undefined> {
+	async getMergeTargetStatus(
+		repoPath: string,
+		branchName: string,
+		signal?: AbortSignal,
+	): Promise<BranchMergeTargetStatus | undefined> {
+		signal?.throwIfAborted();
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const branch = await svc.branches.getBranch(branchName);
+		signal?.throwIfAborted();
 		if (branch == null) return undefined;
 
 		const repo = this.container.git.getRepository(repoPath);
@@ -41,6 +47,7 @@ export class BranchesService {
 			repo != null ? getWorktreesByBranch(repo) : Promise.resolve(new Map<string, GitWorktree>()),
 			getBranchMergeTargetStatusInfo(this.container, branch),
 		]);
+		signal?.throwIfAborted();
 		const opened = branch.current || worktreesByBranch.get(branch.id)?.opened === true;
 
 		const overview = toOverviewBranch(branch, worktreesByBranch, opened);
@@ -63,13 +70,21 @@ export class BranchesService {
 	 * Get issues explicitly associated with a branch (persisted in git config).
 	 * Returns the same serialized shape as `OverviewBranchEnrichment.issues`.
 	 */
-	async getAssociatedIssues(repoPath: string, branchName: string): Promise<OverviewBranchIssue[]> {
+	async getAssociatedIssues(
+		repoPath: string,
+		branchName: string,
+		signal?: AbortSignal,
+	): Promise<OverviewBranchIssue[]> {
+		signal?.throwIfAborted();
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const branch = await svc.branches.getBranch(branchName);
+		signal?.throwIfAborted();
 		if (branch == null) return [];
 
 		const result = await getAssociatedIssuesForBranch(this.container, branch);
+		signal?.throwIfAborted();
 		const issues = result.paused ? await result.value : result.value;
+		signal?.throwIfAborted();
 		return (
 			issues?.map(i => ({
 				id: i.number || i.id,
