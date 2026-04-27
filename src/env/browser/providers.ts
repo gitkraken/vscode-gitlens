@@ -3,6 +3,7 @@ import type { Cache } from '@gitlens/git/cache.js';
 import type { GitExecOptions, GitResult } from '@gitlens/git/exec.types.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import type { AgentSessionProvider } from '../../agents/provider.js';
 import type { Container } from '../../container.js';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -49,6 +50,10 @@ export function getSupportedWorkspacesStorageProvider(
 
 export function getGkCliIntegrationProvider(_container: Container): undefined {
 	return undefined;
+}
+
+export function getAgentSessionProviders(_container: Container): AgentSessionProvider[] {
+	return [];
 }
 
 export function getMcpProviders(_container: Container): Promise<Disposable[] | undefined> {

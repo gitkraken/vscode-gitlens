@@ -60,6 +60,7 @@ function getLibraryAliases() {
 		'@gitlens/git-cli': path.resolve(__dirname, 'packages', 'git-cli', 'src'),
 		'@gitlens/git-github': path.resolve(__dirname, 'packages', 'plus', 'git-github', 'src'),
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
+		'@gitlens/agents': path.resolve(__dirname, 'packages', 'plus', 'agents', 'src'),
 	};
 }
 
@@ -414,7 +415,14 @@ function getExtensionConfig(target, mode, env) {
 			fallback: {
 				'../../../product.json': false,
 				...(target === 'webworker'
-					? { path: require.resolve('path-browserify'), os: require.resolve('os-browserify/browser') }
+					? {
+							path: require.resolve('path-browserify'),
+							os: require.resolve('os-browserify/browser'),
+							child_process: false,
+							fs: false,
+							'fs/promises': false,
+							process: false,
+						}
 					: {}),
 			},
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],

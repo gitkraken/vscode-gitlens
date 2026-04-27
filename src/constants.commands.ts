@@ -74,6 +74,11 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.visualizeHistory.repo:home'
 	| 'gitlens.visualizeHistory.branch:home';
 
+type InternalAgentCommands =
+	| 'gitlens.agents.installClaudeHook'
+	| 'gitlens.agents.uninstallClaudeHook'
+	| 'gitlens.agents.resolvePermission';
+
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
 type InternalPlusCommands =
@@ -165,6 +170,7 @@ type InternalGlCommands =
 	| 'gitlens.toggleFileHeatmap:mode'
 	| 'gitlens.toggleFileHeatmap:statusbar'
 	| 'gitlens.visualizeHistory'
+	| InternalAgentCommands
 	| InternalGraphWebviewCommands
 	| InternalHomeWebviewCommands
 	| InternalLaunchPadCommands

@@ -21,7 +21,7 @@
 import type { Remote } from '@eamodio/supertalk';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { HomeServices, WalkthroughProgressState } from '../../home/homeService.js';
-import type { OverviewFilters } from '../../home/protocol.js';
+import type { AgentSessionState, OverviewFilters } from '../../home/protocol.js';
 import type {
 	AiModelInfo,
 	AIState,
@@ -66,6 +66,8 @@ export interface SubscriptionActions {
 	onSubscriptionChanged(): void;
 	/** Called when launchpad data should be refreshed. */
 	refreshLaunchpad(): void;
+	/** Called when agent overview branches should be refreshed. */
+	refreshAgentOverview(): void;
 }
 
 /**
@@ -195,6 +197,16 @@ export function setupSubscriptions(
 		() =>
 			services.launchpad.onLaunchpadChanged(() => {
 				actions.refreshLaunchpad();
+			}),
+
+		// ============================================================
+		// Agent sessions — from HomeViewService
+		// ============================================================
+
+		() =>
+			services.home.onAgentSessionsChanged((sessions: AgentSessionState[]) => {
+				state.home.agentSessions.set(sessions);
+				actions.refreshAgentOverview();
 			}),
 	]);
 }

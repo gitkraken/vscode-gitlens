@@ -397,6 +397,7 @@ interface GitKrakenConfig {
 }
 
 interface GitKrakenCliConfig {
+	readonly localPath: string | null;
 	readonly integration: {
 		readonly enabled: boolean;
 	};

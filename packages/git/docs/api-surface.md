@@ -248,6 +248,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getStoredUserMergeTargetBranchName?(repoPath, ref)`                                 | `string \| undefined`                      |
 | `onCurrentBranchAccessed?(repoPath)`                                                 | `void`                                     |
 | `onCurrentBranchModified?(repoPath)`                                                 | `void`                                     |
+| `onCurrentBranchAgentActivity?(repoPath)`                                            | `void`                                     |
 | `renameBranch?(repoPath, oldName, newName)`                                          | `void`                                     |
 | `setUpstreamBranch?(repoPath, name, upstream)`                                       | `void`                                     |
 | `setBranchDisposition?(repoPath, branchName, disposition)`                           | `void`                                     |
