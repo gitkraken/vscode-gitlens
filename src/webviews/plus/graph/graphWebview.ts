@@ -363,6 +363,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
 		[DidChangeNotification, this.notifyDidChangeState],
+		[DidChangePinnedRefNotification, this.notifyDidChangePinnedRef],
 		[DidChangeRefsVisibilityNotification, this.notifyDidChangeRefsVisibility],
 		[DidChangeScrollMarkersNotification, this.notifyDidChangeScrollMarkers],
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],

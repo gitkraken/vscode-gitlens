@@ -231,16 +231,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private async handleJumpToRef(e: MouseEvent) {
 		const ref = await this.onJumpToRefPromise(e.altKey);
 		if (ref != null) {
-			const id = await this.ensureSearchResultRow(ref.sha);
-			if (id == null) return;
-
-			// Select the commit and check if it's filtered out
-			const rows = this.selectCommits?.([id], { ensureVisible: true });
-
-			// If loaded but filtered out, show warning
-			if (rows?.[0]?.hidden) {
-				this._searchResultHidden = true;
-			}
+			await this.jumpToSha(ref.sha);
 		}
 	}
 
@@ -262,6 +253,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 		if (sha == null) return;
 
+		await this.jumpToSha(sha);
+	}
+
+	private async jumpToSha(sha: string) {
 		const id = await this.ensureSearchResultRow(sha);
 		if (id == null) return;
 
