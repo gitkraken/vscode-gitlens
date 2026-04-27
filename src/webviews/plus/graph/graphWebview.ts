@@ -491,6 +491,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
 		[DidChangeNotification, this.notifyDidChangeState],
 		[DidChangeOverviewNotification, this.notifyDidChangeOverview],
+		[DidChangePinnedRefNotification, this.notifyDidChangePinnedRef],
 		[DidChangeRefsVisibilityNotification, this.notifyDidChangeRefsVisibility],
 		[DidChangeScrollMarkersNotification, this.notifyDidChangeScrollMarkers],
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
@@ -5510,7 +5511,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.updateFiltersByRepo(repoPath, { pinnedRef: storedPinnedRef });
 		void this.notifyDidChangePinnedRef();
-		this.updateState();
+		this.updateState(true);
 	}
 
 	private updateFiltersByRepo(repoPath: string | undefined, updates: Partial<StoredGraphFilters>) {
