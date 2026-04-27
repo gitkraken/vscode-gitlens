@@ -21,18 +21,28 @@
  */
 import type { Remote } from '@eamodio/supertalk';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import type { PullRequestRefs } from '@gitlens/git/models/pullRequest.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.ts';
 import { Logger } from '@gitlens/utils/logger.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { Autolink } from '../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../config.js';
 import type { GlExtensionCommands } from '../../../constants.commands.js';
 import type { InspectWebviewTelemetryContext, TelemetryEvents } from '../../../constants.telemetry.js';
 import type { Draft } from '../../../plus/drafts/models/drafts.js';
 import type { CommitDetailsServices, InitialContext } from '../../commitDetails/commitDetailsService.js';
-import type { CommitDetails, FileShowOptions, Mode, Wip, WipChange } from '../../commitDetails/protocol.js';
-import { messageHeadlineSplitterToken } from '../../commitDetails/protocol.js';
+import type {
+	CommitDetails,
+	CommitSignatureShape,
+	FileShowOptions,
+	Mode,
+	Wip,
+	WipChange,
+} from '../../commitDetails/protocol.js';
+import { fetchCommitEnrichment } from '../shared/actions/commitEnrichment.js';
 import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import * as fileActions from '../shared/actions/file.js';
 import * as gitActions from '../shared/actions/git.js';
@@ -43,6 +53,7 @@ import {
 	fireAndForget,
 	fireRpc,
 	noop,
+	noopUnlessReal,
 	optimisticBatchFireAndForget,
 	optimisticFireAndForget,
 } from '../shared/actions/rpc.js';
@@ -96,6 +107,22 @@ interface FetchCommitOptions {
 	force?: boolean;
 }
 
+/** Per-SHA aggregate of resolved enrichment values. Mirrors the graph-details cache shape:
+ *  `hasPullRequest` / `hasSignature` are sentinels because `undefined` is a valid resolved
+ *  value (commit not signed, no PR), distinguishing "not fetched yet" from "fetched and got nothing". */
+interface CommitEnrichmentCacheEntry {
+	commit?: CommitDetails;
+	autolinks?: Autolink[];
+	formattedMessage?: string;
+	autolinkedIssues?: IssueOrPullRequest[];
+	pullRequest?: PullRequestShape | undefined;
+	signature?: CommitSignatureShape | undefined;
+	hasPullRequest?: boolean;
+	hasSignature?: boolean;
+}
+
+const commitEnrichmentCacheLimit = 32;
+
 // ============================================================
 // CommitDetailsActions Class
 // ============================================================
@@ -112,11 +139,30 @@ export class CommitDetailsActions {
 	private _wipWatchRepoPath: string | undefined;
 	private _wipWatchUnsubscribe: (() => void) | undefined;
 
+	/** Aborts when a new commit selection arrives — propagates to host-side enrichment RPCs
+	 *  via `signal?.throwIfAborted()` so abandoned work stops at the next checkpoint instead
+	 *  of running to completion + shipping a dead-letter response over the channel. */
+	private _enrichmentController?: AbortController;
+
+	/** SHA-keyed cache of commit shell + chip enrichment. Hydrated synchronously on revisit so
+	 *  chips are visible from t≈0ms instead of flashing through cleared state. Same shape as the
+	 *  graph-details panel's cache. Populated as fetches resolve via the sink in `fetchCommit`. */
+	private readonly _commitEnrichmentCache = new LruMap<string, CommitEnrichmentCacheEntry>(
+		commitEnrichmentCacheLimit,
+	);
+
 	constructor(
 		private readonly state: CommitDetailsState,
 		private readonly services: ResolvedServices,
 		private readonly resources: CommitDetailsResources,
 	) {}
+
+	private resetEnrichment(): AbortSignal {
+		this._enrichmentController?.abort();
+		const controller = new AbortController();
+		this._enrichmentController = controller;
+		return controller.signal;
+	}
 
 	/**
 	 * Cancel all in-flight resource requests.
@@ -720,17 +766,40 @@ export class CommitDetailsActions {
 		}
 
 		this.state.error.set(undefined);
-
-		// Clear commit-dependent state immediately so the UI never shows
-		// a mix of the new commit's core data with the old commit's extras
-		this.state.autolinks.set(undefined);
-		this.state.formattedMessage.set(undefined);
-		this.state.autolinkedIssues.set(undefined);
-		this.state.pullRequest.set(undefined);
-		this.state.signature.set(undefined);
 		this.resources.reachability.cancel();
 		this.resources.explain.cancel();
 		this.resources.generate.cancel();
+
+		// Abort any prior in-flight enrichment so a slow autolinks / PR / signature lookup from
+		// the previous selection can't overwrite the new selection's state. Host-side methods
+		// honor the signal via `signal?.throwIfAborted()` so abandoned work stops at the next
+		// checkpoint instead of running to completion.
+		const enrichSignal = this.resetEnrichment();
+
+		// Hydrate from cache synchronously when we've previously seen this SHA. Skipping the
+		// flash-out → flash-in cycle on revisit: chips are visible from t≈0ms instead of after
+		// the gating commit.fetch + 30-60ms enrichment fan-out completes. Cache miss falls back
+		// to the existing eager-clear so prior-selection chips don't linger over the new commit's
+		// metadata once it lands.
+		const cacheKey = `${sha}:${repoPath}`;
+		const cached = this._commitEnrichmentCache.get(cacheKey);
+		if (cached != null) {
+			if (cached.commit != null) {
+				this.state.currentCommit.set(cached.commit);
+				this.state.commitRef.set({ sha: cached.commit.sha, repoPath: cached.commit.repoPath });
+			}
+			this.state.autolinks.set(cached.autolinks);
+			this.state.formattedMessage.set(cached.formattedMessage);
+			this.state.autolinkedIssues.set(cached.autolinkedIssues);
+			this.state.pullRequest.set(cached.hasPullRequest ? cached.pullRequest : undefined);
+			this.state.signature.set(cached.hasSignature ? cached.signature : undefined);
+		} else {
+			this.state.autolinks.set(undefined);
+			this.state.formattedMessage.set(undefined);
+			this.state.autolinkedIssues.set(undefined);
+			this.state.pullRequest.set(undefined);
+			this.state.signature.set(undefined);
+		}
 
 		await this.resources.commit.fetch(repoPath, sha);
 
@@ -741,62 +810,61 @@ export class CommitDetailsActions {
 			this.state.commitRef.set(commit ? { sha: commit.sha, repoPath: commit.repoPath } : undefined);
 
 			if (commit != null) {
-				// Fire supplementary data in parallel via shared services — each sets its signal independently.
-				// enrichmentGuard() prevents stale callbacks from writing data for a replaced commit.
-				const guard = <T>(onResult: (value: T) => void) => enrichmentGuard<T>(this.resources.commit, onResult);
+				// Cache the freshly-fetched commit shell so future revisits hydrate instantly.
+				this._commitEnrichmentCache.update(cacheKey, { commit: commit });
 
-				// Basic autolinks + linkified message (gated on autolinks config)
-				if (this.state.capabilities.autolinksEnabled) {
-					const isStash = commit.stashNumber != null;
-					void this.services.autolinks
-						.getCommitAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash)
-						.then(
-							guard(r => {
-								if (r != null) {
-									this.state.autolinks.set(r.autolinks);
-									this.state.formattedMessage.set(r.formattedMessage);
-								}
-							}),
-							noop,
-						);
-
-					// Enriched autolinks — resolved issues + enriched linkified message
-					void this.services.autolinks
-						.getEnrichedAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash)
-						.then(
-							guard(r => {
-								if (r != null) {
-									this.state.autolinkedIssues.set(r.autolinkedIssues);
-									// Enriched formatted message overrides basic (has issue titles in tooltips)
-									this.state.formattedMessage.set(r.formattedMessage);
-								}
-							}),
-							noop,
-						);
-				}
-
-				// Associated PR (via shared pull requests service)
-				void this.services.pullRequests.getPullRequestForCommit(repoPath, sha).then(
-					guard(pr => {
-						this.state.pullRequest.set(pr);
-					}),
-					noop,
+				// Shared chip-enrichment fan-out — same orchestration as the graph details panel
+				// (basic autolinks + enriched autolinks + PR + signature in parallel, generation
+				// guarded, abort-aware, AbortError-silent rejection). Sink writes resolved values
+				// into commitDetails state signals AND the per-SHA cache so revisits show chips
+				// from t≈0ms.
+				fetchCommitEnrichment(
+					this.services,
+					this.resources.commit,
+					enrichSignal,
+					{
+						repoPath: repoPath,
+						sha: sha,
+						isStash: commit.stashNumber != null,
+						autolinksEnabled: this.state.capabilities.autolinksEnabled,
+					},
+					{
+						setBasicAutolinks: (autolinks, formattedMessage) => {
+							this._commitEnrichmentCache.update(cacheKey, {
+								autolinks: autolinks,
+								formattedMessage: formattedMessage,
+							});
+							this.state.autolinks.set(autolinks);
+							this.state.formattedMessage.set(formattedMessage);
+						},
+						setEnrichedAutolinks: (issues, formattedMessage) => {
+							this._commitEnrichmentCache.update(cacheKey, {
+								autolinkedIssues: issues,
+								formattedMessage: formattedMessage,
+							});
+							this.state.autolinkedIssues.set(issues);
+							// Enriched formatted message overrides basic (has issue titles in tooltips)
+							this.state.formattedMessage.set(formattedMessage);
+						},
+						setPullRequest: pr => {
+							this._commitEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+							this.state.pullRequest.set(pr);
+						},
+						setSignature: sig => {
+							this._commitEnrichmentCache.update(cacheKey, { signature: sig, hasSignature: true });
+							this.state.signature.set(sig);
+						},
+					},
 				);
 
-				// Commit signature (via shared repository service)
-				void this.services.repository.getCommitSignature(repoPath, sha).then(
-					guard(sig => {
-						this.state.signature.set(sig);
-					}),
-					noop,
-				);
-
-				// Check if repo has remotes (for "Open on Remote" action)
+				// Check if repo has remotes (for "Open on Remote" action) — not enrichment, but
+				// shares the generation-guard pattern.
 				void this.services.repository.hasRemotes(repoPath).then(
-					guard(has => {
+					enrichmentGuard(this.resources.commit, has => {
+						if (enrichSignal.aborted) return;
 						this.state.hasRemotes.set(has);
 					}),
-					noop,
+					noopUnlessReal,
 				);
 			}
 		} else if (this.resources.commit.error.get() != null) {

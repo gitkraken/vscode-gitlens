@@ -27,7 +27,6 @@ import { pluralize } from '@gitlens/utils/string.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { CommitDetails, CommitSignatureShape, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
-import { messageHeadlineSplitterToken } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	BranchComparisonContributorsScope,
 	BranchComparisonOptions,
@@ -41,9 +40,10 @@ import type {
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue } from '../../../../shared/overviewBranches.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
+import { fetchCommitEnrichment } from '../../../shared/actions/commitEnrichment.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import * as fileActions from '../../../shared/actions/file.js';
-import { enrichmentGuard, isAbortError, noop, noopUnlessReal } from '../../../shared/actions/rpc.js';
+import { enrichmentGuard, guardedEnrich, isAbortError, noop, noopUnlessReal } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import type { DetailsState } from './detailsState.js';
@@ -210,33 +210,6 @@ export class DetailsActions {
 		const controller = new AbortController();
 		this._enrichmentController = controller;
 		return controller.signal;
-	}
-
-	/**
-	 * Fire-and-forget chip-enrichment helper. Wraps the standard pattern of an enrichment RPC
-	 * call: generation guard (drops stale callbacks for resources that have moved on), abort
-	 * guard (drops callbacks once the panel-level enrichment signal aborts), cancellation-aware
-	 * rejection (suppresses expected `AbortError` rejections silently while still logging real
-	 * failures), and an optional pre-fetch skip predicate (e.g., when autolinks are disabled).
-	 *
-	 * Cache writes and state writes stay local to each call site — those are genuinely
-	 * different per enrichment and the helper deliberately doesn't try to abstract them.
-	 */
-	private guardedEnrich<T>(
-		resource: Pick<Resource<unknown>, 'generationId'>,
-		signal: AbortSignal,
-		fetcher: () => Promise<T>,
-		apply: (value: T) => void,
-		options?: { skipIf?: () => boolean },
-	): void {
-		if (options?.skipIf?.()) return;
-		void fetcher().then(
-			enrichmentGuard(resource, value => {
-				if (signal.aborted) return;
-				apply(value);
-			}),
-			noopUnlessReal,
-		);
 	}
 
 	isMultiCommit(shas?: string[]): boolean {
@@ -470,60 +443,39 @@ export class DetailsActions {
 	}
 
 	private fetchEnrichment(repoPath: string, sha: string, signal: AbortSignal): void {
-		const s = this.services;
 		const cacheKey = `${sha}:${repoPath}`;
 		const isStash = this.state.commit.get()?.stashNumber != null;
-		const skipWhenAutolinksDisabled = () => !this.state.autolinksEnabled.get();
 
-		this.guardedEnrich(
+		fetchCommitEnrichment(
+			this.services,
 			this.resources.commit,
 			signal,
-			() => s.autolinks.getCommitAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash, signal),
-			r => {
-				if (r == null) return;
-				this._commitEnrichmentCache.update(cacheKey, {
-					autolinks: r.autolinks,
-					formattedMessage: r.formattedMessage,
-				});
-				this.state.autolinks.set(r.autolinks);
-				this.state.formattedMessage.set(r.formattedMessage);
-			},
-			{ skipIf: skipWhenAutolinksDisabled },
-		);
-
-		this.guardedEnrich(
-			this.resources.commit,
-			signal,
-			() => s.autolinks.getEnrichedAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash, signal),
-			r => {
-				if (r == null) return;
-				this._commitEnrichmentCache.update(cacheKey, {
-					autolinkedIssues: r.autolinkedIssues,
-					formattedMessage: r.formattedMessage,
-				});
-				this.state.autolinkedIssues.set(r.autolinkedIssues);
-				this.state.formattedMessage.set(r.formattedMessage);
-			},
-			{ skipIf: skipWhenAutolinksDisabled },
-		);
-
-		this.guardedEnrich(
-			this.resources.commit,
-			signal,
-			() => s.pullRequests.getPullRequestForCommit(repoPath, sha, signal),
-			pr => {
-				this._commitEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
-				this.state.pullRequest.set(pr);
-			},
-		);
-
-		this.guardedEnrich(
-			this.resources.commit,
-			signal,
-			() => s.repository.getCommitSignature(repoPath, sha, signal),
-			sig => {
-				this._commitEnrichmentCache.update(cacheKey, { signature: sig, hasSignature: true });
-				this.state.signature.set(sig);
+			{ repoPath: repoPath, sha: sha, isStash: isStash, autolinksEnabled: this.state.autolinksEnabled.get() },
+			{
+				setBasicAutolinks: (autolinks, formattedMessage) => {
+					this._commitEnrichmentCache.update(cacheKey, {
+						autolinks: autolinks,
+						formattedMessage: formattedMessage,
+					});
+					this.state.autolinks.set(autolinks);
+					this.state.formattedMessage.set(formattedMessage);
+				},
+				setEnrichedAutolinks: (issues, formattedMessage) => {
+					this._commitEnrichmentCache.update(cacheKey, {
+						autolinkedIssues: issues,
+						formattedMessage: formattedMessage,
+					});
+					this.state.autolinkedIssues.set(issues);
+					this.state.formattedMessage.set(formattedMessage);
+				},
+				setPullRequest: pr => {
+					this._commitEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+					this.state.pullRequest.set(pr);
+				},
+				setSignature: sig => {
+					this._commitEnrichmentCache.update(cacheKey, { signature: sig, hasSignature: true });
+					this.state.signature.set(sig);
+				},
 			},
 		);
 	}
@@ -558,7 +510,7 @@ export class DetailsActions {
 			this.state.wipMergeTargetLoading.set(true);
 		}
 
-		this.guardedEnrich(
+		guardedEnrich(
 			this.resources.wip,
 			signal,
 			() => s.autolinks.getBranchAutolinks(repoPath, branchName, signal),
@@ -568,7 +520,7 @@ export class DetailsActions {
 			},
 		);
 
-		this.guardedEnrich(
+		guardedEnrich(
 			this.resources.wip,
 			signal,
 			() => s.branches.getAssociatedIssues(repoPath, branchName, signal),
@@ -757,7 +709,7 @@ export class DetailsActions {
 		if (cachedFromEntry?.hasSignature) {
 			this.state.signatureFrom.set(cachedFromEntry.signature);
 		} else {
-			this.guardedEnrich(
+			guardedEnrich(
 				this.resources.compare,
 				signal,
 				() => s.repository.getCommitSignature(repoPath, fromSha, signal),
@@ -774,7 +726,7 @@ export class DetailsActions {
 		if (cachedToEntry?.hasSignature) {
 			this.state.signatureTo.set(cachedToEntry.signature);
 		} else {
-			this.guardedEnrich(
+			guardedEnrich(
 				this.resources.compare,
 				signal,
 				() => s.repository.getCommitSignature(repoPath, toSha, signal),

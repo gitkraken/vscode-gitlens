@@ -155,6 +155,34 @@ export function enrichmentGuard<T>(
 }
 
 /**
+ * Fire-and-forget chip-enrichment helper. Wraps the standard pattern of an enrichment RPC
+ * call: generation guard (drops stale callbacks for resources that have moved on), abort
+ * guard (drops callbacks once the panel-level enrichment signal aborts), cancellation-aware
+ * rejection (suppresses expected `AbortError` rejections silently while still logging real
+ * failures via `noopUnlessReal`), and an optional pre-fetch skip predicate (e.g., when
+ * autolinks are disabled).
+ *
+ * Cache writes and state writes stay local to each call site — those are genuinely
+ * different per enrichment and the helper deliberately doesn't try to abstract them.
+ */
+export function guardedEnrich<T>(
+	resource: Pick<Resource<unknown>, 'generationId'>,
+	signal: AbortSignal,
+	fetcher: () => Promise<T>,
+	apply: (value: T) => void,
+	options?: { skipIf?: () => boolean },
+): void {
+	if (options?.skipIf?.()) return;
+	void fetcher().then(
+		enrichmentGuard(resource, value => {
+			if (signal.aborted) return;
+			apply(value);
+		}),
+		noopUnlessReal,
+	);
+}
+
+/**
  * Fire-and-forget RPC call where the backend handles user feedback
  * (opens UI dialogs, shows notifications, etc.).
  * Logs errors but does NOT set state.error.
