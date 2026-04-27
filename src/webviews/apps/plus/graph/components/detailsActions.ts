@@ -22,6 +22,7 @@ import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
@@ -138,9 +139,9 @@ export class DetailsActions {
 	/** Branch-keyed cache of WIP enrichment (autolinks/issues/mergeTarget). Populated on first
 	 *  successful fetch; consulted on subsequent visits to hydrate state synchronously and avoid
 	 *  the visible chip flash-out → flash-in (especially mergeTarget which costs ~250ms). */
-	private _wipEnrichmentCache = new Map<string, WipBranchEnrichmentCacheEntry>();
+	private _wipEnrichmentCache = new LruMap<string, WipBranchEnrichmentCacheEntry>(wipEnrichmentCacheLimit);
 	/** SHA-keyed cache of commit enrichment (autolinks/PR/signature). Same purpose as wip cache. */
-	private _commitEnrichmentCache = new Map<string, CommitEnrichmentCacheEntry>();
+	private _commitEnrichmentCache = new LruMap<string, CommitEnrichmentCacheEntry>(commitEnrichmentCacheLimit);
 
 	constructor(
 		readonly state: DetailsState,
@@ -174,39 +175,6 @@ export class DetailsActions {
 		this.state.compareEnrichmentLoading.set(false);
 		this.state.signatureFrom.set(undefined);
 		this.state.signatureTo.set(undefined);
-	}
-
-	private updateWipEnrichmentCache(
-		key: string,
-		patch: Partial<WipBranchEnrichmentCacheEntry>,
-	): WipBranchEnrichmentCacheEntry {
-		const existing = this._wipEnrichmentCache.get(key);
-		const next: WipBranchEnrichmentCacheEntry = { ...(existing ?? {}), ...patch };
-		// LRU touch
-		this._wipEnrichmentCache.delete(key);
-		this._wipEnrichmentCache.set(key, next);
-		while (this._wipEnrichmentCache.size > wipEnrichmentCacheLimit) {
-			const oldest = this._wipEnrichmentCache.keys().next().value;
-			if (oldest == null) break;
-			this._wipEnrichmentCache.delete(oldest);
-		}
-		return next;
-	}
-
-	private updateCommitEnrichmentCache(
-		key: string,
-		patch: Partial<CommitEnrichmentCacheEntry>,
-	): CommitEnrichmentCacheEntry {
-		const existing = this._commitEnrichmentCache.get(key);
-		const next: CommitEnrichmentCacheEntry = { ...(existing ?? {}), ...patch };
-		this._commitEnrichmentCache.delete(key);
-		this._commitEnrichmentCache.set(key, next);
-		while (this._commitEnrichmentCache.size > commitEnrichmentCacheLimit) {
-			const oldest = this._commitEnrichmentCache.keys().next().value;
-			if (oldest == null) break;
-			this._commitEnrichmentCache.delete(oldest);
-		}
-		return next;
 	}
 
 	dispose(): void {
@@ -455,7 +423,7 @@ export class DetailsActions {
 					const commit = this.resources.commit.value.get();
 					this.state.commit.set(commit);
 					if (commit != null) {
-						this.updateCommitEnrichmentCache(`${sha}:${repoPath}`, { commit: commit });
+						this._commitEnrichmentCache.update(`${sha}:${repoPath}`, { commit: commit });
 						this.fetchEnrichment(repoPath, sha, enrichSignal);
 					}
 				}
@@ -624,7 +592,7 @@ export class DetailsActions {
 		if (previous?.length) {
 			const next = previous.filter(i => i.entityId !== entityId);
 			this.state.wipIssues.set(next);
-			this.updateWipEnrichmentCache(cacheKey, { issues: next });
+			this._wipEnrichmentCache.update(cacheKey, { issues: next });
 		}
 
 		try {
@@ -722,10 +690,10 @@ export class DetailsActions {
 			// Write fresh shells back into the single-commit cache so future single-commit
 			// visits (or repeat compare visits) skip the IPC.
 			if (commitFrom != null && cachedFrom == null) {
-				this.updateCommitEnrichmentCache(`${fromSha}:${repoPath}`, { commit: commitFrom });
+				this._commitEnrichmentCache.update(`${fromSha}:${repoPath}`, { commit: commitFrom });
 			}
 			if (commitTo != null && cachedTo == null) {
-				this.updateCommitEnrichmentCache(`${toSha}:${repoPath}`, { commit: commitTo });
+				this._commitEnrichmentCache.update(`${toSha}:${repoPath}`, { commit: commitTo });
 			}
 
 			if (this.resources.compare.status.get() === 'success') {
