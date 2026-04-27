@@ -123,6 +123,7 @@ export class Repository {
 	protected readonly _watchService: RepositoryWatchService;
 
 	private _pendingWorkingTreeChange?: RepositoryWorkingTreeChangeEvent;
+	private _pendingWorkingTreeFlush = false;
 	private _repoChangeListener: UnifiedDisposable | undefined;
 
 	constructor(init: RepositoryInit) {
@@ -374,7 +375,15 @@ export class Repository {
 		this._onDidChange.fire(extEvent);
 	}
 
-	/** Called by the session when debounced working tree changes arrive */
+	/**
+	 * Called by every {@link watchWorkingTree} subscription when its debounced batch arrives. Each
+	 * call to {@link watchWorkingTree} adds a separate bridge listener on the underlying watch
+	 * session, so a single fs change can invoke this method multiple times in the same microtask —
+	 * once per active subscription. We accumulate paths into a single pending event and defer the
+	 * actual fire to a microtask so back-to-back synchronous bridge calls collapse into ONE
+	 * `_onDidChangeWorkingTree` emission. Without this coalescing, every WIP-dependent listener
+	 * (graph, file history, compare branch, etc.) would fire N times for N active subscriptions.
+	 */
 	protected onWorkingTreeChanged(paths: ReadonlySet<string>): void {
 		this._updatedAt = Date.now();
 
@@ -384,10 +393,16 @@ export class Repository {
 		}
 
 		if (this._suspended) return;
+		if (this._pendingWorkingTreeFlush) return;
 
-		const e = this._pendingWorkingTreeChange;
-		this._pendingWorkingTreeChange = undefined;
-		this._onDidChangeWorkingTree.fire(e);
+		this._pendingWorkingTreeFlush = true;
+		queueMicrotask(() => {
+			this._pendingWorkingTreeFlush = false;
+			const e = this._pendingWorkingTreeChange;
+			if (e == null || this._suspended) return;
+			this._pendingWorkingTreeChange = undefined;
+			this._onDidChangeWorkingTree.fire(e);
+		});
 	}
 
 	@trace({ onlyExit: true })
