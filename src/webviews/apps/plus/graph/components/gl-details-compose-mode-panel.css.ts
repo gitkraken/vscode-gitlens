@@ -125,7 +125,7 @@ export const composeModePanelStyles = css`
 		opacity: 0.85;
 	}
 
-	/* Cancel affordance below the loading spinner — lets the user abort an in-flight
+	/* Cancel button below the loading spinner — lets the user abort an in-flight
 	   Compose or Refine call without waiting on the AI to resolve. */
 	.compose-cancel {
 		align-self: center;
@@ -138,8 +138,8 @@ export const composeModePanelStyles = css`
 		overflow-y: auto;
 	}
 
-	/* Split between proposed-commits list and selected-commit files. Only used when a commit
-	   is selected — when no selection, the list takes full height (no splitter, no second pane). */
+	/* Split between proposed-commits list and selected-commit files. Always rendered — when
+	   no commit is selected, the file pane shows its empty-state message. */
 	.compose-plan__split {
 		flex: 1;
 		min-height: 0;
@@ -160,8 +160,8 @@ export const composeModePanelStyles = css`
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
 
-	/* Commit All row sits between the proposed-commits list and the file-tree-pane inside the
-	   split-end slot. Fixed-height row at the top of the column so the file pane fills the rest. */
+	/* Commit All row is always anchored to the top of the right pane, above the file-tree-pane.
+	   Fixed-height row so the file pane fills the rest of the column. */
 	.compose-plan__commit-all {
 		flex: none;
 		display: flex;
@@ -170,21 +170,6 @@ export const composeModePanelStyles = css`
 
 	.compose-plan__commit-all > gl-button {
 		width: 100%;
-	}
-
-	/* Fallback container for when no commit is selected — Commit All renders below the AI input
-	   instead of inside the split because there is no split. */
-	.compose-plan__actions {
-		flex: none;
-		display: flex;
-		gap: 0.4rem;
-		padding: 0.6rem 1.2rem;
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-	}
-
-	.compose-plan__actions > .compose-plan__commit-all {
-		flex: 1;
-		padding: 0;
 	}
 
 	.compose-commit {

@@ -26,7 +26,6 @@ import {
 } from './gl-details-compose-mode-panel.css.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/code-icon.js';
-import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/button.js';
@@ -222,16 +221,10 @@ export class GlDetailsComposeModePanel extends LitElement {
 		this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true }));
 	};
 
-	private renderCancelChip() {
-		return html`<gl-action-chip
-			class="compose-cancel"
-			icon="stop-circle"
-			label="Cancel"
-			overlay="tooltip"
-			@click=${this.handleCancel}
-		>
-			<span>Cancel</span>
-		</gl-action-chip>`;
+	private renderCancelButton() {
+		return html`<gl-button class="compose-cancel" appearance="secondary" @click=${this.handleCancel}
+			>Cancel</gl-button
+		>`;
 	}
 
 	override render() {
@@ -246,7 +239,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		if (this.status === 'loading') {
 			// Cancel chip lets the user abort an in-flight AI call; the orchestrator wires
 			// `compose-cancel` to the actual cancellation plumbing.
-			return html`${renderLoadingState('Composing changes...')}${this.renderCancelChip()}`;
+			return html`${renderLoadingState('Composing changes...')}${this.renderCancelButton()}`;
 		}
 
 		if (this.status === 'error') {
@@ -409,19 +402,18 @@ export class GlDetailsComposeModePanel extends LitElement {
 		this.invalidateForward();
 	}
 
-	private onToggleCheckAll(e: CustomEvent<{ checked: boolean }>): void {
+	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
+		const next = new Set(this._excludedFiles);
 		if (e.detail.checked) {
-			this._excludedFiles = new Set<string>();
-		} else {
-			const aiExcluded = this._aiExcludedSet;
-			const next = new Set<string>();
-			for (const file of this.files ?? []) {
-				if (!aiExcluded?.has(file.path)) {
-					next.add(file.path);
-				}
+			for (const path of e.detail.paths) {
+				next.delete(path);
 			}
-			this._excludedFiles = next;
+		} else {
+			for (const path of e.detail.paths) {
+				next.add(path);
+			}
 		}
+		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 
@@ -453,8 +445,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 	private renderPlan() {
 		if (!this.commits?.length) return nothing;
 
-		const filesContent = this.renderSelectedCommitFiles();
-		const hasFiles = filesContent !== nothing;
 		const isLoading = this.status === 'loading';
 		const totalFiles = this.commits.reduce((sum, c) => sum + c.files.length, 0);
 
@@ -466,13 +456,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 			${this.commits.map((commit, i) => this.renderProposedCommit(commit, i))}
 			${this.baseCommit ? this.renderBaseCommit() : nothing}
 		</div>`;
-
-		const body = hasFiles
-			? html`<gl-split-panel class="compose-plan__split" orientation="vertical" primary="end" position="50">
-					<div slot="start" class="compose-plan__split-start">${listEl}</div>
-					<div slot="end" class="compose-plan__split-end">${commitAllRow}${filesContent}</div>
-				</gl-split-panel>`
-			: listEl;
 
 		return html`
 			<div class="compose-plan">
@@ -499,7 +482,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 						</span>
 					</span>
 				</div>
-				${body}
+				<gl-split-panel class="compose-plan__split" orientation="vertical" primary="end" position="50">
+					<div slot="start" class="compose-plan__split-start">${listEl}</div>
+					<div slot="end" class="compose-plan__split-end">
+						${commitAllRow}${this.renderSelectedCommitFiles()}
+					</div>
+				</gl-split-panel>
 			</div>
 			<gl-ai-input
 				class="review-action-input"
@@ -514,7 +502,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 			>
 				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 			</gl-ai-input>
-			${hasFiles ? nothing : html`<div class="compose-plan__actions">${commitAllRow}</div>`}
 		`;
 	}
 
@@ -584,16 +571,17 @@ export class GlDetailsComposeModePanel extends LitElement {
 	}
 
 	private renderSelectedCommitFiles() {
-		if (!this._selectedCommitId) return nothing;
-		const commit = this.commits?.find(c => c.id === this._selectedCommitId);
-		if (!commit?.files.length) return nothing;
+		const commit = this._selectedCommitId ? this.commits?.find(c => c.id === this._selectedCommitId) : undefined;
+		const files = commit?.files ?? [];
+		const emptyText = commit ? 'No files changed' : 'Select a commit above to see the file changes';
 
 		return html`<gl-file-tree-pane
-			.files=${commit.files}
+			.files=${files}
 			.filesLayout=${{ layout: this._fileLayout }}
 			.collapsable=${false}
 			show-file-icons
 			header="File Changes"
+			empty-text=${emptyText}
 			.fileActions=${this.fileActionsForFile}
 			.fileContext=${this.getFileContext}
 			@file-open=${this.forwardFileEventWithVirtualRef}
