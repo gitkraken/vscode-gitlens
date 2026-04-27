@@ -49,6 +49,7 @@ import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { count, find, join, last } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
 import {
 	getSettledValue,
@@ -425,11 +426,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _graphRowProcessor?: GlGraphRowProcessor;
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _hoverCache = new Map<string, Promise<string>>();
+	private static readonly _diffCacheCap = 4;
 	/** LRU-capped per-AI-request diff cache. Cap is small because only one review and one
 	 *  compose can be active at a time — the only legitimate concurrent keys are (review, compose,
 	 *  + a couple of variants from changing excludedFiles within a session). */
-	private readonly _graphDetailsDiffCache = new Map<string, { diff: string; message: string }>();
-	private static readonly _diffCacheCap = 4;
+	private readonly _graphDetailsDiffCache = new LruMap<string, { diff: string; message: string }>(
+		GraphWebviewProvider._diffCacheCap,
+	);
 
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean>>([
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
@@ -937,7 +940,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 							if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
 						}
-						this.setDiffCacheEntry(diffCacheKey, { diff: data.diff, message: data.message });
+						this._graphDetailsDiffCache.set(diffCacheKey, { diff: data.diff, message: data.message });
 
 						// Adaptive strategy: single-pass for small diffs, two-pass for large. The
 						// threshold is scoped to the selected model's input-context budget — a 1M-
@@ -1026,9 +1029,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, signal));
 						if (!data) return { error: { message: 'No changes found for this focus area.' } };
 						if (cachedData == null) {
-							this.setDiffCacheEntry(diffCacheKey, data);
+							this._graphDetailsDiffCache.set(diffCacheKey, data);
 						} else {
-							this.touchDiffCacheEntry(diffCacheKey);
+							this._graphDetailsDiffCache.touch(diffCacheKey);
 						}
 
 						// Filter diff to only include focus area files, excluding user-excluded files
@@ -7033,27 +7036,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			scope: scope,
 			excludedFiles: excludedFiles?.toSorted(),
 		});
-	}
-
-	/** LRU set: append the new entry at the end of the Map's insertion order, evicting the oldest
-	 *  entries until size <= cap. Map preserves insertion order, so the first key is the LRU. */
-	private setDiffCacheEntry(key: string, value: { diff: string; message: string }): void {
-		this._graphDetailsDiffCache.delete(key);
-		this._graphDetailsDiffCache.set(key, value);
-		while (this._graphDetailsDiffCache.size > GraphWebviewProvider._diffCacheCap) {
-			const oldest = this._graphDetailsDiffCache.keys().next().value;
-			if (oldest == null) break;
-			this._graphDetailsDiffCache.delete(oldest);
-		}
-	}
-
-	/** Promote an existing entry to MRU (called on cache hits) so a long focus-area analyze on one
-	 *  scope doesn't get evicted by interleaved AI calls on other scopes. */
-	private touchDiffCacheEntry(key: string): void {
-		const value = this._graphDetailsDiffCache.get(key);
-		if (value == null) return;
-		this._graphDetailsDiffCache.delete(key);
-		this._graphDetailsDiffCache.set(key, value);
 	}
 
 	private async getDiffForScope(
