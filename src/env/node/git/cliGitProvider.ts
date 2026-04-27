@@ -239,7 +239,14 @@ export class GlCliGitProvider implements GlGitProvider {
 				logger: gitOutputChannel,
 				hooks: {
 					onAborted: info => container.telemetry.sendEvent('op/git/aborted', info),
-					onSlowQueue: info =>
+					onSlowQueue: info => {
+						// Surface slow-queue events in the GitLens output channel so the wait time
+						// is observable during local debug — not just in telemetry. Helps catch
+						// priority misclassifications where a user-initiated read got queued behind
+						// background work (e.g., commit details click stuck behind graph load).
+						Logger.warn(
+							`Git queue wait: ${info.waitTime}ms [priority=${info.priority}, active=${info.active}/${info.maxConcurrent}, queued=${info.queued.interactive}/${info.queued.normal}/${info.queued.background}]`,
+						);
 						container.telemetry.sendEvent('op/git/queueWait', {
 							priority: info.priority,
 							waitTime: info.waitTime,
@@ -248,7 +255,8 @@ export class GlCliGitProvider implements GlGitProvider {
 							'queued.normal': info.queued.normal,
 							'queued.background': info.queued.background,
 							maxConcurrent: info.maxConcurrent,
-						}),
+						});
+					},
 				},
 			},
 		};

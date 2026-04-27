@@ -159,46 +159,12 @@ export const reviewModePanelStyles = css`
 		margin-bottom: 0.8rem;
 	}
 
-	/* Restore-Previous banner: full-width bar pinned right after the header (above the file
-	   curation) so it's the user's first signal that they can return to the prior result
-	   without re-running the AI. Stays muted at rest, sharpens to foreground colour on hover. */
+	/* Resume Last chip — right-align the toolbar button above the file curation so the user
+	   can return to the prior review result without rerunning the AI. */
 	.review-forward-banner {
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		width: 100%;
-		padding: 0.8rem 1.2rem;
-		flex: none;
-		font: inherit;
+		align-self: flex-end;
+		margin: 0.6rem 1.2rem 0 0;
 		font-size: var(--gl-font-sm);
-		color: var(--vscode-descriptionForeground);
-		background: transparent;
-		border: none;
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
-		cursor: pointer;
-		text-align: left;
-	}
-
-	.review-forward-banner:hover {
-		color: var(--vscode-foreground);
-		background: var(--vscode-list-hoverBackground);
-	}
-
-	.review-forward-banner:focus-visible {
-		outline: 1px solid var(--vscode-focusBorder);
-		outline-offset: -1px;
-	}
-
-	.review-forward-banner > code-icon {
-		flex-shrink: 0;
-	}
-
-	.review-forward-banner__label {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	/* Loading state wrapper for the in-flight review — centers the shared spinner and the
@@ -260,14 +226,6 @@ export const reviewModePanelStyles = css`
 		padding: 1.5rem 1rem;
 		color: var(--vscode-charts-green, #4ec9b0);
 		font-weight: 500;
-	}
-
-	.review-forward-banner__action {
-		margin-left: auto;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-	}
 	}
 
 	/* Review areas */

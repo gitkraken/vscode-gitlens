@@ -40,6 +40,37 @@ export function toAbortSignal(token: CancellationToken | AbortSignal | undefined
 	return controller.signal;
 }
 
+/**
+ * Converts an AbortSignal (or CancellationToken) to a VS Code CancellationToken.
+ * If a CancellationToken is passed, it is returned as-is with a no-op `dispose`. Use at call sites
+ * that have an AbortSignal but need to pass to APIs that accept CancellationToken.
+ *
+ * Always call `dispose()` once the operation completes to release the underlying source.
+ */
+export function fromAbortSignal(signal: AbortSignal | CancellationToken | undefined): {
+	token: CancellationToken | undefined;
+	dispose: () => void;
+} {
+	if (signal == null) return { token: undefined, dispose: () => {} };
+	if (isCancellationToken(signal)) return { token: signal, dispose: () => {} };
+
+	const source = new CancellationTokenSource();
+	if (signal.aborted) {
+		source.cancel();
+		return { token: source.token, dispose: () => source.dispose() };
+	}
+
+	const onAbort = () => source.cancel();
+	signal.addEventListener('abort', onAbort, { once: true });
+	return {
+		token: source.token,
+		dispose: () => {
+			signal.removeEventListener('abort', onAbort);
+			source.dispose();
+		},
+	};
+}
+
 export function isCancellationToken(arg: unknown): arg is CancellationToken {
 	return (
 		typeof arg === 'object' && arg != null && 'isCancellationRequested' in arg && 'onCancellationRequested' in arg

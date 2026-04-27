@@ -234,7 +234,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const hasSubPanel = this.subPanelContent != null && this.subPanelContent !== nothing;
 		const hasMessage = !this.isUncommitted;
 		const fileMode = this.isStash ? 'stash' : 'commit';
-		const renderOpts = { multiDiff: this.getMultiDiffRefs() };
+		const renderOpts = { multiDiff: this.getMultiDiffRefs(), loading: this.loading };
 
 		return html`
 			${hasSubPanel ? nothing : this.renderHiddenNotice()} ${this.renderEmbeddedAuthorHeader()}

@@ -14,6 +14,7 @@ import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { CommitDetails } from '../../../commitDetails/protocol.js';
 import type { GraphMinimapMarkerTypes, GraphSidebarPanel } from '../../../plus/graph/protocol.js';
 import {
 	GetRowHoverRequest,
@@ -102,10 +103,21 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	@state()
-	private _selectedCommit?: { sha: string; repoPath: string; reachability?: GitCommitReachability };
+	private _selectedCommit?: {
+		sha: string;
+		repoPath: string;
+		reachability?: GitCommitReachability;
+		/** Eagerly-built commit shell (no files/stats) so the details panel can paint synchronously. */
+		commitLite?: CommitDetails;
+	};
 
 	@state()
-	private _selectedCommits?: { shas: string[]; repoPath: string };
+	private _selectedCommits?: {
+		shas: string[];
+		repoPath: string;
+		/** Per-sha commit shells for the multi-commit endpoints — skips the from/to getCommit IPCs. */
+		commitLites?: Record<string, CommitDetails>;
+	};
 
 	private get fallbackRepoPath(): string | undefined {
 		const repoId = this.graphState.selectedRepository;
@@ -279,6 +291,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					repo-path=${effectiveRepoPath ?? nothing}
 					.shas=${this._selectedCommits?.shas}
 					.graphReachability=${this._selectedCommit?.reachability}
+					.commitLite=${this._selectedCommit?.commitLite}
+					.commitLites=${this._selectedCommits?.commitLites}
 					@close-details=${this.handleCloseDetails}
 					@select-commit=${this.handleSelectCommit}
 				></gl-graph-details-panel>
@@ -840,7 +854,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const showDetailsView = this.graphState.config?.showDetailsView;
 
-		const { selection, reachability } = e.detail;
+		const { selection, reachability, commits } = e.detail;
 		const fallbackRepoPath = this.fallbackRepoPath ?? '';
 
 		if (selection.length >= 2) {
@@ -850,7 +864,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 			if (shas.length >= 2) {
 				this._selectedCommit = undefined;
-				this._selectedCommits = { shas: shas, repoPath: fallbackRepoPath };
+				// `commits` from the wrapper is already scoped to the current selection (WIP rows
+				// excluded), so it can be forwarded directly as the per-sha lite map.
+				this._selectedCommits = { shas: shas, repoPath: fallbackRepoPath, commitLites: commits };
 
 				if (showDetailsView !== false) {
 					this.setDetailsVisible(true);
@@ -859,7 +875,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			} else if (shas.length === 1) {
 				// Multi-select included WIP + 1 commit — treat as single-select on the commit
 				const sha = shas[0];
-				this._selectedCommit = { sha: sha, repoPath: fallbackRepoPath };
+				this._selectedCommit = {
+					sha: sha,
+					repoPath: fallbackRepoPath,
+					commitLite: commits?.[sha],
+				};
 				this._selectedCommits = undefined;
 
 				if (showDetailsView !== false) {
@@ -876,7 +896,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// Prefer per-row repoPath (for multi-worktree WIP); fall back to selected repo
 			const repoPath = active.repoPath ?? fallbackRepoPath;
 
-			this._selectedCommit = { sha: sha, repoPath: repoPath, reachability: reachability };
+			this._selectedCommit = {
+				sha: sha,
+				repoPath: repoPath,
+				reachability: reachability,
+				commitLite: commits?.[active.id],
+			};
 			this._selectedCommits = undefined;
 
 			// When `graph.showWorktreeWipStats` is disabled, secondary worktree WIP rows start

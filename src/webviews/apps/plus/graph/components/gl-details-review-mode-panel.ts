@@ -383,13 +383,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	private renderForwardBanner() {
-		return html`<gl-tooltip hoist placement="bottom" content="Resume Last Review">
-			<button class="review-forward-banner" type="button" @click=${this.handleForward}>
-				<code-icon icon="history"></code-icon>
-				<span class="review-forward-banner__label">Resume Last Review</span>
-				<code-icon class="review-forward-banner__action" icon="arrow-right"></code-icon>
-			</button>
-		</gl-tooltip>`;
+		return html`<gl-button
+			class="review-forward-banner"
+			appearance="toolbar"
+			density="tight"
+			tooltip="Resume Last Review"
+			@click=${this.handleForward}
+			>Resume Last Review<code-icon slot="suffix" icon="arrow-right"></code-icon
+		></gl-button>`;
 	}
 
 	private handleCancel = (): void => {

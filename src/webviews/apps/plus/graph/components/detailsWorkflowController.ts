@@ -2,6 +2,7 @@ import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
+import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { ComposeResult, ReviewResult, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import type { DetailsActions } from './detailsActions.js';
@@ -15,6 +16,13 @@ export interface DetailsSelection {
 	shas: string[] | undefined;
 	repoPath: string | undefined;
 	graphReachability?: GitCommitReachability;
+	/**
+	 * Optional eager commit shell + per-sha shell map (built from graph row data) so the tail
+	 * re-fetch on `exitMode` can paint metadata synchronously instead of flashing blank while
+	 * the IPC roundtrip settles.
+	 */
+	commitLite?: CommitDetails;
+	commitLites?: Record<string, CommitDetails>;
 }
 
 /** Optional overrides for entering compare mode. */
@@ -256,7 +264,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	/** Explicit exit of whatever mode is active. No-op if no mode is active. */
 	exitMode(selection: DetailsSelection): void {
-		const { sha, shas, repoPath, graphReachability } = selection;
+		const { sha, shas, repoPath, graphReachability, commitLite, commitLites } = selection;
 
 		// Snapshot mode + selection BEFORE clearing so we can detect whether the selection
 		// moved while in the mode. If it did, also reset the mode's resource so re-entering
@@ -291,11 +299,13 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Re-fetch data if selection changed while mode was active. fetchDetails /
 		// fetchCompareDetails early-return on a cache hit, so when selection didn't change
 		// this is a no-op (avoids a visible skeleton flash while the wip/commit resource
-		// reloads into data we already have).
+		// reloads into data we already have). Forward the eager commit shells so a
+		// selection-changed-while-in-mode exit paints metadata synchronously instead of
+		// flashing blank during the IPC roundtrip.
 		if (this.actions.isMultiCommit(shas)) {
-			void this.actions.fetchCompareDetails(shas, repoPath);
+			void this.actions.fetchCompareDetails(shas, repoPath, commitLites);
 		} else {
-			void this.actions.fetchDetails(sha, repoPath, graphReachability);
+			void this.actions.fetchDetails(sha, repoPath, graphReachability, { commitLite: commitLite });
 		}
 	}
 

@@ -317,7 +317,7 @@ export class DetailsActions {
 		sha: string | undefined,
 		repoPath: string | undefined,
 		graphReachability?: GitCommitReachability,
-		options?: { searchActive?: boolean },
+		options?: { searchActive?: boolean; commitLite?: CommitDetails },
 	): Promise<void> {
 		const s = this.services;
 
@@ -364,6 +364,13 @@ export class DetailsActions {
 				this.state.signature.set(undefined);
 			}
 		} else {
+			// Cold-cache commit selection — paint the commit shell from the eager lite (built
+			// from the graph row) so the metadata bar/header are visible at t≈0ms instead of
+			// after the IPC roundtrip. WIP has no lite; multi-commit goes through fetchCompareDetails.
+			// The subsequent `await commit.fetch` overwrites with the full payload (files/stats).
+			if (sha !== uncommitted && options?.commitLite?.sha === sha) {
+				this.state.commit.set(options.commitLite);
+			}
 			this.state.autolinks.set(undefined);
 			this.state.formattedMessage.set(undefined);
 			this.state.autolinkedIssues.set(undefined);
@@ -628,7 +635,11 @@ export class DetailsActions {
 		}
 	}
 
-	async fetchCompareDetails(shas: string[] | undefined, repoPath: string | undefined): Promise<void> {
+	async fetchCompareDetails(
+		shas: string[] | undefined,
+		repoPath: string | undefined,
+		commitLites?: Record<string, CommitDetails>,
+	): Promise<void> {
 		const swapped = this.state.swapped.get();
 		const fromSha = this.fromSha(shas, swapped);
 		const toSha = this.toSha(shas, swapped);
@@ -658,6 +669,19 @@ export class DetailsActions {
 			// and avoids re-serializing two ~40KB payloads.
 			const cachedFrom = this._commitEnrichmentCache.get(`${fromSha}:${repoPath}`)?.commit;
 			const cachedTo = this._commitEnrichmentCache.get(`${toSha}:${repoPath}`)?.commit;
+
+			// Cold-cache fallback: paint commit shells from the eager lites (built from graph row data)
+			// so commitFrom/commitTo are visible at t≈0ms. The subsequent `await getCommit` IPCs still
+			// fire to fetch the full data (files/stats) — but the synchronous set means the panel can
+			// render the metadata immediately instead of waiting for the await to settle.
+			const liteFrom = commitLites?.[fromSha];
+			const liteTo = commitLites?.[toSha];
+			if (cachedFrom == null && liteFrom?.sha === fromSha) {
+				this.state.commitFrom.set(liteFrom);
+			}
+			if (cachedTo == null && liteTo?.sha === toSha) {
+				this.state.commitTo.set(liteTo);
+			}
 
 			const fromPromise: Promise<CommitDetails | undefined> =
 				cachedFrom != null

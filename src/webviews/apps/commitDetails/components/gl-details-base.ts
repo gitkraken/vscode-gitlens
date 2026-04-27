@@ -65,12 +65,19 @@ export class GlDetailsBase extends LitElement {
 		options?: {
 			stats?: import('@gitlens/git/models/commit.js').GitCommitStats;
 			multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
+			loading?: boolean;
 		},
 	): TemplateResult<1> {
 		const multiDiff = options?.multiDiff;
 		const buttons: ('layout' | 'search' | 'multi-diff')[] | undefined = multiDiff
 			? ['layout', 'search', 'multi-diff']
 			: undefined;
+
+		// Cold-cache transition: when the embedded panel has been handed a "lite" commit shell
+		// (files == null) while a full fetch is in flight, suppress the empty-text and render
+		// a spinner in the before-tree slot — same pattern as gl-details-compare-mode-panel —
+		// so users don't read "No Files" as a final answer during the brief load.
+		const isLoadingEmpty = options?.loading === true && !this.files?.length;
 
 		return html`
 			<gl-file-tree-pane
@@ -83,11 +90,18 @@ export class GlDetailsBase extends LitElement {
 				.fileContext=${this._getFileContext}
 				.searchContext=${this.searchContext}
 				.buttons=${buttons}
+				empty-text=${isLoadingEmpty ? '' : (this.emptyText ?? 'No Files')}
 				@file-checked=${this._onFileChecked}
 				@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
 			>
 				${options?.stats
 					? html`<span slot="subtitle" style="opacity: 1">${this.renderCommitStats(options.stats)}</span>`
+					: nothing}
+				${isLoadingEmpty
+					? html`<div slot="before-tree" class="files-loading" aria-busy="true">
+							<code-icon icon="loading" modifier="spin"></code-icon>
+							<span>Loading…</span>
+						</div>`
 					: nothing}
 				${this.renderChangedFilesSlottedContent()}
 			</gl-file-tree-pane>

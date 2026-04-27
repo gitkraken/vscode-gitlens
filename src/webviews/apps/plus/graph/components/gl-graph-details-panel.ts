@@ -6,6 +6,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
+import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
@@ -78,6 +79,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@property({ type: Object })
 	graphReachability?: GitCommitReachability;
 
+	/**
+	 * Commit shell (sha, message, author/committer, parents, repoPath — no files/stats) built
+	 * from the graph row data. Forwarded to {@link DetailsActions.fetchDetails} so the panel can
+	 * paint commit metadata synchronously on cold-cache selections, before the full fetch returns.
+	 * Hydration is best-effort: cache hits and the subsequent full fetch take precedence.
+	 */
+	@property({ attribute: false })
+	commitLite?: CommitDetails;
+
+	/**
+	 * Per-sha commit shells for multi-commit selections. Forwarded to
+	 * {@link DetailsActions.fetchCompareDetails} to skip the from/to `getCommit` IPCs entirely
+	 * when the lites are present.
+	 */
+	@property({ attribute: false })
+	commitLites?: Record<string, CommitDetails>;
+
 	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
 	}
@@ -108,12 +126,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		shas: string[] | undefined;
 		repoPath: string | undefined;
 		graphReachability?: import('@gitlens/git/providers/commits.js').GitCommitReachability;
+		commitLite?: CommitDetails;
+		commitLites?: Record<string, CommitDetails>;
 	} {
 		return {
 			sha: this.sha,
 			shas: this.shas,
 			repoPath: this.repoPath,
 			graphReachability: this.graphReachability,
+			commitLite: this.commitLite,
+			commitLites: this.commitLites,
 		};
 	}
 
@@ -121,6 +143,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleToggleMode = (e: CustomEvent<{ mode: 'review' | 'compose' | 'compare' }>): void => {
 		this.suppressContentOverflow();
 		this._workflow.toggleMode(e.detail.mode, this.currentSelection());
+	};
+
+	/** Shared handler for `compose-cancel` / `review-cancel` — exits the active mode. */
+	private handleCancelMode = (): void => {
+		this.suppressContentOverflow();
+		this._workflow.exitMode(this.currentSelection());
 	};
 
 	private get isLoading(): boolean {
@@ -200,7 +228,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			(changedProperties.has('sha') || changedProperties.has('shas') || changedProperties.has('repoPath'))
 		) {
 			if (this.isMultiCommit) {
-				void this._actions.fetchCompareDetails(this.shas, this.repoPath);
+				void this._actions.fetchCompareDetails(this.shas, this.repoPath, this.commitLites);
 			} else {
 				// Only ask the host for search-context when the graph actually has search results —
 				// the host returns undefined when there's no active search, so the IPC is wasted in
@@ -208,6 +236,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const searchActive = this._graphState?.searchResults != null;
 				void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability, {
 					searchActive: searchActive,
+					commitLite: this.commitLite,
 				});
 			}
 		}
@@ -286,7 +315,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Fetch capabilities in parallel
 		void this._actions.fetchCapabilities();
 		if (this.isMultiCommit) {
-			void this._actions.fetchCompareDetails(this.shas, this.repoPath);
+			void this._actions.fetchCompareDetails(this.shas, this.repoPath, this.commitLites);
 		} else {
 			// Mirror the willUpdate path: only fire searchContext IPC when the graph has live
 			// search results. Without this, a panel that resolves services while search is active
@@ -294,6 +323,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			const searchActive = this._graphState?.searchResults != null;
 			void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability, {
 				searchActive: searchActive,
+				commitLite: this.commitLite,
 			});
 		}
 
@@ -527,6 +557,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@compose-back=${() => this._workflow.compose.back()}
 			@compose-forward=${() => this._workflow.compose.forward()}
 			@compose-forward-invalidate=${() => this._workflow.compose.invalidateSnapshot()}
+			@compose-cancel=${this.handleCancelMode}
 			@compose-commit-all=${() =>
 				void this._actions.composeCommitAll(this.effectiveRepoPath, this.sha, this.graphReachability)}
 			@compose-commit-to=${(e: CustomEvent<{ upToIndex: number }>) =>
@@ -828,6 +859,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@review-back=${() => this._workflow.review.back()}
 			@review-forward=${() => this._workflow.review.forward()}
 			@review-forward-invalidate=${() => this._workflow.review.invalidateSnapshot()}
+			@review-cancel=${this.handleCancelMode}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
 			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}
