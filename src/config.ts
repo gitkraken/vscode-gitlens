@@ -430,6 +430,9 @@ export interface GraphConfig {
 			readonly enabled: boolean;
 		};
 	};
+	readonly experimentalFeatures: {
+		readonly enabled: boolean;
+	};
 	readonly highlightRowsOnRefHover: boolean;
 	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {

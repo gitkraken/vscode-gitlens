@@ -2672,6 +2672,7 @@ or
   'context.config.defaultItemLimit': number,
   'context.config.dimMergeCommits': boolean,
   'context.config.experimental.renderer.enabled': boolean,
+  'context.config.experimentalFeatures.enabled': boolean,
   'context.config.highlightRowsOnRefHover': boolean,
   'context.config.initialRowSelection': 'wip' | 'head',
   'context.config.issues.enabled': boolean,

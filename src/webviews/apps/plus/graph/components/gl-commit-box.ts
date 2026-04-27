@@ -31,21 +31,27 @@ export class GlCommitBox extends LitElement {
 	@property({ type: Boolean })
 	aiEnabled = false;
 
+	@property({ type: Boolean })
+	experimentalFeaturesEnabled = false;
+
 	@property()
 	commitError?: string;
 
 	override render() {
+		const showCompose = this.experimentalFeaturesEnabled && this.aiEnabled;
 		return html`
 			<div class="options">
 				${this.renderAmendToggle()}
-				<gl-button appearance="secondary" @click=${this.onCompose}>
-					<code-icon
-						icon="wand"
-						slot="prefix"
-						style="color: var(--vscode-charts-purple, #7c3aed);"
-					></code-icon>
-					Compose
-				</gl-button>
+				${showCompose
+					? html`<gl-button appearance="secondary" @click=${this.onCompose}>
+							<code-icon
+								icon="wand"
+								slot="prefix"
+								style="color: var(--vscode-charts-purple, #7c3aed);"
+							></code-icon>
+							Compose
+						</gl-button>`
+					: nothing}
 			</div>
 			${this.renderTextarea()} ${this.renderActionBar()}
 		`;

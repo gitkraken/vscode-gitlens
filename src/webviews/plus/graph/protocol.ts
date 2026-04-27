@@ -286,6 +286,7 @@ export interface GraphComponentConfig {
 	dateStyle: DateStyle;
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
+	experimentalFeaturesEnabled?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	minimap?: boolean;

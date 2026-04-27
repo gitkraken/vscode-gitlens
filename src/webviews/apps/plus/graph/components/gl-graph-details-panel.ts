@@ -420,6 +420,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.wip=${wip}
 				.activeMode=${activeMode}
 				.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+				.experimentalFeaturesEnabled=${this._graphState?.config?.experimentalFeaturesEnabled === true}
 				.loading=${this.isLoading}
 				.autolinks=${this._state.wipAutolinks.get()}
 				.issues=${this._state.wipIssues.get()}
@@ -475,6 +476,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.branchName=${branchName}
 										.canCommit=${this._actions.canCommit()}
 										.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+										.experimentalFeaturesEnabled=${this._graphState?.config
+											?.experimentalFeaturesEnabled === true}
 										.commitError=${this._state.commitError.get()}
 										@message-change=${this.handleCommitMessageChange}
 										@amend-change=${this.handleAmendChange}
@@ -705,6 +708,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.reachabilityState=${this._state.reachabilityState.get()}
 			.branchName=${commit.stashOnRef ?? this.commitBranchRef?.name}
 			.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+			.experimentalFeaturesEnabled=${this._graphState?.config?.experimentalFeaturesEnabled === true}
 			.activeMode=${activeMode}
 			.subPanelContent=${subPanelContent}
 			@file-open=${this.handleFileOpen}
@@ -762,6 +766,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.explainBusy=${this._state.compareExplainBusy.get()}
 			.filesCollapsable=${false}
 			.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+			.experimentalFeaturesEnabled=${this._graphState?.config?.experimentalFeaturesEnabled === true}
 			.activeMode=${this._state.activeMode.get()}
 			.subPanelContent=${subPanelContent}
 			@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
