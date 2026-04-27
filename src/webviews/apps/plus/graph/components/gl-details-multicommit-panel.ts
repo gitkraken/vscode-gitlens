@@ -113,6 +113,9 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	@property({ type: Boolean })
 	aiEnabled = false;
 
+	@property({ type: Boolean })
+	experimentalFeaturesEnabled = false;
+
 	@property()
 	activeMode?: 'review' | 'compose' | 'compare' | null;
 
@@ -318,7 +321,10 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private renderCompareHeader() {
 		// Compare mode is always available — pivots the existing comparison through the
 		// compare-refs picker so the user can swap one side for any branch/ref.
-		const modes = this.aiEnabled ? (['review', 'compare'] as const) : (['compare'] as const);
+		const modes =
+			this.aiEnabled && this.experimentalFeaturesEnabled
+				? (['review', 'compare'] as const)
+				: (['compare'] as const);
 		return html`<gl-details-header
 			.activeMode=${this.activeMode}
 			.loading=${this.loading}

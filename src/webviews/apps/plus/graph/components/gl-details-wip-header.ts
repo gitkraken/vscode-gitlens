@@ -26,6 +26,7 @@ export class GlDetailsWipHeader extends LitElement {
 	@property({ type: Object }) wip?: Wip;
 	@property() activeMode?: 'review' | 'compose' | 'compare' | null;
 	@property({ type: Boolean }) aiEnabled = false;
+	@property({ type: Boolean }) experimentalFeaturesEnabled = false;
 	@property({ type: Boolean }) loading = false;
 	@property({ type: Array }) autolinks?: OverviewBranchIssue[];
 	@property({ type: Array }) issues?: OverviewBranchIssue[];
@@ -124,8 +125,9 @@ export class GlDetailsWipHeader extends LitElement {
 	}
 
 	private computeWipModes(): ('review' | 'compose' | 'compare')[] {
-		const modes: ('review' | 'compose' | 'compare')[] = ['compose'];
-		if (this.aiEnabled !== false) {
+		const modes: ('review' | 'compose' | 'compare')[] = [];
+		if (this.experimentalFeaturesEnabled && this.aiEnabled) {
+			modes.push('compose');
 			modes.push('review');
 		}
 		modes.push('compare');

@@ -228,7 +228,9 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					mode,
 					this.repo?.virtual ?? false,
 				)}
-				${this.renderFocusBranchRow(mode)}
+				${this.graphState.config?.experimentalFeaturesEnabled === true
+					? this.renderFocusBranchRow(mode)
+					: nothing}
 				<menu-divider></menu-divider>
 				${this.renderGraphFiltersSection()}
 			</div>

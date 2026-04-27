@@ -133,9 +133,14 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 	get include(): undefined | IconTypes[] {
 		const repo = this._state.repositories?.find(item => item.id === this._state.selectedRepository);
-		return repo?.virtual
+		const base: readonly IconTypes[] = repo?.virtual
 			? (['overview', 'branches', 'remotes', 'tags'] as const)
 			: (['overview', 'branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
+
+		if (this._state.config?.experimentalFeaturesEnabled !== true) {
+			return base.filter(t => t !== 'overview');
+		}
+		return [...base];
 	}
 
 	@property({ type: String, attribute: 'active-panel' })
