@@ -165,7 +165,7 @@ import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
-import { toAbortSignal } from '../../../system/-webview/cancellation.js';
+import { fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -947,6 +947,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				},
 				reviewChanges: async (repoPath, scope, prompt, excludedFiles, signal) => {
+					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal);
 					try {
 						signal?.throwIfAborted();
 
@@ -981,6 +982,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								{ diff: data.diff, message: data.message, instructions: prompt || undefined },
 								{ source: 'graph', context: { type: reviewType, mode: 'single-pass' } },
 								{
+									cancellation: cancellation,
 									progress: {
 										location: ProgressLocation.Notification,
 										title: 'Reviewing changes...',
@@ -1016,6 +1018,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							{ files: fileManifest, message: data.message, instructions: prompt || undefined },
 							{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
 							{
+								cancellation: cancellation,
 								progress: {
 									location: ProgressLocation.Notification,
 									title: 'Analyzing changes...',
@@ -1035,6 +1038,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { result: overviewResponse.result };
 					} catch (ex) {
 						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					} finally {
+						disposeCancellation();
 					}
 				},
 				reviewFocusArea: async (
@@ -1137,6 +1142,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				},
 				composeChanges: async (repoPath, scope, instructions, excludedFiles, signal) => {
+					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal);
 					try {
 						signal?.throwIfAborted();
 
@@ -1209,6 +1215,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							hunkMap,
 							{ source: 'graph' },
 							{
+								cancellation: cancellation,
 								customInstructions: instructions,
 								progress: {
 									location: ProgressLocation.Notification,
@@ -1396,6 +1403,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								message: ex instanceof Error ? ex.message : String(ex),
 							},
 						};
+					} finally {
+						disposeCancellation();
 					}
 				},
 				commitCompose: async (repoPath, plan) => executeComposeCommit(this.container, repoPath, plan),
@@ -4309,24 +4318,54 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._sidebarInvalidatedEvent.fire(undefined);
 	}
 
+	/**
+	 * Coalesces concurrent triggers into a single in-flight call, with a trailing-edge re-fire when
+	 * more triggers arrive while one is running. Crucially does NOT cancel the in-flight call —
+	 * cancelling a `git status` mid-flight would let the underlying fetch return undefined, the
+	 * caller would fall back to all-zero stats, and that fallback would poison
+	 * `_lastSentWorkingTreeStats` so subsequent legitimate updates (e.g. file change after a
+	 * branch-compare burst) get dedup'd away. The previous `createCancellation('workingTree')`
+	 * pattern was the source of that storm.
+	 */
+	private _wipNotifyInFlight?: Promise<boolean>;
+	private _wipNotifyDirty = false;
+
+	private notifyDidChangeWorkingTree(hasWorkingChanges?: boolean): Promise<boolean> {
+		if (this._wipNotifyInFlight != null) {
+			this._wipNotifyDirty = true;
+			return this._wipNotifyInFlight;
+		}
+		const run = this.runNotifyDidChangeWorkingTree(hasWorkingChanges).finally(() => {
+			this._wipNotifyInFlight = undefined;
+			if (this._wipNotifyDirty) {
+				this._wipNotifyDirty = false;
+				// Trailing run uses no caller hint — it'll re-query `hasWorkingChanges` itself.
+				void this.notifyDidChangeWorkingTree();
+			}
+		});
+		this._wipNotifyInFlight = run;
+		return run;
+	}
+
 	@trace()
-	private async notifyDidChangeWorkingTree(hasWorkingChanges?: boolean) {
+	private async runNotifyDidChangeWorkingTree(hasWorkingChanges?: boolean): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeWorkingTreeNotification, this._ipcNotificationMap, this);
 			return false;
 		}
 
-		const cancellation = this.createCancellation('workingTree');
-
 		const [stats, wipMetadataBySha, stagedCount] = await Promise.all([
-			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges, cancellation.token),
-			this.getWipMetadataBySha(cancellation.token),
-			this.getStagedFileCount(cancellation.token),
+			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges),
+			this.getWipMetadataBySha(),
+			this.getStagedFileCount(),
 		]);
 
-		if (cancellation.token.isCancellationRequested) return false;
-
-		const resolvedStats = stats ?? { added: 0, deleted: 0, modified: 0 };
+		// `stats === undefined` means the underlying `git status`/`hasWorkingChanges` fetch could
+		// not produce meaningful data (cancelled or hard-errored). Returning early here — without
+		// updating `_lastSentWorkingTreeStats` — leaves the dedup cache untouched so the next
+		// successful run pushes the truth. Falling back to all-zero stats (the previous behavior)
+		// is what poisoned the cache.
+		if (stats === undefined) return false;
 
 		// Skip the notification (and the cascading overview WIP notification) when nothing actually changed.
 		// Repository change/FS watcher events fire on any git activity, not just stat-affecting changes, so
@@ -4337,19 +4376,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// list stale until something else perturbs the watcher.
 		if (
 			this._lastSentWorkingTreeStats !== undefined &&
-			areEqual(resolvedStats, this._lastSentWorkingTreeStats) &&
+			areEqual(stats, this._lastSentWorkingTreeStats) &&
 			areEqual(wipMetadataBySha, this._lastSentWipMetadataBySha) &&
 			stagedCount === this._lastSentStagedCount
 		) {
 			return false;
 		}
 
-		this._lastSentWorkingTreeStats = resolvedStats;
+		this._lastSentWorkingTreeStats = stats;
 		this._lastSentWipMetadataBySha = wipMetadataBySha;
 		this._lastSentStagedCount = stagedCount;
 
 		const result = this.host.notify(DidChangeWorkingTreeNotification, {
-			stats: resolvedStats,
+			stats: stats,
 			wipMetadataBySha: wipMetadataBySha,
 		});
 
@@ -5061,15 +5100,30 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const svc = this.container.git.getRepositoryService(this.repository.path);
 
-		hasWorkingChanges ??= await svc.status.hasWorkingChanges(
-			{ staged: true, unstaged: true, untracked: true },
-			toAbortSignal(cancellation),
-		);
+		try {
+			hasWorkingChanges ??= await svc.status.hasWorkingChanges(
+				{ staged: true, unstaged: true, untracked: true },
+				toAbortSignal(cancellation),
+			);
+		} catch {
+			// Cancellation or hard failure — surface as undefined so callers don't poison their
+			// dedup cache with all-zero fallback values, which would silently swallow future updates.
+			return undefined;
+		}
+
+		if (cancellation?.isCancellationRequested) return undefined;
 
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 			hasWorkingChanges ? svc.status.getStatus(toAbortSignal(cancellation)) : undefined,
 			svc.pausedOps?.getPausedOperationStatus?.(toAbortSignal(cancellation)),
 		]);
+
+		if (cancellation?.isCancellationRequested) return undefined;
+
+		// If we expected status data (working changes detected) but the fetch failed/was cancelled,
+		// return undefined for the same dedup-poisoning reason. Resolved "no working changes"
+		// still produces a real zero-stats payload — that case is correct.
+		if (hasWorkingChanges && statusResult.status === 'rejected') return undefined;
 
 		const status = getSettledValue(statusResult);
 		const workingTreeStatus = status?.diffStatus;
@@ -5281,6 +5335,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const storedPanels = this.container.storage.getWorkspace('graph:state')?.panels;
 
+		// Resolve working tree stats outside the state literal so we can update the dedup cache
+		// only when the underlying fetch produced real data. If it returned undefined (cancelled/
+		// failed), we still send fallback zeros to the webview so the UI has a value, but we leave
+		// `_lastSentWorkingTreeStats` untouched so the next `notifyDidChangeWorkingTree` is free
+		// to push an authoritative update without being dedup'd against a fake zero.
+		const resolvedWorkingTreeStats = getSettledValue(workingStatsResult);
+		if (resolvedWorkingTreeStats !== undefined) {
+			this._lastSentWorkingTreeStats = resolvedWorkingTreeStats;
+		}
+
 		const result: State = {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
@@ -5327,11 +5391,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			excludeTypes: refsVisibility.excludeTypes,
 			includeOnlyRefs: refsVisibility.includeOnlyRefs,
 			nonce: this.host.cspNonce,
-			workingTreeStats: (this._lastSentWorkingTreeStats = getSettledValue(workingStatsResult) ?? {
-				added: 0,
-				deleted: 0,
-				modified: 0,
-			}),
+			workingTreeStats: resolvedWorkingTreeStats ?? { added: 0, deleted: 0, modified: 0 },
 			wipMetadataBySha: (this._lastSentWipMetadataBySha = getSettledValue(wipMetadataResult)),
 			searchMode: searchMode,
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
