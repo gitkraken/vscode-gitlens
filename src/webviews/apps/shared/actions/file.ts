@@ -74,6 +74,41 @@ export function openFileCompareBetween(
 	fireAndForget(commands.openFileCompareBetween(file, showOptions, lhsRef, rhsRef), 'compare file between refs');
 }
 
+// ============================================================
+// Virtual-ref operations (pre-commit / ephemeral content)
+// ============================================================
+
+export type VirtualRefShape = { namespace: string; sessionId: string; commitId: string };
+
+export function openVirtualFile(
+	commands: {
+		openVirtualFile(ref: VirtualRefShape, file: GitFileChangeShape, showOptions?: FileShowOptions): Promise<void>;
+	},
+	ref: VirtualRefShape,
+	file: GitFileChangeShape,
+	showOptions?: FileShowOptions,
+): void {
+	fireAndForget(commands.openVirtualFile(ref, file, showOptions), 'open virtual file');
+}
+
+export function openVirtualFileComparePrevious(
+	commands: {
+		openVirtualFileComparePrevious(
+			ref: VirtualRefShape,
+			file: GitFileChangeShape,
+			showOptions?: FileShowOptions,
+		): Promise<void>;
+	},
+	ref: VirtualRefShape,
+	file: GitFileChangeShape,
+	showOptions?: FileShowOptions,
+): void {
+	fireAndForget(
+		commands.openVirtualFileComparePrevious(ref, file, showOptions),
+		'compare virtual file with previous',
+	);
+}
+
 export function executeFileAction(
 	commands: {
 		executeFileAction(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void>;

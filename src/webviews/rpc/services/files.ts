@@ -25,6 +25,8 @@ import {
 import { GitUri } from '../../../git/gitUri.js';
 import { getCommitAndFileByPath } from '../../../git/utils/-webview/commit.utils.js';
 import { executeCommand } from '../../../system/-webview/command.js';
+import { openDiffEditor, openTextEditor } from '../../../system/-webview/vscode/editors.js';
+import type { VirtualRef } from '../../../virtual/virtualContentProvider.js';
 import type { FileShowOptions, OpenMultipleChangesArgs } from './types.js';
 
 export class FilesService {
@@ -155,6 +157,37 @@ export class FilesService {
 			false,
 			args.title != null ? { title: args.title } : undefined,
 		);
+	}
+
+	// ============================================================
+	// Virtual refs (pre-commit / ephemeral content)
+	// ============================================================
+
+	/**
+	 * Open a file at a virtual ref in a text editor. The virtual FS provider synthesizes content
+	 * on demand from the registered handler's session state.
+	 */
+	async openVirtualFile(ref: VirtualRef, file: GitFileChangeShape, showOptions?: FileShowOptions): Promise<void> {
+		const uri = this.container.virtualFs.getUri(ref, file.path);
+		await openTextEditor(uri, { preserveFocus: true, preview: true, ...showOptions });
+	}
+
+	/**
+	 * Compare a virtual ref's file against its parent (previous virtual commit, or the real base
+	 * commit for the chain's first entry). Falls back to an error if the handler does not expose
+	 * a parent relation — callers should use the pairwise {@link openVirtualFileCompare} instead.
+	 */
+	async openVirtualFileComparePrevious(
+		ref: VirtualRef,
+		file: GitFileChangeShape,
+		showOptions?: FileShowOptions,
+	): Promise<void> {
+		const args = await this.container.virtualFs.getComparePreviousUris(ref, file);
+		await openDiffEditor(args.lhs, args.rhs, args.title, {
+			preserveFocus: true,
+			preview: true,
+			...showOptions,
+		});
 	}
 
 	// ============================================================

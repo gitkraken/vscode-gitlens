@@ -199,12 +199,17 @@ import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnri
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
+import type { ComposerHunk } from '../composer/protocol.js';
 import type { ComposerCommandArgs } from '../composer/registration.js';
 import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
 import { checkForAbandonedComposeStashes, executeComposeCommit } from './composeCommitService.js';
 import type { CommitDetails, CompareDiff, DetailsItemContext, GitBranchShape, Wip } from './detailsProtocol.js';
 import { messageHeadlineSplitterToken } from './detailsProtocol.js';
+import {
+	GraphComposeVirtualContentProvider,
+	GraphComposeVirtualNamespace,
+} from './graphComposeVirtualContentProvider.js';
 import { getScopeFiles } from './graphScopeService.js';
 import type {
 	BranchCommitEntry,
@@ -215,6 +220,7 @@ import type {
 	BranchComparisonFile,
 	ComposeRewriteKind,
 	GraphServices,
+	ProposedCommit,
 	ProposedCommitFile,
 	ScopeSelection,
 } from './graphService.js';
@@ -424,6 +430,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _graph?: GitGraph;
 	private _graphLoading?: Promise<GitGraph>;
 	private _graphRowProcessor?: GlGraphRowProcessor;
+	/** Virtual FS session backing the compose panel's per-proposed-commit diffs. Lazy-initialized on first compose. */
+	private _composeVirtual?: {
+		readonly provider: GraphComposeVirtualContentProvider;
+		readonly registration: Disposable;
+		sessionId?: string;
+	};
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _hoverCache = new Map<string, Promise<string>>();
 	private static readonly _diffCacheCap = 4;
@@ -551,7 +563,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._wipWatches.clear();
 		this._flushWipStaleDebounced?.cancel();
 		this._pendingStaleShas.clear();
+		if (this._composeVirtual != null) {
+			this._composeVirtual.provider.dispose();
+			this._composeVirtual.registration.dispose();
+			this._composeVirtual = undefined;
+		}
 		this._disposable.dispose();
+	}
+
+	/** Lazy-init the compose virtual content provider + register it with the virtual FS service. */
+	private getOrCreateComposeVirtual(): { provider: GraphComposeVirtualContentProvider; sessionId?: string } {
+		if (this._composeVirtual == null) {
+			const provider = new GraphComposeVirtualContentProvider(this.container);
+			const registration = this.container.virtualFs.registerProvider(provider);
+			this._composeVirtual = { provider: provider, registration: registration };
+		}
+		return this._composeVirtual;
 	}
 
 	/** Per-secondary-WIP filesystem watchers, keyed by synthetic `worktree-wip::<path>` sha. */
@@ -1220,11 +1247,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'
 						);
 
-						// Transform AI result to ProposedCommit format
-						const commits = result.commits.map((c, i) => {
+						// Transform AI result to ProposedCommit format. Capture per-commit hunks on the
+						// side so the virtual content provider can synthesize per-commit file content
+						// without re-walking the AI output.
+						const commitHunksByIndex: ComposerHunk[][] = [];
+						const commits: ProposedCommit[] = result.commits.map((c, i): ProposedCommit => {
 							const commitHunks = c.hunks
 								.map(h => hunks.find(hk => hk.index === h.hunk))
 								.filter((h): h is NonNullable<typeof h> => h != null);
+							commitHunksByIndex[i] = commitHunks;
 
 							const filesByPath = new Map<string, ProposedCommitFile>();
 							for (const h of commitHunks) {
@@ -1306,6 +1337,39 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 									// Root commit — rewrite from the empty tree sentinel.
 									rewriteFromSha = rootSha;
 								}
+							}
+						}
+
+						// Start a virtual compose session so the compose panel can open per-proposed-commit
+						// diffs via the gitlens-virtual:// FS provider. Anchor the chain at rewriteFromSha
+						// (what the plan builds on top of), so LHS of compose commit 0's "compare previous"
+						// resolves against the rewriter's real anchor.
+						const virtualComposeBase = headSha != null ? rewriteFromSha : undefined;
+						if (virtualComposeBase != null && commits.length > 0) {
+							const { provider } = this.getOrCreateComposeVirtual();
+							const sessionId = provider.startSession(
+								{
+									repoPath: repoPath,
+									baseSha: virtualComposeBase,
+									baseLabel: shortenRevision(virtualComposeBase),
+									commits: commits.map((commit, i) => ({
+										id: commit.id,
+										message: commit.message,
+										hunks: commitHunksByIndex[i] ?? [],
+									})),
+								},
+								this._composeVirtual!.sessionId,
+							);
+							this._composeVirtual!.sessionId = sessionId;
+
+							// Stamp a virtual ref onto each proposed commit so the webview can pass it back
+							// through file-open events without knowing the namespace or sessionId itself.
+							for (const commit of commits) {
+								commit.virtualRef = {
+									namespace: GraphComposeVirtualNamespace,
+									sessionId: sessionId,
+									commitId: commit.id,
+								};
 							}
 						}
 

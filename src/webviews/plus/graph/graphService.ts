@@ -41,6 +41,19 @@ export type ProposedCommit = {
 	deletions: number;
 	/** Exact unified diff that creates this commit on top of its predecessor in the plan. */
 	patch: string;
+	/**
+	 * Virtual ref identifying this proposed commit in the `VirtualFileSystemService`. Populated when
+	 * the host successfully started a virtual compose session; callers use it to open per-commit diffs
+	 * via `FilesService.openVirtualFileComparePrevious`.
+	 */
+	virtualRef?: VirtualRefShape;
+};
+
+/** Plain-object form of a virtual ref, serializable across the host <-> webview IPC boundary. */
+export type VirtualRefShape = {
+	namespace: string;
+	sessionId: string;
+	commitId: string;
 };
 
 export type ComposeRewriteKind = 'wip-only' | 'wip+commits' | 'commits-only';
