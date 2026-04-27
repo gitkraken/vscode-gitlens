@@ -40,44 +40,12 @@ export const composeModePanelStyles = css`
 		margin: 0.4rem 1.2rem 0;
 	}
 
-	/* Restore Previous bar — full-width strip rendered immediately after the (optional) stale
-	   banner, before the scope split or idle hero. Replaces the right-aligned chip from the
-	   shared review panel styles for compose mode. */
+	/* Resume Last chip — right-align the toolbar button above the scope split or idle hero so
+	   the user can return to the prior compose result without rerunning the AI. */
 	.review-forward {
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		width: auto;
-		margin: 0;
-		padding: 0.6rem 1.2rem;
-		border: none;
-		border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-sideBarSectionHeader-border));
-		background: transparent;
-		color: var(--vscode-descriptionForeground);
+		align-self: flex-end;
+		margin: 0.6rem 1.2rem 0 0;
 		font-size: var(--gl-font-sm);
-		text-align: left;
-		cursor: pointer;
-		flex: none;
-		align-self: stretch;
-		border-radius: 0;
-	}
-
-	.review-forward:hover,
-	.review-forward:focus-visible {
-		background: var(--vscode-list-hoverBackground);
-		color: var(--vscode-foreground);
-		outline: none;
-	}
-
-	.review-forward > code-icon {
-		font-size: 1.2rem;
-		opacity: 0.85;
-	}
-	.review-forward__action {
-		margin-left: auto;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
 	}
 
 	.compose-plan {

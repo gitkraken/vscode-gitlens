@@ -208,13 +208,14 @@ export class GlDetailsComposeModePanel extends LitElement {
 	}
 
 	private renderForwardChip() {
-		return html`<gl-tooltip hoist placement="bottom" content="Resume Last Compose">
-			<button class="review-forward" @click=${this.handleForward}>
-				<code-icon icon="history"></code-icon>
-				<span>Resume Last Compose</span>
-				<code-icon class="review-forward__action" icon="arrow-right"></code-icon>
-			</button>
-		</gl-tooltip>`;
+		return html`<gl-button
+			class="review-forward"
+			appearance="toolbar"
+			density="tight"
+			tooltip="Resume Last Compose"
+			@click=${this.handleForward}
+			>Resume Last Compose<code-icon slot="suffix" icon="arrow-right"></code-icon
+		></gl-button>`;
 	}
 
 	private handleCancel = (): void => {

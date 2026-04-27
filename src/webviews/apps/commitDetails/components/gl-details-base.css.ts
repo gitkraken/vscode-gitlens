@@ -130,6 +130,19 @@ export const detailsBaseStyles = [
 			color: var(--vscode-descriptionForeground);
 		}
 
+		/* File-section loading container — sits in the gl-file-tree-pane "before-tree" slot in
+		   place of the "No Files" empty text while the embedded panel is showing a "lite" commit
+		   shell waiting for the full fetch. */
+		.files-loading {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.6rem;
+			padding: 2rem 1.2rem;
+			color: var(--vscode-descriptionForeground);
+			text-align: center;
+		}
+
 		.message-block-row--actions .reachability-summary code-icon,
 		.message-block-row--actions .reachability-summary gl-action-chip::part(icon) {
 			--code-icon-size: 12px;

@@ -33,6 +33,12 @@ interface Session {
 	 * or superseded. Keys use `"<commitId>\0<path>"` to avoid a nested Map.
 	 */
 	readonly contentCache: Map<string, Uint8Array>;
+	/**
+	 * Cached base-content reads, keyed by path (baseSha is session-scoped). `null` is the
+	 * "fetched and known absent" sentinel — distinguishes a real miss from "not yet fetched"
+	 * so re-reads of new files don't redundantly hit git.
+	 */
+	readonly baseContentCache: Map<string, Uint8Array | null>;
 }
 
 /**
@@ -86,6 +92,7 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 			baseLabel: input.baseLabel ?? input.baseSha.slice(0, 7),
 			commits: input.commits,
 			contentCache: new Map(),
+			baseContentCache: new Map(),
 		});
 		return sessionId;
 	}
@@ -156,7 +163,7 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 		if (commitIdx < 0) throw new Error(`virtual commit not found: ${sessionId}/${commitId}`);
 
 		// Start with the base file content for this path; undefined if the file is new in the plan.
-		let content = await this.getBaseContent(session.repoPath, session.baseSha, path);
+		let content = await this.getBaseContent(session, path);
 
 		// Walk every commit up to and including `commitIdx`; apply any hunks that touch `path`.
 		// Track renames so a file that arrived at its final path via an earlier commit's rename still
@@ -172,7 +179,7 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 			const pathAtThisStep = currentPath;
 			const renameFrom = hunks.find(h => h.isRename && h.toPath === pathAtThisStep)?.fromPath;
 			if (renameFrom != null && renameFrom !== currentPath) {
-				content = await this.getBaseContent(session.repoPath, session.baseSha, renameFrom);
+				content = await this.getBaseContent(session, renameFrom);
 				currentPath = renameFrom;
 			}
 
@@ -189,18 +196,25 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 		return result;
 	}
 
-	private async getBaseContent(repoPath: string, baseSha: string, path: string): Promise<Uint8Array | undefined> {
+	private async getBaseContent(session: Session, path: string): Promise<Uint8Array | undefined> {
+		const cached = session.baseContentCache.get(path);
+		if (cached !== undefined) return cached ?? undefined;
+
+		let result: Uint8Array | undefined;
 		try {
-			const svc = this.container.git.getRepositoryService(repoPath);
-			return await svc.revision.getRevisionContent(path, baseSha);
+			const svc = this.container.git.getRepositoryService(session.repoPath);
+			result = await svc.revision.getRevisionContent(path, session.baseSha);
 		} catch (ex) {
 			// File didn't exist at base - that's a valid new-file scenario. Log only for truly
 			// unexpected errors so diagnostics aren't drowned out.
 			if (!ShowError.is(ex, 'invalidObject') && !ShowError.is(ex, 'invalidRevision')) {
-				Logger.error(ex, `GraphComposeVirtualContentProvider.getBaseContent('${path}'@'${baseSha}')`);
+				Logger.error(ex, `GraphComposeVirtualContentProvider.getBaseContent('${path}'@'${session.baseSha}')`);
 			}
-			return undefined;
+			result = undefined;
 		}
+
+		session.baseContentCache.set(path, result ?? null);
+		return result;
 	}
 }
 
