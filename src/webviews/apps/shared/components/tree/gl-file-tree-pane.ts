@@ -312,8 +312,13 @@ export class GlFileTreePane extends LitElement {
 
 	private renderCheckboxTitle(_fileCount: number, badge?: string | number): TemplateResult {
 		// Count unique paths so a mixed file (which appears twice in `files` — once staged, once
-		// unstaged) doesn't double-count and stick the header in indeterminate state.
+		// unstaged) doesn't double-count and stick the header in indeterminate state. Disabled
+		// rows still count toward the total (so the badge shows "x of <visible>") but are
+		// excluded from the toggleable-path list so check-all never instructs consumers to
+		// toggle a disabled row — and `allChecked` naturally stays false while any disabled row
+		// exists, leaving the header indeterminate (an honest signal that not everything is in).
 		const seen = new Set<string>();
+		const enabledPaths: string[] = [];
 		let checkedCount = 0;
 		let mixedCount = 0;
 
@@ -322,6 +327,10 @@ export class GlFileTreePane extends LitElement {
 				if (seen.has(file.path)) continue;
 				seen.add(file.path);
 				const entry = this.checkableStates?.get(file.path);
+				const disabled = entry?.disabled ?? this.checkableStateDefault?.disabled ?? false;
+				if (!disabled) {
+					enabledPaths.push(file.path);
+				}
 				const s = entry?.state ?? this.checkableStateDefault?.state;
 				if (s === 'checked') {
 					checkedCount++;
@@ -359,7 +368,7 @@ export class GlFileTreePane extends LitElement {
 				const box = e.target as HTMLElement & { checked: boolean };
 				this.dispatchEvent(
 					new CustomEvent('gl-check-all', {
-						detail: { checked: box.checked },
+						detail: { checked: box.checked, paths: enabledPaths },
 						bubbles: true,
 						composed: true,
 					}),

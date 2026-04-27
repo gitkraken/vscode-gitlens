@@ -36,7 +36,7 @@ import { renderErrorState, renderLoadingState } from './shared-panel-templates.j
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/ai-input.js';
-import '../../../shared/components/chips/action-chip.js';
+import '../../../shared/components/button.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/overlays/tooltip.js';
@@ -229,15 +229,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private renderLoadingWithCancel() {
 		return html`<div class="review-loading-wrap">
 			${renderLoadingState('Analyzing changes...')}
-			<gl-action-chip
-				class="review-cancel"
-				icon="stop-circle"
-				label="Cancel"
-				overlay="tooltip"
-				@click=${this.handleCancel}
-			>
-				Cancel
-			</gl-action-chip>
+			<gl-button class="review-cancel" appearance="secondary" @click=${this.handleCancel}>Cancel</gl-button>
 		</div>`;
 	}
 
@@ -543,19 +535,18 @@ export class GlDetailsReviewModePanel extends LitElement {
 		this.invalidateForward();
 	}
 
-	private onToggleCheckAll(e: CustomEvent<{ checked: boolean }>): void {
+	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
+		const next = new Set(this._excludedFiles);
 		if (e.detail.checked) {
-			this._excludedFiles = new Set<string>();
-		} else {
-			const aiExcluded = this._aiExcludedSet;
-			const next = new Set<string>();
-			for (const file of this.files ?? []) {
-				if (!aiExcluded?.has(file.path)) {
-					next.add(file.path);
-				}
+			for (const path of e.detail.paths) {
+				next.delete(path);
 			}
-			this._excludedFiles = next;
+		} else {
+			for (const path of e.detail.paths) {
+				next.add(path);
+			}
 		}
+		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 

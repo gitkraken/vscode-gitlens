@@ -557,19 +557,26 @@ export class GlCommitsScopePane extends LitElement {
 		const distFromBottom = rect.bottom - e.clientY;
 
 		if (distFromTop < edgeZone && container.scrollTop > 0) {
-			this.startScrolling(container, -scrollSpeed, e);
+			this.startScrolling(container, -scrollSpeed);
 		} else if (distFromBottom < edgeZone && container.scrollTop < container.scrollHeight - container.clientHeight) {
-			this.startScrolling(container, scrollSpeed, e);
+			this.startScrolling(container, scrollSpeed);
 		} else {
 			this.stopScrolling();
 		}
 	}
 
-	private startScrolling(container: HTMLElement, speed: number, e: PointerEvent): void {
+	private startScrolling(container: HTMLElement, speed: number): void {
 		if (this._scrollInterval != null) return;
 		this._scrollInterval = setInterval(() => {
 			container.scrollTop += speed;
-			this._onDragMove(e);
+			// Re-process using the most recent pointer position so the preview tracks
+			// rows passing under the (possibly stationary) cursor as content scrolls.
+			// Feeding a captured event back through `_onDragMove` would race the RAF
+			// coalescer and clobber the user's real position → jittery preview.
+			const last = this._lastDragMoveEvent;
+			if (last != null) {
+				this._processDragMove(last);
+			}
 		}, 16);
 	}
 
