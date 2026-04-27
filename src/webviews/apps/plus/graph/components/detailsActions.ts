@@ -43,7 +43,7 @@ import type { OverviewBranchIssue } from '../../../../shared/overviewBranches.js
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import * as fileActions from '../../../shared/actions/file.js';
-import { enrichmentGuard, noop } from '../../../shared/actions/rpc.js';
+import { enrichmentGuard, isAbortError, noop, noopUnlessReal } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import type { DetailsState } from './detailsState.js';
@@ -109,6 +109,11 @@ interface WipBranchEnrichmentCacheEntry {
 	autolinks?: OverviewBranchIssue[];
 	issues?: OverviewBranchIssue[];
 	mergeTarget?: BranchMergeTargetStatus;
+	/** Sentinel: true once a `getMergeTargetStatus` call has actually resolved (even with
+	 *  `mergeTarget: undefined`, which is a valid "no merge target configured" outcome).
+	 *  Distinguishes "haven't fetched yet" from "fetched and got nothing", same convention
+	 *  as `hasPullRequest` / `hasSignature` on the commit cache. */
+	hasMergeTarget?: boolean;
 }
 
 interface CommitEnrichmentCacheEntry {
@@ -205,6 +210,33 @@ export class DetailsActions {
 		const controller = new AbortController();
 		this._enrichmentController = controller;
 		return controller.signal;
+	}
+
+	/**
+	 * Fire-and-forget chip-enrichment helper. Wraps the standard pattern of an enrichment RPC
+	 * call: generation guard (drops stale callbacks for resources that have moved on), abort
+	 * guard (drops callbacks once the panel-level enrichment signal aborts), cancellation-aware
+	 * rejection (suppresses expected `AbortError` rejections silently while still logging real
+	 * failures), and an optional pre-fetch skip predicate (e.g., when autolinks are disabled).
+	 *
+	 * Cache writes and state writes stay local to each call site — those are genuinely
+	 * different per enrichment and the helper deliberately doesn't try to abstract them.
+	 */
+	private guardedEnrich<T>(
+		resource: Pick<Resource<unknown>, 'generationId'>,
+		signal: AbortSignal,
+		fetcher: () => Promise<T>,
+		apply: (value: T) => void,
+		options?: { skipIf?: () => boolean },
+	): void {
+		if (options?.skipIf?.()) return;
+		void fetcher().then(
+			enrichmentGuard(resource, value => {
+				if (signal.aborted) return;
+				apply(value);
+			}),
+			noopUnlessReal,
+		);
 	}
 
 	isMultiCommit(shas?: string[]): boolean {
@@ -440,58 +472,59 @@ export class DetailsActions {
 	private fetchEnrichment(repoPath: string, sha: string, signal: AbortSignal): void {
 		const s = this.services;
 		const cacheKey = `${sha}:${repoPath}`;
-		const guard = <T>(onResult: (value: T) => void) =>
-			enrichmentGuard<T>(this.resources.commit, value => {
-				if (signal.aborted) return;
-				onResult(value);
-			});
+		const isStash = this.state.commit.get()?.stashNumber != null;
+		const skipWhenAutolinksDisabled = () => !this.state.autolinksEnabled.get();
 
-		if (this.state.autolinksEnabled.get()) {
-			const isStash = this.state.commit.get()?.stashNumber != null;
-
-			void s.autolinks.getCommitAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash).then(
-				guard(r => {
-					if (r != null) {
-						this.updateCommitEnrichmentCache(cacheKey, {
-							autolinks: r.autolinks,
-							formattedMessage: r.formattedMessage,
-						});
-						this.state.autolinks.set(r.autolinks);
-						this.state.formattedMessage.set(r.formattedMessage);
-					}
-				}),
-				noop,
-			);
-
-			void s.autolinks.getEnrichedAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash).then(
-				guard(r => {
-					if (r != null) {
-						this.updateCommitEnrichmentCache(cacheKey, {
-							autolinkedIssues: r.autolinkedIssues,
-							formattedMessage: r.formattedMessage,
-						});
-						this.state.autolinkedIssues.set(r.autolinkedIssues);
-						this.state.formattedMessage.set(r.formattedMessage);
-					}
-				}),
-				noop,
-			);
-		}
-
-		void s.pullRequests.getPullRequestForCommit(repoPath, sha).then(
-			guard(pr => {
-				this.updateCommitEnrichmentCache(cacheKey, { pullRequest: pr, hasPullRequest: true });
-				this.state.pullRequest.set(pr);
-			}),
-			noop,
+		this.guardedEnrich(
+			this.resources.commit,
+			signal,
+			() => s.autolinks.getCommitAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash, signal),
+			r => {
+				if (r == null) return;
+				this._commitEnrichmentCache.update(cacheKey, {
+					autolinks: r.autolinks,
+					formattedMessage: r.formattedMessage,
+				});
+				this.state.autolinks.set(r.autolinks);
+				this.state.formattedMessage.set(r.formattedMessage);
+			},
+			{ skipIf: skipWhenAutolinksDisabled },
 		);
 
-		void s.repository.getCommitSignature(repoPath, sha).then(
-			guard(sig => {
-				this.updateCommitEnrichmentCache(cacheKey, { signature: sig, hasSignature: true });
+		this.guardedEnrich(
+			this.resources.commit,
+			signal,
+			() => s.autolinks.getEnrichedAutolinks(repoPath, sha, messageHeadlineSplitterToken, isStash, signal),
+			r => {
+				if (r == null) return;
+				this._commitEnrichmentCache.update(cacheKey, {
+					autolinkedIssues: r.autolinkedIssues,
+					formattedMessage: r.formattedMessage,
+				});
+				this.state.autolinkedIssues.set(r.autolinkedIssues);
+				this.state.formattedMessage.set(r.formattedMessage);
+			},
+			{ skipIf: skipWhenAutolinksDisabled },
+		);
+
+		this.guardedEnrich(
+			this.resources.commit,
+			signal,
+			() => s.pullRequests.getPullRequestForCommit(repoPath, sha, signal),
+			pr => {
+				this._commitEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+				this.state.pullRequest.set(pr);
+			},
+		);
+
+		this.guardedEnrich(
+			this.resources.commit,
+			signal,
+			() => s.repository.getCommitSignature(repoPath, sha, signal),
+			sig => {
+				this._commitEnrichmentCache.update(cacheKey, { signature: sig, hasSignature: true });
 				this.state.signature.set(sig);
-			}),
-			noop,
+			},
 		);
 	}
 
@@ -500,21 +533,23 @@ export class DetailsActions {
 		const cacheKey = `${branchName}:${repoPath}`;
 		const cached = this._wipEnrichmentCache.get(cacheKey);
 
-		// Hydrate from cache synchronously so chips are visible immediately. We still kick off the
-		// network refresh below to keep the data fresh — the cache provides instant continuity, the
-		// fetch provides eventual consistency.
+		// Hydrate from cache synchronously so chips are visible immediately. Partial-entry safety:
+		// each field hydrates from cache *or* explicitly clears (arrays) / falls back to "loading"
+		// (mergeTarget) — never leaves a prior-branch value visible because some fields happened
+		// to be cached and others didn't. We still kick off the network refresh below to keep the
+		// data fresh — the cache provides instant continuity, the fetch provides eventual consistency.
 		if (cached != null) {
-			if (cached.autolinks !== undefined) {
-				this.state.wipAutolinks.set(cached.autolinks);
-			}
-			if (cached.issues !== undefined) {
-				this.state.wipIssues.set(cached.issues);
-			}
-			if (cached.mergeTarget !== undefined) {
+			// Arrays — undefined in cache means "haven't fetched / got cleared", so clear state too.
+			this.state.wipAutolinks.set(cached.autolinks);
+			this.state.wipIssues.set(cached.issues);
+			// MergeTarget — undefined is a valid resolved value, so use the sentinel to distinguish.
+			if (cached.hasMergeTarget) {
 				this.state.wipMergeTarget.set(cached.mergeTarget);
+				this.state.wipMergeTargetLoading.set(false);
+			} else {
+				this.state.wipMergeTarget.set(undefined);
+				this.state.wipMergeTargetLoading.set(true);
 			}
-			// Only show loading if we have no cached merge-target value at all.
-			this.state.wipMergeTargetLoading.set(cached.mergeTarget === undefined);
 		} else {
 			// First visit to this branch — clear any prior-branch values and show loading.
 			this.state.wipAutolinks.set(undefined);
@@ -523,36 +558,35 @@ export class DetailsActions {
 			this.state.wipMergeTargetLoading.set(true);
 		}
 
-		const guard = <T>(onResult: (value: T) => void) =>
-			enrichmentGuard<T>(this.resources.wip, value => {
-				if (signal.aborted) return;
-				onResult(value);
-			});
-
-		void s.autolinks.getBranchAutolinks(repoPath, branchName).then(
-			guard(autolinks => {
-				this.updateWipEnrichmentCache(cacheKey, { autolinks: autolinks });
+		this.guardedEnrich(
+			this.resources.wip,
+			signal,
+			() => s.autolinks.getBranchAutolinks(repoPath, branchName, signal),
+			autolinks => {
+				this._wipEnrichmentCache.update(cacheKey, { autolinks: autolinks });
 				this.state.wipAutolinks.set(autolinks);
-			}),
-			noop,
+			},
 		);
 
-		void s.branches.getAssociatedIssues(repoPath, branchName).then(
-			guard(issues => {
-				this.updateWipEnrichmentCache(cacheKey, { issues: issues });
+		this.guardedEnrich(
+			this.resources.wip,
+			signal,
+			() => s.branches.getAssociatedIssues(repoPath, branchName, signal),
+			issues => {
+				this._wipEnrichmentCache.update(cacheKey, { issues: issues });
 				this.state.wipIssues.set(issues);
-			}),
-			noop,
+			},
 		);
 
 		void s.branches
-			.getMergeTargetStatus(repoPath, branchName)
+			.getMergeTargetStatus(repoPath, branchName, signal)
 			.then(
-				guard(status => {
-					this.updateWipEnrichmentCache(cacheKey, { mergeTarget: status });
+				enrichmentGuard(this.resources.wip, status => {
+					if (signal.aborted) return;
+					this._wipEnrichmentCache.update(cacheKey, { mergeTarget: status, hasMergeTarget: true });
 					this.state.wipMergeTarget.set(status);
 				}),
-				noop,
+				noopUnlessReal,
 			)
 			.finally(() => {
 				// Always clear the loading flag for THIS batch unless a newer batch has taken over
@@ -713,11 +747,6 @@ export class DetailsActions {
 
 	private fetchCompareEnrichment(repoPath: string, fromSha: string, toSha: string, signal: AbortSignal): void {
 		const s = this.services;
-		const guard = <T>(onResult: (value: T) => void) =>
-			enrichmentGuard<T>(this.resources.compare, value => {
-				if (signal.aborted) return;
-				onResult(value);
-			});
 
 		// Reuse signatures from the single-commit cache when present (`hasSignature: true` means
 		// we've previously resolved this sha's signature, even if the value is `undefined` —
@@ -728,24 +757,31 @@ export class DetailsActions {
 		if (cachedFromEntry?.hasSignature) {
 			this.state.signatureFrom.set(cachedFromEntry.signature);
 		} else {
-			void s.repository.getCommitSignature(repoPath, fromSha).then(
-				guard(sig => {
-					this.updateCommitEnrichmentCache(`${fromSha}:${repoPath}`, { signature: sig, hasSignature: true });
+			this.guardedEnrich(
+				this.resources.compare,
+				signal,
+				() => s.repository.getCommitSignature(repoPath, fromSha, signal),
+				sig => {
+					this._commitEnrichmentCache.update(`${fromSha}:${repoPath}`, {
+						signature: sig,
+						hasSignature: true,
+					});
 					this.state.signatureFrom.set(sig);
-				}),
-				noop,
+				},
 			);
 		}
 
 		if (cachedToEntry?.hasSignature) {
 			this.state.signatureTo.set(cachedToEntry.signature);
 		} else {
-			void s.repository.getCommitSignature(repoPath, toSha).then(
-				guard(sig => {
-					this.updateCommitEnrichmentCache(`${toSha}:${repoPath}`, { signature: sig, hasSignature: true });
+			this.guardedEnrich(
+				this.resources.compare,
+				signal,
+				() => s.repository.getCommitSignature(repoPath, toSha, signal),
+				sig => {
+					this._commitEnrichmentCache.update(`${toSha}:${repoPath}`, { signature: sig, hasSignature: true });
 					this.state.signatureTo.set(sig);
-				}),
-				noop,
+				},
 			);
 		}
 
@@ -757,12 +793,13 @@ export class DetailsActions {
 		const gen = this.resources.compare.generationId.get();
 		this.state.compareAutolinksLoading.set(true);
 		void s.autolinks
-			.getAutolinksForCompareRange(repoPath, fromSha, toSha)
+			.getAutolinksForCompareRange(repoPath, fromSha, toSha, signal)
 			.then(
-				guard(autolinks => {
+				enrichmentGuard(this.resources.compare, autolinks => {
+					if (signal.aborted) return;
 					this.state.compareAutolinks.set(autolinks.length > 0 ? autolinks : undefined);
 				}),
-				noop,
+				noopUnlessReal,
 			)
 			.finally(() => {
 				// Only clear the loading flag for THIS batch — a newer fetch (signaled via abort
@@ -776,14 +813,23 @@ export class DetailsActions {
 
 	async enrichAutolinks(repoPath: string, fromSha: string, toSha: string): Promise<void> {
 		const gen = this.resources.compare.generationId.get();
+		const signal = this._enrichmentController?.signal;
 		this.state.compareEnrichmentLoading.set(true);
 
 		try {
-			const items = await this.services.autolinks.enrichAutolinksForCompareRange(repoPath, fromSha, toSha);
+			const items = await this.services.autolinks.enrichAutolinksForCompareRange(
+				repoPath,
+				fromSha,
+				toSha,
+				signal,
+			);
 			if (this.resources.compare.generationId.get() !== gen) return;
 			this.state.compareEnrichedItems.set(items);
-		} catch {
-			// Leave undefined so the enrich button remains visible for retry
+		} catch (ex) {
+			// Expected on navigation-away aborts — leave state alone for retry on real failures.
+			if (!isAbortError(ex)) {
+				// Leave undefined so the enrich button remains visible for retry
+			}
 		} finally {
 			if (this.resources.compare.generationId.get() === gen) {
 				this.state.compareEnrichmentLoading.set(false);

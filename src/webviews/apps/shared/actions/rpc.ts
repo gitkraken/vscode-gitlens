@@ -26,6 +26,30 @@ export const noop = (ex?: unknown): void => {
 };
 
 /**
+ * True for AbortError-shaped rejections — covers both DOMException-based aborts and
+ * Supertalk-deserialized errors (which preserve `name` but not the DOMException class
+ * across the wire). Use to suppress expected cancellation rejections without hiding
+ * real failures.
+ */
+export function isAbortError(ex: unknown): boolean {
+	return ex instanceof Error && ex.name === 'AbortError';
+}
+
+/**
+ * Like {@link noop}, but silent on cancellation/abort rejections (which are expected
+ * when an in-flight enrichment is aborted by `signal?.throwIfAborted()` host-side).
+ * Real errors still log at warn level.
+ *
+ * Use as the rejection arg of `.then(onFulfilled, noopUnlessReal)` for any RPC call
+ * that accepts an AbortSignal — otherwise expected cancellations spam the log.
+ */
+export const noopUnlessReal = (ex?: unknown): void => {
+	if (ex == null || isAbortError(ex)) return;
+	const msg = ex instanceof Error ? ex.message : 'unknown error';
+	Logger.warn(`RPC call rejected (noopUnlessReal handler): ${msg}`);
+};
+
+/**
  * Per-signal version counter for optimistic rollback safety.
  * Prevents stale rollbacks when multiple optimistic updates overlap on the same signal.
  */

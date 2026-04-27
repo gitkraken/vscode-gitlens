@@ -24,8 +24,14 @@ export class PullRequestsService {
 	 * Looks up the commit by SHA and resolves its associated PR
 	 * via the remote integration provider.
 	 */
-	async getPullRequestForCommit(repoPath: string, sha: string): Promise<PullRequestShape | undefined> {
+	async getPullRequestForCommit(
+		repoPath: string,
+		sha: string,
+		signal?: AbortSignal,
+	): Promise<PullRequestShape | undefined> {
+		signal?.throwIfAborted();
 		const pr = await getCommitAssociatedPullRequest(repoPath, sha);
+		signal?.throwIfAborted();
 		return pr != null ? serializePullRequest(pr) : undefined;
 	}
 

@@ -74,14 +74,19 @@ export class AutolinksService {
 		sha: string,
 		headlineSplitterToken?: string,
 		isStash?: boolean,
+		signal?: AbortSignal,
 	): Promise<CommitAutolinksResult | undefined> {
+		signal?.throwIfAborted();
 		const commit = await this.getCommit(repoPath, sha, isStash);
+		signal?.throwIfAborted();
 		if (commit == null) return undefined;
 
 		const remote = await getBestRemoteWithIntegration(commit.repoPath, { includeDisconnected: true });
+		signal?.throwIfAborted();
 
 		const autolinks =
 			commit.message != null ? await this.container.autolinks.getAutolinks(commit.message, remote) : undefined;
+		signal?.throwIfAborted();
 
 		return {
 			autolinks: autolinks != null ? [...map(autolinks.values(), serializeAutolink)] : [],
@@ -94,9 +99,11 @@ export class AutolinksService {
 	 * Fetches each commit's message server-side, aggregates them, and parses autolinks once.
 	 * Does NOT produce a formatted/linkified message — returns only the parsed autolinks.
 	 */
-	async getAutolinksForCommits(repoPath: string, shas: string[]): Promise<Autolink[]> {
+	async getAutolinksForCommits(repoPath: string, shas: string[], signal?: AbortSignal): Promise<Autolink[]> {
+		signal?.throwIfAborted();
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const commits = await Promise.all(shas.map(sha => svc.commits.getCommit(sha)));
+		signal?.throwIfAborted();
 		const messages = commits.map(c => c?.message).filter(m => m != null);
 		return this.parseAutolinksFromMessages(repoPath, messages);
 	}
@@ -107,8 +114,15 @@ export class AutolinksService {
 	 * just the user's explicit selection — which can be a subset of the range when commits are
 	 * picked individually with cmd/ctrl-click rather than as a contiguous range.
 	 */
-	async getAutolinksForCompareRange(repoPath: string, fromSha: string, toSha: string): Promise<Autolink[]> {
+	async getAutolinksForCompareRange(
+		repoPath: string,
+		fromSha: string,
+		toSha: string,
+		signal?: AbortSignal,
+	): Promise<Autolink[]> {
+		signal?.throwIfAborted();
 		const messages = await this.getCompareRangeMessages(repoPath, fromSha, toSha);
+		signal?.throwIfAborted();
 		return this.parseAutolinksFromMessages(repoPath, messages);
 	}
 
@@ -117,11 +131,17 @@ export class AutolinksService {
 	 * Fetches each commit's message server-side, aggregates them, and resolves enriched data.
 	 * Returns serialized issues/PRs found across all commits.
 	 */
-	async enrichAutolinksForCommits(repoPath: string, shas: string[]): Promise<IssueOrPullRequest[]> {
+	async enrichAutolinksForCommits(
+		repoPath: string,
+		shas: string[],
+		signal?: AbortSignal,
+	): Promise<IssueOrPullRequest[]> {
+		signal?.throwIfAborted();
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const commits = await Promise.all(shas.map(sha => svc.commits.getCommit(sha)));
+		signal?.throwIfAborted();
 		const messages = commits.map(c => c?.message).filter(m => m != null);
-		return this.resolveEnrichedAutolinksFromMessages(repoPath, messages);
+		return this.resolveEnrichedAutolinksFromMessages(repoPath, messages, signal);
 	}
 
 	/** Range-based variant of `enrichAutolinksForCommits`. See `getAutolinksForCompareRange`. */
@@ -129,9 +149,12 @@ export class AutolinksService {
 		repoPath: string,
 		fromSha: string,
 		toSha: string,
+		signal?: AbortSignal,
 	): Promise<IssueOrPullRequest[]> {
+		signal?.throwIfAborted();
 		const messages = await this.getCompareRangeMessages(repoPath, fromSha, toSha);
-		return this.resolveEnrichedAutolinksFromMessages(repoPath, messages);
+		signal?.throwIfAborted();
+		return this.resolveEnrichedAutolinksFromMessages(repoPath, messages, signal);
 	}
 
 	private async getCompareRangeMessages(repoPath: string, fromSha: string, toSha: string): Promise<string[]> {
@@ -158,18 +181,22 @@ export class AutolinksService {
 	private async resolveEnrichedAutolinksFromMessages(
 		repoPath: string,
 		messages: string[],
+		signal?: AbortSignal,
 	): Promise<IssueOrPullRequest[]> {
 		if (!messages.length) return [];
 
 		const remote = await getBestRemoteWithIntegration(repoPath);
+		signal?.throwIfAborted();
 		if (remote?.provider == null) return [];
 
 		const enrichedAutolinks = await this.container.autolinks.getEnrichedAutolinks(messages.join('\n'), remote);
+		signal?.throwIfAborted();
 		if (enrichedAutolinks == null) return [];
 
 		const issues: IssueOrPullRequest[] = [];
 		for (const [promise] of enrichedAutolinks.values()) {
 			const issueOrPullRequest = await promise;
+			signal?.throwIfAborted();
 			if (issueOrPullRequest != null) {
 				issues.push(serializeIssueOrPullRequest(issueOrPullRequest));
 			}
@@ -182,12 +209,19 @@ export class AutolinksService {
 	 * Resolves each matched issue/PR via integration APIs and returns the
 	 * serialized `OverviewBranchIssue[]` shape that webviews already consume.
 	 */
-	async getBranchAutolinks(repoPath: string, branchName: string): Promise<OverviewBranchIssue[]> {
+	async getBranchAutolinks(
+		repoPath: string,
+		branchName: string,
+		signal?: AbortSignal,
+	): Promise<OverviewBranchIssue[]> {
+		signal?.throwIfAborted();
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const branch = await svc.branches.getBranch(branchName);
+		signal?.throwIfAborted();
 		if (branch == null) return [];
 
 		const enriched = await getBranchEnrichedAutolinks(this.container, branch);
+		signal?.throwIfAborted();
 		return getAutolinkIssuesInfo(enriched);
 	}
 
@@ -204,11 +238,15 @@ export class AutolinksService {
 		sha: string,
 		headlineSplitterToken?: string,
 		isStash?: boolean,
+		signal?: AbortSignal,
 	): Promise<EnrichedAutolinksResult | undefined> {
+		signal?.throwIfAborted();
 		const commit = await this.getCommit(repoPath, sha, isStash);
+		signal?.throwIfAborted();
 		if (commit == null) return undefined;
 
 		const remote = await getBestRemoteWithIntegration(commit.repoPath, { includeDisconnected: true });
+		signal?.throwIfAborted();
 		if (remote?.provider == null) return undefined;
 
 		const enrichedAutolinks = await getCommitEnrichedAutolinks(
@@ -217,12 +255,14 @@ export class AutolinksService {
 			commit.summary,
 			remote,
 		);
+		signal?.throwIfAborted();
 
 		// Resolve all the inner issue/PR promises from the enriched autolinks
 		const issues: IssueOrPullRequest[] = [];
 		if (enrichedAutolinks != null) {
 			for (const [promise] of enrichedAutolinks.values()) {
 				const issueOrPullRequest = await promise;
+				signal?.throwIfAborted();
 				if (issueOrPullRequest != null) {
 					issues.push(serializeIssueOrPullRequest(issueOrPullRequest));
 				}
