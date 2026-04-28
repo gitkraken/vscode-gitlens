@@ -16,6 +16,7 @@ import {
 } from '../../../../../plus/launchpad/models/launchpad.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type {
+	AgentSessionState,
 	BranchRef,
 	CreatePullRequestCommandArgs,
 	GetOverviewBranch,
@@ -23,6 +24,8 @@ import type {
 	OpenInTimelineParams,
 	OpenWorktreeCommandArgs,
 } from '../../../../home/protocol.js';
+import type { HomeState } from '../../../home/state.js';
+import { homeStateContext } from '../../../home/state.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { GlCard } from '../../../shared/components/card/card.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
@@ -47,6 +50,7 @@ import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/branch-icon.js';
 import '../../shared/components/merge-target-status.js';
+import '../../../shared/components/pills/agent-status-pill.js';
 
 export const branchCardStyles = css`
 	* {
@@ -127,6 +131,18 @@ export const branchCardStyles = css`
 		gap: 0.6rem;
 		max-width: 100%;
 		margin-block: 0;
+	}
+
+	.branch-item__agents {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 0.4rem;
+		flex-wrap: wrap;
+	}
+
+	.branch-item__agents code-icon {
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.branch-item__changes {
@@ -272,6 +288,9 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 
 	@consume({ context: webviewContext })
 	protected _webview!: WebviewContext;
+
+	@consume({ context: homeStateContext })
+	private _homeState!: HomeState;
 
 	@property()
 	repo!: string;
@@ -791,6 +810,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 						</div>
 					`,
 				)}
+				${this.renderAgentPillsRow()}
 				${when(
 					// TODO: this doesn't work properly. nothing is true, empty html template is true
 					actionsSection || mergeTargetStatus,
@@ -816,6 +836,36 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 			?worktree=${this.branch.worktree != null}
 			?is-default=${this.branch.worktree?.isDefault ?? false}
 		></gl-branch-icon>`;
+	}
+
+	private getMatchingAgentSessions(): AgentSessionState[] {
+		const sessions = this._homeState?.agentSessions?.get();
+		if (sessions == null || sessions.length === 0) return [];
+
+		const branchName = this.branch.name;
+		const repoPath = this.repo;
+		return sessions.filter(session => {
+			if (session.branch !== branchName) return false;
+			if (session.workspacePath !== repoPath) return false;
+			// If both the session and the branch card have worktree info, cross-check
+			if (session.worktreeName != null && this.branch.worktree != null) {
+				const worktreeBasename = this.branch.worktree.uri.split('/').pop() ?? '';
+				if (session.worktreeName !== worktreeBasename) return false;
+			}
+			return true;
+		});
+	}
+
+	private renderAgentPillsRow(): TemplateResult | NothingType {
+		const sessions = this.getMatchingAgentSessions();
+		if (sessions.length === 0) return nothing;
+
+		return html`
+			<div class="branch-item__agents">
+				<code-icon icon="hubot"></code-icon>
+				${sessions.map(s => html`<gl-agent-status-pill .session=${s}></gl-agent-status-pill>`)}
+			</div>
+		`;
 	}
 
 	protected renderPrItem(): TemplateResult | NothingType {

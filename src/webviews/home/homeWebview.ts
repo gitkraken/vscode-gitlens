@@ -85,6 +85,7 @@ import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webvie
 import type { WebviewShowOptions } from '../webviewsController.js';
 import type { HomeServices, HomeViewService, WalkthroughProgressState } from './homeService.js';
 import type {
+	AgentSessionState,
 	BranchAndTargetRefs,
 	BranchRef,
 	CreatePullRequestCommandArgs,
@@ -129,7 +130,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.integrations.onDidChange(this.onIntegrationsChanged, this),
 			this.container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
+			...(this.container.agentStatus != null
+				? [this.container.agentStatus.onDidChange(() => this.updateAgentBadge())]
+				: []),
 		);
+
+		this.updateAgentBadge();
 	}
 
 	dispose(): void {
@@ -191,6 +197,28 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			// --- UI Actions ---
 			openInGraph: params => this.showInCommitGraph(params),
 			onFocusAccount: this._focusAccountEvent.subscribe(buffer, tracker),
+
+			// --- Agent Sessions ---
+			getAgentSessions: () => Promise.resolve(this.getAgentSessionsState()),
+			onAgentSessionsChanged: createRpcEventSubscription<AgentSessionState[]>(
+				buffer,
+				'agentSessions',
+				'save-last',
+				buffered => {
+					if (this.container.agentStatus == null) return { dispose: () => {} };
+
+					let lastSerialized = '';
+					return this.container.agentStatus.onDidChange(() => {
+						const state = this.getAgentSessionsState();
+						const serialized = JSON.stringify(state);
+						if (serialized === lastSerialized) return;
+						lastSerialized = serialized;
+						buffered(state);
+					});
+				},
+				undefined,
+				tracker,
+			),
 
 			// --- Initial Context ---
 			getInitialContext: () =>
@@ -684,7 +712,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	// ---- Progressive overview methods (skeleton → WIP → enrichment) ----
 
 	private async getOverviewBranches(
-		type?: 'active' | 'inactive',
+		type?: 'active' | 'inactive' | 'agents',
 		signal?: AbortSignal,
 	): Promise<GetOverviewBranchesResponse> {
 		if (this._discovering != null) {
@@ -704,6 +732,27 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const { branches, worktreesByBranch } = getSettledValue(branchesAndWorktreesResult)!;
 		const repository = getSettledValue(formatRepositoryResult)!;
+
+		// Agent branches: return only branches that have an active agent session
+		if (type === 'agents') {
+			const sessions = this.container.agentStatus?.sessions ?? [];
+			const repoPath = repo.path;
+			const agentBranchNames = new Set<string>();
+			for (const session of sessions) {
+				if (session.branch != null && session.workspacePath === repoPath) {
+					agentBranchNames.add(session.branch);
+				}
+			}
+
+			const agentBranches: OverviewBranch[] = [];
+			for (const branch of branches) {
+				if (agentBranchNames.has(branch.name)) {
+					agentBranches.push(toOverviewBranch(branch, worktreesByBranch, false));
+				}
+			}
+
+			return { repository: repository, active: [], recent: agentBranches, stale: undefined };
+		}
 
 		const active: OverviewBranch[] = [];
 		const recent: OverviewBranch[] = [];
@@ -975,6 +1024,60 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			progress: this.container.walkthrough.progress,
 			state: state,
 		};
+	}
+
+	private getAgentSessionsState(): AgentSessionState[] {
+		const service = this.container.agentStatus;
+		if (service == null) return [];
+
+		return service.sessions.map(s => ({
+			id: s.id,
+			name: s.name,
+			status: s.status,
+			phase: s.phase,
+			statusDetail: s.statusDetail,
+			branch: s.branch,
+			worktreeName: s.worktreeName,
+			isInWorkspace: s.isInWorkspace,
+			hasPermissionRequest: s.pendingPermission != null,
+			subagentCount: s.subagents?.length ?? 0,
+			workspacePath: s.workspacePath,
+			cwd: s.cwd,
+			lastActivityTimestamp: s.lastActivity.getTime(),
+			phaseSinceTimestamp: s.phaseSince.getTime(),
+			pendingPermissionDetail:
+				s.pendingPermission != null
+					? {
+							toolName: s.pendingPermission.toolName,
+							toolDescription: s.pendingPermission.toolDescription,
+							toolInputDescription: s.pendingPermission.toolInputDescription,
+							hasSuggestions:
+								s.pendingPermission.suggestions != null && s.pendingPermission.suggestions.length > 0,
+						}
+					: undefined,
+			lastPrompt: s.lastPrompt,
+		}));
+	}
+
+	private _lastBadgeWaiting = -1;
+
+	private updateAgentBadge(): void {
+		const service = this.container.agentStatus;
+		if (service == null) {
+			if (this._lastBadgeWaiting !== 0) {
+				this._lastBadgeWaiting = 0;
+				this.host.badge = undefined;
+			}
+			return;
+		}
+
+		const waiting = service.sessions.filter(
+			s => !s.isSubagent && (s.status === 'waiting' || s.status === 'permission_requested'),
+		).length;
+
+		if (waiting === this._lastBadgeWaiting) return;
+		this._lastBadgeWaiting = waiting;
+		this.host.badge = waiting > 0 ? { tooltip: `${waiting} agent(s) need attention`, value: waiting } : undefined;
 	}
 
 	private async onIntegrationsChangedCore() {

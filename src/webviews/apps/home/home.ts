@@ -18,7 +18,11 @@ import type {
 	OverviewBranch,
 	OverviewFilters,
 } from '../../home/protocol.js';
-import { activeOverviewStateContext, inactiveOverviewStateContext } from '../plus/home/components/overviewState.js';
+import {
+	activeOverviewStateContext,
+	agentOverviewStateContext,
+	inactiveOverviewStateContext,
+} from '../plus/home/components/overviewState.js';
 import type { GlHomeHeader } from '../plus/shared/components/home-header.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
@@ -110,12 +114,14 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	private _homeStateCtx?: ContextProvider<typeof homeStateContext>;
 	private _activeOverviewCtxProvider?: ContextProvider<typeof activeOverviewStateContext>;
 	private _inactiveOverviewCtxProvider?: ContextProvider<typeof inactiveOverviewStateContext>;
+	private _agentOverviewCtxProvider?: ContextProvider<typeof agentOverviewStateContext>;
 
 	/**
 	 * Resource-backed overview states (created in _onRpcReady).
 	 */
 	private _activeResource?: Resource<GetActiveOverviewResponse>;
 	private _inactiveResource?: Resource<GetInactiveOverviewResponse>;
+	private _agentResource?: Resource<GetInactiveOverviewResponse>;
 	private _inactiveFilter?: Partial<OverviewFilters>;
 	private readonly _refreshOverviewDebounced = debounce(() => {
 		void this._activeResource?.fetch();
@@ -179,6 +185,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this._inactiveOverviewCtxProvider = new ContextProvider(this, {
 			context: inactiveOverviewStateContext,
 		});
+		this._agentOverviewCtxProvider = new ContextProvider(this, {
+			context: agentOverviewStateContext,
+		});
 	}
 
 	override disconnectedCallback(): void {
@@ -200,8 +209,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this._refreshOverviewDebounced.cancel();
 		this._activeResource?.dispose();
 		this._inactiveResource?.dispose();
+		this._agentResource?.dispose();
 		this._activeResource = undefined;
 		this._inactiveResource = undefined;
+		this._agentResource = undefined;
 		this._inactiveFilter = undefined;
 
 		// Reset all domain states
@@ -388,8 +399,27 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		});
 		const inactiveFilter = signalObject<Partial<OverviewFilters>>({});
 
+		const agentResource = createResource<GetInactiveOverviewResponse>(async signal => {
+			const branches = await home.getOverviewBranches('agents', signal);
+			if (branches == null) return undefined;
+			syncOverviewRepositoryPath(branches.repository.path);
+
+			const allIds = branches.recent.map(b => b.id);
+			const wipIds = branches.recent.filter(b => b.worktree != null).map(b => b.id);
+
+			const emptyWip = Promise.resolve<GetOverviewWipResponse>({});
+			const wipPromise = wipIds.length > 0 ? home.getOverviewWip(wipIds, signal) : emptyWip;
+			const enrichmentPromise = home.getOverviewEnrichment(allIds, signal);
+
+			return {
+				repository: branches.repository,
+				recent: branches.recent.map(s => buildBranchProgressive(s, wipPromise, enrichmentPromise)),
+			};
+		});
+
 		this._activeResource = activeResource;
 		this._inactiveResource = inactiveResource;
+		this._agentResource = agentResource;
 		this._inactiveFilter = inactiveFilter;
 
 		this._activeOverviewCtxProvider?.setValue(
@@ -409,6 +439,15 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				error: inactiveResource.error,
 				filter: inactiveFilter,
 				fetch: () => void inactiveResource.fetch(),
+			},
+			true,
+		);
+		this._agentOverviewCtxProvider?.setValue(
+			{
+				value: agentResource.value,
+				loading: agentResource.loading,
+				error: agentResource.error,
+				fetch: () => void agentResource.fetch(),
 			},
 			true,
 		);
@@ -461,8 +500,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			this._refreshOverviewDebounced.cancel();
 			this._activeResource?.cancel();
 			this._inactiveResource?.cancel();
+			this._agentResource?.cancel();
 			void this._activeResource?.fetch();
 			void this._inactiveResource?.fetch();
+			void this._agentResource?.fetch();
 			// Re-subscribe FS watcher for the (possibly new) overview repo
 			watchWipForRepo(this._homeState.overviewRepositoryPath.get());
 		};
@@ -488,6 +529,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				if (launchpad != null) {
 					void fetchLaunchpadSummary(root.launchpad, launchpad);
 				}
+			},
+			refreshAgentOverview: () => {
+				void this._agentResource?.fetch();
 			},
 		};
 		this._unsubscribeEvents = await phaseTimeout(
@@ -519,11 +563,13 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				this._refreshOverviewDebounced.cancel();
 				this._activeResource?.cancel();
 				this._inactiveResource?.cancel();
+				this._agentResource?.cancel();
 				return;
 			}
 
 			// Visibility restored — refresh overview and launchpad
 			this._refreshOverviewDebounced();
+			void this._agentResource?.fetch();
 			if (launchpad != null) {
 				void fetchLaunchpadSummary(root.launchpad, launchpad);
 			}

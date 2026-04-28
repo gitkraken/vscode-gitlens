@@ -111,6 +111,7 @@ export function populateInitialState(
 	// Secondary data: banners, filters, and content
 	// Note: repositories already set from getInitialContext() above; event-driven updates keep it fresh
 	void home.getWalkthroughProgress().then(w => state.onboarding.walkthroughProgress.set(w), noop);
+	void home.getAgentSessions().then(s => state.home.agentSessions.set(s), noop);
 	void ai.getState().then(s => state.ai.state.set(s), noop);
 	// Launchpad summary is deferred — fetched when GlLaunchpad mounts (connectedCallback)
 
