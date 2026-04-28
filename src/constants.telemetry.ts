@@ -94,6 +94,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when an agent hook is installed */
 	'agents/hookInstalled': AgentProviderEvent;
+	/** Sent when an agent hook is uninstalled */
+	'agents/hookUninstalled': AgentProviderEvent;
 	/** Sent when an agent session starts */
 	'agents/session/started': AgentProviderEvent;
 	/** Sent when an agent session ends */
