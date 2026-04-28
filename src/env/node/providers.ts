@@ -1,11 +1,14 @@
+import { basename, dirname, resolve } from 'path';
 import type { Disposable } from 'vscode';
 import { workspace } from 'vscode';
+import { ClaudeCodeProvider } from '@gitlens/agents/providers/claudeCodeProvider.js';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitExecOptions, GitResult } from '@gitlens/git/exec.types.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import { Git } from '@gitlens/git-cli/exec/git.js';
 import { findGitPath } from '@gitlens/git-cli/exec/locator.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import type { AgentSessionProvider } from '../../agents/provider.js';
 import type { Container } from '../../container.js';
 import type { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
@@ -22,6 +25,7 @@ import type { TelemetryService } from '../../telemetry/telemetry.js';
 import { GlCliGitProvider } from './git/cliGitProvider.js';
 import { VslsGitProvider } from './git/vslsGitProvider.js';
 import { GkCliIntegrationProvider } from './gk/cli/integration.js';
+import { runCLICommand } from './gk/cli/utils.js';
 import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider.js';
 import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider.js';
 import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider.js';
@@ -107,6 +111,54 @@ export async function getMcpProviders(container: Container): Promise<Disposable[
 	}
 
 	return undefined;
+}
+
+export function getAgentSessionProviders(container: Container): AgentSessionProvider[] {
+	return [
+		new ClaudeCodeProvider({
+			onSessionStarted: provider =>
+				container.telemetry.sendEvent('agents/session/started', { 'agent.provider': provider }),
+			onSessionEnded: provider =>
+				container.telemetry.sendEvent('agents/session/ended', { 'agent.provider': provider }),
+			onPermissionResolved: info =>
+				container.telemetry.sendEvent('agents/permission/resolved', {
+					'agent.provider': info.provider,
+					'permission.tool': info.tool,
+					'permission.decision': info.decision,
+				}),
+			onBranchAgentActivity: cwd => {
+				const repo = container.git.getRepository(cwd);
+				if (repo != null) {
+					queueMicrotask(() => repo.git.branches.onCurrentBranchAgentActivity?.());
+				}
+			},
+			runCLICommand: (args, opts) => runCLICommand(args, opts),
+			resolveGitInfo: async cwd => {
+				const opts = { cwd: cwd, errors: 'ignore' as const, timeout: 5000 };
+				const [branchResult, toplevelResult, commonDirResult, gitDirResult] = await Promise.all([
+					git(container, opts, 'rev-parse', '--abbrev-ref', 'HEAD'),
+					git(container, opts, 'rev-parse', '--show-toplevel'),
+					git(container, opts, 'rev-parse', '--git-common-dir'),
+					git(container, opts, 'rev-parse', '--git-dir'),
+				]);
+
+				const branch = String(branchResult.stdout).trim() || undefined;
+				const toplevel = String(toplevelResult.stdout).trim() || undefined;
+				const commonDir = String(commonDirResult.stdout).trim() || undefined;
+				const gitDir = String(gitDirResult.stdout).trim() || undefined;
+
+				if (toplevel == null) return undefined;
+
+				const isWorktree = commonDir != null && gitDir != null && commonDir !== gitDir;
+				return {
+					branch: branch,
+					repoRoot: isWorktree && commonDir ? dirname(resolve(cwd, commonDir)) : toplevel,
+					isWorktree: isWorktree,
+					worktreeName: isWorktree ? basename(toplevel) : undefined,
+				};
+			},
+		}),
+	];
 }
 
 let _telemetryService: TelemetryService | undefined;

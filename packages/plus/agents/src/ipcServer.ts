@@ -1,14 +1,14 @@
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 import { createServer } from 'http';
-import type { Disposable } from 'vscode';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 
 export interface IpcHandler<Request = unknown, Response = void> {
-	(request: Request | undefined): Promise<Response>;
+	(request: Request | undefined, searchParams: URLSearchParams): Promise<Response>;
 }
 
 export async function createIpcServer<Request = unknown, Response = void>(): Promise<IpcServer<Request, Response>> {
@@ -18,8 +18,7 @@ export async function createIpcServer<Request = unknown, Response = void>(): Pro
 	return new Promise<IpcServer<Request, Response>>((resolve, reject) => {
 		try {
 			server.on('error', ex => {
-				debugger;
-				Logger.error(ex, 'Cli Integration IPC server error');
+				Logger.error(ex, 'IPC server error');
 				reject(ex);
 			});
 
@@ -42,7 +41,7 @@ export async function createIpcServer<Request = unknown, Response = void>(): Pro
 	});
 }
 
-export class IpcServer<Request = unknown, Response = void> implements Disposable {
+export class IpcServer<Request = unknown, Response = void> implements UnifiedDisposable {
 	private readonly handlers = new Map<string | undefined, IpcHandler<Request, Response>>();
 
 	constructor(
@@ -53,7 +52,7 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 	) {
 		server
 			.on('listening', () => {
-				Logger.trace(`Cli Integration IPC server listening on ${this.ipcAddress}`);
+				Logger.trace(`IPC server listening on ${this.ipcAddress}`);
 			})
 			.on('request', this.onRequest.bind(this));
 	}
@@ -63,7 +62,11 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 		this.server.close();
 	}
 
-	registerHandler(name: string, handler: IpcHandler<Request, Response>): Disposable {
+	[Symbol.dispose](): void {
+		this.dispose();
+	}
+
+	registerHandler(name: string, handler: IpcHandler<Request, Response>): UnifiedDisposable {
 		this.handlers.set(`/${name}`, handler);
 		return createDisposable(() => this.handlers.delete(`/${name}`));
 	}
@@ -72,10 +75,13 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 	private onRequest(req: IncomingMessage, res: ServerResponse): void {
 		const scope = getScopedLogger();
 
-		// Parse URL to extract pathname for routing, separating from query parameters
+		// Parse URL to extract pathname for routing and query parameters
 		let pathname: string | undefined;
+		let searchParams = new URLSearchParams();
 		try {
-			pathname = new URL(req.url ?? '', this.ipcAddress).pathname;
+			const url = new URL(req.url ?? '', this.ipcAddress);
+			pathname = url.pathname;
+			searchParams = url.searchParams;
 		} catch {
 			pathname = req.url;
 		}
@@ -97,9 +103,22 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 			return;
 		}
 
+		const maxBodySize = 10_485_760; // 10 MB
+		let bodySize = 0;
 		const chunks: Uint8Array[] = [];
-		req.on('data', d => chunks.push(d));
+		req.on('data', (d: Uint8Array) => {
+			bodySize += d.length;
+			if (bodySize > maxBodySize) {
+				res.writeHead(413);
+				res.end();
+				req.destroy();
+				return;
+			}
+			chunks.push(d);
+		});
 		req.on('end', async () => {
+			if (bodySize > maxBodySize) return;
+
 			const body = Buffer.concat(chunks).toString('utf8');
 
 			let data: Request | undefined;
@@ -113,7 +132,7 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 			}
 
 			try {
-				const result = await handler(data);
+				const result = await handler(data, searchParams);
 				if (result == null) {
 					res.writeHead(200);
 					res.end();

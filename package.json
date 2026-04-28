@@ -6393,6 +6393,17 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.agents.installClaudeHook",
+				"title": "Install Claude Hook",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.agents.openSession",
+				"title": "Open AI Agent Session",
+				"category": "GitLens",
+				"icon": "$(hubot)"
+			},
+			{
 				"command": "gitlens.ai.enable",
 				"title": "Enable AI Features...",
 				"category": "GitLens"
@@ -12006,6 +12017,14 @@
 				{
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.agents.installClaudeHook",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.agents.openSession",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.ai.enable",

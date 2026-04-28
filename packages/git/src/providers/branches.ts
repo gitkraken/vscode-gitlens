@@ -100,6 +100,7 @@ export interface GitBranchesSubProvider {
 	getStoredUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	onCurrentBranchAccessed?(repoPath: string): Promise<void>;
 	onCurrentBranchModified?(repoPath: string): Promise<void>;
+	onCurrentBranchAgentActivity?(repoPath: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 	setUpstreamBranch?(repoPath: string, name: string, upstream: string | undefined): Promise<void>;
 	setBranchDisposition?(
