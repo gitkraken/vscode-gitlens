@@ -1,4 +1,5 @@
 import { signal as litSignal } from '@lit-labs/signals';
+import type { GlCommands } from '../../../../../constants.commands.js';
 import type { GraphSidebarService } from '../../../../plus/graph/graphService.js';
 import type { DidGetSidebarDataParams, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import type { Resource } from '../../../shared/state/resource.js';
@@ -34,7 +35,7 @@ export interface SidebarActions {
 	invalidateAll(): void;
 	refresh(panel: GraphSidebarPanel): void;
 	toggleLayout(panel: GraphSidebarPanel): void;
-	executeAction(command: string, context?: string): void;
+	executeAction(command: GlCommands, context?: string): void;
 	applyWorktreeChanges(changes: Record<string, boolean | undefined>): void;
 	dispose(): void;
 }
@@ -195,7 +196,7 @@ export function createSidebarActions(): SidebarActions {
 			service?.toggleLayout(panel);
 		},
 
-		executeAction: function (command: string, context?: string) {
+		executeAction: function (command: GlCommands, context?: string) {
 			service?.executeAction(command, context);
 		},
 

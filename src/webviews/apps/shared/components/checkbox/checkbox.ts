@@ -47,11 +47,7 @@ export class Checkbox extends GlElement {
 	}
 
 	private renderCheck() {
-		if (this.indeterminate) {
-			return html`<code-icon icon="dash"></code-icon>`;
-		}
-
-		return html`<code-icon icon="check" style="visibility: ${this.checked ? 'visible' : 'hidden'}"></code-icon>`;
+		return html`<code-icon icon=${this.indeterminate ? 'dash' : 'check'}></code-icon>`;
 	}
 
 	override render(): unknown {

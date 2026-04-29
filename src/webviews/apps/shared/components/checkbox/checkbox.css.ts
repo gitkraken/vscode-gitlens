@@ -86,5 +86,11 @@ export const checkboxBaseStyles = css`
 
 	code-icon {
 		pointer-events: none;
+		visibility: hidden;
+	}
+
+	:host([checked]) code-icon,
+	:host([indeterminate]) code-icon {
+		visibility: visible;
 	}
 `;

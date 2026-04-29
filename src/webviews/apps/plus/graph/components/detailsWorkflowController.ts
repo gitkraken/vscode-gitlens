@@ -206,7 +206,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					void resources.scopeFiles.fetch(repoPath, scope);
 				}
 			}
-			const newKey = this.selectionKey(sha, shas);
+			const newKey = this.selectionKey(sha, shas, repoPath);
 			if (mode === 'review') {
 				// Cached result belongs to a different selection — reset so the panel returns to
 				// idle file-curation for THIS selection (otherwise we render A's findings against B).
@@ -519,13 +519,18 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	/**
 	 * Stable per-selection key used to detect when an AI resource is stale on mode re-entry.
-	 * Pass explicit `sha`/`shas` to key a pending-transition selection, or omit to key the
-	 * currently-active mode's selection.
+	 * Pass explicit `sha`/`shas`/`repoPath` to key a pending-transition selection, or omit to
+	 * key the currently-active mode's selection. `repoPath` is part of the key because WIP
+	 * rows in different worktrees all share `sha === uncommitted` — without it, switching
+	 * between WIP rows would render the prior worktree's compose/review result against the
+	 * new one.
 	 */
-	private selectionKey(sha?: string, shas?: string[]): string {
+	private selectionKey(sha?: string, shas?: string[], repoPath?: string): string {
 		const effectiveSha = sha ?? this.actions.state.activeModeSha.get() ?? '';
 		const effectiveShas = shas ?? this.actions.state.activeModeShas.get() ?? [];
-		return effectiveShas.length ? effectiveShas.join(',') : effectiveSha;
+		const effectiveRepoPath = repoPath ?? this.actions.state.activeModeRepoPath.get() ?? '';
+		const selectionPart = effectiveShas.length ? effectiveShas.join(',') : effectiveSha;
+		return `${effectiveRepoPath}|${selectionPart}`;
 	}
 
 	// endregion

@@ -1,6 +1,7 @@
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { GlCommands } from '../../../constants.commands.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
@@ -250,7 +251,7 @@ export interface GraphSidebarService {
 	getSidebarCounts(): Promise<DidGetCountParams>;
 	toggleLayout(panel: GraphSidebarPanel): void;
 	refresh(panel: GraphSidebarPanel): void;
-	executeAction(command: string, context?: string): void;
+	executeAction(command: GlCommands, context?: string): void;
 
 	onSidebarInvalidated: RpcEventSubscription<undefined>;
 	onWorktreeStateChanged: RpcEventSubscription<{ changes: Record<string, boolean | undefined> }>;

@@ -6,6 +6,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
+import type { GlCommands } from '../../../../../constants.commands.js';
 import type {
 	DidGetSidebarDataParams,
 	GraphSidebarBranch,
@@ -41,7 +42,7 @@ import '../../../shared/components/tree/tree-view.js';
 interface PanelAction {
 	icon: string;
 	tooltip: string;
-	command: string;
+	command: GlCommands;
 }
 
 interface PanelConfig {
@@ -797,7 +798,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this._actions.filterMode = e.detail;
 	};
 
-	private handleAction(command: string) {
+	private handleAction(command: GlCommands) {
 		this._actions?.executeAction(command);
 	}
 
@@ -821,7 +822,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private handleTreeItemAction(e: CustomEvent<TreeItemActionDetail>) {
 		const action = e.detail.action;
 		const node = e.detail.node as TreeModelFlat;
-		const command = e.detail.altKey && action.altAction ? action.altAction : action.action;
+		const command = (e.detail.altKey && action.altAction ? action.altAction : action.action) as GlCommands;
 		this._actions?.executeAction(command, node.contextData as string | undefined);
 	}
 

@@ -82,7 +82,7 @@ import type {
 	GraphMinimapMarkersAdditionalTypes,
 	GraphScrollMarkersAdditionalTypes,
 } from '../../../config.js';
-import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../constants.commands.js';
+import type { GlCommands, GlWebviewCommandsOrCommandsWithSuffix } from '../../../constants.commands.js';
 import type { ContextKeys } from '../../../constants.context.js';
 import type { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '../../../constants.integrations.js';
@@ -2260,14 +2260,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.notifySidebarInvalidated();
 	}
 
-	private onSidebarAction(params: { command: string; context?: string }) {
+	private onSidebarAction(params: { command: GlCommands; context?: string }) {
 		const repoPath = this._graph?.repoPath;
 		if (repoPath == null) return;
 
 		if (params.context != null) {
 			try {
 				const ctx = JSON.parse(params.context);
-				void executeCommand(params.command as any, ctx);
+				ctx.webview = this.host.id;
+				ctx.webviewInstance = this.host.instanceId;
+				void executeCommand(params.command, ctx);
 				return;
 			} catch {}
 		}
@@ -2306,7 +2308,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void RepoActions.fetch(repoPath);
 				return;
 			default:
-				void executeCommand(params.command as any, Uri.file(repoPath));
+				void executeCommand(params.command, Uri.file(repoPath));
 		}
 	}
 

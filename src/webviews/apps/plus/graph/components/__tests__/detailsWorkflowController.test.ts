@@ -221,6 +221,105 @@ suite('DetailsWorkflowController.hostUpdate — repo-switch handling', () => {
 	});
 });
 
+suite('DetailsWorkflowController.toggleMode — stale-on-re-entry', () => {
+	test('compose: re-entering WIP in a different worktree resets the prior result', () => {
+		// WIP A (worktree /A) → ran compose → exited → click WIP B (worktree /B) → click Compose.
+		// Both rows have sha === uncommitted; only repoPath differs. Without repoPath in the
+		// staleness key, B's re-entry would render A's compose result.
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/parent',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		// Pre-set branchCommits so toggleMode's WIP-side fetchBranchCommits gate is skipped
+		// (services.graphInspect is not mocked).
+		state.branchCommits.set([]);
+
+		// Simulate "ran compose for WIP A": resource holds A's value, fetched-for marker is A's key.
+		const priorResult = { error: { message: 'WIP A compose result' } };
+		actions.resources.compose.mutate(priorResult);
+		controller['_composeFetchedForSelection'] = `/A|${uncommitted}`;
+
+		assert.notStrictEqual(actions.resources.compose.value.get(), undefined);
+
+		// Switch to WIP B and re-enter compose.
+		host.setRepoPath('/B');
+		host.tickHostUpdate();
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/B' });
+
+		assert.strictEqual(
+			actions.resources.compose.value.get(),
+			undefined,
+			'compose resource should reset when re-entering for a WIP row in a different worktree',
+		);
+		assert.strictEqual(controller['_composeFetchedForSelection'], undefined);
+	});
+
+	test('review: re-entering WIP in a different worktree resets the prior result', () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/parent',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		state.branchCommits.set([]);
+
+		const priorResult = { error: { message: 'WIP A review result' } };
+		actions.resources.review.mutate(priorResult);
+		controller['_reviewFetchedForSelection'] = `/A|${uncommitted}`;
+
+		assert.notStrictEqual(actions.resources.review.value.get(), undefined);
+
+		host.setRepoPath('/B');
+		host.tickHostUpdate();
+		controller.toggleMode('review', { sha: uncommitted, shas: undefined, repoPath: '/B' });
+
+		assert.strictEqual(
+			actions.resources.review.value.get(),
+			undefined,
+			'review resource should reset when re-entering for a WIP row in a different worktree',
+		);
+		assert.strictEqual(controller['_reviewFetchedForSelection'], undefined);
+	});
+
+	test('compose: re-entering for the same WIP selection preserves the prior result', () => {
+		// Sanity: same-selection re-entry must not regress (cached result restoration is the
+		// reason `exitMode` doesn't `reset()` on same-selection exit).
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/parent',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		state.branchCommits.set([]);
+
+		const priorResult = { error: { message: 'WIP A compose result' } };
+		actions.resources.compose.mutate(priorResult);
+		controller['_composeFetchedForSelection'] = `/A|${uncommitted}`;
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		assert.strictEqual(actions.resources.compose.value.get(), priorResult);
+		assert.strictEqual(controller['_composeFetchedForSelection'], `/A|${uncommitted}`);
+	});
+});
+
 suite('DetailsActions.clearEnrichmentCaches', () => {
 	test('aborts in-flight branch-commits and enrichment controllers', () => {
 		const state = createDetailsState();
