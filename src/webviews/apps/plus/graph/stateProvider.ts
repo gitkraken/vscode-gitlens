@@ -30,7 +30,6 @@ import {
 	DidChangeWipStaleNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
-	DidRequestInspectNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
 	GetOverviewEnrichmentRequest,
@@ -607,15 +606,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 			case DidChangeSelectionNotification.is(msg):
 				this.updateState({ selectedRows: msg.params.selection });
-				break;
-
-			case DidRequestInspectNotification.is(msg):
-				this.host.dispatchEvent(
-					new CustomEvent('gl-graph-request-inspect', {
-						detail: { sha: msg.params.sha, repoPath: msg.params.repoPath },
-						bubbles: true,
-					}),
-				);
 				break;
 
 			case DidChangeGraphConfigurationNotification.is(msg):

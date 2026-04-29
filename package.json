@@ -7798,11 +7798,6 @@
 				"title": "Share as Cloud Patch..."
 			},
 			{
-				"command": "gitlens.graph.showInDetailsView",
-				"title": "Inspect Details",
-				"icon": "$(eye)"
-			},
-			{
 				"command": "gitlens.graph.soloBranch",
 				"title": "Solo Branch",
 				"category": "GitLens"
@@ -13144,10 +13139,6 @@
 				},
 				{
 					"command": "gitlens.graph.shareAsCloudPatch",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.graph.showInDetailsView",
 					"when": "false"
 				},
 				{
@@ -25999,11 +25990,6 @@
 					"submenu": "gitlens/graph/commit/changes",
 					"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/ && !listMultiSelection",
 					"group": "2_gitlens_quickopen@1"
-				},
-				{
-					"command": "gitlens.graph.showInDetailsView",
-					"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/ && !listMultiSelection",
-					"group": "3_gitlens_explore@0"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote",

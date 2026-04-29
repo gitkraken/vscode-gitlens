@@ -2814,7 +2814,7 @@ or
   // Whether the active selection is the WIP / uncommitted row
   'selection.uncommitted': boolean,
   // What caused the panel to be shown
-  'trigger': 'toggle' | 'request-inspect' | 'auto-restore'
+  'trigger': 'toggle' | 'auto-restore'
 }
 ```
 

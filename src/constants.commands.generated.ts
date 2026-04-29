@@ -210,7 +210,6 @@ export type ContributedCommands =
 	| 'gitlens.graph.scrollMarkerWipOff'
 	| 'gitlens.graph.scrollMarkerWipOn'
 	| 'gitlens.graph.shareAsCloudPatch'
-	| 'gitlens.graph.showInDetailsView'
 	| 'gitlens.graph.soloBranch'
 	| 'gitlens.graph.soloBranch:views'
 	| 'gitlens.graph.soloTag'

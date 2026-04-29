@@ -276,7 +276,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@toggle-minimap=${this.handleToggleMinimap}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 				></gl-graph-header>
-				<div class="graph__workspace" @gl-graph-request-inspect=${this.handleRequestInspect}>
+				<div class="graph__workspace">
 					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
 					<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
 					<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
@@ -557,7 +557,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.persistState();
 	}
 
-	private setDetailsVisible(visible: boolean, trigger?: 'toggle' | 'request-inspect' | 'auto-restore'): void {
+	private setDetailsVisible(visible: boolean, trigger?: 'toggle' | 'auto-restore'): void {
 		const gs = this.graphState;
 		if (gs.detailsVisible === visible) return;
 		gs.detailsVisible = visible;
@@ -565,10 +565,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.emitDetailsVisibilityTelemetry(visible, trigger ?? 'toggle');
 	}
 
-	private emitDetailsVisibilityTelemetry(
-		visible: boolean,
-		trigger: 'toggle' | 'request-inspect' | 'auto-restore',
-	): void {
+	private emitDetailsVisibilityTelemetry(visible: boolean, trigger: 'toggle' | 'auto-restore'): void {
 		if (visible) {
 			this._detailsShownAt = performance.now();
 			const selectionCount =
@@ -620,18 +617,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true, 'toggle');
 		}
 	};
-
-	private handleRequestInspect(e: CustomEvent<{ sha: string; repoPath: string }>) {
-		const { sha, repoPath } = e.detail;
-
-		this._selectedCommit = { sha: sha, repoPath: repoPath };
-		this._selectedCommits = undefined;
-		this.setDetailsVisible(true, 'request-inspect');
-		this.ensureDetailsPosition();
-
-		// Let the graph component handle row highlighting natively
-		this.graph?.selectCommits([sha], { ensureVisible: true });
-	}
 
 	private handleToggleDetails(e: CustomEvent<{ altKey?: boolean } | void>) {
 		if (e.detail?.altKey) {

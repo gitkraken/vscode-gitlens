@@ -836,7 +836,7 @@ type GraphDetailsMode = 'commit' | 'wip' | 'multicommit' | 'review' | 'compose' 
 
 interface GraphDetailsShownEvent {
 	/** What caused the panel to be shown */
-	trigger: 'toggle' | 'request-inspect' | 'auto-restore';
+	trigger: 'toggle' | 'auto-restore';
 	/** Which graph host the panel is in: editor area or bottom panel */
 	host: 'editor' | 'panel';
 	/** Active panel mode at time of show */
