@@ -1,5 +1,7 @@
 import * as assert from 'assert';
-import { deriveStatusFromEvent, describeToolInput, rehydrateSubagents } from '../stateMachine.js';
+import { spawn } from 'child_process';
+import { once } from 'events';
+import { deriveStatusFromEvent, describeToolInput, isProcessAlive, rehydrateSubagents } from '../stateMachine.js';
 
 suite('stateMachine', () => {
 	suite('deriveStatusFromEvent', () => {
@@ -44,6 +46,29 @@ suite('stateMachine', () => {
 		test('returns bare tool name when detail is missing', () => {
 			assert.strictEqual(describeToolInput('Bash', {}), 'Bash');
 			assert.strictEqual(describeToolInput('UnknownTool', { foo: 'bar' }), 'UnknownTool');
+		});
+	});
+
+	suite('isProcessAlive', () => {
+		test('returns true for the current process', () => {
+			assert.strictEqual(isProcessAlive(process.pid), true);
+		});
+
+		test('returns false for a process that has exited', async () => {
+			const child = spawn(process.execPath, ['-e', '']);
+			const pid = child.pid!;
+			await once(child, 'exit');
+			// Give the OS a brief moment to fully reap the child.
+			await new Promise(resolve => setTimeout(resolve, 50));
+			assert.strictEqual(isProcessAlive(pid), false);
+		});
+
+		test('rejects non-positive and non-integer pids without calling kill', () => {
+			assert.strictEqual(isProcessAlive(0), false);
+			assert.strictEqual(isProcessAlive(-1), false);
+			assert.strictEqual(isProcessAlive(Number.NaN), false);
+			assert.strictEqual(isProcessAlive(Number.POSITIVE_INFINITY), false);
+			assert.strictEqual(isProcessAlive(1.5), false);
 		});
 	});
 

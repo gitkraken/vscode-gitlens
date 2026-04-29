@@ -29,11 +29,19 @@ export function deriveStatusFromEvent(event: string): AgentSessionStatus {
 }
 
 export function isProcessAlive(pid: number): boolean {
+	// `kill(0, ...)` and `kill(<negative>, ...)` have process-group semantics on POSIX
+	// (and target the current process under libuv on Windows), so they don't tell us
+	// anything about a specific pid. Reject anything that isn't a real, positive pid.
+	if (!Number.isInteger(pid) || pid <= 0) return false;
 	try {
 		kill(pid, 0);
 		return true;
-	} catch {
-		return false;
+	} catch (ex) {
+		// The process exists but we can't signal it: sandboxed/different uid (POSIX
+		// EPERM) or `OpenProcess` access-denied (Windows EACCES). Treat as alive.
+		// ESRCH and everything else mean dead.
+		const code = (ex as NodeJS.ErrnoException)?.code;
+		return code === 'EPERM' || code === 'EACCES';
 	}
 }
 

@@ -785,7 +785,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const kept: AgentSession[] = [];
 		const removedIds: string[] = [];
 		for (const s of this._sessions) {
-			if (s.pid == null || isProcessAlive(s.pid)) {
+			// A session blocking on us for a permission decision is by definition alive,
+			// even if `kill(pid, 0)` says otherwise (e.g. transient EPERM/ESRCH). Dropping
+			// it here loses pendingPermission and lastPrompt; the next syncSessions then
+			// re-adds it as a stale shell with `permission_requested` status but no detail.
+			if (s.pid == null || isProcessAlive(s.pid) || this._pendingPermissions.has(s.id)) {
 				kept.push(s);
 			} else {
 				removedIds.push(s.id);
@@ -795,6 +799,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		this._sessions = kept;
 		for (const id of removedIds) {
+			const pending = this._pendingPermissions.get(id);
+			if (pending != null) {
+				pending.reject(new Error('Session pruned'));
+				this._pendingPermissions.delete(id);
+			}
 			this._sessionBookkeeping.delete(id);
 		}
 		Logger.debug(
