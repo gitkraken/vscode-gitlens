@@ -1,6 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { live } from 'lit/directives/live.js';
 import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../../../../config.js';
@@ -361,9 +362,11 @@ export class GlFileTreePane extends LitElement {
 			}
 		}
 
+		// `live()` because gl-checkbox mutates `checked` on click — without it, a re-render with the
+		// unchanged `allChecked` would skip reassignment and leave the locally-toggled state stuck.
 		const checkbox = html`<gl-checkbox
-			.checked=${allChecked}
-			.indeterminate=${indeterminate}
+			.checked=${live(allChecked)}
+			.indeterminate=${live(indeterminate)}
 			@gl-change-value=${(e: Event) => {
 				const box = e.target as HTMLElement & { checked: boolean };
 				this.dispatchEvent(
