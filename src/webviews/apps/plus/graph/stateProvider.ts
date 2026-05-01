@@ -34,6 +34,7 @@ import {
 	DidChangeWipStaleNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
+	DidInvalidateScopeAnchorsNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
@@ -379,6 +380,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _mergeBaseCache = new Map<string, { sha: string; date: number } | undefined>();
 	/** In-flight merge-base resolves, deduped per cache key. */
 	private _mergeBasePromises = new Map<string, Promise<{ sha: string; date: number } | undefined>>();
+	/**
+	 * Per-repo generation, bumped on `DidInvalidateScopeAnchorsNotification`. In-flight resolves
+	 * capture this before awaiting and skip writing back if it has advanced — otherwise the
+	 * post-await cache write would repopulate `_mergeBaseCache` with the pre-invalidation anchor.
+	 */
+	private _anchorGenerations = new Map<string, number>();
 
 	/**
 	 * Set by callers (e.g. the scope popover) right before sending a filter-changing IPC, so the
@@ -442,6 +449,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			return;
 		}
 
+		// Capture before await — if invalidation arrives mid-flight (refs/config moved), skip the
+		// writeback so we don't repopulate `_mergeBaseCache` with the pre-invalidation anchor.
+		const generation = this._anchorGenerations.get(repoPath) ?? 0;
+
 		let promise = this._mergeBasePromises.get(cacheKey);
 		if (promise == null) {
 			promise = this.ipc
@@ -452,12 +463,17 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				.then(r => r?.scope.mergeBase)
 				.catch(() => undefined)
 				.finally(() => {
-					this._mergeBasePromises.delete(cacheKey);
+					// Only clear when the stored entry still points at *this* promise — otherwise
+					// invalidation already cleared it and a newer resolve may have taken its slot.
+					if (this._mergeBasePromises.get(cacheKey) === promise) {
+						this._mergeBasePromises.delete(cacheKey);
+					}
 				});
 			this._mergeBasePromises.set(cacheKey, promise);
 		}
 
 		const mergeBase = await promise;
+		if ((this._anchorGenerations.get(repoPath) ?? 0) !== generation) return;
 		this._mergeBaseCache.set(cacheKey, mergeBase);
 		this.patchScopeMergeBase(scope, mergeBase);
 	}
@@ -503,6 +519,55 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this._state.lastFetched = msg.params.lastFetched;
 				this.updateState({ lastFetched: msg.params.lastFetched });
 				break;
+
+			case DidInvalidateScopeAnchorsNotification.is(msg): {
+				// Drop the mirrored merge-base cache when the host signals that refs/config moved —
+				// otherwise the next scope-resolve would hand back the cached pre-rebase anchor.
+				const { repoPath, branchRefs } = msg.params;
+				// Bump generation so any in-flight resolve for this repo skips its post-await
+				// writeback (per-repo is sufficient; in-flight resolves whose `branchRefs` weren't
+				// targeted simply re-issue on the next consumer call).
+				this._anchorGenerations.set(repoPath, (this._anchorGenerations.get(repoPath) ?? 0) + 1);
+				const prefix = `${repoPath}|`;
+				if (branchRefs?.length) {
+					for (const ref of branchRefs) {
+						const key = `${repoPath}|${ref}`;
+						this._mergeBaseCache.delete(key);
+						this._mergeBasePromises.delete(key);
+					}
+				} else {
+					for (const key of [...this._mergeBaseCache.keys()]) {
+						if (key.startsWith(prefix)) {
+							this._mergeBaseCache.delete(key);
+						}
+					}
+					for (const key of [...this._mergeBasePromises.keys()]) {
+						if (key.startsWith(prefix)) {
+							this._mergeBasePromises.delete(key);
+						}
+					}
+				}
+
+				// Also reset enrichment so a stale `mergeTargetTipSha` doesn't survive — the next
+				// popover open or sidebar render will re-fetch and `reconcileScopeMergeTarget` will
+				// re-anchor the live scope when it lands.
+				this._enrichmentFingerprint = undefined;
+				if (this.overviewEnrichment != null) {
+					this.overviewEnrichment = undefined;
+				}
+
+				// Proactively re-resolve the live scope. The cache clear above only ensures the
+				// *next* `resolveScopeMergeBase` call won't hand back the stale anchor — it doesn't
+				// touch the live `scope.mergeBase`/`scope.mergeTargetTipSha` themselves, which were
+				// set on the prior resolve and would otherwise keep anchoring the minimap to the
+				// pre-rebase SHA until the user re-scopes. The bumped generation just above ensures
+				// any concurrently-running stale resolve can't beat this fresh one to the writeback.
+				const liveScope = this.scope;
+				if (liveScope?.branchRef.startsWith(prefix)) {
+					void this.resolveScopeMergeBase(liveScope);
+				}
+				break;
+			}
 
 			case DidChangeAvatarsNotification.is(msg):
 				this.updateState({ avatars: msg.params.avatars });

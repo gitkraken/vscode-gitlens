@@ -946,6 +946,16 @@ export interface DidFetchParams {
 }
 export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch');
 
+export interface DidInvalidateScopeAnchorsParams {
+	repoPath: string;
+	/** When undefined, invalidate all scope anchors for the repo. */
+	branchRefs?: string[];
+}
+export const DidInvalidateScopeAnchorsNotification = new IpcNotification<DidInvalidateScopeAnchorsParams>(
+	scope,
+	'scope/anchors/didInvalidate',
+);
+
 export interface DidStartFeaturePreviewParams {
 	featurePreview: FeaturePreview;
 	allowed: boolean;
