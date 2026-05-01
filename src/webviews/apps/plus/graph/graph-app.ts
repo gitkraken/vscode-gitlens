@@ -831,16 +831,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		// Fallback: branch isn't in the overview's active/recent list. Set the scope now with
-		// whatever we know and fire an ad-hoc enrichment fetch — `syncScopeMergeTarget` will
-		// backfill `mergeTargetTipSha` once the enrichment arrives.
+		// Fallback: branch isn't in the overview's active/recent list. `setScope` fires
+		// `resolveScopeMergeBase`, which now lands `mergeTargetTipSha` directly from the
+		// host-side scope-anchor resolver — no need to also fire a full enrichment IPC for the
+		// PR/autolinks/issues/conflict status fields the scope flow doesn't render.
 		const branchRef = getBranchId(repoPath, false, branchName);
 		this.setScope({
 			branchRef: branchRef,
 			branchName: branchName,
 			upstreamRef: upstreamName != null ? getBranchId(repoPath, true, upstreamName) : undefined,
 		});
-		void this.graphState.ensureEnrichmentForBranch(branchRef);
 	}
 
 	private scopeToBranchById(branchId: string, mergeTargetTipSha?: string): void {

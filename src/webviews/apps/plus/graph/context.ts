@@ -33,9 +33,6 @@ export interface AppState extends State {
 	selectedRows: GraphSelectedRows | undefined;
 	visibleDays: { top: number; bottom: number } | undefined;
 
-	/** Fetch enrichment for a branch not covered by the overview — used by the header scope popover. */
-	ensureEnrichmentForBranch(branchId: string): Promise<void>;
-
 	/**
 	 * Publish a lazily-fetched merge target into `overviewEnrichment` for the given branchId. The graph
 	 * overview's enrichment IPC skips merge-target fetching; the overview card and click-to-scope path
