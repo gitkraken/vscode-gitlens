@@ -352,9 +352,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 
 		this.updateState(this._state, true);
-		// Enrichment is fetched lazily when a consumer needs it (the overview sidebar mounting,
-		// the scope popover opening, or per-branch on-demand via `ensureEnrichmentForBranch`)
-		// rather than eagerly at bootstrap, where it competes with the graph render itself.
+		// Enrichment is fetched lazily when a consumer needs it (the overview sidebar mounting or
+		// the scope popover opening) rather than eagerly at bootstrap, where it competes with the
+		// graph render itself.
 
 		void this.ipc.sendRequest(GetAgentSessionsRequest, undefined).then(sessions => {
 			this.agentSessions = sortAgentSessions(sessions);
@@ -379,9 +379,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		});
 	}
 
-	/** In-flight single-branch enrichment fetches, keyed by branch id, so concurrent callers share one request. */
-	private _adhocEnrichmentPromises = new Map<string, Promise<void>>();
-
 	/** Session cache of resolved scope anchors (mergeBase + mergeTargetTipSha), keyed by `repoPath|branchRef`. */
 	private _mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>();
 	/** In-flight scope-anchor resolves, deduped per cache key. */
@@ -403,29 +400,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	deferScopeClear(): void {
 		if (this.scope == null) return;
 		this._scopeClearDeferred = true;
-	}
-
-	/**
-	 * Fetch enrichment for a single branch that isn't covered by the overview (e.g. a branch picked
-	 * from the header scope popover that isn't active or recent). Merges the result into
-	 * `overviewEnrichment` so the reactive `syncScopeMergeTarget` hook can anchor the scope.
-	 */
-	ensureEnrichmentForBranch(branchId: string): Promise<void> {
-		if (this.overviewEnrichment?.[branchId] != null) return Promise.resolve();
-
-		const existing = this._adhocEnrichmentPromises.get(branchId);
-		if (existing != null) return existing;
-
-		const promise = this.ipc
-			.sendRequest(GetOverviewEnrichmentRequest, { branchIds: [branchId] })
-			.then(result => {
-				this.overviewEnrichment = { ...this.overviewEnrichment, ...result };
-			})
-			.finally(() => {
-				this._adhocEnrichmentPromises.delete(branchId);
-			});
-		this._adhocEnrichmentPromises.set(branchId, promise);
-		return promise;
 	}
 
 	/**
