@@ -4102,35 +4102,107 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onResolveGraphScope(
 		params: IpcParams<typeof ResolveGraphScopeRequest>,
 	): Promise<IpcResponse<typeof ResolveGraphScopeRequest>> {
-		const mergeBase = await this.resolveScopeMergeBaseForBranch(params.repoPath, params.scope.branchName);
-		return { scope: { ...params.scope, mergeBase: mergeBase } };
+		const anchor = await this.resolveScopeAnchor(params.repoPath, params.scope.branchName);
+		return {
+			scope: {
+				...params.scope,
+				mergeBase: anchor?.mergeBase,
+				resolvedMergeTargetTipSha: anchor?.mergeTargetTipSha,
+			},
+		};
 	}
 
 	private invalidateScopeAnchors(): void {
+		this._scopeAnchorCache.clear();
+
 		const repoPath = this.repository?.path ?? this._graph?.repoPath;
 		if (repoPath == null) return;
 
 		void this.host.notify(DidInvalidateScopeAnchorsNotification, { repoPath: repoPath });
 	}
 
-	private async resolveScopeMergeBaseForBranch(
+	/**
+	 * Per-branch cache of resolved scope anchors. Cleared by `invalidateScopeAnchors` whenever
+	 * heads/remotes/config move so a stale anchor can't survive a rebase. Holds promises so
+	 * concurrent scope-resolves dedupe naturally.
+	 */
+	private readonly _scopeAnchorCache = new Map<
+		string,
+		Promise<{ mergeBase: { sha: string; date: number }; mergeTargetTipSha?: string } | undefined>
+	>();
+
+	/**
+	 * Lightweight scope-anchor resolver: returns just `{mergeBase, mergeTargetTipSha}` without
+	 * paying for `getContributors --shortstat` that `getBranchContributionsOverview` runs for the
+	 * overview/sidebar contributors panel. The expensive overview path is still used by enrichment
+	 * — this just stops scope from triggering it on cold branches that aren't already covered by
+	 * the package-level `branchOverviews` cache.
+	 */
+	private async resolveScopeAnchor(
 		repoPath: string,
 		branchName: string,
-	): Promise<{ sha: string; date: number } | undefined> {
-		const svc = this.container.git.getRepositoryService(repoPath);
-
-		const branch = await svc.branches.getBranch(branchName);
+	): Promise<{ mergeBase: { sha: string; date: number }; mergeTargetTipSha?: string } | undefined> {
+		// Prefer the already-loaded branch from the in-memory graph snapshot — `_graph.branches`
+		// is the same data `getBranches()` would return (same underlying cache), so this is a
+		// synchronous shortcut on the hot path, not a different source of truth.
+		const branch =
+			this._graph?.branches.get(branchName) ??
+			(await this.container.git.getRepositoryService(repoPath).branches.getBranch(branchName));
 		if (branch == null) return undefined;
 
-		// Scope resolution is interactive (graph navigation drives it), so keep the default
-		// 'normal' priority. The `branchOverviews` cache keyed on `${ref}|${mergeTarget}` handles
-		// in-flight dedup against any concurrent enrichment fetch.
-		const overview = await svc.branches.getBranchContributionsOverview(branch.ref, {
-			associatedPullRequest: getBranchAssociatedPullRequest(this.container, branch),
-		});
-		if (overview?.mergeBase == null || overview.mergeBaseDate == null) return undefined;
+		const cacheKey = branch.id;
+		const cached = this._scopeAnchorCache.get(cacheKey);
+		if (cached != null) return cached;
 
-		return { sha: overview.mergeBase, date: overview.mergeBaseDate.getTime() };
+		const promise = this.computeScopeAnchor(branch);
+		this._scopeAnchorCache.set(cacheKey, promise);
+		// Don't poison the cache with a rejection — refresh paths invalidate explicitly anyway, but
+		// a transient failure should be retryable on the next scope action.
+		promise.catch(() => {
+			if (this._scopeAnchorCache.get(cacheKey) === promise) {
+				this._scopeAnchorCache.delete(cacheKey);
+			}
+		});
+		return promise;
+	}
+
+	private async computeScopeAnchor(
+		branch: GitBranch,
+	): Promise<{ mergeBase: { sha: string; date: number }; mergeTargetTipSha?: string } | undefined> {
+		const svc = this.container.git.getRepositoryService(branch.repoPath);
+
+		// Resolve target name — `getBranchMergeTargetInfo` already shares the underlying caches
+		// with `getBranchContributionsOverview` (`getStoredMergeTargetBranchName`/`getBaseBranchName`/
+		// `getDefaultBranchName`), so this doesn't add new git calls when the overview path also
+		// fires for the same branch.
+		const targetInfo = await getBranchMergeTargetInfo(this.container, branch, { timeout: 100 });
+		// Use the immediate value; ignore the paused PR-resolution continuation. Scope doesn't need
+		// to wait on PR API — base/default fall back covers the cold path while the eventual PR
+		// answer (if any) reaches the scope via overview enrichment, where `reconcileScopeMergeTarget`
+		// re-anchors live.
+		const targetName =
+			(targetInfo.mergeTargetBranch.paused ? undefined : targetInfo.mergeTargetBranch.value) ??
+			targetInfo.baseBranch ??
+			targetInfo.defaultBranch;
+		if (targetName == null) return undefined;
+
+		// Prefer the in-memory branch list for the target tip, just like the focal branch above.
+		const targetBranch = this._graph?.branches.get(targetName) ?? (await svc.branches.getBranch(targetName));
+		const mergeTargetTipSha = targetBranch?.sha;
+
+		const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, targetName);
+		if (mergeBaseSha == null) return undefined;
+
+		// Prefer the cheap dates-only lookup on desktop (git-cli); fall back to a full commit fetch
+		// for providers that don't implement it (e.g. the GitHub provider used in vscode.dev).
+		const dates = await svc.commits.getCommitDates?.(mergeBaseSha);
+		const committerDate = dates?.committerDate ?? (await svc.commits.getCommit(mergeBaseSha))?.committer.date;
+		if (committerDate == null) return undefined;
+
+		return {
+			mergeBase: { sha: mergeBaseSha, date: committerDate.getTime() },
+			mergeTargetTipSha: mergeTargetTipSha,
+		};
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =

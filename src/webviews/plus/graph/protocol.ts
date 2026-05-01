@@ -515,6 +515,12 @@ export const ChooseFileRequest = new IpcRequest<ChooseFileParams, DidChooseFileP
 
 export interface ResolvedGraphScope extends GraphScope {
 	mergeBase?: { sha: string; date: number };
+	/**
+	 * Resolved merge-target tip SHA. Carried alongside `mergeBase` so the lightweight scope-anchor
+	 * path can backfill the scope without forcing a parallel `getOverviewEnrichment` IPC for branches
+	 * that aren't already in active/recent.
+	 */
+	resolvedMergeTargetTipSha?: string;
 }
 export interface ResolveGraphScopeParams {
 	repoPath: string;

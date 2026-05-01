@@ -68,6 +68,12 @@ export function isGraphSearchResultsError(
 	return 'error' in results;
 }
 
+/** Lightweight scope anchor returned by `ResolveGraphScopeRequest` and cached webview-side. */
+type ResolvedScopeAnchor = {
+	mergeBase: { sha: string; date: number } | undefined;
+	mergeTargetTipSha: string | undefined;
+};
+
 /**
  * Returns the scope with `mergeTargetTipSha` backfilled from the branch's enrichment, or the
  * original scope reference when nothing needs to change. Callers use reference-equality to know
@@ -376,10 +382,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** In-flight single-branch enrichment fetches, keyed by branch id, so concurrent callers share one request. */
 	private _adhocEnrichmentPromises = new Map<string, Promise<void>>();
 
-	/** Session cache of resolved merge-bases, keyed by `repoPath|branchRef`. */
-	private _mergeBaseCache = new Map<string, { sha: string; date: number } | undefined>();
-	/** In-flight merge-base resolves, deduped per cache key. */
-	private _mergeBasePromises = new Map<string, Promise<{ sha: string; date: number } | undefined>>();
+	/** Session cache of resolved scope anchors (mergeBase + mergeTargetTipSha), keyed by `repoPath|branchRef`. */
+	private _mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>();
+	/** In-flight scope-anchor resolves, deduped per cache key. */
+	private _mergeBasePromises = new Map<string, Promise<ResolvedScopeAnchor | undefined>>();
 	/**
 	 * Per-repo generation, bumped on `DidInvalidateScopeAnchorsNotification`. In-flight resolves
 	 * capture this before awaiting and skip writing back if it has advanced — otherwise the
@@ -445,7 +451,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		// Cache hit — patch and return without IPC.
 		if (this._mergeBaseCache.has(cacheKey)) {
-			this.patchScopeMergeBase(scope, this._mergeBaseCache.get(cacheKey));
+			this.patchScopeAnchor(scope, this._mergeBaseCache.get(cacheKey));
 			return;
 		}
 
@@ -460,8 +466,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					repoPath: repoPath,
 					scope: scope,
 				})
-				.then(r => r?.scope.mergeBase)
-				.catch(() => undefined)
+				.then((r): ResolvedScopeAnchor | undefined =>
+					r == null
+						? undefined
+						: {
+								mergeBase: r.scope.mergeBase,
+								mergeTargetTipSha: r.scope.resolvedMergeTargetTipSha,
+							},
+				)
+				.catch((): ResolvedScopeAnchor | undefined => undefined)
 				.finally(() => {
 					// Only clear when the stored entry still points at *this* promise — otherwise
 					// invalidation already cleared it and a newer resolve may have taken its slot.
@@ -472,24 +485,40 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			this._mergeBasePromises.set(cacheKey, promise);
 		}
 
-		const mergeBase = await promise;
+		const anchor = await promise;
 		if ((this._anchorGenerations.get(repoPath) ?? 0) !== generation) return;
-		this._mergeBaseCache.set(cacheKey, mergeBase);
-		this.patchScopeMergeBase(scope, mergeBase);
+		this._mergeBaseCache.set(cacheKey, anchor);
+		this.patchScopeAnchor(scope, anchor);
 	}
 
-	private patchScopeMergeBase(scope: GraphScope, mergeBase: { sha: string; date: number } | undefined): void {
-		if (mergeBase == null) return;
+	private patchScopeAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
+		if (anchor == null) return;
+		// Host couldn't resolve either field — leave the live scope alone rather than assigning
+		// a no-op spread that would re-zoom the minimap for nothing.
+		if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null) return;
 		// Only patch if the live scope still points at the same branch (user may have re-scoped
 		// or cleared while the resolve was in flight).
 		const current = this.scope;
 		if (current?.branchRef !== scope.branchRef) return;
-		// Skip if the authoritative mergeBase matches what's already on the scope — prevents a
-		// redundant signal update that would re-zoom the minimap needlessly.
-		if (current.mergeBase?.sha === mergeBase.sha && current.mergeBase?.date === mergeBase.date) {
-			return;
+		// Skip if both the mergeBase and target tip already match — prevents a redundant signal
+		// update that would re-zoom the minimap needlessly.
+		const mergeBaseSame =
+			current.mergeBase?.sha === anchor.mergeBase?.sha && current.mergeBase?.date === anchor.mergeBase?.date;
+		// `mergeTargetTipSha` may also be supplied by enrichment via `reconcileScopeMergeTarget`.
+		// Only overwrite when the resolver returned a value AND it differs — `undefined` from the
+		// resolver shouldn't clobber an enrichment-supplied SHA.
+		const targetTipSame =
+			anchor.mergeTargetTipSha == null || anchor.mergeTargetTipSha === current.mergeTargetTipSha;
+		if (mergeBaseSame && targetTipSame) return;
+
+		const next: GraphScope = { ...current };
+		if (anchor.mergeBase != null && !mergeBaseSame) {
+			next.mergeBase = anchor.mergeBase;
 		}
-		this.scope = { ...current, mergeBase: mergeBase };
+		if (anchor.mergeTargetTipSha != null && !targetTipSame) {
+			next.mergeTargetTipSha = anchor.mergeTargetTipSha;
+		}
+		this.scope = next;
 	}
 
 	protected onMessageReceived(msg: IpcMessage): void {
