@@ -368,13 +368,41 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		const fingerprint = branchIds.toSorted().join(',');
 		if (fingerprint === this._enrichmentFingerprint) return;
+
+		// Skip the IPC entirely when overviewEnrichment (possibly populated by the sidebar's
+		// parallel fetch path) already covers every id in this composition.
+		const enrichment = this.overviewEnrichment;
+		if (enrichment != null && branchIds.every(id => id in enrichment)) {
+			this._enrichmentFingerprint = fingerprint;
+			return;
+		}
+
 		this._enrichmentFingerprint = fingerprint;
 
 		void this.ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: branchIds }).then(result => {
 			// Only publish when the overview fingerprint hasn't moved on — a newer overview
-			// in flight will trigger its own fetch whose result is authoritative.
+			// in flight will trigger its own fetch whose result is authoritative. Build the next
+			// state from `result` so stale entries (e.g. a closed/retargeted PR's enrichment) for
+			// branchIds no longer in the active/recent set are dropped, but preserve any
+			// locally-merged `mergeTarget` from `mergeMergeTargetIntoEnrichment` (overview cards /
+			// click-to-scope) — the host opts out of merge-target resolution here via
+			// `skipMergeTarget: true`, so it always returns `mergeTarget: undefined`.
 			if (this._enrichmentFingerprint === fingerprint) {
-				this.overviewEnrichment = { ...this.overviewEnrichment, ...result };
+				const previous = this.overviewEnrichment;
+				if (previous == null) {
+					this.overviewEnrichment = result;
+				} else {
+					const next: typeof result = {};
+					for (const branchId in result) {
+						const incoming = result[branchId];
+						const localMergeTarget = previous[branchId]?.mergeTarget;
+						next[branchId] =
+							localMergeTarget != null && incoming?.mergeTarget == null
+								? { ...incoming, mergeTarget: localMergeTarget }
+								: incoming;
+					}
+					this.overviewEnrichment = next;
+				}
 			}
 		});
 	}
