@@ -323,6 +323,7 @@ import {
 	DidChangeWipStaleNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
+	DidInvalidateScopeAnchorsNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
@@ -433,9 +434,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
+		// `resetRepositoryState` runs after `_repository` is reassigned, so its `invalidateScopeAnchors`
+		// call notifies for the new repoPath — leaving the webview's `_mergeBaseCache` entries keyed by
+		// the previous path stranded. Notify for the previous path explicitly to drop them.
+		const previousPath = this._repository?.path;
 		this._repository = value;
 		this.resetRepositoryState();
 		this.ensureRepositorySubscriptions(true);
+
+		if (previousPath != null && previousPath !== value?.path) {
+			void this.host.notify(DidInvalidateScopeAnchorsNotification, { repoPath: previousPath });
+		}
 
 		if (this.host.ready) {
 			this.updateState();
@@ -2713,6 +2722,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
+		// Branch tips, stored merge targets, and remote tracking can all move the merge-base anchor
+		// scope relies on. Drop the host-side overview cache and signal the webview to drop its
+		// mirrored merge-base cache so the next scope resolve recomputes against fresh refs.
+		if (e.changed('heads', 'remotes', 'config')) {
+			this.invalidateScopeAnchors();
+		}
+
 		// Invalidate sidebar panels only for changes that actually affect their data. Skipping this for
 		// config/unknown/pausedOp changes prevents the sidebar from showing a spinner during unrelated
 		// repo activity (e.g. worktrees discovered during graph scroll fire `unknown` repo events).
@@ -4035,6 +4051,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			.branches.getBranchContributionsOverview(branch.ref, { associatedPullRequest: pr });
 		this._branchOverviewCache.set(cacheKey, promise);
 		return promise;
+	}
+
+	private invalidateScopeAnchors(): void {
+		this._branchOverviewCache.clear();
+
+		const repoPath = this.repository?.path ?? this._graph?.repoPath;
+		if (repoPath == null) return;
+
+		void this.host.notify(DidInvalidateScopeAnchorsNotification, { repoPath: repoPath });
 	}
 
 	private async resolveScopeMergeBaseForBranch(
@@ -5757,6 +5782,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._pendingStateNotify = undefined;
 		this._pendingStateOp = undefined;
 		this._graphDetailsDiffCache.clear();
+		this.invalidateScopeAnchors();
 		if (this._stateFreshnessRetryTimer != null) {
 			clearTimeout(this._stateFreshnessRetryTimer);
 			this._stateFreshnessRetryTimer = undefined;
