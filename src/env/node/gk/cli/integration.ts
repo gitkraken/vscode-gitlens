@@ -166,21 +166,12 @@ export class GkCliIntegrationProvider implements Disposable {
 			Promise.resolve({ stdout: JSON.stringify({ version: this.container.version }) }),
 		);
 
-		const { environmentVariableCollection: envVars } = this.container.context;
-
-		envVars.clear();
-		envVars.persistent = false;
-		envVars.replace('GK_GL_ADDR', server.ipcAddress);
-		envVars.description = 'Enables GK CLI integration';
-
 		// Create discovery file for external terminal support
 		try {
 			const workspaceFolders = workspace.workspaceFolders;
 			if (workspaceFolders != null && workspaceFolders.length > 0) {
 				const workspacePaths = workspaceFolders.map(folder => folder.uri.fsPath);
 				this._discoveryFilePath = await createDiscoveryFile(server, workspacePaths);
-
-				envVars.replace('GK_GL_PATH', this._discoveryFilePath);
 			}
 		} catch (error) {
 			// Discovery file creation failure should not prevent IPC server startup
@@ -195,7 +186,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		this._runningDisposable = Disposable.from(new CliCommandHandlers(this.container, server), server);
 
 		// Notify that the IPC server is ready so MCP providers can refresh
-		this.container.events.fire('gk:cli:ipc:started', undefined);
+		this.container.events.fire('gk:cli:ipc:started', { discoveryFilePath: this._discoveryFilePath });
 		Logger.info(`${formatLoggableScopeBlock('IPC')} Server started on ${server.ipcAddress}`);
 	}
 
@@ -206,7 +197,6 @@ export class GkCliIntegrationProvider implements Disposable {
 			this._discoveryFilePath = undefined;
 		}
 
-		this.container.context.environmentVariableCollection.clear();
 		if (this._runningDisposable != null) {
 			this._runningDisposable.dispose();
 			this._runningDisposable = undefined;

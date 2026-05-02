@@ -25,11 +25,12 @@ export abstract class GkMcpProviderBase implements Disposable {
 	protected _getMcpConfigurationFromCLIPromise: Promise<McpConfiguration | undefined> | undefined;
 	protected _ipcTimeoutId: NodeJS.Timeout | undefined;
 	protected _waitingForIPC: boolean = true;
+	protected _discoveryFilePath: string | undefined;
 
 	constructor(protected readonly container: Container) {
 		this._disposable = Disposable.from(
 			container.storage.onDidChange(e => this.onStorageChanged(e)),
-			container.events.on('gk:cli:ipc:started', () => this.onIpcServerStarted()),
+			container.events.on('gk:cli:ipc:started', e => this.onIpcServerStarted(e.data)),
 			container.events.on('gk:cli:mcp:setup:completed', () => this.onMcpSetupCompleted()),
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 		);
@@ -65,7 +66,8 @@ export abstract class GkMcpProviderBase implements Disposable {
 		this.fireChange();
 	}
 
-	protected onIpcServerStarted(): void {
+	protected onIpcServerStarted(data: { discoveryFilePath: string | undefined }): void {
+		this._discoveryFilePath = data.discoveryFilePath;
 		this.clearIpcTimeout();
 		this.fireChange();
 	}

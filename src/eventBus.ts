@@ -88,7 +88,7 @@ type EventsMapping = {
 	/**
 	 * Event fired when the CLI integration IPC server is started
 	 */
-	'gk:cli:ipc:started': undefined;
+	'gk:cli:ipc:started': { discoveryFilePath: string | undefined };
 	/**
 	 * Event fired when MCP setup via CLI has completed successfully with extension-based registration
 	 */

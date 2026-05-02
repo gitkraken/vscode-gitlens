@@ -33,10 +33,9 @@ export class VSCodeGkMcpProvider extends GkMcpProviderBase implements McpServerD
 
 	@debug({ exit: true })
 	async provideMcpServerDefinitions(): Promise<McpServerDefinition[]> {
-		const { environmentVariableCollection: envVars } = this.container.context;
-		const discoveryFilePath = envVars.get('GK_GL_PATH')?.value;
+		const discoveryFilePath = this._discoveryFilePath;
 
-		// Gives time for the IPC server to start and set the environment variables
+		// Gives time for the IPC server to start and emit the discovery path
 		if (discoveryFilePath != null) {
 			this.clearIpcTimeout();
 		} else if (this._waitingForIPC) {
