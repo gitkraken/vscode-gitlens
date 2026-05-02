@@ -117,7 +117,7 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent): void {
-		if (e == null || configuration.changed(e, 'gitkraken.cli.integration.enabled')) {
+		if (e == null || configuration.changed(e, 'gitkraken.mcp.autoEnabled')) {
 			if (!this.supportsCliIntegration()) {
 				this.stop();
 			} else {
@@ -139,10 +139,7 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private supportsCliIntegration(): boolean {
-		return (
-			this.container.ai.enabled &&
-			(configuration.get('gitkraken.mcp.autoEnabled') || configuration.get('gitkraken.cli.integration.enabled'))
-		);
+		return this.container.ai.enabled && configuration.get('gitkraken.mcp.autoEnabled');
 	}
 
 	private async start() {

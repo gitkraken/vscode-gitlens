@@ -4219,16 +4219,6 @@
 						"scope": "window",
 						"order": 20
 					},
-					"gitlens.gitkraken.cli.integration.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable experimental integration with the GitKraken CLI",
-						"scope": "window",
-						"order": 30,
-						"tags": [
-							"experimental"
-						]
-					},
 					"gitlens.gitkraken.cli.localPath": {
 						"type": [
 							"string",
