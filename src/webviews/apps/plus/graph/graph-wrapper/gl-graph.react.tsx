@@ -718,6 +718,29 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 
 	const footer = renderFooter();
 
+	const handleJumpToPinnedBranch = useCallback(() => {
+		const pinnedRef = props.pinnedRef;
+		if (pinnedRef?.sha == null) return;
+
+		document.dispatchEvent(new CustomEvent('gl-jump-to-pinned-branch', { detail: { sha: pinnedRef.sha } }));
+	}, [props.pinnedRef]);
+
+	const headerZoneActions = useMemo((): Partial<Record<GraphZoneType, ReactNode>> | undefined => {
+		if (props.pinnedRef?.sha == null) return undefined;
+		return {
+			graph: (
+				<gl-button
+					className="jump-to-pinned-branch"
+					appearance="toolbar"
+					tooltip="Jump to pinned branch"
+					onClick={handleJumpToPinnedBranch}
+				>
+					<code-icon icon="pinned"></code-icon>
+				</gl-button>
+			),
+		};
+	}, [props.pinnedRef, handleJumpToPinnedBranch]);
+
 	const invalidateTarget = new EventTarget();
 	const rowAdornmentProvider: RowAdornmentProvider = {
 		invalidate: invalidateTarget,
@@ -854,6 +877,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			formatCommitMessage={formatCommitMessage}
 			cssVariables={props.theming?.cssVariables}
 			customFooterRow={footer}
+			headerZoneActions={headerZoneActions}
 			dimMergeCommits={config.dimMergeCommits}
 			onlyFirstParent={props.scope != null ? true : Boolean(config.onlyFollowFirstParent)}
 			downstreamsByUpstream={props.downstreams}

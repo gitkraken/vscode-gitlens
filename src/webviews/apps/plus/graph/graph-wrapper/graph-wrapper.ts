@@ -176,14 +176,21 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				}, 100),
 			),
 		);
+
+		document.addEventListener('gl-jump-to-pinned-branch', this.onJumpToPinnedBranch as EventListener);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 
+		document.removeEventListener('gl-jump-to-pinned-branch', this.onJumpToPinnedBranch as EventListener);
 		this.disposables.forEach(d => d.dispose());
 		this.disposables = [];
 	}
+
+	private onJumpToPinnedBranch = (e: CustomEvent<{ sha: string }>) => {
+		this.ensureAndSelectCommit(e.detail.sha);
+	};
 
 	// Cache keyed by the triplet (rows, wipMetadataBySha, workingTreeStats) — any reference change invalidates.
 	private _decoratedRowsCache?: {
