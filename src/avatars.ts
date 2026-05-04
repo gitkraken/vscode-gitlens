@@ -21,8 +21,6 @@ import { configuration } from './system/-webview/configuration.js';
 import { getContext } from './system/-webview/context.js';
 import type { ContactPresenceStatus } from './vsls/vsls.js';
 
-const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
-
 let avatarCache: Map<string, Avatar> | undefined;
 const avatarQueue = new Map<string, Promise<Uri>>();
 
@@ -271,7 +269,7 @@ async function getAvatarUriFromRemoteProvider(
 		if (account?.avatarUrl == null) {
 			// If we have no account assume that won't change (without a reset), so set the timestamp to "never expire"
 			avatar.uri = undefined;
-			avatar.timestamp = maxSmallIntegerV8;
+			avatar.timestamp = Infinity;
 			avatar.retries = 0;
 
 			return undefined;
