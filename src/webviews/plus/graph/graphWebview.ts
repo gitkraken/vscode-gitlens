@@ -1,8 +1,7 @@
 import type { emptySetMarker, GraphRefOptData, GraphSearchMode } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
-import { CancellationTokenSource, Disposable, env, ProgressLocation, Uri, ViewColumn, window, workspace } from 'vscode';
-import { createGraphComposeIntegration } from '@env/coretools/composer.js';
-import { getClaudeAgent } from '@env/providers.js';
+import { CancellationTokenSource, Disposable, env, ProgressLocation, Uri, ViewColumn, window } from 'vscode';
+import { isClaudeAvailable } from '@env/providers.js';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
@@ -24,7 +23,9 @@ import type {
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
+import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import type { BranchContributionsOverview } from '@gitlens/git/providers/branches.js';
 import {
 	getBranchId,
 	getBranchNameWithoutRemote,
@@ -40,7 +41,7 @@ import {
 	serializePullRequest,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
-import { createRevisionRange, isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
 import { filterMap } from '@gitlens/utils/array.js';
@@ -52,7 +53,6 @@ import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { annotateDiffWithNewLineNumbers } from '@gitlens/utils/diff.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { count, find, join, last } from '@gitlens/utils/iterable.js';
-import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
@@ -61,6 +61,7 @@ import {
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
@@ -75,7 +76,6 @@ import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.j
 import type { ExplainStashCommandArgs } from '../../../commands/explainStash.js';
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
-import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
@@ -148,11 +148,9 @@ import {
 } from '../../../git/utils/-webview/commit.utils.js';
 import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons.js';
-import { getChangesForChangelog } from '../../../git/utils/-webview/log.utils.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
 import {
-	getBestRemoteWithIntegration,
 	getRemoteIntegration,
 	getRemoteProviderUrl,
 	remoteSupportsIntegration,
@@ -163,15 +161,8 @@ import {
 	getWorktreesByBranch,
 } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
-import type { AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog.js';
 import { shouldUseSinglePass } from '../../../plus/ai/actions/reviewChanges.js';
 import { prepareCompareDataForAIRequest } from '../../../plus/ai/utils/-webview/ai.utils.js';
-import type { ChangesContextCommit, ChangesContextInput } from '../../../plus/ai/utils/-webview/changesContext.js';
-import {
-	formatChangesContextForPrompt,
-	gatherContextForChanges,
-} from '../../../plus/ai/utils/-webview/changesContext.js';
-import { showPatchesView } from '../../../plus/drafts/actions.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
@@ -182,7 +173,6 @@ import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
-import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker.js';
 import { fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import {
 	executeActionCommand,
@@ -226,19 +216,11 @@ import { getOverviewEnrichment, getOverviewWip, getOverviewWipBasic } from '../.
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
+import type { ComposerHunk } from '../composer/protocol.js';
 import type { ComposerCommandArgs } from '../composer/registration.js';
-import type { Change } from '../patchDetails/protocol.js';
 import * as branchRefCommands from '../shared/branchRefCommands.js';
-import type { ChoosePathParams, DidChoosePathParams } from '../timeline/protocol.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
-import { buildTimelineDataset } from '../timeline/timelineDataset.js';
-import type { GraphComposeIntegration } from './compose/integration.js';
-import {
-	checkForAbandonedComposeStashes,
-	executeComposeCommit,
-	isComposeCancelled,
-	libraryPlanToProposedCommits,
-} from './compose/utils.js';
+import { checkForAbandonedComposeStashes, executeComposeCommit } from './composeCommitService.js';
 import type {
 	CommitDetails,
 	CompareDiff,
@@ -260,8 +242,10 @@ import type {
 	BranchComparisonCommit,
 	BranchComparisonContributor,
 	BranchComparisonFile,
-	ComposeProgressUpdate,
+	ComposeRewriteKind,
 	GraphServices,
+	ProposedCommit,
+	ProposedCommitFile,
 	ScopeSelection,
 } from './graphService.js';
 import {
@@ -278,7 +262,6 @@ import type {
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	GetWipStatsResponse,
-	GraphAutoFetchMode,
 	GraphBranchContextValue,
 	GraphColumnConfig,
 	GraphColumnName,
@@ -296,7 +279,6 @@ import type {
 	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadataType,
 	GraphOverviewData,
-	GraphPinnedRef,
 	GraphRefMetadata,
 	GraphRefMetadataType,
 	GraphRefType,
@@ -332,7 +314,6 @@ import {
 	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
 	DidChangeOverviewWipNotification,
-	DidChangePinnedRefNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -383,7 +364,6 @@ import {
 	UpdateGraphConfigurationCommand,
 	UpdateGraphSearchModeCommand,
 	UpdateIncludedRefsCommand,
-	UpdatePinnedRefCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from './protocol.js';
@@ -434,13 +414,14 @@ const wipAuthorTemplate =
 
 type CancellableOperations =
 	| 'branchState'
-	| 'branchStateOnly'
 	| 'hover'
 	| 'computeIncludedRefs'
 	| 'search'
 	| 'state'
 	| 'wipStats'
 	| 'workingTree';
+
+const anchorRank: Record<ProposedCommitFile['anchor'], number> = { committed: 0, staged: 1, unstaged: 2 };
 
 const { command, getCommands } = createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'graph'>>();
 
@@ -460,12 +441,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// the previous path stranded. Notify for the previous path explicitly to drop them.
 		const previousPath = this._repository?.path;
 		this._repository = value;
-		// Clear the auto-fetch attempt floor so the new repo gets a fresh schedule rather than
-		// inheriting a recent attempt timestamp from the previous repo.
-		this._lastAutoFetchAttemptAt = undefined;
 		this.resetRepositoryState();
 		this.ensureRepositorySubscriptions(true);
-		void this.ensureAutoFetch();
 
 		if (previousPath != null && previousPath !== value?.path) {
 			void this.host.notify(DidInvalidateScopeAnchorsNotification, { repoPath: previousPath });
@@ -499,8 +476,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		readonly registration: Disposable;
 		sessionId?: string;
 	};
-	private _composeToolsForGraph?: GraphComposeIntegration;
-	private readonly _activeComposeCacheKeys = new Map<string, string>();
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _pendingWorktreeChanges?: Parameters<typeof getWorktreeHasWorkingChanges>[1][];
 	private _hoverCache = new Map<string, Promise<string>>();
@@ -508,7 +483,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** LRU-capped per-AI-request diff cache. Cap is small because only one review and one
 	 *  compose can be active at a time — the only legitimate concurrent keys are (review, compose,
 	 *  + a couple of variants from changing excludedFiles within a session). */
-	private readonly _graphDetailsDiffCache = new LruMap<string, { diff: string; message: string; context: string }>(
+	private readonly _graphDetailsDiffCache = new LruMap<string, { diff: string; message: string }>(
 		GraphWebviewProvider._diffCacheCap,
 	);
 
@@ -517,7 +492,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
 		[DidChangeNotification, this.notifyDidChangeState],
 		[DidChangeOverviewNotification, this.notifyDidChangeOverview],
-		[DidChangePinnedRefNotification, this.notifyDidChangePinnedRef],
 		[DidChangeRefsVisibilityNotification, this.notifyDidChangeRefsVisibility],
 		[DidChangeScrollMarkersNotification, this.notifyDidChangeScrollMarkers],
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
@@ -559,31 +533,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _lastStateSentAt: number | undefined;
 	/** Trailing flush scheduled when notify was skipped inside the freshness window. */
 	private _stateFreshnessRetryTimer: ReturnType<typeof setTimeout> | undefined;
-	/** Set when a notify request arrives while another is in-flight, so we re-notify on completion. */
-	private _stateNotifyDirty = false;
-	/** Most recent branchState we sent to the webview, so async PR resolution can merge into the freshest values. */
-	private _lastSentBranchState: BranchState | undefined;
 	private static readonly stateFreshnessMs = 500;
 
 	private isWindowFocused: boolean = true;
 
-	private _autoFetchTimer: ReturnType<typeof setTimeout> | undefined;
-	private _autoFetchInFlight: boolean = false;
-	// Wall-clock timestamp of the last auto-fetch attempt (success or failure). Used as a floor
-	// for the next-schedule calculation so a persistently failing fetch (no network, etc.) does
-	// not hot-loop: `lastFetched` only advances on success, so without this a failed attempt
-	// would compute elapsed ≥ interval again immediately.
-	private _lastAutoFetchAttemptAt: number | undefined;
-	// Safety floor for the auto-fetch interval (seconds) when GitLens drives the loop. The
-	// user-facing source is `git.autofetchPeriod`; we clamp here so that a pathological value
-	// (e.g. 1) can't turn into a fetch storm.
-	private static readonly autoFetchMinSeconds = 60;
-
 	private get graphRowProcessor(): GlGraphRowProcessor {
-		return (this._graphRowProcessor ??= new GlGraphRowProcessor(
-			this.container,
-			uri => this.host.asWebviewUri(uri),
-			() => this.getFiltersByRepo(this.repository?.path ?? this._graph?.repoPath)?.pinnedRef?.id,
+		return (this._graphRowProcessor ??= new GlGraphRowProcessor(this.container, uri =>
+			this.host.asWebviewUri(uri),
 		));
 	}
 
@@ -596,7 +552,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			workspace.onDidChangeConfiguration(this.onWorkspaceConfigurationChanged, this),
 			this.container.storage.onDidChange(this.onStorageChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
@@ -636,15 +591,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.container.agentStatus?.onDidChangeSerializedSessions(this.onAgentSessionsChanged, this) ?? {
 				dispose: () => {},
 			},
-			this.container.agentStatus?.onDidChangeHooksInstallState(
-				() => void this.notifyDidChangeCanInstallClaudeHook(),
-				this,
-			) ?? { dispose: () => {} },
 		);
 	}
 
 	dispose(): void {
-		this.clearAutoFetchTimer();
 		for (const t of this._wipWatchRemoveTimers.values()) {
 			clearTimeout(t);
 		}
@@ -655,6 +605,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._wipWatches.clear();
 		this._flushWipStaleDebounced?.cancel();
 		this._pendingStaleShas.clear();
+		this._wipStatusCache.clear();
 		if (this._composeVirtual != null) {
 			this._composeVirtual.provider.dispose();
 			this._composeVirtual.registration.dispose();
@@ -673,11 +624,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this._composeVirtual;
 	}
 
-	private getOrCreateComposeToolsForGraph(): GraphComposeIntegration | undefined {
-		this._composeToolsForGraph ??= createGraphComposeIntegration(this.container);
-		return this._composeToolsForGraph;
-	}
-
 	/** Per-secondary-WIP filesystem watchers, keyed by synthetic `worktree-wip::<path>` sha. */
 	private readonly _wipWatches = new Map<string, Disposable>();
 
@@ -688,14 +634,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private readonly _pendingStaleShas = new Set<string>();
 	private _flushWipStaleDebounced: Deferrable<() => void> | undefined;
 
+	/**
+	 * Per-secondary-worktree cache of `getStatus()` results, keyed by worktree path.
+	 * The graph component re-asks for WIP stats on every `DidChangeWipStaleNotification`, which can
+	 * fire repeatedly across many worktrees due to ambient FS noise. Caching with a short TTL
+	 * collapses redundant fans-out; the per-WT FS watcher invalidates entries on real changes.
+	 */
+	private readonly _wipStatusCache = new PromiseCache<string, GitStatus | undefined>({
+		createTTL: 1000 * 10, // 10 seconds
+	});
+
 	private readonly _sidebarInvalidatedEvent = createRpcEvent<undefined>('sidebarInvalidated', 'signal');
 	private readonly _sidebarWorktreeEvent = createRpcEvent<{
 		changes: Record<string, boolean | undefined>;
 	}>('sidebarWorktreeState', 'save-last');
-	private readonly _composeProgressEvent = createRpcEvent<ComposeProgressUpdate | undefined>(
-		'composeProgress',
-		'save-last',
-	);
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
 		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
@@ -1010,57 +962,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
 					}
 				},
-				generateChangelogCompare: async (
-					repoPath: string,
-					fromRef: string,
-					toRef: string,
-					signal?: AbortSignal,
-				): Promise<void> => {
-					// Call `generateChangelogAndOpenMarkdownDocument` directly rather than going
-					// through `executeCommand('gitlens.ai.generateChangelog', …)`. The command
-					// indirection breaks the await chain on the webview-side IPC — the proxy
-					// resolves before `execute()`'s inner awaits settle, clearing the webview's
-					// busy state in milliseconds even though the AI is still running. Calling the
-					// markdown-generator directly keeps the host method pinned through the full AI
-					// cycle, mirroring the `explainCompare` pattern below.
-					try {
-						signal?.throwIfAborted();
-						const svc = this.container.git.getRepositoryService(repoPath);
-						const baseRef = createReference(fromRef, repoPath, { refType: 'revision' });
-						const headRef = createReference(toRef, repoPath, { refType: 'revision' });
-						const mergeBase = await svc.refs.getMergeBase(headRef.ref, baseRef.ref);
-
-						await generateChangelogAndOpenMarkdownDocument(
-							this.container,
-							lazy(async () => {
-								const range: AIGenerateChangelogChanges['range'] = {
-									base: mergeBase
-										? {
-												ref: mergeBase,
-												label:
-													mergeBase === baseRef.ref
-														? `\`${shortenRevision(mergeBase)}\``
-														: `\`${baseRef.ref}@${shortenRevision(mergeBase)}\``,
-											}
-										: { ref: baseRef.ref, label: `\`${shortenRevision(baseRef.ref)}\`` },
-									head: {
-										ref: headRef.ref,
-										label: `\`${shortenRevision(headRef.ref)}\``,
-									},
-								};
-								const log = await svc.commits.getLog(
-									createRevisionRange(mergeBase ?? baseRef.ref, headRef.ref, '..'),
-								);
-								if (!log?.commits?.size) return { changes: [], range: range };
-								return getChangesForChangelog(this.container, range, log);
-							}),
-							{ source: 'graph', detail: 'compare' },
-							{ progress: { location: ProgressLocation.Notification } },
-						);
-					} catch (ex) {
-						Logger.error(ex, 'GraphWebviewProvider', 'generateChangelogCompare');
-					}
-				},
 				explainCompare: async (
 					repoPath: string,
 					fromSha: string,
@@ -1120,14 +1021,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							},
 						);
 
-						// Keep the webview's busy state pinned for the full generation cycle —
-						// `openExplainDocument` fire-and-forgets `promise` to stream content into the
-						// already-opened placeholder doc, so without this await the busy signal would
-						// clear as soon as the placeholder doc opens (not when the AI actually
-						// finishes). Errors are already surfaced into the doc by openExplainDocument's
-						// own .then handler, so we just swallow rejections here.
-						await promise.catch(() => undefined);
-
 						return { result: { summary: '', body: '' } };
 					} catch (ex) {
 						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
@@ -1155,11 +1048,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 							if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
 						}
-						this._graphDetailsDiffCache.set(diffCacheKey, {
-							diff: data.diff,
-							message: data.message,
-							context: data.context,
-						});
+						this._graphDetailsDiffCache.set(diffCacheKey, { diff: data.diff, message: data.message });
 
 						// Adaptive strategy: single-pass for small diffs, two-pass for large. The
 						// threshold is scoped to the selected model's input-context budget — a 1M-
@@ -1170,14 +1059,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						signal?.throwIfAborted();
 						if (shouldUseSinglePass(data.diff, aiModel)) {
 							const result = await this.container.ai.actions.reviewChanges(
-								{
-									diff: data.diff,
-									message: data.message,
-									context: data.context,
-									instructions: prompt || undefined,
-								},
+								{ diff: data.diff, message: data.message, instructions: prompt || undefined },
 								{ source: 'graph', context: { type: reviewType, mode: 'single-pass' } },
-								{ cancellation: cancellation },
+								{
+									cancellation: cancellation,
+									progress: {
+										location: ProgressLocation.Notification,
+										title: 'Reviewing changes...',
+									},
+								},
 							);
 
 							if (result === 'cancelled' || result == null) {
@@ -1205,14 +1095,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const fileManifest = JSON.stringify(parsedFiles);
 
 						const overviewResult = await this.container.ai.actions.reviewOverview(
-							{
-								files: fileManifest,
-								message: data.message,
-								context: data.context,
-								instructions: prompt || undefined,
-							},
+							{ files: fileManifest, message: data.message, instructions: prompt || undefined },
 							{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
-							{ cancellation: cancellation },
+							{
+								cancellation: cancellation,
+								progress: {
+									location: ProgressLocation.Notification,
+									title: 'Analyzing changes...',
+								},
+							},
 						);
 
 						if (overviewResult === 'cancelled' || overviewResult == null) {
@@ -1275,11 +1166,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								overview: overviewContext,
 								message: data.message,
 								focusArea: focusAreaFiles.join(', '),
-								context: data.context,
 								instructions: prompt || undefined,
 							},
 							focusAreaId,
 							{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
+							{
+								progress: {
+									location: ProgressLocation.Notification,
+									title: 'Reviewing focus area...',
+								},
+							},
 						);
 
 						if (result === 'cancelled' || result == null) {
@@ -1325,7 +1221,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return undefined;
 					}
 				},
-				composeChanges: async (repoPath, scope, instructions, excludedFiles, aiExcludedFiles, signal) => {
+				composeChanges: async (repoPath, scope, instructions, excludedFiles, signal) => {
 					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal);
 					try {
 						signal?.throwIfAborted();
@@ -1334,39 +1230,109 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							return { error: { message: 'Compose is only supported for working changes.' } };
 						}
 
-						const composeTools = this.getOrCreateComposeToolsForGraph();
-						if (composeTools == null) {
-							return { error: { message: 'Compose is not available in this environment.' } };
-						}
-
 						const svc = this.container.git.getRepositoryService(repoPath);
 
-						const priorKey = this._activeComposeCacheKeys.get(repoPath);
-						if (priorKey != null) {
-							composeTools.discardCachedPlan(priorKey);
-							this._activeComposeCacheKeys.delete(repoPath);
+						// Gather diffs — get staged and unstaged separately for hunk creation
+						const { createHunksFromDiffs } = await import(
+							/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'
+						);
+						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
+						const filterDiffIfNeeded = async (
+							contents: string | undefined,
+						): Promise<string | undefined> => {
+							if (!contents?.trim()) return contents;
+							if (!excluded?.size) return contents;
+							const { filterDiffFiles } = await import(
+								/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
+							);
+							return filterDiffFiles(contents, paths => paths.filter(p => !excluded.has(p)));
+						};
+
+						// Surface untracked files in the unstaged diff: bare `git diff` doesn't include
+						// them, so we mark them intent-to-add inside a *temporary* index (the real
+						// index is untouched) and run the diff against it. Mirrors the standalone
+						// Composer's `getComposerDiffs` flow. Skipped when `includeUnstaged` is false
+						// — untracked files are by definition unstaged, so they don't belong in a
+						// staged-only compose.
+						await using untrackedIndex =
+							scope.includeUnstaged && svc.staging != null && svc.status != null
+								? await (async () => {
+										const untracked = (await svc.status.getUntrackedFiles?.()) ?? [];
+										if (!untracked.length) return undefined;
+										const index = await svc.staging!.createTemporaryIndex('current');
+										await svc.staging!.stageFiles(
+											untracked.map(f => f.path),
+											{ intentToAdd: true, index: index },
+										);
+										return index;
+									})()
+								: undefined;
+
+						const [stagedDiffRaw, unstagedDiffRaw] = await Promise.all([
+							scope.includeStaged
+								? svc.diff?.getDiff?.(uncommittedStaged, undefined, { index: untrackedIndex })
+								: Promise.resolve(undefined),
+							scope.includeUnstaged
+								? svc.diff?.getDiff?.(uncommitted, undefined, { index: untrackedIndex })
+								: Promise.resolve(undefined),
+						]);
+						signal?.throwIfAborted();
+
+						const stagedContents = await filterDiffIfNeeded(stagedDiffRaw?.contents);
+						const unstagedContents = await filterDiffIfNeeded(unstagedDiffRaw?.contents);
+						signal?.throwIfAborted();
+
+						const hunks = createHunksFromDiffs(stagedContents, unstagedContents);
+
+						// If including unpushed commits, gather their diffs as hunks
+						for (const sha of scope.includeShas) {
+							const commitDiff = await svc.diff?.getDiff?.(sha);
+							signal?.throwIfAborted();
+							const filtered = await filterDiffIfNeeded(commitDiff?.contents);
+							signal?.throwIfAborted();
+
+							if (filtered?.trim()) {
+								const commitHunks = createHunksFromDiffs(filtered, undefined);
+								for (const h of commitHunks) {
+									h.index = hunks.length + 1;
+									h.source = 'commits';
+									hunks.push(h);
+								}
+							}
 						}
 
-						this._composeProgressEvent.fire({ phase: 'collecting', message: 'Preparing changes…' });
+						if (hunks.length === 0) {
+							return { error: { message: 'No changes found to compose.' } };
+						}
 
-						const planResult = await composeTools.generatePlanForGraphDetails({
-							svc: svc,
-							scope: scope,
-							customInstructions: instructions,
-							excludedFiles: excludedFiles,
-							aiExcludedFiles: aiExcludedFiles,
-							cancellation: cancellation,
-							telemetrySource: { source: 'graph' },
-							onProgress: event => {
-								this._composeProgressEvent.fire({ phase: event.phase, message: event.message });
+						const hunkMap = hunks.map(h => ({
+							index: h.index,
+							hunkHeader: h.hunkHeader,
+						}));
+
+						signal?.throwIfAborted();
+
+						const result = await this.container.ai.actions.generateCommits(
+							hunks,
+							[],
+							[],
+							hunkMap,
+							{ source: 'graph' },
+							{
+								cancellation: cancellation,
+								customInstructions: instructions,
 							},
-						});
+						);
+
+						if (result === 'cancelled' || result == null) {
+							return { error: { message: 'Composition was cancelled.' } };
+						}
+
+						// Build a path -> WIP file lookup so each proposed commit's files carry the
+						// real status/originalPath used for context menus and inline actions.
+						const wipStatus = await svc.status.getStatus(signal);
 						signal?.throwIfAborted();
 
-						this._activeComposeCacheKeys.set(repoPath, planResult.cacheKey);
-
-						const wipStatus = await svc.status.getStatus(undefined, signal);
-						signal?.throwIfAborted();
 						const wipByPath = new Map<string, { status: GitFileStatus; originalPath?: string }>();
 						if (wipStatus?.files) {
 							for (const f of wipStatus.files) {
@@ -1376,36 +1342,123 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							}
 						}
 
+						// Resolve HEAD up front so the per-file anchor logic can reference it.
 						const headCommit = await svc.commits.getCommit('HEAD');
 						signal?.throwIfAborted();
+						const headSha = headCommit?.sha;
 
-						const baseAnchorSha =
-							planResult.kind === 'wip-only' ? planResult.headSha : planResult.rewriteFromSha;
-						const baseAnchorCommit =
-							baseAnchorSha === planResult.headSha
-								? headCommit
-								: baseAnchorSha === rootSha
-									? undefined
-									: await svc.commits.getCommit(baseAnchorSha);
-						signal?.throwIfAborted();
-
+						// Build exact per-commit patches from the already-assembled hunks. Reuses the
+						// composer's `createCombinedDiffForCommit` so the same patch shape the
+						// composer preview renders is the one the rewriter applies.
 						const { createCombinedDiffForCommit } = await import(
 							/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'
 						);
-						const { commits, commitHunksByIndex } = libraryPlanToProposedCommits(
-							planResult,
-							repoPath,
-							wipByPath,
-							createCombinedDiffForCommit,
-						);
 
-						if (commits.length > 0) {
+						// Transform AI result to ProposedCommit format. Capture per-commit hunks on the
+						// side so the virtual content provider can synthesize per-commit file content
+						// without re-walking the AI output.
+						const commitHunksByIndex: ComposerHunk[][] = [];
+						const commits: ProposedCommit[] = result.commits.map((c, i): ProposedCommit => {
+							const commitHunks = c.hunks
+								.map(h => hunks.find(hk => hk.index === h.hunk))
+								.filter((h): h is NonNullable<typeof h> => h != null);
+							commitHunksByIndex[i] = commitHunks;
+
+							const filesByPath = new Map<string, ProposedCommitFile>();
+							for (const h of commitHunks) {
+								// Anchor each file to its topmost contributing layer: unstaged > staged > committed.
+								// File rows in the tree collapse hunks across layers, so the right-click and inline
+								// actions need to operate on the layer that's actually editable from this panel.
+								const hunkAnchor: ProposedCommitFile['anchor'] =
+									h.source === 'unstaged'
+										? 'unstaged'
+										: h.source === 'staged'
+											? 'staged'
+											: 'committed';
+
+								const existing = filesByPath.get(h.fileName);
+								const anchor =
+									existing == null || anchorRank[hunkAnchor] > anchorRank[existing.anchor]
+										? hunkAnchor
+										: existing.anchor;
+
+								const wip = wipByPath.get(h.fileName);
+								filesByPath.set(h.fileName, {
+									repoPath: repoPath,
+									path: h.fileName,
+									status: wip?.status ?? 'M',
+									originalPath: wip?.originalPath ?? h.originalFileName,
+									staged: anchor === 'staged',
+									anchor: anchor,
+									anchorSha: anchor === 'committed' ? headSha : undefined,
+								});
+							}
+							const files = [...filesByPath.values()];
+							const additions = commitHunks.reduce((sum, h) => sum + (h.additions ?? 0), 0);
+							const deletions = commitHunks.reduce((sum, h) => sum + (h.deletions ?? 0), 0);
+							const { patch } = createCombinedDiffForCommit(commitHunks);
+
+							return {
+								id: `compose-${String(i)}`,
+								message: c.message,
+								files: files,
+								additions: additions,
+								deletions: deletions,
+								patch: patch,
+							};
+						});
+
+						// Determine rewrite anchor from the selected scope.
+						const hasWip = scope.includeStaged || scope.includeUnstaged;
+						const hasCommits = scope.includeShas.length > 0;
+						const kind: ComposeRewriteKind = hasCommits
+							? hasWip
+								? 'wip+commits'
+								: 'commits-only'
+							: 'wip-only';
+
+						let rewriteFromSha = headSha ?? 'HEAD';
+						let selectedShas: string[] | undefined;
+						if (hasCommits) {
+							// Selected SHAs in child-first (topological) order as they appear in the branch.
+							// Walk HEAD back and keep only SHAs the user selected; the last kept is the oldest.
+							const selectedSet = new Set(scope.includeShas);
+							const ordered: string[] = [];
+							let cursor = headCommit;
+							while (cursor != null && ordered.length < selectedSet.size) {
+								if (selectedSet.has(cursor.sha)) {
+									ordered.push(cursor.sha);
+								}
+								const parent = cursor.parents[0];
+								if (parent == null) break;
+								cursor = await svc.commits.getCommit(parent);
+							}
+							selectedShas = ordered;
+							const oldest = ordered.at(-1);
+							if (oldest != null) {
+								const oldestCommit = await svc.commits.getCommit(oldest);
+								const parent = oldestCommit?.parents[0];
+								if (parent != null) {
+									rewriteFromSha = parent;
+								} else {
+									// Root commit — rewrite from the empty tree sentinel.
+									rewriteFromSha = rootSha;
+								}
+							}
+						}
+
+						// Start a virtual compose session so the compose panel can open per-proposed-commit
+						// diffs via the gitlens-virtual:// FS provider. Anchor the chain at rewriteFromSha
+						// (what the plan builds on top of), so LHS of compose commit 0's "compare previous"
+						// resolves against the rewriter's real anchor.
+						const virtualComposeBase = headSha != null ? rewriteFromSha : undefined;
+						if (virtualComposeBase != null && commits.length > 0) {
 							const { provider } = this.getOrCreateComposeVirtual();
 							const sessionId = provider.startSession(
 								{
 									repoPath: repoPath,
-									baseSha: planResult.rewriteFromSha,
-									baseLabel: shortenRevision(planResult.rewriteFromSha),
+									baseSha: virtualComposeBase,
+									baseLabel: shortenRevision(virtualComposeBase),
 									commits: commits.map((commit, i) => ({
 										id: commit.id,
 										message: commit.message,
@@ -1416,6 +1469,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							);
 							this._composeVirtual!.sessionId = sessionId;
 
+							// Stamp a virtual ref onto each proposed commit so the webview can pass it back
+							// through file-open events without knowing the namespace or sessionId itself.
 							for (const commit of commits) {
 								commit.virtualRef = {
 									namespace: GraphComposeVirtualNamespace,
@@ -1427,21 +1482,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 						return {
 							result: {
-								commits: commits.toReversed(),
+								commits: commits,
 								baseCommit: {
-									sha: baseAnchorSha,
-									message: baseAnchorCommit?.message?.split('\n')[0] ?? '',
-									author: baseAnchorCommit?.author?.name,
-									date: baseAnchorCommit?.author?.date?.toISOString(),
-									rewriteFromSha: planResult.rewriteFromSha,
-									kind: planResult.kind,
-									selectedShas: planResult.selectedShas,
+									sha: headCommit?.sha ?? 'HEAD',
+									message: headCommit?.message?.split('\n')[0] ?? '',
+									author: headCommit?.author?.name,
+									date: headCommit?.author?.date?.toISOString(),
+									rewriteFromSha: rewriteFromSha,
+									kind: kind,
+									selectedShas: selectedShas,
 								},
 							},
 						};
 					} catch (ex) {
-						if (isCancellationError(ex) || isComposeCancelled(ex)) {
-							return { cancelled: true };
+						if (isCancellationError(ex)) {
+							return { error: { message: 'Composition was cancelled.' } };
 						}
 						return {
 							error: {
@@ -1449,26 +1504,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							},
 						};
 					} finally {
-						this._composeProgressEvent.fire(undefined);
 						disposeCancellation();
 					}
 				},
-				onComposeProgress: this._composeProgressEvent.subscribe(buffer, tracker),
-				commitCompose: async (repoPath, plan) => {
-					const composeTools = this.getOrCreateComposeToolsForGraph();
-					if (composeTools == null) {
-						return { error: { message: 'Compose is not available in this environment.' } };
-					}
-					const cacheKey = this._activeComposeCacheKeys.get(repoPath);
-					if (cacheKey == null) {
-						return { error: { message: 'No active compose plan; please regenerate.' } };
-					}
-					try {
-						return await executeComposeCommit(this.container, repoPath, plan, composeTools, cacheKey);
-					} finally {
-						this._activeComposeCacheKeys.delete(repoPath);
-					}
-				},
+				commitCompose: async (repoPath, plan) => executeComposeCommit(this.container, repoPath, plan),
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
 					// Phase 1 — counts + the unified All Files diff. Smallest payload to land the user
 					// on a useful panel; per-side commits + their files are fetched on demand via
@@ -1660,49 +1699,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onSidebarInvalidated: this._sidebarInvalidatedEvent.subscribe(buffer, tracker),
 				onWorktreeStateChanged: this._sidebarWorktreeEvent.subscribe(buffer, tracker),
 			},
-			graphTimeline: {
-				getDataset: async (scope, config, signal) => {
-					const result = await buildTimelineDataset(this.container, scope, config, signal);
-					return {
-						dataset: result.dataset,
-						scope: result.scope,
-						repository: result.repository,
-						access: result.access,
-					};
-				},
-				getShasForPath: async (repoPath, path, signal) => {
-					const repo = this.container.git.getRepository(repoPath);
-					if (repo == null) return [];
-					const shas = await repo.git.commits.getLogShas?.(
-						undefined,
-						{ all: true, pathOrUri: path, limit: 0 },
-						signal,
-					);
-					if (signal?.aborted) return [];
-					return shas != null ? [...shas] : [];
-				},
-				choosePath: params => this.onTimelineChoosePath(params),
-			},
 		} satisfies GraphServices);
-	}
-
-	private async onTimelineChoosePath(params: ChoosePathParams): Promise<DidChoosePathParams> {
-		const { repoUri: repoPath, ref, title, initialPath } = params;
-		const repo = this.container.git.getRepository(repoPath);
-		if (repo == null) return { picked: undefined };
-
-		const picked = await showRevisionFilesPicker(this.container, createReference(ref?.ref ?? 'HEAD', repo.path), {
-			allowFolders: true,
-			initialPath: initialPath,
-			title: title,
-		});
-
-		return {
-			picked:
-				picked != null
-					? { type: picked.type, relativePath: this.container.git.getRelativePath(picked.uri, repo.uri) }
-					: undefined,
-		};
 	}
 
 	private async getCoreCommitDetails(commit: GitCommit): Promise<CommitDetails> {
@@ -1896,8 +1893,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._pendingStateOp = undefined;
 		});
 		this._pendingStateOp = op;
-		// Capture the branchState that ships with bootstrap so a delayed PR resolve merges into it.
-		void op.then(state => (this._lastSentBranchState = state.branchState)).catch(() => undefined);
 		return op;
 	}
 
@@ -1908,9 +1903,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			commands.push(
 				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
 				registerCommand(`${this.host.id}.openInNewWindow`, async () => {
-					this.host.sendTelemetryEvent('graph/command', {
-						command: `${this.host.id}.openInNewWindow`,
-					});
 					await executeCommand<WebviewPanelShowCommandArgs<GraphWebviewShowingArgs>>(
 						'gitlens.showGraphPage',
 						undefined,
@@ -1918,26 +1910,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					);
 					void executeCoreCommand('workbench.action.moveEditorToNewWindow');
 				}),
-				registerCommand(`${this.host.id}.openInTab`, () => {
-					this.host.sendTelemetryEvent('graph/command', {
-						command: `${this.host.id}.openInTab`,
-					});
-					void executeCommand<WebviewPanelShowCommandArgs<GraphWebviewShowingArgs>>(
-						'gitlens.showGraphPage',
-						undefined,
-						this.repository,
-					);
-				}),
-				// Opens the standalone Visual History editor at the current repo from the in-graph
-				// timeline mode's "Open in Editor" toolbox button. Plain `registerCommand` (not the
-				// webview-context-aware decorator path) because the button click has no row context
-				// to provide.
 				registerCommand(
-					`${this.host.id}.openTimelineInTab`,
+					`${this.host.id}.openInTab`,
 					() =>
-						void executeCommand<TimelineCommandArgs | undefined>(
-							'gitlens.visualizeHistory',
-							this.repository != null ? { type: 'repo', uri: this.repository.uri } : undefined,
+						void executeCommand<WebviewPanelShowCommandArgs<GraphWebviewShowingArgs>>(
+							'gitlens.showGraphPage',
+							undefined,
+							this.repository,
 						),
 				),
 			);
@@ -2007,7 +1986,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	onWindowFocusChanged(focused: boolean): void {
 		this.isWindowFocused = focused;
-		void this.ensureAutoFetch();
 	}
 
 	onVisibilityChanged(visible: boolean): void {
@@ -2019,11 +1997,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (this.host.ready) {
 				this.updateState(true);
 			}
-		} else if (visible) {
-			this.host.sendPendingIpcNotifications();
+			return;
 		}
 
-		void this.ensureAutoFetch();
+		if (visible) {
+			this.host.sendPendingIpcNotifications();
+		}
 	}
 
 	@ipcRequest(GetCountsRequest)
@@ -2089,6 +2068,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return getOverviewEnrichment(this.container, this._graph.branches.values(), params.branchIds, {
 			isPro: isPro,
 			resolveLaunchpad: true,
+			getBranchOverview: (branch, associatedPullRequest) => this.getBranchOverview(branch, associatedPullRequest),
 			// Merge-target is fetched lazily by the overview card on hover (and by the click-to-scope
 			// path in `graph-app`) via `BranchesService.getMergeTargetStatus`, so initial enrichment
 			// doesn't block on ~4 git/integration ops per branch. The resolved value is then merged
@@ -2128,8 +2108,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (!isSecondaryWipSha(sha)) return;
 				const path = getSecondaryWipPath(sha);
 
-				const svc = this.container.git.getRepositoryService(path);
-				const status = await svc.status.getStatus(undefined, signal);
+				const status = await this._wipStatusCache.getOrCreate(
+					path,
+					(_cacheable, factorySignal) =>
+						this.container.git.getRepositoryService(path).status.getStatus(factorySignal),
+					{ cancellation: signal },
+				);
 				if (cancellation.token.isCancellationRequested) return;
 
 				const diff = status?.diffStatus;
@@ -2180,7 +2164,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getSidebarBranches(graph: GitGraph) {
 		const providerByRemote = this.getProviderByRemote(graph);
-		const pinnedRefId = this.getFiltersByRepo(graph.repoPath)?.pinnedRef?.id;
 
 		const branchCfg = configuration.get('views.branches.branches');
 		const sorted = sortBranches(
@@ -2219,9 +2202,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						b.upstream != null && !b.upstream.missing ? '+tracking' : ''
 					}${hasWorktree ? '+worktree' : ''}${
 						b.current || isCheckedOut ? '+checkedout' : ''
-					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}${
-						pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''
-					}`,
+					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}`,
 					webviewItemValue: {
 						type: 'branch',
 						ref: createReference(b.name, graph.repoPath, {
@@ -2241,7 +2222,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getSidebarRemotes(graph: GitGraph) {
 		const sorted = sortRemotes([...graph.remotes.values()]);
 		const branchOrderBy = configuration.get('sortBranchesBy');
-		const pinnedRefId = this.getFiltersByRepo(graph.repoPath)?.pinnedRef?.id;
 		const branchesByRemote = new Map<string, GitBranch[]>();
 		for (const b of graph.branches.values()) {
 			if (!b.remote) continue;
@@ -2264,7 +2244,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					sha: b.sha,
 					context: {
 						webview: this.host.id,
-						webviewItem: `gitlens:branch+remote${pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''}`,
+						webviewItem: `gitlens:branch+remote`,
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(b.name, graph.repoPath, {
@@ -2554,9 +2534,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		for (key in params.changes) {
 			if (config[key] !== params.changes[key]) {
 				switch (key) {
-					case 'autoFetchEnabled':
-						void configuration.updateEffective('graph.autoFetch.enabled', params.changes[key]);
-						break;
 					case 'minimap':
 						void configuration.updateEffective('graph.minimap.enabled', params.changes[key]);
 						break;
@@ -2628,12 +2605,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		// The catch-all `graph` block below already pushes the new component config to the webview;
-		// here we only need to re-arm the auto-fetch loop when the toggle flips.
-		if (configuration.changed(e, 'graph.autoFetch.enabled')) {
-			void this.ensureAutoFetch();
-		}
-
 		if (configuration.changed(e, 'graph.commitOrdering')) {
 			this.updateState();
 
@@ -2674,13 +2645,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.updateState();
 			}
 		}
-	}
-
-	private onWorkspaceConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (!e.affectsConfiguration('git.autofetch') && !e.affectsConfiguration('git.autofetchPeriod')) return;
-
-		void this.notifyDidChangeConfiguration();
-		void this.ensureAutoFetch();
 	}
 
 	@trace({ args: false })
@@ -2744,7 +2708,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (e.changed('lastFetched')) {
 			void this.notifyDidFetch();
 			void this.ensureLastFetchedSubscription(true);
-			void this.ensureAutoFetch();
 		}
 
 		if (
@@ -2788,14 +2751,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// repo activity (e.g. worktrees discovered during graph scroll fire `unknown` repo events).
 		if (e.changed('heads', 'remotes', 'stash', 'tags')) {
 			this.notifySidebarInvalidated();
-		}
-
-		// Fast-path: push a header-only branchState refresh in parallel with the full state rebuild
-		// so push/pull/fetch numbers land in the header immediately on tracking-affecting events
-		// instead of waiting for the full graph rebuild to finish. The full state pass re-sends the
-		// same branchState alongside graph rows, so the worst case here is a redundant IPC.
-		if (e.changed('head', 'heads', 'remotes')) {
-			void this.notifyDidChangeBranchStateOnly();
 		}
 
 		// Unless we don't know what changed, update the state immediately
@@ -2874,11 +2829,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@ipcCommand(UpdateRefsVisibilityCommand)
 	private onRefsVisibilityChanged(params: IpcParams<typeof UpdateRefsVisibilityCommand>) {
 		this.updateExcludedRefs(this._graph?.repoPath, params.refs, params.visible);
-	}
-
-	@ipcCommand(UpdatePinnedRefCommand)
-	private onPinnedRefChanged(params: IpcParams<typeof UpdatePinnedRefCommand>) {
-		this.updatePinnedRef(this._graph?.repoPath, params.ref);
 	}
 
 	@ipcCommand(DoubleClickedCommand)
@@ -3438,7 +3388,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				sha,
 				Disposable.from(
 					repo.watchWorkingTree(500),
-					repo.onDidChangeWorkingTree(() => this.queueWipStale(sha)),
+					repo.onDidChangeWorkingTree(() => {
+						this._wipStatusCache.invalidate(path);
+						this.queueWipStale(sha);
+					}),
 				),
 			);
 		}
@@ -3472,32 +3425,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		await this.updateGraphWithMoreRows(this._graph, params.id, this._search, params.limit);
+		await this.updateGraphWithMoreRows(this._graph, params.id, this._search);
 		void this.notifyDidChangeRows(sendSelectedRows);
 	}
 
 	@ipcCommand(OpenPullRequestDetailsCommand)
 	@debug()
-	private async onOpenPullRequestDetails(params: IpcParams<typeof OpenPullRequestDetailsCommand>) {
+	private async onOpenPullRequestDetails(_params: IpcParams<typeof OpenPullRequestDetailsCommand>) {
+		// TODO: a hack for now, since we aren't using the params at all right now and always opening the current branch's PR
 		const repo = this.repository;
 		if (repo == null) return undefined;
 
-		// id+providerId path: resolve the PR by id via the matching integration so the chip's
-		// actual PR opens — regardless of which branch is currently checked out.
-		if (params.id && params.providerId) {
-			const remote = await getBestRemoteWithIntegration(repo.path, {
-				filter: r => r.provider.id === params.providerId,
-			});
-			if (remote != null) {
-				const integration = await getRemoteIntegration(remote);
-				const pr = await integration?.getPullRequest(remote.provider.repoDesc, params.id);
-				if (pr != null) {
-					return this.container.views.pullRequest.showPullRequest(pr, repo.path);
-				}
-			}
-		}
-
-		// Fallback: resolve via the repo's current branch (legacy callers without id/provider).
 		const branch = await repo.git.branches.getBranch();
 		if (branch == null) return undefined;
 
@@ -4112,7 +4050,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
+	/**
+	 * Session cache of `BranchContributionsOverview` per branch — the canonical "what's on this
+	 * branch" data: merge target name, merge base SHA, contributors, dates, and stats. Shared by
+	 * scope resolution (which needs `mergeBase`), enrichment (which needs contributors + stats),
+	 * and any future consumer that wants this data. The cache holds promises so concurrent callers
+	 * dedupe naturally; a graph refresh recreates the provider and clears it.
+	 *
+	 * Upstream is intentionally NOT part of the key — the scope window represents "commits ON this
+	 * branch", anchored at the branch's merge target (stored → PR base → detected base → default),
+	 * not at the remote tracking pair.
+	 */
+	private readonly _branchOverviewCache = new Map<string, Promise<BranchContributionsOverview | undefined>>();
+
+	private getBranchOverview(
+		branch: GitBranch,
+		associatedPullRequest?: Promise<PullRequest | undefined>,
+	): Promise<BranchContributionsOverview | undefined> {
+		const cacheKey = branch.id;
+		const cached = this._branchOverviewCache.get(cacheKey);
+		if (cached != null) return cached;
+
+		const pr = associatedPullRequest ?? getBranchAssociatedPullRequest(this.container, branch);
+		const promise = this.container.git
+			.getRepositoryService(branch.repoPath)
+			.branches.getBranchContributionsOverview(branch.ref, { associatedPullRequest: pr });
+		this._branchOverviewCache.set(cacheKey, promise);
+		return promise;
+	}
+
 	private invalidateScopeAnchors(): void {
+		this._branchOverviewCache.clear();
 		this._scopeAnchorCache.clear();
 
 		const repoPath = this.repository?.path ?? this._graph?.repoPath;
@@ -4294,81 +4262,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@trace()
 	private async notifyDidChangeBranchState(branchState: BranchState) {
-		// Skip the notify when nothing actually changed — the fast-path (notifyDidChangeBranchStateOnly)
-		// can fire on every tracking-affecting repo event, and a watcher burst will often produce identical
-		// payloads after coalescing.
-		if (this._lastSentBranchState != null && areEqual(branchState, this._lastSentBranchState)) {
-			return false;
-		}
-		this._lastSentBranchState = branchState;
 		return this.host.notify(DidChangeBranchStateNotification, {
 			branchState: branchState,
 		});
-	}
-
-	/**
-	 * Fast-path refresh of just the header's branchState (ahead/behind/upstream/provider/worktree).
-	 * Runs in parallel with the heavier full-state pipeline so push/pull/fetch land in the header
-	 * immediately on `head`/`heads`/`remotes` events instead of waiting on the full graph rebuild.
-	 *
-	 * Uses its own `branchStateOnly` cancellation key — sharing `branchState` with the full-state
-	 * pipeline would let `getState`'s start-of-call `cancelOperation('branchState')` abort our
-	 * getBranch mid-flight, which silently falls through to the `getCurrentBranch` fallback path
-	 * (hardcoded ahead/behind = 0) and poisons the cache with stale zeros.
-	 *
-	 * Preserves the last-known PR so the PR pill doesn't flicker; the full-state pass refreshes PR data.
-	 */
-	@trace()
-	private async notifyDidChangeBranchStateOnly(): Promise<void> {
-		if (this.repository == null || !this.host.ready || !this.host.visible) return;
-
-		const cancellation = this.createCancellation('branchStateOnly');
-		const signal = toAbortSignal(cancellation.token);
-
-		let branch: GitBranch | undefined;
-		try {
-			branch = await this.repository.git.branches.getBranch(undefined, signal);
-		} catch {
-			return;
-		}
-		if (cancellation.token.isCancellationRequested || branch == null) return;
-
-		const branchState: BranchState = { ...(branch.upstream?.state ?? { ahead: 0, behind: 0 }) };
-
-		let worktreesByBranch;
-		try {
-			worktreesByBranch = await getWorktreesByBranch(this.repository, undefined, signal);
-		} catch {
-			/* swallow — worktree flag is non-critical */
-		}
-		if (cancellation.token.isCancellationRequested) return;
-		branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;
-
-		if (branch.upstream != null) {
-			branchState.upstream = branch.upstream.name;
-			try {
-				const remote = await getBranchRemote(this.container, branch);
-				if (remote?.provider != null) {
-					branchState.provider = {
-						name: remote.provider.name,
-						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-						url: await getRemoteProviderUrl(remote.provider, { type: RemoteResourceType.Repo }),
-					};
-				}
-			} catch {
-				/* swallow — provider info is non-critical */
-			}
-
-			// Preserve previously-resolved PR so the pill doesn't flicker between full-state passes.
-			const existingPr = this._lastSentBranchState?.pr;
-			if (existingPr != null) {
-				branchState.pr = existingPr;
-			}
-		}
-
-		if (cancellation.token.isCancellationRequested) return;
-
-		void this.notifyDidChangeBranchState(branchState);
 	}
 
 	private _notifyDidChangeRefsMetadataDebounced:
@@ -4421,21 +4317,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.host.notify(DidChangeScrollMarkersNotification, {
 			context: this.getGraphSettingsIconContext(columnSettings),
 		});
-	}
-
-	@trace()
-	private async notifyDidChangePinnedRef(params?: IpcParams<typeof DidChangePinnedRefNotification>) {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangePinnedRefNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		if (params == null) {
-			const filters = this.getFiltersByRepo(this._graph?.repoPath);
-			params = { pinnedRef: this.getPinnedRef(filters, this._graph) };
-		}
-
-		return this.host.notify(DidChangePinnedRefNotification, params);
 	}
 
 	@trace()
@@ -4795,17 +4676,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.host.notify(DidChangeOrgSettings, { orgSettings: this.getOrgSettings() });
 	}
 
-	/** Last value sent to the webview — seeds bulk state pushes without awaiting `gk`, and
-	 *  doubles as a dedup sentinel for `notifyDidChangeCanInstallClaudeHook`. */
-	private _lastCanInstallClaudeHook: boolean | undefined;
-
 	@trace()
 	private async notifyDidChangeCanInstallClaudeHook() {
-		if (!this.host.visible) return;
-		const claude = getContext('gitlens:agents:enabled', false) ? await getClaudeAgent() : undefined;
-		const canInstall = claude?.detected === true && claude.hooksSupported && !claude.hooksInstalled;
-		if (canInstall === this._lastCanInstallClaudeHook) return;
-		this._lastCanInstallClaudeHook = canInstall;
+		const canInstall = getContext('gitlens:agents:enabled', false) && (await isClaudeAvailable());
 		void this.host.notify(DidChangeCanInstallClaudeHook, canInstall);
 	}
 
@@ -4816,12 +4689,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return false;
 		}
 
-		// Coalesce: if a notify is already in flight, mark dirty so a trailing run picks up any
-		// changes that landed mid-flight, then piggyback on the in-flight promise.
-		if (this._pendingStateNotify != null) {
-			this._stateNotifyDirty = true;
-			return this._pendingStateNotify;
-		}
+		// Coalesce: if a notify is already in flight, piggyback on it.
+		if (this._pendingStateNotify != null) return this._pendingStateNotify;
 
 		// If bootstrap (or another op) is building state right now, wait for it — afterwards the freshness
 		// check below will skip the redundant work. Handles repo-change events firing during bootstrap.
@@ -4849,9 +4718,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 		this._notifyDidChangeStateDebounced?.cancel();
 
-		// Reset before kicking off the in-flight build so calls that arrive during this run flip it back on.
-		this._stateNotifyDirty = false;
-
 		const promise = (async () => {
 			try {
 				const op = this.getState();
@@ -4866,22 +4732,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				const result = await this.host.notify(DidChangeNotification, { state: state });
 				this._lastStateSentAt = performance.now();
-				this._lastSentBranchState = state.branchState;
-
-				// Refresh canInstallClaudeHook asynchronously so the bulk push doesn't block on `gk`.
-				// Dedups internally — only fires `DidChangeCanInstallClaudeHook` when the value diverges.
-				void this.notifyDidChangeCanInstallClaudeHook();
 				return result;
 			} finally {
 				this._pendingStateNotify = undefined;
 				this._pendingStateOp = undefined;
-				// Trailing run: if a change arrived during the in-flight notify, kick off another pass so
-				// the late change isn't silently lost. Routes through the same freshness gate, so rapid-fire
-				// dirty marks still coalesce against the 500ms window.
-				if (this._stateNotifyDirty) {
-					this._stateNotifyDirty = false;
-					void this.notifyDidChangeState();
-				}
 			}
 		})();
 		this._pendingStateNotify = promise;
@@ -4957,105 +4811,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private async getRepositoriesState(): Promise<GraphRepository[]> {
 		return formatRepositories(this.container.git.openRepositories);
-	}
-
-	private getAutoFetchMode(): GraphAutoFetchMode {
-		// `git.autofetch` is `boolean | "all"` — "all" fetches from all configured remotes; both `true`
-		// and "all" mean VS Code Git is auto-fetching, so we yield to it.
-		const vscodeAutofetch = workspace.getConfiguration('git').get<boolean | 'all'>('autofetch');
-		if (vscodeAutofetch === true || vscodeAutofetch === 'all') return 'vscode';
-		if (configuration.get('graph.autoFetch.enabled')) return 'gitlens';
-		return 'off';
-	}
-
-	private getAutoFetchIntervalSeconds(): number {
-		return workspace.getConfiguration('git').get<number>('autofetchPeriod') ?? 180;
-	}
-
-	private clearAutoFetchTimer(): void {
-		if (this._autoFetchTimer != null) {
-			clearTimeout(this._autoFetchTimer);
-			this._autoFetchTimer = undefined;
-		}
-	}
-
-	private async ensureAutoFetch(): Promise<void> {
-		// Short-circuit cheaply before clearing the existing timer, so rapid signals (visibility +
-		// focus + repo change firing within a tick) don't repeatedly tear down and re-arm an
-		// already-correct schedule.
-		if (this.getAutoFetchMode() !== 'gitlens') {
-			this.clearAutoFetchTimer();
-			return;
-		}
-		const repo = this._repository;
-		if (repo == null || !this.host.visible || !this.isWindowFocused) {
-			this.clearAutoFetchTimer();
-			return;
-		}
-		if (this._autoFetchInFlight) return;
-
-		this.clearAutoFetchTimer();
-
-		// Clamp the scheduling cadence so a pathological `git.autofetchPeriod` (e.g. 1) can't turn
-		// into a fetch storm. The raw value is still surfaced to the webview for accurate hints —
-		// in `vscode` mode the popover shows VS Code Git's actual cadence, not our clamped one.
-		const intervalMs =
-			Math.max(GraphWebviewProvider.autoFetchMinSeconds, this.getAutoFetchIntervalSeconds()) * 1000;
-		const lastFetched = (await repo.getLastFetched()) ?? 0;
-
-		// Re-check after the async gap; state may have changed (hidden, repo swap, mode flip).
-		if (this.getAutoFetchMode() !== 'gitlens') return;
-		if (this._repository !== repo) return;
-		if (!this.host.visible || !this.isWindowFocused) return;
-		if (this._autoFetchInFlight) return;
-
-		const baseline = Math.max(lastFetched, this._lastAutoFetchAttemptAt ?? 0);
-		const elapsed = baseline > 0 ? Date.now() - baseline : intervalMs;
-		if (elapsed >= intervalMs) {
-			void this.triggerAutoFetch();
-			return;
-		}
-
-		// Clear once more in case a concurrent `ensureAutoFetch` armed a timer while we were awaiting
-		// `getLastFetched()` — without this, the reassignment below would orphan their setTimeout id.
-		this.clearAutoFetchTimer();
-		this._autoFetchTimer = setTimeout(() => {
-			this._autoFetchTimer = undefined;
-			void this.triggerAutoFetch();
-		}, intervalMs - elapsed);
-	}
-
-	@debug()
-	private async triggerAutoFetch(): Promise<void> {
-		if (this._autoFetchInFlight) return;
-		if (this.getAutoFetchMode() !== 'gitlens') return;
-		const repo = this._repository;
-		if (repo == null) return;
-		if (!this.host.visible || !this.isWindowFocused) return;
-
-		const intervalSeconds = this.getAutoFetchIntervalSeconds();
-		const lastFetched = (await repo.getLastFetched()) ?? 0;
-		const sinceLastFetchedMs = lastFetched > 0 ? Date.now() - lastFetched : 0;
-
-		this._autoFetchInFlight = true;
-		this._lastAutoFetchAttemptAt = Date.now();
-		try {
-			// Skip the interactive Fetch wizard (and its progress notification) — auto-fetch is silent
-			// by design; the live "Fetch (now)" label will reflect completion via the lastFetched event.
-			await repo.git.fetch({ progress: false });
-			this.host.sendTelemetryEvent('graph/autoFetch', {
-				intervalSeconds: intervalSeconds,
-				sinceLastFetchedMs: sinceLastFetchedMs,
-			});
-		} catch {
-			// Swallow — transient fetch failures shouldn't break the loop. `_lastAutoFetchAttemptAt`
-			// keeps `ensureAutoFetch` from immediately re-firing when `lastFetched` did not advance.
-		} finally {
-			this._autoFetchInFlight = false;
-			// Re-arm directly as a safety net; the natural `'lastFetched'` event will also trigger
-			// `ensureAutoFetch`, but on failure there's no `lastFetched` change.
-			void this.ensureAutoFetch();
-		}
 	}
 
 	private async ensureLastFetchedSubscription(force?: boolean) {
@@ -5184,25 +4939,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// return filteredHiddenRefsById;
 
 		return excludeRefs;
-	}
-
-	private getPinnedRef(
-		filters: StoredGraphFilters | undefined,
-		graph: GitGraph | undefined,
-	): GraphPinnedRef | undefined {
-		const stored = filters?.pinnedRef;
-		if (stored == null) return undefined;
-
-		const pinned: GraphPinnedRef = { ...stored };
-		if (graph != null) {
-			for (const branch of graph.branches.values()) {
-				if (branch.id === stored.id) {
-					pinned.sha = branch.sha;
-					break;
-				}
-			}
-		}
-		return pinned;
 	}
 
 	private async getIncludedRefs(
@@ -5406,8 +5142,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
 			aiEnabled: this.container.ai.enabled,
-			autoFetchIntervalSeconds: this.getAutoFetchIntervalSeconds(),
-			autoFetchMode: this.getAutoFetchMode(),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
@@ -5542,7 +5276,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getStagedFileCount(cancellation?: CancellationToken): Promise<number> {
 		if (this.repository == null) return 0;
 		const svc = this.container.git.getRepositoryService(this.repository.path);
-		const status = await svc.status.getStatus(undefined, toAbortSignal(cancellation));
+		const status = await svc.status.getStatus(toAbortSignal(cancellation));
 		if (status?.files == null) return 0;
 		const stagedPaths = new Set<string>();
 		for (const f of status.files) {
@@ -5575,7 +5309,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (cancellation?.isCancellationRequested) return undefined;
 
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-			hasWorkingChanges ? svc.status.getStatus(undefined, toAbortSignal(cancellation)) : undefined,
+			hasWorkingChanges ? svc.status.getStatus(toAbortSignal(cancellation)) : undefined,
 			svc.pausedOps?.getPausedOperationStatus?.(toAbortSignal(cancellation)),
 		]);
 
@@ -5703,7 +5437,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 
 					void this.notifyDidChangeRefsVisibility();
-					void this.notifyDidChangePinnedRef();
 					void this.notifyDidChangeRows(selectionChanged);
 					this.notifySidebarInvalidated();
 				} catch {}
@@ -5758,15 +5491,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				const maybePr = getSettledValue(prResult);
 				if (maybePr?.paused) {
-					const fallbackBranchState: BranchState = branchState;
+					const updatedBranchState = { ...branchState };
 					void maybePr.value.then(pr => {
 						if (branchStateCancellation?.token.isCancellationRequested) return;
 
 						if (pr != null) {
-							// Merge `pr` into the most recently sent branchState so we don't clobber
-							// fresher ahead/behind/upstream values shipped by a later state notify.
-							const base = this._lastSentBranchState ?? fallbackBranchState;
-							void this.notifyDidChangeBranchState({ ...base, pr: serializePullRequest(pr) });
+							updatedBranchState.pr = serializePullRequest(pr);
+							void this.notifyDidChangeBranchState(updatedBranchState);
 						}
 					});
 				} else {
@@ -5799,8 +5530,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch', true);
 		const featurePreview = this.getFeaturePreview();
 
-		const storedGraphState = this.container.storage.getWorkspace('graph:state');
-		const storedPanels = storedGraphState?.panels;
+		const storedPanels = this.container.storage.getWorkspace('graph:state')?.panels;
 
 		// Resolve working tree stats outside the state literal so we can update the dedup cache
 		// only when the underlying fetch produced real data. If it returned undefined (cancelled/
@@ -5857,7 +5587,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			excludeRefs: refsVisibility.excludeRefs,
 			excludeTypes: refsVisibility.excludeTypes,
 			includeOnlyRefs: refsVisibility.includeOnlyRefs,
-			pinnedRef: this.getPinnedRef(filters, data),
 			nonce: this.host.cspNonce,
 			workingTreeStats: resolvedWorkingTreeStats ?? { added: 0, deleted: 0, modified: 0 },
 			wipMetadataBySha: (this._lastSentWipMetadataBySha = getSettledValue(wipMetadataResult)),
@@ -5868,7 +5597,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			overview: this.getOverviewData(),
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			hooksBannerCollapsed: this.getHooksBannerCollapsed(),
-			canInstallClaudeHook: this._lastCanInstallClaudeHook ?? false,
+			canInstallClaudeHook: getContext('gitlens:agents:enabled', false) && (await isClaudeAvailable()),
 			searchRequest: searchRequest,
 			detailsVisible: storedPanels?.details?.visible ?? true,
 			detailsPosition: storedPanels?.details?.position,
@@ -5878,9 +5607,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			sidebarPosition: storedPanels?.sidebar?.position,
 			minimapVisible: storedPanels?.minimap?.visible ?? true,
 			minimapPosition: storedPanels?.minimap?.position,
-			timelinePeriod: storedGraphState?.timeline?.period,
-			timelineSliceBy: storedGraphState?.timeline?.sliceBy,
-			timelineShowAllBranches: storedGraphState?.timeline?.showAllBranches,
 		};
 		return result;
 	}
@@ -5920,20 +5646,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.updateFiltersByRepo(repoPath, { excludeRefs: storedExcludeRefs });
 		void this.notifyDidChangeRefsVisibility();
-	}
-
-	private updatePinnedRef(repoPath: string | undefined, ref: GraphPinnedRef | null) {
-		if (repoPath == null) return;
-
-		const storedPinnedRef =
-			ref != null
-				? { id: ref.id, type: ref.type as StoredGraphRefType, name: ref.name, owner: ref.owner }
-				: undefined;
-
-		void this.updateFiltersByRepo(repoPath, { pinnedRef: storedPinnedRef });
-		void this.notifyDidChangePinnedRef();
-		this.notifySidebarInvalidated();
-		this.updateState(true);
 	}
 
 	private updateFiltersByRepo(repoPath: string | undefined, updates: Partial<StoredGraphFilters>) {
@@ -6165,8 +5877,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._lastStateSentAt = undefined;
 		this._pendingStateNotify = undefined;
 		this._pendingStateOp = undefined;
-		this._stateNotifyDirty = false;
-		this._lastSentBranchState = undefined;
 		this._graphDetailsDiffCache.clear();
 		this.invalidateScopeAnchors();
 		if (this._stateFreshnessRetryTimer != null) {
@@ -6215,6 +5925,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.resetRefsMetadata();
 			this.resetSearchState();
 			this.cancelOperation('computeIncludedRefs');
+			this._wipStatusCache.clear();
 		} else {
 			void graph.rowsStatsDeferred?.promise.then(() => {
 				if (this._graph !== graph) return;
@@ -6232,12 +5943,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				search?: GitGraphSearch;
 		  }
 		| undefined;
-	private async updateGraphWithMoreRows(
-		graph: GitGraph,
-		id: string | undefined,
-		search?: GitGraphSearch,
-		limitOverride?: number,
-	) {
+	private async updateGraphWithMoreRows(graph: GitGraph, id: string | undefined, search?: GitGraphSearch) {
 		if (this._pendingRowsQuery != null) {
 			const { id: pendingId, search: pendingSearch } = this._pendingRowsQuery;
 			if (pendingSearch === search && (pendingId === id || (pendingId != null && id == null))) {
@@ -6255,13 +5961,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const cancellation = cancellable.token;
 
 		this._pendingRowsQuery = {
-			promise: this.updateGraphWithMoreRowsCore(graph, id, search, cancellation, limitOverride).catch(
-				(ex: unknown) => {
-					if (cancellation.isCancellationRequested) return;
+			promise: this.updateGraphWithMoreRowsCore(graph, id, search, cancellation).catch((ex: unknown) => {
+				if (cancellation.isCancellationRequested) return;
 
-					throw ex;
-				},
-			),
+				throw ex;
+			}),
 			cancellable: cancellable,
 			id: id,
 			search: search,
@@ -6287,11 +5991,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		id: string | undefined,
 		search?: GitGraphSearch,
 		cancellation?: CancellationToken,
-		limitOverride?: number,
 	) {
 		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
 
-		let limit = limitOverride ?? pageItemLimit ?? defaultItemLimit;
+		let limit = pageItemLimit ?? defaultItemLimit;
 		let targetId = id;
 
 		// Determine the last search result (for auto-loading more search results)
@@ -6777,38 +6480,32 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@command('gitlens.pausedOperation.abort:')
 	@debug()
-	private async abortPausedOperation(pausedOpArgs?: GitPausedOperationStatus) {
-		const repoPath = pausedOpArgs?.repoPath ?? this.repository?.path;
-		if (repoPath == null) return;
+	private async abortPausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
 
-		const svc = this.container.git.getRepositoryService(repoPath);
-		await abortPausedOperation(svc);
+		await abortPausedOperation(this.repository.git);
 	}
 
 	@command('gitlens.pausedOperation.continue:')
 	@debug()
-	private async continuePausedOperation(pausedOpArgs?: GitPausedOperationStatus) {
-		const repoPath = pausedOpArgs?.repoPath ?? this.repository?.path;
-		if (repoPath == null) return;
+	private async continuePausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
 
-		const svc = this.container.git.getRepositoryService(repoPath);
-		const type = pausedOpArgs?.type ?? (await svc.pausedOps?.getPausedOperationStatus?.())?.type;
-		if (type == null || type === 'revert') return;
+		const status = await this.repository.git.pausedOps?.getPausedOperationStatus?.();
+		if (status == null || status.type === 'revert') return;
 
-		await continuePausedOperation(svc);
+		await continuePausedOperation(this.repository.git);
 	}
 
 	@command('gitlens.pausedOperation.open:')
 	@debug()
-	private async openRebaseEditor(pausedOpArgs?: GitPausedOperationStatus) {
-		const repoPath = pausedOpArgs?.repoPath ?? this.repository?.path;
-		if (repoPath == null) return;
+	private async openRebaseEditor(_item?: GraphItemContext) {
+		if (this.repository == null) return;
 
-		const svc = this.container.git.getRepositoryService(repoPath);
-		const type = pausedOpArgs?.type ?? (await svc.pausedOps?.getPausedOperationStatus?.())?.type;
-		if (type !== 'rebase') return;
+		const status = await this.repository.git.pausedOps?.getPausedOperationStatus?.();
+		if (status?.type !== 'rebase') return;
 
-		const gitDir = await svc.config.getGitDir?.();
+		const gitDir = await this.repository.git.config.getGitDir?.();
 		if (gitDir == null) return;
 
 		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
@@ -6819,12 +6516,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@command('gitlens.pausedOperation.skip:')
 	@debug()
-	private async skipPausedOperation(pausedOpArgs?: GitPausedOperationStatus) {
-		const repoPath = pausedOpArgs?.repoPath ?? this.repository?.path;
-		if (repoPath == null) return;
+	private async skipPausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
 
-		const svc = this.container.git.getRepositoryService(repoPath);
-		await skipPausedOperation(svc);
+		await skipPausedOperation(this.repository.git);
 	}
 
 	@command('gitlens.pausedOperation.showConflicts:')
@@ -6934,48 +6629,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			title: title,
 			description: description,
 		});
-	}
-
-	@command('gitlens.shareWipAsCloudPatch:')
-	@debug()
-	private async shareWipAsCloudPatch(args?: { repoPath?: string }) {
-		const repo = args?.repoPath != null ? this.container.git.getRepository(args.repoPath) : this.repository;
-		if (repo == null) return;
-
-		const status = await repo.git.status.getStatus();
-		if (status == null) {
-			void window.showErrorMessage('Unable to create cloud patch');
-			return;
-		}
-
-		const files: GitFileChangeShape[] = [];
-		for (const file of status.files) {
-			const change = {
-				repoPath: file.repoPath,
-				path: file.path,
-				status: file.status,
-				originalPath: file.originalPath,
-				staged: file.staged,
-			};
-
-			files.push(change);
-			if (file.staged && file.wip) {
-				files.push({ ...change, staged: false });
-			}
-		}
-
-		const change: Change = {
-			type: 'wip',
-			repository: {
-				name: repo.name,
-				path: repo.path,
-				uri: repo.uri.toString(),
-			},
-			files: files,
-			revision: { to: uncommitted, from: 'HEAD' },
-		};
-
-		void showPatchesView({ mode: 'create', create: { changes: [change] } });
 	}
 
 	@command('gitlens.copyPatchToClipboard:')
@@ -7101,31 +6754,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@command('gitlens.graph.hideRefGroup')
 	private hideRefGroup(item?: GraphItemContext) {
 		return this.hideRef(item, { group: true });
-	}
-
-	@command('gitlens.graph.pinBranchToLeft')
-	@debug()
-	private pinBranchToLeft(item?: GraphItemContext) {
-		if (!isGraphItemRefContext(item)) return Promise.resolve();
-
-		const { ref } = item.webviewItemValue;
-		if (ref.refType !== 'branch' || ref.id == null) return Promise.resolve();
-
-		const remote = ref.remote;
-		this.updatePinnedRef(ref.repoPath ?? this._graph?.repoPath, {
-			id: ref.id,
-			name: remote ? getBranchNameWithoutRemote(ref.name) : ref.name,
-			owner: remote ? getRemoteNameFromBranchName(ref.name) : undefined,
-			type: remote ? 'remote' : 'head',
-		});
-		return Promise.resolve();
-	}
-
-	@command('gitlens.graph.unpinBranchFromLeft')
-	@debug()
-	private unpinBranchFromLeft(_item?: GraphItemContext) {
-		this.updatePinnedRef(this._graph?.repoPath, null);
-		return Promise.resolve();
 	}
 
 	@command('gitlens.graph.soloBranch')
@@ -7853,7 +7481,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		signal?.throwIfAborted();
 		if (branch == null || (leftRef !== 'HEAD' && leftRef !== branch.name && leftRef !== branch.ref)) return [];
 
-		const status = await svc.status.getStatus(undefined, signal);
+		const status = await svc.status.getStatus(signal);
 		signal?.throwIfAborted();
 
 		const files: BranchComparisonFile[] = [];
@@ -7887,7 +7515,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		repoPath: string,
 		scope: ScopeSelection,
 		signal?: AbortSignal,
-	): Promise<{ diff: string; message: string; context: string } | undefined> {
+	): Promise<{ diff: string; message: string } | undefined> {
 		const svc = this.container.git.getRepositoryService(repoPath);
 
 		if (scope.type === 'commit') {
@@ -7897,28 +7525,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			const commit = await svc.commits.getCommit(scope.sha);
 			signal?.throwIfAborted();
-
-			const context = await this.buildChangesContext(
-				repoPath,
-				{
-					commits: [{ sha: scope.sha, message: commit?.message ?? '' }],
-					changeKind: 'commit',
-				},
-				signal,
-			);
-
-			return {
-				diff: annotateDiffWithNewLineNumbers(diffResult.contents),
-				message: commit?.message ?? '',
-				context: context,
-			};
+			return { diff: annotateDiffWithNewLineNumbers(diffResult.contents), message: commit?.message ?? '' };
 		}
 
 		if (scope.type === 'compare') {
 			if (scope.includeShas?.length) {
 				const parts: string[] = [];
 				const messages: string[] = [];
-				const commits: ChangesContextCommit[] = [];
 				for (const sha of scope.includeShas) {
 					const diff = await svc.diff?.getDiff?.(sha);
 					signal?.throwIfAborted();
@@ -7929,21 +7542,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					signal?.throwIfAborted();
 					if (c) {
 						messages.push(`${shortenRevision(c.sha)}: ${c.message ?? ''}`);
-						commits.push({ sha: sha, message: c.message ?? '' });
 					}
 				}
 				if (!parts.length) return undefined;
-
-				const context = await this.buildChangesContext(
-					repoPath,
-					{ commits: commits, changeKind: 'commit-range' },
-					signal,
-				);
-
 				return {
 					diff: annotateDiffWithNewLineNumbers(parts.join('\n')),
 					message: `Selected commits between ${shortenRevision(scope.fromSha)} and ${shortenRevision(scope.toSha)}:\n\n${messages.join('\n')}`,
-					context: context,
 				};
 			}
 
@@ -7951,25 +7555,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			signal?.throwIfAborted();
 			if (!data) return undefined;
 
-			const log = await svc.commits.getLog?.(`${scope.fromSha}..${scope.toSha}`);
-			signal?.throwIfAborted();
-			const commits: ChangesContextCommit[] = [];
-			if (log?.commits) {
-				for (const c of log.commits.values()) {
-					commits.push({ sha: c.sha, message: c.message ?? c.summary ?? '' });
-				}
-			}
-
-			const context = await this.buildChangesContext(
-				repoPath,
-				{ commits: commits, changeKind: 'commit-range' },
-				signal,
-			);
-
 			return {
 				diff: annotateDiffWithNewLineNumbers(data.diff),
 				message: `Changes between ${shortenRevision(scope.fromSha)} and ${shortenRevision(scope.toSha)}:\n\n${data.logMessages}`,
-				context: context,
 			};
 		}
 
@@ -8016,33 +7604,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				message += `:\n\n${commitMessages.join('\n')}`;
 			}
 		}
-
-		const wipBranch = await svc.branches.getBranch();
-		signal?.throwIfAborted();
-		const context = await this.buildChangesContext(
-			repoPath,
-			{ branch: wipBranch ?? undefined, changeKind: 'wip' },
-			signal,
-		);
-
-		return {
-			diff: annotateDiffWithNewLineNumbers(parts.join('\n')),
-			message: message,
-			context: context,
-		};
-	}
-
-	private async buildChangesContext(
-		repoPath: string,
-		input: ChangesContextInput,
-		signal?: AbortSignal,
-	): Promise<string> {
-		try {
-			const payload = await gatherContextForChanges(this.container, repoPath, input, signal);
-			return formatChangesContextForPrompt(payload);
-		} catch {
-			return '';
-		}
+		return { diff: annotateDiffWithNewLineNumbers(parts.join('\n')), message: message };
 	}
 
 	@command('gitlens.ai.explainCommit:')
@@ -8482,6 +8044,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repoPath: worktree?.path ?? ref.repoPath,
 			source: 'graph',
 		});
+	}
+
+	@command('gitlens.visualizeHistory.repo:')
+	@debug()
+	private visualizeHistoryRepo() {
+		void executeCommand<TimelineCommandArgs | undefined>(
+			'gitlens.visualizeHistory',
+			this.repository != null ? { type: 'repo', uri: this.repository.uri } : undefined,
+		);
 	}
 
 	private getCommitFromGraphItemRef(item?: GraphItemContext): Promise<GitCommit | undefined> {
