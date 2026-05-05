@@ -799,8 +799,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		try {
 			// `services.branches` is a supertalk Remote — await once to resolve the proxy.
 			const branches = await services.branches;
-			const status = await branches.getMergeTargetStatus(branch.repoPath, branch.name);
-			this.graphState.mergeMergeTargetIntoEnrichment(branchId, status?.mergeTarget);
+			const enrichment = await branches.getBranchEnrichment(branch.repoPath, branch.name);
+			const mergeTarget = await enrichment?.mergeTargetStatus;
+			this.graphState.mergeMergeTargetIntoEnrichment(branchId, mergeTarget);
 		} catch {
 			// Swallow — the scope-anchor flow tolerates an absent tip SHA.
 		}
