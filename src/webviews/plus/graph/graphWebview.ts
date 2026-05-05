@@ -24,6 +24,7 @@ import type {
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
+import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import {
 	getBranchId,
@@ -61,6 +62,7 @@ import {
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
@@ -655,6 +657,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._wipWatches.clear();
 		this._flushWipStaleDebounced?.cancel();
 		this._pendingStaleShas.clear();
+		this._wipStatusCache.clear();
 		if (this._composeVirtual != null) {
 			this._composeVirtual.provider.dispose();
 			this._composeVirtual.registration.dispose();
@@ -687,6 +690,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Pending WIP stale shas waiting to be flushed as a single notification. */
 	private readonly _pendingStaleShas = new Set<string>();
 	private _flushWipStaleDebounced: Deferrable<() => void> | undefined;
+
+	/**
+	 * Per-secondary-worktree cache of `getStatus()` results, keyed by worktree path.
+	 * The graph component re-asks for WIP stats on every `DidChangeWipStaleNotification`, which can
+	 * fire repeatedly across many worktrees due to ambient FS noise. Caching with a short TTL
+	 * collapses redundant fans-out; the per-WT FS watcher invalidates entries on real changes.
+	 */
+	private readonly _wipStatusCache = new PromiseCache<string, GitStatus | undefined>({
+		createTTL: 1000 * 10, // 10 seconds
+	});
 
 	private readonly _sidebarInvalidatedEvent = createRpcEvent<undefined>('sidebarInvalidated', 'signal');
 	private readonly _sidebarWorktreeEvent = createRpcEvent<{
@@ -2128,8 +2141,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (!isSecondaryWipSha(sha)) return;
 				const path = getSecondaryWipPath(sha);
 
-				const svc = this.container.git.getRepositoryService(path);
-				const status = await svc.status.getStatus(undefined, signal);
+				const status = await this._wipStatusCache.getOrCreate(
+					path,
+					(_cacheable, factorySignal) =>
+						this.container.git.getRepositoryService(path).status.getStatus(undefined, factorySignal),
+					{ cancellation: signal },
+				);
 				if (cancellation.token.isCancellationRequested) return;
 
 				const diff = status?.diffStatus;
@@ -3438,7 +3455,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				sha,
 				Disposable.from(
 					repo.watchWorkingTree(500),
-					repo.onDidChangeWorkingTree(() => this.queueWipStale(sha)),
+					repo.onDidChangeWorkingTree(() => {
+						this._wipStatusCache.invalidate(path);
+						this.queueWipStale(sha);
+					}),
 				),
 			);
 		}
@@ -6215,6 +6235,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.resetRefsMetadata();
 			this.resetSearchState();
 			this.cancelOperation('computeIncludedRefs');
+			this._wipStatusCache.clear();
 		} else {
 			void graph.rowsStatsDeferred?.promise.then(() => {
 				if (this._graph !== graph) return;
