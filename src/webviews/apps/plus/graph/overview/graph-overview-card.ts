@@ -710,8 +710,8 @@ export class GlGraphOverviewCard extends LitElement {
 				// `services.branches` is a supertalk Remote — `await` once to resolve the proxy,
 				// then invoke the method. Same shape detailsResolver uses (`detailsResolver.ts:39`).
 				const branches = await services.branches;
-				const status = await branches.getMergeTargetStatus(repoPath, branchName);
-				return status?.mergeTarget;
+				const enrichment = await branches.getBranchEnrichment(repoPath, branchName);
+				return await enrichment?.mergeTargetStatus;
 			} catch {
 				return undefined;
 			}
