@@ -5,6 +5,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
+import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { Draft } from '../../../../plus/drafts/models/drafts.js';
@@ -67,6 +68,12 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 	@property({ type: Boolean, attribute: 'checkbox-mode' })
 	checkboxMode = false;
+
+	/** Opt-in for the bulk "Stage Current/Incoming for All Conflicts" toolbar buttons.
+	 * Set true only by hosts that wire the `resolve-all-current/incoming` events AND can
+	 * vouch that bulk resolve is supported (currently graph WIP + paused rebase). */
+	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
+	bulkConflictActions = false;
 
 	@state()
 	get inReview(): boolean {
@@ -455,6 +462,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				.collapsable=${this.filesCollapsable}
 				?show-file-icons=${this.fileIcons}
 				?checkable=${this.checkboxMode}
+				?bulk-conflict-actions=${this.bulkConflictActions}
 				.fileActions=${this._getFileActions}
 				.fileContext=${this._getFileContext}
 				.searchContext=${this.searchContext}
@@ -545,12 +553,15 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	}
 
 	override getFileActions(file: File, options?: Partial<TreeItemBase>): TreeItemAction[] {
-		// Conflicted files get rebase-editor-style "Open Current/Incoming Changes" — these
-		// replace the generic Open File button (the row click already opens the file).
+		// Conflicted files get rebase-editor-style "Open Current/Incoming Changes" + Stage —
+		// these replace the generic Open File button (the row click already opens the file).
+		// Stage routes through the existing `file-stage` event, which prompts when unresolved
+		// conflict markers remain.
 		if (isConflictStatus(file.status)) {
 			return [
 				{ icon: 'gl-diff-left', label: 'Open Current Changes', action: 'file-open-current' },
 				{ icon: 'gl-diff-right', label: 'Open Incoming Changes', action: 'file-open-incoming' },
+				{ icon: 'add', label: 'Stage', action: 'file-stage' },
 			];
 		}
 
@@ -573,8 +584,28 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	override getFileContext(file: File): string | undefined {
 		if (!this.wip?.repo?.path) return undefined;
 
+		// Two-char `XY` conflict statuses (UU/AA/UD/DU/AU/UA/DD) carry the side semantics
+		// the stage-current/incoming commands need; the generic single-char 'U' from
+		// `isConflictStatus` doesn't, so we treat it as a regular unstaged file and skip
+		// the conflict modifiers. Without this guard, the host's runStageConflictResolution
+		// would silently no-op on 'U' files clicked through the new context-menu items.
+		let webviewItem: string;
+		if (isConflictStatus(file.status) && file.status !== 'U') {
+			const conflictStatus = file.status;
+			const modifiers: string[] = ['+conflict'];
+			if (canStageCurrent(conflictStatus)) {
+				modifiers.push('+canStageCurrent');
+			}
+			if (canStageIncoming(conflictStatus)) {
+				modifiers.push('+canStageIncoming');
+			}
+			webviewItem = `gitlens:file${modifiers.join('')}`;
+		} else {
+			webviewItem = file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged';
+		}
+
 		const context: DetailsItemTypedContext = {
-			webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+			webviewItem: webviewItem,
 			webviewItemValue: {
 				type: 'file',
 				path: file.path,

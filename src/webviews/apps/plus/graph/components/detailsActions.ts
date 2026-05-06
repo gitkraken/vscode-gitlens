@@ -1831,6 +1831,11 @@ export class DetailsActions {
 		void this.services.repository.openConflictChanges(detail, side);
 	}
 
+	resolveAllConflicts(repoPath: string | undefined, resolution: 'current' | 'incoming'): void {
+		if (!repoPath) return;
+		void this.services.repository.resolveAllConflicts(repoPath, resolution);
+	}
+
 	unstageFile(detail: FileChangeListItemDetail): void {
 		this.optimisticallyUpdateFileStaged(detail.path, false);
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFile(detail));

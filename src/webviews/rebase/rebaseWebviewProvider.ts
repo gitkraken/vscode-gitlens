@@ -3,6 +3,7 @@ import { Uri, ViewColumn, window, workspace } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ProcessedRebaseTodo, RebaseTodoAction } from '@gitlens/git/models/rebase.js';
+import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
@@ -48,7 +49,6 @@ import type { ComposerWebviewShowingArgs } from '../plus/composer/registration.j
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
 import type { WebviewHost } from '../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs } from '../webviewsController.js';
-import { classifyConflictAction } from './conflictResolution.utils.js';
 import type {
 	Author,
 	Commit,

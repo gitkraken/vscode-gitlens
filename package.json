@@ -7868,6 +7868,16 @@
 				"icon": "$(split-horizontal)"
 			},
 			{
+				"command": "gitlens.graph.stageConflictCurrentChanges:graph",
+				"title": "Stage Current Changes",
+				"icon": "$(reply)"
+			},
+			{
+				"command": "gitlens.graph.stageConflictIncomingChanges:graph",
+				"title": "Stage Incoming Changes",
+				"icon": "$(forward)"
+			},
+			{
 				"command": "gitlens.graph.switchToCommit",
 				"title": "Switch to Commit...",
 				"icon": "$(gitlens-switch)",
@@ -13222,6 +13232,14 @@
 				{
 					"command": "gitlens.graph.split",
 					"when": "gitlens:enabled && config.gitlens.graph.allowMultiple"
+				},
+				{
+					"command": "gitlens.graph.stageConflictCurrentChanges:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.stageConflictIncomingChanges:graph",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.graph.switchToCommit",
@@ -26267,6 +26285,16 @@
 					"command": "gitlens.graph.addAuthor",
 					"when": "webviewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.graph.stageConflictCurrentChanges:graph",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)(?=.*?\\+canStageCurrent\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_conflict@1"
+				},
+				{
+					"command": "gitlens.graph.stageConflictIncomingChanges:graph",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)(?=.*?\\+canStageIncoming\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_conflict@2"
 				},
 				{
 					"command": "gitlens.views.applyChanges:commitDetails",

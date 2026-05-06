@@ -144,6 +144,7 @@ import {
 	getCommitEnrichedAutolinks,
 	isCommitSigned,
 } from '../../../git/utils/-webview/commit.utils.js';
+import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
@@ -209,7 +210,14 @@ import type { ComposerCommandArgs } from '../composer/registration.js';
 import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
 import { checkForAbandonedComposeStashes, executeComposeCommit } from './composeCommitService.js';
-import type { CommitDetails, CompareDiff, DetailsItemContext, GitBranchShape, Wip } from './detailsProtocol.js';
+import type {
+	CommitDetails,
+	CompareDiff,
+	DetailsItemContext,
+	DetailsItemTypedContext,
+	GitBranchShape,
+	Wip,
+} from './detailsProtocol.js';
 import { messageHeadlineSplitterToken } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
@@ -6352,6 +6360,38 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, {
 			openRebaseEditor: pausedOpArgs.type === 'rebase',
 		});
+	}
+
+	@command('gitlens.graph.stageConflictCurrentChanges:')
+	@debug()
+	private async stageConflictCurrentChanges(item?: DetailsItemTypedContext): Promise<void> {
+		await this.runStageConflictResolution(item, 'current');
+	}
+
+	@command('gitlens.graph.stageConflictIncomingChanges:')
+	@debug()
+	private async stageConflictIncomingChanges(item?: DetailsItemTypedContext): Promise<void> {
+		await this.runStageConflictResolution(item, 'incoming');
+	}
+
+	private async runStageConflictResolution(
+		item: DetailsItemTypedContext | undefined,
+		resolution: 'current' | 'incoming',
+	): Promise<void> {
+		const value = item?.webviewItemValue;
+		if (value?.type !== 'file' || !value.path || !value.repoPath) return;
+
+		const status = value.status;
+		// Conflict actions only apply to two-char `XY` conflict statuses (UU/AA/UD/DU/AU/UA/DD).
+		// The generic single-char 'U' from `isConflictStatus` doesn't carry the side semantics
+		// needed to take ours/theirs.
+		if (status == null || !isConflictStatus(status) || status === 'U') return;
+
+		await stageConflictResolution(
+			this.container,
+			{ path: value.path, repoPath: value.repoPath, status: status },
+			resolution,
+		);
 	}
 
 	@command('gitlens.graph.copyDeepLinkToBranch')

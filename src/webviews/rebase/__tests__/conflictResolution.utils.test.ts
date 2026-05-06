@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
-import type { ConflictResolutionAction } from '../conflictResolution.utils.js';
-import { classifyConflictAction } from '../conflictResolution.utils.js';
+import type { ConflictResolutionAction } from '@gitlens/git/utils/conflictResolution.utils.js';
+import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
 
 const cases: {
 	status: GitFileConflictStatus;

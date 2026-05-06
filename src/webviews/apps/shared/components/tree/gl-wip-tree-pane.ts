@@ -105,6 +105,14 @@ export class GlWipTreePane extends LitElement {
 	@property({ attribute: false })
 	multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
 
+	/** Opt-in for the bulk "Stage Current/Incoming for All Conflicts" toolbar buttons.
+	 * Off by default — only the graph WIP panel wires the resolve-all events and only enables
+	 * this when the paused operation is a rebase (the host bulk resolver bails otherwise),
+	 * so leaving it false keeps the buttons hidden in the inspect view and during merge/
+	 * cherry-pick/revert pauses where clicks would silently no-op. */
+	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
+	bulkConflictActions = false;
+
 	private _effectiveFiles: Files = [];
 	private _effectiveStates?: Map<
 		string,
@@ -223,6 +231,7 @@ export class GlWipTreePane extends LitElement {
 			@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
 		>
 			<span slot="subtitle" style="opacity: 1">${this.renderStats()}</span>
+			${this.renderConflictBulkActions(files)}
 			${files.length > 0
 				? html`<gl-button
 						slot="leading-actions"
@@ -237,6 +246,39 @@ export class GlWipTreePane extends LitElement {
 			<slot name="before-tree" slot="before-tree"></slot>
 		</gl-file-tree-pane>`;
 	}
+
+	private renderConflictBulkActions(files: Files) {
+		if (!this.bulkConflictActions || !files.some(f => isConflictStatus(f.status))) return nothing;
+
+		return html`<gl-button
+				slot="leading-actions"
+				appearance="toolbar"
+				density="compact"
+				tooltip="Stage Current for All Conflicts"
+				aria-label="Stage Current for All Conflicts"
+				@click=${this.onResolveAllCurrent}
+			>
+				<code-icon icon="gl-accept-all-left"></code-icon>
+			</gl-button>
+			<gl-button
+				slot="leading-actions"
+				appearance="toolbar"
+				density="compact"
+				tooltip="Stage Incoming for All Conflicts"
+				aria-label="Stage Incoming for All Conflicts"
+				@click=${this.onResolveAllIncoming}
+			>
+				<code-icon icon="gl-accept-all-right"></code-icon>
+			</gl-button>`;
+	}
+
+	private onResolveAllCurrent = () => {
+		this.dispatchEvent(new CustomEvent('resolve-all-current', { bubbles: true, composed: true }));
+	};
+
+	private onResolveAllIncoming = () => {
+		this.dispatchEvent(new CustomEvent('resolve-all-incoming', { bubbles: true, composed: true }));
+	};
 
 	private onStashSave() {
 		this.dispatchEvent(new CustomEvent('stash-save', { bubbles: true, composed: true }));

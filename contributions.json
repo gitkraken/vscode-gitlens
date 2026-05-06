@@ -3925,6 +3925,32 @@
 				]
 			}
 		},
+		"gitlens.graph.stageConflictCurrentChanges:graph": {
+			"label": "Stage Current Changes",
+			"icon": "$(reply)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)(?=.*?\\+canStageCurrent\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_conflict",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.stageConflictIncomingChanges:graph": {
+			"label": "Stage Incoming Changes",
+			"icon": "$(forward)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)(?=.*?\\+canStageIncoming\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_conflict",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.graph.switchToCommit": {
 			"label": "Switch to Commit...",
 			"icon": "$(gitlens-switch)",

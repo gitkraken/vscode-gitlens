@@ -217,6 +217,8 @@ export type ContributedCommands =
 	| 'gitlens.graph.soloTag'
 	| 'gitlens.graph.soloTag:views'
 	| 'gitlens.graph.split'
+	| 'gitlens.graph.stageConflictCurrentChanges:graph'
+	| 'gitlens.graph.stageConflictIncomingChanges:graph'
 	| 'gitlens.graph.switchToCommit'
 	| 'gitlens.graph.switchToEditorLayout'
 	| 'gitlens.graph.switchToPanelLayout'

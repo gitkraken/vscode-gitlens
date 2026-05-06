@@ -12,6 +12,7 @@ import { Disposable, Uri, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { repositoryChanges } from '@gitlens/git/models/repository.js';
 import type { CommitSignature } from '@gitlens/git/models/signature.js';
@@ -30,6 +31,10 @@ import * as BranchActions from '../../../git/actions/branch.js';
 import * as RepoActions from '../../../git/actions/repository.js';
 import { GitUri } from '../../../git/gitUri.js';
 import { getCommitSignature } from '../../../git/utils/-webview/commit.utils.js';
+import {
+	resolveAllConflicts as resolveAllConflictsHelper,
+	stageConflictResolution as stageConflictResolutionHelper,
+} from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
 import { executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { serialize } from '../../../system/serialize.js';
@@ -311,6 +316,26 @@ export class RepositoryService {
 			stage,
 		);
 		return choice === stage;
+	}
+
+	/**
+	 * Resolve a single conflicted file by taking either the current (HEAD/ours) or incoming
+	 * (theirs) side, then stage it. Operation-agnostic — works for any paused operation type
+	 * (rebase, merge, cherry-pick, revert).
+	 */
+	async stageConflictResolution(
+		file: GitFileChangeShape & { status: GitFileConflictStatus },
+		resolution: 'current' | 'incoming',
+	): Promise<void> {
+		await stageConflictResolutionHelper(this.container, file, resolution);
+	}
+
+	/**
+	 * Resolve every conflicted file at once by staging the requested side. Currently scoped to
+	 * paused rebases.
+	 */
+	async resolveAllConflicts(repoPath: string, resolution: 'current' | 'incoming'): Promise<void> {
+		await resolveAllConflictsHelper(this.container, repoPath, resolution);
 	}
 
 	/**
