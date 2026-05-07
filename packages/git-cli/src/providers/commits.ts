@@ -627,7 +627,19 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				// initiated read (commit details, hover, etc.). Override the inferred 'background'
 				// priority so it doesn't queue behind heavier graph/log work — without this, a click
 				// on a commit while the graph is still loading can wait seconds for files to appear.
-				...(isSingleCommit ? { priority: 'normal' as const } : undefined),
+				// Mirrors getCommitDates: 5min for full SHAs (immutable), 60s for non-SHA refs (HEAD,
+				// branch names) since gitResults is cleared on head/heads/remotes events anyway.
+				...(isSingleCommit
+					? {
+							priority: 'normal' as const,
+							caching: rev
+								? {
+										cache: this.cache.gitResults,
+										options: { accessTTL: isSha(rev) ? 5 * 60 * 1000 : 60 * 1000 },
+									}
+								: undefined,
+						}
+					: undefined),
 			};
 			let { commits, count } = await parseCommits(
 				parser,
@@ -1399,7 +1411,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				{
 					cwd: repoPath,
 					errors: 'ignore',
-					caching: { cache: this.cache.gitResults, options: { accessTTL: 60 * 1000 } },
+					caching: {
+						cache: this.cache.gitResults,
+						options: { accessTTL: isSha(sha) ? 5 * 60 * 1000 : 60 * 1000 },
+					},
 					configs: gitConfigsLog,
 				},
 				'log',
@@ -1426,7 +1441,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				{
 					cwd: repoPath,
 					errors: 'ignore',
-					caching: { cache: this.cache.gitResults, options: { accessTTL: 60 * 1000 } },
+					caching: {
+						cache: this.cache.gitResults,
+						options: { accessTTL: isSha(sha) ? 5 * 60 * 1000 : 60 * 1000 },
+					},
 				},
 				'cat-file',
 				'commit',
