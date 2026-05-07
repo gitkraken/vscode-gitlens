@@ -34,6 +34,7 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidRequestOpenCompareModeNotification,
+	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
 	GetAgentSessionsRequest,
@@ -692,6 +693,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					wipMetadataBySha: mergeWipMetadata(this._state.wipMetadataBySha, msg.params.wipMetadataBySha),
 				});
 				break;
+
+			case DidRequestWipRefetchNotification.is(msg): {
+				// Bump the working-tree-stats reference so the panel's willUpdate observer
+				// treats it as changed and force-runs `refetchWipQuiet(effectiveRepoPath)`.
+				// We don't have a direct path from stateProvider to actions, so we ride the
+				// existing wts-driven refresh hook. Stats values are unchanged — only the
+				// reference identity matters for the dedup at the panel side.
+				const stats = this._state.workingTreeStats;
+				if (stats != null) {
+					this.updateState({ workingTreeStats: { ...stats } });
+				}
+				break;
+			}
 
 			case DidChangeWipStaleNotification.is(msg): {
 				const current = this._state.wipMetadataBySha;

@@ -315,6 +315,7 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidRequestOpenCompareModeNotification,
+	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
 	DoubleClickedCommand,
@@ -6392,6 +6393,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			{ path: value.path, repoPath: value.repoPath, status: status },
 			resolution,
 		);
+
+		// Tell the panel to refetch — for non-active worktrees the active-repo working-tree
+		// watcher won't fire, so we'd otherwise leave the panel showing pre-mutation state.
+		void this.host.notify(DidRequestWipRefetchNotification, { repoPath: value.repoPath });
 	}
 
 	@command('gitlens.graph.copyDeepLinkToBranch')

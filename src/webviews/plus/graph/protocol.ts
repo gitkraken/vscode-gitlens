@@ -604,6 +604,18 @@ export interface DidChangeWipStaleParams {
 }
 export const DidChangeWipStaleNotification = new IpcNotification<DidChangeWipStaleParams>(scope, 'wip/stale/didChange');
 
+export interface DidRequestWipRefetchParams {
+	/** Repo path of the WIP that should be re-fetched. */
+	repoPath: string;
+}
+/** Host → panel: force the displayed WIP to re-fetch (used after host-side mutating actions whose
+ *  effects don't reach the panel via the active-repo working-tree watcher — e.g. context-menu
+ *  conflict-resolution commands on a non-active worktree's WIP row). */
+export const DidRequestWipRefetchNotification = new IpcNotification<DidRequestWipRefetchParams>(
+	scope,
+	'wip/refetch/request',
+);
+
 export interface GraphSidebarBranch {
 	name: string;
 	sha?: string;

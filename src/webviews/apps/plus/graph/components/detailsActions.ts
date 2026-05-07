@@ -1833,7 +1833,7 @@ export class DetailsActions {
 
 	resolveAllConflicts(repoPath: string | undefined, resolution: 'current' | 'incoming'): void {
 		if (!repoPath) return;
-		void this.services.repository.resolveAllConflicts(repoPath, resolution);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.resolveAllConflicts(repoPath, resolution));
 	}
 
 	unstageFile(detail: FileChangeListItemDetail): void {
