@@ -507,11 +507,28 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('gl-graph-change-visible-days', { detail: detail }));
 	}
 
-	private onScopeAnchorsUnreachable(_event: CustomEvent<Set<string>>) {
+	private onScopeAnchorsUnreachable(event: CustomEvent<Set<string>>) {
 		// The component flagged that one or more scope anchors can't reach a visible ancestor
 		// within the loaded graph rows (merge base not yet fetched). Ask the host for more rows
 		// so the synthetic edges can resolve.
 		if (this.graphState.loading || !this.graphState.paging?.hasMore) return;
+
+		// Forward an unreachable anchor SHA to the host so the provider's page-until-found path
+		// (graph.ts getCommitsForGraphCore stop logic) loads enough rows in one round trip,
+		// instead of one page per scope toggle. Also short-circuit if the flagged anchors are
+		// already in the loaded rows — guards against stale unreachable events fired during
+		// scope-swap re-renders.
+		const anchors = event.detail;
+		const rows = this.graphState.rows;
+		if (anchors?.size && rows?.length) {
+			const loaded = new Set(rows.map(r => r.sha));
+			const missing = [...anchors].find(sha => !loaded.has(sha));
+			if (missing == null) return;
+
+			this.graphState.loading = true;
+			this._ipc.sendCommand(GetMoreRowsCommand, { id: missing });
+			return;
+		}
 
 		this.graphState.loading = true;
 		this._ipc.sendCommand(GetMoreRowsCommand, { id: undefined });
