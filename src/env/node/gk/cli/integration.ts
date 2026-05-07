@@ -1,11 +1,7 @@
-import { mkdir, unlink, writeFile } from 'fs/promises';
-import { tmpdir } from 'os';
-import { dirname, join } from 'path';
-import { arch, ppid } from 'process';
+import { dirname } from 'path';
+import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
-import type { IpcServer } from '@gitlens/agents/ipcServer.js';
-import { createIpcServer } from '@gitlens/agents/ipcServer.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { formatLoggableScopeBlock, getScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -22,6 +18,7 @@ import { setContext } from '../../../../system/-webview/context.js';
 import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
 import { gate } from '../../../../system/decorators/gate.js';
+import { getCliPublishInfo } from '../../ipc/ipcService.js';
 import { getPlatform, isOffline, isWeb } from '../../platform.js';
 import { CliCommandHandlers } from './commands.js';
 import { showMcpAgentPicker } from './mcpAgentPicker.js';
@@ -70,7 +67,6 @@ export interface CliCommandRequest {
 	args?: string[];
 }
 export type CliCommandResponse = { stdout?: string; stderr?: string } | void;
-export type CliIpcServer = IpcServer<CliCommandRequest, CliCommandResponse>;
 
 const CLIProxyMCPInstallOutputs = {
 	checkingForUpdates: /checking for updates.../i,
@@ -83,7 +79,6 @@ const maxAutoInstallAttempts = 5;
 export class GkCliIntegrationProvider implements Disposable {
 	private readonly _disposable: Disposable;
 	private _runningDisposable: Disposable | undefined;
-	private _discoveryFilePath: string | undefined;
 	private _cliCoreVersion: string | undefined;
 
 	constructor(private readonly container: Container) {
@@ -142,62 +137,43 @@ export class GkCliIntegrationProvider implements Disposable {
 		return this.container.ai.enabled && configuration.get('gitkraken.mcp.autoEnabled');
 	}
 
+	@gate()
 	private async start() {
 		this.stop();
 
-		let server: CliIpcServer;
+		// Register CLI handlers on the shared IPC server.
+		const handlers = new CliCommandHandlers(this.container);
 
+		// Publish the CLI discovery file (writes the file at the cli dir).
 		try {
-			server = await createIpcServer<CliCommandRequest, CliCommandResponse>();
+			await this.container.ipc.publishCli(await getCliPublishInfo());
 		} catch (ex) {
-			Logger.error(ex, 'Failed to start CLI integration IPC server');
+			Logger.warn(`${formatLoggableScopeBlock('IPC')} Failed to publish CLI discovery: ${ex}`);
 			if (this.container.telemetry.enabled) {
-				this.container.telemetry.sendEvent('cli/ipc/failed', {
+				this.container.telemetry.sendEvent('cli/discoveryFile/failed', {
 					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
 				});
 			}
-			return;
 		}
 
-		server.registerHandler('ping', () =>
-			Promise.resolve({ stdout: JSON.stringify({ version: this.container.version }) }),
-		);
-
-		// Create discovery file for external terminal support
-		try {
-			const workspaceFolders = workspace.workspaceFolders;
-			if (workspaceFolders != null && workspaceFolders.length > 0) {
-				const workspacePaths = workspaceFolders.map(folder => folder.uri.fsPath);
-				this._discoveryFilePath = await createDiscoveryFile(server, workspacePaths);
-			}
-		} catch (error) {
-			// Discovery file creation failure should not prevent IPC server startup
-			Logger.warn(`${formatLoggableScopeBlock('IPC')} Failed to create discovery file: ${error}`);
-			if (this.container.telemetry.enabled) {
-				this.container.telemetry.sendEvent('cli/discoveryFile/failed', {
-					'error.message': error instanceof Error ? error.message : 'Unknown error',
-				});
-			}
+		// Fire `gk:cli:ipc:started` whenever the IPC server is up — even if the discovery
+		// file write failed — so MCP providers don't sit idle for the 30s ipcWaitTime.
+		if (this.container.ipc.address != null) {
+			this.container.events.fire('gk:cli:ipc:started', {
+				discoveryFilePath: this.container.ipc.cliDiscoveryFilePath,
+			});
 		}
 
-		this._runningDisposable = Disposable.from(new CliCommandHandlers(this.container, server), server);
-
-		// Notify that the IPC server is ready so MCP providers can refresh
-		this.container.events.fire('gk:cli:ipc:started', { discoveryFilePath: this._discoveryFilePath });
-		Logger.info(`${formatLoggableScopeBlock('IPC')} Server started on ${server.ipcAddress}`);
+		this._runningDisposable = Disposable.from(handlers, {
+			dispose: () => void this.container.ipc.unpublishCli(),
+		});
 	}
 
 	private stop() {
-		// Cleanup discovery file
-		if (this._discoveryFilePath) {
-			void cleanupDiscoveryFile(this._discoveryFilePath);
-			this._discoveryFilePath = undefined;
-		}
-
 		if (this._runningDisposable != null) {
 			this._runningDisposable.dispose();
 			this._runningDisposable = undefined;
-			Logger.info(`${formatLoggableScopeBlock('IPC')} Server stopped`);
+			Logger.info(`${formatLoggableScopeBlock('IPC')} CLI handlers stopped`);
 		}
 	}
 
@@ -1326,62 +1302,5 @@ class McpSetupError extends Error {
 		this.cliVersion = cliVersion;
 		this.telemetryMessage = telemetryMessage;
 		Error.captureStackTrace?.(this, new.target);
-	}
-}
-
-// Discovery file helper functions
-
-/**
- * Gets the discovery file path for a given workspace
- */
-function getDiscoveryFilePath(processId: number, port: number, discoveryDir?: string): string {
-	discoveryDir ??= join(tmpdir(), 'gitkraken', 'gitlens');
-	return join(discoveryDir, `gitlens-ipc-server-${processId}-${port}.json`);
-}
-
-/**
- * Creates a discovery file for the GitLens IPC server
- */
-async function createDiscoveryFile(
-	server: { ipcToken: string; ipcAddress: string; ipcPort: number },
-	workspacePaths: string[],
-): Promise<string> {
-	const discoveryDir = join(tmpdir(), 'gitkraken', 'gitlens');
-	const filePath = getDiscoveryFilePath(ppid, server.ipcPort, discoveryDir);
-
-	// Create directory if it doesn't exist
-	await mkdir(discoveryDir, { recursive: true });
-
-	// Get host app information
-	const ideName = await getHostAppName();
-	const ideDisplayName = env.appName;
-
-	// Prepare discovery file content
-	const discoveryData = {
-		token: server.ipcToken,
-		address: server.ipcAddress,
-		port: server.ipcPort,
-		workspacePaths: workspacePaths,
-		ideName: ideName,
-		ideDisplayName: ideDisplayName,
-		scheme: env.uriScheme,
-		pid: ppid,
-		createdAt: new Date().toISOString(),
-	};
-
-	// Write file with restricted permissions (owner read/write only)
-	await writeFile(filePath, JSON.stringify(discoveryData, null, 2), { mode: 0o600 });
-
-	return filePath;
-}
-
-/**
- * Cleans up the discovery file
- */
-async function cleanupDiscoveryFile(filePath: string): Promise<void> {
-	try {
-		await unlink(filePath);
-	} catch (ex) {
-		Logger.warn(`${formatLoggableScopeBlock('IPC')} Failed to delete discovery file: ${ex}`);
 	}
 }

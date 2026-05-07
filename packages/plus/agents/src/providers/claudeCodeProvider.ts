@@ -1,12 +1,12 @@
 import { readdir, readFile } from 'fs/promises';
 import { join, sep } from 'path';
+import { agentDiscoveryDir } from '@gitlens/ipc/discovery.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { disposableInterval } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { truncate } from '@gitlens/utils/string.js';
-import { agentDiscoveryDir, AgentIpcServer } from '../agentIpcServer.js';
 import { deriveStatusFromEvent, describeToolInput, isProcessAlive, rehydrateSubagents } from '../stateMachine.js';
 import type {
 	AgentProviderCallbacks,
@@ -119,7 +119,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
 	private _sessions: AgentSession[] = [];
-	private _ipcServer: AgentIpcServer | undefined;
+	private _ipcStarted = false;
 	private _handlerDisposables: UnifiedDisposable[] = [];
 	private readonly _pendingPermissions = new Map<string, PendingPermissionEntry>();
 	private readonly _sessionBookkeeping = new Map<string, SessionBookkeeping>();
@@ -134,7 +134,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	start(workspacePaths: string[]): void {
 		this._workspacePaths = workspacePaths;
-		void this.ensureIpcServer(workspacePaths);
+		void this.ensureIpcServer();
 	}
 
 	stop(): void {
@@ -160,13 +160,17 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			this._onDidChangeSessions.fire();
 		}
 
-		if (this._ipcServer == null) {
-			// Server wasn't started yet — bootstrap. The `.then` re-issues the
-			// path update after the (gated) `ensureIpcServer` completes, in
-			// case it deduped with an in-flight `start()` that used stale paths.
-			void this.ensureIpcServer(workspacePaths).then(() => this._ipcServer?.updateWorkspacePaths(workspacePaths));
+		if (!this._ipcStarted) {
+			// IPC wasn't bootstrapped yet — start it. ensureIpcServer publishes with the
+			// current `_workspacePaths`.
+			void this.ensureIpcServer();
 		} else {
-			void this._ipcServer.updateWorkspacePaths(workspacePaths);
+			// Re-publish so the agents discovery file reflects the new workspacePaths.
+			this.callbacks.ipc
+				.publishAgents(this._workspacePaths)
+				.catch((ex: unknown) =>
+					Logger.error(ex, 'ClaudeCodeProvider.updateWorkspacePaths: publishAgents failed'),
+				);
 		}
 	}
 
@@ -183,8 +187,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 		this._pendingPermissions.clear();
 		this._sessionBookkeeping.clear();
-		this._ipcServer?.dispose();
-		this._ipcServer = undefined;
+		if (this._ipcStarted) {
+			void this.callbacks.ipc.unpublishAgents();
+			this._ipcStarted = false;
+		}
 		this._onDidChangeSessions.dispose();
 	}
 
@@ -193,40 +199,58 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	@gate<typeof ClaudeCodeProvider.prototype.ensureIpcServer>()
-	private async ensureIpcServer(workspacePaths: string[]): Promise<void> {
-		if (this._ipcServer != null) return;
+	private async ensureIpcServer(): Promise<void> {
+		if (this._ipcStarted) return;
+
+		// Register handlers before any async work so blocking permission requests aren't delayed.
+		const handlers: UnifiedDisposable[] = [
+			this.callbacks.ipc.registerHandler('agents/session', (request, searchParams) => {
+				if (request != null) {
+					const isBlocking = searchParams.get('blocking') === 'true';
+					return this.handleSessionEvent(request as AgentSessionEvent, isBlocking);
+				}
+				return Promise.resolve();
+			}),
+			this.callbacks.ipc.registerHandler('agents/sessions/list', () =>
+				Promise.resolve(
+					this._sessions.map(s => ({
+						...s,
+						lastActivity: s.lastActivity.toISOString(),
+						phaseSince: s.phaseSince.toISOString(),
+						subagents: s.subagents?.map(sub => ({
+							...sub,
+							lastActivity: sub.lastActivity.toISOString(),
+							phaseSince: sub.phaseSince.toISOString(),
+						})),
+					})),
+				),
+			),
+		];
 
 		try {
-			const server = new AgentIpcServer();
-			await server.start({ workspacePaths: workspacePaths });
+			await this.callbacks.ipc.publishAgents(this._workspacePaths);
+		} catch (ex) {
+			// Unwind so a retry can re-register without hitting "already registered".
+			for (const d of handlers) {
+				d.dispose();
+			}
+			Logger.error(ex, 'ClaudeCodeProvider.ensureIpcServer');
+			return;
+		}
 
-			// Register handlers before any async work so blocking permission requests aren't delayed.
-			this._handlerDisposables = [
-				server.registerHandler('agents/session', (request, searchParams) => {
-					if (request != null) {
-						const isBlocking = searchParams.get('blocking') === 'true';
-						return this.handleSessionEvent(request as AgentSessionEvent, isBlocking);
-					}
-					return Promise.resolve();
-				}),
-				server.registerHandler('agents/sessions/list', () =>
-					Promise.resolve(
-						this._sessions.map(s => ({
-							...s,
-							lastActivity: s.lastActivity.toISOString(),
-							phaseSince: s.phaseSince.toISOString(),
-							subagents: s.subagents?.map(sub => ({
-								...sub,
-								lastActivity: sub.lastActivity.toISOString(),
-								phaseSince: sub.phaseSince.toISOString(),
-							})),
-						})),
-					),
-				),
-			].filter((d): d is UnifiedDisposable => d != null);
+		// `publishAgents` no-ops silently if the IPC server failed to start; don't seal
+		// retries in that case — the next call should re-attempt.
+		if (this.callbacks.ipc.port == null) {
+			for (const d of handlers) {
+				d.dispose();
+			}
+			return;
+		}
 
-			this._ipcServer = server;
+		this._handlerDisposables = handlers;
+		this._ipcStarted = true;
 
+		try {
 			await this.syncSessions();
 			void this.querySiblingWindowSessions();
 
@@ -893,7 +917,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			return;
 		}
 
-		const ownPort = this._ipcServer?.port;
+		const ownPort = this.callbacks.ipc.port;
 
 		const peerBatches = await Promise.all(
 			files

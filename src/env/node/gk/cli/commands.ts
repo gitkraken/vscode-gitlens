@@ -6,6 +6,7 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { CompareWithCommandArgs } from '../../../../commands/compareWith.js';
 import type { Container } from '../../../../container.js';
@@ -20,12 +21,13 @@ import { executeCommand } from '../../../../system/-webview/command.js';
 import { createCommandDecorator } from '../../../../system/decorators/command.js';
 import type { ComposerWebviewShowingArgs } from '../../../../webviews/plus/composer/registration.js';
 import type { WebviewPanelShowCommandArgs } from '../../../../webviews/webviewsController.js';
-import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './integration.js';
+import type { CliCommandRequest, CliCommandResponse } from './integration.js';
 
 type CliCommand =
 	| 'cherry-pick'
 	| 'compare'
 	| 'graph'
+	| 'ping'
 	| 'rebase'
 	| 'mcp/launchpad/item'
 	| 'mcp/launchpad/list'
@@ -41,20 +43,34 @@ type CliCommandHandler = (
 const { command, getCommands } = createCommandDecorator<CliCommand, CliCommandHandler>();
 
 export class CliCommandHandlers implements Disposable {
-	constructor(
-		private readonly container: Container,
-		private readonly server: CliIpcServer,
-	) {
+	private readonly _registrations: UnifiedDisposable[] = [];
+
+	constructor(private readonly container: Container) {
 		for (const { command, handler } of getCommands()) {
-			this.server.registerHandler(command, rq => this.wrapHandler(command, rq, handler));
+			this._registrations.push(
+				this.container.ipc.registerHandler<CliCommandRequest, CliCommandResponse>(command, rq =>
+					this.wrapHandler(command, rq, handler),
+				),
+			);
 		}
 	}
 
-	dispose(): void {}
+	dispose(): void {
+		for (const d of this._registrations) {
+			d.dispose();
+		}
+		this._registrations.length = 0;
+	}
+
+	@command('ping')
+	async handlePingCommand(): Promise<CliCommandResponse> {
+		return { stdout: JSON.stringify({ version: this.container.version }) };
+	}
 
 	private wrapHandler(command: CliCommand, request: CliCommandRequest | undefined, handler: CliCommandHandler) {
 		let repo: GlRepository | undefined;
-		if (request?.cwd) {
+		// `ping` is a liveness check; skip repo lookup so it stays cheap.
+		if (request?.cwd && command !== 'ping') {
 			repo = this.container.git.getRepository(request.cwd);
 		}
 

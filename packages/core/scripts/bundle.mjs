@@ -25,6 +25,7 @@ const repoRoot = dirname(dirname(coreRoot));
 // @gitlens/<name> source location -> destination subpath inside core
 const packages = [
 	{ name: '@gitlens/utils', srcDir: 'packages/utils', dest: 'utils' },
+	{ name: '@gitlens/ipc', srcDir: 'packages/ipc', dest: 'ipc' },
 	{ name: '@gitlens/git', srcDir: 'packages/git', dest: 'git' },
 	{ name: '@gitlens/git-cli', srcDir: 'packages/git-cli', dest: 'git-cli' },
 	{ name: '@gitlens/ai', srcDir: 'packages/plus/ai', dest: 'plus/ai' },
@@ -121,11 +122,11 @@ async function* walk(dir) {
 	}
 }
 
-const specifierRegex = /(['"])@gitlens\/(utils|git|git-cli|ai|git-github)\/([^'"]+)\1/g;
+const specifierRegex = /(['"])@gitlens\/(utils|ipc|git|git-cli|ai|git-github)\/([^'"]+)\1/g;
 // Also rewrite backtick-wrapped package mentions (typical in JSDoc) so the published tarball never
 // references the internal `@gitlens/*` names. Backticks are required to avoid false positives on
 // URLs or other incidental occurrences of the substring.
-const docMentionRegex = /`@gitlens\/(utils|git|git-cli|ai|git-github)`/g;
+const docMentionRegex = /`@gitlens\/(utils|ipc|git|git-cli|ai|git-github)`/g;
 const publishedName = '@gitkraken/core-gitlens';
 
 async function rewriteSpecifiers() {

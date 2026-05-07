@@ -118,6 +118,7 @@ export async function getMcpProviders(container: Container): Promise<Disposable[
 export function getAgentSessionProviders(container: Container): AgentSessionProvider[] {
 	return [
 		new ClaudeCodeProvider({
+			ipc: container.ipc,
 			onSessionStarted: provider =>
 				container.telemetry.sendEvent('agents/session/started', { 'agent.provider': provider }),
 			onSessionEnded: provider =>

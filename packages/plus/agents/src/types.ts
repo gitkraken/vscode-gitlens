@@ -1,3 +1,4 @@
+import type { IpcHandler } from '@gitlens/ipc/ipcServer.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 
@@ -117,7 +118,29 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	): void;
 }
 
+/**
+ * Host-supplied IPC service. The agents package registers handlers and publishes
+ * the agents discovery file via this interface so it doesn't depend on the host's
+ * IPC service directly.
+ *
+ * The agents package is the source of truth for the workspacePaths advertised in
+ * the agents discovery file — `publishAgents` takes them as an argument and the host
+ * is expected to re-publish whenever those paths change.
+ */
+export interface IpcRegistrar {
+	readonly port: number | undefined;
+	registerHandler<Request = unknown, Response = unknown>(
+		name: string,
+		handler: IpcHandler<Request, Response>,
+	): UnifiedDisposable;
+	publishAgents(workspacePaths: string[]): Promise<void>;
+	unpublishAgents(): Promise<void>;
+}
+
 export interface AgentProviderCallbacks {
+	/** Host-supplied IPC service. Required for agents to receive hook events from the GK CLI. */
+	ipc: IpcRegistrar;
+
 	/** Report that an agent session started. No-op if the host has no telemetry. */
 	onSessionStarted?(provider: string): void;
 

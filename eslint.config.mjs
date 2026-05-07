@@ -31,6 +31,7 @@ const defaultLanguageOptions = {
 const filePatterns = {
 	packages: [
 		'packages/utils/src/**/*',
+		'packages/ipc/src/**/*',
 		'packages/git/src/**/*',
 		'packages/git-cli/src/**/*',
 		'packages/plus/git-github/src/**/*',

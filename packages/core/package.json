@@ -94,6 +94,10 @@
 			"types": "./dist/git/watching/*.d.ts",
 			"default": "./dist/git/watching/*.js"
 		},
+		"./ipc/*.js": {
+			"types": "./dist/ipc/*.d.ts",
+			"default": "./dist/ipc/*.js"
+		},
 		"./plus/ai/*.js": {
 			"types": "./dist/plus/ai/*.d.ts",
 			"default": "./dist/plus/ai/*.js"

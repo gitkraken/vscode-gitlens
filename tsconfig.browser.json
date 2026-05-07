@@ -8,6 +8,7 @@
 			"@env/*": ["./src/env/browser/*"],
 			"#env/*": ["./packages/utils/src/env/browser/*"],
 			"@gitlens/utils/*": ["./packages/utils/src/*"],
+			"@gitlens/ipc/*": ["./packages/ipc/src/*"],
 			"@gitlens/git/*": ["./packages/git/src/*"],
 			"@gitlens/git-github/*": ["./packages/plus/git-github/src/*"],
 			"@gitlens/ai/*": ["./packages/plus/ai/src/*"],

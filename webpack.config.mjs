@@ -56,6 +56,7 @@ const pkgMgr = useNpm ? 'npm' : 'pnpm';
 function getLibraryAliases() {
 	return {
 		'@gitlens/utils': path.resolve(__dirname, 'packages', 'utils', 'src'),
+		'@gitlens/ipc': path.resolve(__dirname, 'packages', 'ipc', 'src'),
 		'@gitlens/git': path.resolve(__dirname, 'packages', 'git', 'src'),
 		'@gitlens/git-cli': path.resolve(__dirname, 'packages', 'git-cli', 'src'),
 		'@gitlens/git-github': path.resolve(__dirname, 'packages', 'plus', 'git-github', 'src'),

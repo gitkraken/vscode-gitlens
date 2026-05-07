@@ -66,9 +66,22 @@ export class IpcServer<Request = unknown, Response = void> implements UnifiedDis
 		this.dispose();
 	}
 
+	// Awaits server close; use only when deterministic teardown is required (e.g., tests).
+	// Production callers should use dispose() — UnifiedDisposable contract is sync.
+	shutdown(): Promise<void> {
+		this.handlers.clear();
+		return new Promise<void>(resolve => {
+			this.server.close(() => resolve());
+		});
+	}
+
 	registerHandler(name: string, handler: IpcHandler<Request, Response>): UnifiedDisposable {
-		this.handlers.set(`/${name}`, handler);
-		return createDisposable(() => this.handlers.delete(`/${name}`));
+		const path = `/${name}`;
+		if (this.handlers.has(path)) {
+			throw new Error(`IPC handler '${name}' is already registered`);
+		}
+		this.handlers.set(path, handler);
+		return createDisposable(() => this.handlers.delete(path));
 	}
 
 	@debug({ args: false })

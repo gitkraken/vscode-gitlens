@@ -5,6 +5,7 @@
 	"files": [],
 	"references": [
 		{ "path": "./packages/utils" },
+		{ "path": "./packages/ipc" },
 		{ "path": "./packages/git" },
 		{ "path": "./packages/git-cli" },
 		{ "path": "./packages/plus/git-github" },

@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
+import { IpcService } from '@env/ipc/ipcService.js';
 import {
 	getAgentSessionProviders,
 	getGkCliIntegrationProvider,
@@ -241,6 +242,7 @@ export class Container {
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
 		this._disposables.push((this._eventBus = new EventBus()));
+		this._disposables.push((this._ipc = new IpcService(this)));
 		this._disposables.push((this._git = new GitProviderService(this)));
 		this._disposables.push(new GitFileSystemProvider(this));
 		this._disposables.push((this._virtualFs = new VirtualFileSystemService(this)));
@@ -538,6 +540,11 @@ export class Container {
 	private readonly _eventBus: EventBus;
 	get events(): EventBus {
 		return this._eventBus;
+	}
+
+	private readonly _ipc: IpcService;
+	get ipc(): IpcService {
+		return this._ipc;
 	}
 
 	get extensionMode(): ExtensionMode {
