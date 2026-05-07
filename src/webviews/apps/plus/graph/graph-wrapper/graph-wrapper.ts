@@ -515,11 +515,65 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('gl-graph-change-visible-days', { detail: detail }));
 	}
 
-	private onScopeAnchorsUnreachable(_event: CustomEvent<Set<string>>) {
+	/**
+	 * SHAs we've already issued `GetMoreRowsCommand({ id: sha })` for via the unreachable-anchor
+	 * path, mapped to the loaded row count at the time the request was sent. If a targeted walk
+	 * returns without surfacing the SHA, we park it here so the next `scopeanchorsunreachable`
+	 * event doesn't re-fire the same request immediately. Entries are released two ways:
+	 * (a) scope reference changes (user re-scopes, or refs-moved invalidation produces a new
+	 *     scope object), which clears the entire map;
+	 * (b) the host response delivered new rows, growing `rows.length` past the snapshot — the
+	 *     provider's cursor advanced past where the previous walk's `limit * 10` cap aborted,
+	 *     so a retry continues the walk from the new cursor rather than re-running the same
+	 *     range. Entries whose request didn't grow rows stay parked: retrying would hit the
+	 *     same cap at the same cursor with no progress.
+	 */
+	private _unreachableAnchorRequests = new Map<string, number>();
+	private _unreachableAnchorScope: typeof graphStateContext.__context__.scope = undefined;
+
+	private onScopeAnchorsUnreachable(event: CustomEvent<Set<string>>) {
 		// The component flagged that one or more scope anchors can't reach a visible ancestor
 		// within the loaded graph rows (merge base not yet fetched). Ask the host for more rows
 		// so the synthetic edges can resolve.
 		if (this.graphState.loading || !this.graphState.paging?.hasMore) return;
+
+		// Drop prior dedupe state when the live scope reference changes — the stateProvider
+		// assigns a new scope object on every transition (re-scope, post-invalidation re-resolve),
+		// so reference inequality cleanly catches both.
+		const scope = this.graphState.scope;
+		if (scope !== this._unreachableAnchorScope) {
+			this._unreachableAnchorRequests.clear();
+			this._unreachableAnchorScope = scope;
+		}
+
+		// Forward an unreachable anchor SHA to the host so the provider's page-until-found path
+		// (graph.ts getCommitsForGraphCore stop logic) loads enough rows in one round trip,
+		// instead of one page per scope toggle. Also short-circuit if the flagged anchors are
+		// already in the loaded rows — guards against stale unreachable events fired during
+		// scope-swap re-renders.
+		const anchors = event.detail;
+		const rows = this.graphState.rows;
+		if (anchors?.size && rows?.length) {
+			const loaded = new Set(rows.map(r => r.sha));
+			const rowCount = rows.length;
+
+			// Release any prior request whose response delivered new rows — the provider's cursor
+			// advanced past where the previous walk's cap aborted, so retrying continues the walk
+			// from the new cursor instead of re-running the same range.
+			for (const [sha, requestedAtCount] of this._unreachableAnchorRequests) {
+				if (rowCount > requestedAtCount) {
+					this._unreachableAnchorRequests.delete(sha);
+				}
+			}
+
+			const missing = [...anchors].find(sha => !loaded.has(sha) && !this._unreachableAnchorRequests.has(sha));
+			if (missing == null) return;
+
+			this._unreachableAnchorRequests.set(missing, rowCount);
+			this.graphState.loading = true;
+			this._ipc.sendCommand(GetMoreRowsCommand, { id: missing });
+			return;
+		}
 
 		this.graphState.loading = true;
 		this._ipc.sendCommand(GetMoreRowsCommand, { id: undefined });

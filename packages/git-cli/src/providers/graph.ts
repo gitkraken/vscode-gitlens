@@ -234,7 +234,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					// - SHA + limit = 0: Find SHA, stop immediately
 					// - No SHA + limit > 0: Load exactly `limit` commits
 					// - No SHA + limit = 0: Load everything remaining
-					if ((limit && count >= limit && (!sha || found)) || (!limit && sha && found)) {
+					// - SHA + limit > 0 + still unfound past 10× limit: defensive cap so an unreachable
+					//   SHA (e.g. a stale merge-base the webview hasn't yet seen invalidated) can't
+					//   walk the entire history. `hasMore=true` lets callers retry; the graph-wrapper
+					//   side deduplicates re-requests so the cap doesn't loop.
+					if (
+						(limit && count >= limit && (!sha || found || count >= limit * 10)) ||
+						(!limit && sha && found)
+					) {
 						hasMore = true;
 						aborter.abort();
 						break;
