@@ -621,6 +621,18 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				cwd: repoPath,
 				cancellation: cancellation,
 				configs: gitConfigsLogWithFiles,
+				// Single-commit log serves user-initiated reads (commit details, hover, etc.).
+				// Mirrors getCommitDates: full SHAs are immutable so a 5-min TTL is safe; non-SHA refs
+				// rely on gitResults being cleared on head/heads/remotes events (60s is the failsafe
+				// for watcher latency / web with no fs watcher).
+				...(isSingleCommit && rev
+					? {
+							caching: {
+								cache: this.cache.gitResults,
+								options: { accessTTL: isSha(rev) ? 5 * 60 * 1000 : 60 * 1000 },
+							},
+						}
+					: undefined),
 			};
 			let { commits, count } = await parseCommits(
 				parser,
@@ -1392,7 +1404,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				{
 					cwd: repoPath,
 					errors: 'ignore',
-					caching: { cache: this.cache.gitResults, options: { accessTTL: 60 * 1000 } },
+					caching: {
+						cache: this.cache.gitResults,
+						options: { accessTTL: isSha(sha) ? 5 * 60 * 1000 : 60 * 1000 },
+					},
 					configs: gitConfigsLog,
 				},
 				'log',
@@ -1419,7 +1434,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				{
 					cwd: repoPath,
 					errors: 'ignore',
-					caching: { cache: this.cache.gitResults, options: { accessTTL: 60 * 1000 } },
+					caching: {
+						cache: this.cache.gitResults,
+						options: { accessTTL: isSha(sha) ? 5 * 60 * 1000 : 60 * 1000 },
+					},
 				},
 				'cat-file',
 				'commit',
