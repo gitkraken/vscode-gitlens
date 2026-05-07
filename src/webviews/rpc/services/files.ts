@@ -12,6 +12,8 @@
 
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
 import type { Container } from '../../../container.js';
@@ -31,6 +33,18 @@ import { openChangesEditor, openDiffEditor, openTextEditor } from '../../../syst
 import type { VirtualRef } from '../../../virtual/virtualContentProvider.js';
 import type { FileShowOptions, OpenMultipleChangesArgs } from './types.js';
 
+/**
+ * Synthesize a `GitRevisionReference` pointing at a repo's working tree.
+ *
+ * Used to bypass commit-resolution for WIP file actions: `getCommit(uncommitted)` is not
+ * reliably hydrated on every worktree's repo service (especially for non-active secondary
+ * worktrees in a multi-worktree workspace), but the underlying file actions only need a
+ * `GitRevisionReference`-shaped target — they don't require a fully-hydrated `GitCommit`.
+ */
+function makeWipRef(repoPath: string): GitRevisionReference {
+	return { refType: 'revision', name: 'Working Tree', ref: uncommitted, sha: uncommitted, repoPath: repoPath };
+}
+
 export class FilesService {
 	constructor(private readonly container: Container) {}
 
@@ -41,6 +55,11 @@ export class FilesService {
 	 * via the working-file command.
 	 */
 	async openFile(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> {
+		if (file.repoPath != null && ref === uncommitted) {
+			void openFile(file, makeWipRef(file.repoPath), { preserveFocus: true, preview: true, ...showOptions });
+			return;
+		}
+
 		const [commit, resolved] = await this.#getFileCommit(file, ref);
 		if (commit == null) return;
 
@@ -67,6 +86,15 @@ export class FilesService {
 	 * diff view comparing the committed version with working tree.
 	 */
 	async openFileCompareWorking(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> {
+		if (file.repoPath != null && ref === uncommitted) {
+			void openChangesWithWorking(file, makeWipRef(file.repoPath), {
+				preserveFocus: true,
+				preview: true,
+				...showOptions,
+			});
+			return;
+		}
+
 		const [commit, resolved] = await this.#getFileCommit(file, ref);
 		if (commit == null) return;
 
@@ -84,6 +112,17 @@ export class FilesService {
 		showOptions?: FileShowOptions,
 		ref?: string,
 	): Promise<void> {
+		if (file.repoPath != null && ref === uncommitted) {
+			// "Previous" for the working tree means HEAD vs working tree — `openChanges` with
+			// rhs='' and lhs='HEAD' delegates to `openChangesWithWorking` with the HEAD ref.
+			void openChanges(
+				file,
+				{ repoPath: file.repoPath, lhs: 'HEAD', rhs: '' },
+				{ preserveFocus: true, preview: true, ...showOptions },
+			);
+			return;
+		}
+
 		const [commit, resolved] = await this.#getFileCommit(file, ref);
 		if (commit == null) return;
 
