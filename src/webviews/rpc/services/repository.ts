@@ -8,7 +8,7 @@
  * - Per-repo change events (working tree FS changes, filtered repository changes)
  */
 
-import { Disposable, Uri, window } from 'vscode';
+import { Disposable, Uri, window, workspace } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -343,6 +343,97 @@ export class RepositoryService {
 	 */
 	async unstageAll(repoPath: string): Promise<void> {
 		await this.container.git.getRepositoryService(repoPath).staging?.unstageAll();
+	}
+
+	async discardFile(file: GitFileChangeShape): Promise<void> {
+		const confirmed = await this.confirmDiscardChanges([file.path]);
+		if (!confirmed) return;
+
+		const uri = Uri.joinPath(Uri.file(file.repoPath), file.path);
+		const svc = this.container.git.getRepositoryService(file.repoPath);
+
+		await this.trashAndUnstage(uri, svc, file);
+
+		// Untracked and newly-added files don't exist in HEAD — trash is sufficient
+		if (file.status === '?' || file.status === 'A') return;
+
+		// Renames/copies: restore the original path from HEAD (not the new name)
+		if (file.status === 'R' || file.status === 'C') {
+			if (file.originalPath) {
+				await svc.ops?.checkout('HEAD', { path: file.originalPath });
+			}
+			return;
+		}
+
+		await svc.ops?.checkout('HEAD', { path: file.path });
+	}
+
+	async discardAllFiles(repoPath: string): Promise<void> {
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const status = await svc.status.getStatus();
+		if (status == null) return;
+
+		const filePaths = status.files.map(f => f.path);
+		if (filePaths.length === 0) return;
+
+		const confirmed = await this.confirmDiscardChanges(filePaths);
+		if (!confirmed) return;
+
+		// Move non-deleted files to trash so working-tree versions are recoverable
+		const allNonDeleted = status.files.filter(f => f.status !== 'D');
+		const trashResults = await Promise.allSettled(
+			allNonDeleted.map(f => this.moveToTrash(Uri.joinPath(Uri.file(repoPath), f.path))),
+		);
+		for (const r of trashResults) {
+			if (r.status === 'rejected') {
+				Logger.warn(`Failed to move file to trash: ${r.reason}`);
+			}
+		}
+
+		if (status.files.some(f => f.staged)) {
+			await svc.staging?.unstageAll();
+		}
+
+		// Restore files that exist in HEAD — use originalPath for renames/copies
+		for (const f of status.files) {
+			if (f.status === '?' || f.status === 'A') continue;
+
+			const checkoutPath = f.status === 'R' || f.status === 'C' ? (f.originalPath ?? f.path) : f.path;
+			try {
+				await svc.ops?.checkout('HEAD', { path: checkoutPath });
+			} catch (ex) {
+				Logger.warn(`Failed to restore ${checkoutPath} from HEAD: ${ex}`);
+			}
+		}
+	}
+
+	private async trashAndUnstage(
+		uri: Uri,
+		svc: ReturnType<Container['git']['getRepositoryService']>,
+		file: GitFileChangeShape,
+	): Promise<void> {
+		if (file.status !== 'D') {
+			await this.moveToTrash(uri);
+		}
+		if (file.staged) {
+			await svc.staging?.unstageFile(file.path);
+		}
+	}
+
+	private async confirmDiscardChanges(paths: string[]): Promise<boolean> {
+		const fileCount = paths.length;
+		const fileLabel = fileCount === 1 ? `"${paths[0]}"` : pluralize('file', fileCount);
+		const discard = fileCount === 1 ? 'Discard Changes' : 'Discard All Changes';
+		const choice = await window.showWarningMessage(
+			`Are you sure you want to discard changes in ${fileLabel}?\n\nChanges will be moved to the Trash, but this cannot always be undone.`,
+			{ modal: true },
+			discard,
+		);
+		return choice === discard;
+	}
+
+	private async moveToTrash(uri: Uri): Promise<void> {
+		await workspace.fs.delete(uri, { useTrash: true });
 	}
 
 	/**

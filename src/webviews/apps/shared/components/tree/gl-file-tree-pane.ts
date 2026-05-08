@@ -665,6 +665,7 @@ export class GlFileTreePane extends LitElement {
 					path: file.path,
 					repoPath: file.repoPath,
 					status: file.status,
+					originalPath: file.originalPath,
 					staged: file.staged,
 					showOptions: e
 						? {

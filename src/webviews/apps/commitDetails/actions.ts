@@ -468,6 +468,16 @@ export class CommitDetailsActions {
 		gitActions.unstageFile(this.state.error, this.services.repository, file);
 	}
 
+	discardFile(file: GitFileChangeShape): void {
+		gitActions.discardFile(this.state.error, this.services.repository, file);
+	}
+
+	discardAllFiles(): void {
+		const repoPath = this.getRepoPath();
+		if (!repoPath) return;
+		gitActions.discardAllFiles(this.services.repository, repoPath);
+	}
+
 	// ============================================================
 	// File Actions
 	// ============================================================
