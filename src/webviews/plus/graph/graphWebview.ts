@@ -2113,7 +2113,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}${hasWorktree ? '+worktree' : ''}${
 						b.current || isCheckedOut ? '+checkedout' : ''
 					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}${
-						b.id === pinnedRefId ? '+pinned' : ''
+						pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''
 					}`,
 					webviewItemValue: {
 						type: 'branch',
@@ -2157,7 +2157,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					sha: b.sha,
 					context: {
 						webview: this.host.id,
-						webviewItem: `gitlens:branch+remote${b.id === pinnedRefId ? '+pinned' : ''}`,
+						webviewItem: `gitlens:branch+remote${pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''}`,
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(b.name, graph.repoPath, {
