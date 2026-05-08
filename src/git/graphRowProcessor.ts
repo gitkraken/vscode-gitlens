@@ -62,7 +62,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 								: ''
 					}${branch?.starred ? '+starred' : ''}${
 						branch?.upstream?.state.ahead ? '+ahead' : ''
-					}${branch?.upstream?.state.behind ? '+behind' : ''}${head.id === pinnedRefId ? '+pinned' : ''}`,
+					}${branch?.upstream?.state.behind ? '+behind' : ''}${pinnedRefId != null && head.id === pinnedRefId ? '+pinned' : ''}`,
 					webviewItemValue: {
 						type: 'branch',
 						ref: createReference(head.name, context.repoPath, {
@@ -103,7 +103,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 
 				const ctx: GraphItemRefContext<GraphBranchContextValue> = {
 					webviewItem: `gitlens:branch+remote${context.branches.get(fullName)?.starred ? '+starred' : ''}${
-						remoteHead.id === pinnedRefId ? '+pinned' : ''
+						pinnedRefId != null && remoteHead.id === pinnedRefId ? '+pinned' : ''
 					}`,
 					webviewItemValue: {
 						type: 'branch',
