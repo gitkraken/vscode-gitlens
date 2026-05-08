@@ -8,6 +8,7 @@ import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import { Git } from '@gitlens/git-cli/exec/git.js';
 import { findGitPath } from '@gitlens/git-cli/exec/locator.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionProvider } from '../../agents/provider.js';
 import type { Container } from '../../container.js';
 import type { GlGitProvider } from '../../git/gitProvider.js';
@@ -155,7 +156,7 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 				const isWorktree = commonDir != null && gitDir != null && commonDir !== gitDir;
 				return {
 					branch: branch,
-					repoRoot: isWorktree && commonDir ? dirname(resolve(cwd, commonDir)) : toplevel,
+					repoRoot: normalizePath(isWorktree && commonDir ? dirname(resolve(cwd, commonDir)) : toplevel),
 					isWorktree: isWorktree,
 					worktreeName: isWorktree ? basename(toplevel) : undefined,
 				};

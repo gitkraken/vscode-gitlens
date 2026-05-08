@@ -31,6 +31,8 @@ interface CliPublishInfo {
  * keep working unchanged.
  */
 export class IpcService implements Disposable {
+	readonly agentDiscoveryDir = agentDiscoveryDir;
+
 	private _server: IpcServer<unknown, unknown> | undefined;
 	private _serverPromise: Promise<IpcServer<unknown, unknown> | undefined> | undefined;
 

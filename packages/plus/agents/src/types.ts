@@ -129,6 +129,8 @@ export interface AgentSessionProvider extends UnifiedDisposable {
  */
 export interface IpcRegistrar {
 	readonly port: number | undefined;
+	/** Directory scanned for peer-window agent discovery files. Omit to disable peer discovery (tests). */
+	readonly agentDiscoveryDir?: string;
 	registerHandler<Request = unknown, Response = unknown>(
 		name: string,
 		handler: IpcHandler<Request, Response>,
@@ -170,6 +172,7 @@ export interface AgentProviderCallbacks {
 	resolveGitInfo?(cwd: string): Promise<
 		| {
 				branch?: string;
+				/** Must be in GitLens canonical normalized form (forward slashes, lower-case drive letter on Windows). */
 				repoRoot: string;
 				isWorktree: boolean;
 				worktreeName?: string;

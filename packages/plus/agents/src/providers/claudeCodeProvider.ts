@@ -1,11 +1,11 @@
 import { readdir, readFile } from 'fs/promises';
-import { join, sep } from 'path';
-import { agentDiscoveryDir } from '@gitlens/ipc/discovery.js';
+import { join } from 'path';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { disposableInterval } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { truncate } from '@gitlens/utils/string.js';
 import { deriveStatusFromEvent, describeToolInput, isProcessAlive, rehydrateSubagents } from '../stateMachine.js';
 import type {
@@ -106,8 +106,13 @@ type SerializedAgentSession = Omit<AgentSession, 'lastActivity' | 'phaseSince' |
 	})[];
 };
 
+/** Normalize a workspace path to GitLens canonical form (forward slashes, lower-case drive letter
+ *  on Windows). Comparisons throughout the home view assume this form, but `_workspacePaths` and
+ *  peer-session `workspacePath` values originate from `Uri.fsPath`, which on Windows uses
+ *  backslashes and preserves drive-letter casing. Without this, `session.workspacePath ===
+ *  repository.path` always fails on Windows. */
 function normalizeWorkspacePath(value: string | null | undefined): string | undefined {
-	return value ? value : undefined;
+	return value ? normalizePath(value) : undefined;
 }
 
 export class ClaudeCodeProvider implements AgentSessionProvider {
@@ -133,7 +138,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	start(workspacePaths: string[]): void {
-		this._workspacePaths = workspacePaths;
+		this._workspacePaths = workspacePaths.map(p => normalizePath(p));
 		void this.ensureIpcServer();
 	}
 
@@ -142,7 +147,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	updateWorkspacePaths(workspacePaths: string[]): void {
-		this._workspacePaths = workspacePaths;
+		this._workspacePaths = workspacePaths.map(p => normalizePath(p));
 
 		let changed = false;
 		for (let i = 0; i < this._sessions.length; i++) {
@@ -614,16 +619,20 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	private matchesWorkspace(workspacePath: string | undefined): boolean {
 		if (!workspacePath) return false;
+		// `_workspacePaths` is normalized; normalize the input so prefix comparisons work
+		// regardless of whether the caller passed a raw `fsPath` (CLI hook cwd, peer-session
+		// workspacePath) or an already-normalized path.
+		const normalized = normalizePath(workspacePath);
 		return this._workspacePaths.some(
-			p =>
-				workspacePath === p || workspacePath.startsWith(`${p}${sep}`) || p.startsWith(`${workspacePath}${sep}`),
+			p => normalized === p || normalized.startsWith(`${p}/`) || p.startsWith(`${normalized}/`),
 		);
 	}
 
 	private resolveWorkspacePath(cwd: string | undefined): string | undefined {
 		if (!cwd) return undefined;
+		const normalized = normalizePath(cwd);
 		return this._workspacePaths.find(
-			p => cwd === p || cwd.startsWith(`${p}${sep}`) || p.startsWith(`${cwd}${sep}`),
+			p => normalized === p || normalized.startsWith(`${p}/`) || p.startsWith(`${normalized}/`),
 		);
 	}
 
@@ -910,9 +919,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	private async querySiblingWindowSessions(): Promise<void> {
+		const discoveryDir = this.callbacks.ipc.agentDiscoveryDir;
+		if (discoveryDir == null) return;
+
 		let files: string[];
 		try {
-			files = await readdir(agentDiscoveryDir);
+			files = await readdir(discoveryDir);
 		} catch {
 			return;
 		}
@@ -922,7 +934,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const peerBatches = await Promise.all(
 			files
 				.filter(f => f.startsWith('gitlens-ipc-server-') && f.endsWith('.json'))
-				.map(async f => this.fetchPeerSessions(join(agentDiscoveryDir, f), ownPort)),
+				.map(async f => this.fetchPeerSessions(join(discoveryDir, f), ownPort)),
 		);
 
 		let changed = false;
