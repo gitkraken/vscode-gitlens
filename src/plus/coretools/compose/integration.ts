@@ -1,5 +1,3 @@
-import { spawn } from 'node:child_process';
-import { StringDecoder } from 'node:string_decoder';
 import { CancellationTokenSource } from 'vscode';
 import type { AIChatMessage, AIProviderResponse } from '@gitlens/ai/models/provider.js';
 import type { Source } from '../../../constants.telemetry.js';
@@ -108,70 +106,15 @@ export class ComposeToolsIntegration {
 	}
 }
 
-/*
- * Adapts `@gitkraken/compose-tools`'s ComposeGitPort to GitLens's git
- * infrastructure.
- *
- * Provides a raw `exec()` via child_process (`git` on PATH, `cwd` = repo root).
- * Where GitLens has obviously-better semantics than the default CLI path (author-
- * aware commit creation with optional signing), provides high-level ops that
- * delegate to the existing git-cli sub-providers.
- *
- * This is the primary surface where GitLens's existing git conventions (signing,
- * author preservation, stash UX) reach the library.
- */
 function createComposeGitPort(_container: Container, repo: GlRepository): ComposeGitPort {
-	const repoPath = repo.path;
-
-	const exec = (args: string[], options?: GitExecOptions): Promise<string> => {
-		return new Promise<string>((resolve, reject) => {
-			const child = spawn('git', args, {
-				cwd: repoPath,
-				// `globalThis.process` satisfies the `no-restricted-globals: process` rule
-				// while still reaching the Node process env (needed so git inherits PATH, HOME, etc.).
-				env: { ...globalThis.process.env, ...(options?.env ?? {}) },
-				signal: options?.signal,
-				stdio: options?.stdin != null ? ['pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
-			});
-
-			// StringDecoder buffers incomplete UTF-8 sequences across chunk boundaries.
-			// Using `chunk.toString('utf8')` on each chunk independently corrupts any
-			// multi-byte UTF-8 character that straddles a chunk boundary — the decoder
-			// emits U+FFFD for the incomplete sequence and again for the continuation
-			// bytes in the next chunk. Because chunk boundaries are non-deterministic
-			// (OS pipe scheduling), the same git command can return different strings
-			// across calls, which breaks any downstream hashing over the output.
-			const stdoutDecoder = new StringDecoder('utf8');
-			const stderrDecoder = new StringDecoder('utf8');
-			let stdout = '';
-			let stderr = '';
-			child.stdout?.on('data', (chunk: Buffer) => {
-				stdout += stdoutDecoder.write(chunk);
-			});
-			child.stderr?.on('data', (chunk: Buffer) => {
-				stderr += stderrDecoder.write(chunk);
-			});
-
-			child.on('error', err => reject(err));
-			child.on('close', code => {
-				stdout += stdoutDecoder.end();
-				stderr += stderrDecoder.end();
-				if (code === 0) {
-					resolve(stdout);
-				} else {
-					const err = new Error(
-						`git ${args.join(' ')} failed with exit code ${String(code)}: ${stderr.trim()}`,
-					);
-					(err as { exitCode?: number }).exitCode = code ?? undefined;
-					(err as { stderr?: string }).stderr = stderr;
-					reject(err);
-				}
-			});
-
-			if (options?.stdin != null) {
-				child.stdin?.end(options.stdin);
-			}
+	const exec = async (args: string[], options?: GitExecOptions): Promise<string> => {
+		const result = await repo.git.exec(args, {
+			env: options?.env,
+			stdin: options?.stdin,
+			cancellation: options?.signal,
+			errors: 'throw',
 		});
+		return result.stdout;
 	};
 
 	return { exec: exec };

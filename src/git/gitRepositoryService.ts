@@ -1,6 +1,7 @@
 import type { Uri } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
 import { CheckoutError, FetchError, PullError, PushError, SigningError } from '@gitlens/git/errors.js';
+import type { GitExecOptions, GitResult } from '@gitlens/git/exec.types.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
@@ -31,7 +32,7 @@ import type { GlRepository } from './models/repository.js';
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface GitRepositoryService extends RepositoryService {}
 
-const skipOverlappingProperties = new Set(['path', 'provider', 'getAbsoluteUri']);
+const skipOverlappingProperties = new Set(['path', 'provider', 'getAbsoluteUri', 'exec']);
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class GitRepositoryService {
@@ -60,6 +61,10 @@ export class GitRepositoryService {
 	@debug({ args: uris => ({ uris: uris.length }) })
 	excludeIgnoredUris(uris: Uri[]): Promise<Uri[]> {
 		return this._provider.excludeIgnoredUris(this.path, uris);
+	}
+
+	exec(args: readonly string[], options?: GitExecOptions): Promise<GitResult> {
+		return this._svc.exec(this.path, args, options);
 	}
 
 	@trace()

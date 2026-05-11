@@ -14,6 +14,7 @@ import { getSupportedGitProviders } from '@env/providers.js';
 import type { CachedGitTypes, UriScopedCachedGitTypes } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '@gitlens/git/errors.js';
+import type { GitExecOptions, GitResult } from '@gitlens/git/exec.types.js';
 import type { GitBlame, GitBlameLine, ProgressiveGitBlame } from '@gitlens/git/models/blame.js';
 import type { GitCommitLine } from '@gitlens/git/models/commit.js';
 import { GitCommit, GitCommitIdentity } from '@gitlens/git/models/commit.js';
@@ -906,6 +907,14 @@ export class GitProviderService implements UnifiedDisposable {
 	): Promise<GlRepository[]> {
 		const { provider } = this.getProvider(uri);
 		return provider.discoverRepositories(uri, options);
+	}
+
+	exec(repoPath: string | Uri, args: readonly string[], options?: GitExecOptions): Promise<GitResult> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.exec == null) {
+			throw new Error(`Git provider '${provider.descriptor.name}' does not support raw git exec`);
+		}
+		return provider.exec(path, args, options);
 	}
 
 	private _subscription: Subscription | undefined;

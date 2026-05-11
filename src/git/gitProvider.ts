@@ -1,4 +1,5 @@
 import type { WorkspaceFolder } from 'vscode';
+import type { GitExecOptions, GitResult } from '@gitlens/git/exec.types.js';
 import type { GitDir } from '@gitlens/git/models/repository.js';
 import type { GitProviderDescriptor, RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import type { RevisionUriOptions } from '@gitlens/git/utils/uriAuthority.js';
@@ -85,6 +86,8 @@ export interface GlGitProvider extends UnifiedDisposable {
 	hasUnsafeRepositories?(): boolean;
 	isTrackable(uri: Uri): boolean;
 	isTracked(uri: Uri): Promise<boolean>;
+
+	exec?(repoPath: string, args: readonly string[], options?: GitExecOptions): Promise<GitResult>;
 }
 
 export type { RevisionUriData, RevisionUriOptions } from '@gitlens/git/utils/uriAuthority.js';

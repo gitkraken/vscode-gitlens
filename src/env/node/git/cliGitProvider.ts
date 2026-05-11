@@ -6,6 +6,7 @@ import { extensions, FileType, Uri, window, workspace } from 'vscode';
 import { fetch } from '@env/fetch.js';
 import { isLinux, isWindows } from '@env/platform.js';
 import type { Cache } from '@gitlens/git/cache.js';
+import type { GitExecOptions, GitResult } from '@gitlens/git/exec.types.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitDir } from '@gitlens/git/models/repository.js';
@@ -1316,6 +1317,10 @@ export class GlCliGitProvider implements GlGitProvider {
 
 	async isTracked(uri: Uri): Promise<boolean> {
 		return (await this.isTrackedWithDetails(uri)) != null;
+	}
+
+	exec(repoPath: string, args: readonly string[], options?: GitExecOptions): Promise<GitResult> {
+		return this.provider.git.run({ cwd: repoPath, errors: 'throw', ...options }, ...args);
 	}
 
 	private async isTrackedWithDetails(uri: Uri | GitUri): Promise<[string, string] | undefined>;
