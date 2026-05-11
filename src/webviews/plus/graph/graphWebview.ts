@@ -541,7 +541,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return (this._graphRowProcessor ??= new GlGraphRowProcessor(
 			this.container,
 			uri => this.host.asWebviewUri(uri),
-			() => this.getFiltersByRepo(this._graph?.repoPath)?.pinnedRef?.id,
+			() => this.getFiltersByRepo(this.repository?.path ?? this._graph?.repoPath)?.pinnedRef?.id,
 		));
 	}
 
@@ -5285,6 +5285,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 
 					void this.notifyDidChangeRefsVisibility();
+					void this.notifyDidChangePinnedRef();
 					void this.notifyDidChangeRows(selectionChanged);
 					this.notifySidebarInvalidated();
 				} catch {}
@@ -5511,6 +5512,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.updateFiltersByRepo(repoPath, { pinnedRef: storedPinnedRef });
 		void this.notifyDidChangePinnedRef();
+		this.notifySidebarInvalidated();
 		this.updateState(true);
 	}
 
