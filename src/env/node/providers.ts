@@ -1,4 +1,4 @@
-import { basename, dirname, resolve } from 'path';
+import { dirname, resolve } from 'path';
 import type { Disposable } from 'vscode';
 import { workspace } from 'vscode';
 import { ClaudeCodeProvider } from '@gitlens/agents/providers/claudeCodeProvider.js';
@@ -137,27 +137,29 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 			},
 			runCLICommand: (args, opts) => runCLICommand(args, opts),
 			resolveGitInfo: async cwd => {
-				const opts = { cwd: cwd, errors: 'ignore' as const, timeout: 5000 };
-				const [branchResult, toplevelResult, commonDirResult, gitDirResult] = await Promise.all([
-					git(container, opts, 'rev-parse', '--abbrev-ref', 'HEAD'),
-					git(container, opts, 'rev-parse', '--show-toplevel'),
-					git(container, opts, 'rev-parse', '--git-common-dir'),
-					git(container, opts, 'rev-parse', '--git-dir'),
-				]);
+				// Fast path: cwd is in an already-loaded repo — fully synchronous, no shell calls.
+				const repo = container.git.getRepository(cwd);
+				if (repo != null) {
+					return {
+						repoRoot: repo.isWorktree && repo.commonPath ? repo.commonPath : repo.path,
+						isWorktree: repo.isWorktree,
+						worktreePath: repo.isWorktree ? repo.path : undefined,
+					};
+				}
 
-				const branch = String(branchResult.stdout).trim() || undefined;
-				const toplevel = String(toplevelResult.stdout).trim() || undefined;
-				const commonDir = String(commonDirResult.stdout).trim() || undefined;
-				const gitDir = String(gitDirResult.stdout).trim() || undefined;
+				// Cold path: cwd is outside any loaded repo. validateRepo runs ONE combined
+				// `git rev-parse` via the package's `config.getRepositoryInfo`, with no
+				// repo-registration side effects. Routes through the same provider lookup
+				// the rest of the host uses, so safe-path handling is consistent.
+				const info = await container.git.validateRepo(cwd);
+				if (!info.valid || !info.safe) return undefined;
 
-				if (toplevel == null) return undefined;
-
-				const isWorktree = commonDir != null && gitDir != null && commonDir !== gitDir;
+				const isWorktree = info.commonGitDir != null && info.commonGitDir !== info.gitDir;
 				return {
-					branch: branch,
-					repoRoot: isWorktree && commonDir ? dirname(resolve(cwd, commonDir)) : toplevel,
+					repoRoot:
+						isWorktree && info.commonGitDir ? dirname(resolve(cwd, info.commonGitDir)) : info.repoPath,
 					isWorktree: isWorktree,
-					worktreeName: isWorktree ? basename(toplevel) : undefined,
+					worktreePath: isWorktree ? info.repoPath : undefined,
 				};
 			},
 		}),

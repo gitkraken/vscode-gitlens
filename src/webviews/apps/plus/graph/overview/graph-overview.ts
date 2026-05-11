@@ -18,11 +18,7 @@ import {
 	GetOverviewWipDetailedRequest,
 	GetOverviewWipRequest,
 } from '../../../../plus/graph/protocol.js';
-import {
-	getWorktreeBasename,
-	indexAgentSessionsByRepoAndBranch,
-	matchAgentSessionsForBranch,
-} from '../../../shared/agentUtils.js';
+import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { HostIpc } from '../../../shared/ipc.js';
@@ -429,7 +425,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	private renderCards(branches: GraphOverviewData['active']) {
 		if (!branches.length) return nothing;
 
-		const sessionsByRepoAndBranch = indexAgentSessionsByRepoAndBranch(this._state.agentSessions);
+		const sessionsByRepoAndWorktree = indexAgentSessionsByRepoAndWorktree(this._state.agentSessions);
 		const containsByRepo = this._selectionContainsByRepo;
 
 		return html`
@@ -442,10 +438,9 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 							.branch=${b}
 							.wip=${this._wipData[b.id]}
 							.enrichment=${this._enrichmentData[b.id]}
-							.agentSessions=${matchAgentSessionsForBranch(sessionsByRepoAndBranch, {
-								name: b.name,
+							.agentSessions=${matchAgentSessionsForWorktree(sessionsByRepoAndWorktree, {
 								repoPath: b.repoPath,
-								worktreeName: b.worktree != null ? getWorktreeBasename(b.worktree.uri) : undefined,
+								worktreePath: b.worktree?.path,
 							})}
 							.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
 						></gl-graph-overview-card>

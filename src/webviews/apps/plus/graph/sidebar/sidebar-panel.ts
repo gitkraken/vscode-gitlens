@@ -6,6 +6,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
+import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlCommands } from '../../../../../constants.commands.js';
 import type { WebviewItemContext } from '../../../../../system/webview.js';
@@ -614,7 +615,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			case 'agents':
 				return useTree
 					? this.buildAgentTree(data.items)
-					: data.items.map((a, i) => leafToTreeModel(this.toAgentLeaf(a), `agent:${a.id}:${i}`, 1));
+					: data.items.map(a => leafToTreeModel(this.toAgentLeaf(a), `agent:${a.id}`, 1));
 			default:
 				return [];
 		}
@@ -840,32 +841,33 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		};
 	}
 
-	/** Tree-mode build for the agents panel: groups sessions by `(workspacePath, branch, worktreeName)`
-	 *  so all sessions on the same branch+worktree nest under a single parent. Group order preserves
-	 *  the input's actionability sort (needs-input → working → idle) by tracking each group's first
-	 *  appearance index in the source list. */
+	/** Tree-mode build for the agents panel: groups sessions by `(workspacePath, worktreePath)` so
+	 *  all sessions in the same worktree nest under a single parent. The label is derived live —
+	 *  from the matching overview branch when the worktree is in the current graph's repo,
+	 *  otherwise from the session's transient `worktree.name` (resolved host-side per
+	 *  serialization) — so `git checkout` updates display without restarting the agent. Group
+	 *  order preserves the input's actionability sort (needs-input → working → idle) by tracking
+	 *  each group's first appearance index in the source list. */
 	private buildAgentTree(items: readonly AgentSessionState[]): TreeModel<SidebarItemContext>[] {
 		if (items.length === 0) return [];
 
 		interface Group {
 			key: string;
 			workspacePath: string | undefined;
-			branch: string | undefined;
-			worktreeName: string | undefined;
+			worktreePath: string | undefined;
 			firstIndex: number;
 			sessions: AgentSessionState[];
 		}
 
 		const groups = new Map<string, Group>();
 		items.forEach((session, index) => {
-			const key = `${session.workspacePath ?? ''}\0${session.branch ?? ''}\0${session.worktreeName ?? ''}`;
+			const key = `${session.workspacePath ?? ''}\0${session.worktree?.path ?? ''}`;
 			let group = groups.get(key);
 			if (group == null) {
 				group = {
 					key: key,
 					workspacePath: session.workspacePath,
-					branch: session.branch,
-					worktreeName: session.worktreeName,
+					worktreePath: session.worktree?.path,
 					firstIndex: index,
 					sessions: [],
 				};
@@ -877,22 +879,33 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		return [...groups.values()]
 			.sort((a, b) => a.firstIndex - b.firstIndex)
 			.map(group => {
-				const children = group.sessions.map((s, j) =>
-					leafToTreeModel(this.toAgentLeaf(s), `agent:${s.id}:${j}`, 2),
-				);
+				const children = group.sessions.map(s => leafToTreeModel(this.toAgentLeaf(s), `agent:${s.id}`, 2));
 
-				const matchingBranch = findOverviewBranchForSession(this._state.overview, group.sessions[0]);
+				const firstSession = group.sessions[0];
+				const matchingBranch = findOverviewBranchForSession(this._state.overview, firstSession);
 				const sha =
 					matchingBranch != null
 						? getOverviewBranchSelectionSha(matchingBranch, this._state.overviewWip?.[matchingBranch.id])
 						: undefined;
 
+				// Non-default worktree if the matching branch identifies one, or the session is in
+				// a worktree path distinct from the repo's main path.
 				const hasWorktree =
-					group.worktreeName != null ||
-					(matchingBranch?.worktree != null && !matchingBranch.worktree.isDefault);
+					(matchingBranch?.worktree != null && !matchingBranch.worktree.isDefault) ||
+					(group.worktreePath != null && group.worktreePath !== group.workspacePath);
 
-				const label = group.branch ?? 'Unattached';
-				const description = group.worktreeName ?? matchingBranch?.worktree?.name;
+				const label =
+					matchingBranch?.name ??
+					firstSession.worktree?.name ??
+					(group.worktreePath ? basename(group.worktreePath) : undefined) ??
+					'Unattached';
+
+				// Description hints at the physical worktree directory when distinct from the
+				// label (rare-but-real: same branch checked out in two worktrees).
+				const description =
+					group.worktreePath != null && group.worktreePath !== group.workspacePath
+						? basename(group.worktreePath)
+						: undefined;
 
 				return {
 					branch: true,
@@ -901,7 +914,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					level: 1,
 					label: label,
 					icon: { type: 'branch' as const, status: matchingBranch?.status, worktree: hasWorktree },
-					description: description,
+					description: description !== label ? description : undefined,
 					checkable: false,
 					context: [sha] as SidebarItemContext,
 					children: children,

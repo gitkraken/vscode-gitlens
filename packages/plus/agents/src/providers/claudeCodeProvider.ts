@@ -757,7 +757,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			changed = true;
 		}
 
-		if (cwd != null && existing.branch == null) {
+		if (cwd != null && existing.worktreePath == null) {
 			void this.resolveGitInfo(sessionId, cwd);
 		}
 		return { index: index, changed: changed };
@@ -786,22 +786,20 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			if (
 				cwd !== session.cwd ||
-				info.branch !== session.branch ||
-				info.worktreeName !== session.worktreeName ||
+				info.worktreePath !== session.worktreePath ||
 				resolvedWorkspacePath !== session.workspacePath
 			) {
 				this._sessions[index] = {
 					...session,
 					cwd: cwd,
-					branch: info.branch,
-					worktreeName: info.worktreeName,
+					worktreePath: info.worktreePath,
 					workspacePath: resolvedWorkspacePath,
 					isInWorkspace: resolvedIsInWorkspace,
 				};
 				this._onDidChangeSessions.fire();
 			}
 		} catch {
-			// Git not available or not a git repo — leave branch/worktree undefined
+			// Git not available or not a git repo — leave worktree undefined
 		}
 	}
 

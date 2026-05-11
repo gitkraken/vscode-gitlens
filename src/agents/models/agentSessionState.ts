@@ -12,8 +12,17 @@ export interface AgentSessionState {
 	readonly status: AgentSessionStatus;
 	readonly phase: AgentSessionPhase;
 	readonly statusDetail?: string;
-	readonly branch?: string;
-	readonly worktreeName?: string;
+	/**
+	 * Worktree the session lives in. `path` is the stable matching key (full normalized
+	 * worktree directory path). `name` is the live display label resolved at serialization
+	 * time from the loaded `Repository`'s worktrees — for branch-type worktrees that's the
+	 * branch name; for detached/bare it's the canonical display form. Recomputed each
+	 * serialization, never persisted on the host `AgentSession`.
+	 */
+	readonly worktree?: {
+		readonly path: string;
+		readonly name?: string;
+	};
 	readonly isInWorkspace: boolean;
 	readonly hasPermissionRequest: boolean;
 	readonly subagentCount: number;
@@ -30,15 +39,14 @@ export interface AgentSessionState {
 	readonly lastPrompt?: string;
 }
 
-export function serializeAgentSession(session: AgentSession): AgentSessionState {
+export function serializeAgentSession(session: AgentSession, worktreeName: string | undefined): AgentSessionState {
 	return {
 		id: session.id,
 		name: session.name,
 		status: session.status,
 		phase: session.phase,
 		statusDetail: session.statusDetail,
-		branch: session.branch,
-		worktreeName: session.worktreeName,
+		worktree: session.worktreePath != null ? { path: session.worktreePath, name: worktreeName } : undefined,
 		isInWorkspace: session.isInWorkspace,
 		hasPermissionRequest: session.pendingPermission != null,
 		subagentCount: session.subagents?.length ?? 0,

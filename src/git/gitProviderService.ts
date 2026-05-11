@@ -29,6 +29,7 @@ import type {
 	RepositoryVisibility,
 	RepositoryVisibilityInfo,
 } from '@gitlens/git/providers/types.js';
+import type { ValidateRepoResult } from '@gitlens/git/service.js';
 import { GitService } from '@gitlens/git/service.js';
 import { getBlameRange } from '@gitlens/git/utils/blame.utils.js';
 import { calculateDistribution } from '@gitlens/git/utils/contributor.utils.js';
@@ -2347,6 +2348,17 @@ export class GitProviderService implements UnifiedDisposable {
 			services.set(path, service);
 		}
 		return service;
+	}
+
+	/**
+	 * Pre-discovery: validates whether `pathOrUri` points to (or resides inside) a git
+	 * repository, returning `repoPath` / `gitDir` / `commonGitDir` / `superprojectPath` when it
+	 * does. Has no side effects — does not register the repository or fire any events. Useful
+	 * when a host-side caller needs gitDir info for an arbitrary cwd without forcing the repo
+	 * to be opened.
+	 */
+	validateRepo(pathOrUri: string | Uri): Promise<ValidateRepoResult> {
+		return this._gitService.validateRepo(pathOrUri);
 	}
 
 	@debug()

@@ -25,7 +25,7 @@ import type {
 } from '../../../../home/protocol.js';
 import type { HomeState } from '../../../home/state.js';
 import { homeStateContext } from '../../../home/state.js';
-import { getWorktreeBasename, matchAgentSessionsForBranch } from '../../../shared/agentUtils.js';
+import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { GlCard } from '../../../shared/components/card/card.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
@@ -839,10 +839,9 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	}
 
 	private renderAgentPillsRow(): TemplateResult | NothingType {
-		const sessions = matchAgentSessionsForBranch(this._homeState?.agentSessions?.get(), {
-			name: this.branch.name,
+		const sessions = matchAgentSessionsForWorktree(this._homeState?.agentSessions?.get(), {
 			repoPath: this.repo,
-			worktreeName: this.branch.worktree != null ? getWorktreeBasename(this.branch.worktree.uri) : undefined,
+			worktreePath: this.branch.worktree?.path,
 		});
 		if (sessions == null || sessions.length === 0) return nothing;
 

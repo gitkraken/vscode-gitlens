@@ -89,41 +89,28 @@ export function sortAgentSessions(sessions: readonly AgentSessionState[]): Agent
 	});
 }
 
-/** Identifies a branch+worktree the matcher should resolve sessions for. `repoPath` must be the
- *  path that `session.workspacePath` is normalized to on the host — i.e. the **main repo's path**
- *  for any branch in any of its worktrees. `worktreeName` (the worktree directory's basename) is
- *  set when the branch is checked out in a non-default worktree; it disambiguates same-named
- *  branches across sibling worktrees. */
-export interface AgentSessionBranchTarget {
-	name: string;
+/** Identifies the worktree the matcher should resolve sessions for. `repoPath` must be the path
+ *  that `session.workspacePath` is normalized to on the host — i.e. the **main repo's path** for
+ *  any branch in any of its worktrees. `worktreePath` is the worktree's full normalized path;
+ *  `undefined` means the session has no worktree info and no match is possible. */
+export interface AgentSessionWorktreeTarget {
 	repoPath: string;
-	worktreeName?: string;
+	worktreePath?: string;
 }
 
-export type AgentSessionBranchIndex = Map<string, AgentSessionState[]>;
+export type AgentSessionWorktreeIndex = Map<string, AgentSessionState[]>;
 
-/** Trailing-slash–safe basename for both filesystem paths and `file://` URIs. Returns `''` only
- *  when the input has no segment (root or empty), matching the prior `.split('/').pop() ?? ''`
- *  behavior closely enough that no caller needs to special-case it. */
-export function getWorktreeBasename(pathOrUri: string): string {
-	const trimmed = pathOrUri.replace(/[/\\]+$/, '');
-	const slash = trimmed.lastIndexOf('/');
-	const back = trimmed.lastIndexOf('\\');
-	const idx = Math.max(slash, back);
-	return idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
-}
-
-/** Builds a lookup index for batch matching across many branches in one render (overview cards).
- *  Single-shot consumers can call {@link matchAgentSessionsForBranch} directly with the array. */
-export function indexAgentSessionsByRepoAndBranch(
+/** Builds a lookup index for batch matching across many worktrees in one render (overview cards).
+ *  Single-shot consumers can call {@link matchAgentSessionsForWorktree} directly with the array. */
+export function indexAgentSessionsByRepoAndWorktree(
 	sessions: readonly AgentSessionState[] | undefined,
-): AgentSessionBranchIndex | undefined {
+): AgentSessionWorktreeIndex | undefined {
 	if (sessions == null || sessions.length === 0) return undefined;
 
-	const index: AgentSessionBranchIndex = new Map();
+	const index: AgentSessionWorktreeIndex = new Map();
 	for (const session of sessions) {
-		if (session.branch == null || session.workspacePath == null) continue;
-		const key = `${session.workspacePath}\0${session.branch}`;
+		if (session.workspacePath == null) continue;
+		const key = `${session.workspacePath}\0${session.worktree?.path ?? ''}`;
 		const existing = index.get(key);
 		if (existing != null) {
 			existing.push(session);
@@ -134,19 +121,19 @@ export function indexAgentSessionsByRepoAndBranch(
 	return index;
 }
 
-/** Returns the agent sessions that match a given branch target. Accepts either the full
- *  `AgentSessionState[]` (single-shot, O(n)) or a prebuilt {@link AgentSessionBranchIndex} (batch,
- *  O(1) lookup). Filters by `branch` + `workspacePath`, with worktree-name disambiguation when
- *  both sides have it (same rule across overview, home, and graph details — keep them aligned). */
-export function matchAgentSessionsForBranch(
-	source: readonly AgentSessionState[] | AgentSessionBranchIndex | undefined,
-	target: AgentSessionBranchTarget,
+/** Returns the agent sessions running in the worktree the target represents. Accepts either the
+ *  full `AgentSessionState[]` (single-shot, O(n)) or a prebuilt {@link AgentSessionWorktreeIndex}
+ *  (batch, O(1) lookup). Matches by `(repoPath, worktreePath)` — both are full normalized paths
+ *  so default-worktree sessions never cross-associate with named-worktree targets. */
+export function matchAgentSessionsForWorktree(
+	source: readonly AgentSessionState[] | AgentSessionWorktreeIndex | undefined,
+	target: AgentSessionWorktreeTarget,
 ): AgentSessionState[] | undefined {
 	if (source == null) return undefined;
 
 	let candidates: readonly AgentSessionState[];
 	if (source instanceof Map) {
-		const found = source.get(`${target.repoPath}\0${target.name}`);
+		const found = source.get(`${target.repoPath}\0${target.worktreePath ?? ''}`);
 		if (found == null) return undefined;
 		candidates = found;
 	} else {
@@ -155,37 +142,28 @@ export function matchAgentSessionsForBranch(
 	}
 
 	const matches = candidates.filter(session => {
-		if (session.branch !== target.name) return false;
 		if (session.workspacePath !== target.repoPath) return false;
-		// When both sides know the worktree, names must match — guards against same-named
-		// branches in sibling worktrees colliding. When only one side has worktree info, fall
-		// through and accept (preserves the overview's prior behavior).
-		if (session.worktreeName != null && target.worktreeName != null) {
-			return session.worktreeName === target.worktreeName;
-		}
-		return true;
+		// Strict full-path equality (including both undefined). Loose matching would
+		// cross-associate default-worktree agents with named worktrees and vice-versa.
+		return (session.worktree?.path ?? null) === (target.worktreePath ?? null);
 	});
 
 	return matches.length > 0 ? matches : undefined;
 }
 
-/** Reverse of {@link matchAgentSessionsForBranch}: given a session, find the matching
- *  `OverviewBranch` in the supplied buckets so the graph agents sidebar can scope-and-select
- *  the same target the overview cards do. Same disambiguation rule (branch name +
- *  workspacePath/repoPath, with worktree-name tie-break when both sides have it). */
+/** Reverse of {@link matchAgentSessionsForWorktree}: given a session, find the `OverviewBranch`
+ *  representing the currently-checked-out branch of the session's worktree. Only `branches.active`
+ *  is considered — recent (non-opened) branches are by definition not the current branch of any
+ *  worktree. */
 export function findOverviewBranchForSession(
 	branches: { active: readonly OverviewBranch[]; recent: readonly OverviewBranch[] } | undefined,
 	session: AgentSessionState,
 ): OverviewBranch | undefined {
-	if (branches == null || session.branch == null || session.workspacePath == null) return undefined;
+	if (branches == null || session.workspacePath == null || session.worktree?.path == null) return undefined;
 
-	for (const candidate of [...branches.active, ...branches.recent]) {
-		if (candidate.name !== session.branch) continue;
+	for (const candidate of branches.active) {
 		if (candidate.repoPath !== session.workspacePath) continue;
-		const candidateWorktree = candidate.worktree != null ? getWorktreeBasename(candidate.worktree.uri) : undefined;
-		if (session.worktreeName != null && candidateWorktree != null && session.worktreeName !== candidateWorktree) {
-			continue;
-		}
+		if (candidate.worktree?.path !== session.worktree.path) continue;
 		return candidate;
 	}
 

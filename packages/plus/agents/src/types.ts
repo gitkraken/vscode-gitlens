@@ -83,8 +83,7 @@ export interface AgentSession {
 	readonly status: AgentSessionStatus;
 	readonly phase: AgentSessionPhase;
 	readonly statusDetail?: string;
-	readonly branch?: string;
-	readonly worktreeName?: string;
+	readonly worktreePath?: string;
 	readonly pid?: number;
 	readonly lastActivity: Date;
 	readonly phaseSince: Date;
@@ -164,15 +163,16 @@ export interface AgentProviderCallbacks {
 	runCLICommand(args: string[], options?: { cwd?: string }): Promise<string>;
 
 	/**
-	 * Resolve git metadata (branch, worktree, repo root) for a session's cwd.
-	 * Optional — if omitted, sessions won't have branch/worktree metadata.
+	 * Resolve git metadata for a session's cwd. Returns the stable worktree path; the worktree's
+	 * display name (branch name for branch-type worktrees) is intentionally NOT returned — it's
+	 * resolved live at serialization time so `git checkout` updates display without restarting.
+	 * Optional — if omitted, sessions won't have worktree metadata.
 	 */
 	resolveGitInfo?(cwd: string): Promise<
 		| {
-				branch?: string;
 				repoRoot: string;
 				isWorktree: boolean;
-				worktreeName?: string;
+				worktreePath?: string;
 		  }
 		| undefined
 	>;

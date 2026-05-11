@@ -757,21 +757,25 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { branches, worktreesByBranch } = getSettledValue(branchesAndWorktreesResult)!;
 		const repository = getSettledValue(formatRepositoryResult)!;
 
-		// Agent branches: return only branches that have an active agent session
+		// Agent branches: return only branches whose worktree has an active agent session.
+		// Sessions associate with worktrees by full path — the worktree's *current* branch is
+		// the agent's effective branch. Match by `(repoPath, worktreePath)`.
 		if (type === 'agents') {
 			const sessions = this.container.agentStatus?.sessions ?? [];
 			const repoPath = repo.path;
-			const agentBranchNames = new Set<string>();
+			const sessionWorktreePaths = new Set<string>();
 			for (const session of sessions) {
-				if (session.branch != null && session.workspacePath === repoPath) {
-					agentBranchNames.add(session.branch);
+				if (session.workspacePath === repoPath) {
+					sessionWorktreePaths.add(session.worktreePath ?? '');
 				}
 			}
 
 			const agentBranches: OverviewBranch[] = [];
 			for (const branch of branches) {
-				if (agentBranchNames.has(branch.name)) {
-					agentBranches.push(toOverviewBranch(branch, worktreesByBranch, false));
+				const wt = worktreesByBranch.get(branch.id);
+				const branchWorktreePath = wt != null && !wt.isDefault ? wt.path : '';
+				if (sessionWorktreePaths.has(branchWorktreePath)) {
+					agentBranches.push(toOverviewBranch(branch, worktreesByBranch, true));
 				}
 			}
 

@@ -226,6 +226,7 @@ export interface GetOverviewBranch {
 
 	worktree?: {
 		name: string;
+		path: string;
 		uri: string;
 		isDefault: boolean;
 	};

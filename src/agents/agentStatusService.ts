@@ -1,6 +1,7 @@
 import type { Disposable, QuickPickItem } from 'vscode';
 import { commands, EventEmitter, Uri, window, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../container.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { registerCommand } from '../system/-webview/command.js';
@@ -22,6 +23,16 @@ export class AgentStatusService implements Disposable {
 
 	private _lastSerialized: string = '';
 
+	/**
+	 * Transient cache of `worktreePath -> live GitWorktree.name`. Populated by
+	 * `refreshWorktreeNameCache()` via `getWorktrees()` on the parent repo, which is cached by
+	 * the git layer (keyed by `commonPath`, invalidated on `heads`/`remotes`/`worktrees`).
+	 * Never persisted on `AgentSession` — the name is the worktree's *current* identity so
+	 * `git checkout` updates display without restarting.
+	 */
+	private readonly _worktreeNameByPath = new Map<string, string>();
+	private _worktreeRefreshPromise: Promise<void> | undefined;
+
 	private readonly _disposables: Disposable[] = [];
 	private readonly _providers: AgentSessionProvider[];
 
@@ -36,6 +47,7 @@ export class AgentStatusService implements Disposable {
 				provider.onDidChangeSessions(() => {
 					this._onDidChange.fire();
 					this.maybeFireSerializedChange();
+					void this.refreshWorktreeNameCache();
 				}),
 			);
 		}
@@ -49,6 +61,17 @@ export class AgentStatusService implements Disposable {
 				}
 			}),
 			workspace.onDidChangeWorkspaceFolders(() => this.onWorkspaceFoldersChanged()),
+			this.container.git.onDidChangeRepository(e => {
+				// Refresh when the worktree set or branch state of any repo we care about changes.
+				// The underlying `getWorktrees()` cache already invalidates on these same signals.
+				if (!e.changed('heads', 'remotes', 'worktrees')) return;
+				void this.refreshWorktreeNameCache();
+			}),
+			this.container.git.onDidChangeRepositories(() => {
+				// New repos may have just become resolvable for sessions that were previously
+				// pending; existing repos may have been removed. Refresh either way.
+				void this.refreshWorktreeNameCache();
+			}),
 			...this.registerCommands(),
 		);
 
@@ -72,7 +95,12 @@ export class AgentStatusService implements Disposable {
 	}
 
 	getSerializedSessions(): AgentSessionState[] {
-		return this.sessions.map(serializeAgentSession);
+		return this.sessions.map(s => serializeAgentSession(s, this.getWorktreeNameForSession(s)));
+	}
+
+	private getWorktreeNameForSession(session: AgentSession): string | undefined {
+		if (session.worktreePath == null) return undefined;
+		return this._worktreeNameByPath.get(session.worktreePath);
 	}
 
 	private maybeFireSerializedChange(): void {
@@ -81,6 +109,77 @@ export class AgentStatusService implements Disposable {
 		if (stringified === this._lastSerialized) return;
 		this._lastSerialized = stringified;
 		this._onDidChangeSerializedSessions.fire(serialized);
+	}
+
+	/**
+	 * Resolves the live display name for each session's worktree by calling `getWorktrees()` once
+	 * per parent repo (the underlying cache means repeated calls within a stable repo are free).
+	 * Updates `_worktreeNameByPath` and fires `onDidChangeSerializedSessions` if anything changed.
+	 * Concurrent calls dedupe to a single in-flight refresh.
+	 */
+	private refreshWorktreeNameCache(): Promise<void> {
+		if (this._worktreeRefreshPromise != null) return this._worktreeRefreshPromise;
+
+		this._worktreeRefreshPromise = (async () => {
+			try {
+				// Group session worktree paths by parent repo path so we make one
+				// `getWorktrees()` call per parent (not per worktree).
+				const worktreePathsByParent = new Map<string, Set<string>>();
+				const referencedWorktreePaths = new Set<string>();
+				for (const s of this.sessions) {
+					if (s.worktreePath == null) continue;
+					const repo = this.container.git.getRepository(s.worktreePath);
+					if (repo == null) continue;
+					const parentPath = repo.isWorktree && repo.commonPath ? repo.commonPath : repo.path;
+					let set = worktreePathsByParent.get(parentPath);
+					if (set == null) {
+						set = new Set<string>();
+						worktreePathsByParent.set(parentPath, set);
+					}
+					set.add(s.worktreePath);
+					referencedWorktreePaths.add(s.worktreePath);
+				}
+
+				let changed = false;
+				// Prune entries for worktrees no session lives in anymore.
+				for (const key of [...this._worktreeNameByPath.keys()]) {
+					if (!referencedWorktreePaths.has(key)) {
+						this._worktreeNameByPath.delete(key);
+						changed = true;
+					}
+				}
+
+				const results = await Promise.allSettled(
+					Array.from(worktreePathsByParent, async ([parentPath, paths]) => {
+						const worktrees = await this.container.git
+							.getRepositoryService(parentPath)
+							.worktrees?.getWorktrees();
+						return { paths: paths, worktrees: worktrees ?? [] };
+					}),
+				);
+
+				for (const r of results) {
+					const value = getSettledValue(r);
+					if (value == null) continue;
+					for (const wt of value.worktrees) {
+						if (!value.paths.has(wt.path)) continue;
+						const existing = this._worktreeNameByPath.get(wt.path);
+						if (existing !== wt.name) {
+							this._worktreeNameByPath.set(wt.path, wt.name);
+							changed = true;
+						}
+					}
+				}
+
+				if (changed) {
+					this.maybeFireSerializedChange();
+				}
+			} finally {
+				this._worktreeRefreshPromise = undefined;
+			}
+		})();
+
+		return this._worktreeRefreshPromise;
 	}
 
 	resolvePermission(
@@ -169,10 +268,11 @@ export class AgentStatusService implements Disposable {
 			if (workspaceSessions.length > 0) {
 				items.push(createQuickPickSeparator('This workspace'));
 				for (const s of workspaceSessions) {
+					const worktreeName = this.getWorktreeNameForSession(s);
 					items.push({
 						label: `$(hubot) ${s.name}`,
 						description: s.status,
-						detail: s.branch ? `on ${s.branch}` : undefined,
+						detail: worktreeName ? `worktree: ${worktreeName}` : undefined,
 						session: s,
 					} satisfies SessionPickItem);
 				}

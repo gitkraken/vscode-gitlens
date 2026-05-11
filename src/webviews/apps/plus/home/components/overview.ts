@@ -351,15 +351,19 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	private filterAgentBranches(branches: GetOverviewBranch[], repoPath: string): GetOverviewBranch[] {
 		if (this._agentFilter === 'all') return branches;
 
+		// Sessions associate with worktrees, keyed by full path. Build the set of worktree paths
+		// agents are running in for this repo, then keep only branches whose worktree matches.
+		// The host pre-filters to agent-bearing branches; this is the workspace-vs-all UI
+		// selector layered on top.
 		const sessions = this._homeCtx.agentSessions.get() ?? [];
-		const workspaceBranches = new Set<string>();
+		const sessionWorktreePaths = new Set<string>();
 		for (const session of sessions) {
-			if (session.branch != null && session.workspacePath === repoPath) {
-				workspaceBranches.add(session.branch);
+			if (session.workspacePath === repoPath) {
+				sessionWorktreePaths.add(session.worktree?.path ?? '');
 			}
 		}
 
-		return branches.filter(b => workspaceBranches.has(b.name));
+		return branches.filter(b => sessionWorktreePaths.has(b.worktree?.path ?? ''));
 	}
 
 	private getUnrepresentedAgentSessions(
@@ -369,11 +373,10 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		const sessions = this._homeCtx.agentSessions.get() ?? [];
 		if (sessions.length === 0) return [];
 
-		const renderedBranchNames = new Set(renderedBranches.map(b => b.name));
+		const renderedWorktreePaths = new Set(renderedBranches.map(b => b.worktree?.path ?? ''));
 		return sessions.filter(s => {
-			if (s.branch == null) return true;
 			if (s.workspacePath !== repoPath) return true;
-			return !renderedBranchNames.has(s.branch);
+			return !renderedWorktreePaths.has(s.worktree?.path ?? '');
 		});
 	}
 

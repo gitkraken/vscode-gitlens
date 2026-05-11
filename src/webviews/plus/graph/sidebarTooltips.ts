@@ -1,13 +1,9 @@
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatIndicators, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
+import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
-import {
-	agentPhaseToCategory,
-	formatAgentElapsed,
-	getAgentCategoryLabel,
-	getWorktreeBasename,
-} from '../../apps/shared/agentUtils.js';
+import { agentPhaseToCategory, formatAgentElapsed, getAgentCategoryLabel } from '../../apps/shared/agentUtils.js';
 import type { OverviewBranch } from '../../shared/overviewBranches.js';
 import type {
 	GraphSidebarBranch,
@@ -169,18 +165,22 @@ export function agentTooltip(session: AgentSessionState, matchingBranch: Overvie
 		}
 	}
 
-	// Branch line — prefer the resolved overview match (it carries the worktree URI we can show
-	// the basename of); fall back to the raw `session.branch` + `worktreeName` when the agent is
-	// on a branch outside the current overview.
-	const branchName = matchingBranch?.name ?? session.branch;
-	if (branchName) {
-		const worktreeName =
-			matchingBranch?.worktree != null ? getWorktreeBasename(matchingBranch.worktree.uri) : session.worktreeName;
-		let branchLine = `$(git-branch) \`${branchName}\``;
-		if (worktreeName) {
-			branchLine += ` — _worktree: ${worktreeName}_`;
+	// Branch line — derived live from the matched overview branch (the session's worktree's
+	// currently-checked-out branch). For worktrees the overview doesn't know about (cross-repo /
+	// cross-workspace sessions), fall back to the session's live `worktree.name` populated host-
+	// side at serialization time. The worktree disambiguator is the directory basename when it
+	// differs from the label.
+	const label = matchingBranch?.name ?? session.worktree?.name;
+	const worktreePath = matchingBranch?.worktree?.path ?? session.worktree?.path;
+	if (label != null) {
+		let branchLine = `$(git-branch) \`${label}\``;
+		const worktreeBasename = worktreePath != null ? basename(worktreePath) : undefined;
+		if (worktreeBasename && worktreeBasename !== label) {
+			branchLine += ` — _worktree: ${worktreeBasename}_`;
 		}
 		tooltip += `\n\n**Branch**\\\n${branchLine}`;
+	} else if (worktreePath) {
+		tooltip += `\n\n**Worktree**\\\n_${basename(worktreePath)}_`;
 	}
 
 	return tooltip;

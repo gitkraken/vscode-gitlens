@@ -108,18 +108,16 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 	}
 
 	private getSessionContext(session: AgentSessionState): { text: string; tooltip?: string } | undefined {
-		const parts: string[] = [];
-		if (session.branch != null) {
-			parts.push(session.branch);
-		}
-		if (session.worktreeName != null) {
-			parts.push(`worktree: ${session.worktreeName}`);
-		}
-		if (parts.length === 0) return undefined;
+		// Branch isn't stored on the session — it's a property of the worktree, resolved live
+		// at serialization time. Here in the home overlay we surface the live worktree name
+		// (typically the branch name) when present; the branch label appears on the branch card
+		// itself so this is just disambiguation.
+		const name = session.worktree?.name ?? (session.worktree?.path ? basename(session.worktree.path) : undefined);
+		if (name == null) return undefined;
 
 		return {
-			text: parts.join(' · '),
-			tooltip: session.worktreeName != null ? session.cwd : undefined,
+			text: `worktree: ${name}`,
+			tooltip: session.cwd,
 		};
 	}
 
