@@ -374,22 +374,30 @@ export class RepositoryService {
 		if (status == null) return;
 		if (status.files.length === 0) return;
 
-		// Group A (newly-added) with untracked — both don't exist in HEAD and use trash-only recovery
+		// Group A (newly-added) with untracked — both don't exist in HEAD and use trash-only recovery.
+		// Exclude conflicted files — during a paused rebase, checkout HEAD resolves to the
+		// target branch, not the user's branch, which would silently pick the wrong side.
 		const newOrUntrackedFiles = status.files.filter(f => f.status === '?' || f.status === 'A');
-		const modifiedTrackedFiles = status.files.filter(f => f.status !== '?' && f.status !== 'A');
+		const modifiedTrackedFiles = status.files.filter(
+			f => f.status !== '?' && f.status !== 'A' && !isConflictStatus(f.status),
+		);
+
+		const discardableCount = modifiedTrackedFiles.length + newOrUntrackedFiles.length;
+		if (discardableCount === 0) return;
 
 		const choice = await this.confirmDiscardAll(
 			modifiedTrackedFiles.length,
 			newOrUntrackedFiles.length,
-			status.files.length,
+			discardableCount,
 		);
 		if (choice === 'cancel') return;
 
 		const discardAll = choice === 'all';
 
 		// "Tracked only" preserves untracked and newly-added files;
-		// "all" discards everything including untracked.
-		const filesToDiscard = discardAll ? status.files : modifiedTrackedFiles;
+		// "all" discards everything including untracked. Both exclude conflicted files.
+		const nonConflicted = status.files.filter(f => !isConflictStatus(f.status));
+		const filesToDiscard = discardAll ? nonConflicted : modifiedTrackedFiles;
 
 		// Move non-deleted files to trash so working-tree versions are recoverable
 		const toTrash = filesToDiscard.filter(f => f.status !== 'D');
@@ -402,15 +410,11 @@ export class RepositoryService {
 			}
 		}
 
-		// Use unstageAll when discarding everything; per-file unstage otherwise
-		// so we don't disturb staged adds we're keeping
-		if (discardAll) {
-			await svc.staging?.unstageAll();
-		} else {
-			for (const f of filesToDiscard) {
-				if (f.staged) {
-					await svc.staging?.unstageFile(f.path);
-				}
+		// Per-file unstage only — unstageAll would reset the entire index
+		// including conflict entries we're deliberately preserving
+		for (const f of filesToDiscard) {
+			if (f.staged) {
+				await svc.staging?.unstageFile(f.path);
 			}
 		}
 
