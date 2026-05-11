@@ -372,17 +372,29 @@ export class RepositoryService {
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const status = await svc.status.getStatus();
 		if (status == null) return;
+		if (status.files.length === 0) return;
 
-		const filePaths = status.files.map(f => f.path);
-		if (filePaths.length === 0) return;
+		// Group A (newly-added) with untracked — both don't exist in HEAD and use trash-only recovery
+		const newOrUntrackedFiles = status.files.filter(f => f.status === '?' || f.status === 'A');
+		const modifiedTrackedFiles = status.files.filter(f => f.status !== '?' && f.status !== 'A');
 
-		const confirmed = await this.confirmDiscardChanges(filePaths);
-		if (!confirmed) return;
+		const choice = await this.confirmDiscardAll(
+			modifiedTrackedFiles.length,
+			newOrUntrackedFiles.length,
+			status.files.length,
+		);
+		if (choice === 'cancel') return;
+
+		const discardAll = choice === 'all';
+
+		// "Tracked only" preserves untracked and newly-added files;
+		// "all" discards everything including untracked.
+		const filesToDiscard = discardAll ? status.files : modifiedTrackedFiles;
 
 		// Move non-deleted files to trash so working-tree versions are recoverable
-		const allNonDeleted = status.files.filter(f => f.status !== 'D');
+		const toTrash = filesToDiscard.filter(f => f.status !== 'D');
 		const trashResults = await Promise.allSettled(
-			allNonDeleted.map(f => this.moveToTrash(Uri.joinPath(Uri.file(repoPath), f.path))),
+			toTrash.map(f => this.moveToTrash(Uri.joinPath(Uri.file(repoPath), f.path))),
 		);
 		for (const r of trashResults) {
 			if (r.status === 'rejected') {
@@ -390,12 +402,20 @@ export class RepositoryService {
 			}
 		}
 
-		if (status.files.some(f => f.staged)) {
+		// Use unstageAll when discarding everything; per-file unstage otherwise
+		// so we don't disturb staged adds we're keeping
+		if (discardAll) {
 			await svc.staging?.unstageAll();
+		} else {
+			for (const f of filesToDiscard) {
+				if (f.staged) {
+					await svc.staging?.unstageFile(f.path);
+				}
+			}
 		}
 
 		// Restore files that exist in HEAD — use originalPath for renames/copies
-		for (const f of status.files) {
+		for (const f of filesToDiscard) {
 			if (f.status === '?' || f.status === 'A') continue;
 
 			const checkoutPath = f.status === 'R' || f.status === 'C' ? (f.originalPath ?? f.path) : f.path;
@@ -425,11 +445,46 @@ export class RepositoryService {
 		const fileLabel = fileCount === 1 ? `"${paths[0]}"` : pluralize('file', fileCount);
 		const discard = fileCount === 1 ? 'Discard Changes' : 'Discard All Changes';
 		const choice = await window.showWarningMessage(
-			`Are you sure you want to discard changes in ${fileLabel}?\n\nChanges will be moved to the Trash, but this cannot always be undone.`,
+			`Are you sure you want to discard changes in ${fileLabel}?\n\nThis is IRREVERSIBLE!\nYour current changes will be FOREVER LOST if you proceed.`,
 			{ modal: true },
 			discard,
 		);
 		return choice === discard;
+	}
+
+	private async confirmDiscardAll(
+		trackedCount: number,
+		untrackedCount: number,
+		totalCount: number,
+	): Promise<'tracked' | 'all' | 'cancel'> {
+		const lines: string[] = [];
+		if (untrackedCount > 0) {
+			lines.push(
+				`Are you sure you want to DELETE ${pluralize('new file', untrackedCount)}? You can restore these files from the Trash.`,
+			);
+		}
+		if (trackedCount > 0) {
+			if (untrackedCount > 0) {
+				lines.push('');
+			}
+			lines.push(`Are you sure you want to discard changes in ${pluralize('file', trackedCount)}?`);
+		}
+		lines.push('', 'This is IRREVERSIBLE!', 'Your current working set will be FOREVER LOST if you proceed.');
+
+		const discardTracked = `Discard ${pluralize('Tracked File', trackedCount)}`;
+		const discardAll = `Discard All ${totalCount} Files`;
+
+		const buttons =
+			untrackedCount > 0 && trackedCount > 0
+				? [discardTracked, discardAll]
+				: trackedCount > 0
+					? [discardTracked]
+					: [discardAll];
+
+		const choice = await window.showWarningMessage(lines.join('\n'), { modal: true }, ...buttons);
+		if (choice === discardAll) return 'all';
+		if (choice === discardTracked) return 'tracked';
+		return 'cancel';
 	}
 
 	private async moveToTrash(uri: Uri): Promise<void> {
