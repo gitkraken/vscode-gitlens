@@ -242,14 +242,22 @@ export class GlWipTreePane extends LitElement {
 			${this.renderConflictBulkActions(files)}
 			${files.length > 0
 				? html`<gl-button
-						slot="leading-actions"
-						appearance="toolbar"
-						tooltip="Stash Changes"
-						@click=${this.onStashSave}
-					>
-						<code-icon icon="gl-stash-save" slot="prefix"></code-icon>
-						<span class="stash-label">Stash</span>
-					</gl-button>`
+							slot="leading-actions"
+							appearance="toolbar"
+							tooltip="Stash Changes"
+							@click=${this.onStashSave}
+						>
+							<code-icon icon="gl-stash-save" slot="prefix"></code-icon>
+							<span class="stash-label">Stash</span>
+						</gl-button>
+						<gl-button
+							slot="leading-actions"
+							appearance="toolbar"
+							tooltip="Discard Unstaged Changes"
+							@click=${this.onDiscardUnstaged}
+						>
+							<code-icon icon="discard" slot="prefix"></code-icon>
+						</gl-button>`
 				: nothing}
 			<slot name="before-tree" slot="before-tree"></slot>
 		</gl-file-tree-pane>`;
@@ -290,6 +298,10 @@ export class GlWipTreePane extends LitElement {
 
 	private onStashSave() {
 		this.dispatchEvent(new CustomEvent('stash-save', { bubbles: true, composed: true }));
+	}
+
+	private onDiscardUnstaged() {
+		this.dispatchEvent(new CustomEvent('discard-unstaged', { bubbles: true, composed: true }));
 	}
 
 	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; title?: string }): void {

@@ -590,6 +590,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 											@file-more-actions=${this.handleFileMoreActions}
 											@file-stage=${this.handleFileStage}
 											@file-unstage=${this.handleFileUnstage}
+											@file-discard=${this.handleFileDiscard}
+											@discard-unstaged=${this.handleDiscardUnstaged}
 											@stage-all=${this.handleStageAll}
 											@unstage-all=${this.handleUnstageAll}
 											@stash-save=${this.handleStashSave}
@@ -1291,6 +1293,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleFileUnstage = (e: CustomEvent<FileChangeListItemDetail>) => {
 		this._actions.unstageFile(e.detail);
+	};
+
+	private handleFileDiscard = (e: CustomEvent<FileChangeListItemDetail>) => {
+		this._actions.discardFile(e.detail);
+	};
+
+	private handleDiscardUnstaged = () => {
+		this._actions.discardUnstagedFiles(this.effectiveRepoPath);
 	};
 
 	private handleStageAll = () => {

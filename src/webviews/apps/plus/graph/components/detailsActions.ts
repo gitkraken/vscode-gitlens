@@ -2060,6 +2060,15 @@ export class DetailsActions {
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageAll(repoPath));
 	}
 
+	discardFile(detail: FileChangeListItemDetail): void {
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFile(detail));
+	}
+
+	discardUnstagedFiles(repoPath: string | undefined): void {
+		if (!repoPath) return;
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardUnstagedFiles(repoPath));
+	}
+
 	/**
 	 * After a stage/unstage RPC completes, force a WIP re-fetch from the host. The host's
 	 * `notifyDidChangeWorkingTree` deduplicates by added/deleted/modified counts, so a pure

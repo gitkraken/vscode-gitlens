@@ -8,7 +8,7 @@
  * - Per-repo change events (working tree FS changes, filtered repository changes)
  */
 
-import { Disposable, Uri, window } from 'vscode';
+import { Disposable, Uri, window, workspace } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -343,6 +343,135 @@ export class RepositoryService {
 	 */
 	async unstageAll(repoPath: string): Promise<void> {
 		await this.container.git.getRepositoryService(repoPath).staging?.unstageAll();
+	}
+
+	async discardFile(file: GitFileChangeShape): Promise<void> {
+		const confirmed = await this.confirmDiscardChanges([file.path]);
+		if (!confirmed) return;
+
+		const uri = Uri.joinPath(Uri.file(file.repoPath), file.path);
+		const svc = this.container.git.getRepositoryService(file.repoPath);
+
+		await this.trashAndUnstage(uri, svc, file);
+
+		// Untracked and newly-added files don't exist in HEAD — trash is sufficient
+		if (file.status === '?' || file.status === 'A') return;
+
+		// Renames/copies: restore the original path from HEAD (not the new name)
+		if (file.status === 'R' || file.status === 'C') {
+			if (file.originalPath) {
+				try {
+					await svc.ops?.checkout('HEAD', { path: file.originalPath });
+				} catch (ex) {
+					Logger.warn(`Failed to restore ${file.originalPath} from HEAD (file was moved to Trash): ${ex}`);
+				}
+			} else {
+				Logger.warn(`Renamed file ${file.path} missing originalPath — original not restored`);
+			}
+			return;
+		}
+
+		try {
+			await svc.ops?.checkout('HEAD', { path: file.path });
+		} catch (ex) {
+			Logger.warn(`Failed to restore ${file.path} from HEAD (file was moved to Trash): ${ex}`);
+		}
+	}
+
+	async discardUnstagedFiles(repoPath: string): Promise<void> {
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const status = await svc.status.getStatus();
+		if (status == null) return;
+
+		// Only discard unstaged files — leave staged and conflicted untouched.
+		// Note: mixed files (staged + unstaged changes) are also skipped because
+		// `f.staged` is true when indexStatus is set. This is intentional — checkout
+		// HEAD would wipe their staged changes, and restoring from the index requires
+		// git restore/checkout-index which isn't in the provider layer yet. Users can
+		// still discard mixed files individually via the per-file button.
+		const unstaged = status.files.filter(f => !f.staged && !isConflictStatus(f.status));
+		if (unstaged.length === 0) return;
+
+		const untracked = unstaged.filter(f => f.status === '?');
+		const tracked = unstaged.filter(f => f.status !== '?');
+
+		const confirmed = await this.confirmDiscardUnstaged(tracked.length, untracked.length);
+		if (!confirmed) return;
+
+		// Move non-deleted files to trash so working-tree versions are recoverable
+		const toTrash = unstaged.filter(f => f.status !== 'D');
+		const trashResults = await Promise.allSettled(
+			toTrash.map(f => this.moveToTrash(Uri.joinPath(Uri.file(repoPath), f.path))),
+		);
+		for (const r of trashResults) {
+			if (r.status === 'rejected') {
+				Logger.warn(`Failed to move file to trash: ${r.reason}`);
+			}
+		}
+
+		// Restore tracked files from HEAD
+		for (const f of tracked) {
+			// 'A' (added) never appears with staged=false in practice — git reports
+			// unstaged new files as '?' (untracked), not 'A'. Guard is here defensively and to calm down robotic reviewers
+			if (f.status === 'A') continue;
+
+			const checkoutPath = f.status === 'R' || f.status === 'C' ? (f.originalPath ?? f.path) : f.path;
+			try {
+				await svc.ops?.checkout('HEAD', { path: checkoutPath });
+			} catch (ex) {
+				Logger.warn(`Failed to restore ${checkoutPath} from HEAD: ${ex}`);
+			}
+		}
+	}
+
+	private async trashAndUnstage(
+		uri: Uri,
+		svc: ReturnType<Container['git']['getRepositoryService']>,
+		file: GitFileChangeShape,
+	): Promise<void> {
+		if (file.status !== 'D') {
+			await this.moveToTrash(uri);
+		}
+		if (file.staged) {
+			await svc.staging?.unstageFile(file.path);
+		}
+	}
+
+	private async confirmDiscardChanges(paths: string[]): Promise<boolean> {
+		const fileCount = paths.length;
+		const fileLabel = fileCount === 1 ? `"${paths[0]}"` : pluralize('file', fileCount);
+		const discard = fileCount === 1 ? 'Discard Changes' : 'Discard All Changes';
+		const choice = await window.showWarningMessage(
+			`Are you sure you want to discard changes in ${fileLabel}?\n\nThis is IRREVERSIBLE!\nYour current changes will be FOREVER LOST if you proceed.`,
+			{ modal: true },
+			discard,
+		);
+		return choice === discard;
+	}
+
+	private async confirmDiscardUnstaged(trackedCount: number, untrackedCount: number): Promise<boolean> {
+		const lines: string[] = [];
+		if (untrackedCount > 0) {
+			lines.push(
+				`Are you sure you want to DELETE ${pluralize('untracked file', untrackedCount)}? You can restore these files from the Trash.`,
+			);
+		}
+		if (trackedCount > 0) {
+			if (untrackedCount > 0) {
+				lines.push('');
+			}
+			lines.push(`Are you sure you want to discard unstaged changes in ${pluralize('file', trackedCount)}?`);
+		}
+		lines.push('', 'This is IRREVERSIBLE!', 'Your current working set will be FOREVER LOST if you proceed.');
+
+		const totalCount = trackedCount + untrackedCount;
+		const discard = `Discard ${pluralize('Unstaged File', totalCount)}`;
+		const choice = await window.showWarningMessage(lines.join('\n'), { modal: true }, discard);
+		return choice === discard;
+	}
+
+	private async moveToTrash(uri: Uri): Promise<void> {
+		await workspace.fs.delete(uri, { useTrash: true });
 	}
 
 	/**

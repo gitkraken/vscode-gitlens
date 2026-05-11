@@ -569,18 +569,20 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 		// Non-conflicted files: row click opens, so no Open File button. Checkbox mode handles
 		// staging via the row checkbox; non-checkbox mode shows Stage/Unstage buttons.
-		if (this.checkboxMode) return [];
+		const discard = { icon: 'discard', label: 'Discard Changes', action: 'file-discard' };
+
+		if (this.checkboxMode) return [discard];
 
 		const stage = { icon: 'plus', label: 'Stage Changes', action: 'file-stage' };
 		const unstage = { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' };
 
 		if (options?.mixed) {
-			return [stage, unstage];
+			return [stage, unstage, discard];
 		}
 		if (file.staged === true) {
-			return [unstage];
+			return [unstage, discard];
 		}
-		return [stage];
+		return [stage, discard];
 	}
 
 	override getFolderContext(folder: { relativePath: string }): string | undefined {
