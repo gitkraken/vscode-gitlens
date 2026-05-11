@@ -220,15 +220,22 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		const ordered: string[] = [];
 		let cursorSha: string | undefined = headCommit.sha;
 		let cursorParents: readonly string[] = headCommit.parents;
+		let collecting = false;
 		while (cursorSha != null && ordered.length < selectedSet.size) {
 			if (selectedSet.has(cursorSha)) {
 				ordered.push(cursorSha);
+				collecting = true;
+			} else if (collecting) {
+				throw new Error('Compose scope includeShas is not a contiguous first-parent range from HEAD');
 			}
 			const parentSha: string | undefined = cursorParents[0];
 			if (parentSha == null) break;
 			const parentCommit = await svc.commits.getCommit(parentSha);
 			cursorSha = parentCommit?.sha;
 			cursorParents = parentCommit?.parents ?? [];
+		}
+		if (ordered.length !== selectedSet.size) {
+			throw new Error('Compose scope includeShas references commits not reachable via first-parent from HEAD');
 		}
 		const oldest = ordered.at(-1);
 		let rewriteFromSha = headSha;
