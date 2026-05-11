@@ -146,6 +146,9 @@ function createAiModelPort(container: Container, source: Source): AiModelPort {
 			const cancellationSource = new CancellationTokenSource();
 			const abortHandler = () => cancellationSource.cancel();
 			params.signal?.addEventListener('abort', abortHandler);
+			if (params.signal?.aborted) {
+				cancellationSource.cancel();
+			}
 
 			try {
 				const messages: AIChatMessage[] = [];
