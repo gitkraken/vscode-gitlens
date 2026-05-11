@@ -16,13 +16,23 @@ export { applyComposePlan, composePlan, undoCompose, validateUndoCompose } from 
  * Convert a VS Code `CancellationToken` to an `AbortSignal` the compose-tools
  * library and adapter ops understand. The signal aborts when the token is cancelled.
  */
-export function cancellationTokenToSignal(token: CancellationToken | undefined): AbortSignal | undefined {
-	if (!token) return undefined;
+export function cancellationTokenToSignal(token: CancellationToken | undefined): {
+	signal: AbortSignal | undefined;
+	dispose: () => void;
+} {
+	if (!token) return { signal: undefined, dispose: noop };
 	const controller = new AbortController();
 	if (token.isCancellationRequested) {
 		controller.abort();
-	} else {
-		token.onCancellationRequested(() => controller.abort());
+		return { signal: controller.signal, dispose: noop };
 	}
-	return controller.signal;
+	const subscription = token.onCancellationRequested(() => controller.abort());
+	return {
+		signal: controller.signal,
+		dispose: () => {
+			subscription.dispose();
+		},
+	};
 }
+
+function noop(): void {}

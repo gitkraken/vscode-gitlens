@@ -77,57 +77,61 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 	): Promise<GeneratePlanForGraphDetailsResult> {
 		const git = this.createGitPort(input.repo);
 		const model = this.createAiModelPort(input.telemetrySource);
-		const signal = cancellationTokenToSignal(input.cancellation);
+		const { signal, dispose: disposeSignal } = cancellationTokenToSignal(input.cancellation);
 		const onBeforePrompt = this.buildLargePromptGate(input.suppressLargePromptWarning ?? false);
 
-		const resolved = await this.resolveGraphScope(input.repo, input.scope);
-		const source = this.scopeToComposeSource(input.scope, resolved);
+		try {
+			const resolved = await this.resolveGraphScope(input.repo, input.scope);
+			const source = this.scopeToComposeSource(input.scope, resolved);
 
-		const excluded = input.excludedFiles?.length ? new Set(input.excludedFiles) : undefined;
-		const hunkFilter = excluded?.size
-			? (hunks: ComposeHunk[]) =>
-					hunks.filter(h => !excluded.has(h.fileName) && !excluded.has(h.originalFileName ?? h.fileName))
-			: undefined;
+			const excluded = input.excludedFiles?.length ? new Set(input.excludedFiles) : undefined;
+			const hunkFilter = excluded?.size
+				? (hunks: ComposeHunk[]) =>
+						hunks.filter(h => !excluded.has(h.fileName) && !excluded.has(h.originalFileName ?? h.fileName))
+				: undefined;
 
-		const result: ComposePlanResult = await composePlan({
-			git: git,
-			model: model,
-			source: source,
-			instructions: input.customInstructions,
-			onProgress: input.onProgress,
-			cancellation: signal,
-			onBeforePrompt: onBeforePrompt,
-			hunkFilter: hunkFilter,
-		});
+			const result: ComposePlanResult = await composePlan({
+				git: git,
+				model: model,
+				source: source,
+				instructions: input.customInstructions,
+				onProgress: input.onProgress,
+				cancellation: signal,
+				onBeforePrompt: onBeforePrompt,
+				hunkFilter: hunkFilter,
+			});
 
-		const cacheKey = this.createCacheKey(input.repo.path);
-		this._cache.set(cacheKey, {
-			plan: result.plan,
-			snapshot: result.snapshot,
-			source: source,
-			sourceHunks: result.source.hunks,
-			excludedFiles: input.excludedFiles?.length ? [...input.excludedFiles] : undefined,
-		});
+			const cacheKey = this.createCacheKey(input.repo.path);
+			this._cache.set(cacheKey, {
+				plan: result.plan,
+				snapshot: result.snapshot,
+				source: source,
+				sourceHunks: result.source.hunks,
+				excludedFiles: input.excludedFiles?.length ? [...input.excludedFiles] : undefined,
+			});
 
-		return {
-			cacheKey: cacheKey,
-			plan: result.plan,
-			sourceHunks: result.source.hunks,
-			headSha: resolved.headSha,
-			rewriteFromSha: resolved.rewriteFromSha,
-			selectedShas: resolved.selectedShas,
-			kind: resolved.kind,
-			diffStats: {
-				fileCount: new Set(result.source.hunks.map(h => h.fileName)).size,
-				hunkCount: result.source.hunks.length,
-				addedLines: result.source.hunks.reduce((sum, h) => sum + h.additions, 0),
-				removedLines: result.source.hunks.reduce((sum, h) => sum + h.deletions, 0),
-			},
-			usage: {
-				inputTokens: result.usage.inputTokens,
-				outputTokens: result.usage.outputTokens,
-			},
-		};
+			return {
+				cacheKey: cacheKey,
+				plan: result.plan,
+				sourceHunks: result.source.hunks,
+				headSha: resolved.headSha,
+				rewriteFromSha: resolved.rewriteFromSha,
+				selectedShas: resolved.selectedShas,
+				kind: resolved.kind,
+				diffStats: {
+					fileCount: new Set(result.source.hunks.map(h => h.fileName)).size,
+					hunkCount: result.source.hunks.length,
+					addedLines: result.source.hunks.reduce((sum, h) => sum + h.additions, 0),
+					removedLines: result.source.hunks.reduce((sum, h) => sum + h.deletions, 0),
+				},
+				usage: {
+					inputTokens: result.usage.inputTokens,
+					outputTokens: result.usage.outputTokens,
+				},
+			};
+		} finally {
+			disposeSignal();
+		}
 	}
 
 	async applyPlanForGraphDetails(input: ApplyPlanForGraphDetailsInput): Promise<ApplyPlanForGraphDetailsResult> {

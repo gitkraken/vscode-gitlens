@@ -78,47 +78,51 @@ export class ComposerComposeIntegration extends ComposeToolsIntegration {
 	async generatePlan(input: GeneratePlanInput): Promise<GeneratePlanResult> {
 		const git = this.createGitPort(input.repo);
 		const model = this.createAiModelPort(input.telemetrySource);
-		const signal = cancellationTokenToSignal(input.cancellation);
+		const { signal, dispose: disposeSignal } = cancellationTokenToSignal(input.cancellation);
 		const onBeforePrompt = this.buildLargePromptGate(input.suppressLargePromptWarning ?? false);
 
 		const source = this.toLibrarySource(input.source);
 		const target = input.target ?? (source.type === 'branch' ? { type: 'branch-replace' } : { type: 'head' });
 
-		const result: ComposePlanResult = await composePlan({
-			git: git,
-			model: model,
-			source: source,
-			target: target,
-			instructions: input.customInstructions,
-			context: input.context,
-			onProgress: input.onProgress,
-			cancellation: signal,
-			onBeforePrompt: onBeforePrompt,
-		});
+		try {
+			const result: ComposePlanResult = await composePlan({
+				git: git,
+				model: model,
+				source: source,
+				target: target,
+				instructions: input.customInstructions,
+				context: input.context,
+				onProgress: input.onProgress,
+				cancellation: signal,
+				onBeforePrompt: onBeforePrompt,
+			});
 
-		const cacheKey = this.createCacheKey(input.repo.path);
-		this._cache.set(cacheKey, {
-			plan: result.plan,
-			snapshot: result.snapshot,
-			source: source,
-			sourceHunks: result.source.hunks,
-		});
+			const cacheKey = this.createCacheKey(input.repo.path);
+			this._cache.set(cacheKey, {
+				plan: result.plan,
+				snapshot: result.snapshot,
+				source: source,
+				sourceHunks: result.source.hunks,
+			});
 
-		return {
-			cacheKey: cacheKey,
-			hunks: result.source.hunks.map(h => this.toComposerHunk(h)),
-			commits: result.plan.allOrderedCommits.map(c => this.toComposerCommit(c)),
-			diffStats: {
-				fileCount: new Set(result.source.hunks.map(h => h.fileName)).size,
-				hunkCount: result.source.hunks.length,
-				addedLines: result.source.hunks.reduce((sum, h) => sum + h.additions, 0),
-				removedLines: result.source.hunks.reduce((sum, h) => sum + h.deletions, 0),
-			},
-			usage: {
-				inputTokens: result.usage.inputTokens,
-				outputTokens: result.usage.outputTokens,
-			},
-		};
+			return {
+				cacheKey: cacheKey,
+				hunks: result.source.hunks.map(h => this.toComposerHunk(h)),
+				commits: result.plan.allOrderedCommits.map(c => this.toComposerCommit(c)),
+				diffStats: {
+					fileCount: new Set(result.source.hunks.map(h => h.fileName)).size,
+					hunkCount: result.source.hunks.length,
+					addedLines: result.source.hunks.reduce((sum, h) => sum + h.additions, 0),
+					removedLines: result.source.hunks.reduce((sum, h) => sum + h.deletions, 0),
+				},
+				usage: {
+					inputTokens: result.usage.inputTokens,
+					outputTokens: result.usage.outputTokens,
+				},
+			};
+		} finally {
+			disposeSignal();
+		}
 	}
 
 	async applyPlan(input: ApplyPlanInput): Promise<ApplyPlanResult> {

@@ -166,7 +166,14 @@ export async function executeComposeCommit(
 		'Roll Back',
 		'Resolve Manually',
 	);
-	if (choice === 'Roll Back' && result.undoId != null) {
+	if (choice === 'Roll Back') {
+		if (result.undoId == null) {
+			return {
+				error: {
+					message: `Roll back unavailable: no undo manifest was created. Your original working changes remain in stash "${stashConflict.stashLabel}".`,
+				},
+			};
+		}
 		try {
 			const force: UndoForceOptions = { dirtyWorkdir: true };
 			await composeTools.undoCompose({
