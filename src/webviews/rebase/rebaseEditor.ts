@@ -100,6 +100,20 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		return false;
 	}
 
+	private isCommitMessageTabActive(): boolean {
+		const activeTab = window.tabGroups.activeTabGroup.activeTab;
+		if (activeTab == null) return false;
+
+		const input = activeTab.input;
+		if (input != null && typeof input === 'object' && 'uri' in input) {
+			const uri = input.uri;
+			if (uri instanceof Uri && uri.path.endsWith('COMMIT_EDITMSG')) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changedCore(e, 'workbench.editorAssociations')) return;
 
@@ -116,8 +130,32 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		if (status?.type === 'rebase' && status.isPaused) {
 			if (openOnPausedRebase === 'interactive' && !status.isInteractive) return;
 
-			// Open beside the current editor (e.g., commit message editor) during active rebase
-			await openRebaseEditor(this.container, repoPath, { viewColumn: ViewColumn.Beside });
+			// `openBehavior` controls the viewColumn:
+			//   - 'auto': reuse an existing non-active editor group if one exists; otherwise open in the
+			//     active group. Never creates a new group. (`ViewColumn.Beside` can't be used here because
+			//     it splits when the active group is the rightmost.)
+			//   - 'beside': always beside (forces a new group if no sibling exists)
+			// When the commit message editor is active (the reword case), keep focus on it so we don't
+			// disrupt the user's typing — and additionally use background: true when opening in the same
+			// group so the rebase editor doesn't get pushed behind the commit message tab.
+			// For other pauses (e.g., the user picked `edit` first and there's no commit message editor
+			// open), open the rebase editor normally so the user sees the pause.
+			const openBehavior = configuration.get('rebaseEditor.openBehavior');
+			let viewColumn: ViewColumn;
+			if (openBehavior === 'beside') {
+				viewColumn = ViewColumn.Beside;
+			} else {
+				const activeColumn = window.tabGroups.activeTabGroup.viewColumn;
+				viewColumn =
+					window.tabGroups.all.find(g => g.viewColumn !== activeColumn)?.viewColumn ?? ViewColumn.Active;
+			}
+			const commitMessageActive = this.isCommitMessageTabActive();
+			const opensInActiveGroup = viewColumn === ViewColumn.Active;
+			await openRebaseEditor(this.container, repoPath, {
+				background: opensInActiveGroup && commitMessageActive,
+				preserveFocus: commitMessageActive,
+				viewColumn: viewColumn,
+			});
 		}
 	}
 

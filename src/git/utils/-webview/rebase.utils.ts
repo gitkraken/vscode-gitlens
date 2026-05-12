@@ -68,6 +68,9 @@ export function isRebaseTodoEditorEnabled(): boolean {
 }
 
 export interface OpenRebaseEditorOptions {
+	/** When `true`, opens the editor as an inactive tab (doesn't become the visible/active tab in its group) */
+	background?: boolean;
+	preserveFocus?: boolean;
 	viewColumn?: ViewColumn;
 }
 
@@ -86,9 +89,13 @@ export async function openRebaseEditor(
 	const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
 	const existingTab = getOpenRebaseEditorTab(rebaseTodoUri);
 	if (existingTab != null) {
+		// Leave the existing tab as-is when a background open was requested — don't activate it
+		if (options?.background) return;
+
 		// Focus the existing rebase editor tab
 		await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
 			preview: false,
+			preserveFocus: options?.preserveFocus,
 			viewColumn: existingTab.group.viewColumn,
 		});
 		return;
@@ -102,8 +109,12 @@ export async function openRebaseEditor(
 		options.viewColumn = ViewColumn.Active;
 	}
 
+	// `background: true` is honored at runtime by VS Code's `vscode.openWith` command (microsoft/vscode#96964),
+	// even though it isn't in the public `TextDocumentShowOptions` type
 	await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+		background: options?.background,
 		preview: false,
+		preserveFocus: options?.preserveFocus,
 		viewColumn: options?.viewColumn,
 	});
 }

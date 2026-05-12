@@ -673,6 +673,7 @@ interface PlusFeaturesConfig {
 
 interface RebaseEditorConfig {
 	readonly density: 'compact' | 'comfortable';
+	readonly openBehavior: 'auto' | 'beside';
 	readonly openOnPausedRebase: boolean | 'interactive';
 	readonly ordering: 'asc' | 'desc';
 	readonly revealLocation: 'graph' | 'inspect';

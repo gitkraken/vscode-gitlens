@@ -3804,6 +3804,21 @@
 						"scope": "window",
 						"order": 11
 					},
+					"gitlens.rebaseEditor.openBehavior": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"beside"
+						],
+						"enumDescriptions": [
+							"Opens the editor beside the commit message editor when a multi-pane layout already exists; otherwise opens in the active editor group",
+							"Always opens the editor beside the active editor, creating a new editor group if needed"
+						],
+						"markdownDescription": "Specifies which editor group the _Interactive Rebase Editor_ opens in when it is automatically reopened on a paused rebase",
+						"scope": "window",
+						"order": 12
+					},
 					"gitlens.rebaseEditor.revealLocation": {
 						"type": "string",
 						"default": "graph",
