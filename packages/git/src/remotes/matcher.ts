@@ -172,6 +172,12 @@ function matchEntries(
 
 		const match = entry.matcher.exec(url);
 		if (match != null) {
+			if (match[1] == null || match[2] == null) {
+				Logger.warn(
+					`Remote provider config regex matched URL but is missing required capture groups (domain, path); skipping entry`,
+				);
+				continue;
+			}
 			const matchDomain = match[1].replace(/^[a-zA-Z][\w+.-]*:\/\//, '');
 			return createProvider(entry, matchDomain, match[2], scheme, hooks);
 		}

@@ -178,6 +178,97 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			assert.ok(provider);
 			assert.strictEqual(provider.id, 'github');
 		});
+
+		test('skips custom regex when matched URL has no positional capture groups', () => {
+			// matchUrl path, zero positional groups — match[1] and match[2] are both undefined
+			const customUrls = {
+				repository: '{repo}',
+				branches: '{repo}/branches',
+				branch: '{repo}/branch/{branch}',
+				commit: '{repo}/commit/{id}',
+				file: '{repo}/file/{file}',
+				fileInBranch: '{repo}/file/{branch}/{file}',
+				fileInCommit: '{repo}/file/{id}/{file}',
+				fileLine: '#L{line}',
+				fileRange: '#L{start}-L{end}',
+			};
+			const configs: RemoteProviderConfig[] = [
+				{ regex: '^https://my-host\\.example', type: 'custom', urls: customUrls },
+			];
+			const matcher = createRemoteProviderMatcher(configs);
+			// Custom regex matches the URL via the matchUrl branch but has 0 groups; must not throw.
+			const provider = matcher(
+				'https://my-host.example/owner/repo.git',
+				'my-host.example',
+				'owner/repo.git',
+				'https',
+			);
+			assert.strictEqual(provider, undefined);
+		});
+
+		test('skips custom regex when matched URL provides only one capture group', () => {
+			// matchUrl path, regex matches URL but only one positional group — match[2] is undefined,
+			// previously crashed with TypeError when destructured in CustomRemoteProvider.
+			const customUrls = {
+				repository: '{repo}',
+				branches: '{repo}/branches',
+				branch: '{repo}/branch/{branch}',
+				commit: '{repo}/commit/{id}',
+				file: '{repo}/file/{file}',
+				fileInBranch: '{repo}/file/{branch}/{file}',
+				fileInCommit: '{repo}/file/{id}/{file}',
+				fileLine: '#L{line}',
+				fileRange: '#L{start}-L{end}',
+			};
+			const configs: RemoteProviderConfig[] = [
+				{
+					regex: '^https://my-host\\.example/(?<repo>.+?)(?:\\.git)?$',
+					type: 'custom',
+					urls: customUrls,
+				},
+			];
+			const matcher = createRemoteProviderMatcher(configs);
+			const provider = matcher(
+				'https://my-host.example/owner/repo.git',
+				'my-host.example',
+				'owner/repo.git',
+				'https',
+			);
+			assert.strictEqual(provider, undefined);
+		});
+
+		test('matches custom regex with the documented two-group shape', () => {
+			// Positive case — guard must not break the contract for valid configs.
+			const customUrls = {
+				repository: 'https://{domain}/{repo}',
+				branches: 'https://{domain}/{repo}/branches',
+				branch: 'https://{domain}/{repo}/branch/{branch}',
+				commit: 'https://{domain}/{repo}/commit/{id}',
+				file: 'https://{domain}/{repo}/file/{file}',
+				fileInBranch: 'https://{domain}/{repo}/file/{branch}/{file}',
+				fileInCommit: 'https://{domain}/{repo}/file/{id}/{file}',
+				fileLine: '#L{line}',
+				fileRange: '#L{start}-L{end}',
+			};
+			const configs: RemoteProviderConfig[] = [
+				{
+					regex: '^https?:\\/\\/(my-host\\.example)\\/(.+?)(?:\\.git)?$',
+					type: 'custom',
+					urls: customUrls,
+				},
+			];
+			const matcher = createRemoteProviderMatcher(configs);
+			const provider = matcher(
+				'https://my-host.example/owner/repo.git',
+				'my-host.example',
+				'owner/repo.git',
+				'https',
+			);
+			assert.ok(provider);
+			assert.strictEqual(provider.id, 'custom');
+			assert.strictEqual(provider.domain, 'my-host.example');
+			assert.strictEqual(provider.path, 'owner/repo');
+		});
 	});
 
 	suite('provider properties', () => {
