@@ -141,11 +141,21 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	}
 
 	@debug()
-	async createTag(repoPath: string, name: string, sha: string, message?: string): Promise<void> {
-		const args = ['tag', name, sha];
+	async createTag(
+		repoPath: string,
+		name: string,
+		sha: string,
+		message?: string,
+		options?: { force?: boolean },
+	): Promise<void> {
+		const args = ['tag'];
+		if (options?.force) {
+			args.push('--force');
+		}
 		if (message != null && message.length > 0) {
 			args.push('-m', message);
 		}
+		args.push(name, sha);
 
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);

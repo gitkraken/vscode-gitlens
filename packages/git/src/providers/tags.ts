@@ -23,6 +23,12 @@ export interface GitTagsSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<string[]>;
 
-	createTag?(repoPath: string, name: string, sha: string, message?: string): Promise<void>;
+	createTag?(
+		repoPath: string,
+		name: string,
+		sha: string,
+		message?: string,
+		options?: { force?: boolean },
+	): Promise<void>;
 	deleteTag?(repoPath: string, name: string): Promise<void>;
 }

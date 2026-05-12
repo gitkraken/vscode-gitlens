@@ -463,7 +463,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getTag(repoPath, name, cancellation?)`                     | `GitTag \| undefined` |
 | `getTags(repoPath, options?, cancellation?)`                | `PagedResult<GitTag>` |
 | `getTagsWithCommit(repoPath, sha, options?, cancellation?)` | `string[]`            |
-| `createTag?(repoPath, name, sha, message?)`                 | `void`                |
+| `createTag?(repoPath, name, sha, message?, options?)`       | `void`                |
 | `deleteTag?(repoPath, name)`                                | `void`                |
 
 ### GitWorktreesSubProvider

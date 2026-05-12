@@ -191,7 +191,9 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 			steps.markStepsComplete();
 
 			try {
-				await state.repo.git.tags.createTag?.(state.name, state.reference.ref, state.message);
+				await state.repo.git.tags.createTag?.(state.name, state.reference.ref, state.message, {
+					force: state.flags.includes('--force'),
+				});
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
