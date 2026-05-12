@@ -1,6 +1,6 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
-import { resetAvatarCache } from '../avatars.js';
+import { resetApprovedAvatarTemplates, resetAvatarCache } from '../avatars.js';
 import type { Container } from '../container.js';
 import type { QuickPickItemOfT } from '../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
@@ -12,6 +12,7 @@ const resetTypes = [
 	'ai',
 	'ai:confirmations',
 	'avatars',
+	'avatars:approvedTemplates',
 	'banners',
 	'integrations',
 	'previews',
@@ -47,6 +48,11 @@ export class ResetCommand extends GlCommandBase {
 				label: 'Avatars...',
 				detail: 'Clears the stored avatar cache',
 				item: 'avatars',
+			},
+			{
+				label: 'Approved Avatar URL Templates...',
+				detail: 'Clears approvals granted to custom remote avatar URL templates',
+				item: 'avatars:approvedTemplates',
 			},
 			{
 				label: 'Banners...',
@@ -137,6 +143,11 @@ export class ResetCommand extends GlCommandBase {
 				confirmationMessage = 'Are you sure you want to reset the avatar cache?';
 				confirm.title = 'Reset Avatars';
 				break;
+			case 'avatars:approvedTemplates':
+				confirmationMessage =
+					'Are you sure you want to reset all approvals for custom remote avatar URL templates?';
+				confirm.title = 'Reset Approved Avatar URL Templates';
+				break;
 			case 'banners':
 				confirmationMessage = 'Are you sure you want to reset all dismissed banners/notices?';
 				confirm.title = 'Reset Banners';
@@ -212,6 +223,10 @@ export class ResetCommand extends GlCommandBase {
 
 			case 'avatars':
 				resetAvatarCache('all');
+				break;
+
+			case 'avatars:approvedTemplates':
+				await resetApprovedAvatarTemplates();
 				break;
 
 			case 'banners':
