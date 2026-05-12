@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#4772](https://github.com/gitkraken/vscode-gitlens/issues/4772) - _Copy Link to Repository_ and other deep link commands fail with "Buffer is not defined" in github.dev and vscode.dev
 - Fixes [#4950](https://github.com/gitkraken/vscode-gitlens/issues/4950) - _Fetch_ on a remote branch in the _Commit Graph_ runs `git fetch <remote> <remote>` and fails &mdash; it now fetches the branch itself
 - Fixes _Generate Commit Message_ appearing twice in the _Source Control_ title bar &mdash; it now appears only in the GitLens AI (sparkle) menu ([#4396](https://github.com/gitkraken/vscode-gitlens/issues/4396))
 - Fixes _Compose Commits_ appearing in both the _Source Control_ title bar's GitLens AI (sparkle) menu and its overflow menu &mdash; it now appears only in the GitLens AI menu

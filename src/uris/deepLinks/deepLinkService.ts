@@ -11,7 +11,7 @@ import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isSha } from '@gitlens/git/utils/revision.utils.js';
 import { isIntegrationId, isSupportedCloudIntegrationId } from '@gitlens/integrations/constants.js';
-import { fromBase64ToString } from '@gitlens/utils/base64.js';
+import { base64, fromBase64ToString } from '@gitlens/utils/base64.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { once } from '@gitlens/utils/event.js';
 import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
@@ -2089,9 +2089,7 @@ export class DeepLinkService implements Disposable {
 		}
 
 		const deepLinkRedirectUrl = new URL(
-			`https://${modePrefixString}gitkraken.dev/link/${encodeURIComponent(
-				Buffer.from(deepLink.href).toString('base64'),
-			)}`,
+			`https://${modePrefixString}gitkraken.dev/link/${encodeURIComponent(base64(deepLink.href))}`,
 		);
 
 		deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
@@ -2157,9 +2155,7 @@ export class DeepLinkService implements Disposable {
 		}
 
 		const deepLinkRedirectUrl = new URL(
-			`https://${modePrefixString}gitkraken.dev/link/${encodeURIComponent(
-				Buffer.from(deepLink.href).toString('base64'),
-			)}`,
+			`https://${modePrefixString}gitkraken.dev/link/${encodeURIComponent(base64(deepLink.href))}`,
 		);
 
 		deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
