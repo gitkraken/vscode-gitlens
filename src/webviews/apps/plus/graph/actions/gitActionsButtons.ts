@@ -1,6 +1,7 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { StashSaveCommandArgs } from '../../../../../commands/stashSave.js';
@@ -59,6 +60,31 @@ export class GitActionsButtons extends LitElement {
 			commit-stats {
 				line-height: 2.2rem;
 			}
+
+			.paused-op-badge {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.6rem;
+				padding: 0.1rem 0.4rem;
+				border-radius: 0.3rem;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+				color: #000;
+				font-size: 1.1rem;
+				font-weight: 600;
+				line-height: 2rem;
+				white-space: nowrap;
+				cursor: pointer;
+				text-decoration: none;
+			}
+
+			.paused-op-badge--conflicts {
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
+				color: #fff;
+			}
+
+			.paused-op-badge:hover {
+				color: inherit;
+			}
 		`,
 	];
 
@@ -100,6 +126,44 @@ export class GitActionsButtons extends LitElement {
 		this.dispatchEvent(new CustomEvent('jump-to-wip', { bubbles: true, composed: true }));
 	}
 
+	private onJumpToWipAndShowDetails() {
+		this.dispatchEvent(new CustomEvent('jump-to-wip', { bubbles: true, composed: true }));
+		this.dispatchEvent(new CustomEvent('show-details', { bubbles: true, composed: true }));
+	}
+
+	private renderPausedOpBadge() {
+		const stats = this.workingTreeStats;
+		const pausedOp = stats?.pausedOpStatus;
+		if (pausedOp == null) return nothing;
+
+		const opStrings = pausedOperationStatusStringsByType[pausedOp.type];
+		const hasConflicts = stats?.hasConflicts === true;
+
+		if (hasConflicts) {
+			const count = stats.conflictsCount ?? 1;
+			return html`<gl-tooltip placement="bottom">
+				<a
+					class="paused-op-badge paused-op-badge--conflicts"
+					role="button"
+					tabindex="0"
+					@click=${this.onJumpToWipAndShowDetails}
+				>
+					<code-icon icon="warning"></code-icon>
+					${pluralize(`${pausedOp.type} conflict`, count)}
+				</a>
+				<span slot="content">Click to jump to Working Changes</span>
+			</gl-tooltip>`;
+		}
+
+		return html`<gl-tooltip placement="bottom">
+			<a class="paused-op-badge" role="button" tabindex="0" @click=${this.onJumpToWipAndShowDetails}>
+				<code-icon icon="warning"></code-icon>
+				${opStrings.label}
+			</a>
+			<span slot="content">Click to jump to Working Changes</span>
+		</gl-tooltip>`;
+	}
+
 	override render() {
 		return html`
 			<gl-push-pull-button
@@ -115,6 +179,7 @@ export class GitActionsButtons extends LitElement {
 				.autoFetchMode=${this.state.config?.autoFetchMode ?? 'off'}
 				.autoFetchIntervalSeconds=${this.state.config?.autoFetchIntervalSeconds ?? 180}
 			></gl-fetch-button>
+			${this.renderPausedOpBadge()}
 			${this.hasWorkingChanges
 				? html`<gl-tooltip placement="bottom">
 							<a class="action-button wip-button" @click=${this.onJumpToWip}>

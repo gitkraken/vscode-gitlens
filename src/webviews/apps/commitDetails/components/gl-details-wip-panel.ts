@@ -469,6 +469,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				.folderContext=${this._getFolderContext}
 				.searchContext=${this.searchContext}
 				.multiDiff=${this.getMultiDiffRefs()}
+				empty-text=${this.emptyText}
 				@file-checked=${this._onFileChecked}
 			>
 				${this.renderChangedFilesSlottedContent()}

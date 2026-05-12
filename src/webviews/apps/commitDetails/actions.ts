@@ -468,6 +468,10 @@ export class CommitDetailsActions {
 		gitActions.unstageFile(this.state.error, this.services.repository, file);
 	}
 
+	openConflictChanges(file: GitFileChangeShape, side: 'current' | 'incoming'): void {
+		void this.services.repository.openConflictChanges(file, side);
+	}
+
 	// ============================================================
 	// File Actions
 	// ============================================================

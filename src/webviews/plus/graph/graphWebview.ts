@@ -5500,6 +5500,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			deleted: workingTreeStatus?.deleted ?? 0,
 			modified: workingTreeStatus?.changed ?? 0,
 			hasConflicts: status?.hasConflicts,
+			conflictsCount: status?.hasConflicts ? status.conflicts.length : undefined,
 			pausedOpStatus: pausedOpStatus,
 			context: serializeWebviewItemContext<GraphItemContext>({
 				webviewItem: 'gitlens:wip',

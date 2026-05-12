@@ -94,6 +94,9 @@ export class GlWipTreePane extends LitElement {
 	@property({ attribute: false })
 	folderContext?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
 
+	@property({ attribute: 'empty-text' })
+	emptyText = 'No Files';
+
 	@property({ type: Object, attribute: 'search-context' })
 	searchContext?: GitCommitSearchContext;
 
@@ -231,6 +234,7 @@ export class GlWipTreePane extends LitElement {
 			.checkableStates=${this._effectiveStates}
 			.checkableStateDefault=${this.checkableStateDefault}
 			.buttons=${buttons}
+			empty-text=${this.emptyText}
 			selection-badge-label="Staged"
 			selection-action="file-open"
 			check-verb="Stage"

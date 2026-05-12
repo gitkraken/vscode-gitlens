@@ -250,6 +250,7 @@ export interface BranchState extends GitTrackingState {
 
 export type GraphWorkingTreeStats = WorkDirStats & {
 	hasConflicts?: boolean;
+	conflictsCount?: number;
 	pausedOpStatus?: GitPausedOperationStatus;
 };
 
