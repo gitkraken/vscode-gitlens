@@ -1113,6 +1113,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const activeMode = this._state.activeMode.get();
 		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
 		const worktreeAgentSessions = this.getWorktreeAgentSessions(wip);
+		const hasPausedOp = wip.changes?.pausedOpStatus != null;
 		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
 		// Tri-state of the agents pane drives both splitter availability and sizing:
 		//  - `closed` / `partial`: auto-size with fit-content(25%) cap (~3 cards); splitter inert
@@ -1139,7 +1140,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				? this.renderReviewMode()
 				: activeMode === 'compose'
 					? this.renderComposeMode()
-					: hasChanges
+					: hasChanges || hasPausedOp
 						? html`
 								<div class="commit-panel__files">
 									<gl-details-wip-panel
@@ -1154,6 +1155,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.orgSettings=${this._state.orgSettings.get()}
 										.isUncommitted=${true}
 										.filesCollapsable=${false}
+										empty-text=${hasPausedOp && !hasChanges
+											? 'No conflicting or changed files'
+											: 'No working changes'}
 										@file-open=${this.handleFileOpen}
 										@file-compare-working=${this.handleFileCompareWorking}
 										@file-compare-previous=${this.handleFileComparePrevious}

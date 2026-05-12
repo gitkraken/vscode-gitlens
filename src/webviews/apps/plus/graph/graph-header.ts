@@ -74,7 +74,6 @@ import '../../shared/components/ref-button.js';
 import '../../shared/components/repo-button-group.js';
 import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/search/search-box.js';
-import '../shared/components/merge-rebase-status.js';
 import './actions/gitActionsButtons.js';
 
 declare global {
@@ -961,8 +960,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return cache(
 			html`<header class="titlebar graph-app__header">
 				<progress-indicator ?active="${this.graphState.isBusy}"></progress-indicator>
-				${this.renderTitlebarHeaderRow(repo)} ${this.renderTitlebarStatusRow()}
-				${this.renderTitlebarSearchRow(repo)}
+				${this.renderTitlebarHeaderRow(repo)} ${this.renderTitlebarSearchRow(repo)}
 			</header>`,
 		);
 	}
@@ -1175,25 +1173,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					`,
 				)}
 			</div>
-		</div>`;
-	}
-
-	private renderTitlebarStatusRow() {
-		const { allowed, workingTreeStats } = this.graphState;
-		if (
-			!allowed ||
-			workingTreeStats == null ||
-			(!workingTreeStats.hasConflicts && !workingTreeStats.pausedOpStatus)
-		) {
-			return nothing;
-		}
-
-		return html`<div class="merge-conflict-warning">
-			<gl-merge-rebase-status
-				class="merge-conflict-warning__content"
-				?conflicts=${workingTreeStats?.hasConflicts}
-				.pausedOpStatus=${workingTreeStats?.pausedOpStatus}
-			></gl-merge-rebase-status>
 		</div>`;
 	}
 
