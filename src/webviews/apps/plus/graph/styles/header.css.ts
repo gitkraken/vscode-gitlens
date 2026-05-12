@@ -4,11 +4,6 @@ export const repoHeaderStyles = css`
 	.jump-to-ref {
 		--button-foreground: var(--color-foreground);
 	}
-
-	.merge-conflict-warning {
-		flex: 0 0 100%;
-		min-width: 0;
-	}
 `;
 
 export const titlebarStyles = css`

@@ -634,6 +634,10 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@file-discard=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.discardFile(e.detail)}
 								@discard-unstaged=${() => actions?.discardUnstagedFiles()}
+								@file-open-current=${(e: CustomEvent<FileChangeListItemDetail>) =>
+									actions?.openConflictChanges(e.detail, 'current')}
+								@file-open-incoming=${(e: CustomEvent<FileChangeListItemDetail>) =>
+									actions?.openConflictChanges(e.detail, 'incoming')}
 								@data-action=${(e: CustomEvent<{ name: string }>) => this.onBranchAction(e.detail.name)}
 								@gl-inspect-create-suggestions=${(e: CustomEvent<CreatePatchEventDetail>) =>
 									actions?.suggestChanges(e.detail)}

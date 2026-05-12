@@ -466,6 +466,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.hasSelectedCommit=${single != null || multi != null}
 					@toggle-sidebar=${this.handleToggleSidebar}
 					@toggle-details=${this.handleToggleDetails}
+					@show-details=${this.handleShowDetails}
 					@toggle-minimap=${this.handleToggleMinimap}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 				></gl-graph-header>
@@ -877,6 +878,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		} else if (gs.detailsVisible !== true) {
 			gs[this.detailsPositionKey] = e.detail.position;
 			this.setDetailsVisible(true, 'toggle');
+		}
+	};
+
+	private handleShowDetails = (): void => {
+		if (!this.graphState.detailsVisible) {
+			this.setDetailsVisible(true, 'toggle');
+			this.ensureDetailsPosition();
 		}
 	};
 

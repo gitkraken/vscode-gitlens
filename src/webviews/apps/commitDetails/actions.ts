@@ -524,6 +524,10 @@ export class CommitDetailsActions {
 		gitActions.discardUnstagedFiles(this.state.error, this.services.repository, repoPath);
 	}
 
+	openConflictChanges(file: GitFileChangeShape, side: 'current' | 'incoming'): void {
+		void this.services.repository.openConflictChanges(file, side);
+	}
+
 	// ============================================================
 	// File Actions
 	// ============================================================
