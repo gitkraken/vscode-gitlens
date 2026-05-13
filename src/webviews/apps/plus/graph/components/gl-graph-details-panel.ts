@@ -1187,7 +1187,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleCreateBranch = () => this._actions.createBranch(this.effectiveRepoPath);
 
-	private handlePublishBranch = () => void this._actions.services.repository.push(this.effectiveRepoPath!);
+	private handlePublishBranch = () => void this._actions.services.repository.publishBranch(this.effectiveRepoPath!);
 
 	private handlePull = () => void this._actions.services.repository.pull(this.effectiveRepoPath!);
 

@@ -36,6 +36,7 @@ import {
 	stageConflictResolution as stageConflictResolutionHelper,
 } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
+import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
 import { executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
@@ -501,6 +502,13 @@ export class RepositoryService {
 	 */
 	async push(repoPath: string): Promise<void> {
 		await RepoActions.push(repoPath);
+	}
+
+	async publishBranch(repoPath: string): Promise<void> {
+		const branch = await this.container.git.getRepositoryService(repoPath).branches.getBranch();
+		if (branch == null) return;
+
+		await RepoActions.push(repoPath, undefined, getReferenceFromBranch(branch));
 	}
 
 	/**
