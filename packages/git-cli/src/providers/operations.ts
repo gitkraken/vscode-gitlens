@@ -586,7 +586,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
+			this.context.hooks?.repository?.onChanged?.(
+				repoPath,
+				options?.publish != null ? ['config', 'heads', 'remotes'] : ['remotes'],
+			);
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
