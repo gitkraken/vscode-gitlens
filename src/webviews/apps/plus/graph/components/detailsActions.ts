@@ -59,6 +59,7 @@ import {
 	noopUnlessReal,
 } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
+import { getRemoteNameFromBranchName } from '../../../shared/git-utils.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
@@ -2399,6 +2400,21 @@ export class DetailsActions {
 
 	startWork(): void {
 		void this.services.commands.execute('gitlens.startWork', { source: 'graph-details' as const });
+	}
+
+	createPullRequest(repoPath: string | undefined): void {
+		if (!repoPath) return;
+
+		const wip = this.state.wip.get();
+		const branch = wip?.branch;
+		const upstreamName = branch?.upstream?.name;
+		if (branch?.name == null || upstreamName == null) return;
+
+		void this.services.commands.execute('gitlens.createPullRequestOnRemote', {
+			repoPath: repoPath,
+			compare: branch.name,
+			remote: getRemoteNameFromBranchName(upstreamName),
+		});
 	}
 
 	openOnRemote(repoPath: string | undefined, sha: string): void {

@@ -227,6 +227,7 @@ import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
 import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
+import { LaunchpadService } from '../../rpc/launchpadService.js';
 import { createSharedServices, proxyServices } from '../../rpc/services/common.js';
 import type { BranchAndTargetRefs, BranchRef } from '../../shared/branchRefs.js';
 import type {
@@ -1868,6 +1869,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onSidebarInvalidated: this._sidebarInvalidatedEvent.subscribe(buffer, tracker),
 				onWorktreeStateChanged: this._sidebarWorktreeEvent.subscribe(buffer, tracker),
 			},
+			launchpad: new LaunchpadService(this.container, buffer, tracker),
 			graphTimeline: {
 				getDataset: async (scope, config, signal) => {
 					const result = await buildTimelineDataset(this.container, scope, config, signal);

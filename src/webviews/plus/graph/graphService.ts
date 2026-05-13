@@ -2,6 +2,7 @@ import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/re
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { GlCommands } from '../../../constants.commands.js';
+import type { LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
@@ -332,6 +333,11 @@ export interface GraphTimelineService {
 
 export interface GraphServices extends SharedWebviewServices {
 	readonly graphInspect: GraphInspectService;
+	readonly launchpad: GraphLaunchpadService;
 	readonly sidebar: GraphSidebarService;
 	readonly graphTimeline: GraphTimelineService;
+}
+
+export interface GraphLaunchpadService {
+	getSummary(): Promise<LaunchpadSummaryResult | { error: Error } | undefined>;
 }
