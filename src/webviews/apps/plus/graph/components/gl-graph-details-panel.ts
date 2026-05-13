@@ -882,8 +882,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// the repo-change subscription without an extra call here.
 		this._workflow = new DetailsWorkflowController(this, this._actions);
 
-		// Fetch capabilities in parallel
 		void this._actions.fetchCapabilities();
+		// Fetched eagerly (not gated on isWip) because resolveServices runs once on
+		// connect — if the initial selection is a commit, a isWip guard would skip
+		// the fetch and it never re-runs when the user later selects a WIP row.
+		void this.fetchLaunchpadSummary(services);
 		if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, this.repoPath, this.commitLites);
 		} else {
@@ -1921,9 +1924,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleStartWork = () => this._actions.startWork();
 
+	private handleCreatePr = () => this._actions.createPullRequest(this.effectiveRepoPath);
+
 	private handleApplyStash = () => this._actions.applyStash(this.effectiveRepoPath);
 
 	private handleNewWorktree = () => this._actions.createWorktree();
+
+	private async fetchLaunchpadSummary(services: Remote<GraphServices>): Promise<void> {
+		try {
+			const launchpad = await services.launchpad;
+			const summary = await launchpad.getSummary();
+			this._state.launchpadSummary.set(summary);
+		} catch (ex) {
+			this._state.launchpadSummary.set({ error: ex instanceof Error ? ex : new Error(String(ex)) });
+		}
+	}
 
 	private handleCompareWithMergeTarget = (
 		e: CustomEvent<{ rightRef: string; rightRefType: 'branch' | 'commit' }>,

@@ -36,6 +36,7 @@ import '../../shared/components/commit/commit-stats.js';
 import '../../shared/components/pills/tracking.js';
 import '../../shared/components/tree/gl-wip-tree-pane.js';
 import '../../plus/shared/components/merge-rebase-status.js';
+import '../../plus/graph/components/gl-details-wip-empty-pane.js';
 import './gl-inspect-patch.js';
 
 @customElement('gl-details-wip-panel')
@@ -473,6 +474,26 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 		if (this.variant === 'embedded') {
 			return this.renderEmbedded();
+		}
+
+		const hasFiles = (this.files?.length ?? 0) > 0;
+		if (!hasFiles && !this.inReview) {
+			return html`
+				${this.renderActions()} ${this.renderPausedOpStatus()}
+				<gl-details-wip-empty-pane
+					.wip=${this.wip}
+					.hasPullRequest=${this.pullRequest != null}
+					@publish-branch=${() => this.onDataActionClick('publish-branch')}
+					@pull=${() => this.onDataActionClick('pull')}
+					@push=${() => this.onDataActionClick('push')}
+					@create-pr=${() => this.onDataActionClick('create-pr')}
+					@start-work=${() => this.onDataActionClick('start-work')}
+					@switch-branch=${() => this.onDataActionClick('switch')}
+					@create-branch=${() => this.onDataActionClick('create-branch')}
+					@apply-stash=${() => this.onDataActionClick('apply-stash')}
+					@new-worktree=${() => this.onDataActionClick('new-worktree')}
+				></gl-details-wip-empty-pane>
+			`;
 		}
 
 		return html`
