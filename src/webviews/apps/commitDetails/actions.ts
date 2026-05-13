@@ -57,6 +57,7 @@ import {
 	optimisticBatchFireAndForget,
 	optimisticFireAndForget,
 } from '../shared/actions/rpc.js';
+import { getRemoteNameFromBranchName } from '../shared/git-utils.js';
 import type { Resource } from '../shared/state/resource.js';
 import type { CreatePatchEventDetail } from './components/gl-inspect-patch.js';
 import type { CommitDetailsState, ExplainState, GenerateState } from './state.js';
@@ -458,6 +459,42 @@ export class CommitDetailsActions {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
 		gitActions.switchBranch(this.services.repository, repoPath);
+	}
+
+	startWork(): void {
+		void this.services.commands.execute('gitlens.startWork', { source: 'inspect' });
+	}
+
+	createPullRequest(): void {
+		const repoPath = this.getRepoPath();
+		if (!repoPath) return;
+
+		const wip = this.state.wipState.get();
+		const branch = wip?.branch;
+		const upstreamName = branch?.upstream?.name;
+		if (branch?.name == null || upstreamName == null) return;
+
+		void this.services.commands.execute('gitlens.createPullRequestOnRemote', {
+			repoPath: repoPath,
+			compare: branch.name,
+			remote: getRemoteNameFromBranchName(upstreamName),
+		});
+	}
+
+	createBranch(): void {
+		const repoPath = this.getRepoPath();
+		if (!repoPath) return;
+		void this.services.repository.createBranch(repoPath);
+	}
+
+	applyStash(): void {
+		const repoPath = this.getRepoPath();
+		if (!repoPath) return;
+		void this.services.commands.execute('gitlens.stashesApply', { repoPath: repoPath });
+	}
+
+	createWorktree(): void {
+		void this.services.commands.execute('gitlens.views.createWorktree');
 	}
 
 	stageFile(file: GitFileChangeShape): void {
@@ -1025,6 +1062,21 @@ export class CommitDetailsActions {
 				break;
 			case 'switch':
 				this.switchBranch();
+				break;
+			case 'create-pr':
+				this.createPullRequest();
+				break;
+			case 'start-work':
+				this.startWork();
+				break;
+			case 'create-branch':
+				this.createBranch();
+				break;
+			case 'apply-stash':
+				this.applyStash();
+				break;
+			case 'new-worktree':
+				this.createWorktree();
 				break;
 			case 'open-pr-changes':
 				this.openPullRequestChanges();

@@ -27,6 +27,7 @@ import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
+import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
 import type { CommitDetails, CommitSignatureShape, Preferences, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	BranchCommitEntry,
@@ -155,6 +156,8 @@ function createDurableState() {
 	const hasRemotes = signal(false);
 	const aiModel = signal<AiModelInfo | undefined>(undefined);
 
+	const launchpadSummary = signal<LaunchpadSummaryResult | { error: Error } | undefined>(undefined);
+
 	return {
 		commit: commit,
 		wip: wip,
@@ -222,6 +225,8 @@ function createDurableState() {
 		hasIntegrationsConnected: hasIntegrationsConnected,
 		hasRemotes: hasRemotes,
 		aiModel: aiModel,
+
+		launchpadSummary: launchpadSummary,
 
 		resetAll: resetAll,
 	};
