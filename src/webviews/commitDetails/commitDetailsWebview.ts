@@ -1068,6 +1068,7 @@ function serializeWipContext(wip?: WipContext): Wip | undefined {
 			uri: wip.repo.uri.toString(),
 			name: wip.repo.name,
 			path: wip.repo.path,
+			isWorktree: wip.repo.isWorktree,
 		},
 	};
 }

@@ -623,6 +623,30 @@ Guidelines:
 Assess the changes and produce the structured XML output above.`,
 };
 
+export const addressReviewFindings: PromptTemplate<'address-review-findings'> = {
+	id: 'address-review-findings',
+	variables: ['reviewMarkdown', 'scopeLabel', 'granularity', 'instructions'],
+	template: `You are an AI coding agent tasked with addressing the issues identified in a code review. Your goal is to understand each finding and, where appropriate, propose or make the code changes needed to fix it.
+
+The review was performed against: \${scopeLabel}
+
+The findings are provided as structured markdown below. Each finding includes a severity (\`**[CRITICAL]**\`, \`**[WARNING]**\`, or \`**[SUGGESTION]**\`), a short title, a description of the problem, and (when available) a file path and line range. Focus areas group related findings and include a rationale explaining why they matter.
+
+<~~review~~>
+\${reviewMarkdown}
+</~~review~~>
+
+Guidelines:
+- Treat the findings as a working list. Prioritize critical issues, then warnings, then suggestions.
+- For each finding, locate the referenced file(s) in the workspace before proposing a fix. If the file or line range no longer matches the review (the code may have evolved), reconcile against the current state.
+- When making code changes, address the underlying problem the finding describes — do not just paper over symptoms.
+- Prefer minimal, focused edits that don't introduce unrelated changes.
+- If a finding is ambiguous, contradicts the surrounding code's intent, or is already addressed in the current state, say so explicitly rather than fabricating a fix.
+- If a finding is out of scope (touches unrelated systems, requires significant refactoring, or contradicts established patterns), surface that as a tradeoff rather than acting on it.
+
+\${instructions}`,
+};
+
 export const reviewDetail: PromptTemplate<'review-detail'> = {
 	id: 'review-detail',
 	variables: ['diff', 'overview', 'message', 'focusArea', 'context', 'instructions'],

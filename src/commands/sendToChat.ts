@@ -19,6 +19,12 @@ export interface SendToChatCommandArgs {
 	 * Whether the chat will await more input from the user.
 	 */
 	execute?: boolean;
+
+	/**
+	 * Chat mode to request (Copilot Chat). Other hosts ignore this — Cursor/Windsurf/Kiro/Trae
+	 * already open agent-mode sessions via their dedicated commands.
+	 */
+	mode?: 'agent' | 'edit' | 'ask';
 }
 
 /**
@@ -35,6 +41,8 @@ export class SendToChatCommand extends GlCommandBase {
 			throw new Error('Prompt is required for sendToChat command');
 		}
 
-		return openChat(args.query, args.execute != null ? { execute: args.execute } : undefined);
+		const options =
+			args.execute != null || args.mode != null ? { execute: args.execute, mode: args.mode } : undefined;
+		return openChat(args.query, options);
 	}
 }

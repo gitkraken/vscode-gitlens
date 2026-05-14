@@ -114,6 +114,52 @@ export const reviewModePanelStyles = css`
 		opacity: 0.85;
 	}
 
+	.review-header__actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		flex-shrink: 0;
+		margin-left: 0.4rem;
+	}
+
+	.review-area__header-row {
+		display: flex;
+		align-items: center;
+		padding-right: 0.4rem;
+	}
+
+	.review-area__header-row > .review-area__header {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.review-area__actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		flex-shrink: 0;
+	}
+
+	.review-finding__actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		flex-shrink: 0;
+		margin-left: auto;
+	}
+
+	.review-finding__actions gl-button,
+	.review-finding__actions gl-copy-container {
+		opacity: 0.7;
+	}
+
+	.review-finding:hover .review-finding__actions gl-button,
+	.review-finding:hover .review-finding__actions gl-copy-container,
+	.review-finding__actions gl-button:focus-within,
+	.review-finding__actions gl-copy-container:focus-within {
+		opacity: 1;
+	}
+
 	/* Compact metadata bar for compare-style review (multi-commit selection). Mirrors the
 	   single-commit case (rendered by the host gl-details-commit-panel) and the comparison metadata
 	   bar in gl-details-multicommit-panel — keeps the result framing consistent across scopes. */
@@ -464,20 +510,6 @@ export const reviewModePanelStyles = css`
 		flex: 1;
 		font-weight: 500;
 		font-size: var(--gl-font-base);
-	}
-
-	.review-finding__dismiss {
-		flex-shrink: 0;
-		color: var(--vscode-descriptionForeground);
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		padding: 0.1rem;
-		opacity: 0.6;
-	}
-
-	.review-finding__dismiss:hover {
-		opacity: 1;
 	}
 
 	.review-finding__description {

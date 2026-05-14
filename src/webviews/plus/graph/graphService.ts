@@ -36,6 +36,18 @@ export type ReviewResult = { result: AIReviewResult } | { error: { message: stri
 
 export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { message: string } };
 
+export type AddressReviewFindingsResult =
+	| { ok: true }
+	| { ok: false; reason: 'no-chat-host' | 'no-ai-model' | 'error'; message?: string };
+
+export interface AddressReviewFindingsArgs {
+	repoPath: string;
+	scopeLabel: string;
+	reviewMarkdown: string;
+	granularity: 'review' | 'focusArea' | 'finding';
+	instructions?: string;
+}
+
 export type ProposedCommitFile = GitFileChangeShape & {
 	/** Topmost layer this file's hunks come from in the AI-grouped commit. */
 	anchor: 'unstaged' | 'staged' | 'committed';
@@ -218,6 +230,19 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewDetailResult>;
+	/**
+	 * Sends the review findings (entire review, a focus area, or a single finding) to the user's
+	 * AI agent chat. The webview pre-renders the markdown so Copy and Send-to-agent produce
+	 * byte-identical content. Returns an `ok: false` result when no chat host is available, no
+	 * AI model is selected, or the dispatch fails — the webview surfaces these inline.
+	 */
+	addressReviewFindingsInChat(args: AddressReviewFindingsArgs): Promise<AddressReviewFindingsResult>;
+	/**
+	 * Fire-and-forget telemetry hop for review-panel actions that happen entirely in the webview
+	 * (clipboard copies). Granularity distinguishes review-wide vs per-focus-area vs per-finding
+	 * actions so dashboards can compare which scopes users actually copy.
+	 */
+	trackReviewAction(args: { action: 'copy'; granularity: 'review' | 'focusArea' | 'finding' }): Promise<void>;
 	generateCommitMessage(repoPath: string): Promise<{ summary: string; body?: string } | undefined>;
 	composeChanges(
 		repoPath: string,

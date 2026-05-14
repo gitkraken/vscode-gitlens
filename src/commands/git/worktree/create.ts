@@ -18,7 +18,7 @@ import { convertLocationToOpenFlags, revealWorktree } from '../../../git/actions
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getWorktreeForBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
-import type { ChatActions } from '../../../plus/chat/chatActions.js';
+import type { StartReviewChatAction, StartWorkChatAction } from '../../../plus/chat/chatActions.js';
 import { storeChatActionDeepLink } from '../../../plus/chat/chatActions.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import { Directive } from '../../../quickpicks/items/directive.js';
@@ -91,7 +91,7 @@ interface State<Repo = string | GlRepository> {
 	worktreeDefaultOpen?: 'new' | 'current';
 
 	// Chat action for deeplink storage
-	chatAction?: ChatActions;
+	chatAction?: StartWorkChatAction | StartReviewChatAction;
 }
 export type WorktreeCreateState = State;
 

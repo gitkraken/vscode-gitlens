@@ -86,6 +86,8 @@ export interface Wip {
 		uri: string;
 		name: string;
 		path: string;
+		/** True when this repo is a linked worktree (`git worktree`), false for the primary/main worktree. */
+		isWorktree: boolean;
 	};
 }
 

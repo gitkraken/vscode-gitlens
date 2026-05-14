@@ -79,6 +79,7 @@ import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage.js';
+import type { OpenChatActionCommandArgs } from '../../../commands/openChatAction.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
@@ -173,6 +174,7 @@ import {
 	formatChangesContextForPrompt,
 	gatherContextForChanges,
 } from '../../../plus/ai/utils/-webview/changesContext.js';
+import { supportsChat } from '../../../plus/chat/utils/-webview/chat.utils.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
@@ -1009,6 +1011,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							uri: repo.uri.toString(),
 							name: repo.name,
 							path: repo.path,
+							isWorktree: repo.isWorktree,
 						},
 					};
 				},
@@ -1315,6 +1318,57 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { result: response.result };
 					} catch (ex) {
 						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					}
+				},
+				trackReviewAction: args => {
+					if (args.action === 'copy') {
+						void this.container.usage.track('action:gitlens.ai.review.copied:happened');
+						const label =
+							args.granularity === 'review'
+								? 'Review findings copied to clipboard'
+								: args.granularity === 'focusArea'
+									? 'Focus area findings copied to clipboard'
+									: 'Finding copied to clipboard';
+						window.setStatusBarMessage(`$(check) ${label}`, 3000);
+					}
+					return Promise.resolve();
+				},
+				addressReviewFindingsInChat: async args => {
+					try {
+						if (!(await supportsChat())) {
+							void window.showWarningMessage(
+								'No supported AI chat is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
+							);
+							await env.clipboard.writeText(args.reviewMarkdown);
+							return { ok: false, reason: 'no-chat-host' };
+						}
+
+						// `{ silent: true }` avoids prompting from the RPC. The webview gates the
+						// "Send to agent" button on `aiModel != null`, so this is a defensive check
+						// for the race where the model was cleared between the gate and the call.
+						const aiModel = await this.container.ai.getModel({ silent: true });
+						if (aiModel == null) {
+							void window.showWarningMessage(
+								'An AI model must be selected before sending review findings to chat.',
+							);
+							return { ok: false, reason: 'no-ai-model' };
+						}
+
+						await executeCommand('gitlens.openChatAction', {
+							chatAction: {
+								type: 'addressReviewFindings',
+								scopeLabel: args.scopeLabel,
+								reviewMarkdown: args.reviewMarkdown,
+								granularity: args.granularity,
+								instructions: args.instructions,
+							},
+							source: 'graph',
+						} as OpenChatActionCommandArgs);
+						return { ok: true };
+					} catch (ex) {
+						const message = ex instanceof Error ? ex.message : String(ex);
+						void window.showWarningMessage(`Unable to send review findings to chat: ${message}`);
+						return { ok: false, reason: 'error', message: message };
 					}
 				},
 				generateCommitMessage: async repoPath => {

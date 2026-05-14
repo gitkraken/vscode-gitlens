@@ -9,6 +9,7 @@ import type {
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
@@ -35,12 +36,15 @@ import {
 	resumeBarStyles,
 	reviewModePanelStyles,
 } from './gl-details-review-mode-panel.css.js';
+import { formatFindingAsMarkdown, formatFocusAreaAsMarkdown, formatReviewAsMarkdown } from './reviewFormat.js';
 import { getScopeSplitPickerChrome, renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit-sha.js';
+import '../../../shared/components/copy-container.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/split-panel/split-panel.js';
@@ -57,6 +61,16 @@ export interface ReviewOpenFileDetail {
 export interface ReviewAnalyzeAreaDetail {
 	focusAreaId: string;
 	files: string[];
+}
+
+export interface ReviewSendToChatDetail {
+	granularity: 'review' | 'focusArea' | 'finding';
+	scopeLabel: string;
+	reviewMarkdown: string;
+}
+
+export interface ReviewCopiedDetail {
+	granularity: 'review' | 'focusArea' | 'finding';
 }
 
 @customElement('gl-details-review-mode-panel')
@@ -104,6 +118,20 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	@property()
 	repoPath?: string;
+
+	/** Friendly name of the current repo/worktree (basename of the worktree path). Used to
+	 *  identify the scope in clipboard markdown and agent prompts. */
+	@property()
+	repoName?: string;
+
+	/** Whether the current repo is a linked worktree (true) or the primary/main worktree (false).
+	 *  Drives the "main worktree" vs "<name> worktree" phrasing in the scope context label. */
+	@property({ type: Boolean })
+	isLinkedWorktree = false;
+
+	/** Current HEAD branch name. Identifies WIP scope in markdown/agent context. */
+	@property()
+	branchName?: string;
 
 	@property({ type: Object })
 	searchContext?: GitCommitSearchContext;
@@ -220,6 +248,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const includedCount = this.getEffectiveFileCount();
 		const scopeLabel = this.scopeSummary();
 		const findingCount = this.result?.focusAreas.reduce((sum, a) => sum + (a.findings?.length ?? 0), 0) ?? 0;
+		const reviewMarkdown = this.result ? formatReviewAsMarkdown(this.result, this.formatOptions()) : '';
 
 		return html`<div class="review-header">
 			<gl-button
@@ -242,7 +271,78 @@ export class GlDetailsReviewModePanel extends LitElement {
 					${pluralize('file', includedCount)}
 				</span>
 			</span>
+			<span class="review-header__actions">
+				<gl-copy-container
+					appearance="toolbar"
+					.content=${reviewMarkdown}
+					copyLabel="Copy Review Findings"
+					copiedLabel="Copied!"
+					placement="bottom"
+					timeout=${2500}
+					@click=${() => this.dispatchCopied('review')}
+				>
+					<code-icon icon="copy"></code-icon>
+				</gl-copy-container>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip="Send Review to AI Agent"
+					@click=${() => this.handleSendToChat('review')}
+				>
+					<code-icon icon="comment-discussion"></code-icon>
+				</gl-button>
+			</span>
 		</div>`;
+	}
+
+	private formatOptions(): { scopeLabel: string; dismissed: ReadonlySet<string> } {
+		return { scopeLabel: this.scopeContextLabel(), dismissed: this._dismissedFindings };
+	}
+
+	private buildReviewMarkdown(
+		granularity: 'review' | 'focusArea' | 'finding',
+		opts: { area?: AIReviewFocusArea; finding?: AIReviewFinding },
+	): string {
+		if (granularity === 'review') {
+			return this.result ? formatReviewAsMarkdown(this.result, this.formatOptions()) : '';
+		}
+		if (granularity === 'focusArea' && opts.area) {
+			return formatFocusAreaAsMarkdown(opts.area, this._dismissedFindings);
+		}
+		if (granularity === 'finding' && opts.finding) {
+			const enclosing = opts.area ? { label: opts.area.label, rationale: opts.area.rationale } : undefined;
+			return formatFindingAsMarkdown(opts.finding, enclosing);
+		}
+		return '';
+	}
+
+	private handleSendToChat(
+		granularity: 'review' | 'focusArea' | 'finding',
+		opts: { area?: AIReviewFocusArea; finding?: AIReviewFinding } = {},
+	): void {
+		const reviewMarkdown = this.buildReviewMarkdown(granularity, opts);
+		if (!reviewMarkdown) return;
+		this.dispatchEvent(
+			new CustomEvent<ReviewSendToChatDetail>('review-send-to-chat', {
+				detail: {
+					granularity: granularity,
+					scopeLabel: this.scopeContextLabel(),
+					reviewMarkdown: reviewMarkdown,
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private dispatchCopied(granularity: 'review' | 'focusArea' | 'finding'): void {
+		this.dispatchEvent(
+			new CustomEvent<ReviewCopiedDetail>('review-copied', {
+				detail: { granularity: granularity },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private renderReadyMetadataBar() {
@@ -307,6 +407,46 @@ export class GlDetailsReviewModePanel extends LitElement {
 			parts.push(pluralize('commit', shaCount));
 		}
 		return parts.length ? parts.join(' + ') : 'changes';
+	}
+
+	/**
+	 * Richer scope label intended for clipboard markdown and AI agent prompts — gives the agent
+	 * the actual identifiers (worktree name, branch, SHAs) so it can locate the changes the
+	 * findings refer to. {@link scopeSummary} is intentionally terse for the visible header.
+	 */
+	private scopeContextLabel(): string {
+		const scope = this.scope;
+		const worktreeSuffix = this.repoName
+			? this.isLinkedWorktree
+				? ` in the \`${this.repoName}\` worktree`
+				: ` in the \`${this.repoName}\` repository (main worktree)`
+			: '';
+
+		if (!scope) return `changes${worktreeSuffix}`;
+
+		if (scope.type === 'commit') {
+			return `commit \`${shortenRevision(scope.sha)}\`${worktreeSuffix}`;
+		}
+
+		if (scope.type === 'compare') {
+			const range = `\`${shortenRevision(scope.fromSha)}\` … \`${shortenRevision(scope.toSha)}\``;
+			const count = scope.includeShas?.length;
+			return count
+				? `${pluralize('commit', count)} in comparison ${range}${worktreeSuffix}`
+				: `comparison between ${range}${worktreeSuffix}`;
+		}
+
+		// WIP
+		const parts: string[] = [];
+		if (scope.includeStaged || scope.includeUnstaged) {
+			parts.push(this.branchName ? `WIP changes on \`${this.branchName}\`` : 'WIP changes');
+		}
+		const shaCount = scope.includeShas?.length ?? 0;
+		if (shaCount > 0) {
+			parts.push(pluralize('commit', shaCount));
+		}
+		const wipLabel = parts.length ? parts.join(' + ') : 'changes';
+		return `${wipLabel}${worktreeSuffix}`;
 	}
 
 	private handleBack = () => {
@@ -618,36 +758,39 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const needsAnalyze = isTwoPass && !isAnalyzed && !isLoading && !hasError;
 
 		return html`<div class="review-area ${isExpanded ? 'review-area--expanded' : ''}">
-			<button
-				class="review-area__header"
-				@click=${() => this.handleToggleArea(area.id)}
-				aria-expanded=${isExpanded}
-			>
-				<code-icon
-					icon=${isExpanded ? 'chevron-down' : 'chevron-right'}
-					class="review-area__chevron"
-				></code-icon>
-				<gl-tooltip
-					content=${area.severity === 'critical'
-						? 'Critical Issue'
-						: area.severity === 'warning'
-							? 'Warning (Non-Critical)'
-							: 'Suggestion'}
-					placement="bottom-start"
+			<div class="review-area__header-row">
+				<button
+					class="review-area__header"
+					@click=${() => this.handleToggleArea(area.id)}
+					aria-expanded=${isExpanded}
 				>
-					<span class="review-area__severity review-area__severity--${area.severity}">
-						<code-icon
-							icon=${area.severity === 'critical'
-								? 'error'
-								: area.severity === 'warning'
-									? 'warning'
-									: 'info'}
-						></code-icon>
-					</span>
-				</gl-tooltip>
-				<span class="review-area__label">${area.label}</span>
-				<span class="review-area__file-count">${pluralize('file', area.files.length)}</span>
-			</button>
+					<code-icon
+						icon=${isExpanded ? 'chevron-down' : 'chevron-right'}
+						class="review-area__chevron"
+					></code-icon>
+					<gl-tooltip
+						content=${area.severity === 'critical'
+							? 'Critical Issue'
+							: area.severity === 'warning'
+								? 'Warning (Non-Critical)'
+								: 'Suggestion'}
+						placement="bottom-start"
+					>
+						<span class="review-area__severity review-area__severity--${area.severity}">
+							<code-icon
+								icon=${area.severity === 'critical'
+									? 'error'
+									: area.severity === 'warning'
+										? 'warning'
+										: 'info'}
+							></code-icon>
+						</span>
+					</gl-tooltip>
+					<span class="review-area__label">${area.label}</span>
+					<span class="review-area__file-count">${pluralize('file', area.files.length)}</span>
+				</button>
+				${this.renderFocusAreaActions(area, { isAnalyzed: isAnalyzed })}
+			</div>
 			${isExpanded
 				? html`<div class="review-area__body">
 						<div class="review-area__rationale">${area.rationale}</div>
@@ -685,7 +828,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 								</div>`
 							: nothing}
 						${hasFindings
-							? this.renderFindings(area.findings)
+							? this.renderFindings(area.findings, area)
 							: isAnalyzed && !isLoading && !hasError
 								? html`<div class="review-area__clean">
 										<code-icon icon="pass"></code-icon>
@@ -697,12 +840,43 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
-	private renderFindings(findings: readonly AIReviewFinding[]) {
+	private renderFocusAreaActions(area: AIReviewFocusArea, state: { isAnalyzed: boolean }) {
+		const areaMarkdown = state.isAnalyzed ? formatFocusAreaAsMarkdown(area, this._dismissedFindings) : '';
+		const disabled = !state.isAnalyzed;
+		const copyLabel = disabled ? "Run 'Review Files' first" : 'Copy Focus Area Findings';
+		const sendLabel = disabled ? "Run 'Review Files' first" : 'Send Focus Area to AI Agent';
+
+		return html`<span class="review-area__actions" @click=${(e: Event) => e.stopPropagation()}>
+			<gl-copy-container
+				appearance="toolbar"
+				.content=${areaMarkdown}
+				copyLabel=${copyLabel}
+				copiedLabel="Copied!"
+				placement="bottom"
+				timeout=${2500}
+				?disabled=${disabled}
+				@click=${() => !disabled && this.dispatchCopied('focusArea')}
+			>
+				<code-icon icon="copy"></code-icon>
+			</gl-copy-container>
+			<gl-button
+				appearance="toolbar"
+				density="compact"
+				tooltip=${sendLabel}
+				?disabled=${disabled}
+				@click=${() => !disabled && this.handleSendToChat('focusArea', { area: area })}
+			>
+				<code-icon icon="comment-discussion"></code-icon>
+			</gl-button>
+		</span>`;
+	}
+
+	private renderFindings(findings: readonly AIReviewFinding[], area?: AIReviewFocusArea) {
 		const visible = findings.filter(f => !this._dismissedFindings.has(f.id));
 		const dismissedCount = findings.length - visible.length;
 
 		return html`<div class="review-findings">
-			${visible.map(f => this.renderFinding(f))}
+			${visible.map(f => this.renderFinding(f, area))}
 			${dismissedCount > 0
 				? html`<button class="review-findings__dismissed" @click=${this.handleShowDismissed}>
 						${dismissedCount} dismissed finding${dismissedCount > 1 ? 's' : ''}
@@ -711,20 +885,47 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
-	private renderFinding(finding: AIReviewFinding) {
+	private renderFinding(finding: AIReviewFinding, area?: AIReviewFocusArea) {
+		const findingMarkdown = formatFindingAsMarkdown(
+			finding,
+			area ? { label: area.label, rationale: area.rationale } : undefined,
+		);
+
 		return html`<div class="review-finding" data-severity=${finding.severity}>
 			<div class="review-finding__header">
 				<span class="review-finding__severity review-finding__severity--${finding.severity}">
 					${finding.severity.toUpperCase()}
 				</span>
 				<span class="review-finding__title">${finding.title}</span>
-				<button
-					class="review-finding__dismiss"
-					title="Dismiss"
-					@click=${() => this.handleDismissFinding(finding.id)}
-				>
-					<code-icon icon="close"></code-icon>
-				</button>
+				<span class="review-finding__actions">
+					<gl-copy-container
+						appearance="toolbar"
+						.content=${findingMarkdown}
+						copyLabel="Copy Finding"
+						copiedLabel="Copied!"
+						placement="bottom"
+						timeout=${2500}
+						@click=${() => this.dispatchCopied('finding')}
+					>
+						<code-icon icon="copy"></code-icon>
+					</gl-copy-container>
+					<gl-button
+						appearance="toolbar"
+						density="compact"
+						tooltip="Send to AI Agent"
+						@click=${() => this.handleSendToChat('finding', { area: area, finding: finding })}
+					>
+						<code-icon icon="comment-discussion"></code-icon>
+					</gl-button>
+					<gl-button
+						appearance="toolbar"
+						density="compact"
+						tooltip="Dismiss"
+						@click=${() => this.handleDismissFinding(finding.id)}
+					>
+						<code-icon icon="close"></code-icon>
+					</gl-button>
+				</span>
 			</div>
 			<div class="review-finding__description">${finding.description}</div>
 			${finding.filePath

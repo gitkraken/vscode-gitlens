@@ -23,7 +23,15 @@ export interface StartReviewChatAction {
 	instructions?: string;
 }
 
-export type ChatActions = StartWorkChatAction | StartReviewChatAction;
+export interface AddressReviewFindingsChatAction {
+	type: 'addressReviewFindings';
+	scopeLabel: string;
+	reviewMarkdown: string;
+	granularity: 'review' | 'focusArea' | 'finding';
+	instructions?: string;
+}
+
+export type ChatActions = StartWorkChatAction | StartReviewChatAction | AddressReviewFindingsChatAction;
 
 export async function executeChatAction(
 	container: Container,
@@ -31,6 +39,8 @@ export async function executeChatAction(
 	source?: Sources,
 ): Promise<void> {
 	let promptToSend: string | undefined;
+	let mode: SendToChatCommandArgs['mode'];
+	let execute = true;
 
 	try {
 		if (chatAction.type === 'startWork') {
@@ -45,6 +55,18 @@ export async function executeChatAction(
 				instructions: chatAction.instructions,
 			});
 			promptToSend = prompt;
+		} else if (chatAction.type === 'addressReviewFindings') {
+			const { prompt } = await container.ai.getPrompt('address-review-findings', undefined, {
+				reviewMarkdown: chatAction.reviewMarkdown,
+				scopeLabel: chatAction.scopeLabel,
+				granularity: chatAction.granularity,
+				instructions: chatAction.instructions,
+			});
+			promptToSend = prompt;
+			mode = 'agent';
+			// Review-level is a conversational opener (let the user choose where to start);
+			// area- and finding-level are self-contained tasks that should auto-execute.
+			execute = chatAction.granularity !== 'review';
 		}
 	} catch (ex) {
 		Logger.error(ex, 'ChatActions', 'executeChatAction');
@@ -53,10 +75,14 @@ export async function executeChatAction(
 	if (promptToSend != null) {
 		// Track MCP chat interaction usage
 		void container.usage.track('action:gitlens.mcp.chatInteraction:happened');
+		if (chatAction.type === 'addressReviewFindings') {
+			void container.usage.track('action:gitlens.ai.review.sentToChat:happened');
+		}
 
 		return executeCommand('gitlens.sendToChat', {
 			query: promptToSend,
-			execute: true,
+			execute: execute,
+			mode: mode,
 			source: source,
 		} as SendToChatCommandArgs);
 	}
@@ -64,7 +90,7 @@ export async function executeChatAction(
 
 export async function storeChatActionDeepLink(
 	container: Container,
-	chatAction: ChatActions,
+	chatAction: StartWorkChatAction | StartReviewChatAction,
 	repoPath: string,
 ): Promise<void> {
 	const schemeOverride = configuration.get('deepLinks.schemeOverride');

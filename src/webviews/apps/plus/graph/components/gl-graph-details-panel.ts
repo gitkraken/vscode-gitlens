@@ -25,7 +25,12 @@ import type { DetailsContext, DetailsState } from './detailsState.js';
 import { createDetailsState } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
-import type { ReviewAnalyzeAreaDetail, ReviewOpenFileDetail } from './gl-details-review-mode-panel.js';
+import type {
+	ReviewAnalyzeAreaDetail,
+	ReviewCopiedDetail,
+	ReviewOpenFileDetail,
+	ReviewSendToChatDetail,
+} from './gl-details-review-mode-panel.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
@@ -1010,6 +1015,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const scopeItems = this._actions.buildWipScopeItems();
 
+		// Repo/branch identity for the review's scope label — sourced from WIP state which is
+		// always loaded for the active repo regardless of which scope (commit/compare/wip) the
+		// user is reviewing. Provides the agent prompt with concrete identifiers (worktree name,
+		// branch, SHAs) so it knows where the findings come from.
+		const wipForScope = this._state.wip.get();
+		const reviewRepoName = wipForScope?.repo.name;
+		const reviewIsLinkedWorktree = wipForScope?.repo.isWorktree === true;
+		const reviewBranchName = wipForScope?.branch?.name;
+
 		const reviewResource = this._actions.resources.review;
 		const reviewValue = reviewResource.value.get();
 		const reviewResult = reviewValue && 'result' in reviewValue ? reviewValue.result : undefined;
@@ -1037,6 +1051,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.aiExcludedFiles=${this._state.aiExcludedFiles.get()}
 			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.repoPath=${this.effectiveRepoPath}
+			.repoName=${reviewRepoName}
+			?isLinkedWorktree=${reviewIsLinkedWorktree}
+			.branchName=${reviewBranchName}
 			.aiModel=${this._state.aiModel.get()}
 			?forward-available=${this._state.reviewForwardAvailable.get()}
 			.backPreview=${this._state.reviewBackPreview.get()}
@@ -1072,6 +1089,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@review-back=${() => this._workflow.review.back()}
 			@review-forward=${() => this._workflow.review.forward()}
 			@review-forward-invalidate=${() => this._workflow.review.invalidateSnapshot()}
+			@review-send-to-chat=${(e: CustomEvent<ReviewSendToChatDetail>) => this.handleReviewSendToChat(e)}
+			@review-copied=${(e: CustomEvent<ReviewCopiedDetail>) =>
+				void this._actions.services.graphInspect.trackReviewAction({
+					action: 'copy',
+					granularity: e.detail.granularity,
+				})}
 			@review-cancel=${this.handleCancelMode}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
@@ -1185,6 +1208,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		} catch {
 			panel?.setFocusAreaError(focusAreaId);
 		}
+	}
+
+	private async handleReviewSendToChat(e: CustomEvent<ReviewSendToChatDetail>): Promise<void> {
+		const repoPath = this.effectiveRepoPath;
+		if (!repoPath) return;
+
+		const { granularity, scopeLabel, reviewMarkdown } = e.detail;
+		if (!reviewMarkdown) return;
+
+		await this._actions.services.graphInspect.addressReviewFindingsInChat({
+			repoPath: repoPath,
+			scopeLabel: scopeLabel,
+			reviewMarkdown: reviewMarkdown,
+			granularity: granularity,
+		});
 	}
 
 	private handleSelectCommit(sha: string) {

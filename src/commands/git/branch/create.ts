@@ -17,7 +17,7 @@ import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { addAssociatedIssueToBranch } from '../../../git/utils/-webview/branch.issue.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
-import type { ChatActions } from '../../../plus/chat/chatActions.js';
+import type { StartReviewChatAction, StartWorkChatAction } from '../../../plus/chat/chatActions.js';
 import { getIssueOwner } from '../../../plus/integrations/providers/utils.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
@@ -76,7 +76,7 @@ interface State<Repo = string | GlRepository> {
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree }>;
 
 	// Chat action for deeplink storage
-	chatAction?: ChatActions;
+	chatAction?: StartWorkChatAction | StartReviewChatAction;
 }
 export type BranchCreateState = State;
 

@@ -1888,6 +1888,8 @@ export type TrackedUsage = {
  */
 export type TrackedGlActions =
 	| 'gitlens.ai.generateCommits'
+	| 'gitlens.ai.review.copied'
+	| 'gitlens.ai.review.sentToChat'
 	| 'gitlens.mcp.ipcRequest'
 	| 'gitlens.mcp.chatInteraction'
 	| 'gitlens.mcp.bundledMcpDefinitionProvided';

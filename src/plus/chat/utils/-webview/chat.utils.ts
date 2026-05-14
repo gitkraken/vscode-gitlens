@@ -8,6 +8,12 @@ export async function openChat(
 	args: string,
 	options?: {
 		execute?: boolean;
+		/**
+		 * Chat mode to request. Honored by Copilot Chat (`workbench.action.chat.open`); the
+		 * other hosts already open their dedicated agent-mode chat command, so this is a no-op
+		 * for them.
+		 */
+		mode?: 'agent' | 'edit' | 'ask';
 	},
 ): Promise<void> {
 	const appName = await getHostAppName();
@@ -27,6 +33,7 @@ export async function openChat(
 	return openCopilotChat({
 		query: args,
 		isPartialQuery: options?.execute != null ? !options.execute : true,
+		mode: options?.mode,
 	});
 }
 
