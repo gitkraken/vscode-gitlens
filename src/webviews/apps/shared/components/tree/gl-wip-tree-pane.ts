@@ -254,6 +254,7 @@ export class GlWipTreePane extends LitElement {
 							slot="leading-actions"
 							appearance="toolbar"
 							tooltip="Discard Unstaged Changes"
+							style="display: none"
 							@click=${this.onDiscardUnstaged}
 						>
 							<code-icon icon="discard" slot="prefix"></code-icon>
@@ -300,6 +301,8 @@ export class GlWipTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('stash-save', { bubbles: true, composed: true }));
 	}
 
+	// TODO: Button hidden — bulk discard-unstaged is punted until multiselect lands in trees
+	// See https://github.com/gitkraken/vscode-gitlens/pull/5207#pullrequestreview-4286302741
 	private onDiscardUnstaged() {
 		this.dispatchEvent(new CustomEvent('discard-unstaged', { bubbles: true, composed: true }));
 	}
