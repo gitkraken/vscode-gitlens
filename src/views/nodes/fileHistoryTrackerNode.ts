@@ -14,7 +14,6 @@ import { GitUri, unknownGitUri } from '../../git/gitUri.js';
 import { ensureWorkingUri } from '../../git/gitUri.utils.js';
 import { showReferencePicker } from '../../quickpicks/referencePicker.js';
 import { setContext } from '../../system/-webview/context.js';
-import { isVirtualUri } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
@@ -143,19 +142,18 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
 	@trace({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		// If we are losing the active editor, give more time before assuming its really gone
-		// For virtual repositories the active editor event takes a while to fire
+		// If we are losing the active editor, give more time before assuming its really gone --
+		// VS Code can briefly emit `undefined` between editor switches, and for virtual repositories
+		// the active editor event takes even longer to fire.
 		// Ultimately we need to be using the upcoming Tabs api to avoid this
-		if (editor == null && isVirtualUri(this._uri)) {
+		if (editor == null) {
 			this._triggerChangeDebounced ??= debounce(() => this.triggerChange(), 1500);
 			void this._triggerChangeDebounced();
 			return;
 		}
 
 		// Only trigger change if the editor's URI is different from the current one
-		if (editor != null && areUrisEqual(editor.document.uri, this.uri)) {
-			return;
-		}
+		if (areUrisEqual(editor.document.uri, this.uri)) return;
 
 		void this.triggerChange();
 	}
