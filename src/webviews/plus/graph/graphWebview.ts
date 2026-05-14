@@ -398,6 +398,10 @@ function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: Se
 	return arg?.repository != null && arg?.search != null;
 }
 
+function hasRepository(arg: any): arg is { repository: GlRepository } {
+	return arg?.repository != null && GlRepository.is(arg.repository);
+}
+
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 130, isHidden: false, order: 0 },
 	graph: { width: 150, mode: undefined, isHidden: false, order: 1 },
@@ -1750,6 +1754,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repository = arg;
 		} else if (hasGitReference(arg)) {
 			repository = this.container.git.getRepository(arg.ref.repoPath);
+		} else if (hasRepository(arg)) {
+			repository = arg.repository;
 		} else if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
 			repository = this.container.git.openRepositories.find(r => r.id === arg.state.selectedRepository);
 		}
@@ -1840,6 +1846,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} else if (hasSearchQuery(arg)) {
 			this.repository = arg.repository;
 			this._searchRequest = arg.search;
+			this.updateState();
+		} else if (hasRepository(arg)) {
+			this.repository = arg.repository;
 			this.updateState();
 		} else {
 			if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
