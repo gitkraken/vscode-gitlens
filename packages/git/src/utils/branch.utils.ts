@@ -44,10 +44,13 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 
 /**
  * The upstream's branch name on its remote. The name git reports (`branch.<name>.merge`) wins over stripping the local
- * remote-tracking name, which a custom fetch refspec makes differ (`origin` fetching into `refs/remotes/mirror/*`)
+ * remote-tracking name, which a custom fetch refspec makes differ (`origin` fetching into `refs/remotes/mirror/*`).
+ *
+ * A remote-tracking branch tracks nothing. The Graph's remote refs carry the remote's own name in `upstream`, which
+ * read as a tracking name would fetch a branch named after the remote (`git fetch upstream upstream`)
  */
 export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string | undefined {
-	if (ref.upstream == null) return undefined;
+	if (ref.remote || ref.upstream == null) return undefined;
 
 	const { name, remote, remoteBranch, local } = ref.upstream;
 	if (local) return name;
