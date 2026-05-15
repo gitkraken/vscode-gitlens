@@ -978,8 +978,8 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 		return {
 			repoPath: repoPath,
-			lhs: lhs,
-			rhs: hasWorkingTreeFiles ? '' : rhs,
+			lhs: hasWorkingTreeFiles ? lhs : rhs,
+			rhs: hasWorkingTreeFiles ? '' : lhs,
 			title: hasWorkingTreeFiles
 				? `Working tree changes from ${shortenRevision(lhs)}`
 				: `Changes between ${shortenRevision(lhs)} and ${shortenRevision(rhs)}`,
