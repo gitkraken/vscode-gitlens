@@ -1,6 +1,16 @@
 import type { emptySetMarker, GraphRefOptData, GraphRow, GraphSearchMode } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
-import { CancellationTokenSource, Disposable, env, ProgressLocation, Uri, ViewColumn, window, workspace } from 'vscode';
+import {
+	CancellationTokenSource,
+	commands,
+	Disposable,
+	env,
+	ProgressLocation,
+	Uri,
+	ViewColumn,
+	window,
+	workspace,
+} from 'vscode';
 import { createGraphComposeIntegration } from '@env/coretools/composer.js';
 import { getClaudeAgent } from '@env/providers.js';
 import { GitSearchError } from '@gitlens/git/errors.js';
@@ -290,6 +300,7 @@ import {
 } from './graphWebview.utils.js';
 import type {
 	BranchState,
+	CloseGraphWalkthroughBannerParams,
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	GetWipStatsResponse,
@@ -322,10 +333,12 @@ import type {
 	GraphSearchResults,
 	GraphSelectedRows,
 	GraphSelection,
+	GraphShowAction,
 	GraphSidebarPanel,
 	GraphSidebarWorktree,
 	GraphStashContextValue,
 	GraphTagContextValue,
+	GraphWalkthroughBannerState,
 	GraphWipMetadataBySha,
 	GraphWorkingTreeStats,
 	State,
@@ -336,6 +349,7 @@ import {
 	ChooseFileRequest,
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
+	CloseGraphWalkthroughBannerCommand,
 	createSecondaryWipSha,
 	createWipSha,
 	DidChangeAgentSessionsNotification,
@@ -344,6 +358,8 @@ import {
 	DidChangeCanInstallClaudeHook,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeGraphWalkthroughBanner,
+	DidChangeGraphWalkthroughComplete,
 	DidChangeHooksBanner,
 	DidChangeMcpBanner,
 	DidChangeNotification,
@@ -362,6 +378,8 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
+	DidRequestActiveSidebarPanelNotification,
+	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
@@ -394,6 +412,12 @@ import {
 	SearchRequest,
 	supportedRefMetadataTypes,
 	SyncWipWatchesCommand,
+	TrackGraphDetailsCompareModeCommand,
+	TrackGraphDetailsComposeModeCommand,
+	TrackGraphDetailsReviewModeCommand,
+	TrackGraphDetailsWipShownCommand,
+	TrackGraphOverviewShownCommand,
+	TrackGraphScopeChangedCommand,
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
@@ -423,6 +447,14 @@ interface ResolvedScopeAnchor {
 
 function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: SearchQuery } {
 	return arg?.repository != null && arg?.search != null;
+}
+
+function hasSidebarPanel(arg: any): arg is { sidebarPanel: GraphSidebarPanel } {
+	return typeof arg?.sidebarPanel === 'string';
+}
+
+function hasAction(arg: any): arg is { action: GraphShowAction } {
+	return typeof arg?.action === 'string';
 }
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
@@ -633,6 +665,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.container.storage.onDidChange(this.onStorageChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
+			this.container.walkthrough.onDidChangeProgress(this.onGraphWalkthroughProgressChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async e => {
@@ -1954,6 +1987,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private _searchRequest: SearchQuery | undefined;
+	private _pendingSidebarPanel: GraphSidebarPanel | undefined;
+	private _pendingAction: GraphShowAction | undefined;
 
 	async onShowing(
 		loading: boolean,
@@ -1996,6 +2031,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.repository = arg.repository;
 			this._searchRequest = arg.search;
 			this.updateState();
+		} else if (hasSidebarPanel(arg)) {
+			if (loading) {
+				this._pendingSidebarPanel = arg.sidebarPanel;
+			} else {
+				void this.host.notify(DidRequestActiveSidebarPanelNotification, { panel: arg.sidebarPanel });
+			}
+		} else if (hasAction(arg)) {
+			if (arg.action !== 'scope-to-branch') {
+				this.setSelectedRows('work-dir-changes');
+			}
+			if (loading) {
+				this._pendingAction = arg.action;
+			} else {
+				void this.host.notify(DidRequestGraphActionNotification, { action: arg.action });
+			}
 		} else {
 			if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
 				this.repository = this.container.git.openRepositories.find(r => r.id === arg.state.selectedRepository);
@@ -3030,6 +3080,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.onHooksBannerChanged();
 		} else if (e.key === 'hooks:banner') {
 			this.onHooksBannerChanged();
+		} else if (e.key === 'graph-walkthrough:banner') {
+			this.onGraphWalkthroughBannerChanged();
 		}
 	}
 
@@ -3051,6 +3103,66 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getHooksBannerCollapsed() {
 		return !isHooksBannerEnabled(this.container);
+	}
+
+	@ipcCommand(CloseGraphWalkthroughBannerCommand)
+	private onCloseGraphWalkthroughBanner(params: CloseGraphWalkthroughBannerParams) {
+		void this.container.onboarding.dismiss('graph-walkthrough:banner');
+		if (params.openWelcome) {
+			void commands.executeCommand('gitlens.showWelcomeView', { mode: 'graph' });
+		}
+	}
+
+	@ipcCommand(TrackGraphOverviewShownCommand)
+	private onTrackGraphOverviewShown() {
+		void this.container.usage.track('action:gitlens.graph.overview.shown:happened');
+	}
+
+	@ipcCommand(TrackGraphScopeChangedCommand)
+	private onTrackGraphScopeChanged() {
+		void this.container.usage.track('action:gitlens.graph.scope.changed:happened');
+	}
+
+	@ipcCommand(TrackGraphDetailsReviewModeCommand)
+	private onTrackGraphDetailsReviewMode() {
+		void this.container.usage.track('action:gitlens.graph.details.reviewMode:happened');
+	}
+
+	@ipcCommand(TrackGraphDetailsComposeModeCommand)
+	private onTrackGraphDetailsComposeMode() {
+		void this.container.usage.track('action:gitlens.graph.details.composeMode:happened');
+	}
+
+	@ipcCommand(TrackGraphDetailsCompareModeCommand)
+	private onTrackGraphDetailsCompareMode() {
+		void this.container.usage.track('action:gitlens.graph.details.compareMode:happened');
+	}
+
+	@ipcCommand(TrackGraphDetailsWipShownCommand)
+	private onTrackGraphDetailsWipShown() {
+		void this.container.usage.track('action:gitlens.graph.details.wipShown:happened');
+	}
+
+	private onGraphWalkthroughBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeGraphWalkthroughBanner, this.getGraphWalkthroughBannerState());
+	}
+
+	private onGraphWalkthroughProgressChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeGraphWalkthroughComplete, this.getGraphWalkthroughComplete());
+	}
+
+	private getGraphWalkthroughBannerState(): GraphWalkthroughBannerState {
+		return {
+			dismissed: this.container.onboarding.isDismissed('graph-walkthrough:banner'),
+		};
+	}
+
+	private getGraphWalkthroughComplete() {
+		return this.container.walkthrough.graphProgress >= 1;
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -6428,6 +6540,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// tick will push authoritative data.
 		const resolvedWorkingTreeStats = getSettledValue(workingStatsResult);
 
+		const graphWalkthroughBanner = this.getGraphWalkthroughBannerState();
+
 		const result: State = {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
@@ -6486,20 +6600,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			hooksBannerCollapsed: this.getHooksBannerCollapsed(),
 			canInstallClaudeHook: this._lastCanInstallClaudeHook ?? false,
+			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
+			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
 			searchRequest: searchRequest,
-			detailsVisible: storedPanels?.details?.visible ?? true,
+			detailsVisible:
+				this._pendingAction != null && this._pendingAction !== 'scope-to-branch'
+					? true
+					: (storedPanels?.details?.visible ?? true),
 			detailsPosition: storedPanels?.details?.position,
 			detailsBottomPosition: storedPanels?.details?.bottomPosition,
-			sidebarVisible: storedPanels?.sidebar?.visible ?? true,
-			activeSidebarPanel: storedPanels?.sidebar?.activePanel,
+			sidebarVisible: this._pendingSidebarPanel != null || (storedPanels?.sidebar?.visible ?? true),
+			activeSidebarPanel: this._pendingSidebarPanel ?? storedPanels?.sidebar?.activePanel,
 			sidebarPosition: storedPanels?.sidebar?.position,
 			minimapVisible: storedPanels?.minimap?.visible ?? true,
 			minimapPosition: storedPanels?.minimap?.position,
+			pendingAction: this._pendingAction,
 			timelinePeriod: storedGraphState?.timeline?.period,
 			timelineSliceBy: storedGraphState?.timeline?.sliceBy,
 			timelineShowAllBranches: storedGraphState?.timeline?.showAllBranches,
 			overviewRecentThreshold: this._overviewRecentThreshold,
 		};
+		this._pendingSidebarPanel = undefined;
+		this._pendingAction = undefined;
 		return result;
 	}
 

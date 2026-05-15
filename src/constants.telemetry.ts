@@ -14,7 +14,7 @@ import type {
 	WebviewTypes,
 	WebviewViewTypes,
 } from './constants.views.js';
-import type { WalkthroughContextKeys } from './constants.walkthroughs.js';
+import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from './constants.walkthroughs.js';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features.js';
 import type { AgentDescriptor, AgentRoute } from './plus/agents/agentDescriptor.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
@@ -1776,7 +1776,7 @@ type WalkthroughActionEvent =
 	| { type: 'url'; name: WalkthroughActionNames; url: string; detail?: string };
 
 interface WalkthroughCompletionEvent {
-	'context.key': WalkthroughContextKeys;
+	'context.key': WalkthroughContextKeys | GraphWalkthroughContextKeys;
 }
 
 type WelcomeActionNames =
@@ -1917,6 +1917,12 @@ export type TrackedGlActions =
 	| 'gitlens.ai.openInAgent.useDefaultsFallback'
 	| 'gitlens.ai.review.copied'
 	| 'gitlens.ai.review.sentToChat'
+	| 'gitlens.graph.details.compareMode'
+	| 'gitlens.graph.details.composeMode'
+	| 'gitlens.graph.details.reviewMode'
+	| 'gitlens.graph.details.wipShown'
+	| 'gitlens.graph.overview.shown'
+	| 'gitlens.graph.scope.changed'
 	| 'gitlens.mcp.ipcRequest'
 	| 'gitlens.mcp.bundledMcpDefinitionProvided';
 

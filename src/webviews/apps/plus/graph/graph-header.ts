@@ -31,6 +31,7 @@ import type {
 import {
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
+	CloseGraphWalkthroughBannerCommand,
 	EnsureRowRequest,
 	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
@@ -145,8 +146,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				--max-width: 320px;
 			}
 
+			.graph-walkthrough-tooltip::part(body) {
+				--max-width: 400px;
+			}
+
 			.mcp-tooltip__content a,
-			.hooks-tooltip__content a {
+			.hooks-tooltip__content a,
+			.graph-walkthrough-tooltip__content a {
 				color: var(--vscode-textLink-foreground);
 			}
 
@@ -154,6 +160,45 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			.action-button--hooks {
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 				border: 1px solid var(--vscode-panel-border);
+			}
+
+			.action-button--graph-walkthrough {
+				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+				border: 1px solid var(--vscode-panel-border);
+				outline: 1px solid var(--vscode-panel-border);
+			}
+
+			.preview-badge {
+				float: right;
+				opacity: 0.7;
+			}
+
+			.graph-walkthrough-tooltip__title {
+				display: block;
+				margin-bottom: 0.4rem;
+			}
+
+			.graph-walkthrough-tooltip__actions {
+				display: flex;
+				justify-content: flex-end;
+				align-items: center;
+				gap: 0.8rem;
+				margin-top: 0.8rem;
+			}
+
+			.graph-walkthrough-tooltip__actions .action-btn {
+				padding: 0.4rem 0.8rem;
+				border: none;
+				border-radius: 2px;
+				background: var(--vscode-button-background);
+				color: var(--vscode-button-foreground);
+				cursor: pointer;
+				text-decoration: none;
+				font-size: inherit;
+			}
+
+			.graph-walkthrough-tooltip__actions .action-btn:hover {
+				background: var(--vscode-button-hoverBackground);
 			}
 
 			/* Search is meaningless in Timeline mode — visually dim it and let \`inert\` block focus
@@ -336,6 +381,20 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		if (rows?.[0]?.hidden) {
 			this._searchResultHidden = true;
 		}
+	}
+
+	private onGraphWalkthroughBannerHide(): void {
+		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, {});
+	}
+
+	private onGraphWalkthroughBannerDismiss(e: Event): void {
+		e.preventDefault();
+		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, {});
+	}
+
+	private onGraphWalkthroughBannerButtonClick(e: Event): void {
+		e.preventDefault();
+		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, { openWelcome: true });
 	}
 
 	private onOpenPullRequest(pr: NonNullable<NonNullable<State['branchState']>['pr']>): void {
@@ -1130,6 +1189,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-popover>
 					`,
 				)}
+				${this.renderGraphWalkthroughBanner(state)}
 				<gl-button
 					appearance="toolbar"
 					href=${`command:gitlens.showLaunchpad?${encodeURIComponent(
@@ -1166,6 +1226,49 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				)}
 			</div>
 		</div>`;
+	}
+
+	private renderGraphWalkthroughBanner(state: State) {
+		const dismissed = state.graphWalkthroughBannerCollapsed ?? true;
+
+		if (dismissed) {
+			return nothing;
+		}
+
+		const highlighted = !state.graphWalkthroughComplete;
+
+		return html`
+			<gl-popover
+				class="graph-walkthrough-tooltip"
+				placement="bottom"
+				trigger="click"
+				open
+				@gl-popover-hide=${this.onGraphWalkthroughBannerHide}
+			>
+				<button
+					type="button"
+					class="action-button ${highlighted ? 'action-button--graph-walkthrough' : ''}"
+					slot="anchor"
+					@click=${this.onGraphWalkthroughBannerButtonClick}
+				>
+					<code-icon class="action-button__icon" icon="megaphone"></code-icon>
+				</button>
+				<div class="graph-walkthrough-tooltip__content" slot="content">
+					<span class="graph-walkthrough-tooltip__title">
+						<strong>Welcome to the new GitLens Commit Graph</strong>
+						<span class="preview-badge">PREVIEW</span>
+					</span>
+					The Graph is where your work gets done. Launch agents, monitor their work across worktrees, and
+					streamline next steps to ship faster.
+					<div class="graph-walkthrough-tooltip__actions">
+						<a href="#" @click=${this.onGraphWalkthroughBannerDismiss}>Dismiss</a>
+						<a class="action-btn" href="#" @click=${this.onGraphWalkthroughBannerButtonClick}
+							>See what's new</a
+						>
+					</div>
+				</div>
+			</gl-popover>
+		`;
 	}
 
 	private renderHiddenRefs(excludeRefs: GraphExcludeRefs | undefined) {

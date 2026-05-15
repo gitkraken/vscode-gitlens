@@ -159,6 +159,8 @@ export type GraphSidebarPanel = 'agents' | 'branches' | 'overview' | 'remotes' |
 /** Top-level rendering mode for the Graph webview. New modes (e.g. 'treemap') plug in here. */
 export type GraphDisplayMode = 'graph' | 'timeline';
 
+export type GraphShowAction = 'show-wip' | 'enter-review' | 'enter-compose' | 'open-compare' | 'scope-to-branch';
+
 export interface GraphOverviewData {
 	active: OverviewBranch[];
 	recent: OverviewBranch[];
@@ -241,6 +243,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	mcpBannerCollapsed?: boolean;
 	hooksBannerCollapsed?: boolean;
 	canInstallClaudeHook?: boolean;
+	graphWalkthroughBannerCollapsed?: boolean;
+	graphWalkthroughComplete?: boolean;
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;
@@ -252,6 +256,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	sidebarPosition?: number;
 	minimapVisible?: boolean;
 	minimapPosition?: number;
+	pendingAction?: GraphShowAction;
 	// Persisted Timeline-mode chart options (when `displayMode === 'timeline'`).
 	timelinePeriod?: TimelinePeriod;
 	timelineSliceBy?: TimelineSliceBy;
@@ -910,6 +915,52 @@ export const DidChangeCanInstallClaudeHook = new IpcNotification<boolean>(
 	scope,
 	'agents/canInstallClaudeHook/didChange',
 );
+
+export interface CloseGraphWalkthroughBannerParams {
+	openWelcome?: boolean;
+}
+
+export const CloseGraphWalkthroughBannerCommand = new IpcCommand<CloseGraphWalkthroughBannerParams>(
+	scope,
+	'graphWalkthrough/banner/close',
+);
+
+export interface GraphWalkthroughBannerState {
+	dismissed: boolean;
+}
+
+export const DidChangeGraphWalkthroughBanner = new IpcNotification<GraphWalkthroughBannerState>(
+	scope,
+	'graphWalkthrough/banner/didChange',
+);
+
+export const DidChangeGraphWalkthroughComplete = new IpcNotification<boolean>(
+	scope,
+	'graphWalkthrough/complete/didChange',
+);
+
+export interface DidRequestActiveSidebarPanelParams {
+	panel: GraphSidebarPanel;
+}
+export const DidRequestActiveSidebarPanelNotification = new IpcNotification<DidRequestActiveSidebarPanelParams>(
+	scope,
+	'sidebar/activePanel/didRequest',
+);
+
+export interface DidRequestGraphActionParams {
+	action: GraphShowAction;
+}
+export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
+	scope,
+	'action/didRequest',
+);
+
+export const TrackGraphOverviewShownCommand = new IpcCommand(scope, 'track/overview/shown');
+export const TrackGraphScopeChangedCommand = new IpcCommand(scope, 'track/scope/changed');
+export const TrackGraphDetailsReviewModeCommand = new IpcCommand(scope, 'track/details/reviewMode');
+export const TrackGraphDetailsComposeModeCommand = new IpcCommand(scope, 'track/details/composeMode');
+export const TrackGraphDetailsCompareModeCommand = new IpcCommand(scope, 'track/details/compareMode');
+export const TrackGraphDetailsWipShownCommand = new IpcCommand(scope, 'track/details/wipShown');
 
 export interface DidChangeBranchStateParams {
 	branchState: BranchState;
