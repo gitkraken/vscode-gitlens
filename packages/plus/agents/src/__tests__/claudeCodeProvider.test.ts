@@ -187,6 +187,175 @@ suite('ClaudeCodeProvider', () => {
 			}
 		});
 
+		test('IDE-prefixed prompts are stripped before storing as lastPrompt', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+				await handler(
+					{
+						event: 'UserPromptSubmit',
+						sessionId: 's1',
+						cwd: '/repo',
+						pid: process.pid,
+						prompt:
+							'<ide_opened_file>The user opened the file /repo/foo.ts in the IDE. ' +
+							'This may or may not be related to the current task.</ide_opened_file>\n' +
+							'/investigate sky color',
+					},
+					new URLSearchParams(),
+				);
+
+				assert.strictEqual(provider.sessions[0].lastPrompt, '/investigate sky color');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('rehydrated sessions from syncSessions have prompts sanitized', async () => {
+			const sessionPayload = [
+				{
+					sessionId: 'sync-1',
+					cwd: '/repo',
+					pid: process.pid,
+					event: 'UserPromptSubmit',
+					updatedAt: new Date().toISOString(),
+					prompt: '<task-notification><status>completed</status><summary>done</summary></task-notification>',
+					firstPrompt:
+						'<ide_opened_file>The user opened /repo/foo.ts</ide_opened_file>\n' +
+						'investigate the failing test',
+				},
+			];
+			const { callbacks } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider({
+				...callbacks,
+				runCLICommand: () => Promise.resolve(JSON.stringify(sessionPayload)),
+			});
+			try {
+				provider.start(['/repo']);
+				await flushMicrotasks();
+				await flushMicrotasks();
+
+				const session = provider.sessions.find(s => s.id === 'sync-1');
+				assert.ok(session, 'session sync-1 should be rehydrated');
+				assert.strictEqual(
+					session.lastPrompt,
+					undefined,
+					'pure task-notification payload must not surface as lastPrompt',
+				);
+				assert.strictEqual(
+					session.firstPrompt,
+					'investigate the failing test',
+					'IDE wrapper must be stripped from rehydrated firstPrompt',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('background-bash task-notification prompts do not overwrite the previous lastPrompt', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+				await handler(
+					{
+						event: 'UserPromptSubmit',
+						sessionId: 's1',
+						cwd: '/repo',
+						pid: process.pid,
+						prompt: 'Run a background bash command that prints the date every 5 seconds',
+						firstPrompt: 'Run a background bash command that prints the date every 5 seconds',
+					},
+					new URLSearchParams(),
+				);
+				const statusBefore = provider.sessions[0].status;
+				const statusDetailBefore = provider.sessions[0].statusDetail;
+				await handler(
+					{
+						event: 'UserPromptSubmit',
+						sessionId: 's1',
+						cwd: '/repo',
+						pid: process.pid,
+						prompt:
+							'<task-notification>\n' +
+							'<task-id>b3b6icuho</task-id>\n' +
+							'<tool-use-id>toolu_01FEnSf5</tool-use-id>\n' +
+							'<output-file>/tmp/.../b3b6icuho.output</output-file>\n' +
+							'<status>completed</status>\n' +
+							'<summary>Background command completed (exit code 0)</summary>\n' +
+							'</task-notification>',
+					},
+					new URLSearchParams(),
+				);
+
+				assert.strictEqual(
+					provider.sessions[0].status,
+					statusBefore,
+					'synthetic task-notification must not transition session status',
+				);
+				assert.strictEqual(
+					provider.sessions[0].statusDetail,
+					statusDetailBefore,
+					'synthetic task-notification must not change statusDetail',
+				);
+				assert.strictEqual(
+					provider.sessions[0].lastPrompt,
+					'Run a background bash command that prints the date every 5 seconds',
+					'task-notification synthetic prompt must not overwrite real lastPrompt',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('prompts that are nothing but IDE context do not overwrite the previous lastPrompt', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+				await handler(
+					{
+						event: 'UserPromptSubmit',
+						sessionId: 's1',
+						cwd: '/repo',
+						pid: process.pid,
+						prompt: 'what is 2+2?',
+						firstPrompt: 'what is 2+2?',
+					},
+					new URLSearchParams(),
+				);
+				await handler(
+					{
+						event: 'UserPromptSubmit',
+						sessionId: 's1',
+						cwd: '/repo',
+						pid: process.pid,
+						prompt: '<ide_opened_file>just context, no prompt</ide_opened_file>',
+					},
+					new URLSearchParams(),
+				);
+
+				assert.strictEqual(provider.sessions[0].firstPrompt, 'what is 2+2?');
+				assert.strictEqual(
+					provider.sessions[0].lastPrompt,
+					'what is 2+2?',
+					'IDE-context-only prompt must not overwrite real lastPrompt',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
 		test('subsequent UserPromptSubmit preserves firstPrompt and updates lastPrompt', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
 			const provider = new ClaudeCodeProvider(callbacks);
