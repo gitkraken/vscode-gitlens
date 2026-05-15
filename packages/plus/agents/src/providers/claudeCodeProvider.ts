@@ -11,6 +11,7 @@ import { deriveStatusFromEvent, describeToolInput, isProcessAlive, rehydrateSuba
 import type {
 	AgentProviderCallbacks,
 	AgentSession,
+	AgentSessionPhase,
 	AgentSessionProvider,
 	AgentSessionStatus,
 	ClaudeCodeHookEvent,
@@ -61,9 +62,24 @@ interface PendingPermissionEntry {
 interface SessionBookkeeping {
 	activeToolCount: number;
 	pendingPermission?: PendingPermission;
+	/** Phase that immediately preceded the current one, with its original `phaseSince`. Used by
+	 *  `resolvePhaseSince` to restore continuity when phase oscillates back within a short
+	 *  window (e.g., Stop → idle → working after a continuation crosses the debounce). */
+	priorPhase?: { phase: AgentSessionPhase; phaseSince: Date };
 }
 
 const staleCheckIntervalMs = 60 * 1000; // 1 minute
+
+/** Grace period before `Stop` commits to `idle`. Long enough to absorb a same-turn continuation
+ *  (hook-driven re-prompt, IPC event reordering, auto-resume); short enough that legitimate idle
+ *  is visible promptly. */
+const stopToIdleDebounceMs = 750;
+
+/** If a phase transitions away and then back within this window, restore the prior `phaseSince`
+ *  so the displayed elapsed time doesn't snap to 0 on transient oscillations. Slightly longer
+ *  than `stopToIdleDebounceMs` so a continuation that just barely crosses the debounce still
+ *  restores continuity. */
+const phaseSinceRestoreWindowMs = 2000;
 
 interface SessionFileData {
 	sessionId: string;
@@ -131,6 +147,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private _handlerDisposables: UnifiedDisposable[] = [];
 	private readonly _pendingPermissions = new Map<string, PendingPermissionEntry>();
 	private readonly _sessionBookkeeping = new Map<string, SessionBookkeeping>();
+	/** Per-session timers for the deferred `Stop → idle` commit. The handle is cleared (and the
+	 *  transition cancelled) by any non-idle status update arriving before the timer fires. */
+	private readonly _pendingIdleTimers = new Map<string, NodeJS.Timeout>();
 	private _workspacePaths: string[] = [];
 	private _staleCheckTimer: UnifiedDisposable | undefined;
 
@@ -195,6 +214,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			pending.reject(new Error('Provider disposed'));
 		}
 		this._pendingPermissions.clear();
+		for (const timer of this._pendingIdleTimers.values()) {
+			clearTimeout(timer);
+		}
+		this._pendingIdleTimers.clear();
 		this._sessionBookkeeping.clear();
 		if (this._ipcStarted) {
 			void this.callbacks.ipc.unpublishAgents();
@@ -301,20 +324,29 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		switch (event.event) {
 			case 'SessionStart': {
+				const wasNew = this._sessions.findIndex(s => s.id === event.sessionId) < 0;
 				const { index } = this.ensureSession(event.sessionId, eventContext);
-				this.resetBookkeeping(event.sessionId);
-				const prev = this._sessions[index];
-				const newPhase = getPhaseForStatus('idle');
-				this._sessions[index] = {
-					...prev,
-					pid: event.pid ?? prev.pid,
-					status: 'idle',
-					phase: newPhase,
-					phaseSince: prev.phase !== newPhase ? new Date() : prev.phaseSince,
-					statusDetail: undefined,
-					pendingPermission: undefined,
-					lastActivity: new Date(),
-				};
+
+				if (wasNew) {
+					// ensureSession created the session at 'idle' already. Just refresh pid if
+					// the event carries one — bookkeeping was implicitly clean.
+					this.resetBookkeeping(event.sessionId);
+					if (event.pid != null) {
+						const prev = this._sessions[index];
+						if (prev.pid !== event.pid) {
+							this._sessions[index] = { ...prev, pid: event.pid };
+						}
+					}
+				} else {
+					// SessionStart for a session we already track is almost always a CLI replay
+					// (resume/reconnect/hook re-init). Don't clobber live state — the next real
+					// event will re-establish status. Refresh pid only.
+					const prev = this._sessions[index];
+					if (event.pid != null && event.pid !== prev.pid) {
+						this._sessions[index] = { ...prev, pid: event.pid, lastActivity: new Date() };
+					}
+				}
+
 				this._onDidChangeSessions.fire();
 				this.callbacks.onSessionStarted?.(this.id);
 				break;
@@ -326,6 +358,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					pending.reject(new Error('Session ended'));
 					this._pendingPermissions.delete(event.sessionId);
 				}
+				this.cancelPendingIdleTransition(event.sessionId);
 
 				const index = this._sessions.findIndex(s => s.id === event.sessionId);
 				if (index >= 0) {
@@ -382,7 +415,18 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					this._pendingPermissions.delete(event.sessionId);
 				}
 				this.resetBookkeeping(event.sessionId);
-				this.updateSessionStatus(event.sessionId, 'idle', eventContext);
+				// Apply Stop's metadata synchronously so we don't carry stale context through the
+				// debounce window — any in-window mutations (e.g. CwdChanged) survive when the
+				// timer fires. ensureSession doesn't fire on metadata-only updates of existing
+				// sessions, so fire here to match the original Stop-handler's UI-update semantics.
+				const { changed } = this.ensureSession(event.sessionId, eventContext);
+				if (changed) {
+					this._onDidChangeSessions.fire();
+				}
+				// Defer the status change — if the agent continues within the debounce window
+				// (hook-driven re-prompt, IPC reordering, auto-resume), the next non-idle event
+				// cancels this and we never flick through idle.
+				this.scheduleIdleTransition(event.sessionId);
 				break;
 			}
 
@@ -584,6 +628,56 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		bk.pendingPermission = undefined;
 	}
 
+	/** Defer the `Stop → idle` commit. If the agent produces a non-idle event within
+	 *  `stopToIdleDebounceMs`, `cancelPendingIdleTransition` (called from `updateSessionStatus`)
+	 *  cancels this and the session stays in its prior phase — no working → idle → working flicker.
+	 *
+	 *  Intentionally takes no context: the caller is expected to apply any event metadata
+	 *  synchronously before scheduling. Carrying Stop-time context into the timer would let
+	 *  in-window metadata mutations (e.g. `CwdChanged` updating `_sessions[i].cwd` directly)
+	 *  get reverted when the deferred commit replays the stale context through `ensureSession`. */
+	private scheduleIdleTransition(sessionId: string): void {
+		this.cancelPendingIdleTransition(sessionId);
+		const timer = setTimeout(() => {
+			this._pendingIdleTimers.delete(sessionId);
+			// Session may have been removed (SessionEnd, prune) during the window.
+			if (this._sessions.findIndex(s => s.id === sessionId) < 0) return;
+			this.updateSessionStatus(sessionId, 'idle');
+		}, stopToIdleDebounceMs);
+		this._pendingIdleTimers.set(sessionId, timer);
+	}
+
+	private cancelPendingIdleTransition(sessionId: string): void {
+		const timer = this._pendingIdleTimers.get(sessionId);
+		if (timer == null) return;
+		clearTimeout(timer);
+		this._pendingIdleTimers.delete(sessionId);
+	}
+
+	/** Stable phase-since: if we're oscillating back into the phase we were just in (within a
+	 *  short window), restore its original timestamp so the displayed elapsed time doesn't snap
+	 *  to 0. Otherwise records the current phase as the new "prior" and returns `now`. */
+	private resolvePhaseSince(
+		sessionId: string,
+		prevPhase: AgentSessionPhase,
+		prevPhaseSince: Date,
+		newPhase: AgentSessionPhase,
+	): Date {
+		if (prevPhase === newPhase) return prevPhaseSince;
+
+		const bk = this.getBookkeeping(sessionId);
+		const now = new Date();
+
+		if (bk.priorPhase?.phase === newPhase && now.getTime() - prevPhaseSince.getTime() < phaseSinceRestoreWindowMs) {
+			const restored = bk.priorPhase.phaseSince;
+			bk.priorPhase = { phase: prevPhase, phaseSince: prevPhaseSince };
+			return restored;
+		}
+
+		bk.priorPhase = { phase: prevPhase, phaseSince: prevPhaseSince };
+		return now;
+	}
+
 	// Called when a pending permission was resolved outside GitLens (e.g. via the CLI terminal).
 	// The 'deny' response is a safe no-op since the tool has already run or been denied upstream.
 	private clearStalePermission(sessionId: string, reason: string): void {
@@ -654,6 +748,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	private updateSessionWithPermission(sessionId: string, permission: PendingPermission, pid?: number): void {
+		// A pending permission is a working/waiting transition — cancel any deferred Stop → idle
+		// commit so the session doesn't briefly flip to idle before showing the prompt.
+		this.cancelPendingIdleTransition(sessionId);
+
 		const { index } = this.ensureSession(sessionId, { pid: pid });
 
 		const prev = this._sessions[index];
@@ -663,7 +761,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			...prev,
 			status: 'permission_requested',
 			phase: newPhase,
-			phaseSince: prev.phase !== newPhase ? new Date() : prev.phaseSince,
+			phaseSince: this.resolvePhaseSince(sessionId, prev.phase, prev.phaseSince, newPhase),
 			statusDetail: permission.toolDescription,
 			pendingPermission: permission,
 			lastActivity: new Date(),
@@ -676,6 +774,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		status: AgentSessionStatus,
 		options?: SessionContext & { statusDetail?: string },
 	): void {
+		// Any non-idle status update implicitly cancels a deferred Stop → idle commit. The
+		// timer is owned here so the schedule/cancel pair is uniformly enforced regardless of
+		// which event path produced the next status.
+		if (status !== 'idle') {
+			this.cancelPendingIdleTransition(sessionId);
+		}
+
 		const { index, changed: metadataChanged } = this.ensureSession(sessionId, options);
 
 		const prev = this._sessions[index];
@@ -706,7 +811,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			...prev,
 			status: status,
 			phase: newPhase,
-			phaseSince: prev.phase !== newPhase ? new Date() : prev.phaseSince,
+			phaseSince: this.resolvePhaseSince(sessionId, prev.phase, prev.phaseSince, newPhase),
 			statusDetail: statusDetail,
 			pendingPermission: status === 'permission_requested' ? bk.pendingPermission : undefined,
 			lastActivity: new Date(),
@@ -853,6 +958,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				pending.reject(new Error('Session pruned'));
 				this._pendingPermissions.delete(id);
 			}
+			this.cancelPendingIdleTransition(id);
 			this._sessionBookkeeping.delete(id);
 		}
 		Logger.debug(
