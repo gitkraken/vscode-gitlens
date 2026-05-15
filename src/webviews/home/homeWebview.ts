@@ -759,14 +759,18 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		// Agent branches: return only branches whose worktree has an active agent session.
 		// Sessions associate with worktrees by full path — the worktree's *current* branch is
-		// the agent's effective branch. Match by `(repoPath, worktreePath)`.
+		// the agent's effective branch. Match by `(repoPath, worktreePath)`, collapsing the
+		// default-worktree representations (`undefined` and `worktreePath === repoPath`) to
+		// `''` on both sides — same convention as `normalizeWorktreeKey` in `agentUtils.ts`.
 		if (type === 'agents') {
 			const sessions = this.container.agentStatus?.sessions ?? [];
 			const repoPath = repo.path;
 			const sessionWorktreePaths = new Set<string>();
 			for (const session of sessions) {
 				if (session.workspacePath === repoPath) {
-					sessionWorktreePaths.add(session.worktreePath ?? '');
+					sessionWorktreePaths.add(
+						session.worktreePath != null && session.worktreePath !== repoPath ? session.worktreePath : '',
+					);
 				}
 			}
 
