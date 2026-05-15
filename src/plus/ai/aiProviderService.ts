@@ -832,7 +832,6 @@ export class AIProviderService implements AIService, Disposable {
 	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
 		if (!(await ensureAccess(this.container, undefined, source))) return false;
 
-		if (feature === 'generate-commitMessage') return true;
 		const suffix = isAdvancedFeature(feature)
 			? 'requires GitLens Advanced or a trial'
 			: 'requires GitLens Pro or a trial';
