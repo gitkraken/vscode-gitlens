@@ -42,6 +42,8 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	@property({ type: Boolean }) aiEnabled = false;
 	@property({ type: Object }) mergeTargetStatus?: BranchMergeTargetStatus;
 
+	private _hadNextSteps = false;
+
 	override render(): unknown {
 		const branch = this.wip?.branch;
 		if (!branch) return this.renderIdle();
@@ -74,6 +76,15 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		if (mergeTarget == null) return false;
 
 		return (mergeTarget.status?.ahead ?? 0) > 0;
+	}
+
+	protected override updated(): void {
+		const branch = this.wip?.branch;
+		const hasNextSteps = branch != null && this.computeNextSteps(branch).length > 0;
+		if (hasNextSteps && !this._hadNextSteps) {
+			this.emit('next-steps-shown');
+		}
+		this._hadNextSteps = hasNextSteps;
 	}
 
 	private renderActive(branch: GitBranchShape, nextSteps: NextStep[]) {

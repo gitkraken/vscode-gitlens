@@ -21,6 +21,7 @@ import type {
 	DidRequestOpenCompareModeParams,
 	GraphDisplayMode,
 	GraphMinimapMarkerTypes,
+	GraphShowAction,
 	GraphSidebarPanel,
 	OverviewRecentThreshold,
 } from '../../../plus/graph/protocol.js';
@@ -30,6 +31,11 @@ import {
 	GetWipStatsRequest,
 	isSecondaryWipSha,
 	isWipSha,
+	TrackGraphDetailsCompareModeCommand,
+	TrackGraphDetailsComposeModeCommand,
+	TrackGraphDetailsReviewModeCommand,
+	TrackGraphDetailsWipShownCommand,
+	TrackGraphScopeChangedCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateGraphDisplayModeCommand,
 } from '../../../plus/graph/protocol.js';
@@ -329,6 +335,61 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.detailsPanelEl?.openCompareMode(params);
 	}
 
+	private _pendingScopeToBranch = false;
+
+	private async consumePendingAction(action: GraphShowAction): Promise<void> {
+		if (action === 'scope-to-branch') {
+			this.scopeToBranch();
+			return;
+		}
+
+		const repoPath = this.fallbackRepoPath ?? '';
+		this._selectedCommit = { sha: uncommitted, repoPath: repoPath };
+		this._selectedCommits = undefined;
+
+		this.setDetailsVisible(true, 'request-mode');
+		this.ensureDetailsPosition();
+
+		await this.updateComplete;
+		if (action === 'enter-review' || action === 'enter-compose') {
+			this.detailsPanelEl?.enterModeForWip(
+				action === 'enter-review' ? 'review' : 'compose',
+				repoPath,
+				uncommitted,
+			);
+		} else if (action === 'open-compare') {
+			this.detailsPanelEl?.openCompareMode({
+				repoPath: repoPath,
+				leftRef: this.graphState.branch?.name ?? 'HEAD',
+				rightRef: uncommitted,
+				includeWorkingTree: true,
+			});
+		}
+	}
+
+	private scopeToBranch(): void {
+		const branch = this.graphState.branch;
+		if (branch == null) {
+			this._pendingScopeToBranch = true;
+			return;
+		}
+
+		this._pendingScopeToBranch = false;
+		const selected = this.graphState.repositories?.find(r => r.id === this.graphState.selectedRepository);
+		const repoPath = selected != null ? (selected.commonPath ?? selected.path) : this.fallbackRepoPath;
+		if (repoPath != null) {
+			const branchRef = getBranchId(repoPath, false, branch.name);
+			this.setScope(
+				{
+					branchRef: branchRef,
+					branchName: branch.name,
+					upstreamRef: branch.upstream?.name ? getBranchId(repoPath, true, branch.upstream.name) : undefined,
+				},
+				'overview-card',
+			);
+		}
+	}
+
 	/** Handles a WIP-row inline-button click (Compose / Review / agent indicator). Selects the
 	 *  row, opens the details panel, and routes to the requested target. Compose/Review enter
 	 *  the matching workflow mode; `agents` expands the agents section. The graph component
@@ -458,6 +519,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		}
 
+		// Handle pending action from walkthrough CTA or external show request
+		const pendingAction = this.graphState.pendingAction;
+		if (pendingAction != null) {
+			this.graphState.pendingAction = undefined;
+			void this.updateComplete.then(() => this.consumePendingAction(pendingAction));
+		}
+
+		if (this._pendingScopeToBranch && this.graphState.branch != null) {
+			void this.updateComplete.then(() => this.scopeToBranch());
+		}
+
 		// Check for external search request (from file history command, etc.)
 		const searchRequest = this.graphState.searchRequest;
 		if (searchRequest && searchRequest !== this._lastSearchRequest) {
@@ -537,6 +609,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.commitLites=${multi?.commitLites}
 					@select-commit=${this.handleSelectCommit}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
+					@next-steps-shown=${this.handleNextStepsShown}
 				></gl-graph-details-panel>
 			</div>
 		</gl-split-panel>`;
@@ -553,6 +626,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		this.graph?.selectCommits([e.detail.sha], { ensureVisible: true });
+	}
+
+	private _nextStepsShownWhileHidden = false;
+
+	private handleNextStepsShown() {
+		if (!this.graphState.detailsVisible) {
+			this._nextStepsShownWhileHidden = true;
+			return;
+		}
+
+		this._ipc.sendCommand(TrackGraphDetailsWipShownCommand, undefined);
 	}
 
 	private renderGraphPaneContent() {
@@ -849,6 +933,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			const selectionCount = multi != null ? multi.shas.length : single != null ? 1 : 0;
 			const selectedSha = single?.sha;
 			const selectionUncommitted = isWipSha(selectedSha);
+			if (selectionUncommitted && this._nextStepsShownWhileHidden) {
+				this._nextStepsShownWhileHidden = false;
+				this._ipc.sendCommand(TrackGraphDetailsWipShownCommand, undefined);
+			}
 			const host = this.graphState.webviewId === 'gitlens.graph' ? 'editor' : 'panel';
 			const location = this.graphState.config?.detailsLocation === 'bottom' ? 'bottom' : 'right';
 			this._telemetry.sendEvent({
@@ -878,6 +966,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// panel stays visible (e.g. swap-to-close, mode chip toggles), so the event isolates
 		// in-panel transitions from open/close noise.
 		if (this.graphState.detailsVisible !== true) return;
+
+		switch (e.detail.current) {
+			case 'review':
+				this._ipc.sendCommand(TrackGraphDetailsReviewModeCommand, undefined);
+				break;
+			case 'compose':
+				this._ipc.sendCommand(TrackGraphDetailsComposeModeCommand, undefined);
+				break;
+			case 'compare':
+				this._ipc.sendCommand(TrackGraphDetailsCompareModeCommand, undefined);
+				break;
+		}
 
 		this._telemetry.sendEvent({
 			name: 'graphDetails/mode/changed',
@@ -1218,6 +1318,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
+		this.graphState.scope = scope;
+		this._ipc.sendCommand(TrackGraphScopeChangedCommand, undefined);
 		emitTelemetrySentEvent<'graph/scope/changed'>(this, {
 			name: 'graph/scope/changed',
 			data: {

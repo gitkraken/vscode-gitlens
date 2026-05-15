@@ -1,7 +1,7 @@
 import type { WebviewsController, WebviewViewProxy } from '../webviewsController.js';
 import type { State } from './protocol.js';
 
-export type WelcomeWebviewShowingArgs = [];
+export type WelcomeWebviewShowingArgs = [{ mode?: 'main' | 'graph' }?];
 
 export function registerWelcomeWebviewView(
 	controller: WebviewsController,

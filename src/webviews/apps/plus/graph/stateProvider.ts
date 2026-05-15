@@ -20,6 +20,8 @@ import {
 	DidChangeCanInstallClaudeHook,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeGraphWalkthroughBanner,
+	DidChangeGraphWalkthroughComplete,
 	DidChangeHooksBanner,
 	DidChangeMcpBanner,
 	DidChangeNotification,
@@ -39,6 +41,8 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
+	DidRequestActiveSidebarPanelNotification,
+	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
@@ -203,6 +207,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor minimapPosition: AppState['minimapPosition'];
+
+	@signalState()
+	accessor pendingAction: AppState['pendingAction'];
 
 	get isBusy(): AppState['isBusy'] {
 		return this.loading || this.searching || /*this.rowsStatsLoading ||*/ false;
@@ -389,6 +396,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	mcpBannerCollapsed?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
 	canInstallClaudeHook?: boolean | undefined;
+	graphWalkthroughBannerCollapsed?: boolean | undefined;
+	graphWalkthroughComplete?: boolean | undefined;
 
 	constructor(
 		host: ReactiveElementHost,
@@ -985,6 +994,20 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				);
 				break;
 
+			case DidRequestActiveSidebarPanelNotification.is(msg):
+				this.updateState({
+					activeSidebarPanel: msg.params.panel,
+					sidebarVisible: true,
+				});
+				break;
+
+			case DidRequestGraphActionNotification.is(msg):
+				this.updateState({
+					pendingAction: msg.params.action,
+					detailsVisible: msg.params.action !== 'scope-to-branch' ? true : undefined,
+				});
+				break;
+
 			case DidChangeGraphConfigurationNotification.is(msg):
 				this.updateState({ config: msg.params.config });
 				break;
@@ -1022,6 +1045,16 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidChangeCanInstallClaudeHook.is(msg):
 				this.updateState({ canInstallClaudeHook: msg.params });
+				break;
+
+			case DidChangeGraphWalkthroughBanner.is(msg):
+				this.updateState({
+					graphWalkthroughBannerCollapsed: msg.params.dismissed,
+				});
+				break;
+
+			case DidChangeGraphWalkthroughComplete.is(msg):
+				this.updateState({ graphWalkthroughComplete: msg.params });
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg): {
