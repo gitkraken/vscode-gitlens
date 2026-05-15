@@ -18,6 +18,7 @@ import {
 	GetOverviewRequest,
 	GetOverviewWipDetailedRequest,
 	GetOverviewWipRequest,
+	TrackGraphOverviewShownCommand,
 } from '../../../../plus/graph/protocol.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
@@ -288,10 +289,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			this._wipData = nextWipData;
 		}
 
-		// Fire the shown event once overview data is available so the branch counts are accurate.
-		// Mount-time emit would always report 0/0 since the initial GetOverviewRequest is still in flight.
-		if (!this._shownEmitted && overview != null) {
+		// Fire the shown event once overview data is available AND the sidebar is visible so the
+		// walkthrough step only completes when the user actually sees the overview.
+		if (!this._shownEmitted && overview != null && this._state.sidebarVisible) {
 			this._shownEmitted = true;
+			this._ipc.sendCommand(TrackGraphOverviewShownCommand, undefined);
 			emitTelemetrySentEvent<'graph/overview/shown'>(this, {
 				name: 'graph/overview/shown',
 				data: {

@@ -16,3 +16,11 @@ export const walkthroughProgressSteps: Record<WalkthroughContextKeys, string> = 
 	prReviews: 'Launchpad',
 	mcpFeatures: 'MCP Features',
 };
+
+export type GraphWalkthroughContextKeys =
+	| 'graphAgentMonitoring'
+	| 'graphParallelWork'
+	| 'graphAiReview'
+	| 'graphCompose'
+	| 'graphCompare'
+	| 'graphNextSteps';
