@@ -8,7 +8,7 @@ import type {
 	WebviewPanelTypes,
 	WebviewViewTypes,
 } from './constants.views.js';
-import type { WalkthroughContextKeys } from './constants.walkthroughs.js';
+import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from './constants.walkthroughs.js';
 import type { Features } from './features.js';
 import type { OrgAIProviders } from './plus/gk/models/organization.js';
 import type { PromoKeys } from './plus/gk/models/promo.js';
@@ -94,4 +94,5 @@ export type ContextKeys = {
 	Record<`gitlens:views:scm:grouped:views:${GroupableTreeViewTypes}`, boolean> &
 	Record<`gitlens:webview:${CustomEditorTypes | WebviewPanelTypes}:visible`, boolean> &
 	Record<`gitlens:webviewView:${WebviewViewTypes}:visible`, boolean> &
+	Record<`gitlens:walkthroughState:${GraphWalkthroughContextKeys}`, boolean> &
 	Record<`gitlens:walkthroughState:${WalkthroughContextKeys}`, boolean>;

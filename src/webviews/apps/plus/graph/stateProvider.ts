@@ -16,6 +16,8 @@ import {
 	DidChangeCanInstallClaudeHook,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeGraphWalkthroughBanner,
+	DidChangeGraphWalkthroughComplete,
 	DidChangeHooksBanner,
 	DidChangeMcpBanner,
 	DidChangeNotification,
@@ -331,6 +333,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	mcpBannerCollapsed?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
 	canInstallClaudeHook?: boolean | undefined;
+	graphWalkthroughBannerCollapsed?: boolean | undefined;
+	graphWalkthroughComplete?: boolean | undefined;
 
 	constructor(
 		host: ReactiveElementHost,
@@ -828,6 +832,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidChangeCanInstallClaudeHook.is(msg):
 				this.updateState({ canInstallClaudeHook: msg.params });
+				break;
+
+			case DidChangeGraphWalkthroughBanner.is(msg):
+				this.updateState({ graphWalkthroughBannerCollapsed: msg.params });
+				break;
+
+			case DidChangeGraphWalkthroughComplete.is(msg):
+				this.updateState({ graphWalkthroughComplete: msg.params });
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg):

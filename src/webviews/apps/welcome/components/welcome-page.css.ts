@@ -298,9 +298,28 @@ const scrollableFeatures = css`
 	}
 `;
 
+const backLink = css`
+	.section--back {
+		text-align: left;
+		align-items: flex-start;
+	}
+
+	.section .back-link {
+		color: var(--dimmed-text-color);
+		text-decoration: none;
+		font-size: var(--card-font-size);
+	}
+
+	.back-link:hover {
+		color: var(--vscode-textLink-activeForeground);
+		text-decoration: underline;
+	}
+`;
+
 export const welcomeStyles = css`
 	${colorScheme} ${typography} ${main}
 	${heroGradient} ${section} ${header}
 	${scrollableFeatures}
 	${cards}
+	${backLink}
 `;

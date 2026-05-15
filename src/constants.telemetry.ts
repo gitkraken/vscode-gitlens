@@ -14,7 +14,7 @@ import type {
 	WebviewTypes,
 	WebviewViewTypes,
 } from './constants.views.js';
-import type { WalkthroughContextKeys } from './constants.walkthroughs.js';
+import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from './constants.walkthroughs.js';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol.js';
@@ -1753,7 +1753,7 @@ type WalkthroughActionEvent =
 	| { type: 'url'; name: WalkthroughActionNames; url: string; detail?: string };
 
 interface WalkthroughCompletionEvent {
-	'context.key': WalkthroughContextKeys;
+	'context.key': WalkthroughContextKeys | GraphWalkthroughContextKeys;
 }
 
 type WelcomeActionNames =

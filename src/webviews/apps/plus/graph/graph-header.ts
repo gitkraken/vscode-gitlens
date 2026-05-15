@@ -141,12 +141,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			.mcp-tooltip::part(body),
-			.hooks-tooltip::part(body) {
+			.hooks-tooltip::part(body),
+			.graph-walkthrough-tooltip::part(body) {
 				--max-width: 320px;
 			}
 
 			.mcp-tooltip__content a,
-			.hooks-tooltip__content a {
+			.hooks-tooltip__content a,
+			.graph-walkthrough-tooltip__content a {
 				color: var(--vscode-textLink-foreground);
 			}
 
@@ -154,6 +156,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			.action-button--hooks {
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 				border: 1px solid var(--vscode-panel-border);
+			}
+
+			.action-button--graph-walkthrough {
+				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+				border: 1px solid var(--vscode-panel-border);
+				outline: 1px solid var(--vscode-panel-border);
 			}
 
 			/* Search is meaningless in Timeline mode — visually dim it and let \`inert\` block focus
@@ -1132,6 +1140,60 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-popover>
 					`,
 				)}
+				${(() => {
+					const dismissed = state.graphWalkthroughBannerCollapsed ?? true;
+					const highlighted = !dismissed && !state.graphWalkthroughComplete;
+					return dismissed
+						? html`
+								<gl-tooltip placement="bottom">
+									<a
+										href=${createCommandLink('gitlens.showWelcomeView', {
+											mode: 'graph',
+										})}
+										class="action-button"
+									>
+										<code-icon class="action-button__icon" icon="megaphone"></code-icon>
+									</a>
+									<span slot="content">What's new in GitLens</span>
+								</gl-tooltip>
+							`
+						: html`
+								<gl-popover
+									class="graph-walkthrough-tooltip"
+									placement="bottom"
+									trigger="click focus"
+									open
+								>
+									<button
+										type="button"
+										class="action-button ${highlighted ? 'action-button--graph-walkthrough' : ''}"
+										slot="anchor"
+									>
+										<code-icon class="action-button__icon" icon="megaphone"></code-icon>
+									</button>
+									<div class="graph-walkthrough-tooltip__content" slot="content">
+										<strong>Welcome to the new GitLens Commit Graph</strong>
+										<span style="opacity: 0.7">PREVIEW</span><br />
+										The Graph is where your work gets done. Launch agents, monitor their work across
+										worktrees, and streamline next steps to ship faster.
+										<br /><br />
+										<a
+											href=${createCommandLink('gitlens.onboarding.dismiss', {
+												id: 'graph-walkthrough:banner',
+											})}
+											>Dismiss</a
+										>
+										&middot;
+										<a
+											href=${createCommandLink('gitlens.showWelcomeView', {
+												mode: 'graph',
+											})}
+											>See what's new</a
+										>
+									</div>
+								</gl-popover>
+							`;
+				})()}
 				<gl-tooltip placement="bottom">
 					<a
 						href=${`command:gitlens.showLaunchpad?${encodeURIComponent(
