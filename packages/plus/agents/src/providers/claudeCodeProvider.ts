@@ -6,7 +6,7 @@ import { disposableInterval } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
-import { truncate } from '@gitlens/utils/string.js';
+import { prepareStoredPrompt } from '../sanitizePrompt.js';
 import {
 	classifyPermissionKind,
 	deriveStatusFromEvent,
@@ -438,15 +438,18 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			case 'UserPromptSubmit': {
 				const { index } = this.ensureSession(event.sessionId, eventContext);
-				if (event.prompt) {
-					const existing = this._sessions[index];
-					this._sessions[index] = {
-						...existing,
-						lastPrompt: truncate(event.prompt, 500),
-						firstPrompt:
-							existing.firstPrompt ?? (event.firstPrompt ? truncate(event.firstPrompt, 500) : undefined),
-					};
-				}
+				const cleaned = prepareStoredPrompt(event.prompt);
+				// A `UserPromptSubmit` whose payload sanitizes to nothing is harness-synthetic
+				// (e.g. background-bash <task-notification>, slash-command stdout echo). Treat it
+				// as informational so it doesn't flip the session to `thinking` or wipe a pending
+				// permission when no real user activity occurred.
+				if (!cleaned) break;
+				const existing = this._sessions[index];
+				this._sessions[index] = {
+					...existing,
+					lastPrompt: cleaned,
+					firstPrompt: existing.firstPrompt ?? prepareStoredPrompt(event.firstPrompt),
+				};
 				this.clearStalePermission(event.sessionId, 'UserPromptSubmit');
 				this.updateSessionStatus(event.sessionId, 'thinking', eventContext);
 				break;
@@ -1314,8 +1317,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				cwd: data.cwd,
 				planFile: data.planFile ?? undefined,
 				isInWorkspace: isInWorkspace,
-				lastPrompt: data.prompt ?? undefined,
-				firstPrompt: data.firstPrompt ?? undefined,
+				lastPrompt: prepareStoredPrompt(data.prompt ?? undefined),
+				firstPrompt: prepareStoredPrompt(data.firstPrompt ?? undefined),
 				subagents: subagents,
 			});
 			changed = true;
