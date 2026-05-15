@@ -103,11 +103,17 @@ export interface AgentSessionWorktreeTarget {
 export type AgentSessionWorktreeIndex = Map<string, AgentSessionState[]>;
 
 /** Default-worktree representations differ across producers — Home keeps `worktree.path` equal to
- *  the repo path, Graph leaves `worktree` undefined. Sessions always carry the explicit path form.
- *  Collapse both forms to the empty string so equality holds across producers without falsely
- *  cross-associating with named worktrees (whose paths are distinct by construction). */
-function normalizeWorktreeKey(repoPath: string, worktreePath: string | undefined): string {
-	return worktreePath == null || worktreePath === repoPath ? '' : worktreePath;
+ *  the repo path, Graph leaves `worktree` undefined for default-worktree branches but produces the
+ *  full path for sessions. We collapse only the *known* default-worktree form (`worktreePath ===
+ *  repoPath`) to `''` so default-worktree producers from either side meet.
+ *
+ *  A `null`/`undefined` worktreePath means **unknown** — either an unresolved agent session
+ *  (resolveGitInfo hasn't finished or failed) or a branch with no worktree mapping (not checked
+ *  out anywhere). Those cases must NOT collide with the default-worktree key; we return `undefined`
+ *  so equality with any normalized key is false. */
+function normalizeWorktreeKey(repoPath: string, worktreePath: string | undefined): string | undefined {
+	if (worktreePath == null) return undefined;
+	return worktreePath === repoPath ? '' : worktreePath;
 }
 
 /** Builds a lookup index for batch matching across many worktrees in one render (overview cards).
@@ -120,7 +126,10 @@ export function indexAgentSessionsByRepoAndWorktree(
 	const index: AgentSessionWorktreeIndex = new Map();
 	for (const session of sessions) {
 		if (session.workspacePath == null) continue;
-		const key = `${session.workspacePath}\0${normalizeWorktreeKey(session.workspacePath, session.worktree?.path)}`;
+		const wtKey = normalizeWorktreeKey(session.workspacePath, session.worktree?.path);
+		// Skip sessions whose worktree hasn't resolved yet — they can't be reliably attributed.
+		if (wtKey === undefined) continue;
+		const key = `${session.workspacePath}\0${wtKey}`;
 		const existing = index.get(key);
 		if (existing != null) {
 			existing.push(session);
@@ -143,6 +152,8 @@ export function matchAgentSessionsForWorktree(
 	if (source == null) return undefined;
 
 	const targetKey = normalizeWorktreeKey(target.repoPath, target.worktreePath);
+	// Branch isn't checked out anywhere — no agent can be running on it, regardless of state.
+	if (targetKey === undefined) return undefined;
 
 	let candidates: readonly AgentSessionState[];
 	if (source instanceof Map) {
@@ -156,7 +167,9 @@ export function matchAgentSessionsForWorktree(
 
 	const matches = candidates.filter(session => {
 		if (session.workspacePath !== target.repoPath) return false;
-		return normalizeWorktreeKey(session.workspacePath, session.worktree?.path) === targetKey;
+		const sessionKey = normalizeWorktreeKey(session.workspacePath, session.worktree?.path);
+		// Unresolved session worktree → can't attribute reliably; skip.
+		return sessionKey !== undefined && sessionKey === targetKey;
 	});
 
 	return matches.length > 0 ? matches : undefined;
@@ -174,9 +187,11 @@ export function findOverviewBranchForSession(
 	if (branches == null || session.workspacePath == null || session.worktree?.path == null) return undefined;
 
 	const sessionKey = normalizeWorktreeKey(session.workspacePath, session.worktree.path);
+	if (sessionKey === undefined) return undefined;
 	for (const candidate of [...branches.active, ...branches.recent]) {
 		if (candidate.repoPath !== session.workspacePath) continue;
-		if (normalizeWorktreeKey(candidate.repoPath, candidate.worktree?.path) !== sessionKey) continue;
+		const candidateKey = normalizeWorktreeKey(candidate.repoPath, candidate.worktree?.path);
+		if (candidateKey === undefined || candidateKey !== sessionKey) continue;
 		return candidate;
 	}
 

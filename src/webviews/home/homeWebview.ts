@@ -763,26 +763,28 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		// Agent branches: return only branches whose worktree has an active agent session.
 		// Sessions associate with worktrees by full path — the worktree's *current* branch is
 		// the agent's effective branch. Match by `(repoPath, worktreePath)`, collapsing the
-		// default-worktree representations (`undefined` and `worktreePath === repoPath`) to
-		// `''` on both sides — same convention as `normalizeWorktreeKey` in `agentUtils.ts`.
+		// **default-worktree** form (`worktreePath === repoPath`) to `''` on both sides — same
+		// convention as `normalizeWorktreeKey` in `agentUtils.ts`. Sessions with an unresolved
+		// `worktreePath` (null/undefined) are skipped: they have no known branch attribution and
+		// would otherwise collide with the default-worktree key. Likewise, branches with no
+		// worktree mapping aren't checked out anywhere and can't host an agent.
 		if (type === 'agents') {
 			const sessions = this.container.agentStatus?.sessions ?? [];
 			const repoPath = repo.path;
 			const sessionWorktreePaths = new Set<string>();
 			for (const session of sessions) {
-				if (session.workspacePath === repoPath) {
-					sessionWorktreePaths.add(
-						session.worktreePath != null && session.worktreePath !== repoPath ? session.worktreePath : '',
-					);
-				}
+				if (session.workspacePath !== repoPath) continue;
+				if (session.worktreePath == null) continue;
+				sessionWorktreePaths.add(session.worktreePath === repoPath ? '' : session.worktreePath);
 			}
 
 			const agentBranches: OverviewBranch[] = [];
 			for (const branch of branches) {
 				const wt = worktreesByBranch.get(branch.id);
-				const branchWorktreePath = wt != null && !wt.isDefault ? wt.path : '';
+				if (wt == null) continue;
+				const branchWorktreePath = wt.isDefault ? '' : wt.path;
 				if (sessionWorktreePaths.has(branchWorktreePath)) {
-					const opened = branch.current || wt?.opened === true;
+					const opened = branch.current || wt.opened === true;
 					agentBranches.push(toOverviewBranch(branch, worktreesByBranch, opened));
 				}
 			}

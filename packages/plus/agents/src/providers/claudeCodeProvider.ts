@@ -957,6 +957,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		);
 
 		let changed = false;
+		// Peer sessions arrive with whatever `worktreePath` the publishing window resolved (or
+		// failed to resolve) — pre-loaded-repo agents, CLI hooks fired before validateRepo
+		// succeeded, etc. We re-run `resolveGitInfo` locally for any that arrive unresolved so
+		// they don't permanently collide with the default-worktree key in the matcher.
+		const needsResolution: { sessionId: string; cwd: string }[] = [];
 		for (const peerSessions of peerBatches) {
 			if (peerSessions == null) continue;
 
@@ -979,22 +984,36 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						};
 						changed = true;
 					}
+					if (existing.worktreePath == null && existing.cwd != null) {
+						needsResolution.push({ sessionId: existing.id, cwd: existing.cwd });
+					}
 				} else {
-					this._sessions.push({
+					const added: AgentSession = {
 						...peerSession,
 						lastActivity: peerActivity,
 						phaseSince: peerPhaseSince,
 						workspacePath: normalizeWorkspacePath(peerSession.workspacePath),
 						isInWorkspace: this.matchesWorkspace(peerSession.workspacePath),
 						subagents: rehydrateSubagents(peerSession.subagents),
-					});
+					};
+					this._sessions.push(added);
 					changed = true;
+					if (added.worktreePath == null && added.cwd != null) {
+						needsResolution.push({ sessionId: added.id, cwd: added.cwd });
+					}
 				}
 			}
 		}
 
 		if (changed) {
 			this._onDidChangeSessions.fire();
+		}
+
+		// Run resolution after the initial change fires so the UI gets an immediate snapshot
+		// (pre-resolution) and a follow-up when git info lands. `resolveGitInfo` is idempotent
+		// and fires its own change event only when something actually changed.
+		for (const { sessionId, cwd } of needsResolution) {
+			void this.resolveGitInfo(sessionId, cwd);
 		}
 	}
 
