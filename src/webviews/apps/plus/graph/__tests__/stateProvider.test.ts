@@ -3,6 +3,7 @@ import type { GraphWipMetadataBySha } from '../../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewBranches.js';
 import type { AppState } from '../context.js';
 import { mergeWipMetadata, reconcileScopeMergeTarget } from '../stateProvider.js';
+import { filterSecondariesForScope } from '../utils/wip.utils.js';
 
 suite('mergeWipMetadata', () => {
 	test('returns undefined when incoming is undefined', () => {
@@ -87,10 +88,29 @@ suite('mergeWipMetadata', () => {
 		assert.deepStrictEqual(merged?.workDirStats, { added: 7, deleted: 3, modified: 1 });
 		assert.strictEqual(merged?.workDirStatsStale, false);
 	});
+
+	test('produces a new object when branchRef changes (branch rename without sha change)', () => {
+		const prev: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha1', '/repo|heads/old') };
+		const incoming: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha1', '/repo|heads/new') };
+
+		const result = mergeWipMetadata(prev, incoming);
+
+		assert.notStrictEqual(result, prev);
+		assert.strictEqual(result?.['worktree-wip::/a']?.branchRef, '/repo|heads/new');
+	});
+
+	test('preserves prev reference when branchRef matches (and other anchors match)', () => {
+		const prev: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha1', '/repo|heads/feature') };
+		const incoming: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha1', '/repo|heads/feature') };
+
+		const result = mergeWipMetadata(prev, incoming);
+
+		assert.strictEqual(result, prev);
+	});
 });
 
-function entry(label: string, parentSha: string) {
-	return { repoPath: `/repos/${label}`, parentSha: parentSha, label: label };
+function entry(label: string, parentSha: string, branchRef?: string) {
+	return { repoPath: `/repos/${label}`, parentSha: parentSha, label: label, branchRef: branchRef };
 }
 
 suite('reconcileScopeMergeTarget', () => {
@@ -159,3 +179,98 @@ function makeEnrichment(branchRef: string, sha: string): GetOverviewEnrichmentRe
 		},
 	};
 }
+
+suite('filterSecondariesForScope', () => {
+	const branchRef = '/repo|heads/feature';
+	const upstreamRef = '/repo|remotes/origin/feature';
+	const otherRef = '/repo|heads/other';
+
+	test('returns input unchanged when scope is undefined', () => {
+		const meta: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha1', branchRef) };
+		const result = filterSecondariesForScope(meta, undefined);
+		assert.strictEqual(result, meta);
+	});
+
+	test('returns input unchanged when metadata is undefined', () => {
+		const result = filterSecondariesForScope(undefined, { branchRef: branchRef, branchName: 'feature' });
+		assert.strictEqual(result, undefined);
+	});
+
+	test('keeps entries whose branchRef matches scope.branchRef', () => {
+		const meta: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha1', branchRef) };
+		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
+		assert.strictEqual(result, meta, 'no entries dropped → same reference');
+	});
+
+	test('drops worktrees on sibling local branches even when the scope has an upstream', () => {
+		// Production worktree branchRefs are always `heads/*` (git only attaches worktrees to local
+		// branches), so a worktree on a different local branch that tracks the same upstream as the
+		// scope is treated as a sibling, not part of the scope. The `remotes/*` `upstreamRef` is
+		// deliberately not part of the match set — see `filterSecondariesForScope`.
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/scoped': entry('scoped', 'sha1', branchRef),
+			'worktree-wip::/sibling': entry('sibling', 'sha2', '/repo|heads/feature-mirror'),
+		};
+		const result = filterSecondariesForScope(meta, {
+			branchRef: branchRef,
+			branchName: 'feature',
+			upstreamRef: upstreamRef,
+		});
+		assert.ok(result?.['worktree-wip::/scoped']);
+		assert.strictEqual(result?.['worktree-wip::/sibling'], undefined);
+	});
+
+	test('drops entries whose branchRef is unrelated to the scope', () => {
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/a': entry('a', 'sha1', branchRef),
+			'worktree-wip::/b': entry('b', 'sha2', otherRef),
+		};
+		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
+		assert.notStrictEqual(result, meta);
+		assert.ok(result?.['worktree-wip::/a']);
+		assert.strictEqual(result?.['worktree-wip::/b'], undefined);
+	});
+
+	test('drops sha-colliding worktree on unrelated branch (the reproduction case)', () => {
+		// Both worktrees have parentSha === scope.branchRef tip sha, but only one is actually on
+		// the scoped branch — the other coincidentally shares a HEAD sha. Without branchRef-aware
+		// filtering, the graph component's SHA filter would let both through.
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/scoped': entry('scoped', 'sha-tip', branchRef),
+			'worktree-wip::/coincident': entry('coincident', 'sha-tip', otherRef),
+		};
+		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
+		assert.ok(result?.['worktree-wip::/scoped']);
+		assert.strictEqual(result?.['worktree-wip::/coincident'], undefined);
+	});
+
+	test('keeps detached worktrees (branchRef undefined) — defers to SHA filter', () => {
+		const meta: GraphWipMetadataBySha = { 'worktree-wip::/detached': entry('detached', 'sha1') };
+		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
+		assert.strictEqual(result, meta, 'detached entry passes through unchanged');
+	});
+
+	test('does not match entries with undefined branchRef when scope upstream is missing', () => {
+		// Regression guard: building the scope-ref set must not insert `undefined`. If it did,
+		// detached entries would match the bogus undefined slot. They should pass via the
+		// branchRef == null fall-through instead.
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/detached': entry('detached', 'sha1'),
+			'worktree-wip::/unrelated': entry('unrelated', 'sha2', otherRef),
+		};
+		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
+		assert.ok(result?.['worktree-wip::/detached'], 'detached kept');
+		assert.strictEqual(result?.['worktree-wip::/unrelated'], undefined, 'unrelated dropped');
+	});
+
+	test('honors scope.additionalBranchRefs (stacked-branches forward-compat)', () => {
+		const stackedRef = '/repo|heads/stacked';
+		const meta: GraphWipMetadataBySha = { 'worktree-wip::/stacked': entry('stacked', 'sha1', stackedRef) };
+		const result = filterSecondariesForScope(meta, {
+			branchRef: branchRef,
+			branchName: 'feature',
+			additionalBranchRefs: [stackedRef],
+		});
+		assert.strictEqual(result, meta);
+	});
+});

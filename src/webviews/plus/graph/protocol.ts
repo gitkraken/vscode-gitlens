@@ -264,6 +264,12 @@ export interface GraphWipNodeMetadata {
 	parentSha: string;
 	/** Host-only: user-visible suffix for the row message (e.g. worktree name). */
 	label: string;
+	/**
+	 * Host-only: the worktree branch in scope ref-id format (`{repoPath}|heads/{name}`), or undefined
+	 * for detached worktrees. Used by the webview's scope filter to drop secondary WIPs whose branch
+	 * isn't part of the active scope — independent of SHA collisions with scope anchors.
+	 */
+	branchRef?: string;
 }
 
 export type GraphWipMetadataBySha = Record<string, GraphWipNodeMetadata>;

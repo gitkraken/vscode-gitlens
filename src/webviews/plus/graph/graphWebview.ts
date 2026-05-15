@@ -5544,10 +5544,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (wt.type === 'bare' || wt.sha == null) continue;
 			if (wt.path === this.repository.path) continue;
 
+			// Use the MAIN repo's path for branchRef so it matches the format scope uses (see
+			// `setScope` in graph-app.ts) — `GitWorktree.repoPath` is the main repo's path anyway.
+			// Detached worktrees have no `wt.branch`; leaving `branchRef` undefined defers them
+			// to the graph component's SHA filter.
+			const branchName = wt.branch?.name;
 			result[makeSecondaryWipSha(wt.path)] = {
 				repoPath: wt.path,
 				parentSha: wt.sha,
 				label: wt.name,
+				branchRef: branchName != null ? getBranchId(this.repository.path, false, branchName) : undefined,
 			};
 		}
 

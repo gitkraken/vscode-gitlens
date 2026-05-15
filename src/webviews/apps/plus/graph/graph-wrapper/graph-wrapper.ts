@@ -22,6 +22,7 @@ import { areEqual } from '@gitlens/utils/object.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	GraphAvatars,
+	GraphScope,
 	GraphSelection,
 	GraphWipMetadataBySha,
 	RowAction,
@@ -47,6 +48,7 @@ import type { Disposable } from '../../../shared/events.js';
 import type { ThemeChangeEvent } from '../../../shared/theme.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
 import { graphStateContext } from '../context.js';
+import { filterSecondariesForScope } from '../utils/wip.utils.js';
 import type { GlGraph } from './gl-graph.js';
 import type { GraphWrapperTheming } from './gl-graph.react.jsx';
 import './gl-graph.js';
@@ -192,11 +194,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.ensureAndSelectCommit(e.detail.sha);
 	};
 
-	// Cache keyed by the triplet (rows, wipMetadataBySha, workingTreeStats) — any reference change invalidates.
+	// Cache keyed by the quad (rows, wipMetadataBySha, workingTreeStats, scope) — any reference
+	// change invalidates. Scope must be in the key because the secondary-WIP scope filter below
+	// (`filterSecondariesForScope`) reads `scope.branchRef`/`upstreamRef`/`additionalBranchRefs`,
+	// so the cached result is stale when scope changes even if the row/metadata refs don't.
 	private _decoratedRowsCache?: {
 		rows: GraphRow[] | undefined;
 		wipMetadataBySha: GraphWipMetadataBySha | undefined;
 		workingTreeStats: typeof graphStateContext.__context__.workingTreeStats;
+		scope: GraphScope | undefined;
 		result: GraphRow[] | undefined;
 	};
 
@@ -208,19 +214,23 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const rows = graphState.rows;
 		const wipMetadataBySha = graphState.wipMetadataBySha;
 		const workingTreeStats = graphState.workingTreeStats;
+		const scope = graphState.scope;
 
 		const cached = this._decoratedRowsCache;
 		if (
 			cached != null &&
 			cached.rows === rows &&
 			cached.wipMetadataBySha === wipMetadataBySha &&
-			cached.workingTreeStats === workingTreeStats
+			cached.workingTreeStats === workingTreeStats &&
+			cached.scope === scope
 		) {
 			return cached.result;
 		}
 
+		const filteredMetadata = filterSecondariesForScope(wipMetadataBySha, scope);
+
 		let result: GraphRow[] | undefined;
-		if (rows == null || wipMetadataBySha == null || Object.keys(wipMetadataBySha).length === 0) {
+		if (rows == null || filteredMetadata == null || Object.keys(filteredMetadata).length === 0) {
 			// Let the GK component handle the primary WIP auto-inject from workingTreeStats.
 			result = rows?.slice();
 		} else {
@@ -255,7 +265,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			}
 
 			const secondariesByParentIdx = new Map<number, GraphRow[]>();
-			for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+			for (const [sha, meta] of Object.entries(filteredMetadata)) {
 				const idx = realRowIndexBySha.get(meta.parentSha);
 				if (idx == null) continue;
 
@@ -295,6 +305,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			rows: rows,
 			wipMetadataBySha: wipMetadataBySha,
 			workingTreeStats: workingTreeStats,
+			scope: scope,
 			result: result,
 		};
 		return result;

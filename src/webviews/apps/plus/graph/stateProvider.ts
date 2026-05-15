@@ -986,7 +986,8 @@ export function mergeWipMetadata(
 		if (
 			entry.repoPath !== prevEntry?.repoPath ||
 			entry.parentSha !== prevEntry?.parentSha ||
-			entry.label !== prevEntry?.label
+			entry.label !== prevEntry?.label ||
+			entry.branchRef !== prevEntry?.branchRef
 		) {
 			changed = true;
 		}
