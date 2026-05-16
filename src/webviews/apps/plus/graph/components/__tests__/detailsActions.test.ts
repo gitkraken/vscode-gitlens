@@ -279,7 +279,7 @@ suite('DetailsActions', () => {
 		const state = createDetailsState();
 		state.branchCompareLeftRef.set('feature');
 		state.branchCompareRightRef.set('main');
-		state.activeMode.set('compare');
+		state.compareSheetOpen.set(true);
 
 		const summaryFetches: BranchComparisonOptions[] = [];
 		const resources = createResources({

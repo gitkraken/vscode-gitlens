@@ -1066,3 +1066,125 @@ suite('DetailsWorkflowController — R1 fix regressions', () => {
 		assert.strictEqual(state.composePreErrorPrompt.get(), 'user prompt', 'prompt preserved for AI input pre-fill');
 	});
 });
+
+suite('DetailsWorkflowController.compare lifecycle', () => {
+	test('openCompare with explicit refs flips compareSheetOpen and seeds branchCompare state', () => {
+		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		assert.strictEqual(state.compareSheetOpen.get(), false);
+		assert.strictEqual(state.compareAsPanel.get(), false);
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+		);
+
+		assert.strictEqual(state.compareSheetOpen.get(), true);
+		assert.strictEqual(state.branchCompareLeftRef.get(), 'feature');
+		assert.strictEqual(state.branchCompareRightRef.get(), 'main');
+	});
+
+	test('openCompare while already-open with no overrides is a no-op (preserves in-flight comparison)', () => {
+		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+		);
+		// Simulate the user mutating the comparison after open
+		state.branchCompareActiveTab.set('ahead');
+
+		controller.openCompare({ sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		assert.strictEqual(state.branchCompareLeftRef.get(), 'feature');
+		assert.strictEqual(state.branchCompareActiveTab.get(), 'ahead', 'tab selection survives a no-op re-open');
+	});
+
+	test('closeCompare clears both visibility signals and all compare state', () => {
+		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+		);
+		state.branchCompareActiveTab.set('ahead');
+
+		controller.closeCompare();
+
+		assert.strictEqual(state.compareSheetOpen.get(), false);
+		assert.strictEqual(state.compareAsPanel.get(), false);
+		assert.strictEqual(state.branchCompareLeftRef.get(), undefined);
+		assert.strictEqual(state.branchCompareRightRef.get(), undefined);
+		assert.strictEqual(state.branchCompareActiveTab.get(), 'all', 'active tab resets to default');
+	});
+
+	test('openCompareAsPanel swaps sheet for panel form (visibility flip, state intact)', () => {
+		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+		);
+		state.branchCompareActiveTab.set('behind');
+
+		controller.openCompareAsPanel();
+
+		assert.strictEqual(state.compareSheetOpen.get(), false);
+		assert.strictEqual(state.compareAsPanel.get(), true);
+		assert.strictEqual(state.branchCompareLeftRef.get(), 'feature');
+		assert.strictEqual(state.branchCompareActiveTab.get(), 'behind', 'tab survives the form swap');
+	});
+
+	test('openCompare while in panel form with explicit overrides retargets AND defaults to sheet', () => {
+		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+		);
+		controller.openCompareAsPanel();
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'topic', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+		);
+
+		// Any new open (with overrides) resets the form to sheet. The user re-commits to the panel
+		// form if they want it. The only way back to sheet is close+reopen — this test exercises
+		// the override path; a no-override repeat-click is the early-return no-op covered above.
+		assert.strictEqual(state.compareAsPanel.get(), false, 'panel form is dismissed on re-open');
+		assert.strictEqual(state.compareSheetOpen.get(), true, 'fresh open is always a sheet');
+		assert.strictEqual(state.branchCompareLeftRef.get(), 'topic', 'refs were updated');
+	});
+
+	test('graph-repo switch closes any open compare (sheet)', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+		);
+		assert.strictEqual(state.compareSheetOpen.get(), true);
+
+		host.setGraphRepoPath('/B');
+		host.tickHostUpdate();
+
+		assert.strictEqual(state.compareSheetOpen.get(), false);
+		assert.strictEqual(state.branchCompareLeftRef.get(), undefined);
+	});
+
+	test('graph-repo switch closes any open compare (panel form)', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+		);
+		controller.openCompareAsPanel();
+
+		host.setGraphRepoPath('/B');
+		host.tickHostUpdate();
+
+		assert.strictEqual(state.compareAsPanel.get(), false);
+		assert.strictEqual(state.compareSheetOpen.get(), false);
+	});
+});

@@ -258,10 +258,13 @@ export const compareModePanelStyles = css`
 	/* Breathing room between the AI actions row (Explain input + Generate Changelog) and the
 	   FILES CHANGED / Contributors section header that follows. The autolinks row above
 	   contributes 0.4rem padding-bottom on its own; this margin-bottom adds the rest of the
-	   gap below the action row so the FILES CHANGED border reads as a distinct band. */
+	   gap below the action row so the FILES CHANGED border reads as a distinct band.
+	   Horizontal margins must stay auto so panelActionInputStyles can center the row at its
+	   --gl-max-input cap — overriding with fixed left/right margins (as we did before) broke
+	   that and left the row visibly left-aligned with empty space on the right. */
 	.compare-panel gl-compare-ai-actions {
 		display: block;
-		margin: 0 0.6rem 0.6rem 1.2rem;
+		margin: 0 auto 0.6rem;
 	}
 
 	/* Split panel — divides the commit list and the files tree vertically. */
