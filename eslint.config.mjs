@@ -14,6 +14,8 @@ import noSrcImports from './scripts/eslint-rules/no-src-imports.mjs';
 import noSelfPackageImports from './scripts/eslint-rules/no-self-package-imports.mjs';
 import noEnvWithoutJs from './scripts/eslint-rules/no-env-without-js.mjs';
 import logScopeUsage from './scripts/eslint-rules/scoped-logger-usage.mjs';
+import requireBlockBody from './scripts/eslint-rules/require-block-body.mjs';
+import newlineAfterControlFlow from './scripts/eslint-rules/newline-after-control-flow.mjs';
 import { fileURLToPath } from 'node:url';
 
 /** @type {Awaited<import('typescript-eslint').Config>[number]['languageOptions']} */
@@ -194,6 +196,8 @@ export default defineConfig(
 					'no-self-package-imports': noSelfPackageImports,
 					'no-env-without-js': noEnvWithoutJs,
 					'scoped-logger-usage': logScopeUsage,
+					'require-block-body': requireBlockBody,
+					'newline-after-control-flow': newlineAfterControlFlow,
 				},
 			},
 		},
@@ -203,6 +207,8 @@ export default defineConfig(
 			'@gitlens/no-self-package-imports': 'error',
 			'@gitlens/no-env-without-js': 'error',
 			'@gitlens/scoped-logger-usage': 'error',
+			'@gitlens/require-block-body': 'error',
+			'@gitlens/newline-after-control-flow': 'warn',
 			'anti-trojan-source/no-bidi': 'error',
 
 			// Core JavaScript rules
@@ -272,28 +278,6 @@ export default defineConfig(
 			// Syntax restrictions for code style
 			'no-restricted-syntax': [
 				'error',
-				{
-					selector:
-						'IfStatement:not(:has(BlockStatement)):not(:has(ReturnStatement)):not(:has(BreakStatement)):not(:has(ContinueStatement)):not(:has(YieldExpression)):not(:has(ThrowStatement))',
-					message:
-						'Single-line if statements are only allowed for control flow (return, break, continue, throw, yield).',
-				},
-				{
-					selector: 'WhileStatement:not(:has(BlockStatement))',
-					message: 'Single-line while statements are not allowed.',
-				},
-				{
-					selector: 'ForStatement:not(:has(BlockStatement))',
-					message: 'Single-line for statements are not allowed.',
-				},
-				{
-					selector: 'ForInStatement:not(:has(BlockStatement))',
-					message: 'Single-line for-in statements are not allowed.',
-				},
-				{
-					selector: 'ForOfStatement:not(:has(BlockStatement))',
-					message: 'Single-line for-of statements are not allowed.',
-				},
 				{
 					selector: 'BinaryExpression[operator="instanceof"][right.name="CancellationError"]',
 					message: 'Use `isCancellationError(ex)` instead of `instanceof CancellationError`.',
