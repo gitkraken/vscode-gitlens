@@ -977,6 +977,16 @@ button:not([disabled]),
 	bottom: 0;
 	display: flex;
 	align-items: center;
+
+	// Swap rendered order so the filter funnel appears before the settings gear.
+	// The library renders settings first in the DOM; the parent is already flex,
+	// so `order` reorders them without touching the external component.
+	.columns-filter {
+		order: 0;
+	}
+	.columns-settings {
+		order: 1;
+	}
 }
 .gk-graph .graph-header .columns-filter-icon {
 	display: flex;
