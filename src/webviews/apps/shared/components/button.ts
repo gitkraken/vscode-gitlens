@@ -237,10 +237,12 @@ export class GlButton extends LitElement {
 				width: max-content;
 			}
 
-			/* Give solid-filled buttons a bit more horizontal breathing room */
+			/* Give solid-filled buttons a bit more horizontal breathing room. Exposed via a
+			   CSS var so consumers (e.g. compose-mode commit checkbox) can collapse to a
+			   square icon button. */
 			:host(:not([appearance])) .control,
 			:host([appearance='secondary']) .control {
-				padding-inline: 0.8rem;
+				padding-inline: var(--button-padding-inline, 0.8rem);
 			}
 
 			:host([density='compact']) .control {

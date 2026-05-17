@@ -93,6 +93,100 @@ export const detailsCommitPanelStyles = css`
 		flex: 1;
 	}
 
+	/* Mode-active title (replaces the author row in review mode). Verb on top, commit
+	   message subtitle beneath. Keeps the same vertical rhythm as the author row so the
+	   header doesn't jump height when entering/leaving the mode. */
+	.mode-title {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-width: 0;
+		flex: 1;
+		gap: 0.2rem;
+	}
+
+	.mode-title__verb {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: var(--gl-font-base);
+		font-weight: 600;
+		color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
+	}
+
+	.mode-title__icon {
+		flex: 0 0 auto;
+		color: var(--mode-accent, var(--vscode-foreground));
+	}
+
+	.mode-title__subtitle {
+		font-size: var(--gl-font-small, 1.2rem);
+		color: var(--color-foreground--65);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* Right-side mode-status snippet in the metadata bar (compose/review). Replaces the
+	   commit-stats render when present so the bar's right side carries the mode's current
+	   state rather than the static stats. */
+	.metadata-bar .mode-status {
+		font-size: var(--gl-font-small, 1.2rem);
+		color: var(--color-foreground--65);
+		white-space: nowrap;
+	}
+
+	/* Resume affordance — the same snippet that the Graph's WIP / multi-commit panels render
+	   when a back-snapshot exists. The Graph renders this panel for single-commit rows, so the
+	   styles must live here too; without them the Resume button surfaces as a bare unstyled
+	   button. Mirrors gl-details-wip-header.css.ts. */
+	.metadata-bar .mode-status__group {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.metadata-bar .mode-status__group code-icon {
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: text-bottom;
+		opacity: 0.85;
+	}
+
+	.metadata-bar .mode-status__resume {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.8rem;
+		padding: 0.2rem 0.6rem;
+		font: inherit;
+		color: inherit;
+		background: transparent;
+		border: none;
+		border-radius: 0.4rem;
+		cursor: pointer;
+	}
+
+	.metadata-bar .mode-status__resume:hover {
+		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--vscode-foreground);
+	}
+
+	.metadata-bar .mode-status__resume:focus-visible {
+		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--vscode-foreground);
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
+	}
+
+	.metadata-bar .mode-status__resume-verb {
+		font-weight: 500;
+	}
+
+	.metadata-bar .mode-status__resume-arrow {
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: text-bottom;
+		opacity: 0.85;
+	}
+
 	/* ── Zone 2: Metadata bar ── */
 	:host([variant='embedded']) .metadata-bar {
 		display: flex;

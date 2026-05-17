@@ -116,7 +116,16 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	aiEnabled = false;
 
 	@property()
-	activeMode?: 'review' | 'compose' | 'compare' | null;
+	activeMode?: 'review' | 'compose' | null;
+
+	@property({ attribute: false })
+	modeStatus?: Partial<Record<'review' | 'compose', import('./detailsState.js').RunningOperationExecState>>;
+
+	/** Pre-computed snippet shown in the metadata bar while in mode — mirrors WIP / commit. */
+	@property({ attribute: false }) modeStatusText?: string | import('lit').TemplateResult;
+
+	/** Forwarded to `gl-details-header` — when true, close becomes a back arrow. */
+	@property({ type: Boolean }) inResultsView = false;
 
 	@property({ attribute: false })
 	subPanelContent?: ReturnType<typeof html> | typeof nothing;
@@ -200,12 +209,10 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		// tree retain focus, scroll position, and expansion state.
 		const hasSubPanel = this.subPanelContent != null && this.subPanelContent !== nothing;
 
-		// Compose mode replaces the comparison metadata strip with its own plan UI, and
-		// Compare mode's sub-panel already renders its own comparison bar with the left/right
-		// refs — so the host's metadata bar would just duplicate that framing. Review mode and
-		// the implicit no-mode default share the same comparison context as the host and keep
-		// the metadata bar visible above the sub-panel.
-		const showMetadataBar = this.activeMode !== 'compose' && this.activeMode !== 'compare';
+		// Compose mode replaces the comparison metadata strip with its own plan UI. Review mode
+		// and the implicit no-mode default share the same comparison context as the host and
+		// keep the metadata bar visible above the sub-panel.
+		const showMetadataBar = this.activeMode !== 'compose';
 
 		return html`
 			${isInitialLoad
@@ -327,11 +334,39 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private redispatch = redispatch.bind(this);
 
 	private renderCompareHeader() {
-		// Compare mode is always available — pivots the existing comparison through the
-		// compare-refs picker so the user can swap one side for any branch/ref.
-		const modes = this.aiEnabled ? (['review', 'compare'] as const) : (['compare'] as const);
-		return html`<gl-details-header .activeMode=${this.activeMode} .loading=${this.loading} .modes=${modes}>
-			<span class="compare-header__title">Comparing References</span>
+		// Review is the only mode here. Compare is invoked separately as a sheet — render a
+		// dedicated action chip in the actions slot when no mode is active so the user can pivot
+		// the existing comparison through the compare-refs picker.
+		const modes = this.aiEnabled ? (['review'] as const) : ([] as const);
+		return html`<gl-details-header
+			.activeMode=${this.activeMode}
+			.modeStatus=${this.modeStatus}
+			.loading=${this.loading}
+			.modes=${modes}
+			?in-results-view=${this.inResultsView}
+		>
+			<span class="compare-header__title">
+				${this.activeMode === 'review'
+					? html`<code-icon class="compare-header__mode-icon" icon="checklist"></code-icon>Reviewing
+							Comparison`
+					: html`Comparing References`}
+			</span>
+			${this.activeMode == null
+				? html`<gl-action-chip
+						slot="actions"
+						icon="compare-changes"
+						label="Compare"
+						overlay="tooltip"
+						@click=${() =>
+							this.dispatchEvent(
+								new CustomEvent('toggle-mode', {
+									detail: { mode: 'compare' },
+									bubbles: true,
+									composed: true,
+								}),
+							)}
+					></gl-action-chip>`
+				: nothing}
 		</gl-details-header>`;
 	}
 
@@ -362,7 +397,11 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 					icon="git-commit"
 				></gl-commit-sha-copy>
 			</div>
-			<div class="compare-metadata__right">${this.renderCommitStats(this.stats)}</div>
+			<div class="compare-metadata__right">
+				${this.modeStatusText
+					? html`<span class="mode-status">${this.modeStatusText}</span>`
+					: this.renderCommitStats(this.stats)}
+			</div>
 		</div>`;
 	}
 

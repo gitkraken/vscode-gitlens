@@ -64,13 +64,32 @@ export const reviewModePanelStyles = css`
 		overflow: hidden;
 	}
 
+	/* Footer pinned beneath the scrollable results — keeps the review-level Send-to-AI / Copy
+	   actions reachable regardless of scroll position. Send-to-AI is the primary action and
+	   stretches to fill the row; Copy is a compact icon-only secondary button trailing it. */
+	/* Send (primary) + Copy (icon-only secondary) sit as a centered, adjacent pair. */
+	.review-footer {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		padding: 0.8rem 1.2rem;
+		border-top: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+		background: var(--gl-metadata-bar-bg, transparent);
+		flex: none;
+	}
+
+	.review-footer__copy gl-button {
+		--button-padding-inline: 0.6rem;
+	}
+
 	/* Review results */
 
 	.review-results {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
-		padding: 0 1.2rem 1.2rem;
+		padding: 1.2rem;
 	}
 
 	/* Framing header above the AI-generated review summary — provides a labeled gap from the
@@ -266,7 +285,7 @@ export const reviewModePanelStyles = css`
 		padding: 0.8rem;
 		margin-bottom: 0.8rem;
 		line-height: 1.5;
-		background: var(--vscode-editor-inactiveSelectionBackground, rgba(255, 255, 255, 0.04));
+		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
 		border-radius: 0.4rem;
 	}
 
@@ -294,14 +313,29 @@ export const reviewModePanelStyles = css`
 
 	/* Review areas */
 
-	.review-areas__header {
-		font-size: var(--gl-font-base);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--vscode-descriptionForeground);
+	/* Section header — matches the home panel's section pattern (branch-section, summary):
+	   1.3rem, normal weight, uppercase, foreground color. */
+	.review-areas__header-row {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
 		padding: 0.4rem 0;
-		margin-bottom: 0.4rem;
+	}
+
+	.review-areas__header {
+		flex: 1 1 auto;
+		min-width: 0;
+		font-size: 1.3rem;
+		font-weight: normal;
+		text-transform: uppercase;
+		color: var(--vscode-foreground);
+	}
+
+	.review-areas__actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		flex-shrink: 0;
 	}
 
 	.review-area {
@@ -328,6 +362,11 @@ export const reviewModePanelStyles = css`
 
 	.review-area__header:hover {
 		background: var(--vscode-list-hoverBackground);
+	}
+
+	.review-area__header:focus-visible {
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
 	}
 
 	.review-area__chevron {
@@ -397,7 +436,32 @@ export const reviewModePanelStyles = css`
 
 	.review-area__file-link:hover {
 		background: var(--vscode-list-hoverBackground);
+	}
+
+	/* Underline only the filename text on hover — without this scope, the rule applies to the
+	   whole button and the icon picks up a stray underline at its baseline. */
+	.review-area__file-link:hover .review-area__file-link-text {
 		text-decoration: underline;
+	}
+
+	.review-area__file-link-icon {
+		color: var(--vscode-foreground);
+		opacity: 0.7;
+		flex: 0 0 auto;
+	}
+
+	.review-area__file-link-text {
+		flex: 0 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.review-area__file-link-lines {
+		color: var(--color-foreground--50, var(--vscode-descriptionForeground));
+		font-size: var(--gl-font-sm);
+		flex: 0 0 auto;
 	}
 
 	.review-area__analyze-btn {
@@ -416,6 +480,11 @@ export const reviewModePanelStyles = css`
 
 	.review-area__analyze-btn:hover {
 		background: var(--vscode-button-hoverBackground);
+	}
+
+	.review-area__analyze-btn:focus-visible {
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: 0.1rem;
 	}
 
 	.review-area__loading,
@@ -445,6 +514,12 @@ export const reviewModePanelStyles = css`
 		text-decoration: underline;
 		font-size: inherit;
 		font-family: inherit;
+	}
+
+	.review-area__retry-btn:focus-visible {
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: 0.1rem;
+		border-radius: 0.2rem;
 	}
 
 	/* Review findings */
@@ -477,7 +552,11 @@ export const reviewModePanelStyles = css`
 
 	.review-finding__header {
 		display: flex;
-		align-items: center;
+		/* baseline (not center) — the title wraps to multiple lines; with center alignment the
+		   badge floats up to the visual middle of the whole title block and reads as
+		   misaligned. Baseline locks the badge's text baseline to the title's first-line
+		   baseline so they look like they sit on the same line of text. */
+		align-items: baseline;
 		gap: 0.5rem;
 		margin-bottom: 0.4rem;
 	}
@@ -487,23 +566,30 @@ export const reviewModePanelStyles = css`
 		font-weight: 700;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		padding: 0.1rem 0.4rem;
+		/* Symmetric vertical padding so the badge box stays balanced around the text — paired
+		   with baseline alignment above, this keeps the badge optically on the same line as
+		   the title text. */
+		padding: 0.15rem 0.4rem;
 		border-radius: 0.2rem;
+		flex: 0 0 auto;
 	}
 
+	/* Mix the badge background against the matching VS Code semantic foreground token so the
+	   tint follows the active theme. The prior hardcoded rgba(255,0,0,...) style produced
+	   clashes on themes whose error/warning/info hues aren't the default red/orange/blue. */
 	.review-finding__severity--critical {
 		color: var(--vscode-editorError-foreground);
-		background: rgba(255, 0, 0, 0.1);
+		background: color-mix(in srgb, var(--vscode-editorError-foreground) 12%, transparent);
 	}
 
 	.review-finding__severity--warning {
 		color: var(--vscode-editorWarning-foreground);
-		background: rgba(255, 165, 0, 0.1);
+		background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 12%, transparent);
 	}
 
 	.review-finding__severity--suggestion {
 		color: var(--vscode-editorInfo-foreground);
-		background: rgba(0, 120, 255, 0.1);
+		background: color-mix(in srgb, var(--vscode-editorInfo-foreground) 12%, transparent);
 	}
 
 	.review-finding__title {
@@ -531,8 +617,30 @@ export const reviewModePanelStyles = css`
 		cursor: pointer;
 	}
 
-	.review-finding__location:hover {
+	/* Underline only the filename text on hover — without this scope, the rule applies to the
+	   whole button and the icon picks up a stray underline at its baseline. Mirrors the
+	   .review-area__file-link:hover behavior on the top-level focus-area file list. */
+	.review-finding__location:hover .review-finding__location-text {
 		text-decoration: underline;
+	}
+
+	.review-finding__location-icon {
+		color: var(--vscode-foreground);
+		opacity: 0.7;
+		flex: 0 0 auto;
+	}
+
+	.review-finding__location-text {
+		flex: 0 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.review-finding__location-lines {
+		color: var(--color-foreground--50, var(--vscode-descriptionForeground));
+		flex: 0 0 auto;
 	}
 
 	.review-findings__dismissed {
@@ -547,6 +655,12 @@ export const reviewModePanelStyles = css`
 
 	.review-findings__dismissed:hover {
 		color: var(--vscode-textLink-foreground);
+	}
+
+	.review-findings__dismissed:focus-visible {
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
+		border-radius: 0.2rem;
 	}
 
 	.review-areas {

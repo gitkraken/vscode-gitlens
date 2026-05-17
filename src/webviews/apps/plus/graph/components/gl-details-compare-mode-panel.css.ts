@@ -598,10 +598,14 @@ export const compareModePanelStyles = css`
 		overflow: hidden;
 	}
 
-	.compare-view-trigger:hover,
+	.compare-view-trigger:hover {
+		background: var(--vscode-toolbar-hoverBackground);
+	}
+
 	.compare-view-trigger:focus-visible {
 		background: var(--vscode-toolbar-hoverBackground);
-		outline: none;
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
 	}
 
 	.compare-view-trigger__label {

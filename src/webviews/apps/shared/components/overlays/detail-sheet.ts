@@ -243,6 +243,7 @@ export class GlDetailSheet extends LitElement {
 			// non-dismissible sheet must NOT close on Esc via the native CloseWatcher either.
 			this.closeWatcher.onclose = () => {
 				if (!this.dismissible) return;
+
 				this.requestClose();
 			};
 		} else {
@@ -256,6 +257,7 @@ export class GlDetailSheet extends LitElement {
 		// for GC instead of holding it for an extra frame.
 		requestAnimationFrame(() => {
 			if (!this.isConnected) return;
+
 			this.sheetEl?.focus({ preventScroll: true });
 		});
 	}
@@ -280,6 +282,7 @@ export class GlDetailSheet extends LitElement {
 		const target = this.previouslyFocused;
 		this.previouslyFocused = null;
 		if (this.skipFocusRestore) return;
+
 		if (target?.isConnected) {
 			try {
 				target.focus({ preventScroll: true });
@@ -329,6 +332,7 @@ export class GlDetailSheet extends LitElement {
 
 	private readonly handleDocumentKeyDown = (e: KeyboardEvent): void => {
 		if (e.key !== 'Escape' || !this.dismissible) return;
+
 		e.stopPropagation();
 		e.preventDefault();
 		this.requestClose();
@@ -336,6 +340,7 @@ export class GlDetailSheet extends LitElement {
 
 	private readonly handleScrimClick = (): void => {
 		if (!this.dismissible) return;
+
 		this.requestClose();
 	};
 
@@ -367,12 +372,14 @@ export class GlDetailSheet extends LitElement {
 		this._closeRafId = requestAnimationFrame(() => {
 			this._closeRafId = undefined;
 			if (!this.isConnected) return;
+
 			const anims = this.sheetEl?.getAnimations() ?? [];
 			const exit = anims.find(a => a.playState === 'running');
 			if (exit == null) {
 				this.dispatchCloseEvent();
 				return;
 			}
+
 			exit.finished.then(() => this.dispatchCloseEvent()).catch(() => this.dispatchCloseEvent());
 			// Safety net: if `finished` never resolves (browser quirk on interrupted animations),
 			// fire after the nominal duration plus a small slack.
@@ -388,6 +395,7 @@ export class GlDetailSheet extends LitElement {
 	private _closeDispatched = false;
 	private dispatchCloseEvent(): void {
 		if (this._closeDispatched) return;
+
 		this._closeDispatched = true;
 		this.dispatchEvent(
 			new CustomEvent('gl-detail-sheet-close', {

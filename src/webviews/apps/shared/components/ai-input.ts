@@ -316,6 +316,12 @@ export class GlAiInput extends LitElement {
 	@property({ type: Boolean })
 	disabled = false;
 
+	/** One-shot initial value. Written into the internal input on `firstUpdated`; subsequent
+	 *  prop changes are intentionally ignored so we never stomp on user typing. Re-mount the
+	 *  element (e.g. via Lit's `key` directive) to reseed. */
+	@property()
+	value?: string;
+
 	@property()
 	placeholder = 'Optional guidance for the AI explanation...';
 
@@ -340,6 +346,12 @@ export class GlAiInput extends LitElement {
 	/** Default visible rows for the textarea (only honored when `multiline`). */
 	@property({ type: Number })
 	rows = 1;
+
+	/** Programmatically focus the inner input/textarea. Called by hosts that want to land
+	 *  caret here on entry (e.g. compose/review mode toggle). */
+	override focus(options?: FocusOptions): void {
+		this.inputEl?.focus(options);
+	}
 
 	override render(): unknown {
 		// `cspStyleMap` treats `null` as "remove", so single-row falls back to the CSS default.
@@ -403,6 +415,14 @@ export class GlAiInput extends LitElement {
 
 	private get inputEl(): HTMLInputElement | HTMLTextAreaElement | null | undefined {
 		return this.shadowRoot?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
+	}
+
+	override firstUpdated(): void {
+		const input = this.inputEl;
+		if (input == null || this.value == null) return;
+
+		input.value = this.value;
+		this.toggleAttribute('has-value', Boolean(this.value));
 	}
 
 	private onInput(): void {

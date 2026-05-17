@@ -1,3 +1,4 @@
+import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/associateIssueWithBranch.js';
@@ -25,7 +26,19 @@ export class GlDetailsWipHeader extends LitElement {
 	static override styles = [elementBase, metadataBarVarsBase, detailsWipHeaderStyles];
 
 	@property({ type: Object }) wip?: Wip;
-	@property() activeMode?: 'review' | 'compose' | 'compare' | null;
+	@property() activeMode?: 'review' | 'compose' | null;
+	/** Pre-computed snippet shown on the right of the identity row while in mode (e.g. "7 files",
+	 *  "Generating…", "3 commits · 7 files", "Error"). Computed by the host panel from scope +
+	 *  resource + registry state. Hidden when `activeMode` is null. */
+	@property({ attribute: false }) modeStatusText?: string | TemplateResult;
+	/** Forwarded to `gl-details-header` — when true, close button becomes a back arrow that
+	 *  pops the user out of the mode's results view to its scope picker. */
+	@property({ type: Boolean }) inResultsView = false;
+	/** Forwarded to `gl-details-header` — drives the suffix-icon status overlay on the compose
+	 *  and review toggle chips, parallel to the WIP-row adornment buttons. */
+	@property({ attribute: false }) modeStatus?: Partial<
+		Record<'review' | 'compose', import('./detailsState.js').RunningOperationExecState>
+	>;
 	@property({ type: Boolean }) aiEnabled = false;
 	@property({ type: Boolean }) loading = false;
 	@property({ type: Array }) autolinks?: OverviewBranchIssue[];
@@ -64,14 +77,22 @@ export class GlDetailsWipHeader extends LitElement {
 
 		return html`<gl-details-header
 			.activeMode=${this.activeMode}
+			.modeStatus=${this.modeStatus}
 			.loading=${this.loading}
 			.modes=${this.computeWipModes()}
+			?in-results-view=${this.inResultsView}
 		>
 			<div class="graph-details-header__title-group">
-				<span class="graph-details-header__wip-title"
-					>${this.activeMode === 'compare' ? 'Comparing References' : 'Working Changes'}</span
-				>
-				${this.activeMode !== 'compare'
+				<span class="graph-details-header__wip-title">
+					${this.activeMode === 'compose'
+						? html`<code-icon class="graph-details-header__mode-icon" icon="wand"></code-icon>Composing
+								Changes`
+						: this.activeMode === 'review'
+							? html`<code-icon class="graph-details-header__mode-icon" icon="checklist"></code-icon
+									>Reviewing Changes`
+							: html`Working Changes`}
+				</span>
+				${!isModeActive
 					? files.length > 0
 						? html`<commit-stats
 								.added=${addedCount || undefined}
@@ -85,70 +106,95 @@ export class GlDetailsWipHeader extends LitElement {
 			</div>
 			${!isModeActive
 				? html`<gl-action-chip
-						slot="actions"
-						icon="refresh"
-						label="Refresh"
-						overlay="tooltip"
-						@click=${() => this.emit('refresh-wip')}
-					></gl-action-chip>`
+							slot="actions"
+							icon="compare-changes"
+							label="Compare"
+							overlay="tooltip"
+							@click=${() =>
+								this.dispatchEvent(
+									new CustomEvent('toggle-mode', {
+										detail: { mode: 'compare' },
+										bubbles: true,
+										composed: true,
+									}),
+								)}
+						></gl-action-chip>
+						<gl-action-chip
+							slot="actions"
+							icon="refresh"
+							label="Refresh"
+							overlay="tooltip"
+							@click=${() => this.emit('refresh-wip')}
+						></gl-action-chip>`
 				: nothing}
-			${this.activeMode !== 'compare'
-				? html`<div slot="secondary" class="graph-details-header__branch-row">
-							<div class="branch-identity">
-								${branchName
-									? html`<gl-tooltip placement="bottom">
-											<gl-branch-name
-												appearance="button"
-												class="graph-details-header__branch"
-												chevron
-												.name=${branchName}
-												@click=${() => this.emit('switch-branch')}
-											></gl-branch-name>
-											<span slot="content">Switch Branch...</span>
-										</gl-tooltip>`
-									: nothing}
-								<gl-tracking-status
-									.branchName=${branchName}
-									.upstreamName=${upstream?.name}
-									.missingUpstream=${upstream?.missing ?? false}
-									.ahead=${ahead}
-									.behind=${behind}
-									colorized
-									outlined
-								></gl-tracking-status>
-								${this.renderMergeTargetStatus()}${this.renderAssociatedPullRequest()}
-							</div>
-							<div class="branch-ops">
-								${this.renderBranchStateAction()}${this.renderFetchAction()}
-								<gl-action-chip
-									icon="custom-start-work"
-									label="Create Branch..."
-									overlay="tooltip"
-									@click=${() => this.emit('create-branch')}
-								></gl-action-chip>
-								${files.length > 0
-									? html`<gl-action-chip
-											icon="gl-cloud-patch-share"
-											label="Share as Cloud Patch"
-											overlay="tooltip"
-											@click=${() => this.emit('share-as-cloud-patch')}
-										></gl-action-chip>`
-									: nothing}
-							</div>
-						</div>
-						${!isModeActive ? this.renderIssuesRow() : nothing}${this.renderPausedOpStatus()}`
-				: nothing}
+			<div slot="secondary" class="graph-details-header__branch-row">
+				<div class="branch-identity">
+					${branchName
+						? html`<gl-tooltip placement="bottom">
+								<gl-branch-name
+									appearance="button"
+									class="graph-details-header__branch"
+									chevron
+									.name=${branchName}
+									@click=${() => this.emit('switch-branch')}
+								></gl-branch-name>
+								<span slot="content">Switch Branch...</span>
+							</gl-tooltip>`
+						: nothing}
+					${isModeActive
+						? files.length > 0
+							? html`<commit-stats
+									.added=${addedCount || undefined}
+									.modified=${modifiedCount || undefined}
+									.removed=${removedCount || undefined}
+									symbol="icons"
+									appearance="pill"
+								></commit-stats>`
+							: html`<span class="wip-clean-pill" aria-label="No changes">
+									<code-icon icon="pass-filled"></code-icon>
+									<span>No changes</span>
+								</span>`
+						: nothing}
+					<gl-tracking-status
+						.branchName=${branchName}
+						.upstreamName=${upstream?.name}
+						.missingUpstream=${upstream?.missing ?? false}
+						.ahead=${ahead}
+						.behind=${behind}
+						colorized
+						outlined
+					></gl-tracking-status>
+					${this.renderMergeTargetStatus()}${this.renderAssociatedPullRequest()}
+				</div>
+				${!isModeActive
+					? html`<div class="branch-ops">
+							${this.renderBranchStateAction()}${this.renderFetchAction()}
+							<gl-action-chip
+								icon="custom-start-work"
+								label="Create Branch..."
+								overlay="tooltip"
+								@click=${() => this.emit('create-branch')}
+							></gl-action-chip>
+							${files.length > 0
+								? html`<gl-action-chip
+										icon="gl-cloud-patch-share"
+										label="Share as Cloud Patch"
+										overlay="tooltip"
+										@click=${() => this.emit('share-as-cloud-patch')}
+									></gl-action-chip>`
+								: nothing}
+						</div>`
+					: this.modeStatusText
+						? html`<div class="mode-status">${this.modeStatusText}</div>`
+						: nothing}
+			</div>
+			${!isModeActive ? this.renderIssuesRow() : nothing}${this.renderPausedOpStatus()}
 		</gl-details-header>`;
 	}
 
-	private computeWipModes(): ('review' | 'compose' | 'compare')[] {
-		const modes: ('review' | 'compose' | 'compare')[] = [];
-		if (this.aiEnabled) {
-			modes.push('compose');
-			modes.push('review');
-		}
-		modes.push('compare');
-		return modes;
+	private computeWipModes(): ('review' | 'compose')[] {
+		if (!this.aiEnabled) return [];
+		return ['compose', 'review'];
 	}
 
 	private renderBranchStateAction() {

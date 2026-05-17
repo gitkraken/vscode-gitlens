@@ -93,6 +93,12 @@ export class ActionChip extends LitElement {
 				vertical-align: middle;
 				text-transform: var(--chip-text-transform, capitalize);
 			}
+			/* Drop the trailing inline padding for suffix-slotted icons — the asymmetric box
+			   shifts the rotation axis off the glyph's visual center, so a spinning loading
+			   codicon wobbles. Flex gap already spaces this from the preceding label. */
+			::slotted([slot='suffix']) {
+				padding-inline-end: 0;
+			}
 
 			:host([truncate]) {
 				min-width: 0;
@@ -171,7 +177,7 @@ export class ActionChip extends LitElement {
 					slot=${slot}
 					aria-label=${ifDefined(this.label)}
 				>
-					${iconHtml}<slot></slot>
+					${iconHtml}<slot></slot><slot name="suffix"></slot>
 				</a>
 			`;
 		}
@@ -185,7 +191,7 @@ export class ActionChip extends LitElement {
 				slot=${slot}
 				aria-label=${ifDefined(this.label)}
 			>
-				${iconHtml}<slot></slot>
+				${iconHtml}<slot></slot><slot name="suffix"></slot>
 			</button>
 		`;
 	}

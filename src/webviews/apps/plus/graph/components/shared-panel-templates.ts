@@ -1,5 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
+import { ref } from 'lit/directives/ref.js';
+import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 
 export function renderLoadingState(text: string): TemplateResult {
@@ -15,20 +17,55 @@ export function renderErrorState(
 	errorMessage: string | undefined,
 	defaultMessage: string,
 	retryEventName: string,
+	backEventName: string,
 ): TemplateResult {
-	return html`<div class="review-error" role="alert">
-		<code-icon icon="error"></code-icon>
-		<span>${errorMessage ?? defaultMessage}</span>
-		<button
-			class="review-error__retry"
-			@click=${(e: Event) => {
-				(e.currentTarget as HTMLElement).dispatchEvent(
-					new CustomEvent(retryEventName, { bubbles: true, composed: true }),
-				);
-			}}
-		>
-			Retry
-		</button>
+	const dispatch = (target: HTMLElement, name: string): void => {
+		target.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true }));
+	};
+
+	// Esc on the error banner triggers the same Back action the button does — matches the
+	// "back out of the current step" gesture users expect from any modal-ish surface.
+	const handleKeyDown = (e: KeyboardEvent): void => {
+		if (e.key !== 'Escape') return;
+
+		e.stopPropagation();
+		e.preventDefault();
+		dispatch(e.currentTarget as HTMLElement, backEventName);
+	};
+
+	// Auto-focus the panel on connect so the Esc keydown handler is reachable without
+	// requiring the user to click into it first. The `tabindex="-1"` makes it
+	// programmatically focusable; without this `el.focus()` the keydown listener is dead for
+	// keyboard-only users until they tab in. Microtask-defer so Lit finishes the current
+	// commit before we focus, and re-check `isConnected` because a rapid status flip
+	// (error → loading → error) could detach the element between scheduling and firing.
+	const focusOnConnect = (el: Element | undefined): void => {
+		if (el == null) return;
+
+		queueMicrotask(() => {
+			const target = el as HTMLElement;
+			if (!target.isConnected) return;
+
+			target.focus({ preventScroll: true });
+		});
+	};
+
+	return html`<div class="panel-error" role="alert" tabindex="-1" @keydown=${handleKeyDown} ${ref(focusOnConnect)}>
+		<div class="panel-error__header">
+			<code-icon class="panel-error__icon" icon="error"></code-icon>
+			<span class="panel-error__title">Something went wrong</span>
+		</div>
+		<div class="panel-error__message">${errorMessage ?? defaultMessage}</div>
+		<div class="panel-error__actions">
+			<gl-button
+				appearance="secondary"
+				@click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, backEventName)}
+				>Go Back</gl-button
+			>
+			<gl-button @click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, retryEventName)}
+				>Retry</gl-button
+			>
+		</div>
 	</div>`;
 }
 

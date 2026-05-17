@@ -1,3 +1,4 @@
+import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -115,10 +116,25 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	compareEnabled = false;
 
 	@property()
-	activeMode?: 'review' | 'compose' | 'compare' | null;
+	activeMode?: 'review' | 'compose' | null;
+
+	@property({ attribute: false })
+	modeStatus?: Partial<
+		Record<'review' | 'compose', import('../../plus/graph/components/detailsState.js').RunningOperationExecState>
+	>;
 
 	@property({ attribute: false })
 	subPanelContent?: ReturnType<typeof html> | typeof nothing;
+
+	/** Pre-computed snippet shown in the metadata bar while in mode (see WIP header for the
+	 *  same prop). Mirrors the graph's verb-led status snippet across panel types. Accepts a
+	 *  `TemplateResult` because the back-then-forward state renders a clickable Resume button
+	 *  in place of plain text. `attribute: false` prevents Lit from attempting to reflect a
+	 *  non-string value through HTML attributes. */
+	@property({ attribute: false }) modeStatusText?: string | TemplateResult;
+
+	/** Forwarded to `gl-details-header` — when true, close becomes a back arrow. */
+	@property({ type: Boolean }) inResultsView = false;
 
 	@property({ type: Boolean })
 	loading = false;
@@ -256,7 +272,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		return html`
 			${hasSubPanel ? nothing : this.renderHiddenNotice()} ${this.renderEmbeddedAuthorHeader()}
 			${hasSubPanel
-				? html`${this.activeMode !== 'compare' ? this.renderEmbeddedMetadataBar() : nothing}
+				? html`${this.renderEmbeddedMetadataBar()}
 						<div class="sub-panel-enter">${this.subPanelContent}</div>`
 				: html`${this.renderEmbeddedMetadataBar()}
 					${hasMessage
@@ -330,17 +346,48 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		}
 
 		const { isStash } = this;
-		const slot =
-			this.activeMode === 'compare'
-				? html`<span class="compare-header__title">Comparing References</span>`
+
+		// When in review mode, replace the author row with a verb-led title so the header
+		// reads as "what's happening now" rather than the static commit metadata. The author
+		// info doesn't disappear from the panel — `renderEmbeddedMetadataBar` still surfaces
+		// the sha + author below.
+		const headerContent =
+			this.activeMode === 'review'
+				? html`<div class="mode-title">
+						<span class="mode-title__verb">
+							<code-icon class="mode-title__icon" icon="checklist"></code-icon>
+							Reviewing Commit
+						</span>
+						<span class="mode-title__subtitle" title=${commit.message ?? ''}>${commit.message ?? ''}</span>
+					</div>`
 				: authorTemplate;
 
 		return html`<gl-details-header
 			.activeMode=${this.activeMode}
+			.modeStatus=${this.modeStatus}
 			.loading=${this.loading}
 			.modes=${this.computeCommitModes()}
+			?in-results-view=${this.inResultsView}
 		>
-			${slot}
+			${headerContent}
+			${when(
+				this.compareEnabled && this.activeMode == null,
+				() =>
+					html`<gl-action-chip
+						slot="actions"
+						icon="compare-changes"
+						label="Compare"
+						overlay="tooltip"
+						@click=${() =>
+							this.dispatchEvent(
+								new CustomEvent('toggle-mode', {
+									detail: { mode: 'compare' },
+									bubbles: true,
+									composed: true,
+								}),
+							)}
+					></gl-action-chip>`,
+			)}
 			${when(
 				!isStash && this.hasRemotes && this.activeMode == null,
 				() =>
@@ -362,17 +409,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		</gl-details-header>`;
 	}
 
-	private computeCommitModes(): ('review' | 'compose' | 'compare')[] {
-		const modes: ('review' | 'compose' | 'compare')[] = [];
-		if (this.aiEnabled) {
-			modes.push('review');
-		}
-		// Compare mode requires the host (graph orchestrator) to wire in a compare-refs panel
-		// for the @toggle-mode event.
-		if (this.compareEnabled) {
-			modes.push('compare');
-		}
-		return modes;
+	private computeCommitModes(): ('review' | 'compose')[] {
+		if (!this.aiEnabled) return [];
+		return ['review'];
 	}
 
 	private renderEmbeddedMetadataBar() {
@@ -409,7 +448,11 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							? this.renderBranchIndicator()
 							: nothing}
 				</div>
-				<div class="metadata-bar__right">${this.renderCommitStats(commit.stats)}</div>
+				<div class="metadata-bar__right">
+					${this.modeStatusText
+						? html`<span class="mode-status">${this.modeStatusText}</span>`
+						: this.renderCommitStats(commit.stats)}
+				</div>
 			</div>
 			${this._reachabilityExpanded ? html`<div class="reachability">${this.renderReachability()}</div>` : nothing}`;
 	}

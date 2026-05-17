@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
@@ -32,6 +33,8 @@ import '../../../shared/components/code-icon.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/markdown/markdown.js';
+import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/panes/pane-group.js';
@@ -111,8 +114,13 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property({ type: Object })
 	aiModel?: AiModelInfo;
 
+	/** Pushed by the orchestrator from `state.composePreErrorPrompt`. When set, the panel
+	 *  seeds the Compose AI input on the next idle render so the user's typing is preserved
+	 *  across an error → Back transition. Re-mounting `gl-ai-input` is what triggers the seed. */
+	@property()
+	lastPrompt?: string;
+
 	@state() private _selectedCommitId?: string;
-	@state() private _fileLayout: ViewFilesLayout = 'auto';
 	@state() private _excludedFiles = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
 	@state() private _excludedCommitIds = new Set<string>();
@@ -212,31 +220,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 		}
 	}
 
-	private renderResumeBar() {
-		const preview = this.backPreview;
-		return html`<button
-			class="resume-bar"
-			type="button"
-			aria-label="Resume Last Compose"
-			@click=${this.handleForward}
-		>
-			<span class="resume-bar__title">Resume Last Compose</span>
-			${preview != null
-				? html`<span class="resume-bar__count">
-						<span class="resume-bar__count-item">
-							<code-icon icon="git-commit"></code-icon>
-							${pluralize('commit', preview.commitCount)}
-						</span>
-						<span class="resume-bar__count-item">
-							<code-icon icon="files"></code-icon>
-							${pluralize('file', preview.fileCount)}
-						</span>
-					</span>`
-				: nothing}
-			<code-icon class="resume-bar__arrow" icon="arrow-right"></code-icon>
-		</button>`;
-	}
-
 	private handleCancel = (): void => {
 		this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true }));
 	};
@@ -278,7 +261,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 		}
 
 		if (this.status === 'error') {
-			return renderErrorState(this.errorMessage, 'An error occurred during composition.', 'compose-generate');
+			return renderErrorState(
+				this.errorMessage,
+				'An error occurred during composition.',
+				'compose-error-retry',
+				'compose-error-back',
+			);
 		}
 
 		if (this.status !== 'ready' || !this.commits) return nothing;
@@ -303,6 +291,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 				busy-label="Composing changes…"
 				event-name="compose-generate"
 				placeholder='Instructions — e.g. "Group by feature, keep perf changes separate"'
+				.value=${this.lastPrompt}
 				.busy=${this.status === 'loading'}
 				?disabled=${disabled}
 				@input=${this.onAiInputType}
@@ -311,11 +300,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 			</gl-ai-input>
 		</div>`;
 
-		const resumeBar = this.forwardAvailable ? this.renderResumeBar() : nothing;
-
 		if (!hasPicker) {
 			return html`
-				${resumeBar}
 				<div class="review-idle">
 					<div class="review-idle__scope">
 						<code-icon icon="wand"></code-icon>
@@ -331,7 +317,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 		}
 
 		return html`
-			${resumeBar}
 			<gl-split-panel
 				orientation="vertical"
 				primary="start"
@@ -487,7 +472,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 		if (!this.commits?.length) return nothing;
 
 		const isLoading = this.status === 'loading';
-		const totalFiles = this.commits.reduce((sum, c) => sum + c.files.length, 0);
 
 		const includedCount = this.commits.length - this._excludedCommitIds.size;
 		const allIncluded = this._excludedCommitIds.size === 0;
@@ -507,28 +491,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 		return html`
 			<div class="compose-plan">
 				${this.stale ? this.renderStaleBanner() : nothing}
-				<div class="compose-plan__header">
-					<gl-button
-						class="compose-plan__back"
-						appearance="toolbar"
-						density="compact"
-						tooltip="Back to Compose"
-						@click=${this.handleBack}
-					>
-						<code-icon icon="arrow-left"></code-icon>
-					</gl-button>
-					<span class="compose-plan__title">Compose Plan</span>
-					<span class="compose-plan__count">
-						<span class="compose-plan__count-item">
-							<code-icon icon="git-commit"></code-icon>
-							${pluralize('commit', this.commits.length)}
-						</span>
-						<span class="compose-plan__count-item">
-							<code-icon icon="files"></code-icon>
-							${pluralize('file', totalFiles)}
-						</span>
-					</span>
-				</div>
 				<gl-split-panel class="compose-plan__split" orientation="vertical" primary="end" position="50">
 					<div slot="start" class="compose-plan__split-start">${listEl}</div>
 					<div slot="end" class="compose-plan__split-end">
@@ -552,6 +514,18 @@ export class GlDetailsComposeModePanel extends LitElement {
 		`;
 	}
 
+	/** Renders a commit message as inline summary + dimmed body continuation (graph-row style).
+	 *  Multi-paragraph bodies collapse to a single line with the summary; the popover anchor
+	 *  carries the full markdown for hover. */
+	private renderCommitMessageInline(message: string) {
+		const { summary, body } = splitCommitMessage(message);
+		if (!body) {
+			return html`<gl-markdown .markdown=${summary} inline></gl-markdown>`;
+		}
+		return html`<gl-markdown .markdown=${summary} inline></gl-markdown
+			><span class="compose-commit__message-body"><gl-markdown .markdown=${body} inline></gl-markdown></span>`;
+	}
+
 	private renderProposedCommit(commit: ProposedCommit, index: number) {
 		const num = this.commits!.length - index;
 		const isSelected = this._selectedCommitId === commit.id;
@@ -562,11 +536,26 @@ export class GlDetailsComposeModePanel extends LitElement {
 			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isExcluded
 				? 'compose-commit--excluded'
 				: ''}"
+			role="button"
+			tabindex="0"
+			aria-current=${isSelected ? 'true' : 'false'}
+			aria-label="Commit ${num}, ${pluralize('file', commit.files.length)}"
 			@click=${() => this.handleSelectCommit(commit.id)}
+			@keydown=${(e: KeyboardEvent) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					this.handleSelectCommit(commit.id);
+				}
+			}}
 		>
 			<span class="compose-commit__num">${num}</span>
 			<div class="compose-commit__info">
-				<span class="compose-commit__message">${commit.message}</span>
+				<gl-popover class="compose-commit__message" hoist placement="bottom-start" trigger="hover">
+					<span slot="anchor" class="compose-commit__message-content"
+						>${this.renderCommitMessageInline(commit.message)}</span
+					>
+					<gl-markdown slot="content" .markdown=${commit.message}></gl-markdown>
+				</gl-popover>
 				<span class="compose-commit__stats">
 					${pluralize('file', commit.files.length)}
 					<span class="compose-commit__additions">+${commit.additions}</span>
@@ -574,18 +563,17 @@ export class GlDetailsComposeModePanel extends LitElement {
 				</span>
 			</div>
 			<gl-tooltip placement="left">
-				<button
+				<gl-button
 					class="compose-commit__action ${isExcluded ? 'compose-commit__action--excluded' : ''}"
-					aria-label=${toggleLabel}
 					aria-pressed=${isExcluded ? 'false' : 'true'}
+					aria-label=${toggleLabel}
 					@click=${(e: Event) => {
 						e.stopPropagation();
 						this.handleToggleCommitIncluded(commit.id);
 					}}
 				>
-					<code-icon class="compose-commit__action-icon-included" icon="check"></code-icon>
-					<code-icon class="compose-commit__action-icon-excluded" icon="circle-large-outline"></code-icon>
-				</button>
+					<code-icon icon="check"></code-icon>
+				</gl-button>
 				<span slot="content">${toggleLabel}</span>
 			</gl-tooltip>
 		</div>`;
@@ -624,7 +612,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 		return html`<gl-file-tree-pane
 			.files=${files}
-			.filesLayout=${{ layout: this._fileLayout }}
+			.filesLayout=${{ layout: this.fileLayout }}
 			.collapsable=${false}
 			show-file-icons
 			header="File Changes"
@@ -639,7 +627,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 			@file-unstage=${this.redispatch}
 			@gl-file-tree-pane-open-multi-diff=${this.onOpenMultiDiff}
 			@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
-				this._fileLayout = e.detail.layout;
+				// Share the same property as the idle-state file tree — separate slots meant
+				// the user's layout choice in one view didn't carry over to the other.
+				this.fileLayout = e.detail.layout;
 			}}
 		></gl-file-tree-pane>`;
 	}
@@ -716,10 +706,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const detail = virtualRef != null ? { ...e.detail, virtualRef: virtualRef } : e.detail;
 		this.dispatchEvent(new CustomEvent(e.type, { detail: detail, bubbles: true, composed: true }));
 	};
-
-	private handleBack(): void {
-		this.dispatchEvent(new CustomEvent('compose-back', { bubbles: true, composed: true }));
-	}
 
 	private handleSelectCommit(id: string): void {
 		this._selectedCommitId = this._selectedCommitId === id ? undefined : id;
