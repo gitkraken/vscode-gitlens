@@ -453,7 +453,7 @@ export class DetailsActions {
 			),
 			s.config.getManyCore('workbench.tree.renderIndentGuides', 'workbench.tree.indent', 'git.enableSmartCommit'),
 			s.ai.isEnabled(),
-			s.ai.getModel(),
+			s.ai.getModel(scopeForActiveMode(this.state.activeMode.get())),
 			s.config.get('views.commitDetails.autolinks.enabled'),
 			s.integrations.getIntegrationStates(),
 			s.subscription.hasAccount(),
@@ -485,7 +485,12 @@ export class DetailsActions {
 
 	private async subscribeEvents(): Promise<void> {
 		const unsubscribe = await subscribeAll([
-			() => this.services.ai.onModelChanged(model => this.state.aiModel.set(model)),
+			// Re-read the model with the active mode's scope. The compose-mode chip should
+			// reflect `'compose'` storage, the review-mode chip should reflect `'review'`
+			// storage, and either falls back to the global default when its scope is unset.
+			// Active-mode flips trigger a refresh via `refreshScopedAiModel()` directly from
+			// the workflow controller setters — signals here don't expose a `.subscribe()`.
+			() => this.services.ai.onModelChanged(() => void this.refreshScopedAiModel()),
 			() =>
 				this.services.graphInspect.onComposeProgress(event => {
 					this.state.composeProgressMessage.set(event?.message);
@@ -499,10 +504,26 @@ export class DetailsActions {
 		this._eventUnsubscribe = unsubscribe;
 	}
 
-	switchAIModel(): void {
+	switchAIModel(scope?: 'compose' | 'review'): void {
 		// Reuses VS Code's native AI provider quickpick — keeps a single point of truth for
 		// model selection and avoids re-implementing the picker in the webview.
-		void this.services.commands.execute('gitlens.ai.switchProvider', { source: 'graph-details' as const });
+		// `scope` (set by the caller from the active mode) lets the compose / review chips
+		// persist to their own Memento key without mutating the global default.
+		void this.services.commands.execute('gitlens.ai.switchProvider', {
+			source: 'graph-details' as const,
+			scope: scope,
+		});
+	}
+
+	/**
+	 * Re-reads `state.aiModel` for the active mode's scope. Call after the active mode flips
+	 * so the chip displayed by the now-active panel matches its scope (compose vs review).
+	 * Falls back to the global default for the `'compose' | 'review'` scopes that don't
+	 * have a remembered model.
+	 */
+	async refreshScopedAiModel(): Promise<void> {
+		const model = await this.services.ai.getModel(scopeForActiveMode(this.state.activeMode.get()));
+		this.state.aiModel.set(model);
 	}
 
 	refreshWip(): void {
@@ -1967,6 +1988,7 @@ export class DetailsActions {
 				this.resources.compose.reset();
 				this.state.composeForwardAvailable.set(false);
 				this.state.composeBackPreview.set(undefined);
+				void this.refreshScopedAiModel();
 				this.refreshWip();
 				void this.fetchDetails(sha, repoPath, graphReachability);
 			}
@@ -2307,4 +2329,14 @@ export class DetailsActions {
 		this.state.preferences.set({ ...prefs, files: files });
 		void this.services.config.update('views.commitDetails.files.layout', layout);
 	}
+}
+
+/**
+ * Maps the active details mode to the AI model scope it owns. Compose and review each
+ * maintain their own remembered model; compare (and `null`) read the global default.
+ */
+function scopeForActiveMode(
+	mode: 'review' | 'compose' | 'compare' | null | undefined,
+): 'compose' | 'review' | undefined {
+	return mode === 'compose' || mode === 'review' ? mode : undefined;
 }

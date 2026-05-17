@@ -1206,7 +1206,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						// token model happily single-passes a 100KB diff that an 8k-context model
 						// couldn't. `{ silent: true }` avoids prompting the user from a background
 						// fetch; on an unset model the helper falls back to a conservative default.
-						const aiModel = await this.container.ai.getModel({ silent: true });
+						// Pass `scope: 'review'` so the threshold matches the model that the
+						// downstream `reviewChanges` action will actually run.
+						const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
 						signal?.throwIfAborted();
 						if (shouldUseSinglePass(data.diff, aiModel)) {
 							const result = await this.container.ai.actions.reviewChanges(
@@ -1363,7 +1365,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						// `{ silent: true }` avoids prompting from the RPC. The webview gates the
 						// "Send to agent" button on `aiModel != null`, so this is a defensive check
 						// for the race where the model was cleared between the gate and the call.
-						const aiModel = await this.container.ai.getModel({ silent: true });
+						// `scope: 'review'` matches the model the review action used to produce the
+						// findings being forwarded to chat.
+						const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
 						if (aiModel == null) {
 							void window.showWarningMessage(
 								'An AI model must be selected before sending review findings to chat.',

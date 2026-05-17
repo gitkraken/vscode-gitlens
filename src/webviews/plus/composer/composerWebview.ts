@@ -6,6 +6,7 @@ import { rootSha } from '@gitlens/git/models/revision.js';
 import { md5, sha256 } from '@gitlens/utils/crypto.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
+import type { SwitchAIModelCommandArgs } from '../../../commands/ai.js';
 import type { ContextKeys } from '../../../constants.context.js';
 import type {
 	ComposerTelemetryContext,
@@ -346,7 +347,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const aiEnabled = this.getAiEnabled();
 		const aiModel = await this.container.ai.getModel(
-			{ silent: true },
+			{ silent: true, scope: 'compose' },
 			{ source: 'composer', correlationId: this.host.instanceId },
 		);
 
@@ -987,7 +988,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private async updateAiModel(): Promise<void> {
 		try {
 			const model = await this.container.ai.getModel(
-				{ silent: true },
+				{ silent: true, scope: 'compose' },
 				{ source: 'composer', correlationId: this.host.instanceId },
 			);
 			this._context.ai.model = model;
@@ -1000,11 +1001,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	@ipcCommand(OnSelectAIModelCommand)
 	private async onSelectAIModel(): Promise<void> {
-		// Trigger the AI provider/model switch command
-		await commands.executeCommand<Source>('gitlens.ai.switchProvider', {
+		// Trigger the AI provider/model switch command, scoped to compose so picking writes
+		// to the `'compose'` Memento key and leaves the global default untouched.
+		await commands.executeCommand<SwitchAIModelCommandArgs>('gitlens.ai.switchProvider', {
 			source: 'composer',
 			correlationId: this.host.instanceId,
 			detail: 'model-picker',
+			scope: 'compose',
 		});
 	}
 
@@ -1922,7 +1925,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private onAIModelChanged(_e: AIModelChangeEvent) {
+	private onAIModelChanged(e: AIModelChangeEvent) {
+		// Only refresh when the change affects the composer's scope: an explicit `'compose'`
+		// scope change, or a global default change (which the composer reads as fallback
+		// when its scoped value is unset). Ignore unrelated scopes like `'review'`.
+		if (e.scope != null && e.scope !== 'compose') return;
+
 		void this.updateAiModel();
 	}
 

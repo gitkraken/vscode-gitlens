@@ -351,6 +351,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		state.activeModeSha.set(sha);
 		state.activeModeShas.set(shas);
 
+		// Compose and review each remember their own AI model — refresh `state.aiModel` so
+		// the now-active panel's chip reflects its scope (not whichever scope was active
+		// previously). Signals don't notify on change here, so this is the hook point.
+		void this.actions.refreshScopedAiModel();
+
 		// Fetch branch commits for WIP scope picker if not already loaded.
 		if (isWip && !state.branchCommits.get() && !state.branchCommitsFetching.get()) {
 			void this.actions.fetchBranchCommits(repoPath);
@@ -377,6 +382,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.activeModeShas.set(undefined);
 		this.actions.state.scope.set(undefined);
 		this.actions.state.aiExcludedFiles.set(undefined);
+
+		// Mode left — chip falls back to the global default until a new mode is entered.
+		void this.actions.refreshScopedAiModel();
 
 		const selectionChanged = wasSha !== sha || !areEqual(wasShas, shas);
 		if (selectionChanged) {

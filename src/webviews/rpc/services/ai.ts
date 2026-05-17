@@ -9,6 +9,7 @@
 import { Disposable } from 'vscode';
 import { getClaudeAgent } from '@env/providers.js';
 import type { Container } from '../../../container.js';
+import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
 import { mcpRegistrationAllowed } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
@@ -37,16 +38,12 @@ export class AIService {
 			'save-last',
 			buffered =>
 				container.ai.onDidChangeModel(async () => {
+					// Forward every change (global default or any scope). Webview consumers
+					// re-read with their own scope via `getModel(scope)`; the `save-last` buffer
+					// dedupes when their resolved value is unchanged, so a scope-only change
+					// doesn't churn the SCM/Home chips that read the global default.
 					const model = await container.ai.getModel({ silent: true });
-					buffered(
-						model != null
-							? {
-									id: model.id,
-									name: model.name,
-									provider: { id: model.provider.id, name: model.provider.name },
-								}
-							: undefined,
-					);
+					buffered(toAiModelInfo(model));
 				}),
 			undefined,
 			tracker,
@@ -83,15 +80,13 @@ export class AIService {
 
 	/**
 	 * Get the currently selected AI model, or undefined if none.
+	 *
+	 * Pass `scope` to read a per-operation remembered model (compose, review). When the
+	 * scope has no remembered value, the global default is returned — same as omitting it.
 	 */
-	async getModel(): Promise<AiModelInfo | undefined> {
-		const model = await this.#container.ai.getModel({ silent: true });
-		if (model == null) return undefined;
-		return {
-			id: model.id,
-			name: model.name,
-			provider: { id: model.provider.id, name: model.provider.name },
-		} satisfies AiModelInfo;
+	async getModel(scope?: AIModelScope): Promise<AiModelInfo | undefined> {
+		const model = await this.#container.ai.getModel({ silent: true, scope: scope });
+		return toAiModelInfo(model);
 	}
 
 	/**
@@ -128,4 +123,15 @@ export class AIService {
 	isEnabled(): Promise<boolean> {
 		return Promise.resolve(this.#container.ai.enabled);
 	}
+}
+
+function toAiModelInfo(
+	model: { id: string; name: string; provider: { id: string; name: string } } | undefined,
+): AiModelInfo | undefined {
+	if (model == null) return undefined;
+	return {
+		id: model.id,
+		name: model.name,
+		provider: { id: model.provider.id, name: model.provider.name },
+	} satisfies AiModelInfo;
 }

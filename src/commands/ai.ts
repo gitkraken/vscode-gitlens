@@ -4,6 +4,7 @@ import type { AIFeedbackEvent, Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { UnhelpfulResult } from '../plus/ai/aiFeedbackUtils.js';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../plus/ai/aiFeedbackUtils.js';
+import type { AIModelScope } from '../plus/ai/aiProviderService.js';
 import { extractAIResultContext } from '../plus/ai/utils/-webview/ai.utils.js';
 import { command } from '../system/-webview/command.js';
 import { ActiveEditorCommand, GlCommandBase } from './commandBase.js';
@@ -21,22 +22,37 @@ export class EnableAICommand extends GlCommandBase {
 	}
 }
 
+/**
+ * Args accepted by `gitlens.ai.switchProvider`. `scope` lets surfaces that maintain their
+ * own remembered model (compose, review) opt into scoped persistence — the picker writes
+ * the selection to scoped storage and leaves the global default `ai.model` untouched.
+ */
+export type SwitchAIModelCommandArgs = Source & { scope?: AIModelScope };
+
 @command()
 export class SwitchAIModelCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super(['gitlens.ai.switchProvider', 'gitlens.ai.switchProvider:scm'], ['gitlens.switchAIModel']);
 	}
 
-	protected override preExecute(context: CommandContext, source?: Source): Promise<void> {
+	protected override preExecute(context: CommandContext, args?: SwitchAIModelCommandArgs): Promise<void> {
 		if (context.command === 'gitlens.ai.switchProvider:scm') {
-			source ??= { source: 'scm' };
+			args ??= { source: 'scm' };
 		}
 
-		return this.execute(source);
+		return this.execute(args);
 	}
 
-	async execute(source?: Source): Promise<void> {
-		await this.container.ai.switchModel(source);
+	async execute(args?: SwitchAIModelCommandArgs): Promise<void> {
+		if (args == null) {
+			await this.container.ai.switchModel();
+			return;
+		}
+
+		// `scope` is intentionally not part of the telemetry Source — strip it before
+		// forwarding so we don't pollute the source dimension for downstream events.
+		const { scope, ...source } = args;
+		await this.container.ai.switchModel(source, { scope: scope });
 	}
 }
 

@@ -1,4 +1,4 @@
-import type { AIProviders } from '@gitlens/ai/constants.js';
+import type { AIProviderAndModel, AIProviders } from '@gitlens/ai/constants.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
 import type { IntegrationIds } from './constants.integrations.js';
@@ -80,6 +80,8 @@ export type DeprecatedGlobalStorage = {
 
 interface GlobalStorageCore {
 	avatars: [string, StoredAvatar][];
+	'ai:scope:compose:model': AIProviderAndModel;
+	'ai:scope:review:model': AIProviderAndModel;
 	'confirm:ai:generateCommits': boolean;
 	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];

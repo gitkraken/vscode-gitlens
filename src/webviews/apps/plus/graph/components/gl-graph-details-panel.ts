@@ -272,7 +272,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private handleSwitchModel = (): void => {
-		this._actions?.switchAIModel();
+		// Switch-model is shared by both the review-mode and compose-mode chips in this panel
+		// — derive the scope from the active mode so each surface writes to its own scoped
+		// Memento key. Falls back to the global default when no mode is active (e.g., when
+		// the chip is shown elsewhere).
+		const mode = this._state.activeMode.get();
+		const scope = mode === 'compose' || mode === 'review' ? mode : undefined;
+		this._actions?.switchAIModel(scope);
 	};
 
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
