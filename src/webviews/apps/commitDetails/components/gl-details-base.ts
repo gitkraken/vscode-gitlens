@@ -144,6 +144,7 @@ export class GlDetailsBase extends LitElement {
 
 	protected onShareWipChanges(_e: Event, staged: boolean, hasFiles: boolean): void {
 		if (!hasFiles) return;
+
 		const event = new CustomEvent('share-wip', {
 			detail: {
 				checked: staged,

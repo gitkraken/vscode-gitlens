@@ -290,6 +290,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
 		const files = this.files;
 		if (!files?.length) return undefined;
+
 		const repoPath = this.commitFrom?.repoPath ?? this.commitTo?.repoPath;
 		const lhs = this.swapped ? this.commitTo?.sha : this.commitFrom?.sha;
 		const rhs = this.swapped ? this.commitFrom?.sha : this.commitTo?.sha;

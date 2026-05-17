@@ -125,6 +125,7 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 			reject(new CancellationError());
 			return;
 		}
+
 		let timer: ReturnType<typeof setTimeout>;
 		const onAbort = (): void => {
 			clearTimeout(timer);

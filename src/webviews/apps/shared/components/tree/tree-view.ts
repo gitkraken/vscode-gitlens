@@ -237,6 +237,7 @@ export class GlTreeView extends GlElement {
 	set filterText(value: string) {
 		const old = this._filterText;
 		if (old === value) return;
+
 		this._filterText = value;
 		clearTimeout(this._filterDebounceTimer);
 		this.applyFilterToModel();
@@ -317,6 +318,7 @@ export class GlTreeView extends GlElement {
 				return;
 			}
 		}
+
 		this.scrollableRef.value?.focus(options);
 	}
 
@@ -597,6 +599,7 @@ export class GlTreeView extends GlElement {
 				}
 				continue;
 			}
+
 			// Fuzzy match
 			const matched = fuzzyMatch(lowerText, term);
 			if (matched != null) {
@@ -1175,6 +1178,7 @@ export class GlTreeView extends GlElement {
 						return;
 					}
 				}
+
 				targetIndex = Math.max(currentIndex - 1, 0);
 				handled = true;
 				break;
@@ -1193,6 +1197,7 @@ export class GlTreeView extends GlElement {
 				if (branchHandled) {
 					return;
 				}
+
 				// If not handled (already expanded/collapsed), navigate instead
 				if (e.key === 'ArrowRight') {
 					// Right arrow: move to next row
@@ -1325,6 +1330,7 @@ export class GlTreeView extends GlElement {
 	private scrollToItem(index: number, shouldRestoreFocus: boolean = true) {
 		// Prevent multiple simultaneous scroll operations
 		if (this._scrolling) return;
+
 		this._scrolling = true;
 
 		// Wait for render to complete with updated focused state
@@ -1432,6 +1438,7 @@ export class GlTreeView extends GlElement {
 		if (!this.treeItems) {
 			return;
 		}
+
 		let i = 0;
 		for (const item of this.treeItems) {
 			this._pathToIndexMap.set(item.path, i++);

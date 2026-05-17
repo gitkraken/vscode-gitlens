@@ -332,6 +332,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 			if (context.connectedIntegrations.get(integration)) {
 				continue;
 			}
+
 			switch (integration) {
 				case GitCloudHostIntegrationId.GitHub:
 					confirmations.push(
@@ -554,6 +555,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		if (!canPickStepContinue(step, state, selection)) {
 			return StepResultBreak;
 		}
+
 		const element = selection[0];
 		if (isConnectMoreIntegrationsItem(element)) {
 			this.sendTitleActionTelemetry('connect', context);
@@ -578,6 +580,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 	private open(item: StartWorkItem): void {
 		if (item.issue.url == null) return;
+
 		void openUrl(item.issue.url);
 	}
 
@@ -647,6 +650,7 @@ export async function getConnectedIntegrations(
 				connected.set(integrationId, false);
 				return;
 			}
+
 			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
 			const hasAccess = isConnected && (await integration.access());
 			connected.set(integrationId, hasAccess);

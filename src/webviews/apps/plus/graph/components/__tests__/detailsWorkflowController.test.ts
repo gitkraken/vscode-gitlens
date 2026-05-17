@@ -91,15 +91,21 @@ class FakeHost implements DetailsWorkflowHost {
 	}
 	removeController(c: ReactiveController): void {
 		const i = this._controllers.indexOf(c);
-		if (i >= 0) this._controllers.splice(i, 1);
+		if (i >= 0) {
+			this._controllers.splice(i, 1);
+		}
 	}
 	requestUpdate(): void {}
 
 	connectAll(): void {
-		for (const c of this._controllers) c.hostConnected?.();
+		for (const c of this._controllers) {
+			c.hostConnected?.();
+		}
 	}
 	tickHostUpdate(): void {
-		for (const c of this._controllers) c.hostUpdate?.();
+		for (const c of this._controllers) {
+			c.hostUpdate?.();
+		}
 	}
 }
 

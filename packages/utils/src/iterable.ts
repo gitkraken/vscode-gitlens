@@ -269,6 +269,7 @@ export function findIndex<T>(source: Iterable<T> | IterableIterator<T>, predicat
 	let i = 0;
 	for (const item of source) {
 		if (predicate(item)) return i;
+
 		i++;
 	}
 	return -1;
@@ -329,6 +330,7 @@ class FlatMapIterator<T, TMapped> implements IterableIterator<TMapped> {
 				if (!mappedResult.done) {
 					return { done: false, value: mappedResult.value };
 				}
+
 				// Current mapped iterator is exhausted, move to next source item
 				this.currentMappedIterator = undefined;
 			}
@@ -576,6 +578,7 @@ class SkipIterator<T> implements IterableIterator<T> {
 				this.done = true;
 				return { done: true, value: undefined };
 			}
+
 			this.skipped++;
 		}
 

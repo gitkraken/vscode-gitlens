@@ -119,6 +119,7 @@ export class OrganizationService implements Disposable {
 	private loadStoredOrganizations(userId: string): void {
 		const storedOrganizations = this.container.storage.get(`gk:${userId}:organizations`);
 		if (storedOrganizations == null) return;
+
 		const { timestamp, data: organizations } = storedOrganizations;
 		if (timestamp == null || Date.now() - timestamp > organizationsCacheExpiration) {
 			return;

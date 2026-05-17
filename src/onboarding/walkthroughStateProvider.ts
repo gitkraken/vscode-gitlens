@@ -219,6 +219,7 @@ export class WalkthroughStateProvider implements Disposable {
 		if (this._isInitialized) {
 			return;
 		}
+
 		if (!this._initPromise) {
 			this._initPromise = wait(1000).then(() => {
 				this._isInitialized = true;

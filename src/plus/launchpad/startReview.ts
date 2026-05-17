@@ -370,6 +370,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			if (context.connectedIntegrations.get(integration)) {
 				continue;
 			}
+
 			switch (integration) {
 				case GitCloudHostIntegrationId.GitHub:
 					confirmations.push(
@@ -621,6 +622,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		if (!canPickStepContinue(step, state, selection)) {
 			return StepResultBreak;
 		}
+
 		const element = selection[0];
 		if (isConnectMoreIntegrationsItem(element)) {
 			this.sendTitleActionTelemetry('connect', context);
@@ -645,6 +647,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 	private open(item: StartReviewItem): void {
 		if (item.launchpadItem.url == null) return;
+
 		void openUrl(item.launchpadItem.url);
 	}
 

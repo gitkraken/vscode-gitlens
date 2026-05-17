@@ -55,9 +55,11 @@ export class MRU<T> {
 
 		if (direction === 'back') {
 			if (this._position >= this.stack.length - 1) return undefined;
+
 			this._position += 1;
 		} else {
 			if (this._position <= 0) return undefined;
+
 			this._position -= 1;
 		}
 

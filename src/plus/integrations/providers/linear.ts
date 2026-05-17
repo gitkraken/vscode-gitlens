@@ -35,6 +35,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		if (!connected || this._session == null) {
 			return [];
 		}
+
 		const cachedAutolinks = this._autolinks?.get(this._session.accessToken);
 		if (cachedAutolinks != null) return cachedAutolinks;
 
@@ -181,6 +182,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		if (resources != null) {
 			return undefined;
 		}
+
 		const api = await this.getProvidersApi();
 		let cursor = undefined;
 		let hasMore: boolean;
@@ -191,6 +193,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 				if (cancellation?.isCancellationRequested) {
 					break;
 				}
+
 				const result = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
 					cursor: cursor,
 				});
@@ -208,6 +211,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			if (issues.length === 0) {
 				throw ex;
 			}
+
 			Logger.error(ex, 'searchProviderMyIssues');
 		}
 		return issues;
@@ -262,6 +266,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	private getIssueAutolinkLikeUrl(issue: ProviderIssue): string | null {
 		const url = issue.url;
 		if (url == null) return null;
+
 		const lastSegment = url.split('/').pop();
 		if (!lastSegment || issue.number === lastSegment) {
 			return url;

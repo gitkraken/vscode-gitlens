@@ -73,6 +73,7 @@ export class BlameGitHubSubProvider implements GitBlameSubProvider {
 		let blameLine = blame.lines[editorLine];
 		if (blameLine == null) {
 			if (blame.lines.length !== editorLine) return undefined;
+
 			blameLine = blame.lines[editorLine - 1];
 		}
 
@@ -106,6 +107,7 @@ export class BlameGitHubSubProvider implements GitBlameSubProvider {
 		try {
 			const context = await this.provider.ensureRepositoryContext(repoPath);
 			if (context == null) return undefined;
+
 			const { metadata, github, session } = context;
 
 			const root = this.provider.createVirtualUri(repoPath, undefined);

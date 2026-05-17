@@ -379,6 +379,7 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onStageCurrentChangesFromContext(item: ConflictFileWebviewContext | undefined): Promise<void> {
 		const path = item?.webviewItemValue?.path;
 		if (path == null) return;
+
 		await this.stageConflictResolution(path, 'current');
 	}
 
@@ -387,6 +388,7 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onStageIncomingChangesFromContext(item: ConflictFileWebviewContext | undefined): Promise<void> {
 		const path = item?.webviewItemValue?.path;
 		if (path == null) return;
+
 		await this.stageConflictResolution(path, 'incoming');
 	}
 

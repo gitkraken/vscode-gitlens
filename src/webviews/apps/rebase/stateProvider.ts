@@ -388,6 +388,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 			// Process from top to bottom to avoid conflicts
 			for (const idx of selectedIndices) {
 				if (idx === 0) continue;
+
 				const aboveIdx = idx - 1;
 				if (!idSet.has(entries[aboveIdx].id)) {
 					[entries[aboveIdx], entries[idx]] = [entries[idx], entries[aboveIdx]];
@@ -398,6 +399,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 			for (let i = selectedIndices.length - 1; i >= 0; i--) {
 				const idx = selectedIndices[i];
 				if (idx === entries.length - 1) continue;
+
 				const belowIdx = idx + 1;
 				if (!idSet.has(entries[belowIdx].id)) {
 					[entries[belowIdx], entries[idx]] = [entries[idx], entries[belowIdx]];
@@ -426,6 +428,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 		const actionMap = new Map(changes.map(c => [c.sha, c.action]));
 		const entries = this._state.entries.map(e => {
 			if (!isCommitEntry(e)) return e;
+
 			const newAction = actionMap.get(e.sha);
 			return newAction != null ? { ...e, action: newAction } : e;
 		});

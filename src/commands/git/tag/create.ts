@@ -175,6 +175,7 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 			}
 
 			if (!steps.isAtStepOrUnset(Steps.Confirm)) continue;
+
 			if (this.confirm(state.confirm)) {
 				using step = steps.enterStep(Steps.Confirm);
 

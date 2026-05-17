@@ -69,6 +69,7 @@ export function getUpstreamStatus(
 	},
 ): string {
 	if (upstream == null) return options?.empty ?? '';
+
 	const {
 		state: { ahead, behind },
 	} = upstream;

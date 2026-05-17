@@ -258,6 +258,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 					for (const file of untracked) {
 						if (seen.has(file.path)) continue;
 						if (options.path && options.path !== file.path) continue;
+
 						files.push(file);
 					}
 				}

@@ -131,6 +131,7 @@ export class GlAgentSessionCard extends LitElement {
 		for (const s of this.sessions) {
 			const path = s.worktree?.path;
 			if (path == null || worktrees.has(path)) continue;
+
 			worktrees.set(path, { label: s.worktree?.name ?? basename(path), cwd: s.cwd });
 		}
 

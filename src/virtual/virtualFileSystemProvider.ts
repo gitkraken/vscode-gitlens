@@ -29,6 +29,7 @@ export function decodeVirtualUri(uri: Uri): { authority: VirtualUriAuthority; pa
 	if (uri.scheme !== Schemes.GitLensVirtual) {
 		throw new Error(`decodeVirtualUri: wrong scheme '${uri.scheme}'`);
 	}
+
 	const authority = decodeGitLensRevisionUriAuthority<VirtualUriAuthority>(uri.authority);
 	// URI paths always start with '/'; strip for repo-relative path passed to providers.
 	const path = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
@@ -66,6 +67,7 @@ export class VirtualFileSystemProvider implements FileSystemProvider, Disposable
 	/** Called by {@link VirtualFileSystemService} when a handler reports content changes. */
 	fireDidChange(uris: readonly Uri[]): void {
 		if (uris.length === 0) return;
+
 		this._onDidChangeFile.fire(uris.map(uri => ({ type: 1 /* FileChangeType.Changed */, uri: uri })));
 	}
 

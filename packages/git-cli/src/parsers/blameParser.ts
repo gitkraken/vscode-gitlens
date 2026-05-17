@@ -342,6 +342,7 @@ export async function* parseGitBlameAsync(stream: AsyncIterable<string>): AsyncG
 			case 0x66 /* f — filename */:
 				entry.path = line.substring(valueStart);
 				yield entry;
+
 				entry = undefined;
 				break;
 

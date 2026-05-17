@@ -58,6 +58,7 @@ function deserializeReason(reason: unknown): unknown {
 	if (reason.name === 'AbortError' && typeof DOMException !== 'undefined') {
 		return new DOMException(reason.message, 'AbortError');
 	}
+
 	const err = new Error(reason.message);
 	err.name = reason.name;
 	if (reason.stack !== undefined) {

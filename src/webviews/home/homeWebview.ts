@@ -184,6 +184,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			changeOverviewRepository: async () => {
 				const repo = await this.onChooseRepository();
 				if (repo == null) return;
+
 				this.fireOverviewRepositoryChanged(repo.path);
 			},
 			onOverviewRepositoryChanged: this._overviewRepoChangedEvent.subscribe(buffer, tracker),
@@ -307,6 +308,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				});
 				return [true, undefined];
 			}
+
 			this._pendingFocusAccount = true;
 		}
 
@@ -747,6 +749,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const repo = this.getSelectedRepository();
 		if (repo == null) return undefined;
+
 		signal?.throwIfAborted();
 
 		const [branchesAndWorktreesResult, formatRepositoryResult] = await Promise.allSettled([
@@ -984,6 +987,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					if (!isSupportedCloudIntegrationId(i.integrationId)) {
 						return undefined;
 					}
+
 					const supportedCloudDescriptor = supportedCloudIntegrationDescriptors.find(
 						item => item.id === i.integrationId,
 					);
@@ -1100,6 +1104,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		).length;
 
 		if (waiting === this._lastBadgeWaiting) return;
+
 		this._lastBadgeWaiting = waiting;
 		this.host.badge = waiting > 0 ? { tooltip: `${waiting} agent(s) need attention`, value: waiting } : undefined;
 	}

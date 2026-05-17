@@ -76,6 +76,7 @@ class AISimulatorDebug {
 
 	private handleInject(args: InjectArgs): boolean {
 		if (typeof args.content !== 'string') return false;
+
 		getSimulatorState().inject({ action: args.action, content: args.content, sticky: args.sticky });
 		return true;
 	}
@@ -260,5 +261,6 @@ async function restoreFlag(
 		await storage.delete(key);
 		return;
 	}
+
 	await storage.store(key, value);
 }

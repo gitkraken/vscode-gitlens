@@ -169,6 +169,7 @@ export class GlTreeItem extends GlElement {
 		if (!this.checkable) {
 			return nothing;
 		}
+
 		const checkbox = html`<span
 			class="checkbox"
 			@mouseenter=${this.onCheckboxMouseEnter}

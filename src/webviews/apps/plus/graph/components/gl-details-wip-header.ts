@@ -239,6 +239,7 @@ export class GlDetailsWipHeader extends LitElement {
 
 	private renderAssociatedPullRequest() {
 		if (this.wip?.branch == null) return nothing;
+
 		const pr = this.pullRequest;
 		// Skip entirely when no PR and not loading — many branches don't have a PR.
 		if (pr == null) return nothing;

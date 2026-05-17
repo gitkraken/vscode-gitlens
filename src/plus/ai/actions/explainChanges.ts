@@ -132,6 +132,7 @@ export async function explainCommit(
 				await GitCommit.ensureFullDetails(commit);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 			}
+
 			assertsCommitHasFullDetails(commit);
 
 			return { diff: diff.contents, message: commit.message, instructions: options?.prompt };

@@ -84,6 +84,7 @@ export function reconcileScopeMergeTarget(
 	enrichment: AppState['overviewEnrichment'],
 ): AppState['scope'] {
 	if (scope == null) return scope;
+
 	const sha = enrichment?.[scope.branchRef]?.mergeTarget?.sha;
 	if (sha == null || sha === scope.mergeTargetTipSha) return scope;
 	return { ...scope, mergeTargetTipSha: sha };
@@ -369,6 +370,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void {
 		if (overview == null) return;
+
 		const branchIds = [...overview.active.map(b => b.id), ...overview.recent.map(b => b.id)];
 		if (branchIds.length === 0) return;
 
@@ -433,6 +435,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	deferScopeClear(): void {
 		if (this.scope == null) return;
+
 		this._scopeClearDeferred = true;
 	}
 
@@ -495,6 +498,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		const anchor = await promise;
 		if ((this._anchorGenerations.get(repoPath) ?? 0) !== generation) return;
+
 		this._mergeBaseCache.set(cacheKey, anchor);
 		this.patchScopeAnchor(scope, anchor);
 	}
@@ -504,10 +508,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// Host couldn't resolve either field — leave the live scope alone rather than assigning
 		// a no-op spread that would re-zoom the minimap for nothing.
 		if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null) return;
+
 		// Only patch if the live scope still points at the same branch (user may have re-scoped
 		// or cleared while the resolve was in flight).
 		const current = this.scope;
 		if (current?.branchRef !== scope.branchRef) return;
+
 		// Skip if both the mergeBase and target tip already match — prevents a redundant signal
 		// update that would re-zoom the minimap needlessly.
 		const mergeBaseSame =
@@ -841,12 +847,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			case DidChangeWipStaleNotification.is(msg): {
 				const current = this._state.wipMetadataBySha;
 				if (current == null) break;
+
 				// Produce a new reference so the GK component's dedup resets and re-requests stats
 				// for any currently-visible entries marked stale.
 				const next = { ...current };
 				for (const sha of msg.params.shas) {
 					const prev = next[sha];
 					if (prev == null) continue;
+
 					next[sha] = { ...prev, workDirStatsStale: true };
 				}
 				this.updateState({ wipMetadataBySha: next });
@@ -989,6 +997,7 @@ export function mergeWipMetadata(
 				: entry;
 
 		if (changed) continue;
+
 		if (
 			entry.repoPath !== prevEntry?.repoPath ||
 			entry.parentSha !== prevEntry?.parentSha ||

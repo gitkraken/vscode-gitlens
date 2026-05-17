@@ -387,9 +387,11 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		// IDs with the file commands above.
 		for (const { command: cmd, handler } of getDetailsFolderCommands()) {
 			if (cmd in sharedDetailsFolderCommandRoutes) continue;
+
 			subscriptions.push(
 				registerWebviewCommand(getWebviewCommand(cmd, this.host.type), (item?: DetailsItemContext) => {
 					if (!isDetailsFolderContext(item)) return;
+
 					handler.call(folderCommands, item.webviewItemValue);
 				}),
 			);
@@ -955,6 +957,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 					}
 					commit ??= await svc.commits.getCommit(sha);
 					if (commit == null) return undefined;
+
 					signal?.throwIfAborted();
 					// Track what the webview is showing so file actions know which commit to use
 					this._showingCommitRef = { repoPath: repoPath, sha: sha, refType: commit.refType };
@@ -975,6 +978,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 					const changes = await this.getWipChange(repo);
 					if (changes == null) return undefined;
+
 					signal?.throwIfAborted();
 
 					// Get branch info (fast, local) but NOT PR or code suggestions (deferred)

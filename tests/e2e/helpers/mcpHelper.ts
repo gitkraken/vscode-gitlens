@@ -95,6 +95,7 @@ export async function waitForCliInstall(gkPath: string, timeoutMs = 30_000): Pro
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		if (existsSync(gkPath)) return;
+
 		await new Promise(r => setTimeout(r, 500));
 	}
 	throw new Error(`GK CLI not found at "${gkPath}" after ${timeoutMs}ms`);
@@ -179,6 +180,7 @@ export class McpClient {
 
 			proc.on('close', (code: number | null) => {
 				if (settled) return;
+
 				settled = true;
 				clearTimeout(timer);
 				// Strip "checking for updates..." noise before parsing
@@ -191,6 +193,7 @@ export class McpClient {
 					);
 					return;
 				}
+
 				try {
 					resolve(JSON.parse(clean) as McpConfigResult);
 				} catch {
@@ -274,6 +277,7 @@ export class McpClient {
 
 				const trimmed = line.trim();
 				if (!trimmed) return;
+
 				let msg: McpMessage;
 				try {
 					msg = JSON.parse(trimmed) as McpMessage;

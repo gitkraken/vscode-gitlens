@@ -257,6 +257,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					total++;
 					shaOrRemapped = remappedIds.get(commit.sha);
 					if (shaOrRemapped && ids.has(shaOrRemapped)) continue;
+
 					shaOrRemapped ??= commit.sha;
 
 					ids.add(shaOrRemapped);
@@ -732,6 +733,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							runningTotal: results.size,
 							hasMore: true,
 						};
+
 						batch.length = 0;
 						lastProgressTime = Date.now();
 					}

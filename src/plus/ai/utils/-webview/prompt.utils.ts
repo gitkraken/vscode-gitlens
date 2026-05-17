@@ -159,6 +159,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 						),
 					);
 				}
+
 				currentContext = truncatedContext;
 				truncated = true;
 			} else {

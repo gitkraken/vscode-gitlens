@@ -322,6 +322,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	): void {
 		const reviewMarkdown = this.buildReviewMarkdown(granularity, opts);
 		if (!reviewMarkdown) return;
+
 		this.dispatchEvent(
 			new CustomEvent<ReviewSendToChatDetail>('review-send-to-chat', {
 				detail: {
@@ -397,6 +398,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			const count = scope.includeShas?.length;
 			return count ? pluralize('commit', count) : 'comparison';
 		}
+
 		// wip
 		const parts: string[] = [];
 		if (scope.includeStaged || scope.includeUnstaged) {
@@ -666,6 +668,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
 		if (!e.detail.context) return;
+
 		const [file] = e.detail.context as unknown as GitFileChangeShape[];
 		if (!file) return;
 

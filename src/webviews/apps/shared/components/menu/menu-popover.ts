@@ -104,6 +104,7 @@ export class GlMenuPopover extends GlElement {
 	private readonly handleAfterShow = (): void => {
 		requestAnimationFrame(() => {
 			if (this._popover?.open !== true) return;
+
 			const items = this._menuItems.filter(i => !i.disabled);
 			const selected = items.find(i => i.getAttribute('aria-selected') === 'true');
 			(selected ?? items[0])?.focus();
@@ -130,6 +131,7 @@ export class GlMenuPopover extends GlElement {
 
 		const items = this._menuItems.filter(i => !i.disabled);
 		if (items.length === 0) return;
+
 		e.preventDefault();
 
 		const current = items.findIndex(i => i.matches(':focus'));

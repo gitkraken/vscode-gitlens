@@ -17,6 +17,7 @@ export async function focusProcessWindow(pid: number): Promise<boolean> {
 		let currentPid: number | undefined = pid;
 		for (let depth = 0; depth < maxParentWalkDepth && currentPid != null; depth++) {
 			if (await strategy(currentPid)) return true;
+
 			currentPid = await getParentPid(currentPid);
 		}
 

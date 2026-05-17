@@ -236,6 +236,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 			}
 
 			if (repoPath == null || filePath == null) return;
+
 			repoPath = normalizePath(repoPath);
 			filePath = normalizePath(filePath);
 

@@ -280,6 +280,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (style === 'you') {
 			return this.formatAuthor('You', this._item.author.email, this._options.tokenOptions.authorFirst);
 		}
+
 		// 'name', 'nameAndYou', or not current user — use raw name parts
 		const [first] = this._item.author.name.split(' ');
 		return this.formatAuthor(first, this._item.author.email, this._options.tokenOptions.authorFirst);
@@ -290,6 +291,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (style === 'you') {
 			return this.formatAuthor('You', this._item.author.email, this._options.tokenOptions.authorLast);
 		}
+
 		// 'name', 'nameAndYou', or not current user — use raw name parts
 		const [first, last] = this._item.author.name.split(' ');
 		return this.formatAuthor(last || first, this._item.author.email, this._options.tokenOptions.authorLast);

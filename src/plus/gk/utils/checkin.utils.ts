@@ -56,6 +56,7 @@ export function getSubscriptionFromCheckIn(
 	for (const licenseData of effectiveLicenses) {
 		const [, license] = licenseData;
 		if (license.organizationId == null) continue;
+
 		const existingLicense = effectiveLicensesByOrganizationId.get(license.organizationId);
 		if (existingLicense == null) {
 			effectiveLicensesByOrganizationId.set(license.organizationId, licenseData);
@@ -65,6 +66,7 @@ export function getSubscriptionFromCheckIn(
 	for (const licenseData of paidLicenses) {
 		const [, license] = licenseData;
 		if (license.organizationId == null) continue;
+
 		const existingLicense = paidLicensesByOrganizationId.get(license.organizationId);
 		if (existingLicense == null) {
 			paidLicensesByOrganizationId.set(license.organizationId, licenseData);

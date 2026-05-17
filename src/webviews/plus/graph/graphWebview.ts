@@ -650,6 +650,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			{
 				dispose: () => {
 					if (this._repositoryEventsDisposable == null) return;
+
 					this._repositoryEventsDisposable.dispose();
 					this._repositoryEventsDisposable = undefined;
 				},
@@ -775,6 +776,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const candidates = baseBranch ? [baseBranch] : ['main', 'master', 'develop'];
 						for (const candidate of candidates) {
 							if (candidate === branch.name) continue;
+
 							try {
 								const result = await svc.refs.getMergeBase(branch.ref, candidate);
 								if (result) {
@@ -809,6 +811,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const hasMore = total > effectiveLimit;
 						for (const [sha, commit] of log.commits) {
 							if (index >= effectiveLimit) break;
+
 							const fileCount =
 								commit.stats?.files != null
 									? typeof commit.stats.files === 'number'
@@ -875,6 +878,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						this._graph?.stashes?.get(sha) ??
 						(await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha));
 					if (commit == null) return undefined;
+
 					signal?.throwIfAborted();
 					return this.getCoreCommitDetails(commit);
 				},
@@ -952,6 +956,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					]);
 					const status = getSettledValue(statusResult);
 					if (status == null) return undefined;
+
 					signal?.throwIfAborted();
 
 					const pausedOpStatus = getSettledValue(pausedOpStatusResult);
@@ -1189,6 +1194,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 							if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
 						}
+
 						this._graphDetailsDiffCache.set(diffCacheKey, {
 							diff: data.diff,
 							message: data.message,
@@ -1283,6 +1289,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const cachedData = this._graphDetailsDiffCache.get(diffCacheKey);
 						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, signal));
 						if (!data) return { error: { message: 'No changes found for this focus area.' } };
+
 						if (cachedData == null) {
 							this._graphDetailsDiffCache.set(diffCacheKey, data);
 						} else {
@@ -1532,10 +1539,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					if (composeTools == null) {
 						return { error: { message: 'Compose is not available in this environment.' } };
 					}
+
 					const cacheKey = this._activeComposeCacheKeys.get(repoPath);
 					if (cacheKey == null) {
 						return { error: { message: 'No active compose plan; please regenerate.' } };
 					}
+
 					try {
 						return await executeComposeCommit(this.container, repoPath, plan, composeTools, cacheKey);
 					} finally {
@@ -1746,6 +1755,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getShasForPath: async (repoPath, path, signal) => {
 					const repo = this.container.git.getRepository(repoPath);
 					if (repo == null) return [];
+
 					const shas = await repo.git.commits.getLogShas?.(
 						undefined,
 						{ all: true, pathOrUri: path, limit: 0 },
@@ -2065,12 +2075,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Folder-only commands (Folder History submenu).
 		for (const { command: cmd, handler } of getDetailsFolderCommands()) {
 			if (cmd in sharedDetailsFolderCommandRoutes) continue;
+
 			commands.push(
 				this.host.registerWebviewCommandForId(
 					this.host.id,
 					getWebviewCommand(cmd, 'graphDetails'),
 					(item?: DetailsItemContext) => {
 						if (!isDetailsFolderContext(item)) return;
+
 						handler.call(folderCommands, item.webviewItemValue);
 					},
 				),
@@ -2210,6 +2222,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		await Promise.allSettled(
 			params.shas.map(async sha => {
 				if (!isSecondaryWipSha(sha)) return;
+
 				const path = getSecondaryWipPath(sha);
 
 				const status = await this._wipStatusCache.getOrCreate(
@@ -2333,6 +2346,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const branchesByRemote = new Map<string, GitBranch[]>();
 		for (const b of graph.branches.values()) {
 			if (!b.remote) continue;
+
 			const remote = getRemoteNameFromBranchName(b.name);
 			let arr = branchesByRemote.get(remote);
 			if (arr == null) {
@@ -2865,6 +2879,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// Clear out any associated issue metadata
 				for (const [, value] of this._refsMetadata) {
 					if (value == null) continue;
+
 					value.issue = undefined;
 				}
 			}
@@ -2899,6 +2914,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@trace({ args: false })
 	private onRepositoryWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
 		if (e.repository.id !== this.repository?.id) return;
+
 		void this.notifyDidChangeWorkingTree();
 	}
 
@@ -3509,6 +3525,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this._wipWatchRemoveTimers.delete(sha);
 				const d = this._wipWatches.get(sha);
 				if (d == null) return;
+
 				this._wipWatches.delete(sha);
 				d.dispose();
 			}, wipWatchGracePeriodMs);
@@ -3549,6 +3566,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private flushWipStale() {
 		if (this._pendingStaleShas.size === 0) return;
+
 		const shas = [...this._pendingStaleShas];
 		this._pendingStaleShas.clear();
 		this.notifyWipStale(shas);
@@ -3556,6 +3574,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private notifyWipStale(shas: string[]) {
 		if (!this.host.ready || !this.host.visible) return;
+
 		void this.host.notify(DidChangeWipStaleNotification, { shas: shas });
 	}
 
@@ -3900,6 +3919,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						searchId: searchId,
 					};
 				}
+
 				this._search = undefined;
 				throw ex;
 			}
@@ -4502,6 +4522,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this._lastSentBranchState != null && areEqual(branchState, this._lastSentBranchState)) {
 			return false;
 		}
+
 		this._lastSentBranchState = branchState;
 		return this.host.notify(DidChangeBranchStateNotification, {
 			branchState: branchState,
@@ -4544,6 +4565,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			/* swallow — worktree flag is non-critical */
 		}
 		if (cancellation.token.isCancellationRequested) return;
+
 		branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;
 
 		if (branch.upstream != null) {
@@ -4848,6 +4870,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._wipNotifyDirty = true;
 			return this._wipNotifyInFlight;
 		}
+
 		const run = this.runNotifyDidChangeWorkingTree(hasWorkingChanges).finally(() => {
 			this._wipNotifyInFlight = undefined;
 			if (this._wipNotifyDirty) {
@@ -4919,6 +4942,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const branchIds: string[] = [];
 		for (const branch of this._graph.branches.values()) {
 			if (branch.remote) continue;
+
 			if (branch.current || worktreesByBranch.get(branch.id)?.opened) {
 				branchIds.push(branch.id);
 			}
@@ -5015,9 +5039,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@trace()
 	private async notifyDidChangeCanInstallClaudeHook() {
 		if (!this.host.visible) return;
+
 		const claude = getContext('gitlens:agents:enabled', false) ? await getClaudeAgent() : undefined;
 		const canInstall = claude?.detected === true && claude.hooksSupported && !claude.hooksInstalled;
 		if (canInstall === this._lastCanInstallClaudeHook) return;
+
 		this._lastCanInstallClaudeHook = canInstall;
 		void this.host.notify(DidChangeCanInstallClaudeHook, canInstall);
 	}
@@ -5200,6 +5226,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.clearAutoFetchTimer();
 			return;
 		}
+
 		const repo = this._repository;
 		if (repo == null || !this.host.visible || !this.isWindowFocused) {
 			this.clearAutoFetchTimer();
@@ -5242,6 +5269,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async triggerAutoFetch(): Promise<void> {
 		if (this._autoFetchInFlight) return;
 		if (this.getAutoFetchMode() !== 'gitlens') return;
+
 		const repo = this._repository;
 		if (repo == null) return;
 		if (!this.host.visible || !this.isWindowFocused) return;
@@ -5772,9 +5800,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 */
 	private async getStagedFileCount(cancellation?: CancellationToken): Promise<number> {
 		if (this.repository == null) return 0;
+
 		const svc = this.container.git.getRepositoryService(this.repository.path);
 		const status = await svc.status.getStatus(undefined, toAbortSignal(cancellation));
 		if (status?.files == null) return 0;
+
 		const stagedPaths = new Set<string>();
 		for (const f of status.files) {
 			if (f.staged) {
@@ -6197,6 +6227,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const qualifyingPaths = new Set<string>();
 		for (const s of sessions) {
 			if (s.worktree?.path == null) continue;
+
 			// `Math.max(0, …)` clamps clock-skew (future-dated timestamps) so a stale clock
 			// can't pin a session as permanently "recent".
 			const recent =
@@ -6489,6 +6520,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} else {
 			void graph.rowsStatsDeferred?.promise.then(() => {
 				if (this._graph !== graph) return;
+
 				void this.notifyDidChangeRowsStats(graph);
 			});
 			void this.notifyDidChangeOverview();
@@ -6622,6 +6654,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			await branchRefCommands.fetchBranch(this.container, item);
 			return;
 		}
+
 		const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
 		void RepoActions.fetch(this.repository, ref);
 	}
@@ -6666,6 +6699,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@debug()
 	private fetchRemote(item?: GraphItemContext) {
 		if (!isGraphItemTypedContext(item, 'remote')) return;
+
 		void RemoteActions.fetch(item.webviewItemValue.repoPath, item.webviewItemValue.name);
 	}
 
@@ -6673,6 +6707,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@debug()
 	private pruneRemote(item?: GraphItemContext) {
 		if (!isGraphItemTypedContext(item, 'remote')) return;
+
 		void RemoteActions.prune(item.webviewItemValue.repoPath, item.webviewItemValue.name);
 	}
 
@@ -6680,6 +6715,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@debug()
 	private removeRemote(item?: GraphItemContext) {
 		if (!isGraphItemTypedContext(item, 'remote')) return;
+
 		void RemoteActions.remove(item.webviewItemValue.repoPath, item.webviewItemValue.name);
 	}
 
@@ -7827,6 +7863,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@debug()
 	private changeUpstreamBranch(item?: GraphItemContext) {
 		if (!isGraphItemRefContext(item, 'branch')) return Promise.resolve();
+
 		const { ref } = item.webviewItemValue;
 		return BranchActions.changeUpstream(ref.repoPath, ref);
 	}

@@ -115,6 +115,7 @@ export class GlCommitsScopePane extends LitElement {
 			'scroll',
 			() => {
 				if (this._visibilityRaf != null) return;
+
 				this._visibilityRaf = requestAnimationFrame(() => {
 					this._visibilityRaf = undefined;
 					this.recomputeHandleVisibility();
@@ -175,6 +176,7 @@ export class GlCommitsScopePane extends LitElement {
 		if (this._dragging) {
 			return;
 		}
+
 		if (changedProperties.has('items')) {
 			const prev = changedProperties.get('items') as ScopeItem[] | undefined;
 			if (!prev?.length && this.items.length > 0) {
@@ -241,6 +243,7 @@ export class GlCommitsScopePane extends LitElement {
 				this.syncSelectionRange();
 				return;
 			}
+
 			if (this._userRangeStartId != null && !this.items.some(i => i.id === this._userRangeStartId)) {
 				this._userRangeStartId = undefined;
 			}
@@ -280,6 +283,7 @@ export class GlCommitsScopePane extends LitElement {
 		let end = -1;
 		for (let i = 0; i < this.items.length; i++) {
 			if (!selected.has(this.items[i].id)) continue;
+
 			if (start === -1) {
 				start = i;
 			}
@@ -527,6 +531,7 @@ export class GlCommitsScopePane extends LitElement {
 	 */
 	private handleRowClick(e: MouseEvent, index: number): void {
 		if (this._dragging) return;
+
 		const item = this.items[index];
 		if (item == null || item.state === 'merge-base' || item.state === 'load-more') return;
 
@@ -577,6 +582,7 @@ export class GlCommitsScopePane extends LitElement {
 	private moveEndEdgeTo(target: number): void {
 		const maxIndex = this.maxDraggableIndex;
 		if (maxIndex < 0) return;
+
 		const clamped = Math.max(this.rangeStart, Math.min(maxIndex, target));
 		const item = this.items[clamped];
 		if (item == null) return;
@@ -593,6 +599,7 @@ export class GlCommitsScopePane extends LitElement {
 	private focusEndEdgeRow(): void {
 		const row = this.renderRoot.querySelector<HTMLElement>(`.scope-row[data-index="${this.rangeEnd}"]`);
 		if (row == null) return;
+
 		row.focus({ preventScroll: true });
 		this.scrollRowIntoViewIfNeeded(row);
 	}
@@ -620,11 +627,13 @@ export class GlCommitsScopePane extends LitElement {
 	private scrollIntoViewWithPadding(top: number, bottom: number): void {
 		const scrollContainer = this.renderRoot.querySelector<HTMLElement>('.details-scope-pane');
 		if (scrollContainer == null) return;
+
 		const containerRect = scrollContainer.getBoundingClientRect();
 		const padding = this.scrollPadding(containerRect.height);
 		const visibleTop = containerRect.top + padding;
 		const visibleBottom = containerRect.bottom - padding;
 		if (top >= visibleTop && bottom <= visibleBottom) return;
+
 		const offset = top < visibleTop ? top - visibleTop : bottom - visibleBottom;
 		scrollContainer.scrollTop += offset;
 	}
@@ -637,6 +646,7 @@ export class GlCommitsScopePane extends LitElement {
 	private commitEdgeToIndex(index: number): void {
 		const maxIndex = this.maxDraggableIndex;
 		if (maxIndex < 0) return;
+
 		const clamped = Math.min(index, maxIndex);
 
 		const start = this.rangeStart;
@@ -646,6 +656,7 @@ export class GlCommitsScopePane extends LitElement {
 		let edge: 'start' | 'end';
 		if (clamped < start) {
 			if (!canMoveStart) return;
+
 			edge = 'start';
 		} else if (clamped > end) {
 			edge = 'end';
@@ -834,6 +845,7 @@ export class GlCommitsScopePane extends LitElement {
 	private pageDelta(): number {
 		const container = this.renderRoot.querySelector<HTMLElement>('.details-scope-pane');
 		if (container == null) return 1;
+
 		const rowHeight = this.measureRowHeight();
 		return Math.max(1, Math.floor(container.clientHeight / rowHeight) - 1);
 	}
@@ -841,6 +853,7 @@ export class GlCommitsScopePane extends LitElement {
 	private scrollActiveHandleIntoView(type: 'start' | 'end'): void {
 		const handle = this.findHandle(type);
 		if (handle == null) return;
+
 		const r = handle.getBoundingClientRect();
 		this.scrollIntoViewWithPadding(r.top, r.bottom);
 	}
@@ -848,10 +861,12 @@ export class GlCommitsScopePane extends LitElement {
 	private _onDragMove = (e: PointerEvent): void => {
 		this._lastDragMoveEvent = e;
 		if (this._dragMoveRaf != null) return;
+
 		this._dragMoveRaf = requestAnimationFrame(() => {
 			this._dragMoveRaf = undefined;
 			const last = this._lastDragMoveEvent;
 			if (last == null) return;
+
 			this._processDragMove(last);
 		});
 	};
@@ -948,6 +963,7 @@ export class GlCommitsScopePane extends LitElement {
 				this.stopScrolling();
 				return;
 			}
+
 			this._dragHysteresisCleared = true;
 		}
 
@@ -998,6 +1014,7 @@ export class GlCommitsScopePane extends LitElement {
 
 		const previewRow = this.renderRoot.querySelector<HTMLElement>(`.scope-row[data-index="${this._dragPreview}"]`);
 		if (previewRow == null) return true;
+
 		const rowRect = previewRow.getBoundingClientRect();
 		const margin = Math.min(8, this.scrollPadding(containerRect.height));
 		return direction === 'up'
@@ -1026,6 +1043,7 @@ export class GlCommitsScopePane extends LitElement {
 			this._scrollSpeed = speed;
 			return;
 		}
+
 		this._scrollSpeed = speed;
 		this._scrollInterval = setInterval(() => {
 			const before = container.scrollTop;
@@ -1033,6 +1051,7 @@ export class GlCommitsScopePane extends LitElement {
 			// If we saturated against top/bottom, don't re-pick a row — the cursor
 			// hasn't moved, the rows haven't moved, the preview would just thrash.
 			if (container.scrollTop === before) return;
+
 			// Re-process using the most recent pointer position so the preview tracks
 			// rows passing under the (possibly stationary) cursor as content scrolls.
 			// Feeding a captured event back through `_onDragMove` would race the RAF

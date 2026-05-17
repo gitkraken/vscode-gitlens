@@ -173,6 +173,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 	private renderPatchMessage() {
 		if (this.state?.draft?.title == null) return undefined;
+
 		let description = this.cloudDraft?.description;
 		if (description == null) return undefined;
 
@@ -768,6 +769,7 @@ export class GlDraftDetails extends GlTreeBase {
 		const [gkRepositoryId] = e.detail.context;
 		const patch = this.state.draft?.patches?.find(p => p.gkRepositoryId === gkRepositoryId);
 		if (!patch) return;
+
 		const selectedIndex = this.selectedPatches.indexOf(patch?.id);
 		if (e.detail.checked) {
 			if (selectedIndex === -1) {

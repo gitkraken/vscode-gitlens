@@ -658,6 +658,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	const columnsSettings = useMemo<GraphColumnsSettings | undefined>(() => {
 		const columns = props.columns;
 		if (columns == null) return undefined;
+
 		const active = props.activeFilterColumns;
 		if (active == null || active.size === 0) return columns;
 

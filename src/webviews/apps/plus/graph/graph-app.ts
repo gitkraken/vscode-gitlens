@@ -121,12 +121,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private _minimapSnap = ({ pos, size }: { pos: number; size: number }) => {
 		if (size <= 0) return pos;
+
 		const defaultPct = (minimapDefaultPx / size) * 100;
 		// First render without a stored position: snap to the exact pixel default
 		// regardless of the container's current size.
 		if (this.graphState.minimapPosition == null) {
 			return defaultPct;
 		}
+
 		const px = (pos / 100) * size;
 		if (px < minimapDefaultPx / 2) return 0;
 		if (px < minimapDefaultPx) return defaultPct;
@@ -229,24 +231,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private _handleSidebarOverlayFocusOut = (e: FocusEvent): void => {
 		if (!this.shouldAutoCollapseOverlay()) return;
+
 		const next = e.relatedTarget as Node | null;
 		// Focus left the webview entirely — handled by _handleSidebarOverlayWebviewBlur, not
 		// here, so we don't react to in-webview focus moves to non-focusable nodes.
 		if (next == null) return;
 		if (this.isInsideSidebarZone(next)) return;
+
 		this.scheduleAutoCollapse();
 	};
 
 	private _handleSidebarOverlayPointerDown = (e: PointerEvent): void => {
 		if (!this.shouldAutoCollapseOverlay()) return;
+
 		const target = e.target as Node | null;
 		if (target == null) return;
 		if (this.isInsideSidebarZone(target)) return;
+
 		this.scheduleAutoCollapse();
 	};
 
 	private _handleSidebarOverlayWebviewBlur = (): void => {
 		if (!this.shouldAutoCollapseOverlay()) return;
+
 		this.scheduleAutoCollapse();
 	};
 
@@ -274,8 +281,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private isInsideSidebarZone(node: Node): boolean {
 		const rail = this.querySelector('gl-graph-sidebar');
 		if (rail?.contains(node)) return true;
+
 		const panel = this.sidebarPanelEl;
 		if (panel?.contains(node)) return true;
+
 		// Pointerdown / focusout from the split-panel divider (in its shadow DOM) retargets to
 		// the split-panel host. Without this, dragging the divider auto-collapses the panel.
 		const sidebarSplit = this.querySelector('.graph__sidebar-split');
@@ -470,6 +479,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._timelineSelectedCommit = { sha: e.detail.sha, repoPath: repoPath };
 			return;
 		}
+
 		this.graph?.selectCommits([e.detail.sha], { ensureVisible: true });
 	}
 
@@ -613,6 +623,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private persistStateNow(): void {
 		if (this.services == null) return;
+
 		const gs = this.graphState;
 		// `displayMode` is intentionally NOT persisted — every session starts in Graph mode.
 		// Toggling to Timeline is an in-memory affordance only; users opt back in per session.
@@ -648,6 +659,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private handleMinimapSplitChange(e: CustomEvent<{ position: number }>) {
 		// Track position only while open — `handleMinimapClosedChange` owns the visibility flip.
 		if (e.detail.position <= 0) return;
+
 		const gs = this.graphState;
 		if (gs.minimapPosition !== e.detail.position) {
 			gs.minimapPosition = e.detail.position;
@@ -668,6 +680,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleSidebarSplitChange(e: CustomEvent<{ position: number }>) {
 		if (e.detail.position <= 0) return;
+
 		const gs = this.graphState;
 		if (gs.sidebarPosition !== e.detail.position) {
 			gs.sidebarPosition = e.detail.position;
@@ -682,6 +695,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 			return;
 		}
+
 		let opened = false;
 		if (!gs.sidebarVisible) {
 			gs.sidebarVisible = true;
@@ -704,6 +718,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private setSidebarPanel(panel: GraphSidebarPanel): void {
 		const gs = this.graphState;
 		if (gs.activeSidebarPanel === panel && gs.sidebarVisible === true) return;
+
 		gs.activeSidebarPanel = panel;
 		gs.sidebarVisible = true;
 		this.persistState();
@@ -717,6 +732,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private hideSidebar(): void {
 		const gs = this.graphState;
 		if (!gs.sidebarVisible) return;
+
 		gs.sidebarVisible = false;
 		this.persistState();
 	}
@@ -733,6 +749,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Snap lands at exact 100 when the pane is closed; anything less is a usable open width.
 		const stored = gs[key];
 		if (stored != null && stored < 100) return;
+
 		gs[key] = 100 - detailsDefaultPct;
 		this.persistState();
 	}
@@ -740,6 +757,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private setDetailsVisible(visible: boolean, trigger?: 'toggle' | 'request-compare' | 'auto-restore'): void {
 		const gs = this.graphState;
 		if (gs.detailsVisible === visible) return;
+
 		gs.detailsVisible = visible;
 		this.persistState();
 		this.emitDetailsVisibilityTelemetry(visible, trigger ?? 'toggle');
@@ -784,6 +802,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// panel stays visible (e.g. swap-to-close, mode chip toggles), so the event isolates
 		// in-panel transitions from open/close noise.
 		if (this.graphState.detailsVisible !== true) return;
+
 		this._telemetry.sendEvent({
 			name: 'graphDetails/mode/changed',
 			data: { 'mode.old': e.detail.previous, 'mode.new': e.detail.current },
@@ -794,6 +813,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Skip the closed-edge position (snap lands at exact 100). `handleDetailsClosedChange`
 		// owns visibility; recording position=100 here would clobber the last open width.
 		if (e.detail.position >= 100) return;
+
 		this.graphState[this.detailsPositionKey] = e.detail.position;
 	}
 
@@ -813,6 +833,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: next } });
 			return;
 		}
+
 		const gs = this.graphState;
 		if (gs.detailsVisible) {
 			this.setDetailsVisible(false);
@@ -827,6 +848,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { minimap: true } });
 			return;
 		}
+
 		const gs = this.graphState;
 		gs.minimapVisible = !(gs.minimapVisible ?? true);
 		this.persistState();
@@ -862,6 +884,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private handleDisplayModeChange = (e: CustomEvent<GraphSidebarDisplayModeChangeEventDetail>): void => {
 		const gs = this.graphState;
 		if (gs.displayMode === e.detail.mode) return;
+
 		gs.displayMode = e.detail.mode;
 		// `renderGraphPaneContent` short-circuits the sidebar split when `displayMode !== 'graph'`, so
 		// the user's `sidebarVisible` setting is preserved automatically and restored on return.
@@ -1047,6 +1070,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		) {
 			return;
 		}
+
 		this.graphState.scope = scope;
 		emitTelemetrySentEvent<'graph/scope/changed'>(this, {
 			name: 'graph/scope/changed',
@@ -1192,10 +1216,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			let minimapMarkerTypes: GraphMinimapMarkerTypes[];
 			if (checked) {
 				if (currentTypes.includes(markerType)) return;
+
 				minimapMarkerTypes = [...currentTypes, markerType];
 			} else {
 				const index = currentTypes.indexOf(markerType);
 				if (index === -1) return;
+
 				minimapMarkerTypes = [...currentTypes];
 				minimapMarkerTypes.splice(index, 1);
 			}
@@ -1295,6 +1321,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const map = this.graphState.wipMetadataBySha;
 		if (map == null) return;
+
 		const prev = map[sha];
 		if (prev == null) return;
 
@@ -1334,6 +1361,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleGraphRowDoubleClick(_e: CustomEventType<'gl-graph-row-double-click'>) {
 		if (this.graphState.detailsVisible) return;
+
 		this.setDetailsVisible(true);
 		this.ensureDetailsPosition();
 	}
@@ -1372,6 +1400,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleGraphRowHoverTrack({ detail: { graphZoneType, graphRow } }: CustomEventType<'rowhovertrack'>) {
 		if (graphZoneType === refZone) return;
+
 		this.minimapEl?.select(graphRow.date, true);
 		this.graphHover?.onRowChanged(graphRow);
 	}

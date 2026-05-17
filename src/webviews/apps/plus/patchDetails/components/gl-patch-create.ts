@@ -598,6 +598,7 @@ export class GlPatchCreate extends GlTreeBase {
 			}
 			return;
 		}
+
 		this.validityMessage = undefined;
 		this.titleInput.setCustomValidity('');
 
@@ -626,6 +627,7 @@ export class GlPatchCreate extends GlTreeBase {
 		if (!this.state?.create) {
 			return;
 		}
+
 		this.creationBusy = true;
 	}
 

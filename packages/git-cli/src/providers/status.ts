@@ -253,6 +253,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			return result;
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
+
 			scope?.error(ex);
 			scope?.addExitInfo('error checking for changes');
 			// Return all false on error for graceful degradation

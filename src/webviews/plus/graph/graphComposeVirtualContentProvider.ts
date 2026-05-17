@@ -100,6 +100,7 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 	endSession(sessionId: string): void {
 		const session = this._sessions.get(sessionId);
 		if (session == null) return;
+
 		this._sessions.delete(sessionId);
 		// Fire change events so any open editors pointing at this session re-read and fail gracefully.
 		const paths = new Set<string>();
@@ -119,6 +120,7 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 	getLabel(sessionId: string, commitId: string): string {
 		const session = this._sessions.get(sessionId);
 		if (session == null) return commitId;
+
 		const idx = session.commits.findIndex(c => c.id === commitId);
 		if (idx < 0) return commitId;
 		return `compose ${String(idx + 1)} of ${String(session.commits.length)}`;
@@ -181,6 +183,7 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 			const nameAfter = nameAtCommit[i + 1];
 			const hunks = collectHunksForPath(session.commits[i].hunks, nameAfter);
 			if (hunks.length === 0) continue;
+
 			content = applyHunks(
 				content,
 				hunks.map(h => h.hunk),
@@ -222,6 +225,7 @@ function collectHunksForPath(
 	const out: Array<{ hunk: ApplyableHunk; isRename: boolean; toPath: string; fromPath: string }> = [];
 	for (const h of hunks) {
 		if (h.fileName !== path) continue;
+
 		out.push({
 			hunk: h,
 			isRename: h.isRename === true,

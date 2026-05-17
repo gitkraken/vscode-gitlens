@@ -234,6 +234,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const branchId = (e as CustomEvent<{ branchId: string }>).detail?.branchId;
 		if (!branchId) return;
 		if (this._pendingWipDetails.has(branchId)) return;
+
 		void this.fetchWipDetailsForBranch(branchId);
 	};
 
@@ -243,6 +244,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			const result = await this._ipc.sendRequest(GetOverviewWipDetailedRequest, { branchIds: [branchId] });
 			const detailed = result?.[branchId];
 			if (detailed == null) return;
+
 			// Drop the result if the branch is no longer in the overview (e.g. checked out away
 			// while the fetch was in flight).
 			const overview = this._state.overview;
@@ -312,6 +314,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const servicesReady = this._services != null ? '1' : '0';
 		const fingerprint = `${servicesReady}|${activeRow ?? ''}|${selectedShas.join(',')}|${repoPaths.join(',')}`;
 		if (fingerprint === this._lastSelectionFingerprint) return;
+
 		this._lastSelectionFingerprint = fingerprint;
 
 		// Empty selection — clear immediately, no need to debounce or fetch.
@@ -384,6 +387,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const next = new Map<string, Set<string>>();
 		for (const { repoPath, names } of results) {
 			if (names.length === 0) continue;
+
 			let bucket = next.get(repoPath);
 			if (bucket == null) {
 				bucket = new Set();

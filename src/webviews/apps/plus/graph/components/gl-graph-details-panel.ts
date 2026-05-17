@@ -257,6 +257,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (!this._actions) {
 			return this.sha != null || (this.shas != null && this.shas.length > 0);
 		}
+
 		const r = this._actions.resources;
 		return r.commit.loading.get() || r.wip.loading.get() || r.compare.loading.get();
 	}
@@ -705,6 +706,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._actions.switchAIModel();
 				return;
 			}
+
 			const panel = this.querySelector<import('./gl-details-compose-mode-panel.js').GlDetailsComposeModePanel>(
 				'gl-details-compose-mode-panel',
 			);
@@ -1013,10 +1015,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// bubble through the host element and would otherwise re-route to the multicommit
 				// default, replacing the editor the sub-panel just opened.
 				if (this._state.activeMode.get() != null) return;
+
 				this._actions.openFile(e.detail, this._actions.toSha(shas, swapped));
 			}}
 			@file-compare-between=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
+
 				this._actions.openFileCompareBetween(
 					e.detail,
 					this._actions.fromSha(shas, swapped),
@@ -1025,14 +1029,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}}
 			@file-compare-working=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
+
 				this._actions.openFileCompareWorking(e.detail, this._actions.toSha(shas, swapped));
 			}}
 			@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
+
 				this._actions.openFileComparePrevious(e.detail, this._actions.fromSha(shas, swapped));
 			}}
 			@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
+
 				this._actions.executeFileAction(e.detail, this._actions.toSha(shas, swapped));
 			}}
 			@swap-selection=${() => this._actions.swap(shas)}
@@ -1116,6 +1123,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this._actions.switchAIModel();
 					return;
 				}
+
 				const panel =
 					this.querySelector<import('./gl-details-review-mode-panel.js').GlDetailsReviewModePanel>(
 						'gl-details-review-mode-panel',
@@ -1133,6 +1141,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) => {
 				const endpoints = getReviewDiffEndpoints(this._state.scope.get());
 				if (!endpoints) return;
+
 				this._actions.openFileByPath(e.detail.filePath, this.effectiveRepoPath, {
 					lhs: endpoints.lhs,
 					rhs: endpoints.rhs,
@@ -1170,6 +1179,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Skip when the resolved selection is structurally unchanged — otherwise a benign items
 		// refresh (e.g. WIP tick) triggers redundant renders and a scopeFiles re-fetch.
 		if (scopeSelectionEqual(this._state.scope.get(), newScope)) return;
+
 		this._state.scope.set(newScope);
 		if (this.effectiveRepoPath) {
 			void this._actions.resources.scopeFiles.fetch(this.effectiveRepoPath, newScope);
@@ -1180,6 +1190,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Open in a diff editor matching the review's reference frame, mirroring the AI link path.
 		const endpoints = getReviewDiffEndpoints(this._state.scope.get());
 		if (!endpoints) return;
+
 		this._actions.openFileByPath(e.detail.path, this.effectiveRepoPath, {
 			lhs: endpoints.lhs,
 			rhs: endpoints.rhs,
@@ -1195,6 +1206,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this._actions.openVirtualFile(e.detail, virtualRef);
 			return;
 		}
+
 		this._actions.openFile(e.detail);
 	};
 
@@ -1203,6 +1215,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// drop the event when no virtual ref is attached rather than silently opening a non-sensical diff.
 		const virtualRef = (e.detail as FileChangeListItemDetail & { virtualRef?: VirtualRefShape }).virtualRef;
 		if (virtualRef == null) return;
+
 		this._actions.openVirtualFileComparePrevious(e.detail, virtualRef);
 	};
 
@@ -1211,6 +1224,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	) => {
 		const { virtualRef, files } = e.detail;
 		if (!files.length) return;
+
 		this._actions.openVirtualMultipleChanges(virtualRef, files);
 	};
 

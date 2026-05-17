@@ -409,6 +409,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 	private getIdleFileContext = (file: GitFileChangeShape): string | undefined => {
 		if (!this.repoPath) return undefined;
+
 		const context: DetailsItemTypedContext = {
 			webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
 			webviewItemValue: {
@@ -425,6 +426,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
 		if (!e.detail.context) return;
+
 		const [file] = e.detail.context as unknown as GitFileChangeShape[];
 		if (!file) return;
 

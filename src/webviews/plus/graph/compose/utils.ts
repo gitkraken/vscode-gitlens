@@ -43,6 +43,7 @@ export function libraryPlanToProposedCommits(
 		for (const idx of plan.allOrderedCommits[ci].hunkIndices) {
 			const lh = hunkByIndex.get(idx);
 			if (lh == null) continue;
+
 			if (!earliestCommitByFile.has(lh.fileName)) {
 				earliestCommitByFile.set(lh.fileName, ci);
 			}
@@ -55,6 +56,7 @@ export function libraryPlanToProposedCommits(
 		for (const idx of c.hunkIndices) {
 			const lh = hunkByIndex.get(idx);
 			if (lh == null) continue;
+
 			commitHunks.push(toComposerHunk(lh));
 		}
 		commitHunksByIndex[ci] = commitHunks;
@@ -129,6 +131,7 @@ function resolveProposedFileStatus(
 	for (const idx of commitHunkIndices) {
 		const sibling = hunkByIndex.get(idx);
 		if (sibling?.fileName !== hunk.fileName) continue;
+
 		originalFileName ??= sibling.originalFileName;
 		if (sibling.isRename === true) {
 			foundIsRename = true;
@@ -230,6 +233,7 @@ export async function executeComposeCommit(
 				},
 			};
 		}
+
 		try {
 			const force: UndoForceOptions = { dirtyWorkdir: true };
 			await composeTools.undoCompose({
@@ -303,9 +307,11 @@ async function runAbandonedStashScan(container: Container, repoPath: string): Pr
 	const abandoned: { name: string; label: string }[] = [];
 	for (const s of stashList.stashes.values()) {
 		if (s.stashName == null) continue;
+
 		const msg = s.message ?? '';
 		const ix = msg.indexOf(graphComposeStashPrefix);
 		if (ix < 0) continue;
+
 		abandoned.push({ name: s.stashName, label: msg.slice(ix) });
 	}
 	if (abandoned.length === 0) return;

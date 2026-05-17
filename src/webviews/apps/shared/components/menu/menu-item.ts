@@ -89,6 +89,7 @@ export class MenuItem extends LitElement {
 		if (this.disabled) return;
 		if (e.target !== this) return;
 		if (e.key !== 'Enter' && e.key !== ' ') return;
+
 		e.preventDefault();
 		this.click();
 	};

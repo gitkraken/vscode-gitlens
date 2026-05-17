@@ -509,6 +509,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (visitedBranches.has(currentMergeTargetBranchName)) {
 				break;
 			}
+
 			visitedBranches.add(currentMergeTargetBranchName);
 
 			const mergeTargetNameResult = await getBranchMergeTargetName(this.container, currentMergeTargetBranch);
@@ -1076,6 +1077,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		headSha: string,
 	): Promise<string | undefined> {
 		if (repo == null) return undefined;
+
 		const log = await repo.git.commits.getLog(`${baseSha}..${headSha}`, { limit: 0 });
 		if (!log?.commits.size) return undefined;
 		return [...log.commits.values()].at(-1)?.sha;
@@ -1095,6 +1097,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onRepositoryChanged(e: RepositoryChangeEvent): Promise<void> {
 		if (e.repository.id !== this._currentRepository?.id) return;
+
 		const ignoreIndexChange = this._ignoreIndexChange;
 		this._ignoreIndexChange = false;
 		// Only care about index changes (staged/unstaged changes)

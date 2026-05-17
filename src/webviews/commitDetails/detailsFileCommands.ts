@@ -228,6 +228,7 @@ export class DetailsFileCommands {
 			void window.showWarningMessage('Unable to open the merge editor, no working file found');
 			return;
 		}
+
 		const input2: MergeEditorInputs['input2'] = {
 			uri: workingUri,
 			title: 'Current',

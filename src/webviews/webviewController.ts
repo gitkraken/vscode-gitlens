@@ -381,6 +381,7 @@ export class WebviewController<
 
 	private exposeRpc(): void {
 		if (this._rpcExposed || this._rpcHost == null) return;
+
 		this._rpcExposed = true;
 		try {
 			this._rpcHost.expose();
@@ -1110,6 +1111,7 @@ export class WebviewController<
 			debugger;
 			return;
 		}
+
 		this._pendingIpcNotifications.set(type, { msg: msgOrFn, timestamp: Date.now() });
 	}
 
@@ -1145,6 +1147,7 @@ export class WebviewController<
 				void msg();
 				continue;
 			}
+
 			void this.postMessage(msg);
 			// Mirror notify()'s success-path buffer push for pending IpcMessages that just got flushed —
 			// otherwise pre-first-ready notifications (e.g. Graph's deferred-rows microtask firing during

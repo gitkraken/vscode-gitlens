@@ -633,12 +633,14 @@ export class Cache implements Disposable {
 					invalidate.call(cache, commonPath);
 					for (const worktreePath of this.getWorktreePaths(commonPath)) {
 						if (worktreePath === commonPath) continue;
+
 						invalidate.call(cache, worktreePath);
 					}
 				} else {
 					cache.delete(commonPath);
 					for (const worktreePath of this.getWorktreePaths(commonPath)) {
 						if (worktreePath === commonPath) continue;
+
 						cache.delete(worktreePath);
 					}
 				}
@@ -1308,6 +1310,7 @@ export class Cache implements Disposable {
 					if (cacheable.invalidated) {
 						for (const worktreePath of this.getWorktreePaths(commonPath)) {
 							if (worktreePath === commonPath) continue;
+
 							cache.invalidate(worktreePath);
 						}
 					}
@@ -1364,6 +1367,7 @@ export class Cache implements Disposable {
 					if (cacheable.invalidated) {
 						for (const worktreePath of this.getWorktreePaths(commonPath)) {
 							if (worktreePath === commonPath) continue;
+
 							cache.invalidate(worktreePath, cacheKey);
 						}
 					}

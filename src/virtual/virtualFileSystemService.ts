@@ -53,6 +53,7 @@ export class VirtualFileSystemService implements Disposable {
 		if (this._providers.has(namespace)) {
 			throw new Error(`VirtualFileSystemService: namespace '${namespace}' is already registered`);
 		}
+
 		this._providers.set(namespace, provider);
 
 		const sub = provider.onDidChangeContent?.(e => {
@@ -62,6 +63,7 @@ export class VirtualFileSystemService implements Disposable {
 				// Nothing to fire individually; open editors will re-stat on next focus.
 				return;
 			}
+
 			const uris = paths.map(path =>
 				encodeVirtualUri(
 					{
@@ -206,6 +208,7 @@ export class VirtualFileSystemService implements Disposable {
 	 */
 	private async pathExistsAtRef(ref: AnyRef, path: string): Promise<boolean> {
 		if (ref.kind === 'virtual') return true;
+
 		try {
 			const entry = await this.container.git
 				.getRepositoryService(ref.repoPath)
@@ -218,6 +221,7 @@ export class VirtualFileSystemService implements Disposable {
 
 	private anyRefToUri(ref: AnyRef, path: string, refersToAddedFile: boolean = false): Uri {
 		if (ref.kind === 'virtual') return this.getUri(ref.ref, path);
+
 		// Use the git provider's `getRevisionUri` so the result carries the `gitlens://` scheme
 		// with the ref encoded in the authority — that's what {@link GitFileSystemProvider} reads
 		// from when resolving content. `GitUri.fromFile` builds a tagged-but-`file://` URI, which

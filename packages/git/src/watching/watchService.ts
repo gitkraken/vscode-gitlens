@@ -83,6 +83,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 	dispose(): void {
 		if (this._disposed) return;
+
 		this._disposed = true;
 
 		for (const record of this.sessionMap.values()) {
@@ -166,6 +167,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			session: sessionRef,
 			dispose: (): void => {
 				if (handleDisposed) return;
+
 				handleDisposed = true;
 
 				const rec = this.sessionMap.get(repoPath);
@@ -341,6 +343,7 @@ function filterWorkingTreePaths(absolutePaths: string[], repoPath: string, filte
 	const result: string[] = [];
 	for (const p of absolutePaths) {
 		if (!isDescendant(p, repoPath)) continue;
+
 		const relativePath = relative(repoPath, p);
 		if (!filter.isIgnored(relativePath)) {
 			result.push(p);

@@ -9,10 +9,12 @@ export async function installClaudeHook(): Promise<void> {
 	const args = ['ai', 'hook', 'install', 'claude-code', '--force'];
 	for (const event of claudeCodeNonBlockingHookEvents) {
 		if (skippedInstallEvents.has(event)) continue;
+
 		args.push('--event', event);
 	}
 	for (const event of claudeCodeBlockingHookEvents) {
 		if (skippedInstallEvents.has(event)) continue;
+
 		args.push('--blocking-event', event);
 	}
 	await runCLICommand(args);

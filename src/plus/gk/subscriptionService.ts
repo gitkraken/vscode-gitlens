@@ -332,6 +332,7 @@ export class SubscriptionService implements Disposable {
 					getStoredSubscription: this.getStoredSubscription.bind(this),
 					refireSubscriptionChange: () => {
 						if (this._subscription == null) return;
+
 						this._etag = Date.now();
 						this._onDidChange.fire({
 							current: this._subscription,
@@ -479,6 +480,7 @@ export class SubscriptionService implements Disposable {
 
 	private async showPlanMessage(source: Source | undefined) {
 		if (!(await this.ensureSession(false, source))) return;
+
 		const {
 			account,
 			plan: { actual, effective },
@@ -572,6 +574,7 @@ export class SubscriptionService implements Disposable {
 
 	async loginWithCode(authentication: { code: string; state?: string }, source?: Source): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
+
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-in' }, source);
 		}
@@ -1673,6 +1676,7 @@ export class SubscriptionService implements Disposable {
 	async checkUpdatedSubscription(source: Source | undefined): Promise<SubscriptionState | undefined> {
 		const scope = getScopedLogger();
 		if (this._session == null) return undefined;
+
 		const oldSubscriptionState = this._subscription.state;
 		try {
 			await this.checkInAndValidate(this._session, source, { force: true });

@@ -54,11 +54,13 @@ function formatVisibleSpan(ms: number): string {
 		const w = Math.round(days / weekDays);
 		return w === 1 ? '1 week' : `${w} weeks`;
 	}
+
 	const months = days / monthDays;
 	if (months < 24) {
 		const m = Math.max(1, Math.round(months));
 		return m === 1 ? '1 month' : `${m} months`;
 	}
+
 	const years = months / 12;
 	const rounded = years >= 10 ? Math.round(years) : Number(years.toFixed(1));
 	return rounded === 1 ? '1 year' : `${rounded} years`;
@@ -360,6 +362,7 @@ export class GlTimelineHeader extends LitElement {
 
 	private renderBranchBreadcrumbItem() {
 		if (!this.showBranch) return nothing;
+
 		const headRef = this.headRef;
 		const showAllBranches = this.showAllBranches;
 		return html`<gl-breadcrumb-item
@@ -502,6 +505,7 @@ export class GlTimelineHeader extends LitElement {
 				? formatVisibleSpan(this.visibleSpanMs)
 				: periodLabels[this.period];
 		if (label == null) return nothing;
+
 		const items = (Object.entries(periodLabels) as [TimelinePeriod, string][]).map(([value, optionLabel]) => ({
 			value: value,
 			label: optionLabel,
@@ -647,11 +651,13 @@ export class GlTimelineHeader extends LitElement {
 
 	private onSliceByAuthor = (): void => {
 		if (this.sliceBy === 'author') return;
+
 		this.emit('gl-timeline-header-slice-by-change', { sliceBy: 'author' });
 	};
 
 	private onSliceByBranch = (): void => {
 		if (this.sliceBy === 'branch') return;
+
 		this.emit('gl-timeline-header-slice-by-change', { sliceBy: 'branch' });
 	};
 
@@ -663,6 +669,7 @@ export class GlTimelineHeader extends LitElement {
 	private onChooseHeadRef = (e: MouseEvent): void => {
 		const target = e.currentTarget as HTMLElement | null;
 		if ((target as HTMLButtonElement | null)?.disabled) return;
+
 		const location = target?.getAttribute('location') ?? undefined;
 		this.emit('gl-timeline-header-choose-head-ref', { location: location });
 	};
@@ -682,6 +689,7 @@ export class GlTimelineHeader extends LitElement {
 		const el = (e.target as HTMLElement)?.closest('gl-breadcrumb-item');
 		const type = el?.getAttribute('type') as TimelineScopeType | null;
 		if (type == null) return;
+
 		const value = el?.getAttribute('value') ?? undefined;
 		const detached = this.placement === 'view' || e.altKey || e.shiftKey;
 		this.emit('gl-timeline-header-change-scope', { type: type, value: value, detached: detached });

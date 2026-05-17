@@ -112,6 +112,7 @@ export class GlCategorizingLoadingAnimation extends LitElement {
 
 	private scheduleRelayout(): void {
 		if (this._scheduleRafId != null) return;
+
 		this._scheduleRafId = requestAnimationFrame(() => {
 			this._scheduleRafId = undefined;
 			this.relayout();
@@ -167,6 +168,7 @@ export class GlCategorizingLoadingAnimation extends LitElement {
 
 	private start(): void {
 		if (this._running) return;
+
 		this._running = true;
 		for (let i = 0; i < initialBurst; i++) {
 			this.scheduleSpawn(i * 120);
@@ -192,9 +194,11 @@ export class GlCategorizingLoadingAnimation extends LitElement {
 
 	private scheduleSpawn(delay: number): void {
 		if (!this._running) return;
+
 		const timer = setTimeout(() => {
 			this._timers.delete(timer);
 			if (!this._running) return;
+
 			void this.spawnParticle();
 			this.scheduleSpawn(spawnMinMs + Math.random() * spawnJitterMs);
 		}, delay);

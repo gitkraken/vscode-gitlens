@@ -213,10 +213,12 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		if (branch == null || branch.detached || branch.remote) {
 			throw new Error('Compose requires a local checked-out branch');
 		}
+
 		const headCommit = await svc.commits.getCommit('HEAD');
 		if (headCommit == null) {
 			throw new Error('Unable to resolve HEAD');
 		}
+
 		const headSha = headCommit.sha;
 
 		const hasShas = scope.includeShas.length > 0;
@@ -240,6 +242,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			}
 			const parentSha: string | undefined = cursorParents[0];
 			if (parentSha == null) break;
+
 			const parentCommit = await svc.commits.getCommit(parentSha);
 			cursorSha = parentCommit?.sha;
 			cursorParents = parentCommit?.parents ?? [];
@@ -247,6 +250,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		if (ordered.length !== selectedSet.size) {
 			throw new Error('Compose scope includeShas references commits not reachable via first-parent from HEAD');
 		}
+
 		const oldest = ordered.at(-1);
 		let rewriteFromSha = headSha;
 		if (oldest != null) {

@@ -133,6 +133,7 @@ export async function dispatchIpcMessage(host: WebviewHost<any>, instance: objec
 			if (entry.requestType == null) {
 				throw new Error(`@ipcRequest handler "${String(entry.propertyKey)}" missing requestType`);
 			}
+
 			// eslint-disable-next-line no-case-declarations
 			const result = await handler.call(instance, e.params);
 			void host.respond(entry.requestType, e, result);

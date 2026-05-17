@@ -73,6 +73,7 @@ export class GlDiffHunk extends LitElement {
 			this.targetElement.innerHTML = '';
 			return;
 		}
+
 		const config: Diff2HtmlUIConfig = {
 			colorScheme: ColorSchemeType.AUTO,
 			outputFormat: 'line-by-line',

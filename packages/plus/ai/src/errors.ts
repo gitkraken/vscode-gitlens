@@ -115,6 +115,7 @@ export function classifyNetworkError(ex: unknown): AIErrorReason.NoNetwork | AIE
 			if (noNetworkErrorCodes.has(code)) return AIErrorReason.NoNetwork;
 			if (unreachableErrorCodes.has(code)) return AIErrorReason.Unreachable;
 		}
+
 		current = (current as { cause?: unknown }).cause;
 	}
 	return sawFetchFailed ? AIErrorReason.NoNetwork : undefined;

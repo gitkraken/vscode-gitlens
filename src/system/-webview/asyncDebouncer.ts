@@ -74,6 +74,7 @@ export function createAsyncDebouncer<T>(
 		if (curDeferred == null || lastTask == null) {
 			return;
 		}
+
 		cancelCurrentExecution();
 
 		const task = lastTask;

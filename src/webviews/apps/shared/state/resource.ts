@@ -80,10 +80,12 @@ export function createResource<T, TArgs extends unknown[] = []>(
 		try {
 			const result = await fetcher(controller.signal, ...args);
 			if (controller.signal.aborted || requestId !== _currentRequestId) return;
+
 			_value.set(result);
 			_hasResolved.set(true);
 		} catch (ex) {
 			if (controller.signal.aborted || requestId !== _currentRequestId) return;
+
 			_error.set(ex instanceof Error ? ex.message : String(ex));
 		} finally {
 			if (_controller === controller) {
@@ -100,6 +102,7 @@ export function createResource<T, TArgs extends unknown[] = []>(
 
 	function mutate(value: T): void {
 		if (_disposed) return;
+
 		_value.set(value);
 		_error.set(undefined);
 		_hasResolved.set(true);

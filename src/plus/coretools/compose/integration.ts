@@ -252,10 +252,13 @@ function buildLargePromptGate(initiallySuppressed: boolean): OnBeforePrompt {
 	let hasConfirmed = initiallySuppressed;
 	return async (info): Promise<boolean> => {
 		if (hasConfirmed) return true;
+
 		const threshold = configuration.get('ai.largePromptWarningThreshold', undefined, 10000);
 		if (info.tokenEstimate <= threshold) return true;
+
 		const proceed = await showLargePromptWarning(Math.ceil(info.tokenEstimate / 100) * 100, threshold);
 		if (!proceed) return false;
+
 		hasConfirmed = true;
 		return true;
 	};

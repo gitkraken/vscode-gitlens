@@ -74,6 +74,7 @@ export class GitWorktree {
 			const relativePath = normalizePath(relative(this.workspaceFolder.uri.fsPath, this.uri.fsPath));
 			return relativePath || this.workspaceFolder.name;
 		}
+
 		const relativePath = normalizePath(relative(this.repoPath, this.uri.fsPath));
 		return relativePath || normalizePath(this.uri.fsPath);
 	}
@@ -142,6 +143,7 @@ export class GitWorktree {
 		cancellation?: AbortSignal,
 	): Promise<GitStatus | undefined> {
 		if (worktree.type === 'bare') return undefined;
+
 		const repo = getRepositoryService(worktree.path);
 		return repo?.status.getStatus(options, cancellation);
 	}
@@ -151,6 +153,7 @@ export class GitWorktree {
 		options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean },
 	): Promise<boolean | undefined> {
 		if (worktree.type === 'bare') return undefined;
+
 		const repo = getRepositoryService(worktree.path);
 		return repo?.status.hasWorkingChanges(options);
 	}

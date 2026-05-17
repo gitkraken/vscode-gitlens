@@ -55,6 +55,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 					'Choose a stash to explain',
 				);
 				if (pick?.ref == null) return;
+
 				args.rev = pick.ref;
 				commit = pick;
 			} else {

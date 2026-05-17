@@ -174,6 +174,7 @@ export function getValidateGitReferenceFn(
 ) {
 	return async (quickpick: QuickPick<any>, value: string): Promise<boolean> => {
 		if (repos == null) return false;
+
 		if (Array.isArray(repos)) {
 			if (repos.length !== 1) return false;
 

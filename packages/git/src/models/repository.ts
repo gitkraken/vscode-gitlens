@@ -405,6 +405,7 @@ export class Repository {
 			this._pendingWorkingTreeFlush = false;
 			const e = this._pendingWorkingTreeChange;
 			if (e == null || this._suspended) return;
+
 			this._pendingWorkingTreeChange = undefined;
 			this._onDidChangeWorkingTree.fire(e);
 		});

@@ -101,6 +101,7 @@ export class VSCodePage {
 					// Find the file in the workspace
 					const files = await vscode.workspace.findFiles(`**/${file}`, null, 1);
 					if (!files.length) throw new Error(`File not found: ${file}`);
+
 					uri = files[0];
 				}
 

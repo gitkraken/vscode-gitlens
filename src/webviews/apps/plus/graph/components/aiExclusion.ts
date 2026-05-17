@@ -48,6 +48,7 @@ export function pruneExcludedToFiles(
 	files: readonly GitFileChangeShape[] | undefined,
 ): Set<string> | undefined {
 	if (excluded.size === 0) return undefined;
+
 	const current = new Set((files ?? []).map(f => f.path));
 	let changed = false;
 	const pruned = new Set<string>();
@@ -68,10 +69,12 @@ export function countIncludedFiles(
 	aiExcluded: ReadonlySet<string> | undefined,
 ): number {
 	if (!files?.length) return 0;
+
 	let count = 0;
 	for (const f of files) {
 		if (excluded.has(f.path)) continue;
 		if (aiExcluded?.has(f.path)) continue;
+
 		count++;
 	}
 	return count;

@@ -54,6 +54,7 @@ export class GitRepositoryService {
 		for (const key of Object.keys(descriptors)) {
 			// Skip properties already defined on GitRepositoryService
 			if (skipOverlappingProperties.has(key)) continue;
+
 			Object.defineProperty(this, key, descriptors[key]);
 		}
 	}

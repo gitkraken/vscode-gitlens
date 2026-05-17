@@ -482,6 +482,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				const versions = await getCLIVersions();
 				return { cliVersion: versions?.core, cliPath: dirname(resolved.fsPath), status: 'completed' };
 			}
+
 			scope?.warn(`Local CLI binary not found at: ${devLocalPath}`);
 			return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
 		}
@@ -499,6 +500,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				if (await resolveCLIExecutable(cliPath)) {
 					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
 				}
+
 				scope?.warn(`CLI binary not found at expected path: ${getCLIExecutable(cliPath).fsPath}`);
 
 				cliInstallStatus = 'attempted';
@@ -528,6 +530,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			if (getIsOffline()) {
 				throw new CLIInstallError(CLIInstallErrorReason.Offline);
 			}
+
 			cliInstallAttempts += 1;
 			scope?.info(`Starting CLI installation (attempt ${cliInstallAttempts}/${maxAutoInstallAttempts})`);
 			if (this.container.telemetry.enabled) {
@@ -660,6 +663,7 @@ export class GkCliIntegrationProvider implements Disposable {
 						'Downloaded proxy archive data is empty',
 					);
 				}
+
 				// installer file name is the last part of the download URL
 				const cliProxyZipFileName = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
 				cliProxyZipFilePath = Uri.joinPath(globalStorageUri, cliProxyZipFileName);

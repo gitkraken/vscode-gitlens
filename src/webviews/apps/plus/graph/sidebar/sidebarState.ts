@@ -154,6 +154,7 @@ export function createSidebarActions(): SidebarActions {
 					unsub();
 					return;
 				}
+
 				unsubscribeConfig = unsub;
 			})();
 			void (async () => {
@@ -165,6 +166,7 @@ export function createSidebarActions(): SidebarActions {
 					unsub();
 					return;
 				}
+
 				unsubscribeWorktree = unsub;
 			})();
 
@@ -177,6 +179,7 @@ export function createSidebarActions(): SidebarActions {
 
 		fetchPanel: function (panel: GraphSidebarPanel) {
 			if (service == null) return;
+
 			void panels[panel].fetch();
 		},
 
@@ -195,6 +198,7 @@ export function createSidebarActions(): SidebarActions {
 		invalidateAll: function () {
 			for (const [panel, r] of Object.entries(panels)) {
 				if (panel === actions.activePanel) continue;
+
 				r.cancel();
 				r.mutate(undefined);
 			}
@@ -218,6 +222,7 @@ export function createSidebarActions(): SidebarActions {
 				agentsLayout.set(agentsLayout.get() === 'tree' ? 'list' : 'tree');
 				return;
 			}
+
 			service?.toggleLayout(panel);
 		},
 

@@ -71,6 +71,7 @@ class ModifierKeysTracker {
 		if (this._altKey === alt && this._shiftKey === shift && this._ctrlKey === ctrl && this._metaKey === meta) {
 			return;
 		}
+
 		this._altKey = alt;
 		this._shiftKey = shift;
 		this._ctrlKey = ctrl;

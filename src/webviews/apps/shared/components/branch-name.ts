@@ -123,6 +123,7 @@ export class GlBranchName extends LitElement {
 
 	private readonly onKeydown = (e: KeyboardEvent): void => {
 		if (this.appearance !== 'button') return;
+
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
 			this.click();

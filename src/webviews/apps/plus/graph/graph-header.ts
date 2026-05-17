@@ -278,6 +278,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			const { operations } = parseSearchQuery(this._searchQuery);
 			for (const [op, values] of operations) {
 				if (values.size === 0) continue;
+
 				const column = operatorToColumn[op];
 				if (column != null) {
 					active.add(column);
@@ -499,6 +500,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			// once the new signal value is reflected.
 			await this.updateComplete;
 			if (!this.graphState.searching) return;
+
 			// Yield one frame to avoid a tight loop if updateComplete resolves
 			// synchronously (e.g., no actual DOM changes in this cycle)
 			await new Promise(r => requestAnimationFrame(r));
@@ -705,6 +707,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			// Refresh searchResults after waiting
 			searchResults = this.graphState.searchResults;
 			if (searchResults == null || isGraphSearchResultsError(searchResults)) return;
+
 			count = searchResults.count;
 		}
 

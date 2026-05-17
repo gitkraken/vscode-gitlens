@@ -447,6 +447,7 @@ export class AIProviderService implements AIService, Disposable {
 									input.validationMessage = 'Please enter a valid URL';
 									return;
 								}
+
 								try {
 									new URL(value);
 								} catch {
@@ -458,6 +459,7 @@ export class AIProviderService implements AIService, Disposable {
 									input.validationMessage = error;
 									return;
 								}
+
 								resolve(value);
 							}),
 						);
@@ -833,6 +835,7 @@ export class AIProviderService implements AIService, Disposable {
 		if (!(await ensureAccess(this.container, undefined, source))) return false;
 
 		if (feature === 'generate-commitMessage') return true;
+
 		const suffix = isAdvancedFeature(feature)
 			? 'requires GitLens Advanced or a trial'
 			: 'requires GitLens Pro or a trial';
@@ -1085,6 +1088,7 @@ export class AIProviderService implements AIService, Disposable {
 								if (result === retry) {
 									continue;
 								}
+
 								if (!fulfilled) {
 									options?.generating?.cancel();
 								}

@@ -93,6 +93,7 @@ export function getCommitHeadline(message: string | undefined): string {
 	const msg = message ?? '';
 	const splitterIdx = msg.indexOf(messageHeadlineSplitterToken);
 	if (splitterIdx >= 0) return msg.substring(0, splitterIdx);
+
 	const newlineIdx = msg.indexOf('\n');
 	return newlineIdx >= 0 ? msg.substring(0, newlineIdx) : msg;
 }

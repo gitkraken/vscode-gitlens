@@ -582,6 +582,7 @@ export class CommitsPanel extends LitElement {
 				filter: (_evt, target) => {
 					const commitId = target.dataset.commitId;
 					if (!commitId) return false;
+
 					const commit = this.commits.find(c => c.id === commitId);
 					return commit?.locked === true;
 				},
@@ -1038,6 +1039,7 @@ export class CommitsPanel extends LitElement {
 		const gen = ++this._pendingDispatch;
 		setTimeout(() => {
 			if (gen !== this._pendingDispatch || !this.isConnected) return;
+
 			this.dispatchEvent(event);
 		}, 0);
 	}

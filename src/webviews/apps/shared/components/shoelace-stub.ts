@@ -16,6 +16,7 @@ import { registerIconLibrary } from '@awesome.me/webawesome/dist/components/icon
 let registered = false;
 function register(): void {
 	if (registered) return;
+
 	registered = true;
 	registerIconLibrary('default', { resolver: () => '' });
 	registerIconLibrary('system', { resolver: () => '' });

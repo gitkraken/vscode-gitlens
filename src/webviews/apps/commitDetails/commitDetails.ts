@@ -204,6 +204,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 			explain: createResource<ExplainState | undefined, [string | undefined]>(async (signal, prompt) => {
 				const commit = s.currentCommit.get();
 				if (commit == null) return undefined;
+
 				try {
 					const result = await inspect.explainCommit(commit.repoPath, commit.sha, prompt, signal);
 					if (result.error) {
@@ -217,6 +218,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 			generate: createResource<GenerateState | undefined>(async signal => {
 				const repoPath = s.wipState.get()?.repo?.path ?? s.currentCommit.get()?.repoPath;
 				if (repoPath == null) return undefined;
+
 				try {
 					const result = await inspect.generateDescription(repoPath, signal);
 					if (result.error) {
@@ -364,6 +366,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		const prefs = this._state.preferences.get();
 		const preference = prefs?.indent;
 		if (preference === this.indentPreference) return;
+
 		this.indentPreference = preference ?? 16;
 
 		const rootStyle = document.documentElement.style;
@@ -682,6 +685,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	private onCreatePatchFromWip(checked: boolean | 'staged' = true): void {
 		const wip = this._state.wipState.get();
 		if (wip?.changes == null) return;
+
 		this._actions?.createPatchFromWip(wip.changes, checked);
 	}
 

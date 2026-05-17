@@ -36,6 +36,7 @@ export class RepositoryInitWatcher implements UnifiedDisposable {
 
 	dispose(): void {
 		if (this._disposed) return;
+
 		this._disposed = true;
 
 		for (const watcher of this.watchers.values()) {
@@ -60,6 +61,7 @@ export class RepositoryInitWatcher implements UnifiedDisposable {
 
 		const watcher = this.provider.createWatcher(basePath, gitInitGlob, event => {
 			if (event.reason !== 'create') return;
+
 			this.emitter.fire({ path: event.path, basePath: basePath });
 		});
 

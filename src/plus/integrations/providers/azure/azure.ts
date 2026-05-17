@@ -684,6 +684,7 @@ class WorkItemStates {
 	private clearTypeStates(project: string, workItemType: string): void {
 		const states = this._types.get(this.getTypeKey(project, workItemType));
 		if (states == null) return;
+
 		for (const state of states) {
 			this._categories.delete(this.getStateKey(project, workItemType, state.name));
 		}

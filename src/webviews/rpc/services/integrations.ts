@@ -94,6 +94,7 @@ export class IntegrationsService {
 				container.integrations.onDidChange(async e => {
 					// Only re-query if the change involves cloud integrations
 					if (![...e.added, ...e.removed].some(id => isSupportedCloudIntegrationId(id))) return;
+
 					await fireIntegrationsChanged();
 				}),
 				// Fires when an integration connects or disconnects

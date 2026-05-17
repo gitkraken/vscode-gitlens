@@ -163,6 +163,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 			if (target === DeepLinkType.Comparison) {
 				const split = joined.split(/(\.\.\.|\.\.)/);
 				if (split.length !== 3) return undefined;
+
 				targetId = split[0];
 				secondaryTargetId = split[2];
 				secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;

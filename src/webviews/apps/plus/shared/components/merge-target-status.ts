@@ -255,6 +255,7 @@ export class GlMergeTargetStatus extends LitElement {
 			this._target = undefined;
 			return;
 		}
+
 		void value.then(
 			r => {
 				if (this._targetPromise === value) {

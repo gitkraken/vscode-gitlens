@@ -192,6 +192,7 @@ function expandRows(
 		for (const name of sliceNames) {
 			const idx = sliceIndexByName.get(name);
 			if (idx == null) continue;
+
 			rows.push({ commit: commit, timestamp: ts, sliceIndex: idx, bubbleR: 0 });
 		}
 	}
@@ -235,6 +236,7 @@ export function computeBubbleMetrics(dataset: readonly TimelineDatum[]): BubbleM
 
 function computeBinMetrics(bins: readonly { additions: number; deletions: number }[]): BubbleMetrics {
 	if (bins.length === 0) return { p99: 0, max: 0 };
+
 	// Mirrors `computeBubbleMetrics` — bins whose only contents are the zero-total Working-Tree
 	// placeholder would otherwise pull p99 to 0 on sparse-bin datasets.
 	const sums = new Float32Array(bins.length);
@@ -250,6 +252,7 @@ function computeBinMetrics(bins: readonly { additions: number; deletions: number
 		}
 	}
 	if (max === 0 || n === 0) return { p99: 0, max: 0 };
+
 	const populated = sums.subarray(0, n);
 	populated.sort();
 	const p99Index = Math.min(n - 1, Math.floor((n - 1) * 0.99));
@@ -574,6 +577,7 @@ export function probeViewModelDomain(
 	for (const c of dataset) {
 		const ts = c.sort;
 		if (!Number.isFinite(ts)) continue;
+
 		if (ts < oldest) {
 			oldest = ts;
 		}

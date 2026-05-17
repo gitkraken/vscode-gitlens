@@ -27,6 +27,7 @@ export function registerVisibilityDebug(svc: GitProviderService, facade: Visibil
 
 export function setSimulatedRepoVisibility(visibility: RepositoryVisibility | undefined): void {
 	if (_override === visibility) return;
+
 	_override = visibility;
 	_facade?.clearAccessCache();
 	_facade?.invalidateReposVisibilityCache();

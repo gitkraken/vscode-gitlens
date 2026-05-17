@@ -292,6 +292,7 @@ export class GitFixture {
 			if (!todoFilePath) {
 				throw new Error('Must call waitForTodoFile first');
 			}
+
 			const doneFile = `${todoFilePath}.done`;
 			await fs.writeFile(doneFile, 'done');
 		};
@@ -300,6 +301,7 @@ export class GitFixture {
 			if (!todoFilePath) {
 				throw new Error('Must call waitForTodoFile first');
 			}
+
 			const abortFile = `${todoFilePath}.abort`;
 			await fs.writeFile(abortFile, 'abort');
 		};

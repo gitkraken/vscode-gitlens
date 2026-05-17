@@ -186,6 +186,7 @@ export class GlCliGitProvider implements GlGitProvider {
 					// Clear pending commands on @gitlens/git-cli's Git when the cache resets
 					this.container.events.on('git:cache:reset', e => {
 						if (e.data.types?.every(t => t === 'providers')) return;
+
 						this._provider?.git.clearPendingCommands();
 					}),
 				);
@@ -596,6 +597,7 @@ export class GlCliGitProvider implements GlGitProvider {
 			if (result.value[0] === 'public') {
 				return ['public', getVisibilityCacheKey(result.value[1])];
 			}
+
 			if (result.value[0] !== 'local') {
 				local = false;
 			}
@@ -724,6 +726,7 @@ export class GlCliGitProvider implements GlGitProvider {
 					}
 					return;
 				}
+
 				scope?.info(`found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - already open`);
 				return;
 			}
@@ -734,6 +737,7 @@ export class GlCliGitProvider implements GlGitProvider {
 				scope?.warn(`Unable to get gitDir for '${uri.toString(true)}'`);
 				return;
 			}
+
 			repositories.push(...this.openRepository(folder, uri, gitDir, root, silent));
 		};
 

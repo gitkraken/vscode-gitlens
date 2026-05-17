@@ -260,6 +260,7 @@ export class GlChipOverflow extends LitElement {
 
 	private scheduleMeasure(): void {
 		if (this._measurePending || this._measuring) return;
+
 		this._measurePending = true;
 		requestAnimationFrame(() => {
 			this._measurePending = false;
@@ -269,6 +270,7 @@ export class GlChipOverflow extends LitElement {
 
 	private measureOverflow(): void {
 		if (this._measuring) return;
+
 		this._measuring = true;
 
 		try {
@@ -297,6 +299,7 @@ export class GlChipOverflow extends LitElement {
 					? this.measureSingleRow(container, children)
 					: this.measureFloat(container, children);
 			if (result == null) return;
+
 			let { visibleCount, overflowCount } = result;
 
 			// Ensure at least 1 child visible if there are any
@@ -307,6 +310,7 @@ export class GlChipOverflow extends LitElement {
 
 			// Skip DOM writes if result hasn't changed
 			if (visibleCount === this._lastVisibleCount) return;
+
 			this._lastVisibleCount = visibleCount;
 
 			// Hide overflow children
@@ -345,6 +349,7 @@ export class GlChipOverflow extends LitElement {
 		const measureChromeWidth = (selector: string): number => {
 			const el = this.shadowRoot?.querySelector(selector) as HTMLElement | null;
 			if (el == null || el.offsetWidth === 0) return 0;
+
 			const style = getComputedStyle(el);
 			return (
 				el.offsetWidth + (parseFloat(style.marginInlineStart) || 0) + (parseFloat(style.marginInlineEnd) || 0)
@@ -381,6 +386,7 @@ export class GlChipOverflow extends LitElement {
 		for (const child of children) {
 			const w = child.offsetWidth + chipMargin;
 			if (usedWidth + w > availableForChipsWithOverflow) break;
+
 			usedWidth += w;
 			visibleCount++;
 		}
@@ -417,6 +423,7 @@ export class GlChipOverflow extends LitElement {
 			if (child.offsetTop - baseTop + 1 >= maxHeight) {
 				break;
 			}
+
 			visibleCount++;
 		}
 
@@ -441,6 +448,7 @@ export class GlChipOverflow extends LitElement {
 				const availableWidth = isOnRow1 ? containerWidth - suffixWidth : containerWidth;
 
 				if (lastVisibleRight + lastMargin + chipWidth <= availableWidth) break;
+
 				visibleCount--;
 				overflowCount++;
 			}

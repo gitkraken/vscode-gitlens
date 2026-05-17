@@ -303,6 +303,7 @@ export function inferGitCommandPriority(args: readonly (string | undefined)[]): 
 			continue;
 		}
 		if (a.startsWith('-')) continue;
+
 		command = a;
 		break;
 	}

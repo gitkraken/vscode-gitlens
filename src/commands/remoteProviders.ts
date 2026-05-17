@@ -72,6 +72,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 			}
 
 			if (repos.size === 0) return false;
+
 			if (repos.size === 1) {
 				let repo;
 				[repo, remote] = first(repos)!;
@@ -166,6 +167,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 			}
 
 			if (repos.size === 0) return;
+
 			if (repos.size === 1) {
 				remote = first(repos)![1];
 			} else {

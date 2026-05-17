@@ -24,6 +24,7 @@ interface AgentPillSummary {
 
 function formatElapsed(value: Date | number | undefined): string | undefined {
 	if (value == null) return undefined;
+
 	const timestamp = typeof value === 'number' ? value : value.getTime();
 	const seconds = Math.floor((Date.now() - timestamp) / 1000);
 	if (seconds < 60) return `${seconds}s`;

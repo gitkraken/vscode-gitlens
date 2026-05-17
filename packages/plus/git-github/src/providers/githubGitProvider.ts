@@ -152,6 +152,7 @@ export class GitHubGitProvider implements GitHubGitProviderInternal, GitProvider
 
 	getPagingLimit(limit?: number): number {
 		if (limit === 0) return 0;
+
 		limit = Math.min(limit ?? this.context.config?.paging?.limit ?? 100, 100);
 		if (limit !== 0 && limit < 100) {
 			limit = Math.max(limit, 1);

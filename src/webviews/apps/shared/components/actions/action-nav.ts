@@ -58,6 +58,7 @@ export class ActionNav extends LitElement {
 
 	private handleKeydown(e: KeyboardEvent) {
 		if (!e.target || this.actionNodes == null) return;
+
 		const target = e.target as HTMLElement;
 		const posinset = parseInt(target.getAttribute('aria-posinset') ?? '0', 10);
 
@@ -80,6 +81,7 @@ export class ActionNav extends LitElement {
 		if ($next == null || $next === target) {
 			return;
 		}
+
 		e.preventDefault();
 		e.stopPropagation();
 		target.setAttribute('tabindex', '-1');

@@ -128,6 +128,7 @@ export class GlDiffFile extends LitElement {
 		this._processingTimer = setTimeout(() => {
 			this._processingTimer = undefined;
 			if (!this.isConnected || !this.isVisible) return;
+
 			this.processDiff();
 		}, 0);
 	}
@@ -218,6 +219,7 @@ export class GlDiffFile extends LitElement {
 			this.parsedDiff = undefined;
 			return;
 		}
+
 		const diffLines = this.hunks
 			.map((hunk, i) => {
 				if (i === 0) {

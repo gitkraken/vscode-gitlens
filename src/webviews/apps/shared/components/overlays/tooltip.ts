@@ -162,12 +162,14 @@ export class GlTooltip extends LitElement {
 
 	private attachAnchor(el: Element | undefined): void {
 		if (el == null) return;
+
 		this.anchorEl = el;
 		this.addAriaDescribedBy(el, this.bodyId);
 	}
 
 	private detachAnchor(): void {
 		if (this.anchorEl == null) return;
+
 		this.removeAriaDescribedBy(this.anchorEl, this.bodyId);
 		// Listeners are scoped to the eventController signal; nothing else to remove.
 		this.anchorEl = undefined;
@@ -177,6 +179,7 @@ export class GlTooltip extends LitElement {
 		const current = element.getAttribute('aria-describedby') ?? '';
 		const ids = current.split(/\s+/).filter(Boolean);
 		if (ids.includes(id)) return;
+
 		ids.push(id);
 		element.setAttribute('aria-describedby', ids.join(' '));
 	}
@@ -194,6 +197,7 @@ export class GlTooltip extends LitElement {
 
 	private registerDismissible(): void {
 		if (dismissibleStack.includes(this)) return;
+
 		dismissibleStack.push(this);
 		document.addEventListener('keydown', this.onDocumentKeyDown, {
 			signal: this.eventController?.signal,
@@ -210,6 +214,7 @@ export class GlTooltip extends LitElement {
 
 	private readonly onDocumentKeyDown = (e: KeyboardEvent): void => {
 		if (e.key !== 'Escape' || !this.open || !isTopDismissible(this)) return;
+
 		e.preventDefault();
 		e.stopPropagation();
 		this.open = false;
@@ -217,6 +222,7 @@ export class GlTooltip extends LitElement {
 
 	private readonly onMouseOver = (): void => {
 		if (this.disabled || this.suppressed) return;
+
 		clearTimeout(this.hoverTimeout);
 		this.hoverTimeout = setTimeout(() => {
 			this.open = true;
@@ -226,6 +232,7 @@ export class GlTooltip extends LitElement {
 	private readonly onMouseOut = (): void => {
 		// Don't dismiss if the pointer is still over the anchor or moved onto the tooltip itself.
 		if (this.anchorEl?.matches(':hover') || this.matches(':hover')) return;
+
 		clearTimeout(this.hoverTimeout);
 		this.hoverTimeout = setTimeout(() => {
 			this.open = false;
@@ -234,6 +241,7 @@ export class GlTooltip extends LitElement {
 
 	private readonly onFocusIn = (): void => {
 		if (this.disabled || this.suppressed) return;
+
 		clearTimeout(this.hoverTimeout);
 		this.open = true;
 	};
@@ -274,6 +282,7 @@ export class GlTooltip extends LitElement {
 
 	async show(): Promise<void> {
 		if (this.disabled || this.suppressed) return;
+
 		this.open = true;
 		await this.updateComplete;
 	}

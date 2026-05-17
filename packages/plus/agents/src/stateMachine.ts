@@ -33,6 +33,7 @@ export function isProcessAlive(pid: number): boolean {
 	// (and target the current process under libuv on Windows), so they don't tell us
 	// anything about a specific pid. Reject anything that isn't a real, positive pid.
 	if (!Number.isInteger(pid) || pid <= 0) return false;
+
 	try {
 		kill(pid, 0);
 		return true;

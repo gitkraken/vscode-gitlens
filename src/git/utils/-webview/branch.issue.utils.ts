@@ -25,6 +25,7 @@ export async function addAssociatedIssueToBranch(
 ): Promise<void> {
 	const { key, encoded } = await getConfigKeyAndEncodedAssociatedIssuesForBranch(container, branch);
 	if (options?.cancellation?.aborted) return;
+
 	try {
 		const associatedIssues: GitConfigEntityIdentifier[] = encoded
 			? (JSON.parse(encoded) as GitConfigEntityIdentifier[])
@@ -32,6 +33,7 @@ export async function addAssociatedIssueToBranch(
 		if (associatedIssues.some(i => i.entityId === issue.nodeId)) {
 			return;
 		}
+
 		associatedIssues.push(encodeIssueOrPullRequestForGitConfig(issue, owner));
 		await container.git
 			.getRepositoryService(branch.repoPath)
@@ -95,6 +97,7 @@ export async function removeAssociatedIssueFromBranch(
 ): Promise<void> {
 	const { key, encoded } = await getConfigKeyAndEncodedAssociatedIssuesForBranch(container, branch);
 	if (options?.cancellation?.aborted) return;
+
 	try {
 		let associatedIssues: GitConfigEntityIdentifier[] = encoded
 			? (JSON.parse(encoded) as GitConfigEntityIdentifier[])

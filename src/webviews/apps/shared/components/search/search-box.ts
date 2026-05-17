@@ -191,6 +191,7 @@ export class GlSearchBox extends GlElement {
 	}
 	set value(value: string) {
 		if (this._value !== undefined) return;
+
 		this._value = value;
 	}
 

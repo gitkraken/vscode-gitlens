@@ -478,6 +478,7 @@ export class FileAnnotationController implements Disposable {
 		}
 
 		if (editor == null) return false; // || editor.viewColumn == null) return false;
+
 		this._editor = editor;
 
 		const trackedDocument = await this.container.documentTracker.getOrAdd(editor.document);

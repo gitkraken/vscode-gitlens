@@ -153,6 +153,7 @@ export class GlCompareAIActions extends LitElement {
 
 	private onGenerateChangelog(): void {
 		if (this.generateChangelogBusy) return;
+
 		this.dispatchEvent(new CustomEvent('gl-generate-changelog', { bubbles: true, composed: true }));
 	}
 }

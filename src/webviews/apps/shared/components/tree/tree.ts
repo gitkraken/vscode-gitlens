@@ -59,6 +59,7 @@ export class GlTree extends LitElement {
 
 	private handleKeydown(e: KeyboardEvent) {
 		if (!e.target) return;
+
 		const target = e.target as HTMLElement;
 
 		if (e.key === 'ArrowUp') {

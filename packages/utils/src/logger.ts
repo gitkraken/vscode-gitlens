@@ -364,6 +364,7 @@ export function getLoggableName(instance: object): string {
 		if (customNameFn != null) {
 			return customNameFn(instance, name);
 		}
+
 		proto = Object.getPrototypeOf(proto);
 	}
 

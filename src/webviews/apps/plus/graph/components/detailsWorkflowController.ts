@@ -442,6 +442,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		forward: (): boolean => {
 			const snapshot = this._reviewBackSnapshot;
 			if (snapshot == null) return false;
+
 			this.actions.resources.review.mutate(snapshot);
 			// Keep the snapshot so a subsequent back → forward cycle still works; the chip is
 			// driven by `reviewForwardAvailable` which the panel hides outside the idle state.
@@ -495,6 +496,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		forward: (): boolean => {
 			const snapshot = this._composeBackSnapshot;
 			if (snapshot == null) return false;
+
 			this.actions.resources.compose.mutate(snapshot);
 			return true;
 		},
@@ -647,6 +649,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				unsubscribe();
 				return;
 			}
+
 			this._subscriptionUnsubscribe = unsubscribe;
 		})();
 	}

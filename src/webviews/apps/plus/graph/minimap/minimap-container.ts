@@ -183,6 +183,7 @@ export class GlGraphMinimapContainer extends GlElement {
 		if (this._lastZoomApplied?.start === window.start && this._lastZoomApplied?.end === window.end) {
 			return;
 		}
+
 		// Pad the scope window with a thin per-side breathing room so the edge triangles + highlight
 		// band aren't pinned to the canvas edge. Two opt-outs from the brush-zoom defaults:
 		//   - `minRange: 0` so the 7-day brush floor doesn't blow a 1-day scope out to 7 days.
@@ -525,16 +526,19 @@ export class GlGraphMinimapContainer extends GlElement {
 	private handleEnterZoom() {
 		const window = this.scopeWindow;
 		if (window == null) return;
+
 		this.minimap?.applyZoom(window.start, window.end);
 	}
 
 	select(date: number | Date | undefined, trackOnly: boolean = false): void {
 		if (this.disabled || this.collapsed) return;
+
 		this.minimap?.select(date, trackOnly);
 	}
 
 	unselect(date?: number | Date, focus: boolean = false): void {
 		if (this.disabled) return;
+
 		this.minimap?.unselect(date, focus);
 	}
 

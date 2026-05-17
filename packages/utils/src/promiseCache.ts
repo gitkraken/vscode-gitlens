@@ -97,6 +97,7 @@ export class PromiseCache<K, V> {
 		if (entry == null || this.expired(entry, now)) {
 			return undefined;
 		}
+
 		// Update accessed time
 		entry.accessed = now;
 		return entry.promise;

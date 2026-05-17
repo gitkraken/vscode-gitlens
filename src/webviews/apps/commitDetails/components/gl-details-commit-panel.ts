@@ -666,6 +666,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	private onToggleReachability() {
 		// Only allow expansion when there are refs to show
 		if (!this._reachabilityExpanded && !this.reachability?.refs?.length) return;
+
 		this._reachabilityExpanded = !this._reachabilityExpanded;
 	}
 

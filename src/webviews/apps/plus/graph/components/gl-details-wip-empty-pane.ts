@@ -16,6 +16,7 @@ type NextStep = {
 
 function getRemoteNameFromUpstream(upstreamName: string | undefined): string {
 	if (!upstreamName) return 'origin';
+
 	const slash = upstreamName.indexOf('/');
 	return slash > 0 ? upstreamName.slice(0, slash) : upstreamName;
 }

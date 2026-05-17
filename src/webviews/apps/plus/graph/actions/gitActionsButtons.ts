@@ -386,6 +386,7 @@ export class GlFetchButton extends LitElement {
 	private handleAutoFetchToggle(e: CustomEvent) {
 		const $el = e.target as HTMLInputElement | null;
 		if ($el == null) return;
+
 		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { autoFetchEnabled: $el.checked } });
 	}
 }

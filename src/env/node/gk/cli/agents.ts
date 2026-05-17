@@ -96,6 +96,7 @@ function parseAgents(output: string): GkAgent[] {
 	const agents: GkAgent[] = [];
 	for (const item of raw as unknown[]) {
 		if (item == null || typeof item !== 'object') continue;
+
 		const a = item as Record<string, unknown>;
 		if (
 			typeof a.name !== 'string' ||

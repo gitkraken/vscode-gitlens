@@ -95,6 +95,7 @@ export class AgentStatusService implements Disposable {
 				// Refresh when the worktree set or branch state of any repo we care about changes.
 				// The underlying `getWorktrees()` cache already invalidates on these same signals.
 				if (!e.changed('heads', 'remotes', 'worktrees')) return;
+
 				void this.refreshWorktreeNameCache();
 			}),
 			this.container.git.onDidChangeRepositories(() => {
@@ -249,8 +250,10 @@ export class AgentStatusService implements Disposable {
 				for (const r of results) {
 					const value = getSettledValue(r);
 					if (value == null) continue;
+
 					for (const wt of value.worktrees) {
 						if (!value.paths.has(wt.path)) continue;
+
 						const next: AgentSessionWorktreeMetadata = {
 							name: wt.name,
 							type: wt.type,
@@ -304,6 +307,7 @@ export class AgentStatusService implements Disposable {
 			if (session != null) {
 				// Sessions outside this workspace are owned by another GitLens instance; let it resolve them.
 				if (!session.isInWorkspace) return;
+
 				provider.resolvePermission?.(sessionId, decision, updatedPermissions);
 				return;
 			}
@@ -454,6 +458,7 @@ export class AgentStatusService implements Disposable {
 				placeHolder: `Action for ${getSessionDisplayName(session, this.getWorktreeMetadataForSession(session)?.name)}`,
 			});
 			if (actionPick == null) return;
+
 			action = actionPick.action;
 		}
 

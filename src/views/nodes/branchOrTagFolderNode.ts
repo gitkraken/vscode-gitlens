@@ -54,6 +54,7 @@ export class BranchOrTagFolderNode extends ViewNode<
 			}
 
 			if (!folder.children?.size) continue;
+
 			if (folder.children.size === 1 && compact) {
 				const child = first(folder.children.values());
 				if (child?.value != null) {

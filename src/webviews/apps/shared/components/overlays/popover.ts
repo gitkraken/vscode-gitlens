@@ -58,6 +58,7 @@ const allResizeHandles: readonly ResizeHandle[] = [
  */
 function isHandleAnchored(handle: ResizeHandle, placement: string | undefined): boolean {
 	if (!placement) return false;
+
 	const [side, align] = placement.split('-');
 
 	// Main axis: the edge opposite the placement side.
@@ -104,6 +105,7 @@ function isShadowIncludingAncestor(possibleAncestor: Node, node: Node): boolean 
 	let current: Node | null = node;
 	while (current != null) {
 		if (current === possibleAncestor) return true;
+
 		current = current.parentNode ?? (current instanceof ShadowRoot ? current.host : null);
 	}
 	return false;
@@ -111,6 +113,7 @@ function isShadowIncludingAncestor(possibleAncestor: Node, node: Node): boolean 
 
 function parseResizeHandles(value: string | undefined): ResizeHandle[] {
 	if (!value) return [];
+
 	const result = new Set<ResizeHandle>();
 	for (const token of value.trim().split(/\s+/)) {
 		switch (token) {
@@ -591,9 +594,11 @@ export class GlPopover extends GlElement {
 
 	private handleResizePointerDown = (e: PointerEvent): void => {
 		if (e.button !== 0) return;
+
 		const handle = e.currentTarget as HTMLElement;
 		const pos = handle.dataset.handle as ResizeHandle | undefined;
 		if (pos == null) return;
+
 		e.preventDefault();
 
 		const growsRight = pos === 'right' || pos === 'top-right' || pos === 'bottom-right';
@@ -651,6 +656,7 @@ export class GlPopover extends GlElement {
 			}
 			return undefined;
 		}
+
 		if (this._triggeredBy == null || triggeredBy !== 'hover') {
 			this._triggeredBy = triggeredBy;
 		}

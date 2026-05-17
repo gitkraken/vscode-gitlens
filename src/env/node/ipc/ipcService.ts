@@ -101,6 +101,7 @@ export class IpcService implements Disposable {
 
 		void this.ensureServer().then(server => {
 			if (disposed || server == null) return;
+
 			try {
 				// Cast through unknown — the underlying server uses unknown/unknown but each
 				// handler typically narrows its own request/response shape.
@@ -184,6 +185,7 @@ export class IpcService implements Disposable {
 
 	private ensureServer(): Promise<IpcServer<unknown, unknown> | undefined> {
 		if (this._server != null) return Promise.resolve(this._server);
+
 		this._serverPromise ??= createIpcServer<unknown, unknown>().then(
 			server => {
 				this._server = server;

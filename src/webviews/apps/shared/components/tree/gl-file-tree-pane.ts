@@ -350,6 +350,7 @@ export class GlFileTreePane extends LitElement {
 		if (this.files) {
 			for (const file of this.files) {
 				if (seen.has(file.path)) continue;
+
 				seen.add(file.path);
 				const entry = this.checkableStates?.get(file.path);
 				const disabled = entry?.disabled ?? this.checkableStateDefault?.disabled ?? false;
@@ -377,6 +378,7 @@ export class GlFileTreePane extends LitElement {
 			const seenConflicts = new Set<string>();
 			for (const file of this.files) {
 				if (!isConflictStatus(file.status) || seenConflicts.has(file.path)) continue;
+
 				seenConflicts.add(file.path);
 				conflictCount++;
 			}

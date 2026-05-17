@@ -463,6 +463,7 @@ export class GlDetailsAgentStatus extends LitElement {
 
 		const hasCards = this.computeVisibleCardCount() > 0;
 		if (hasCards === this._lastHasVisibleCards) return;
+
 		this._lastHasVisibleCards = hasCards;
 		this.dispatchEvent(
 			new CustomEvent('gl-agent-status-cards-visibility-change', {
@@ -476,6 +477,7 @@ export class GlDetailsAgentStatus extends LitElement {
 	private computeVisibleCardCount(): number {
 		const sessions = this.sessions;
 		if (sessions == null || sessions.length === 0) return 0;
+
 		const visibleCats = expandVisibleCategories[this._expand];
 		let count = 0;
 		for (const s of sessions) {

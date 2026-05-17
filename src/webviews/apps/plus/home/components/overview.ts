@@ -197,6 +197,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private switchTab(tab: OverviewTab): void {
 		if (this._activeTab === tab) return;
+
 		this._activeTab = tab;
 		if (tab === 'agents') {
 			this._agentOverviewState.fetch();
@@ -235,6 +236,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private renderRecentOnlyComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
+
 		const { repository } = overview;
 		return html`
 			<gl-branch-section
@@ -290,6 +292,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		if (!this._inactiveOverviewState.filter.stale || !this._inactiveOverviewState.filter.recent) {
 			return;
 		}
+
 		void this._homeCtx.homeService?.setOverviewFilter({
 			stale: this._inactiveOverviewState.filter.stale,
 			recent: {
@@ -331,6 +334,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private renderRecentTabComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
+
 		const { repository } = overview;
 		return html`
 			<gl-section ?loading=${isFetching}>
@@ -382,6 +386,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private renderAgentsTabComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
+
 		const { repository } = overview;
 		const branches = this.filterAgentBranches(overview.recent, repository.path);
 		const unrepresentedSessions =

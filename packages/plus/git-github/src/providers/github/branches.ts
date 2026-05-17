@@ -87,6 +87,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
+
 		const path = repoPath;
 
 		const scope = getScopedLogger();

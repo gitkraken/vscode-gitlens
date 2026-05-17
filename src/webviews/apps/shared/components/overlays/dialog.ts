@@ -66,6 +66,7 @@ export class GlDialog extends LitElement {
 			if (this.dialog.open) {
 				return;
 			}
+
 			if (this.modal) {
 				this.dialog.showModal();
 			} else {

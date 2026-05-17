@@ -45,6 +45,7 @@ export function isAbortError(ex: unknown): boolean {
  */
 export const noopUnlessReal = (ex?: unknown): void => {
 	if (ex == null || isAbortError(ex)) return;
+
 	const msg = ex instanceof Error ? ex.message : 'unknown error';
 	Logger.warn(`RPC call rejected (noopUnlessReal handler): ${msg}`);
 };
@@ -173,9 +174,11 @@ export function guardedEnrich<T>(
 	options?: { skipIf?: () => boolean },
 ): void {
 	if (options?.skipIf?.()) return;
+
 	void fetcher().then(
 		enrichmentGuard(resource, value => {
 			if (signal.aborted) return;
+
 			apply(value);
 		}),
 		noopUnlessReal,

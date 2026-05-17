@@ -583,6 +583,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 	private renderHooksRow() {
 		if (!this.aiEnabled) return nothing;
+
 		const claude = this.ai.hooks.claude;
 		// Don't render at all if gkcli says hooks aren't supported for Claude on this machine, or
 		// if Claude isn't detected — there's nothing to install OR uninstall.

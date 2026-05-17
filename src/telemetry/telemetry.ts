@@ -84,6 +84,7 @@ export class TelemetryService implements Disposable {
 		}
 
 		if (this._initializationTimer != null) return;
+
 		this._initializationTimer = setTimeout(() => this.initializeTelemetry(container), 7500);
 	}
 

@@ -987,6 +987,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 							filterMap<[string, GitCommit], [string, GitCommit]>(log.commits.entries(), ([sha, c]) => {
 								if (skip) {
 									if (sha !== rev) return undefined;
+
 									skip = false;
 								}
 
@@ -1157,6 +1158,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			} catch (ex) {
 				scope?.error(ex);
 				if (isCancellationError(ex)) throw ex;
+
 				debugger;
 
 				return [];
@@ -1204,6 +1206,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		} catch (ex) {
 			scope?.error(ex);
 			if (isCancellationError(ex)) throw ex;
+
 			debugger;
 
 			return undefined;

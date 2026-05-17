@@ -138,6 +138,7 @@ function trackingDecorations(
 	missingUpstream?: boolean,
 ): TreeModel<SidebarItemContext>['decorations'] {
 	if (tracking == null) return undefined;
+
 	const { ahead, behind } = tracking;
 	if (ahead === 0 && behind === 0) return undefined;
 
@@ -643,6 +644,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				);
 			case 'agents': {
 				if (useTree) return this.buildAgentTree(data.items);
+
 				const graphAnchor = this.resolveGraphAnchorContext();
 				return data.items.map(a =>
 					leafToTreeModel(this.toAgentLeaf(a, this.resolveAgentAnchor(a, graphAnchor)), `agent:${a.id}`, 1),
@@ -1129,6 +1131,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleToggleLayout() {
 		if (this.activePanel == null) return;
+
 		this._actions?.toggleLayout(this.activePanel);
 	}
 
@@ -1141,6 +1144,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			overview?.refresh?.();
 			return;
 		}
+
 		this._actions?.refresh(this.activePanel);
 	}
 
@@ -1189,6 +1193,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleTreeExpansionChanged = (e: CustomEvent<{ path: string; expanded: boolean }>) => {
 		if (this.activePanel == null) return;
+
 		const paths = this._actions.expandedPaths[this.activePanel];
 		if (e.detail.expanded) {
 			paths.add(e.detail.path);

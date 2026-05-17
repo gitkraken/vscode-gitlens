@@ -144,6 +144,7 @@ export class RepositoryService {
 	async getCommitFiles(repoPath: string, sha: string): Promise<SerializedGitFileChange[]> {
 		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha);
 		if (commit == null) return [];
+
 		await GitCommit.ensureFullDetails(commit);
 		const files = commit.fileset?.files;
 		if (files == null || files.length === 0) return [];
@@ -208,6 +209,7 @@ export class RepositoryService {
 				return;
 			}
 		}
+
 		await this.container.git.getRepositoryService(file.repoPath).staging?.stageFile(file.path);
 	}
 
@@ -290,6 +292,7 @@ export class RepositoryService {
 				}
 			}
 		}
+
 		await svc.staging?.stageAll();
 	}
 

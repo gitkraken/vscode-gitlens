@@ -34,6 +34,7 @@ function parseVstsHttpsUrl(url: URL): [string, string, string] {
 	const owner = getVSTSOwner(url);
 	const match = azureProjectRepoRegex.exec(url.pathname);
 	if (match == null) throw new Error(`Invalid VSTS URL: ${url.toString()}`);
+
 	const [, project, repo] = match;
 	return [owner, project, repo];
 }
@@ -43,6 +44,7 @@ const azureHttpsUrlRegex2 = /([^/]+)\/([^/]+)\/_git\/([^/]+)/;
 function parseAzureNewStyleUrl(url: URL): [string, string, string] {
 	const match = azureHttpsUrlRegex2.exec(url.pathname);
 	if (match == null) throw new Error(`Invalid Azure URL: ${url.toString()}`);
+
 	const [, owner, project, repo] = match;
 	return [owner, project, repo];
 }

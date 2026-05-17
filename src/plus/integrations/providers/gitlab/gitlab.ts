@@ -771,6 +771,7 @@ export class GitLabApi implements Disposable {
 		if (!search) {
 			return [];
 		}
+
 		try {
 			const perPageLimit = 20; // with bigger amount we exceed the max GraphQL complexity in the next query
 			const restPRs = await this.request<GitLabMergeRequestREST[]>(

@@ -78,9 +78,11 @@ function parseSeverity(value: string | undefined): AIReviewSeverity {
 
 function parseLineRange(value: string | undefined): { start: number; end: number } | undefined {
 	if (!value) return undefined;
+
 	const parts = value.split('-');
 	const start = parseInt(parts[0], 10);
 	if (isNaN(start)) return undefined;
+
 	const end = parts.length > 1 ? parseInt(parts[1], 10) : start;
 	return { start: start, end: isNaN(end) ? start : end };
 }

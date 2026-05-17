@@ -1238,6 +1238,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			if (context.connectedIntegrations.get(integration)) {
 				continue;
 			}
+
 			switch (integration) {
 				case GitCloudHostIntegrationId.GitHub:
 					confirmations.push(

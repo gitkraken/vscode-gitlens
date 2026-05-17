@@ -328,6 +328,7 @@ function getBitbucketReviewDecision(pr: BitbucketPullRequest): PullRequestReview
 	if (!pr.participants) {
 		return undefined;
 	}
+
 	let hasReviews = false;
 	let hasChangeRequests = false;
 	let hasApprovals = false;

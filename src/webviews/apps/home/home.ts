@@ -265,6 +265,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 					new Promise<never>((_resolve, reject) => {
 						timer = setTimeout(() => {
 							if (abort.signal.aborted) return;
+
 							Logger.warn(`Home: _onRpcReady phase "${phase}" timed out after ${ms}ms`);
 							abort.abort();
 							reject(new Error(`Home initialization timed out in phase: ${phase}`));
@@ -275,6 +276,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 							reject(new Error(`Home initialization aborted during phase: ${phase}`));
 							return;
 						}
+
 						abort.signal.addEventListener(
 							'abort',
 							() => reject(new Error(`Home initialization aborted during phase: ${phase}`)),
@@ -371,6 +373,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const activeResource = createResource<GetActiveOverviewResponse>(async signal => {
 			const branches = await home.getOverviewBranches('active', signal);
 			if (branches == null) return undefined;
+
 			syncOverviewRepositoryPath(branches.repository.path);
 
 			const activeIds = branches.active.map(b => b.id);
@@ -389,6 +392,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const inactiveResource = createResource<GetInactiveOverviewResponse>(async signal => {
 			const branches = await home.getOverviewBranches('inactive', signal);
 			if (branches == null) return undefined;
+
 			syncOverviewRepositoryPath(branches.repository.path);
 
 			const allInactive = [...branches.recent, ...(branches.stale ?? [])];
@@ -413,6 +417,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const agentResource = createResource<GetInactiveOverviewResponse>(async signal => {
 			const branches = await home.getOverviewBranches('agents', signal);
 			if (branches == null) return undefined;
+
 			syncOverviewRepositoryPath(branches.repository.path);
 
 			const allIds = branches.recent.map(b => b.id);
@@ -516,6 +521,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 					unsubscribe();
 					return;
 				}
+
 				this._wipWatchUnsubscribe = unsubscribe;
 			})();
 		};

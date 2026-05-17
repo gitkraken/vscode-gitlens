@@ -160,6 +160,7 @@ export function isCommandContextViewNodeHasWorkspace(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { workspace: CloudWorkspace | LocalWorkspace } } {
 	if (context.type !== 'viewItem') return false;
+
 	const workspace = (context.node as ViewNode & { workspace?: CloudWorkspace | LocalWorkspace }).workspace;
 	return workspace instanceof CloudWorkspace || workspace instanceof LocalWorkspace;
 }

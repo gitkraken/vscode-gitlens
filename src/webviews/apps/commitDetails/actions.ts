@@ -208,6 +208,7 @@ export class CommitDetailsActions {
 				unsubscribe();
 				return;
 			}
+
 			this._wipWatchUnsubscribe = unsubscribe;
 		})();
 	}
@@ -378,6 +379,7 @@ export class CommitDetailsActions {
 			);
 			return;
 		}
+
 		optimisticFireAndForget(
 			this.state.preferences,
 			{ ...currentPrefs, pullRequestExpanded: expanded },
@@ -439,24 +441,28 @@ export class CommitDetailsActions {
 	fetch(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.fetch(this.services.repository, repoPath);
 	}
 
 	push(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.push(this.services.repository, repoPath);
 	}
 
 	pull(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.pull(this.services.repository, repoPath);
 	}
 
 	switchBranch(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.switchBranch(this.services.repository, repoPath);
 	}
 
@@ -475,6 +481,7 @@ export class CommitDetailsActions {
 	discardUnstagedFiles(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.discardUnstagedFiles(this.state.error, this.services.repository, repoPath);
 	}
 
@@ -522,6 +529,7 @@ export class CommitDetailsActions {
 	executeCommitAction(action: 'graph' | 'more' | 'scm' | 'sha', alt?: boolean): void {
 		const commit = this.state.currentCommit.get();
 		if (!commit) return;
+
 		fireAndForget(
 			this.services.inspect.executeCommitAction(commit.repoPath, commit.sha, action, alt),
 			`commit action: ${action}`,
@@ -537,6 +545,7 @@ export class CommitDetailsActions {
 
 	openOnRemote(repoPath: string | undefined, sha: string): void {
 		if (!repoPath) return;
+
 		void this.services.commands.execute('gitlens.openOnRemote', {
 			repoPath: repoPath,
 			resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
@@ -575,24 +584,28 @@ export class CommitDetailsActions {
 	openPullRequestChanges(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
+
 		prActions.openPullRequestChanges(this.services.pullRequests, ctx.repoPath, ctx.refs);
 	}
 
 	openPullRequestComparison(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
+
 		prActions.openPullRequestComparison(this.services.pullRequests, ctx.repoPath, ctx.refs);
 	}
 
 	openPullRequestOnRemote(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
+
 		prActions.openPullRequestOnRemote(this.services.pullRequests, ctx.url);
 	}
 
 	openPullRequestDetails(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
+
 		prActions.openPullRequestDetails(this.services.pullRequests, ctx.repoPath, ctx.id, ctx.provider);
 	}
 
@@ -872,6 +885,7 @@ export class CommitDetailsActions {
 				void this.services.repository.hasRemotes(repoPath).then(
 					enrichmentGuard(this.resources.commit, has => {
 						if (enrichSignal.aborted) return;
+
 						this.state.hasRemotes.set(has);
 					}),
 					noopUnlessReal,

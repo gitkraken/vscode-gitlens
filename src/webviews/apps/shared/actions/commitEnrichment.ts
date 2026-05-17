@@ -123,6 +123,7 @@ export function fetchCommitEnrichment(
 		() => services.autolinks.getCommitAutolinks(repoPath, sha, headlineSplitterToken, isStash, signal),
 		r => {
 			if (r == null) return;
+
 			sink.setBasicAutolinks(r.autolinks, r.formattedMessage);
 		},
 		{ skipIf: skipWhenAutolinksDisabled },
@@ -134,6 +135,7 @@ export function fetchCommitEnrichment(
 		() => services.autolinks.getEnrichedAutolinks(repoPath, sha, headlineSplitterToken, isStash, signal),
 		r => {
 			if (r == null) return;
+
 			sink.setEnrichedAutolinks(r.autolinkedIssues, r.formattedMessage);
 		},
 		{ skipIf: skipWhenAutolinksDisabled },

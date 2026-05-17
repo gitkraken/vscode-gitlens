@@ -80,11 +80,14 @@ function ensureXvfb(): string | undefined {
  */
 function patchTestVSCodeProductJson(vscodePath: string): void {
 	if (process.platform !== 'win32') return;
+
 	const vscodeDir = path.dirname(vscodePath);
 	for (const entry of readdirSync(vscodeDir, { withFileTypes: true })) {
 		if (!entry.isDirectory()) continue;
+
 		const productJsonPath = path.join(vscodeDir, entry.name, 'resources', 'app', 'product.json');
 		if (!existsSync(productJsonPath)) continue;
+
 		const product = JSON.parse(readFileSync(productJsonPath, 'utf8')) as Record<string, unknown>;
 		if (product['win32VersionedUpdate']) {
 			product['win32VersionedUpdate'] = false;

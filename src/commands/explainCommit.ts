@@ -66,6 +66,7 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 				const log = await commitsProvider.getLog();
 				const pick = await showCommitPicker(log, this.pickerTitle, 'Choose a commit to explain');
 				if (pick?.sha == null) return;
+
 				args.rev = pick.sha;
 				commit = pick;
 			} else {

@@ -636,6 +636,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	private matchesWorkspace(workspacePath: string | undefined): boolean {
 		if (!workspacePath) return false;
+
 		// `_workspacePaths` is normalized; normalize the input so prefix comparisons work
 		// regardless of whether the caller passed a raw `fsPath` (CLI hook cwd, peer-session
 		// workspacePath) or an already-normalized path.
@@ -647,6 +648,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	private resolveWorkspacePath(cwd: string | undefined): string | undefined {
 		if (!cwd) return undefined;
+
 		const normalized = normalizePath(cwd);
 		return this._workspacePaths.find(
 			p => normalized === p || normalized.startsWith(`${p}/`) || p.startsWith(`${normalized}/`),

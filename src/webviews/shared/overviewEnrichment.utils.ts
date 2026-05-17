@@ -234,6 +234,7 @@ export async function getOverviewWipBasic(
 	const branchesById = new Map<string, GitBranch>();
 	for (const branch of branches) {
 		if (branch.remote) continue;
+
 		branchesById.set(branch.id, branch);
 	}
 
@@ -289,6 +290,7 @@ export async function getOverviewWip(
 	const branchesById = new Map<string, GitBranch>();
 	for (const branch of branches) {
 		if (branch.remote) continue;
+
 		branchesById.set(branch.id, branch);
 	}
 
@@ -397,6 +399,7 @@ export async function getOverviewEnrichment(
 	const branchesById = new Map<string, GitBranch>();
 	for (const branch of branches) {
 		if (branch.remote) continue;
+
 		branchesById.set(branch.id, branch);
 	}
 
@@ -509,6 +512,7 @@ export async function getOverviewEnrichment(
 			const finalAutolinks: OverviewBranchIssue[] = [];
 			for (const item of rawAutolinks) {
 				if (seenUrls.has(item.url)) continue;
+
 				seenUrls.add(item.url);
 				if (item.type === 'issue') {
 					finalIssues.push(item);

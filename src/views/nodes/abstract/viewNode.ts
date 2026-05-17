@@ -342,6 +342,7 @@ export abstract class ViewNode<
 			debugger;
 			throw new Error('Id is required to delete state');
 		}
+
 		this.view.nodeState.deleteState(this.id, key as string);
 	}
 
@@ -362,6 +363,7 @@ export abstract class ViewNode<
 			debugger;
 			throw new Error('Id is required to store state');
 		}
+
 		this.view.nodeState.storeState(this.id, key as string, value, sticky);
 	}
 }

@@ -194,6 +194,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		const repo = overview?.repository;
 		const activeBranches = overview?.active;
 		if (!repo || !activeBranches?.length) return html`<span>None</span>`;
+
 		const hasMultipleRepositories = this._homeCtx.repositories.get().openCount > 1;
 		const primaryBranch = activeBranches[0];
 

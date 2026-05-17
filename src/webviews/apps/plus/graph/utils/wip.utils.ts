@@ -40,6 +40,7 @@ export function filterSecondariesForScope(
 			dropped = true;
 			continue;
 		}
+
 		result[sha] = meta;
 	}
 	return dropped ? result : wipMetadataBySha;
@@ -107,6 +108,7 @@ export function filterSecondariesForIncludeOnlyRefs(
 			dropped = true;
 			continue;
 		}
+
 		result[sha] = meta;
 	}
 	return dropped ? result : wipMetadataBySha;

@@ -182,6 +182,7 @@ export class GlCompactCommitRow extends LitElement {
 
 	private renderDate() {
 		if (!this.author?.date) return nothing;
+
 		const label =
 			this.dateStyle === 'relative'
 				? fromNow(this.author.date)

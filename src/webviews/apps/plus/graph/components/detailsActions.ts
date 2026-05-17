@@ -87,6 +87,7 @@ export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs
 	if (scope == null) return undefined;
 	if (scope.type === 'commit') return { lhs: `${scope.sha}^`, rhs: scope.sha };
 	if (scope.type === 'compare') return { lhs: scope.fromSha, rhs: scope.toSha };
+
 	// wip — match scope inputs as closely as possible with a single range
 	const hasShas = (scope.includeShas?.length ?? 0) > 0;
 	if (scope.includeUnstaged && !scope.includeStaged && !hasShas) {
@@ -494,6 +495,7 @@ export class DetailsActions {
 			unsubscribe();
 			return;
 		}
+
 		this._eventUnsubscribe = unsubscribe;
 	}
 
@@ -616,6 +618,7 @@ export class DetailsActions {
 				await this.resources.wip.fetch(repoPath);
 
 				if (this._lastFetchedKey !== key) return;
+
 				if (this.resources.wip.status.get() === 'success') {
 					const wip = this.resources.wip.value.get();
 					this.state.wip.set(wip);
@@ -636,6 +639,7 @@ export class DetailsActions {
 				await this.resources.commit.fetch(repoPath, sha);
 
 				if (this._lastFetchedKey !== key) return;
+
 				if (this.resources.commit.status.get() === 'success') {
 					const commit = this.resources.commit.value.get();
 					this.state.commit.set(commit);
@@ -741,6 +745,7 @@ export class DetailsActions {
 		// net for transport stalls or future regressions in uncancellable subcalls.
 		const maxWaitTimer = setTimeout(() => {
 			if (signal.aborted) return;
+
 			this.state.wipMergeTargetLoading.set(false);
 		}, 10_000);
 
@@ -757,6 +762,7 @@ export class DetailsActions {
 				void enrichment.autolinks.then(
 					enrichmentGuard(this.resources.wip, autolinks => {
 						if (signal.aborted) return;
+
 						this._wipEnrichmentCache.update(cacheKey, { autolinks: autolinks });
 						this.state.wipAutolinks.set(autolinks);
 					}),
@@ -766,6 +772,7 @@ export class DetailsActions {
 				void enrichment.issues.then(
 					enrichmentGuard(this.resources.wip, issues => {
 						if (signal.aborted) return;
+
 						this._wipEnrichmentCache.update(cacheKey, { issues: issues });
 						this.state.wipIssues.set(issues);
 					}),
@@ -776,6 +783,7 @@ export class DetailsActions {
 					.then(
 						enrichmentGuard(this.resources.wip, mergeTarget => {
 							if (signal.aborted) return;
+
 							const status: BranchMergeTargetStatus = {
 								branch: enrichment.branch,
 								mergeTarget: mergeTarget,
@@ -795,6 +803,7 @@ export class DetailsActions {
 						// `guard()`-wrapped clear would skip on stale generations and leave the
 						// flag stuck at `true`.
 						if (signal.aborted) return;
+
 						this.state.wipMergeTargetLoading.set(false);
 					});
 
@@ -802,6 +811,7 @@ export class DetailsActions {
 					.then(
 						enrichmentGuard(this.resources.wip, pr => {
 							if (signal.aborted) return;
+
 							this._wipEnrichmentCache.update(cacheKey, {
 								pullRequest: pr,
 								hasPullRequest: true,
@@ -812,6 +822,7 @@ export class DetailsActions {
 					)
 					.finally(() => {
 						if (signal.aborted) return;
+
 						this.state.wipPullRequestLoading.set(false);
 					});
 			}),
@@ -930,6 +941,7 @@ export class DetailsActions {
 			}
 		} catch {
 			if (this.state.commit.get()?.sha !== commit.sha) return;
+
 			this.state.explain.set({ error: { message: 'Failed to explain commit' } });
 		}
 	}
@@ -1074,6 +1086,7 @@ export class DetailsActions {
 			.then(
 				enrichmentGuard(this.resources.compare, autolinks => {
 					if (signal.aborted) return;
+
 					this.state.compareAutolinks.set(autolinks.length > 0 ? autolinks : undefined);
 				}),
 				noopUnlessReal,
@@ -1084,6 +1097,7 @@ export class DetailsActions {
 				// clearCompareEnrichment, so we'd otherwise stomp on its in-flight state.
 				if (signal.aborted) return;
 				if (this.resources.compare.generationId.get() !== gen) return;
+
 				this.state.compareAutolinksLoading.set(false);
 			});
 	}
@@ -1101,6 +1115,7 @@ export class DetailsActions {
 				signal,
 			);
 			if (this.resources.compare.generationId.get() !== gen) return;
+
 			this.state.compareEnrichedItems.set(items);
 		} catch (ex) {
 			// Expected on navigation-away aborts — leave state alone for retry on real failures.
@@ -1144,6 +1159,7 @@ export class DetailsActions {
 		await this.resources.compare.fetch(repoPath, fromSha, toSha);
 
 		if (this._lastFetchedKey !== key) return;
+
 		if (this.resources.compare.status.get() === 'success') {
 			const diff = this.resources.compare.value.get();
 			this.state.compareFiles.set(diff?.files);
@@ -1231,6 +1247,7 @@ export class DetailsActions {
 
 	markBranchCompareStale(): void {
 		if (this.state.activeMode.get() !== 'compare' || !this.state.branchCompareIncludeWorkingTree.get()) return;
+
 		this.state.branchCompareStale.set(true);
 	}
 
@@ -1249,6 +1266,7 @@ export class DetailsActions {
 		if (identityKey == null || this.getBranchCompareIdentityKey(repoPath) !== identityKey) return;
 
 		if (this.resources.branchCompareSummary.status.get() !== 'success') return;
+
 		const result = this.resources.branchCompareSummary.value.get();
 		if (!result) {
 			this.clearBranchCompareData();
@@ -1285,6 +1303,7 @@ export class DetailsActions {
 		if (identityKey == null || this.getBranchCompareIdentityKey(repoPath, side) !== identityKey) return;
 
 		if (this.resources.branchCompareSide.status.get() !== 'success') return;
+
 		const result = this.resources.branchCompareSide.value.get();
 		if (!result) return;
 
@@ -1311,6 +1330,7 @@ export class DetailsActions {
 		const loaded =
 			side === 'ahead' ? this.state.branchCompareAheadLoaded.get() : this.state.branchCompareBehindLoaded.get();
 		if (loaded) return;
+
 		await this.fetchCompareSide(repoPath, side);
 	}
 
@@ -1340,9 +1360,11 @@ export class DetailsActions {
 
 	openCompareInSearchAndCompare(repoPath: string | undefined): void {
 		if (repoPath == null) return;
+
 		const leftRef = this.state.branchCompareLeftRef.get();
 		const rightRef = this.state.branchCompareRightRef.get();
 		if (!leftRef || !rightRef) return;
+
 		void this.services.graphInspect.openComparisonInSearchAndCompare(repoPath, leftRef, rightRef);
 	}
 
@@ -1383,6 +1405,7 @@ export class DetailsActions {
 		const tab = this.state.branchCompareActiveTab.get();
 		// 'all' tab has no commit list, so it has no per-commit selection to persist.
 		if (tab === 'all') return;
+
 		const next = new Map(this.state.branchCompareSelectedCommitShaByTab.get());
 		if (sha) {
 			next.set(tab, sha);
@@ -1466,6 +1489,7 @@ export class DetailsActions {
 			listState.set(nextCommits);
 		} catch (ex) {
 			if (signal.aborted) return;
+
 			Logger.error(ex, `Failed to fetch files for commit ${sha}`);
 		} finally {
 			if (this._compareCommitFilesControllers.get(controllerKey) === controller) {
@@ -1656,6 +1680,7 @@ export class DetailsActions {
 			void this.fetchBranchCompareEnrichment(repoPath);
 			return;
 		}
+
 		this.state.branchCompareEnrichmentRequested.set(true);
 		void this.fetchBranchCompareEnrichment(repoPath);
 	}
@@ -1701,6 +1726,7 @@ export class DetailsActions {
 		const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
 		const refreshedIncludeShas = unpushedShas.length > 0 ? unpushedShas : commits?.length ? [commits[0].sha] : [];
 		if (refreshedIncludeShas.length === 0) return;
+
 		const refreshedScope: ScopeSelection = {
 			type: 'wip',
 			includeStaged: false,
@@ -1910,6 +1936,7 @@ export class DetailsActions {
 		options?: { lhs?: string; rhs?: string; line?: number; lineEnd?: number },
 	): void {
 		if (!repoPath || !options?.lhs || !options.rhs) return;
+
 		void this.services.files.openFileChanges(repoPath, filePath, options.lhs, options.rhs, {
 			line: options.line,
 			lineEnd: options.lineEnd,
@@ -1952,6 +1979,7 @@ export class DetailsActions {
 
 	openComposer(repoPath: string | undefined): void {
 		if (!repoPath) return;
+
 		void this.services.commands.execute('gitlens.composeCommits', { repoPath: repoPath, source: 'graph' });
 	}
 
@@ -2040,6 +2068,7 @@ export class DetailsActions {
 
 	resolveAllConflicts(repoPath: string | undefined, resolution: 'current' | 'incoming'): void {
 		if (!repoPath) return;
+
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.resolveAllConflicts(repoPath, resolution));
 	}
 
@@ -2050,12 +2079,14 @@ export class DetailsActions {
 
 	stageAll(repoPath: string | undefined): void {
 		if (!repoPath) return;
+
 		this.optimisticallyUpdateAllFilesStaged(true);
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageAll(repoPath));
 	}
 
 	unstageAll(repoPath: string | undefined): void {
 		if (!repoPath) return;
+
 		this.optimisticallyUpdateAllFilesStaged(false);
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageAll(repoPath));
 	}
@@ -2066,6 +2097,7 @@ export class DetailsActions {
 
 	discardUnstagedFiles(repoPath: string | undefined): void {
 		if (!repoPath) return;
+
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardUnstagedFiles(repoPath));
 	}
 
@@ -2098,8 +2130,10 @@ export class DetailsActions {
 		this._lastFetchedKey = undefined;
 		await this.resources.wip.fetch(repoPath);
 		if (this.resources.wip.status.get() !== 'success') return;
+
 		const wip = this.resources.wip.value.get();
 		if (wip == null) return;
+
 		// Replace WIP + only re-fire branch enrichment if the branch identity actually changed.
 		const prev = this.state.wip.get();
 		this.state.wip.set(wip);
@@ -2121,6 +2155,7 @@ export class DetailsActions {
 		let changed = false;
 		const nextFiles = wip.changes.files.map(f => {
 			if (f.path !== filePath || f.staged !== priorStaged) return f;
+
 			changed = true;
 			return { ...f, staged: newStaged };
 		});
@@ -2136,6 +2171,7 @@ export class DetailsActions {
 		let changed = false;
 		const nextFiles = wip.changes.files.map(f => {
 			if (f.staged === staged) return f;
+
 			changed = true;
 			return { ...f, staged: staged };
 		});
@@ -2211,6 +2247,7 @@ export class DetailsActions {
 
 		const message = await this.services.repository.getLastCommitMessage(repoPath);
 		if (!message) return;
+
 		// Re-check post-await: the user could have toggled amend off, or typed in the box,
 		// while the RPC was in flight. Only land the message into a still-empty box with
 		// amend still on. Leave `commitMessageDirty` false — this snapshot of HEAD's message
@@ -2223,21 +2260,25 @@ export class DetailsActions {
 
 	switchBranch(repoPath: string | undefined): void {
 		if (!repoPath) return;
+
 		void this.services.repository.switchBranch(repoPath);
 	}
 
 	createBranch(repoPath: string | undefined): void {
 		if (!repoPath) return;
+
 		void this.services.repository.createBranch(repoPath);
 	}
 
 	stashSave(repoPath: string | undefined): void {
 		if (!repoPath) return;
+
 		void this.services.commands.execute('gitlens.stashSave', { repoPath: repoPath });
 	}
 
 	applyStash(repoPath: string | undefined): void {
 		if (!repoPath) return;
+
 		void this.services.commands.execute('gitlens.stashesApply', { repoPath: repoPath });
 	}
 
@@ -2251,6 +2292,7 @@ export class DetailsActions {
 
 	openOnRemote(repoPath: string | undefined, sha: string): void {
 		if (!repoPath) return;
+
 		void this.services.commands.execute('gitlens.openOnRemote', {
 			repoPath: repoPath,
 			resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },

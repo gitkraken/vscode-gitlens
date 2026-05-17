@@ -182,9 +182,11 @@ export class WorkspacesApi {
 			| { data: Record<string, CloudWorkspaceConnection<CloudWorkspaceData> | null> }
 			| undefined;
 		if (json?.data == null) return undefined;
+
 		let outputData: WorkspacesResponse | undefined;
 		for (const workspaceData of Object.values(json.data)) {
 			if (workspaceData == null) continue;
+
 			if (outputData == null) {
 				outputData = { data: { projects: workspaceData } };
 				for (const node of workspaceData.nodes) {
@@ -193,6 +195,7 @@ export class WorkspacesApi {
 			} else {
 				for (const node of workspaceData.nodes) {
 					if (addedWorkspaceIds.has(node.id)) continue;
+
 					addedWorkspaceIds.add(node.id);
 					outputData.data.projects.nodes.push(node);
 				}

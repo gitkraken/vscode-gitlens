@@ -63,6 +63,7 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 					}
 
 					if (inputUri == null) continue;
+
 					// eslint-disable-next-line no-loop-func
 					matchingUri = args.uris.find(uri => areUrisEqual(uri, inputUri));
 					if (matchingUri != null) {

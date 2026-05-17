@@ -1645,6 +1645,7 @@ export class GitProviderService implements UnifiedDisposable {
 					this.ensureUncommittedBlameCommit(uri, dirtyBlame);
 					return dirtyBlame;
 				}
+
 				// Ensure uncommitted commit exists for updated snapshots that may contain uncommitted lines from a previous dirty→save cycle
 				this.ensureUncommittedBlameCommit(uri, doc.blameSnapshot.blame);
 				return doc.blameSnapshot.blame;
@@ -1840,6 +1841,7 @@ export class GitProviderService implements UnifiedDisposable {
 			let blameLine = blame.lines[editorLine];
 			if (blameLine == null) {
 				if (blame.lines.length !== editorLine) return undefined;
+
 				blameLine = blame.lines[editorLine - 1];
 			}
 
@@ -1910,6 +1912,7 @@ export class GitProviderService implements UnifiedDisposable {
 			blameLine = blame.lines[editorLineOrCommitLine];
 			if (blameLine == null) {
 				if (blame.lines.length !== editorLineOrCommitLine) return undefined;
+
 				blameLine = blame.lines[editorLineOrCommitLine - 1];
 			}
 		} else {
@@ -2361,6 +2364,7 @@ export class GitProviderService implements UnifiedDisposable {
 			if (repoService == null) {
 				throw new Error(`RepositoryService not available for '${path}' — provider may not be registered`);
 			}
+
 			service = new GitRepositoryService(this, provider, path, repoService, this.container.events);
 			services.set(path, service);
 		}

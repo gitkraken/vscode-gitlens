@@ -439,6 +439,7 @@ export class DeepLinkService implements Disposable {
 	): Promise<[string, string] | undefined> {
 		const sha1 = await this.getRefSha(targetId);
 		if (sha1 == null) return undefined;
+
 		const sha2 = await this.getRefSha(secondaryTargetId);
 		if (sha2 == null) return undefined;
 		return [sha1, sha2];
@@ -863,6 +864,7 @@ export class DeepLinkService implements Disposable {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
 						break;
 					}
+
 					this._context.repoOpenLocation = repoOpenLocation;
 
 					this._context.repoOpenUri ??= (
@@ -1523,6 +1525,7 @@ export class DeepLinkService implements Disposable {
 						}
 						break;
 					}
+
 					await openComparisonChanges(
 						this.container,
 						{

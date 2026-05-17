@@ -251,10 +251,13 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (this._loadMoreInFlight) return;
 		if (this.graphState.paging?.hasMore !== true) return;
 		if (this._allTimePageAttempts >= GlGraphTimeline.maxAllTimePageAttempts) return;
+
 		const rows = this.graphState.rows;
 		if (rows == null || rows.length === 0) return;
+
 		const oldestSha = rows.at(-1)?.sha;
 		if (!oldestSha) return;
+
 		this._allTimePageAttempts++;
 		this._loadMoreInFlight = true;
 		this._lastSeenRowsRef = rows;
@@ -309,14 +312,17 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	private get additionalBranchesEffective(): string[] | undefined {
 		if (this.graphState.scope != null) return undefined; // scoped to one branch — single ref via head
 		if (this.showAllBranchesEffective) return undefined; // --all covers everything
+
 		const includeOnlyRefs = this.graphState.includeOnlyRefs;
 		if (includeOnlyRefs == null) return undefined;
+
 		const names: string[] = [];
 		for (const ref of Object.values(includeOnlyRefs)) {
 			// Skip the empty-set marker ('gk.empty-set-marker') and any malformed entries — only
 			// pull genuine refs with names.
 			if (ref == null || typeof ref !== 'object' || !('name' in ref) || typeof ref.name !== 'string') continue;
 			if (!ref.name) continue;
+
 			names.push(ref.name);
 		}
 		return names.length ? names : undefined;
@@ -362,6 +368,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		) {
 			return;
 		}
+
 		// Period changed → discard the stale pseudo-anchor so the rebuild seeds a fresh one from
 		// the current data (the prior anchor was set under a different timeframe context).
 		if (cache != null && cache.period !== period) {
@@ -458,10 +465,13 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	private onChartLoadMoreFromGraph = (_e: CustomEvent<LoadMoreEventDetail>): void => {
 		if (this._loadMoreInFlight) return; // already requested; wait for response
 		if (this.graphState.paging?.hasMore !== true) return;
+
 		const rows = this.graphState.rows;
 		if (rows == null || rows.length === 0) return;
+
 		const oldestSha = rows.at(-1)?.sha;
 		if (!oldestSha) return;
+
 		this._loadMoreInFlight = true;
 		this._lastSeenRowsRef = rows;
 		// Also flip the graph's global loading flag so the header's progress-indicator activates
@@ -485,6 +495,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	 *  non-reactive private field. */
 	private get graphIsInitialLoading(): boolean {
 		if (this._hasShownData) return false;
+
 		const hasRows = (this.graphState.rows?.length ?? 0) > 0;
 		if (!hasRows) return this.graphState.loading === true;
 		// Rows landed; we're holding for stats. Keep the overlay so bubbles render correctly when
@@ -584,6 +595,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		const data: TimelineDatum[] = [];
 		for (const row of rows) {
 			if (!shaSet.has(row.sha)) continue;
+
 			const stats = rowsStats?.[row.sha];
 			const avatarUrl = avatars != null && row.email ? avatars[row.email] : undefined;
 			// Branch attribution comes from the graph's reachability data — no per-commit
@@ -679,6 +691,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		// Skip interim slider scrubs — only commit on release. Mirrors the standalone Visual History
 		// debounce behavior so transient hovers don't churn the details panel.
 		if (e.detail.interim) return;
+
 		const sha = e.detail.id;
 		if (sha == null) return;
 
@@ -729,11 +742,13 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			initialPath: this._localScope?.relativePath,
 		});
 		if (result?.picked == null) return;
+
 		this._localScope = { type: result.picked.type, relativePath: result.picked.relativePath };
 	};
 
 	private onHeaderClearScope = (): void => {
 		if (this._localScope == null) return;
+
 		this._localScope = undefined;
 	};
 
@@ -751,8 +766,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			}
 			return;
 		}
+
 		const next = { type: type, relativePath: value };
 		if (this._localScope?.type === next.type && this._localScope.relativePath === next.relativePath) return;
+
 		this._localScope = next;
 	};
 

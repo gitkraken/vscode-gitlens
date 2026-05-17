@@ -510,6 +510,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 
 		if (this.wip?.pausedOpStatus != null) {
 			if (this.wip?.hasConflicts) return 'conflict';
+
 			switch (this.wip.pausedOpStatus.type) {
 				case 'cherry-pick':
 					return 'cherry-picking';
@@ -572,6 +573,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	private readonly onFocus = (e: FocusEvent) => {
 		const actionElement = e.composedPath().some(el => (el as HTMLElement).matches?.('action-item') ?? false);
 		if (actionElement || this.expanded) return;
+
 		this.toggleExpanded(true);
 	};
 
@@ -930,6 +932,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 		const groupIcon = launchpadGroupIconMap.get(group);
 
 		if (groupLabel == null || groupIcon == null) return nothing;
+
 		const groupIconString = groupIcon.match(/\$\((.*?)\)/)![1].replace('gitlens', 'gl');
 
 		const tooltip = interpolate(actionGroupMap.get(this.launchpadItem.category)![1], {
@@ -1085,6 +1088,7 @@ export class GlBranchCard extends GlBranchCardBase {
 		if (this.showUpgrade) {
 			return super.renderMergeTargetStatus();
 		}
+
 		const promise = this._lazyMergeTargetPromise;
 		if (promise == null) return nothing;
 		return html`<gl-merge-target-status

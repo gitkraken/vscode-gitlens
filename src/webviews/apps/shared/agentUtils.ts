@@ -33,11 +33,14 @@ export function getAgentCategoryLabel(category: AgentSessionCategory): string {
  *  agent-status pill has its own slightly more granular variant inline. */
 export function formatAgentElapsed(value: Date | number | undefined): string | undefined {
 	if (value == null) return undefined;
+
 	const timestamp = typeof value === 'number' ? value : value.getTime();
 	const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
 	if (seconds < 60) return `${seconds}s`;
+
 	const minutes = Math.floor(seconds / 60);
 	if (minutes < 60) return `${minutes}m`;
+
 	const hours = Math.floor(minutes / 60);
 	const remainingMinutes = minutes % 60;
 	return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
@@ -58,6 +61,7 @@ export function describeAgentSession(
 
 	if (category === 'needs-input' && permission != null) {
 		if (permission.toolName == null) return 'Awaiting permission';
+
 		const prefix = awaitingPrefix === 'long' ? 'Awaiting permission:' : 'Awaiting:';
 		return `${prefix} ${permission.toolName}${permission.toolDescription ? ` — ${permission.toolDescription}` : ''}`;
 	}
@@ -129,6 +133,7 @@ export function indexAgentSessionsByRepoAndWorktree(
 	const index: AgentSessionWorktreeIndex = new Map();
 	for (const session of sessions) {
 		if (session.workspacePath == null) continue;
+
 		const key = `${session.workspacePath}\0${normalizeWorktreeKey(session.workspacePath, session.worktree?.path)}`;
 		const existing = index.get(key);
 		if (existing != null) {
@@ -157,9 +162,11 @@ export function matchAgentSessionsForWorktree(
 	if (source instanceof Map) {
 		const found = source.get(`${target.repoPath}\0${targetKey}`);
 		if (found == null) return undefined;
+
 		candidates = found;
 	} else {
 		if (source.length === 0) return undefined;
+
 		candidates = source;
 	}
 

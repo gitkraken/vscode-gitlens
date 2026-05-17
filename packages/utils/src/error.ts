@@ -7,6 +7,7 @@
 export function isErrorLike(v: unknown): v is { name: string; message: string; stack?: string } {
 	if (v == null || typeof v !== 'object') return false;
 	if (v instanceof Error) return true;
+
 	const o = v as { name?: unknown; message?: unknown };
 	return typeof o.name === 'string' && typeof o.message === 'string';
 }

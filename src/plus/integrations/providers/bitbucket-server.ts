@@ -226,6 +226,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		if (!api) {
 			return undefined;
 		}
+
 		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(
 			toTokenWithInfo(this.id, session),
 			this.apiBaseUrl,

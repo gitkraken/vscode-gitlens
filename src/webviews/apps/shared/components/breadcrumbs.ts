@@ -209,6 +209,7 @@ export class GlBreadcrumbs extends LitElement {
 
 	private scheduleRecompute(): void {
 		if (this.rafId != null) return;
+
 		this.rafId = requestAnimationFrame(() => {
 			this.rafId = undefined;
 			void this.recompute();
@@ -270,8 +271,10 @@ export class GlBreadcrumbs extends LitElement {
 		for (const idx of initiallyCompact) {
 			if (idx >= this._items.length - 1) continue;
 			if (!hidden.has(idx + 1)) continue;
+
 			const item = this._items[idx];
 			if (!item.foldable || !item.icon) continue;
+
 			compact.delete(idx);
 			hidden.add(idx);
 		}
@@ -669,6 +672,7 @@ export class GlBreadcrumbItem extends LitElement {
 	private updateTruncated(): void {
 		const el = this.labelEl;
 		if (!el) return;
+
 		this._truncated = el.scrollWidth > el.clientWidth;
 	}
 

@@ -183,6 +183,7 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 
 	private onChartCommitSelected(e: CustomEvent<CommitEventDetail>) {
 		if (e.detail.id == null) return;
+
 		this._actions?.selectDataPoint(e.detail);
 	}
 

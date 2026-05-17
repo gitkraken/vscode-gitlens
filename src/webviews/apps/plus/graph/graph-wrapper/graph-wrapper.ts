@@ -167,6 +167,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	scrollGraphBy(deltaY: number): void {
 		if (this.ref == null) return;
+
 		this.ref.setScrollTop((this.ref.scrollTop ?? 0) + deltaY);
 	}
 
@@ -538,10 +539,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (sourceRowBySha != null) {
 			for (const sel of selection) {
 				if (sel.type === ('work-dir-changes' satisfies GitGraphRowType)) continue;
+
 				const sourceRow = sourceRowBySha.get(sel.id);
 				if (sourceRow == null) continue;
+
 				const repoPath = sel.repoPath ?? fallbackRepoPath;
 				if (repoPath == null) continue;
+
 				commits ??= {};
 				commits[sel.id] = buildCommitLite(sourceRow, repoPath, this.graphState.avatars);
 			}
@@ -568,6 +572,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.map(s => `${s.id}|${s.type}|${s.repoPath ?? ''}|${s.active ? 1 : 0}|${s.hidden ? 1 : 0}`)
 			.join(',');
 		if (selectionKey === this._lastSentSelectionKey) return;
+
 		this._lastSentSelectionKey = selectionKey;
 
 		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
@@ -661,6 +666,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (this._lastSyncedWipShas?.size === shas.length && shas.every(s => this._lastSyncedWipShas!.has(s))) {
 			return;
 		}
+
 		this._lastSyncedWipShas = new Set(shas);
 		this._ipc.sendCommand(SyncWipWatchesCommand, { shas: shas });
 	}

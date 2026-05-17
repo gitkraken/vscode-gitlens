@@ -136,6 +136,7 @@ export class TimelineActions {
 				unsubscribe();
 				return;
 			}
+
 			this._wipWatchUnsubscribe = unsubscribe;
 		})();
 	}
@@ -317,8 +318,10 @@ export class TimelineActions {
 		// Guard against re-entry while a load-more is in flight, and skip when we've already
 		// reached end-of-history.
 		if (!s.hasMore.get() || s.loadingMore.get()) return;
+
 		const baseSpan = periodToMs(s.period.get());
 		if (baseSpan == null) return; // 'all' period — already unbounded
+
 		const chunkSpan = Math.min(
 			TimelineActions.extensionChunkMaxMs,
 			Math.max(TimelineActions.extensionChunkMinMs, baseSpan * TimelineActions.extensionChunkRatio),
@@ -479,6 +482,7 @@ export class TimelineActions {
 		const s = this._state;
 		const prevPeriod = s.period.get();
 		if (prevPeriod === period) return;
+
 		s.period.set(period);
 		this.sendConfigChangedTelemetry();
 
@@ -684,6 +688,7 @@ export class TimelineActions {
 			(e: CommitEventDetail) => {
 				const scope = s.scope.get();
 				if (scope == null) return;
+
 				this._timeline.selectDataPoint({ scope: scope, ...e });
 			},
 			250,

@@ -152,6 +152,7 @@ export class GlGraph extends LitElement {
 
 		// Debounce updates to avoid rapid re-renders
 		if (this.updateScheduled) return this.reactRoot == null;
+
 		this.updateScheduled = true;
 
 		const { provideReactState: stateUpdater } = this;

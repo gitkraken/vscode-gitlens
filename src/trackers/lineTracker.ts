@@ -140,6 +140,7 @@ export class LineTracker {
 				this.notifyLinesChanged('editor');
 				return;
 			}
+
 			this.suspend();
 		} else {
 			this.resume({ force: true });
@@ -293,6 +294,7 @@ export class LineTracker {
 				workspace.onDidChangeTextDocument(e => {
 					if (e.document !== this._editor?.document) return;
 					if (e.contentChanges.length === 0) return;
+
 					if (
 						this.selections?.some(s =>
 							e.contentChanges.some(c => s.active >= c.range.start.line && s.active <= c.range.end.line),

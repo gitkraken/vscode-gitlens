@@ -301,6 +301,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 				<span>Loading commits…</span>
 			</div>`;
 		}
+
 		const files = this.filesForSelection(this.aheadCommits, this.aheadFiles);
 		return html`<gl-split-panel
 			class="compare-split"
@@ -324,6 +325,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 				<span>Loading commits…</span>
 			</div>`;
 		}
+
 		const files = this.filesForSelection(this.behindCommits, this.behindFiles);
 		return html`<gl-split-panel
 			class="compare-split"
@@ -355,6 +357,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	// Clamp to sensible mins so neither pane collapses; otherwise follow the user's drag directly.
 	private splitSnap: GlSplitPanelSnapFunction = ({ pos, size }) => {
 		if (size <= 0) return pos;
+
 		const minStart = 80;
 		const minEnd = 120;
 		const startPx = (pos / 100) * size;
@@ -963,6 +966,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		files: BranchComparisonFile[],
 	): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
 		if (!files?.length) return undefined;
+
 		const repoPath = this.repoPath;
 		const lhs = this.leftRef;
 		const rhs = this.rightRef;
@@ -986,6 +990,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	 *  visible tab. Mirrors the per-tab render branches' file derivation. */
 	private get activeFiles(): BranchComparisonFile[] {
 		if (this.activeTab === 'all') return this.allFiles;
+
 		const commits = this.activeTab === 'ahead' ? this.aheadCommits : this.behindCommits;
 		const files = this.activeTab === 'ahead' ? this.aheadFiles : this.behindFiles;
 		return this.filesForSelection(commits, files);
@@ -1024,6 +1029,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	private handleTabKeydown(e: KeyboardEvent) {
 		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+
 		e.preventDefault();
 
 		const order: ('all' | 'ahead' | 'behind')[] = ['all', 'ahead', 'behind'];
@@ -1093,6 +1099,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		}
 
 		if (this.activeView === view) return;
+
 		this.dispatchEvent(
 			new CustomEvent('switch-view', {
 				detail: { view: view },

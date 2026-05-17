@@ -143,6 +143,7 @@ export function cancellable<T>(
 				resolver('cancelled');
 				return;
 			}
+
 			const handler = () => resolver('cancelled');
 			cancellation.addEventListener('abort', handler);
 			disposeCancellation = { dispose: () => cancellation.removeEventListener('abort', handler) };
@@ -156,6 +157,7 @@ export function cancellable<T>(
 					resolver('timedout');
 					return;
 				}
+
 				const handler = () => resolver('timedout');
 				timeout.addEventListener('abort', handler);
 				disposeTimeout = { dispose: () => timeout.removeEventListener('abort', handler) };

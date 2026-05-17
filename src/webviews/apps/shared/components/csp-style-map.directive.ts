@@ -76,6 +76,7 @@ class CspStyleMapDirective extends Directive {
 			const applied = isImportant ? value.slice(0, flagTrim) : String(value);
 
 			if (previous.get(name) === applied) continue;
+
 			previous.set(name, applied);
 
 			if (name.includes('-') || isImportant) {

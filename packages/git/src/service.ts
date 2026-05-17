@@ -77,6 +77,7 @@ export class GitService implements UnifiedDisposable {
 		if (GitService._instance != null) {
 			throw new Error('GitService already exists — only one instance is allowed');
 		}
+
 		const instance = new GitService(watchingProvider);
 		GitService._instance = instance;
 		return instance;

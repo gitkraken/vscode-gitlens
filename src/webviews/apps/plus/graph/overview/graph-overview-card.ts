@@ -57,6 +57,7 @@ function getBranchCardIndicator(
 	if (branch.opened) {
 		if (wip?.pausedOpStatus != null) {
 			if (wip.hasConflicts) return 'conflict';
+
 			switch (wip.pausedOpStatus.type) {
 				case 'cherry-pick':
 					return 'cherry-picking';
@@ -84,6 +85,7 @@ function getBranchCardIndicator(
 	}
 
 	if (branch.upstream?.missing) return 'branch-missingUpstream';
+
 	const state = branch.upstream?.state;
 	if (state != null) {
 		if (state.ahead > 0 && state.behind > 0) return 'branch-diverged';
@@ -579,6 +581,7 @@ export class GlGraphOverviewCard extends LitElement {
 		// `hasChanges` is set on both the basic and detailed wip loads, so the dirty indicator
 		// can show up before the rich hover triggers a detailed fetch.
 		if (this.wip?.hasChanges === true) return true;
+
 		const wts = this.wip?.workingTreeState;
 		return wts != null && wts.added + wts.changed + wts.deleted > 0;
 	}
@@ -653,6 +656,7 @@ export class GlGraphOverviewCard extends LitElement {
 
 	private maybeRequestWipDetails(): void {
 		if (!this._hoverShown) return;
+
 		const wip = this.wip;
 		if (wip == null) return;
 		// Nothing dirty — no detailed fetch needed; commit-stats wouldn't render anyway.
@@ -660,6 +664,7 @@ export class GlGraphOverviewCard extends LitElement {
 		// Already have the breakdown.
 		if (wip.workingTreeState != null) return;
 		if (this._wipDetailsRequestedFor === wip) return;
+
 		this._wipDetailsRequestedFor = wip;
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-overview-card-request-wip-details', {
@@ -760,6 +765,7 @@ export class GlGraphOverviewCard extends LitElement {
 		// Close only when focus leaves the card+popover entirely.
 		const next = e.relatedTarget as Node | null;
 		if (next && (this.shadowRoot?.contains(next) || this.contains(next))) return;
+
 		const popover = this.shadowRoot?.querySelector<HTMLElement & { hide: () => void }>('gl-popover');
 		popover?.hide();
 	};
@@ -1013,6 +1019,7 @@ export class GlGraphOverviewCard extends LitElement {
 		// (with `aria-busy="true"`) visible — without it, the chip would render `nothing` for the
 		// fetch duration and pop in on resolution.
 		if (!this._hoverShown) return nothing;
+
 		const promise = this._mergeTargetPromise;
 		if (promise == null) return nothing;
 		return html`<gl-merge-target-status
@@ -1242,12 +1249,14 @@ export class GlGraphOverviewCard extends LitElement {
 
 	private onCardClick(e: MouseEvent) {
 		if (this.isEventFromAgentPill(e)) return;
+
 		this.dispatchBranchSelected();
 	}
 
 	private onCardKeydown(e: KeyboardEvent) {
 		if (e.key !== 'Enter' && e.key !== ' ') return;
 		if (this.isEventFromAgentPill(e)) return;
+
 		e.preventDefault();
 		this.dispatchBranchSelected();
 	}

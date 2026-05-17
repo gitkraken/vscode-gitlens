@@ -133,6 +133,7 @@ export class GlCopyContainer extends LitElement {
 	private onFocusIn = () => {
 		// Skip showing on mouse-triggered focus — onClick handles it after copy
 		if (this._isMouseDown) return;
+
 		void this.tooltip?.show();
 	};
 

@@ -215,6 +215,7 @@ test.describe('Tree View - Model Updates', () => {
 			test.skip();
 			return;
 		}
+
 		await wipButton.click();
 
 		const wipDetails = graphWebview.locator('gl-details-wip-panel').first();

@@ -848,6 +848,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					if (selectedId === this._oldestCommitId && (action === 'squash' || action === 'fixup')) {
 						continue;
 					}
+
 					entries.push({ sha: selectedId, action: action });
 				}
 			}
@@ -856,6 +857,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			if (sha === this._oldestCommitId && (action === 'squash' || action === 'fixup')) {
 				return;
 			}
+
 			entries = [{ sha: sha, action: action }];
 		}
 
@@ -963,6 +965,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private handleKeyboardNavigate(e: Event, sortedIndex: number, key: string): void {
 		if (!this.isNavigationKey(key)) return;
+
 		e.preventDefault();
 
 		const isDownward = this.isDownwardKey(key);
@@ -976,6 +979,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private handleKeyboardMultiSelect(e: Event, sortedIndex: number, key: string): void {
 		if (!this.isNavigationKey(key)) return;
+
 		e.preventDefault();
 
 		const isDownward = this.isDownwardKey(key);
@@ -1424,6 +1428,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					<code-icon icon="loading" modifier="spin"></code-icon>
 				</span>`;
 			}
+
 			const conflictCount = result?.status === 'conflicts' ? (result.conflict?.shas?.length ?? 0) : 0;
 			if (conflictCount) {
 				return html`<gl-tooltip
@@ -1730,6 +1735,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private onCurrentCommitClick = () => {
 		const sha = this.rebaseStatus?.currentCommit;
 		if (!sha) return;
+
 		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: sha });
 	};
 
@@ -1854,6 +1860,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private onBranchClick = () => {
 		if (!this.state?.branch) return;
+
 		this._ipc.sendCommand(RevealRefCommand, { type: 'branch', ref: this.state.branch });
 	};
 
@@ -1866,6 +1873,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private onOntoClick = () => {
 		if (!this.state?.onto?.sha) return;
+
 		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: this.state.onto.sha });
 	};
 
@@ -1971,6 +1979,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				this._conflictResult?.status === 'conflicts' ? (this._conflictResult.conflict?.shas ?? []) : undefined;
 		} catch {
 			if (generation !== this._conflictCheckGeneration) return;
+
 			this._conflictResult = undefined;
 			this._conflictingShas = undefined;
 		} finally {

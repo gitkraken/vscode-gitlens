@@ -182,6 +182,7 @@ export function computeYScale(activity: Float32Array | readonly number[]): numbe
 	let length = 0;
 	for (const v of activity) {
 		if (v === 0) continue;
+
 		sorted[length++] = v;
 	}
 
@@ -222,6 +223,7 @@ export function dayToX(day: number, viewModel: MinimapViewModel, lo: MinimapLayo
 
 export function xToDay(x: number, viewModel: MinimapViewModel, lo: MinimapLayout): number | undefined {
 	if (lo.barWidth === 0) return undefined;
+
 	const xLocal = lo.reversed ? lo.chartWidth - x : x;
 	const index = Math.floor(xLocal / lo.barWidth);
 	if (index < 0 || index >= viewModel.days.length) return undefined;
@@ -233,6 +235,7 @@ export function xToDay(x: number, viewModel: MinimapViewModel, lo: MinimapLayout
 // narrow brushes to zero-width ranges before the zoom floor widens them).
 export function xToTimestamp(x: number, viewModel: MinimapViewModel, lo: MinimapLayout): number | undefined {
 	if (lo.barWidth === 0) return undefined;
+
 	const xLocal = lo.reversed ? lo.chartWidth - x : x;
 	return viewModel.days[0] - (xLocal / lo.barWidth) * dayMs;
 }
@@ -257,6 +260,7 @@ function activityToY(value: number, yMax: number, activityHeight: number): numbe
  */
 function projectTimestampX(timestamp: number, viewModel: MinimapViewModel, lo: MinimapLayout): number | undefined {
 	if (lo.barWidth === 0 || viewModel.days.length === 0) return undefined;
+
 	const firstDay = viewModel.days[0];
 	const x = ((firstDay - timestamp) / dayMs) * lo.barWidth;
 	return lo.reversed ? lo.chartWidth - x : x;
@@ -277,6 +281,7 @@ function projectScopeEdgeX(timestamp: number, viewModel: MinimapViewModel, lo: M
 function fullRangeToX(day: number, fullOldest: number, fullNewest: number, lo: MinimapLayout): number {
 	const span = fullNewest - fullOldest;
 	if (span <= 0) return 0;
+
 	const x = ((fullNewest - day) / span) * lo.chartWidth;
 	return lo.reversed ? lo.chartWidth - x : x;
 }
@@ -449,6 +454,7 @@ export function drawStatic(ctx: CanvasRenderingContext2D, state: MinimapDrawStat
 						break;
 				}
 				if (color == null) continue;
+
 				ctx.fillStyle = color;
 				ctx.fillRect(Math.round(x) - 1, y, markerSize, markerSize);
 			}
@@ -456,6 +462,7 @@ export function drawStatic(ctx: CanvasRenderingContext2D, state: MinimapDrawStat
 			let drewWorktree = false;
 			for (const m of markers) {
 				if (m.type !== 'worktree') continue;
+
 				if (!drewWorktree) {
 					ctx.fillStyle = theme.markerWorktree;
 					drewWorktree = true;
@@ -489,6 +496,7 @@ export function drawStatic(ctx: CanvasRenderingContext2D, state: MinimapDrawStat
 		for (const day of searchResultsByDay.keys()) {
 			const x = dayToX(day, viewModel, lo);
 			if (x == null) continue;
+
 			ctx.fillRect(Math.round(x) - 1, 0, 2, height);
 		}
 	}
@@ -671,11 +679,13 @@ export function hitTestScrollbar(
 ): { kind: 'thumb'; thumbX1: number; thumbX2: number } | { kind: 'track'; side: 'newer' | 'older' } | undefined {
 	if (y < lo.height - scrollbarHeight || y > lo.height) return undefined;
 	if (fullTimelineNewest <= fullTimelineOldest) return undefined;
+
 	const xNewer = fullRangeToX(zoomRange.newest, fullTimelineOldest, fullTimelineNewest, lo);
 	const xOlder = fullRangeToX(zoomRange.oldest, fullTimelineOldest, fullTimelineNewest, lo);
 	const tx1 = Math.min(xNewer, xOlder);
 	const tx2 = Math.max(xNewer, xOlder);
 	if (x >= tx1 && x <= tx2) return { kind: 'thumb', thumbX1: tx1, thumbX2: tx2 };
+
 	// Left of the thumb is "newer" when the axis runs newest→oldest (default) and "older" when reversed.
 	const leftSide: 'newer' | 'older' = lo.reversed ? 'older' : 'newer';
 	const rightSide: 'newer' | 'older' = lo.reversed ? 'newer' : 'older';
@@ -695,6 +705,7 @@ export function scrollbarDeltaToTimestampShift(
 	lo: MinimapLayout,
 ): number {
 	if (lo.chartWidth <= 0) return 0;
+
 	const sign = lo.reversed ? 1 : -1;
 	return sign * (deltaX / lo.chartWidth) * (fullNewest - fullOldest);
 }

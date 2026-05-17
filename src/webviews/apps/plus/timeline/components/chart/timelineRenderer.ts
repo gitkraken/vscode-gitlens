@@ -233,6 +233,7 @@ export function pickMinRowHeight(cssHeight: number): number {
  */
 export function pickRailColumnWidth(cssWidth: number, sliceBy: TimelineSliceBy): number {
 	if (sliceBy !== 'branch') return railColumnWidthPx;
+
 	const span = railWidthRampEndPx - railWidthRampStartPx;
 	const t = span > 0 ? (cssWidth - railWidthRampStartPx) / span : 1;
 	const clamped = Math.max(0, Math.min(1, t));
@@ -362,6 +363,7 @@ export function computeLayout(
 export function tsToX(ts: number, oldest: number, newest: number, lo: TimelineLayout): number {
 	const span = newest - oldest;
 	if (span <= 0) return Number.NaN;
+
 	const t = (ts - oldest) / span;
 	const left = lo.chartLeft + lo.dataInsetX;
 	const usable = Math.max(0, lo.chartWidth - 2 * lo.dataInsetX);
@@ -372,6 +374,7 @@ export function tsToX(ts: number, oldest: number, newest: number, lo: TimelineLa
 export function xToTs(x: number, oldest: number, newest: number, lo: TimelineLayout): number {
 	const span = newest - oldest;
 	if (span <= 0) return Number.NaN;
+
 	const usable = Math.max(1, lo.chartWidth - 2 * lo.dataInsetX);
 	const t = (x - lo.chartLeft - lo.dataInsetX) / usable;
 	return oldest + t * span;
@@ -479,6 +482,7 @@ export function hitTestVolumeBar(
 	for (let i = start; i < end; i++) {
 		const sliceIdx = viewModel.sliceIndex[i];
 		if (hiddenSlices?.has(sliceIdx)) continue;
+
 		const vol = viewModel.additions[i] + viewModel.deletions[i];
 		if (vol === 0) continue;
 
@@ -526,6 +530,7 @@ export function findNearestVolumeBar(
 	for (let i = start; i < end; i++) {
 		const sliceIdx = viewModel.sliceIndex[i];
 		if (hiddenSlices?.has(sliceIdx)) continue;
+
 		const vol = viewModel.additions[i] + viewModel.deletions[i];
 		if (vol === 0) continue;
 
@@ -544,6 +549,7 @@ export function findNearestVolumeBar(
 
 export function visibleIndexRange(timestamps: Float64Array, oldest: number, newest: number): readonly [number, number] {
 	if (timestamps.length === 0) return [0, 0];
+
 	const start = lowerBound(timestamps, oldest);
 	const end = upperBound(timestamps, newest);
 	return [start, end];
@@ -619,6 +625,7 @@ export type AxisTickStep = { stepMs: number; unit: 'hour' | 'day' | 'week' | 'mo
 
 export function pickAxisTickStep(domainMs: number, chartWidthPx: number, targetSpacingPx = 80): AxisTickStep {
 	if (chartWidthPx <= 0 || domainMs <= 0) return { stepMs: dayMs, unit: 'day' };
+
 	const targetTickCount = Math.max(2, Math.floor(chartWidthPx / targetSpacingPx));
 	const ideal = domainMs / targetTickCount;
 
@@ -700,6 +707,7 @@ export function* iterateAxisTicks(
 	let emittedLeftEdge = false;
 	if (cursor > oldest) {
 		yield oldest;
+
 		emittedLeftEdge = true;
 	}
 
@@ -709,6 +717,7 @@ export function* iterateAxisTicks(
 		if (!(emittedLeftEdge && Math.abs(cursor - oldest) < 1)) {
 			yield cursor;
 		}
+
 		emittedLeftEdge = false;
 		// For calendar-aligned units, advance by calendar months rather than fixed ms to stay
 		// aligned across DST shifts and 28/30/31-day months.
@@ -751,6 +760,7 @@ export function getAxisTicks(
 			const rightEdgeX = x + labelW / 2;
 
 			if (leftEdgeX < lastRightEdgeX + 6) continue;
+
 			lastRightEdgeX = rightEdgeX;
 			lastYear = year;
 			isFirstLabel = false;
@@ -808,6 +818,7 @@ export function drawHeader(
  */
 export function pickY2TickStops(yMax: number, count: number): number[] {
 	if (yMax <= 0 || count <= 0) return [];
+
 	const seen = new Set<number>();
 	const stops: number[] = [];
 	for (let i = 1; i <= count; i++) {
@@ -824,6 +835,7 @@ export function pickY2TickStops(yMax: number, count: number): number[] {
 
 function niceRound(value: number): number {
 	if (value <= 0) return 0;
+
 	const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
 	const norm = value / magnitude;
 	const niceMantissa = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
@@ -1248,6 +1260,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, state: TimelineDrawSt
 function drawAxisChevrons(ctx: CanvasRenderingContext2D, state: TimelineDrawState): void {
 	const { layout: lo, theme, historyBefore, historyAfter } = state;
 	if (!historyBefore && !historyAfter) return;
+
 	const stripHeight = lo.axisStripBottom - lo.axisStripTop;
 	if (stripHeight <= 0) return;
 
@@ -1445,8 +1458,10 @@ function drawHoverHighlight(
 	intensity: number,
 ): void {
 	if (intensity <= 0) return;
+
 	const located = locateBubble(viewModel, index, oldest, newest, scrollY, lo);
 	if (located == null) return;
+
 	const { cx, cy, baseR, sliceIdx } = located;
 
 	const palette = theme.slicePalette;
@@ -1527,6 +1542,7 @@ function drawSelectedHighlight(
 ): void {
 	const located = locateBubble(viewModel, index, oldest, newest, scrollY, lo);
 	if (located == null) return;
+
 	const { cx, cy, baseR } = located;
 
 	ctx.save();
@@ -1586,6 +1602,7 @@ export function computeYScale(values: Float32Array | readonly number[]): number 
 	let length = 0;
 	for (const v of values) {
 		if (v === 0) continue;
+
 		sorted[length++] = v;
 	}
 

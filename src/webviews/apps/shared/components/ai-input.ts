@@ -426,6 +426,7 @@ export class GlAiInput extends LitElement {
 		if (e.key === 'Enter') {
 			// Shift+Enter: always insert newline (let browser handle)
 			if (e.shiftKey) return;
+
 			// Enter or Ctrl/Cmd+Enter: submit
 			e.preventDefault();
 			this.onSubmit();

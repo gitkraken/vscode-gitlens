@@ -169,6 +169,7 @@ export async function getCLIVersions(cliPath?: string): Promise<{ proxy: string;
 		if (ex instanceof Error && ex.message.includes('CLI is not installed')) {
 			return undefined;
 		}
+
 		debugger;
 		throw ex;
 	}
@@ -187,6 +188,7 @@ export async function showManualMcpSetupPrompt(message: string): Promise<void> {
 /** Windows-only: detects EBUSY/EPERM when overwriting a running executable. macOS/Linux allow replacing an open executable, so this is never relevant there. */
 export function isLockedBinaryError(ex: unknown): boolean {
 	if (!isWindows) return false;
+
 	const code = (ex as NodeJS.ErrnoException | null | undefined)?.code;
 	return code === 'EBUSY' || code === 'EPERM';
 }

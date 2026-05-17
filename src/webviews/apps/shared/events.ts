@@ -171,6 +171,7 @@ class LinkedList<E> {
 		if (this._first === Node.Undefined) {
 			return undefined;
 		}
+
 		const res = this._first.element;
 		this._remove(this._first);
 		return res;
@@ -180,6 +181,7 @@ class LinkedList<E> {
 		if (this._last === Node.Undefined) {
 			return undefined;
 		}
+
 		const res = this._last.element;
 		this._remove(this._last);
 		return res;

@@ -39,6 +39,7 @@ export async function getScopeFiles(
 	if (scope.type === 'compare') {
 		if (scope.includeShas != null) {
 			if (scope.includeShas.length === 0) return [];
+
 			const files = await collectCommittedRangeFiles(svc, scope.includeShas, signal);
 			return files.map(toShape);
 		}
@@ -58,6 +59,7 @@ export async function getScopeFiles(
 			const includeAsStaged = hasStaged && scope.includeStaged;
 			const includeAsUnstaged = hasUnstaged && scope.includeUnstaged;
 			if (!includeAsStaged && !includeAsUnstaged) continue;
+
 			// Unstaged > staged matches the `anchorRank` ordering in graphWebview.ts, so right-click
 			// actions land on the topmost editable layer.
 			wipEntries.push({
@@ -141,9 +143,11 @@ async function collectCommittedRangeFiles(
 	signal?: AbortSignal,
 ): Promise<{ path: string; status: GitFileStatus; originalPath?: string }[]> {
 	if (includeShas.length === 0) return [];
+
 	const newest = includeShas[0];
 	const oldest = includeShas.at(-1);
 	if (oldest == null) return [];
+
 	try {
 		const files = await svc.diff.getDiffStatus(`${oldest}^..${newest}`, undefined, { similarityThreshold: 50 });
 		signal?.throwIfAborted();

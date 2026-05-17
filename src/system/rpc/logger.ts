@@ -37,6 +37,7 @@ function normalizeRest(rest: unknown[]): unknown[] {
 function findError(rest: unknown[]): unknown {
 	for (const r of rest) {
 		if (isErrorLike(r)) return r;
+
 		if (r != null && typeof r === 'object' && !Array.isArray(r)) {
 			for (const value of Object.values(r)) {
 				if (isErrorLike(value)) return value;

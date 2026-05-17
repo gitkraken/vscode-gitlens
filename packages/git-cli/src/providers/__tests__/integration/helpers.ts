@@ -32,6 +32,7 @@ function getGitLocation() {
 let loggerConfigured = false;
 function ensureLogger() {
 	if (loggerConfigured) return;
+
 	loggerConfigured = true;
 
 	const noop = () => {};
