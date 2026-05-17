@@ -29,6 +29,7 @@ import type {
 	RowAction,
 } from '../../../../plus/graph/protocol.js';
 import {
+	createSecondaryWipSha,
 	DoubleClickedCommand,
 	EnsureRowRequest,
 	GetMissingAvatarsCommand,
@@ -48,7 +49,11 @@ import { telemetryContext } from '../../../shared/contexts/telemetry.js';
 import type { Disposable } from '../../../shared/events.js';
 import type { ThemeChangeEvent } from '../../../shared/theme.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
+import type { AnchorKey } from '../components/anchorKey.js';
+import type { RunningOperationBucket } from '../components/detailsState.js';
 import { graphStateContext } from '../context.js';
+import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
+import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import {
 	filterSecondariesForIncludeOnlyRefs,
 	filterSecondariesForScope,
@@ -150,6 +155,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private readonly graphState!: typeof graphStateContext.__context__;
+
+	@consume({ context: graphCrossPaneContext })
+	private readonly _crossPaneState!: GraphCrossPaneState;
 
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
@@ -345,6 +353,61 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return result;
 	}
 
+	// Memoization for `getRunningOperationByRowSha`: every wrapper render would otherwise build a
+	// fresh Map (new identity), which cascades into Lit @property updates → React subscriber
+	// push → invalidate-event-driven adornment re-resolve. Cached on the inputs that actually
+	// drive the translation (registry signal value identity + primary repo path) so unrelated
+	// wrapper re-renders return the same Map instance and stop the churn at the prop boundary.
+	private _runningOperationByRowShaCache?: {
+		registry: ReadonlyMap<AnchorKey, RunningOperationBucket>;
+		primaryRepoPath: string | undefined;
+		byRowSha: ReadonlyMap<string, RunningOperationBucket> | undefined;
+	};
+
+	/** Translates the canonical anchor-keyed `runningOperations` registry from the cross-pane
+	 *  context into a row-sha-keyed bucket map the React row renderer can look up directly. WIP
+	 *  anchors only — commit/multi-commit anchors don't decorate graph rows. Memoized on
+	 *  (registry, primaryRepoPath); see {@link _runningOperationByRowShaCache}. */
+	private getRunningOperationByRowSha(): ReadonlyMap<string, RunningOperationBucket> | undefined {
+		const runningOperations = this._crossPaneState?.runningOperations.get();
+		if (runningOperations == null) return undefined;
+
+		const repositories = this.graphState.repositories;
+		const selectedRepoId = this.graphState.selectedRepository;
+		const primaryRepoPath =
+			(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
+			repositories?.[0]?.path;
+
+		const cached = this._runningOperationByRowShaCache;
+		if (cached?.registry === runningOperations && cached.primaryRepoPath === primaryRepoPath) {
+			return cached.byRowSha;
+		}
+
+		let byRowSha: ReadonlyMap<string, RunningOperationBucket> | undefined;
+		if (runningOperations.size === 0) {
+			byRowSha = undefined;
+		} else {
+			const next = new Map<string, RunningOperationBucket>();
+			for (const bucket of runningOperations.values()) {
+				// Either kind in the bucket has the same anchor (the bucket is per-anchor), so
+				// derive repoPath from whichever is set.
+				const anchor = (bucket.review ?? bucket.compose)?.anchor;
+				if (anchor?.kind !== 'wip') continue;
+
+				const rowSha =
+					anchor.repoPath === primaryRepoPath ? 'work-dir-changes' : createSecondaryWipSha(anchor.repoPath);
+				next.set(rowSha, bucket);
+			}
+			byRowSha = next;
+		}
+		this._runningOperationByRowShaCache = {
+			registry: runningOperations,
+			primaryRepoPath: primaryRepoPath,
+			byRowSha: byRowSha,
+		};
+		return byRowSha;
+	}
+
 	override render() {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary } = this.getDecoratedRows();
@@ -379,6 +442,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.wipShasSettleDelayMs=${GlGraphWrapper.wipShasSettleDelayMs}
 			.wipVisibility=${showPrimary ? 'always' : 'auto'}
 			.scope=${graphState.scope}
+			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			@changecolumns=${this.onColumnsChanged}
 			@changerefsvisibility=${this.onRefsVisibilityChanged}
 			@changeselection=${this.onSelectionChanged}
@@ -390,6 +454,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@graphmouseleave=${this.onMouseLeave}
 			@refdoubleclick=${this.onRefDoubleClick}
 			@rowaction=${this.onRowAction}
+			@wiprowentermode=${this.onWipRowEnterMode}
 			@rowcontextmenu=${this.onRowContextMenu}
 			@rowdoubleclick=${this.onRowDoubleClick}
 			@rowhover=${this.onRowHover}
@@ -475,6 +540,18 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private onRowAction({ detail: { action, row } }: CustomEvent<{ action: RowAction; row: GraphRow }>) {
 		this._ipc.sendCommand(RowActionCommand, { action: action, row: { id: row.sha, type: row.type } });
+	}
+
+	private onWipRowEnterMode({ detail: { mode, row } }: CustomEvent<{ mode: 'compose' | 'review'; row: GraphRow }>) {
+		// Webview-internal event — bubbles up to graph-app which selects the row and tells the
+		// details panel to enter the mode. No IPC round-trip needed.
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-wip-row-enter-mode', {
+				detail: { mode: mode, row: row },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private onRowContextMenu({ detail: { graphRow, graphZoneType } }: CustomEventType<'graph-rowcontextmenu'>) {

@@ -5,10 +5,22 @@ import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { ComposeResult, ReviewResult, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
+import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
+import type { AnchorKey, AnchorSelection } from './anchorKey.js';
+import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
+import type {
+	RunningOperation,
+	RunningOperationAnchor,
+	RunningOperationBucket,
+	RunningOperationExecState,
+} from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
 
-export type DetailsMode = 'review' | 'compose' | 'compare';
+/** Modes are panel lenses on the current selection — compose/review only. Compare is no
+ *  longer a mode; it has its own lifecycle via {@link DetailsWorkflowController.openCompare}
+ *  / {@link DetailsWorkflowController.closeCompare} and lives in a sheet over the panel. */
+export type DetailsMode = 'review' | 'compose';
 
 /** The shape of "who/what is currently selected" that every workflow transition needs. */
 export interface DetailsSelection {
@@ -57,6 +69,10 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	/** Snapshot of the host's current selection — used to seed `exitMode` when the
 	 *  controller forces a mode exit on repo change. */
 	currentSelection(): DetailsSelection;
+	/** Cross-pane shared state — provided by `gl-graph-app`, consumed by the host element.
+	 *  The controller writes the running-modes registry through this so other panes (graph
+	 *  row component, etc.) can decorate rows accordingly. */
+	readonly crossPaneState: GraphCrossPaneState;
 }
 
 /**
@@ -88,6 +104,11 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  change until the user clicks a row in the new repo). `undefined` until the first
 	 *  observation, which is treated as a no-op transition (no spurious mode exit on mount). */
 	private _lastSeenGraphRepoPath: string | undefined;
+	/** Flipped to `true` in `hostDisconnected`. Async settled callbacks (`onRunSettled`) and
+	 *  subscription event handlers check this before writing to host-owned signals / disposed
+	 *  resources — the registry intentionally outlives the panel (runs survive disconnect), so
+	 *  the controller may still receive resolutions after its actions have been disposed. */
+	private _disconnected = false;
 	// endregion
 
 	// region Workflow state
@@ -100,14 +121,12 @@ export class DetailsWorkflowController implements ReactiveController {
 	private _reviewBackSnapshot: ReviewResult | undefined;
 	private _composeBackSnapshot: ComposeResult | undefined;
 	/**
-	 * Tracks the sha (or shas-key) the review/compose resource was last fetched for.
-	 * When the user re-enters a mode for a DIFFERENT selection, we reset the resource so
-	 * the prior result doesn't render against the new selection. closeMode handles the
-	 * "selection changed while IN the mode" case; this handles "selection changed while
-	 * OUT of the mode, then re-entered".
+	 * Tracks the anchor the review/compose resource was last fetched for. When the user
+	 * re-enters a mode for a DIFFERENT anchor, we reset the resource so the prior result
+	 * doesn't render against the new selection.
 	 */
-	private _reviewFetchedForSelection: string | undefined;
-	private _composeFetchedForSelection: string | undefined;
+	private _reviewFetchedForSelection: AnchorKey | undefined;
+	private _composeFetchedForSelection: AnchorKey | undefined;
 	// endregion
 
 	constructor(
@@ -120,10 +139,23 @@ export class DetailsWorkflowController implements ReactiveController {
 	// region ReactiveController lifecycle
 
 	hostConnected(): void {
+		// Lit ReactiveControllers receive a fresh `hostConnected` on every reconnect (same
+		// controller instance, new host lifecycle). Reset `_disconnected` so a re-mount restores
+		// `onRunSettled`'s ability to write to actions/resources for any operations dispatched
+		// after this point. (In practice the panel's `disconnectedCallback` disposes the actions,
+		// so a fresh remount creates a new actions instance; but this guards the controller
+		// against being reused without a refresh of its disposed-state flag.)
+		this._disconnected = false;
 		this.ensureSubscription(this.host.repoPath);
 	}
 
 	hostDisconnected(): void {
+		// Registry survives panel disconnect (owned by gl-graph-app); only repo-selector
+		// switch clears it. Resource cancellation is handled by the panel's own dispose.
+		// Flag for `onRunSettled` and async subscription callbacks so they stop writing to
+		// the disposed `actions` / its resources after we're gone (the runs themselves keep
+		// going via the host-owned registry, so the settled callbacks WILL still fire).
+		this._disconnected = true;
 		this.tearDownSubscription();
 	}
 
@@ -131,8 +163,8 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Trigger 1 — graph repo-selector switch. Fires before `host.repoPath` updates
 		// because `host.repoPath` is derived from the selection, which lingers across the
 		// switch until the user clicks a row in the new repo. Without this trigger, an
-		// active compose/review/compare mode would persist visibly with prior-repo data
-		// while the graph header shows the new repo.
+		// active compose/review mode or open compare sheet would persist visibly with
+		// prior-repo data while the graph header shows the new repo.
 		const graphRepo = this.host.graphRepoPath();
 		if (graphRepo !== this._lastSeenGraphRepoPath) {
 			const previous = this._lastSeenGraphRepoPath;
@@ -140,68 +172,86 @@ export class DetailsWorkflowController implements ReactiveController {
 			// Skip the first observation (no prior graph repo to compare against — would
 			// otherwise spuriously exit on mount).
 			if (previous != null) {
-				this.exitModeIfRepoMismatch(graphRepo);
+				// Repo switcher tears down the whole universe — clear the registry first so
+				// sessions from prior repo's worktrees can't resurface against the new repo.
+				this.cancelAllRunningOperations();
+				// Registry is empty now; clear any active mode that was pointing at the prior repo.
+				// Review/compose hide (preserves state-machine shape); compare (in either sheet or
+				// pinned form) fully closes. `skipRefetch:true` because the host's current selection
+				// is still the OLD repo (Trigger 2 below + the new-repo row click handle the new
+				// selection's data); refetching here would land old-repo data into the just-reset
+				// new-repo signals when the in-flight RPC resolves.
+				const activeMode = this.actions.state.activeMode.get();
+				if (activeMode === 'review' || activeMode === 'compose') {
+					this.hideMode(this.host.currentSelection(), { skipRefetch: true });
+				}
+				if (this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get()) {
+					this.closeCompare();
+				}
 			}
 		}
 
-		// Trigger 2 — panel render target switched. Covers the worktree-row-jump case
-		// (selection moves between rows whose `repoPath`s differ) and the post-graph-switch
-		// row click (where `host.repoPath` updates after the user lands somewhere in the
-		// new repo). Re-wires the repo-change subscription either way.
+		// Trigger 2 — panel render-target switched (worktree-row jump or post-repo-switch
+		// row click). Re-wires the repo-change subscription. An open compare sheet stays sticky
+		// across render-target switches: the comparison is anchored to its own refs and the user
+		// explicitly closes the sheet to leave it. Review/compose follow the selection — the
+		// panel's `willUpdate → switchAnchorWithinMode` handles the activeMode transition for
+		// them, and the registry preserves each anchor's run across the jump.
 		if (this.host.repoPath !== this._subscribedRepoPath) {
-			this.exitModeIfRepoMismatch(this.host.repoPath);
-			// Invalidate every repo-scoped signal so the panel doesn't show the prior worktree's
-			// WIP / branch commits / enrichment chips while the new repo's fetches are in flight.
-			// `clearEnrichmentCaches` (called inside) handles cache + controller hygiene; this
-			// extends it to the state signals that the picker / mode panels read directly.
-			this.actions.resetRepoScopedState();
+			const compareOpen = this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get();
+			const activeMode = this.actions.state.activeMode.get();
+			// Reset repo-scoped state only when nothing else has already handled it. `switchAnchorWithinMode`
+			// runs from `willUpdate` (before `hostUpdate`) and already calls `resetRepoScopedState` for the
+			// active-mode case — running it again here would clobber `branchCommitsFetching` back to false
+			// while the in-flight fetch is mid-air, leaving the picker in a "no items + not loading" state
+			// that renders as the empty splash. Compare-open uses the same skip rationale as before: the
+			// comparison is anchored to its own refs and shouldn't get its repo-scoped chips cleared.
+			if (!compareOpen && activeMode == null) {
+				// Invalidate every repo-scoped signal so the panel doesn't show the prior worktree's
+				// WIP / branch commits / enrichment chips while the new repo's fetches are in flight.
+				// `clearEnrichmentCaches` (called inside) handles cache + controller hygiene; this
+				// extends it to the state signals that the picker / mode panels read directly.
+				this.actions.resetRepoScopedState();
+			}
 			this.ensureSubscription(this.host.repoPath);
 		}
 
-		// Trigger 3 — compose returned a cancelled sentinel (e.g. user dismissed the
-		// large-prompt warning). Mirror the loading-screen Cancel behavior: exit compose
-		// mode entirely. Resetting the resource first prevents the sentinel from re-firing
-		// this trigger if the user re-enters compose mode for the same selection.
-		if (this.actions.state.activeMode.get() === 'compose') {
-			const composeValue = this.actions.resources.compose.value.get();
-			if (composeValue != null && 'cancelled' in composeValue && composeValue.cancelled === true) {
-				this.actions.resources.compose.reset();
-				this.exitMode(this.host.currentSelection());
-			}
-		}
-	}
-
-	/**
-	 * Exit any active mode whose `activeModeRepoPath` doesn't match the supplied repo.
-	 * Re-reads state on every call so callers can invoke this from independent triggers
-	 * (graph switch + render-target switch) within the same `hostUpdate` cycle without
-	 * worrying about ordering — the second call is a no-op if the first already exited.
-	 */
-	private exitModeIfRepoMismatch(currentRepo: string | undefined): void {
-		const state = this.actions.state;
-		const activeMode = state.activeMode.get();
-		const activeModeRepo = state.activeModeRepoPath.get();
-		if (activeMode != null && activeModeRepo != null && currentRepo != null && activeModeRepo !== currentRepo) {
-			this.exitMode(this.host.currentSelection());
-		}
+		// (Trigger 3 — compose `{cancelled:true}` sentinel — removed. The sentinel now arrives via
+		// the operation's resolution and is handled by `onRunSettled`, which removes the entry +
+		// re-projects the engaged anchor's resource to idle.)
 	}
 
 	// endregion
 
 	// region Mode transitions
 
-	toggleMode(mode: DetailsMode, selection: DetailsSelection, compareOverrides?: CompareModeOverrides): void {
+	toggleMode(mode: DetailsMode, selection: DetailsSelection): void {
 		const { sha, shas, repoPath } = selection;
 		const state = this.actions.state;
 		const resources = this.actions.resources;
 
-		// If already active, deactivate (leaving a mode is always allowed, even if the current
-		// selection wouldn't pass the activation guards below). Exception: when entering compare
-		// mode with explicit ref overrides (e.g. from a sidebar tree compare action), treat it as
-		// a replace rather than a toggle — the user is asking for a different comparison, not to
-		// dismiss the current one.
-		if (state.activeMode.get() === mode && !(mode === 'compare' && compareOverrides?.leftRef != null)) {
-			this.exitMode(selection);
+		// If already active, deactivate. This is "toggle-out maintains" — just hide the panel;
+		// the registry entry + any in-flight run persist. Close-from-`'backed'` is the only path
+		// that destroys (single-click, no confirm — Restart already moved the result to a forward
+		// snapshot, so close discarding the backed entry is the user's natural follow-through).
+		if (state.activeMode.get() === mode) {
+			// If the engaged anchor's entry is `'backed'`, this is the destroy path
+			// (Restart-then-close). Otherwise just hide.
+			const engagedEntry = this.host.crossPaneState.runningOperations.get().get(
+				anchorKey({
+					sha: state.activeModeSha.get(),
+					shas: state.activeModeShas.get(),
+					repoPath: state.activeModeRepoPath.get(),
+				}),
+			)?.[mode];
+			if (engagedEntry?.execState === 'backed') {
+				this.destroyEngagedOperation(mode);
+			} else {
+				// User explicitly dismissed this mode on this anchor — forget so a return
+				// doesn't auto-restore it. The registry entry (if any) is left intact.
+				this.forgetMode(selection);
+				this.hideMode(selection);
+			}
 			return;
 		}
 
@@ -210,139 +260,50 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		// Activation guards — only apply when entering a mode.
 		if (mode === 'compose' && !isWip) return;
-		if (
-			mode === 'compare' &&
-			!isWip &&
-			!state.commit.get() &&
-			!state.commitTo.get() &&
-			!compareOverrides?.leftRef
-		) {
-			return;
-		}
 
-		// Deactivate other mode if active.
+		// Switching to a different mode while one is already active. Both kinds may coexist
+		// per anchor — the other kind's run keeps going and its chip overlay stays.
 		if (state.activeMode.get() != null) {
-			this.exitMode(selection);
+			this.hideMode(selection);
 		}
 
 		// Initialize mode-specific state.
-		if (mode === 'review' || mode === 'compose') {
-			const scope = this.buildDefaultScope(sha, isWip, isMultiCommit);
-			if (scope) {
-				state.scope.set(scope);
-				resources.scopeFiles.cancel();
-				if (repoPath) {
-					void resources.scopeFiles.fetch(repoPath, scope);
-				}
-			}
-			const newKey = this.selectionKey(sha, shas, repoPath);
-			if (mode === 'review') {
-				// Cached result belongs to a different selection — reset so the panel returns to
-				// idle file-curation for THIS selection (otherwise we render A's findings against B).
-				// Also reset when the resource has any non-idle value but no fetched-for marker
-				// (e.g. mutate'd via Forward, or hot-reload), to avoid rendering stale findings.
-				const reviewHasValue = resources.review.value.get() != null;
-				if (reviewHasValue && this._reviewFetchedForSelection !== newKey) {
-					resources.review.reset();
-					this.review.invalidateSnapshot();
-					this._reviewFetchedForSelection = undefined;
-				} else {
-					resources.review.cancel();
-				}
-			} else {
-				const composeHasValue = resources.compose.value.get() != null;
-				if (composeHasValue && this._composeFetchedForSelection !== newKey) {
-					resources.compose.reset();
-					this.compose.invalidateSnapshot();
-					this._composeFetchedForSelection = undefined;
-				} else {
-					resources.compose.cancel();
-				}
-			}
-			state.aiExcludedFiles.set(undefined);
-			void this.actions.fetchAiExcludedFiles(repoPath, sha, shas);
-		}
-
-		if (mode === 'compare') {
-			// Determine left ref based on context. Order matters: check the active selection
-			// shape (isWip / isMultiCommit) BEFORE falling back to lingering single-commit state,
-			// otherwise multi-commit pivot picks up a stale `commit` from a prior selection.
-			const wip = state.wip.get();
-			const commitTo = state.commitTo.get();
-			const commitFrom = state.commitFrom.get();
-			const commit = state.commit.get();
-			let leftRef: string | undefined;
-			let leftRefType: 'branch' | 'tag' | 'commit' | undefined;
-			let rightRef: string | undefined;
-			let rightRefType: 'branch' | 'tag' | 'commit' | undefined;
-			// Branch whose merge target seeds the right ref. WIP uses the current branch; a
-			// single commit uses the branch it's reachable from (stashes use stashOnRef).
-			let mergeTargetBranchName: string | undefined;
-			if (isWip) {
-				leftRef = wip?.branch?.name;
-				leftRefType = 'branch';
-				mergeTargetBranchName = wip?.branch?.name;
-			} else if (isMultiCommit && commitTo && commitFrom) {
-				// Pivot from a multi-commit compare panel: the two sides of the existing
-				// comparison become the left and right sides of the new ref-to-ref comparison.
-				leftRef = commitTo.shortSha;
-				leftRefType = 'commit';
-				rightRef = commitFrom.shortSha;
-				rightRefType = 'commit';
-			} else if (commit) {
-				leftRef = commit.shortSha;
-				leftRefType = 'commit';
-				if (commit.stashOnRef) {
-					mergeTargetBranchName = commit.stashOnRef;
-				} else {
-					const branchRefs = state.reachability
-						.get()
-						?.refs?.filter((r): r is Extract<typeof r, { refType: 'branch' }> => r.refType === 'branch');
-					mergeTargetBranchName = (branchRefs?.find(r => r.current) ?? branchRefs?.[0])?.name;
-				}
-			}
-
-			// Explicit overrides win — used when sidebar/external entry points already know both sides.
-			if (compareOverrides?.leftRef != null) {
-				leftRef = compareOverrides.leftRef;
-				leftRefType = compareOverrides.leftRefType ?? 'commit';
-			}
-			if (compareOverrides?.rightRef != null) {
-				rightRef = compareOverrides.rightRef;
-				rightRefType = compareOverrides.rightRefType ?? 'branch';
-			}
-
-			state.branchCompareLeftRef.set(leftRef);
-			state.branchCompareLeftRefType.set(leftRefType);
-			state.branchCompareIncludeWorkingTree.set(compareOverrides?.includeWorkingTree ?? false);
-			state.branchCompareAheadCount.set(0);
-			state.branchCompareBehindCount.set(0);
-			state.branchCompareAheadCommits.set([]);
-			state.branchCompareBehindCommits.set([]);
-			state.branchCompareAheadLoaded.set(false);
-			state.branchCompareBehindLoaded.set(false);
-			state.branchCompareAllFiles.set([]);
-			state.branchCompareActiveTab.set('all');
-			state.branchCompareSelectedCommitShaByTab.set(new Map());
-			state.branchCompareActiveView.set('files');
-			state.branchCompareEnrichmentRequested.set(false);
-			state.branchCompareAutolinksByScope.set(new Map());
-			state.branchCompareEnrichedAutolinksByScope.set(new Map());
-			state.branchCompareContributorsByScope.set(new Map());
-			state.branchCompareEnrichmentLoading.set(new Map());
-			state.branchCompareContributorsLoading.set(new Map());
-			state.branchCompareCommitFilesLoading.set(new Map());
-
-			if (rightRef != null) {
-				state.branchCompareRightRef.set(rightRef);
-				state.branchCompareRightRefType.set(rightRefType);
-				void this.actions.refreshCompare(repoPath);
-			} else {
-				state.branchCompareRightRef.set(undefined);
-				state.branchCompareRightRefType.set(undefined);
-				void this.actions.initCompareDefaults(repoPath, mergeTargetBranchName);
+		const scope = this.buildDefaultScope(sha, isWip, isMultiCommit);
+		if (scope) {
+			state.scope.set(scope);
+			resources.scopeFiles.cancel();
+			if (repoPath) {
+				void resources.scopeFiles.fetch(repoPath, scope);
 			}
 		}
+		const newKey = this.selectionKey(sha, shas, repoPath);
+		if (mode === 'review') {
+			// Cached result belongs to a different selection — reset so the panel returns to
+			// idle file-curation for THIS selection (otherwise we render A's findings against B).
+			// Also reset when the resource has any non-idle value but no fetched-for marker
+			// (e.g. mutate'd via Forward, or hot-reload), to avoid rendering stale findings.
+			const reviewHasValue = resources.review.value.get() != null;
+			if (reviewHasValue && this._reviewFetchedForSelection !== newKey) {
+				resources.review.reset();
+				this.review.invalidateSnapshot();
+				this.review.invalidateErrorRecovery();
+				this._reviewFetchedForSelection = undefined;
+			} else {
+				resources.review.cancel();
+			}
+		} else {
+			const composeHasValue = resources.compose.value.get() != null;
+			if (composeHasValue && this._composeFetchedForSelection !== newKey) {
+				resources.compose.reset();
+				this.compose.invalidateSnapshot();
+				this.compose.invalidateErrorRecovery();
+				this._composeFetchedForSelection = undefined;
+			} else {
+				resources.compose.cancel();
+			}
+		}
+		state.aiExcludedFiles.set(undefined);
+		void this.actions.fetchAiExcludedFiles(repoPath, sha, shas);
 
 		state.activeMode.set(mode);
 		state.wipStale.set(false);
@@ -356,25 +317,198 @@ export class DetailsWorkflowController implements ReactiveController {
 		// previously). Signals don't notify on change here, so this is the hook point.
 		void this.actions.refreshScopedAiModel();
 
-		// Fetch branch commits for WIP scope picker if not already loaded.
-		if (isWip && !state.branchCommits.get() && !state.branchCommitsFetching.get()) {
-			void this.actions.fetchBranchCommits(repoPath);
+		// Remember this anchor's mode so a subsequent return restores it.
+		this.rememberMode(selection, mode);
+
+		// Fetch branch commits for the WIP scope picker when the current cache is missing or
+		// belongs to a different repo. Repo mismatch happens when the user switches between
+		// worktree-row anchors while in mode — `resetRepoScopedState` clears branchCommits AFTER
+		// `toggleMode` already evaluated the gate, leaving a window where the picker would
+		// render empty waiting for a fetch that never started. Checking the last-fetched
+		// repoPath catches that case explicitly.
+		if (isWip && !state.branchCommitsFetching.get()) {
+			const lastFetchedRepoPath = this.actions.branchCommitsFetchedRepoPath();
+			if (state.branchCommits.get() == null || lastFetchedRepoPath !== repoPath) {
+				void this.actions.fetchBranchCommits(repoPath);
+			}
 		}
+
+		// Project the engaged anchor's entry into the resource (or leave it idle for ENABLED /
+		// `'generating'` / `'backed'` cases — the panel reads `execState` from the entry).
+		this.projectEngagedAnchor(mode, { sha: sha, shas: shas, repoPath: repoPath });
 	}
 
-	/** Explicit exit of whatever mode is active. No-op if no mode is active. */
-	exitMode(selection: DetailsSelection): void {
-		const { sha, shas, repoPath, graphReachability, commitLite, commitLites } = selection;
+	/** Opens the compare sheet, seeded from the current selection (or explicit overrides from
+	 *  external callers like sidebar tree compare actions). Compare is selection-decoupled
+	 *  once opened — the user can navigate the graph freely and the sheet's refs are unaffected.
+	 *  Re-calling `openCompare` while the sheet is already open replaces the comparison only when
+	 *  explicit overrides are provided; otherwise it's a no-op. */
+	openCompare(selection: DetailsSelection, compareOverrides?: CompareModeOverrides): void {
+		const { sha, shas, repoPath } = selection;
+		const state = this.actions.state;
 
-		// Snapshot mode + selection BEFORE clearing so we can detect whether the selection
-		// moved while in the mode. If it did, also reset the mode's resource so re-entering
-		// the mode for the new selection starts from idle.
+		// Already-open (sheet OR pinned) + no explicit overrides = no-op (re-clicking the same
+		// entry point shouldn't reset the user's in-flight comparison).
+		const alreadyOpen = state.compareSheetOpen.get() || state.compareAsPanel.get();
+		if (alreadyOpen && compareOverrides?.leftRef == null) {
+			return;
+		}
+
+		const isWip = this.actions.isWip(sha);
+		const isMultiCommit = this.actions.isMultiCommit(shas);
+
+		// Activation guard: need a seed for the left ref (WIP / commit / multi-commit pivot /
+		// explicit override).
+		if (!isWip && !state.commit.get() && !state.commitTo.get() && !compareOverrides?.leftRef) {
+			return;
+		}
+
+		// Determine left ref based on context. Order matters: check the active selection
+		// shape (isWip / isMultiCommit) BEFORE falling back to lingering single-commit state,
+		// otherwise multi-commit pivot picks up a stale `commit` from a prior selection.
+		const wip = state.wip.get();
+		const commitTo = state.commitTo.get();
+		const commitFrom = state.commitFrom.get();
+		const commit = state.commit.get();
+		let leftRef: string | undefined;
+		let leftRefType: 'branch' | 'tag' | 'commit' | undefined;
+		let rightRef: string | undefined;
+		let rightRefType: 'branch' | 'tag' | 'commit' | undefined;
+		// Branch whose merge target seeds the right ref. WIP uses the current branch; a
+		// single commit uses the branch it's reachable from (stashes use stashOnRef).
+		let mergeTargetBranchName: string | undefined;
+		if (isWip) {
+			leftRef = wip?.branch?.name;
+			leftRefType = 'branch';
+			mergeTargetBranchName = wip?.branch?.name;
+		} else if (isMultiCommit && commitTo && commitFrom) {
+			// Pivot from a multi-commit compare panel: the two sides of the existing
+			// comparison become the left and right sides of the new ref-to-ref comparison.
+			leftRef = commitTo.shortSha;
+			leftRefType = 'commit';
+			rightRef = commitFrom.shortSha;
+			rightRefType = 'commit';
+		} else if (commit) {
+			leftRef = commit.shortSha;
+			leftRefType = 'commit';
+			if (commit.stashOnRef) {
+				mergeTargetBranchName = commit.stashOnRef;
+			} else {
+				const branchRefs = state.reachability
+					.get()
+					?.refs?.filter((r): r is Extract<typeof r, { refType: 'branch' }> => r.refType === 'branch');
+				mergeTargetBranchName = (branchRefs?.find(r => r.current) ?? branchRefs?.[0])?.name;
+			}
+		}
+
+		// Explicit overrides win — used when sidebar/external entry points already know both sides.
+		if (compareOverrides?.leftRef != null) {
+			leftRef = compareOverrides.leftRef;
+			leftRefType = compareOverrides.leftRefType ?? 'commit';
+		}
+		if (compareOverrides?.rightRef != null) {
+			rightRef = compareOverrides.rightRef;
+			rightRefType = compareOverrides.rightRefType ?? 'branch';
+		}
+
+		state.branchCompareLeftRef.set(leftRef);
+		state.branchCompareLeftRefType.set(leftRefType);
+		state.branchCompareIncludeWorkingTree.set(compareOverrides?.includeWorkingTree ?? false);
+		state.branchCompareAheadCount.set(0);
+		state.branchCompareBehindCount.set(0);
+		state.branchCompareAheadCommits.set([]);
+		state.branchCompareBehindCommits.set([]);
+		state.branchCompareAheadLoaded.set(false);
+		state.branchCompareBehindLoaded.set(false);
+		state.branchCompareAllFiles.set([]);
+		state.branchCompareActiveTab.set('all');
+		state.branchCompareSelectedCommitShaByTab.set(new Map());
+		state.branchCompareActiveView.set('files');
+		state.branchCompareEnrichmentRequested.set(false);
+		state.branchCompareAutolinksByScope.set(new Map());
+		state.branchCompareEnrichedAutolinksByScope.set(new Map());
+		state.branchCompareContributorsByScope.set(new Map());
+		state.branchCompareEnrichmentLoading.set(new Map());
+		state.branchCompareContributorsLoading.set(new Map());
+		state.branchCompareCommitFilesLoading.set(new Map());
+
+		if (rightRef != null) {
+			state.branchCompareRightRef.set(rightRef);
+			state.branchCompareRightRefType.set(rightRefType);
+			void this.actions.refreshCompare(repoPath);
+		} else {
+			state.branchCompareRightRef.set(undefined);
+			state.branchCompareRightRefType.set(undefined);
+			void this.actions.initCompareDefaults(repoPath, mergeTargetBranchName);
+		}
+
+		// Always open as a sheet — the panel form is opt-in via `openCompareAsPanel`. Any prior
+		// panel state is dismissed: a fresh open re-establishes the lighter preview shape, and
+		// the user re-commits to the panel form if they want it. To get back to a sheet from a
+		// panel, the user closes and re-opens.
+		state.compareAsPanel.set(false);
+		state.compareSheetOpen.set(true);
+	}
+
+	/** Promotes the compare sheet into a side-by-side or top/bottom panel — a nested split
+	 *  inside the details panel. Compare leaves the sheet (which dismisses) and reappears
+	 *  beside (or above) the underlying details content in a dedicated split. Refs/tab/scroll
+	 *  persist via the shared signals. Optional `orientation` lets the caller specify
+	 *  side-by-side ('horizontal') vs top/bottom ('vertical'); defaults to whatever is set. */
+	openCompareAsPanel(orientation?: 'horizontal' | 'vertical'): void {
+		const state = this.actions.state;
+		if (!state.compareSheetOpen.get() && !state.compareAsPanel.get()) return;
+
+		if (orientation != null) {
+			state.compareSplitOrientation.set(orientation);
+		}
+		state.compareSheetOpen.set(false);
+		state.compareAsPanel.set(true);
+	}
+
+	/** Closes compare entirely, regardless of which form it's currently in. Compare has no
+	 *  run state to preserve; this fully resets the branchCompare* signals back to idle. */
+	closeCompare(): void {
+		const state = this.actions.state;
+		if (!state.compareSheetOpen.get() && !state.compareAsPanel.get()) return;
+
+		state.compareSheetOpen.set(false);
+		state.compareAsPanel.set(false);
+		state.branchCompareLeftRef.set(undefined);
+		state.branchCompareLeftRefType.set(undefined);
+		state.branchCompareRightRef.set(undefined);
+		state.branchCompareRightRefType.set(undefined);
+		state.branchCompareIncludeWorkingTree.set(false);
+		state.branchCompareStale.set(false);
+		state.branchCompareAheadCount.set(0);
+		state.branchCompareBehindCount.set(0);
+		state.branchCompareAheadCommits.set([]);
+		state.branchCompareBehindCommits.set([]);
+		state.branchCompareAheadLoaded.set(false);
+		state.branchCompareBehindLoaded.set(false);
+		state.branchCompareAllFiles.set([]);
+		state.branchCompareActiveTab.set('all');
+		state.branchCompareSelectedCommitShaByTab.set(new Map());
+		state.branchCompareActiveView.set('files');
+		state.branchCompareEnrichmentRequested.set(false);
+		state.branchCompareAutolinksByScope.set(new Map());
+		state.branchCompareEnrichedAutolinksByScope.set(new Map());
+		state.branchCompareContributorsByScope.set(new Map());
+		state.branchCompareEnrichmentLoading.set(new Map());
+		state.branchCompareContributorsLoading.set(new Map());
+		state.branchCompareCommitFilesLoading.set(new Map());
+	}
+
+	/** Reserved for any path that needs to fully tear down review/compose without going through
+	 *  the toggle gate. Today this is unreachable from external callers — review/compose toggle-out
+	 *  goes through {@link hideMode} (run preserved); destroy goes through
+	 *  {@link destroyEngagedOperation} (Back-then-close gate). Kept here so the cleanup contract is
+	 *  explicit if a future flow needs it. */
+	exitMode(selection: DetailsSelection): void {
 		const wasMode = this.actions.state.activeMode.get();
 		const wasSha = this.actions.state.activeModeSha.get();
 		const wasShas = this.actions.state.activeModeShas.get();
 
-		this.actions.resources.review.cancel();
-		this.actions.resources.compose.cancel();
 		this.actions.state.activeMode.set(null);
 		this.actions.state.activeModeContext.set(null);
 		this.actions.state.activeModeRepoPath.set(undefined);
@@ -386,29 +520,150 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Mode left — chip falls back to the global default until a new mode is entered.
 		void this.actions.refreshScopedAiModel();
 
-		const selectionChanged = wasSha !== sha || !areEqual(wasShas, shas);
+		const selectionChanged = wasSha !== selection.sha || !areEqual(wasShas, selection.shas);
 		if (selectionChanged) {
 			if (wasMode === 'review') {
 				this.actions.resources.review.reset();
 				this.review.invalidateSnapshot();
+				this.review.invalidateErrorRecovery();
 				this._reviewFetchedForSelection = undefined;
 			} else if (wasMode === 'compose') {
 				this.actions.resources.compose.reset();
 				this.compose.invalidateSnapshot();
+				this.compose.invalidateErrorRecovery();
 				this._composeFetchedForSelection = undefined;
 			}
 		}
 
-		// Re-fetch data if selection changed while mode was active. fetchDetails /
-		// fetchCompareDetails early-return on a cache hit, so when selection didn't change
-		// this is a no-op (avoids a visible skeleton flash while the wip/commit resource
-		// reloads into data we already have). Forward the eager commit shells so a
-		// selection-changed-while-in-mode exit paints metadata synchronously instead of
-		// flashing blank during the IPC roundtrip.
+		this.refetchForSelection(selection);
+	}
+
+	/** Hide the engaged panel without disturbing any in-flight or completed running operation.
+	 *  Registry entries + their AbortControllers are left intact, so the run keeps going and the
+	 *  chip overlay + WIP-row adornment stay live. Used by toggle-out, X-close (non-destructive),
+	 *  and the anchor-switch state-clear half of {@link switchAnchorWithinMode}. */
+	private hideMode(selection: DetailsSelection, options?: { skipRefetch?: boolean }): void {
+		// Read the active mode BEFORE clearing it so we can scope the error-recovery invalidation
+		// to just the mode the user was in. The two kinds can have coexisting state when both
+		// are running for the same anchor (the registry supports this); clearing both kinds'
+		// recovery on a hide that only ends one of them would silently erase the other's state.
+		const exitingMode = this.actions.state.activeMode.get();
+
+		this.actions.state.activeMode.set(null);
+		this.actions.state.activeModeContext.set(null);
+		this.actions.state.activeModeRepoPath.set(undefined);
+		this.actions.state.activeModeSha.set(undefined);
+		this.actions.state.activeModeShas.set(undefined);
+		this.actions.state.scope.set(undefined);
+		this.actions.state.aiExcludedFiles.set(undefined);
+		// Bump the fetch-generation so any still-in-flight `fetchAiExcludedFiles` (from the
+		// `toggleMode` tail) can't write a stale result back into the just-cleared signal after
+		// the user has left the mode. The generation guard inside the fetch only triggers when a
+		// NEW fetch starts; without this explicit bump, a toggle-off-and-stay-off path leaves
+		// the in-flight resolution able to repopulate the signal.
+		this.actions.invalidateAiExcludedFilesFetch();
+		// Error-recovery state is engagement-scoped — it belongs to the mode the user was in
+		// when the error occurred. Without this clear, anchor B's mode-X error retry/Go-Back
+		// could reach for anchor A's prior session prompt/value/last-action (backFromError reads
+		// `*PreErrorValue` and `mutate`s it in). Scope to `exitingMode` so a hide that ends only
+		// one of two coexisting kinds doesn't erase the other's recovery state.
+		if (exitingMode === 'review') {
+			this.review.invalidateErrorRecovery();
+		} else if (exitingMode === 'compose') {
+			this.compose.invalidateErrorRecovery();
+		}
+		// On repo-switch, the caller (Trigger 1 in hostUpdate) will follow up with the new
+		// repo's selection arriving. Refetching here uses `host.currentSelection()` which is
+		// still the OLD repo's selection until the user clicks a row in the new repo — the
+		// in-flight fetch would set `_lastFetchedKey` and write old-repo data into the (now
+		// reset by Trigger 2) repo-scoped signals on resolution. Skip the refetch on that path.
+		if (!options?.skipRefetch) {
+			this.refetchForSelection(selection);
+		}
+	}
+
+	/** Destroy the engaged anchor's `(kind)` operation — aborts the controller, removes the
+	 *  registry entry, clears the back-snapshot, resets the resource, untoggles the mode. This
+	 *  is the back-then-close gate's destroy step; reachable from the X close and from the
+	 *  active-toggle click when the engaged entry's `execState === 'backed'`. */
+	private destroyEngagedOperation(kind: 'review' | 'compose'): void {
+		const anchor = this.currentAnchor();
+		const key = anchorKey(anchor);
+		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
+		entry?.abortController?.abort();
+		this.removeRunningOperation(key, kind);
+		(kind === 'review' ? this.review : this.compose).invalidateSnapshot();
+		(kind === 'review' ? this.actions.resources.review : this.actions.resources.compose).reset();
+		// Forget on the engaged anchor (what's being destroyed), not the host's current selection —
+		// they can diverge (e.g. destroy via the active-toggle chip while the host's selection
+		// already moved to a different row).
+		this.forgetMode(anchor);
+		this.hideMode(this.host.currentSelection());
+	}
+
+	/** Shared tail for `exitMode`/`hideMode`: re-fetch the current selection's data so the
+	 *  panel returns to plain WIP/commit view content. `fetchDetails`/`fetchCompareDetails`
+	 *  early-return on a cache hit, so this is a no-op when the selection didn't change.
+	 *  Forwards eager commit shells so metadata paints synchronously. */
+	private refetchForSelection(selection: DetailsSelection): void {
+		const { sha, shas, repoPath, graphReachability, commitLite, commitLites } = selection;
 		if (this.actions.isMultiCommit(shas)) {
 			void this.actions.fetchCompareDetails(shas, repoPath, commitLites);
 		} else {
 			void this.actions.fetchDetails(sha, repoPath, graphReachability, { commitLite: commitLite });
+		}
+	}
+
+	/** Called when the panel's selection changes while a compose/review mode is active. The
+	 *  prior anchor's running operation (if any) is left intact in the registry — its in-flight
+	 *  run keeps going; switching back later re-attaches. The new anchor's `toggleMode` tail
+	 *  projects its own entry (loading if generating, result if complete, idle if none).
+	 *
+	 *  Compose only works on WIP anchors — switching to a non-WIP anchor while in compose mode
+	 *  hides compose (the WIP's compose run keeps going in the background). */
+	switchAnchorWithinMode(newSelection: DetailsSelection): void {
+		const state = this.actions.state;
+		const mode = state.activeMode.get();
+		if (mode == null) return;
+
+		// Same anchor? Nothing to do (selection-change can fire even when the user clicks the
+		// already-selected row).
+		const prevRepoPath = state.activeModeRepoPath.get();
+		const prevKey = anchorKey({
+			sha: state.activeModeSha.get(),
+			shas: state.activeModeShas.get(),
+			repoPath: prevRepoPath,
+		});
+		const nextKey = anchorKey(newSelection);
+		if (prevKey === nextKey) return;
+
+		// Back-snapshots are engagement-scoped: they belong to whatever anchor the user backed
+		// from. Carrying them across an anchor switch would let `forward()` on the new anchor
+		// restore the prior anchor's result via `resource.mutate(snapshot)`. The compose snapshot
+		// has the same risk (commits from anchor A surfacing on anchor B). Invalidating both
+		// here also clears `*ForwardAvailable` and `*BackPreview` so the new anchor's header
+		// doesn't render a stale Resume affordance. The new anchor's own back-snapshot, if any,
+		// gets rebuilt when the user clicks Back on it.
+		this.review.invalidateSnapshot();
+		this.compose.invalidateSnapshot();
+
+		// On row switch the mode does NOT follow — just hide. The prior anchor's `toggleMode`
+		// already called `rememberMode`, so returning to a remembered WIP anchor restores below.
+		this.hideMode(newSelection);
+
+		// Then, if the new anchor is a WIP with a remembered mode, restore it atomically in
+		// the same willUpdate cycle. The panel's `else-if` restore branch can't catch this on
+		// its own: that branch evaluates `activeMode == null` at the TOP of willUpdate, which
+		// was non-null when we entered, so it's already been skipped. Without this restore here
+		// the user would land on the new WIP with no mode even when they had previously toggled
+		// one on, making the per-WIP memory feel "hit or miss" depending on whether they came
+		// from a mode-active anchor or a no-mode anchor. Commits don't get auto-restore (memory
+		// is intentionally gated to WIPs — re-clicking a commit shouldn't ambient-enter review).
+		if (this.actions.isWip(newSelection.sha)) {
+			const remembered = this.getRememberedMode(newSelection);
+			if (remembered != null) {
+				this.toggleMode(remembered, newSelection);
+			}
 		}
 	}
 
@@ -420,31 +675,39 @@ export class DetailsWorkflowController implements ReactiveController {
 	readonly review = {
 		back: (): void => {
 			// Snapshot a successfully-resolved value so forward() can restore it without re-running
-			// the AI. Reset returns the panel to the idle file-curation view; mutate() on forward()
-			// puts the value back without spending tokens.
-			if (this.actions.resources.review.status.get() === 'success') {
-				const value = this.actions.resources.review.value.get();
-				if (value != null) {
-					this._reviewBackSnapshot = value;
-					this.actions.state.reviewForwardAvailable.set(true);
-					if ('result' in value) {
-						const filesSet = new Set<string>();
-						let findingCount = 0;
-						for (const area of value.result.focusAreas) {
-							findingCount += area.findings?.length ?? 0;
-							for (const f of area.files) {
-								filesSet.add(f);
-							}
-						}
-						this.actions.state.reviewBackPreview.set({
-							findingCount: findingCount,
-							fileCount: filesSet.size,
-						});
-					} else {
-						this.actions.state.reviewBackPreview.set(undefined);
+			// the AI. Also transition the engaged anchor's registry entry to `'backed'` — that's
+			// the state that makes Close destructive (the Back-then-close gate). The chip overlay
+			// stays as `pass` (a result still exists, just not currently displayed).
+			// The transition + resource reset MUST be gated on a successful snapshot capture:
+			// otherwise we land on a backed entry with `forwardAvailable === false`, the panel
+			// shows idle, the chip shows pass, and the only escape is destructive Close. The
+			// outer status check guards against a non-success state; the inner `value != null`
+			// guards against the (rare) success-without-value race where the resource was reset
+			// between the status read and the value read.
+			if (this.actions.resources.review.status.get() !== 'success') return;
+
+			const value = this.actions.resources.review.value.get();
+			if (value == null) return;
+
+			this._reviewBackSnapshot = value;
+			this.actions.state.reviewForwardAvailable.set(true);
+			if ('result' in value) {
+				const filesSet = new Set<string>();
+				let findingCount = 0;
+				for (const area of value.result.focusAreas) {
+					findingCount += area.findings?.length ?? 0;
+					for (const f of area.files) {
+						filesSet.add(f);
 					}
 				}
+				this.actions.state.reviewBackPreview.set({
+					findingCount: findingCount,
+					fileCount: filesSet.size,
+				});
+			} else {
+				this.actions.state.reviewBackPreview.set(undefined);
 			}
+			this.transitionEngagedEntryExecState('review', 'backed');
 			this.actions.resources.review.reset();
 		},
 		forward: (): boolean => {
@@ -452,14 +715,55 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (snapshot == null) return false;
 
 			this.actions.resources.review.mutate(snapshot);
-			// Keep the snapshot so a subsequent back → forward cycle still works; the chip is
-			// driven by `reviewForwardAvailable` which the panel hides outside the idle state.
+			this.transitionEngagedEntryExecState('review', 'complete');
+			// Clear the back-preview so the header reverts to plain counts — the result is now
+			// visible in the panel, so the Resume affordance no longer applies. A subsequent
+			// `back()` will re-snapshot from the now-active value, so the cycle still works.
+			this.actions.state.reviewBackPreview.set(undefined);
+			this.actions.state.reviewForwardAvailable.set(false);
 			return true;
 		},
 		invalidateSnapshot: (): void => {
 			this._reviewBackSnapshot = undefined;
 			this.actions.state.reviewForwardAvailable.set(false);
 			this.actions.state.reviewBackPreview.set(undefined);
+		},
+		// "Go Back" from the error pane. If there's a pre-error result value (e.g. a refine
+		// failed from a prior review result), restore it. Otherwise reset to idle.
+		// The prompt snapshot is left intact so the panel's gl-ai-input pre-fills on re-render.
+		// Registry entry is updated alongside the resource — the panel mapping reads entry
+		// first, so a stale 'error' entry would mask the restored state. Sequencing: entry
+		// first, then resource, so the panel's next render sees the consistent target state.
+		backFromError: (): void => {
+			const prev = this.actions.state.reviewPreErrorValue.get();
+			const anchor = this.currentAnchor();
+			const key = anchorKey(anchor);
+			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+			if (prev != null && 'result' in prev) {
+				if (entry != null) {
+					this.registerRunningOperation({ ...entry, execState: 'complete', result: prev });
+				}
+				this.actions.resources.review.mutate(prev);
+			} else {
+				if (entry != null) {
+					this.removeRunningOperation(key, 'review');
+				}
+				this.actions.resources.review.reset();
+			}
+			this.actions.state.reviewPreErrorValue.set(undefined);
+		},
+		retryFromError: (
+			repoPath: string | undefined,
+			excludedFiles: string[] | undefined,
+			selectedIds?: ReadonlySet<string>,
+			scopeItems?: ScopeItem[],
+		): void => {
+			const prompt = this.actions.state.reviewPreErrorPrompt.get();
+			this.runReview(repoPath, prompt, excludedFiles, selectedIds, scopeItems);
+		},
+		invalidateErrorRecovery: (): void => {
+			this.actions.state.reviewPreErrorValue.set(undefined);
+			this.actions.state.reviewPreErrorPrompt.set(undefined);
 		},
 	};
 
@@ -475,10 +779,18 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		this.actions.state.scope.set(scope);
 		this.actions.state.wipStale.set(false);
-		// A fresh review run invalidates any pending Forward (we're about to overwrite the value).
 		this.review.invalidateSnapshot();
+		// Snapshot the pre-error state so Back/Retry can recover. Only stash the value when it
+		// holds a result — an error/cancelled sentinel isn't useful to restore.
+		const currentValue = this.actions.resources.review.value.get();
+		this.actions.state.reviewPreErrorValue.set(
+			currentValue != null && 'result' in currentValue ? currentValue : undefined,
+		);
+		this.actions.state.reviewPreErrorPrompt.set(instructions);
 		this._reviewFetchedForSelection = this.selectionKey();
-		void this.actions.resources.review.fetch(repoPath, scope, instructions, excludedFiles);
+		this.dispatchOperation('review', controller =>
+			this.actions.startReview(repoPath, scope, instructions, excludedFiles, controller.signal),
+		);
 	}
 
 	// endregion
@@ -487,18 +799,22 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	readonly compose = {
 		back: (): void => {
-			if (this.actions.resources.compose.status.get() === 'success') {
-				const value = this.actions.resources.compose.value.get();
-				if (value != null && 'result' in value) {
-					this._composeBackSnapshot = value;
-					this.actions.state.composeForwardAvailable.set(true);
-					const totalFiles = value.result.commits.reduce((sum, c) => sum + c.files.length, 0);
-					this.actions.state.composeBackPreview.set({
-						commitCount: value.result.commits.length,
-						fileCount: totalFiles,
-					});
-				}
-			}
+			// See `review.back` for rationale on the conditional transition. The original code
+			// transitioned the entry to `'backed'` unconditionally even when no snapshot was
+			// captured, leaving the user stuck with no forward path and a destructive close.
+			if (this.actions.resources.compose.status.get() !== 'success') return;
+
+			const value = this.actions.resources.compose.value.get();
+			if (value == null || !('result' in value)) return;
+
+			this._composeBackSnapshot = value;
+			this.actions.state.composeForwardAvailable.set(true);
+			const totalFiles = value.result.commits.reduce((sum, c) => sum + c.files.length, 0);
+			this.actions.state.composeBackPreview.set({
+				commitCount: value.result.commits.length,
+				fileCount: totalFiles,
+			});
+			this.transitionEngagedEntryExecState('compose', 'backed');
 			this.actions.resources.compose.reset();
 		},
 		forward: (): boolean => {
@@ -506,12 +822,130 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (snapshot == null) return false;
 
 			this.actions.resources.compose.mutate(snapshot);
+			this.transitionEngagedEntryExecState('compose', 'complete');
+			// Clear the back-preview so the header reverts to plain counts — the result is now
+			// visible in the panel, so the Resume affordance no longer applies. A subsequent
+			// `back()` will re-snapshot from the now-active value, so the cycle still works.
+			this.actions.state.composeBackPreview.set(undefined);
+			this.actions.state.composeForwardAvailable.set(false);
 			return true;
 		},
 		invalidateSnapshot: (): void => {
 			this._composeBackSnapshot = undefined;
 			this.actions.state.composeForwardAvailable.set(false);
 			this.actions.state.composeBackPreview.set(undefined);
+		},
+		// "Go Back" from the error pane. When the failed action was Commit All (or a refine
+		// from a ready plan), `composePreErrorValue` holds the prior plan — mutate restores
+		// it. When the failed action was a fresh generate from idle, the snapshot is empty —
+		// reset returns the panel to the idle file-curation view. The prompt snapshot is left
+		// intact so the panel's gl-ai-input pre-fills with the user's last prompt.
+		// Registry entry is updated alongside the resource — the panel mapping reads entry
+		// first, so a stale 'error' entry would mask the restored state. Sequencing: entry
+		// first, then resource, so the panel's next render sees the consistent target state.
+		backFromError: (): void => {
+			const prev = this.actions.state.composePreErrorValue.get();
+			const anchor = this.currentAnchor();
+			const key = anchorKey(anchor);
+			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.compose;
+			if (prev != null && 'result' in prev) {
+				if (entry != null) {
+					this.registerRunningOperation({ ...entry, execState: 'complete', result: prev });
+				}
+				this.actions.resources.compose.mutate(prev);
+			} else {
+				if (entry != null) {
+					this.removeRunningOperation(key, 'compose');
+				}
+				this.actions.resources.compose.reset();
+			}
+			// Clear the value + action tracking so a stale `composeLastFailedAction='commit-all'`
+			// can't drive a subsequent `retryFromError` into the commit-all branch against a plan
+			// that's no longer in the resource. Mirror review.backFromError by preserving
+			// `composePreErrorPrompt` (the compose panel pre-fills its AI input from it, so the
+			// user doesn't have to retype after going back from an error).
+			this.actions.state.composePreErrorValue.set(undefined);
+			this.actions.state.composeLastFailedAction.set(undefined);
+			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
+		},
+		retryFromError: (
+			repoPath: string | undefined,
+			sha: string | undefined,
+			graphReachability: GitCommitReachability | undefined,
+			excludedFiles: string[] | undefined,
+			aiExcludedFiles: string[] | undefined,
+			selectedIds?: ReadonlySet<string>,
+			scopeItems?: ScopeItem[],
+		): void => {
+			const action = this.actions.state.composeLastFailedAction.get();
+			if (action === 'commit-all') {
+				// composeCommitAll's early return requires a value holding `result` — restore the
+				// plan via mutate before re-attempting, otherwise the action no-ops. Also restore
+				// the engaged entry so the panel mapping sees a coherent 'complete' state during
+				// the retry's apply window (composeApplying takes precedence visually anyway, but
+				// this keeps the registry truthful).
+				const prev = this.actions.state.composePreErrorValue.get();
+				const anchor = this.currentAnchor();
+				const key = anchorKey(anchor);
+				const entry = this.host.crossPaneState.runningOperations.get().get(key)?.compose;
+				if (prev != null) {
+					if (entry != null) {
+						this.registerRunningOperation({ ...entry, execState: 'complete', result: prev });
+					}
+					this.actions.resources.compose.mutate(prev);
+				}
+				const includedIds = this.actions.state.composeLastCommitAllIncludedIds.get();
+				void this.compose.applyPlan(sha, graphReachability, includedIds);
+			} else {
+				const prompt = this.actions.state.composePreErrorPrompt.get();
+				this.runCompose(repoPath, prompt, excludedFiles, aiExcludedFiles, selectedIds, scopeItems);
+			}
+		},
+		invalidateErrorRecovery: (): void => {
+			this.actions.state.composePreErrorValue.set(undefined);
+			this.actions.state.composePreErrorPrompt.set(undefined);
+			this.actions.state.composeLastFailedAction.set(undefined);
+			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
+		},
+		// Wraps `composeCommitAll` so the registry entry stays in sync with the resource on
+		// apply failure. Without this, the action mutates only the resource (legacy of the
+		// pre-registry architecture) and the entry retains its prior 'complete' result —
+		// shadowing the resource error in the panel mapping and hiding the error from the user.
+		applyPlan: async (
+			sha: string | undefined,
+			graphReachability: GitCommitReachability | undefined,
+			includedCommitIds: readonly string[] | undefined,
+		): Promise<void> => {
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			// Capture the engaged anchor BEFORE the await — the action's success branch clears
+			// the `activeMode*` signals (so `currentAnchor()` after the await reflects the host's
+			// current selection, not the compose engagement). The registry entry to remove is
+			// keyed by the engaged anchor, not the current selection.
+			const engagedAnchor = this.currentAnchor();
+			await this.actions.composeCommitAll(repoPath, sha, graphReachability, includedCommitIds);
+			// The host may have disconnected (panel close, repo switch torn down everything) while
+			// `composeCommitAll`'s RPC was in flight. Writing to the host-owned registry or the
+			// disposed resource after that is the same UB `onRunSettled` guards against.
+			if (this._disconnected) return;
+
+			const resourceValue = this.actions.resources.compose.value.get();
+			if (resourceValue != null && 'error' in resourceValue) {
+				// Failure path — sync the registry entry to the error state so the panel mapping
+				// surfaces it (resource error otherwise gets shadowed by the entry's prior result).
+				const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(engagedAnchor))?.compose;
+				if (entry == null) return;
+
+				this.registerRunningOperation({ ...entry, execState: 'error', result: resourceValue });
+				return;
+			}
+
+			// Success path — the action cleared the resource + engagement signals but cannot
+			// reach the cross-pane registry. Remove the stale `'complete'` entry so the WIP-row
+			// adornment and chip overlay drop the pass icon (otherwise the row keeps signaling a
+			// compose result for a plan that has already been committed). Also forget the mode
+			// so a return-visit doesn't auto-restore compose on this anchor.
+			this.removeRunningOperation(anchorKey(engagedAnchor), 'compose');
+			this.forgetMode(engagedAnchor);
 		},
 	};
 
@@ -529,8 +963,81 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.scope.set(scope);
 		this.actions.state.wipStale.set(false);
 		this.compose.invalidateSnapshot();
+		// Snapshot the pre-error state so Back/Retry can recover. The value snapshot only
+		// captures a result-bearing value — an error/cancelled sentinel isn't useful to restore.
+		const currentValue = this.actions.resources.compose.value.get();
+		this.actions.state.composePreErrorValue.set(
+			currentValue != null && 'result' in currentValue ? currentValue : undefined,
+		);
+		this.actions.state.composePreErrorPrompt.set(instructions);
+		this.actions.state.composeLastFailedAction.set('generate');
+		this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		this._composeFetchedForSelection = this.selectionKey();
-		void this.actions.resources.compose.fetch(repoPath, scope, instructions, excludedFiles, aiExcludedFiles);
+		this.dispatchOperation('compose', controller =>
+			this.actions.startCompose(repoPath, scope, instructions, excludedFiles, aiExcludedFiles, controller.signal),
+		);
+	}
+
+	/** Common dispatch path for `runReview` / `runCompose`. Aborts any prior in-flight run on the
+	 *  same `(anchor, kind)`; clears the engaged resource; creates a fresh `AbortController`;
+	 *  invokes `start` (the direct-RPC call) with the controller's signal; registers a
+	 *  `'generating'` entry immediately so adornments + chip overlays show the spinner; wires the
+	 *  promise to `onRunSettled` with stale-guard. */
+	private dispatchOperation(
+		kind: 'review' | 'compose',
+		start: (controller: AbortController) => Promise<ReviewResult | ComposeResult>,
+	): void {
+		const anchor = this.currentAnchor();
+		const key = anchorKey(anchor);
+
+		// Abort any prior run on THIS (anchor, kind). Other anchors / the other kind on the same
+		// anchor are untouched.
+		const prior = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
+		prior?.abortController?.abort();
+
+		const controller = new AbortController();
+		// Clear the engaged resource so the panel doesn't show a stale prior result while generating.
+		(kind === 'review' ? this.actions.resources.review : this.actions.resources.compose).reset();
+
+		const promise = start(controller);
+
+		// Register `'generating'` immediately — drives the adornment + chip spinner at once.
+		this.registerRunningOperation(
+			kind === 'review'
+				? {
+						kind: 'review',
+						anchor: anchor,
+						execState: 'generating',
+						abortController: controller,
+						promise: promise,
+					}
+				: {
+						kind: 'compose',
+						anchor: anchor,
+						execState: 'generating',
+						abortController: controller,
+						promise: promise,
+					},
+		);
+
+		promise.then(
+			result => this.onRunSettled(kind, anchor, controller, result, undefined),
+			(ex: unknown) => this.onRunSettled(kind, anchor, controller, undefined, ex),
+		);
+	}
+
+	/** Mutates the engaged anchor's `(kind)` entry's `execState`. No-op if the entry doesn't
+	 *  exist or is already at the target state. Used by Back (`'complete' → 'backed'`) and
+	 *  Forward (`'backed' → 'complete'`). */
+	private transitionEngagedEntryExecState(kind: 'review' | 'compose', execState: RunningOperationExecState): void {
+		const anchor = this.currentAnchor();
+		const key = anchorKey(anchor);
+		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
+		if (entry == null || entry.execState === execState) return;
+
+		this.registerRunningOperation(
+			entry.kind === 'review' ? { ...entry, execState: execState } : { ...entry, execState: execState },
+		);
 	}
 
 	// endregion
@@ -590,20 +1097,294 @@ export class DetailsWorkflowController implements ReactiveController {
 		return undefined;
 	}
 
-	/**
-	 * Stable per-selection key used to detect when an AI resource is stale on mode re-entry.
-	 * Pass explicit `sha`/`shas`/`repoPath` to key a pending-transition selection, or omit to
-	 * key the currently-active mode's selection. `repoPath` is part of the key because WIP
-	 * rows in different worktrees all share `sha === uncommitted` — without it, switching
-	 * between WIP rows would render the prior worktree's compose/review result against the
-	 * new one.
-	 */
-	private selectionKey(sha?: string, shas?: string[], repoPath?: string): string {
-		const effectiveSha = sha ?? this.actions.state.activeModeSha.get() ?? '';
-		const effectiveShas = shas ?? this.actions.state.activeModeShas.get() ?? [];
-		const effectiveRepoPath = repoPath ?? this.actions.state.activeModeRepoPath.get() ?? '';
-		const selectionPart = effectiveShas.length ? effectiveShas.join(',') : effectiveSha;
-		return `${effectiveRepoPath}|${selectionPart}`;
+	/** Stale-fetch detection key on mode re-entry. Same scheme as the registry's key (the two
+	 *  must agree so a re-entry against an anchor with a saved snapshot is recognized as the
+	 *  same selection). Defaults to the currently-active mode's locked anchor. */
+	private selectionKey(sha?: string, shas?: string[], repoPath?: string): AnchorKey {
+		return anchorKey({
+			sha: sha ?? this.actions.state.activeModeSha.get(),
+			shas: shas ?? this.actions.state.activeModeShas.get(),
+			repoPath: repoPath ?? this.actions.state.activeModeRepoPath.get(),
+		});
+	}
+
+	/** Builds a {@link RunningOperationAnchor} from the currently-active mode's locked selection. */
+	private currentAnchor(): RunningOperationAnchor {
+		const state = this.actions.state;
+		return {
+			kind: state.activeModeContext.get() ?? 'wip',
+			repoPath: state.activeModeRepoPath.get() ?? '',
+			sha: state.activeModeSha.get(),
+			shas: state.activeModeShas.get(),
+		};
+	}
+
+	/** Settled-callback for `runReview`/`runCompose` — fires when the live promise resolves
+	 *  (success), rejects (error), or settles after a cancel (early-bails). Updates the registry
+	 *  entry to `'complete'` / `'error'` (or removes it for the compose `{cancelled:true}`
+	 *  sentinel), then projects into the engaged-anchor resource if still engaged. Always
+	 *  publishes the entry update — adornments + chip overlays refresh even when not engaged. */
+	private onRunSettled(
+		kind: 'review' | 'compose',
+		anchor: RunningOperationAnchor,
+		controller: AbortController,
+		result: ReviewResult | ComposeResult | undefined,
+		ex: unknown,
+	): void {
+		// Disconnect guard: the panel intentionally lets in-flight runs survive disconnect
+		// (registry is host-owned), so the promise can still resolve after `actions` has been
+		// disposed. Writing to a disposed Resource is UB; bail. The registry entry stays as
+		// `'generating'` — that's the worst case, and the next mount's `projectEngagedAnchor`
+		// will resync it from the entry. Repo-switch already calls `cancelAllRunningOperations`
+		// to abort everything, so we don't strand entries indefinitely.
+		if (this._disconnected) return;
+
+		const key = anchorKey(anchor);
+		const current = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
+		// Stale guard: a newer same-(anchor,kind) run replaced this entry (re-run), or the run
+		// was explicitly cancelled / repo-switched. Either way, this settlement is orphaned.
+		if (current?.abortController !== controller) return;
+		if (controller.signal.aborted) return;
+
+		// Compose `{cancelled:true}` sentinel — host-side library cancel without an abort. Remove
+		// the entry and clear the engaged resource (panel back to idle).
+		if (kind === 'compose' && result != null && 'cancelled' in result && result.cancelled === true) {
+			this.removeRunningOperation(key, kind);
+			this.projectIfEngaged(kind, anchor);
+			return;
+		}
+
+		let execState: RunningOperationExecState;
+		let value: ReviewResult | ComposeResult | undefined = result;
+		if (ex != null) {
+			execState = 'error';
+			const message = ex instanceof Error ? ex.message : typeof ex === 'string' ? ex : 'Run failed';
+			value = { error: { message: message } };
+		} else if (result != null && 'error' in result) {
+			execState = 'error';
+		} else {
+			execState = 'complete';
+		}
+
+		// Always update the entry — drives adornment + chip overlay refresh even when not engaged.
+		this.registerRunningOperation(
+			kind === 'review'
+				? { kind: 'review', anchor: anchor, execState: execState, result: value as ReviewResult }
+				: { kind: 'compose', anchor: anchor, execState: execState, result: value as ComposeResult },
+		);
+		// If still engaged, project the result into the panel-bound Resource.
+		this.projectIfEngaged(kind, anchor);
+	}
+
+	/** True when the given anchor matches the currently-engaged-mode's locked anchor. Engaged
+	 *  ≡ the anchor `toggleMode` last bound `activeMode*` to. */
+	private isAnchorEngaged(anchor: RunningOperationAnchor): boolean {
+		const state = this.actions.state;
+		if (state.activeMode.get() == null) return false;
+
+		const engagedKey = anchorKey({
+			sha: state.activeModeSha.get(),
+			shas: state.activeModeShas.get(),
+			repoPath: state.activeModeRepoPath.get(),
+		});
+		return engagedKey === anchorKey(anchor);
+	}
+
+	/** Calls {@link projectEngagedAnchor} only if `anchor` is the currently-engaged anchor. */
+	private projectIfEngaged(kind: 'review' | 'compose', anchor: RunningOperationAnchor): void {
+		if (!this.isAnchorEngaged(anchor)) return;
+
+		this.projectEngagedAnchor(kind, anchor);
+	}
+
+	/** Project an anchor's registry entry into the engaged resource so the panel renders the
+	 *  right thing. `'generating'`/`'backed'` → `resource.reset()` (panel reads `execState`
+	 *  from the entry for its `mappedStatus`). `'complete'`/`'error'` with a `result` →
+	 *  `resource.mutate(result)`. No entry / wrong kind → `resource.reset()` (ENABLED-idle). */
+	private projectEngagedAnchor(kind: 'review' | 'compose', selection: AnchorSelection): void {
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(selection))?.[kind];
+		const resource = kind === 'review' ? this.actions.resources.review : this.actions.resources.compose;
+		if (entry == null) {
+			resource.reset();
+			return;
+		}
+		if (entry.execState === 'generating' || entry.execState === 'backed') {
+			resource.reset();
+			return;
+		}
+
+		if (entry.result != null) {
+			if (entry.kind === 'review') {
+				this.actions.resources.review.mutate(entry.result);
+			} else {
+				this.actions.resources.compose.mutate(entry.result);
+			}
+		} else {
+			resource.reset();
+		}
+	}
+
+	/** Adds or replaces the `(anchor, kind)` entry in the per-anchor bucket map. Bails early when
+	 *  the new entry equals the existing one (kind + execState + result reference + controller
+	 *  identity) to avoid no-op signal churn — the registry feeds row adornments and chip
+	 *  overlays; a same-value re-register would trigger a full React re-resolve cycle for nothing. */
+	private registerRunningOperation(op: RunningOperation): void {
+		const signal = this.host.crossPaneState.runningOperations;
+		const current = signal.get();
+		const key = anchorKey(op.anchor);
+		const bucket = current.get(key);
+		const existing = bucket?.[op.kind];
+		if (
+			existing?.kind === op.kind &&
+			existing.execState === op.execState &&
+			existing.result === (op as { result?: unknown }).result &&
+			existing.abortController === op.abortController &&
+			existing.promise === op.promise
+		) {
+			return;
+		}
+
+		const next = new Map(current);
+		next.set(key, { ...(bucket ?? {}), [op.kind]: op });
+		signal.set(next);
+	}
+
+	/** Removes a single-kind entry from the bucket at `(key)`. If the bucket becomes empty, the
+	 *  whole bucket is removed (so the row-keyed adornment translation can short-circuit). */
+	private removeRunningOperation(key: AnchorKey, kind: 'review' | 'compose'): void {
+		const signal = this.host.crossPaneState.runningOperations;
+		const current = signal.get();
+		const bucket = current.get(key);
+		if (bucket?.[kind] == null) return;
+
+		const nextBucket: RunningOperationBucket =
+			kind === 'review' ? { compose: bucket.compose } : { review: bucket.review };
+		const next = new Map(current);
+		if (nextBucket.review == null && nextBucket.compose == null) {
+			next.delete(key);
+		} else {
+			next.set(key, nextBucket);
+		}
+		signal.set(next);
+	}
+
+	/** Aborts every in-flight operation across every anchor + clears the registry. Called on
+	 *  repo-selector switches (per spec, switching repos tears down the whole universe of
+	 *  running operations silently). NOT called on `hostDisconnected` — runs intentionally
+	 *  survive panel disconnect; the registry is owned by `gl-graph-app`. */
+	private cancelAllRunningOperations(): void {
+		const signal = this.host.crossPaneState.runningOperations;
+		const current = signal.get();
+		for (const bucket of current.values()) {
+			bucket.review?.abortController?.abort();
+			bucket.compose?.abortController?.abort();
+		}
+		this._reviewBackSnapshot = undefined;
+		this._composeBackSnapshot = undefined;
+		this.actions.resources.review.reset();
+		this.actions.resources.compose.reset();
+		if (current.size > 0) {
+			signal.set(new Map());
+		}
+		// Prior repo's anchors are gone — drop their remembered modes too.
+		const modes = this.host.crossPaneState.lastModeByAnchor;
+		if (modes.get().size > 0) {
+			modes.set(new Map());
+		}
+	}
+
+	/** Records the user's intent to be in `mode` on `selection`'s anchor. Read by the panel on
+	 *  selection-arrival to restore the mode (see `gl-graph-details-panel.ts` `willUpdate`).
+	 *  Forgotten by explicit user-close paths; preserved across anchor navigation. */
+	private rememberMode(selection: DetailsSelection, mode: 'review' | 'compose'): void {
+		const signal = this.host.crossPaneState.lastModeByAnchor;
+		const current = signal.get();
+		const key = anchorKey(selection);
+		if (current.get(key) === mode) return;
+
+		const next = new Map(current);
+		next.set(key, mode);
+		signal.set(next);
+	}
+
+	/** Forgets the remembered mode for `anchor`'s key. Called from user-dismissal endpoints
+	 *  (toggle-off, X-close hide, destroy) so a subsequent return doesn't auto-restore a mode
+	 *  the user explicitly closed. Accepts the wider `AnchorSelection` so `RunningOperationAnchor`
+	 *  (engaged-anchor shape) flows in without an adapter. */
+	private forgetMode(anchor: AnchorSelection): void {
+		const signal = this.host.crossPaneState.lastModeByAnchor;
+		const current = signal.get();
+		const key = anchorKey(anchor);
+		if (!current.has(key)) return;
+
+		const next = new Map(current);
+		next.delete(key);
+		signal.set(next);
+	}
+
+	/** Reads the remembered mode for `selection`'s anchor, or `undefined` if none. */
+	getRememberedMode(selection: DetailsSelection): 'review' | 'compose' | undefined {
+		return this.host.crossPaneState.lastModeByAnchor.get().get(anchorKey(selection));
+	}
+
+	/** Explicitly aborts an in-flight `'generating'` operation at the engaged anchor, removes
+	 *  the registry entry, and returns the panel to ENABLED-idle. Wired to the in-flight Cancel
+	 *  button on the review/compose spinners (via `compose-cancel` / `review-cancel` events).
+	 *  This is the only path that manually kills a generating run. */
+	cancelOperation(kind: 'review' | 'compose'): void {
+		const anchor = this.currentAnchor();
+		const key = anchorKey(anchor);
+		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
+		entry?.abortController?.abort();
+		this.removeRunningOperation(key, kind);
+		(kind === 'review' ? this.actions.resources.review : this.actions.resources.compose).reset();
+		(kind === 'review' ? this.review : this.compose).invalidateSnapshot();
+	}
+
+	/** Marks running operations for the given repo paths as `'orphaned'` and aborts any
+	 *  still-`'generating'` ones (the host AI work is pointless if the anchor is gone). The
+	 *  saved result (if any) remains accessible so the user can still view it. */
+	orphanRunningOperationsForRepoPaths(removedRepoPaths: ReadonlySet<string>): void {
+		const signal = this.host.crossPaneState.runningOperations;
+		const current = signal.get();
+		let touched = false;
+		const next = new Map(current);
+		for (const [key, bucket] of current) {
+			let nextBucket: RunningOperationBucket | undefined;
+			const review = bucket.review;
+			if (review != null && review.execState !== 'orphaned' && removedRepoPaths.has(review.anchor.repoPath)) {
+				review.abortController?.abort();
+				nextBucket ??= { ...bucket };
+				nextBucket.review = {
+					...review,
+					execState: 'orphaned',
+					abortController: undefined,
+					promise: undefined,
+				};
+				touched = true;
+			}
+			const compose = bucket.compose;
+			if (compose != null && compose.execState !== 'orphaned' && removedRepoPaths.has(compose.anchor.repoPath)) {
+				compose.abortController?.abort();
+				nextBucket ??= { ...bucket };
+				nextBucket.compose = {
+					...compose,
+					execState: 'orphaned',
+					abortController: undefined,
+					promise: undefined,
+				};
+				touched = true;
+			}
+			if (nextBucket != null) {
+				next.set(key, nextBucket);
+			}
+		}
+		if (touched) {
+			signal.set(next);
+		}
+		// Remembered mode entries for pruned anchors are left in place — they're keyed by the
+		// dead anchor and the user can't navigate back to it, so they're effectively unreachable.
+		// Repo-switch teardown clears the bulk; this avoids reparsing keys for a microcleanup.
 	}
 
 	// endregion

@@ -24,7 +24,6 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
@@ -362,9 +361,9 @@ export class DetailsActions {
 		s.branchCommitsHasMore.set(false);
 		s.branchCommitsLoadingMore.set(false);
 
-		// Branch-comparison phases + per-scope Maps. `toggleMode(compare)` already resets these
-		// on compare entry, but the Maps accumulate keys across repos otherwise — clear here so
-		// a stale per-scope value can never resurface on a different repo's same-shaped key.
+		// Branch-comparison phases + per-scope Maps. `openCompare` already resets these on entry,
+		// but the Maps accumulate keys across repos otherwise — clear here so a stale per-scope
+		// value can never resurface on a different repo's same-shaped key.
 		s.branchCompareAheadCount.set(0);
 		s.branchCompareBehindCount.set(0);
 		s.branchCompareAllFiles.set([]);
@@ -524,6 +523,39 @@ export class DetailsActions {
 	async refreshScopedAiModel(): Promise<void> {
 		const model = await this.services.ai.getModel(scopeForActiveMode(this.state.activeMode.get()));
 		this.state.aiModel.set(model);
+	}
+
+	/** Direct-RPC review run. Bypasses {@link resources.review} so the run is owned by the
+	 *  caller's `AbortController` (held on the registry entry), not the single-instance
+	 *  `Resource` — letting the in-flight generation survive an anchor switch. The caller is
+	 *  responsible for updating the registry entry on resolve/reject. */
+	startReview(
+		repoPath: string,
+		scope: ScopeSelection,
+		instructions: string | undefined,
+		excludedFiles: string[] | undefined,
+		signal: AbortSignal,
+	): Promise<ReviewResult> {
+		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal);
+	}
+
+	/** Direct-RPC compose run. See {@link startReview} for rationale. */
+	startCompose(
+		repoPath: string,
+		scope: ScopeSelection,
+		instructions: string | undefined,
+		excludedFiles: string[] | undefined,
+		aiExcludedFiles: string[] | undefined,
+		signal: AbortSignal,
+	): Promise<ComposeResult> {
+		return this.services.graphInspect.composeChanges(
+			repoPath,
+			scope,
+			instructions,
+			excludedFiles,
+			aiExcludedFiles,
+			signal,
+		);
 	}
 
 	refreshWip(): void {
@@ -1267,7 +1299,8 @@ export class DetailsActions {
 	}
 
 	markBranchCompareStale(): void {
-		if (this.state.activeMode.get() !== 'compare' || !this.state.branchCompareIncludeWorkingTree.get()) return;
+		const compareOpen = this.state.compareSheetOpen.get() || this.state.compareAsPanel.get();
+		if (!compareOpen || !this.state.branchCompareIncludeWorkingTree.get()) return;
 
 		this.state.branchCompareStale.set(true);
 	}
@@ -1706,6 +1739,16 @@ export class DetailsActions {
 		void this.fetchBranchCompareEnrichment(repoPath);
 	}
 
+	/** Repo the current `branchCommits` were fetched against. Lets `toggleMode` detect a
+	 *  cross-repo WIP switch and force a re-fetch — without this, `branchCommits` from a prior
+	 *  repo would render briefly against the new WIP, or the scope picker would render an empty
+	 *  list while the loading-state placeholder waits for a fetch that never gets triggered. */
+	private _branchCommitsFetchedRepoPath: string | undefined;
+
+	branchCommitsFetchedRepoPath(): string | undefined {
+		return this._branchCommitsFetchedRepoPath;
+	}
+
 	async fetchBranchCommits(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
@@ -1721,6 +1764,7 @@ export class DetailsActions {
 			this.state.branchCommits.set(result.commits);
 			this.state.branchMergeBase.set(result.mergeBase);
 			this.state.branchCommitsHasMore.set(result.hasMore);
+			this._branchCommitsFetchedRepoPath = repoPath;
 		} finally {
 			if (this._branchCommitsController === controller) {
 				this._branchCommitsController = undefined;
@@ -1849,16 +1893,11 @@ export class DetailsActions {
 					date: commit.date ? new Date(commit.date).getTime() : undefined,
 				});
 			}
-		} else {
-			const ahead = wip.branch?.tracking?.ahead ?? 0;
-			if (ahead > 0) {
-				items.push({
-					id: 'unpushed',
-					label: pluralize('unpushed commit', ahead),
-					state: 'unpushed',
-				});
-			}
 		}
+		// No rollup fallback: when `branchCommits` hasn't loaded (or is empty), the picker
+		// renders only the working/staged rows above plus the merge-base footer below. A
+		// pluralized "N unpushed commits" placeholder would imply a selectable aggregate that
+		// can't actually be expanded — misleading, since the user has no way to drill in.
 
 		// Load-more sits between the loaded commits and the merge-base footer when the host
 		// indicates there are more commits to load.
@@ -1899,6 +1938,16 @@ export class DetailsActions {
 		if (this._aiExcludedFilesGeneration !== generation) return;
 
 		this.state.aiExcludedFiles.set(excluded);
+	}
+
+	/** Invalidates any in-flight {@link fetchAiExcludedFiles} so its resolution can't write a
+	 *  stale result back into `state.aiExcludedFiles`. Called by the workflow controller on
+	 *  mode-hide and repo-switch — both clear `aiExcludedFiles` synchronously, and the existing
+	 *  generation guard only triggers when a NEW fetch increments the counter (which doesn't
+	 *  happen in the "toggle-off then nothing" path). Without this bump, a slow RPC could
+	 *  re-populate the signal after the user has already left the mode. */
+	invalidateAiExcludedFilesFetch(): void {
+		this._aiExcludedFilesGeneration++;
 	}
 
 	private getReviewFiles(sha: string | undefined, shas: string[] | undefined) {
@@ -1973,6 +2022,14 @@ export class DetailsActions {
 		const composeValue = this.resources.compose.value.get();
 		if (!repoPath || !composeValue || !('result' in composeValue)) return;
 
+		// Snapshot the pre-error state so the panel's "Go Back" can restore the plan view
+		// when the apply fails. Stored before the apply IPC so it survives the value mutation
+		// to an error sentinel on failure.
+		this.state.composePreErrorValue.set(composeValue);
+		this.state.composePreErrorPrompt.set(undefined);
+		this.state.composeLastFailedAction.set('commit-all');
+		this.state.composeLastCommitAllIncludedIds.set(includedCommitIds);
+
 		this.state.composeApplying.set(true);
 		try {
 			const result = await this.services.graphInspect.commitCompose(repoPath, {
@@ -1983,11 +2040,28 @@ export class DetailsActions {
 			if ('error' in result && result.error) {
 				this.resources.compose.mutate({ error: { message: result.error.message } });
 			} else {
+				// Engagement teardown — mirrors the full `hideMode` clear so a stale
+				// `activeModeRepoPath`/`Sha`/`Shas`/`scope`/`aiExcludedFiles` can't bleed into the
+				// next action via `currentAnchor()`. (Registry-entry removal is handled by the
+				// controller's `applyPlan` wrapper since the action has no controller reference.)
 				this.state.activeMode.set(null);
 				this.state.activeModeContext.set(null);
+				this.state.activeModeRepoPath.set(undefined);
+				this.state.activeModeSha.set(undefined);
+				this.state.activeModeShas.set(undefined);
+				this.state.scope.set(undefined);
+				this.state.aiExcludedFiles.set(undefined);
+				// Match `hideMode`'s fetch-generation bump so a slow `fetchAiExcludedFiles` RPC
+				// from the prior `toggleMode` tail can't write its result back into the
+				// just-cleared signal after the apply completes.
+				this.invalidateAiExcludedFilesFetch();
+				this.state.wipStale.set(false);
 				this.resources.compose.reset();
 				this.state.composeForwardAvailable.set(false);
 				this.state.composeBackPreview.set(undefined);
+				this.state.composePreErrorValue.set(undefined);
+				this.state.composeLastFailedAction.set(undefined);
+				this.state.composeLastCommitAllIncludedIds.set(undefined);
 				void this.refreshScopedAiModel();
 				this.refreshWip();
 				void this.fetchDetails(sha, repoPath, graphReachability);

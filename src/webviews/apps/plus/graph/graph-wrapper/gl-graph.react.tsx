@@ -19,7 +19,12 @@ import type {
 	RowAdornment,
 	RowAdornmentProvider,
 } from '@gitkraken/gitkraken-components';
-import GraphContainer, { CommitDateTimeSources, emptySetMarker, refZone } from '@gitkraken/gitkraken-components';
+import GraphContainer, {
+	CommitDateTimeSources,
+	emptySetMarker,
+	refZone,
+	RowAdornmentInvalidateEvent,
+} from '@gitkraken/gitkraken-components';
 import type { ReactElement, ReactNode } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform.js';
@@ -47,6 +52,8 @@ import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
 import type { GlButton } from '../../../shared/components/button.js';
 import type { CodeIcon } from '../../../shared/components/code-icon.js';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react.jsx';
+import type { RunningOperationBucket } from '../components/detailsState.js';
+import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOperationStatus.js';
 import type { GraphStateProvider } from '../stateProvider.js';
 import { getCommitDateFromRow } from '../utils/row.utils.js';
 import '../../../shared/components/button.js';
@@ -78,6 +85,14 @@ export type GraphWrapperProps = Pick<
 		GraphStateProvider,
 		'activeFilterColumns' | 'activeRow' | 'scope' | 'searchMode' | 'searchResults' | 'wipMetadataBySha'
 	> & {
+		/** Cross-pane signal projection: maps a graph row's `sha` (the synthetic value, e.g.
+		 *  `work-dir-changes` for the primary WIP or `worktree-wip::<path>` for secondaries)
+		 *  to the running compose/review mode for that anchor when one exists. Owned by
+		 *  `graphCrossPaneContext`; the graph-wrapper Lit element translates the canonical
+		 *  anchor-keyed map into this row-keyed shape so the React render is a plain
+		 *  prop comparison and the React layer doesn't have to know about anchor-key
+		 *  derivation. */
+		runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
 		theming?: GraphWrapperTheming;
 		wipShasSettleDelayMs?: number;
 		/**
@@ -105,6 +120,7 @@ export interface GraphWrapperEvents {
 	onRefDoubleClick?: (detail: { ref: GraphRef; metadata?: GraphRefMetadataItem }) => void;
 	onMouseLeave?: () => void;
 	onRowAction?: (detail: { action: RowAction; row: GraphRow }) => void;
+	onWipRowEnterMode?: (detail: { mode: 'compose' | 'review'; row: GraphRow }) => void;
 	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }) => void;
 	onRowDoubleClick?: (detail: { row: GraphRow; preserveFocus?: boolean }) => void;
 	onRowHover?: (detail: {
@@ -251,6 +267,9 @@ export type GraphWrapperInitProps = GraphWrapperProps &
 	};
 
 const emptyRows: GraphRow[] = [];
+
+// Note: `statusIconFor` extracted to `../components/runningOperationStatus.ts` so the details
+// header (Lit) and the WIP-row adornment (React) share one mapping. Imported above.
 
 function checkUniqueBranchSelection(selectedRows: GraphRow[]): boolean {
 	if (selectedRows.length === 0) return false;
@@ -786,7 +805,21 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		};
 	}, [props.pinnedRef, handleJumpToPinnedBranch]);
 
-	const invalidateTarget = new EventTarget();
+	// Stable EventTarget across renders — the gitkraken graph subscribes once and listens for
+	// `invalidate` events to drop cached adornments. A fresh target per render would leave
+	// the graph subscribed to a target nobody dispatches on.
+	const invalidateTarget = useMemo(() => new EventTarget(), []);
+
+	// Bust the adornment cache when the row-keyed running-modes map changes. Must dispatch a
+	// RowAdornmentInvalidateEvent (a CustomEvent carrying `detail.type`) — the graph's
+	// `onInvalidate` handler destructures `e.detail`, so a plain `Event` throws there and the
+	// cache never clears. `'all'` re-runs BOTH `provideAdornments` (visibility — secondary WIPs
+	// pin their adornment visible when an operation attaches to the row) AND `resolveAdornment`
+	// (the overlay icon).
+	useEffect(() => {
+		invalidateTarget.dispatchEvent(new RowAdornmentInvalidateEvent('all'));
+	}, [props.runningOperationByRowSha, invalidateTarget]);
+
 	const rowAdornmentProvider: RowAdornmentProvider = {
 		invalidate: invalidateTarget,
 		provideAdornments: (
@@ -799,8 +832,13 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 
 				if (row.type === 'work-dir-changes') {
 					const isSecondaryWip = isSecondaryWipSha(row.sha);
+					// Secondary WIPs default to hover/focus/selected to keep the graph quiet, but
+					// pin them visible whenever a review/compose operation is attached to the row
+					// (running, complete, backed, error, or orphaned) so the status overlay stays
+					// readable without requiring hover.
+					const hasOperation = props.runningOperationByRowSha?.get(row.sha) != null;
 					adornments[row.sha] = {
-						visibility: isSecondaryWip ? ['hover', 'focus', 'selected'] : true,
+						visibility: !isSecondaryWip || hasOperation ? true : ['hover', 'focus', 'selected'],
 					};
 					continue;
 				}
@@ -830,35 +868,43 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		): ReactNode | null | Promise<ReactNode | null> => {
 			switch (row.type) {
 				case 'work-dir-changes': {
-					const isSecondaryWip = isSecondaryWipSha(row.sha);
+					const bucket = props.runningOperationByRowSha?.get(row.sha);
+					const composeStatusIcon = bucket?.compose != null ? statusIconFor(bucket.compose.execState) : null;
+					const reviewStatusIcon = bucket?.review != null ? statusIconFor(bucket.review.execState) : null;
+					const composeTooltip = rowAdornmentTooltipFor('compose', bucket?.compose?.execState);
+					const reviewTooltip = rowAdornmentTooltipFor('review', bucket?.review?.execState);
 
 					return (
 						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
 							<gl-button
-								onClick={() => initProps.onRowAction?.({ action: 'compose-commits', row: row })}
-								tooltip="Compose Commits..."
-								aria-label="Compose Commits..."
+								onClick={() => initProps.onWipRowEnterMode?.({ mode: 'compose', row: row })}
+								tooltip={composeTooltip}
+								aria-label={composeTooltip}
 							>
-								{isSecondaryWip ? (
-									<code-icon icon="wand"></code-icon>
-								) : (
-									<>
-										<code-icon slot="prefix" icon="wand"></code-icon>
-										Compose...
-									</>
+								<code-icon icon="wand"></code-icon>
+								{composeStatusIcon != null && (
+									<code-icon
+										slot="suffix"
+										icon={composeStatusIcon}
+										modifier={composeStatusIcon === 'loading' ? 'spin' : ''}
+									></code-icon>
+								)}
+							</gl-button>
+							<gl-button
+								onClick={() => initProps.onWipRowEnterMode?.({ mode: 'review', row: row })}
+								tooltip={reviewTooltip}
+								aria-label={reviewTooltip}
+							>
+								<code-icon icon="checklist"></code-icon>
+								{reviewStatusIcon != null && (
+									<code-icon
+										slot="suffix"
+										icon={reviewStatusIcon}
+										modifier={reviewStatusIcon === 'loading' ? 'spin' : ''}
+									></code-icon>
 								)}
 							</gl-button>
 							<div>
-								<gl-button
-									appearance="toolbar"
-									onClick={() =>
-										initProps.onRowAction?.({ action: 'generate-commit-message', row: row })
-									}
-									tooltip="Generate Commit Message"
-									aria-label="Generate Commit Message"
-								>
-									<code-icon icon="sparkle"></code-icon>
-								</gl-button>
 								<gl-button
 									appearance="toolbar"
 									onClick={() => initProps.onRowAction?.({ action: 'stash-save', row: row })}

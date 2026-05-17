@@ -245,6 +245,7 @@ import type { ChoosePathParams, DidChoosePathParams } from '../timeline/protocol
 import type { TimelineCommandArgs } from '../timeline/registration.js';
 import { buildTimelineDataset } from '../timeline/timelineDataset.js';
 import type { GraphComposeIntegration } from './compose/integration.js';
+import { isComposeSimulatorActive, runSimulatedComposeChanges } from './compose/simulator.js';
 import {
 	checkForAbandonedComposeStashes,
 	executeComposeCommit,
@@ -668,6 +669,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	dispose(): void {
 		this.clearAutoFetchTimer();
+		if (this._stateFreshnessRetryTimer != null) {
+			clearTimeout(this._stateFreshnessRetryTimer);
+			this._stateFreshnessRetryTimer = undefined;
+		}
 		for (const t of this._wipWatchRemoveTimers.values()) {
 			clearTimeout(t);
 		}
@@ -679,6 +684,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._flushWipStaleDebounced?.cancel();
 		this._pendingStaleShas.clear();
 		this._wipStatusCache.clear();
+		// Release any compose-tools library plans we still hold cache keys for — otherwise the
+		// library-side cache leaks plans across extension reloads (the keys are this side's
+		// only handle to them; once we drop the Map without a `discardCachedPlan` call, the
+		// library has no way to know the plans are abandoned).
+		if (this._composeToolsForGraph != null && this._activeComposeCacheKeys.size > 0) {
+			for (const cacheKey of this._activeComposeCacheKeys.values()) {
+				this._composeToolsForGraph.discardCachedPlan(cacheKey);
+			}
+		}
+		this._activeComposeCacheKeys.clear();
 		if (this._composeVirtual != null) {
 			this._composeVirtual.provider.dispose();
 			this._composeVirtual.registration.dispose();
@@ -1423,6 +1438,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 				composeChanges: async (repoPath, scope, instructions, excludedFiles, aiExcludedFiles, signal) => {
 					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal);
+					// Hoisted so the catch block can `discardCachedPlan` if any step after the
+					// library-side plan registration throws — otherwise an exception after the
+					// `generatePlan...` cache write leaks the cached plan in the compose-tools
+					// library with no path to discard it.
+					let cacheKeyToRegister: string | undefined;
 					try {
 						signal?.throwIfAborted();
 
@@ -1430,36 +1450,68 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							return { error: { message: 'Compose is only supported for working changes.' } };
 						}
 
-						const composeTools = this.getOrCreateComposeToolsForGraph();
-						if (composeTools == null) {
+						const svc = this.container.git.getRepositoryService(repoPath);
+
+						// AI simulator bypass — `compose-tools`' validators reject synthetic AI
+						// responses (they require real diff-hunk indices), so the simulator can't
+						// drive a successful compose end-to-end through the real pipeline. When the
+						// simulator is active we synthesize a `planResult` from the working tree
+						// directly and reuse the same downstream conversion + virtual session wiring.
+						// `commitCompose` is intentionally out of scope (no cache key is registered);
+						// the bypass surfaces "No active compose plan" if the user tries to commit.
+						// Gated on DEBUG so the bypass is unreachable in production builds even if a
+						// user manually flips `gitlens.ai.model` to `simulator:*` in settings.json.
+						const simulated = DEBUG && isComposeSimulatorActive();
+
+						const composeTools = simulated ? undefined : this.getOrCreateComposeToolsForGraph();
+						if (!simulated && composeTools == null) {
 							return { error: { message: 'Compose is not available in this environment.' } };
 						}
 
-						const svc = this.container.git.getRepositoryService(repoPath);
-
 						const priorKey = this._activeComposeCacheKeys.get(repoPath);
 						if (priorKey != null) {
-							composeTools.discardCachedPlan(priorKey);
+							composeTools?.discardCachedPlan(priorKey);
 							this._activeComposeCacheKeys.delete(repoPath);
 						}
 
 						this._composeProgressEvent.fire({ phase: 'collecting', message: 'Preparing changes…' });
 
-						const planResult = await composeTools.generatePlanForGraphDetails({
-							svc: svc,
-							scope: scope,
-							customInstructions: instructions,
-							excludedFiles: excludedFiles,
-							aiExcludedFiles: aiExcludedFiles,
-							cancellation: cancellation,
-							telemetrySource: { source: 'graph' },
-							onProgress: event => {
-								this._composeProgressEvent.fire({ phase: event.phase, message: event.message });
-							},
-						});
+						const planResult = simulated
+							? await runSimulatedComposeChanges({
+									svc: svc,
+									scope: scope,
+									signal: signal,
+									onProgress: event => {
+										this._composeProgressEvent.fire({
+											phase: event.phase,
+											message: event.message,
+										});
+									},
+								})
+							: await composeTools!.generatePlanForGraphDetails({
+									svc: svc,
+									scope: scope,
+									customInstructions: instructions,
+									excludedFiles: excludedFiles,
+									aiExcludedFiles: aiExcludedFiles,
+									cancellation: cancellation,
+									telemetrySource: { source: 'graph' },
+									onProgress: event => {
+										this._composeProgressEvent.fire({
+											phase: event.phase,
+											message: event.message,
+										});
+									},
+								});
 						signal?.throwIfAborted();
 
-						this._activeComposeCacheKeys.set(repoPath, planResult.cacheKey);
+						// The library cached the plan keyed by `planResult.cacheKey` once
+						// `generatePlan...` resolved — we must `discardCachedPlan(key)` if the
+						// downstream steps throw, otherwise the library-side plan leaks (the key is
+						// our only handle to it). Tracked in the hoisted `cacheKeyToRegister`
+						// until we know the full pipeline succeeded; only then do we register it
+						// for `commitCompose` to apply.
+						cacheKeyToRegister = simulated ? undefined : (planResult as { cacheKey: string }).cacheKey;
 
 						const headCommit = await svc.commits.getCommit('HEAD');
 						signal?.throwIfAborted();
@@ -1509,6 +1561,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							}
 						}
 
+						// Register the cache key NOW that the full pipeline succeeded.
+						// Anything that threw between `generatePlan...` and here lands in the
+						// catch below, where we explicitly `discardCachedPlan` so the
+						// library doesn't leak the abandoned plan.
+						if (cacheKeyToRegister != null) {
+							this._activeComposeCacheKeys.set(repoPath, cacheKeyToRegister);
+						}
+
 						return {
 							result: {
 								commits: commits.toReversed(),
@@ -1524,6 +1584,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							},
 						};
 					} catch (ex) {
+						// Discard the library-cached plan that `generatePlan...` registered —
+						// this throw path leaves us with no way for the user to apply it.
+						// `composeTools` is scoped to the try block; re-fetch the (cached) singleton
+						// for the discard call here.
+						if (cacheKeyToRegister != null) {
+							this._composeToolsForGraph?.discardCachedPlan(cacheKeyToRegister);
+						}
 						if (isCancellationError(ex) || isComposeCancelled(ex)) {
 							return { cancelled: true };
 						}
@@ -1553,6 +1620,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return await executeComposeCommit(this.container, repoPath, plan, composeTools, cacheKey);
 					} finally {
 						this._activeComposeCacheKeys.delete(repoPath);
+						// `discardCachedPlan` is idempotent (Map.delete on a missing key is a no-op).
+						// Always call it here so a thrown `executeComposeCommit` can't leak the
+						// library-side plan — once we drop the cache-key handle, we have no other
+						// way to discard it later, and `dispose()` only iterates keys still in our
+						// own map.
+						composeTools.discardCachedPlan(cacheKey);
 					}
 				},
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
@@ -1567,7 +1640,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// single combined diff (one click → one unambiguous diff).
 					const allDiffRange = `${rightRef}..${leftRef}`;
 
-					const [counts, comparisonFiles, workingTreeFiles] = await Promise.all([
+					// Promise.allSettled per project convention — independent parallel awaits
+					// shouldn't let one failure abort the rest of the comparison. Missing pieces
+					// degrade gracefully into the partial-data path below (e.g. a diff-status
+					// failure still shows the commit counts).
+					const [countsResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
 						svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
 						svc.diff.getDiffStatus(allDiffRange),
 						this.getBranchComparisonWorkingTreeFiles(
@@ -1578,6 +1655,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						),
 					]);
 					signal?.throwIfAborted();
+					const counts = getSettledValue(countsResult);
+					const comparisonFiles = getSettledValue(comparisonFilesResult);
+					const workingTreeFiles = getSettledValue(workingTreeFilesResult) ?? [];
 
 					const aheadCount = (counts?.left ?? 0) + (workingTreeFiles.length > 0 ? 1 : 0);
 					const behindCount = counts?.right ?? 0;
@@ -1611,7 +1691,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					// Two-dot range — commits reachable from one side but not the other.
 					const range = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
-					const [log, comparisonFiles, workingTreeFiles] = await Promise.all([
+					// Promise.allSettled per project convention — see the sibling
+					// `getBranchComparisonSummary` for rationale.
+					const [logResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
 						svc.commits.getLog(range, { limit: 100, includeFiles: false }, signal),
 						svc.diff.getDiffStatus(range),
 						side === 'ahead'
@@ -1624,6 +1706,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							: Promise.resolve([]),
 					]);
 					signal?.throwIfAborted();
+					const log = getSettledValue(logResult);
+					const comparisonFiles = getSettledValue(comparisonFilesResult);
+					const workingTreeFiles = getSettledValue(workingTreeFilesResult) ?? [];
 
 					const mappedFiles: BranchComparisonFile[] = [];
 					for (const f of comparisonFiles ?? []) {

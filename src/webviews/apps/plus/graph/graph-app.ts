@@ -1,6 +1,6 @@
 import type { GraphRow, SelectCommitsOptions } from '@gitkraken/gitkraken-components';
 import { refZone } from '@gitkraken/gitkraken-components';
-import { consume } from '@lit/context';
+import { consume, provide } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
@@ -26,6 +26,7 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import {
 	GetRowHoverRequest,
+	getSecondaryWipPath,
 	GetWipStatsRequest,
 	isSecondaryWipSha,
 	isWipSha,
@@ -45,6 +46,8 @@ import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
 import type { GlGraphHeader } from './graph-header.js';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
+import type { GraphCrossPaneState } from './graphCrossPaneState.js';
+import { createGraphCrossPaneState, graphCrossPaneContext } from './graphCrossPaneState.js';
 import type { GlGraphHover } from './hover/graphHover.js';
 import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } from './minimap/minimap-container.js';
 import type { GraphMinimapDaySelectedEventDetail, GraphMinimapWheelEvent } from './minimap/minimap.js';
@@ -186,6 +189,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
 
+	// Cross-pane shared signals: state owned by one pane (e.g. the details panel's
+	// running-modes registry) but observed by another (e.g. row adornments in the graph
+	// component). Provided here at the common-ancestor level so producer (details panel)
+	// and consumers (graph row component, future agent-session pane, etc.) share a single
+	// signal instance.
+	@provide({ context: graphCrossPaneContext })
+	private readonly _crossPaneState: GraphCrossPaneState = createGraphCrossPaneState();
+
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
 
@@ -310,6 +321,34 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.ensureDetailsPosition();
 		this.detailsPanelEl?.openCompareMode(params);
 	}
+
+	/** Handles the WIP-row Compose/Review button click. Selects the row, opens the details
+	 *  panel, and tells it to enter the requested mode for that WIP. The graph component fires
+	 *  its own selection-change for the row click in parallel; setting `_selectedCommit`
+	 *  explicitly here ensures the details panel is on the right anchor before we drive the
+	 *  mode entry, regardless of dispatch ordering. */
+	private handleWipRowEnterMode = async (
+		e: CustomEvent<{ mode: 'compose' | 'review'; row: GraphRow }>,
+	): Promise<void> => {
+		const { mode, row } = e.detail;
+		const fallbackRepoPath = this.fallbackRepoPath ?? '';
+		// For secondary WIP rows the worktree path is encoded in the sha (`worktree-wip::<path>`);
+		// extract it. Primary WIP and any other row types resolve to the primary (fallback) repo.
+		const isSecondary = isSecondaryWipSha(row.sha);
+		const repoPath = isSecondary ? getSecondaryWipPath(row.sha) : fallbackRepoPath;
+		const sha = row.type === ('work-dir-changes' satisfies GitGraphRowType) ? uncommitted : row.sha;
+
+		this._selectedCommit = { sha: sha, repoPath: repoPath };
+		this._selectedCommits = undefined;
+
+		this.setDetailsVisible(true, 'request-mode');
+		this.ensureDetailsPosition();
+
+		// Wait for the details panel to render with the new selection before invoking the mode
+		// entry — otherwise toggleMode would see stale selection in its `currentSelection()` snapshot.
+		await this.updateComplete;
+		this.detailsPanelEl?.enterModeForWip(mode, repoPath, sha);
+	};
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
@@ -607,6 +646,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-row-double-click=${this.handleGraphRowDoubleClick}
 					@gl-graph-row-hover=${this.handleGraphRowHover}
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
+					@gl-graph-wip-row-enter-mode=${this.handleWipRowEnterMode}
 					@row-action-hover=${this.handleGraphRowActionHover}
 					@rowhoverstart=${this.handleGraphRowHoverStart}
 					@rowhovertrack=${this.handleGraphRowHoverTrack}
@@ -754,7 +794,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.persistState();
 	}
 
-	private setDetailsVisible(visible: boolean, trigger?: 'toggle' | 'request-compare' | 'auto-restore'): void {
+	private setDetailsVisible(
+		visible: boolean,
+		trigger?: 'toggle' | 'request-compare' | 'request-mode' | 'auto-restore',
+	): void {
 		const gs = this.graphState;
 		if (gs.detailsVisible === visible) return;
 
@@ -765,7 +808,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private emitDetailsVisibilityTelemetry(
 		visible: boolean,
-		trigger: 'toggle' | 'request-compare' | 'auto-restore',
+		trigger: 'toggle' | 'request-compare' | 'request-mode' | 'auto-restore',
 	): void {
 		if (visible) {
 			this._detailsShownAt = performance.now();

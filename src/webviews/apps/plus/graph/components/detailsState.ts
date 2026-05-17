@@ -34,6 +34,8 @@ import type {
 	BranchComparisonContributor,
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
+	ComposeResult,
+	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
@@ -48,6 +50,48 @@ export interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
 	result?: { summary: string; body: string };
+}
+
+/** Execution state of a running compose/review operation on a specific anchor.
+ *  Invariants:
+ *  - `'generating'` ⇒ `result == null && abortController != null && promise != null`
+ *  - `'complete' | 'backed' | 'error'` ⇒ `result != null`
+ *  - `'orphaned'` ⇒ `result` may be absent (orphan can hit a still-generating entry)
+ *  `'backed'` means the user clicked Back from `'complete'` — the result is preserved in the
+ *  controller's `_*BackSnapshot` for `forward()`, and Close from this state destroys the entry
+ *  (the Back-then-close destroy gate). Forward flips `'backed'` → `'complete'`. */
+export type RunningOperationExecState = 'generating' | 'complete' | 'backed' | 'error' | 'orphaned';
+
+/** Identifies the selection a running operation is anchored to. */
+export interface RunningOperationAnchor {
+	kind: DetailsContext;
+	/** For secondary WIP rows, this is the worktree's path. */
+	repoPath: string;
+	sha?: string;
+	shas?: string[];
+}
+
+interface RunningOperationBase {
+	anchor: RunningOperationAnchor;
+	execState: RunningOperationExecState;
+	/** Live run handle — aborting kills the host-side AI call (signal is threaded through the
+	 *  RPC). Present while `execState === 'generating'`; absent after the run settles. */
+	abortController?: AbortController;
+	/** In-flight RPC promise — lets a re-engage re-attach rendering without re-running the AI. */
+	promise?: Promise<ReviewResult | ComposeResult>;
+}
+
+/** A started compose/review operation. Keyed in the registry inside a {@link RunningOperationBucket}
+ *  so both a `review` and a `compose` may coexist on the same anchor. Webview-local; in-memory only.
+ *  The entry OWNS the in-flight run — switching anchors leaves it intact; the run keeps going. */
+export type RunningOperation =
+	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult })
+	| (RunningOperationBase & { kind: 'compose'; result?: ComposeResult });
+
+/** Per-anchor running-operation slot. An anchor may hold one of each kind concurrently. */
+export interface RunningOperationBucket {
+	review?: Extract<RunningOperation, { kind: 'review' }>;
+	compose?: Extract<RunningOperation, { kind: 'compose' }>;
 }
 
 /**
@@ -241,12 +285,25 @@ function createTransientState() {
 	// Compare UI toggle
 	const swapped = signal(false);
 
-	// Workflow state machine
-	const activeMode = signal<'review' | 'compose' | 'compare' | null>(null);
+	// Workflow state machine — compose/review only. Compare is no longer a `mode`; it has its
+	// own lifecycle via `compareSheetOpen` + workflow `openCompare`/`closeCompare`.
+	const activeMode = signal<'review' | 'compose' | null>(null);
 	const activeModeContext = signal<DetailsContext | null>(null);
 	const activeModeRepoPath = signal<string | undefined>(undefined);
 	const activeModeSha = signal<string | undefined>(undefined);
 	const activeModeShas = signal<string[] | undefined>(undefined);
+
+	// Compare sheet visibility. Independent of `activeMode` — compare can coexist with an
+	// active compose/review (the sheet sits over the panel, the panel is inert beneath).
+	const compareSheetOpen = signal(false);
+
+	// Compare in panel form — a dedicated nested split inside the details panel instead of the
+	// floating sheet. Mutually exclusive with `compareSheetOpen` at any given moment, but each
+	// can be flipped independently — the user can promote (sheet → panel), restore (panel →
+	// sheet), or close from either form.
+	const compareAsPanel = signal(false);
+	const compareSplitPosition = signal(50);
+	const compareSplitOrientation = signal<'horizontal' | 'vertical'>('horizontal');
 
 	// Scope picker + AI exclusions + stale indicator
 	const scope = signal<ScopeSelection | undefined>(undefined);
@@ -273,6 +330,20 @@ function createTransientState() {
 	// the panel's uncancellable "applying" overlay.
 	const composeProgressMessage = signal<string | undefined>(undefined);
 	const composeApplying = signal(false);
+
+	// Error-recovery snapshots — captured BEFORE an action that could mutate the resource into
+	// an error sentinel (runReview / runCompose / composeCommitAll). On error, the panel's
+	// "Go Back" button mutates back to the snapshotted value (restoring the prior plan), or
+	// resets the resource (returning to idle) when no snapshot is present. The prompt snapshot
+	// pre-fills the AI input when the panel re-renders idle so the user's typing is preserved.
+	// Cleared by `*.invalidateErrorRecovery()` on mode entry/exit/selection change, or
+	// overwritten by the next attempt.
+	const composePreErrorValue = signal<ComposeResult | undefined>(undefined);
+	const reviewPreErrorValue = signal<ReviewResult | undefined>(undefined);
+	const composePreErrorPrompt = signal<string | undefined>(undefined);
+	const reviewPreErrorPrompt = signal<string | undefined>(undefined);
+	const composeLastFailedAction = signal<'generate' | 'commit-all' | undefined>(undefined);
+	const composeLastCommitAllIncludedIds = signal<readonly string[] | undefined>(undefined);
 
 	// Compare-mode UI settings (not fetched data — user's interactive choices while in
 	// compare mode)
@@ -319,6 +390,11 @@ function createTransientState() {
 		activeModeSha: activeModeSha,
 		activeModeShas: activeModeShas,
 
+		compareSheetOpen: compareSheetOpen,
+		compareAsPanel: compareAsPanel,
+		compareSplitPosition: compareSplitPosition,
+		compareSplitOrientation: compareSplitOrientation,
+
 		scope: scope,
 		aiExcludedFiles: aiExcludedFiles,
 		wipStale: wipStale,
@@ -328,6 +404,13 @@ function createTransientState() {
 		reviewBackPreview: reviewBackPreview,
 		composeProgressMessage: composeProgressMessage,
 		composeApplying: composeApplying,
+
+		composePreErrorValue: composePreErrorValue,
+		reviewPreErrorValue: reviewPreErrorValue,
+		composePreErrorPrompt: composePreErrorPrompt,
+		reviewPreErrorPrompt: reviewPreErrorPrompt,
+		composeLastFailedAction: composeLastFailedAction,
+		composeLastCommitAllIncludedIds: composeLastCommitAllIncludedIds,
 
 		branchCompareLeftRef: branchCompareLeftRef,
 		branchCompareLeftRefType: branchCompareLeftRefType,
