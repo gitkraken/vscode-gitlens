@@ -67,10 +67,10 @@ export class GlDetailsAgentStatus extends LitElement {
 		css`
 			:host {
 				display: block;
-
-				--gl-agent-working: var(--vscode-progressBar-background);
-				--gl-agent-attention: var(--vscode-editorWarning-foreground);
-				--gl-agent-idle: var(--vscode-descriptionForeground);
+				/* No local agent-phase color overrides — inherits the unified palette from
+				   theme.scss (--gl-agent-working-color / --gl-agent-waiting-color /
+				   --gl-agent-idle-color) so this card, the sidebar leaf, the tooltip, the
+				   status pill, and the WIP file decoration all share one set of phase colors. */
 			}
 
 			:host([hidden]) {
@@ -189,17 +189,17 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__cluster-dot--working {
-				background-color: var(--gl-agent-working);
+				background-color: var(--gl-agent-working-color);
 			}
 
 			.section__cluster-dot--needs-input {
-				background-color: var(--gl-agent-attention);
+				background-color: var(--gl-agent-waiting-color);
 				/* Subtle attention nudge so a waiting dot reads as the priority signal */
-				box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--gl-agent-attention) 28%, transparent);
+				box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--gl-agent-waiting-color) 28%, transparent);
 			}
 
 			.section__cluster-dot--idle {
-				background-color: var(--gl-agent-idle);
+				background-color: var(--gl-agent-idle-color);
 			}
 
 			.section__cluster-dot--overflow {
@@ -209,7 +209,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__cluster-summary strong {
-				color: var(--gl-agent-attention);
+				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
 			}
 
@@ -252,13 +252,13 @@ export class GlDetailsAgentStatus extends LitElement {
 				flex: none;
 			}
 			.section__hover-dot--working {
-				background-color: var(--gl-agent-working);
+				background-color: var(--gl-agent-working-color);
 			}
 			.section__hover-dot--needs-input {
-				background-color: var(--gl-agent-attention);
+				background-color: var(--gl-agent-waiting-color);
 			}
 			.section__hover-dot--idle {
-				background-color: var(--gl-agent-idle);
+				background-color: var(--gl-agent-idle-color);
 			}
 
 			.section__hover-name {
@@ -278,7 +278,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__hover-phase--needs-input {
-				color: var(--gl-agent-attention);
+				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
 			}
 
@@ -308,14 +308,14 @@ export class GlDetailsAgentStatus extends LitElement {
 				border-radius: 0.4rem;
 				background-color: var(--vscode-editor-background);
 				border: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
-				border-left: 3px solid var(--card-accent, var(--gl-agent-idle));
+				border-left: 3px solid var(--card-accent, var(--gl-agent-idle-color));
 				transition:
 					background 250ms ease,
 					border-left-color 250ms ease;
 			}
 
 			.card--needs-input {
-				--card-accent: var(--gl-agent-attention);
+				--card-accent: var(--gl-agent-waiting-color);
 				background: linear-gradient(
 					to right,
 					color-mix(in srgb, var(--card-accent) 14%, var(--vscode-editor-background)),
@@ -323,7 +323,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				);
 			}
 			.card--working {
-				--card-accent: var(--gl-agent-working);
+				--card-accent: var(--gl-agent-working-color);
 				background: linear-gradient(
 					to right,
 					color-mix(in srgb, var(--card-accent) 14%, var(--vscode-editor-background)),
@@ -331,7 +331,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				);
 			}
 			.card--idle {
-				--card-accent: var(--gl-agent-idle);
+				--card-accent: var(--gl-agent-idle-color);
 				opacity: 0.85;
 			}
 
@@ -408,7 +408,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.card__phase--needs-input {
-				color: var(--gl-agent-attention);
+				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
 			}
 

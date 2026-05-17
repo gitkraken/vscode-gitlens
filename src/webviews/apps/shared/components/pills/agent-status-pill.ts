@@ -54,15 +54,19 @@ export class GlAgentStatusPill extends LitElement {
 				display: inline-block;
 				--max-width: 30rem;
 
-				/* Working (blue) */
-				--gl-agent-pill-working-color: var(--vscode-progressBar-background);
+				/* Phase colors — pulled from the unified --gl-agent-working-color /
+				   --gl-agent-waiting-color / --gl-agent-idle-color palette in theme.scss so the
+				   pill, card, sidebar leaf, tooltip, and WIP file decoration all share one
+				   source of truth. Local *-bg / *-border derivations stay because the pill
+				   applies different opacity envelopes than other surfaces. */
+				--gl-agent-pill-working-color: var(--gl-agent-working-color);
 				--gl-agent-pill-working-bg: color-mix(in srgb, var(--gl-agent-pill-working-color) 10%, transparent);
 				--gl-agent-pill-working-border: color-mix(in srgb, var(--gl-agent-pill-working-color) 50%, transparent);
 
-				/* Needs Input (amber/warning). Border is brighter than the other categories
-				   (75% vs. 50%/35%) so the static state already communicates "this one's
-				   different" before the breathing animation kicks in. */
-				--gl-agent-pill-attention-color: var(--vscode-editorWarning-foreground);
+				/* Needs Input border is brighter than the other categories (75% vs. 50%/35%) so the
+				   static state already communicates "this one's different" before the breathing
+				   animation kicks in. */
+				--gl-agent-pill-attention-color: var(--gl-agent-waiting-color);
 				--gl-agent-pill-attention-bg: color-mix(in srgb, var(--gl-agent-pill-attention-color) 10%, transparent);
 				--gl-agent-pill-attention-bg-peak: color-mix(
 					in srgb,
@@ -76,7 +80,7 @@ export class GlAgentStatusPill extends LitElement {
 				);
 
 				/* Idle (muted) */
-				--gl-agent-pill-idle-color: var(--vscode-descriptionForeground);
+				--gl-agent-pill-idle-color: var(--gl-agent-idle-color);
 				--gl-agent-pill-idle-bg: color-mix(in srgb, var(--gl-agent-pill-idle-color) 10%, transparent);
 				--gl-agent-pill-idle-border: color-mix(in srgb, var(--gl-agent-pill-idle-color) 35%, transparent);
 			}

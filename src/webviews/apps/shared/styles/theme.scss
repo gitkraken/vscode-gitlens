@@ -102,8 +102,13 @@
 
 	/* Agent phase colors — own palette (NOT SCM/gitDecoration tokens, which semantically belong
 	   to file change states). Phase names match the AgentSessionPhase enum so every agent surface
-	   (sidebar leaf, tooltip, pill, details panel) can dereference one set of variables. */
-	--gl-agent-working-color: var(--vscode-charts-green, #2da44e);
+	   (sidebar leaf, tooltip, pill, details panel card, WIP file decoration) dereferences one set
+	   of variables. `working` uses a hand-picked slate-purple — reads as "AI / in motion" on both
+	   light and dark backgrounds without colliding with chip-filtered blue (`#0099ff`) or the
+	   waiting yellow. Avoids `--vscode-progressBar-background` (often chrome-grey/white per
+	   theme) and `--vscode-button-background` (varies dramatically across themes — some are
+	   near-foreground, defeating the "this stands out" signal). */
+	--gl-agent-working-color: #7b68ee;
 	--gl-agent-waiting-color: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow, #bf8700));
 	--gl-agent-idle-color: var(--vscode-descriptionForeground);
 
