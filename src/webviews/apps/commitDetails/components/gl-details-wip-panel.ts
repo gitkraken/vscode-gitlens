@@ -3,11 +3,15 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { AgentSessionPhase } from '@gitlens/agents/types.js';
+import { isActiveAgentPhase } from '@gitlens/agents/types.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
+import { isDescendant, normalizePath, relative } from '@gitlens/utils/path.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
+import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { Draft } from '../../../../plus/drafts/models/drafts.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
@@ -75,6 +79,57 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	 * vouch that bulk resolve is supported (currently graph WIP + paused rebase). */
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
+
+	/** Active agent sessions matched to this worktree (already filtered by the graph host).
+	 *  Used to compute per-file editing decorations — see {@link _agentTouchedFiles}. */
+	@property({ attribute: false })
+	agentSessions?: AgentSessionState[];
+
+	/** Repo-relative normalized paths the connected agent(s) are actively editing right now,
+	 *  mapped to the most-active phase. Recomputed in {@link willUpdate} only when
+	 *  {@link agentSessions} or {@link wip} changes so unrelated WIP snapshot pushes (file stats,
+	 *  tracking info) don't churn the downstream tree-pane model. */
+	@state()
+	private _agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
+
+	private computeAgentTouchedFiles(): ReadonlyMap<string, AgentSessionPhase> | undefined {
+		const sessions = this.agentSessions;
+		const repoPath = this.wip?.repo?.path;
+		if (!sessions?.length || repoPath == null) return undefined;
+
+		let touched: Map<string, AgentSessionPhase> | undefined;
+		for (const s of sessions) {
+			if (!isActiveAgentPhase(s.phase)) continue;
+
+			const files = s.currentFiles;
+			if (!files?.length) continue;
+
+			for (const abs of files) {
+				const normalized = normalizePath(abs);
+				if (!isDescendant(normalized, repoPath)) continue;
+
+				const rel = relative(repoPath, normalized);
+				if (!rel || rel === normalized) continue;
+
+				touched ??= new Map();
+				// 'working' wins over 'waiting' if multiple sessions claim the same file.
+				const existing = touched.get(rel);
+				if (existing !== 'working') {
+					touched.set(rel, s.phase);
+				}
+			}
+		}
+
+		return touched;
+	}
+
+	protected override willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
+		super.willUpdate?.(changedProperties);
+
+		if (changedProperties.has('agentSessions') || changedProperties.has('wip')) {
+			this._agentTouchedFiles = this.computeAgentTouchedFiles();
+		}
+	}
 
 	@state()
 	get inReview(): boolean {
@@ -469,6 +524,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				.folderContext=${this._getFolderContext}
 				.searchContext=${this.searchContext}
 				.multiDiff=${this.getMultiDiffRefs()}
+				.agentTouchedFiles=${this._agentTouchedFiles}
 				@file-checked=${this._onFileChecked}
 			>
 				${this.renderChangedFilesSlottedContent()}

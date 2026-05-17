@@ -114,7 +114,7 @@ suite('ClaudeCodeProvider', () => {
 			}
 		});
 
-		test('resolveGitInfo fallback uses host-normalized repoRoot when cwd is outside the workspace', async () => {
+		test('resolveGitInfo sets commonPath when cwd is outside any workspace folder', async () => {
 			const { callbacks, handlers } = createMockCallbacks({
 				resolveGitInfo: () =>
 					Promise.resolve({
@@ -131,8 +131,12 @@ suite('ClaudeCodeProvider', () => {
 				await handler(sessionStart('sess-1', 'd:\\PROJ\\GKGL\\vscode-gitlens\\src'), new URLSearchParams());
 				await flushMicrotasks();
 
-				assert.strictEqual(provider.sessions[0].workspacePath, 'd:/PROJ/GKGL/vscode-gitlens');
+				// `workspacePath` stays undefined — no workspace folder matched the cwd. The
+				// session's repo identity flows through `commonPath` (= info.repoRoot), so
+				// downstream consumers can still associate the session with its repo.
+				assert.strictEqual(provider.sessions[0].workspacePath, undefined);
 				assert.strictEqual(provider.sessions[0].isInWorkspace, false);
+				assert.strictEqual(provider.sessions[0].commonPath, 'd:/PROJ/GKGL/vscode-gitlens');
 			} finally {
 				provider.dispose();
 			}

@@ -76,11 +76,11 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 		const sessions = this._homeState.agentSessions.get();
 		if (sessions == null || sessions.length === 0) return nothing;
 
-		// Group sessions by full workspace path to avoid collisions between
-		// identically-named folders; display only the basename as the label.
+		// Group by `worktreePath`; fall back to `workspacePath` so sessions in a non-repo
+		// workspace folder (no git resolution → no worktreePath) still cluster together.
 		const groups = new Map<string, AgentSessionState[]>();
 		for (const session of sessions) {
-			const key = session.workspacePath ?? 'unknown';
+			const key = session.worktreePath ?? session.workspacePath ?? 'unknown';
 			let group = groups.get(key);
 			if (group == null) {
 				group = [];
@@ -112,7 +112,7 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 		// at serialization time. Here in the home overlay we surface the live worktree name
 		// (typically the branch name) when present; the branch label appears on the branch card
 		// itself so this is just disambiguation.
-		const name = session.worktree?.name ?? (session.worktree?.path ? basename(session.worktree.path) : undefined);
+		const name = session.worktree?.name ?? (session.worktreePath ? basename(session.worktreePath) : undefined);
 		if (name == null) return undefined;
 
 		return {

@@ -2,6 +2,7 @@ import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
+import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -174,6 +175,14 @@ export class GlFileTreePane extends LitElement {
 	@property({ attribute: 'selection-action' })
 	selectionAction: 'file-open' | 'file-compare-previous' = 'file-compare-previous';
 
+	/**
+	 * Repo-relative normalized file paths the connected agent(s) are actively editing right now,
+	 * mapped to the agent's phase. When set, matching file rows get an agent decoration in
+	 * `getFileDecorations`. Map (not Set) so the phase can drive icon + color.
+	 */
+	@property({ attribute: false })
+	agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
+
 	@state() private _filterMode: 'off' | 'mixed' | 'matched' = 'mixed';
 	@state() private _showFilter = false;
 
@@ -195,6 +204,7 @@ export class GlFileTreePane extends LitElement {
 			changedProperties.has('checkableStates') ||
 			changedProperties.has('checkableStateDefault') ||
 			changedProperties.has('searchContext') ||
+			changedProperties.has('agentTouchedFiles') ||
 			changedProperties.has('_filterMode')
 		) {
 			const files = (this.files as Files) ?? [];
@@ -531,6 +541,20 @@ export class GlFileTreePane extends LitElement {
 					position: 'after' as const,
 				});
 			}
+		}
+
+		// Agent "currently editing" decoration — transient, follows the agent's in-flight
+		// file-mutating tool call. Rendered before the status letter so the agent cue isn't lost
+		// in the right-edge action gutter.
+		const agentPhase = this.agentTouchedFiles?.get(file.path);
+		if (agentPhase != null) {
+			decorations.push({
+				type: 'agent' as const,
+				label: 'Editing',
+				tooltip: 'Claude Code is editing this file',
+				phase: agentPhase,
+				position: 'before' as const,
+			});
 		}
 
 		return decorations;

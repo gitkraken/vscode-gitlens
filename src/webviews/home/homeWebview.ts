@@ -763,26 +763,35 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		// Agent branches: return only branches whose worktree has an active agent session.
 		// Sessions associate with worktrees by full path — the worktree's *current* branch is
-		// the agent's effective branch. Match by `(repoPath, worktreePath)`, collapsing the
-		// default-worktree representations (`undefined` and `worktreePath === repoPath`) to
-		// `''` on both sides — same convention as `normalizeWorktreeKey` in `agentUtils.ts`.
+		// the agent's effective branch. Filter by intersecting on the worktree path itself
+		// (which is unique per branch within a repo and globally), not by `session.workspacePath`
+		// — `workspacePath` is whichever workspace folder contained the cwd and can be either the
+		// common path or a worktree path depending on how Claude Code was launched, so it's not a
+		// reliable repo-identity proxy.
 		if (type === 'agents') {
 			const sessions = this.container.agentStatus?.sessions ?? [];
 			const repoPath = repo.path;
-			const sessionWorktreePaths = new Set<string>();
+			const branchWorktreePaths = new Set<string>();
+			for (const branch of branches) {
+				const wt = worktreesByBranch.get(branch.id);
+				branchWorktreePaths.add(wt != null && !wt.isDefault ? wt.path : repoPath);
+			}
+
+			const agentWorktreePaths = new Set<string>();
 			for (const session of sessions) {
-				if (session.workspacePath === repoPath) {
-					sessionWorktreePaths.add(
-						session.worktreePath != null && session.worktreePath !== repoPath ? session.worktreePath : '',
-					);
+				// Only `worktreePath` — no `workspacePath` fallback. A non-repo workspace-folder
+				// session has no worktreePath; it can't legitimately match any branch's worktree,
+				// so matching its `workspacePath` against a branch path would just be coincidence.
+				if (session.worktreePath != null && branchWorktreePaths.has(session.worktreePath)) {
+					agentWorktreePaths.add(session.worktreePath);
 				}
 			}
 
 			const agentBranches: OverviewBranch[] = [];
 			for (const branch of branches) {
 				const wt = worktreesByBranch.get(branch.id);
-				const branchWorktreePath = wt != null && !wt.isDefault ? wt.path : '';
-				if (sessionWorktreePaths.has(branchWorktreePath)) {
+				const branchWorktreePath = wt != null && !wt.isDefault ? wt.path : repoPath;
+				if (agentWorktreePaths.has(branchWorktreePath)) {
 					const opened = branch.current || wt?.opened === true;
 					agentBranches.push(toOverviewBranch(branch, worktreesByBranch, opened));
 				}
@@ -1102,7 +1111,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const waiting = service.sessions.filter(
 			s => !s.isSubagent && (s.status === 'waiting' || s.status === 'permission_requested'),
 		).length;
-
 		if (waiting === this._lastBadgeWaiting) return;
 
 		this._lastBadgeWaiting = waiting;

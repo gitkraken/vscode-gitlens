@@ -210,16 +210,14 @@ export function setupSubscriptions(
 		// from disk (phase/status/timestamp churn on the same set of sessions). Refetching the
 		// agent overview on every event cascades through `createResource`'s cancelPrevious=true
 		// and starves the in-flight RPC. The branch list rendered by the agent overview is
-		// keyed on `(repoPath, worktree.path)` (see `findOverviewBranchForSession`), so the
-		// overview only needs to refetch when that set changes — session churn is covered by
-		// the `agentSessions` signal write above.
+		// keyed on `worktreePath` (see `findOverviewBranchForSession`), so the overview only
+		// needs to refetch when that set changes — session churn is covered by the
+		// `agentSessions` signal write above.
 		() => {
 			let lastAgentBranchKey: string | undefined;
 			return services.home.onAgentSessionsChanged((sessions: AgentSessionState[]) => {
 				state.home.agentSessions.set(sortAgentSessions(sessions));
-				const key = [...new Set(sessions.map(s => `${s.workspacePath ?? ''}\0${s.worktree?.path ?? ''}`))]
-					.sort()
-					.join('\n');
+				const key = [...new Set(sessions.map(s => s.worktreePath ?? ''))].sort().join('\n');
 				if (key !== lastAgentBranchKey) {
 					lastAgentBranchKey = key;
 					actions.refreshAgentOverview();

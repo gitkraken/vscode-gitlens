@@ -126,10 +126,10 @@ export class GlAgentSessionCard extends LitElement {
 		// This card represents unrepresented sessions (those not on any rendered branch card),
 		// so the worktree's live display name carries the useful disambiguation. Branch labels
 		// appear on the proper branch card when one exists.
-		// Keyed by `worktree.path` so two sessions in the same worktree show one chip.
+		// Keyed by `worktreePath` so two sessions in the same worktree show one chip.
 		const worktrees = new Map<string, { label: string; cwd: string | undefined }>();
 		for (const s of this.sessions) {
-			const path = s.worktree?.path;
+			const path = s.worktreePath;
 			if (path == null || worktrees.has(path)) continue;
 
 			worktrees.set(path, { label: s.worktree?.name ?? basename(path), cwd: s.cwd });

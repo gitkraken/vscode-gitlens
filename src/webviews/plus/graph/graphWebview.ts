@@ -6230,14 +6230,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const now = Date.now();
 		const qualifyingPaths = new Set<string>();
 		for (const s of sessions) {
-			if (s.worktree?.path == null) continue;
+			if (s.worktreePath == null) continue;
 
 			// `Math.max(0, …)` clamps clock-skew (future-dated timestamps) so a stale clock
 			// can't pin a session as permanently "recent".
 			const recent =
 				Math.max(0, now - s.lastActivity.getTime()) < GraphWebviewProvider.agentBranchesIdleThresholdMs;
 			if (isActiveAgentPhase(s.phase) || recent) {
-				qualifyingPaths.add(s.worktree.path);
+				qualifyingPaths.add(s.worktreePath);
 			}
 		}
 		if (qualifyingPaths.size === 0) return refs;

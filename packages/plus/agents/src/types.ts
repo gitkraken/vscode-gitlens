@@ -94,6 +94,17 @@ export interface AgentSession {
 	readonly phase: AgentSessionPhase;
 	readonly statusDetail?: string;
 	readonly worktreePath?: string;
+	/** Common (parent) repo path shared by every worktree in this session's repo. Set together
+	 *  with `worktreePath` by `resolveGitInfo` — equal to `worktreePath` for a default-worktree
+	 *  session, otherwise the parent repo's common path. Use this for "same repo" identity
+	 *  checks; {@link workspacePath} is the matched workspace folder, not repo identity.
+	 *
+	 *  `undefined` carries two meanings the host distinguishes internally (via the
+	 *  `gitInfoUnresolvable` bookkeeping flag) but consumers should treat identically: either
+	 *  "not yet resolved" (no probe completed) or "resolved but cwd is not inside any git repo".
+	 *  Either way, no repo identity is available — never attempt to `path.join`/`path.resolve`
+	 *  against it without an explicit `!= null` check. */
+	readonly commonPath?: string;
 	readonly pid?: number;
 	readonly lastActivity: Date;
 	readonly phaseSince: Date;
@@ -101,12 +112,22 @@ export interface AgentSession {
 	readonly parentId?: string;
 	readonly subagents?: readonly AgentSession[];
 	readonly pendingPermission?: PendingPermission;
+	/** The VS Code workspace folder containing the agent's cwd, or `undefined` if cwd is outside
+	 *  any open workspace folder. Used for `isInWorkspace` and "Open Folder" only — NOT for repo
+	 *  identity. For "what repo is this session in", use {@link commonPath}. */
 	readonly workspacePath?: string;
 	readonly cwd?: string;
 	readonly planFile?: string;
 	readonly isInWorkspace: boolean;
 	readonly lastPrompt?: string;
 	readonly firstPrompt?: string;
+	/** Absolute paths of files targeted by in-flight file-editing tool calls (Edit/Write/MultiEdit/
+	 *  NotebookEdit). Populated on PreToolUse, drained on PostToolUse/PermissionDenied, cleared on
+	 *  Stop/SessionEnd. Empty/undefined when no file-editing tool is active.
+	 *
+	 *  Mutable array form so `Shape<AgentSession>` projects it as `string[]` (the `Shape<>` type
+	 *  mangles `readonly T[]` into a mapped object that loses its iterator). Treat as immutable. */
+	currentFiles?: string[];
 }
 
 export interface AgentSessionProvider extends UnifiedDisposable {

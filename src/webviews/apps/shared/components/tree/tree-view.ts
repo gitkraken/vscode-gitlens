@@ -28,6 +28,7 @@ import '../file-icon/file-icon.js';
 import '../status/git-status.js';
 import '../button.js';
 import '../code-icon.js';
+import '../overlays/tooltip.js';
 import '../markdown/markdown.js';
 import './tree-item.js';
 
@@ -575,6 +576,30 @@ export class GlTreeView extends GlElement {
 					aria-label=${ifDefined(decoration.tooltip ?? decoration.label)}
 					><code-icon icon="warning" size="12"></code-icon>${decoration.count}</span
 				>`;
+			}
+
+			if (decoration.type === 'agent') {
+				// Robot glyph is the agent's identity (never animates); the spinner is a separate
+				// adjacent glyph that only renders during `working`. Color comes from the shared
+				// --gl-agent-* palette via the `tree-icon-agent--${phase}` class on each
+				// `code-icon` so the CSS rules at the top of this file match the rendered markup.
+				const tooltip = decoration.tooltip ?? decoration.label;
+				return html`<gl-tooltip slot=${slot} part=${slot} placement="top">
+					<code-icon
+						icon="robot"
+						class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+						aria-label=${ifDefined(tooltip)}
+					></code-icon>
+					${decoration.phase === 'working'
+						? html`<code-icon
+								icon="sync"
+								modifier="spin"
+								class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+								aria-hidden="true"
+							></code-icon>`
+						: nothing}
+					<span slot="content">${tooltip}</span>
+				</gl-tooltip>`;
 			}
 
 			// TODO: implement badge and indicator decorations

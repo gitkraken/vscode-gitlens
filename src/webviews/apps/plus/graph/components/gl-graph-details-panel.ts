@@ -595,6 +595,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 											?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type === 'rebase'}
 											.wip=${wip}
 											.files=${wip.changes?.files}
+											.agentSessions=${worktreeAgentSessions}
 											.preferences=${this._state.preferences.get()}
 											.orgSettings=${this._state.orgSettings.get()}
 											.isUncommitted=${true}
@@ -886,11 +887,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	/**
-	 * Resolves the WIP's worktree to the agent sessions running in it. Uses the graph's
-	 * primary-repo path (from {@link graphRepoPath}) — not `wip.repo.path` — because the host
-	 * normalizes `session.workspacePath` to the main-repo path for any worktree-resident agent
-	 * (see `claudeCodeProvider.ts` / `info.repoRoot` in `env/node/providers.ts`). For a
-	 * `worktree-wip::` selection, `wip.repo.path` is the worktree's full path — the matcher key.
+	 * Resolves the WIP's worktree to the agent sessions running in it. The matcher
+	 * ({@link matchAgentSessionsForWorktree}) compares strictly on `worktreePath`; `repoPath` is
+	 * carried through for default-worktree producers that leave `worktreePath` undefined and
+	 * collapse to the repo path. Passes `graphRepoPath()` (the graph's selected repo) as the
+	 * repoPath and `wip.repo.path` (the worktree being inspected) as the worktreePath.
 	 */
 	private getWorktreeAgentSessions(wip: Wip): AgentSessionState[] | undefined {
 		const primaryRepoPath = this.graphRepoPath() ?? wip.repo?.path;

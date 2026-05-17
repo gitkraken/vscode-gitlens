@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
@@ -120,6 +121,11 @@ export class GlWipTreePane extends LitElement {
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
 
+	/** Repo-relative normalized paths the connected agent(s) are actively editing, mapped to the
+	 *  agent's phase. Pass-through to `gl-file-tree-pane`. */
+	@property({ attribute: false })
+	agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
+
 	private _effectiveFiles: Files = [];
 	private _effectiveStates?: Map<
 		string,
@@ -230,6 +236,7 @@ export class GlWipTreePane extends LitElement {
 			?checkable=${this.checkable}
 			.checkableStates=${this._effectiveStates}
 			.checkableStateDefault=${this.checkableStateDefault}
+			.agentTouchedFiles=${this.agentTouchedFiles}
 			.buttons=${buttons}
 			selection-badge-label="Staged"
 			selection-action="file-open"

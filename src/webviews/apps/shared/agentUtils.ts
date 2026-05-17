@@ -102,12 +102,12 @@ export function sortAgentSessions(sessions: readonly AgentSessionState[]): Agent
 	});
 }
 
-/** Identifies the worktree the matcher should resolve sessions for. `repoPath` must be the path
- *  that `session.workspacePath` is normalized to on the host — i.e. the **main repo's path** for
- *  any branch in any of its worktrees. `worktreePath` is the worktree's full normalized path;
- *  `undefined` and `worktreePath === repoPath` both denote the default worktree (Home keeps the
- *  path on `OverviewBranch.worktree`; Graph strips the default from its `worktreesByBranch` map
- *  to preserve `+checkedout` vs `+worktree` semantics, so it surfaces as `undefined`). */
+/** Identifies the worktree the matcher should resolve sessions for. `repoPath` is the workspace's
+ *  selected-repo path (main-repo path in most cases, but can be a worktree path if the workspace
+ *  opens a worktree directly). `worktreePath` is the worktree's full normalized path; `undefined`
+ *  and `worktreePath === repoPath` both denote the default worktree (Home keeps the path on
+ *  `OverviewBranch.worktree`; Graph strips the default from its `worktreesByBranch` map to
+ *  preserve `+checkedout` vs `+worktree` semantics, so it surfaces as `undefined`). */
 export interface AgentSessionWorktreeTarget {
 	repoPath: string;
 	worktreePath?: string;
@@ -115,16 +115,30 @@ export interface AgentSessionWorktreeTarget {
 
 export type AgentSessionWorktreeIndex = Map<string, AgentSessionState[]>;
 
-/** Default-worktree representations differ across producers — Home keeps `worktree.path` equal to
- *  the repo path, Graph leaves `worktree` undefined. Sessions always carry the explicit path form.
- *  Collapse both forms to the empty string so equality holds across producers without falsely
- *  cross-associating with named worktrees (whose paths are distinct by construction). */
-function normalizeWorktreeKey(repoPath: string, worktreePath: string | undefined): string {
-	return worktreePath == null || worktreePath === repoPath ? '' : worktreePath;
+/** Effective worktree path for a target — falls back to `repoPath` for default-worktree targets
+ *  whose producer leaves `worktreePath` undefined. */
+function targetWorktreeKey(target: AgentSessionWorktreeTarget): string {
+	return target.worktreePath ?? target.repoPath;
+}
+
+/** Effective worktree path for a session. Returns `undefined` until `resolveGitInfo` resolves —
+ *  intentionally does NOT fall back to `workspacePath` (matched workspace folder, not a worktree
+ *  identifier) nor to `cwd` (typically deeper than the worktree boundary). Cold-cache sessions
+ *  are simply unmatched until the host fills the worktree in — a narrow window in practice
+ *  (resolveGitInfo runs on first hook).
+ *
+ *  Reads `session.worktreePath` directly rather than `session.worktree?.path` — both carry the
+ *  same value (the wire serializer sets them together), but `worktreePath` doesn't tempt anyone
+ *  to think the worktree-name cache needs to be populated first. Reserve `session.worktree.*`
+ *  for code that also needs `name` / `branch` / `isDefault` (display labels, tooltips). */
+function sessionWorktreeKey(session: AgentSessionState): string | undefined {
+	return session.worktreePath;
 }
 
 /** Builds a lookup index for batch matching across many worktrees in one render (overview cards).
- *  Single-shot consumers can call {@link matchAgentSessionsForWorktree} directly with the array. */
+ *  Single-shot consumers can call {@link matchAgentSessionsForWorktree} directly with the array.
+ *  Keyed by the session's effective worktree path so the lookup is robust to whether the agent's
+ *  workspace folder is the main repo or the worktree itself. */
 export function indexAgentSessionsByRepoAndWorktree(
 	sessions: readonly AgentSessionState[] | undefined,
 ): AgentSessionWorktreeIndex | undefined {
@@ -132,9 +146,9 @@ export function indexAgentSessionsByRepoAndWorktree(
 
 	const index: AgentSessionWorktreeIndex = new Map();
 	for (const session of sessions) {
-		if (session.workspacePath == null) continue;
+		const key = sessionWorktreeKey(session);
+		if (key == null) continue;
 
-		const key = `${session.workspacePath}\0${normalizeWorktreeKey(session.workspacePath, session.worktree?.path)}`;
 		const existing = index.get(key);
 		if (existing != null) {
 			existing.push(session);
@@ -147,34 +161,28 @@ export function indexAgentSessionsByRepoAndWorktree(
 
 /** Returns the agent sessions running in the worktree the target represents. Accepts either the
  *  full `AgentSessionState[]` (single-shot, O(n)) or a prebuilt {@link AgentSessionWorktreeIndex}
- *  (batch, O(1) lookup). Matches by `(repoPath, worktreePath)` with default-worktree normalization
- *  so Home (explicit path) and Graph (absent) targets resolve to the same sessions without
- *  cross-associating with named worktrees. */
+ *  (batch, O(1) lookup). Matches strictly by `session.worktree.path` (host-resolved from the
+ *  agent's cwd) — the only stable identifier of where the agent actually lives. `workspacePath`
+ *  is intentionally not consulted: it's a synthesized field that holds either the matching
+ *  VS Code workspace folder or the common-path fallback, depending on Claude Code's launch dir.
+ *  Sessions whose worktree hasn't been resolved yet (cold-cache window) won't match — narrow in
+ *  practice since `resolveGitInfo` runs on the first hook. */
 export function matchAgentSessionsForWorktree(
 	source: readonly AgentSessionState[] | AgentSessionWorktreeIndex | undefined,
 	target: AgentSessionWorktreeTarget,
 ): AgentSessionState[] | undefined {
 	if (source == null) return undefined;
 
-	const targetKey = normalizeWorktreeKey(target.repoPath, target.worktreePath);
+	const targetKey = targetWorktreeKey(target);
 
-	let candidates: readonly AgentSessionState[];
 	if (source instanceof Map) {
-		const found = source.get(`${target.repoPath}\0${targetKey}`);
-		if (found == null) return undefined;
-
-		candidates = found;
-	} else {
-		if (source.length === 0) return undefined;
-
-		candidates = source;
+		const found = source.get(targetKey);
+		return found != null && found.length > 0 ? found : undefined;
 	}
 
-	const matches = candidates.filter(session => {
-		if (session.workspacePath !== target.repoPath) return false;
-		return normalizeWorktreeKey(session.workspacePath, session.worktree?.path) === targetKey;
-	});
+	if (!source.length) return undefined;
 
+	const matches = source.filter(session => sessionWorktreeKey(session) === targetKey);
 	return matches.length > 0 ? matches : undefined;
 }
 
@@ -187,13 +195,17 @@ export function findOverviewBranchForSession(
 	branches: { active: readonly OverviewBranch[]; recent: readonly OverviewBranch[] } | undefined,
 	session: AgentSessionState,
 ): OverviewBranch | undefined {
-	if (branches == null || session.workspacePath == null || session.worktree?.path == null) return undefined;
+	if (branches == null) return undefined;
 
-	const sessionKey = normalizeWorktreeKey(session.workspacePath, session.worktree.path);
+	const sessionKey = sessionWorktreeKey(session);
+	if (sessionKey == null) return undefined;
+
 	for (const candidate of [...branches.active, ...branches.recent]) {
-		if (candidate.repoPath !== session.workspacePath) continue;
-		if (normalizeWorktreeKey(candidate.repoPath, candidate.worktree?.path) !== sessionKey) continue;
-		return candidate;
+		if (
+			targetWorktreeKey({ repoPath: candidate.repoPath, worktreePath: candidate.worktree?.path }) === sessionKey
+		) {
+			return candidate;
+		}
 	}
 
 	return undefined;

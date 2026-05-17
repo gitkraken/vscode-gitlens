@@ -20,7 +20,7 @@ export interface AgentSessionWorktreeState {
 	readonly isDefault?: boolean;
 	/** Branch metadata, present only for branch-type worktrees. `name` is the branch's
 	 *  display name; `upstreamName` is the raw `origin/foo` form — consumers build the
-	 *  `upstreamRef` via `getBranchId(workspacePath, true, upstreamName)`. */
+	 *  `upstreamRef` via `getBranchId(session.commonPath, true, upstreamName)`. */
 	readonly branch?: {
 		readonly name: string;
 		readonly upstreamName?: string;

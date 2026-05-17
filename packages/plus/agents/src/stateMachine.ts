@@ -66,6 +66,7 @@ export function describeToolInput(toolName: string, toolInput: Record<string, un
 			detail = toolInput.command as string | undefined;
 			break;
 		case 'Edit':
+		case 'MultiEdit':
 		case 'Write':
 		case 'Read':
 			detail = toolInput.file_path as string | undefined;
@@ -86,4 +87,21 @@ export function describeToolInput(toolName: string, toolInput: Record<string, un
 	}
 
 	return detail != null ? `${toolName}(${detail})` : toolName;
+}
+
+/** Returns the file path a file-mutating tool is targeting, or `undefined` for non-mutating /
+ *  non-file tools. `Read` is intentionally excluded — "working on a file" means writing to it. */
+export function getToolFilePath(toolName: string, toolInput: Record<string, unknown> | undefined): string | undefined {
+	if (toolInput == null) return undefined;
+
+	switch (toolName) {
+		case 'Edit':
+		case 'MultiEdit':
+		case 'Write':
+			return toolInput.file_path as string | undefined;
+		case 'NotebookEdit':
+			return toolInput.notebook_path as string | undefined;
+		default:
+			return undefined;
+	}
 }

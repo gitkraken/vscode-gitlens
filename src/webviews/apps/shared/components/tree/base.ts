@@ -91,12 +91,19 @@ export interface TreeItemDecorationConflict extends TreeItemDecorationBase {
 	kind?: TreeItemDecorationKind;
 }
 
+export interface TreeItemDecorationAgent extends TreeItemDecorationBase {
+	type: 'agent';
+	phase: AgentSessionPhase;
+	tooltip?: string;
+}
+
 export type TreeItemDecoration =
 	| TreeItemDecorationText
 	| TreeItemDecorationIcon
 	| TreeItemDecorationStatus
 	| TreeItemDecorationTracking
-	| TreeItemDecorationConflict;
+	| TreeItemDecorationConflict
+	| TreeItemDecorationAgent;
 
 interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;

@@ -421,18 +421,19 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		if (this._agentFilter === 'all') return branches;
 
 		// Sessions associate with worktrees, keyed by full path. Build the set of worktree paths
-		// agents are running in for this repo, then keep only branches whose worktree matches.
-		// The host pre-filters to agent-bearing branches; this is the workspace-vs-all UI
-		// selector layered on top.
+		// the rendered branches occupy, then keep only branches whose worktree matches a session.
+		// Match by `worktreePath` (stable identifier set by host's `resolveGitInfo`) — not
+		// `workspacePath`, which is the matched workspace folder, not a repo identifier.
 		const sessions = this._homeCtx.agentSessions.get() ?? [];
+		const branchWorktreePaths = new Set(branches.map(b => b.worktree?.path ?? repoPath));
 		const sessionWorktreePaths = new Set<string>();
 		for (const session of sessions) {
-			if (session.workspacePath === repoPath) {
-				sessionWorktreePaths.add(session.worktree?.path ?? '');
+			if (session.worktreePath != null && branchWorktreePaths.has(session.worktreePath)) {
+				sessionWorktreePaths.add(session.worktreePath);
 			}
 		}
 
-		return branches.filter(b => sessionWorktreePaths.has(b.worktree?.path ?? ''));
+		return branches.filter(b => sessionWorktreePaths.has(b.worktree?.path ?? repoPath));
 	}
 
 	private getUnrepresentedAgentSessions(
@@ -442,11 +443,11 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		const sessions = this._homeCtx.agentSessions.get() ?? [];
 		if (sessions.length === 0) return [];
 
-		const renderedWorktreePaths = new Set(renderedBranches.map(b => b.worktree?.path ?? ''));
-		return sessions.filter(s => {
-			if (s.workspacePath !== repoPath) return true;
-			return !renderedWorktreePaths.has(s.worktree?.path ?? '');
-		});
+		// A session is "unrepresented" if its worktree path doesn't match any rendered branch's
+		// worktree. Foreign-repo sessions naturally fall into this bucket because their worktree
+		// paths don't appear in this repo's branch set.
+		const renderedWorktreePaths = new Set(renderedBranches.map(b => b.worktree?.path ?? repoPath));
+		return sessions.filter(s => s.worktreePath == null || !renderedWorktreePaths.has(s.worktreePath));
 	}
 
 	private renderAgentSessionCards(sessions: AgentSessionState[]): unknown {
@@ -454,7 +455,11 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 		const groups = new Map<string, AgentSessionState[]>();
 		for (const session of sessions) {
-			const key = session.workspacePath || session.cwd || 'unknown';
+			// Group by `worktreePath` so sessions in the same worktree always share a card,
+			// regardless of which workspace folder Claude Code happened to match on launch.
+			// Fall back through `workspacePath` then `cwd` so cold-cache sessions still get a
+			// group rather than collapsing into 'unknown'.
+			const key = session.worktreePath || session.workspacePath || session.cwd || 'unknown';
 			let group = groups.get(key);
 			if (group == null) {
 				group = [];
@@ -469,7 +474,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				<gl-agent-session-card
 					.label=${key !== 'unknown' ? basename(key) : 'Unknown'}
 					.labelTitle=${key !== 'unknown' ? key : ''}
-					.labelType=${groupSessions[0].workspacePath ? 'workspace' : 'cwd'}
+					.labelType=${groupSessions[0].worktreePath || groupSessions[0].workspacePath ? 'workspace' : 'cwd'}
 					.sessions=${groupSessions}
 				></gl-agent-session-card>
 			`,

@@ -1,7 +1,13 @@
 import * as assert from 'assert';
 import { spawn } from 'child_process';
 import { once } from 'events';
-import { deriveStatusFromEvent, describeToolInput, isProcessAlive, rehydrateSubagents } from '../stateMachine.js';
+import {
+	deriveStatusFromEvent,
+	describeToolInput,
+	getToolFilePath,
+	isProcessAlive,
+	rehydrateSubagents,
+} from '../stateMachine.js';
 
 suite('stateMachine', () => {
 	suite('deriveStatusFromEvent', () => {
@@ -40,12 +46,43 @@ suite('stateMachine', () => {
 		test('includes file_path for file tools', () => {
 			assert.strictEqual(describeToolInput('Read', { file_path: '/tmp/foo' }), 'Read(/tmp/foo)');
 			assert.strictEqual(describeToolInput('Edit', { file_path: '/tmp/foo' }), 'Edit(/tmp/foo)');
+			assert.strictEqual(describeToolInput('MultiEdit', { file_path: '/tmp/foo' }), 'MultiEdit(/tmp/foo)');
 			assert.strictEqual(describeToolInput('Write', { file_path: '/tmp/foo' }), 'Write(/tmp/foo)');
 		});
 
 		test('returns bare tool name when detail is missing', () => {
 			assert.strictEqual(describeToolInput('Bash', {}), 'Bash');
 			assert.strictEqual(describeToolInput('UnknownTool', { foo: 'bar' }), 'UnknownTool');
+		});
+	});
+
+	suite('getToolFilePath', () => {
+		test('returns file_path for file-mutating tools', () => {
+			assert.strictEqual(getToolFilePath('Edit', { file_path: '/tmp/foo.ts' }), '/tmp/foo.ts');
+			assert.strictEqual(getToolFilePath('MultiEdit', { file_path: '/tmp/foo.ts' }), '/tmp/foo.ts');
+			assert.strictEqual(getToolFilePath('Write', { file_path: '/tmp/foo.ts' }), '/tmp/foo.ts');
+		});
+
+		test('returns notebook_path for NotebookEdit', () => {
+			assert.strictEqual(getToolFilePath('NotebookEdit', { notebook_path: '/tmp/n.ipynb' }), '/tmp/n.ipynb');
+		});
+
+		test('returns undefined for Read (inspect, not mutate)', () => {
+			assert.strictEqual(getToolFilePath('Read', { file_path: '/tmp/foo.ts' }), undefined);
+		});
+
+		test('returns undefined for non-file tools', () => {
+			assert.strictEqual(getToolFilePath('Bash', { command: 'ls' }), undefined);
+			assert.strictEqual(getToolFilePath('Grep', { pattern: 'foo' }), undefined);
+			assert.strictEqual(getToolFilePath('Glob', { pattern: '*.ts' }), undefined);
+			assert.strictEqual(getToolFilePath('WebFetch', { url: 'https://example.com' }), undefined);
+			assert.strictEqual(getToolFilePath('UnknownTool', { file_path: '/tmp/foo.ts' }), undefined);
+		});
+
+		test('returns undefined when toolInput is missing or path absent', () => {
+			assert.strictEqual(getToolFilePath('Edit', undefined), undefined);
+			assert.strictEqual(getToolFilePath('Edit', {}), undefined);
+			assert.strictEqual(getToolFilePath('NotebookEdit', {}), undefined);
 		});
 	});
 

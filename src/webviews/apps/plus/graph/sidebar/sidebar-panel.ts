@@ -800,9 +800,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	/** The graph's repo and its family path. `path` is whatever the graph is showing (could be a
 	 *  named worktree); `family` is `commonPath ?? path` — the parent that a session's
-	 *  `workspacePath` (always the common path of its own repo) compares against to test "same
-	 *  repo family". Without this, a graph viewing a worktree would fail to match sessions
-	 *  running in the parent or a sibling worktree of the same repo. */
+	 *  `commonPath` (the authoritative repo identity, set together with `worktreePath` by
+	 *  `resolveGitInfo`) compares against to test "same repo family". Without this, a graph
+	 *  viewing a worktree would fail to match sessions running in the parent or a sibling
+	 *  worktree of the same repo. */
 	private resolveGraphAnchorContext(): { repoPath: string; family: string } | undefined {
 		const repo = this._state.repositories?.find(r => r.id === this._state.selectedRepository);
 		if (repo == null) return undefined;
@@ -817,8 +818,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		session: AgentSessionState,
 		graph: { repoPath: string; family: string } | undefined,
 	): { wipSha?: string; scope?: SidebarItemScope } {
-		const worktreePath = session.worktree?.path;
-		const sameFamily = graph != null && session.workspacePath === graph.family;
+		const worktreePath = session.worktreePath;
+		// `session.commonPath` is the authoritative repo identity. No fallback — `workspacePath`
+		// is a separate concept (matched workspace folder, not repo identity), and dropping the
+		// anchor for the narrow cold-cache window before resolveGitInfo completes is preferable
+		// to wiring up a wrong family.
+		const sameFamily = graph != null && session.commonPath === graph.family;
 		if (!sameFamily) return {};
 		return {
 			wipSha: worktreePath != null ? createWipSha(worktreePath, graph.repoPath) : undefined,
@@ -925,7 +930,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		interface Group {
 			key: string;
-			workspacePath: string | undefined;
 			worktreePath: string | undefined;
 			firstIndex: number;
 			name: string;
@@ -934,21 +938,22 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			sessions: AgentSessionState[];
 		}
 
+		// Key by `worktreePath`; fall back to `workspacePath` so sessions in a non-repo workspace
+		// folder still cluster together. Empty-string key groups truly unattached sessions.
 		const groups = new Map<string, Group>();
 		items.forEach((session, index) => {
-			const key = `${session.workspacePath ?? ''}\0${session.worktree?.path ?? ''}`;
+			const key = session.worktreePath ?? session.workspacePath ?? '';
 			let group = groups.get(key);
 			if (group == null) {
 				group = {
 					key: key,
-					workspacePath: session.workspacePath,
-					worktreePath: session.worktree?.path,
+					worktreePath: session.worktreePath,
 					firstIndex: index,
 					name:
 						session.worktree?.name ??
-						(session.worktree?.path ? basename(session.worktree.path) : 'Unattached'),
-					type: session.worktree ? 'worktree' : 'folder',
-					// Sessions in a group share workspace + worktree → share the same anchor.
+						(session.worktreePath ? basename(session.worktreePath) : 'Unattached'),
+					type: session.worktreePath != null ? 'worktree' : 'folder',
+					// Sessions in a group share the same worktree → share the same anchor.
 					anchor: this.resolveAgentAnchor(session, graphAnchor),
 					sessions: [],
 				};
@@ -964,10 +969,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					leafToTreeModel(this.toAgentLeaf(s, group.anchor), `agent:${s.id}`, 2),
 				);
 
-				// Description hints at the physical worktree directory when distinct from the
-				// label (rare-but-real: same branch checked out in two worktrees).
+				// Description hints at the physical worktree directory when its basename differs
+				// from the display name (e.g. a worktree at `feature-x/` checked out on a branch
+				// named `feature/x`).
 				const description =
-					group.worktreePath != null && group.worktreePath !== group.workspacePath
+					group.worktreePath != null && basename(group.worktreePath) !== group.name
 						? basename(group.worktreePath)
 						: undefined;
 

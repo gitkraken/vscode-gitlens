@@ -211,19 +211,23 @@ export class AgentStatusService implements Disposable {
 				// this run was in-flight (it snapshots `this.sessions` synchronously below).
 				this._resolvedWorktreePathsKey = this.getSessionWorktreePathsKey();
 
-				// `session.workspacePath` is already the parent (common) path — resolved host-side
-				// by the agent provider. Used directly so we don't go through `getRepository()`,
-				// which is workspace-folder-scoped and skips agents whose common path isn't an
-				// open workspace folder.
+				// Group by `commonPath` (set together with `worktreePath` by `resolveGitInfo`) so
+				// every worktree sharing a common path queries `getWorktrees()` once. Falling back
+				// to `worktreePath` for the cold-cache window keeps sessions resolvable even
+				// before `resolveGitInfo` populates `commonPath` — `git worktree list` works from
+				// any worktree dir. Deliberately NOT keyed by `workspacePath`: that's the matched
+				// workspace folder (or undefined), not a repo identity.
 				const worktreePathsByParent = new Map<string, Set<string>>();
 				const referencedWorktreePaths = new Set<string>();
 				for (const s of this.sessions) {
-					if (s.worktreePath == null || s.workspacePath == null) continue;
+					if (s.worktreePath == null) continue;
 
-					let set = worktreePathsByParent.get(s.workspacePath);
+					const parent = s.commonPath ?? s.worktreePath;
+
+					let set = worktreePathsByParent.get(parent);
 					if (set == null) {
 						set = new Set<string>();
-						worktreePathsByParent.set(s.workspacePath, set);
+						worktreePathsByParent.set(parent, set);
 					}
 
 					set.add(s.worktreePath);
