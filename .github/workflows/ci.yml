@@ -21,7 +21,7 @@ jobs:
         timeout-minutes: 10
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Calc tools versions
               id: tools-versions
@@ -32,12 +32,12 @@ jobs:
                   echo "pnpm-version=$PNPM_VERSION" >> $GITHUB_OUTPUT
 
             - name: Setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: ${{ steps.tools-versions.outputs.node-version }}
 
             - name: Install pnpm
-              uses: pnpm/action-setup@v4
+              uses: pnpm/action-setup@v5
               with:
                   version: ${{ steps.tools-versions.outputs.pnpm-version }}
 
@@ -47,7 +47,7 @@ jobs:
                   echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
             - name: Setup pnpm cache
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ${{ env.STORE_PATH }}
                   key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -70,7 +70,7 @@ jobs:
         timeout-minutes: 15
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Calc tools versions
               id: tools-versions
@@ -81,12 +81,12 @@ jobs:
                   echo "pnpm-version=$PNPM_VERSION" >> $GITHUB_OUTPUT
 
             - name: Setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: ${{ steps.tools-versions.outputs.node-version }}
 
             - name: Install pnpm
-              uses: pnpm/action-setup@v4
+              uses: pnpm/action-setup@v5
               with:
                   version: ${{ steps.tools-versions.outputs.pnpm-version }}
 
@@ -96,7 +96,7 @@ jobs:
                   echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
             - name: Setup pnpm cache
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ${{ env.STORE_PATH }}
                   key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -119,7 +119,7 @@ jobs:
         timeout-minutes: 20
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Calc tools versions
               id: tools-versions
@@ -130,12 +130,12 @@ jobs:
                   echo "pnpm-version=$PNPM_VERSION" >> $GITHUB_OUTPUT
 
             - name: Setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: ${{ steps.tools-versions.outputs.node-version }}
 
             - name: Install pnpm
-              uses: pnpm/action-setup@v4
+              uses: pnpm/action-setup@v5
               with:
                   version: ${{ steps.tools-versions.outputs.pnpm-version }}
 
@@ -145,7 +145,7 @@ jobs:
                   echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
             - name: Setup pnpm cache
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ${{ env.STORE_PATH }}
                   key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
