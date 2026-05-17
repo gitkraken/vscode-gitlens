@@ -5,6 +5,7 @@ import { ContextProvider } from '@lit/context';
 import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { signalObject } from 'signal-utils/object';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { OnboardingKeys } from '../../../constants.onboarding.js';
@@ -195,8 +196,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	}
 
 	override disconnectedCallback(): void {
-		// Abort any in-flight `_onRpcReady` work so phase timeouts don't fire after unmount
-		this._readyAbort?.abort();
+		// Abort any in-flight `_onRpcReady` work so phase timeouts don't fire after unmount.
+		// Tagged reason so unhandled rejections that escape consumer chains are diagnosable.
+		this._readyAbort?.abort(new DOMException('home: disconnected', 'AbortError'));
 		this._readyAbort = undefined;
 
 		// Unsubscribe RPC event callbacks (before RPC connection is disposed)
@@ -247,7 +249,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	 * subscriptions and fetches initial state.
 	 */
 	private async _onRpcReady(services: Remote<HomeServices>): Promise<void> {
-		this._readyAbort?.abort();
+		this._readyAbort?.abort(new DOMException('home: re-entering _onRpcReady', 'AbortError'));
 		this._readyAbort = new AbortController();
 		const abort = this._readyAbort;
 
@@ -267,7 +269,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 							if (abort.signal.aborted) return;
 
 							Logger.warn(`Home: _onRpcReady phase "${phase}" timed out after ${ms}ms`);
-							abort.abort();
+							abort.abort(
+								new DOMException(`home: phase "${phase}" timed out after ${ms}ms`, 'AbortError'),
+							);
 							reject(new Error(`Home initialization timed out in phase: ${phase}`));
 						}, ms);
 					}),
@@ -695,19 +699,30 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
  * branch card's Promise-to-State setters fire naturally as the RPC call
  * resolves — no micro-task render storms from `Promise.resolve()` wrapping.
  */
+function swallowCancellation<T>(reason: unknown): T | undefined {
+	if (isCancellationError(reason)) return undefined;
+	throw reason;
+}
+
 function buildBranchProgressive(
 	skeleton: OverviewBranch,
 	wipPromise: Promise<GetOverviewWipResponse>,
 	enrichmentPromise: Promise<GetOverviewEnrichmentResponse>,
 ): GetOverviewBranch {
+	// One `.catch` per shared upstream promise so the seven derived `.then(...)` chains below
+	// don't each surface their own unhandled rejection when the resource is cancelled. The
+	// skeleton already renders without these fields; treating cancellation as "no enrichment yet"
+	// keeps the UI consistent.
+	const wip = wipPromise.catch(swallowCancellation<GetOverviewWipResponse>);
+	const enrichment = enrichmentPromise.catch(swallowCancellation<GetOverviewEnrichmentResponse>);
 	return {
 		...skeleton,
-		wip: wipPromise.then(wip => wip[skeleton.id]),
-		remote: enrichmentPromise.then(e => e[skeleton.id]?.remote),
-		pr: enrichmentPromise.then(e => e[skeleton.id]?.pr),
-		autolinks: enrichmentPromise.then(e => e[skeleton.id]?.autolinks),
-		issues: enrichmentPromise.then(e => e[skeleton.id]?.issues),
-		contributors: enrichmentPromise.then(e => e[skeleton.id]?.contributors),
-		mergeTarget: enrichmentPromise.then(e => e[skeleton.id]?.mergeTarget),
+		wip: wip.then(w => w?.[skeleton.id]),
+		remote: enrichment.then(e => e?.[skeleton.id]?.remote),
+		pr: enrichment.then(e => e?.[skeleton.id]?.pr),
+		autolinks: enrichment.then(e => e?.[skeleton.id]?.autolinks),
+		issues: enrichment.then(e => e?.[skeleton.id]?.issues),
+		contributors: enrichment.then(e => e?.[skeleton.id]?.contributors),
+		mergeTarget: enrichment.then(e => e?.[skeleton.id]?.mergeTarget),
 	};
 }

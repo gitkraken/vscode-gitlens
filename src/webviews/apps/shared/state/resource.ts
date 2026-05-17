@@ -55,7 +55,9 @@ export function createResource<T, TArgs extends unknown[] = []>(
 
 	function cancel(): void {
 		if (_controller != null) {
-			_controller.abort();
+			// Tag the abort reason so any rejection that escapes the consumer chain is diagnosable
+			// rather than the opaque default "signal is aborted without reason".
+			_controller.abort(new DOMException('resource: cancelled by newer fetch', 'AbortError'));
 			_controller = undefined;
 		}
 		_loading.set(false);

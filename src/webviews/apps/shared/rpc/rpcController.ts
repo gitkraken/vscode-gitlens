@@ -61,6 +61,11 @@ export interface RpcControllerOptions<TServices extends object> {
  * - Calls onReady when connection is established
  * - Calls onError if connection fails
  */
+/** Reasons tagged on `.abort()` calls during the webview lifecycle so unhandled rejections that escape
+ * to the iframe's global handler are diagnosable instead of opaque "signal is aborted without reason". */
+const abortReasonReconnect = new DOMException('rpc reconnect: host reconnected', 'AbortError');
+const abortReasonHostDisconnected = new DOMException('rpc disconnect: host disconnected', 'AbortError');
+
 export class RpcController<TServices extends object> implements ReactiveController {
 	private _services?: Remote<TServices>;
 	private _disposeRpc?: () => void;
@@ -81,13 +86,20 @@ export class RpcController<TServices extends object> implements ReactiveControll
 	}
 
 	hostConnected(): void {
-		this._connectionAbort?.abort();
+		// Skip the abort entirely when there is no prior cycle to tear down. VS Code mounts/unmounts
+		// sidebar webview elements repeatedly during startup before the extension is even active; an
+		// abort with no consumer to receive it manifests as a stack-traceless unhandled rejection in
+		// the iframe's global handler. Only abort when there's an actual in-flight connection or a
+		// completed-but-not-yet-disposed services bag.
+		if (this._connectionAbort != null) {
+			this._connectionAbort.abort(abortReasonReconnect);
+		}
 		this._connectionAbort = new AbortController();
 		void this._connect(this._connectionAbort.signal);
 	}
 
 	hostDisconnected(): void {
-		this._connectionAbort?.abort();
+		this._connectionAbort?.abort(abortReasonHostDisconnected);
 		this._connectionAbort = undefined;
 		this._disposeRpc?.();
 		this._disposeRpc = undefined;
