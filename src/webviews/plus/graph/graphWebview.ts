@@ -2939,6 +2939,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void this.notifyDidChangeWorkingTree();
 		}
 
+		// Worktree topology changes (add/remove of a secondary worktree). These affect
+		// `wipMetadataBySha` — the set of secondary-worktree anchor SHAs surfaced in the graph
+		// header and details-pane WIP. They do NOT affect the commit log. Fire the partial
+		// `DidChangeWorkingTreeNotification` (a few KB) for fast UI response, AND let the event
+		// fall through to the structural gate below for a backstop full-state push. The full push
+		// is near-free thanks to the row-fingerprint dedup (rows/avatars/downstreams suppressed
+		// when unchanged), but it always carries `wipMetadataBySha`, which closes a delivery gap
+		// where the partial notify can be dropped when the webview transiently isn't ready.
+		if (e.changed('worktrees')) {
+			void this.notifyDidChangeWorkingTree();
+		}
+
 		// FETCH_HEAD-only signal: refresh just the displayed fetch time, no need to rebuild
 		// the full state. Force re-arm the periodic interval so it picks up the fresh value
 		// (and starts running if there was no FETCH_HEAD before this fetch).
@@ -2948,9 +2960,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void this.ensureAutoFetch();
 		}
 
+		// Drop stale refsMetadata.issue cache entries on any `config` event. In practice `.git/config`
+		// writes are classified as `[config, remotes]` (the classifier can't cheaply tell a remote.*
+		// write from any other key change), so this is always paired with the `remotes` flag in the
+		// structural gate below, which runs `getState` → re-fetches fresh refsMetadata. There's no
+		// dedicated config-exclusive fast path because `e.changedExclusive('config')` would never
+		// match in the wild.
+		if (e.changed('config')) {
+			this.clearRefsMetadataIssues();
+		}
+
 		if (
 			!e.changed(
-				'config',
 				'head',
 				'heads',
 				// 'index',
@@ -2961,27 +2982,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'pausedOp',
 				'tags',
 				'unknown',
+				'worktrees',
 			)
 		) {
 			this._etagRepository = e.repository.etag;
 			return;
 		}
 
-		if (e.changed('config')) {
-			if (this._refsMetadata != null) {
-				// Clear out any associated issue metadata
-				for (const [, value] of this._refsMetadata) {
-					if (value == null) continue;
-
-					value.issue = undefined;
-				}
-			}
-		}
-
 		// Branch tips, stored merge targets, and remote tracking can all move the merge-base anchor
 		// scope relies on. Drop the host-side overview cache and signal the webview to drop its
 		// mirrored merge-base cache so the next scope resolve recomputes against fresh refs.
-		if (e.changed('heads', 'remotes', 'config')) {
+		// (config-only events are handled above; this branch covers heads/remotes mixed with anything.)
+		if (e.changed('heads', 'remotes')) {
 			this.invalidateScopeAnchors();
 		}
 
@@ -4121,7 +4133,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 
 		// Use the same enumeration that feeds the rendered WIP rows so search and rendering agree.
-		const wipMetadataBySha = (await this.getWipMetadataBySha()) ?? {};
+		const wipMetadataBySha = await this.getWipMetadataBySha();
 
 		if (searchId !== this._searchIdCounter.current) {
 			return {
@@ -4450,6 +4462,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (repoPath == null) return;
 
 		void this.host.notify(DidInvalidateScopeAnchorsNotification, { repoPath: repoPath });
+	}
+
+	/** Clear cached issue metadata so the next render re-fetches. Returns true when there was
+	 *  metadata to clear (caller can use this to decide whether to fire a partial IPC refresh). */
+	private clearRefsMetadataIssues(): boolean {
+		if (this._refsMetadata == null) return false;
+
+		for (const [, value] of this._refsMetadata) {
+			if (value == null) continue;
+
+			value.issue = undefined;
+		}
+		return true;
 	}
 
 	/**
@@ -5872,16 +5897,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return item;
 	}
 
-	private async getWipMetadataBySha(cancellation?: CancellationToken): Promise<GraphWipMetadataBySha | undefined> {
-		if (this.repository == null) return undefined;
+	@trace({ exit: r => `secondaryWorktrees=${Object.keys(r).length}` })
+	private async getWipMetadataBySha(cancellation?: CancellationToken): Promise<GraphWipMetadataBySha> {
+		const result: GraphWipMetadataBySha = {};
+		if (this.repository == null) return result;
 
 		const worktrees = await this.repository.git.worktrees?.getWorktrees(toAbortSignal(cancellation));
-		if (!worktrees?.length) return undefined;
+		if (!worktrees?.length) return result;
 
 		// All known worktrees other than the primary (which is already covered by workingTreeStats).
 		// Emit row-anchor metadata only; workDirStats are fetched on-demand via GetWipStatsRequest
 		// when the GK component fires onWipShasMissingStats for visible rows.
-		const result: GraphWipMetadataBySha = {};
+		// Always return an object (empty when no secondaries) — undefined would be dropped by
+		// JSON.stringify, and the webview's `DidChangeNotification` handler only refreshes
+		// `wipMetadataBySha` when the field is present, so removing the last secondary worktree
+		// would leave a phantom anchor in the webview state until another full push arrived.
 		for (const wt of worktrees) {
 			if (wt.type === 'bare' || wt.sha == null) continue;
 			if (wt.path === this.repository.path) continue;
@@ -5899,7 +5929,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			};
 		}
 
-		return Object.keys(result).length > 0 ? result : undefined;
+		return result;
 	}
 
 	/**

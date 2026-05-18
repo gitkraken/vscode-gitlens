@@ -116,6 +116,21 @@ suite('mergeWipMetadata', () => {
 
 		assert.strictEqual(result, prev);
 	});
+
+	// Regression: removing the last secondary worktree must clear `wipMetadataBySha` on the
+	// webview side. The host returns `{}` (not `undefined`) when no secondaries exist so JSON
+	// survives the field; this test pins the merge behavior so a future "optimize empties to
+	// undefined" change can't silently reintroduce phantom anchors.
+	test('returns a new empty object when incoming is empty and prev has entries', () => {
+		const prev: GraphWipMetadataBySha = {
+			'worktree-wip::/a': entry('a', 'sha1'),
+			'worktree-wip::/b': entry('b', 'sha2'),
+		};
+		const result = mergeWipMetadata(prev, {});
+
+		assert.notStrictEqual(result, prev);
+		assert.deepStrictEqual(result, {});
+	});
 });
 
 function entry(label: string, parentSha: string, branchRef?: string) {

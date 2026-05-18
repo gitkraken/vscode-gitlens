@@ -825,10 +825,21 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg):
-				this.updateState({
-					workingTreeStats: msg.params.stats,
-					wipMetadataBySha: mergeWipMetadata(this._state.wipMetadataBySha, msg.params.wipMetadataBySha),
-				});
+				// Host always sends `wipMetadataBySha` as an object (possibly `{}`) so the merge
+				// can correctly clear stale anchors. If a future host change ever omits the field
+				// (or it's undefined for "unchanged"), don't destructively clear — leave existing
+				// webview anchors in place.
+				this.updateState(
+					msg.params.wipMetadataBySha != null
+						? {
+								workingTreeStats: msg.params.stats,
+								wipMetadataBySha: mergeWipMetadata(
+									this._state.wipMetadataBySha,
+									msg.params.wipMetadataBySha,
+								),
+							}
+						: { workingTreeStats: msg.params.stats },
+				);
 				break;
 
 			case DidRequestWipRefetchNotification.is(msg): {
