@@ -1824,7 +1824,7 @@ export class DetailsActions {
 		try {
 			const result = await this.services.graphInspect.getBranchCommits(
 				repoPath,
-				{ limit: nextLimit },
+				{ limit: nextLimit, includePastMergeBase: true },
 				controller.signal,
 			);
 			if (this._disposed || controller.signal.aborted) return;

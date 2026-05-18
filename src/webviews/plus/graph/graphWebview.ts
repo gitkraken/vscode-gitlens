@@ -826,20 +826,43 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							mergeBaseSha = upstreamRef;
 						}
 
-						const logRef = mergeBaseSha ? `${mergeBaseSha}..HEAD` : 'HEAD';
-						const effectiveLimit = logRef === 'HEAD' ? 20 : limit;
+						// On Load more (`includePastMergeBase`) walk the full branch log so ancestor
+						// history past the merge base is brought in. Otherwise scope to the
+						// merge-base..branch range so the picker shows the branch-divergence window.
+						let logRef: string;
+						if (options?.includePastMergeBase) {
+							mergeBaseSha = undefined;
+							logRef = branch.ref;
+						} else {
+							logRef = mergeBaseSha ? `${mergeBaseSha}..${branch.ref}` : branch.ref;
+						}
 						// Request one extra so we can detect "more available" without a separate count.
-						const log = await svc.commits.getLog(logRef, { limit: effectiveLimit + 1 });
+						let log = await svc.commits.getLog(logRef, { limit: limit + 1 });
 						signal?.throwIfAborted();
+
+						// Merge base equals (or is reachable from) the branch tip — no commits in
+						// scope. Fall back to a plain branch log so the picker shows a page of recent
+						// commits scoped to this branch (not HEAD, which may be a different worktree).
+						if (mergeBaseSha != null && !log?.commits?.size) {
+							mergeBaseSha = undefined;
+							logRef = branch.ref;
+							log = await svc.commits.getLog(logRef, { limit: limit + 1 });
+							signal?.throwIfAborted();
+						}
 
 						if (!log?.commits?.size) return { commits: [], hasMore: false };
 
+						const total = log.commits.size;
+						// Always offer Load more while in merge-base scope so the user can opt in to
+						// ancestor history even when the page isn't full. Once we've extended past the
+						// merge base, `hasMore` reflects the actual branch log size — when it returns
+						// false on a subsequent Load more, the button disappears.
+						const hasMore = mergeBaseSha != null || total > limit;
+
 						const entries: BranchCommitEntry[] = [];
 						let index = 0;
-						const total = log.commits.size;
-						const hasMore = total > effectiveLimit;
 						for (const [sha, commit] of log.commits) {
-							if (index >= effectiveLimit) break;
+							if (index >= limit) break;
 
 							const fileCount =
 								commit.stats?.files != null

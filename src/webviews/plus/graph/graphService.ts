@@ -185,6 +185,10 @@ export type BranchCommitsResult = {
 
 export interface BranchCommitsOptions {
 	limit?: number;
+	/** When true, allow extending past the merge base into ancestor history if the
+	 *  current merge-base scope can't fill the requested page. Set by `Load more` so
+	 *  the user can opt into older history even with no unpushed/WIP changes. */
+	includePastMergeBase?: boolean;
 }
 
 export interface GraphInspectService {
