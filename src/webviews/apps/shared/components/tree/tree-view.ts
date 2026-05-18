@@ -203,6 +203,15 @@ export class GlTreeView extends GlElement {
 			code-icon.tree-icon-agent--waiting {
 				color: var(--gl-agent-waiting-color);
 			}
+
+			/* Pair wrapper for the robot + spinner glyphs so they sit flush as one identity
+			   marker. The decoration slot's gap applies between the wrapper and any sibling
+			   decoration but not between the icons inside. */
+			.tree-icon-agent-pair {
+				display: inline-flex;
+				align-items: center;
+				gap: 0;
+			}
 		`,
 	];
 
@@ -583,21 +592,26 @@ export class GlTreeView extends GlElement {
 				// adjacent glyph that only renders during `working`. Color comes from the shared
 				// --gl-agent-* palette via the `tree-icon-agent--${phase}` class on each
 				// `code-icon` so the CSS rules at the top of this file match the rendered markup.
+				// Both icons live inside a flex wrapper so the decoration slot's `gap: 0.4rem`
+				// only applies between the wrapper and any other decoration — not between the
+				// robot and the spinner, which should sit flush as one identity glyph.
 				const tooltip = decoration.tooltip ?? decoration.label;
 				return html`<gl-tooltip slot=${slot} part=${slot} placement="top">
-					<code-icon
-						icon="robot"
-						class="tree-icon-agent tree-icon-agent--${decoration.phase}"
-						aria-label=${ifDefined(tooltip)}
-					></code-icon>
-					${decoration.phase === 'working'
-						? html`<code-icon
-								icon="sync"
-								modifier="spin"
-								class="tree-icon-agent tree-icon-agent--${decoration.phase}"
-								aria-hidden="true"
-							></code-icon>`
-						: nothing}
+					<span class="tree-icon-agent-pair">
+						<code-icon
+							icon="robot"
+							class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+							aria-label=${ifDefined(tooltip)}
+						></code-icon>
+						${decoration.phase === 'working'
+							? html`<code-icon
+									icon="sync"
+									modifier="spin"
+									class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+									aria-hidden="true"
+								></code-icon>`
+							: nothing}
+					</span>
 					<span slot="content">${tooltip}</span>
 				</gl-tooltip>`;
 			}
