@@ -608,6 +608,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<StartWorkCommandArgs>('gitlens.startWork', {
 			command: 'startWork',
 			source: 'home',
+			showOpenInAgent: 'ask',
 		});
 	}
 

@@ -58,6 +58,7 @@ interface PanelAction {
 	icon: string;
 	tooltip: string;
 	command: GlCommands;
+	args?: unknown[];
 }
 
 interface PanelConfig {
@@ -75,6 +76,20 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 	},
 	agents: {
 		title: 'Agents',
+		actions: [
+			{
+				icon: 'issues',
+				tooltip: 'Start Work in an Agent...',
+				command: 'gitlens.startWork',
+				args: [{ source: 'graph-details', showOpenInAgent: 'agent' }],
+			},
+			{
+				icon: 'git-pull-request',
+				tooltip: 'Start Review in an Agent...',
+				command: 'gitlens.startReview',
+				args: [{ source: 'graph-details', showOpenInAgent: 'agent' }],
+			},
+		],
 	},
 	worktrees: {
 		title: 'Worktrees',
@@ -489,7 +504,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 							appearance="toolbar"
 							density="compact"
 							tooltip="${a.tooltip}"
-							@click=${() => this.handleAction(a.command)}
+							@click=${() => this.handleAction(a.command, a.args)}
 							><code-icon icon="${a.icon}"></code-icon
 						></gl-button>`,
 				)}
@@ -1131,8 +1146,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this._actions.filterMode = e.detail;
 	};
 
-	private handleAction(command: GlCommands) {
-		this._actions?.executeAction(command);
+	private handleAction(command: GlCommands, args?: unknown[]) {
+		this._actions?.executeAction(command, undefined, args);
 	}
 
 	private handleToggleLayout() {
