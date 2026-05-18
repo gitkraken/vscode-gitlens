@@ -706,6 +706,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		);
 	};
 
+	private onCloseClick = (): void => {
+		this.dispatchEvent(new CustomEvent('gl-graph-timeline-close', { bubbles: true, composed: true }));
+	};
+
 	private dispatchConfigChange(detail: GlGraphTimelineConfigChangeDetail): void {
 		this.dispatchEvent(
 			new CustomEvent<GlGraphTimelineConfigChangeDetail>('gl-graph-timeline-config-change', {
@@ -822,6 +826,15 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 							<code-icon icon="link-external"></code-icon>
 						</gl-button>`
 					: nothing}
+				<gl-button
+					slot="toolbox"
+					appearance="toolbar"
+					tooltip="Switch to Commit Graph"
+					aria-label="Switch to Commit Graph"
+					@click=${this.onCloseClick}
+				>
+					<code-icon icon="close"></code-icon>
+				</gl-button>
 			</gl-timeline-header>
 			<gl-timeline-chart
 				placement="${this.placement}"

@@ -462,6 +462,11 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 	'configuration/update',
 );
 
+export interface UpdateGraphDisplayModeParams {
+	mode: GraphDisplayMode;
+}
+export const UpdateGraphDisplayModeCommand = new IpcCommand<UpdateGraphDisplayModeParams>(scope, 'displayMode/update');
+
 export interface UpdateGraphSearchModeParams {
 	searchMode: GraphSearchMode;
 	useNaturalLanguage: boolean;

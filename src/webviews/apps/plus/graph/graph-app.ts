@@ -31,6 +31,7 @@ import {
 	isSecondaryWipSha,
 	isWipSha,
 	UpdateGraphConfigurationCommand,
+	UpdateGraphDisplayModeCommand,
 } from '../../../plus/graph/protocol.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
@@ -384,6 +385,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				this._timelineSelectedCommit = undefined;
 			}
 			this._wasDisplayMode = displayMode;
+			// Notify the host so it can fetch row stats when entering Timeline mode (stats are
+			// otherwise only loaded when the minimap or changes column is visible).
+			this._ipc.sendCommand(UpdateGraphDisplayModeCommand, { mode: displayMode });
 		}
 
 		// First-render auto-restore telemetry: panel was visible from persisted state, no explicit
@@ -557,6 +561,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			placement=${placement}
 			@gl-graph-timeline-commit-select=${this.handleTimelineCommitSelect}
 			@gl-graph-timeline-config-change=${this.handleTimelineConfigChange}
+			@gl-graph-timeline-close=${this.handleTimelineClose}
 		></gl-graph-timeline>`;
 	}
 
@@ -928,11 +933,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const gs = this.graphState;
 		if (gs.displayMode === e.detail.mode) return;
 
+		// Synchronously flip the loading flag BEFORE the mode change triggers re-render, so the
+		// timeline mounts with its overlay on first paint. The host's authoritative state will
+		// clear it once stats land (or confirm it if a refetch is in flight).
+		if (e.detail.mode === 'timeline' && !this.hasRowsStats()) {
+			gs.rowsStatsLoading = true;
+		}
+
 		gs.displayMode = e.detail.mode;
 		// `renderGraphPaneContent` short-circuits the sidebar split when `displayMode !== 'graph'`, so
 		// the user's `sidebarVisible` setting is preserved automatically and restored on return.
 		this.persistState();
 	};
+
+	private hasRowsStats(): boolean {
+		const rowsStats = this.graphState.rowsStats;
+		return rowsStats != null && Object.keys(rowsStats).length > 0;
+	}
 
 	private handleTimelineCommitSelect = (e: CustomEvent<GlGraphTimelineCommitSelectDetail>): void => {
 		// Defensive — the timeline element only exists in timeline mode, but a queued event could
@@ -954,6 +971,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true);
 			this.ensureDetailsPosition();
 		}
+	};
+
+	private handleTimelineClose = (): void => {
+		const gs = this.graphState;
+		if (gs.displayMode === 'graph') return;
+
+		gs.displayMode = 'graph';
+		this.persistState();
 	};
 
 	private handleTimelineConfigChange = (e: CustomEvent<GlGraphTimelineConfigChangeDetail>): void => {

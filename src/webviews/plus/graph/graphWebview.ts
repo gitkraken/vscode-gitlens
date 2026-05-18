@@ -298,6 +298,7 @@ import type {
 	GraphColumnsConfig,
 	GraphColumnsSettings,
 	GraphComponentConfig,
+	GraphDisplayMode,
 	GraphExcludedRef,
 	GraphExcludeRefs,
 	GraphExcludeTypes,
@@ -395,6 +396,7 @@ import {
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
+	UpdateGraphDisplayModeCommand,
 	UpdateGraphSearchModeCommand,
 	UpdateIncludedRefsCommand,
 	UpdatePinnedRefCommand,
@@ -507,6 +509,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _graph?: GitGraph;
 	private _graphLoading?: Promise<GitGraph>;
 	private _graphRowProcessor?: GlGraphRowProcessor;
+	/** Mirrors the webview's `displayMode` (session-only); Timeline mode needs row stats. */
+	private _displayMode: GraphDisplayMode = 'graph';
 	/** Virtual FS session backing the compose panel's per-proposed-commit diffs. Lazy-initialized on first compose. */
 	private _composeVirtual?: {
 		readonly provider: GraphComposeVirtualContentProvider;
@@ -3068,6 +3072,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 		this.host.sendTelemetryEvent('graph/columns/changed', eventData);
+	}
+
+	@ipcCommand(UpdateGraphDisplayModeCommand)
+	private onDisplayModeChanged(params: IpcParams<typeof UpdateGraphDisplayModeCommand>) {
+		if (this._displayMode === params.mode) return;
+
+		this._displayMode = params.mode;
+
+		// Timeline (Visual History) needs row stats — refetch if the current graph was loaded without them.
+		if (params.mode === 'timeline' && !this._graph?.includes?.stats) {
+			// Flip the loading flag eagerly so the timeline shows its overlay during the refetch
+			// (updateState is debounced 250ms + git query time — without this the timeline would
+			// briefly paint with zero stats before the new state lands).
+			void this.host.notify(DidChangeRowsStatsNotification, { rowsStats: {}, rowsStatsLoading: true });
+			this.updateState();
+		}
 	}
 
 	@ipcCommand(UpdateRefsVisibilityCommand)
@@ -6018,7 +6038,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						(configuration.get('graph.minimap.enabled') &&
 							configuration.get('graph.minimap.dataType') === 'lines' &&
 							this.isMinimapVisible()) ||
-						!columnSettings.changes.isHidden,
+						!columnSettings.changes.isHidden ||
+						this._displayMode === 'timeline',
 				},
 				limit: limit,
 				rowProcessor: this.graphRowProcessor,
