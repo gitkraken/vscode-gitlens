@@ -1209,6 +1209,55 @@ web-graph {
 	}
 }
 
+// Reformat the third-party graph component's TARGET/BASE pills:
+//   - Default state shows "<icon> TARGET" / "<icon> BASE".
+//   - When the ref column is shrunk, the pill collapses to icon-only.
+// The pill itself stays flex-shrink: 0 so it never gets squished; the
+// container query on the .flex parent (which has the column-width inline
+// style) drives the icon-only ↔ icon+text mode swap. Padding/margin are
+// tightened so the dashed right border doesn't clip against the parent's
+// overflow:hidden at minimum width.
+.gk-graph .ref-zone > .flex:has(> .merge-target-ref-node),
+.gk-graph .ref-zone > .flex:has(> .merge-base-ref-node) {
+	container-type: inline-size;
+	container-name: refcol;
+}
+
+.gk-graph .ref-zone .merge-base-ref-node,
+.gk-graph .ref-zone .merge-target-ref-node {
+	flex-shrink: 0;
+	white-space: nowrap;
+	font-size: 0;
+	margin-left: 0;
+	padding: 0 4px;
+	align-items: center;
+
+	&::before {
+		font-size: 13px;
+		line-height: 1;
+		display: inline-block;
+	}
+}
+
+.gk-graph .ref-zone .merge-target-ref-node::before {
+	font-family: 'glicons';
+	@include iconUtils.glicon('merge-target');
+}
+
+.gk-graph .ref-zone .merge-base-ref-node::before {
+	font-family: codicon;
+	@include iconUtils.codicon('git-branch');
+}
+
+@container refcol (min-width: 100px) {
+	.gk-graph .ref-zone .merge-base-ref-node,
+	.gk-graph .ref-zone .merge-target-ref-node {
+		font-size: 11px;
+		padding: 0 6px;
+		gap: 4px;
+	}
+}
+
 // Light DOM
 .graph-app:not(:hover) {
 	.gk-graph .graph-header {
