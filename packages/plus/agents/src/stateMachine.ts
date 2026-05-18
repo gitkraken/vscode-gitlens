@@ -115,24 +115,30 @@ export function classifyPermissionKind(toolName: string): PendingPermissionKind 
 
 /** Extracts a short, scannable summary from an ExitPlanMode plan body. Prefers the first
  *  Markdown heading (stripped of leading `#`s) so the plan's title surfaces; falls back to
- *  the first non-empty line. Capped at {@link summaryMaxLength} with an ellipsis. */
+ *  the first non-empty line if no heading appears. Capped at {@link summaryMaxLength} with an
+ *  ellipsis. */
 export function extractPlanSummary(toolInput: Record<string, unknown>): string | undefined {
 	const plan = toolInput.plan as string | undefined;
 	if (!plan) return undefined;
 
-	const lines = plan.split(/\r?\n/);
-	let summary: string | undefined;
-	for (const line of lines) {
+	let heading: string | undefined;
+	let firstNonEmpty: string | undefined;
+	for (const line of plan.split(/\r?\n/)) {
 		const trimmed = line.trim();
 		if (!trimmed) continue;
 
 		if (trimmed.startsWith('#')) {
-			summary = trimmed.replace(/^#+\s*/, '').trim();
-		} else {
-			summary ??= trimmed;
+			const stripped = trimmed.replace(/^#+\s*/, '').trim();
+			if (stripped) {
+				heading = stripped;
+				break;
+			}
 		}
-		if (summary) break;
+
+		firstNonEmpty ??= trimmed;
 	}
+
+	const summary = heading ?? firstNonEmpty;
 	if (!summary) return undefined;
 
 	return summary.length > summaryMaxLength ? `${summary.slice(0, summaryMaxLength).trimEnd()}…` : summary;
@@ -147,9 +153,12 @@ export function extractQuestionDetails(
 	if (!Array.isArray(questions) || questions.length === 0) return undefined;
 
 	const first = questions[0]?.question;
-	if (typeof first !== 'string' || !first.trim()) return undefined;
+	if (typeof first !== 'string') return undefined;
 
-	const text = first.length > summaryMaxLength ? `${first.slice(0, summaryMaxLength).trimEnd()}…` : first;
+	const trimmed = first.trim();
+	if (!trimmed) return undefined;
+
+	const text = trimmed.length > summaryMaxLength ? `${trimmed.slice(0, summaryMaxLength).trimEnd()}…` : trimmed;
 	return { text: text, count: questions.length };
 }
 

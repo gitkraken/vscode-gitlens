@@ -2,8 +2,11 @@ import * as assert from 'assert';
 import { spawn } from 'child_process';
 import { once } from 'events';
 import {
+	classifyPermissionKind,
 	deriveStatusFromEvent,
 	describeToolInput,
+	extractPlanSummary,
+	extractQuestionDetails,
 	getToolFilePath,
 	isProcessAlive,
 	rehydrateSubagents,
@@ -53,6 +56,104 @@ suite('stateMachine', () => {
 		test('returns bare tool name when detail is missing', () => {
 			assert.strictEqual(describeToolInput('Bash', {}), 'Bash');
 			assert.strictEqual(describeToolInput('UnknownTool', { foo: 'bar' }), 'UnknownTool');
+		});
+
+		test('uses plan summary for ExitPlanMode', () => {
+			assert.strictEqual(
+				describeToolInput('ExitPlanMode', { plan: '# Refactor cache layer\n\nDetails follow…' }),
+				'ExitPlanMode(Refactor cache layer)',
+			);
+			assert.strictEqual(describeToolInput('ExitPlanMode', {}), 'ExitPlanMode');
+		});
+
+		test('uses question text for AskUserQuestion', () => {
+			assert.strictEqual(
+				describeToolInput('AskUserQuestion', {
+					questions: [{ question: 'Which library should we use?' }],
+				}),
+				'AskUserQuestion(Which library should we use?)',
+			);
+			assert.strictEqual(describeToolInput('AskUserQuestion', {}), 'AskUserQuestion');
+		});
+	});
+
+	suite('classifyPermissionKind', () => {
+		test('maps ExitPlanMode to plan', () => {
+			assert.strictEqual(classifyPermissionKind('ExitPlanMode'), 'plan');
+		});
+
+		test('maps AskUserQuestion to question', () => {
+			assert.strictEqual(classifyPermissionKind('AskUserQuestion'), 'question');
+		});
+
+		test('falls back to tool for any other tool name', () => {
+			assert.strictEqual(classifyPermissionKind('Bash'), 'tool');
+			assert.strictEqual(classifyPermissionKind('Edit'), 'tool');
+			assert.strictEqual(classifyPermissionKind(''), 'tool');
+		});
+	});
+
+	suite('extractPlanSummary', () => {
+		test('returns the first heading stripped of #s', () => {
+			assert.strictEqual(extractPlanSummary({ plan: '# Title here\n\n## Section' }), 'Title here');
+			assert.strictEqual(extractPlanSummary({ plan: '### Deeply nested\n\nBody' }), 'Deeply nested');
+		});
+
+		test('prefers a heading even when prose appears first', () => {
+			assert.strictEqual(extractPlanSummary({ plan: 'leading prose\n\n## Real heading\n' }), 'Real heading');
+		});
+
+		test('falls back to the first non-empty line when no heading exists', () => {
+			assert.strictEqual(extractPlanSummary({ plan: '\n\nFirst real line\nsecond' }), 'First real line');
+		});
+
+		test('skips empty headings and continues scanning', () => {
+			assert.strictEqual(extractPlanSummary({ plan: '# \n## Actual heading' }), 'Actual heading');
+		});
+
+		test('returns undefined for empty / whitespace-only / missing plans', () => {
+			assert.strictEqual(extractPlanSummary({}), undefined);
+			assert.strictEqual(extractPlanSummary({ plan: '' }), undefined);
+			assert.strictEqual(extractPlanSummary({ plan: '\n   \n\t' }), undefined);
+		});
+
+		test('truncates very long summaries with an ellipsis', () => {
+			const long = 'A'.repeat(200);
+			const result = extractPlanSummary({ plan: `# ${long}` });
+			assert.ok(result != null && result.endsWith('…'));
+			assert.ok(result.length <= 121);
+		});
+	});
+
+	suite('extractQuestionDetails', () => {
+		test('returns text + count for single question', () => {
+			const result = extractQuestionDetails({ questions: [{ question: 'Pick one?' }] });
+			assert.deepStrictEqual(result, { text: 'Pick one?', count: 1 });
+		});
+
+		test('counts all questions but returns only the first text', () => {
+			const result = extractQuestionDetails({
+				questions: [{ question: 'First?' }, { question: 'Second?' }, { question: 'Third?' }],
+			});
+			assert.deepStrictEqual(result, { text: 'First?', count: 3 });
+		});
+
+		test('trims leading and trailing whitespace from question text', () => {
+			const result = extractQuestionDetails({ questions: [{ question: '   What is it?   ' }] });
+			assert.deepStrictEqual(result, { text: 'What is it?', count: 1 });
+		});
+
+		test('returns undefined when questions is missing, empty, or non-array', () => {
+			assert.strictEqual(extractQuestionDetails({}), undefined);
+			assert.strictEqual(extractQuestionDetails({ questions: [] }), undefined);
+			assert.strictEqual(extractQuestionDetails({ questions: 'not an array' }), undefined);
+		});
+
+		test('returns undefined when the first question has no string text', () => {
+			assert.strictEqual(extractQuestionDetails({ questions: [{ question: '' }] }), undefined);
+			assert.strictEqual(extractQuestionDetails({ questions: [{ question: '   ' }] }), undefined);
+			assert.strictEqual(extractQuestionDetails({ questions: [{}] }), undefined);
+			assert.strictEqual(extractQuestionDetails({ questions: [{ question: 42 }] }), undefined);
 		});
 	});
 
