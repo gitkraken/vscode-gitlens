@@ -122,9 +122,10 @@ export class GlRepository extends Repository implements Disposable {
 
 	async getLastFetched(): Promise<number> {
 		const lastFetched = await this.git.getLastFetchedTimestamp();
-		// If we don't get a number, assume the fetch failed, and don't update the timestamp
+		// `Math.max` so an in-memory bump from `markFetched()` isn't clobbered by a stale FETCH_HEAD
+		// mtime (git skips the rewrite when all refs are up-to-date); FS still wins when newer.
 		if (lastFetched != null) {
-			this._lastFetched = lastFetched;
+			this._lastFetched = Math.max(this._lastFetched ?? 0, lastFetched);
 		}
 
 		return this._lastFetched ?? 0;

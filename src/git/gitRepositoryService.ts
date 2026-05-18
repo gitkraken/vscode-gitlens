@@ -347,8 +347,14 @@ export class GitRepositoryService {
 		pull?: boolean;
 		remote?: string;
 	}) {
+		// Virtual provider — no-op rather than lying via markFetched.
+		if (this.ops == null) return;
+
 		try {
-			await this.ops?.fetch(options);
+			await this.ops.fetch(options);
+			// `markFetched` tracks the fetch attempt; modern git skips rewriting FETCH_HEAD when
+			// all refs are up-to-date, so the on-disk mtime alone can lag the actual attempt.
+			this.getRepository()?.markFetched();
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -377,14 +383,21 @@ export class GitRepositoryService {
 	}
 
 	private async pullCore(options?: { rebase?: boolean }) {
+		// Virtual provider — no-op rather than lying via markFetched.
+		if (this.ops == null) return;
+
 		const repo = this.getRepository();
+		// Pull may fail after fetch lands (e.g., merge conflict) — still mark the attempt.
+		let didFetch = false;
 		try {
 			const withTags = configuration.getCore('git.pullTags', repo?.uri);
 			if (configuration.getCore('git.fetchOnPull', repo?.uri)) {
-				await this.ops?.fetch();
+				await this.ops.fetch();
+				didFetch = true;
 			}
 
-			await this.ops?.pull({ ...options, tags: withTags });
+			await this.ops.pull({ ...options, tags: withTags });
+			didFetch = true;
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -392,6 +405,10 @@ export class GitRepositoryService {
 				void showGitErrorMessage(ex);
 			} else {
 				void showGitErrorMessage(ex, 'Unable to pull');
+			}
+		} finally {
+			if (didFetch) {
+				repo?.markFetched();
 			}
 		}
 	}

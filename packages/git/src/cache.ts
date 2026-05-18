@@ -93,7 +93,6 @@ interface Caches {
 	gitDir: Map<RepoPath, GitDir> | undefined;
 	gitIgnore: Map<RepoPath, GitIgnoreFilter> | undefined;
 	ignoreRevsFile: PromiseCache<string, boolean> | undefined;
-	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
 	leftRightCommitCount: RepoPromiseCacheMap<string, LeftRightCommitCountResult | undefined> | undefined;
 	mergeBase: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	pausedOperationStatus: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
@@ -119,6 +118,8 @@ interface SharedCaches {
 	gkConfigKeys: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	gkConfigPatterns: RepoPromiseCacheMap<string, Map<string, string>> | undefined;
 	initialCommitSha: PromiseMap<RepoPath, string | undefined> | undefined;
+	/** Keyed by commonPath — `FETCH_HEAD` lives in the common git dir, shared across worktrees. */
+	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
 	logShas: RepoPromiseCacheMap<string, string[]> | undefined;
 	refs: PromiseMap<RepoPath, RefRecord[]> | undefined;
 	refTips: PromiseMap<RepoPath, GitRefTip[]> | undefined;
@@ -149,6 +150,7 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 		'gkConfigKeys',
 		'gkConfigPatterns',
 		'initialCommitSha',
+		'lastFetched',
 		'logShas',
 		'refs',
 		'refTips',

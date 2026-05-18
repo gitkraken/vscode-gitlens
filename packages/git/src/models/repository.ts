@@ -358,9 +358,26 @@ export class Repository {
 
 	/** Called when the watch service notifies of FETCH_HEAD changes. */
 	protected onFetchHeadChanged(): void {
-		this._lastFetched = undefined;
-		// Force-fire so the event arrives immediately (no debounce); downstream consumers must
-		// invalidate any cached fetch timestamp before reading a fresh value.
+		// Don't reset `_lastFetched` here: the FS watcher can fire even when the on-disk mtime
+		// hasn't advanced (atomic-rename / lock-file activity emits `change` events without an
+		// mtime bump), and wiping would clobber a fresher value set by `markFetched()`.
+		// `getLastFetched()` reconciles in-memory vs FS via `Math.max`. Force-fire so consumers
+		// invalidate their caches and re-read.
+		this.fireChange('lastFetched', true);
+	}
+
+	/**
+	 * Marks the repository as having just been fetched. Use after a GitLens-initiated fetch/pull
+	 * completes so the "last fetched" UI tracks the attempt even when git skipped rewriting
+	 * `.git/FETCH_HEAD` (modern git omits the rewrite when all refs are up-to-date). The
+	 * in-memory timestamp is reconciled with the on-disk mtime by {@link getLastFetched} via
+	 * `Math.max`, so this is monotonic.
+	 */
+	markFetched(timestamp: number = Date.now()): void {
+		const next = Math.max(this._lastFetched ?? 0, timestamp);
+		if (next === this._lastFetched) return;
+
+		this._lastFetched = next;
 		this.fireChange('lastFetched', true);
 	}
 
