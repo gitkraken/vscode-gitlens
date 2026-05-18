@@ -547,9 +547,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						html`<gl-graph-sidebar
 							active-panel=${this.graphState.activeSidebarPanel ?? nothing}
 							.sidebarVisible=${this.graphState.sidebarVisible ?? false}
-							?pinned=${this.graphState.config?.sidebarPinned ?? true}
 							@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
-							@gl-graph-sidebar-toggle-pinned=${this.handleSidebarTogglePinned}
 							@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
 						></gl-graph-sidebar>`,
 				)}
@@ -591,6 +589,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				active-panel=${this.graphState.activeSidebarPanel ?? nothing}
 				date-format=${this.graphState.config?.dateFormat ?? nothing}
 				@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
+				@gl-graph-sidebar-toggle-pinned=${this.handleSidebarTogglePinned}
 				@gl-graph-overview-branch-selected=${this.handleOverviewBranchSelected}
 				@gl-graph-overview-recent-threshold-change=${this.handleOverviewRecentThresholdChange}
 				@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}

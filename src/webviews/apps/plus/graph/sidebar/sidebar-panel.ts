@@ -108,6 +108,8 @@ export interface GraphSidebarPanelSelectEventDetail {
 	sha: string;
 }
 
+export type GraphSidebarTogglePinnedEventDetail = void;
+
 /** Scope-to-branch payload optionally carried by a sidebar leaf's context tuple. When present
  *  the panel select handler dispatches `gl-graph-scope-to-branch` in addition to the row-select
  *  event, matching the focus behavior of overview cards. Only the agent leaves populate it today. */
@@ -480,6 +482,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private renderHeader(config: PanelConfig, isLoading: boolean) {
+		const pinned = this._state.config?.sidebarPinned ?? true;
+		const pinTooltip = pinned ? 'Unpin Side Bar' : 'Pin Side Bar';
+		const pinIcon = pinned ? 'pinned' : 'pin';
 		return html`<div class="header">
 			<span class="header-title">${config.title}</span>
 			<div class="header-actions">
@@ -495,6 +500,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				)}
 				<gl-button appearance="toolbar" density="compact" tooltip="Refresh" @click=${this.handleRefresh}
 					><code-icon icon="refresh"></code-icon
+				></gl-button>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					aria-pressed=${pinned ? 'true' : 'false'}
+					tooltip=${pinTooltip}
+					@click=${this.handleTogglePinned}
+					><code-icon icon=${pinIcon}></code-icon
 				></gl-button>
 			</div>
 			<progress-indicator position="bottom" ?active=${isLoading}></progress-indicator>
@@ -1169,6 +1182,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		this._actions?.refresh(this.activePanel);
 	}
+
+	private handleTogglePinned = (): void => {
+		this.dispatchEvent(
+			new CustomEvent<GraphSidebarTogglePinnedEventDetail>('gl-graph-sidebar-toggle-pinned', {
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private handleTreeItemAction(e: CustomEvent<TreeItemActionDetail>) {
 		const action = e.detail.action;

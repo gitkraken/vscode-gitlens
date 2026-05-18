@@ -46,8 +46,6 @@ export interface GraphSidebarDisplayModeChangeEventDetail {
 	mode: GraphDisplayMode;
 }
 
-export type GraphSidebarTogglePinnedEventDetail = void;
-
 @customElement('gl-graph-sidebar')
 export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	static override styles = css`
@@ -155,17 +153,12 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			flex: 1 1 auto;
 		}
 
-		.mode-toggle {
-			padding: 0.6rem 0;
-		}
-
 		.item.dimmed {
 			opacity: 0.4;
 		}
 
 		/* Visualization toggle — uses <gl-button> for the checked/unchecked styling. Sits at the
-		   bottom of the rail just above the pin toggle; the parent's 1.4rem flex gap is enough
-		   to read it as its own group. */
+		   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
 		.display-mode-toggle {
 			margin: 0 auto;
 		}
@@ -185,9 +178,6 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 	@property({ type: Boolean, attribute: 'sidebar-visible' })
 	sidebarVisible = false;
-
-	@property({ type: Boolean })
-	pinned = true;
 
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _actions!: SidebarActions;
@@ -215,7 +205,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 				i => this.renderIcon(i, isGraphMode),
 			)}
 			<div class="spacer"></div>
-			${this.renderVisualizationsToggle(displayMode)} ${this.renderPinToggle()}
+			${this.renderVisualizationsToggle(displayMode)}
 		</section>`;
 	}
 
@@ -254,30 +244,6 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			name: 'graph/action/sidebar',
 			data: { action: `displayMode:${next}` },
 		});
-	};
-
-	private renderPinToggle() {
-		const tooltip = this.pinned ? 'Unpin Side Bar' : 'Pin Side Bar';
-		const icon = this.pinned ? 'pinned' : 'pin';
-		return html`<gl-tooltip placement="right" content=${tooltip}>
-			<button
-				class="item mode-toggle"
-				@click=${this.handlePinToggleClick}
-				aria-label=${tooltip}
-				aria-pressed=${this.pinned}
-			>
-				<code-icon icon=${icon}></code-icon>
-			</button>
-		</gl-tooltip>`;
-	}
-
-	private handlePinToggleClick = (): void => {
-		this.dispatchEvent(
-			new CustomEvent<GraphSidebarTogglePinnedEventDetail>('gl-graph-sidebar-toggle-pinned', {
-				bubbles: true,
-				composed: true,
-			}),
-		);
 	};
 
 	override firstUpdated(changedProperties: PropertyValues): void {
