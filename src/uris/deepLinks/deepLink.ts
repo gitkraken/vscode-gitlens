@@ -337,6 +337,10 @@ export interface DeepLinkServiceContext {
 	prData?: PullRequestShape | undefined;
 	issueData?: IssueShape | undefined;
 	instructions?: string | undefined;
+	/** Optional agent descriptor for Start Work / Start Review with `showOpenInAgent`. */
+	agent?: import('../../plus/agents/agentDescriptor.js').AgentDescriptor | undefined;
+	/** Worktree path for CLI dispatch `cwd`. */
+	worktreePath?: string | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {

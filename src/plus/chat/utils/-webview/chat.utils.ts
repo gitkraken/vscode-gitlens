@@ -84,7 +84,7 @@ export function openTraeChat(args: string): Thenable<void> {
 	});
 }
 
-const supportedChatHosts = ['code', 'code-insiders', 'code-exploration', 'cursor', 'windsurf', 'kiro', 'trae'];
+export const supportedChatHosts = ['code', 'code-insiders', 'code-exploration', 'cursor', 'windsurf', 'kiro', 'trae'];
 export async function supportsChat(appName?: string): Promise<boolean> {
 	appName ??= await getHostAppName();
 	if (appName == null) return false;

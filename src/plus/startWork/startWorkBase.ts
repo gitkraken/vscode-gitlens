@@ -50,6 +50,7 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
+import type { AgentRoute } from '../agents/agentDescriptor.js';
 import type { ConnectMoreIntegrationsItem } from '../integrations/utils/-webview/integration.quickPicks.js';
 import {
 	isManageIntegrationsItem,
@@ -127,6 +128,7 @@ interface StartWorkState {
 	instructions?: string;
 	useDefaults?: boolean;
 	openChatOnComplete?: boolean;
+	showOpenInAgent?: AgentRoute;
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree }>;
 }
 
