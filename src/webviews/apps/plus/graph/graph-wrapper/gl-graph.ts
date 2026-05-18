@@ -111,6 +111,9 @@ export class GlGraph extends LitElement {
 	runningOperationByRowSha?: GraphWrapperProps['runningOperationByRowSha'];
 
 	@property({ type: Object })
+	agentStatusByRowSha?: GraphWrapperProps['agentStatusByRowSha'];
+
+	@property({ type: Object })
 	wipMetadataBySha?: GraphWrapperProps['wipMetadataBySha'];
 
 	@property({ type: Number, attribute: 'wip-shas-settle-delay-ms' })
@@ -208,6 +211,7 @@ export class GlGraph extends LitElement {
 				wipVisibility: this.wipVisibility,
 				scope: this.scope,
 				runningOperationByRowSha: this.runningOperationByRowSha,
+				agentStatusByRowSha: this.agentStatusByRowSha,
 
 				onChangeColumns: this.handleChangeColumns,
 				onScopeAnchorsUnreachable: this.handleScopeAnchorsUnreachable,
@@ -223,7 +227,7 @@ export class GlGraph extends LitElement {
 				onMouseLeave: this.handleMouseLeave,
 				onRefDoubleClick: this.handleRefDoubleClick,
 				onRowAction: this.handleRowAction,
-				onWipRowEnterMode: this.handleWipRowEnterMode,
+				onWipRowOpen: this.handleWipRowOpen,
 				onRowContextMenu: this.handleRowContextMenu,
 				onRowDoubleClick: this.handleRowDoubleClick,
 				onRowHover: this.handleRowHover,
@@ -287,8 +291,8 @@ export class GlGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('rowaction', { detail: detail }));
 	};
 
-	private handleWipRowEnterMode = (detail: { mode: 'compose' | 'review'; row: GraphRow }): void => {
-		this.dispatchEvent(new CustomEvent('wiprowentermode', { detail: detail }));
+	private handleWipRowOpen = (detail: { target: 'compose' | 'review' | 'agents'; row: GraphRow }): void => {
+		this.dispatchEvent(new CustomEvent('wiprowopen', { detail: detail }));
 	};
 
 	private handleRowContextMenu = (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }): void => {

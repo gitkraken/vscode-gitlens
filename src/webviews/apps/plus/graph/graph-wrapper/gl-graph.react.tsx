@@ -54,6 +54,8 @@ import type { CodeIcon } from '../../../shared/components/code-icon.js';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react.jsx';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOperationStatus.js';
+import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
+import { agentIndicatorTooltipFor, agentSuffixIconFor } from '../components/wipRowAgentStatus.js';
 import type { GraphStateProvider } from '../stateProvider.js';
 import { getCommitDateFromRow } from '../utils/row.utils.js';
 import '../../../shared/components/button.js';
@@ -93,6 +95,10 @@ export type GraphWrapperProps = Pick<
 		 *  prop comparison and the React layer doesn't have to know about anchor-key
 		 *  derivation. */
 		runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
+		/** Per-WIP-row agent status — same anchor-keying scheme as `runningOperationByRowSha`,
+		 *  resolved from `agentSessions × wipMetadataBySha` in the Lit wrapper so the React render
+		 *  is a plain prop comparison. `undefined` when no WIP row has a surfacing agent. */
+		agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
 		theming?: GraphWrapperTheming;
 		wipShasSettleDelayMs?: number;
 		/**
@@ -120,7 +126,7 @@ export interface GraphWrapperEvents {
 	onRefDoubleClick?: (detail: { ref: GraphRef; metadata?: GraphRefMetadataItem }) => void;
 	onMouseLeave?: () => void;
 	onRowAction?: (detail: { action: RowAction; row: GraphRow }) => void;
-	onWipRowEnterMode?: (detail: { mode: 'compose' | 'review'; row: GraphRow }) => void;
+	onWipRowOpen?: (detail: { target: 'compose' | 'review' | 'agents'; row: GraphRow }) => void;
 	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }) => void;
 	onRowDoubleClick?: (detail: { row: GraphRow; preserveFocus?: boolean }) => void;
 	onRowHover?: (detail: {
@@ -810,15 +816,15 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	// the graph subscribed to a target nobody dispatches on.
 	const invalidateTarget = useMemo(() => new EventTarget(), []);
 
-	// Bust the adornment cache when the row-keyed running-modes map changes. Must dispatch a
-	// RowAdornmentInvalidateEvent (a CustomEvent carrying `detail.type`) — the graph's
-	// `onInvalidate` handler destructures `e.detail`, so a plain `Event` throws there and the
-	// cache never clears. `'all'` re-runs BOTH `provideAdornments` (visibility — secondary WIPs
-	// pin their adornment visible when an operation attaches to the row) AND `resolveAdornment`
-	// (the overlay icon).
+	// Bust the adornment cache when the row-keyed running-modes OR agent-status maps change.
+	// Must dispatch a RowAdornmentInvalidateEvent (a CustomEvent carrying `detail.type`) — the
+	// graph's `onInvalidate` handler destructures `e.detail`, so a plain `Event` throws there
+	// and the cache never clears. `'all'` re-runs BOTH `provideAdornments` (visibility —
+	// secondary WIPs pin their adornment visible when an operation or agent attaches to the
+	// row) AND `resolveAdornment` (the overlay icons).
 	useEffect(() => {
 		invalidateTarget.dispatchEvent(new RowAdornmentInvalidateEvent('all'));
-	}, [props.runningOperationByRowSha, invalidateTarget]);
+	}, [props.runningOperationByRowSha, props.agentStatusByRowSha, invalidateTarget]);
 
 	const rowAdornmentProvider: RowAdornmentProvider = {
 		invalidate: invalidateTarget,
@@ -833,12 +839,12 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 				if (row.type === 'work-dir-changes') {
 					const isSecondaryWip = isSecondaryWipSha(row.sha);
 					// Secondary WIPs default to hover/focus/selected to keep the graph quiet, but
-					// pin them visible whenever a review/compose operation is attached to the row
-					// (running, complete, backed, error, or orphaned) so the status overlay stays
-					// readable without requiring hover.
+					// pin them visible whenever a review/compose operation OR an agent is attached
+					// to the row so the status overlay stays readable without requiring hover.
 					const hasOperation = props.runningOperationByRowSha?.get(row.sha) != null;
+					const hasAgent = props.agentStatusByRowSha?.get(row.sha) != null;
 					adornments[row.sha] = {
-						visibility: !isSecondaryWip || hasOperation ? true : ['hover', 'focus', 'selected'],
+						visibility: !isSecondaryWip || hasOperation || hasAgent ? true : ['hover', 'focus', 'selected'],
 					};
 					continue;
 				}
@@ -874,10 +880,33 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 					const composeTooltip = rowAdornmentTooltipFor('compose', bucket?.compose?.execState);
 					const reviewTooltip = rowAdornmentTooltipFor('review', bucket?.review?.execState);
 
+					const agentStatus = props.agentStatusByRowSha?.get(row.sha);
+					const agentSuffix = agentStatus != null ? agentSuffixIconFor(agentStatus.category) : undefined;
+					const agentTooltip =
+						agentStatus != null ? agentIndicatorTooltipFor(agentStatus.category) : undefined;
+
 					return (
 						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
+							{agentStatus != null && (
+								<gl-button
+									className={`agent-indicator agent-indicator--${agentStatus.category}`}
+									appearance="toolbar"
+									onClick={() => initProps.onWipRowOpen?.({ target: 'agents', row: row })}
+									tooltip={agentTooltip}
+									aria-label={agentTooltip}
+								>
+									<code-icon icon="robot"></code-icon>
+									{agentSuffix != null && (
+										<code-icon
+											slot="suffix"
+											icon={agentSuffix}
+											modifier={agentStatus.category === 'working' ? 'spin' : ''}
+										></code-icon>
+									)}
+								</gl-button>
+							)}
 							<gl-button
-								onClick={() => initProps.onWipRowEnterMode?.({ mode: 'compose', row: row })}
+								onClick={() => initProps.onWipRowOpen?.({ target: 'compose', row: row })}
 								tooltip={composeTooltip}
 								aria-label={composeTooltip}
 							>
@@ -891,7 +920,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 								)}
 							</gl-button>
 							<gl-button
-								onClick={() => initProps.onWipRowEnterMode?.({ mode: 'review', row: row })}
+								onClick={() => initProps.onWipRowOpen?.({ target: 'review', row: row })}
 								tooltip={reviewTooltip}
 								aria-label={reviewTooltip}
 							>

@@ -41,6 +41,7 @@ import {
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from '../../../../plus/graph/protocol.js';
+import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import type { CustomEventType } from '../../../shared/components/element.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
@@ -50,6 +51,8 @@ import type { ThemeChangeEvent } from '../../../shared/theme.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
 import type { AnchorKey } from '../components/anchorKey.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
+import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
+import { pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
@@ -403,6 +406,88 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return byRowSha;
 	}
 
+	// Memoization for `getAgentStatusByRowSha`: agent state and WIP metadata both update
+	// independently of other render triggers (selection, hover, theme), so caching on the three
+	// inputs that actually drive the row→agent mapping keeps the prop identity stable for the
+	// React layer and stops the invalidate-event churn at the prop boundary.
+	private _agentStatusByRowShaCache?: {
+		agentSessions: typeof graphStateContext.__context__.agentSessions | undefined;
+		wipMetadataBySha: GraphWipMetadataBySha | undefined;
+		primaryRepoPath: string | undefined;
+		byRowSha: ReadonlyMap<string, WipRowAgentStatus> | undefined;
+	};
+
+	/** Maps each WIP row's sha → the worst-priority agent status running in that worktree.
+	 *  Primary WIP (sha `'work-dir-changes'`) is matched against `primaryRepoPath`; secondaries
+	 *  are matched against their `wipMetadataBySha[sha].repoPath`. Returns `undefined` when no
+	 *  WIP row has a surfacing agent so the React layer can skip the indicator path entirely. */
+	private getAgentStatusByRowSha(): ReadonlyMap<string, WipRowAgentStatus> | undefined {
+		const agentSessions = this.graphState.agentSessions;
+		const wipMetadataBySha = this.graphState.wipMetadataBySha;
+
+		const repositories = this.graphState.repositories;
+		const selectedRepoId = this.graphState.selectedRepository;
+		const primaryRepoPath =
+			(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
+			repositories?.[0]?.path;
+
+		const cached = this._agentStatusByRowShaCache;
+		if (
+			cached?.agentSessions === agentSessions &&
+			cached.wipMetadataBySha === wipMetadataBySha &&
+			cached.primaryRepoPath === primaryRepoPath
+		) {
+			return cached.byRowSha;
+		}
+
+		let byRowSha: ReadonlyMap<string, WipRowAgentStatus> | undefined;
+		const index = indexAgentSessionsByRepoAndWorktree(agentSessions);
+		if (index == null || index.size === 0) {
+			byRowSha = undefined;
+		} else {
+			const next = new Map<string, WipRowAgentStatus>();
+
+			// Primary WIP row — always sha `'work-dir-changes'`, anchored at the primary repo path.
+			if (primaryRepoPath != null) {
+				const primaryMatches = matchAgentSessionsForWorktree(index, {
+					repoPath: primaryRepoPath,
+					worktreePath: primaryRepoPath,
+				});
+				const status = pickWipRowAgentStatus(primaryMatches);
+				if (status != null) {
+					next.set('work-dir-changes', status);
+				}
+			}
+
+			// Secondary WIP rows — one per worktree in `wipMetadataBySha`. The sha encodes the
+			// worktree path; `meta.repoPath` is the same value but read directly to avoid parsing.
+			if (wipMetadataBySha != null && primaryRepoPath != null) {
+				for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+					if (meta?.repoPath == null) continue;
+
+					const matches = matchAgentSessionsForWorktree(index, {
+						repoPath: primaryRepoPath,
+						worktreePath: meta.repoPath,
+					});
+					const status = pickWipRowAgentStatus(matches);
+					if (status != null) {
+						next.set(sha, status);
+					}
+				}
+			}
+
+			byRowSha = next.size > 0 ? next : undefined;
+		}
+
+		this._agentStatusByRowShaCache = {
+			agentSessions: agentSessions,
+			wipMetadataBySha: wipMetadataBySha,
+			primaryRepoPath: primaryRepoPath,
+			byRowSha: byRowSha,
+		};
+		return byRowSha;
+	}
+
 	override render() {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary } = this.getDecoratedRows();
@@ -438,6 +523,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.wipVisibility=${showPrimary ? 'always' : 'auto'}
 			.scope=${graphState.scope}
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
+			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
 			@changecolumns=${this.onColumnsChanged}
 			@changerefsvisibility=${this.onRefsVisibilityChanged}
 			@changeselection=${this.onSelectionChanged}
@@ -449,7 +535,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@graphmouseleave=${this.onMouseLeave}
 			@refdoubleclick=${this.onRefDoubleClick}
 			@rowaction=${this.onRowAction}
-			@wiprowentermode=${this.onWipRowEnterMode}
+			@wiprowopen=${this.onWipRowOpen}
 			@rowcontextmenu=${this.onRowContextMenu}
 			@rowdoubleclick=${this.onRowDoubleClick}
 			@rowhover=${this.onRowHover}
@@ -537,12 +623,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(RowActionCommand, { action: action, row: { id: row.sha, type: row.type } });
 	}
 
-	private onWipRowEnterMode({ detail: { mode, row } }: CustomEvent<{ mode: 'compose' | 'review'; row: GraphRow }>) {
-		// Webview-internal event — bubbles up to graph-app which selects the row and tells the
-		// details panel to enter the mode. No IPC round-trip needed.
+	private onWipRowOpen({
+		detail: { target, row },
+	}: CustomEvent<{ target: 'compose' | 'review' | 'agents'; row: GraphRow }>) {
+		// Webview-internal event — bubbles up to graph-app which selects the row, opens the
+		// details panel, and routes to the requested target (compose/review enter the matching
+		// workflow mode; `agents` expands the agents section). No IPC round-trip needed.
 		this.dispatchEvent(
-			new CustomEvent('gl-graph-wip-row-enter-mode', {
-				detail: { mode: mode, row: row },
+			new CustomEvent('gl-graph-wip-row-open', {
+				detail: { target: target, row: row },
 				bubbles: true,
 				composed: true,
 			}),

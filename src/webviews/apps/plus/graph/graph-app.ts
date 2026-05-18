@@ -323,15 +323,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.detailsPanelEl?.openCompareMode(params);
 	}
 
-	/** Handles the WIP-row Compose/Review button click. Selects the row, opens the details
-	 *  panel, and tells it to enter the requested mode for that WIP. The graph component fires
-	 *  its own selection-change for the row click in parallel; setting `_selectedCommit`
+	/** Handles a WIP-row inline-button click (Compose / Review / agent indicator). Selects the
+	 *  row, opens the details panel, and routes to the requested target. Compose/Review enter
+	 *  the matching workflow mode; `agents` expands the agents section. The graph component
+	 *  fires its own selection-change for the row click in parallel; setting `_selectedCommit`
 	 *  explicitly here ensures the details panel is on the right anchor before we drive the
-	 *  mode entry, regardless of dispatch ordering. */
-	private handleWipRowEnterMode = async (
-		e: CustomEvent<{ mode: 'compose' | 'review'; row: GraphRow }>,
+	 *  target-specific action, regardless of dispatch ordering. */
+	private handleWipRowOpen = async (
+		e: CustomEvent<{ target: 'compose' | 'review' | 'agents'; row: GraphRow }>,
 	): Promise<void> => {
-		const { mode, row } = e.detail;
+		const { target, row } = e.detail;
 		const fallbackRepoPath = this.fallbackRepoPath ?? '';
 		// For secondary WIP rows the worktree path is encoded in the sha (`worktree-wip::<path>`);
 		// extract it. Primary WIP and any other row types resolve to the primary (fallback) repo.
@@ -342,13 +343,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this._selectedCommit = { sha: sha, repoPath: repoPath };
 		this._selectedCommits = undefined;
 
-		this.setDetailsVisible(true, 'request-mode');
+		this.setDetailsVisible(true, target === 'agents' ? 'request-agents' : 'request-mode');
 		this.ensureDetailsPosition();
 
-		// Wait for the details panel to render with the new selection before invoking the mode
-		// entry — otherwise toggleMode would see stale selection in its `currentSelection()` snapshot.
+		// Wait for the details panel to render with the new selection before invoking the
+		// target-specific action — otherwise both `toggleMode` (for compose/review) and the
+		// agents-section query would see stale selection in their snapshots.
 		await this.updateComplete;
-		this.detailsPanelEl?.enterModeForWip(mode, repoPath, sha);
+		if (target === 'agents') {
+			this.detailsPanelEl?.expandAgentsForWip();
+		} else {
+			this.detailsPanelEl?.enterModeForWip(target, repoPath, sha);
+		}
 	};
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
@@ -651,7 +657,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-row-double-click=${this.handleGraphRowDoubleClick}
 					@gl-graph-row-hover=${this.handleGraphRowHover}
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
-					@gl-graph-wip-row-enter-mode=${this.handleWipRowEnterMode}
+					@gl-graph-wip-row-open=${this.handleWipRowOpen}
 					@row-action-hover=${this.handleGraphRowActionHover}
 					@rowhoverstart=${this.handleGraphRowHoverStart}
 					@rowhovertrack=${this.handleGraphRowHoverTrack}
@@ -801,7 +807,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private setDetailsVisible(
 		visible: boolean,
-		trigger?: 'toggle' | 'request-compare' | 'request-mode' | 'auto-restore',
+		trigger?: 'toggle' | 'request-compare' | 'request-mode' | 'request-agents' | 'auto-restore',
 	): void {
 		const gs = this.graphState;
 		if (gs.detailsVisible === visible) return;
@@ -813,7 +819,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private emitDetailsVisibilityTelemetry(
 		visible: boolean,
-		trigger: 'toggle' | 'request-compare' | 'request-mode' | 'auto-restore',
+		trigger: 'toggle' | 'request-compare' | 'request-mode' | 'request-agents' | 'auto-restore',
 	): void {
 		if (visible) {
 			this._detailsShownAt = performance.now();

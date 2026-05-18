@@ -1940,6 +1940,31 @@ web-graph {
 	gl-button {
 		height: 100%;
 	}
+
+	// Agent indicator — leftmost button on a WIP row when the worktree has at least one
+	// surfacing agent. Color drives both the main `robot` glyph and the suffix modifier so
+	// the dot of color reads as a status badge rather than two unrelated icons. Tokens come
+	// from theme.scss so this stays aligned with gl-details-agent-status, the status pill,
+	// and the WIP file decoration. `--button-gap: 0` collapses the slot gap inside gl-button
+	// so the robot and its phase suffix sit flush, reading as a single status badge rather
+	// than two adjacent icons.
+	.agent-indicator {
+		--agent-indicator-color: inherit;
+		--button-gap: 0;
+		color: var(--agent-indicator-color);
+
+		&--needs-input {
+			--agent-indicator-color: var(--gl-agent-waiting-color);
+		}
+
+		&--working {
+			--agent-indicator-color: var(--gl-agent-working-color);
+		}
+
+		&--idle {
+			--agent-indicator-color: var(--gl-agent-idle-color);
+		}
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
