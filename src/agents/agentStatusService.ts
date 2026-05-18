@@ -308,14 +308,21 @@ export class AgentStatusService implements Disposable {
 	): void {
 		for (const provider of this._providers) {
 			const session = provider.sessions.find(s => s.id === sessionId);
-			if (session != null) {
-				// Always try — peer-discovered sessions (different workspace folder / worktree)
-				// won't have a local IPC entry, so the provider's resolvePermission will silently
-				// no-op. That's fine: the alternative of hiding buttons makes plan/permission
-				// approval feel broken when the agent is in a sibling worktree.
-				provider.resolvePermission?.(sessionId, decision, updatedPermissions);
-				return;
+			if (session == null) continue;
+
+			// `false` means the session is peer-discovered (owned by another GitLens window);
+			// our local provider has no `_pendingPermissions` entry to fulfil. Surface a hint so
+			// the user knows where to act rather than seeing a silent no-op.
+			const resolved = provider.resolvePermission?.(sessionId, decision, updatedPermissions) ?? false;
+			if (!resolved) {
+				const target = session.workspacePath
+					? `the GitLens window for ${session.workspacePath}`
+					: 'another GitLens window';
+				void window.showInformationMessage(
+					`This agent session is owned by ${target}. Resolve the request from there.`,
+				);
 			}
+			return;
 		}
 	}
 

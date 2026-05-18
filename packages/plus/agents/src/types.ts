@@ -160,11 +160,15 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	stop(): void;
 	updateWorkspacePaths?(workspacePaths: string[]): void;
 
+	/** Resolves a pending permission. Returns `true` when the resolve was routed (the local IPC
+	 *  owns the session's pending entry); `false` when no local entry exists (typically a peer-
+	 *  discovered session owned by another GitLens window). Callers use this to give the user
+	 *  feedback rather than a silent no-op. */
 	resolvePermission?(
 		sessionId: string,
 		decision: PermissionDecision,
 		updatedPermissions?: PermissionSuggestion[],
-	): void;
+	): boolean;
 }
 
 /**

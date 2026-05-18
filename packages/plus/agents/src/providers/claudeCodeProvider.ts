@@ -949,9 +949,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		sessionId: string,
 		decision: PermissionDecision,
 		updatedPermissions?: PermissionSuggestion[],
-	): void {
+	): boolean {
 		const pending = this._pendingPermissions.get(sessionId);
-		if (pending == null) return;
+		if (pending == null) return false;
 
 		Logger.debug(
 			`ClaudeCodeProvider.resolvePermission: ${decision} ${this.sessionTag(sessionId)} tool=${pending.toolName}`,
@@ -974,6 +974,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		const nextStatus = bk.activeToolCount > 0 ? 'tool_use' : 'thinking';
 		this.updateSessionStatus(sessionId, nextStatus);
+		return true;
 	}
 
 	private matchesWorkspace(workspacePath: string | undefined): boolean {
