@@ -22,7 +22,7 @@ How to use the issue workflow skills to triage, investigate, prioritize, update 
 | `/deep-planning`  | Design technical approach — trade-offs and alternatives                                | No               |
 | `/challenge-plan` | Stress-test the plan before implementation                                             | No               |
 | `/worktree`       | Create isolated git worktree for implementation (after plan is ready)                  | **Yes** (branch) |
-| `/iterate-live`   | Live UI working loop — use during implementation for any UI-bearing change             | No               |
+| `/live-exercise`  | Live UI working loop — use during implementation for any UI-bearing change             | No               |
 | `/review`         | Lightweight static code review against GitLens standards (lighter than `/deep-review`) | No               |
 | `/deep-review`    | Post-implementation code review against goals — traces code paths                      | No               |
 | `/ux-review`      | Post-implementation UX review against goals                                            | No               |
@@ -303,7 +303,7 @@ TRIAGE PIPELINE                         DEV PIPELINE
    ↓ RESOLUTIONS.json                      ↓ challenge.md
 /update-issues (apply to GitHub)        /worktree (isolate the branch)
    ↓ ACTIONS.md                         ── IMPLEMENTATION (you write code) ──
-[GitHub Updated]                             /iterate-live (for UI work)
+[GitHub Updated]                             /live-exercise (for UI work)
                                         /deep-review (code review)
                                            ↓ review.md
                                         /ux-review (UX review)
@@ -372,7 +372,7 @@ After implementing the changes, run reviews against the goals document:
 /deep-planning --scope .work/dev/5096/
 /challenge-plan --scope .work/dev/5096/
 /worktree feature/#5096-<slug>
-── implement changes ── (use /iterate-live if UI-bearing)
+── implement changes ── (use /live-exercise if UI-bearing)
 /deep-review branch --scope .work/dev/5096/
 /ux-review branch --scope .work/dev/5096/
 /commit
@@ -383,14 +383,14 @@ The complete journey from raw issue to merged code.
 
 **Workflow E — UI-bearing implementation loop:**
 
-For any change that touches visible UI (panels, webviews, editor decorations), use `/iterate-live` as the working rhythm during implementation instead of relying on static review alone:
+For any change that touches visible UI (panels, webviews, editor decorations), use `/live-exercise` as the working rhythm during implementation instead of relying on static review alone:
 
 ```
 ── inside the implementation phase ──
-/iterate-live
+/live-exercise
 ```
 
-`/iterate-live` keeps a live VS Code instance in the loop via the `vscode-inspector` MCP, measures actual runtime state (not diffs), and dispatches parallel fixes between rebuilds. Not a one-off audit — it's the default rhythm when you're editing UI. It does not replace `/deep-review` or `/ux-review`, which still run afterward against `goals.md`.
+`/live-exercise` keeps a live VS Code instance in the loop via the `vscode-inspector` MCP, measures actual runtime state (not diffs), and dispatches parallel fixes between rebuilds. Not a one-off audit — it's the default rhythm when you're editing UI. It does not replace `/deep-review` or `/ux-review`, which still run afterward against `goals.md`.
 
 **Workflow F — Lightweight exploration without a plan:**
 
@@ -676,11 +676,11 @@ Every skill works standalone or chained. Here are all supported input modes:
 
 **Side effect:** creates a sibling directory under `<repo>.worktrees/` following GitLens conventions, plus the branch.
 
-### `/iterate-live`
+### `/live-exercise`
 
-| Input   | Example                                                      |
-| ------- | ------------------------------------------------------------ |
-| Default | `/iterate-live` (uses current branch + vscode-inspector MCP) |
+| Input   | Example                                                       |
+| ------- | ------------------------------------------------------------- |
+| Default | `/live-exercise` (uses current branch + vscode-inspector MCP) |
 
 **When to use:** during implementation of any UI-bearing change (panels, webviews, decorations). Not a one-off audit — the default working rhythm. Requires `vscode-inspector` MCP and a passing `pnpm run build:quick`.
 
@@ -800,7 +800,7 @@ All dev artifacts are written to `.work/dev/{identifier}/` where identifier is a
 
 ## Safety Model
 
-1. **Analysis is read-only** — `/triage`, `/investigate`, `/prioritize`, `/dev-scope`, `/analyze`, `/deep-planning`, `/challenge-plan`, `/review`, `/deep-review`, `/ux-review`, and `/iterate-live` never modify GitHub issues or committed code
+1. **Analysis is read-only** — `/triage`, `/investigate`, `/prioritize`, `/dev-scope`, `/analyze`, `/deep-planning`, `/challenge-plan`, `/review`, `/deep-review`, `/ux-review`, and `/live-exercise` never modify GitHub issues or committed code
 2. **Update requires confirmation** — `/update-issues` always shows a dry-run first and requires explicit approval
 3. **Pre-flight checks** — `/update-issues` verifies current issue state before each action, skipping stale or redundant changes
 4. **Close confirmation** — Closing issues requires per-issue approval
