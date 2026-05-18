@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where newlines in commit messages were not rendered in hovers and tooltips, collapsing multi-line commit bodies onto a single line &mdash; regression in v17.12.0 ([#5157](https://github.com/gitkraken/vscode-gitlens/issues/5157))
 - Fixes an issue where the status bar blame does not appear after updating to v17.12.0+ &mdash; regression in v17.12.0 ([#5160](https://github.com/gitkraken/vscode-gitlens/issues/5160))
 - Fixes an issue where commit tooltips and hovers can render with corrupted tokens (literal `__` around the author, missing mailto links, missing italic wrappers on dates, stale token suffixes) when an async formatter call is interleaved by a concurrent formatter call &mdash; async template resolution now uses a fresh formatter instance so in-flight token resolution can't be poisoned by a reset from another call
+- Fixes an issue where opening a file from the _Commit Details_ or commit views fails with "The editor could not be opened because the file was not found." when `log.showSignature=true` is set in the user's git config and the repo has signed commits &mdash; `git log` invocations in `resolveRevisionCore` and `getCommitDates` now suppress `log.showSignature` so signature-verifier text isn't absorbed into the parsed SHA; regression after the git-execution rewrite ([#4733](https://github.com/gitkraken/vscode-gitlens/issues/4733))
 
 ## [17.12.1] - 2026-04-17
 

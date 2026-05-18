@@ -140,6 +140,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			{
 				cwd: repoPath,
 				cancellation: cancellation,
+				configs: gitConfigsLog,
 				errors: 'ignore',
 				// Why: full SHAs identify immutable commits (5-min TTL is safe). Non-SHA refs rely on
 				// gitResults being cleared on 'head'/'heads'/'remotes' events; the 60s TTL is the
