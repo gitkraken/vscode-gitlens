@@ -829,8 +829,8 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 				<gl-button
 					slot="toolbox"
 					appearance="toolbar"
-					tooltip="Switch to Commit Graph"
-					aria-label="Switch to Commit Graph"
+					tooltip="Close Visualizations"
+					aria-label="Close Visualizations"
 					@click=${this.onCloseClick}
 				>
 					<code-icon icon="close"></code-icon>

@@ -34,8 +34,8 @@ const icons: Icon[] = [
 // `aria-checked` on `<gl-button>`) telegraphs "Timeline mode is on" vs. off, so the icon stays
 // consistent and the user doesn't have to learn that the icon flips.
 const visualizationsTooltip: Record<GraphDisplayMode, string> = {
-	graph: 'Switch to Visual History',
-	timeline: 'Switch to Commit Graph',
+	graph: 'Show Visualizations',
+	timeline: 'Show Commit Graph',
 };
 
 export interface GraphSidebarToggleEventDetail {
@@ -235,7 +235,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			tooltipPlacement="right"
 			@click=${this.handleVisualizationsToggle}
 		>
-			<code-icon icon="graph-scatter"></code-icon>
+			<code-icon icon="pulse"></code-icon>
 		</gl-button>`;
 	}
 
