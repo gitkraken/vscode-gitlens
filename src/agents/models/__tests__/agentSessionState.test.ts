@@ -94,4 +94,63 @@ suite('getSessionDisplayName', () => {
 		const session = makeSession({ cwd: '/' });
 		assert.strictEqual(getSessionDisplayName(session, undefined), 'Claude Code');
 	});
+
+	test('harness-supplied name beats all transcript titles', () => {
+		const session = makeSession({
+			name: 'Harness Name',
+			firstPrompt: 'do the thing',
+			transcriptTitles: { custom: 'my-slug', ai: 'AI-summed', agent: 'agent-slug' },
+		});
+		assert.strictEqual(getSessionDisplayName(session, undefined), 'Harness Name');
+	});
+
+	test('customTitle wins over firstPrompt-derived name', () => {
+		const session = makeSession({
+			firstPrompt: 'please fix the login bug',
+			transcriptTitles: { custom: 'fix-login-flow' },
+		});
+		assert.strictEqual(getSessionDisplayName(session, 'feature-x'), 'fix-login-flow');
+	});
+
+	test('aiTitle is used when no customTitle is available', () => {
+		const session = makeSession({
+			firstPrompt: 'please fix the login bug',
+			transcriptTitles: { ai: 'Fix the login flow' },
+		});
+		assert.strictEqual(getSessionDisplayName(session, 'feature-x'), 'Fix the login flow');
+	});
+
+	test('customTitle outranks aiTitle when both are present', () => {
+		const session = makeSession({
+			transcriptTitles: { custom: 'custom-slug', ai: 'AI Title' },
+		});
+		assert.strictEqual(getSessionDisplayName(session, undefined), 'custom-slug');
+	});
+
+	test('agentName outranks the location-anchor fallback', () => {
+		const session = makeSession({
+			transcriptTitles: { agent: 'reviewer-agent' },
+			worktreePath: '/repo/.worktrees/feature-x',
+		});
+		assert.strictEqual(
+			getSessionDisplayName(session, 'feature-x'),
+			'reviewer-agent',
+			'agentName is a content name; it beats the worktree location anchor',
+		);
+	});
+
+	test('firstPrompt outranks agentName slug', () => {
+		const session = makeSession({
+			firstPrompt: 'please fix the login bug',
+			transcriptTitles: { agent: 'fallback-slug' },
+		});
+		assert.strictEqual(getSessionDisplayName(session, undefined), 'Fix the login bug');
+	});
+
+	test('aiTitle outranks agentName slug', () => {
+		const session = makeSession({
+			transcriptTitles: { ai: 'Fix the login flow', agent: 'fallback-slug' },
+		});
+		assert.strictEqual(getSessionDisplayName(session, undefined), 'Fix the login flow');
+	});
 });

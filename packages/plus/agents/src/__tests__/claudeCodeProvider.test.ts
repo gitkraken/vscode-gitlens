@@ -2,6 +2,8 @@ import * as assert from 'assert';
 import type { IpcHandler } from '@gitlens/ipc/ipcServer.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { ClaudeCodeProvider } from '../providers/claudeCodeProvider.js';
+import type { TranscriptTitles } from '../providers/claudeCodeTranscript.js';
+import { ClaudeCodeTranscriptReader } from '../providers/claudeCodeTranscript.js';
 import type { AgentProviderCallbacks, IpcRegistrar } from '../types.js';
 
 interface MockCallbacks {
@@ -46,6 +48,11 @@ function sessionStart(sessionId: string, cwd: string): Record<string, unknown> {
  *  (publishAgents / syncSessions) and `publishedPaths` is populated. */
 function flushMicrotasks(): Promise<void> {
 	return new Promise(resolve => setImmediate(resolve));
+}
+
+/** Wait for a real timer to elapse — needed when exercising debounced state transitions. */
+function wait(ms: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 suite('ClaudeCodeProvider', () => {
@@ -159,6 +166,104 @@ suite('ClaudeCodeProvider', () => {
 		});
 	});
 
+	suite('transcript titles', () => {
+		test('SessionStart triggers a transcript read and titles land on the session', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const reader = new StubTranscriptReader({ ai: 'AI-derived title' });
+			const provider = new TestProvider(callbacks, reader);
+			try {
+				provider.start(['/repo']);
+
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s-trans-1', '/repo'), new URLSearchParams());
+				await flushMicrotasks();
+
+				assert.strictEqual(provider.sessions[0].transcriptTitles?.ai, 'AI-derived title');
+				assert.strictEqual(provider.sessions[0].transcriptTitles?.custom, undefined);
+				assert.strictEqual(provider.sessions[0].transcriptTitles?.agent, undefined);
+				assert.ok(
+					reader.calls.some(c => c.sessionId === 's-trans-1'),
+					'reader should be called for the new session',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('idle transition (e.g. Stop) triggers a re-check', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const reader = new StubTranscriptReader({});
+			const provider = new TestProvider(callbacks, reader);
+			try {
+				provider.start(['/repo']);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s-trans-2', '/repo'), new URLSearchParams());
+				await flushMicrotasks();
+				const initialCalls = reader.calls.filter(c => c.sessionId === 's-trans-2').length;
+
+				// Move to a non-idle state.
+				await handler(
+					{
+						event: 'UserPromptSubmit',
+						sessionId: 's-trans-2',
+						cwd: '/repo',
+						pid: process.pid,
+						prompt: 'hello',
+						firstPrompt: 'hello',
+					},
+					new URLSearchParams(),
+				);
+				await flushMicrotasks();
+
+				// Reader should NOT have been invoked again (still non-idle).
+				const afterPromptCalls = reader.calls.filter(c => c.sessionId === 's-trans-2').length;
+				assert.strictEqual(
+					afterPromptCalls,
+					initialCalls,
+					'non-idle status changes should not re-read transcript',
+				);
+
+				// Now Stop the session — schedules a debounced transition back to idle.
+				reader.titles = { ai: 'After-stop title' };
+				await handler(
+					{ event: 'Stop', sessionId: 's-trans-2', cwd: '/repo', pid: process.pid },
+					new URLSearchParams(),
+				);
+				// The Stop → idle transition is debounced (stopToIdleDebounceMs). Wait past the
+				// debounce window plus a microtask flush for the resolveTranscriptTitles promise.
+				await wait(900);
+				await flushMicrotasks();
+
+				const afterStopCalls = reader.calls.filter(c => c.sessionId === 's-trans-2').length;
+				assert.strictEqual(afterStopCalls, initialCalls + 1, 'idle transition should re-read transcript');
+				assert.strictEqual(provider.sessions[0].transcriptTitles?.ai, 'After-stop title');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('SessionEnd calls forget on the reader', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const reader = new StubTranscriptReader({});
+			const provider = new TestProvider(callbacks, reader);
+			try {
+				provider.start(['/repo']);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s-trans-3', '/repo'), new URLSearchParams());
+				await flushMicrotasks();
+
+				await handler(
+					{ event: 'SessionEnd', sessionId: 's-trans-3', cwd: '/repo', pid: process.pid },
+					new URLSearchParams(),
+				);
+
+				assert.deepStrictEqual(reader.forgotten, ['s-trans-3']);
+			} finally {
+				provider.dispose();
+			}
+		});
+	});
+
 	suite('firstPrompt propagation', () => {
 		test('first non-empty UserPromptSubmit populates firstPrompt', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
@@ -230,3 +335,32 @@ suite('ClaudeCodeProvider', () => {
 		});
 	});
 });
+
+/** Drop-in transcript reader for provider tests — records calls and returns canned titles. */
+class StubTranscriptReader extends ClaudeCodeTranscriptReader {
+	titles: TranscriptTitles;
+	readonly calls: { sessionId: string; cwd: string | undefined }[] = [];
+	readonly forgotten: string[] = [];
+
+	constructor(titles: TranscriptTitles) {
+		super();
+		this.titles = titles;
+	}
+
+	override resolve(sessionId: string, cwd: string | undefined): Promise<TranscriptTitles | undefined> {
+		this.calls.push({ sessionId: sessionId, cwd: cwd });
+		return Promise.resolve(this.titles);
+	}
+
+	override forget(sessionId: string): void {
+		this.forgotten.push(sessionId);
+	}
+}
+
+/** Provider variant that lets tests swap the transcript reader. */
+class TestProvider extends ClaudeCodeProvider {
+	constructor(callbacks: AgentProviderCallbacks, reader: ClaudeCodeTranscriptReader) {
+		super(callbacks);
+		this._transcriptReader = reader;
+	}
+}

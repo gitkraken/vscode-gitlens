@@ -146,6 +146,17 @@ export interface AgentSession {
 	 *  Mutable array form so `Shape<AgentSession>` projects it as `string[]` (the `Shape<>` type
 	 *  mangles `readonly T[]` into a mapped object that loses its iterator). Treat as immutable. */
 	currentFiles?: string[];
+	/**
+	 * Titles discovered by tailing the Claude Code transcript JSONL at
+	 * `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`. Populated by
+	 * `ClaudeCodeTranscriptReader`; used by `getSessionDisplayName` as a fallback when no
+	 * harness-supplied `name` is available. Last occurrence in the transcript wins per type.
+	 */
+	readonly transcriptTitles?: {
+		readonly custom?: string;
+		readonly ai?: string;
+		readonly agent?: string;
+	};
 }
 
 export interface AgentSessionProvider extends UnifiedDisposable {
