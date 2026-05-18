@@ -16,6 +16,7 @@ import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference
 import { getWorktreeForBranch } from '../../../../git/utils/-webview/worktree.utils.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js';
+import type { AgentDescriptor } from '../../../agents/agentDescriptor.js';
 import type { StartReviewChatAction } from '../../../chat/chatActions.js';
 import { storeChatActionDeepLink } from '../../../chat/chatActions.js';
 import type { LaunchpadItem } from '../../launchpadProvider.js';
@@ -36,6 +37,7 @@ export async function startReviewFromLaunchpadItem(
 	instructions?: string,
 	openChatOnComplete?: boolean,
 	useDefaults?: boolean,
+	agent?: AgentDescriptor,
 ): Promise<StartReviewResult> {
 	const pr = item.underlyingPullRequest;
 	if (!pr) {
@@ -45,7 +47,12 @@ export async function startReviewFromLaunchpadItem(
 	if (item.openRepository?.localBranch?.current) {
 		if (openChatOnComplete) {
 			void executeCommand('gitlens.openChatAction', {
-				chatAction: { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
+				chatAction: {
+					type: 'startReview',
+					pr: serializePullRequest(pr),
+					instructions: instructions,
+					agent: agent,
+				},
 			} as OpenChatActionCommandArgs);
 		}
 
@@ -93,7 +100,7 @@ export async function startReviewFromLaunchpadItem(
 			addRemote,
 			useDefaults,
 			openChatOnComplete
-				? { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions }
+				? { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions, agent: agent }
 				: undefined,
 		);
 	} else {
@@ -101,7 +108,13 @@ export async function startReviewFromLaunchpadItem(
 		if (openChatOnComplete) {
 			await storeChatActionDeepLink(
 				container,
-				{ type: 'startReview', pr: serializePullRequest(pr), instructions: instructions },
+				{
+					type: 'startReview',
+					pr: serializePullRequest(pr),
+					instructions: instructions,
+					agent: agent,
+					worktreePath: worktree.uri.fsPath,
+				},
 				worktree.uri.fsPath,
 			);
 		}
@@ -211,7 +224,21 @@ async function createPullRequestWorktree(
 			reference: branchRef,
 			createBranch: createBranch,
 			flags: createBranch ? ['-b'] : [],
-			worktreeDefaultOpen: useDefaults ? 'new' : undefined,
+			// Agent-aware post-create open behavior:
+			//   - CLI agent: skip the open step ('none'). The CLI dispatch opens a terminal
+			//     in the current window with `cwd = worktree.uri.fsPath`; a window switch
+			//     would tear down that terminal.
+			//   - Non-CLI agent (IDE chat, Claude extension, legacy): force a new window
+			//     ('new') so the deep-link bridge fires reliably. Without this, the "open
+			//     after create" prompt may default to "don't open" and the agent dispatch
+			//     sits in secret storage until manual window reload.
+			//   - No agent: honor `useDefaults` if set, else fall through to the user's setting.
+			worktreeDefaultOpen:
+				chatAction?.agent?.kind === 'cli'
+					? 'none'
+					: chatAction?.agent != null || useDefaults
+						? 'new'
+						: undefined,
 			result: worktreeResult,
 			chatAction: chatAction,
 		},

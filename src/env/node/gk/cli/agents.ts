@@ -1,5 +1,12 @@
+import { existsSync } from 'node:fs';
 import { Logger } from '@gitlens/utils/logger.js';
 import { runCLICommand } from './utils.js';
+
+/** Returns true if the given CLI executable path exists on disk. Used by the agent picker /
+ *  dispatch to filter out CLIs gkcli detects but whose binaries have since been moved/uninstalled. */
+export function isCliExecutableAvailable(executable: string | undefined): boolean {
+	return typeof executable === 'string' && executable.length > 0 && existsSync(executable);
+}
 
 /**
  * An AI agent as reported by `gk agents list --json`. Requires gkcli ≥ 3.1.63

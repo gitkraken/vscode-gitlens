@@ -4469,6 +4469,39 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.openInAgent": {
+						"type": "string",
+						"enum": [
+							"ask",
+							"manual",
+							"agent"
+						],
+						"enumDescriptions": [
+							"Ask each time (default)",
+							"Always continue manually",
+							"Always open in an agent"
+						],
+						"default": "ask",
+						"markdownDescription": "Default route for Start Work / Start Review when `#showOpenInAgent#` is set: `ask` shows the manual-vs-agent picker; `manual` skips it and continues manually; `agent` skips it and opens the agent picker (or the persisted `#gitlens.ai.defaultAgent#` if set).",
+						"scope": "window",
+						"order": 3,
+						"tags": [
+							"preview"
+						]
+					},
+					"gitlens.ai.defaultAgent": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Default agent for Start Work / Start Review when the route is `agent`. Stored as an opaque id (e.g. `ide-chat`, `claude-extension`, `cli:claude-cli`). When the persisted agent is no longer available, falls through to the agent picker.",
+						"scope": "window",
+						"order": 4,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.exclude.files": {
 						"type": "object",
 						"default": {
@@ -8906,8 +8939,20 @@
 				"icon": "$(git-pull-request)"
 			},
 			{
+				"command": "gitlens.startReview.openInAgent",
+				"title": "Start Review in an Agent",
+				"category": "GitLens",
+				"icon": "$(git-pull-request)"
+			},
+			{
 				"command": "gitlens.startWork",
 				"title": "Start Work",
+				"category": "GitLens",
+				"icon": "$(rocket)"
+			},
+			{
+				"command": "gitlens.startWork.openInAgent",
+				"title": "Start Work in an Agent",
 				"category": "GitLens",
 				"icon": "$(rocket)"
 			},
@@ -14039,8 +14084,16 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.startReview.openInAgent",
+					"when": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
+				},
+				{
 					"command": "gitlens.startWork",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.startWork.openInAgent",
+					"when": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 				},
 				{
 					"command": "gitlens.stashApply:graph",

@@ -369,6 +369,10 @@ export interface StoredDeepLinkContext {
 	prData?: string | undefined;
 	issueData?: string | undefined;
 	instructions?: string | undefined;
+	/** Agent descriptor for Start Work / Start Review with `showOpenInAgent`. Plain JSON shape. */
+	agent?: unknown;
+	/** Worktree path for CLI dispatch `cwd`. */
+	worktreePath?: string | undefined;
 }
 
 export interface StoredGraphColumn {
