@@ -1,6 +1,5 @@
-import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
@@ -10,14 +9,14 @@ import {
 	formatAgentElapsed,
 	getAgentCategoryLabel,
 } from '../../../shared/agentUtils.js';
-import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
+import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
-type ExpandState = 'closed' | 'partial' | 'expanded';
+export type ExpandState = 'closed' | 'partial' | 'expanded';
 
 /** Cap on cluster dots in the section heading. Beyond this, an `+N` overflow chip takes the slot
  *  so the heading width stays bounded. */
@@ -31,13 +30,12 @@ const expandNext: Record<ExpandState, ExpandState> = {
 	expanded: 'closed',
 };
 
-const expandIcon: Record<ExpandState, string> = {
-	closed: 'chevron-right',
-	partial: 'unfold',
-	expanded: 'chevron-down',
-};
+/** Note: chevron rotation is driven by CSS via a `data-expand` attribute on the chevron
+ *  (see `.section__heading-chevron[data-expand='…']` rules in this file's styles). Closed
+ *  is 0deg, partial 45deg, expanded 90deg — single chevron-right glyph that transitions
+ *  between states. Keep the values here in lock-step with the CSS rules. */
 
-const expandVisibleCategories: Record<ExpandState, ReadonlySet<AgentSessionCategory>> = {
+export const expandVisibleCategories: Record<ExpandState, ReadonlySet<AgentSessionCategory>> = {
 	closed: new Set<AgentSessionCategory>(['needs-input']),
 	partial: new Set<AgentSessionCategory>(['needs-input', 'working']),
 	expanded: new Set<AgentSessionCategory>(['needs-input', 'working', 'idle']),
@@ -49,7 +47,10 @@ declare global {
 	}
 
 	interface GlobalEventHandlersEventMap {
-		'gl-agent-status-cards-visibility-change': CustomEvent<{ hasCards: boolean }>;
+		/** Fired when the user clicks the chevron — the consumer (panel) owns the expand state
+		 *  and decides whether to accept the request. The component renders from the `expand`
+		 *  property only, never from internal state. */
+		'gl-agent-status-expand-request': CustomEvent<{ next: ExpandState }>;
 	}
 }
 
@@ -64,6 +65,7 @@ declare global {
 export class GlDetailsAgentStatus extends LitElement {
 	static override styles = [
 		elementBase,
+		metadataBarVarsBase,
 		css`
 			:host {
 				display: block;
@@ -71,6 +73,11 @@ export class GlDetailsAgentStatus extends LitElement {
 				   theme.scss (--gl-agent-working-color / --gl-agent-waiting-color /
 				   --gl-agent-idle-color) so this card, the sidebar leaf, the tooltip, the
 				   status pill, and the WIP file decoration all share one set of phase colors. */
+
+				/* Cap tooltips in the agents pane so long content (Bash command strings, agent
+				   prompts) wraps inside a bounded box instead of escaping the narrow webview
+				   panel's right edge. */
+				--gl-tooltip-max-width: 28rem;
 			}
 
 			:host([hidden]) {
@@ -104,26 +111,52 @@ export class GlDetailsAgentStatus extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 0.4rem;
-				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.8rem var(--gl-panel-padding-left, 1.2rem);
-				background-color: var(--gl-metadata-bar-bg);
+				/* Bottom padding is intentionally tight (vs. the 0.6rem top) in non-expanded
+				   states so the section sits flush against the content below — without this the
+				   agents pane stacks an extra ~5px of background on top of the following section's
+				   intrinsic padding, reading as a dead gap. The expanded state opens up: extra
+				   bottom padding + a divider rule (see .section[data-expand='expanded'] below) so
+				   the larger card list reads as a distinct block. */
+				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.3rem var(--gl-panel-padding-left, 1.2rem);
+				/* No explicit background — inherits from the WIP details panel so it matches the
+				   files section's body. The sticky heading paints its own opaque background to
+				   obscure scrolling cards. */
+			}
+
+			.section[data-expand='expanded'] {
+				padding-bottom: 0.8rem;
 				border-bottom: 1px solid var(--gl-metadata-bar-border);
 			}
 
 			/* Heading doubles as the tri-state collapse toggle AND the at-a-glance phase summary —
 			   chevron + label on the left, dot cluster + counts on the right. The dots and counts
 			   remain visible in every state so the summary still informs at a glance even when
-			   most cards are filtered out. */
+			   most cards are filtered out.
+
+			   Sticky to the top of the scroll container ('.agent-status-split__top') so it stays
+			   visible while the cards list scrolls behind it. Negative horizontal margins +
+			   matching padding extend the heading's background over the section's horizontal
+			   padding so cards don't peek through the sides as they scroll past. Negative top
+			   margin + matching padding-top similarly covers the section's 'padding-top' zone. */
 			.section__heading {
 				appearance: none;
+				position: sticky;
+				top: 0;
+				z-index: 1;
 				display: flex;
 				align-items: center;
 				gap: 0.6rem;
-				width: 100%;
-				padding: 0.2rem 0;
-				background: transparent;
+				margin: -0.6rem calc(-1 * var(--gl-panel-padding-right, 1rem)) 0
+					calc(-1 * var(--gl-panel-padding-left, 1.2rem));
+				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
+				/* Match the WIP details panel background (same token the commit-box uses) so the
+				   sticky heading reads as continuous with the surrounding panel instead of as a
+				   tinted metadata-bar strip. */
+				background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
 				border: none;
 				font: inherit;
 				font-size: 0.85em;
+				font-weight: 600;
 				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
@@ -133,10 +166,40 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__heading-chevron {
-				font-size: 1em;
-				line-height: 1;
-				color: var(--vscode-descriptionForeground);
 				flex: none;
+				/* Pin the glyph to a fixed inline-flex square so the codicon's intrinsic em-box
+				   offsets center predictably against the text. */
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 1.6rem;
+				height: 1.6rem;
+				font-size: 1.6rem;
+				line-height: 1;
+				/* Inherit so .section__heading:hover brightens chevron + text together. */
+				color: inherit;
+				/* Single chevron-right glyph in every state — only the rotation differs.
+				   Per-state transform rules below (driven by the data-expand attribute) animate
+				   the cycle via the shared transition. Default closed at 0deg in case the
+				   attribute is briefly missing. */
+				transform: rotate(0deg);
+				transition: transform 0.2s ease;
+			}
+
+			.section__heading-chevron[data-expand='closed'] {
+				transform: rotate(0deg);
+			}
+			.section__heading-chevron[data-expand='partial'] {
+				transform: rotate(45deg);
+			}
+			.section__heading-chevron[data-expand='expanded'] {
+				transform: rotate(90deg);
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.section__heading-chevron {
+					transition: none;
+				}
 			}
 
 			.section__heading-label {
@@ -420,6 +483,20 @@ export class GlDetailsAgentStatus extends LitElement {
 				text-overflow: ellipsis;
 			}
 
+			.card__call {
+				font-family: var(--vscode-editor-font-family, monospace);
+				font-size: 0.85em;
+				background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+				border-radius: 0.3rem;
+				padding: 0.3rem 0.5rem;
+				word-break: break-all;
+				display: -webkit-box;
+				-webkit-line-clamp: 2;
+				-webkit-box-orient: vertical;
+				overflow: hidden;
+				margin-top: 0.2rem;
+			}
+
 			.card__prompt {
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
@@ -447,9 +524,12 @@ export class GlDetailsAgentStatus extends LitElement {
 	@property({ type: Array })
 	sessions?: AgentSessionState[];
 
-	@state() private _expand: ExpandState = 'closed';
-
-	private _lastHasVisibleCards: boolean | undefined;
+	/** Controlled by the consumer (panel). The component is a pure projection of this property
+	 *  — no internal expand state, no mirror-via-event dance. User chevron clicks emit a
+	 *  `gl-agent-status-expand-request` event; the panel decides whether to honor it by
+	 *  writing back to this property. */
+	@property({ type: String })
+	expand: ExpandState = 'closed';
 
 	override render(): unknown {
 		const sessions = this.sessions;
@@ -458,44 +538,14 @@ export class GlDetailsAgentStatus extends LitElement {
 		return this.renderSection(sessions, this.tally(sessions));
 	}
 
-	protected override updated(changedProperties: PropertyValueMap<unknown> | Map<PropertyKey, unknown>): void {
-		super.updated(changedProperties);
-
-		const hasCards = this.computeVisibleCardCount() > 0;
-		if (hasCards === this._lastHasVisibleCards) return;
-
-		this._lastHasVisibleCards = hasCards;
-		this.dispatchEvent(
-			new CustomEvent('gl-agent-status-cards-visibility-change', {
-				detail: { hasCards: hasCards },
-				bubbles: true,
-				composed: true,
-			}),
-		);
-	}
-
-	private computeVisibleCardCount(): number {
-		const sessions = this.sessions;
-		if (sessions == null || sessions.length === 0) return 0;
-
-		const visibleCats = expandVisibleCategories[this._expand];
-		let count = 0;
-		for (const s of sessions) {
-			if (visibleCats.has(agentPhaseToCategory[s.phase])) {
-				count++;
-			}
-		}
-		return count;
-	}
-
 	/* ---------- Section (heading + cards list) ---------- */
 
 	private renderSection(sessions: AgentSessionState[], counts: Record<AgentSessionCategory, number>): unknown {
-		const visibleCats = expandVisibleCategories[this._expand];
+		const visibleCats = expandVisibleCategories[this.expand];
 		const visible = sessions.filter(s => visibleCats.has(agentPhaseToCategory[s.phase]));
 
 		return html`
-			<div class="section">
+			<div class="section" data-expand=${this.expand}>
 				${this.renderSectionHeading(sessions, counts)}
 				${visible.length > 0
 					? html`<div id="section__list" class="section__list">${visible.map(s => this.renderCard(s))}</div>`
@@ -505,7 +555,7 @@ export class GlDetailsAgentStatus extends LitElement {
 	}
 
 	private renderSectionHeading(sessions: AgentSessionState[], counts: Record<AgentSessionCategory, number>): unknown {
-		const state = this._expand;
+		const state = this.expand;
 		const visibleDots = sessions.slice(0, maxClusterDots);
 		const overflow = sessions.length - visibleDots.length;
 
@@ -515,9 +565,9 @@ export class GlDetailsAgentStatus extends LitElement {
 				class="section__heading"
 				aria-controls="section__list"
 				aria-label=${this.expandAriaLabel(state)}
-				@click=${this.cycleExpand}
+				@click=${this.onChevronClick}
 			>
-				<code-icon class="section__heading-chevron" icon=${expandIcon[state]}></code-icon>
+				<code-icon class="section__heading-chevron" icon="chevron-right" data-expand=${state}></code-icon>
 				<span class="section__heading-label">Agents</span>
 				<gl-popover placement="bottom" hoist ?disabled=${state === 'expanded'}>
 					<span slot="anchor" class="section__cluster">
@@ -544,8 +594,18 @@ export class GlDetailsAgentStatus extends LitElement {
 		`;
 	}
 
-	private cycleExpand = (): void => {
-		this._expand = expandNext[this._expand];
+	/** Chevron click — emits a `gl-agent-status-expand-request` with the next state in the
+	 *  tri-state cycle. The consumer (panel) owns `expand` and decides whether to honor the
+	 *  request by writing the new value back; the component is a pure projection of the
+	 *  property. */
+	private onChevronClick = (): void => {
+		this.dispatchEvent(
+			new CustomEvent('gl-agent-status-expand-request', {
+				detail: { next: expandNext[this.expand] },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	};
 
 	private expandAriaLabel(state: ExpandState): string {
@@ -606,23 +666,31 @@ export class GlDetailsAgentStatus extends LitElement {
 		const category = agentPhaseToCategory[session.phase];
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const phaseLabel = getAgentCategoryLabel(category);
-		// Cards drop the "Last active" / lastPrompt fallback — elapsed surfaces in the phase
-		// tooltip, and lastPrompt has its own dedicated `card__prompt` row below.
-		const detailLine = describeAgentSession(session, category, elapsed, {
-			awaitingPrefix: 'long',
-			idleFallback: 'none',
-		});
+		const permission = session.pendingPermission;
+		// Needs-input with a pending permission gets a structured two-part detail: the plain
+		// "Awaiting permission: <tool>" prefix line + a monospace code-block holding the actual
+		// `toolDescription` call. All other phases use the single-line describeAgentSession path.
+		const renderAsPendingCall = category === 'needs-input' && permission != null;
+		const detailLine = renderAsPendingCall
+			? `Awaiting permission: ${permission.toolName ?? ''}`
+			: describeAgentSession(session, category, elapsed, {
+					awaitingPrefix: 'long',
+					idleFallback: 'none',
+				});
+		const callLine = renderAsPendingCall ? permission.toolDescription : undefined;
 		const phaseContent = html`${phaseLabel}${elapsed != null ? html` · ${elapsed}` : nothing}`;
 		const phaseTooltip = elapsed != null ? `Last active ${elapsed} ago` : undefined;
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
-		const canResolve = category === 'needs-input' && session.isInWorkspace && session.pendingPermission != null;
+		const canResolve = category === 'needs-input' && session.isInWorkspace && permission != null;
 
 		return html`
 			<div class=${`card card--${category}`}>
 				<div class="card__rail">${this.renderCardRail(category)}</div>
 				<div class="card__body">
 					<div class="card__title-row">
-						<span class="card__name" title=${session.displayName}>${session.displayName}</span>
+						<gl-tooltip content=${session.displayName} placement="bottom">
+							<span class="card__name">${session.displayName}</span>
+						</gl-tooltip>
 						${phaseTooltip != null
 							? html`<gl-tooltip content=${phaseTooltip} placement="bottom">
 									<span class=${`card__phase card__phase--${category}`}>${phaseContent}</span>
@@ -636,9 +704,22 @@ export class GlDetailsAgentStatus extends LitElement {
 							href=${openHref}
 						></gl-action-chip>
 					</div>
-					${detailLine ? html`<span class="card__detail" title=${detailLine}>${detailLine}</span>` : nothing}
+					${detailLine
+						? renderAsPendingCall
+							? html`<span class="card__detail">${detailLine}</span>`
+							: html`<gl-tooltip content=${detailLine} placement="bottom">
+									<span class="card__detail">${detailLine}</span>
+								</gl-tooltip>`
+						: nothing}
+					${callLine
+						? html`<gl-tooltip content=${callLine} placement="bottom">
+								<div class="card__call">${callLine}</div>
+							</gl-tooltip>`
+						: nothing}
 					${session.lastPrompt
-						? html`<span class="card__prompt" title=${session.lastPrompt}>${session.lastPrompt}</span>`
+						? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
+								<span class="card__prompt">${session.lastPrompt}</span>
+							</gl-tooltip>`
 						: nothing}
 				</div>
 				${canResolve ? html`<div class="card__actions">${this.renderCardActions(session)}</div>` : nothing}

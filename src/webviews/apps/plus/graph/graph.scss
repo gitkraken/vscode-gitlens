@@ -1619,6 +1619,18 @@ web-graph {
 			transition: border-color 1s linear;
 		}
 
+		// Commit box pinned to the bottom of the scrolling area so it stays visible while the
+		// file list scrolls behind it. The host has no background of its own — supply one here
+		// to obscure files scrolling past. Matches both the no-agents case (commit-box is a
+		// direct child of .details-content) and the agents case (commit-box sits inside
+		// .agent-status-split__bottom, which is itself inside .details-content).
+		.details-content gl-commit-box {
+			position: sticky;
+			bottom: 0;
+			z-index: 1;
+			background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+		}
+
 		&:hover .details-content,
 		&:focus-within .details-content {
 			border-color: var(--vscode-scrollbarSlider-background);
@@ -1720,30 +1732,35 @@ web-graph {
 			flex: 1;
 			min-height: 0;
 
+			// Auto-size mode caps the agents pane at the current `--_start-size` (set by
+			// split-panel from the `position` attribute the host forces — 25% for
+			// closed/partial, 80% for expanded). Below the cap the row uses `fit-content` so
+			// it shrinks to natural content height when there are few cards.
 			&--auto-size:not([dragging]) {
 				--gl-split-panel-start-size: fit-content(var(--_start-size, 25%));
 			}
 
 			// When the agent-status section is showing no cards (e.g. collapsed to needs-input
-			// only, with no needs-input sessions), drop the divider entirely so the heading
-			// floats above the rest content with no draggable affordance. The top row keeps
-			// its existing auto-size/dragged sizing — fit-content shrinks naturally when only
-			// the heading is present, and the dragged position is preserved when cards return.
-			//
-			// `visibility: hidden` (not `display: none`) is load-bearing — removing the divider
-			// from the grid item flow causes auto-placement to shove the bottom slot into the
-			// 0px middle track instead of the 1fr end track, collapsing the WIP panel.
+			// only, with no needs-input sessions), force the heading row to its content height
+			// regardless of any previously-dragged position. Without this, dragging the splitter
+			// while cards are visible and then collapsing back to no-cards leaves the heading
+			// floating in a large empty area the size of the user's drag. The split-panel still
+			// preserves `position` internally so the dragged height is restored when cards reappear.
 			&--no-cards:not([dragging]) {
-				--gl-split-panel-divider-width: 0px;
-				// Force the heading row to its content height regardless of any previously-dragged
-				// position. Without this, dragging the splitter while cards are visible and then
-				// collapsing back to no-cards leaves the heading floating in a large empty area
-				// the size of the user's drag. The split-panel still preserves `position`
-				// internally so the dragged height is restored when cards reappear.
 				--gl-split-panel-start-size: max-content;
 			}
 
-			&--no-cards:not([dragging])::part(divider) {
+			// Disabled splitter — drop the divider entirely so closed/partial states (where the
+			// agents pane is auto-sized and non-draggable) don't show a hover-affordance line
+			// implying it can be grabbed. `visibility: hidden` (not `display: none`) is
+			// load-bearing — removing the divider from the grid item flow causes auto-placement
+			// to shove the bottom slot into the 0px middle track instead of the 1fr end track,
+			// collapsing the WIP panel.
+			&[disabled]:not([dragging]) {
+				--gl-split-panel-divider-width: 0px;
+			}
+
+			&[disabled]:not([dragging])::part(divider) {
 				visibility: hidden;
 			}
 
@@ -1753,10 +1770,24 @@ web-graph {
 				overflow-y: auto;
 			}
 
+			// Bottom slot is a non-scrolling flex column: the file panel (.commit-panel__files)
+			// fills the available height and scrolls internally via webview-pane's `.content`,
+			// while `gl-commit-box` sits flex-pinned at the bottom — outside the scroll. This is
+			// why files don't disappear "behind" the commit box: they never share a scroll
+			// region with it.
 			&__bottom {
 				display: flex;
 				flex-direction: column;
-				overflow-y: auto;
+				min-height: 0;
+				overflow: hidden;
+			}
+
+			&__bottom .commit-panel__files {
+				display: flex;
+				flex-direction: column;
+				flex: 1;
+				min-height: 0;
+				overflow: hidden;
 			}
 		}
 	}

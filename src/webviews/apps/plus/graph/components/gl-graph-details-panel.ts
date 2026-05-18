@@ -15,7 +15,7 @@ import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
-import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
+import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -30,6 +30,7 @@ import type { DetailsContext, DetailsState, RunningOperation, RunningOperationEx
 import { createDetailsState } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
+import { expandVisibleCategories } from './gl-details-agent-status.js';
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
@@ -48,7 +49,6 @@ import './gl-details-multicommit-panel.js';
 import './gl-details-compose-mode-panel.js';
 import './gl-details-review-mode-panel.js';
 import './gl-commit-box.js';
-import './gl-details-agent-status.js';
 import './gl-details-compare-mode-panel.js';
 import './gl-details-wip-empty-pane.js';
 import './gl-details-wip-header.js';
@@ -204,33 +204,42 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _agentStatusSplitAdjusted = false;
 	private _agentStatusSplitPosition?: number;
 
+	/** Single source of truth for the agents-pane expand tri-state. The
+	 *  `<gl-details-agent-status>` component renders from this property (passed down on every
+	 *  template instantiation), so a remount can't reset it. User chevron clicks dispatch a
+	 *  request event that this panel honors by writing the new value back here — mirroring
+	 *  how `activeMode` is driven by the workflow signal store for compose/review. */
 	@state()
-	private _agentStatusHasVisibleCards = false;
+	private _agentStatusExpand: import('./gl-details-agent-status.js').ExpandState = 'closed';
 
+	/** Clamps drag to the [10%, 80%] envelope. The visual "shrink to content when too small"
+	 *  behavior is handled by CSS `fit-content(--_start-size)` — the snap function only enforces
+	 *  the absolute floor/ceiling on the user's intended size. */
 	private readonly _agentStatusSplitSnap = ({ pos }: { pos: number }) => Math.max(10, Math.min(pos, 80));
 
-	private readonly _onAgentStatusCardsVisibilityChange = (e: CustomEvent<{ hasCards: boolean }>) => {
-		this._agentStatusHasVisibleCards = e.detail.hasCards;
+	private readonly _onAgentStatusExpandRequest = (
+		e: CustomEvent<{ next: import('./gl-details-agent-status.js').ExpandState }>,
+	) => {
+		this._agentStatusExpand = e.detail.next;
 	};
 
 	private readonly _onAgentStatusSplitChange = (e: CustomEvent<{ position: number }>) => {
+		// Only persist user drag while in `expanded` — closed/partial use the forced auto-cap
+		// position, and storing those values would clobber the saved expanded-mode position.
+		if (this._agentStatusExpand !== 'expanded') return;
+
 		this._agentStatusSplitPosition = e.detail.position;
 	};
 
 	private readonly _onAgentStatusSplitDragEnd = () => {
+		if (this._agentStatusExpand !== 'expanded') return;
+
 		this._agentStatusSplitAdjusted = true;
 	};
 
 	private readonly _onAgentStatusSplitDblClick = () => {
 		this._agentStatusSplitAdjusted = false;
 		this._agentStatusSplitPosition = undefined;
-		const splitEl = this.querySelector<
-			import('../../../shared/components/split-panel/split-panel.js').GlSplitPanel
-		>('gl-split-panel.agent-status-split');
-		if (splitEl) {
-			splitEl.position = 25;
-		}
-		this.requestUpdate();
 	};
 
 	@property({ attribute: 'sha' })
@@ -376,6 +385,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			rightRefType: params.rightRefType,
 			includeWorkingTree: params.includeWorkingTree,
 		});
+	}
+
+	/** Entry point for the WIP-row agent indicator. Expands the agents section.
+	 *
+	 *  This is just a state write — `_agentStatusExpand` is the single source of truth and
+	 *  flows down into `<gl-details-agent-status>` as its `expand` property on every render.
+	 *  Element remounts can't reset it (no internal state to lose); user chevron clicks flow
+	 *  back through the request event. Mirrors the workflow-store pattern used by compose/review. */
+	expandAgentsForWip(): void {
+		this._agentStatusExpand = 'expanded';
 	}
 
 	/** Entry point for the WIP-row Compose/Review buttons. Re-clicking while already engaged
@@ -1083,6 +1102,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
 		const worktreeAgentSessions = this.getWorktreeAgentSessions(wip);
 		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
+		// Tri-state of the agents pane drives both splitter availability and sizing:
+		//  - `closed` / `partial`: auto-size with fit-content(25%) cap (~3 cards); splitter inert
+		//  - `expanded` (no drag): auto-size with fit-content(80%) cap (show what fits)
+		//  - `expanded` (dragged):  honor user's saved size verbatim — no fit-content, so empty
+		//                            space below the last card is OK if the user dragged larger
+		// `agentStatusUseUserSize === true` removes the `--auto-size` class so the grid uses
+		// `--_start-size` directly (no shrink-to-content). Otherwise the class applies and
+		// fit-content(--_start-size) shrinks below the auto-cap when content is small.
+		const agentStatusIsExpanded = this._agentStatusExpand === 'expanded';
+		const agentStatusUseUserSize = agentStatusIsExpanded && this._agentStatusSplitAdjusted;
+		const agentStatusAutoCap = agentStatusIsExpanded ? 80 : 25;
+		const agentStatusPosition = agentStatusUseUserSize
+			? (this._agentStatusSplitPosition ?? agentStatusAutoCap)
+			: agentStatusAutoCap;
+		// Cards visible under the current expand state, derived right here from the truth
+		// (`worktreeAgentSessions` + `_agentStatusExpand`) — no event-driven mirror needed.
+		const agentStatusHasVisibleCards = worktreeAgentSessions?.some(s =>
+			expandVisibleCategories[this._agentStatusExpand].has(agentPhaseToCategory[s.phase]),
+		);
 
 		const restContent =
 			activeMode === 'review'
@@ -1187,14 +1225,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			></gl-details-wip-header>
 			${showAgentStatus
 				? html`<gl-split-panel
-						class="agent-status-split ${this._agentStatusSplitAdjusted
+						class="agent-status-split ${agentStatusUseUserSize
 							? ''
-							: 'agent-status-split--auto-size'} ${this._agentStatusHasVisibleCards
+							: 'agent-status-split--auto-size'} ${agentStatusHasVisibleCards
 							? ''
 							: 'agent-status-split--no-cards'}"
 						orientation="vertical"
 						primary="start"
-						position="${this._agentStatusSplitPosition ?? 25}"
+						position="${agentStatusPosition}"
+						?disabled=${!agentStatusIsExpanded}
 						.snap=${this._agentStatusSplitSnap}
 						@gl-split-panel-change=${this._onAgentStatusSplitChange}
 						@gl-split-panel-drag-end=${this._onAgentStatusSplitDragEnd}
@@ -1203,7 +1242,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						<div slot="start" class="agent-status-split__top scrollable">
 							<gl-details-agent-status
 								.sessions=${worktreeAgentSessions}
-								@gl-agent-status-cards-visibility-change=${this._onAgentStatusCardsVisibilityChange}
+								.expand=${this._agentStatusExpand}
+								@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
 							></gl-details-agent-status>
 						</div>
 						<div slot="end" class="agent-status-split__bottom scrollable">${restContent}</div>
