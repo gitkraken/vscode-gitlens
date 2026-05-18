@@ -1201,6 +1201,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 								<gl-details-wip-empty-pane
 									.wip=${wip}
 									.aiEnabled=${false}
+									.launchpadSummary=${this._state.launchpadSummary.get()}
 									@switch-branch=${this.handleSwitchBranch}
 									@create-branch=${this.handleCreateBranch}
 									@start-work=${this.handleStartWork}
