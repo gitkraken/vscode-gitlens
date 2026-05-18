@@ -356,7 +356,7 @@ export class GlCommitsScopePane extends LitElement {
 	}
 
 	override render() {
-		if (!this.items.length && !this.loading) return nothing;
+		if (!this.items.length && !this.loading) return this.renderEmpty();
 
 		const end = this.rangeEnd;
 		const start = this.rangeStart;
@@ -697,6 +697,18 @@ export class GlCommitsScopePane extends LitElement {
 				<code-icon icon="loading" modifier="spin"></code-icon>
 			</span>
 			<span class="scope-row__label--dimmed">Loading commits…</span>
+		</div>`;
+	}
+
+	private renderEmpty() {
+		const label = this.mode === 'review' ? 'No commits to review' : 'No commits to compose';
+		return html`<div class="details-scope-pane scrollable">
+			<div class="scope-row scope-row--empty" role="listitem">
+				<span class="scope-row__dot-col">
+					<code-icon icon="git-commit"></code-icon>
+				</span>
+				<span class="scope-row__label--dimmed">${label}</span>
+			</div>
 		</div>`;
 	}
 
