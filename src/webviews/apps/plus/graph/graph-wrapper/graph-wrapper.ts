@@ -6,7 +6,6 @@ import type {
 	GraphZoneType,
 	ReadonlyGraphRow,
 	SelectCommitsOptions,
-	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
@@ -63,14 +62,10 @@ import type { GlGraph } from './gl-graph.js';
 import type { GraphWrapperTheming } from './gl-graph.react.jsx';
 import './gl-graph.js';
 
-// Builds the display message for a WIP row. Uses "Working Changes" when stats show any activity,
-// "Working Tree" when stats are known-empty or not yet fetched. The label (worktree name) is
-// appended in parens for secondary WIP rows.
-function wipRowMessage(label: string | undefined, stats: WorkDirStats | undefined): string {
-	const hasChanges =
-		stats != null && ((stats.added ?? 0) > 0 || (stats.modified ?? 0) > 0 || (stats.deleted ?? 0) > 0);
-	const base = hasChanges ? 'Working Changes' : 'Working Tree';
-	return label != null ? `${base} (${label})` : base;
+// Builds the display message for a WIP row. The label (worktree name) is appended in parens for
+// secondary WIP rows; the primary row passes `undefined` and gets the bare base string.
+function wipRowMessage(label: string | undefined): string {
+	return label != null ? `Working Changes (${label})` : 'Working Changes';
 }
 
 // Builds a "lite" CommitDetails from a graph row so the details panel can paint the commit
@@ -277,7 +272,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				author: '',
 				email: '',
 				date: now,
-				message: wipRowMessage(undefined, workingTreeStats),
+				message: wipRowMessage(undefined),
 				type: 'work-dir-changes',
 				heads: [],
 				remotes: [],
@@ -305,7 +300,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					author: '',
 					email: '',
 					date: now,
-					message: wipRowMessage(meta.label, meta.workDirStats),
+					message: wipRowMessage(meta.label),
 					type: 'work-dir-changes',
 					heads: [],
 					remotes: [],
