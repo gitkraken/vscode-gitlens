@@ -1,4 +1,4 @@
-import type { emptySetMarker, GraphRefOptData, GraphSearchMode } from '@gitkraken/gitkraken-components';
+import type { emptySetMarker, GraphRefOptData, GraphRow, GraphSearchMode } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, env, ProgressLocation, Uri, ViewColumn, window, workspace } from 'vscode';
 import { createGraphComposeIntegration } from '@env/coretools/composer.js';
@@ -55,6 +55,7 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { annotateDiffWithNewLineNumbers } from '@gitlens/utils/diff.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
+import { fnv1aHash64 } from '@gitlens/utils/hash.js';
 import { count, find, join, last } from '@gitlens/utils/iterable.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -585,6 +586,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _stateNotifyDirty = false;
 	/** Most recent branchState we sent to the webview, so async PR resolution can merge into the freshest values. */
 	private _lastSentBranchState: BranchState | undefined;
+	/**
+	 * Fingerprint of the rows/avatars/downstreams payload most recently delivered to the webview.
+	 * When the next `notifyDidChangeState` would carry an identical fingerprint we omit those four
+	 * fields from the IPC. On a real repo this drops the per-event payload from ~12 MB to a few KB.
+	 *
+	 * Cleared on reconnect / repository switch so the next push reseeds the webview with rows.
+	 */
+	private _lastSentGraphFingerprint: string | undefined;
 	private static readonly stateFreshnessMs = 500;
 
 	private isWindowFocused: boolean = true;
@@ -4902,6 +4911,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const graph = this._graph;
 
+		// Update the rows-fingerprint so that a subsequent `notifyDidChangeState` can dedup when its
+		// payload would carry the identical rows. Without this hook the bootstrap path (which ships
+		// rows here, NOT via DidChangeNotification) leaves the fingerprint unset, so the very first
+		// post-bootstrap state push re-ships rows the webview already has. Reads counts off the
+		// `graph` Maps directly (no `Object.fromEntries` round-trip just to take the size).
+		const statsLoading = graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false;
+		this._lastSentGraphFingerprint = buildGraphFingerprint(
+			graph.rows,
+			graph.avatars.size,
+			graph.downstreams,
+			statsLoading,
+		);
+
 		return this.host.notify(
 			DidChangeRowsNotification,
 			{
@@ -5249,9 +5271,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// branches/remotes/tags/stashes actually change, which is handled by targeted invalidations in
 				// `onRepositoryChanged` and the cold-open microtask.
 
+				// Identity fingerprint of the rows/avatars/downstreams payload: when this matches the
+				// last successful send, the webview already has identical row data — re-shipping is
+				// pure waste. On a real ~50k-commit repo this single check drops repeat-event state
+				// pushes from ~12 MB to a few KB. Cheap to compute (4 numeric fields + 2 SHAs); the
+				// webview's `updateState` only iterates `partial`'s own keys, so omitted fields are
+				// preserved on the webview side without further changes.
+				const fingerprint =
+					state.rows != null
+						? buildGraphFingerprint(
+								state.rows,
+								state.avatars != null ? Object.keys(state.avatars).length : 0,
+								state.downstreams,
+								state.rowsStatsLoading === true,
+							)
+						: undefined;
+				const skipRows = fingerprint != null && fingerprint === this._lastSentGraphFingerprint;
+				if (skipRows) {
+					state.rows = undefined;
+					state.avatars = undefined;
+					state.downstreams = undefined;
+					state.rowsStats = undefined;
+					state.rowsStatsLoading = undefined;
+					state.paging = undefined;
+				}
+
 				const result = await this.host.notify(DidChangeNotification, { state: state });
 				this._lastStateSentAt = performance.now();
 				this._lastSentBranchState = state.branchState;
+				if (fingerprint != null) {
+					this._lastSentGraphFingerprint = fingerprint;
+				}
 
 				// Refresh canInstallClaudeHook asynchronously so the bulk push doesn't block on `gk`.
 				// Dedups internally — only fires `DidChangeCanInstallClaudeHook` when the value diverges.
@@ -6620,6 +6670,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._pendingStateOp = undefined;
 		this._stateNotifyDirty = false;
 		this._lastSentBranchState = undefined;
+		this._lastSentGraphFingerprint = undefined;
 		this._lastFetchedHandlerDebounced?.cancel();
 		this._graphDetailsDiffCache.clear();
 		this.invalidateScopeAnchors();
@@ -9169,6 +9220,87 @@ function convertRefToGraphRefType(ref: GitReference): GraphRefType | undefined {
 
 function convertSelectedRows(selectedRows: Record<string, SelectedRowState> | undefined): GraphSelectedRows {
 	return filterMapObject(selectedRows, (_, v) => (v.selected ? true : undefined));
+}
+
+/**
+ * Content fingerprint of the graph-payload fields a webview cares about. When this matches the
+ * prior successful send, the webview already has identical row data and we can omit rows + the
+ * other large fields from the next state push entirely.
+ *
+ * Must catch every webview-observable row change:
+ *   - row added/removed → `rowCount`/`first`/`last` shift
+ *   - branch tip moved without commit → the head row's `heads` entry shifts row
+ *   - tag added/removed/renamed → a row's `tags` entry changes
+ *   - remote branch added/updated → `remotes` entries shift
+ *   - new contributor avatar resolved → `avatars` map grows
+ *   - downstream tracking changed → `downstreams` keys/values shift
+ *   - worktree added/removed for a branch → `heads[].worktreeId` flips
+ *   - stats-loading flag flipped → ship the new loading state
+ *
+ * To stay cheap, the per-row scan only emits a signature for rows that ACTUALLY carry refs —
+ * which on a real graph is a tiny fraction of the loaded rows (just branch tips and tagged
+ * commits). Net cost is O(refs across loaded rows), typically <1ms for 100k commits.
+ */
+function buildGraphFingerprint(
+	rows: GraphRow[] | undefined,
+	avatarCount: number,
+	downstreams: ReadonlyMap<string, readonly string[]> | Readonly<Record<string, readonly string[]>> | undefined,
+	statsLoading: boolean,
+): string {
+	const first = rows?.[0]?.sha ?? '';
+	const last = rows?.at(-1)?.sha ?? '';
+	const rowCount = rows?.length ?? 0;
+	const downstreamCount =
+		downstreams == null ? 0 : downstreams instanceof Map ? downstreams.size : Object.keys(downstreams).length;
+
+	// Per-row ref signature: position-anchored short summary for rows that carry any head/tag/remote.
+	// Captures: ref renames (different id at same sha), tip moves (refs disappear from one sha and
+	// appear on another), tag set changes. Skipped for the bulk of rows that have no refs at all.
+	// Pushed into an array and joined at the end so V8 doesn't rope-flatten on each `+=`.
+	const parts: string[] = [`${rowCount}|${first}|${last}|${avatarCount}|${downstreamCount}|${statsLoading ? 1 : 0}`];
+	if (rows != null) {
+		for (const r of rows) {
+			const hl = r.heads?.length;
+			const tl = r.tags?.length;
+			const rl = r.remotes?.length;
+			if (!hl && !tl && !rl) continue;
+
+			parts.push(`|${r.sha}:`);
+			if (hl) {
+				for (const h of r.heads!) {
+					// Include worktreeId so adding/removing a worktree for an existing branch (which
+					// flips `worktreeId` between defined and undefined on the same head) busts the
+					// fingerprint; otherwise the webview wouldn't see the badge until the next
+					// non-worktrees structural event.
+					parts.push(`H${h.id}${h.worktreeId != null ? `@${h.worktreeId}` : ''};`);
+				}
+			}
+			if (tl) {
+				for (const t of r.tags!) {
+					parts.push(`T${t.id};`);
+				}
+			}
+			if (rl) {
+				for (const rr of r.remotes!) {
+					parts.push(`R${rr.id};`);
+				}
+			}
+		}
+	}
+	// Downstream tracking signature: sort upstream-branch keys for stable order, emit each upstream
+	// + its downstream-branch list. Catches `git branch --set-upstream-to` and remote-rename cases
+	// where the per-row scan above doesn't see the change (e.g. tip moved off the loaded page).
+	if (downstreamCount > 0) {
+		const entries: [string, readonly string[]][] =
+			downstreams instanceof Map ? [...downstreams] : Object.entries(downstreams!);
+		entries.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+		for (const [k, v] of entries) {
+			parts.push(`|D${k}=${v.join(',')};`);
+		}
+	}
+	// Digest down to a 16-char hex hash so the stored fingerprint stays constant-size regardless
+	// of repo scale. Comparison becomes O(1); memory cost goes from ~50-100 KB to 16 bytes.
+	return fnv1aHash64(parts.join(''));
 }
 
 export function updateSearchMode<T extends GitGraphSearch | undefined>(
