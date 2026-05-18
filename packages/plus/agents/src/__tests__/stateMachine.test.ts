@@ -120,6 +120,7 @@ suite('stateMachine', () => {
 		test('truncates very long summaries with an ellipsis', () => {
 			const long = 'A'.repeat(200);
 			const result = extractPlanSummary({ plan: `# ${long}` });
+			// eslint-disable-next-line @typescript-eslint/prefer-optional-chain
 			assert.ok(result != null && result.endsWith('…'));
 			assert.ok(result.length <= 121);
 		});
