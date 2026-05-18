@@ -4922,6 +4922,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			graph.avatars.size,
 			graph.downstreams,
 			statsLoading,
+			this.getFiltersByRepo(graph.repoPath)?.pinnedRef?.id,
 		);
 
 		return this.host.notify(
@@ -5284,6 +5285,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								state.avatars != null ? Object.keys(state.avatars).length : 0,
 								state.downstreams,
 								state.rowsStatsLoading === true,
+								this.getFiltersByRepo(this._graph?.repoPath)?.pinnedRef?.id,
 							)
 						: undefined;
 				const skipRows = fingerprint != null && fingerprint === this._lastSentGraphFingerprint;
@@ -9246,6 +9248,7 @@ function buildGraphFingerprint(
 	avatarCount: number,
 	downstreams: ReadonlyMap<string, readonly string[]> | Readonly<Record<string, readonly string[]>> | undefined,
 	statsLoading: boolean,
+	pinnedRefId: string | undefined,
 ): string {
 	const first = rows?.[0]?.sha ?? '';
 	const last = rows?.at(-1)?.sha ?? '';
@@ -9257,7 +9260,9 @@ function buildGraphFingerprint(
 	// Captures: ref renames (different id at same sha), tip moves (refs disappear from one sha and
 	// appear on another), tag set changes. Skipped for the bulk of rows that have no refs at all.
 	// Pushed into an array and joined at the end so V8 doesn't rope-flatten on each `+=`.
-	const parts: string[] = [`${rowCount}|${first}|${last}|${avatarCount}|${downstreamCount}|${statsLoading ? 1 : 0}`];
+	const parts: string[] = [
+		`${rowCount}|${first}|${last}|${avatarCount}|${downstreamCount}|${statsLoading ? 1 : 0}|${pinnedRefId ?? ''}`,
+	];
 	if (rows != null) {
 		for (const r of rows) {
 			const hl = r.heads?.length;
