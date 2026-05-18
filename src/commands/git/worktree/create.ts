@@ -24,10 +24,12 @@ import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import { Directive } from '../../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
+import { executeCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { isDescendant } from '../../../system/-webview/path.js';
 import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
+import type { OpenChatActionCommandArgs } from '../../openChatAction.js';
 import type { CustomStep } from '../../quick-wizard/models/steps.custom.js';
 import type {
 	PartialStepState,
@@ -88,7 +90,16 @@ interface State<Repo = string | GlRepository> {
 	};
 
 	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
-	worktreeDefaultOpen?: 'new' | 'current';
+	/**
+	 * Per-invocation override for the worktree's post-create open behavior:
+	 *   - `'new'`     : force-open in a new window (skips the prompt)
+	 *   - `'current'` : force-open in the current window (skips the prompt)
+	 *   - `'none'`    : skip the open step entirely (caller handles the post-create work itself —
+	 *                   e.g., CLI agent dispatch opens a terminal in the current window with `cwd`
+	 *                   pointing to the worktree path, so no window switch is needed)
+	 *   - undefined   : honor the user's `gitlens.worktrees.openAfterCreate` setting
+	 */
+	worktreeDefaultOpen?: 'new' | 'current' | 'none';
 
 	// Chat action for deeplink storage
 	chatAction?: StartWorkChatAction | StartReviewChatAction;
@@ -350,9 +361,21 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					});
 					state.result?.fulfill(worktree);
 
-					// Store deeplink before opening worktree (if this is a chat action flow)
+					// Wire the chatAction to the new worktree. Two paths:
+					//   - CLI agent: dispatch inline in the current window — terminal opens here
+					//     with `cwd = worktree.uri.fsPath`. No new window, no deep-link bridge.
+					//   - Anything else (IDE chat, Claude extension, legacy): store the deep-link
+					//     so it resumes in the new worktree window (per `worktreeDefaultOpen` /
+					//     `gitlens.worktrees.openAfterCreate`).
 					if (state.chatAction && worktree) {
-						await storeChatActionDeepLink(this.container, state.chatAction, worktree.uri.fsPath);
+						const chatActionWithPath = { ...state.chatAction, worktreePath: worktree.uri.fsPath };
+						if (state.chatAction.agent?.kind === 'cli') {
+							void executeCommand('gitlens.openChatAction', {
+								chatAction: chatActionWithPath,
+							} as OpenChatActionCommandArgs);
+						} else {
+							await storeChatActionDeepLink(this.container, chatActionWithPath, worktree.uri.fsPath);
+						}
 					}
 				} catch (ex) {
 					if (WorktreeCreateError.is(ex, 'alreadyCheckedOut') && !state.flags.includes('--force')) {
@@ -421,7 +444,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 				type OpenAction = Config['worktrees']['openAfterCreate'];
 				const action: OpenAction = configuration.get('worktrees.openAfterCreate');
-				if (action !== 'never') {
+				if (state.worktreeDefaultOpen !== 'none' && action !== 'never') {
 					let flags: WorktreeOpenState['flags'];
 					switch (action) {
 						case 'always':
