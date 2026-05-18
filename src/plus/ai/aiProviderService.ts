@@ -1,5 +1,5 @@
-import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions } from 'vscode';
-import { CancellationTokenSource, env, EventEmitter, window } from 'vscode';
+import type { CancellationToken, Event, MessageItem, ProgressOptions } from 'vscode';
+import { CancellationTokenSource, Disposable, env, EventEmitter, window } from 'vscode';
 import { fetch } from '@env/fetch.js';
 import { getIsOffline } from '@env/platform.js';
 import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '@gitlens/ai/constants.js';
@@ -40,6 +40,7 @@ import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { DedupedAsyncCache } from '@gitlens/utils/dedupedAsyncCache.js';
 import { map } from '@gitlens/utils/iterable.js';
 import type { Lazy } from '@gitlens/utils/lazy.js';
 import { lazy } from '@gitlens/utils/lazy.js';
@@ -354,6 +355,17 @@ export class AIProviderService implements AIService, Disposable {
 	private _provider: AIProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
 
+	// Resolved AIModel per scope ('global' for the global default). Populated lazily by `getModel`
+	// and proactively by `getOrUpdateModel` after every persist. Invalidated on config changes,
+	// subscription changes, provider state changes, and `force` reads. Lets repeated silent reads
+	// (graph details, composer event handler, etc.) skip the full resolve pipeline and the network
+	// `provider.getModels()` call inside it.
+	private readonly _modelCache = new DedupedAsyncCache<AIModelScope | 'global', AIModel | undefined>();
+	// Per-provider available-models list cache. Dedupes concurrent `provider.getModels()` calls so
+	// scope reads on the same provider don't each hit the network. Cleared on provider change,
+	// subscription change, and force.
+	private readonly _providerModelsCache = new Map<AIProviders, Promise<readonly AIModel[]>>();
+
 	private _actions: AIActions | undefined;
 	get actions(): AIActions {
 		this._actions ??= new AIActions(this);
@@ -372,7 +384,41 @@ export class AIProviderService implements AIService, Disposable {
 		readonly container: Container,
 		private readonly connection: ServerConnection,
 	) {
-		this._disposable = this.container.subscription.onDidChange(() => this._promptTemplates.clear());
+		this._disposable = Disposable.from(
+			this.container.subscription.onDidChange(e => {
+				// Prompt templates are tied to account identity & subscription state — clear on every
+				// fire. Model caches are heavier and only affected by account identity or plan changes
+				// (which can shift available providers/entitlements); filter to avoid wiping the cache
+				// on no-op subscription ticks like session refresh.
+				this._promptTemplates.clear();
+				const accountChanged = e.current.account?.id !== e.previous.account?.id;
+				const planChanged = e.current.plan?.actual?.id !== e.previous.plan?.actual?.id;
+				if (accountChanged || planChanged) {
+					this._modelCache.clear();
+					this._providerModelsCache.clear();
+				}
+			}),
+			configuration.onDidChange(e => {
+				if (!configuration.changed(e, 'ai')) return;
+
+				// Only invalidate when the configured global model actually drifted from what's
+				// cached. Our own `updateEffective` writes inside `getOrUpdateModel` also trigger
+				// this listener, but the cache was already populated proactively for them — a
+				// matching compare lets us skip the redundant invalidate-and-reresolve cycle. An
+				// external settings edit will produce a mismatch and correctly invalidate.
+				if (!this._modelCache.has('global')) return;
+
+				const cached = this._modelCache.get('global');
+				const cfg = this.getConfiguredModel()?.descriptor;
+				const matches =
+					cfg == null ? cached == null : cfg.provider === cached?.provider.id && cfg.model === cached.id;
+				if (matches) return;
+
+				// Drift detected — any scope whose `fromScope: false` resolution used the global
+				// fallback could now be stale, so clear everything.
+				this._modelCache.clear();
+			}),
+		);
 
 		if (DEBUG) {
 			void import(/* webpackChunkName: "__debug__" */ './__debug__aiSimulator.js').then(m =>
@@ -644,6 +690,30 @@ export class AIProviderService implements AIService, Disposable {
 		return modelResults.flatMap(m => getSettledValue(m, []));
 	}
 
+	/**
+	 * Returns the available-models list for `provider`, deduping concurrent and repeated calls via
+	 * a per-providerId Promise cache. Without this, every cache-miss `getOrUpdateModel` (e.g. two
+	 * scopes resolving on the same provider) independently calls `provider.getModels()` and hammers
+	 * the network. Invalidated on provider change, `provider.onDidChange`, subscription change, and
+	 * `force` reads.
+	 */
+	private getCachedProviderModels(provider: AIProvider, providerId: AIProviders): Promise<readonly AIModel[]> {
+		let pending = this._providerModelsCache.get(providerId);
+		if (pending == null) {
+			pending = (async () => {
+				try {
+					return await provider.getModels();
+				} catch (ex) {
+					// Don't cache a failure — let the next call retry.
+					this._providerModelsCache.delete(providerId);
+					throw ex;
+				}
+			})();
+			this._providerModelsCache.set(providerId, pending);
+		}
+		return pending;
+	}
+
 	private async getBestFallbackModel(): Promise<AIModel | undefined> {
 		let model: AIModel | undefined;
 		let models: readonly AIModel[];
@@ -677,6 +747,41 @@ export class AIProviderService implements AIService, Disposable {
 	}
 
 	async getModel(
+		options?: { force?: boolean; silent?: boolean; scope?: AIModelScope },
+		source?: Source,
+	): Promise<AIModel | undefined> {
+		const scope = options?.scope;
+		const cacheKey: AIModelScope | 'global' = scope ?? 'global';
+
+		if (options?.force) {
+			// User explicitly wants to re-resolve (switch model picker, etc.) — invalidate the
+			// caches for this scope so we don't short-circuit and so the picker sees a fresh
+			// `provider.getModels()` list.
+			this._modelCache.delete(cacheKey);
+			this._providerModelsCache.clear();
+		} else if (options?.silent) {
+			// Silent reads are the hot path (graph details, composer event handler, RPC chip reads).
+			// Cache hits skip the storage/config reads + `getOrUpdateModel` + `provider.getModels()`
+			// network call entirely. The picker / non-silent path always falls through to the full
+			// pipeline below; `getOrUpdateModel` repopulates the cache after a successful resolve.
+			if (this._modelCache.has(cacheKey)) {
+				const cached = this._modelCache.get(cacheKey);
+				// If a cached model's provider was org-disabled since we cached it, the configured
+				// model is no longer usable — drop the entry and re-resolve so the fallback path runs.
+				if (cached == null || isProviderEnabledByOrg(cached.provider.id)) {
+					return cached;
+				}
+
+				this._modelCache.delete(cacheKey);
+			}
+
+			return this._modelCache.getOrResolve(cacheKey, () => this.resolveModelUncached(options, source));
+		}
+
+		return this.resolveModelUncached(options, source);
+	}
+
+	private async resolveModelUncached(
 		options?: { force?: boolean; silent?: boolean; scope?: AIModelScope },
 		source?: Source,
 	): Promise<AIModel | undefined> {
@@ -841,8 +946,13 @@ export class AIProviderService implements AIService, Disposable {
 
 		if (providerId !== this._provider?.id) {
 			changed = true;
+			const oldProviderId = this._provider?.id;
 			this._providerDisposable?.dispose();
 			this._provider?.dispose();
+			if (oldProviderId != null) {
+				// Old provider's models list is no longer relevant to anyone awaiting `_provider`.
+				this._providerModelsCache.delete(oldProviderId);
+			}
 
 			const type = await supportedAIProviders.get(providerId)?.type.value;
 			if (type == null) {
@@ -853,14 +963,31 @@ export class AIProviderService implements AIService, Disposable {
 			}
 
 			this._provider = new type(this.createAIProviderContext(providerId));
-			this._providerDisposable = this._provider?.onDidChange?.(
+			const newProvider = this._provider;
+			this._providerDisposable = newProvider?.onDidChange?.(
 				debounce(async () => {
-					if (this._model != null) return;
+					// Provider's internal state changed (VSCode chat models list updated, etc.) —
+					// drop the resolved/list caches so subsequent reads pick up the new state.
+					this._modelCache.clear();
+					this._providerModelsCache.delete(providerId);
+
+					// Validate the singleton against the fresh models list — the provider may have
+					// un-registered the model that's currently selected. Without this, the next read
+					// would cache-miss, fall into `getOrUpdateModel`, match `modelId === _model.id`,
+					// and return the now-removed model.
+					if (this._model != null && this._provider === newProvider) {
+						const models = await this.getCachedProviderModels(newProvider, providerId);
+						if (models.some(m => m.id === this._model?.id)) return;
+
+						this._model = undefined;
+					} else if (this._model != null) {
+						return;
+					}
 
 					const model = await this.getModel({ silent: true });
 					if (model == null) return;
 
-					this._onDidChangeModel.fire({ model: this._model, scope: undefined });
+					this._onDidChangeModel.fire({ model: model, scope: undefined });
 				}, 250),
 				this,
 			);
@@ -872,11 +999,13 @@ export class AIProviderService implements AIService, Disposable {
 			} else {
 				changed = true;
 
-				const models = await this._provider.getModels();
+				const models = await this.getCachedProviderModels(this._provider, providerId);
 				model = models?.find(m => m.id === modelId);
 				if (model == null) {
 					this._model = undefined;
-
+					// Cache the "no model configured" outcome so silent reads don't keep re-running
+					// the full pipeline (and re-hitting the network) just to land back on `undefined`.
+					this._modelCache.set(scope ?? 'global', undefined);
 					return undefined;
 				}
 			}
@@ -885,6 +1014,10 @@ export class AIProviderService implements AIService, Disposable {
 		}
 
 		this._model = model;
+		// Mirror the resolved value into the per-scope cache. This is the source of truth for the
+		// hot `getModel({ silent: true })` path — populated here on every successful resolve so
+		// subsequent reads (including same-scope re-reads from event handlers) skip the network.
+		this._modelCache.set(scope ?? 'global', model);
 
 		if (changed) {
 			if (scope != null) {

@@ -2,6 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
 import { createComposerComposeIntegration } from '@env/coretools/composer.js';
 import { AIConversation } from '@gitlens/ai/models/conversation.js';
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
 import { md5, sha256 } from '@gitlens/utils/crypto.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -991,12 +992,16 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				{ silent: true, scope: 'compose' },
 				{ source: 'composer', correlationId: this.host.instanceId },
 			);
-			this._context.ai.model = model;
-			this.host.sendTelemetryEvent('composer/action/changeAiModel');
-			await this.host.notify(DidChangeAiModelNotification, { model: model });
+			await this.applyAiModel(model);
 		} catch {
 			// Ignore errors when getting AI model
 		}
+	}
+
+	private async applyAiModel(model: AIModel | undefined): Promise<void> {
+		this._context.ai.model = model;
+		this.host.sendTelemetryEvent('composer/action/changeAiModel');
+		await this.host.notify(DidChangeAiModelNotification, { model: model });
 	}
 
 	@ipcCommand(OnSelectAIModelCommand)
@@ -1027,11 +1032,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async sendComposerAIFeedback(sentiment: 'helpful' | 'unhelpful', sessionId: string | null): Promise<void> {
 		try {
-			// Get the current AI model
-			const model = await this.container.ai.getModel(
-				{ silent: true },
-				{ source: 'composer', correlationId: this.host.instanceId },
-			);
+			// Use the cached compose-scoped model — kept fresh by initial load and `onAIModelChanged`.
+			const model = this._context.ai.model;
 			if (!model) return;
 
 			// Create a synthetic context for composer AI feedback
@@ -1930,6 +1932,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		// scope change, or a global default change (which the composer reads as fallback
 		// when its scoped value is unset). Ignore unrelated scopes like `'review'`.
 		if (e.scope != null && e.scope !== 'compose') return;
+
+		// The event payload already carries the new model, so apply it directly without
+		// re-fetching. For a global change while a compose-scoped value is set, the
+		// scoped value still wins — `updateAiModel()` re-reads to resolve that case.
+		if (e.scope === 'compose') {
+			void this.applyAiModel(e.model);
+			return;
+		}
 
 		void this.updateAiModel();
 	}

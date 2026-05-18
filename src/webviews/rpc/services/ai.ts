@@ -29,6 +29,8 @@ export class AIService {
 	readonly onStateChanged: RpcEventSubscription<AIState>;
 
 	readonly #container: Container;
+	#lastGlobalModel: AiModelInfo | undefined;
+	#lastGlobalModelInitialized = false;
 
 	constructor(container: Container, buffer: EventVisibilityBuffer | undefined, tracker?: SubscriptionTracker) {
 		this.#container = container;
@@ -37,13 +39,19 @@ export class AIService {
 			'modelChanged',
 			'save-last',
 			buffered =>
-				container.ai.onDidChangeModel(async () => {
-					// Forward every change (global default or any scope). Webview consumers
-					// re-read with their own scope via `getModel(scope)`; the `save-last` buffer
-					// dedupes when their resolved value is unchanged, so a scope-only change
-					// doesn't churn the SCM/Home chips that read the global default.
-					const model = await container.ai.getModel({ silent: true });
-					buffered(toAiModelInfo(model));
+				container.ai.onDidChangeModel(async e => {
+					// Forward every change so consumers that re-read with their own scope (graph
+					// details, etc.) get a refresh trigger. The broadcast value is always the
+					// global default — scope-only changes don't affect it, so we cache the last
+					// known global instead of re-fetching it on every fire.
+					if (e.scope == null) {
+						this.#lastGlobalModel = toAiModelInfo(e.model);
+						this.#lastGlobalModelInitialized = true;
+					} else if (!this.#lastGlobalModelInitialized) {
+						this.#lastGlobalModel = toAiModelInfo(await container.ai.getModel({ silent: true }));
+						this.#lastGlobalModelInitialized = true;
+					}
+					buffered(this.#lastGlobalModel);
 				}),
 			undefined,
 			tracker,
