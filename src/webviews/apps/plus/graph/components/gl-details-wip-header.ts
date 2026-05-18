@@ -15,7 +15,7 @@ import '../../../shared/components/chips/autolink-chip.js';
 import '../../../shared/components/chips/chip-overflow.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/pills/tracking-status.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/commit/wip-stats.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/details-header/gl-details-header.js';
@@ -93,15 +93,12 @@ export class GlDetailsWipHeader extends LitElement {
 							: html`Working Changes`}
 				</span>
 				${!isModeActive
-					? files.length > 0
-						? html`<commit-stats
-								.added=${addedCount || undefined}
-								.modified=${modifiedCount || undefined}
-								.removed=${removedCount || undefined}
-								symbol="icons"
-								appearance="pill"
-							></commit-stats>`
-						: html`<span class="no-changes">No changes</span>`
+					? html`<gl-wip-stats
+							.added=${addedCount}
+							.modified=${modifiedCount}
+							.removed=${removedCount}
+							clean-state="text"
+						></gl-wip-stats>`
 					: nothing}
 			</div>
 			${!isModeActive
@@ -142,18 +139,12 @@ export class GlDetailsWipHeader extends LitElement {
 							</gl-tooltip>`
 						: nothing}
 					${isModeActive
-						? files.length > 0
-							? html`<commit-stats
-									.added=${addedCount || undefined}
-									.modified=${modifiedCount || undefined}
-									.removed=${removedCount || undefined}
-									symbol="icons"
-									appearance="pill"
-								></commit-stats>`
-							: html`<span class="wip-clean-pill" aria-label="No changes">
-									<code-icon icon="pass-filled"></code-icon>
-									<span>No changes</span>
-								</span>`
+						? html`<gl-wip-stats
+								.added=${addedCount}
+								.modified=${modifiedCount}
+								.removed=${removedCount}
+								clean-state="badge"
+							></gl-wip-stats>`
 						: nothing}
 					<gl-tracking-status
 						.branchName=${branchName}

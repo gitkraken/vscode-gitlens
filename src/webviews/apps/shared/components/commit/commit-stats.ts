@@ -69,7 +69,7 @@ export class CommitStats extends LitElement {
 			border-radius: 0.4rem;
 			padding: 0 0.8rem 0 0.6rem;
 			white-space: nowrap;
-			line-height: 1.5rem;
+			line-height: var(--commit-stats-pill-line-height, 1.5rem);
 		}
 
 		:host-context(.vscode-light):host([appearance='pill']),

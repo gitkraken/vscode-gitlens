@@ -166,45 +166,6 @@ export const detailsWipHeaderStyles = css`
 		opacity: 0.85;
 	}
 
-	.no-changes {
-		min-width: 0;
-		flex: 0 1 auto;
-		color: var(--color-foreground--50);
-		font-size: var(--gl-font-base);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	/* "All clean" pill — same chrome as commit-stats[appearance='pill'] (sit beside the branch
-	   identity in the metadata row when in compose/review), but carries a green-check + label
-	   instead of +/-/M counts. Mirrors commit-stats's geometry so the row layout stays stable. */
-	.wip-clean-pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		font-size: 1.1rem;
-		font-weight: 600;
-		line-height: 1.5rem;
-		padding: 0 0.8rem 0 0.6rem;
-		border-radius: 0.4rem;
-		background-color: color-mix(
-			in srgb,
-			var(--vscode-sideBarSectionHeader-background) 90%,
-			var(--vscode-foreground) 10%
-		);
-		border: 1px solid
-			color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 100%, var(--vscode-foreground) 70%);
-		white-space: nowrap;
-		color: var(--color-foreground--65);
-	}
-
-	.wip-clean-pill code-icon {
-		--code-icon-size: 1.1rem;
-		--code-icon-v-align: middle;
-		color: var(--vscode-charts-green, var(--vscode-foreground));
-	}
-
 	.graph-details-header__branch-link {
 		display: inline-flex;
 		align-items: center;

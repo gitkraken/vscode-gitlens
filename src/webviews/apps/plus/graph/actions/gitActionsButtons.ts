@@ -16,7 +16,7 @@ import { actionButton, linkBase } from '../styles/graph.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/code-icon.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/commit/wip-stats.js';
 import '../../../shared/components/menu/menu-divider.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
@@ -46,6 +46,7 @@ export class GitActionsButtons extends LitElement {
 				padding: 0;
 				background-color: transparent;
 				gap: 0;
+				--commit-stats-pill-line-height: 2.2rem;
 			}
 
 			.wip-button:hover {
@@ -54,10 +55,6 @@ export class GitActionsButtons extends LitElement {
 
 			gl-tooltip {
 				margin-left: 0.4rem;
-			}
-
-			commit-stats {
-				line-height: 2.2rem;
 			}
 		`,
 	];
@@ -115,21 +112,19 @@ export class GitActionsButtons extends LitElement {
 				.autoFetchMode=${this.state.config?.autoFetchMode ?? 'off'}
 				.autoFetchIntervalSeconds=${this.state.config?.autoFetchIntervalSeconds ?? 180}
 			></gl-fetch-button>
-			${this.hasWorkingChanges
-				? html`<gl-tooltip placement="bottom">
-							<a class="action-button wip-button" @click=${this.onJumpToWip}>
-								<code-icon class="action-button__icon" icon="gl-wip"></code-icon>
-								<commit-stats
-									added=${this.workingTreeStats!.added || undefined}
-									modified=${this.workingTreeStats!.modified || undefined}
-									removed=${this.workingTreeStats!.deleted || undefined}
-									symbol="icons"
-									appearance="pill"
-									no-tooltip
-								></commit-stats>
-							</a>
-							<span slot="content">
-								Jump to WIP
+			<gl-tooltip placement="bottom">
+				<a class="action-button wip-button" @click=${this.onJumpToWip}>
+					<code-icon class="action-button__icon" icon="gl-wip"></code-icon>
+					<gl-wip-stats
+						.added=${this.workingTreeStats?.added}
+						.modified=${this.workingTreeStats?.modified}
+						.removed=${this.workingTreeStats?.deleted}
+					></gl-wip-stats>
+				</a>
+				<span slot="content">
+					Jump to WIP
+					${this.hasWorkingChanges
+						? html`
 								<hr />
 								Working Changes
 								<br />
@@ -142,20 +137,23 @@ export class GitActionsButtons extends LitElement {
 								${this.workingTreeStats!.deleted
 									? html`${pluralize('file', this.workingTreeStats!.deleted)} deleted<br />`
 									: nothing}
-							</span>
-						</gl-tooltip>
-						<gl-tooltip placement="bottom">
-							<a
-								href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
-									repoPath: this.state.selectedRepository,
-								})}
-								class="action-button"
-								aria-label="Stash Changes..."
-							>
-								<code-icon class="action-button__icon" icon="gl-stash-save"></code-icon>
-							</a>
-							<span slot="content">Stash Changes...</span>
-						</gl-tooltip>`
+							`
+						: nothing}
+				</span>
+			</gl-tooltip>
+			${this.hasWorkingChanges
+				? html`<gl-tooltip placement="bottom">
+						<a
+							href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
+								repoPath: this.state.selectedRepository,
+							})}
+							class="action-button"
+							aria-label="Stash Changes..."
+						>
+							<code-icon class="action-button__icon" icon="gl-stash-save"></code-icon>
+						</a>
+						<span slot="content">Stash Changes...</span>
+					</gl-tooltip>`
 				: nothing}
 		`;
 	}
