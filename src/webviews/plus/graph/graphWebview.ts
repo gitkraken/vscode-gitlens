@@ -686,6 +686,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 		this._wipWatches.clear();
 		this._flushWipStaleDebounced?.cancel();
+		this._lastFetchedHandlerDebounced?.cancel();
 		this._pendingStaleShas.clear();
 		this._wipStatusCache.clear();
 		// Release any compose-tools library plans we still hold cache keys for — otherwise the
@@ -2953,11 +2954,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// FETCH_HEAD-only signal: refresh just the displayed fetch time, no need to rebuild
 		// the full state. Force re-arm the periodic interval so it picks up the fresh value
-		// (and starts running if there was no FETCH_HEAD before this fetch).
+		// (and starts running if there was no FETCH_HEAD before this fetch). Debounced because
+		// real-world startup logs showed 4 `lastFetched` events firing in a 350ms burst (FS watcher
+		// observing serial git internal writes to `.git/FETCH_HEAD`) — collapsing them into one
+		// downstream call avoids 4× the IPC + 4× re-arming of the periodic interval.
 		if (e.changed('lastFetched')) {
-			void this.notifyDidFetch();
-			void this.ensureLastFetchedSubscription(true);
-			void this.ensureAutoFetch();
+			this._lastFetchedHandlerDebounced ??= debounce(() => {
+				void this.notifyDidFetch();
+				void this.ensureLastFetchedSubscription(true);
+				void this.ensureAutoFetch();
+			}, 100);
+			this._lastFetchedHandlerDebounced();
 		}
 
 		// Drop stale refsMetadata.issue cache entries on any `config` event. In practice `.git/config`
@@ -4626,6 +4633,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphWebviewProvider['notifyDidChangeAvatars']> | undefined =
 		undefined;
+
+	// Debounced handler for repository `lastFetched` events. Coalesces 100ms bursts of FETCH_HEAD
+	// FS-watcher events that real-world git operations produce (`git fetch` writes the file in
+	// multiple steps, the watcher sees each one) into a single downstream refresh.
+	private _lastFetchedHandlerDebounced: Deferrable<() => void> | undefined = undefined;
 
 	@trace()
 	private updateAvatars(immediate: boolean = false) {
@@ -6608,6 +6620,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._pendingStateOp = undefined;
 		this._stateNotifyDirty = false;
 		this._lastSentBranchState = undefined;
+		this._lastFetchedHandlerDebounced?.cancel();
 		this._graphDetailsDiffCache.clear();
 		this.invalidateScopeAnchors();
 		if (this._stateFreshnessRetryTimer != null) {
