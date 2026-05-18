@@ -9,6 +9,8 @@ import {
 	formatAgentElapsed,
 	getAgentPhaseLabel,
 } from '../../../shared/agentUtils.js';
+import { renderRunningTool, shouldRenderRunningTool } from '../../../shared/components/agents/agent-status-render.js';
+import { agentPhaseElapsedStyles, agentToolStyles } from '../../../shared/components/agents/agent-status-styles.css.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import '../../../shared/components/agents/gl-agent-prompt-detail.js';
 import '../../../shared/components/chips/action-chip.js';
@@ -67,6 +69,8 @@ export class GlDetailsAgentStatus extends LitElement {
 	static override styles = [
 		elementBase,
 		metadataBarVarsBase,
+		agentToolStyles,
+		agentPhaseElapsedStyles,
 		css`
 			:host {
 				display: block;
@@ -346,12 +350,6 @@ export class GlDetailsAgentStatus extends LitElement {
 				font-weight: 600;
 			}
 
-			.section__hover-phase-elapsed {
-				text-transform: none;
-				letter-spacing: 0;
-				font-weight: normal;
-			}
-
 			.section__hover-detail {
 				grid-column: 2 / -1;
 				min-width: 0;
@@ -362,28 +360,10 @@ export class GlDetailsAgentStatus extends LitElement {
 				text-overflow: ellipsis;
 			}
 
-			/* Working tool variant of the hover-row detail — [tools icon] Bash(grep …). */
+			/* Hover-row tool detail places the shared .agent-tool composite into the row's
+			   second grid cell — visual styling lives in the shared agentToolStyles. */
 			.section__hover-tool {
 				grid-column: 2 / -1;
-				display: inline-flex;
-				align-items: baseline;
-				gap: 0.4rem;
-				min-width: 0;
-				font-size: 0.9em;
-				color: var(--vscode-descriptionForeground);
-			}
-
-			.section__hover-tool-icon {
-				flex: none;
-				transform: translateY(0.15em);
-			}
-
-			.section__hover-tool-text {
-				min-width: 0;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				font-family: var(--vscode-editor-font-family, monospace);
 			}
 
 			/* ---------- Card ----------
@@ -501,13 +481,6 @@ export class GlDetailsAgentStatus extends LitElement {
 				letter-spacing: 0.04em;
 			}
 
-			/* Elapsed time should not be uppercased — 55s reads as three fives otherwise.
-			   Phase label keeps the uppercase treatment for visual rhythm. */
-			.card__phase-elapsed {
-				text-transform: none;
-				letter-spacing: 0;
-			}
-
 			.card__phase--needs-input {
 				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
@@ -519,31 +492,6 @@ export class GlDetailsAgentStatus extends LitElement {
 				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
-			}
-
-			/* Working state — [tools icon] Bash(grep …). Icon stays fixed; the call text
-			   truncates with ellipsis. The icon replaces the prior "Running" word. */
-			.card__tool {
-				display: inline-flex;
-				align-items: baseline;
-				gap: 0.4rem;
-				min-width: 0;
-				max-width: 100%;
-				font-size: 0.9em;
-				color: var(--vscode-descriptionForeground);
-			}
-
-			.card__tool-icon {
-				flex: none;
-				transform: translateY(0.15em);
-			}
-
-			.card__tool-text {
-				min-width: 0;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				font-family: var(--vscode-editor-font-family, monospace);
 			}
 
 			.card__prompt {
@@ -694,9 +642,8 @@ export class GlDetailsAgentStatus extends LitElement {
 		const category = agentPhaseToCategory[session.phase];
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
-		const renderAsRunningTool =
-			category === 'working' && session.status === 'tool_use' && session.statusDetail != null;
-		const detail = renderAsRunningTool
+		const isRunningTool = shouldRenderRunningTool(session, category);
+		const detail = isRunningTool
 			? undefined
 			: describeAgentSession(session, category, elapsed, {
 					awaitingPrefix: 'short',
@@ -710,24 +657,27 @@ export class GlDetailsAgentStatus extends LitElement {
 					<span class="section__hover-name">${session.displayName}</span>
 				</gl-tooltip>
 				<span class=${`section__hover-phase section__hover-phase--${category}`}>
-					${phaseLabel}${elapsed != null
-						? html` · <span class="section__hover-phase-elapsed">${elapsed}</span>`
-						: ''}
+					${phaseLabel}${elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : ''}
 				</span>
-				${renderAsRunningTool
-					? html`<gl-tooltip content=${session.statusDetail} placement="bottom">
-							<span class="section__hover-tool">
-								<code-icon class="section__hover-tool-icon" icon="tools"></code-icon>
-								<span class="section__hover-tool-text">${session.statusDetail}</span>
-							</span>
-						</gl-tooltip>`
-					: detail
-						? html`<gl-tooltip content=${detail} placement="bottom">
-								<span class="section__hover-detail">${detail}</span>
-							</gl-tooltip>`
-						: nothing}
+				${this.renderHoverRowDetail(session, isRunningTool, detail)}
 			</div>
 		`;
+	}
+
+	private renderHoverRowDetail(
+		session: AgentSessionState,
+		isRunningTool: boolean,
+		detail: string | undefined,
+	): unknown {
+		if (isRunningTool) {
+			return html`<span class="section__hover-tool">${renderRunningTool(session.statusDetail)}</span>`;
+		}
+		if (detail) {
+			return html`<gl-tooltip content=${detail} placement="bottom">
+				<span class="section__hover-detail">${detail}</span>
+			</gl-tooltip>`;
+		}
+		return nothing;
 	}
 
 	private renderCard(session: AgentSessionState): unknown {
@@ -735,30 +685,14 @@ export class GlDetailsAgentStatus extends LitElement {
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const permission = session.pendingPermission;
 		const phaseLabel = getAgentPhaseLabel(category, permission);
-		// Needs-input with a pending permission renders via the shared `<gl-agent-prompt-detail>`
-		// composite — it handles the kind-specific block/caption/tooltip layout.
-		// Working + tool_use renders `[tools icon] <statusDetail>` so the visible signal is the
-		// tool itself (the rail's spinning sync already carries the state).
-		// Other phases keep the single-line describeAgentSession path in `card__detail`.
-		const renderAsPendingCall = category === 'needs-input' && permission != null;
-		const renderAsRunningTool =
-			category === 'working' && session.status === 'tool_use' && session.statusDetail != null;
-		const detailLine =
-			renderAsPendingCall || renderAsRunningTool
-				? undefined
-				: describeAgentSession(session, category, elapsed, {
-						awaitingPrefix: 'long',
-						idleFallback: 'none',
-					});
 		const phaseContent = html`${phaseLabel}${elapsed != null
-			? html` · <span class="card__phase-elapsed">${elapsed}</span>`
+			? html` · <span class="agent-phase-elapsed">${elapsed}</span>`
 			: nothing}`;
 		const phaseTooltip = elapsed != null ? `Last active ${elapsed} ago` : undefined;
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
-		// `isInWorkspace` was previously gated here, but it hides resolve actions for any session
-		// the host picked up via peer discovery (different workspace folder / worktree). Surface
-		// the buttons whenever a pending permission exists — the host's `resolvePermission`
-		// handler routes to the owning window or notifies if the route is unavailable.
+		// Resolve actions surface whenever a pending permission exists. Peer-discovered sessions
+		// (owned by another GitLens window) reach the host's `resolvePermission`, which surfaces
+		// a notification rather than silently no-opping when the route is unavailable.
 		const canResolve = category === 'needs-input' && permission != null;
 
 		return html`
@@ -782,20 +716,7 @@ export class GlDetailsAgentStatus extends LitElement {
 							href=${openHref}
 						></gl-action-chip>
 					</div>
-					${renderAsPendingCall
-						? html`<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>`
-						: renderAsRunningTool
-							? html`<gl-tooltip content=${session.statusDetail} placement="bottom">
-									<span class="card__tool">
-										<code-icon class="card__tool-icon" icon="tools"></code-icon>
-										<span class="card__tool-text">${session.statusDetail}</span>
-									</span>
-								</gl-tooltip>`
-							: detailLine
-								? html`<gl-tooltip content=${detailLine} placement="bottom">
-										<span class="card__detail">${detailLine}</span>
-									</gl-tooltip>`
-								: nothing}
+					${this.renderCardDetail(session, category, elapsed)}
 					${session.lastPrompt
 						? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
 								<span class="card__prompt">${session.lastPrompt}</span>
@@ -805,6 +726,35 @@ export class GlDetailsAgentStatus extends LitElement {
 				${canResolve ? html`<div class="card__actions">${this.renderCardActions(session)}</div>` : nothing}
 			</div>
 		`;
+	}
+
+	/** Detail block for the card body — three mutually exclusive shapes:
+	 *  - needs-input + permission → shared `<gl-agent-prompt-detail>` composite
+	 *  - working + tool_use → `[tools icon] <statusDetail>` running-tool composite
+	 *  - everything else → single-line `describeAgentSession` string in `card__detail`
+	 */
+	private renderCardDetail(
+		session: AgentSessionState,
+		category: AgentSessionCategory,
+		elapsed: string | undefined,
+	): unknown {
+		const permission = session.pendingPermission;
+		if (category === 'needs-input' && permission != null) {
+			return html`<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>`;
+		}
+		if (shouldRenderRunningTool(session, category)) {
+			return renderRunningTool(session.statusDetail);
+		}
+
+		const detailLine = describeAgentSession(session, category, elapsed, {
+			awaitingPrefix: 'long',
+			idleFallback: 'none',
+		});
+		if (!detailLine) return nothing;
+
+		return html`<gl-tooltip content=${detailLine} placement="bottom">
+			<span class="card__detail">${detailLine}</span>
+		</gl-tooltip>`;
 	}
 
 	/** Rail content for the card. needs-input gets a warning glyph; working gets a spinning sync —

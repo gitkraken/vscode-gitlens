@@ -11,6 +11,8 @@ import {
 	getAgentCategoryLabel,
 	getAgentPhaseLabel,
 } from '../../agentUtils.js';
+import { renderRunningTool, shouldRenderRunningTool } from '../agents/agent-status-render.js';
+import { agentPhaseElapsedStyles, agentToolStyles } from '../agents/agent-status-styles.css.js';
 import { elementBase, linkBase } from '../styles/lit/base.css.js';
 import '../actions/action-item.js';
 import '../actions/action-nav.js';
@@ -52,6 +54,8 @@ export class GlAgentStatusPill extends LitElement {
 	static override styles = [
 		elementBase,
 		linkBase,
+		agentToolStyles,
+		agentPhaseElapsedStyles,
 		css`
 			:host {
 				display: inline-block;
@@ -428,12 +432,6 @@ export class GlAgentStatusPill extends LitElement {
 				font-weight: 600;
 			}
 
-			.hover-summary-row__phase-elapsed {
-				text-transform: none;
-				letter-spacing: 0;
-				font-weight: normal;
-			}
-
 			.hover-summary-row__detail {
 				grid-column: 2 / -1;
 				min-width: 0;
@@ -444,28 +442,10 @@ export class GlAgentStatusPill extends LitElement {
 				text-overflow: ellipsis;
 			}
 
-			/* Working tool variant of the summary-row detail — [tools icon] Bash(grep …). */
+			/* Summary-row tool detail places the shared .agent-tool composite into the row's
+			   second grid cell — visual styling lives in the shared agentToolStyles. */
 			.hover-summary-row__tool {
 				grid-column: 2 / -1;
-				display: inline-flex;
-				align-items: baseline;
-				gap: 0.4rem;
-				min-width: 0;
-				font-size: 0.9em;
-				color: var(--vscode-descriptionForeground);
-			}
-
-			.hover-summary-row__tool-icon {
-				flex: none;
-				transform: translateY(0.15em);
-			}
-
-			.hover-summary-row__tool-text {
-				min-width: 0;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				font-family: var(--vscode-editor-font-family, monospace);
 			}
 		`,
 	];
@@ -559,9 +539,8 @@ export class GlAgentStatusPill extends LitElement {
 	private renderSummaryRow(session: AgentSessionState, category: AgentSessionCategory): unknown {
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
-		const renderAsRunningTool =
-			category === 'working' && session.status === 'tool_use' && session.statusDetail != null;
-		const detail = renderAsRunningTool
+		const isRunningTool = shouldRenderRunningTool(session, category);
+		const detail = isRunningTool
 			? undefined
 			: describeAgentSession(session, category, elapsed, {
 					awaitingPrefix: 'short',
@@ -575,24 +554,27 @@ export class GlAgentStatusPill extends LitElement {
 					<span class="hover-summary-row__name">${session.displayName}</span>
 				</gl-tooltip>
 				<span class=${`hover-summary-row__phase hover-summary-row__phase--${category}`}>
-					${phaseLabel}${elapsed != null
-						? html` · <span class="hover-summary-row__phase-elapsed">${elapsed}</span>`
-						: ''}
+					${phaseLabel}${elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : ''}
 				</span>
-				${renderAsRunningTool
-					? html`<gl-tooltip content=${session.statusDetail} placement="bottom">
-							<span class="hover-summary-row__tool">
-								<code-icon class="hover-summary-row__tool-icon" icon="tools"></code-icon>
-								<span class="hover-summary-row__tool-text">${session.statusDetail}</span>
-							</span>
-						</gl-tooltip>`
-					: detail
-						? html`<gl-tooltip content=${detail} placement="bottom">
-								<span class="hover-summary-row__detail">${detail}</span>
-							</gl-tooltip>`
-						: nothing}
+				${this.renderSummaryRowDetail(session, isRunningTool, detail)}
 			</div>
 		`;
+	}
+
+	private renderSummaryRowDetail(
+		session: AgentSessionState,
+		isRunningTool: boolean,
+		detail: string | undefined,
+	): unknown {
+		if (isRunningTool) {
+			return html`<span class="hover-summary-row__tool">${renderRunningTool(session.statusDetail)}</span>`;
+		}
+		if (detail) {
+			return html`<gl-tooltip content=${detail} placement="bottom">
+				<span class="hover-summary-row__detail">${detail}</span>
+			</gl-tooltip>`;
+		}
+		return nothing;
 	}
 
 	private renderHoverContent(
