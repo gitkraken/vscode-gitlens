@@ -4562,6 +4562,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const targetBranch = this._graph?.branches.get(targetName) ?? (await svc.branches.getBranch(targetName));
 		const mergeTargetTipSha = targetBranch?.sha;
 
+		// Bail when the resolved target tip is the same commit as the focal branch's tip —
+		// there's no real merge to anchor, so the merge-target concept doesn't apply. This
+		// happens for the default branch (the fallback chain has no other branch to land on
+		// and returns the focal branch itself) and for any feature branch transiently equal
+		// to its merge target. If we let it through, two things break: `mergeBase` collapses
+		// to the same sha and pins the visible window to a single row, and the GK component's
+		// `shouldHideWipRowForScope` treats that sha as a merge-target boundary and hides the
+		// WIP row of every worktree on the scoped branch. Returning undefined drops the
+		// merge-target overlay and lets the scope walk all ancestors of `branchRef` /
+		// `upstreamRef` as if no target was configured.
+		if (mergeTargetTipSha == null || mergeTargetTipSha === branch.sha) return undefined;
+
 		const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, targetName);
 		if (mergeBaseSha == null) return undefined;
 
