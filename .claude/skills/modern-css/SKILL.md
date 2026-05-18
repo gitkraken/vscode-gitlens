@@ -1,6 +1,6 @@
 ---
 name: modern-css
-description: Use when touching any CSS — new files, edits, audits, refactors, `<style>` blocks, CSS-in-JS, Tailwind config, design-token files, or reviewing CSS a teammate wrote. Applies to vanilla CSS, shadow DOM internals, web-component consumers, VS Code webviews, and framework-scoped styles. Skip signals — file imports `openai`/other non-CSS SDK, `.py`/`.go`/`.rs` files without embedded styles. Skipping when applicable ships miscalibrated output — wrong browser target, hardcoded values where tokens exist, cascade fights fixed with `!important`, shadow-DOM piercing selectors, viewport queries for component-internal layout, `transform: translateZ(0)` for layer promotion — that passes local checks but breaks in production browsers, themes, or shadow roots.
+description: "Guide CSS authoring, review, and auditing with context-aware detection of browser targets, token systems, and shadow DOM boundaries. Use when touching any CSS — new files, edits, audits, refactors, style blocks, CSS-in-JS, Tailwind config, design-token files, or reviewing CSS a teammate wrote. Applies to vanilla CSS, shadow DOM internals, web-component consumers, VS Code webviews, and framework-scoped styles. Skip when file imports non-CSS SDKs or targets non-web languages without embedded styles."
 ---
 
 # Modern CSS
