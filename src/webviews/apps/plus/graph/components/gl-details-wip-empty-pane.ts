@@ -137,6 +137,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				case 'mergeable': {
 					const total = summary.mergeable?.total ?? 0;
 					if (total === 0) continue;
+
 					items.push(
 						html`<li class="launchpad-item launchpad-item--mergeable">
 							<code-icon class="launchpad-item__icon" icon="rocket"></code-icon>
@@ -148,6 +149,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				case 'blocked': {
 					const total = summary.blocked?.total ?? 0;
 					if (total === 0) continue;
+
 					items.push(
 						html`<li class="launchpad-item launchpad-item--blocked">
 							<code-icon class="launchpad-item__icon" icon="error"></code-icon>
@@ -159,6 +161,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				case 'follow-up': {
 					const total = summary.followUp?.total ?? 0;
 					if (total === 0) continue;
+
 					items.push(
 						html`<li class="launchpad-item launchpad-item--attention">
 							<code-icon class="launchpad-item__icon" icon="report"></code-icon>
@@ -170,6 +173,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				case 'needs-review': {
 					const total = summary.needsReview?.total ?? 0;
 					if (total === 0) continue;
+
 					items.push(
 						html`<li class="launchpad-item launchpad-item--attention">
 							<code-icon class="launchpad-item__icon" icon="comment-unresolved"></code-icon>
@@ -214,9 +218,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				actionLabel: 'Pull',
 				event: 'pull',
 			});
-		}
-
-		if (ahead > 0) {
+		} else if (ahead > 0) {
 			steps.push({
 				icon: 'repo-push',
 				label: `Push ${pluralize('commit', ahead)} to ${remoteName}`,
