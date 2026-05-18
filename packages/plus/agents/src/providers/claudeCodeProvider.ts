@@ -8,8 +8,11 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { truncate } from '@gitlens/utils/string.js';
 import {
+	classifyPermissionKind,
 	deriveStatusFromEvent,
 	describeToolInput,
+	extractPlanSummary,
+	extractQuestionDetails,
 	getToolFilePath,
 	isProcessAlive,
 	rehydrateSubagents,
@@ -22,6 +25,7 @@ import type {
 	AgentSessionStatus,
 	ClaudeCodeHookEvent,
 	PendingPermission,
+	PendingPermissionKind,
 	PermissionDecision,
 	PermissionSuggestion,
 } from '../types.js';
@@ -452,16 +456,25 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount++;
 				const filesChanged = this.trackToolUseFile(event.sessionId, event);
+				// Resolve a rich `Bash(grep …)`-style detail via the same tool_input passthrough the
+				// PermissionRequest handler uses, so working sessions surface what their tool is
+				// actually doing — not just the bare tool name. Falls back to bare name when no
+				// toolInput is available (older CLI / unhandled tool).
+				const hookInput = event.hookInput;
+				const toolInput = (hookInput?.tool_input as Record<string, unknown> | undefined) ?? event.toolInput;
+				const toolName = (hookInput?.tool_name as string | undefined) ?? event.toolName ?? '';
+				const statusDetail =
+					toolInput != null && toolName ? describeToolInput(toolName, toolInput) : toolName || undefined;
 				// Capture pre-update status so we can tell whether the upcoming updateSessionStatus
 				// will fire on its own — needed to avoid dropping currentFiles changes when the
 				// session is already in tool_use (back-to-back tool calls).
 				const sessionIndex = this._sessions.findIndex(s => s.id === event.sessionId);
 				const prevStatus = sessionIndex >= 0 ? this._sessions[sessionIndex].status : undefined;
 				const prevDetail = sessionIndex >= 0 ? this._sessions[sessionIndex].statusDetail : undefined;
-				const statusWillFire = prevStatus !== 'tool_use' || prevDetail !== event.toolName;
+				const statusWillFire = prevStatus !== 'tool_use' || prevDetail !== statusDetail;
 				this.updateSessionStatus(event.sessionId, 'tool_use', {
 					...eventContext,
-					statusDetail: event.toolName,
+					statusDetail: statusDetail,
 				});
 				if (filesChanged && !statusWillFire) {
 					this._onDidChangeSessions.fire();
@@ -541,6 +554,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					const toolName = (hookInput?.tool_name as string | undefined) ?? event.toolName ?? '';
 					const toolDescription = describeToolInput(toolName, toolInput);
 					const toolInputDescription = (toolInput.description as string | undefined) || undefined;
+					const kind: PendingPermissionKind = classifyPermissionKind(toolName);
 
 					return new Promise<PermissionResponse>((resolve, reject) => {
 						const existing = this._pendingPermissions.get(event.sessionId);
@@ -563,13 +577,27 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							toolDescription: toolDescription,
 						});
 
+						// Plan-kind body: prefer the existing session's planFile (set via SessionStart/
+						// PostToolUse) and fall back to the event's planFile for cold-start cases.
+						const planFilePath =
+							kind === 'plan'
+								? (this._sessions.find(s => s.id === event.sessionId)?.planFile ?? event.planFile)
+								: undefined;
+						const planSummary = kind === 'plan' ? extractPlanSummary(toolInput) : undefined;
+						const questionDetails = kind === 'question' ? extractQuestionDetails(toolInput) : undefined;
+
 						const permission: PendingPermission = {
+							kind: kind,
 							toolName: toolName,
 							toolDescription: toolDescription,
 							toolInputDescription: toolInputDescription,
 							suggestions:
 								(hookInput?.permission_suggestions as PermissionSuggestion[] | undefined) ??
 								event.permissionSuggestions,
+							planFilePath: planFilePath,
+							planSummary: planSummary,
+							questionText: questionDetails?.text,
+							questionCount: questionDetails?.count,
 						};
 						this.updateSessionWithPermission(event.sessionId, permission, event.pid);
 					});
@@ -598,6 +626,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			case 'Elicitation': {
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.pendingPermission = {
+					kind: 'elicitation',
 					toolName: event.toolName ?? 'Input Required',
 					toolDescription: event.toolName ?? 'Waiting for input',
 				};

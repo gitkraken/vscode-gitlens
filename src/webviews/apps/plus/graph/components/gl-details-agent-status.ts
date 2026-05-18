@@ -7,9 +7,10 @@ import {
 	agentPhaseToCategory,
 	describeAgentSession,
 	formatAgentElapsed,
-	getAgentCategoryLabel,
+	getAgentPhaseLabel,
 } from '../../../shared/agentUtils.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
+import '../../../shared/components/agents/gl-agent-prompt-detail.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/button.js';
@@ -345,6 +346,12 @@ export class GlDetailsAgentStatus extends LitElement {
 				font-weight: 600;
 			}
 
+			.section__hover-phase-elapsed {
+				text-transform: none;
+				letter-spacing: 0;
+				font-weight: normal;
+			}
+
 			.section__hover-detail {
 				grid-column: 2 / -1;
 				min-width: 0;
@@ -353,6 +360,30 @@ export class GlDetailsAgentStatus extends LitElement {
 				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+			}
+
+			/* Working tool variant of the hover-row detail — [tools icon] Bash(grep …). */
+			.section__hover-tool {
+				grid-column: 2 / -1;
+				display: inline-flex;
+				align-items: baseline;
+				gap: 0.4rem;
+				min-width: 0;
+				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.section__hover-tool-icon {
+				flex: none;
+				transform: translateY(0.15em);
+			}
+
+			.section__hover-tool-text {
+				min-width: 0;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				font-family: var(--vscode-editor-font-family, monospace);
 			}
 
 			/* ---------- Card ----------
@@ -470,6 +501,13 @@ export class GlDetailsAgentStatus extends LitElement {
 				letter-spacing: 0.04em;
 			}
 
+			/* Elapsed time should not be uppercased — 55s reads as three fives otherwise.
+			   Phase label keeps the uppercase treatment for visual rhythm. */
+			.card__phase-elapsed {
+				text-transform: none;
+				letter-spacing: 0;
+			}
+
 			.card__phase--needs-input {
 				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
@@ -483,18 +521,29 @@ export class GlDetailsAgentStatus extends LitElement {
 				text-overflow: ellipsis;
 			}
 
-			.card__call {
-				font-family: var(--vscode-editor-font-family, monospace);
-				font-size: 0.85em;
-				background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-				border-radius: 0.3rem;
-				padding: 0.3rem 0.5rem;
-				word-break: break-all;
-				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
+			/* Working state — [tools icon] Bash(grep …). Icon stays fixed; the call text
+			   truncates with ellipsis. The icon replaces the prior "Running" word. */
+			.card__tool {
+				display: inline-flex;
+				align-items: baseline;
+				gap: 0.4rem;
+				min-width: 0;
+				max-width: 100%;
+				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.card__tool-icon {
+				flex: none;
+				transform: translateY(0.15em);
+			}
+
+			.card__tool-text {
+				min-width: 0;
+				white-space: nowrap;
 				overflow: hidden;
-				margin-top: 0.2rem;
+				text-overflow: ellipsis;
+				font-family: var(--vscode-editor-font-family, monospace);
 			}
 
 			.card__prompt {
@@ -644,20 +693,39 @@ export class GlDetailsAgentStatus extends LitElement {
 	private renderHoverRow(session: AgentSessionState): unknown {
 		const category = agentPhaseToCategory[session.phase];
 		const elapsed = formatAgentElapsed(session.phaseSince);
-		const phaseLabel = getAgentCategoryLabel(category);
-		const detail = describeAgentSession(session, category, elapsed, {
-			awaitingPrefix: 'short',
-			idleFallback: 'lastPrompt',
-		});
+		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
+		const renderAsRunningTool =
+			category === 'working' && session.status === 'tool_use' && session.statusDetail != null;
+		const detail = renderAsRunningTool
+			? undefined
+			: describeAgentSession(session, category, elapsed, {
+					awaitingPrefix: 'short',
+					idleFallback: 'lastPrompt',
+				});
 
 		return html`
 			<div class="section__hover-row">
 				<span class=${`section__hover-dot section__hover-dot--${category}`}></span>
-				<span class="section__hover-name" title=${session.displayName}>${session.displayName}</span>
+				<gl-tooltip content=${session.displayName} placement="bottom">
+					<span class="section__hover-name">${session.displayName}</span>
+				</gl-tooltip>
 				<span class=${`section__hover-phase section__hover-phase--${category}`}>
-					${phaseLabel}${elapsed != null ? ` · ${elapsed}` : ''}
+					${phaseLabel}${elapsed != null
+						? html` · <span class="section__hover-phase-elapsed">${elapsed}</span>`
+						: ''}
 				</span>
-				${detail ? html`<span class="section__hover-detail" title=${detail}>${detail}</span>` : nothing}
+				${renderAsRunningTool
+					? html`<gl-tooltip content=${session.statusDetail} placement="bottom">
+							<span class="section__hover-tool">
+								<code-icon class="section__hover-tool-icon" icon="tools"></code-icon>
+								<span class="section__hover-tool-text">${session.statusDetail}</span>
+							</span>
+						</gl-tooltip>`
+					: detail
+						? html`<gl-tooltip content=${detail} placement="bottom">
+								<span class="section__hover-detail">${detail}</span>
+							</gl-tooltip>`
+						: nothing}
 			</div>
 		`;
 	}
@@ -665,23 +733,33 @@ export class GlDetailsAgentStatus extends LitElement {
 	private renderCard(session: AgentSessionState): unknown {
 		const category = agentPhaseToCategory[session.phase];
 		const elapsed = formatAgentElapsed(session.phaseSince);
-		const phaseLabel = getAgentCategoryLabel(category);
 		const permission = session.pendingPermission;
-		// Needs-input with a pending permission gets a structured two-part detail: the plain
-		// "Awaiting permission: <tool>" prefix line + a monospace code-block holding the actual
-		// `toolDescription` call. All other phases use the single-line describeAgentSession path.
+		const phaseLabel = getAgentPhaseLabel(category, permission);
+		// Needs-input with a pending permission renders via the shared `<gl-agent-prompt-detail>`
+		// composite — it handles the kind-specific block/caption/tooltip layout.
+		// Working + tool_use renders `[tools icon] <statusDetail>` so the visible signal is the
+		// tool itself (the rail's spinning sync already carries the state).
+		// Other phases keep the single-line describeAgentSession path in `card__detail`.
 		const renderAsPendingCall = category === 'needs-input' && permission != null;
-		const detailLine = renderAsPendingCall
-			? `Awaiting permission: ${permission.toolName ?? ''}`
-			: describeAgentSession(session, category, elapsed, {
-					awaitingPrefix: 'long',
-					idleFallback: 'none',
-				});
-		const callLine = renderAsPendingCall ? permission.toolDescription : undefined;
-		const phaseContent = html`${phaseLabel}${elapsed != null ? html` · ${elapsed}` : nothing}`;
+		const renderAsRunningTool =
+			category === 'working' && session.status === 'tool_use' && session.statusDetail != null;
+		const detailLine =
+			renderAsPendingCall || renderAsRunningTool
+				? undefined
+				: describeAgentSession(session, category, elapsed, {
+						awaitingPrefix: 'long',
+						idleFallback: 'none',
+					});
+		const phaseContent = html`${phaseLabel}${elapsed != null
+			? html` · <span class="card__phase-elapsed">${elapsed}</span>`
+			: nothing}`;
 		const phaseTooltip = elapsed != null ? `Last active ${elapsed} ago` : undefined;
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
-		const canResolve = category === 'needs-input' && session.isInWorkspace && permission != null;
+		// `isInWorkspace` was previously gated here, but it hides resolve actions for any session
+		// the host picked up via peer discovery (different workspace folder / worktree). Surface
+		// the buttons whenever a pending permission exists — the host's `resolvePermission`
+		// handler routes to the owning window or notifies if the route is unavailable.
+		const canResolve = category === 'needs-input' && permission != null;
 
 		return html`
 			<div class=${`card card--${category}`}>
@@ -704,18 +782,20 @@ export class GlDetailsAgentStatus extends LitElement {
 							href=${openHref}
 						></gl-action-chip>
 					</div>
-					${detailLine
-						? renderAsPendingCall
-							? html`<span class="card__detail">${detailLine}</span>`
-							: html`<gl-tooltip content=${detailLine} placement="bottom">
-									<span class="card__detail">${detailLine}</span>
+					${renderAsPendingCall
+						? html`<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>`
+						: renderAsRunningTool
+							? html`<gl-tooltip content=${session.statusDetail} placement="bottom">
+									<span class="card__tool">
+										<code-icon class="card__tool-icon" icon="tools"></code-icon>
+										<span class="card__tool-text">${session.statusDetail}</span>
+									</span>
 								</gl-tooltip>`
-						: nothing}
-					${callLine
-						? html`<gl-tooltip content=${callLine} placement="bottom">
-								<div class="card__call">${callLine}</div>
-							</gl-tooltip>`
-						: nothing}
+							: detailLine
+								? html`<gl-tooltip content=${detailLine} placement="bottom">
+										<span class="card__detail">${detailLine}</span>
+									</gl-tooltip>`
+								: nothing}
 					${session.lastPrompt
 						? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
 								<span class="card__prompt">${session.lastPrompt}</span>
@@ -755,7 +835,10 @@ export class GlDetailsAgentStatus extends LitElement {
 			sessionId: session.id,
 			decision: 'deny' as const,
 		});
-		const showAlwaysAllow = permission.suggestions != null && permission.suggestions.length > 0;
+		// Always-Allow only applies to regular tool permissions — plan / question / elicitation
+		// have no recurring rule to install.
+		const showAlwaysAllow =
+			permission.kind === 'tool' && permission.suggestions != null && permission.suggestions.length > 0;
 		const alwaysAllowHref = showAlwaysAllow
 			? createCommandLink('gitlens.agents.resolvePermission', {
 					sessionId: session.id,
@@ -763,11 +846,15 @@ export class GlDetailsAgentStatus extends LitElement {
 					alwaysAllow: true,
 				})
 			: undefined;
+		const allowLabel = permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
+		const denyLabel = permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
 
+		// View Plan / Copy Plan affordances live in the prompt-detail composite (as chips in the
+		// caption row), so they don't get duplicated here. This row carries only resolution actions.
 		return html`
 			<gl-button density="compact" href=${allowHref}>
 				<code-icon icon="check" slot="prefix"></code-icon>
-				Allow
+				${allowLabel}
 			</gl-button>
 			${showAlwaysAllow && alwaysAllowHref != null
 				? html`<gl-button appearance="secondary" density="compact" href=${alwaysAllowHref}>
@@ -777,7 +864,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				: nothing}
 			<gl-button appearance="secondary" density="compact" href=${denyHref}>
 				<code-icon icon="x" slot="prefix"></code-icon>
-				Deny
+				${denyLabel}
 			</gl-button>
 		`;
 	}

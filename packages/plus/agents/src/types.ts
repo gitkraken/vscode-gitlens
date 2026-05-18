@@ -78,11 +78,29 @@ export interface PermissionSuggestion {
 	readonly destination?: string;
 }
 
+/** Classification of what the agent is awaiting input for. Drives kind-aware UI: action button
+ *  labels, phase wording, and which payload field carries the body. Detected at the provider
+ *  boundary from the tool name / event so webviews don't grow their own classifiers.
+ *  - `tool`: a regular tool permission (Bash, Edit, Read, …) — body is `toolDescription`.
+ *  - `plan`: ExitPlanMode — body is `planSummary`; `planFilePath` may link the written plan.
+ *  - `question`: AskUserQuestion — body is `questionText`; `questionCount` describes the batch.
+ *  - `elicitation`: MCP elicitation — body is just `toolName`; user must respond in-session. */
+export type PendingPermissionKind = 'tool' | 'plan' | 'question' | 'elicitation';
+
 export interface PendingPermission {
+	readonly kind: PendingPermissionKind;
 	readonly toolName: string;
 	readonly toolDescription: string;
 	readonly toolInputDescription?: string;
 	readonly suggestions?: readonly PermissionSuggestion[];
+	/** Plan-mode (`kind === 'plan'`): on-disk path of the plan markdown, when the agent wrote one. */
+	readonly planFilePath?: string;
+	/** Plan-mode: short summary extracted from the plan content (first heading or leading sentence). */
+	readonly planSummary?: string;
+	/** Question-mode (`kind === 'question'`): the leading question text. */
+	readonly questionText?: string;
+	/** Question-mode: total number of questions in the batch. */
+	readonly questionCount?: number;
 }
 
 export interface AgentSession {

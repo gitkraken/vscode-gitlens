@@ -1,5 +1,9 @@
 import { kill } from 'process';
-import type { AgentSession, AgentSessionStatus } from './types.js';
+import type { AgentSession, AgentSessionStatus, PendingPermissionKind } from './types.js';
+
+/** Cap for derived plan / question summaries — short enough to clamp into a card row without
+ *  truncation eating the leading content, long enough to convey what the prompt is about. */
+const summaryMaxLength = 120;
 
 export function deriveStatusFromEvent(event: string): AgentSessionStatus {
 	switch (event) {
@@ -84,9 +88,69 @@ export function describeToolInput(toolName: string, toolInput: Record<string, un
 		case 'NotebookEdit':
 			detail = toolInput.notebook_path as string | undefined;
 			break;
+		case 'ExitPlanMode':
+			detail = extractPlanSummary(toolInput);
+			break;
+		case 'AskUserQuestion':
+			detail = extractQuestionDetails(toolInput)?.text;
+			break;
 	}
 
 	return detail != null ? `${toolName}(${detail})` : toolName;
+}
+
+/** Maps a Claude Code tool name to its UX-relevant prompt kind. `ExitPlanMode` and
+ *  `AskUserQuestion` are the two tools whose semantics differ from a regular permission
+ *  request — everything else falls through to the generic tool kind. */
+export function classifyPermissionKind(toolName: string): PendingPermissionKind {
+	switch (toolName) {
+		case 'ExitPlanMode':
+			return 'plan';
+		case 'AskUserQuestion':
+			return 'question';
+		default:
+			return 'tool';
+	}
+}
+
+/** Extracts a short, scannable summary from an ExitPlanMode plan body. Prefers the first
+ *  Markdown heading (stripped of leading `#`s) so the plan's title surfaces; falls back to
+ *  the first non-empty line. Capped at {@link summaryMaxLength} with an ellipsis. */
+export function extractPlanSummary(toolInput: Record<string, unknown>): string | undefined {
+	const plan = toolInput.plan as string | undefined;
+	if (!plan) return undefined;
+
+	const lines = plan.split(/\r?\n/);
+	let summary: string | undefined;
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+
+		if (trimmed.startsWith('#')) {
+			summary = trimmed.replace(/^#+\s*/, '').trim();
+		} else {
+			summary ??= trimmed;
+		}
+		if (summary) break;
+	}
+	if (!summary) return undefined;
+
+	return summary.length > summaryMaxLength ? `${summary.slice(0, summaryMaxLength).trimEnd()}…` : summary;
+}
+
+/** Extracts the leading question text + total question count from an AskUserQuestion call.
+ *  Returns undefined if the input doesn't carry a recognisable `questions` array. */
+export function extractQuestionDetails(
+	toolInput: Record<string, unknown>,
+): { text: string; count: number } | undefined {
+	const questions = toolInput.questions as ReadonlyArray<Record<string, unknown>> | undefined;
+	if (!Array.isArray(questions) || questions.length === 0) return undefined;
+
+	const first = questions[0]?.question;
+	if (typeof first !== 'string' || !first.trim()) return undefined;
+
+	const text = first.length > summaryMaxLength ? `${first.slice(0, summaryMaxLength).trimEnd()}…` : first;
+	return { text: text, count: questions.length };
 }
 
 /** Returns the file path a file-mutating tool is targeting, or `undefined` for non-mutating /

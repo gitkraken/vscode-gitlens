@@ -5,7 +5,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
-import { agentPhaseToCategory, formatAgentElapsed, getAgentCategoryLabel } from '../../../shared/agentUtils.js';
+import { agentPhaseToCategory, formatAgentElapsed, getAgentPhaseLabel } from '../../../shared/agentUtils.js';
+import '../../../shared/components/agents/gl-agent-prompt-detail.js';
 import '../../../shared/components/code-icon.js';
 import { graphStateContext } from '../context.js';
 
@@ -150,24 +151,6 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		.section--needs-input > code-icon {
 			color: var(--gl-agent-waiting-color);
 		}
-
-		.tool-input {
-			margin-top: 0.4rem;
-			padding: 0.6rem 0.8rem;
-			background: var(--vscode-textBlockQuote-background, var(--vscode-editor-background));
-			border-left: 0.2rem solid var(--vscode-textBlockQuote-border, var(--vscode-focusBorder));
-			font-family: var(--vscode-editor-font-family);
-			font-size: 0.95em;
-			white-space: pre-wrap;
-			overflow-wrap: anywhere;
-		}
-
-		.tool-name {
-			font-family: var(--vscode-editor-font-family);
-			padding: 0 0.3rem;
-			background: var(--vscode-textCodeBlock-background, transparent);
-			border-radius: 0.3rem;
-		}
 	`;
 
 	@consume({ context: graphStateContext, subscribe: true })
@@ -181,7 +164,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		if (session == null) return nothing;
 
 		const category = agentPhaseToCategory[session.phase];
-		const phaseLabel = getAgentCategoryLabel(category);
+		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const phaseIcon = category === 'needs-input' ? 'warning' : category === 'working' ? 'sync' : 'circle-filled';
 
@@ -265,14 +248,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 				<div class="section section--needs-input">
 					<code-icon icon="warning"></code-icon>
 					<div class="section__content">
-						<div>
-							<span class="tool-name">${permission.toolName}</span>${permission.toolDescription
-								? html` — ${permission.toolDescription}`
-								: nothing}
-						</div>
-						${permission.toolInputDescription
-							? html`<div class="tool-input">${permission.toolInputDescription}</div>`
-							: nothing}
+						<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>
 					</div>
 				</div>
 			`);

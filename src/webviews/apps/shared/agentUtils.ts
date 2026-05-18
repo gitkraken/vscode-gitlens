@@ -27,6 +27,29 @@ export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 	}
 }
 
+/** Kind-aware label for a needs-input phase. Surfaces "Plan ready" / "Question" / "Input needed"
+ *  / "Permission" on chips, card phase labels, and status pills so the user can tell at a glance
+ *  whether they need to read a plan, answer a question, or just allow a tool call. Falls back to
+ *  the generic category label when no permission payload is available (cold-state needs-input). */
+export function getAgentPhaseLabel(
+	category: AgentSessionCategory,
+	permission: AgentSessionState['pendingPermission'] | undefined,
+): string {
+	if (category !== 'needs-input' || permission == null) return getAgentCategoryLabel(category);
+
+	switch (permission.kind) {
+		case 'plan':
+			return 'Plan ready';
+		case 'question':
+			return 'Question';
+		case 'elicitation':
+			return 'Input needed';
+		case 'tool':
+		default:
+			return 'Permission';
+	}
+}
+
 /** "Last active …" granularity helper used by the graph details panel and the graph agents
  *  sidebar panel — short-and-stable formatting (no seconds past 1 minute). Accepts either a
  *  `Date` (the wire-shape's `phaseSince`/`lastActivity` fields) or a numeric timestamp. The
@@ -47,8 +70,8 @@ export function formatAgentElapsed(value: Date | number | undefined): string | u
 }
 
 /** Per-session "what is it doing" line. Mirrors the contract used by the graph details panel:
- *  needs-input → awaiting tool; working tool_use → current tool; otherwise last-active timestamp
- *  or the most-recent prompt. */
+ *  needs-input → kind-aware leading line (permission / plan / question / elicitation);
+ *  working tool_use → current tool; otherwise last-active timestamp or the most-recent prompt. */
 export function describeAgentSession(
 	session: AgentSessionState,
 	category: AgentSessionCategory,
@@ -60,17 +83,48 @@ export function describeAgentSession(
 	const permission = session.pendingPermission;
 
 	if (category === 'needs-input' && permission != null) {
-		if (permission.toolName == null) return 'Awaiting permission';
-
-		const prefix = awaitingPrefix === 'long' ? 'Awaiting permission:' : 'Awaiting:';
-		return `${prefix} ${permission.toolName}${permission.toolDescription ? ` — ${permission.toolDescription}` : ''}`;
+		return describePendingPermission(permission, awaitingPrefix);
 	}
 	if (category === 'working' && session.status === 'tool_use' && session.statusDetail) {
-		return `Running ${session.statusDetail}`;
+		// Surfaces that can render an icon prefix the value with `<code-icon icon="tools">` —
+		// plain-text consumers (sidebar leaf description) read this as just the call signature,
+		// with the adjacent phase decoration ("Working · 7m") carrying the state context.
+		return session.statusDetail;
 	}
 	if (idleFallback === 'none') return undefined;
 	if (idleFallback === 'lastActive' && elapsed != null) return `Last active ${elapsed} ago`;
 	return session.lastPrompt || undefined;
+}
+
+/** Single-line summary for any pending-permission kind. Plan / question / elicitation get
+ *  readable leading text instead of the bare tool name `ExitPlanMode` / `AskUserQuestion` /
+ *  whatever the elicitation toolName is. Used by row-density surfaces (popover hover row, pill
+ *  summary row) where the full {@link GlAgentPromptDetail} composite would be too heavy. */
+function describePendingPermission(
+	permission: NonNullable<AgentSessionState['pendingPermission']>,
+	awaitingPrefix: 'long' | 'short',
+): string {
+	switch (permission.kind) {
+		case 'plan':
+			return permission.planSummary
+				? `${awaitingPrefix === 'long' ? 'Plan ready:' : 'Plan:'} ${permission.planSummary}`
+				: 'Plan ready for review';
+		case 'question': {
+			const text = permission.questionText ?? 'Awaiting your answer';
+			const count = permission.questionCount ?? 0;
+			if (count > 1) return `${awaitingPrefix === 'long' ? 'Question:' : 'Q:'} ${text} (1 of ${count})`;
+			return `${awaitingPrefix === 'long' ? 'Question:' : 'Q:'} ${text}`;
+		}
+		case 'elicitation':
+			return permission.toolName ? `Awaiting input: ${permission.toolName}` : 'Awaiting input';
+		case 'tool':
+		default: {
+			if (!permission.toolName) return 'Awaiting permission';
+
+			const prefix = awaitingPrefix === 'long' ? 'Awaiting permission:' : 'Awaiting:';
+			return `${prefix} ${permission.toolName}${permission.toolDescription ? ` — ${permission.toolDescription}` : ''}`;
+		}
+	}
 }
 
 /** Canonical sort order for agent sessions across every UI surface. Category-actionability first

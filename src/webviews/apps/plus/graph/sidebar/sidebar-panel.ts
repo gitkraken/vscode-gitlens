@@ -30,7 +30,7 @@ import {
 	agentPhaseToCategory,
 	describeAgentSession,
 	formatAgentElapsed,
-	getAgentCategoryLabel,
+	getAgentPhaseLabel,
 } from '../../../shared/agentUtils.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type {
@@ -837,7 +837,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private toAgentLeaf(session: AgentSessionState, anchor: { wipSha?: string; scope?: SidebarItemScope }): LeafProps {
 		const category = agentPhaseToCategory[session.phase];
 		const elapsed = formatAgentElapsed(session.phaseSince);
-		const phaseLabel = getAgentCategoryLabel(category);
+		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		// Description = last prompt; otherwise the describeSession line for needs-input / working
 		// (`Awaiting: tool` / `Running tool`). The "Last active …" fallback is intentionally
 		// excluded — elapsed time already shows up on the phase decoration, no need to repeat it.
@@ -855,14 +855,22 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const scope = anchor.scope;
 
 		const permission = session.pendingPermission;
-		const canResolve = category === 'needs-input' && session.isInWorkspace && permission != null;
-		const showAlwaysAllow = canResolve && permission.suggestions != null && permission.suggestions.length > 0;
+		const canResolve = category === 'needs-input' && permission != null;
+		// Always-Allow is meaningful only for regular tool permissions — plan / question /
+		// elicitation have no recurring rule to persist.
+		const showAlwaysAllow =
+			canResolve &&
+			permission.kind === 'tool' &&
+			permission.suggestions != null &&
+			permission.suggestions.length > 0;
+		const allowLabel = canResolve && permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
+		const denyLabel = canResolve && permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
 
 		const actions: TreeItemAction[] = [];
 		if (canResolve) {
 			actions.push({
 				icon: 'check',
-				label: 'Allow',
+				label: allowLabel,
 				action: 'gitlens.agents.resolvePermission',
 				arguments: [{ sessionId: session.id, decision: 'allow' as const }],
 				...(showAlwaysAllow
@@ -876,9 +884,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			});
 			actions.push({
 				icon: 'x',
-				label: 'Deny',
+				label: denyLabel,
 				action: 'gitlens.agents.resolvePermission',
 				arguments: [{ sessionId: session.id, decision: 'deny' as const }],
+			});
+		}
+		if (canResolve && permission.kind === 'plan' && permission.planFilePath != null) {
+			actions.push({
+				icon: 'tasklist',
+				label: 'View Plan',
+				action: 'gitlens.agents.openPlanFile',
+				arguments: [permission.planFilePath],
 			});
 		}
 		actions.push({

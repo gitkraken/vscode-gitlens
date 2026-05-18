@@ -309,9 +309,10 @@ export class AgentStatusService implements Disposable {
 		for (const provider of this._providers) {
 			const session = provider.sessions.find(s => s.id === sessionId);
 			if (session != null) {
-				// Sessions outside this workspace are owned by another GitLens instance; let it resolve them.
-				if (!session.isInWorkspace) return;
-
+				// Always try — peer-discovered sessions (different workspace folder / worktree)
+				// won't have a local IPC entry, so the provider's resolvePermission will silently
+				// no-op. That's fine: the alternative of hiding buttons makes plan/permission
+				// approval feel broken when the agent is in a sibling worktree.
 				provider.resolvePermission?.(sessionId, decision, updatedPermissions);
 				return;
 			}
@@ -347,6 +348,18 @@ export class AgentStatusService implements Disposable {
 				}
 			}),
 			registerCommand('gitlens.agents.openSession', (sessionId?: string) => this.openSession(sessionId)),
+			registerCommand('gitlens.agents.openPlanFile', async (planFilePath?: string) => {
+				if (!planFilePath) return;
+
+				try {
+					await commands.executeCommand('vscode.open', Uri.file(planFilePath));
+				} catch (ex) {
+					Logger.error(ex, 'AgentStatusService.openPlanFile');
+					void window.showErrorMessage(
+						`Failed to open plan: ${ex instanceof Error ? ex.message : String(ex)}`,
+					);
+				}
+			}),
 			registerCommand(
 				'gitlens.agents.resolvePermission',
 				(args?: { sessionId: string; decision: PermissionDecision; alwaysAllow?: boolean }) => {

@@ -9,13 +9,16 @@ import {
 	describeAgentSession,
 	formatAgentElapsed,
 	getAgentCategoryLabel,
+	getAgentPhaseLabel,
 } from '../../agentUtils.js';
 import { elementBase, linkBase } from '../styles/lit/base.css.js';
 import '../actions/action-item.js';
 import '../actions/action-nav.js';
+import '../agents/gl-agent-prompt-detail.js';
 import '../button.js';
 import '../code-icon.js';
 import '../overlays/popover.js';
+import '../overlays/tooltip.js';
 
 interface AgentPillSummary {
 	category: AgentSessionCategory;
@@ -295,20 +298,6 @@ export class GlAgentStatusPill extends LitElement {
 			.hover-section__value {
 			}
 
-			.hover-code {
-				background-color: rgba(0, 0, 0, 0.3);
-				border-radius: 2px;
-				padding: 0.3rem 0.5rem;
-				font-family: var(--vscode-editor-font-family, monospace);
-				font-size: 0.9em;
-				word-break: break-all;
-			}
-
-			:host-context(.vscode-light) .hover-code,
-			:host-context(.vscode-high-contrast-light) .hover-code {
-				background-color: rgba(0, 0, 0, 0.06);
-			}
-
 			.hover-prompt {
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
@@ -439,6 +428,12 @@ export class GlAgentStatusPill extends LitElement {
 				font-weight: 600;
 			}
 
+			.hover-summary-row__phase-elapsed {
+				text-transform: none;
+				letter-spacing: 0;
+				font-weight: normal;
+			}
+
 			.hover-summary-row__detail {
 				grid-column: 2 / -1;
 				min-width: 0;
@@ -447,6 +442,30 @@ export class GlAgentStatusPill extends LitElement {
 				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+			}
+
+			/* Working tool variant of the summary-row detail — [tools icon] Bash(grep …). */
+			.hover-summary-row__tool {
+				grid-column: 2 / -1;
+				display: inline-flex;
+				align-items: baseline;
+				gap: 0.4rem;
+				min-width: 0;
+				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.hover-summary-row__tool-icon {
+				flex: none;
+				transform: translateY(0.15em);
+			}
+
+			.hover-summary-row__tool-text {
+				min-width: 0;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				font-family: var(--vscode-editor-font-family, monospace);
 			}
 		`,
 	];
@@ -494,9 +513,9 @@ export class GlAgentStatusPill extends LitElement {
 		if (session == null) return nothing;
 
 		const category = agentPhaseToCategory[session.phase];
-		const label = getAgentCategoryLabel(category);
 		const permission = session.pendingPermission;
-		const canResolve = category === 'needs-input' && session.isInWorkspace && permission != null;
+		const label = getAgentPhaseLabel(category, permission);
+		const canResolve = category === 'needs-input' && permission != null;
 
 		return html`
 			<gl-popover placement="bottom" hoist>
@@ -539,20 +558,39 @@ export class GlAgentStatusPill extends LitElement {
 	 *  signal — every row shares the category, but each carries its own "how long". */
 	private renderSummaryRow(session: AgentSessionState, category: AgentSessionCategory): unknown {
 		const elapsed = formatAgentElapsed(session.phaseSince);
-		const phaseLabel = getAgentCategoryLabel(category);
-		const detail = describeAgentSession(session, category, elapsed, {
-			awaitingPrefix: 'short',
-			idleFallback: 'lastPrompt',
-		});
+		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
+		const renderAsRunningTool =
+			category === 'working' && session.status === 'tool_use' && session.statusDetail != null;
+		const detail = renderAsRunningTool
+			? undefined
+			: describeAgentSession(session, category, elapsed, {
+					awaitingPrefix: 'short',
+					idleFallback: 'lastPrompt',
+				});
 
 		return html`
 			<div class="hover-summary-row">
 				<span class=${`hover-summary-row__dot hover-summary-row__dot--${category}`}></span>
-				<span class="hover-summary-row__name" title=${session.displayName}>${session.displayName}</span>
+				<gl-tooltip content=${session.displayName} placement="bottom">
+					<span class="hover-summary-row__name">${session.displayName}</span>
+				</gl-tooltip>
 				<span class=${`hover-summary-row__phase hover-summary-row__phase--${category}`}>
-					${phaseLabel}${elapsed != null ? ` · ${elapsed}` : ''}
+					${phaseLabel}${elapsed != null
+						? html` · <span class="hover-summary-row__phase-elapsed">${elapsed}</span>`
+						: ''}
 				</span>
-				${detail ? html`<span class="hover-summary-row__detail" title=${detail}>${detail}</span>` : nothing}
+				${renderAsRunningTool
+					? html`<gl-tooltip content=${session.statusDetail} placement="bottom">
+							<span class="hover-summary-row__tool">
+								<code-icon class="hover-summary-row__tool-icon" icon="tools"></code-icon>
+								<span class="hover-summary-row__tool-text">${session.statusDetail}</span>
+							</span>
+						</gl-tooltip>`
+					: detail
+						? html`<gl-tooltip content=${detail} placement="bottom">
+								<span class="hover-summary-row__detail">${detail}</span>
+							</gl-tooltip>`
+						: nothing}
 			</div>
 		`;
 	}
@@ -594,18 +632,20 @@ export class GlAgentStatusPill extends LitElement {
 				decision: 'deny' as const,
 			});
 			const alwaysAllowHref =
-				permission.suggestions != null && permission.suggestions.length > 0
+				permission.kind === 'tool' && permission.suggestions != null && permission.suggestions.length > 0
 					? createCommandLink('gitlens.agents.resolvePermission', {
 							sessionId: session.id,
 							decision: 'allow' as const,
 							alwaysAllow: true,
 						})
 					: undefined;
+			const allowLabel = permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
+			const denyLabel = permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
 
 			return html`
 				<action-nav class="pill__actions" @mousedown=${this.onActionMouseDown}>
-					<action-item label="Allow" icon="check" href=${allowHref}></action-item>
-					<action-item label="Deny" icon="x" href=${denyHref}></action-item>
+					<action-item label=${allowLabel} icon="check" href=${allowHref}></action-item>
+					<action-item label=${denyLabel} icon="x" href=${denyHref}></action-item>
 					${this.renderMoreActionsMenu(openHref, alwaysAllowHref)}
 				</action-nav>
 			`;
@@ -662,7 +702,7 @@ export class GlAgentStatusPill extends LitElement {
 		const permission = session.pendingPermission;
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
 
-		const canResolve = session.isInWorkspace && permission != null;
+		const canResolve = permission != null;
 		const allowHref = canResolve
 			? createCommandLink('gitlens.agents.resolvePermission', {
 					sessionId: session.id,
@@ -670,7 +710,10 @@ export class GlAgentStatusPill extends LitElement {
 				})
 			: undefined;
 		const alwaysAllowHref =
-			canResolve && permission.suggestions != null && permission.suggestions.length > 0
+			canResolve &&
+			permission.kind === 'tool' &&
+			permission.suggestions != null &&
+			permission.suggestions.length > 0
 				? createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
 						decision: 'allow' as const,
@@ -683,6 +726,8 @@ export class GlAgentStatusPill extends LitElement {
 					decision: 'deny' as const,
 				})
 			: undefined;
+		const allowLabel = canResolve && permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
+		const denyLabel = canResolve && permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
 
 		return html`
 			<div class="hover-header">
@@ -690,32 +735,20 @@ export class GlAgentStatusPill extends LitElement {
 				<span class="hover-header__text">${session.displayName}</span>
 				${elapsed != null ? html`<span class="hover-header__elapsed">${elapsed}</span>` : nothing}
 			</div>
+			${permission != null
+				? html`
+						<div class="hover-section">
+							<span class="hover-section__label">Request</span>
+							<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>
+						</div>
+					`
+				: nothing}
 			${session.lastPrompt
 				? html`
 						<div class="hover-section">
 							<span class="hover-section__label">Last Prompt</span>
 							<span class="hover-prompt">${session.lastPrompt}</span>
 						</div>
-					`
-				: nothing}
-			${permission != null
-				? html`
-						<div class="hover-section">
-							<span class="hover-section__label">Request</span>
-							<div class="hover-code">
-								${permission.toolName}${permission.toolDescription
-									? html` &mdash; ${permission.toolDescription}`
-									: nothing}
-							</div>
-						</div>
-						${permission.toolInputDescription
-							? html`
-									<div class="hover-section">
-										<span class="hover-section__label">Context</span>
-										<span class="hover-section__value">${permission.toolInputDescription}</span>
-									</div>
-								`
-							: nothing}
 					`
 				: nothing}
 			${omitActions
@@ -726,7 +759,7 @@ export class GlAgentStatusPill extends LitElement {
 								<div class="hover-actions__row">
 									<gl-button full density="compact" href=${allowHref!}>
 										<code-icon icon="check" slot="prefix"></code-icon>
-										Allow
+										${allowLabel}
 									</gl-button>
 									<gl-button
 										appearance="secondary"
@@ -736,7 +769,7 @@ export class GlAgentStatusPill extends LitElement {
 										href=${denyHref!}
 									>
 										<code-icon icon="x" slot="prefix"></code-icon>
-										Deny
+										${denyLabel}
 									</gl-button>
 									${this.renderMoreActionsMenu(openHref, alwaysAllowHref)}
 								</div>
