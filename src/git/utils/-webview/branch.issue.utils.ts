@@ -5,6 +5,7 @@ import type { IssueResourceDescriptor, RepositoryDescriptor } from '@gitlens/git
 import { Logger } from '@gitlens/utils/logger.js';
 import type { MaybePausedResult } from '@gitlens/utils/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
+import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { GkConfigKeys } from '../../../constants.js';
 import type { Container } from '../../../container.js';
 import type { GitConfigEntityIdentifier } from '../../../plus/integrations/providers/models.js';
@@ -38,6 +39,10 @@ export async function addAssociatedIssueToBranch(
 		await container.git
 			.getRepositoryService(branch.repoPath)
 			.config.setGkConfig?.(key, JSON.stringify(associatedIssues));
+		container.events.fire('git:repo:change', {
+			repoPath: getRepositoryKey(branch.repoPath),
+			changes: ['gkConfig'],
+		});
 	} catch (ex) {
 		Logger.error(ex, 'addAssociatedIssueToBranch');
 	}
@@ -110,6 +115,10 @@ export async function removeAssociatedIssueFromBranch(
 				.getRepositoryService(branch.repoPath)
 				.config.setGkConfig?.(key, JSON.stringify(associatedIssues));
 		}
+		container.events.fire('git:repo:change', {
+			repoPath: getRepositoryKey(branch.repoPath),
+			changes: ['gkConfig'],
+		});
 	} catch (ex) {
 		Logger.error(ex, 'removeAssociatedIssueFromBranch');
 	}
