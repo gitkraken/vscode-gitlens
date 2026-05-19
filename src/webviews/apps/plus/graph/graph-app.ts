@@ -106,6 +106,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _wasSidebarActivePanel: string | null | undefined;
 	private _wasDisplayMode: GraphDisplayMode | undefined;
 
+	/** Set by the popover's fallback path when it couldn't find the focal branch tip locally
+	 *  (branch's tip wasn't in `graphState.rows`). Drained in `updated` once the async scope-anchor
+	 *  resolver lands `focalBranchTipSha` on `graphState.scope`. branchRef-keyed so a fast re-scope
+	 *  doesn't end up selecting the wrong branch's tip. */
+	private _pendingFocalTipBranchRef: string | undefined;
+
 	private _sidebarSnap = ({ pos }: { pos: number }) => {
 		if (pos < sidebarMinPct / 2) return 0;
 		if (pos < sidebarMinPct) return sidebarMinPct;
@@ -359,6 +365,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
+
+		// Drain a pending focal-tip selection once the scope-anchor resolver lands the tip on the
+		// active scope. branchRef equality guards against a fast re-scope landing the wrong branch's
+		// tip; `focalBranchTipSha != null` covers the resolver's "no answer" case (rare — branch.sha
+		// missing host-side). The pending ref is cleared as soon as we either select or detect the
+		// scope has moved on, so a later unrelated update doesn't re-trigger.
+		if (this._pendingFocalTipBranchRef != null) {
+			const scope = this.graphState.scope;
+			if (scope?.branchRef !== this._pendingFocalTipBranchRef) {
+				this._pendingFocalTipBranchRef = undefined;
+			} else if (scope.focalBranchTipSha != null) {
+				const sha = scope.focalBranchTipSha;
+				this._pendingFocalTipBranchRef = undefined;
+				this.graph?.ensureAndSelectCommit(sha);
+			}
+		}
 
 		const detailsVisible = this.graphState.detailsVisible ?? false;
 		if (detailsVisible !== this._wasDetailsVisible) {
@@ -1060,17 +1082,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const branch = overview?.active.find(b => b.id === branchId) ?? overview?.recent.find(b => b.id === branchId);
 		if (branch == null) return undefined;
 
-		return getOverviewBranchSelectionSha(branch, this.graphState.overviewWip?.[branchId]);
+		return getOverviewBranchSelectionSha(branch, this.graphState.workingTreeStats);
 	}
 
 	private handleScopeToBranchFromHeader(e: CustomEvent<{ branchName: string; upstreamName?: string }>) {
-		// Branches in the graph's row index are *family-scoped* — built with the parent repo's
-		// `commonPath`, not whatever worktree happens to be the displayed `path`. If the graph is
-		// showing a named worktree, `fallbackRepoPath` would return the worktree's path; building
-		// `branchRef` with that produces a synthetic id that won't match any row. Resolve the
-		// family path the same way the sidebar agent-leaf gate does.
-		const selected = this.graphState.repositories?.find(r => r.id === this.graphState.selectedRepository);
-		const repoPath = selected != null ? (selected.commonPath ?? selected.path) : this.fallbackRepoPath;
+		// Use the selected repo's actual path (the opened workspace's path). That's what the host
+		// passes as `this.repository.path` when building the graph's row index AND the
+		// `wipMetadataBySha` branchRefs, so any scope/lookup branchRef constructed here must use
+		// the same path to match. In primary-repo workspaces `path === commonPath`; in worktree
+		// workspaces they differ — picking `commonPath` produces a synthetic id that won't match
+		// any row or WIP entry.
+		const repoPath = this.fallbackRepoPath;
 		if (repoPath == null) return;
 
 		const { branchName, upstreamName } = e.detail;
@@ -1082,6 +1104,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (branch != null) {
 			const mergeTargetTipSha = this.graphState.overviewEnrichment?.[branch.id]?.mergeTarget?.sha;
 			this.scopeToBranchById(branch.id, mergeTargetTipSha, 'popover');
+
+			// Mirror the overview-card click flow: after scoping, select the Working Changes row
+			// (when the scoped branch is the current opened branch with WIP, or has a worktree
+			// with WIP) or the focal branch tip. Otherwise the prior selection (often the target
+			// branch tip the user just clicked) sticks and the new scope renders pinned to the
+			// wrong row.
+			const sha = this.getOverviewBranchSelectionSha(branch.id);
+			if (sha != null) {
+				this.graph?.ensureAndSelectCommit(sha);
+			}
 			return;
 		}
 
@@ -1098,6 +1130,43 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			},
 			'popover',
 		);
+
+		// Same selection cascade as `getOverviewBranchSelectionSha`, inlined because the helper
+		// needs an `OverviewBranch` that this fallback path doesn't have:
+		//   1. Secondary WIP entry whose `branchRef` matches the scoped branch (worktree-bound WIP).
+		//   2. Scoped branch IS the current branch AND working changes exist → primary WIP.
+		//      Mirror the helper's `branch.opened` gate: the Working Changes row anchors to HEAD,
+		//      so it only "belongs" to the scoped branch when the scoped branch is current.
+		//   3. Focal branch tip from the loaded rows.
+		const wipMetadataBySha = this.graphState.wipMetadataBySha;
+		if (wipMetadataBySha != null) {
+			for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+				if (meta.branchRef === branchRef) {
+					this.graph?.ensureAndSelectCommit(sha);
+					return;
+				}
+			}
+		}
+
+		const stats = this.graphState.workingTreeStats;
+		const isCurrent = this.graphState.branch?.name === branchName;
+		const hasWip = stats != null && stats.added + stats.modified + stats.deleted > 0;
+		if (isCurrent && hasWip) {
+			this.graph?.ensureAndSelectCommit(uncommitted);
+			return;
+		}
+
+		const tipSha = this.graphState.rows?.find(r => r.heads?.some(h => h.id === branchRef))?.sha;
+		if (tipSha != null) {
+			this.graph?.ensureAndSelectCommit(tipSha);
+			return;
+		}
+
+		// Branch tip isn't in the loaded rows page (older branch picked from the popover that
+		// falls outside the default item limit). The host-side scope-anchor resolver loads the
+		// focal branch on its way to computing `mergeBase`, so `focalBranchTipSha` will land on
+		// `graphState.scope` once `resolveScopeMergeBase` completes. Drain it in `updated`.
+		this._pendingFocalTipBranchRef = branchRef;
 	}
 
 	private scopeToBranchById(

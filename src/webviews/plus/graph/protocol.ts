@@ -167,6 +167,10 @@ export interface GraphScope {
 	branchRef: string;
 	/** Full ref id of the branch's upstream (e.g. 'refs/remotes/origin/feature/x'). */
 	upstreamRef?: string;
+	/** SHA of the focal branch's tip commit. Backfilled by the scope-anchor resolver so callers
+	 *  (e.g. the popover's fallback path) can select the focal tip even when the branch isn't in
+	 *  the loaded graph rows page. */
+	focalBranchTipSha?: string;
 	/** SHA of the merge-target tip commit. Its ancestors are NOT walked — the tip is kept as a marker. */
 	mergeTargetTipSha?: string;
 	mergeBase?: { sha: string; date: number };
@@ -544,6 +548,10 @@ export interface ResolvedGraphScope extends GraphScope {
 	 * that aren't already in active/recent.
 	 */
 	resolvedMergeTargetTipSha?: string;
+	/** Resolved focal-branch tip SHA, looked up by the scope-anchor resolver. Mirrors the
+	 *  `resolvedMergeTargetTipSha` shape — distinct response field so the patcher can tell
+	 *  "resolver had no answer" (`undefined`) from "value already on the scope". */
+	resolvedFocalBranchTipSha?: string;
 }
 export interface ResolveGraphScopeParams {
 	repoPath: string;

@@ -35,6 +35,7 @@ import {
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
 	GetWipStatsRequest,
+	isSecondaryWipSha,
 	RowActionCommand,
 	SyncWipWatchesCommand,
 	UpdateColumnsCommand,
@@ -558,6 +559,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return this.ref?.selectCommits(shas, options) ?? [];
 	}
 
+	/** Monotonic counter bumped on every `ensureAndSelectCommit` entry. The synthetic-WIP retry
+	 *  loop captures the value at scheduling time and bails when it advances — without this, a
+	 *  retry from an earlier scope/selection can race the next ~166 ms of frames and clobber a
+	 *  newer selection (e.g. user scopes to a WIP branch then immediately scopes elsewhere; the
+	 *  older `work-dir-changes` retry would overwrite the newer focal-tip selection). Mirrors
+	 *  the `_anchorGenerations` pattern in `stateProvider`. */
+	private _selectGeneration = 0;
+
 	/**
 	 * Select a row by SHA, loading it into the graph first if necessary.
 	 * The host handles both loading and selecting — the rows notification
@@ -574,9 +583,35 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			sha = 'work-dir-changes';
 		}
 
+		const generation = ++this._selectGeneration;
+
 		// Fast path — row already loaded
 		if (this.ref?.getCommits([sha])?.length) {
 			this.ref.selectCommits([sha], { ensureVisible: true });
+			return;
+		}
+
+		// Synthetic WIP rows (`work-dir-changes` and `worktree-wip::<path>`) can't be loaded
+		// via the host EnsureRow fallback — the host has no real graph row for them, and the
+		// fallback's `updateGraphWithMoreRows` won't materialize one. They appear after the next
+		// render when `getDecoratedRows` synthesizes them, which only happens after Lit + React
+		// catch up to a scope change. Retry with a short backoff so callers that scope and select
+		// in the same tick (e.g. `handleScopeToBranchFromHeader`) don't drop the selection.
+		// We need to wait through: signal flush → Lit update → wrapper's render-batching RAF →
+		// React setState batch → React render → GK component indexing. A few retries cover that
+		// reliably without blocking on a fixed long timeout.
+		if (sha === 'work-dir-changes' || isSecondaryWipSha(sha)) {
+			const tryAgain = (attempt: number): void => {
+				if (this._selectGeneration !== generation) return;
+				if (this.ref?.getCommits([sha])?.length) {
+					this.ref.selectCommits([sha], { ensureVisible: true });
+					return;
+				}
+				if (attempt >= 10) return;
+
+				requestAnimationFrame(() => tryAgain(attempt + 1));
+			};
+			requestAnimationFrame(() => tryAgain(0));
 			return;
 		}
 
