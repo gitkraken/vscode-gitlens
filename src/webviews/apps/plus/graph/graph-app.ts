@@ -1145,7 +1145,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		this.graphState.scope = scope;
 		emitTelemetrySentEvent<'graph/scope/changed'>(this, {
 			name: 'graph/scope/changed',
 			data: {
@@ -1154,7 +1153,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				'scope.hasMergeTarget': scope.mergeTargetTipSha != null,
 			},
 		});
-		void this.graphState.resolveScopeMergeBase(scope);
+		// Delegate publication to `stateProvider.setScope` — it publishes a bare scope
+		// synchronously so the graph component's filter activates before any concurrent
+		// scroll/select work, then resolves and applies the anchor via IPC.
+		void this.graphState.setScope(scope);
 	}
 
 	private _cachedScopeWindow:

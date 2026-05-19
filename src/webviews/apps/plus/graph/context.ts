@@ -56,10 +56,19 @@ export interface AppState extends State {
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void;
 
 	/**
-	 * Resolve the authoritative `mergeBase` for a scope and patch it onto the current scope signal.
-	 * Called by pickers (scope popover, overview card) at the moment of selection so the concern of
-	 * "completing" a scope lives with whoever picks it rather than with downstream consumers. Cheap
-	 * on re-picks due to session caching (webview-side + server-side).
+	 * Publish a freshly-picked scope to the `scope` signal — synchronously in its bare form
+	 * (without `mergeBase` / `mergeTargetTipSha`) so the graph component's scope filter activates
+	 * before any concurrent scroll-to-commit / select-row work. The anchor is resolved
+	 * asynchronously via IPC and applied afterward; if the resolved merge base isn't in the
+	 * loaded rows (stale or deep target), the bare scope stays and the foreign-ref heuristic
+	 * bounds visibility.
+	 */
+	setScope(scope: GraphScope): Promise<void>;
+
+	/**
+	 * Re-resolve the authoritative `mergeBase` for an already-published scope. Called from the
+	 * `DidInvalidateScopeAnchorsNotification` handler after refs/config move so the live scope
+	 * picks up the fresh anchor without the user re-picking. Initial picks go through `setScope`.
 	 */
 	resolveScopeMergeBase(scope: GraphScope): Promise<void>;
 

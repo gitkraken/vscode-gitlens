@@ -75,15 +75,40 @@ type ResolvedScopeAnchor = {
 };
 
 /**
+ * Returns the scope without `mergeTargetTipSha` when `mergeBase` isn't set. Without the paired
+ * `mergeBase`, the gitkraken-components scope walk falls into a "target tip without merge base"
+ * path that only terminates when the target's ancestors are loaded — for a stale target tip
+ * many years back in history, those aren't loaded and the walk exposes every first-parent
+ * ancestor of the focal branch. Leaving the scope bare keeps the foreign-ref heuristic active,
+ * which bounds visibility against currently-loaded refs.
+ */
+function stripUnpairedMergeTarget(scope: GraphScope): GraphScope {
+	if (scope.mergeBase != null || scope.mergeTargetTipSha == null) return scope;
+
+	const { mergeTargetTipSha: _, ...rest } = scope;
+	return rest;
+}
+
+/**
  * Returns the scope with `mergeTargetTipSha` backfilled from the branch's enrichment, or the
  * original scope reference when nothing needs to change. Callers use reference-equality to know
  * whether they need to publish a new scope value.
+ *
+ * Skips the backfill when the scope has neither `mergeBase` nor a prior `mergeTargetTipSha` —
+ * the bare scope state that `setScope` leaves behind when the anchor IPC bailed or its merge
+ * base wasn't in the loaded rows. Promoting just a `mergeTargetTipSha` onto a bare scope pushes
+ * the gitkraken-components scope walk into its "target tip without merge base" path, which can
+ * only terminate when the target's ancestors are already loaded; for a stale target tip many
+ * years back in history, those aren't loaded and the walk exposes every first-parent ancestor
+ * of the focal branch. Leaving the scope bare keeps the foreign-ref heuristic active, which
+ * bounds visibility against currently-loaded refs.
  */
 export function reconcileScopeMergeTarget(
 	scope: AppState['scope'],
 	enrichment: AppState['overviewEnrichment'],
 ): AppState['scope'] {
 	if (scope == null) return scope;
+	if (scope.mergeBase == null && scope.mergeTargetTipSha == null) return scope;
 
 	const sha = enrichment?.[scope.branchRef]?.mergeTarget?.sha;
 	if (sha == null || sha === scope.mergeTargetTipSha) return scope;
@@ -427,6 +452,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _anchorGenerations = new Map<string, number>();
 
 	/**
+	 * Latest scope the user has asked to navigate to. Tracked separately from the published
+	 * `scope` signal so a cache-miss anchor resolve only publishes when the user is still
+	 * waiting for that branch — re-scoping or clearing while the IPC is in flight cancels the
+	 * pending publish. Compared by `branchRef` (not reference) so a second `setScope` to the
+	 * same branch with a fresher upstream/target still allows the in-flight resolve to publish.
+	 */
+	private _pendingScope: GraphScope | undefined;
+
+	/**
 	 * Set by callers (e.g. the scope popover) right before sending a filter-changing IPC, so the
 	 * scope clear coalesces with the resulting `DidChangeRefsVisibilityNotification` rather than
 	 * causing an immediate minimap reset followed by a separate filter-update repaint.
@@ -434,6 +468,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _scopeClearDeferred = false;
 
 	deferScopeClear(): void {
+		// Cancel any in-flight `setScope` publish so a cache-miss resolve can't sneak a new
+		// scope in after the imminent visibility change clears `this.scope`.
+		this._pendingScope = undefined;
 		if (this.scope == null) return;
 
 		this._scopeClearDeferred = true;
@@ -454,11 +491,52 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		};
 	}
 
+	/**
+	 * Publishes a freshly-picked scope. The bare scope (without `mergeBase` / `mergeTargetTipSha`)
+	 * is applied to the `scope` signal **synchronously** so the gitkraken-components filter
+	 * activates before any concurrent scroll-to-commit / select-row work — without this,
+	 * sidebar-select / overview-card-click handlers scroll the graph to the branch tip while
+	 * `scope` is still unset, briefly showing an unfiltered view at the branch's location (the
+	 * "jump unfiltered, then snap" symptom). The anchor (`mergeBase`, `mergeTargetTipSha`) is
+	 * resolved and applied afterward via IPC — when it lands, the bundle's scope walk transitions
+	 * from the foreign-ref heuristic to a proper-merge-base boundary.
+	 *
+	 * `mergeTargetTipSha` is stripped during the bare publish even when the caller supplied one
+	 * (e.g. `scopeToBranchById` pre-fills it from overview enrichment): without a paired
+	 * `mergeBase`, the bundle scope walk falls into a "target tip without merge base" path that
+	 * only terminates when the target's ancestors are loaded — for a stale or deep target that's
+	 * unsafe. The caller-supplied tip is restored from the anchor when the IPC returns.
+	 */
+	async setScope(scope: GraphScope): Promise<void> {
+		this._pendingScope = scope;
+
+		// Publish a bare scope synchronously — see method docs.
+		this.scope = stripUnpairedMergeTarget(scope);
+
+		const repoPath = scope.branchRef.split('|', 2)[0];
+		if (!repoPath) {
+			this._pendingScope = undefined;
+			return;
+		}
+
+		// `branchRef` is the cache key directly — `getBranchId` already encodes the repoPath
+		// (`${repoPath}|heads/${name}`), so it's unique across repos without re-prefixing.
+		const cacheKey = scope.branchRef;
+
+		if (this._mergeBaseCache.has(cacheKey)) {
+			this.applyAnchorToPendingScope(scope, this._mergeBaseCache.get(cacheKey));
+			return;
+		}
+
+		const anchor = await this.fetchScopeAnchor(repoPath, scope, cacheKey);
+		this.applyAnchorToPendingScope(scope, anchor);
+	}
+
 	async resolveScopeMergeBase(scope: GraphScope): Promise<void> {
 		const repoPath = scope.branchRef.split('|', 2)[0];
 		if (!repoPath) return;
 
-		const cacheKey = `${repoPath}|${scope.branchRef}`;
+		const cacheKey = scope.branchRef;
 
 		// Cache hit — patch and return without IPC.
 		if (this._mergeBaseCache.has(cacheKey)) {
@@ -466,6 +544,21 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			return;
 		}
 
+		const anchor = await this.fetchScopeAnchor(repoPath, scope, cacheKey);
+		this.patchScopeAnchor(scope, anchor);
+	}
+
+	/**
+	 * Shared anchor IPC + cache write used by both the initial `setScope` flow and the re-resolve
+	 * flow (`resolveScopeMergeBase`, invoked from `DidInvalidateScopeAnchorsNotification`). Dedupes
+	 * concurrent requests for the same `(repoPath, branchRef)` and skips the cache write when a
+	 * mid-flight invalidation has bumped the per-repo generation.
+	 */
+	private async fetchScopeAnchor(
+		repoPath: string,
+		scope: GraphScope,
+		cacheKey: string,
+	): Promise<ResolvedScopeAnchor | undefined> {
 		// Capture before await — if invalidation arrives mid-flight (refs/config moved), skip the
 		// writeback so we don't repopulate `_mergeBaseCache` with the pre-invalidation anchor.
 		const generation = this._anchorGenerations.get(repoPath) ?? 0;
@@ -497,10 +590,58 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 
 		const anchor = await promise;
-		if ((this._anchorGenerations.get(repoPath) ?? 0) !== generation) return;
+		if ((this._anchorGenerations.get(repoPath) ?? 0) !== generation) return undefined;
 
 		this._mergeBaseCache.set(cacheKey, anchor);
-		this.patchScopeAnchor(scope, anchor);
+		return anchor;
+	}
+
+	/**
+	 * Called after the anchor IPC returns to upgrade the already-published bare scope with
+	 * `mergeBase` / `mergeTargetTipSha`. Skipped when the user re-scoped or cleared while the
+	 * resolve was in flight (compared by `branchRef`). When the host bailed (anchor missing or
+	 * empty), the bare scope stays as-is — the foreign-ref heuristic continues to bound
+	 * visibility.
+	 *
+	 * Also skipped when the anchor's `mergeBase` isn't in the loaded rows: the
+	 * gitkraken-components scope walk requires the boundary to be loaded in order to terminate,
+	 * and a "not loaded" merge base means the walk would expose every first-parent ancestor of
+	 * the focal branch. Common causes are stale resolved targets (e.g. an unfetched
+	 * remote-tracking branch whose tip lands many commits before the graph's loaded window) or
+	 * very deep merge bases. The bare scope keeps the foreign-ref heuristic active, which bounds
+	 * visibility against currently-loaded refs.
+	 */
+	private applyAnchorToPendingScope(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
+		const pending = this._pendingScope;
+		if (pending?.branchRef !== scope.branchRef) return;
+
+		this._pendingScope = undefined;
+
+		// Host bailed — bare scope already published synchronously by `setScope`; nothing to upgrade.
+		if (anchor == null || (anchor.mergeBase == null && anchor.mergeTargetTipSha == null)) return;
+
+		// Merge base resolved but not loaded — see method docs.
+		if (anchor.mergeBase != null && !this.isShaLoaded(anchor.mergeBase.sha)) return;
+
+		// Build the anchored scope from the latest pending (preserves a fresher upstream/target
+		// that landed mid-resolve). Restore the caller-supplied `mergeTargetTipSha` (stripped in
+		// the bare publish) when the anchor carries one — `setScope` strips it without `mergeBase`,
+		// but a successful anchor pairs both so the bundle scope walk can use them properly.
+		const next: GraphScope = { ...pending };
+		if (anchor.mergeBase != null) {
+			next.mergeBase = anchor.mergeBase;
+		}
+		if (anchor.mergeTargetTipSha != null) {
+			next.mergeTargetTipSha = anchor.mergeTargetTipSha;
+		}
+		this.scope = next;
+	}
+
+	/** True when `sha` is present in the graph's loaded rows. Used to decide whether a resolved
+	 *  scope anchor is usable — see `applyAnchorToPendingScope`. */
+	private isShaLoaded(sha: string): boolean {
+		const rows = this._state.rows;
+		return rows != null && rows.some(r => r.sha === sha);
 	}
 
 	private patchScopeAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
@@ -508,6 +649,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// Host couldn't resolve either field — leave the live scope alone rather than assigning
 		// a no-op spread that would re-zoom the minimap for nothing.
 		if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null) return;
+
+		// Merge base resolved but not loaded — applying it would put the bundle scope walk on
+		// an unloaded boundary; see `applyAnchorToPendingScope`.
+		if (anchor.mergeBase != null && !this.isShaLoaded(anchor.mergeBase.sha)) return;
 
 		// Only patch if the live scope still points at the same branch (user may have re-scoped
 		// or cleared while the resolve was in flight).
@@ -571,12 +716,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// writeback (per-repo is sufficient; in-flight resolves whose `branchRefs` weren't
 				// targeted simply re-issue on the next consumer call).
 				this._anchorGenerations.set(repoPath, (this._anchorGenerations.get(repoPath) ?? 0) + 1);
+				// Cache keys are `branchRef`s (which already include `${repoPath}|` via `getBranchId`),
+				// so targeted invalidation uses the ref directly; the bulk path matches by prefix.
 				const prefix = `${repoPath}|`;
 				if (branchRefs?.length) {
 					for (const ref of branchRefs) {
-						const key = `${repoPath}|${ref}`;
-						this._mergeBaseCache.delete(key);
-						this._mergeBasePromises.delete(key);
+						this._mergeBaseCache.delete(ref);
+						this._mergeBasePromises.delete(ref);
 					}
 				} else {
 					for (const key of [...this._mergeBaseCache.keys()]) {
@@ -652,6 +798,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					const wasScoped = this.scope != null;
 					// Coalesce with the visibility update so the minimap and graph re-render once.
 					this.scope = undefined;
+					// Drop any in-flight `setScope` publish — otherwise a cache-miss resolve could
+					// re-publish a scope the user just cleared by switching visibility modes.
+					this._pendingScope = undefined;
 					if (wasScoped) {
 						emitTelemetrySentEvent<'graph/scope/cleared'>(this.host, {
 							name: 'graph/scope/cleared',
