@@ -100,10 +100,7 @@ export class GlCommitBox extends LitElement {
 								class="sparkle"
 								appearance="toolbar"
 								density="compact"
-								tooltip=${this.generating
-									? 'Generating commit message…'
-									: 'Generate commit message with AI'}
-								?disabled=${this.generating}
+								tooltip=${this.generating ? 'Cancel' : 'Generate Commit Message'}
 								aria-busy=${this.generating ? 'true' : 'false'}
 								@click=${this.onGenerateMessage}
 							>
