@@ -40,7 +40,10 @@ import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { getContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
+import type { AgentDescriptor, AgentRoute } from '../agents/agentDescriptor.js';
+import { resolveAgentFlow } from '../agents/agentPicker.js';
 import type { ConnectMoreIntegrationsItem } from '../integrations/utils/-webview/integration.quickPicks.js';
 import {
 	getOpenOnGitProviderQuickInputButtons,
@@ -68,6 +71,15 @@ export interface StartReviewCommandArgs {
 
 	// Open chat on after branch/worktree is opened
 	openChatOnComplete?: boolean;
+
+	// Activates the manual-vs-agent flow after PR selection, overriding the persisted
+	// `gitlens.ai.openInAgent` setting for this invocation:
+	//   - `'ask'`    : always show the pre-picker
+	//   - `'manual'` : skip chat hand-off entirely
+	//   - `'agent'`  : skip the pre-picker and go straight to the agent picker (or the
+	//                  persisted `gitlens.ai.defaultAgent` if set and available)
+	//   - undefined  : do not run the new flow; legacy `openChatOnComplete` behavior applies
+	showOpenInAgent?: AgentRoute;
 
 	// Instructions to include in the AI prompt
 	instructions?: string;
@@ -114,6 +126,7 @@ interface StartReviewState {
 	instructions?: string;
 	useDefaults?: boolean;
 	openChatOnComplete?: boolean;
+	showOpenInAgent?: AgentRoute;
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree; pr: PullRequest }>;
 }
 
@@ -165,6 +178,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			instructions: args?.instructions,
 			useDefaults: args?.useDefaults,
 			openChatOnComplete: args?.openChatOnComplete,
+			showOpenInAgent: args?.showOpenInAgent,
 			result: args?.result,
 		};
 	}
@@ -264,12 +278,19 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 								throw new Error(`No PR found matching '${state.prUrl}'`);
 							}
 
+							const agentDispatch = yield* this.resolveAgentDispatch(state);
+							if (agentDispatch === StepResultBreak || agentDispatch === 'cancel') {
+								state.result?.cancel(new Error('Start Review cancelled'));
+								return;
+							}
+
 							const reviewResult = await startReviewFromLaunchpadItem(
 								this.container,
 								launchpadItem,
 								state.instructions,
-								state.openChatOnComplete,
+								agentDispatch.openChatOnComplete,
 								state.useDefaults,
+								agentDispatch.agent,
 							);
 							state.result?.fulfill(reviewResult);
 							steps.markStepsComplete();
@@ -310,12 +331,19 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 				// Execute the review using the LaunchpadItem directly (avoids redundant PR lookup)
 				try {
+					const agentDispatch = yield* this.resolveAgentDispatch(state);
+					if (agentDispatch === StepResultBreak || agentDispatch === 'cancel') {
+						state.result?.cancel(new Error('Start Review cancelled'));
+						return;
+					}
+
 					const reviewResult = await startReviewFromLaunchpadItem(
 						this.container,
 						state.item.launchpadItem,
 						state.instructions,
-						state.openChatOnComplete,
+						agentDispatch.openChatOnComplete,
 						state.useDefaults,
+						agentDispatch.agent,
 					);
 					state.result?.fulfill(reviewResult);
 				} catch (ex) {
@@ -335,6 +363,46 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		}
 
 		return steps.isComplete ? undefined : StepResultBreak;
+	}
+
+	/**
+	 * Resolves the manual-vs-agent flow before kicking off the review. When `showOpenInAgent` is set,
+	 * this calls the orchestrator which either dispatches directly (persisted defaults), prompts the
+	 * user (interactive), or falls back to manual (`useDefaults: true` contract).
+	 *
+	 * Returns `'cancel'` when the user backs out of the wizard; otherwise the resolved `agent`
+	 * descriptor (or undefined for manual) along with the effective `openChatOnComplete` flag.
+	 */
+	private async *resolveAgentDispatch(
+		state: StartReviewState,
+	): AsyncStepResultGenerator<
+		'cancel' | { agent: AgentDescriptor | undefined; openChatOnComplete: boolean | undefined }
+	> {
+		// `state.showOpenInAgent` is the caller-supplied route override:
+		//   undefined → legacy behavior; honor `openChatOnComplete` (sends to host IDE chat)
+		//   'ask' / 'manual' / 'agent' → run the new flow with that route override
+		// Defense-in-depth: skip the agent flow entirely when the org has disabled AI, even if a
+		// caller passed `showOpenInAgent`. UI surfaces should already gate, but the wizard enforces.
+		if (state.showOpenInAgent == null || !getContext('gitlens:gk:organization:ai:enabled', true)) {
+			return { agent: undefined, openChatOnComplete: state.openChatOnComplete };
+		}
+
+		// yield* so the picker steps go through the wizard machinery (avoid collision with the
+		// wizard's still-alive picker from the PR selection step).
+		const flow = yield* resolveAgentFlow(this.container, {
+			useDefaults: state.useDefaults,
+			requestedRoute: state.showOpenInAgent,
+		});
+		if (flow === StepResultBreak) return 'cancel';
+
+		switch (flow.kind) {
+			case 'cancel':
+				return 'cancel';
+			case 'manual':
+				return { agent: undefined, openChatOnComplete: false };
+			case 'agent':
+				return { agent: flow.descriptor, openChatOnComplete: true };
+		}
 	}
 
 	private async ensureIntegrationConnected(id: IntegrationIds) {

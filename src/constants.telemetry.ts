@@ -1888,6 +1888,8 @@ export type TrackedUsage = {
  */
 export type TrackedGlActions =
 	| 'gitlens.ai.generateCommits'
+	| 'gitlens.ai.openInAgent.dispatchFailed'
+	| 'gitlens.ai.openInAgent.useDefaultsFallback'
 	| 'gitlens.ai.review.copied'
 	| 'gitlens.ai.review.sentToChat'
 	| 'gitlens.mcp.ipcRequest'

@@ -20,7 +20,9 @@ export class QuickWizardCommand extends QuickWizardCommandBase {
 		super(container, [
 			'gitlens.showLaunchpad',
 			'gitlens.startReview',
+			'gitlens.startReview.openInAgent',
 			'gitlens.startWork',
+			'gitlens.startWork.openInAgent',
 			'gitlens.associateIssueWithBranch',
 		]);
 	}
@@ -33,8 +35,26 @@ export class QuickWizardCommand extends QuickWizardCommandBase {
 			case 'gitlens.startReview':
 				return this.execute({ command: 'startReview', ...args });
 
+			case 'gitlens.startReview.openInAgent': {
+				const reviewArgs = args as Partial<StartReviewCommandArgs> | undefined;
+				return this.execute({
+					...reviewArgs,
+					command: 'startReview',
+					showOpenInAgent: 'agent',
+				});
+			}
+
 			case 'gitlens.startWork':
 				return this.execute({ command: 'startWork', ...args });
+
+			case 'gitlens.startWork.openInAgent': {
+				const workArgs = args as Partial<StartWorkCommandArgs> | undefined;
+				return this.execute({
+					...workArgs,
+					command: 'startWork',
+					showOpenInAgent: 'agent',
+				});
+			}
 
 			case 'gitlens.associateIssueWithBranch':
 				return this.execute({ command: 'associateIssueWithBranch', ...args });

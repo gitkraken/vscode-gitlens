@@ -6853,10 +6853,20 @@
 			"icon": "$(git-pull-request)",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.startReview.openInAgent": {
+			"label": "Start Review in an Agent",
+			"icon": "$(git-pull-request)",
+			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
+		},
 		"gitlens.startWork": {
 			"label": "Start Work",
 			"icon": "$(rocket)",
 			"commandPalette": "gitlens:enabled"
+		},
+		"gitlens.startWork.openInAgent": {
+			"label": "Start Work in an Agent",
+			"icon": "$(rocket)",
+			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.stashApply:graph": {
 			"label": "Apply Stash...",
