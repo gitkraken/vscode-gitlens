@@ -152,31 +152,34 @@ export class GlRepoButtonGroup extends GlElement {
 	}
 
 	override render() {
+		const hideLabel = this.icon && !this.hasMultipleRepositories;
 		return html`
 			${this.renderProviderIcon()}
-			<gl-button
-				class="truncated-button"
-				part="label"
-				appearance="toolbar"
-				?disabled=${this.disabled}
-				@click=${(event: MouseEvent) =>
-					this.emit('gl-click', {
-						event: event,
-						part: 'label',
-						repository: this.repository!,
-					})}
-			>
-				<span class="truncated-button__label">${this.displayName}</span>
-				${this.hasMultipleRepositories
-					? html`<code-icon
-							slot="suffix"
-							class="picker-icon"
-							icon="chevron-down"
-							aria-hidden="true"
-						></code-icon>`
-					: nothing}
-				<slot name="tooltip" slot="tooltip">${this.displayName}</slot>
-			</gl-button>
+			${hideLabel
+				? nothing
+				: html`<gl-button
+						class="truncated-button"
+						part="label"
+						appearance="toolbar"
+						?disabled=${this.disabled}
+						@click=${(event: MouseEvent) =>
+							this.emit('gl-click', {
+								event: event,
+								part: 'label',
+								repository: this.repository!,
+							})}
+					>
+						<span class="truncated-button__label">${this.displayName}</span>
+						${this.hasMultipleRepositories
+							? html`<code-icon
+									slot="suffix"
+									class="picker-icon"
+									icon="chevron-down"
+									aria-hidden="true"
+								></code-icon>`
+							: nothing}
+						<slot name="tooltip" slot="tooltip">${this.displayName}</slot>
+					</gl-button>`}
 		`;
 	}
 
@@ -218,9 +221,14 @@ export class GlRepoButtonGroup extends GlElement {
 				<span slot="content">
 					Open Repository on ${provider.name}
 					<hr />
+					<span>
+						<code-icon class="popover-status-icon" icon="gl-repository" aria-hidden="true"></code-icon>
+						${this.displayName}
+					</span>
 					${when(
 						connectedIntegration,
 						() => html`
+							<br />
 							<span>
 								<code-icon class="popover-status-icon" icon="check" aria-hidden="true"></code-icon>
 								Connected to ${provider.name}
@@ -230,6 +238,7 @@ export class GlRepoButtonGroup extends GlElement {
 							if (connectedIntegration !== false) return nothing;
 
 							return html`
+								<br />
 								<code-icon class="popover-status-icon" icon="plug" aria-hidden="true"></code-icon>
 								<a
 									href=${createCommandLink<ConnectRemoteProviderCommandArgs>(
