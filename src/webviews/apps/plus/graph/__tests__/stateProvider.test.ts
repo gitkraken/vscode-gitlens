@@ -167,9 +167,23 @@ suite('reconcileScopeMergeTarget', () => {
 		assert.strictEqual(result, scopeWithoutSha);
 	});
 
-	test('backfills mergeTargetTipSha when enrichment has a sha for the scoped branch', () => {
+	test('does not backfill mergeTargetTipSha when scope has neither mergeBase nor mergeTargetTipSha (bare scope)', () => {
+		// `setScope` leaves the scope bare when the anchor IPC bailed or its merge base wasn't in
+		// the loaded rows. Backfilling just the target tip pushes the scope walk into a path that
+		// requires target ancestors to be loaded — for a stale target tip those aren't, and the
+		// walk exposes every first-parent ancestor of the focal branch. Leaving the scope bare
+		// keeps the foreign-ref heuristic active and bounds visibility correctly.
 		const result = reconcileScopeMergeTarget(scopeWithoutSha, makeEnrichment(branchRef, 'abc123'));
-		assert.notStrictEqual(result, scopeWithoutSha);
+		assert.strictEqual(result, scopeWithoutSha);
+	});
+
+	test('backfills mergeTargetTipSha when scope already has a mergeBase', () => {
+		const scopeWithMergeBase = {
+			...scopeWithoutSha,
+			mergeBase: { sha: 'base', date: 1 },
+		};
+		const result = reconcileScopeMergeTarget(scopeWithMergeBase, makeEnrichment(branchRef, 'abc123'));
+		assert.notStrictEqual(result, scopeWithMergeBase);
 		assert.strictEqual(result?.mergeTargetTipSha, 'abc123');
 		assert.strictEqual(result?.branchRef, branchRef);
 	});
