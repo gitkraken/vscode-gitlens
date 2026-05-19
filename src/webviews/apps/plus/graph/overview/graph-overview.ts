@@ -544,18 +544,31 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				${repeat(
 					branches,
 					b => b.id,
-					b => html`
-						<gl-graph-overview-card
-							.branch=${b}
-							.wip=${this._wipData[b.id]}
-							.enrichment=${this._enrichmentData[b.id]}
-							.agentSessions=${matchAgentSessionsForWorktree(sessionsByRepoAndWorktree, {
-								repoPath: b.repoPath,
-								worktreePath: b.worktree?.path,
-							})}
-							.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
-						></gl-graph-overview-card>
-					`,
+					b => {
+						// Graph strips the default worktree from `worktreesByBranch`, so an
+						// `opened` (active) branch with no `worktree` is the default-worktree's
+						// HEAD — match it via `repoPath`. A non-`opened` (recent) branch with no
+						// `worktree` isn't checked out anywhere, so no agent can run on it (skip
+						// the match so the matcher's `worktreePath ?? repoPath` fallback doesn't
+						// false-match it to the default-worktree session).
+						const matchWorktreePath = b.worktree?.path ?? (b.opened ? b.repoPath : undefined);
+						const agentSessions =
+							matchWorktreePath != null
+								? matchAgentSessionsForWorktree(sessionsByRepoAndWorktree, {
+										repoPath: b.repoPath,
+										worktreePath: matchWorktreePath,
+									})
+								: undefined;
+						return html`
+							<gl-graph-overview-card
+								.branch=${b}
+								.wip=${this._wipData[b.id]}
+								.enrichment=${this._enrichmentData[b.id]}
+								.agentSessions=${agentSessions}
+								.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
+							></gl-graph-overview-card>
+						`;
+					},
 				)}
 			</div>
 		`;

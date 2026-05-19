@@ -388,9 +388,8 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		if (overview == null) return nothing;
 
 		const { repository } = overview;
-		const branches = this.filterAgentBranches(overview.recent, repository.path);
-		const unrepresentedSessions =
-			this._agentFilter === 'all' ? this.getUnrepresentedAgentSessions(branches, repository.path) : [];
+		const branches = this.filterAgentBranches(overview.recent);
+		const unrepresentedSessions = this._agentFilter === 'all' ? this.getUnrepresentedAgentSessions(branches) : [];
 
 		return html`
 			<gl-section ?loading=${isFetching}>
@@ -417,15 +416,24 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		this._agentFilter = (e.target as HTMLSelectElement).value as AgentFilter;
 	};
 
-	private filterAgentBranches(branches: GetOverviewBranch[], repoPath: string): GetOverviewBranch[] {
+	private filterAgentBranches(branches: GetOverviewBranch[]): GetOverviewBranch[] {
 		if (this._agentFilter === 'all') return branches;
 
 		// Sessions associate with worktrees, keyed by full path. Build the set of worktree paths
 		// the rendered branches occupy, then keep only branches whose worktree matches a session.
 		// Match by `worktreePath` (stable identifier set by host's `resolveGitInfo`) — not
 		// `workspacePath`, which is the matched workspace folder, not a repo identifier.
+		// A branch with `worktree == null` is "not checked out anywhere" in Home's wire format
+		// (the default-worktree branch always carries `worktree.path === repoPath`), so it can't
+		// host an agent and is excluded from the join — previously these branches fell back to
+		// `repoPath` and false-matched the default-worktree session.
 		const sessions = this._homeCtx.agentSessions.get() ?? [];
-		const branchWorktreePaths = new Set(branches.map(b => b.worktree?.path ?? repoPath));
+		const branchWorktreePaths = new Set<string>();
+		for (const branch of branches) {
+			if (branch.worktree?.path != null) {
+				branchWorktreePaths.add(branch.worktree.path);
+			}
+		}
 		const sessionWorktreePaths = new Set<string>();
 		for (const session of sessions) {
 			if (session.worktreePath != null && branchWorktreePaths.has(session.worktreePath)) {
@@ -433,20 +441,24 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			}
 		}
 
-		return branches.filter(b => sessionWorktreePaths.has(b.worktree?.path ?? repoPath));
+		return branches.filter(b => b.worktree?.path != null && sessionWorktreePaths.has(b.worktree.path));
 	}
 
-	private getUnrepresentedAgentSessions(
-		renderedBranches: GetOverviewBranch[],
-		repoPath: string,
-	): AgentSessionState[] {
+	private getUnrepresentedAgentSessions(renderedBranches: GetOverviewBranch[]): AgentSessionState[] {
 		const sessions = this._homeCtx.agentSessions.get() ?? [];
 		if (sessions.length === 0) return [];
 
 		// A session is "unrepresented" if its worktree path doesn't match any rendered branch's
 		// worktree. Foreign-repo sessions naturally fall into this bucket because their worktree
-		// paths don't appear in this repo's branch set.
-		const renderedWorktreePaths = new Set(renderedBranches.map(b => b.worktree?.path ?? repoPath));
+		// paths don't appear in this repo's branch set. No-worktree branches contribute nothing
+		// to the rendered set — otherwise the default-worktree session would be falsely
+		// "represented" by any uncheckedout branch and never surface as its own card.
+		const renderedWorktreePaths = new Set<string>();
+		for (const branch of renderedBranches) {
+			if (branch.worktree?.path != null) {
+				renderedWorktreePaths.add(branch.worktree.path);
+			}
+		}
 		return sessions.filter(s => s.worktreePath == null || !renderedWorktreePaths.has(s.worktreePath));
 	}
 

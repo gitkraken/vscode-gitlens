@@ -804,9 +804,17 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	}
 
 	private renderAgentPillsRow(): TemplateResult | NothingType {
+		// Home's `branch.worktree == null` means "not checked out anywhere" — never the default
+		// worktree (which surfaces with `worktree.path === repoPath`). Bailing here avoids the
+		// matcher's `worktreePath ?? repoPath` fallback, which exists for the Graph's "undefined
+		// ≡ default" convention and would otherwise false-match every no-worktree branch to the
+		// default-worktree session.
+		const worktreePath = this.branch.worktree?.path;
+		if (worktreePath == null) return nothing;
+
 		const sessions = matchAgentSessionsForWorktree(this._homeState?.agentSessions?.get(), {
 			repoPath: this.repo,
-			worktreePath: this.branch.worktree?.path,
+			worktreePath: worktreePath,
 		});
 		if (sessions == null || sessions.length === 0) return nothing;
 
