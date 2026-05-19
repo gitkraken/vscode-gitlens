@@ -1287,6 +1287,35 @@ export class GlCliGitProvider implements GlGitProvider {
 				if (symlink != null) {
 					this.toCanonicalMap.set(repoPath, Uri.file(symlink));
 					this.fromCanonicalMap.set(symlink, Uri.file(repoPath));
+				} else if (isWindows && repoPath) {
+					// On Windows, `fs.realpath` does not resolve SUBST drive substitutions, but
+					// `git rev-parse --show-toplevel` does. Detect this by comparing drive letters
+					// between the workspace URI and the git-reported repo path, then resolve the
+					// SUBST target via `realpath.native` on the drive root to populate the
+					// canonical/symlink mappings so SCM repository lookups can succeed.
+					const uriDrive = uri.fsPath[0]?.toLowerCase();
+					const repoDrive = repoPath[0]?.toLowerCase();
+					if (uriDrive && repoDrive && uriDrive !== repoDrive) {
+						try {
+							const resolvedDrive = normalizePath(
+								await new Promise<string>((resolve, reject) =>
+									realpath.native(`${uriDrive}:\\`, { encoding: 'utf8' }, (err, p) =>
+										err ? reject(err) : resolve(p),
+									),
+								),
+							);
+							const drivePrefix = resolvedDrive.endsWith('/') ? resolvedDrive : `${resolvedDrive}/`;
+							if (repoPath.toLowerCase().startsWith(drivePrefix.toLowerCase())) {
+								const suffix = repoPath.substring(drivePrefix.length);
+								symlink = normalizePath(`${uriDrive}:/${suffix}`);
+								this.toCanonicalMap.set(repoPath, Uri.file(symlink));
+								this.fromCanonicalMap.set(symlink, Uri.file(repoPath));
+								scope?.debug(`SUBST drive detected; repoPath=${repoPath}, substPath=${symlink}`);
+							}
+						} catch (ex) {
+							scope?.warn(`Failed to resolve SUBST drive '${uriDrive}:'; ${ex}`);
+						}
+					}
 				}
 			}
 
@@ -1528,7 +1557,17 @@ export class GlCliGitProvider implements GlGitProvider {
 		const scope = getScopedLogger();
 		try {
 			const gitApi = await this.getScmGitApi();
-			return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
+			if (gitApi == null) return undefined;
+
+			let repo = gitApi.getRepository(Uri.file(repoPath));
+			if (repo == null) {
+				// If the canonical path doesn't match, try the symlinked/SUBST path
+				const symlinkUri = this.toCanonicalMap.get(repoPath);
+				if (symlinkUri != null) {
+					repo = gitApi.getRepository(symlinkUri);
+				}
+			}
+			return repo ?? undefined;
 		} catch (ex) {
 			scope?.error(ex);
 			return undefined;
@@ -1557,11 +1596,15 @@ export class GlCliGitProvider implements GlGitProvider {
 			const gitApi = await this.getScmGitApi();
 			if (gitApi == null) return undefined;
 
+			// If the canonical path doesn't match VS Code's SCM paths (e.g., SUBST drives),
+			// use the symlinked/SUBST path that VS Code's SCM actually references
+			const effectiveUri = this.toCanonicalMap.get(getBestPath(uri)) ?? uri;
+
 			// `getRepository` will return an opened repository that "contains" that path, so for nested repositories, we need to force the opening of the nested path, otherwise we will only get the root repository
-			let repo = gitApi.getRepository(uri);
-			if (repo == null || (repo != null && repo.rootUri.toString() !== uri.toString())) {
+			let repo = gitApi.getRepository(effectiveUri);
+			if (repo == null || (repo != null && repo.rootUri.toString() !== effectiveUri.toString())) {
 				scope?.info(
-					`opening the SCM repository for '${uri.toString(true)}'${
+					`opening the SCM repository for '${effectiveUri.toString(true)}'${
 						source != null ? ` (source=${source.source})` : ''
 					}: ${
 						repo == null
@@ -1569,7 +1612,7 @@ export class GlCliGitProvider implements GlGitProvider {
 							: `existing, non-matching repository '${repo.rootUri.toString(true)}'`
 					}`,
 				);
-				repo = await gitApi.openRepository?.(uri);
+				repo = await gitApi.openRepository?.(effectiveUri);
 			}
 			return repo ?? undefined;
 		} catch (ex) {
