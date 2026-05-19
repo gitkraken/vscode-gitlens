@@ -939,9 +939,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (gs.displayMode === e.detail.mode) return;
 
 		// Synchronously flip the loading flag BEFORE the mode change triggers re-render, so the
-		// timeline mounts with its overlay on first paint. The host's authoritative state will
-		// clear it once stats land (or confirm it if a refetch is in flight).
-		if (e.detail.mode === 'timeline' && !this.hasRowsStats()) {
+		// timeline mounts with its overlay on first paint. Gated by `rowsStatsIncluded` (mirrors the
+		// host's `_graph.includes.stats`) so it aligns with the host's refetch decision — checking
+		// `_state.rowsStats` presence here would miss the stale-entries case where a prior stats-
+		// bearing graph left keys behind but the current graph was rebuilt without stats.
+		if (e.detail.mode === 'timeline' && !this.graphState.rowsStatsIncluded) {
 			gs.rowsStatsLoading = true;
 		}
 
@@ -950,11 +952,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// the user's `sidebarVisible` setting is preserved automatically and restored on return.
 		this.persistState();
 	};
-
-	private hasRowsStats(): boolean {
-		const rowsStats = this.graphState.rowsStats;
-		return rowsStats != null && Object.keys(rowsStats).length > 0;
-	}
 
 	private handleTimelineCommitSelect = (e: CustomEvent<GlGraphTimelineCommitSelectDetail>): void => {
 		// Defensive — the timeline element only exists in timeline mode, but a queued event could

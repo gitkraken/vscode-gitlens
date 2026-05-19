@@ -200,6 +200,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	rows?: GraphRow[];
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading?: boolean;
+	/** Mirrors the host's `_graph.includes.stats` — true when the current graph build requested stats.
+	 *  Used by the webview to decide whether entering Timeline mode needs to eagerly show its loading
+	 *  overlay (stale `rowsStats` from a prior stats-bearing build can otherwise mask a missing refetch). */
+	rowsStatsIncluded?: boolean;
 	downstreams?: GraphDownstreams;
 	paging?: GraphPaging;
 	columns?: GraphColumnsSettings;
@@ -931,6 +935,7 @@ export interface DidChangeRowsParams {
 	refsMetadata?: GraphRefsMetadata | null;
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
+	rowsStatsIncluded?: boolean;
 	search?: DidSearchParams;
 	selectedRows?: GraphSelectedRows;
 }

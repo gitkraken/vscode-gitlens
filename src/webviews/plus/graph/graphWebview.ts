@@ -4970,6 +4970,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				rowsStats: graph.rowsStats?.size ? Object.fromEntries(graph.rowsStats) : undefined,
 				rowsStatsLoading:
 					graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
+				rowsStatsIncluded: graph.includes?.stats === true,
 
 				search: this._search?.results?.size
 					? {
@@ -5330,6 +5331,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					state.downstreams = undefined;
 					state.rowsStats = undefined;
 					state.rowsStatsLoading = undefined;
+					state.rowsStatsIncluded = undefined;
 					state.paging = undefined;
 				}
 
@@ -6343,6 +6345,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			refsMetadata: this.resetRefsMetadata() === null ? null : {},
 			loading: deferRows === true,
 			rowsStatsLoading: data?.rowsStatsDeferred?.isLoaded != null ? !data.rowsStatsDeferred.isLoaded() : false,
+			rowsStatsIncluded: data?.includes?.stats === true,
 			rows: data?.rows,
 			downstreams: data != null ? Object.fromEntries(data.downstreams) : undefined,
 			paging:

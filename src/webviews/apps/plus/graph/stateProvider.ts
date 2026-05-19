@@ -247,6 +247,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor rowsStatsLoading: State['rowsStatsLoading'] | undefined;
 
 	@signalState()
+	accessor rowsStatsIncluded: State['rowsStatsIncluded'];
+
+	@signalState()
 	accessor downstreams: State['downstreams'];
 
 	@signalState()
@@ -744,6 +747,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					updates.rowsStats = { ...this._state.rowsStats, ...msg.params.rowsStats };
 				}
 				updates.rowsStatsLoading = msg.params.rowsStatsLoading;
+				if (msg.params.rowsStatsIncluded !== undefined) {
+					updates.rowsStatsIncluded = msg.params.rowsStatsIncluded;
+				}
 				if (msg.params.selectedRows != null) {
 					updates.selectedRows = msg.params.selectedRows;
 				}
