@@ -1445,12 +1445,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { ok: false, reason: 'error', message: message };
 					}
 				},
-				generateCommitMessage: async repoPath => {
+				generateCommitMessage: async (repoPath, signal) => {
 					// Pass the Repository (not a raw diff) so the AI service applies its
 					// staged-first → unstaged-fallback convention. The previous implementation
 					// always grabbed the full uncommitted diff (staged + unstaged), which produced
 					// messages that didn't match what the user was about to commit on a
 					// staging-aware repo.
+					// Omit `progress` so no VS Code notification is shown — the WIP panel drives
+					// its own inline generating UI and exposes cancel via the sparkle button.
+					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal);
 					try {
 						const repo = this.container.git.getRepository(repoPath);
 						if (repo == null) return undefined;
@@ -1458,12 +1461,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const result = await this.container.ai.actions.generateCommitMessage(
 							repo,
 							{ source: 'graph-details' },
-							{
-								progress: {
-									location: ProgressLocation.Notification,
-									title: 'Generating commit message...',
-								},
-							},
+							{ cancellation: cancellation },
 						);
 						if (result === 'cancelled' || result == null) return undefined;
 
@@ -1472,6 +1470,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						// Surface the failure instead of silently returning so regressions are visible.
 						Logger.error(ex, 'graph.generateCommitMessage');
 						return undefined;
+					} finally {
+						disposeCancellation();
 					}
 				},
 				composeChanges: async (repoPath, scope, instructions, excludedFiles, aiExcludedFiles, signal) => {

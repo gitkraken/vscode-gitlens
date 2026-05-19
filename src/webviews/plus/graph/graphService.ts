@@ -248,7 +248,10 @@ export interface GraphInspectService {
 	 * actions so dashboards can compare which scopes users actually copy.
 	 */
 	trackReviewAction(args: { action: 'copy'; granularity: 'review' | 'focusArea' | 'finding' }): Promise<void>;
-	generateCommitMessage(repoPath: string): Promise<{ summary: string; body?: string } | undefined>;
+	generateCommitMessage(
+		repoPath: string,
+		signal?: AbortSignal,
+	): Promise<{ summary: string; body?: string } | undefined>;
 	composeChanges(
 		repoPath: string,
 		scope: ScopeSelection,

@@ -178,6 +178,7 @@ export class DetailsActions {
 	private _branchCommitsController?: AbortController;
 	private _branchCommitsLoadMoreController?: AbortController;
 	private _enrichmentController?: AbortController;
+	private _generateMessageController?: AbortController;
 	private _branchCompareEnrichmentControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	private _branchCompareContributorsControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	/** Per-(tab,sha) abort controllers for lazy commit-file fetches in branch-compare. New selection
@@ -240,6 +241,7 @@ export class DetailsActions {
 		this._branchCommitsController?.abort();
 		this._branchCommitsLoadMoreController?.abort();
 		this._enrichmentController?.abort();
+		this._generateMessageController?.abort();
 		for (const c of this._branchCompareEnrichmentControllers.values()) {
 			c.abort();
 		}
@@ -2337,9 +2339,22 @@ export class DetailsActions {
 	async generateMessage(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
+		// Second invocation while generating = cancel. The sparkle button stays enabled
+		// during generation so the spinner doubles as a cancel affordance.
+		if (this._generateMessageController != null) {
+			this._generateMessageController.abort();
+			return;
+		}
+
+		const controller = new AbortController();
+		this._generateMessageController = controller;
 		this.state.generating.set(true);
 		try {
-			const result = await this.services.graphInspect.generateCommitMessage(repoPath);
+			const result = await this.services.graphInspect.generateCommitMessage(repoPath, controller.signal);
+			// Guard against a late response after the user cancelled or kicked off
+			// a new generation — only land the result if this controller is still current.
+			if (this._generateMessageController !== controller) return;
+
 			if (result) {
 				this.state.commitMessage.set(result.body ? `${result.summary}\n\n${result.body}` : result.summary);
 				// AI output is the user's intentional generation against the current diff —
@@ -2347,7 +2362,10 @@ export class DetailsActions {
 				this.state.commitMessageDirty.set(true);
 			}
 		} finally {
-			this.state.generating.set(false);
+			if (this._generateMessageController === controller) {
+				this._generateMessageController = undefined;
+				this.state.generating.set(false);
+			}
 		}
 	}
 
