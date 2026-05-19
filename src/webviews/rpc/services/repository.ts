@@ -353,32 +353,42 @@ export class RepositoryService {
 		const confirmed = await this.confirmDiscardChanges([file.path]);
 		if (!confirmed) return;
 
-		const uri = Uri.joinPath(Uri.file(file.repoPath), file.path);
-		const svc = this.container.git.getRepositoryService(file.repoPath);
-
-		await this.trashAndUnstage(uri, svc, file);
-
-		// Untracked and newly-added files don't exist in HEAD — trash is sufficient
-		if (file.status === '?' || file.status === 'A') return;
-
-		// Renames/copies: restore the original path from HEAD (not the new name)
-		if (file.status === 'R' || file.status === 'C') {
-			if (file.originalPath) {
-				try {
-					await svc.ops?.checkout('HEAD', { path: file.originalPath });
-				} catch (ex) {
-					Logger.warn(`Failed to restore ${file.originalPath} from HEAD (file was moved to Trash): ${ex}`);
-				}
-			} else {
-				Logger.warn(`Renamed file ${file.path} missing originalPath — original not restored`);
-			}
-			return;
-		}
-
 		try {
-			await svc.ops?.checkout('HEAD', { path: file.path });
+			const uri = Uri.joinPath(Uri.file(file.repoPath), file.path);
+			const svc = this.container.git.getRepositoryService(file.repoPath);
+
+			await this.trashAndUnstage(uri, svc, file);
+
+			// Untracked and newly-added files don't exist in HEAD — trash is sufficient
+			if (file.status === '?' || file.status === 'A') return;
+
+			// Renames/copies: restore the original path from HEAD (not the new name)
+			if (file.status === 'R' || file.status === 'C') {
+				if (file.originalPath) {
+					try {
+						await svc.ops?.checkout('HEAD', { path: file.originalPath });
+					} catch (ex) {
+						Logger.warn(
+							`Failed to restore ${file.originalPath} from HEAD (file was moved to Trash): ${ex}`,
+						);
+					}
+				} else {
+					Logger.warn(`Renamed file ${file.path} missing originalPath — original not restored`);
+				}
+				return;
+			}
+
+			try {
+				await svc.ops?.checkout('HEAD', { path: file.path });
+			} catch (ex) {
+				Logger.warn(`Failed to restore ${file.path} from HEAD (file was moved to Trash): ${ex}`);
+			}
 		} catch (ex) {
-			Logger.warn(`Failed to restore ${file.path} from HEAD (file was moved to Trash): ${ex}`);
+			Logger.error(ex, 'Failed to discard changes');
+			void window.showErrorMessage(
+				`Failed to discard changes in "${file.path}": ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+			throw ex;
 		}
 	}
 
@@ -402,29 +412,37 @@ export class RepositoryService {
 		const confirmed = await this.confirmDiscardUnstaged(tracked.length, untracked.length);
 		if (!confirmed) return;
 
-		// Move non-deleted files to trash so working-tree versions are recoverable
-		const toTrash = unstaged.filter(f => f.status !== 'D');
-		const trashResults = await Promise.allSettled(
-			toTrash.map(f => this.moveToTrash(Uri.joinPath(Uri.file(repoPath), f.path))),
-		);
-		for (const r of trashResults) {
-			if (r.status === 'rejected') {
-				Logger.warn(`Failed to move file to trash: ${r.reason}`);
+		try {
+			// Move non-deleted files to trash so working-tree versions are recoverable
+			const toTrash = unstaged.filter(f => f.status !== 'D');
+			const trashResults = await Promise.allSettled(
+				toTrash.map(f => this.moveToTrash(Uri.joinPath(Uri.file(repoPath), f.path))),
+			);
+			for (const r of trashResults) {
+				if (r.status === 'rejected') {
+					Logger.warn(`Failed to move file to trash: ${r.reason}`);
+				}
 			}
-		}
 
-		// Restore tracked files from HEAD
-		for (const f of tracked) {
-			// 'A' (added) never appears with staged=false in practice — git reports
-			// unstaged new files as '?' (untracked), not 'A'. Guard is here defensively and to calm down robotic reviewers
-			if (f.status === 'A') continue;
+			// Restore tracked files from HEAD
+			for (const f of tracked) {
+				// 'A' (added) never appears with staged=false in practice — git reports
+				// unstaged new files as '?' (untracked), not 'A'. Guard is here defensively and to calm down robotic reviewers
+				if (f.status === 'A') continue;
 
-			const checkoutPath = f.status === 'R' || f.status === 'C' ? (f.originalPath ?? f.path) : f.path;
-			try {
-				await svc.ops?.checkout('HEAD', { path: checkoutPath });
-			} catch (ex) {
-				Logger.warn(`Failed to restore ${checkoutPath} from HEAD: ${ex}`);
+				const checkoutPath = f.status === 'R' || f.status === 'C' ? (f.originalPath ?? f.path) : f.path;
+				try {
+					await svc.ops?.checkout('HEAD', { path: checkoutPath });
+				} catch (ex) {
+					Logger.warn(`Failed to restore ${checkoutPath} from HEAD: ${ex}`);
+				}
 			}
+		} catch (ex) {
+			Logger.error(ex, 'Failed to discard unstaged changes');
+			void window.showErrorMessage(
+				`Failed to discard unstaged changes: ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+			throw ex;
 		}
 	}
 
@@ -475,7 +493,18 @@ export class RepositoryService {
 	}
 
 	private async moveToTrash(uri: Uri): Promise<void> {
-		await workspace.fs.delete(uri, { useTrash: true });
+		try {
+			await workspace.fs.delete(uri, { useTrash: true });
+		} catch (ex) {
+			// Some filesystem providers (SSH-remote, dev containers, virtual FS) don't implement
+			// trash. Fall back to a direct delete — the user already accepted the IRREVERSIBLE
+			// warning in confirmDiscardChanges, so losing the recovery path is in policy.
+			const msg = ex instanceof Error ? ex.message : String(ex);
+			if (!/via trash because provider does not support/.test(msg)) throw ex;
+
+			Logger.warn(`Trash unsupported for ${uri.toString()}; deleting without trash`);
+			await workspace.fs.delete(uri, { useTrash: false });
+		}
 	}
 
 	/**

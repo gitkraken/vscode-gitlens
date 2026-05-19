@@ -2155,7 +2155,7 @@ export class DetailsActions {
 
 	stageFile(detail: FileChangeListItemDetail): void {
 		this.optimisticallyUpdateFileStaged(detail.path, true);
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFile(detail));
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFile(detail), 'stage file');
 	}
 
 	openConflictChanges(detail: FileChangeListItemDetail, side: 'current' | 'incoming'): void {
@@ -2165,36 +2165,42 @@ export class DetailsActions {
 	resolveAllConflicts(repoPath: string | undefined, resolution: 'current' | 'incoming'): void {
 		if (!repoPath) return;
 
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.resolveAllConflicts(repoPath, resolution));
+		this._pendingStagingOp = this.runStagingOp(
+			this.services.repository.resolveAllConflicts(repoPath, resolution),
+			'resolve all conflicts',
+		);
 	}
 
 	unstageFile(detail: FileChangeListItemDetail): void {
 		this.optimisticallyUpdateFileStaged(detail.path, false);
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFile(detail));
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFile(detail), 'unstage file');
 	}
 
 	stageAll(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
 		this.optimisticallyUpdateAllFilesStaged(true);
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageAll(repoPath));
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageAll(repoPath), 'stage all');
 	}
 
 	unstageAll(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
 		this.optimisticallyUpdateAllFilesStaged(false);
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageAll(repoPath));
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageAll(repoPath), 'unstage all');
 	}
 
 	discardFile(detail: FileChangeListItemDetail): void {
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFile(detail));
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFile(detail), 'discard file');
 	}
 
 	discardUnstagedFiles(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardUnstagedFiles(repoPath));
+		this._pendingStagingOp = this.runStagingOp(
+			this.services.repository.discardUnstagedFiles(repoPath),
+			'discard unstaged files',
+		);
 	}
 
 	/**
@@ -2202,10 +2208,15 @@ export class DetailsActions {
 	 * `notifyDidChangeWorkingTree` deduplicates by added/deleted/modified counts, so a pure
 	 * staging change (same counts, different sides) gets dropped — the panel would keep showing
 	 * stale duplicate entries for a mixed file until something else perturbs the watcher.
+	 *
+	 * Catches rejections so they don't become unhandled promise rejections (the host surfaces
+	 * the user-facing error as a toast — this is just bookkeeping).
 	 */
-	private async runStagingOp(op: Promise<void>): Promise<void> {
+	private async runStagingOp(op: Promise<void>, context: string): Promise<void> {
 		try {
 			await op;
+		} catch (ex) {
+			Logger.error(ex, `Staging op failed (${context})`);
 		} finally {
 			const wipRepoPath = this.state.wip.get()?.repo?.path;
 			if (wipRepoPath != null) {
