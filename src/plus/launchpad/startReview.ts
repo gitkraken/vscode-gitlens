@@ -74,11 +74,10 @@ export interface StartReviewCommandArgs {
 	// Open chat on after branch/worktree is opened
 	openChatOnComplete?: boolean;
 
-	// Activates the manual-vs-agent flow after PR selection, overriding the persisted
-	// `gitlens.ai.openInAgent` setting for this invocation:
-	//   - `'ask'`    : always show the pre-picker
-	//   - `'manual'` : skip chat hand-off entirely
-	//   - `'agent'`  : skip the pre-picker and go straight to the agent picker (or the
+	// Activates the manual-vs-agent flow after PR selection:
+	//   - `'ask'`    : defer to the persisted `gitlens.ai.openInAgent` setting (default: pre-picker)
+	//   - `'manual'` : force manual — skip chat hand-off entirely, regardless of persisted setting
+	//   - `'agent'`  : force agent — skip the pre-picker and go straight to the agent picker (or the
 	//                  persisted `gitlens.ai.defaultAgent` if set and available)
 	//   - undefined  : do not run the new flow; legacy `openChatOnComplete` behavior applies
 	showOpenInAgent?: AgentRoute;
