@@ -119,6 +119,8 @@ export class GitActionsButtons extends LitElement {
 						.added=${this.workingTreeStats?.added}
 						.modified=${this.workingTreeStats?.modified}
 						.removed=${this.workingTreeStats?.deleted}
+						clean-state="badge"
+						no-tooltip
 					></gl-wip-stats>
 				</a>
 				<span slot="content">
@@ -138,7 +140,10 @@ export class GitActionsButtons extends LitElement {
 									? html`${pluralize('file', this.workingTreeStats!.deleted)} deleted<br />`
 									: nothing}
 							`
-						: nothing}
+						: html`
+								<hr />
+								No changes
+							`}
 				</span>
 			</gl-tooltip>
 			${this.hasWorkingChanges

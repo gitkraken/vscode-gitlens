@@ -12,6 +12,7 @@ export const detailsWipHeaderStyles = css`
 		gap: 1.2rem;
 		min-width: 0;
 		flex: 1;
+		--commit-stats-pill-line-height: 2rem;
 	}
 
 	.graph-details-header__wip-title {
@@ -79,6 +80,7 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		gap: 0.6rem;
 		min-height: 2.4rem;
+		--commit-stats-pill-line-height: 2rem;
 	}
 
 	.branch-identity {

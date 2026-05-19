@@ -97,7 +97,7 @@ export class GlDetailsWipHeader extends LitElement {
 							.added=${addedCount}
 							.modified=${modifiedCount}
 							.removed=${removedCount}
-							clean-state="text"
+							clean-state="badge"
 						></gl-wip-stats>`
 					: nothing}
 			</div>
