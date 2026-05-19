@@ -515,6 +515,31 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return null;
 	}
 
+	/** Same shadow-DOM pierce as {@link findModePanelDeep} but typed to the review panel. The
+	 *  panel renders directly in this host's light DOM on the WIP anchor, but is nested inside
+	 *  the commit/multicommit panel's shadow root via `subPanelContent` on locked-commit anchors
+	 *  — a plain `this.querySelector` returns null in that case. */
+	private findReviewModePanel(
+		root: ParentNode | ShadowRoot = this,
+		depth = 0,
+	): import('./gl-details-review-mode-panel.js').GlDetailsReviewModePanel | null {
+		if (depth > 6) return null;
+
+		const here =
+			root.querySelector<import('./gl-details-review-mode-panel.js').GlDetailsReviewModePanel>(
+				'gl-details-review-mode-panel',
+			);
+		if (here != null) return here;
+
+		for (const el of root.querySelectorAll<HTMLElement>('*')) {
+			if (el.shadowRoot != null) {
+				const found = this.findReviewModePanel(el.shadowRoot, depth + 1);
+				if (found != null) return found;
+			}
+		}
+		return null;
+	}
+
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 		this.removeEventListener('switch-model', this.handleSwitchModel);
@@ -882,10 +907,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// the bigger win is that we don't retain `this` for an extra frame after disconnect.
 			if (!this.isConnected) return;
 
-			// The compose/review mode panels render in shadow DOM, so a plain `querySelector`
-			// from this light-DOM host can't reach `gl-ai-input` directly. Find the mode panel
-			// in light DOM, then pierce into its shadow root for the input.
-			const panel = this.querySelector('gl-details-compose-mode-panel, gl-details-review-mode-panel');
+			// The mode panel can render in this host's light DOM (WIP anchor) or nested in the
+			// commit/multicommit panel's shadow root (locked-commit anchors), so pierce shadow
+			// boundaries to find it, then pierce its own shadow root for the input.
+			const panel = this.findModePanelDeep(this);
 			const aiInput = panel?.shadowRoot?.querySelector<HTMLElement>('gl-ai-input');
 			aiInput?.focus({ preventScroll: true });
 		});
@@ -1740,10 +1765,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					return;
 				}
 
-				const panel =
-					this.querySelector<import('./gl-details-review-mode-panel.js').GlDetailsReviewModePanel>(
-						'gl-details-review-mode-panel',
-					);
+				const panel = this.findReviewModePanel();
 				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
 				this._workflow.runReview(
 					this.effectiveRepoPath,
@@ -1768,10 +1790,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@review-forward-invalidate=${() => this._workflow.review.invalidateSnapshot()}
 			@review-error-back=${() => this._workflow.review.backFromError()}
 			@review-error-retry=${() => {
-				const panel =
-					this.querySelector<import('./gl-details-review-mode-panel.js').GlDetailsReviewModePanel>(
-						'gl-details-review-mode-panel',
-					);
+				const panel = this.findReviewModePanel();
 				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
 				this._workflow.review.retryFromError(
 					this.effectiveRepoPath,
@@ -1865,10 +1884,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (!repoPath || !scope || !reviewResult) return;
 
 		const { focusAreaId, files } = e.detail;
-		const panel =
-			this.querySelector<import('./gl-details-review-mode-panel.js').GlDetailsReviewModePanel>(
-				'gl-details-review-mode-panel',
-			);
+		const panel = this.findReviewModePanel();
 		panel?.setFocusAreaLoading(focusAreaId);
 
 		const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
@@ -1887,18 +1903,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			if ('error' in result && result.error) {
 				panel?.setFocusAreaError(focusAreaId);
 			} else if ('result' in result && result.result) {
-				const reviewResource = this._actions.resources.review;
-				const current = reviewResource.value.get();
-				if (current != null && 'result' in current) {
-					reviewResource.mutate({
-						result: {
-							...current.result,
-							focusAreas: current.result.focusAreas.map(area =>
-								area.id === focusAreaId ? { ...area, findings: result.result.findings } : area,
-							),
-						},
-					});
-				}
+				this._workflow.review.enrichFocusAreaFindings(focusAreaId, result.result);
 				panel?.updateFocusAreaFindings(focusAreaId, result.result);
 			}
 		} catch {

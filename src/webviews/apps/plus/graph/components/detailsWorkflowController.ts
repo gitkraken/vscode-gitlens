@@ -1,4 +1,5 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
+import type { AIReviewDetailResult } from '@gitlens/ai/models/results.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
@@ -755,6 +756,31 @@ export class DetailsWorkflowController implements ReactiveController {
 		},
 		invalidateErrorRecovery: (): void => {
 			this.actions.state.reviewPreErrorValue.set(undefined);
+		},
+		// Two-pass detail enrichment lands here. The render projection at the panel reads
+		// `entry.result ?? resource.value` — entry first — so mutating only the resource leaves
+		// a stale entry result that masks the new findings on the next render. Update both, entry
+		// first (same sequencing as `backFromError`), so the panel sees the enriched result.
+		enrichFocusAreaFindings: (focusAreaId: string, detail: AIReviewDetailResult): void => {
+			const anchor = this.currentAnchor();
+			const key = anchorKey(anchor);
+			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+			const current = entry?.result ?? this.actions.resources.review.value.get();
+			if (current == null || !('result' in current)) return;
+
+			const enriched: ReviewResult = {
+				result: {
+					...current.result,
+					focusAreas: current.result.focusAreas.map(area =>
+						area.id === focusAreaId ? { ...area, findings: detail.findings } : area,
+					),
+				},
+			};
+
+			if (entry != null) {
+				this.registerRunningOperation({ ...entry, result: enriched });
+			}
+			this.actions.resources.review.mutate(enriched);
 		},
 	};
 
