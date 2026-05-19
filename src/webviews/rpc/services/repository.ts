@@ -500,7 +500,7 @@ export class RepositoryService {
 			// trash. Fall back to a direct delete — the user already accepted the IRREVERSIBLE
 			// warning in confirmDiscardChanges, so losing the recovery path is in policy.
 			const msg = ex instanceof Error ? ex.message : String(ex);
-			if (!/via trash because provider does not support/.test(msg)) throw ex;
+			if (!msg.includes('via trash because provider does not support')) throw ex;
 
 			Logger.warn(`Trash unsupported for ${uri.toString()}; deleting without trash`);
 			await workspace.fs.delete(uri, { useTrash: false });
@@ -533,9 +533,9 @@ export class RepositoryService {
 	/**
 	 * Push to remote.
 	 */
-	async push(repoPath: string): Promise<void> {
+	async push(repoPath: string, force?: boolean): Promise<void> {
 		const repo = this.container.git.getRepository(repoPath);
-		await RepoActions.push(repo ?? repoPath);
+		await RepoActions.push(repo ?? repoPath, force);
 	}
 
 	async publishBranch(repoPath: string): Promise<void> {

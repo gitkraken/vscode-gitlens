@@ -1243,6 +1243,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@publish-branch=${this.handlePublishBranch}
 				@pull=${this.handlePull}
 				@push=${this.handlePush}
+				@force-push=${this.handleForcePush}
 				@fetch=${this.handleFetch}
 				@share-as-cloud-patch=${this.handleShareWipAsCloudPatch}
 				@remove-associated-issue=${this.handleRemoveAssociatedIssue}
@@ -1928,6 +1929,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handlePull = () => void this._actions.services.repository.pull(this.effectiveRepoPath!);
 
 	private handlePush = () => void this._actions.services.repository.push(this.effectiveRepoPath!);
+
+	private handleForcePush = () => void this._actions.services.repository.push(this.effectiveRepoPath!, true);
 
 	private handleFetch = () => void this._actions.services.repository.fetch(this.effectiveRepoPath!);
 
