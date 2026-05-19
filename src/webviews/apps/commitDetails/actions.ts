@@ -490,12 +490,14 @@ export class CommitDetailsActions {
 	createBranch(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		void this.services.repository.createBranch(repoPath);
 	}
 
 	applyStash(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		void this.services.commands.execute('gitlens.stashesApply', { repoPath: repoPath });
 	}
 

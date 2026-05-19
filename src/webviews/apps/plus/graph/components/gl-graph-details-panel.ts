@@ -1201,9 +1201,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 								<gl-details-wip-empty-pane
 									.wip=${wip}
 									.aiEnabled=${false}
+									.hasPullRequest=${this._state.wipPullRequestLoading.get() ||
+									this._state.wipPullRequest.get() != null}
 									.launchpadSummary=${this._state.launchpadSummary.get()}
 									@switch-branch=${this.handleSwitchBranch}
 									@create-branch=${this.handleCreateBranch}
+									@create-pr=${this.handleCreatePullRequest}
 									@start-work=${this.handleStartWork}
 									@apply-stash=${this.handleApplyStash}
 									@new-worktree=${this.handleNewWorktree}
@@ -1927,6 +1930,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handlePush = () => void this._actions.services.repository.push(this.effectiveRepoPath!);
 
 	private handleFetch = () => void this._actions.services.repository.fetch(this.effectiveRepoPath!);
+
+	private handleCreatePullRequest = () => this._actions.createPullRequest(this.effectiveRepoPath);
 
 	private handleShareWipAsCloudPatch = () =>
 		void this._actions.services.commands.executeScoped('gitlens.shareWipAsCloudPatch:graph', {
