@@ -25,6 +25,7 @@ import {
 	openFile,
 	openFileAtRevision,
 	openFileOnRemote,
+	openWipChanges,
 	restoreFile,
 } from '../../git/actions/commit.js';
 import { showGitErrorMessage } from '../../messages.js';
@@ -58,6 +59,11 @@ export class DetailsFileCommands {
 				{ repoPath: commit.repoPath, lhs: comparison.sha, rhs: commit.sha },
 				{ preserveFocus: true, preview: true, ...showOptions },
 			);
+		} else if (commit.isUncommitted) {
+			// WIP file context: route through openWipChanges so the diff uses SCM-compatible
+			// (git: scheme) URIs for the index side, letting VS Code's gutter "Stage Hunk" /
+			// "Unstage Hunk" and SCM diff toolbar actions work in the opened editor.
+			void openWipChanges(file, commit.repoPath, { preserveFocus: true, preview: true, ...showOptions });
 		} else {
 			void openChanges(file, commit, { preserveFocus: true, preview: true, ...showOptions });
 		}
@@ -80,6 +86,11 @@ export class DetailsFileCommands {
 				{ repoPath: commit.repoPath, ref: comparison.sha },
 				{ preserveFocus: true, preview: true, ...showOptions },
 			);
+		} else if (commit.isUncommitted) {
+			// WIP file context: route through openWipChanges so the diff uses SCM-compatible
+			// (git: scheme) URIs for the index side, letting VS Code's gutter "Stage Hunk" /
+			// "Unstage Hunk" and SCM diff toolbar actions work in the opened editor.
+			void openWipChanges(file, commit.repoPath, { preserveFocus: true, preview: true, ...showOptions });
 		} else {
 			void openChangesWithWorking(file, commit, { preserveFocus: true, preview: true, ...showOptions });
 		}

@@ -49,6 +49,9 @@ const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
 export interface FileChangeListItemDetail extends FileItem {
 	showOptions?: FileShowOptions;
+	/** Set when the originating click held Alt. Surfaced so consumers like gl-wip-tree-pane
+	 * can fork dispatch on modifier state without reverse-engineering `showOptions.viewColumn`. */
+	altKey?: boolean;
 }
 
 @customElement('gl-file-tree-pane')
@@ -170,10 +173,11 @@ export class GlFileTreePane extends LitElement {
 	/**
 	 * Event name dispatched when a file row is selected (default click).
 	 * Defaults to `'file-compare-previous'` to preserve historical SCM-style behavior.
-	 * Consumers like the WIP tree pass `'file-open'` so a row click opens the file directly.
+	 * Consumers like the WIP tree pass `'file-open'` so a row click opens the file directly,
+	 * or `'file-compare-wip'` so a row click opens a per-staged-flag working-tree diff.
 	 */
 	@property({ attribute: 'selection-action' })
-	selectionAction: 'file-open' | 'file-compare-previous' = 'file-compare-previous';
+	selectionAction: 'file-open' | 'file-compare-previous' | 'file-compare-wip' = 'file-compare-previous';
 
 	/**
 	 * Repo-relative normalized file paths the connected agent(s) are actively editing right now,
@@ -692,6 +696,7 @@ export class GlFileTreePane extends LitElement {
 					status: file.status,
 					originalPath: file.originalPath,
 					staged: file.staged,
+					altKey: e?.altKey,
 					showOptions: e
 						? {
 								preview: !e.dblClick,

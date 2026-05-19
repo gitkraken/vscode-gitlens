@@ -2099,6 +2099,10 @@ export class DetailsActions {
 		fileActions.openFileComparePrevious(this.services.files, detail, detail.showOptions, ref);
 	}
 
+	openFileCompareWipChanges(detail: FileChangeListItemDetail): void {
+		fileActions.openFileCompareWipChanges(this.services.files, detail, detail.showOptions);
+	}
+
 	openFileCompareBetween(detail: FileChangeListItemDetail, fromRef?: string, toRef?: string): void {
 		fileActions.openFileCompareBetween(this.services.files, detail, detail.showOptions, fromRef, toRef);
 	}

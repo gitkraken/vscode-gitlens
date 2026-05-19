@@ -627,6 +627,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 									actions?.openFile(e.detail, e.detail.showOptions)}
 								@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.openFileComparePrevious(e.detail, e.detail.showOptions)}
+								@file-compare-wip=${(e: CustomEvent<FileChangeListItemDetail>) =>
+									actions?.openFileCompareWipChanges(e.detail, e.detail.showOptions)}
 								@file-stage=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.stageFile(e.detail)}
 								@file-unstage=${(e: CustomEvent<FileChangeListItemDetail>) =>

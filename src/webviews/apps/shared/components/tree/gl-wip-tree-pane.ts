@@ -10,7 +10,7 @@ import type { OpenMultipleChangesArgs } from '../../actions/file.js';
 import { renderCommitStatsIcons } from '../commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from './base.js';
 import type { FileGroup } from './file-tree-utils.js';
-import type { FileItem } from './gl-file-tree-pane.js';
+import type { FileChangeListItemDetail, FileItem } from './gl-file-tree-pane.js';
 import './gl-file-tree-pane.js';
 import '../button.js';
 import '../code-icon.js';
@@ -139,6 +139,10 @@ export class GlWipTreePane extends LitElement {
 		| TreeItemAction[]
 		| ((file: FileItem, options?: Partial<TreeItemBase>) => TreeItemAction[])
 		| undefined;
+	/** Paths with both staged and unstaged hunks. Computed in checkbox mode during dedup; kept on
+	 *  the instance so the dispatch overrides for `file-compare-wip` (alt-click) and
+	 *  `file-compare-wip-staged` (inline button) can recognize the deduped row as mixed. */
+	private _mixedPaths: Set<string> = new Set();
 
 	override willUpdate(changedProperties: PropertyValues): void {
 		if (
@@ -216,6 +220,7 @@ export class GlWipTreePane extends LitElement {
 		this._effectiveFiles = effectiveFiles;
 		this._effectiveStates = effectiveStates;
 		this._grouping = grouping;
+		this._mixedPaths = mixedPaths;
 	}
 
 	override render() {
@@ -243,10 +248,12 @@ export class GlWipTreePane extends LitElement {
 			.buttons=${buttons}
 			empty-text=${this.emptyText}
 			selection-badge-label="Staged"
-			selection-action="file-open"
+			selection-action="file-compare-wip"
 			check-verb="Stage"
 			uncheck-verb="Unstage"
 			@gl-check-all=${this.onCheckAll}
+			@file-compare-wip=${this.onFileCompareWip}
+			@file-compare-wip-staged=${this.onFileCompareWipStaged}
 			@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
 		>
 			<span class="subtitle-stats" slot="subtitle">${this.renderStats()}</span>
@@ -393,6 +400,59 @@ export class GlWipTreePane extends LitElement {
 
 		this.dispatchEvent(
 			new CustomEvent(e.detail.checked ? 'stage-all' : 'unstage-all', {
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	/**
+	 * Forks the default WIP row click so:
+	 *  - Conflicted rows fall back to `file-open` (the conflict markers are easier to deal with in
+	 *    the file itself than in a diff).
+	 *  - Mixed rows with Alt held flip the dispatched event to the staged-portion diff
+	 *    (HEAD ↔ index) — independent of the natural staged flag carried by the deduped canonical
+	 *    row, which always points at the unstaged portion. The `viewColumn` is cleared so Alt
+	 *    means "open staged" and *not* the global "open in side editor" — the user is choosing one
+	 *    semantic over the other for this surface.
+	 *  - All other rows fall through untouched so the host's `file-compare-wip` handler resolves
+	 *    them via the file's natural `staged` flag.
+	 */
+	private onFileCompareWip = (e: CustomEvent<FileChangeListItemDetail>): void => {
+		const detail = e.detail;
+		if (isConflictStatus(detail.status)) {
+			e.stopPropagation();
+			this.dispatchEvent(new CustomEvent('file-open', { detail: detail, bubbles: true, composed: true }));
+			return;
+		}
+
+		if (detail.altKey && this._mixedPaths.has(detail.path)) {
+			e.stopPropagation();
+			this.dispatchFileCompareWipStaged(detail, { clearViewColumn: true });
+		}
+	};
+
+	/** Bridge the inline "Open Staged Changes" button (`file-compare-wip-staged`) into the host's
+	 *  `file-compare-wip` listener with `staged: true` overridden so the diff resolves to staged ↔
+	 *  HEAD regardless of the row's canonical staged flag (unstaged for deduped mixed rows).
+	 *  `viewColumn` is preserved so Alt+click on the button keeps its standard "open in side
+	 *  editor" meaning — the button already encodes the "open staged" intent. */
+	private onFileCompareWipStaged = (e: CustomEvent<FileChangeListItemDetail>): void => {
+		e.stopPropagation();
+		this.dispatchFileCompareWipStaged(e.detail);
+	};
+
+	private dispatchFileCompareWipStaged(
+		detail: FileChangeListItemDetail,
+		options?: { clearViewColumn?: boolean },
+	): void {
+		const showOptions =
+			detail.showOptions != null && options?.clearViewColumn
+				? { ...detail.showOptions, viewColumn: undefined }
+				: detail.showOptions;
+		this.dispatchEvent(
+			new CustomEvent('file-compare-wip', {
+				detail: { ...detail, staged: true, showOptions: showOptions } satisfies FileChangeListItemDetail,
 				bubbles: true,
 				composed: true,
 			}),

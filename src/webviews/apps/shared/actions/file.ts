@@ -57,6 +57,16 @@ export function openFileComparePrevious(
 	fireAndForget(commands.openFileComparePrevious(file, showOptions, ref), 'compare file with previous');
 }
 
+export function openFileCompareWipChanges(
+	commands: {
+		openFileCompareWipChanges(file: GitFileChangeShape, showOptions?: FileShowOptions): Promise<void>;
+	},
+	file: GitFileChangeShape,
+	showOptions?: FileShowOptions,
+): void {
+	fireAndForget(commands.openFileCompareWipChanges(file, showOptions), 'compare WIP file changes');
+}
+
 export function openFileCompareBetween(
 	commands: {
 		openFileCompareBetween(

@@ -554,6 +554,10 @@ export class CommitDetailsActions {
 		fileActions.openFileComparePrevious(this.services.files, file, showOptions, this.getCurrentRef());
 	}
 
+	openFileCompareWipChanges(file: GitFileChangeShape, showOptions?: FileShowOptions): void {
+		fileActions.openFileCompareWipChanges(this.services.files, file, showOptions);
+	}
+
 	executeFileAction(file: GitFileChangeShape, showOptions?: FileShowOptions): void {
 		fileActions.executeFileAction(this.services.files, file, showOptions, this.getCurrentRef());
 	}

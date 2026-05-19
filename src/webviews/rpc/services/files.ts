@@ -23,6 +23,7 @@ import {
 	openFile,
 	openFileOnRemote,
 	openMultipleChanges,
+	openWipChanges,
 	openWipMultipleChanges,
 	showDetailsQuickPick,
 } from '../../../git/actions/commit.js';
@@ -127,6 +128,21 @@ export class FilesService {
 		if (commit == null) return;
 
 		void openChanges(resolved, commit, { preserveFocus: true, preview: true, ...showOptions });
+	}
+
+	/**
+	 * Open a WIP file's diff routed by `file.staged`:
+	 * - `staged: true`  → HEAD ↔ index  (the staged-portion diff)
+	 * - `staged: false` → index ↔ working tree (the unstaged-portion diff; equals HEAD ↔ working
+	 *   when the file has no staged content, so single-state rows render the same diff users expect)
+	 *
+	 * Mirrors the per-file routing in {@link openWipMultipleChanges} so single-row and multi-diff
+	 * views agree on what "this row's changes" means for mixed files.
+	 */
+	async openFileCompareWipChanges(file: GitFileChangeShape, showOptions?: FileShowOptions): Promise<void> {
+		if (file.repoPath == null) return;
+
+		await openWipChanges(file, file.repoPath, { preserveFocus: true, preview: true, ...showOptions });
 	}
 
 	/**
