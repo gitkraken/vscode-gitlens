@@ -2378,7 +2378,7 @@ export class GitProviderService implements UnifiedDisposable {
 	 * (e.g. opening a file by URI from a terminal) where we don't yet know whether the
 	 * path is a repository at all.
 	 */
-	@debug({ exit: true })
+	@debug()
 	async getValidatedRepositoryService(repoPath: string | Uri): Promise<GitRepositoryService> {
 		const result = await this._gitService.validateRepo(repoPath);
 		if (!result.valid) {
