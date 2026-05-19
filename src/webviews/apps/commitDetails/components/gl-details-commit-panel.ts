@@ -354,6 +354,17 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		// reads as "what's happening now" rather than the static commit metadata. The author
 		// info doesn't disappear from the panel — `renderEmbeddedMetadataBar` still surfaces
 		// the sha + author below.
+		// `commit.message` may contain `messageHeadlineSplitterToken` (`\x00\n\x00`) between the
+		// headline and the body — the bare `\x00` bytes render as missing-glyph squares, so
+		// normalize the token to a plain newline before doing anything else (mirrors the existing
+		// `replaceAll` calls a few methods below where the message is copied or shown elsewhere).
+		const message = (commit.message ?? '').replaceAll(messageHeadlineSplitterToken, '\n');
+		// `white-space: nowrap` collapses interior newlines into a single space, which mashes the
+		// body of multi-line commit messages onto the summary line and produces awkward double
+		// spaces around the join. Show only the summary (everything before the first newline) and
+		// leave the full message on the native title tooltip for hover reveal. `trimEnd` drops a
+		// stray `\r` when the message uses CRLF endings.
+		const messageFirstLine = (message.split('\n', 1)[0] ?? '').trimEnd();
 		const headerContent =
 			this.activeMode === 'review'
 				? html`<div class="mode-title">
@@ -361,7 +372,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							<code-icon class="mode-title__icon" icon="checklist"></code-icon>
 							Reviewing Commit
 						</span>
-						<span class="mode-title__subtitle" title=${commit.message ?? ''}>${commit.message ?? ''}</span>
+						<span class="mode-title__subtitle" title=${message}>${messageFirstLine}</span>
 					</div>`
 				: authorTemplate;
 
