@@ -4,9 +4,11 @@ import { customElement, property } from 'lit/decorators.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
 import type { GitBranchShape, Wip } from '../../../../plus/graph/detailsProtocol.js';
+import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
 import { detailsWipEmptyPaneStyles } from './gl-details-wip-empty-pane.css.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
 
 type NextStep = {
@@ -14,6 +16,8 @@ type NextStep = {
 	label: string;
 	actionLabel: string;
 	event: string;
+	/** Optional alt action — rendered as the small side of a split-button. */
+	alt?: { actionLabel: string; event: string; tooltip?: string; icon?: string };
 };
 
 function getRemoteNameFromUpstream(upstreamName: string | undefined): string {
@@ -31,6 +35,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	@property({ type: Boolean }) hasPullRequest = false;
 	@property({ type: Object }) launchpadSummary?: LaunchpadSummaryResult | { error: Error };
 	@property({ type: Boolean }) aiEnabled = false;
+	@property({ type: Object }) mergeTargetStatus?: BranchMergeTargetStatus;
 
 	override render(): unknown {
 		const branch = this.wip?.branch;
@@ -49,19 +54,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		return html`<div class="hub">
 			<section class="section">
 				<h3 class="section__heading">Next steps</h3>
-				${nextSteps.map(
-					step =>
-						html`<div class="next-step">
-							<code-icon class="next-step__icon" icon=${step.icon}></code-icon>
-							<span class="next-step__label">${step.label}</span>
-							<gl-button
-								class="next-step__action"
-								appearance="secondary"
-								@click=${() => this.emit(step.event)}
-								>${step.actionLabel}</gl-button
-							>
-						</div>`,
-				)}
+				${nextSteps.map(step => this.renderNextStep(step))}
 			</section>
 			${this.aiEnabled && hasDiverged ? this.renderAiWorkflows(ahead) : nothing}
 			<section class="section">
@@ -73,6 +66,37 @@ export class GlDetailsWipEmptyPane extends LitElement {
 					</gl-button>
 				</div>
 			</section>
+		</div>`;
+	}
+
+	private renderNextStep(step: NextStep) {
+		const primary = html`<gl-button
+			class="next-step__action"
+			appearance="secondary"
+			@click=${() => this.emit(step.event)}
+			>${step.actionLabel}</gl-button
+		>`;
+
+		const action =
+			step.alt != null
+				? html`<button-container class="next-step__action" grouping="split">
+						${primary}
+						<gl-button
+							appearance="secondary"
+							tooltip=${step.alt.tooltip ?? step.alt.actionLabel}
+							@click=${() => this.emit(step.alt!.event)}
+						>
+							${step.alt.icon
+								? html`<code-icon icon=${step.alt.icon}></code-icon>`
+								: step.alt.actionLabel}
+						</gl-button>
+					</button-container>`
+				: primary;
+
+		return html`<div class="next-step">
+			<code-icon class="next-step__icon" icon=${step.icon}></code-icon>
+			<span class="next-step__label">${step.label}</span>
+			${action}
 		</div>`;
 	}
 
@@ -198,47 +222,86 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		const upstreamMissing = branch.upstream == null || branch.upstream.missing === true;
 		const remoteName = getRemoteNameFromUpstream(branch.upstream?.name);
 
-		if (upstreamMissing) {
-			return [
-				{
-					icon: 'cloud-upload',
-					label: `Publish ${branch.name} to ${remoteName}`,
-					actionLabel: 'Publish',
-					event: 'publish-branch',
-				},
-			];
-		}
-
 		const steps: NextStep[] = [];
 
-		if (behind > 0) {
+		if (upstreamMissing) {
 			steps.push({
-				icon: 'repo-pull',
-				label: `Pull ${pluralize('commit', behind)} from ${remoteName}`,
-				actionLabel: 'Pull',
-				event: 'pull',
+				icon: 'cloud-upload',
+				label: `Publish ${branch.name} to ${remoteName}`,
+				actionLabel: 'Publish',
+				event: 'publish-branch',
 			});
-		} else if (ahead > 0) {
-			steps.push({
-				icon: 'repo-push',
-				label: `Push ${pluralize('commit', ahead)} to ${remoteName}`,
-				actionLabel: 'Push',
-				event: 'push',
-			});
+		} else {
+			if (behind > 0) {
+				steps.push({
+					icon: 'repo-pull',
+					label: `Pull ${pluralize('commit', behind)} from ${remoteName}`,
+					actionLabel: 'Pull',
+					event: 'pull',
+				});
+			} else if (ahead > 0) {
+				steps.push({
+					icon: 'repo-push',
+					label: `Push ${pluralize('commit', ahead)} to ${remoteName}`,
+					actionLabel: 'Push',
+					event: 'push',
+				});
+			}
+
+			// Show "Create PR" for any published branch without an existing PR,
+			// regardless of ahead/behind state — matches Home view behavior.
+			if (!this.hasPullRequest) {
+				steps.push({
+					icon: 'git-pull-request-create',
+					label: 'Create a Pull Request',
+					actionLabel: 'Create PR',
+					event: 'create-pr',
+				});
+			}
 		}
 
-		// Show "Create PR" for any published branch without an existing PR,
-		// regardless of ahead/behind state — matches Home view behavior.
-		if (!this.hasPullRequest) {
-			steps.push({
-				icon: 'git-pull-request-create',
-				label: 'Create a Pull Request',
-				actionLabel: 'Create PR',
-				event: 'create-pr',
-			});
+		// Rebase/merge against the branch's merge target — allowed when the upstream is missing or
+		// in-sync (otherwise push/pull is the bigger ask).
+		const upstreamReady = upstreamMissing || (ahead === 0 && behind === 0);
+		const mergeTargetStep = this.computeMergeTargetStep(upstreamReady);
+		if (mergeTargetStep != null) {
+			steps.push(mergeTargetStep);
 		}
 
 		return steps;
+	}
+
+	/**
+	 * "Rebase onto <target>" step (with an alt "Merge <target> in" action) — mirrors the home
+	 * view's merge-target-status component, where rebase and merge-target-into-current are two
+	 * ways to bring the branch up to date with its merge target. Gated to avoid clutter:
+	 * - merge target must be detected for this branch
+	 * - no paused git operation in progress (mid-rebase/merge/cherry-pick)
+	 * - upstream must be missing or in-sync with its remote (push/pull would be the bigger ask)
+	 * - branch must be behind the merge target (when ahead or even, there's nothing to integrate)
+	 */
+	private computeMergeTargetStep(upstreamReady: boolean): NextStep | undefined {
+		if (!upstreamReady) return undefined;
+		if (this.wip?.changes?.pausedOpStatus != null) return undefined;
+
+		const mergeTarget = this.mergeTargetStatus?.mergeTarget;
+		if (mergeTarget == null) return undefined;
+
+		const behind = mergeTarget.status?.behind ?? 0;
+		if (behind === 0) return undefined;
+
+		return {
+			icon: 'gl-rebase',
+			label: `Rebase onto ${mergeTarget.name} (${pluralize('commit', behind)} behind)`,
+			actionLabel: 'Rebase',
+			event: 'rebase-onto-merge-target',
+			alt: {
+				actionLabel: 'Merge',
+				icon: 'git-merge',
+				tooltip: `Merge ${mergeTarget.name} into ${this.wip?.branch?.name ?? 'current'} instead`,
+				event: 'merge-merge-target-into-current',
+			},
+		};
 	}
 
 	private emit(name: string): void {

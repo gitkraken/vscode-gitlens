@@ -1233,6 +1233,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									.hasPullRequest=${this._state.wipPullRequestLoading.get() ||
 									this._state.wipPullRequest.get() != null}
 									.launchpadSummary=${this._state.launchpadSummary.get()}
+									.mergeTargetStatus=${this._state.wipMergeTarget.get()}
 									@switch-branch=${this.handleSwitchBranch}
 									@create-branch=${this.handleCreateBranch}
 									@create-pr=${this.handleCreatePullRequest}
@@ -1242,6 +1243,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									@publish-branch=${this.handlePublishBranch}
 									@pull=${this.handlePull}
 									@push=${this.handlePush}
+									@rebase-onto-merge-target=${this.handleRebaseOntoMergeTarget}
+									@merge-merge-target-into-current=${this.handleMergeMergeTargetIntoCurrent}
 								></gl-details-wip-empty-pane>
 							`;
 
@@ -1955,6 +1958,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		void this._actions.services.commands.executeScoped('gitlens.shareWipAsCloudPatch:graph', {
 			repoPath: this.effectiveRepoPath,
 		});
+
+	private handleRebaseOntoMergeTarget = () => this._actions.rebaseOntoMergeTarget();
+
+	private handleMergeMergeTargetIntoCurrent = () => this._actions.mergeMergeTargetIntoCurrent();
 
 	private handleRemoveAssociatedIssue = (e: CustomEvent<{ entityId: string }>) =>
 		void this._actions.removeAssociatedIssue(e.detail.entityId);

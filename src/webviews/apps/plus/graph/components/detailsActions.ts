@@ -2435,6 +2435,29 @@ export class DetailsActions {
 		});
 	}
 
+	rebaseOntoMergeTarget(): void {
+		const ref = this.buildMergeTargetBranchRef();
+		if (ref == null) return;
+
+		void this.services.commands.executeScoped('gitlens.rebaseCurrentOnto:graph', ref);
+	}
+
+	mergeMergeTargetIntoCurrent(): void {
+		const ref = this.buildMergeTargetBranchRef();
+		if (ref == null) return;
+
+		void this.services.commands.executeScoped('gitlens.mergeIntoCurrent:graph', ref);
+	}
+
+	private buildMergeTargetBranchRef(): { repoPath: string; branchId: string; branchName: string } | undefined {
+		const status = this.state.wipMergeTarget.get();
+		const target = status?.mergeTarget;
+		const repoPath = status?.branch?.repoPath ?? target?.repoPath;
+		if (target == null || repoPath == null) return undefined;
+
+		return { repoPath: repoPath, branchId: target.id, branchName: target.name };
+	}
+
 	openOnRemote(repoPath: string | undefined, sha: string): void {
 		if (!repoPath) return;
 
