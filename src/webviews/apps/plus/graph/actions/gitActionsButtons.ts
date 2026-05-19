@@ -57,31 +57,6 @@ export class GitActionsButtons extends LitElement {
 			gl-tooltip {
 				margin-left: 0.4rem;
 			}
-
-			.paused-op-badge {
-				display: inline-flex;
-				align-items: center;
-				gap: 0.6rem;
-				padding: 0.1rem 0.4rem;
-				border-radius: 0.3rem;
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-				color: #000;
-				font-size: 1.1rem;
-				font-weight: 600;
-				line-height: 2rem;
-				white-space: nowrap;
-				cursor: pointer;
-				text-decoration: none;
-			}
-
-			.paused-op-badge--conflicts {
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
-				color: #fff;
-			}
-
-			.paused-op-badge:hover {
-				color: inherit;
-			}
 		`,
 	];
 
@@ -121,44 +96,36 @@ export class GitActionsButtons extends LitElement {
 
 	private onJumpToWip() {
 		this.dispatchEvent(new CustomEvent('jump-to-wip', { bubbles: true, composed: true }));
+		if (this.workingTreeStats?.pausedOpStatus != null) {
+			this.dispatchEvent(new CustomEvent('show-details', { bubbles: true, composed: true }));
+		}
 	}
 
-	private onJumpToWipAndShowDetails() {
-		this.dispatchEvent(new CustomEvent('jump-to-wip', { bubbles: true, composed: true }));
-		this.dispatchEvent(new CustomEvent('show-details', { bubbles: true, composed: true }));
-	}
-
-	private renderPausedOpBadge() {
+	private renderWipTooltip() {
 		const stats = this.workingTreeStats;
 		const pausedOp = stats?.pausedOpStatus;
-		if (pausedOp == null) return nothing;
-
-		const opStrings = pausedOperationStatusStringsByType[pausedOp.type];
-		const hasConflicts = stats?.hasConflicts === true;
-
-		if (hasConflicts) {
-			const count = stats.conflictsCount ?? 1;
-			return html`<gl-tooltip placement="bottom">
-				<a
-					class="paused-op-badge paused-op-badge--conflicts"
-					role="button"
-					tabindex="0"
-					@click=${this.onJumpToWipAndShowDetails}
-				>
-					<code-icon icon="warning"></code-icon>
-					${pluralize(`${pausedOp.type} conflict`, count)}
-				</a>
-				<span slot="content">Click to jump to Working Changes</span>
-			</gl-tooltip>`;
+		if (pausedOp != null) {
+			const opStrings = pausedOperationStatusStringsByType[pausedOp.type];
+			const headline = stats?.hasConflicts === true ? opStrings.conflicts : `${opStrings.label} in progress`;
+			return html`${headline}
+				<hr />
+				Jump to Working Changes`;
 		}
 
-		return html`<gl-tooltip placement="bottom">
-			<a class="paused-op-badge" role="button" tabindex="0" @click=${this.onJumpToWipAndShowDetails}>
-				<code-icon icon="warning"></code-icon>
-				${opStrings.label}
-			</a>
-			<span slot="content">Click to jump to Working Changes</span>
-		</gl-tooltip>`;
+		return html`Jump to WIP
+		${this.hasWorkingChanges
+			? html`
+					<hr />
+					Working Changes
+					<br />
+					${stats!.added ? html`${pluralize('file', stats!.added)} added<br />` : nothing}
+					${stats!.modified ? html`${pluralize('file', stats!.modified)} modified<br />` : nothing}
+					${stats!.deleted ? html`${pluralize('file', stats!.deleted)} deleted<br />` : nothing}
+				`
+			: html`
+					<hr />
+					No changes
+				`}`;
 	}
 
 	override render() {
@@ -176,7 +143,6 @@ export class GitActionsButtons extends LitElement {
 				.autoFetchMode=${this.state.config?.autoFetchMode ?? 'off'}
 				.autoFetchIntervalSeconds=${this.state.config?.autoFetchIntervalSeconds ?? 180}
 			></gl-fetch-button>
-			${this.renderPausedOpBadge()}
 			<gl-tooltip placement="bottom">
 				<a class="action-button wip-button" @click=${this.onJumpToWip}>
 					<code-icon class="action-button__icon" icon="gl-wip"></code-icon>
@@ -184,32 +150,14 @@ export class GitActionsButtons extends LitElement {
 						.added=${this.workingTreeStats?.added}
 						.modified=${this.workingTreeStats?.modified}
 						.removed=${this.workingTreeStats?.deleted}
+						.pausedOpStatus=${this.workingTreeStats?.pausedOpStatus}
+						?has-conflicts=${this.workingTreeStats?.hasConflicts === true}
+						.conflictsCount=${this.workingTreeStats?.conflictsCount}
 						clean-state="badge"
 						no-tooltip
 					></gl-wip-stats>
 				</a>
-				<span slot="content">
-					Jump to WIP
-					${this.hasWorkingChanges
-						? html`
-								<hr />
-								Working Changes
-								<br />
-								${this.workingTreeStats!.added
-									? html`${pluralize('file', this.workingTreeStats!.added)} added<br />`
-									: nothing}
-								${this.workingTreeStats!.modified
-									? html`${pluralize('file', this.workingTreeStats!.modified)} modified<br />`
-									: nothing}
-								${this.workingTreeStats!.deleted
-									? html`${pluralize('file', this.workingTreeStats!.deleted)} deleted<br />`
-									: nothing}
-							`
-						: html`
-								<hr />
-								No changes
-							`}
-				</span>
+				<span slot="content">${this.renderWipTooltip()}</span>
 			</gl-tooltip>
 			${this.hasWorkingChanges
 				? html`<gl-tooltip placement="bottom">
