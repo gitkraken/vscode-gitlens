@@ -56,6 +56,7 @@ import { pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
+import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
 import {
 	filterSecondariesForIncludeOnlyRefs,
 	filterSecondariesForScope,
@@ -774,11 +775,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			this._unreachableAnchorScope = scope;
 		}
 
-		// Forward an unreachable anchor SHA to the host so the provider's page-until-found path
-		// (graph.ts getCommitsForGraphCore stop logic) loads enough rows in one round trip,
-		// instead of one page per scope toggle. Also short-circuit if the flagged anchors are
-		// already in the loaded rows — guards against stale unreachable events fired during
-		// scope-swap re-renders.
+		// Forward a page-target SHA to the host so the provider's page-until-found path (graph.ts
+		// `getCommitsForGraphCore` stop logic) loads enough rows in one round trip — typically the
+		// `scope.mergeBase.sha` when the library flagged loaded branch tips as "unreachable"
+		// because their parent chain can't reach a visible ancestor. Without that targeted page,
+		// `isBounded` stays false and the library's scroll/fill-viewport paths leak generic pages.
 		const anchors = event.detail;
 		const rows = this.graphState.rows;
 		if (anchors?.size && rows?.length) {
@@ -794,12 +795,17 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				}
 			}
 
-			const missing = [...anchors].find(sha => !loaded.has(sha) && !this._unreachableAnchorRequests.has(sha));
-			if (missing == null) return;
+			const target = pickScopePageTarget(
+				anchors,
+				loaded,
+				new Set(this._unreachableAnchorRequests.keys()),
+				scope?.mergeBase?.sha,
+			);
+			if (target == null) return;
 
-			this._unreachableAnchorRequests.set(missing, rowCount);
+			this._unreachableAnchorRequests.set(target, rowCount);
 			this.graphState.loading = true;
-			this._ipc.sendCommand(GetMoreRowsCommand, { id: missing });
+			this._ipc.sendCommand(GetMoreRowsCommand, { id: target });
 			return;
 		}
 
