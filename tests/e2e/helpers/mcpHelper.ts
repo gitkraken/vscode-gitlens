@@ -22,6 +22,33 @@ export type McpConfigResult = {
 	version?: string;
 };
 
+export type IpcDiscoveryData = {
+	token: string;
+	address: string;
+	port: number;
+	pid: number;
+	workspacePaths?: string[];
+	ideName?: string;
+	ideDisplayName?: string;
+	scheme?: string;
+	createdAt?: string;
+};
+
+/** Directory where GitLens writes IPC discovery files. */
+const ipcDiscoveryDir = path.join(os.tmpdir(), 'gitkraken', 'gitlens');
+
+/**
+ * Reads and parses the IPC discovery JSON file.
+ * Returns `undefined` if the file doesn't exist or can't be parsed.
+ */
+export function readIpcDiscoveryFile(filePath: string): IpcDiscoveryData | undefined {
+	try {
+		return JSON.parse(readFileSync(filePath, 'utf8')) as IpcDiscoveryData;
+	} catch {
+		return undefined;
+	}
+}
+
 /**
  * Derives the path to the gk CLI executable from VS Code launch arguments.
  * In E2E tests, gk is installed into the temp user-data-dir, not the real AppData.
@@ -36,29 +63,56 @@ export function findGkCliFromArgs(electronArgs: string[]): string {
 }
 
 /**
- * Finds the IPC discovery file for a specific VS Code process.
- * GitLens writes one file per session to %TEMP%/gitkraken/gitlens/
- * with format: gitlens-ipc-server-{pid}-{port}.json.
+ * Finds the IPC discovery file whose `workspacePaths` contains the given path.
  *
- * When `vscodePid` is provided, only files belonging to that process are considered,
- * preventing cross-worker contamination in parallel Playwright runs.
- * Falls back to the newest live file when no pid is given.
+ * GitLens names discovery files with `process.ppid` (the extension host's parent),
+ * which differs from the Electron main PID exposed by Playwright. Matching by
+ * workspace path sidesteps this mismatch. Each E2E worker creates a unique temp
+ * git repo, so the match is unambiguous even under parallel execution.
+ *
+ * Polls with retries because the IPC file may not yet exist when the fixture
+ * runs (GitLens writes it asynchronously after activation).
+ */
+export async function findIpcFileByWorkspace(workspacePath: string, timeoutMs = 30_000): Promise<string | undefined> {
+	const normalizedTarget = workspacePath.replace(/\\/g, '/').toLowerCase();
+	const deadline = Date.now() + timeoutMs;
+
+	while (Date.now() < deadline) {
+		if (existsSync(ipcDiscoveryDir)) {
+			for (const f of readdirSync(ipcDiscoveryDir)) {
+				if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) continue;
+
+				const fullPath = path.join(ipcDiscoveryDir, f);
+				const data = readIpcDiscoveryFile(fullPath);
+				if (data == null) continue;
+
+				const match = data.workspacePaths?.some(p => p.replace(/\\/g, '/').toLowerCase() === normalizedTarget);
+				if (match) return fullPath;
+			}
+		}
+		await new Promise(r => setTimeout(r, 500));
+	}
+
+	return undefined;
+}
+
+/**
+ * Finds the newest live IPC discovery file, optionally filtered by PID.
+ * Used as a fallback when workspace-based lookup is not available.
  */
 export function findLatestIpcFile(vscodePid?: number): string | undefined {
-	const tmpDir = path.join(os.tmpdir(), 'gitkraken', 'gitlens');
-	if (!existsSync(tmpDir)) return undefined;
+	if (!existsSync(ipcDiscoveryDir)) return undefined;
 
-	const candidates = readdirSync(tmpDir)
+	const candidates = readdirSync(ipcDiscoveryDir)
 		.filter(f => {
 			if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) return false;
 			if (vscodePid != null) {
-				// File format: gitlens-ipc-server-{pid}-{port}.json
 				return f.startsWith(`gitlens-ipc-server-${vscodePid}-`);
 			}
 			return true;
 		})
 		.map(f => {
-			const fullPath = path.join(tmpDir, f);
+			const fullPath = path.join(ipcDiscoveryDir, f);
 			try {
 				return { fullPath: fullPath, mtime: statSync(fullPath).mtime };
 			} catch {

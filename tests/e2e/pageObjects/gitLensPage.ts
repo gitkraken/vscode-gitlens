@@ -44,6 +44,70 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	/**
+	 * Update a single VS Code setting at runtime via the workspace API.
+	 *
+	 * @param key - Full setting key (e.g. 'gitlens.gitkraken.mcp.experimental.enabled')
+	 * @param value - Value to set, or `undefined` to reset to default
+	 */
+	async updateSetting(key: string, value: unknown): Promise<boolean> {
+		return this.evaluate(
+			async (vscode, k, v) => {
+				try {
+					const [section, ...rest] = k.split('.');
+					const config = vscode.workspace.getConfiguration(section);
+					await config.update(rest.join('.'), v, vscode.ConfigurationTarget.Global);
+					return true;
+				} catch (err) {
+					console.warn(`[withSettings] Failed to update "${k}":`, String(err));
+					return false;
+				}
+			},
+			key,
+			value,
+		);
+	}
+
+	/**
+	 * Apply settings for the duration of a scope, then restore previous values.
+	 * Works with `using` for automatic cleanup, identical to `startSubscriptionSimulation`.
+	 *
+	 * @example
+	 * ```ts
+	 * using _ = await vscode.gitlens.withSettings({
+	 *   'gitlens.gitkraken.mcp.experimental.enabled': true,
+	 * });
+	 * // settings applied — run assertions
+	 * // automatically reverted when scope exits
+	 * ```
+	 */
+	async withSettings(settings: Record<string, unknown>): Promise<Disposable> {
+		// Save current values
+		const previousValues: Record<string, unknown> = {};
+		for (const key of Object.keys(settings)) {
+			previousValues[key] = await this.evaluate((vscode, k) => {
+				const [section, ...rest] = k.split('.');
+				return vscode.workspace.getConfiguration(section).get(rest.join('.'));
+			}, key);
+		}
+
+		// Apply new values
+		for (const [key, value] of Object.entries(settings)) {
+			await this.updateSetting(key, value);
+		}
+
+		// Short delay for configuration change events to propagate
+		await this.page.waitForTimeout(ShortTimeout);
+
+		return {
+			[Symbol.dispose]: async () => {
+				for (const [key, value] of Object.entries(previousValues)) {
+					await this.updateSetting(key, value);
+				}
+			},
+		};
+	}
+
+	/**
 	 * Get the count of GitLens-related tabs in the activity bar
 	 * Should be 2: GitLens and GitLens Inspect
 	 */
