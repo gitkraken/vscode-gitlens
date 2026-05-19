@@ -276,6 +276,22 @@ export type ResolveAgentFlowResult =
 	| { readonly kind: 'agent'; readonly descriptor: AgentDescriptor }
 	| { readonly kind: 'cancel' };
 
+/** Builds the `agent.resolution` telemetry payload for a resolved manual-vs-agent flow. */
+export function buildAgentResolvedTelemetryData(
+	result: ResolveAgentFlowResult,
+):
+	| { 'agent.resolution': 'manual' | 'cancel' }
+	| { 'agent.resolution': 'agent'; 'agent.id': string; 'agent.kind': AgentDescriptor['kind'] } {
+	if (result.kind === 'agent') {
+		return {
+			'agent.resolution': 'agent',
+			'agent.id': result.descriptor.id,
+			'agent.kind': result.descriptor.kind,
+		};
+	}
+	return { 'agent.resolution': result.kind };
+}
+
 /**
  * Orchestrates the manual-vs-agent flow. Yields wizard steps as needed (pre-picker / agent picker)
  * to remain compatible with the wizard's step machinery — DO NOT use `window.createQuickPick` here

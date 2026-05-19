@@ -43,7 +43,8 @@ import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import type { AgentDescriptor, AgentRoute } from '../agents/agentDescriptor.js';
-import { resolveAgentFlow } from '../agents/agentPicker.js';
+import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
+import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
 import type { ConnectMoreIntegrationsItem } from '../integrations/utils/-webview/integration.quickPicks.js';
 import {
 	getOpenOnGitProviderQuickInputButtons,
@@ -57,6 +58,7 @@ import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils
 export interface StartReviewTelemetryContext {
 	instance: number;
 	'items.count'?: number;
+	'context.showOpenInAgent'?: AgentRoute;
 }
 
 export interface StartReviewCommandArgs {
@@ -164,7 +166,10 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		this.source = args?.source ?? { source: 'commandPalette' };
 
 		if (this.container.telemetry.enabled) {
-			this.telemetryContext = { instance: instanceCounter.next() };
+			this.telemetryContext = {
+				instance: instanceCounter.next(),
+				'context.showOpenInAgent': args?.showOpenInAgent,
+			};
 
 			this.container.telemetry.sendEvent(
 				`${this.telemetryEventKey}/open`,
@@ -278,7 +283,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 								throw new Error(`No PR found matching '${state.prUrl}'`);
 							}
 
-							const agentDispatch = yield* this.resolveAgentDispatch(state);
+							const agentDispatch = yield* this.resolveAgentDispatch(state, context);
 							if (agentDispatch === StepResultBreak || agentDispatch === 'cancel') {
 								state.result?.cancel(new Error('Start Review cancelled'));
 								return;
@@ -331,7 +336,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 				// Execute the review using the LaunchpadItem directly (avoids redundant PR lookup)
 				try {
-					const agentDispatch = yield* this.resolveAgentDispatch(state);
+					const agentDispatch = yield* this.resolveAgentDispatch(state, context);
 					if (agentDispatch === StepResultBreak || agentDispatch === 'cancel') {
 						state.result?.cancel(new Error('Start Review cancelled'));
 						return;
@@ -375,6 +380,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 	 */
 	private async *resolveAgentDispatch(
 		state: StartReviewState,
+		context: StartReviewContext,
 	): AsyncStepResultGenerator<
 		'cancel' | { agent: AgentDescriptor | undefined; openChatOnComplete: boolean | undefined }
 	> {
@@ -395,6 +401,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		});
 		if (flow === StepResultBreak) return 'cancel';
 
+		this.sendAgentResolvedTelemetry(flow, context);
+
 		switch (flow.kind) {
 			case 'cancel':
 				return 'cancel';
@@ -403,6 +411,16 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			case 'agent':
 				return { agent: flow.descriptor, openChatOnComplete: true };
 		}
+	}
+
+	private sendAgentResolvedTelemetry(result: ResolveAgentFlowResult, context: StartReviewContext) {
+		if (!this.container.telemetry.enabled) return;
+
+		this.container.telemetry.sendEvent(
+			`${this.telemetryEventKey}/agent/resolved`,
+			{ ...context.telemetryContext!, connected: true, ...buildAgentResolvedTelemetryData(result) },
+			this.source,
+		);
 	}
 
 	private async ensureIntegrationConnected(id: IntegrationIds) {

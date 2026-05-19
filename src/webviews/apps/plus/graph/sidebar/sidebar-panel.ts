@@ -71,7 +71,12 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 		title: 'Overview',
 		actions: [
 			{ icon: 'add', tooltip: 'Create Worktree...', command: 'gitlens.views.title.createWorktree' },
-			{ icon: 'rocket', tooltip: 'Start Work', command: 'gitlens.startWork' },
+			{
+				icon: 'issues',
+				tooltip: 'Start Work',
+				command: 'gitlens.startWork',
+				args: [{ source: 'graph-sidebar' }],
+			},
 		],
 	},
 	agents: {
@@ -81,13 +86,13 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 				icon: 'issues',
 				tooltip: 'Start Work in an Agent...',
 				command: 'gitlens.startWork',
-				args: [{ source: 'graph-details', showOpenInAgent: 'agent' }],
+				args: [{ source: 'graph-sidebar', showOpenInAgent: 'agent' }],
 			},
 			{
 				icon: 'git-pull-request',
 				tooltip: 'Start Review in an Agent...',
 				command: 'gitlens.startReview',
-				args: [{ source: 'graph-details', showOpenInAgent: 'agent' }],
+				args: [{ source: 'graph-sidebar', showOpenInAgent: 'agent' }],
 			},
 		],
 	},
