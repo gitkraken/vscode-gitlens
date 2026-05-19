@@ -413,6 +413,15 @@ interface SelectedRowState {
 	hidden?: boolean;
 }
 
+/** Host-side shape returned by the scope-anchor resolver. `focalBranchTipSha` is set whenever
+ *  the focal branch has a resolvable tip (almost always); `mergeBase` / `mergeTargetTipSha` are
+ *  only set when there's a real merge target distinct from the focal branch. */
+interface ResolvedScopeAnchor {
+	focalBranchTipSha?: string;
+	mergeBase?: { sha: string; date: number };
+	mergeTargetTipSha?: string;
+}
+
 function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: SearchQuery } {
 	return arg?.repository != null && arg?.search != null;
 }
@@ -4492,6 +4501,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				...params.scope,
 				mergeBase: anchor?.mergeBase,
 				resolvedMergeTargetTipSha: anchor?.mergeTargetTipSha,
+				resolvedFocalBranchTipSha: anchor?.focalBranchTipSha,
 			},
 		};
 	}
@@ -4522,23 +4532,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 * Per-branch cache of resolved scope anchors. Cleared by `invalidateScopeAnchors` whenever
 	 * heads/remotes/config move so a stale anchor can't survive a rebase. Holds promises so
 	 * concurrent scope-resolves dedupe naturally.
+	 *
+	 * `focalBranchTipSha` is always set when the focal branch resolves; `mergeBase` /
+	 * `mergeTargetTipSha` may be undefined when there's no real merge target (default branch,
+	 * or focal branch transiently equal to its target — see `computeScopeAnchor`).
 	 */
-	private readonly _scopeAnchorCache = new Map<
-		string,
-		Promise<{ mergeBase: { sha: string; date: number }; mergeTargetTipSha?: string } | undefined>
-	>();
+	private readonly _scopeAnchorCache = new Map<string, Promise<ResolvedScopeAnchor | undefined>>();
 
 	/**
-	 * Lightweight scope-anchor resolver: returns just `{mergeBase, mergeTargetTipSha}` without
-	 * paying for `getContributors --shortstat` that `getBranchContributionsOverview` runs for the
-	 * overview/sidebar contributors panel. The expensive overview path is still used by enrichment
-	 * — this just stops scope from triggering it on cold branches that aren't already covered by
-	 * the package-level `branchOverviews` cache.
+	 * Lightweight scope-anchor resolver: returns just `{focalBranchTipSha, mergeBase?, mergeTargetTipSha?}`
+	 * without paying for `getContributors --shortstat` that `getBranchContributionsOverview` runs
+	 * for the overview/sidebar contributors panel. The expensive overview path is still used by
+	 * enrichment — this just stops scope from triggering it on cold branches that aren't already
+	 * covered by the package-level `branchOverviews` cache.
 	 */
-	private async resolveScopeAnchor(
-		repoPath: string,
-		branchName: string,
-	): Promise<{ mergeBase: { sha: string; date: number }; mergeTargetTipSha?: string } | undefined> {
+	private async resolveScopeAnchor(repoPath: string, branchName: string): Promise<ResolvedScopeAnchor | undefined> {
 		// Prefer the already-loaded branch from the in-memory graph snapshot — `_graph.branches`
 		// is the same data `getBranches()` would return (same underlying cache), so this is a
 		// synchronous shortcut on the hot path, not a different source of truth.
@@ -4563,9 +4571,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return promise;
 	}
 
-	private async computeScopeAnchor(
-		branch: GitBranch,
-	): Promise<{ mergeBase: { sha: string; date: number }; mergeTargetTipSha?: string } | undefined> {
+	private async computeScopeAnchor(branch: GitBranch): Promise<ResolvedScopeAnchor> {
+		const focalBranchTipSha = branch.sha;
 		const svc = this.container.git.getRepositoryService(branch.repoPath);
 
 		// Resolve target name — `getBranchMergeTargetInfo` already shares the underlying caches
@@ -4581,7 +4588,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			(targetInfo.mergeTargetBranch.paused ? undefined : targetInfo.mergeTargetBranch.value) ??
 			targetInfo.baseBranch ??
 			targetInfo.defaultBranch;
-		if (targetName == null) return undefined;
+		if (targetName == null) return { focalBranchTipSha: focalBranchTipSha };
 
 		// Prefer the in-memory branch list for the target tip, just like the focal branch above.
 		const targetBranch = this._graph?.branches.get(targetName) ?? (await svc.branches.getBranch(targetName));
@@ -4594,21 +4601,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// to its merge target. If we let it through, two things break: `mergeBase` collapses
 		// to the same sha and pins the visible window to a single row, and the GK component's
 		// `shouldHideWipRowForScope` treats that sha as a merge-target boundary and hides the
-		// WIP row of every worktree on the scoped branch. Returning undefined drops the
+		// WIP row of every worktree on the scoped branch. Returning just the focal tip drops the
 		// merge-target overlay and lets the scope walk all ancestors of `branchRef` /
 		// `upstreamRef` as if no target was configured.
-		if (mergeTargetTipSha == null || mergeTargetTipSha === branch.sha) return undefined;
+		if (mergeTargetTipSha == null || mergeTargetTipSha === focalBranchTipSha) {
+			return { focalBranchTipSha: focalBranchTipSha };
+		}
 
 		const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, targetName);
-		if (mergeBaseSha == null) return undefined;
+		if (mergeBaseSha == null) return { focalBranchTipSha: focalBranchTipSha };
 
 		// Prefer the cheap dates-only lookup on desktop (git-cli); fall back to a full commit fetch
 		// for providers that don't implement it (e.g. the GitHub provider used in vscode.dev).
 		const dates = await svc.commits.getCommitDates?.(mergeBaseSha);
 		const committerDate = dates?.committerDate ?? (await svc.commits.getCommit(mergeBaseSha))?.committer.date;
-		if (committerDate == null) return undefined;
+		if (committerDate == null) return { focalBranchTipSha: focalBranchTipSha };
 
 		return {
+			focalBranchTipSha: focalBranchTipSha,
 			mergeBase: { sha: mergeBaseSha, date: committerDate.getTime() },
 			mergeTargetTipSha: mergeTargetTipSha,
 		};

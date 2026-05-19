@@ -72,6 +72,7 @@ export function isGraphSearchResultsError(
 type ResolvedScopeAnchor = {
 	mergeBase: { sha: string; date: number } | undefined;
 	mergeTargetTipSha: string | undefined;
+	focalBranchTipSha: string | undefined;
 };
 
 /**
@@ -486,6 +487,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						: {
 								mergeBase: r.scope.mergeBase,
 								mergeTargetTipSha: r.scope.resolvedMergeTargetTipSha,
+								focalBranchTipSha: r.scope.resolvedFocalBranchTipSha,
 							},
 				)
 				.catch((): ResolvedScopeAnchor | undefined => undefined)
@@ -508,17 +510,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	private patchScopeAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
 		if (anchor == null) return;
-		// Host couldn't resolve either field — leave the live scope alone rather than assigning
-		// a no-op spread that would re-zoom the minimap for nothing.
-		if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null) return;
+		// Host couldn't resolve any field — leave the live scope alone rather than assigning a
+		// no-op spread that would re-zoom the minimap for nothing.
+		if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null && anchor.focalBranchTipSha == null) {
+			return;
+		}
 
 		// Only patch if the live scope still points at the same branch (user may have re-scoped
 		// or cleared while the resolve was in flight).
 		const current = this.scope;
 		if (current?.branchRef !== scope.branchRef) return;
 
-		// Skip if both the mergeBase and target tip already match — prevents a redundant signal
-		// update that would re-zoom the minimap needlessly.
+		// Skip if every patchable field already matches — prevents a redundant signal update that
+		// would re-zoom the minimap needlessly.
 		const mergeBaseSame =
 			current.mergeBase?.sha === anchor.mergeBase?.sha && current.mergeBase?.date === anchor.mergeBase?.date;
 		// `mergeTargetTipSha` may also be supplied by enrichment via `reconcileScopeMergeTarget`.
@@ -526,7 +530,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// resolver shouldn't clobber an enrichment-supplied SHA.
 		const targetTipSame =
 			anchor.mergeTargetTipSha == null || anchor.mergeTargetTipSha === current.mergeTargetTipSha;
-		if (mergeBaseSame && targetTipSame) return;
+		const focalTipSame = anchor.focalBranchTipSha == null || anchor.focalBranchTipSha === current.focalBranchTipSha;
+		if (mergeBaseSame && targetTipSame && focalTipSame) return;
 
 		const next: GraphScope = { ...current };
 		if (anchor.mergeBase != null && !mergeBaseSame) {
@@ -534,6 +539,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 		if (anchor.mergeTargetTipSha != null && !targetTipSame) {
 			next.mergeTargetTipSha = anchor.mergeTargetTipSha;
+		}
+		if (anchor.focalBranchTipSha != null && !focalTipSame) {
+			next.focalBranchTipSha = anchor.focalBranchTipSha;
 		}
 		this.scope = next;
 	}
