@@ -913,32 +913,36 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private renderFocusAreaActions(area: AIReviewFocusArea, state: { isAnalyzed: boolean }) {
 		const areaMarkdown = state.isAnalyzed ? formatFocusAreaAsMarkdown(area, this._dismissedFindings) : '';
 		const disabled = !state.isAnalyzed;
-		const copyLabel = disabled ? "Run 'Review Files' first" : 'Copy Focus Area Findings';
-		const sendLabel = disabled ? "Run 'Review Files' first" : 'Send Focus Area to Agent';
 
-		return html`<span class="review-area__actions" @click=${(e: Event) => e.stopPropagation()}>
-			<gl-copy-container
-				appearance="toolbar"
-				.content=${areaMarkdown}
-				copyLabel=${copyLabel}
-				copiedLabel="Copied!"
-				placement="bottom"
-				timeout=${2500}
-				?disabled=${disabled}
-				@click=${() => !disabled && this.dispatchCopied('focusArea')}
-			>
-				<code-icon icon="copy"></code-icon>
-			</gl-copy-container>
-			<gl-button
-				appearance="toolbar"
-				density="compact"
-				tooltip=${sendLabel}
-				?disabled=${disabled}
-				@click=${() => !disabled && this.handleSendToChat('focusArea', { area: area })}
-			>
-				<code-icon icon="comment-discussion-sparkle"></code-icon>
-			</gl-button>
-		</span>`;
+		// The inner `?disabled` on the buttons applies `pointer-events: none`, which suppresses
+		// their own tooltips on hover — so wrap the group in an outer `gl-tooltip` that explains
+		// what's needed. Outer is gated to disabled-only; inner labels are cleared while disabled
+		// so they don't double-up if the outer doesn't catch focus.
+		return html`<gl-tooltip content="Run 'Review Files' first" ?disabled=${!disabled} placement="bottom">
+			<span class="review-area__actions" @click=${(e: Event) => e.stopPropagation()}>
+				<gl-copy-container
+					appearance="toolbar"
+					.content=${areaMarkdown}
+					copyLabel=${disabled ? '' : 'Copy Focus Area Findings'}
+					copiedLabel="Copied!"
+					placement="bottom"
+					timeout=${2500}
+					?disabled=${disabled}
+					@click=${() => !disabled && this.dispatchCopied('focusArea')}
+				>
+					<code-icon icon="copy"></code-icon>
+				</gl-copy-container>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip=${disabled ? '' : 'Send Focus Area to Agent'}
+					?disabled=${disabled}
+					@click=${() => !disabled && this.handleSendToChat('focusArea', { area: area })}
+				>
+					<code-icon icon="comment-discussion-sparkle"></code-icon>
+				</gl-button>
+			</span>
+		</gl-tooltip>`;
 	}
 
 	private renderFindings(findings: readonly AIReviewFinding[], area?: AIReviewFocusArea) {
