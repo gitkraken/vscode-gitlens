@@ -526,42 +526,48 @@ export class RepositoryService {
 	 * Fetch from remote.
 	 */
 	async fetch(repoPath: string): Promise<void> {
-		await RepoActions.fetch(repoPath);
+		const repo = this.container.git.getRepository(repoPath);
+		await RepoActions.fetch(repo ?? repoPath);
 	}
 
 	/**
 	 * Push to remote.
 	 */
 	async push(repoPath: string): Promise<void> {
-		await RepoActions.push(repoPath);
+		const repo = this.container.git.getRepository(repoPath);
+		await RepoActions.push(repo ?? repoPath);
 	}
 
 	async publishBranch(repoPath: string): Promise<void> {
 		const branch = await this.container.git.getRepositoryService(repoPath).branches.getBranch();
 		if (branch == null) return;
 
-		await RepoActions.push(repoPath, undefined, getReferenceFromBranch(branch));
+		const repo = this.container.git.getRepository(repoPath);
+		await RepoActions.push(repo ?? repoPath, undefined, getReferenceFromBranch(branch));
 	}
 
 	/**
 	 * Pull from remote.
 	 */
 	async pull(repoPath: string): Promise<void> {
-		await RepoActions.pull(repoPath);
+		const repo = this.container.git.getRepository(repoPath);
+		await RepoActions.pull(repo ?? repoPath);
 	}
 
 	/**
 	 * Switch branches.
 	 */
 	async switchBranch(repoPath: string): Promise<void> {
-		await RepoActions.switchTo(repoPath);
+		const repo = this.container.git.getRepository(repoPath);
+		await RepoActions.switchTo(repo ?? repoPath);
 	}
 
 	/**
 	 * Create a new branch.
 	 */
 	async createBranch(repoPath: string): Promise<void> {
-		await BranchActions.create(repoPath);
+		const repo = this.container.git.getRepository(repoPath);
+		await BranchActions.create(repo ?? repoPath);
 	}
 
 	// ============================================================
