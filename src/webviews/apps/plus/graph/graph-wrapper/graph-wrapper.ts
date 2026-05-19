@@ -63,6 +63,8 @@ import {
 } from '../utils/wip.utils.js';
 import type { GlGraph } from './gl-graph.js';
 import type { GraphWrapperTheming } from './gl-graph.react.jsx';
+import type { WipCandidate } from './nearestWip.js';
+import { findNearestWipSha } from './nearestWip.js';
 import './gl-graph.js';
 
 // Builds the display message for a WIP row. The label (worktree name) is appended in parens for
@@ -193,18 +195,43 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		);
 
 		document.addEventListener('gl-jump-to-pinned-branch', this.onJumpToPinnedBranch as EventListener);
+		document.addEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 
 		document.removeEventListener('gl-jump-to-pinned-branch', this.onJumpToPinnedBranch as EventListener);
+		document.removeEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
 		this.disposables.forEach(d => d.dispose());
 		this.disposables = [];
 	}
 
 	private onJumpToPinnedBranch = (e: CustomEvent<{ sha: string }>) => {
 		this.ensureAndSelectCommit(e.detail.sha);
+	};
+
+	private onJumpToNearestWip = (e: CustomEvent<{ fromSha: string }>) => {
+		const wips: WipCandidate[] = [];
+
+		const primaryAnchor = this.graphState.branch?.sha ?? this.graphState.rows?.[0]?.sha;
+		if (primaryAnchor != null) {
+			wips.push({ sha: uncommitted, anchor: primaryAnchor });
+		}
+
+		const wipMetadataBySha = this.graphState.wipMetadataBySha;
+		if (wipMetadataBySha != null) {
+			for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+				if (meta.parentSha) {
+					wips.push({ sha: sha, anchor: meta.parentSha });
+				}
+			}
+		}
+
+		const target = findNearestWipSha(e.detail.fromSha, wips, this.graphState.rows);
+		if (target == null) return;
+
+		this.ensureAndSelectCommit(target);
 	};
 
 	// Cache keyed by (rows, wipMetadataBySha, workingTreeStats, scope, branchesVisibility,

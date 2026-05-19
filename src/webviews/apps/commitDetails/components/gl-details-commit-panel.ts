@@ -116,6 +116,10 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	@property({ type: Boolean, attribute: 'compare-enabled' })
 	compareEnabled = false;
 
+	/** Host opts in to showing the "Jump to Nearest Working Changes" action (graph host only). */
+	@property({ type: Boolean, attribute: 'show-jump-to-nearest-wip' })
+	showJumpToNearestWip = false;
+
 	@property()
 	activeMode?: 'review' | 'compose' | null;
 
@@ -388,6 +392,17 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					></gl-action-chip>`,
 			)}
 			${when(
+				this.showJumpToNearestWip && !isStash && !this.isUncommitted && this.activeMode == null,
+				() =>
+					html`<gl-action-chip
+						slot="actions"
+						icon="arrow-up"
+						label="Jump to Nearest Working Changes"
+						overlay="tooltip"
+						@click=${this.onJumpToNearestWipClick}
+					></gl-action-chip>`,
+			)}
+			${when(
 				!isStash && this.hasRemotes && this.activeMode == null,
 				() =>
 					html`<gl-action-chip
@@ -495,6 +510,19 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			>
 		</gl-tooltip>`;
 	}
+
+	private onJumpToNearestWipClick = (): void => {
+		const fromSha = this.commit?.sha;
+		if (!fromSha) return;
+
+		this.dispatchEvent(
+			new CustomEvent('gl-jump-to-nearest-wip', {
+				detail: { fromSha: fromSha },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private onMoreActionsClick = (e: MouseEvent): void => {
 		e.preventDefault();

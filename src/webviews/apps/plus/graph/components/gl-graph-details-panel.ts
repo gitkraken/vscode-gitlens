@@ -1524,6 +1524,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			variant="embedded"
 			file-icons
 			compare-enabled
+			show-jump-to-nearest-wip
 			.commit=${commit}
 			.loading=${this.isLoading}
 			.files=${commit.files}
@@ -1570,8 +1571,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@mode-refresh=${this.handleModeRefresh}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
 			@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
+			@gl-jump-to-nearest-wip=${this.handleJumpToNearestWip}
 		></gl-details-commit-panel>`;
 	}
+
+	private handleJumpToNearestWip = (e: CustomEvent<{ fromSha: string }>): void => {
+		document.dispatchEvent(new CustomEvent('gl-jump-to-nearest-wip', { detail: e.detail }));
+	};
 
 	private renderMultiCommit() {
 		const activeMode = this._state.activeMode.get();
