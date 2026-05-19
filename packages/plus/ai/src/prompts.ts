@@ -632,9 +632,9 @@ The review was performed against: \${scopeLabel}
 
 The findings are provided as structured markdown below. Each finding includes a severity (\`**[CRITICAL]**\`, \`**[WARNING]**\`, or \`**[SUGGESTION]**\`), a short title, a description of the problem, and (when available) a file path and line range. Focus areas group related findings and include a rationale explaining why they matter.
 
-<~~review~~>
+<review>
 \${reviewMarkdown}
-</~~review~~>
+</review>
 
 Guidelines:
 - Treat the findings as a working list. Prioritize critical issues, then warnings, then suggestions.
