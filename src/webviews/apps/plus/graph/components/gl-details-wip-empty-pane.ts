@@ -42,9 +42,33 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		if (!branch) return this.renderIdle();
 
 		const nextSteps = this.computeNextSteps(branch);
-		const active = nextSteps.length > 0;
+		// Pending steps win — Review/Recompose ride along below the pending list with the
+		// active-state ordering rule. With no pending steps, the panel falls back to the idle
+		// UI (renderIdle handles the Review/Recompose buttons itself).
+		if (nextSteps.length === 0) return this.renderIdle();
 
-		return active ? this.renderActive(branch, nextSteps) : this.renderIdle();
+		const recomposeFirst = this.shouldRecomposeFirst(branch);
+		const uniqueWorkSteps = this.computeUniqueWorkSteps(recomposeFirst);
+		return this.renderActive(branch, [...nextSteps, ...uniqueWorkSteps]);
+	}
+
+	private shouldRecomposeFirst(branch: GitBranchShape): boolean {
+		const ahead = branch.tracking?.ahead ?? 0;
+		const behind = branch.tracking?.behind ?? 0;
+		const upstreamMissing = branch.upstream == null || branch.upstream.missing === true;
+		return upstreamMissing || ahead !== 0 || behind !== 0;
+	}
+
+	/** Gating shared by `computeUniqueWorkSteps` (active state) and `renderIdle` (idle state).
+	 *  Both surfaces want Review/Recompose under the same conditions — merge target detected,
+	 *  unique commits against it, and no in-flight paused git op. */
+	private hasUniqueWorkActions(): boolean {
+		if (this.wip?.changes?.pausedOpStatus != null) return false;
+
+		const mergeTarget = this.mergeTargetStatus?.mergeTarget;
+		if (mergeTarget == null) return false;
+
+		return (mergeTarget.status?.ahead ?? 0) > 0;
 	}
 
 	private renderActive(branch: GitBranchShape, nextSteps: NextStep[]) {
@@ -130,6 +154,8 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	}
 
 	private renderIdle() {
+		const showUniqueWorkButtons = this.hasUniqueWorkActions();
+
 		return html`<div class="hub hub--idle">
 			<p class="caption">Nothing pending on this branch.</p>
 			<div class="start-fresh">
@@ -148,6 +174,14 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				<gl-button appearance="secondary" @click=${() => this.emit('new-worktree')}>
 					<code-icon icon="gl-worktrees-view"></code-icon>New Worktree…
 				</gl-button>
+				${showUniqueWorkButtons
+					? html`<gl-button appearance="secondary" @click=${() => this.emit('review-branch-changes')}>
+								<code-icon icon="checklist"></code-icon>Review Branch
+							</gl-button>
+							<gl-button appearance="secondary" @click=${() => this.emit('recompose-branch-changes')}>
+								<code-icon icon="wand"></code-icon>Recompose Branch
+							</gl-button>`
+					: nothing}
 			</div>
 		</div>`;
 	}
@@ -271,7 +305,36 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			steps.push(mergeTargetStep);
 		}
 
+		// Note: Review/Recompose are intentionally NOT appended here. They're appended by
+		// `render()` only when there are other pending steps to ride along below. When the
+		// pending list is empty, the panel routes to renderIdle which adds them as buttons.
+
 		return steps;
+	}
+
+	/**
+	 * Review Changes / Recompose Branch as next-steps rows (active state). Gated by
+	 * {@link hasUniqueWorkActions}. Returned in the order requested by the caller:
+	 * - `recomposeFirst` true (branch actively being worked on) → Recompose, then Review
+	 * - false (branch in sync with upstream) → Review, then Recompose
+	 */
+	private computeUniqueWorkSteps(recomposeFirst: boolean): NextStep[] {
+		if (!this.hasUniqueWorkActions()) return [];
+
+		const review: NextStep = {
+			icon: 'checklist',
+			label: 'Review Changes',
+			actionLabel: 'Review',
+			event: 'review-branch-changes',
+		};
+		const recompose: NextStep = {
+			icon: 'wand',
+			label: 'Recompose Branch',
+			actionLabel: 'Recompose',
+			event: 'recompose-branch-changes',
+		};
+
+		return recomposeFirst ? [recompose, review] : [review, recompose];
 	}
 
 	/**

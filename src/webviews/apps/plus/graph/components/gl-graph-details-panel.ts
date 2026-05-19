@@ -1246,6 +1246,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									@push=${this.handlePush}
 									@rebase-onto-merge-target=${this.handleRebaseOntoMergeTarget}
 									@merge-merge-target-into-current=${this.handleMergeMergeTargetIntoCurrent}
+									@review-branch-changes=${this.handleReviewBranchChanges}
+									@recompose-branch-changes=${this.handleRecomposeBranchChanges}
 								></gl-details-wip-empty-pane>
 							`;
 
@@ -1963,6 +1965,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleRebaseOntoMergeTarget = () => this._actions.rebaseOntoMergeTarget();
 
 	private handleMergeMergeTargetIntoCurrent = () => this._actions.mergeMergeTargetIntoCurrent();
+
+	private handleReviewBranchChanges = () => this.enterBranchWorkMode('review');
+
+	private handleRecomposeBranchChanges = () => this.enterBranchWorkMode('compose');
+
+	/** Shared entry for the empty-WIP "Review Changes" / "Recompose Branch" next-steps and the
+	 *  idle-state "Review Branch" / "Recompose Branch" buttons. Opens the mode against the
+	 *  current WIP selection — the workflow's `buildDefaultScope` produces the initial commit
+	 *  selection; the user can refine it from the picker. */
+	private enterBranchWorkMode(mode: 'review' | 'compose'): void {
+		this.suppressContentOverflow();
+		this._workflow.toggleMode(mode, this.currentSelection());
+	}
 
 	private handleRemoveAssociatedIssue = (e: CustomEvent<{ entityId: string }>) =>
 		void this._actions.removeAssociatedIssue(e.detail.entityId);
