@@ -207,21 +207,28 @@ export class GlDetailsWipHeader extends LitElement {
 		const ahead = branch.tracking?.ahead ?? 0;
 		const behind = branch.tracking?.behind ?? 0;
 
-		if (behind > 0) {
+		if (ahead > 0 && behind > 0) {
 			return html`<gl-action-chip
 					icon="repo-pull"
 					label="Pull"
 					overlay="tooltip"
 					@click=${() => this.emit('pull')}
 				></gl-action-chip>
-				${ahead > 0
-					? html`<gl-action-chip
-							icon="repo-push"
-							label="Push"
-							overlay="tooltip"
-							@click=${() => this.emit('push')}
-						></gl-action-chip>`
-					: nothing}`;
+				<gl-action-chip
+					icon="repo-force-push"
+					label="Force Push"
+					overlay="tooltip"
+					@click=${() => this.emit('force-push')}
+				></gl-action-chip>`;
+		}
+
+		if (behind > 0) {
+			return html`<gl-action-chip
+				icon="repo-pull"
+				label="Pull"
+				overlay="tooltip"
+				@click=${() => this.emit('pull')}
+			></gl-action-chip>`;
 		}
 
 		if (ahead > 0) {
