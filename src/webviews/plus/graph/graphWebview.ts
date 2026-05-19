@@ -4616,15 +4616,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
 		undefined;
-	private _lastUserSelectionTime: number = 0;
 
 	@ipcCommand(UpdateSelectionCommand)
 	private onSelectionChanged(params: IpcParams<typeof UpdateSelectionCommand>) {
 		const item = params.selection.find(r => r.active) ?? params.selection[0];
 		this.setSelectedRows(item?.id, params.selection, { selected: true, hidden: item?.hidden });
 
-		// Track when user explicitly selects
-		this._lastUserSelectionTime = performance.now();
 		this._honorSelectedId = true;
 
 		this._fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 50);
@@ -6137,34 +6134,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// If we have a set of data refresh to the same set
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
-		const hasWorkingChanges = await this.repository.git.status.hasWorkingChanges(
-			{ staged: true, unstaged: true, untracked: true },
-			toAbortSignal(cancellation.token),
-		);
-
-		let selectedId = this._selectedId;
 		let selectionChanged = false;
 
-		// Skip default row selection if we are honoring the selected id or we have a pending search request
-		// to avoid overriding an honored selection or jumping to WIP/HEAD before the search is applied
 		if (
 			!this._honorSelectedId &&
 			searchRequest == null &&
-			selectedId !== uncommitted &&
-			hasWorkingChanges &&
+			this._selectedId !== uncommitted &&
 			configuration.get('graph.initialRowSelection') === 'wip'
 		) {
 			selectionChanged = true;
-
 			this.setSelectedRows(uncommitted);
-			selectedId = this._selectedId;
 		}
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
 
 		const dataPromise = this.repository.git.graph.getGraph(
-			selectedId,
+			this._selectedId,
 			{
 				include: {
 					stats:
@@ -6184,7 +6170,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
-			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges, cancellation.token),
+			this.getWorkingTreeStatsAndPausedOperations(undefined, cancellation.token),
 			this.repository.git.branches.getBranch(undefined, toAbortSignal(cancellation.token)),
 			this.repository.getLastFetched(),
 			this.getWipMetadataBySha(cancellation.token),
@@ -6199,9 +6185,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					this.setGraph(data);
 
-					// Don't override selection if user selected something in the last 500ms
-					const userRecentlySelected = performance.now() - this._lastUserSelectionTime < 500;
-					if (!userRecentlySelected && this._selectedId !== data.id) {
+					// Don't clobber an honored selection if `data.id` ever diverges (slow await, scope/filter shifts, dropped SHAs)
+					if (!this._honorSelectedId && this._selectedId !== data.id) {
 						selectionChanged = true;
 						this.setSelectedRows(data.id);
 					}
@@ -6216,7 +6201,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			data = await dataPromise;
 			this.setGraph(data);
 
-			if (selectedId !== data.id) {
+			if (!this._honorSelectedId && this._selectedId !== data.id) {
 				this.setSelectedRows(data.id);
 			}
 		}
