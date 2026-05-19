@@ -291,6 +291,7 @@ export const reviewModePanelStyles = css`
 
 	.review-overview__text {
 		color: var(--vscode-foreground);
+		overflow-wrap: anywhere;
 	}
 
 	.review-overview__hint {
@@ -392,7 +393,9 @@ export const reviewModePanelStyles = css`
 
 	.review-area__label {
 		flex: 1;
+		min-width: 0;
 		font-weight: 500;
+		overflow-wrap: anywhere;
 	}
 
 	.review-area__file-count {
@@ -410,6 +413,7 @@ export const reviewModePanelStyles = css`
 		line-height: 1.4;
 		color: var(--vscode-descriptionForeground);
 		margin-bottom: 0.6rem;
+		overflow-wrap: anywhere;
 	}
 
 	.review-area__files {
@@ -532,6 +536,13 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-finding {
+		/* Flex column so the .review-finding__location <button> (display: flex) becomes a flex
+		   item with align-items: stretch — gives it a constrained cross-axis width so its
+		   shrinkable text child actually ellipsizes instead of pushing the button past the card
+		   edge at narrow widths. Mirrors the .review-area__files → .review-area__file-link
+		   pattern above. */
+		display: flex;
+		flex-direction: column;
 		padding: 0.6rem 0.8rem;
 		background: var(--vscode-editor-inactiveSelectionBackground, rgba(255, 255, 255, 0.04));
 		border-radius: 0.3rem;
@@ -594,8 +605,10 @@ export const reviewModePanelStyles = css`
 
 	.review-finding__title {
 		flex: 1;
+		min-width: 0;
 		font-weight: 500;
 		font-size: var(--gl-font-base);
+		overflow-wrap: anywhere;
 	}
 
 	.review-finding__description {
@@ -603,6 +616,7 @@ export const reviewModePanelStyles = css`
 		line-height: 1.4;
 		color: var(--vscode-descriptionForeground);
 		margin-bottom: 0.4rem;
+		overflow-wrap: anywhere;
 	}
 
 	.review-finding__location {
