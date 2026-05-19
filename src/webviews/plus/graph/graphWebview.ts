@@ -344,6 +344,8 @@ import {
 	DidChangeCanInstallClaudeHook,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeGraphWalkthroughBanner,
+	DidChangeGraphWalkthroughComplete,
 	DidChangeHooksBanner,
 	DidChangeMcpBanner,
 	DidChangeNotification,
@@ -637,6 +639,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.container.storage.onDidChange(this.onStorageChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
+			this.container.walkthrough.onDidChangeProgress(this.onGraphWalkthroughProgressChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async e => {
@@ -3079,6 +3082,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.onHooksBannerChanged();
 		} else if (e.key === 'hooks:banner') {
 			this.onHooksBannerChanged();
+		} else if (e.key === 'graph-walkthrough:banner') {
+			this.onGraphWalkthroughBannerChanged();
 		}
 	}
 
@@ -3100,6 +3105,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getHooksBannerCollapsed() {
 		return !isHooksBannerEnabled(this.container);
+	}
+
+	private onGraphWalkthroughBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeGraphWalkthroughBanner, this.getGraphWalkthroughBannerCollapsed());
+	}
+
+	private onGraphWalkthroughProgressChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeGraphWalkthroughComplete, this.getGraphWalkthroughComplete());
+	}
+
+	private getGraphWalkthroughBannerCollapsed() {
+		return this.container.onboarding.isDismissed('graph-walkthrough:banner');
+	}
+
+	private getGraphWalkthroughComplete() {
+		return this.container.walkthrough.graphProgress >= 1;
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -6364,6 +6389,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			hooksBannerCollapsed: this.getHooksBannerCollapsed(),
 			canInstallClaudeHook: this._lastCanInstallClaudeHook ?? false,
+			graphWalkthroughBannerCollapsed: this.getGraphWalkthroughBannerCollapsed(),
+			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
 			searchRequest: searchRequest,
 			detailsVisible: storedPanels?.details?.visible ?? true,
 			detailsPosition: storedPanels?.details?.position,

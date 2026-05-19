@@ -227,6 +227,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	mcpBannerCollapsed?: boolean;
 	hooksBannerCollapsed?: boolean;
 	canInstallClaudeHook?: boolean;
+	graphWalkthroughBannerCollapsed?: boolean;
+	graphWalkthroughComplete?: boolean;
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;
@@ -876,6 +878,13 @@ export const DidChangeHooksBanner = new IpcNotification<boolean>(scope, 'hooks/d
 export const DidChangeCanInstallClaudeHook = new IpcNotification<boolean>(
 	scope,
 	'agents/canInstallClaudeHook/didChange',
+);
+
+export const DidChangeGraphWalkthroughBanner = new IpcNotification<boolean>(scope, 'graphWalkthrough/banner/didChange');
+
+export const DidChangeGraphWalkthroughComplete = new IpcNotification<boolean>(
+	scope,
+	'graphWalkthrough/complete/didChange',
 );
 
 export interface DidChangeBranchStateParams {
