@@ -1498,7 +1498,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					this.actions.services.repository.onRepositoryChanged(repoPath, data => {
 						if (this.host.isWipSelection()) {
 							const relevant = data.changes.some(
-								c => c === 'gkConfig' || c === 'config' || c === 'heads',
+								c => c === 'gkConfig' || c === 'config' || c === 'heads' || c === 'remoteProviders',
 							);
 							if (relevant) {
 								this.actions.refreshWipBranchEnrichment();

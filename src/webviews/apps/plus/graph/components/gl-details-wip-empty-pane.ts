@@ -1,6 +1,8 @@
+import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
 import type { GitBranchShape, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
 import { detailsWipEmptyPaneStyles } from './gl-details-wip-empty-pane.css.js';
@@ -26,6 +28,8 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	static override styles = [elementBase, detailsWipEmptyPaneStyles];
 
 	@property({ type: Object }) wip?: Wip;
+	@property({ type: Boolean }) hasPullRequest = false;
+	@property({ type: Object }) launchpadSummary?: LaunchpadSummaryResult | { error: Error };
 	@property({ type: Boolean }) aiEnabled = false;
 
 	override render(): unknown {
@@ -61,9 +65,11 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			</section>
 			${this.aiEnabled && hasDiverged ? this.renderAiWorkflows(ahead) : nothing}
 			<section class="section">
+				<h3 class="section__heading">Launchpad</h3>
+				${this.renderLaunchpadSummary()}
 				<div class="start-fresh">
 					<gl-button appearance="secondary" @click=${() => this.emit('start-work')}>
-						<code-icon icon="rocket"></code-icon>Start Work…
+						<code-icon icon="rocket"></code-icon>Start Work on an Issue…
 					</gl-button>
 				</div>
 			</section>
@@ -119,6 +125,73 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		</div>`;
 	}
 
+	private renderLaunchpadSummary(): TemplateResult | typeof nothing {
+		const summary = this.launchpadSummary;
+		if (summary == null || !('total' in summary) || summary.total === 0) return nothing;
+		if (!summary.hasGroupedItems) return nothing;
+
+		const items: TemplateResult[] = [];
+
+		for (const group of summary.groups) {
+			switch (group) {
+				case 'mergeable': {
+					const total = summary.mergeable?.total ?? 0;
+					if (total === 0) continue;
+
+					items.push(
+						html`<li class="launchpad-item launchpad-item--mergeable">
+							<code-icon class="launchpad-item__icon" icon="rocket"></code-icon>
+							<span>${pluralize('PR', total)} can be merged</span>
+						</li>`,
+					);
+					break;
+				}
+				case 'blocked': {
+					const total = summary.blocked?.total ?? 0;
+					if (total === 0) continue;
+
+					items.push(
+						html`<li class="launchpad-item launchpad-item--blocked">
+							<code-icon class="launchpad-item__icon" icon="error"></code-icon>
+							<span>${pluralize('PR', total)} ${total > 1 ? 'are' : 'is'} blocked</span>
+						</li>`,
+					);
+					break;
+				}
+				case 'follow-up': {
+					const total = summary.followUp?.total ?? 0;
+					if (total === 0) continue;
+
+					items.push(
+						html`<li class="launchpad-item launchpad-item--attention">
+							<code-icon class="launchpad-item__icon" icon="report"></code-icon>
+							<span>${pluralize('PR', total)} ${total > 1 ? 'require' : 'requires'} follow-up</span>
+						</li>`,
+					);
+					break;
+				}
+				case 'needs-review': {
+					const total = summary.needsReview?.total ?? 0;
+					if (total === 0) continue;
+
+					items.push(
+						html`<li class="launchpad-item launchpad-item--attention">
+							<code-icon class="launchpad-item__icon" icon="comment-unresolved"></code-icon>
+							<span>${pluralize('PR', total)} ${total > 1 ? 'need' : 'needs'} your review</span>
+						</li>`,
+					);
+					break;
+				}
+			}
+		}
+
+		if (items.length === 0) return nothing;
+
+		return html`<ul class="launchpad-items">
+			${items}
+		</ul>`;
+	}
+
 	private computeNextSteps(branch: GitBranchShape): NextStep[] {
 		const ahead = branch.tracking?.ahead ?? 0;
 		const behind = branch.tracking?.behind ?? 0;
@@ -145,14 +218,23 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				actionLabel: 'Pull',
 				event: 'pull',
 			});
-		}
-
-		if (ahead > 0) {
+		} else if (ahead > 0) {
 			steps.push({
 				icon: 'repo-push',
 				label: `Push ${pluralize('commit', ahead)} to ${remoteName}`,
 				actionLabel: 'Push',
 				event: 'push',
+			});
+		}
+
+		// Show "Create PR" for any published branch without an existing PR,
+		// regardless of ahead/behind state — matches Home view behavior.
+		if (!this.hasPullRequest) {
+			steps.push({
+				icon: 'git-pull-request-create',
+				label: 'Create a Pull Request',
+				actionLabel: 'Create PR',
+				event: 'create-pr',
 			});
 		}
 

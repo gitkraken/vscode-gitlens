@@ -97,4 +97,36 @@ export const detailsWipEmptyPaneStyles = css`
 	.start-fresh gl-button code-icon {
 		margin-right: 0.4rem;
 	}
+
+	.launchpad-items {
+		list-style: none;
+		padding-inline-start: 0;
+		margin-block: 0 0.6rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+
+	.launchpad-item {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		font-size: 1.2rem;
+	}
+
+	.launchpad-item__icon {
+		color: var(--gl-launchpad-item-color, inherit);
+	}
+
+	.launchpad-item--mergeable {
+		--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorMergeableColor);
+	}
+
+	.launchpad-item--blocked {
+		--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
+	}
+
+	.launchpad-item--attention {
+		--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
+	}
 `;
