@@ -30,6 +30,7 @@ import type {
 	PermissionSuggestion,
 } from '../types.js';
 import { getPhaseForStatus } from '../types.js';
+import { ClaudeCodeTranscriptReader } from './claudeCodeTranscript.js';
 
 interface AgentSessionEvent {
 	event: ClaudeCodeHookEvent;
@@ -196,6 +197,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private readonly _pendingIdleTimers = new Map<string, NodeJS.Timeout>();
 	private _workspacePaths: string[] = [];
 	private _staleCheckTimer: UnifiedDisposable | undefined;
+	protected _transcriptReader: ClaudeCodeTranscriptReader = new ClaudeCodeTranscriptReader();
 
 	constructor(private readonly callbacks: AgentProviderCallbacks) {}
 
@@ -409,6 +411,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				}
 
 				this._onDidChangeSessions.fire();
+				void this.resolveTranscriptTitles(event.sessionId, event.cwd);
 				this.callbacks.onSessionStarted?.(this.id);
 				break;
 			}
@@ -432,6 +435,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				}
 
 				this._sessionBookkeeping.delete(event.sessionId);
+				this._transcriptReader.forget(event.sessionId);
 				this.callbacks.onSessionEnded?.(this.id);
 				break;
 			}
@@ -1078,6 +1082,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				this.callbacks.onBranchAgentActivity?.(sessionCwd);
 			}
 		}
+
+		// On a fresh transition into idle, recheck transcript titles — Claude typically (re-)writes
+		// `ai-title` right after finishing a response, so this is the prime moment to pick it up.
+		// Tail-read caching makes repeated checks cheap.
+		if (status === 'idle' && prev.status !== 'idle') {
+			void this.resolveTranscriptTitles(sessionId, this._sessions[index].cwd);
+		}
 	}
 
 	private ensureSession(sessionId: string, context?: SessionContext): { index: number; changed: boolean } {
@@ -1111,6 +1122,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			if (cwd != null) {
 				void this.resolveGitInfo(sessionId, cwd);
 			}
+			void this.resolveTranscriptTitles(sessionId, cwd);
 			return { index: index, changed: true };
 		}
 
@@ -1229,6 +1241,29 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 	}
 
+	private async resolveTranscriptTitles(sessionId: string, cwd: string | undefined): Promise<void> {
+		let titles;
+		try {
+			titles = await this._transcriptReader.resolve(sessionId, cwd);
+		} catch {
+			return;
+		}
+		if (titles == null) return;
+
+		const index = this._sessions.findIndex(s => s.id === sessionId);
+		if (index < 0) return;
+
+		const session = this._sessions[index];
+		const prev = session.transcriptTitles;
+		if (prev?.custom === titles.custom && prev?.ai === titles.ai && prev?.agent === titles.agent) return;
+
+		this._sessions[index] = {
+			...session,
+			transcriptTitles: { custom: titles.custom, ai: titles.ai, agent: titles.agent },
+		};
+		this._onDidChangeSessions.fire();
+	}
+
 	private pruneDeadSessions(): boolean {
 		const kept: AgentSession[] = [];
 		const removedIds: string[] = [];
@@ -1254,6 +1289,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 			this.cancelPendingIdleTransition(id);
 			this._sessionBookkeeping.delete(id);
+			this._transcriptReader.forget(id);
 		}
 		Logger.debug(
 			`ClaudeCodeProvider.syncSessions: removed ${removedIds.length} stale session(s): ${removedIds.map(id => id.substring(0, 8)).join(', ')}`,
@@ -1326,6 +1362,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			if (data.cwd) {
 				void this.resolveGitInfo(data.sessionId, data.cwd);
 			}
+			void this.resolveTranscriptTitles(data.sessionId, data.cwd);
 		}
 
 		if (this.pruneDeadSessions()) {
@@ -1404,6 +1441,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							// targets the right path. Stale-cwd locally would just re-probe the
 							// non-repo dir and hit the gitInfoUnresolvable retry guard again.
 							cwd: cwdChanged ? peerSession.cwd : existing.cwd,
+							// Forward peer-discovered transcript titles. Both windows can resolve them
+							// independently against the same on-disk transcript, but only the peer's
+							// hook flow drives its updates — without this, we'd freeze the snapshot
+							// taken at first discovery.
+							transcriptTitles: peerSession.transcriptTitles ?? existing.transcriptTitles,
 						};
 						changed = true;
 					}

@@ -53,15 +53,24 @@ export type AgentSessionState = Omit<Shape<AgentSession>, 'subagents'> & {
 };
 
 /**
- * Resolves the user-facing name for a session. Prefers the harness-supplied `name`, then a
+ * Resolves the user-facing name for a session. Prefers the harness-supplied `name`, then
+ * transcript-discovered titles (user-set `customTitle`, then AI-generated `aiTitle`), then a
  * heuristic derived from `firstPrompt`, then the same heuristic on `lastPrompt` (so resumed/
- * headless sessions with no first prompt still get a content-derived label), then progressively
- * coarser context fallbacks. Location-based fallbacks (worktree, cwd) are rendered as `On <X>`
- * so a row labeled `On main` reads as a location anchor rather than a session topic. Always
- * returns a non-empty string so consumers don't need to repeat fallback logic.
+ * headless sessions with no first prompt still get a content-derived label), then the
+ * transcript-discovered `agentName` slug as a low-priority content name (it's a slug-twin of
+ * `customTitle`, often auto-derived and less readable than a prompt-derived label). If no content
+ * name resolves, falls back to a location anchor (`On <X>`) built from worktree/cwd basename.
+ * Always returns a non-empty string so consumers don't need to repeat fallback logic.
  */
 export function getSessionDisplayName(session: AgentSession, worktreeName: string | undefined): string {
-	const name = session.name || deriveNameFromPrompt(session.firstPrompt) || deriveNameFromPrompt(session.lastPrompt);
+	const titles = session.transcriptTitles;
+	const name =
+		session.name ||
+		titles?.custom ||
+		titles?.ai ||
+		deriveNameFromPrompt(session.firstPrompt) ||
+		deriveNameFromPrompt(session.lastPrompt) ||
+		titles?.agent;
 	if (name) return name;
 
 	// normalizePath collapses backslashes and trailing slashes so basename (POSIX) returns the
