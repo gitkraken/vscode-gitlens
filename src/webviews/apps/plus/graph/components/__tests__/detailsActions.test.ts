@@ -7,6 +7,7 @@ import type {
 	ScopeSelection,
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
+import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
 import { DetailsActions, scopeSelectionEqual } from '../detailsActions.js';
 import { createDetailsState } from '../detailsState.js';
@@ -316,5 +317,47 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.branchCompareAheadLoaded.get(), false);
 		assert.strictEqual(state.branchCompareBehindLoaded.get(), false);
 		assert.strictEqual(state.branchCompareSelectedCommitShaByTab.get().size, 0);
+	});
+
+	test('refetchWipQuiet marks WIP stale when a mode is active', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('compose');
+		state.wipStale.set(false);
+
+		const wip: Wip = {
+			changes: undefined,
+			repositoryCount: 1,
+			repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+		};
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => wip),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		await actions.refetchWipQuiet('/repo');
+
+		assert.strictEqual(state.wip.get(), wip);
+		assert.strictEqual(state.wipStale.get(), true);
+	});
+
+	test('refetchWipQuiet leaves WIP stale untouched when no mode is active', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+		state.wipStale.set(false);
+
+		const wip: Wip = {
+			changes: undefined,
+			repositoryCount: 1,
+			repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+		};
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => wip),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		await actions.refetchWipQuiet('/repo');
+
+		assert.strictEqual(state.wip.get(), wip);
+		assert.strictEqual(state.wipStale.get(), false);
 	});
 });

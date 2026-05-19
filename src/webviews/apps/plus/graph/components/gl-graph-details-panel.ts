@@ -604,13 +604,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			if (wtsChanged || bsChanged) {
 				this._lastWorkingTreeStats = wts;
 				this._lastBranchState = bs;
-				if (this.isWip) {
-					const repoPath = this.effectiveRepoPath;
-					if (repoPath != null) {
-						void this._actions?.refetchWipQuiet(repoPath);
-					}
-					if (this._state.activeMode.get() != null) {
-						void this._actions?.fetchBranchCommits(this.effectiveRepoPath);
+				const modeActive = this._state.activeMode.get() != null;
+				// `effectiveRepoPath` resolves to the mode's anchor when active (via
+				// `activeModeRepoPath`), so live updates still propagate when the user has
+				// navigated to a commit row while a compose/review runs in the background.
+				const repoPath = this.effectiveRepoPath;
+				if (repoPath != null && (this.isWip || modeActive)) {
+					void this._actions?.refetchWipQuiet(repoPath);
+					if (modeActive) {
+						// New commits / fetches / pulls reach the picker via branchCommits +
+						// branchMergeBase; keep them current alongside the WIP refetch.
+						void this._actions?.fetchBranchCommits(repoPath);
+						// On the mode's starting step the file list is rendered from `scopeFiles`
+						// (the fallback to raw WIP only kicks in until the scoped fetch resolves),
+						// so a WIP change alone doesn't update what the user sees. Re-fetch the
+						// scope's files too when the active scope reads from WIP.
+						const scope = this._state.scope.get();
+						if (scope?.type === 'wip') {
+							void this._actions?.resources.scopeFiles.fetch(repoPath, scope);
+						}
 					}
 				}
 			}

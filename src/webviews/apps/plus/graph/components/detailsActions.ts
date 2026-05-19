@@ -2244,6 +2244,9 @@ export class DetailsActions {
 		// Replace WIP + only re-fire branch enrichment if the branch identity actually changed.
 		const prev = this.state.wip.get();
 		this.state.wip.set(wip);
+		if (this.state.activeMode.get() != null) {
+			this.state.wipStale.set(true);
+		}
 		const branchName = wip.branch?.name;
 		if (branchName != null && prev?.branch?.name !== branchName) {
 			this.fetchWipBranchEnrichment(repoPath, branchName, this.resetEnrichment());
