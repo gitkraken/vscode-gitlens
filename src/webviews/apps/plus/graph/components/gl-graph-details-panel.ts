@@ -119,6 +119,9 @@ declare global {
 	}
 }
 
+type PanelOrientation = 'horizontal' | 'vertical';
+const narrowPanelThreshold = 600;
+
 @customElement('gl-graph-details-panel')
 export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
@@ -919,9 +922,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this;
 	}
 
+	private _resizeObserver?: ResizeObserver;
+	@state() private _preferredCompareOrientation: PanelOrientation = 'vertical';
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.addEventListener('switch-model', this.handleSwitchModel);
+		this._preferredCompareOrientation = this.clientWidth >= narrowPanelThreshold ? 'horizontal' : 'vertical';
+		this._resizeObserver = new ResizeObserver(entries => {
+			const preferred: PanelOrientation =
+				(entries[0]?.contentRect.width ?? this.clientWidth) >= narrowPanelThreshold ? 'horizontal' : 'vertical';
+			if (this._preferredCompareOrientation !== preferred) {
+				this._preferredCompareOrientation = preferred;
+			}
+		});
+		this._resizeObserver.observe(this);
 	}
 
 	private handleSwitchModel = (): void => {
@@ -1046,6 +1061,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 		this.removeEventListener('switch-model', this.handleSwitchModel);
+		this._resizeObserver?.disconnect();
+		this._resizeObserver = undefined;
 		clearTimeout(this._suppressContentOverflowTimer);
 		this._suppressContentOverflowTimer = undefined;
 		clearTimeout(this._suppressModePanelOverflowTimer);
@@ -1684,19 +1701,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const compareSheet = compareSheetOpen
 			? (() => {
-					// Sheet → pinned panel: default click always moves to beside (horizontal),
-					// Alt-click moves to below (vertical). Icon + tooltip preview the live action
-					// based on the alt-key state so the affordance reads correctly mid-press.
-					const labelFor = (o: 'horizontal' | 'vertical') =>
-						o === 'horizontal' ? 'Move Beside' : 'Move Below';
-					const iconFor = (o: 'horizontal' | 'vertical') =>
+					// Click pins to preferred orientation; Alt-click flips it.
+					// Icon + tooltip update live with the Alt-key so the affordance previews the actual action.
+					const labelFor = (o: PanelOrientation) => (o === 'horizontal' ? 'Move Beside' : 'Move Below');
+					const iconFor = (o: PanelOrientation) =>
 						o === 'horizontal' ? 'layout-sidebar-right' : 'layout-panel';
-					const effective: 'horizontal' | 'vertical' = this._modifiers.altKey ? 'vertical' : 'horizontal';
+					const preferred = this._preferredCompareOrientation;
+					const alternate = this.flipOrientation(preferred);
+					const effective = this._modifiers.altKey ? alternate : preferred;
 					const actionLabel = labelFor(effective);
 					const actionIcon = iconFor(effective);
 					const tooltipContent = this._modifiers.altKey
 						? actionLabel
-						: `${actionLabel}\n[${getAltKeySymbol()}] ${labelFor('vertical')}`;
+						: `${actionLabel}\n[${getAltKeySymbol()}] ${labelFor(alternate)}`;
 					return html`<gl-detail-sheet
 						aria-label="Compare"
 						sheet-title="Comparing References"
@@ -1761,23 +1778,24 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleOpenCompareAsPanel = (e: MouseEvent): void => {
-		// Sheet → pinned panel: default click always moves to beside (horizontal); Alt-click
-		// moves to below (vertical). The orientation preview in the sheet header tooltip mirrors
-		// this so the affordance reads correctly mid-press.
-		// Tell the sheet to skip its focus-restoration step on disconnect — the user is
-		// transitioning INTO the new pinned panel, not dismissing the sheet, so returning focus
-		// to whatever row was focused before the sheet opened is the wrong direction.
+		// Skip the sheet's focus-restoration — the user is transitioning INTO the panel,
+		// not dismissing the sheet.
 		const sheet = this.querySelector('gl-detail-sheet');
 		if (sheet != null) {
 			(sheet as { skipFocusRestore: boolean }).skipFocusRestore = true;
 		}
-		const target: 'horizontal' | 'vertical' = e.altKey ? 'vertical' : 'horizontal';
+
+		const preferred = this._preferredCompareOrientation;
+		const target = e.altKey ? this.flipOrientation(preferred) : preferred;
 		this._workflow.openCompareAsPanel(target);
 	};
 
+	private flipOrientation(o: PanelOrientation): PanelOrientation {
+		return o === 'horizontal' ? 'vertical' : 'horizontal';
+	}
+
 	private handleFlipCompareOrientation = (): void => {
-		const current = this._state.compareSplitOrientation.get();
-		this._state.compareSplitOrientation.set(current === 'horizontal' ? 'vertical' : 'horizontal');
+		this._state.compareSplitOrientation.set(this.flipOrientation(this._state.compareSplitOrientation.get()));
 	};
 
 	private handleCompareSplitChange = (e: CustomEvent<{ position: number }>): void => {
