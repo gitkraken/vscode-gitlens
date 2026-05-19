@@ -347,6 +347,13 @@ export class GlAiInput extends LitElement {
 	@property({ type: Number })
 	rows = 1;
 
+	/** Optional history value recalled by pressing ArrowUp from the start of an empty input or
+	 *  from cursor position 0. When set, gives the user a one-key "load the run's prompt back into
+	 *  this input" affordance — used by the compose panel's Refine input to recall the prompt that
+	 *  produced the current plan. Undefined means recall is disabled. */
+	@property()
+	recall?: string;
+
 	/** Programmatically focus the inner input/textarea. Called by hosts that want to land
 	 *  caret here on entry (e.g. compose/review mode toggle). */
 	override focus(options?: FocusOptions): void {
@@ -450,6 +457,23 @@ export class GlAiInput extends LitElement {
 			// Enter or Ctrl/Cmd+Enter: submit
 			e.preventDefault();
 			this.onSubmit();
+			return;
+		}
+
+		// ArrowUp from an EMPTY input (cursor at position 0, nothing typed yet) loads `recall`.
+		// Gated on empty because: (a) cursor-at-0 on a textarea with content is reachable via Home
+		// or click, and replacing the user's typed text would be destructive + undo-stack-unfriendly;
+		// (b) position-0 alone doesn't distinguish "blank input" from "I just want to move the
+		// caret", whereas empty-input is unambiguous "give me the last prompt".
+		if (e.key === 'ArrowUp' && this.recall != null && this.recall !== '') {
+			const input = this.inputEl;
+			if (input == null) return;
+			if (input.value !== '') return;
+
+			e.preventDefault();
+			input.value = this.recall;
+			input.setSelectionRange(this.recall.length, this.recall.length);
+			this.toggleAttribute('has-value', true);
 		}
 	}
 

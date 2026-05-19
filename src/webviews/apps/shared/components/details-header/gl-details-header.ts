@@ -43,11 +43,15 @@ export class GlDetailsHeader extends LitElement {
 	@property({ type: Boolean }) loading = false;
 	@property({ type: Array }) modes?: Mode[];
 
-	/** Per-mode execState of any running operation at the engaged anchor — drives the
-	 *  status-overlay suffix icon on compose/review toggle chips (parallel to the WIP-row
-	 *  adornment buttons). Set even when `activeMode` is null so a toggled-out-but-still-running
-	 *  operation keeps its chip overlay. */
-	@property({ attribute: false }) modeStatus?: Partial<Record<'review' | 'compose', RunningOperationExecState>>;
+	/** Per-mode execState + has-result of any running operation at the engaged anchor — drives
+	 *  the status-overlay suffix icon on compose/review toggle chips (parallel to the WIP-row
+	 *  adornment buttons). `hasResult` distinguishes a `'backed'` entry with a viewable result
+	 *  (Restart from success) from a `'backed'`-no-result placeholder (cancelled / first-error
+	 *  Go Back) so the chip doesn't falsely advertise a completed run. Set even when `activeMode`
+	 *  is null so a toggled-out-but-still-running operation keeps its chip overlay. */
+	@property({ attribute: false }) modeStatus?: Partial<
+		Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>
+	>;
 
 	/** True when the mode is in its drilled-in "results" sub-state (e.g. review showing
 	 *  findings, compose showing a plan). When true, the action cluster gains a Restart
@@ -95,11 +99,13 @@ export class GlDetailsHeader extends LitElement {
 			// Status overlay icon for the running operation at the engaged anchor. With the
 			// mode chip visible in idle, this is the 1-glance "I have a pending compose /
 			// review elsewhere" cue — paired with the per-mode chip coloring below.
-			const overlayState = this.modeStatus?.[mode];
-			const overlayIcon = overlayState != null ? statusIconFor(overlayState) : null;
+			const overlayInfo = this.modeStatus?.[mode];
+			const overlayState = overlayInfo?.execState;
+			const overlayHasResult = overlayInfo?.hasResult ?? true;
+			const overlayIcon = overlayState != null ? statusIconFor(overlayState, overlayHasResult) : null;
 
 			const baseLabel = config.label;
-			const label = `${baseLabel}${chipStateSuffix(overlayState)}`;
+			const label = `${baseLabel}${chipStateSuffix(overlayState, overlayHasResult)}`;
 
 			// When the chip has text, the mode is already named — collapse the two-icon layout
 			// (mode icon + overlay suffix) into a single icon by letting the state icon replace
@@ -171,7 +177,7 @@ export class GlDetailsHeader extends LitElement {
 		// a run is in flight — refreshing scope mid-generation would either be ignored (the
 		// run is locked to the scope it started with) or race with the result, so the chip
 		// would be misleading.
-		const isGenerating = this.modeStatus?.[this.activeMode] === 'generating';
+		const isGenerating = this.modeStatus?.[this.activeMode]?.execState === 'generating';
 		if (isGenerating) return closeChip;
 
 		return html`<gl-action-chip

@@ -875,10 +875,18 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			switch (row.type) {
 				case 'work-dir-changes': {
 					const bucket = props.runningOperationByRowSha?.get(row.sha);
-					const composeStatusIcon = bucket?.compose != null ? statusIconFor(bucket.compose.execState) : null;
-					const reviewStatusIcon = bucket?.review != null ? statusIconFor(bucket.review.execState) : null;
-					const composeTooltip = rowAdornmentTooltipFor('compose', bucket?.compose?.execState);
-					const reviewTooltip = rowAdornmentTooltipFor('review', bucket?.review?.execState);
+					const composeHasResult = bucket?.compose?.result != null;
+					const reviewHasResult = bucket?.review?.result != null;
+					const composeStatusIcon =
+						bucket?.compose != null ? statusIconFor(bucket.compose.execState, composeHasResult) : null;
+					const reviewStatusIcon =
+						bucket?.review != null ? statusIconFor(bucket.review.execState, reviewHasResult) : null;
+					const composeTooltip = rowAdornmentTooltipFor(
+						'compose',
+						bucket?.compose?.execState,
+						composeHasResult,
+					);
+					const reviewTooltip = rowAdornmentTooltipFor('review', bucket?.review?.execState, reviewHasResult);
 
 					const agentStatus = props.agentStatusByRowSha?.get(row.sha);
 					const agentSuffix = agentStatus != null ? agentSuffixIconFor(agentStatus.category) : undefined;

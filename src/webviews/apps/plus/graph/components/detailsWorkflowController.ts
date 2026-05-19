@@ -689,26 +689,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			const value = this.actions.resources.review.value.get();
 			if (value == null) return;
 
-			this._reviewBackSnapshot = value;
-			this.actions.state.reviewForwardAvailable.set(true);
-			if ('result' in value) {
-				const filesSet = new Set<string>();
-				let findingCount = 0;
-				for (const area of value.result.focusAreas) {
-					findingCount += area.findings?.length ?? 0;
-					for (const f of area.files) {
-						filesSet.add(f);
-					}
-				}
-				this.actions.state.reviewBackPreview.set({
-					findingCount: findingCount,
-					fileCount: filesSet.size,
-				});
-			} else {
-				this.actions.state.reviewBackPreview.set(undefined);
-			}
+			this.enterReviewBacked(value);
 			this.transitionEngagedEntryExecState('review', 'backed');
-			this.actions.resources.review.reset();
 		},
 		forward: (): boolean => {
 			const snapshot = this._reviewBackSnapshot;
@@ -728,9 +710,12 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.state.reviewForwardAvailable.set(false);
 			this.actions.state.reviewBackPreview.set(undefined);
 		},
-		// "Go Back" from the error pane. If there's a pre-error result value (e.g. a refine
-		// failed from a prior review result), restore it. Otherwise reset to idle.
-		// The prompt snapshot is left intact so the panel's gl-ai-input pre-fills on re-render.
+		// "Go Back" from the error pane. Lands on the idle scope picker — same destination as
+		// Restart on a successful run — with the last-submitted prompt seeded for retyping. When
+		// a prior successful result existed (e.g. a refine failed from a ready plan), it's loaded
+		// into the back-snapshot so the Resume bar offers a one-click restore (no AI re-run).
+		// When the first attempt errored, no Resume — clean idle.
+		// The prompt is left intact so the panel's gl-ai-input pre-fills on re-render.
 		// Registry entry is updated alongside the resource — the panel mapping reads entry
 		// first, so a stale 'error' entry would mask the restored state. Sequencing: entry
 		// first, then resource, so the panel's next render sees the consistent target state.
@@ -740,16 +725,21 @@ export class DetailsWorkflowController implements ReactiveController {
 			const key = anchorKey(anchor);
 			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
 			if (prev != null && 'result' in prev) {
+				// Repoint the entry at the prior successful result in `'backed'` so a later
+				// re-engage projects the right thing, and forward() can transition this back
+				// to `'complete'` without losing the payload.
 				if (entry != null) {
-					this.registerRunningOperation({ ...entry, execState: 'complete', result: prev });
+					this.registerRunningOperation({ ...entry, execState: 'backed', result: prev });
 				}
-				this.actions.resources.review.mutate(prev);
+				this.enterReviewBacked(prev);
 			} else {
-				if (entry != null) {
-					this.removeRunningOperation(key, 'review');
-				}
-				this.actions.resources.review.reset();
+				// No prior plan to surface via Resume. Keep the entry in `'backed'` with no
+				// result so the run's `prompt` survives and re-seeds the AI input on the idle
+				// re-render — same shape as the Cancel button + `{cancelled:true}` sentinel paths.
+				this.enterBackedNoResult('review');
 			}
+			// Pre-error value consumed. The prompt rides on the engaged entry's `prompt` field
+			// and survives through both branches via the spread / no-result re-register.
 			this.actions.state.reviewPreErrorValue.set(undefined);
 		},
 		retryFromError: (
@@ -758,12 +748,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			selectedIds?: ReadonlySet<string>,
 			scopeItems?: ScopeItem[],
 		): void => {
-			const prompt = this.actions.state.reviewPreErrorPrompt.get();
-			this.runReview(repoPath, prompt, excludedFiles, selectedIds, scopeItems);
+			// Re-submit with the engaged run's prompt — the entry carries it from the original
+			// `dispatchOperation`, so retry-after-error doesn't depend on a global signal.
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			this.runReview(repoPath, entry?.prompt, excludedFiles, selectedIds, scopeItems);
 		},
 		invalidateErrorRecovery: (): void => {
 			this.actions.state.reviewPreErrorValue.set(undefined);
-			this.actions.state.reviewPreErrorPrompt.set(undefined);
 		},
 	};
 
@@ -786,9 +777,8 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.reviewPreErrorValue.set(
 			currentValue != null && 'result' in currentValue ? currentValue : undefined,
 		);
-		this.actions.state.reviewPreErrorPrompt.set(instructions);
 		this._reviewFetchedForSelection = this.selectionKey();
-		this.dispatchOperation('review', controller =>
+		this.dispatchOperation('review', instructions, controller =>
 			this.actions.startReview(repoPath, scope, instructions, excludedFiles, controller.signal),
 		);
 	}
@@ -807,15 +797,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			const value = this.actions.resources.compose.value.get();
 			if (value == null || !('result' in value)) return;
 
-			this._composeBackSnapshot = value;
-			this.actions.state.composeForwardAvailable.set(true);
-			const totalFiles = value.result.commits.reduce((sum, c) => sum + c.files.length, 0);
-			this.actions.state.composeBackPreview.set({
-				commitCount: value.result.commits.length,
-				fileCount: totalFiles,
-			});
+			this.enterComposeBacked(value);
 			this.transitionEngagedEntryExecState('compose', 'backed');
-			this.actions.resources.compose.reset();
 		},
 		forward: (): boolean => {
 			const snapshot = this._composeBackSnapshot;
@@ -835,11 +818,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.state.composeForwardAvailable.set(false);
 			this.actions.state.composeBackPreview.set(undefined);
 		},
-		// "Go Back" from the error pane. When the failed action was Commit All (or a refine
-		// from a ready plan), `composePreErrorValue` holds the prior plan — mutate restores
-		// it. When the failed action was a fresh generate from idle, the snapshot is empty —
-		// reset returns the panel to the idle file-curation view. The prompt snapshot is left
-		// intact so the panel's gl-ai-input pre-fills with the user's last prompt.
+		// "Go Back" from the error pane. Lands on the idle scope picker — same destination as
+		// Restart on a successful run — with the last-submitted prompt seeded. When the failed
+		// action was Commit All or a refine from a ready plan, `composePreErrorValue` holds the
+		// prior plan; we load it into the back-snapshot so the Resume bar offers a one-click
+		// restore (no AI re-run). When the first attempt errored, clean idle, no Resume.
 		// Registry entry is updated alongside the resource — the panel mapping reads entry
 		// first, so a stale 'error' entry would mask the restored state. Sequencing: entry
 		// first, then resource, so the panel's next render sees the consistent target state.
@@ -849,21 +832,24 @@ export class DetailsWorkflowController implements ReactiveController {
 			const key = anchorKey(anchor);
 			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.compose;
 			if (prev != null && 'result' in prev) {
+				// Repoint the entry at the prior successful result in `'backed'` so a later
+				// re-engage projects the right thing, and forward() can transition this back
+				// to `'complete'` without losing the payload.
 				if (entry != null) {
-					this.registerRunningOperation({ ...entry, execState: 'complete', result: prev });
+					this.registerRunningOperation({ ...entry, execState: 'backed', result: prev });
 				}
-				this.actions.resources.compose.mutate(prev);
+				this.enterComposeBacked(prev);
 			} else {
-				if (entry != null) {
-					this.removeRunningOperation(key, 'compose');
-				}
-				this.actions.resources.compose.reset();
+				// No prior plan to surface via Resume. Keep the entry in `'backed'` with no
+				// result so the run's `prompt` survives and re-seeds the AI input on the idle
+				// re-render — same shape as the Cancel button + `{cancelled:true}` sentinel paths.
+				this.enterBackedNoResult('compose');
 			}
-			// Clear the value + action tracking so a stale `composeLastFailedAction='commit-all'`
-			// can't drive a subsequent `retryFromError` into the commit-all branch against a plan
-			// that's no longer in the resource. Mirror review.backFromError by preserving
-			// `composePreErrorPrompt` (the compose panel pre-fills its AI input from it, so the
-			// user doesn't have to retype after going back from an error).
+			// Pre-error value + action tracking consumed. Clearing `composeLastFailedAction` /
+			// `composeLastCommitAllIncludedIds` prevents a stale `'commit-all'` from steering a
+			// later `retryFromError` into the commit-all branch against a plan that's no longer
+			// in the resource. The prompt rides on the engaged entry's `prompt` field and survives
+			// through both branches via the spread / no-result re-register.
 			this.actions.state.composePreErrorValue.set(undefined);
 			this.actions.state.composeLastFailedAction.set(undefined);
 			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
@@ -878,6 +864,9 @@ export class DetailsWorkflowController implements ReactiveController {
 			scopeItems?: ScopeItem[],
 		): void => {
 			const action = this.actions.state.composeLastFailedAction.get();
+			const anchor = this.currentAnchor();
+			const key = anchorKey(anchor);
+			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.compose;
 			if (action === 'commit-all') {
 				// composeCommitAll's early return requires a value holding `result` — restore the
 				// plan via mutate before re-attempting, otherwise the action no-ops. Also restore
@@ -885,9 +874,6 @@ export class DetailsWorkflowController implements ReactiveController {
 				// the retry's apply window (composeApplying takes precedence visually anyway, but
 				// this keeps the registry truthful).
 				const prev = this.actions.state.composePreErrorValue.get();
-				const anchor = this.currentAnchor();
-				const key = anchorKey(anchor);
-				const entry = this.host.crossPaneState.runningOperations.get().get(key)?.compose;
 				if (prev != null) {
 					if (entry != null) {
 						this.registerRunningOperation({ ...entry, execState: 'complete', result: prev });
@@ -897,13 +883,13 @@ export class DetailsWorkflowController implements ReactiveController {
 				const includedIds = this.actions.state.composeLastCommitAllIncludedIds.get();
 				void this.compose.applyPlan(sha, graphReachability, includedIds);
 			} else {
-				const prompt = this.actions.state.composePreErrorPrompt.get();
-				this.runCompose(repoPath, prompt, excludedFiles, aiExcludedFiles, selectedIds, scopeItems);
+				// Re-submit with the engaged run's prompt — the entry carries it from the original
+				// `dispatchOperation`, so retry-after-error doesn't depend on a global signal.
+				this.runCompose(repoPath, entry?.prompt, excludedFiles, aiExcludedFiles, selectedIds, scopeItems);
 			}
 		},
 		invalidateErrorRecovery: (): void => {
 			this.actions.state.composePreErrorValue.set(undefined);
-			this.actions.state.composePreErrorPrompt.set(undefined);
 			this.actions.state.composeLastFailedAction.set(undefined);
 			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		},
@@ -969,11 +955,10 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.composePreErrorValue.set(
 			currentValue != null && 'result' in currentValue ? currentValue : undefined,
 		);
-		this.actions.state.composePreErrorPrompt.set(instructions);
 		this.actions.state.composeLastFailedAction.set('generate');
 		this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		this._composeFetchedForSelection = this.selectionKey();
-		this.dispatchOperation('compose', controller =>
+		this.dispatchOperation('compose', instructions, controller =>
 			this.actions.startCompose(repoPath, scope, instructions, excludedFiles, aiExcludedFiles, controller.signal),
 		);
 	}
@@ -982,9 +967,12 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  same `(anchor, kind)`; clears the engaged resource; creates a fresh `AbortController`;
 	 *  invokes `start` (the direct-RPC call) with the controller's signal; registers a
 	 *  `'generating'` entry immediately so adornments + chip overlays show the spinner; wires the
-	 *  promise to `onRunSettled` with stale-guard. */
+	 *  promise to `onRunSettled` with stale-guard. The `prompt` lands on the new entry so each
+	 *  anchor remembers what was submitted for its run — drives the AI-input seed on Restart and
+	 *  the prompt that `retryFromError` resubmits. */
 	private dispatchOperation(
 		kind: 'review' | 'compose',
+		prompt: string | undefined,
 		start: (controller: AbortController) => Promise<ReviewResult | ComposeResult>,
 	): void {
 		const anchor = this.currentAnchor();
@@ -1001,7 +989,10 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		const promise = start(controller);
 
-		// Register `'generating'` immediately — drives the adornment + chip spinner at once.
+		// Register `'generating'` immediately — drives the adornment + chip spinner at once. Carry
+		// `prompt` on the entry from the start: subsequent `{...entry, ...}` spreads in
+		// `back()` / `backFromError()` / `onRunSettled` / `applyPlan` preserve it without each
+		// site needing to know about the field.
 		this.registerRunningOperation(
 			kind === 'review'
 				? {
@@ -1010,6 +1001,7 @@ export class DetailsWorkflowController implements ReactiveController {
 						execState: 'generating',
 						abortController: controller,
 						promise: promise,
+						prompt: prompt,
 					}
 				: {
 						kind: 'compose',
@@ -1017,6 +1009,7 @@ export class DetailsWorkflowController implements ReactiveController {
 						execState: 'generating',
 						abortController: controller,
 						promise: promise,
+						prompt: prompt,
 					},
 		);
 
@@ -1038,6 +1031,79 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.registerRunningOperation(
 			entry.kind === 'review' ? { ...entry, execState: execState } : { ...entry, execState: execState },
 		);
+	}
+
+	/** Shared back-into-idle setup for review: wire the back-snapshot + Resume affordances and
+	 *  reset the resource so the panel maps to `'idle'`. Used by both `back()` (success → Restart)
+	 *  and `backFromError()` (error → Go Back) so the two paths can't drift. The caller is
+	 *  responsible for the entry transition (`back()` uses `transitionEngagedEntryExecState` on a
+	 *  `'complete'` entry; `backFromError()` does a full `registerRunningOperation` because it's
+	 *  also moving the entry's `result` off the error sentinel onto the prior value). */
+	private enterReviewBacked(value: ReviewResult): void {
+		this._reviewBackSnapshot = value;
+		this.actions.state.reviewForwardAvailable.set(true);
+		if ('result' in value) {
+			const filesSet = new Set<string>();
+			let findingCount = 0;
+			for (const area of value.result.focusAreas) {
+				findingCount += area.findings?.length ?? 0;
+				for (const f of area.files) {
+					filesSet.add(f);
+				}
+			}
+			this.actions.state.reviewBackPreview.set({
+				findingCount: findingCount,
+				fileCount: filesSet.size,
+			});
+		} else {
+			this.actions.state.reviewBackPreview.set(undefined);
+		}
+		this.actions.resources.review.reset();
+	}
+
+	/** Compose counterpart to {@link enterReviewBacked}. Only result-bearing values are valid;
+	 *  callers gate on `'result' in value` before invoking. */
+	private enterComposeBacked(value: Extract<ComposeResult, { result: unknown }>): void {
+		this._composeBackSnapshot = value;
+		this.actions.state.composeForwardAvailable.set(true);
+		const totalFiles = value.result.commits.reduce((sum, c) => sum + c.files.length, 0);
+		this.actions.state.composeBackPreview.set({
+			commitCount: value.result.commits.length,
+			fileCount: totalFiles,
+		});
+		this.actions.resources.compose.reset();
+	}
+
+	/** Move the engaged anchor's `(kind)` entry to `'backed'` with **no result** — used by the
+	 *  three "lost run" paths (Cancel button, host-side `{cancelled:true}` sentinel, no-prev
+	 *  `backFromError`). Preserves `entry.prompt` so the AI input seeds with the run's prompt on
+	 *  the next idle render. Clears any back-snapshot + Resume affordances so the panel doesn't
+	 *  offer a "restore plan/findings" that isn't there. No-op if there's no entry. */
+	private enterBackedNoResult(kind: 'review' | 'compose'): void {
+		const anchor = this.currentAnchor();
+		const key = anchorKey(anchor);
+		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
+		if (entry == null) return;
+
+		this.registerRunningOperation(
+			entry.kind === 'review'
+				? {
+						...entry,
+						execState: 'backed',
+						result: undefined,
+						abortController: undefined,
+						promise: undefined,
+					}
+				: {
+						...entry,
+						execState: 'backed',
+						result: undefined,
+						abortController: undefined,
+						promise: undefined,
+					},
+		);
+		(kind === 'review' ? this.review : this.compose).invalidateSnapshot();
+		(kind === 'review' ? this.actions.resources.review : this.actions.resources.compose).reset();
 	}
 
 	// endregion
@@ -1146,11 +1212,12 @@ export class DetailsWorkflowController implements ReactiveController {
 		if (current?.abortController !== controller) return;
 		if (controller.signal.aborted) return;
 
-		// Compose `{cancelled:true}` sentinel — host-side library cancel without an abort. Remove
-		// the entry and clear the engaged resource (panel back to idle).
+		// Compose `{cancelled:true}` sentinel — host-side library cancel without an abort. Same
+		// shape as the user-clicked Cancel: preserve the entry+prompt in `'backed'` with no
+		// result so the AI input re-seeds on the idle re-render. The user didn't ask to forget
+		// what they typed.
 		if (kind === 'compose' && result != null && 'cancelled' in result && result.cancelled === true) {
-			this.removeRunningOperation(key, kind);
-			this.projectIfEngaged(kind, anchor);
+			this.enterBackedNoResult(kind);
 			return;
 		}
 
@@ -1167,10 +1234,25 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 
 		// Always update the entry — drives adornment + chip overlay refresh even when not engaged.
+		// Carry forward the live entry's `prompt` so the run's prompt survives settlement and
+		// later seeds the AI input on Restart. `abortController` + `promise` are intentionally
+		// dropped: the run is settled, those fields are stale (per RunningOperationBase docs).
 		this.registerRunningOperation(
 			kind === 'review'
-				? { kind: 'review', anchor: anchor, execState: execState, result: value as ReviewResult }
-				: { kind: 'compose', anchor: anchor, execState: execState, result: value as ComposeResult },
+				? {
+						kind: 'review',
+						anchor: anchor,
+						execState: execState,
+						result: value as ReviewResult,
+						prompt: current.prompt,
+					}
+				: {
+						kind: 'compose',
+						anchor: anchor,
+						execState: execState,
+						result: value as ComposeResult,
+						prompt: current.prompt,
+					},
 		);
 		// If still engaged, project the result into the panel-bound Resource.
 		this.projectIfEngaged(kind, anchor);
@@ -1327,18 +1409,18 @@ export class DetailsWorkflowController implements ReactiveController {
 		return this.host.crossPaneState.lastModeByAnchor.get().get(anchorKey(selection));
 	}
 
-	/** Explicitly aborts an in-flight `'generating'` operation at the engaged anchor, removes
-	 *  the registry entry, and returns the panel to ENABLED-idle. Wired to the in-flight Cancel
-	 *  button on the review/compose spinners (via `compose-cancel` / `review-cancel` events).
-	 *  This is the only path that manually kills a generating run. */
+	/** Explicitly aborts an in-flight `'generating'` operation at the engaged anchor and returns
+	 *  the panel to ENABLED-idle. Wired to the in-flight Cancel button on the review/compose
+	 *  spinners (via `compose-cancel` / `review-cancel` events). This is the only path that
+	 *  manually kills a generating run. The entry is preserved in `'backed'` with no result so
+	 *  the run's `prompt` survives — the user gets it back on the next idle render and can adjust
+	 *  + retry without retyping. */
 	cancelOperation(kind: 'review' | 'compose'): void {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
 		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
 		entry?.abortController?.abort();
-		this.removeRunningOperation(key, kind);
-		(kind === 'review' ? this.actions.resources.review : this.actions.resources.compose).reset();
-		(kind === 'review' ? this.review : this.compose).invalidateSnapshot();
+		this.enterBackedNoResult(kind);
 	}
 
 	/** Marks running operations for the given repo paths as `'orphaned'` and aborts any

@@ -36,6 +36,7 @@ function makeReviewBucket(
 	repoPath: string,
 	result: ReviewResult,
 	execState: 'generating' | 'complete' | 'backed' | 'error' | 'orphaned' = 'complete',
+	prompt?: string,
 ): import('../detailsState.js').RunningOperationBucket {
 	return {
 		review: {
@@ -43,6 +44,7 @@ function makeReviewBucket(
 			anchor: { kind: 'wip' as const, repoPath: repoPath, sha: uncommitted },
 			execState: execState,
 			result: result,
+			prompt: prompt,
 		},
 	};
 }
@@ -50,6 +52,7 @@ function makeComposeBucket(
 	repoPath: string,
 	result: ComposeResult,
 	execState: 'generating' | 'complete' | 'backed' | 'error' | 'orphaned' = 'complete',
+	prompt?: string,
 ): import('../detailsState.js').RunningOperationBucket {
 	return {
 		compose: {
@@ -57,6 +60,7 @@ function makeComposeBucket(
 			anchor: { kind: 'wip' as const, repoPath: repoPath, sha: uncommitted },
 			execState: execState,
 			result: result,
+			prompt: prompt,
 		},
 	};
 }
@@ -455,7 +459,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(completed.result, expected);
 	});
 
-	test('cancelOperation aborts a generating run and removes the entry', () => {
+	test('cancelOperation aborts a generating run and preserves the entry in backed+no-result', () => {
 		const host = new FakeHost({
 			repoPath: '/A',
 			graphRepoPath: '/A',
@@ -478,15 +482,20 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		controller.runReview('/A', undefined, undefined);
+		controller.runReview('/A', 'my prompt', undefined);
 		const entryAbort = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.abortController;
 		assert.ok(entryAbort);
 		assert.strictEqual(entryAbort.signal.aborted, false);
 
 		controller.cancelOperation('review');
 
+		// Run aborted, but entry kept in backed+no-result so the run's `prompt` survives for the
+		// AI-input seed on the next idle render. Avoids forcing the user to retype after a cancel.
 		assert.strictEqual(entryAbort.signal.aborted, true, 'controller aborted');
-		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 0, 'entry removed');
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.execState, 'backed', "entry kept in 'backed'");
+		assert.strictEqual(entry?.result, undefined, 'no result');
+		assert.strictEqual(entry?.prompt, 'my prompt', 'prompt preserved on entry for AI input seed');
 	});
 
 	test('toggle-out (toggleMode early-exit on review/compose) leaves the registry entry intact', () => {
@@ -533,10 +542,12 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(actions.resources.review.value.get(), undefined, 'projection leaves resource idle');
 	});
 
-	test('review.back transitions complete → backed; forward flips backed → complete', () => {
+	test('review.back transitions complete → backed; forward flips backed → complete; prompt survives both', () => {
 		const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		const result = makeReviewResult('back-fwd');
-		host.crossPaneState.runningOperations.set(new Map([[wipKey('/A'), makeReviewBucket('/A', result)]]));
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeReviewBucket('/A', result, 'complete', 'my review prompt')]]),
+		);
 		actions.resources.review.mutate(result);
 		state.activeMode.set('review');
 		state.activeModeContext.set('wip');
@@ -544,13 +555,14 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		state.activeModeSha.set(uncommitted);
 
 		controller.review.back();
-		assert.strictEqual(host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.execState, 'backed');
+		const backed = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(backed?.execState, 'backed');
+		assert.strictEqual(backed?.prompt, 'my review prompt', 'prompt preserved through back()');
 
 		controller.review.forward();
-		assert.strictEqual(
-			host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.execState,
-			'complete',
-		);
+		const restored = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(restored?.execState, 'complete');
+		assert.strictEqual(restored?.prompt, 'my review prompt', 'prompt preserved through forward()');
 	});
 
 	test('toggleMode early-exit on a backed entry destroys it (Back-then-close gate)', () => {
@@ -977,12 +989,12 @@ suite('DetailsWorkflowController — R1 fix regressions', () => {
 		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		// Plant error-recovery state for BOTH kinds via the typed test-helpers so the property
 		// shapes match. Then hide while in review mode — only review's state should clear.
+		// (Prompts live on the per-anchor registry entry now, not on global signals — so hideMode
+		// doesn't touch them; entry preservation is covered by the back/backFromError tests below.)
 		const reviewSnap = makeReviewResult('review-snap');
 		const composeSnap = makeComposeResult('compose-snap');
 		state.reviewPreErrorValue.set(reviewSnap);
-		state.reviewPreErrorPrompt.set('review prompt');
 		state.composePreErrorValue.set(composeSnap);
-		state.composePreErrorPrompt.set('compose prompt');
 		state.composeLastFailedAction.set('commit-all');
 
 		state.activeMode.set('review');
@@ -997,9 +1009,7 @@ suite('DetailsWorkflowController — R1 fix regressions', () => {
 		).hideMode({ sha: uncommitted, shas: undefined, repoPath: '/A' });
 
 		assert.strictEqual(state.reviewPreErrorValue.get(), undefined, 'review recovery cleared');
-		assert.strictEqual(state.reviewPreErrorPrompt.get(), undefined, 'review prompt cleared');
 		assert.strictEqual(state.composePreErrorValue.get(), composeSnap, 'compose recovery preserved');
-		assert.strictEqual(state.composePreErrorPrompt.get(), 'compose prompt', 'compose prompt preserved');
 		assert.strictEqual(state.composeLastFailedAction.get(), 'commit-all', 'compose last-action preserved');
 	});
 
@@ -1047,23 +1057,133 @@ suite('DetailsWorkflowController — R1 fix regressions', () => {
 		assert.strictEqual(controller['_disconnected'], false, 'reconnect clears the flag');
 	});
 
-	test('compose.backFromError clears value + action tracking, preserves prompt', () => {
-		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+	test('compose.backFromError lands on backed scope picker with prior result and preserves entry prompt', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		state.activeMode.set('compose');
 		state.activeModeContext.set('wip');
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
-		state.composePreErrorValue.set(makeComposeResult('compose-snap'));
-		state.composePreErrorPrompt.set('user prompt');
+		// The error entry carries the prompt of the run that errored. `composePreErrorValue`
+		// holds the prior successful plan that we want Go Back to surface via the Resume bar.
+		const errorResult: ComposeResult = { error: { message: 'apply failed' } };
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeComposeBucket('/A', errorResult, 'error', 'user prompt')]]),
+		);
+		const priorPlan = makeComposeResult('compose-snap');
+		state.composePreErrorValue.set(priorPlan);
 		state.composeLastFailedAction.set('commit-all');
 		state.composeLastCommitAllIncludedIds.set(['c1']);
 
 		controller.compose.backFromError();
 
-		assert.strictEqual(state.composePreErrorValue.get(), undefined, 'value cleared');
+		// Entry is repointed at the prior plan in `'backed'`; the spread preserves `prompt` so the
+		// AI input seeds with the run's prompt when the panel re-renders idle.
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(entry?.execState, 'backed', 'entry moved to backed');
+		assert.strictEqual(entry?.result, priorPlan, 'entry result is the prior plan, not the error sentinel');
+		assert.strictEqual(entry?.prompt, 'user prompt', 'prompt preserved on entry through backFromError spread');
+		// Resume affordances are wired so the user can restore the prior plan with one click.
+		assert.strictEqual(controller['_composeBackSnapshot'], priorPlan, 'back-snapshot holds prior plan');
+		assert.strictEqual(state.composeForwardAvailable.get(), true, 'Resume bar available');
+		assert.ok(state.composeBackPreview.get() != null, 'back-preview populated');
+		// Error-recovery state is consumed; action tracking cleared so a stale `commit-all` can't
+		// steer a later `retryFromError`.
+		assert.strictEqual(state.composePreErrorValue.get(), undefined, 'pre-error value cleared');
 		assert.strictEqual(state.composeLastFailedAction.get(), undefined, 'last action cleared');
 		assert.strictEqual(state.composeLastCommitAllIncludedIds.get(), undefined, 'commit ids cleared');
-		assert.strictEqual(state.composePreErrorPrompt.get(), 'user prompt', 'prompt preserved for AI input pre-fill');
+	});
+
+	test('compose.backFromError with no prior plan keeps the entry in backed+no-result, preserving the prompt', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		const errorResult: ComposeResult = { error: { message: 'first attempt failed' } };
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeComposeBucket('/A', errorResult, 'error', 'first prompt')]]),
+		);
+		// No `composePreErrorValue` — first attempt errored, nothing to Resume to.
+
+		controller.compose.backFromError();
+
+		// Entry transitions to `'backed'` with no result so the run's `prompt` survives — the
+		// AI input re-seeds with "first prompt" on the next idle render. No Resume bar (no plan
+		// to restore). Same shape as the Cancel button and `{cancelled:true}` sentinel paths.
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(entry?.execState, 'backed', "entry moved to 'backed'");
+		assert.strictEqual(entry?.result, undefined, 'entry result cleared (was the error sentinel)');
+		assert.strictEqual(entry?.prompt, 'first prompt', 'prompt preserved on entry for AI input seed');
+		assert.strictEqual(controller['_composeBackSnapshot'], undefined, 'no back-snapshot');
+		assert.strictEqual(state.composeForwardAvailable.get(), false, 'no Resume bar');
+	});
+
+	test('compose.cancelOperation aborts the run but preserves the entry+prompt in backed+no-result', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		const abortController = new AbortController();
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'generating' as const,
+							abortController: abortController,
+							promise: new Promise<ComposeResult>(() => {}),
+							prompt: 'my prompt',
+						},
+					},
+				],
+			]),
+		);
+
+		controller.cancelOperation('compose');
+
+		// Run aborted, entry preserved in backed+no-result, prompt intact for AI-input seed.
+		assert.strictEqual(abortController.signal.aborted, true, 'in-flight run aborted');
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(entry?.execState, 'backed', "entry kept in 'backed'");
+		assert.strictEqual(entry?.result, undefined, 'no result');
+		assert.strictEqual(entry?.prompt, 'my prompt', 'prompt preserved on entry');
+		assert.strictEqual(entry?.abortController, undefined, 'live-run fields cleared');
+		assert.strictEqual(entry?.promise, undefined, 'live-run fields cleared');
+		assert.strictEqual(controller['_composeBackSnapshot'], undefined, 'no back-snapshot');
+		assert.strictEqual(state.composeForwardAvailable.get(), false, 'no Resume bar');
+	});
+
+	test('dispatchOperation seeds the entry prompt and survives the generating→complete transition', async () => {
+		const { host, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		actions.state.activeMode.set('compose');
+		actions.state.activeModeContext.set('wip');
+		actions.state.activeModeRepoPath.set('/A');
+		actions.state.activeModeSha.set(uncommitted);
+		// `runCompose` early-returns without a scope — seed one so dispatch fires.
+		actions.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: true, includeShas: [] });
+
+		const settledResult = makeComposeResult('plan-X');
+		// Stub `startCompose` so dispatchOperation drives a synchronous resolved path.
+		(actions as unknown as { startCompose: (...args: unknown[]) => Promise<ComposeResult> }).startCompose = () =>
+			Promise.resolve(settledResult);
+
+		controller.runCompose('/A', 'my prompt', undefined, undefined);
+
+		// Immediately after dispatch the entry is `'generating'` with the prompt set.
+		const generating = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(generating?.execState, 'generating', 'entry in generating');
+		assert.strictEqual(generating?.prompt, 'my prompt', 'prompt set on entry at dispatch');
+
+		// Let the promise settle and the `onRunSettled` registration run.
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		const complete = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(complete?.execState, 'complete', 'entry transitioned to complete');
+		assert.strictEqual(complete?.prompt, 'my prompt', 'prompt carried through onRunSettled');
 	});
 });
 

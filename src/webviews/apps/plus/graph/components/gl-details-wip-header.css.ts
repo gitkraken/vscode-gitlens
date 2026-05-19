@@ -81,6 +81,11 @@ export const detailsWipHeaderStyles = css`
 		gap: 0.6rem;
 		min-height: 2.4rem;
 		--commit-stats-pill-line-height: 2rem;
+		--gl-pill-line-height: 2rem;
+		--gl-pill-min-height: 2rem;
+		--gl-pill-padding: 0 0.6rem;
+		--gl-pill-font-size: 1.1rem;
+		--gl-pill-border-radius: 0.4rem;
 	}
 
 	.branch-identity {

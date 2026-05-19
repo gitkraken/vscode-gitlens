@@ -1,5 +1,6 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 import type {
 	AIReviewDetailResult,
 	AIReviewFinding,
@@ -159,9 +160,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ type: Object })
 	aiModel?: AiModelInfo;
 
-	/** Pushed by the orchestrator from `state.reviewPreErrorPrompt`. When set, the panel
-	 *  seeds the AI input on the next idle render so the user's typing is preserved across
-	 *  an error → Back transition. Re-mounting `gl-ai-input` is what triggers the seed. */
+	/** Pushed by the orchestrator from the engaged review entry's `prompt` field (set when the
+	 *  run was dispatched). Seeds the AI input on every idle re-render — both on success → Restart
+	 *  (`back()`) and on error → Go Back (`backFromError()`) — so the user can tweak rather than
+	 *  retype. Per-anchor: each commit/WIP row remembers its own run's prompt across mode toggles
+	 *  and anchor switches because it rides on the registry entry. Re-mounting `gl-ai-input` (via
+	 *  the `keyed` directive in `renderIdleState`) is what triggers the seed: `gl-ai-input.value`
+	 *  is one-shot in `firstUpdated`. */
 	@property()
 	lastPrompt?: string;
 
@@ -530,21 +535,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 					</gl-split-panel>`
 				: html`<div class="scope-files">${this.renderFileCuration()}</div>`}
 			<div class="review-input-row">
-				<gl-ai-input
-					class="review-action-input"
-					multiline
-					active
-					rows="2"
-					button-label="Start Review"
-					busy-label="Reviewing changes…"
-					event-name="review-run"
-					placeholder='Instructions — e.g. "Focus on security and error handling"'
-					.value=${this.lastPrompt}
-					?disabled=${!hasSelectedFiles}
-					@input=${this.onAiInputType}
-				>
-					<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-				</gl-ai-input>
+				${keyed(
+					this.lastPrompt,
+					html`<gl-ai-input
+						class="review-action-input"
+						multiline
+						active
+						rows="2"
+						button-label="Start Review"
+						busy-label="Reviewing changes…"
+						event-name="review-run"
+						placeholder='Instructions — e.g. "Focus on security and error handling"'
+						.value=${this.lastPrompt}
+						?disabled=${!hasSelectedFiles}
+						@input=${this.onAiInputType}
+					>
+						<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+					</gl-ai-input>`,
+				)}
 			</div>
 		`;
 	}

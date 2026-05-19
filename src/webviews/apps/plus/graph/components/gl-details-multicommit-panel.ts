@@ -29,6 +29,7 @@ import {
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
+import type { RunningOperationExecState } from './detailsState.js';
 import { multiCommitPanelStyles, panelActionInputStyles, panelHostStyles } from './gl-details-multicommit-panel.css.js';
 import '../../../shared/components/code-icon.js';
 import './gl-compare-ai-actions.js';
@@ -119,7 +120,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	activeMode?: 'review' | 'compose' | null;
 
 	@property({ attribute: false })
-	modeStatus?: Partial<Record<'review' | 'compose', import('./detailsState.js').RunningOperationExecState>>;
+	modeStatus?: Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>>;
 
 	/** Pre-computed snippet shown in the metadata bar while in mode — mirrors WIP / commit. */
 	@property({ attribute: false }) modeStatusText?: string | import('lit').TemplateResult;

@@ -79,6 +79,12 @@ interface RunningOperationBase {
 	abortController?: AbortController;
 	/** In-flight RPC promise — lets a re-engage re-attach rendering without re-running the AI. */
 	promise?: Promise<ReviewResult | ComposeResult>;
+	/** The user-submitted prompt that initiated this run. Set at `dispatchOperation` time and
+	 *  preserved through every entry transition (success, error, backed, retry-update) via the
+	 *  spread pattern. Drives the AI-input seed on Restart / Go Back: the panel reads it off the
+	 *  engaged entry so each anchor remembers its own run's prompt across mode toggles and anchor
+	 *  switches. Empty/undefined for runs that don't carry a prompt. */
+	prompt?: string;
 }
 
 /** A started compose/review operation. Keyed in the registry inside a {@link RunningOperationBucket}
@@ -331,17 +337,18 @@ function createTransientState() {
 	const composeProgressMessage = signal<string | undefined>(undefined);
 	const composeApplying = signal(false);
 
-	// Error-recovery snapshots — captured BEFORE an action that could mutate the resource into
-	// an error sentinel (runReview / runCompose / composeCommitAll). On error, the panel's
-	// "Go Back" button mutates back to the snapshotted value (restoring the prior plan), or
-	// resets the resource (returning to idle) when no snapshot is present. The prompt snapshot
-	// pre-fills the AI input when the panel re-renders idle so the user's typing is preserved.
-	// Cleared by `*.invalidateErrorRecovery()` on mode entry/exit/selection change, or
-	// overwritten by the next attempt.
+	// Error-recovery snapshot — `*PreErrorValue` is captured BEFORE an action that could mutate
+	// the resource into an error sentinel (runReview / runCompose / composeCommitAll). The error
+	// pane's "Go Back" feeds this snapshot into the `'backed'` transition so a Resume bar can
+	// restore the prior plan/findings without re-running. Cleared by `*.invalidateErrorRecovery()`
+	// on mode entry/exit/selection change, or overwritten by the next attempt.
+	//
+	// The submitted prompt is NOT stored here — it lives on the per-anchor `RunningOperation`
+	// entry's `prompt` field (see `detailsState.ts:RunningOperationBase`). Reading it off the
+	// engaged entry means each anchor remembers its own run's prompt across mode toggles and
+	// anchor switches, and `retryFromError` / the AI-input seed both read the same source of truth.
 	const composePreErrorValue = signal<ComposeResult | undefined>(undefined);
 	const reviewPreErrorValue = signal<ReviewResult | undefined>(undefined);
-	const composePreErrorPrompt = signal<string | undefined>(undefined);
-	const reviewPreErrorPrompt = signal<string | undefined>(undefined);
 	const composeLastFailedAction = signal<'generate' | 'commit-all' | undefined>(undefined);
 	const composeLastCommitAllIncludedIds = signal<readonly string[] | undefined>(undefined);
 
@@ -407,8 +414,6 @@ function createTransientState() {
 
 		composePreErrorValue: composePreErrorValue,
 		reviewPreErrorValue: reviewPreErrorValue,
-		composePreErrorPrompt: composePreErrorPrompt,
-		reviewPreErrorPrompt: reviewPreErrorPrompt,
 		composeLastFailedAction: composeLastFailedAction,
 		composeLastCommitAllIncludedIds: composeLastCommitAllIncludedIds,
 

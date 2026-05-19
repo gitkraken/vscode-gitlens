@@ -7,6 +7,7 @@ import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { RunningOperationExecState } from './detailsState.js';
 import { detailsWipHeaderStyles } from './gl-details-wip-header.css.js';
 import '../../shared/components/merge-rebase-status.js';
 import '../../shared/components/merge-target-status.js';
@@ -35,9 +36,11 @@ export class GlDetailsWipHeader extends LitElement {
 	 *  pops the user out of the mode's results view to its scope picker. */
 	@property({ type: Boolean }) inResultsView = false;
 	/** Forwarded to `gl-details-header` — drives the suffix-icon status overlay on the compose
-	 *  and review toggle chips, parallel to the WIP-row adornment buttons. */
+	 *  and review toggle chips, parallel to the WIP-row adornment buttons. The `hasResult` flag
+	 *  separates a `'backed'` entry with a viewable result from a `'backed'`-no-result placeholder
+	 *  (cancelled / first-error Go Back) so the chip doesn't falsely advertise a completed run. */
 	@property({ attribute: false }) modeStatus?: Partial<
-		Record<'review' | 'compose', import('./detailsState.js').RunningOperationExecState>
+		Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>
 	>;
 	@property({ type: Boolean }) aiEnabled = false;
 	@property({ type: Boolean }) loading = false;

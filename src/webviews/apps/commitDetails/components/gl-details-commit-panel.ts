@@ -23,6 +23,7 @@ import type {
 	GraphItemRefContext,
 	GraphStashContextValue,
 } from '../../../plus/graph/protocol.js';
+import type { RunningOperationExecState } from '../../plus/graph/components/detailsState.js';
 import { renderLearnAboutAutolinks } from '../../shared/components/chips/learn-about-autolinks.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../shared/controllers/context-menu-proxy.js';
@@ -119,9 +120,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	activeMode?: 'review' | 'compose' | null;
 
 	@property({ attribute: false })
-	modeStatus?: Partial<
-		Record<'review' | 'compose', import('../../plus/graph/components/detailsState.js').RunningOperationExecState>
-	>;
+	modeStatus?: Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>>;
 
 	@property({ attribute: false })
 	subPanelContent?: ReturnType<typeof html> | typeof nothing;

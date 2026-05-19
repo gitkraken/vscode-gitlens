@@ -2024,9 +2024,10 @@ export class DetailsActions {
 
 		// Snapshot the pre-error state so the panel's "Go Back" can restore the plan view
 		// when the apply fails. Stored before the apply IPC so it survives the value mutation
-		// to an error sentinel on failure.
+		// to an error sentinel on failure. The prompt rides on the engaged entry's `prompt`
+		// field (set when the compose run was dispatched) — left alone here so backFromError on
+		// an apply failure still seeds the AI input from the plan's original prompt.
 		this.state.composePreErrorValue.set(composeValue);
-		this.state.composePreErrorPrompt.set(undefined);
 		this.state.composeLastFailedAction.set('commit-all');
 		this.state.composeLastCommitAllIncludedIds.set(includedCommitIds);
 

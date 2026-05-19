@@ -1,5 +1,6 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -114,9 +115,19 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property({ type: Object })
 	aiModel?: AiModelInfo;
 
-	/** Pushed by the orchestrator from `state.composePreErrorPrompt`. When set, the panel
-	 *  seeds the Compose AI input on the next idle render so the user's typing is preserved
-	 *  across an error → Back transition. Re-mounting `gl-ai-input` is what triggers the seed. */
+	/** Pushed by the orchestrator from the engaged compose entry's `prompt` field (set when the
+	 *  run was dispatched). Per-anchor: each WIP row remembers its own run's prompt across mode
+	 *  toggles and anchor switches because it rides on the registry entry. Drives two seeding
+	 *  paths in this panel:
+	 *
+	 *  1. **Idle scope picker** — the AI input's `.value` seeds with `lastPrompt` on every idle
+	 *     re-render (success → Restart and error → Go Back). Re-mounting `gl-ai-input` via the
+	 *     `keyed` directive in `renderIdleState` is what triggers the seed: `.value` is one-shot
+	 *     in `firstUpdated`.
+	 *
+	 *  2. **Refine input** — passed as `.recall` so ArrowUp from cursor position 0 loads the run's
+	 *     prompt back into the Refine field (terminal-style history recall). Lets the user tweak
+	 *     the prompt that produced the current plan without retyping. */
 	@property()
 	lastPrompt?: string;
 
@@ -281,23 +292,29 @@ export class GlDetailsComposeModePanel extends LitElement {
 		// exclusions). Stale user exclusions are pruned in willUpdate.
 		const disabled = this.getEffectiveFileCount() === 0;
 
+		// Key the input on the last-submitted prompt so a Restart / Go Back into idle remounts
+		// the element. `gl-ai-input.value` is one-shot in `firstUpdated`; without a remount the
+		// reseed silently no-ops on subsequent renders.
 		const aiInput = html`<div class="review-input-row">
-			<gl-ai-input
-				class="review-action-input"
-				multiline
-				active
-				rows="2"
-				button-label="Compose"
-				busy-label="Composing changes…"
-				event-name="compose-generate"
-				placeholder='Instructions — e.g. "Group by feature, keep perf changes separate"'
-				.value=${this.lastPrompt}
-				.busy=${this.status === 'loading'}
-				?disabled=${disabled}
-				@input=${this.onAiInputType}
-			>
-				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-			</gl-ai-input>
+			${keyed(
+				this.lastPrompt,
+				html`<gl-ai-input
+					class="review-action-input"
+					multiline
+					active
+					rows="2"
+					button-label="Compose"
+					busy-label="Composing changes…"
+					event-name="compose-generate"
+					placeholder='Instructions — e.g. "Group by feature, keep perf changes separate"'
+					.value=${this.lastPrompt}
+					.busy=${this.status === 'loading'}
+					?disabled=${disabled}
+					@input=${this.onAiInputType}
+				>
+					<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+				</gl-ai-input>`,
+			)}
 		</div>`;
 
 		if (!hasPicker) {
@@ -508,6 +525,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 				event-name="compose-refine"
 				placeholder='Refine — e.g. "Merge commits 1 and 2, they&apos;re related"'
 				.busy=${isLoading}
+				.recall=${this.lastPrompt}
 			>
 				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 			</gl-ai-input>

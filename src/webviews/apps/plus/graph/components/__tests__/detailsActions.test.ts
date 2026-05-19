@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
 	BranchComparisonOptions,
 	BranchComparisonSummary,
@@ -7,7 +8,6 @@ import type {
 	ScopeSelection,
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
-import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
 import { DetailsActions, scopeSelectionEqual } from '../detailsActions.js';
 import { createDetailsState } from '../detailsState.js';

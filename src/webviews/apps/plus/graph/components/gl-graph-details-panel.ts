@@ -154,11 +154,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this._crossPaneState?.runningOperations.get().get(key)?.[mode];
 	}
 
-	/** Per-mode exec state of the engaged anchor's entry — drives the suffix-icon status overlay
-	 *  on the compose/review header toggle chips (parallel to the WIP-row adornment). For a
-	 *  toggled-out mode with a still-running entry, this reads from the current selection's
-	 *  anchor so the chip overlay continues to reflect the registry. */
-	private get engagedModeStatus(): Partial<Record<'review' | 'compose', RunningOperationExecState>> | undefined {
+	/** Per-mode exec state + has-result of the engaged anchor's entry — drives the suffix-icon
+	 *  status overlay on the compose/review header toggle chips (parallel to the WIP-row
+	 *  adornment). `hasResult` separates a `'backed'` entry with a viewable result (Restart from
+	 *  success) from a `'backed'`-no-result placeholder (cancelled / first-error Go Back) so the
+	 *  chip doesn't falsely claim a result exists. For a toggled-out mode with a still-running
+	 *  entry, this reads from the current selection's anchor so the chip overlay continues to
+	 *  reflect the registry. */
+	private get engagedModeStatus():
+		| Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>>
+		| undefined {
 		const ctx = this._state.activeModeContext.get();
 		const isLockedCommit = ctx === 'commit' || ctx === 'multicommit';
 		const key = isLockedCommit
@@ -171,12 +176,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const bucket = this._crossPaneState?.runningOperations.get().get(key);
 		if (bucket == null) return undefined;
 
-		const out: Partial<Record<'review' | 'compose', RunningOperationExecState>> = {};
+		const out: Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>> =
+			{};
 		if (bucket.review != null) {
-			out.review = bucket.review.execState;
+			out.review = { execState: bucket.review.execState, hasResult: bucket.review.result != null };
 		}
 		if (bucket.compose != null) {
-			out.compose = bucket.compose.execState;
+			out.compose = { execState: bucket.compose.execState, hasResult: bucket.compose.result != null };
 		}
 		return out.review != null || out.compose != null ? out : undefined;
 	}
@@ -768,7 +774,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const mode = this._state.activeMode.get();
 		if (mode !== 'compose' && mode !== 'review') return undefined;
 
-		const status = this.engagedModeStatus?.[mode];
+		const status = this.engagedModeStatus?.[mode]?.execState;
 		if (status === 'generating') {
 			return mode === 'compose' ? 'Generating…' : 'Reviewing…';
 		}
@@ -828,7 +834,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Only `'complete'` renders the results body. `'backed'` reverts to the scope picker
 		// with a Resume bar on top — same chrome as idle (Refresh + Close), not results
 		// chrome (Restart + Close), so Restart correctly disappears after the user clicks it.
-		return this.engagedModeStatus?.[mode] === 'complete';
+		return this.engagedModeStatus?.[mode]?.execState === 'complete';
 	}
 
 	private handleModeBack = (e: CustomEvent<{ mode: 'compose' | 'review' }>): void => {
@@ -1330,7 +1336,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.aiExcludedFiles=${this._state.aiExcludedFiles.get()}
 			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.aiModel=${this._state.aiModel.get()}
-			.lastPrompt=${this._state.composePreErrorPrompt.get()}
+			.lastPrompt=${composeEntry?.prompt}
 			.progressMessage=${this._state.composeProgressMessage.get()}
 			?applying=${this._state.composeApplying.get()}
 			?forward-available=${this._state.composeForwardAvailable.get()}
@@ -1706,7 +1712,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?isLinkedWorktree=${reviewIsLinkedWorktree}
 			.branchName=${reviewBranchName}
 			.aiModel=${this._state.aiModel.get()}
-			.lastPrompt=${this._state.reviewPreErrorPrompt.get()}
+			.lastPrompt=${reviewEntry?.prompt}
 			?forward-available=${this._state.reviewForwardAvailable.get()}
 			.backPreview=${this._state.reviewBackPreview.get()}
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {

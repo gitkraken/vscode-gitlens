@@ -16,6 +16,9 @@ export class GlTrackingPill extends LitElement {
 			}
 
 			.state {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.1rem;
 				-webkit-font-smoothing: antialiased;
 				-moz-osx-font-smoothing: grayscale;
 			}
