@@ -40,6 +40,7 @@ import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { getContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import type { AgentDescriptor, AgentRoute } from '../agents/agentDescriptor.js';
 import { resolveAgentFlow } from '../agents/agentPicker.js';
@@ -380,7 +381,9 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		// `state.showOpenInAgent` is the caller-supplied route override:
 		//   undefined → legacy behavior; honor `openChatOnComplete` (sends to host IDE chat)
 		//   'ask' / 'manual' / 'agent' → run the new flow with that route override
-		if (state.showOpenInAgent == null) {
+		// Defense-in-depth: skip the agent flow entirely when the org has disabled AI, even if a
+		// caller passed `showOpenInAgent`. UI surfaces should already gate, but the wizard enforces.
+		if (state.showOpenInAgent == null || !getContext('gitlens:gk:organization:ai:enabled', true)) {
 			return { agent: undefined, openChatOnComplete: state.openChatOnComplete };
 		}
 
