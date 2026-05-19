@@ -9,7 +9,8 @@ import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { getContext } from '../../system/-webview/context.js';
 import type { AgentRoute } from '../agents/agentDescriptor.js';
-import { resolveAgentFlow } from '../agents/agentPicker.js';
+import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
+import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
 import type { StartWorkChatAction } from '../chat/chatActions.js';
 import type { StartWorkContext, StartWorkStepState } from './startWorkBase.js';
 import { StartWorkBaseCommand } from './startWorkBase.js';
@@ -48,7 +49,7 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 	overrides?: undefined;
 
 	constructor(container: Container, args?: StartWorkCommandArgs) {
-		super(container, args);
+		super(container, { ...args, command: 'startWork' });
 
 		// Populate initialState with args for CLI/programmatic usage
 		this.initialState = {
@@ -103,7 +104,11 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 				useDefaults: state.useDefaults,
 				requestedRoute: state.showOpenInAgent,
 			});
-			if (flow === StepResultBreak || flow.kind === 'cancel') return;
+			if (flow === StepResultBreak) return;
+
+			this.sendAgentResolvedTelemetry(flow, context);
+
+			if (flow.kind === 'cancel') return;
 
 			if (flow.kind === 'agent') {
 				chatAction = {
@@ -156,6 +161,16 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			},
 			context,
 			this.startedFrom,
+		);
+	}
+
+	private sendAgentResolvedTelemetry(result: ResolveAgentFlowResult, context: StartWorkContext) {
+		if (!this.container.telemetry.enabled) return;
+
+		this.container.telemetry.sendEvent(
+			'startWork/agent/resolved',
+			{ ...context.telemetryContext!, connected: true, ...buildAgentResolvedTelemetryData(result) },
+			this.source,
 		);
 	}
 }

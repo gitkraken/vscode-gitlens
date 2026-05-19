@@ -111,6 +111,7 @@ export function assertsStartWorkStepState(state: StepState<StartWorkState>): ass
 export interface StartWorkBaseCommandArgs {
 	readonly command: 'startWork' | 'associateIssueWithBranch';
 	source?: Sources | Source;
+	showOpenInAgent?: AgentRoute;
 }
 export interface StartWorkOverrides {
 	ownSource?: 'startWork' | 'associateIssueWithBranch';
@@ -135,7 +136,7 @@ interface StartWorkState {
 export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> {
 	protected abstract overrides?: StartWorkOverrides;
 
-	private readonly source: Source;
+	protected readonly source: Source;
 	private readonly telemetryContext: StartWorkTelemetryContext | undefined;
 	private readonly telemetryEventKey: 'startWork' | 'associateIssueWithBranch';
 
@@ -156,7 +157,10 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		this.source = typeof args?.source === 'object' ? args.source : { source: args?.source ?? 'commandPalette' };
 
 		if (this.container.telemetry.enabled) {
-			this.telemetryContext = { instance: instanceCounter.next() };
+			this.telemetryContext = {
+				instance: instanceCounter.next(),
+				'context.showOpenInAgent': args?.showOpenInAgent,
+			};
 			this.container.telemetry.sendEvent(
 				`${this.telemetryEventKey}/open`,
 				{ ...this.telemetryContext },
