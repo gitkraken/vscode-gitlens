@@ -61,7 +61,10 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				<h3 class="section__heading">Launchpad</h3>
 				${this.renderLaunchpadSummary()}
 				<div class="start-fresh">
-					<gl-button appearance="secondary" @click=${() => this.emit('start-work')}>
+					<gl-button
+						appearance="secondary"
+						@click=${() => this.emit('start-work', { showOpenInAgent: 'ask' })}
+					>
 						<code-icon icon="rocket"></code-icon>Start Work on an Issue…
 					</gl-button>
 				</div>
@@ -304,8 +307,8 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		};
 	}
 
-	private emit(name: string): void {
-		this.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true }));
+	private emit(name: string, detail?: unknown): void {
+		this.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail: detail }));
 	}
 }
 

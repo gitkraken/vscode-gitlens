@@ -2420,8 +2420,11 @@ export class DetailsActions {
 		void this.services.commands.execute('gitlens.views.createWorktree');
 	}
 
-	startWork(): void {
-		void this.services.commands.execute('gitlens.startWork', { source: 'graph-details' as const });
+	startWork(showOpenInAgent?: 'ask' | 'manual' | 'agent'): void {
+		void this.services.commands.execute('gitlens.startWork', {
+			source: 'graph-details' as const,
+			...(showOpenInAgent != null ? { showOpenInAgent: showOpenInAgent } : {}),
+		});
 	}
 
 	createPullRequest(repoPath: string | undefined): void {

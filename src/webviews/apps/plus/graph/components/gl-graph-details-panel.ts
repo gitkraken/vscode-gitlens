@@ -1972,7 +1972,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleStashSave = () => this._actions.stashSave(this.effectiveRepoPath);
 
-	private handleStartWork = () => this._actions.startWork();
+	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
+		this._actions.startWork(e.detail?.showOpenInAgent);
 
 	private handleCreatePr = () => this._actions.createPullRequest(this.effectiveRepoPath);
 
