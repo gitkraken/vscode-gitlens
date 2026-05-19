@@ -161,6 +161,15 @@ export type GraphDisplayMode = 'graph' | 'timeline';
 
 export type GraphShowAction = 'show-wip' | 'enter-review' | 'enter-compose' | 'open-compare' | 'scope-to-branch';
 
+/** Optional target row for a `GraphShowAction`. When provided, the webview routes the action
+ *  to this specific row (used by context-menu invocations on secondary WIP rows where the
+ *  action targets a worktree other than the primary). When absent, the webview falls back to
+ *  its primary repo + `uncommitted`. */
+export interface GraphActionTarget {
+	sha: string;
+	repoPath: string;
+}
+
 export interface GraphOverviewData {
 	active: OverviewBranch[];
 	recent: OverviewBranch[];
@@ -267,7 +276,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		visible?: boolean;
 		position?: number;
 	};
-	pendingAction?: GraphShowAction;
+	pendingAction?: { action: GraphShowAction; target?: GraphActionTarget };
 	// Persisted Timeline-mode chart options (when `displayMode === 'timeline'`).
 	timeline?: {
 		period?: TimelinePeriod;
@@ -327,6 +336,8 @@ export interface GraphWipNodeMetadata {
 	 * the same indicator the action bar does. Not consumed by the GK component.
 	 */
 	pausedOpStatus?: GitPausedOperationStatus;
+	/** Host-built serialized `GraphItemContext` for the row's `contexts.row` slot (right-click menu). */
+	context?: string;
 }
 
 export type GraphWipMetadataBySha = Record<string, GraphWipNodeMetadata>;
@@ -963,6 +974,7 @@ export const DidRequestActiveSidebarPanelNotification = new IpcNotification<DidR
 
 export interface DidRequestGraphActionParams {
 	action: GraphShowAction;
+	target?: GraphActionTarget;
 }
 export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
 	scope,

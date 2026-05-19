@@ -992,7 +992,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidRequestGraphActionNotification.is(msg):
 				this.updateState({
-					pendingAction: msg.params.action,
+					pendingAction: { action: msg.params.action, target: msg.params.target },
 					...(msg.params.action !== 'scope-to-branch' ? { details: { ...this.details, visible: true } } : {}),
 				});
 				break;

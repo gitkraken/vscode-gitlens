@@ -337,14 +337,21 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private _pendingScopeToBranch = false;
 
-	private async consumePendingAction(action: GraphShowAction): Promise<void> {
+	private async consumePendingAction(pending: {
+		action: GraphShowAction;
+		target?: { sha: string; repoPath: string };
+	}): Promise<void> {
+		const { action, target } = pending;
 		if (action === 'scope-to-branch') {
 			this.scopeToBranch();
 			return;
 		}
 
-		const repoPath = this.fallbackRepoPath ?? '';
-		this._selectedCommit = { sha: uncommitted, repoPath: repoPath };
+		// When a target is supplied (e.g. context-menu invocation on a secondary WIP row), route
+		// the action to that row's worktree; otherwise fall back to the primary repo + uncommitted.
+		const repoPath = target?.repoPath ?? this.fallbackRepoPath ?? '';
+		const sha = target?.sha ?? uncommitted;
+		this._selectedCommit = { sha: sha, repoPath: repoPath };
 		this._selectedCommits = undefined;
 
 		this.setDetailsVisible(true, 'request-mode');
@@ -352,16 +359,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		await this.updateComplete;
 		if (action === 'enter-review' || action === 'enter-compose') {
-			this.detailsPanelEl?.enterModeForWip(
-				action === 'enter-review' ? 'review' : 'compose',
-				repoPath,
-				uncommitted,
-			);
+			this.detailsPanelEl?.enterModeForWip(action === 'enter-review' ? 'review' : 'compose', repoPath, sha);
 		} else if (action === 'open-compare') {
 			this.detailsPanelEl?.openCompareMode({
 				repoPath: repoPath,
 				leftRef: this.graphState.branch?.name ?? 'HEAD',
-				rightRef: uncommitted,
+				rightRef: sha,
 				includeWorkingTree: true,
 			});
 		}

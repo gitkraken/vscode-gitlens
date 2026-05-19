@@ -17391,7 +17391,7 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsWithWorking",
-					"when": "webviewItem != gitlens:wip",
+					"when": "webviewItem !~ /^gitlens:wip\\b/",
 					"group": "1_gitlens@3"
 				},
 				{
@@ -26924,33 +26924,43 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
+					"command": "gitlens.openWorktree:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree@1"
+				},
+				{
+					"command": "gitlens.openWorktreeInNewWindow:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree@2"
+				},
+				{
+					"command": "gitlens.graph.revealWorktreeInExplorer",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection",
+					"group": "0_gitlens_worktree_1@1"
+				},
+				{
 					"command": "gitlens.composeCommits:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.ai.generateCommitMessage:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "1_gitlens@2"
-				},
-				{
-					"command": "gitlens.graph.commitViaSCM",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection",
-					"group": "1_gitlens@3"
-				},
-				{
 					"command": "gitlens.stashSave:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.copyWorkingChangesToWorktree:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.graph.deleteWorktree",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && !gitlens:readonly",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
 					"command": "gitlens.ai.explainWip:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@10"
 				},
 				{

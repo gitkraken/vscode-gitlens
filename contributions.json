@@ -186,7 +186,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens_ai",
 						"order": 10
 					},
@@ -351,16 +351,7 @@
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.generateCommitMessage:graph": {
-			"label": "Generate Commit Message",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens",
-						"order": 2
-					}
-				]
-			}
+			"label": "Generate Commit Message"
 		},
 		"gitlens.ai.generateCommitMessage:scm": {
 			"label": "Generate Commit Message with GitLens",
@@ -614,7 +605,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens",
 						"order": 1
 					},
@@ -1540,7 +1531,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 4
 					},
@@ -2870,16 +2861,7 @@
 			}
 		},
 		"gitlens.graph.commitViaSCM": {
-			"label": "Commit via Source Control...",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection",
-						"group": "1_gitlens",
-						"order": 3
-					}
-				]
-			}
+			"label": "Commit via Source Control..."
 		},
 		"gitlens.graph.compareAncestryWithWorking": {
 			"label": "Compare Working Tree to Common Base",
@@ -3219,6 +3201,11 @@
 			"menus": {
 				"webview/context": [
 					{
+						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && !gitlens:readonly",
+						"group": "1_gitlens_actions_2",
+						"order": 3
+					},
+					{
 						"when": "webviewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+(active|default)\\b)/ && !listMultiSelection && !gitlens:readonly",
 						"group": "1_gitlens_actions_2",
 						"order": 3
@@ -3360,7 +3347,7 @@
 			"menus": {
 				"gitlens/graph/commit/changes": [
 					{
-						"when": "webviewItem != gitlens:wip",
+						"when": "webviewItem !~ /^gitlens:wip\\b/",
 						"group": "1_gitlens",
 						"order": 3
 					}
@@ -3677,6 +3664,11 @@
 			"label": "Reveal in File Explorer",
 			"menus": {
 				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection",
+						"group": "0_gitlens_worktree_1",
+						"order": 1
+					},
 					{
 						"when": "webviewItem =~ /gitlens:worktree\\b/ && !listMultiSelection",
 						"group": "0_gitlens_worktree_1",
@@ -4853,6 +4845,11 @@
 						"order": 2
 					},
 					{
+						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
+						"group": "0_gitlens_worktree",
+						"order": 1
+					},
+					{
 						"when": "webviewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+active\\b)/ && !gitlens:hasVirtualFolders",
 						"group": "0_gitlens_worktree",
 						"order": 1
@@ -4902,6 +4899,11 @@
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_action",
 						"order": 1
+					},
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
+						"group": "0_gitlens_worktree",
+						"order": 2
 					},
 					{
 						"when": "webviewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+active\\b)/ && !gitlens:hasVirtualFolders",
@@ -7048,7 +7050,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}

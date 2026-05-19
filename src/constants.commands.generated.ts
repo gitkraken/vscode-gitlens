@@ -23,7 +23,6 @@ export type ContributedCommands =
 	| 'gitlens.ai.generateChangelog:views'
 	| 'gitlens.ai.generateChangelogFrom:graph'
 	| 'gitlens.ai.generateChangelogFrom:views'
-	| 'gitlens.ai.generateCommitMessage:graph'
 	| 'gitlens.ai.generateCommitMessage:scm'
 	| 'gitlens.ai.switchProvider:scm'
 	| 'gitlens.annotations.nextChange'
@@ -142,7 +141,6 @@ export type ContributedCommands =
 	| 'gitlens.graph.columnRefOn'
 	| 'gitlens.graph.columnShaOff'
 	| 'gitlens.graph.columnShaOn'
-	| 'gitlens.graph.commitViaSCM'
 	| 'gitlens.graph.compareAncestryWithWorking'
 	| 'gitlens.graph.compareBranchWithHead'
 	| 'gitlens.graph.compareSelectedCommits.multi'
@@ -1140,6 +1138,8 @@ export type ContributedKeybindingCommands =
  * Either their contribution point is missing or are simply internal and should be removed at some point
  */
 export type ContributedOrphansOrInternalCommands =
+	| 'gitlens.ai.generateCommitMessage:graph'
+	| 'gitlens.graph.commitViaSCM'
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.openFolderHistoryInGraph'
 	| 'gitlens.openIssueOnRemote'

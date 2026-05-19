@@ -304,6 +304,7 @@ import type {
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	GetWipStatsResponse,
+	GraphActionTarget,
 	GraphAutoFetchMode,
 	GraphBranchContextValue,
 	GraphColumnConfig,
@@ -1997,7 +1998,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private _searchRequest: SearchQuery | undefined;
 	private _pendingSidebarPanel: GraphSidebarPanel | undefined;
-	private _pendingAction: GraphShowAction | undefined;
+	private _pendingAction: { action: GraphShowAction; target?: GraphActionTarget } | undefined;
 
 	async onShowing(
 		loading: boolean,
@@ -2051,7 +2052,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.setSelectedRows('work-dir-changes');
 			}
 			if (loading) {
-				this._pendingAction = arg.action;
+				this._pendingAction = { action: arg.action };
 			} else {
 				void this.host.notify(DidRequestGraphActionNotification, { action: arg.action });
 			}
@@ -6157,6 +6158,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				parentSha: wt.sha,
 				label: wt.name,
 				branchRef: branchName != null ? getBranchId(this.repository.path, false, branchName) : undefined,
+				context: serializeWebviewItemContext<GraphItemContext>({
+					webviewItem: 'gitlens:wip+worktree',
+					webviewItemValue: {
+						type: 'commit',
+						ref: this.getRevisionReference(wt.path, uncommitted, 'work-dir-changes')!,
+					},
+				}),
 			};
 		}
 
@@ -6603,7 +6611,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			details: {
 				...storedPanels?.details,
 				visible:
-					this._pendingAction != null && this._pendingAction !== 'scope-to-branch'
+					this._pendingAction != null && this._pendingAction.action !== 'scope-to-branch'
 						? true
 						: (storedPanels?.details?.visible ?? true),
 			},
@@ -9076,9 +9084,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			openWorkspace(worktree.uri, options);
 		} else if (isGraphItemRefContext(item, 'revision')) {
-			// Detached worktree — find by sha
+			// Secondary WIP row: ref.ref is `uncommitted` AND ref.repoPath is the worktree's own
+			// path. Detached worktree (commit row): resolve by sha. (Menu gating prevents the
+			// primary-WIP case from reaching here, so it's not handled.)
 			const { ref } = item.webviewItemValue;
-			const worktree = this._graph?.worktrees?.find(w => w.sha === ref.ref);
+			const worktree =
+				ref.ref === uncommitted
+					? this._graph?.worktrees?.find(w => w.path === ref.repoPath)
+					: this._graph?.worktrees?.find(w => w.sha === ref.ref);
 			if (worktree == null) return;
 
 			openWorkspace(worktree.uri, options);
@@ -9318,11 +9331,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return;
 
-		const worktree = await this.getGraphItemWorktree(item);
-
-		await executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
-			repoPath: worktree?.path ?? ref.repoPath,
-			source: 'graph',
+		// Open the in-graph compose mode for the row that was right-clicked. For a secondary WIP
+		// row `ref.repoPath` is that worktree's path; for the primary it's the main repo path.
+		// The webview routes via `enterModeForWip(compose, repoPath, uncommitted)` — matching the
+		// inline Compose-button path (`handleWipRowOpen`) so context-menu and button stay aligned.
+		await this.host.notify(DidRequestGraphActionNotification, {
+			action: 'enter-compose',
+			target: { sha: uncommitted, repoPath: ref.repoPath },
 		});
 	}
 
@@ -9444,6 +9459,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
+			// Secondary WIP row: ref.ref is `uncommitted` AND ref.repoPath is the worktree's own
+			// path (different from the main repo path). Resolve by path. Primary WIP also has
+			// ref.ref === uncommitted but ref.repoPath === main repo path — keep the original
+			// `undefined` return so `explainWip` etc. don't pick up the primary worktree and
+			// change their existing behavior.
+			if (ref.ref === uncommitted && ref.repoPath !== this._graph?.repoPath) {
+				return this._graph?.worktrees?.find(w => w.path === ref.repoPath);
+			}
 			return this._graph?.worktrees?.find(w => w.sha === ref.ref);
 		}
 		return undefined;

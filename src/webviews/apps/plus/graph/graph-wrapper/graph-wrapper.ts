@@ -338,6 +338,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					heads: [],
 					remotes: [],
 					tags: [],
+					...(meta.context ? { contexts: { row: meta.context } } : {}),
 				};
 				const existing = secondariesByParentIdx.get(idx);
 				if (existing != null) {
