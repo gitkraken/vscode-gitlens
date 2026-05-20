@@ -1,5 +1,6 @@
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import type { ChatMode } from '../plus/chat/utils/-webview/chat.utils.js';
 import { openChat } from '../plus/chat/utils/-webview/chat.utils.js';
 import { command } from '../system/-webview/command.js';
 import { GlCommandBase } from './commandBase.js';
@@ -24,7 +25,7 @@ export interface SendToChatCommandArgs {
 	 * Chat mode to request (Copilot Chat). Other hosts ignore this — Cursor/Windsurf/Kiro/Trae
 	 * already open agent-mode sessions via their dedicated commands.
 	 */
-	mode?: 'agent' | 'edit' | 'ask';
+	mode?: ChatMode;
 }
 
 /**

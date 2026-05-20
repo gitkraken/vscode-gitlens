@@ -4,18 +4,11 @@ import { callUsingClipboard } from '../../../../system/-webview/clipboard.js';
 import { executeCoreCommand } from '../../../../system/-webview/command.js';
 import { getHostAppName } from '../../../../system/-webview/vscode.js';
 
-export async function openChat(
-	args: string,
-	options?: {
-		execute?: boolean;
-		/**
-		 * Chat mode to request. Honored by Copilot Chat (`workbench.action.chat.open`); the
-		 * other hosts already open their dedicated agent-mode chat command, so this is a no-op
-		 * for them.
-		 */
-		mode?: 'agent' | 'edit' | 'ask';
-	},
-): Promise<void> {
+/** Chat mode hint honored by Copilot Chat (`workbench.action.chat.open`); other hosts already
+ *  open their dedicated agent-mode chat command, so this is a no-op for them. */
+export type ChatMode = 'agent' | 'edit' | 'ask';
+
+export async function openChat(args: string, options?: { execute?: boolean; mode?: ChatMode }): Promise<void> {
 	const appName = await getHostAppName();
 	if ((await supportsChat(appName)) === false) return;
 

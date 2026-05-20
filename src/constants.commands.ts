@@ -164,6 +164,7 @@ type InternalGlCommands =
 	| 'gitlens.openWorkingFile:command'
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
+	| 'gitlens.runPromptInAgent'
 	| 'gitlens.sendToChat'
 	| 'gitlens.showComposerPage'
 	| 'gitlens.showInCommitGraphView'

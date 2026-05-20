@@ -2,6 +2,7 @@ import { commands, env, ThemeIcon, window, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { callUsingClipboard } from '../../system/-webview/clipboard.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
+import type { ChatMode } from '../chat/utils/-webview/chat.utils.js';
 import { openChat } from '../chat/utils/-webview/chat.utils.js';
 import type { AgentDescriptor } from './agentDescriptor.js';
 import { claudeExtensionOpenCommand, isAgentAvailable } from './agentRegistry.js';
@@ -14,6 +15,13 @@ const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms
 export interface RunAgentOptions {
 	/** Working directory for the CLI dispatch path. Required for CLI; ignored by IDE chat / extension. */
 	readonly cwd?: string;
+	/** When true, request the host to auto-submit the prompt. Honored by Copilot Chat via
+	 *  `isPartialQuery: false`; other hosts already paste-without-Enter (no-op). CLI always
+	 *  auto-submits via paste+Enter and ignores this flag. */
+	readonly autoExecute?: boolean;
+	/** Chat mode hint for the IDE chat path. Honored by Copilot Chat; ignored by other hosts and
+	 *  by CLI/extension dispatches. */
+	readonly mode?: ChatMode;
 }
 
 export interface RunAgentResult {
@@ -48,7 +56,7 @@ export async function runAgent(
 	try {
 		switch (descriptor.kind) {
 			case 'ide-chat':
-				await openChat(prompt);
+				await openChat(prompt, { execute: options?.autoExecute, mode: options?.mode });
 				return { success: true };
 			case 'claude-extension':
 				await commands.executeCommand(claudeExtensionOpenCommand, undefined, prompt);
