@@ -320,6 +320,20 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					})),
 				),
 			),
+			this.callbacks.ipc.registerHandler('agents/sessions/open', async request => {
+				const sessionId = (request as { sessionId?: string } | undefined)?.sessionId;
+				if (!sessionId || this.callbacks.openSessionInClaudeExtension == null) return {};
+
+				try {
+					await this.callbacks.openSessionInClaudeExtension(sessionId);
+				} catch (ex) {
+					Logger.warn(
+						`ClaudeCodeProvider.agents/sessions/open: ${ex instanceof Error ? ex.message : String(ex)}`,
+					);
+				}
+
+				return {};
+			}),
 		];
 
 		try {
@@ -1512,5 +1526,54 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		} catch {
 			return undefined;
 		}
+	}
+
+	/** Find the peer GitLens window whose discovery file claims `workspacePath`, and POST to its
+	 *  `/agents/sessions/open` route to ask its Claude Code extension to open the session. The
+	 *  caller is responsible for the follow-up `vscode.openFolder` that focuses the peer window —
+	 *  this method just makes sure the session is ready in the peer's editor before the focus
+	 *  switch lands. Best-effort: swallows scan, network, and JSON-parse errors. */
+	async notifyPeerOpenSession(workspacePath: string, sessionId: string): Promise<void> {
+		const discoveryDir = this.callbacks.ipc.agentDiscoveryDir;
+		if (discoveryDir == null) return;
+
+		const target = normalizePath(workspacePath);
+		const ownPort = this.callbacks.ipc.port;
+
+		let files: string[];
+		try {
+			files = await readdir(discoveryDir);
+		} catch {
+			return;
+		}
+
+		await Promise.all(
+			files
+				.filter(f => f.startsWith('gitlens-ipc-server-') && f.endsWith('.json'))
+				.map(async f => {
+					let discovery: DiscoveryFile;
+					try {
+						discovery = JSON.parse(await readFile(join(discoveryDir, f), 'utf8')) as DiscoveryFile;
+					} catch {
+						return;
+					}
+					if (ownPort != null && discovery.port === ownPort) return;
+					if (!discovery.workspacePaths?.some(p => normalizePath(p) === target)) return;
+
+					try {
+						await fetch(`${discovery.address}/agents/sessions/open`, {
+							method: 'POST',
+							headers: {
+								Authorization: `Bearer ${discovery.token}`,
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify({ sessionId: sessionId }),
+							signal: AbortSignal.timeout(2000),
+						});
+					} catch {
+						// Best-effort — vscode.openFolder still focuses the peer window.
+					}
+				}),
+		);
 	}
 }

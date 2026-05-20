@@ -1,12 +1,13 @@
-import { commands, extensions } from 'vscode';
 import type { GkAgent } from '@env/gk/cli/agents.js';
 import { cliAgentIds, getAllAgents, isCliExecutableAvailable } from '@env/gk/cli/agents.js';
+import {
+	claudeExtensionId,
+	claudeExtensionOpenCommand,
+	isClaudeExtensionAvailable,
+} from '../../agents/utils/-webview/claudeExtension.js';
 import { getHostAppName } from '../../system/-webview/vscode.js';
 import { supportedChatHosts } from '../chat/utils/-webview/chat.utils.js';
 import type { AgentDescriptor } from './agentDescriptor.js';
-
-const claudeExtensionId = 'Anthropic.claude-code';
-const claudeExtensionOpenCommand = 'claude-vscode.editor.open';
 
 const ideChatLabels: Record<string, string> = {
 	code: 'Copilot Chat',
@@ -56,13 +57,6 @@ export async function getSupportedAgents(): Promise<AgentDescriptor[]> {
 	return result;
 }
 
-async function isClaudeExtensionAvailable(): Promise<boolean> {
-	if (extensions.getExtension(claudeExtensionId) == null) return false;
-
-	const registered = await commands.getCommands(true);
-	return registered.includes(claudeExtensionOpenCommand);
-}
-
 async function getDetectedCliDescriptors(): Promise<AgentDescriptor[]> {
 	let agents: GkAgent[];
 	try {
@@ -109,4 +103,4 @@ export async function resolveDefaultAgent(id: string): Promise<AgentDescriptor |
 	return available.find(d => d.id === id);
 }
 
-export { claudeExtensionId, claudeExtensionOpenCommand };
+export { claudeExtensionId, claudeExtensionOpenCommand, isClaudeExtensionAvailable };

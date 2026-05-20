@@ -180,6 +180,12 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 		decision: PermissionDecision,
 		updatedPermissions?: PermissionSuggestion[],
 	): boolean;
+
+	/** Asks the peer GitLens window that has `workspacePath` open to open the given session in its
+	 *  Claude Code extension (via the `agents/sessions/open` IPC route). Best-effort: resolves
+	 *  silently if no peer claims the workspace or the POST fails. Callers should follow up with
+	 *  `vscode.openFolder` so VS Code focuses that peer window. */
+	notifyPeerOpenSession?(workspacePath: string, sessionId: string): Promise<void>;
 }
 
 /**
@@ -243,4 +249,11 @@ export interface AgentProviderCallbacks {
 		  }
 		| undefined
 	>;
+
+	/**
+	 * Open a Claude Code session in the Claude Code VS Code extension. Invoked by the IPC handler
+	 * when a peer GitLens window asks this window to open a session on its behalf — the host wires
+	 * this to `claude-vscode.editor.open`. Throws if the extension isn't installed/active.
+	 */
+	openSessionInClaudeExtension?(sessionId: string): Promise<void>;
 }

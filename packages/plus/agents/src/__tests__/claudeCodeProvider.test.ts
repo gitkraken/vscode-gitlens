@@ -8,18 +8,24 @@ import type { AgentProviderCallbacks, IpcRegistrar } from '../types.js';
 
 interface MockCallbacks {
 	callbacks: AgentProviderCallbacks;
-	handlers: Map<string, IpcHandler>;
+	handlers: Map<string, IpcHandler<unknown, unknown>>;
 	publishedPaths: string[][];
 }
 
-function createMockCallbacks(options?: { resolveGitInfo?: AgentProviderCallbacks['resolveGitInfo'] }): MockCallbacks {
-	const handlers = new Map<string, IpcHandler>();
+function createMockCallbacks(options?: {
+	resolveGitInfo?: AgentProviderCallbacks['resolveGitInfo'];
+	openSessionInClaudeExtension?: AgentProviderCallbacks['openSessionInClaudeExtension'];
+	port?: number;
+	agentDiscoveryDir?: string;
+}): MockCallbacks {
+	const handlers = new Map<string, IpcHandler<unknown, unknown>>();
 	const publishedPaths: string[][] = [];
 
 	const ipc: IpcRegistrar = {
-		port: 1234,
+		port: options?.port ?? 1234,
+		agentDiscoveryDir: options?.agentDiscoveryDir,
 		registerHandler: <Request, Response>(name: string, handler: IpcHandler<Request, Response>) => {
-			handlers.set(name, handler as unknown as IpcHandler);
+			handlers.set(name, handler as unknown as IpcHandler<unknown, unknown>);
 			return createDisposable(() => {
 				handlers.delete(name);
 			});
@@ -35,6 +41,7 @@ function createMockCallbacks(options?: { resolveGitInfo?: AgentProviderCallbacks
 		ipc: ipc,
 		runCLICommand: () => Promise.resolve('[]'),
 		resolveGitInfo: options?.resolveGitInfo,
+		openSessionInClaudeExtension: options?.openSessionInClaudeExtension,
 	};
 
 	return { callbacks: callbacks, handlers: handlers, publishedPaths: publishedPaths };
@@ -500,6 +507,240 @@ suite('ClaudeCodeProvider', () => {
 				assert.strictEqual(provider.sessions[0].lastPrompt, 'now do logging');
 			} finally {
 				provider.dispose();
+			}
+		});
+	});
+
+	suite('agents/sessions/open IPC handler', () => {
+		test('invokes the host callback with the requested sessionId', async () => {
+			const calls: string[] = [];
+			const { callbacks, handlers } = createMockCallbacks({
+				openSessionInClaudeExtension: sessionId => {
+					calls.push(sessionId);
+					return Promise.resolve();
+				},
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				await flushMicrotasks();
+
+				const handler = handlers.get('agents/sessions/open');
+				assert.ok(handler != null, 'agents/sessions/open handler should be registered');
+
+				const response = await handler({ sessionId: 'sess-1' }, new URLSearchParams());
+				assert.deepStrictEqual(calls, ['sess-1']);
+				assert.deepStrictEqual(response, {});
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('returns {} without invoking the callback when sessionId is missing', async () => {
+			let called = false;
+			const { callbacks, handlers } = createMockCallbacks({
+				openSessionInClaudeExtension: () => {
+					called = true;
+					return Promise.resolve();
+				},
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				await flushMicrotasks();
+
+				const handler = handlers.get('agents/sessions/open')!;
+				const response = await handler({}, new URLSearchParams());
+				assert.strictEqual(called, false, 'callback must not run when sessionId is absent');
+				assert.deepStrictEqual(response, {});
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('returns {} when the host did not wire openSessionInClaudeExtension', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				await flushMicrotasks();
+
+				const handler = handlers.get('agents/sessions/open')!;
+				const response = await handler({ sessionId: 'sess-1' }, new URLSearchParams());
+				assert.deepStrictEqual(response, {});
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('swallows callback errors so the peer never sees a 500', async () => {
+			const { callbacks, handlers } = createMockCallbacks({
+				openSessionInClaudeExtension: () => Promise.reject(new Error('extension not installed')),
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				await flushMicrotasks();
+
+				const handler = handlers.get('agents/sessions/open')!;
+				const response = await handler({ sessionId: 'sess-1' }, new URLSearchParams());
+				assert.deepStrictEqual(response, {});
+			} finally {
+				provider.dispose();
+			}
+		});
+	});
+
+	suite('notifyPeerOpenSession', () => {
+		test("skips the discovery file matching this provider's own port", async () => {
+			const { default: http } = await import('node:http');
+			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
+			const { tmpdir } = await import('node:os');
+			const { join } = await import('node:path');
+
+			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-self-'));
+			const hits: string[] = [];
+			const server = http.createServer((req, res) => {
+				hits.push(req.url ?? '');
+				res.writeHead(200);
+				res.end('{}');
+			});
+			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+			const port = (server.address() as { port: number }).port;
+			try {
+				await writeFile(
+					join(dir, 'gitlens-ipc-server-self.json'),
+					JSON.stringify({
+						token: 't',
+						address: `http://127.0.0.1:${port}`,
+						port: port,
+						workspacePaths: ['/repo'],
+					}),
+				);
+
+				const { callbacks } = createMockCallbacks({ port: port, agentDiscoveryDir: dir });
+				const provider = new ClaudeCodeProvider(callbacks);
+				try {
+					provider.start(['/repo']);
+					await flushMicrotasks();
+					hits.length = 0; // ignore any pre-existing list-route hits (there should be none)
+					await provider.notifyPeerOpenSession('/repo', 'sess-1');
+					assert.deepStrictEqual(
+						hits.filter(u => u === '/agents/sessions/open'),
+						[],
+						'own-port discovery file must be skipped',
+					);
+				} finally {
+					provider.dispose();
+				}
+			} finally {
+				await new Promise<void>(resolve => server.close(() => resolve()));
+				await rm(dir, { recursive: true, force: true });
+			}
+		});
+
+		test('skips peers whose workspacePaths do not include the target', async () => {
+			const { default: http } = await import('node:http');
+			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
+			const { tmpdir } = await import('node:os');
+			const { join } = await import('node:path');
+
+			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-mismatch-'));
+			const hits: string[] = [];
+			const server = http.createServer((req, res) => {
+				hits.push(req.url ?? '');
+				res.writeHead(200);
+				res.end('{}');
+			});
+			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+			const peerPort = (server.address() as { port: number }).port;
+			try {
+				await writeFile(
+					join(dir, 'gitlens-ipc-server-other.json'),
+					JSON.stringify({
+						token: 't',
+						address: `http://127.0.0.1:${peerPort}`,
+						port: peerPort,
+						workspacePaths: ['/other/workspace'],
+					}),
+				);
+
+				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
+				const provider = new ClaudeCodeProvider(callbacks);
+				try {
+					provider.start(['/repo']);
+					await flushMicrotasks();
+					hits.length = 0; // ignore `/agents/sessions/list` from querySiblingWindowSessions
+					await provider.notifyPeerOpenSession('/repo', 'sess-1');
+					assert.deepStrictEqual(
+						hits.filter(u => u === '/agents/sessions/open'),
+						[],
+						'mismatched-workspace peer must not be POSTed',
+					);
+				} finally {
+					provider.dispose();
+				}
+			} finally {
+				await new Promise<void>(resolve => server.close(() => resolve()));
+				await rm(dir, { recursive: true, force: true });
+			}
+		});
+
+		test('POSTs the sessionId to peers whose workspacePaths include the (normalized) target', async () => {
+			const { default: http } = await import('node:http');
+			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
+			const { tmpdir } = await import('node:os');
+			const { join } = await import('node:path');
+
+			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-match-'));
+			const requests: { url: string; auth: string | undefined; body: string }[] = [];
+			const server = http.createServer((req, res) => {
+				const chunks: Buffer[] = [];
+				req.on('data', c => chunks.push(c as Buffer));
+				req.on('end', () => {
+					requests.push({
+						url: req.url ?? '',
+						auth: req.headers['authorization'],
+						body: Buffer.concat(chunks).toString('utf8'),
+					});
+					res.writeHead(200);
+					res.end('{}');
+				});
+			});
+			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+			const peerPort = (server.address() as { port: number }).port;
+			try {
+				await writeFile(
+					join(dir, 'gitlens-ipc-server-peer.json'),
+					JSON.stringify({
+						token: 'peer-token',
+						address: `http://127.0.0.1:${peerPort}`,
+						port: peerPort,
+						// Mixed-separator path on purpose — `notifyPeerOpenSession` normalizes both sides.
+						workspacePaths: ['d:\\PROJ\\GKGL\\vscode-gitlens'],
+					}),
+				);
+
+				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
+				const provider = new ClaudeCodeProvider(callbacks);
+				try {
+					provider.start(['/somewhere/else']);
+					await flushMicrotasks();
+					// Ignore the unrelated `/agents/sessions/list` POST that `querySiblingWindowSessions`
+					// fires on start — we only care about what `notifyPeerOpenSession` does.
+					requests.length = 0;
+					await provider.notifyPeerOpenSession('d:/PROJ/GKGL/vscode-gitlens', 'sess-42');
+
+					const openRequests = requests.filter(r => r.url === '/agents/sessions/open');
+					assert.strictEqual(openRequests.length, 1, 'matching peer should receive exactly one open POST');
+					assert.strictEqual(openRequests[0].auth, 'Bearer peer-token');
+					assert.deepStrictEqual(JSON.parse(openRequests[0].body), { sessionId: 'sess-42' });
+				} finally {
+					provider.dispose();
+				}
+			} finally {
+				await new Promise<void>(resolve => server.close(() => resolve()));
+				await rm(dir, { recursive: true, force: true });
 			}
 		});
 	});
