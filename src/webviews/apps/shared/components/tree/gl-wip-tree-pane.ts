@@ -260,23 +260,14 @@ export class GlWipTreePane extends LitElement {
 			${this.renderConflictBulkActions(files)}
 			${files.length > 0
 				? html`<gl-button
-							slot="leading-actions"
-							appearance="toolbar"
-							tooltip="Stash Changes"
-							@click=${this.onStashSave}
-						>
-							<code-icon icon="gl-stash-save" slot="prefix"></code-icon>
-							<span class="stash-label">Stash</span>
-						</gl-button>
-						<gl-button
-							slot="leading-actions"
-							appearance="toolbar"
-							tooltip="Discard Unstaged Changes"
-							style="display: none"
-							@click=${this.onDiscardUnstaged}
-						>
-							<code-icon icon="discard" slot="prefix"></code-icon>
-						</gl-button>`
+						slot="leading-actions"
+						appearance="toolbar"
+						tooltip="Stash Changes"
+						@click=${this.onStashSave}
+					>
+						<code-icon icon="gl-stash-save" slot="prefix"></code-icon>
+						<span class="stash-label">Stash</span>
+					</gl-button>`
 				: nothing}
 			<slot name="before-tree" slot="before-tree"></slot>
 		</gl-file-tree-pane>`;
