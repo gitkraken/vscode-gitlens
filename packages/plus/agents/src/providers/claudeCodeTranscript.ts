@@ -63,7 +63,7 @@ export class ClaudeCodeTranscriptReader {
 			return undefined;
 		}
 
-		if (cached != null && stats.mtimeMs === cached.mtimeMs && stats.size === cached.size) {
+		if (stats.mtimeMs === cached?.mtimeMs && stats.size === cached?.size) {
 			return cached.titles;
 		}
 

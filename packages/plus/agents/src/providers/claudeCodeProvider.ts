@@ -448,6 +448,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				// as informational so it doesn't flip the session to `thinking` or wipe a pending
 				// permission when no real user activity occurred.
 				if (!cleaned) break;
+
 				const existing = this._sessions[index];
 				this._sessions[index] = {
 					...existing,
