@@ -95,6 +95,17 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				gap: 0.4rem;
 			}
+
+			.section-heading-actions {
+				flex: none;
+				display: flex;
+				align-items: center;
+			}
+
+			.section-heading-action {
+				--button-padding: 0.2rem;
+				--button-line-height: 1.2rem;
+			}
 		`,
 	];
 
@@ -117,6 +128,13 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		}
 	}
 
+	private onRefreshClicked = (): void => {
+		const launchpad = this._launchpad.service;
+		if (launchpad == null) return;
+
+		void fetchLaunchpadSummary(this._launchpad, launchpad);
+	};
+
 	get startWorkCommand(): string {
 		return this._webview.createCommandLink('gitlens.startWork:');
 	}
@@ -126,9 +144,21 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	}
 
 	override render(): unknown {
+		const isLoading = this._launchpad.launchpadLoading.get();
 		return html`
-			<gl-section ?loading=${this._launchpad.launchpadLoading.get()}>
+			<gl-section ?loading=${isLoading}>
 				<span slot="heading">Launchpad</span>
+				<span class="section-heading-actions" slot="heading-actions">
+					<gl-button
+						aria-busy=${isLoading ? 'true' : 'false'}
+						?disabled=${isLoading}
+						class="section-heading-action"
+						appearance="toolbar"
+						tooltip="Refresh Launchpad"
+						@click=${this.onRefreshClicked}
+						><code-icon icon="refresh"></code-icon
+					></gl-button>
+				</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
 				<button-container grouping="gap-wide">
 					<gl-button full class="start-work" href=${this.startWorkCommand}>Start Work on an Issue</gl-button>
