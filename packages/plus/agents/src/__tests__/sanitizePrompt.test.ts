@@ -167,6 +167,85 @@ suite('sanitizeAgentPrompt', () => {
 		});
 	});
 
+	suite('dispatch preamble', () => {
+		const startWorkPrompt = (issueJson: string) =>
+			'You are an advanced AI programming assistant tasked with helping a developer start work on a new issue. ' +
+			'Your goal is to analyze the issue details and provide a clear plan of action, estimate, and implement a solution.\n\n' +
+			'First, examine the following JSON object containing the issue details:\n\n' +
+			`<issue>\n${issueJson}\n</issue>\n\n` +
+			'Now, proceed with your analysis.';
+
+		const startReviewPrompt = (prJson: string) =>
+			'You are an advanced AI programming assistant tasked with reviewing a pull request (PR). ' +
+			'Your goal is to analyze the PR details and provide a comprehensive review.\n\n' +
+			'First, examine the following JSON object containing the PR details:\n\n' +
+			`<prData>\n${prJson}\n</prData>\n\n` +
+			'Now, proceed with your analysis.';
+
+		test('extracts issue title from a Start Work dispatch prompt', () => {
+			const input = startWorkPrompt(
+				JSON.stringify({ id: '123', title: 'Fix GitLab PR approval 405 Method Not Allowed error' }),
+			);
+			assert.strictEqual(sanitizeAgentPrompt(input), 'Fix GitLab PR approval 405 Method Not Allowed error');
+		});
+
+		test('extracts PR title from a Start Review dispatch prompt', () => {
+			const input = startReviewPrompt(JSON.stringify({ id: 'pr-1', title: 'Improve graph view updates' }));
+			assert.strictEqual(sanitizeAgentPrompt(input), 'Improve graph view updates');
+		});
+
+		test('trims whitespace around the extracted title', () => {
+			const input = startWorkPrompt(JSON.stringify({ title: '   Padded title   ' }));
+			assert.strictEqual(sanitizeAgentPrompt(input), 'Padded title');
+		});
+
+		test('falls through when block JSON is malformed', () => {
+			const input = startWorkPrompt('this is not json');
+			// Falls through to normal sanitization — neither preamble nor JSON gets stripped, so
+			// the full prompt comes back trimmed.
+			assert.strictEqual(sanitizeAgentPrompt(input), input.trim());
+		});
+
+		test('falls through when title field is missing', () => {
+			const input = startWorkPrompt(JSON.stringify({ id: '123', body: 'no title here' }));
+			assert.strictEqual(sanitizeAgentPrompt(input), input.trim());
+		});
+
+		test('falls through when title is an empty string', () => {
+			const input = startWorkPrompt(JSON.stringify({ id: '123', title: '   ' }));
+			assert.strictEqual(sanitizeAgentPrompt(input), input.trim());
+		});
+
+		test('falls through when title is not a string', () => {
+			const input = startWorkPrompt(JSON.stringify({ id: '123', title: 42 }));
+			assert.strictEqual(sanitizeAgentPrompt(input), input.trim());
+		});
+
+		test('rewrite wins over a trailing harness wrapper', () => {
+			const dispatched = startWorkPrompt(JSON.stringify({ title: 'Wire up the new pill' }));
+			const input = `${dispatched}\n<task-notification><status>completed</status></task-notification>`;
+			assert.strictEqual(sanitizeAgentPrompt(input), 'Wire up the new pill');
+		});
+
+		test('handles CRLF line endings inside the dispatch block', () => {
+			const issueJson = JSON.stringify({ title: 'CRLF-safe title' });
+			const input = startWorkPrompt(issueJson).replace(/\n/g, '\r\n');
+			assert.strictEqual(sanitizeAgentPrompt(input), 'CRLF-safe title');
+		});
+
+		test('ignores a dispatch block embedded inside a harness wrapper', () => {
+			// Realistic scenario: a developer working on GitLens itself selects code that contains
+			// our own dispatch template. The IDE wraps the selection in <ide_selection>…</ide_selection>
+			// and appends the user's real question. The harness wrapper must be stripped first so
+			// the embedded `<issue>` block doesn't hijack the session name.
+			const trap = JSON.stringify({ title: 'should not surface' });
+			const input =
+				`<ide_selection>here is the dispatch template:\n<issue>${trap}</issue>\nend of selection</ide_selection>\n` +
+				'why does this not work?';
+			assert.strictEqual(sanitizeAgentPrompt(input), 'why does this not work?');
+		});
+	});
+
 	suite('user content passes through', () => {
 		test('preserves <details>/<summary>', () => {
 			const input = '<details><summary>Click</summary>hidden body</details>';
