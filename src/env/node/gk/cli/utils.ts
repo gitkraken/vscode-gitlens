@@ -3,6 +3,7 @@ import { dirname, resolve, sep } from 'path';
 import { Uri, window } from 'vscode';
 import { run } from '@gitlens/utils/env/node/exec.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { joinUriPath } from '@gitlens/utils/uri.js';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
@@ -80,14 +81,13 @@ export async function extractZipFile(
 
 export function getDevCLILocalPath(): string | undefined {
 	if (!Container.instance.debugging) return undefined;
+
 	return configuration.get('gitkraken.cli.localPath') ?? undefined;
 }
 
 export function getCLIExecutable(cliPath?: string | null): Uri {
 	const localPath = getDevCLILocalPath();
-	if (localPath != null) {
-		return Uri.file(localPath);
-	}
+	if (localPath != null) return Uri.file(localPath);
 
 	return joinUriPath(
 		Uri.file(cliPath ?? Container.instance.context.globalStorageUri.fsPath),
@@ -95,9 +95,17 @@ export function getCLIExecutable(cliPath?: string | null): Uri {
 	);
 }
 
-export async function resolveCLIExecutable(cliPath?: string | null): Promise<Uri | undefined> {
+const resolvedExecutablesCache = new PromiseCache<string, Uri | undefined>({ capacity: 10 });
+
+export function clearResolvedCLIExecutableCache(): void {
+	resolvedExecutablesCache.clear();
+}
+
+export function resolveCLIExecutable(cliPath?: string | null): Promise<Uri | undefined> {
 	const uri = getCLIExecutable(cliPath);
-	return (await exists(uri)) ? uri : undefined;
+	return resolvedExecutablesCache.getOrCreate(uri.toString(), async () => {
+		return (await exists(uri)) ? uri : undefined;
+	});
 }
 
 export function toMcpInstallProvider<T extends string | undefined>(appHostName: T): T {
@@ -138,7 +146,6 @@ export async function runCLICommand(args: string[], options?: { cwd?: string }):
 
 	if (command == null) {
 		scope?.setFailed('CLI is not installed');
-		debugger;
 		throw new Error('CLI is not installed');
 	}
 
@@ -147,8 +154,8 @@ export async function runCLICommand(args: string[], options?: { cwd?: string }):
 }
 
 const CLIVersionOutputs = {
-	core: /CLI Core: (\d+\.\d+\.\d+)/,
-	installer: /CLI Installer: (\d+\.\d+\.\d+)/,
+	core: /CLI Core: (\d+\.\d+\.\d+(?:-\S+)?)/,
+	installer: /CLI Installer: (\d+\.\d+\.\d+(?:-\S+)?)/,
 } as const;
 
 export async function getCLIVersions(cliPath?: string): Promise<{ proxy: string; core: string } | undefined> {
@@ -156,15 +163,9 @@ export async function getCLIVersions(cliPath?: string): Promise<{ proxy: string;
 		const output = await runCLICommand(['version'], cliPath ? { cwd: cliPath } : undefined);
 		const coreMatch = output.match(CLIVersionOutputs.core)?.[1];
 		const installerMatch = output.match(CLIVersionOutputs.installer)?.[1];
+		if (!coreMatch || !installerMatch) throw new Error(`Unexpected CLI version output: ${output}`);
 
-		if (!coreMatch || !installerMatch) {
-			throw new Error(`Unexpected CLI version output: ${output}`);
-		}
-
-		return {
-			core: coreMatch,
-			proxy: installerMatch,
-		};
+		return { core: coreMatch, proxy: installerMatch };
 	} catch (ex) {
 		if (ex instanceof Error && ex.message.includes('CLI is not installed')) {
 			return undefined;

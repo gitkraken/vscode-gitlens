@@ -24,6 +24,7 @@ import type { GkAgent } from './agents.js';
 import { CliCommandHandlers } from './commands.js';
 import { showMcpAgentPicker } from './mcpAgentPicker.js';
 import {
+	clearResolvedCLIExecutableCache,
 	extractZipFile,
 	getCLIExecutable,
 	getCLIVersions,
@@ -113,6 +114,14 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent): void {
+		if (
+			e != null &&
+			(configuration.changed(e, 'gitkraken.cli.localPath') ||
+				configuration.changed(e, 'gitkraken.cli.insiders.enabled'))
+		) {
+			clearResolvedCLIExecutableCache();
+		}
+
 		if (e == null || configuration.changed(e, 'gitkraken.mcp.autoEnabled')) {
 			if (!this.supportsCliIntegration()) {
 				this.stop();
@@ -473,6 +482,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		force = false,
 	): Promise<{ cliVersion?: string; cliPath?: string; status: 'completed' | 'unsupported' | 'attempted' }> {
 		const scope = getScopedLogger();
+		clearResolvedCLIExecutableCache();
 
 		const devLocalPath = getDevCLILocalPath();
 		if (devLocalPath != null) {
