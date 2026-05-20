@@ -107,26 +107,62 @@ export const detailsWipEmptyPaneStyles = css`
 		gap: 0.4rem;
 	}
 
+	.launchpad-items--loading {
+		gap: 0.4rem;
+	}
+
 	.launchpad-item {
 		display: flex;
 		align-items: center;
 		gap: 0.6rem;
 		font-size: 1.2rem;
+		color: inherit;
+		text-decoration: none;
 	}
 
 	.launchpad-item__icon {
 		color: var(--gl-launchpad-item-color, inherit);
 	}
 
+	.launchpad-item--link {
+		cursor: pointer;
+	}
+
+	.launchpad-item--link:hover {
+		text-decoration: none;
+	}
+
+	.launchpad-item--link:hover span {
+		text-decoration: underline;
+	}
+
+	.launchpad-item--link:hover .launchpad-item__icon {
+		color: var(--gl-launchpad-item-hover-color, var(--gl-launchpad-item-color, inherit));
+	}
+
+	.launchpad-item--link:focus-visible {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: 2px;
+		border-radius: 0.2rem;
+	}
+
+	.launchpad-item--muted {
+		color: var(--color-foreground--65);
+		font-style: italic;
+	}
+
 	.launchpad-item--mergeable {
 		--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorMergeableColor);
+		--gl-launchpad-item-hover-color: var(--vscode-gitlens-launchpadIndicatorMergeableHoverColor);
 	}
 
 	.launchpad-item--blocked {
 		--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
+		--gl-launchpad-item-hover-color: var(--vscode-gitlens-launchpadIndicatorBlockedHoverColor);
 	}
 
 	.launchpad-item--attention {
 		--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
+		--gl-launchpad-item-hover-color: var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);
 	}
 `;

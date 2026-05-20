@@ -1247,6 +1247,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									.aiEnabled=${false}
 									.hasPullRequest=${this._state.wipPullRequestLoading.get() ||
 									this._state.wipPullRequest.get() != null}
+									.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
 									.launchpadSummary=${this._state.launchpadSummary.get()}
 									.mergeTargetStatus=${this._state.wipMergeTarget.get()}
 									@switch-branch=${this.handleSwitchBranch}
