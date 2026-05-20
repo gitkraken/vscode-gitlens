@@ -238,11 +238,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	// Cache keyed by (rows, wipMetadataBySha, workingTreeStats, scope, branchesVisibility,
 	// includeOnlyRefs, branch.id) — any reference change invalidates. Scope must be in the key
-	// because `filterSecondariesForScope` reads `scope.branchRef`/`upstreamRef`/`additionalBranchRefs`;
-	// `branchesVisibility` + `includeOnlyRefs` + `currentBranchId` must also be in the key
-	// because the WIP-visibility helpers below
-	// (`filterSecondariesForIncludeOnlyRefs`, `shouldShowPrimaryWipRow`) read them when the
-	// scope picker is in a non-`all` mode (current/smart/favorited/agents).
+	// because `filterSecondariesForScope` reads `scope.branchRef`/`upstreamRef`/`additionalBranchRefs`
+	// AND `shouldShowPrimaryWipRow` reads `scope.branchRef` to enforce the "primary WIP belongs
+	// only to the focal branch when focal === current" convention; `branchesVisibility` +
+	// `includeOnlyRefs` + `currentBranchId` must also be in the key because the WIP-visibility
+	// helpers below (`filterSecondariesForIncludeOnlyRefs`, `shouldShowPrimaryWipRow`) read them
+	// when the scope picker is in a non-`all` mode (current/smart/favorited/agents).
 	private _decoratedRowsCache?: {
 		rows: GraphRow[] | undefined;
 		wipMetadataBySha: GraphWipMetadataBySha | undefined;
@@ -281,7 +282,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			return cached.result;
 		}
 
-		const showPrimary = shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, currentBranchId);
+		const showPrimary = shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, currentBranchId, scope);
 
 		const filteredMetadata = filterSecondariesForIncludeOnlyRefs(
 			filterSecondariesForScope(wipMetadataBySha, scope),

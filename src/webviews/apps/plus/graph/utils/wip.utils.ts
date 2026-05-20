@@ -48,24 +48,43 @@ export function filterSecondariesForScope(
 
 /**
  * Determines whether the primary "Working Changes" row (for the current worktree's branch)
- * should render under the active `branchesVisibility` filter.
+ * should render under the active scope + `branchesVisibility` filters.
  *
+ * Scope check (runs first): when a scope is active and its focal branch (`scope.branchRef`)
+ * isn't the branch HEAD points at, the primary WIP is hidden. The Working Changes row is
+ * anchored to HEAD, so it only "belongs" to the scoped branch when the scoped branch is the
+ * one HEAD points at — see `getOverviewBranchSelectionSha` for the matching selection-side
+ * convention. `additionalBranchRefs` deliberately does NOT count: the primary WIP only
+ * attributes to the focal branch. In a detached-HEAD-plus-scope state this returns false —
+ * with no current branch there's nothing to attribute the WIP to.
+ *
+ * `branchesVisibility` check (runs after scope):
  * - `'all'` (and absent): always show.
- * - `'current'`, `'smart'`, `'favorited'`: these scopes always include the current branch by
+ * - `'current'`, `'smart'`, `'favorited'`: these modes always include the current branch by
  *   construction, so this returns true in normal cases.
  * - `'agents'`: only shows if the current branch is in the host-computed include set
  *   (i.e. an active agent is running on the current branch's worktree).
  *
  * Empty `{}` is treated as "no filter" — same convention as `filterSecondariesForIncludeOnlyRefs`.
- * If the current branch id is unknown (detached HEAD with a non-`'all'` scope), defaults to
- * showing the primary — the user's local WIP still matters even when there's no branch to
- * match against.
+ * If the current branch id is unknown (detached HEAD under a non-`'all'` `branchesVisibility`
+ * filter with no `scope` active), defaults to showing the primary — the user's local WIP
+ * still matters even when there's no branch to match against.
  */
 export function shouldShowPrimaryWipRow(
 	branchesVisibility: GraphBranchesVisibility | undefined,
 	includeOnlyRefs: GraphIncludeOnlyRefs | undefined,
 	currentBranchId: string | undefined,
+	scope: GraphScope | undefined,
 ): boolean {
+	// Scope guard runs first — the Working Changes row is anchored to HEAD, so it only
+	// "belongs" to the scoped branch when the scoped branch is the one HEAD points at.
+	// Without this gate, the GK component keeps the primary WIP in any descendant-branch
+	// scope (HEAD's sha is in the visible ancestor set) and surfaces the current branch's
+	// WIP under a branch it doesn't belong to. `additionalBranchRefs` deliberately does
+	// NOT count — convention is "focal branch only" (matches `getOverviewBranchSelectionSha`).
+	// Detached HEAD under an active scope returns false too — no branch to attribute WIP to.
+	if (scope != null && scope.branchRef !== currentBranchId) return false;
+
 	if (branchesVisibility == null || branchesVisibility === 'all') return true;
 	if (includeOnlyRefs == null) return true;
 	if (currentBranchId == null) return true; // detached HEAD fallback — keep primary visible

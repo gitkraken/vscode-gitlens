@@ -3,6 +3,7 @@ import type { emptySetMarker, WorkDirStats } from '@gitkraken/gitkraken-componen
 import type {
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
+	GraphScope,
 	GraphWipMetadataBySha,
 } from '../../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewBranches.js';
@@ -450,27 +451,39 @@ suite('shouldShowPrimaryWipRow', () => {
 	const currentBranchId = '/repo|heads/feature';
 
 	test("returns true when branchesVisibility is 'all'", () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('all', refsFor('/repo|heads/other'), currentBranchId), true);
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('all', refsFor('/repo|heads/other'), currentBranchId, undefined),
+			true,
+		);
 	});
 
 	test('returns true when branchesVisibility is undefined', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow(undefined, refsFor('/repo|heads/other'), currentBranchId), true);
+		assert.strictEqual(
+			shouldShowPrimaryWipRow(undefined, refsFor('/repo|heads/other'), currentBranchId, undefined),
+			true,
+		);
 	});
 
 	test('returns true when includeOnlyRefs is undefined', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('agents', undefined, currentBranchId), true);
+		assert.strictEqual(shouldShowPrimaryWipRow('agents', undefined, currentBranchId, undefined), true);
 	});
 
 	test('returns true when includeOnlyRefs is empty {} (no-filter sentinel)', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('smart', {}, currentBranchId), true);
+		assert.strictEqual(shouldShowPrimaryWipRow('smart', {}, currentBranchId, undefined), true);
 	});
 
 	test('returns true when currentBranchId is in the include set', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('agents', refsFor(currentBranchId), currentBranchId), true);
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('agents', refsFor(currentBranchId), currentBranchId, undefined),
+			true,
+		);
 	});
 
 	test('returns false when currentBranchId is not in the include set (agents mode w/ no agent on current)', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), currentBranchId), false);
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), currentBranchId, undefined),
+			false,
+		);
 	});
 
 	test('returns false when only the empty-set marker is present', () => {
@@ -479,13 +492,59 @@ suite('shouldShowPrimaryWipRow', () => {
 				'agents',
 				{ ['gk.empty-set-marker' satisfies typeof emptySetMarker]: {} as unknown as GraphIncludeOnlyRef },
 				currentBranchId,
+				undefined,
 			),
 			false,
 		);
 	});
 
 	test('returns true when currentBranchId is unknown (detached HEAD fallback)', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), undefined), true);
+		assert.strictEqual(shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), undefined, undefined), true);
+	});
+
+	test("returns false when scope's focal branch isn't HEAD (descendant scope leak repro)", () => {
+		// Pin with branchesVisibility === 'all' so a regression in guard ordering re-introduces
+		// the leak Eric reported (primary WIP appearing under a descendant branch's scope).
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('all', undefined, currentBranchId, scopeFor('/repo|heads/descendant')),
+			false,
+		);
+	});
+
+	test('returns true when scope is undefined (no scope active)', () => {
+		assert.strictEqual(shouldShowPrimaryWipRow('all', undefined, currentBranchId, undefined), true);
+	});
+
+	test('returns true when scope.branchRef equals currentBranchId', () => {
+		assert.strictEqual(shouldShowPrimaryWipRow('all', undefined, currentBranchId, scopeFor(currentBranchId)), true);
+	});
+
+	test('returns false when scope is active and HEAD is detached', () => {
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('all', undefined, undefined, scopeFor('/repo|heads/anything')),
+			false,
+		);
+	});
+
+	test('returns false when current is in scope.additionalBranchRefs but not scope.branchRef', () => {
+		// Pins the "additionalBranchRefs doesn't count" convention so a future broadening fails
+		// loudly — primary WIP attributes only to the focal branch (`scope.branchRef`).
+		assert.strictEqual(
+			shouldShowPrimaryWipRow(
+				'all',
+				undefined,
+				currentBranchId,
+				scopeFor('/repo|heads/focal', { additionalBranchRefs: [currentBranchId] }),
+			),
+			false,
+		);
+	});
+
+	test('scope guard precedes branchesVisibility — agents mode with off-scope focal still hides', () => {
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('agents', refsFor(currentBranchId), currentBranchId, scopeFor('/repo|heads/other')),
+			false,
+		);
 	});
 });
 
@@ -502,4 +561,17 @@ function refsFor(...ids: string[]): GraphIncludeOnlyRefs {
 		result[id] = { id: id, name: name, type: type };
 	}
 	return result;
+}
+
+function scopeFor(branchRef: string, opts?: { additionalBranchRefs?: string[] }): GraphScope {
+	// `branchName` is required on GraphScope; derive a sensible default from the ref id's tail
+	// (mirrors how the host populates it). The tests don't read this field — `shouldShowPrimaryWipRow`
+	// only consults `branchRef` — but it must be present to type-check.
+	const slash = branchRef.lastIndexOf('/');
+	const branchName = slash >= 0 ? branchRef.slice(slash + 1) : branchRef;
+	return {
+		branchName: branchName,
+		branchRef: branchRef,
+		...(opts?.additionalBranchRefs ? { additionalBranchRefs: opts.additionalBranchRefs } : {}),
+	};
 }
