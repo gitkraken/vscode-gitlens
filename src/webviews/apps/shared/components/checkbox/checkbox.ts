@@ -1,5 +1,6 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { ModifierKeysController } from '../../controllers/modifier-keys.js';
 import { GlElement } from '../element.js';
 import { checkboxBaseStyles } from './checkbox.css.js';
 
@@ -39,11 +40,28 @@ export class Checkbox extends GlElement {
 		this._defaultChecked = this.checked;
 	}
 
+	private _clickAlt = false;
+	private readonly _modifiers = new ModifierKeysController(this);
+
+	private handleClick(e: MouseEvent) {
+		this._clickAlt = e.altKey;
+	}
+
 	private handleChange(e: Event) {
-		this.checked = (e.target as HTMLInputElement).checked;
+		let newChecked = (e.target as HTMLInputElement).checked;
+		// Alt+click on an indeterminate checkbox flips the natural transition to unchecked so
+		// the "Unstage All currently staged" intent is reachable in one click. Read alt from
+		// BOTH the captured click event AND the live modifier tracker — keyboard activation
+		// (Space) skips the click handler, and some platforms may not fire click before change.
+		const altHeld = this._clickAlt || this._modifiers.altKey;
+		if (this.indeterminate && altHeld) {
+			newChecked = false;
+			(e.target as HTMLInputElement).checked = false;
+		}
+		this._clickAlt = false;
+		this.checked = newChecked;
 		this.indeterminate = false;
-		const event = new CustomEvent('gl-change-value');
-		this.dispatchEvent(event);
+		this.dispatchEvent(new CustomEvent('gl-change-value'));
 	}
 
 	private renderCheck() {
@@ -58,6 +76,7 @@ export class Checkbox extends GlElement {
 				type="checkbox"
 				.checked=${this.checked}
 				@change=${this.handleChange}
+				@click=${this.handleClick}
 			/>
 			<div class="control">${this.renderCheck()}</div>
 			<slot class="label-text" part="label"></slot>

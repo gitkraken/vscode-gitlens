@@ -21,6 +21,11 @@ export interface TreeItemBase {
 	checked?: boolean | 'indeterminate';
 	disableCheck?: boolean;
 	checkableTooltip?: string;
+	/** Alt-action tooltip — surfaced only when the checkbox has a distinct alt+click behavior
+	 *  (currently set by `gl-file-tree-pane` for mixed-state files where alt+click flips to
+	 *  unstage). When set, `tree-item` adds an alt-key hint line and swaps to this label while
+	 *  the user holds Alt. */
+	checkableAltTooltip?: string;
 
 	/**
 	 * Indicates the file has hunks in BOTH staged and unstaged. Set by gl-wip-tree-pane

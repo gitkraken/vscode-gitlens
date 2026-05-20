@@ -2,6 +2,7 @@ import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
+import { getAltKeySymbol } from '@env/platform.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
@@ -10,6 +11,7 @@ import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../../../../config.js';
 import type { FileShowOptions } from '../../../../commitDetails/protocol.js';
+import { ModifierKeysController } from '../../controllers/modifier-keys.js';
 import { elementBase } from '../styles/lit/base.css.js';
 import type {
 	TreeItemAction,
@@ -192,6 +194,10 @@ export class GlFileTreePane extends LitElement {
 
 	private _cachedTreeModel?: TreeModel[];
 	private _pendingScrollRestore?: number;
+	// Drives a re-render when alt is pressed/released so the header tooltip can swap between
+	// the primary and alt-action labels. Per-file checkbox tooltips swap inside `gl-tree-item`,
+	// which has its own subscription.
+	private readonly _modifiers = new ModifierKeysController(this);
 
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		// Rebuild cached tree model when tree-structure-relevant properties change.
@@ -437,14 +443,20 @@ export class GlFileTreePane extends LitElement {
 
 		const checkVerb = this.checkVerb;
 		const uncheckVerb = this.uncheckVerb;
-		const tooltipText =
-			checkVerb && uncheckVerb
-				? allChecked
-					? `${uncheckVerb} All`
-					: indeterminate
-						? `${checkVerb} Remaining`
-						: `${checkVerb} All`
-				: undefined;
+		let tooltipText: string | undefined;
+		if (checkVerb && uncheckVerb) {
+			if (allChecked) {
+				tooltipText = `${uncheckVerb} All`;
+			} else if (indeterminate) {
+				// Alt+click on the indeterminate header flips from "stage remaining" to
+				// "unstage all currently staged" — surface that as a discoverable hint.
+				const baseLabel = `${checkVerb} Remaining`;
+				const altLabel = `${uncheckVerb} All`;
+				tooltipText = this._modifiers.altKey ? altLabel : `${baseLabel}\n[${getAltKeySymbol()}] ${altLabel}`;
+			} else {
+				tooltipText = `${checkVerb} All`;
+			}
+		}
 
 		const label =
 			effectiveBadge == null
@@ -456,9 +468,7 @@ export class GlFileTreePane extends LitElement {
 
 		return html`<span class="checkbox-header" @click=${(e: Event) => e.stopPropagation()}>
 			${tooltipText
-				? html`<gl-tooltip placement="bottom"
-						>${checkbox}<span slot="content">${tooltipText}</span></gl-tooltip
-					>`
+				? html`<gl-tooltip placement="bottom" content=${tooltipText}>${checkbox}</gl-tooltip>`
 				: checkbox}
 			<span class="checkbox-header__label">${label}<slot name="header-badge"></slot></span>
 		</span>`;
@@ -592,18 +602,28 @@ export class GlFileTreePane extends LitElement {
 
 			const checkVerb = this.checkVerb;
 			const uncheckVerb = this.uncheckVerb;
-			const tooltip = disabled
-				? disabledReason
-				: checkVerb && uncheckVerb
-					? s === 'checked'
-						? `${uncheckVerb} ${fileName}`
-						: `${checkVerb} ${fileName}`
-					: undefined;
+			let tooltip: string | undefined;
+			let altTooltip: string | undefined;
+			if (disabled) {
+				tooltip = disabledReason;
+			} else if (checkVerb && uncheckVerb) {
+				if (s === 'checked') {
+					tooltip = `${uncheckVerb} ${fileName}`;
+				} else if (s === 'mixed') {
+					// Plain click stages remaining hunks; alt+click flips to unstage everything —
+					// surface alt as a discoverable option (tree-item composes the alt-key hint line).
+					tooltip = `${checkVerb} ${fileName}`;
+					altTooltip = `${uncheckVerb} ${fileName}`;
+				} else {
+					tooltip = `${checkVerb} ${fileName}`;
+				}
+			}
 
 			checkableOverrides = {
 				checked: s === 'mixed' ? ('indeterminate' as const) : s === 'checked',
 				disableCheck: disabled,
 				checkableTooltip: tooltip,
+				checkableAltTooltip: altTooltip,
 			};
 		}
 
