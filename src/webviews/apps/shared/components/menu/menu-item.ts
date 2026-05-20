@@ -23,10 +23,14 @@ export class MenuItem extends LitElement {
 				border-radius: var(--menu-item-radius, 0.3rem);
 			}
 
-			:host([role='option']:hover),
-			:host([role='option']:focus-visible) {
+			:host([role='option']:hover:not([aria-selected='true'])),
+			:host([role='option']:focus-visible:not([aria-selected='true'])) {
 				color: var(--vscode-menu-selectionForeground);
-				background-color: var(--vscode-menu-selectionBackground);
+				background-color: color-mix(
+					in oklch,
+					var(--vscode-menu-selectionBackground) 50%,
+					var(--vscode-menu-background)
+				);
 				outline: none;
 			}
 
@@ -39,7 +43,7 @@ export class MenuItem extends LitElement {
 			:host([aria-selected='true']) {
 				opacity: 1;
 				color: var(--vscode-menu-selectionForeground);
-				background-color: var(--vscode-menu-background);
+				background-color: var(--vscode-menu-selectionBackground);
 			}
 
 			:host([href]) {

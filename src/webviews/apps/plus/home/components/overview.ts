@@ -57,6 +57,10 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				color: var(--vscode-foreground);
 				background-color: var(--vscode-dropdown-background);
 			}
+			.select option:checked {
+				color: var(--vscode-list-activeSelectionForeground);
+				background-color: var(--vscode-list-activeSelectionBackground);
+			}
 			.select:not(:disabled) {
 				cursor: pointer;
 				color: var(--color-foreground--50);
