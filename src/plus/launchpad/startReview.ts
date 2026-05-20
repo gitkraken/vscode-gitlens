@@ -158,7 +158,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 	private readonly telemetryEventKey = 'startReview';
 
 	constructor(container: Container, args?: StartReviewCommandArgs) {
-		super(container, 'startReview', 'startReview', `Start Review\u00a0\u00a0${proBadge}`, {
+		super(container, 'startReview', 'startReview', `Start PR Review\u00a0\u00a0${proBadge}`, {
 			description: 'Start a review for a pull request',
 		});
 
@@ -522,8 +522,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 				createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
 				{
 					placeholder: hasConnectedIntegration
-						? 'Connect additional integrations to Start Review'
-						: 'Connect an integration to get started with Start Review',
+						? 'Connect additional integrations to Start PR Review'
+						: 'Connect an integration to get started with Start PR Review',
 					buttons: [],
 					ignoreFocusOut: true,
 				},
