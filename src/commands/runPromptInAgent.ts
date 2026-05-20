@@ -31,6 +31,8 @@ export interface RunPromptInAgentCommandArgs {
  *  Resolves the descriptor as `args.agent` > persisted `gitlens.ai.defaultAgent` > picker. */
 @command()
 export class RunPromptInAgentCommand extends GlCommandBase {
+	private static readonly maxRetries = 2;
+
 	constructor(private readonly container: Container) {
 		super('gitlens.runPromptInAgent');
 	}
@@ -60,7 +62,7 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		return pickAgentStandalone();
 	}
 
-	private async dispatch(descriptor: AgentDescriptor, args: RunPromptInAgentCommandArgs): Promise<void> {
+	private async dispatch(descriptor: AgentDescriptor, args: RunPromptInAgentCommandArgs, retries = 0): Promise<void> {
 		const result = await runAgent(descriptor, args.prompt, {
 			cwd: args.cwd,
 			autoExecute: args.autoExecute,
@@ -72,25 +74,31 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		Logger.error(
 			result.error ?? new Error('Unknown dispatch failure'),
 			'RunPromptInAgent',
-			`dispatch kind=${descriptor.kind} agentId=${descriptor.id} source=${args.source ?? '?'}`,
+			`dispatch kind=${descriptor.kind} agentId=${descriptor.id} source=${args.source ?? '?'} retries=${retries}`,
 		);
 
+		// Cap Retry after `maxRetries` attempts so a misconfigured agent can't trap the user
+		// in a retry loop (every CLI retry spawns a fresh terminal). "Pick another agent"
+		// and dismissing the toast both remain as escapes.
 		const retryAction = 'Retry';
 		const pickAnotherAction = 'Pick another agent';
+		const canRetry = retries < RunPromptInAgentCommand.maxRetries;
+		const actions = canRetry ? [retryAction, pickAnotherAction] : [pickAnotherAction];
+
 		const choice = await window.showWarningMessage(
 			`Couldn't reach ${descriptor.label}${result.clipboardCopiedAsFallback ? '. Prompt copied to clipboard.' : '.'}`,
-			retryAction,
-			pickAnotherAction,
+			...actions,
 		);
 
 		if (choice === retryAction) {
-			await this.dispatch(descriptor, args);
+			await this.dispatch(descriptor, args, retries + 1);
 			return;
 		}
 
 		if (choice === pickAnotherAction) {
 			const picked = await pickAgentStandalone();
 			if (picked != null) {
+				// Reset the budget — a different agent gets a fresh allowance.
 				await this.dispatch(picked, args);
 			}
 		}
