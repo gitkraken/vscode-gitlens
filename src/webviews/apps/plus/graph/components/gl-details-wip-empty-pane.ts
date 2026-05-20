@@ -89,7 +89,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 						appearance="secondary"
 						@click=${() => this.emit('start-work', { showOpenInAgent: 'ask' })}
 					>
-						<code-icon icon="rocket"></code-icon>Start Work on an Issue…
+						Start Work on an Issue…
 					</gl-button>
 				</div>
 			</section>
@@ -160,7 +160,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			<p class="caption">Nothing pending on this branch.</p>
 			<div class="start-fresh">
 				<gl-button appearance="secondary" @click=${() => this.emit('start-work')}>
-					<code-icon icon="rocket"></code-icon>Start Work…
+					<code-icon icon="issues"></code-icon>Start Work…
 				</gl-button>
 				<gl-button appearance="secondary" @click=${() => this.emit('create-branch')}>
 					<code-icon icon="custom-start-work"></code-icon>Create Branch…
