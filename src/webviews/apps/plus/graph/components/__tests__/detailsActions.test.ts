@@ -360,4 +360,109 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.wip.get(), wip);
 		assert.strictEqual(state.wipStale.get(), false);
 	});
+
+	test('resetRepoScopedState conditionally clears signals', () => {
+		const state = createDetailsState();
+		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
+		const wip = { repo: { path: '/repo1' } } as any;
+		state.commit.set(commit);
+		state.wip.set(wip);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		// 1. Calling with matching path preserves state
+		actions.resetRepoScopedState('/repo1');
+		assert.strictEqual(state.commit.get(), commit);
+		assert.strictEqual(state.wip.get(), wip);
+
+		// 2. Calling with mismatching path clears state
+		actions.resetRepoScopedState('/repo2');
+		assert.strictEqual(state.commit.get(), undefined);
+		assert.strictEqual(state.wip.get(), undefined);
+	});
+
+	test('resetRepoScopedState preserves wip enrichment chips alongside state.wip', () => {
+		const state = createDetailsState();
+		const wip = { repo: { path: '/repo1' } } as any;
+		state.wip.set(wip);
+		state.wipAutolinks.set([{ id: 'auto1' } as any]);
+		state.wipIssues.set([{ entityId: 'issue1' } as any]);
+		state.wipMergeTarget.set({ branch: { name: 'main' } } as any);
+		state.wipMergeTargetLoading.set(true);
+		state.wipPullRequest.set({ id: 'pr1' } as any);
+		state.wipPullRequestLoading.set(true);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		// Matching path: chips survive alongside state.wip.
+		actions.resetRepoScopedState('/repo1');
+		assert.deepStrictEqual(state.wipAutolinks.get(), [{ id: 'auto1' }]);
+		assert.deepStrictEqual(state.wipIssues.get(), [{ entityId: 'issue1' }]);
+		assert.deepStrictEqual(state.wipMergeTarget.get(), { branch: { name: 'main' } });
+		assert.strictEqual(state.wipMergeTargetLoading.get(), true);
+		assert.deepStrictEqual(state.wipPullRequest.get(), { id: 'pr1' });
+		assert.strictEqual(state.wipPullRequestLoading.get(), true);
+
+		// Mismatching path: chips wiped along with state.wip.
+		actions.resetRepoScopedState('/repo2');
+		assert.strictEqual(state.wipAutolinks.get(), undefined);
+		assert.strictEqual(state.wipIssues.get(), undefined);
+		assert.strictEqual(state.wipMergeTarget.get(), undefined);
+		assert.strictEqual(state.wipMergeTargetLoading.get(), false);
+		assert.strictEqual(state.wipPullRequest.get(), undefined);
+		assert.strictEqual(state.wipPullRequestLoading.get(), false);
+	});
+
+	test('resetRepoScopedState preserves single-commit enrichment alongside state.commit', () => {
+		const state = createDetailsState();
+		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
+		state.commit.set(commit);
+		state.autolinks.set([{ id: 'auto1' } as any]);
+		state.formattedMessage.set('msg');
+		state.autolinkedIssues.set([{ id: 'issue1' } as any]);
+		state.pullRequest.set({ id: 'pr1' } as any);
+		state.signature.set({ verified: true } as any);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		// Matching path: enrichment survives alongside state.commit.
+		actions.resetRepoScopedState('/repo1');
+		assert.deepStrictEqual(state.autolinks.get(), [{ id: 'auto1' }]);
+		assert.strictEqual(state.formattedMessage.get(), 'msg');
+		assert.deepStrictEqual(state.autolinkedIssues.get(), [{ id: 'issue1' }]);
+		assert.deepStrictEqual(state.pullRequest.get(), { id: 'pr1' });
+		assert.deepStrictEqual(state.signature.get(), { verified: true });
+
+		// Mismatching path: enrichment wiped along with state.commit.
+		actions.resetRepoScopedState('/repo2');
+		assert.strictEqual(state.autolinks.get(), undefined);
+		assert.strictEqual(state.formattedMessage.get(), undefined);
+		assert.strictEqual(state.autolinkedIssues.get(), undefined);
+		assert.strictEqual(state.pullRequest.get(), undefined);
+		assert.strictEqual(state.signature.get(), undefined);
+	});
+
+	test('resetRepoScopedState keeps enrichment caches matching the target repo', () => {
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		actions['_commitEnrichmentCache'].set('c1:/repo1', { commit: undefined });
+		actions['_commitEnrichmentCache'].set('c2:/repo2', { commit: undefined });
+		actions['_wipEnrichmentCache'].set('main:/repo1', {});
+		actions['_wipEnrichmentCache'].set('main:/repo2', {});
+
+		// Targeted retention: only `/repo1`-keyed entries survive.
+		actions.resetRepoScopedState('/repo1');
+		assert.strictEqual(actions['_commitEnrichmentCache'].has('c1:/repo1'), true);
+		assert.strictEqual(actions['_commitEnrichmentCache'].has('c2:/repo2'), false);
+		assert.strictEqual(actions['_wipEnrichmentCache'].has('main:/repo1'), true);
+		assert.strictEqual(actions['_wipEnrichmentCache'].has('main:/repo2'), false);
+
+		// No target → both caches fully cleared.
+		actions['_commitEnrichmentCache'].set('c1:/repo1', { commit: undefined });
+		actions['_wipEnrichmentCache'].set('main:/repo1', {});
+		actions.resetRepoScopedState();
+		assert.strictEqual(actions['_commitEnrichmentCache'].size, 0);
+		assert.strictEqual(actions['_wipEnrichmentCache'].size, 0);
+	});
 });

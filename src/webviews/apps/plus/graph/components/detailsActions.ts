@@ -43,6 +43,7 @@ import type {
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
+import { isWipSha } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
@@ -275,10 +276,12 @@ export class DetailsActions {
 	 * keyed to the prior repo. Called by {@link DetailsWorkflowController} when the host's
 	 * render target (`repoPath`) changes so cross-repo state doesn't linger.
 	 *
-	 * The cache LRU keys already include `repoPath`, so there is no value-collision risk —
-	 * the clear is memory hygiene. The branch-commits aborts matter because those fetches
-	 * have no post-resolve key gate, so a slow response from the prior repo could land and
-	 * write into state for the new one.
+	 * When `keepRepoPath` is provided, cache entries whose key suffix matches that repo are
+	 * retained — the next `fetchWipBranchEnrichment` / `fetchDetails` hits cache and avoids
+	 * an avoidable flash-out → flash-in cycle on the just-arrived selection. Without it, the
+	 * full caches are wiped. The branch-commits aborts always run because those fetches have
+	 * no post-resolve key gate; a slow response from the prior repo could land and write into
+	 * state for the new one.
 	 *
 	 * NOT aborting `_enrichmentController` here: WIP-row-to-WIP-row transitions can fire
 	 * `hostUpdate` (which calls this) AFTER `willUpdate` has already triggered fetchDetails
@@ -288,9 +291,25 @@ export class DetailsActions {
 	 * and {@link DetailsActions.fetchDetails} via {@link resetEnrichment} aborts the prior
 	 * controller when a new selection's fetch starts.
 	 */
-	clearEnrichmentCaches(): void {
-		this._wipEnrichmentCache.clear();
-		this._commitEnrichmentCache.clear();
+	clearEnrichmentCaches(keepRepoPath?: string): void {
+		if (keepRepoPath == null) {
+			this._wipEnrichmentCache.clear();
+			this._commitEnrichmentCache.clear();
+		} else {
+			// LRU keys are `${branchName}:${repoPath}` and `${sha}:${repoPath}` — preserve entries
+			// whose suffix matches the target repo so the next enrichment fetch hits cache.
+			const suffix = `:${keepRepoPath}`;
+			for (const k of [...this._wipEnrichmentCache.keys()]) {
+				if (!k.endsWith(suffix)) {
+					this._wipEnrichmentCache.delete(k);
+				}
+			}
+			for (const k of [...this._commitEnrichmentCache.keys()]) {
+				if (!k.endsWith(suffix)) {
+					this._commitEnrichmentCache.delete(k);
+				}
+			}
+		}
 		this._branchCommitsController?.abort();
 		this._branchCommitsLoadMoreController?.abort();
 	}
@@ -315,23 +334,39 @@ export class DetailsActions {
 	 * - Capability flags (`preferences`, `orgSettings`, `aiModel`, etc.) and pure UI toggles
 	 *   are not repo-scoped — they intentionally survive switches.
 	 */
-	resetRepoScopedState(): void {
-		this.clearEnrichmentCaches();
-
+	resetRepoScopedState(repoPath?: string): void {
 		const s = this.state;
 
+		// `willUpdate` (which fires before `hostUpdate`) may have synchronously hydrated the
+		// commit/wip signal from cache for the just-arrived selection — already keyed to the
+		// new repo. Wiping unconditionally clobbers that hydrate and the next render lands on
+		// `undefined` (the blank-panel bug). Preserve when the held value already belongs to
+		// the new repo; pair the enrichment chips with the same gate so they don't flash empty
+		// while the kept selection stays visible.
+		const preserveWip = repoPath != null && s.wip.get()?.repo?.path === repoPath;
+		const preserveCommit = repoPath != null && s.commit.get()?.repoPath === repoPath;
+
+		this.clearEnrichmentCaches(repoPath);
+
 		// Core selection-scoped data
-		s.commit.set(undefined);
-		s.wip.set(undefined);
+		if (!preserveCommit) {
+			s.commit.set(undefined);
+		}
+		if (!preserveWip) {
+			s.wip.set(undefined);
+		}
 		s.searchContext.set(undefined);
 
-		// WIP enrichment (branch-scoped chips)
-		s.wipAutolinks.set(undefined);
-		s.wipIssues.set(undefined);
-		s.wipMergeTarget.set(undefined);
-		s.wipMergeTargetLoading.set(false);
-		s.wipPullRequest.set(undefined);
-		s.wipPullRequestLoading.set(false);
+		// WIP enrichment (branch-scoped chips) — paired with `preserveWip`. Without the gate
+		// the chips would flash empty even though `state.wip` survives the reset.
+		if (!preserveWip) {
+			s.wipAutolinks.set(undefined);
+			s.wipIssues.set(undefined);
+			s.wipMergeTarget.set(undefined);
+			s.wipMergeTargetLoading.set(false);
+			s.wipPullRequest.set(undefined);
+			s.wipPullRequestLoading.set(false);
+		}
 
 		// 2-commit compare fetched data
 		s.commitFrom.set(undefined);
@@ -346,12 +381,14 @@ export class DetailsActions {
 		s.compareEnrichedItems.set(undefined);
 		s.compareEnrichmentLoading.set(false);
 
-		// Single-commit enrichment
-		s.autolinks.set(undefined);
-		s.formattedMessage.set(undefined);
-		s.autolinkedIssues.set(undefined);
-		s.pullRequest.set(undefined);
-		s.signature.set(undefined);
+		// Single-commit enrichment — paired with `preserveCommit` for the same reason.
+		if (!preserveCommit) {
+			s.autolinks.set(undefined);
+			s.formattedMessage.set(undefined);
+			s.autolinkedIssues.set(undefined);
+			s.pullRequest.set(undefined);
+			s.signature.set(undefined);
+		}
 
 		// Reachability + AI explain
 		s.reachability.set(undefined);
@@ -420,7 +457,7 @@ export class DetailsActions {
 	}
 
 	isWip(sha?: string): boolean {
-		return sha === uncommitted;
+		return isWipSha(sha);
 	}
 
 	fromSha(shas: string[] | undefined, swapped: boolean): string | undefined {
@@ -605,7 +642,7 @@ export class DetailsActions {
 
 		// For commit selections, hydrate enrichment from cache if we've seen this sha before.
 		// Misses (or WIP) get cleared to undefined so stale prior-selection chips don't linger.
-		const commitCacheHit = sha !== uncommitted ? this._commitEnrichmentCache.get(`${sha}:${repoPath}`) : undefined;
+		const commitCacheHit = !this.isWip(sha) ? this._commitEnrichmentCache.get(`${sha}:${repoPath}`) : undefined;
 		if (commitCacheHit != null) {
 			// Hydrate the commit itself first so the displayed metadata + chips match the same sha.
 			// Otherwise the await commit.fetch leaves _state.commit pointing at the prior selection
@@ -631,7 +668,7 @@ export class DetailsActions {
 			// from the graph row) so the metadata bar/header are visible at t≈0ms instead of
 			// after the IPC roundtrip. WIP has no lite; multi-commit goes through fetchCompareDetails.
 			// The subsequent `await commit.fetch` overwrites with the full payload (files/stats).
-			if (sha !== uncommitted && options?.commitLite?.sha === sha) {
+			if (!this.isWip(sha) && options?.commitLite?.sha === sha) {
 				this.state.commit.set(options.commitLite);
 			}
 			this.state.autolinks.set(undefined);
@@ -659,7 +696,7 @@ export class DetailsActions {
 		// in the embedded file trees. Skip for WIP (no graph SHA to look up) and skip when no
 		// search is active in the graph (host would just return undefined — saves an RPC roundtrip
 		// per click in the common no-search case).
-		if (sha !== uncommitted && options?.searchActive) {
+		if (!this.isWip(sha) && options?.searchActive) {
 			void s.graphInspect.getSearchContext(sha).then(ctx => {
 				if (this._lastFetchedKey === key) {
 					this.state.searchContext.set(ctx);
@@ -668,7 +705,7 @@ export class DetailsActions {
 		}
 
 		try {
-			if (sha === uncommitted) {
+			if (this.isWip(sha)) {
 				// Don't eager-clear WIP enrichment — keep prior chips visible until either a cache
 				// hit (in fetchWipBranchEnrichment) replaces them or the network fetch returns.
 				// Avoids the flash-out → flash-in cycle on revisit. Loading flag is only set when

@@ -13,6 +13,7 @@ import type { GraphDetailsMode } from '../../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
+import { isWipSha } from '../../../../plus/graph/protocol.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
@@ -282,7 +283,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private get isWip(): boolean {
-		return this.sha === uncommitted;
+		return isWipSha(this.sha);
 	}
 
 	/** Active mode used for telemetry — combines `activeMode` (review/compose), compare-sheet
@@ -415,8 +416,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			shas: undefined,
 			repoPath: repoPath,
 		};
-		// Compare by full anchor key — same `sha === uncommitted` across worktrees means a primary↔secondary
-		// re-click would otherwise wrongly short-circuit.
+		// Compare by full anchor key so primary↔secondary WIP re-clicks (which differ only in
+		// `repoPath` after both collapse to a `wip|...` key) stay distinct.
 		const engaged = anchorKey({
 			sha: this._state.activeModeSha.get(),
 			shas: this._state.activeModeShas.get(),
@@ -637,10 +638,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// it directly here — no `refetchWipQuiet` round-trip — so the panel stays in sync
 			// with the host's view without a second `git status`.
 			// Repo-path guard: the host always pushes the PRIMARY repo's WIP. When the panel is
-			// showing a secondary worktree's WIP (only reachable via mode-active on a secondary
-			// row, since `isWip` requires `sha === uncommitted` which is primary-only), the push
-			// is for the wrong repo — applying it would clobber the panel's state with the
-			// primary's file list.
+			// showing a secondary worktree's WIP (directly selected or reached via mode-active),
+			// the push is for the wrong repo — applying it would clobber the panel's state with
+			// the primary's file list.
 			const pushedWip = this._graphState.wip;
 			if (
 				pushedWip != null &&
@@ -709,7 +709,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const prevSha = changedProperties.has('sha')
 					? (changedProperties.get('sha') as string | undefined)
 					: this.sha;
-				const prevWasWip = prevSha === uncommitted;
+				const prevWasWip = isWipSha(prevSha);
 				const repoChanged =
 					changedProperties.has('repoPath') && changedProperties.get('repoPath') !== this.repoPath;
 

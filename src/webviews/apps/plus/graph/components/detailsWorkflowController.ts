@@ -212,7 +212,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				// WIP / branch commits / enrichment chips while the new repo's fetches are in flight.
 				// `clearEnrichmentCaches` (called inside) handles cache + controller hygiene; this
 				// extends it to the state signals that the picker / mode panels read directly.
-				this.actions.resetRepoScopedState();
+				this.actions.resetRepoScopedState(this.host.repoPath);
 			}
 			this.ensureSubscription(this.host.repoPath);
 		}

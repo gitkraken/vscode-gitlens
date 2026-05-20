@@ -1,11 +1,11 @@
-import { uncommitted } from '@gitlens/git/models/revision.js';
+import { isWipSha } from '../../../../plus/graph/protocol.js';
 
 /** Stable per-anchor key. Branded so loose strings can't flow in by mistake.
  *
  *  Format:
- *  - WIP (primary or secondary worktree): `wip|{repoPath}` — secondary WIPs use the
- *    worktree's path, so rows in different worktrees get distinct keys despite all sharing
- *    `sha === uncommitted`.
+ *  - WIP (primary or secondary worktree): `wip|{repoPath}` — both share the `wip|` shape;
+ *    `repoPath` distinguishes the primary from any secondary and disambiguates rows across
+ *    worktrees.
  *  - Single commit: `commit|{repoPath}|{sha}`
  *  - Multi-commit: `multicommit|{repoPath}|{sortedShas.join(',')}` — sorted so {A,B} and
  *    {B,A} collapse to the same key. */
@@ -24,6 +24,6 @@ export function anchorKey(selection: AnchorSelection): AnchorKey {
 	}
 
 	const sha = selection.sha ?? '';
-	if (sha === uncommitted) return `wip|${repoPath}` as AnchorKey;
+	if (isWipSha(sha)) return `wip|${repoPath}` as AnchorKey;
 	return `commit|${repoPath}|${sha}` as AnchorKey;
 }
