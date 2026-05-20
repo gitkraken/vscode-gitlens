@@ -4482,7 +4482,7 @@
 							"Always open in an agent"
 						],
 						"default": "ask",
-						"markdownDescription": "Default route for Start Work / Start Review when `#showOpenInAgent#` is set: `ask` shows the manual-vs-agent picker; `manual` skips it and continues manually; `agent` skips it and opens the agent picker (or the persisted `#gitlens.ai.defaultAgent#` if set).",
+						"markdownDescription": "Default route for Start Work / Start PR Review when `#showOpenInAgent#` is set: `ask` shows the manual-vs-agent picker; `manual` skips it and continues manually; `agent` skips it and opens the agent picker (or the persisted `#gitlens.ai.defaultAgent#` if set).",
 						"scope": "window",
 						"order": 3,
 						"tags": [
@@ -4495,7 +4495,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Default agent for Start Work / Start Review when the route is `agent`. Stored as an opaque id (e.g. `ide-chat`, `claude-extension`, `cli:claude-cli`). When the persisted agent is no longer available, falls through to the agent picker.",
+						"markdownDescription": "Default agent for Start Work / Start PR Review when the route is `agent`. Stored as an opaque id (e.g. `ide-chat`, `claude-extension`, `cli:claude-cli`). When the persisted agent is no longer available, falls through to the agent picker.",
 						"scope": "window",
 						"order": 4,
 						"tags": [
@@ -8934,13 +8934,13 @@
 			},
 			{
 				"command": "gitlens.startReview",
-				"title": "Start Review",
+				"title": "Start PR Review",
 				"category": "GitLens",
 				"icon": "$(git-pull-request)"
 			},
 			{
 				"command": "gitlens.startReview.openInAgent",
-				"title": "Start Review in an Agent",
+				"title": "Start PR Review in an Agent",
 				"category": "GitLens",
 				"icon": "$(git-pull-request)"
 			},

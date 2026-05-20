@@ -90,7 +90,7 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 			},
 			{
 				icon: 'git-pull-request',
-				tooltip: 'Start Review in an Agent...',
+				tooltip: 'Start PR Review in an Agent...',
 				command: 'gitlens.startReview',
 				args: [{ source: 'graph-sidebar', showOpenInAgent: 'agent' }],
 			},

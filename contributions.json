@@ -6849,12 +6849,12 @@
 			}
 		},
 		"gitlens.startReview": {
-			"label": "Start Review",
+			"label": "Start PR Review",
 			"icon": "$(git-pull-request)",
 			"commandPalette": "gitlens:enabled"
 		},
 		"gitlens.startReview.openInAgent": {
-			"label": "Start Review in an Agent",
+			"label": "Start PR Review in an Agent",
 			"icon": "$(git-pull-request)",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 		},
