@@ -1,6 +1,6 @@
 import { dirname, resolve } from 'path';
 import type { Disposable } from 'vscode';
-import { workspace } from 'vscode';
+import { commands, workspace } from 'vscode';
 import { ClaudeCodeProvider } from '@gitlens/agents/providers/claudeCodeProvider.js';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
@@ -138,6 +138,9 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 				}
 			},
 			runCLICommand: (args, opts) => runCLICommand(args, opts),
+			openSessionInClaudeExtension: async sessionId => {
+				await commands.executeCommand('claude-vscode.editor.open', sessionId);
+			},
 			resolveGitInfo: async cwd => {
 				// Fast path: cwd is in an already-loaded repo — fully synchronous, no shell calls.
 				const repo = container.git.getRepository(cwd);

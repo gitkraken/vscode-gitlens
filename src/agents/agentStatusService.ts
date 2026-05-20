@@ -8,6 +8,7 @@ import { registerCommand } from '../system/-webview/command.js';
 import type { AgentSessionState, AgentSessionWorktreeMetadata } from './models/agentSessionState.js';
 import { getSessionDisplayName, serializeAgentSession } from './models/agentSessionState.js';
 import type { AgentSession, AgentSessionProvider, PermissionDecision, PermissionSuggestion } from './provider.js';
+import { isClaudeExtensionAvailable } from './utils/-webview/claudeExtension.js';
 
 export class AgentStatusService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -442,78 +443,94 @@ export class AgentStatusService implements Disposable {
 
 		if (session == null) return;
 
-		interface ActionPickItem extends QuickPickItem {
-			action: string;
-		}
+		await this.dispatchSessionAction(session);
+	}
 
-		const actions: ActionPickItem[] = [];
-
-		if (session.pid != null) {
-			actions.push({
-				label: '$(window) Focus Agent Window',
-				description: 'Bring the terminal running the agent to the foreground',
-				action: 'focus',
+	/**
+	 * Deterministically picks the right action for a resolved session — no quickpick:
+	 *  - Session belongs to a different workspace → notify a peer GitLens window that has it open
+	 *    (so its Claude Code extension opens the session), then `vscode.openFolder` (VS Code auto-
+	 *    focuses the peer window when the folder is already open there; otherwise the current
+	 *    window switches to the folder).
+	 *  - Session is in the current workspace → open in the Claude Code extension when the session
+	 *    is extension-hosted; focus the terminal via `pid` when CLI-hosted.
+	 *  - No workspace match but we have a `pid` → focus the terminal.
+	 *  - Neither workspace nor pid → warn.
+	 *
+	 *  Host classification reads `~/.claude/sessions/<pid>.json` for the `entrypoint` field
+	 *  (`claude-vscode` = extension, anything else = CLI). When the file is missing/unreadable,
+	 *  we fall back to "extension if installed, else CLI" so users still get a sensible action.
+	 */
+	private async dispatchSessionAction(session: AgentSession): Promise<void> {
+		if (!session.isInWorkspace && session.workspacePath != null) {
+			// Match by id, not object identity — provider session arrays are rebuilt on every
+			// update (immutable spread), so a `.includes(session)` check would miss if the
+			// provider rebuilt its array between the user's pick and this dispatch.
+			const provider = this._providers.find(p => p.sessions.some(s => s.id === session.id));
+			if (provider?.notifyPeerOpenSession != null) {
+				// Cap the wait so an unhealthy peer (e.g. paused/unresponsive but not RST) can't
+				// stall the user click for the full per-fetch timeout. The peer only needs to
+				// *start* opening the session before `vscode.openFolder` focuses its window — the
+				// outstanding POST keeps running in the background after we move on. `.catch` is
+				// attached to the notify promise itself (not to the race) so a late rejection
+				// after the timeout wins is still observed instead of escaping as an unhandled
+				// rejection.
+				const notifyPromise = provider
+					.notifyPeerOpenSession(session.workspacePath, session.id)
+					.catch((ex: unknown) =>
+						Logger.warn(
+							`AgentStatusService.dispatchSessionAction: notifyPeerOpenSession failed: ${
+								ex instanceof Error ? ex.message : String(ex)
+							}`,
+						),
+					);
+				await Promise.race([notifyPromise, new Promise<void>(resolve => setTimeout(resolve, 500))]);
+			}
+			void commands.executeCommand('vscode.openFolder', Uri.file(session.workspacePath), {
+				forceNewWindow: false,
 			});
+			return;
 		}
 
 		if (session.isInWorkspace) {
-			actions.push({
-				label: '$(edit) Open in Claude Code Extension',
-				description: 'Open session in the Claude Code VS Code extension',
-				action: 'open-extension',
-			});
+			const { classifyClaudeSessionHost } = await import('@env/agents/claudeSessionFile.js');
+			const host = session.pid != null ? await classifyClaudeSessionHost(session.pid) : undefined;
+			const useExtension = host === 'extension' || (host == null && (await isClaudeExtensionAvailable()));
+
+			if (useExtension && (await this.tryOpenInClaudeExtension(session.id))) return;
+			// Skip the terminal-focus fallback when we *know* the session is extension-hosted —
+			// `pid` would be the extension host (VS Code itself), so focusing it is a no-op that
+			// would falsely signal success and swallow the warning the user needs.
+			if (host !== 'extension' && session.pid != null && (await this.tryFocusProcessWindow(session.pid))) {
+				return;
+			}
+
+			void window.showWarningMessage('Unable to open agent session.');
+			return;
 		}
 
-		if (!session.isInWorkspace && session.workspacePath != null) {
-			actions.push({
-				label: '$(folder-opened) Switch to Workspace',
-				description: session.workspacePath,
-				action: 'switch-workspace',
-			});
+		if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
+
+		void window.showWarningMessage('Unable to open agent session.');
+	}
+
+	private async tryOpenInClaudeExtension(sessionId: string): Promise<boolean> {
+		try {
+			await commands.executeCommand('claude-vscode.editor.open', sessionId);
+			return true;
+		} catch {
+			try {
+				await commands.executeCommand('claude-vscode.sidebar.open');
+				return true;
+			} catch {
+				return false;
+			}
 		}
+	}
 
-		if (actions.length === 0) return;
-
-		let action: string;
-		if (actions.length === 1) {
-			action = actions[0].action;
-		} else {
-			const actionPick = await window.showQuickPick(actions, {
-				placeHolder: `Action for ${getSessionDisplayName(session, this.getWorktreeMetadataForSession(session)?.name)}`,
-			});
-			if (actionPick == null) return;
-
-			action = actionPick.action;
-		}
-
-		switch (action) {
-			case 'focus':
-				if (session.pid != null) {
-					const { focusProcessWindow } = await import('@env/focusWindow.js');
-					await focusProcessWindow(session.pid);
-				}
-				break;
-			case 'open-extension':
-				try {
-					await commands.executeCommand('claude-vscode.editor.open', session.id);
-				} catch {
-					try {
-						await commands.executeCommand('claude-vscode.sidebar.open');
-					} catch {
-						void window.showWarningMessage(
-							'Unable to open session. Is the Claude Code extension installed?',
-						);
-					}
-				}
-				break;
-			case 'switch-workspace':
-				if (session.workspacePath != null) {
-					void commands.executeCommand('vscode.openFolder', Uri.file(session.workspacePath), {
-						forceNewWindow: false,
-					});
-				}
-				break;
-		}
+	private async tryFocusProcessWindow(pid: number): Promise<boolean> {
+		const { focusProcessWindow } = await import('@env/focusWindow.js');
+		return focusProcessWindow(pid);
 	}
 
 	private getWorkspacePaths(): string[] {
