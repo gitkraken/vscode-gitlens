@@ -10,7 +10,7 @@ import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard
 import type { Container } from '../../container.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { AgentDescriptor, AgentRoute } from './agentDescriptor.js';
-import { getSupportedAgents, isAgentAvailable, resolveDefaultAgent } from './agentRegistry.js';
+import { getSupportedAgents, resolveDefaultAgent } from './agentRegistry.js';
 
 const starEmpty = new ThemeIcon('star-empty');
 const starFull = new ThemeIcon('star-full');
@@ -320,8 +320,10 @@ export async function* resolveAgentFlow(
 			return { kind: 'manual' };
 		}
 
+		// resolveDefaultAgent only returns descriptors that pass the supported-agents filter,
+		// so no extra availability check is needed — runAgent re-validates at dispatch time.
 		const descriptor = await resolveDefaultAgent(persistedAgentId);
-		if (descriptor == null || !(await isAgentAvailable(descriptor))) {
+		if (descriptor == null) {
 			void container?.usage.track('action:gitlens.ai.openInAgent.useDefaultsFallback:happened');
 			return { kind: 'manual' };
 		}
@@ -345,7 +347,7 @@ export async function* resolveAgentFlow(
 		// Agent route: try persisted default first.
 		if (persistedAgentId != null) {
 			const descriptor = await resolveDefaultAgent(persistedAgentId);
-			if (descriptor != null && (await isAgentAvailable(descriptor))) {
+			if (descriptor != null) {
 				return { kind: 'agent', descriptor: descriptor };
 			}
 
