@@ -443,18 +443,13 @@ export class GlTreeView extends GlElement {
 				// Scroll the focused item into view after the render completes
 				this._pendingScrollToIndex = index;
 			}
-		} else if (changedProperties.has('model') && !this.focusedPath) {
-			// Model changed with no focus hint — clear stale selection and reset to first item
-			this._lastSelectedPath = undefined;
-			if (this.treeItems?.length) {
-				this._focusedItemPath = this.treeItems[0].path;
-				this._focusedItemIndex = 0;
-			} else {
-				this._focusedItemPath = undefined;
-				this._focusedItemIndex = -1;
-			}
-			this._pendingScrollToIndex = 0;
 		}
+		// When the model changes without a focused-path hint, trust the setter's path-based
+		// reconciliation (see `set model` above): selection/focus survive if the path is still
+		// present, fall back to a positional neighbor if it's gone, undefined if the model is
+		// empty. Do NOT wipe state or force scroll-to-top here — that breaks consumers like
+		// gl-file-tree-pane whose own scrollTop save/restore relies on the position staying
+		// stable across refreshes of the same data (e.g. a WIP working-tree change).
 	}
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {

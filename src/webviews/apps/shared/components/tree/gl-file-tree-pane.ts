@@ -269,15 +269,15 @@ export class GlFileTreePane extends LitElement {
 	}
 
 	/**
-	 * Resolves the actual scroll container inside the inner gl-tree-view. The tree-view's
-	 * host has overflow:hidden — the real scroller is the `#tree-list .scrollable` div in
-	 * its (open) shadow root. Returns undefined if the tree-view hasn't rendered yet
-	 * (e.g. when the file list is empty and the empty-state is shown instead).
+	 * Resolves the actual scroll container inside the inner gl-tree-view. The `lit-virtualizer`
+	 * (rendered with the `scroller` attribute) owns the scrollbar — the outer `#tree-list`
+	 * wrapper is sized to fit and never overflows, so writing scrollTop on it is a no-op.
+	 * Returns undefined if the tree-view hasn't rendered yet (e.g. when the file list is empty
+	 * and the empty-state is shown instead).
 	 */
 	private getTreeScrollContainer(): HTMLElement | undefined {
 		const treeView = this.renderRoot?.querySelector('gl-tree-view');
-		const scrollable = treeView?.shadowRoot?.querySelector<HTMLElement>('#tree-list');
-		return scrollable ?? undefined;
+		return treeView?.shadowRoot?.querySelector<HTMLElement>('lit-virtualizer') ?? undefined;
 	}
 
 	private get fileLayout(): ViewFilesLayout {
