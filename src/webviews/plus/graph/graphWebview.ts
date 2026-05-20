@@ -5070,7 +5070,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const wip = await this.onGetOverviewWip({ branchIds: branchIds });
 
-		void this.host.notify(DidChangeOverviewWipNotification, { wip: wip });
+		void this.host.notify(DidChangeOverviewWipNotification, { branchIds: branchIds, wip: wip });
 	}
 
 	@trace()
@@ -9313,11 +9313,12 @@ function buildGraphFingerprint(
 			parts.push(`|${r.sha}:`);
 			if (hl) {
 				for (const h of r.heads!) {
-					// Include worktreeId so adding/removing a worktree for an existing branch (which
-					// flips `worktreeId` between defined and undefined on the same head) busts the
-					// fingerprint; otherwise the webview wouldn't see the badge until the next
-					// non-worktrees structural event.
-					parts.push(`H${h.id}${h.worktreeId != null ? `@${h.worktreeId}` : ''};`);
+					// Include worktreeId (adding/removing a worktree flips it for an existing
+					// branch) and isCurrentHead (HEAD moving between already-visible branches),
+					// so either change busts the fingerprint and re-ships rows.
+					parts.push(
+						`H${h.id}${h.isCurrentHead ? '*' : ''}${h.worktreeId != null ? `@${h.worktreeId}` : ''};`,
+					);
 				}
 			}
 			if (tl) {
