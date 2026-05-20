@@ -1250,9 +1250,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					<gl-graph-scope-popover .repo=${repo}></gl-graph-scope-popover> ${this.renderHiddenRefs(
 						excludeRefs,
 					)}
-					<span>
-						<span class="action-divider"></span>
-					</span>
 					<gl-search-box
 						class=${isTimelineMode ? 'search-box--disabled' : ''}
 						?inert=${isTimelineMode}
