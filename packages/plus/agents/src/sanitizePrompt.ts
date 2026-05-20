@@ -2,6 +2,14 @@ import { truncate } from '@gitlens/utils/string.js';
 
 const maxStoredPromptLength = 500;
 
+// Marker blocks GitLens itself embeds when dispatching Start Work / Start Review prompts to an
+// agent (see `start-work-issue` / `start-review-pullRequest` templates in
+// `packages/plus/ai/src/prompts.ts`). The surrounding template begins with a long
+// "You are an advanced AI programming assistant…" preamble that would otherwise become the
+// session's display name; matching on the block delimiters lets us pull the issue/PR title out
+// of the embedded JSON instead.
+const dispatchBlockRegex = /<(issue|prData)>([\s\S]*?)<\/\1>/;
+
 // Wrappers the Claude Code harness or its VS Code extension prepend to the `prompt` field of
 // `UserPromptSubmit` hook events. These are synthetic context blocks, not user-typed content,
 // and shouldn't appear verbatim in GitLens agent status UI.
@@ -41,6 +49,7 @@ export function sanitizeAgentPrompt(prompt: string | undefined): string | undefi
 	// Normalize CRLF up-front so the harness-block and whitespace-collapse regexes (which target
 	// `\n`) behave identically for Windows-originated prompts.
 	let result = prompt.replace(/\r\n/g, '\n');
+
 	let stripped = false;
 	for (const pattern of harnessBlockPatterns) {
 		const next = result.replace(pattern, '');
@@ -49,6 +58,15 @@ export function sanitizeAgentPrompt(prompt: string | undefined): string | undefi
 			result = next;
 		}
 	}
+
+	// GitLens-dispatched Start Work / Start Review prompts: replace the template body with just
+	// the issue/PR title so the session name doesn't surface the "You are an advanced AI…"
+	// preamble. Runs AFTER harness stripping so that an `<ide_selection>` (or other wrapper)
+	// containing an `<issue>…</issue>` block doesn't get rewritten to the embedded title — the
+	// wrapper is stripped first and only a genuine dispatch template body triggers the rewrite.
+	// Anything that doesn't yield a usable title falls through to normal sanitization.
+	const dispatchTitle = extractDispatchTitle(result);
+	if (dispatchTitle != null) return dispatchTitle;
 
 	// Only collapse the whitespace runs around stripped blocks. Untouched user prompts pass
 	// through with their internal whitespace intact (the final trim still removes the outer
@@ -68,4 +86,24 @@ export function sanitizeAgentPrompt(prompt: string | undefined): string | undefi
 export function prepareStoredPrompt(prompt: string | undefined): string | undefined {
 	const cleaned = sanitizeAgentPrompt(prompt);
 	return cleaned ? truncate(cleaned, maxStoredPromptLength) : undefined;
+}
+
+/**
+ * Looks for a GitLens-dispatch marker block (`<issue>…</issue>` or `<prData>…</prData>`) and
+ * returns the embedded `title` field. Both `IssueShape` and `PullRequestShape` carry `title`, so
+ * a single accessor covers Start Work and Start Review. Returns `undefined` when the block is
+ * absent, the JSON fails to parse, or `title` is missing/empty — those cases fall through to the
+ * regular sanitization path.
+ */
+function extractDispatchTitle(prompt: string): string | undefined {
+	const match = dispatchBlockRegex.exec(prompt);
+	if (match == null) return undefined;
+
+	try {
+		const parsed = JSON.parse(match[2]) as { title?: unknown };
+		const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
+		return title.length > 0 ? title : undefined;
+	} catch {
+		return undefined;
+	}
 }
