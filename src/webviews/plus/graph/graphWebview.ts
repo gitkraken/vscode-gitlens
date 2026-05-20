@@ -567,21 +567,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _lastFetchedDisposable: Disposable | undefined;
 	private _searchHistory: SearchHistory | undefined;
 
-	// Tracked across `notifyDidChangeWorkingTree` calls so we can skip redundant sends when
-	// git emits a change event but the resolved stats/metadata are identical to what the webview already has.
-	private _lastSentWorkingTreeStats:
-		| GraphWorkingTreeStats
-		| { added: number; deleted: number; modified: number }
-		| undefined;
-	private _lastSentWipMetadataBySha: GraphWipMetadataBySha | undefined;
-
 	// Timeframe for the Overview panel's "Recent" section. Seeded from the `graph:state` memento
 	// in `getState`, updated in-place by `onGetOverview` when the webview changes it.
 	private _overviewRecentThreshold: OverviewRecentThreshold = 'OneWeek';
-	// Count of staged files included in the last sent stats. Stats counts (added/deleted/
-	// modified) DON'T change when a file moves from unstaged → staged via SCM, so the dedup
-	// would otherwise drop those notifications and the WIP file list would go stale.
-	private _lastSentStagedCount: number | undefined;
 
 	// Coalesce concurrent `notifyDidChangeState` calls; skip when a fresh full-state send just happened
 	// (via bootstrap or a prior notify). This prevents the second `getState`/`getGraph` pipeline run
@@ -1011,86 +999,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						(await this.container.git.getOrOpenRepository(Uri.file(repoPath), { closeOnOpen: true }));
 					if (repo == null) return undefined;
 
-					const svc = this.container.git.getRepositoryService(repoPath);
-					const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-						svc.status.getStatus(),
-						svc.pausedOps?.getPausedOperationStatus?.(),
-					]);
-					const status = getSettledValue(statusResult);
-					if (status == null) return undefined;
-
-					signal?.throwIfAborted();
-
-					const pausedOpStatus = getSettledValue(pausedOpStatusResult);
-
-					const conflictMarkerCounts = new Map<string, number>();
-					if (status.hasConflicts) {
-						const conflictedPaths = status.files.filter(f => isConflictStatus(f.status)).map(f => f.path);
-						if (conflictedPaths.length > 0) {
-							const counts = await Promise.allSettled(
-								conflictedPaths.map(p => countConflictMarkers(Uri.joinPath(repo.uri, p))),
-							);
-							conflictedPaths.forEach((p, i) => {
-								const c = getSettledValue(counts[i]);
-								if (c != null) {
-									conflictMarkerCounts.set(p, c);
-								}
-							});
-						}
-					}
-					signal?.throwIfAborted();
-
-					const files: GitFileChangeShape[] = [];
-					for (const file of status.files) {
-						const conflictMarkers = conflictMarkerCounts.get(file.path);
-						const change = {
-							repoPath: file.repoPath,
-							path: file.path,
-							status: file.status,
-							originalPath: file.originalPath,
-							staged: file.staged,
-							conflictMarkers: conflictMarkers,
-						};
-						files.push(change);
-						if (file.staged && file.wip) {
-							files.push({ ...change, staged: false });
-						}
-					}
-
-					const branch = await repo.git.branches.getBranch(status.branch);
-					signal?.throwIfAborted();
-
-					let branchShape: GitBranchShape | undefined;
-					if (branch != null) {
-						branchShape = {
-							name: branch.name,
-							repoPath: branch.repoPath,
-							upstream: branch.upstream,
-							tracking: {
-								ahead: branch.upstream?.state.ahead ?? 0,
-								behind: branch.upstream?.state.behind ?? 0,
-							},
-							reference: getReferenceFromBranch(branch),
-						};
-					}
-
-					return {
-						changes: {
-							repository: { name: repo.name, path: repo.path, uri: repo.uri.toString() },
-							branchName: status.branch,
-							files: files,
-							hasConflicts: status.hasConflicts,
-							pausedOpStatus: pausedOpStatus,
-						},
-						repositoryCount: this.container.git.openRepositoryCount,
-						branch: branchShape,
-						repo: {
-							uri: repo.uri.toString(),
-							name: repo.name,
-							path: repo.path,
-							isWorktree: repo.isWorktree,
-						},
-					};
+					const result = await this.getWipForRepoAndStats(repo, signal);
+					return result?.wip;
 				},
 				explainCommit: async (
 					repoPath: string,
@@ -2361,20 +2271,32 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (!isSecondaryWipSha(sha)) return;
 
 				const path = getSecondaryWipPath(sha);
+				const svc = this.container.git.getRepositoryService(path);
 
-				const status = await this._wipStatusCache.getOrCreate(
-					path,
-					(_cacheable, factorySignal) =>
-						this.container.git.getRepositoryService(path).status.getStatus(undefined, factorySignal),
-					{ cancellation: signal },
-				);
+				// Fetch the paused-op status in parallel with the cached status read so the
+				// secondary WIP row can render the same in-progress indicator (rebase/merge/
+				// cherry-pick) the primary's action bar does. `pausedOps` is optional on the
+				// service surface; older providers may not implement it.
+				const [statusResult, pausedOpResult] = await Promise.allSettled([
+					this._wipStatusCache.getOrCreate(
+						path,
+						(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
+						{ cancellation: signal },
+					),
+					svc.pausedOps?.getPausedOperationStatus?.(signal),
+				]);
 				if (cancellation.token.isCancellationRequested) return;
 
+				const status = getSettledValue(statusResult);
 				const diff = status?.diffStatus;
+				const pausedOpStatus = getSettledValue(pausedOpResult);
 				response[sha] = {
-					added: diff?.added ?? 0,
-					deleted: diff?.deleted ?? 0,
-					modified: diff?.changed ?? 0,
+					workDirStats: {
+						added: diff?.added ?? 0,
+						deleted: diff?.deleted ?? 0,
+						modified: diff?.changed ?? 0,
+					},
+					pausedOpStatus: pausedOpStatus,
 				};
 			}),
 		);
@@ -5068,28 +4990,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/**
-	 * Coalesces concurrent triggers into a single in-flight call, with a trailing-edge re-fire when
-	 * more triggers arrive while one is running. Crucially does NOT cancel the in-flight call —
-	 * cancelling a `git status` mid-flight would let the underlying fetch return undefined, the
-	 * caller would fall back to all-zero stats, and that fallback would poison
-	 * `_lastSentWorkingTreeStats` so subsequent legitimate updates (e.g. file change after a
-	 * branch-compare burst) get dedup'd away. The previous `createCancellation('workingTree')`
-	 * pattern was the source of that storm.
+	 * Coalesces concurrent triggers into a single in-flight call, with a trailing-edge re-fire
+	 * when more triggers arrive while one is running. Crucially does NOT cancel the in-flight
+	 * call — cancelling a `git status` mid-flight would return undefined and we'd skip the
+	 * notification, leaving the webview's WIP view one tick behind reality. The previous
+	 * `createCancellation('workingTree')` pattern was the source of that storm.
 	 */
 	private _wipNotifyInFlight?: Promise<boolean>;
 	private _wipNotifyDirty = false;
 
-	private notifyDidChangeWorkingTree(hasWorkingChanges?: boolean): Promise<boolean> {
+	private notifyDidChangeWorkingTree(): Promise<boolean> {
 		if (this._wipNotifyInFlight != null) {
 			this._wipNotifyDirty = true;
 			return this._wipNotifyInFlight;
 		}
 
-		const run = this.runNotifyDidChangeWorkingTree(hasWorkingChanges).finally(() => {
+		const run = this.runNotifyDidChangeWorkingTree().finally(() => {
 			this._wipNotifyInFlight = undefined;
 			if (this._wipNotifyDirty) {
 				this._wipNotifyDirty = false;
-				// Trailing run uses no caller hint — it'll re-query `hasWorkingChanges` itself.
 				void this.notifyDidChangeWorkingTree();
 			}
 		});
@@ -5098,51 +5017,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@trace()
-	private async runNotifyDidChangeWorkingTree(hasWorkingChanges?: boolean): Promise<boolean> {
+	private async runNotifyDidChangeWorkingTree(): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeWorkingTreeNotification, this._ipcNotificationMap, this);
 			return false;
 		}
 
-		const [stats, wipMetadataBySha, stagedCount] = await Promise.all([
-			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges),
+		const repo = this.repository;
+		if (repo == null || !this.container.git.repositoryCount) return false;
+
+		// Single `git status` per working-tree tick. The details panel previously did a second
+		// `getWip` RPC after the host sent stats — both runs returned the same status data, just
+		// derived differently. Pushing the full WIP here eliminates the round-trip AND removes
+		// the dedup gymnastics that used to mis-skip mixed↔fully-staged transitions: the panel
+		// just applies whatever the host last sent.
+		const [wipAndStatsResult, wipMetadataBySha] = await Promise.all([
+			this.getWipForRepoAndStats(repo),
 			this.getWipMetadataBySha(),
-			this.getStagedFileCount(),
 		]);
 
-		// `stats === undefined` means the underlying `git status`/`hasWorkingChanges` fetch could
-		// not produce meaningful data (cancelled or hard-errored). Returning early here — without
-		// updating `_lastSentWorkingTreeStats` — leaves the dedup cache untouched so the next
-		// successful run pushes the truth. Falling back to all-zero stats (the previous behavior)
-		// is what poisoned the cache.
-		if (stats === undefined) return false;
-
-		// Skip the notification (and the cascading overview WIP notification) when nothing actually changed.
-		// Repository change/FS watcher events fire on any git activity, not just stat-affecting changes, so
-		// without this the webview re-renders on every unrelated git config/branch/stash tick.
-		// We include `stagedCount` separately because moving a file from unstaged → staged (or
-		// vice versa, e.g. via VS Code's SCM panel) doesn't change the added/deleted/modified
-		// totals — the dedup would otherwise drop those notifications and leave the WIP file
-		// list stale until something else perturbs the watcher.
-		if (
-			this._lastSentWorkingTreeStats !== undefined &&
-			areEqual(stats, this._lastSentWorkingTreeStats) &&
-			areEqual(wipMetadataBySha, this._lastSentWipMetadataBySha) &&
-			stagedCount === this._lastSentStagedCount
-		) {
-			return false;
-		}
-
-		this._lastSentWorkingTreeStats = stats;
-		this._lastSentWipMetadataBySha = wipMetadataBySha;
-		this._lastSentStagedCount = stagedCount;
+		// Failed status fetch (cancelled / hard error) — skip the notification rather than pushing
+		// a fabricated zero state. The next tick re-tries.
+		if (wipAndStatsResult === undefined) return false;
 
 		const result = this.host.notify(DidChangeWorkingTreeNotification, {
-			stats: stats,
+			stats: wipAndStatsResult.stats,
 			wipMetadataBySha: wipMetadataBySha,
+			wip: wipAndStatsResult.wip,
+			repoPath: repo.path,
 		});
 
-		// Also push WIP updates for overview branches — only when the primary repo actually changed.
+		// Also push WIP updates for overview branches.
 		void this.notifyDidChangeOverviewWip();
 
 		return result;
@@ -6043,24 +5948,117 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/**
-	 * Returns the count of staged files in the primary repo, used by `notifyDidChangeWorkingTree`
-	 * to detect SCM-driven stage/unstage changes that don't shift the added/deleted/modified
-	 * totals. Mixed files (path appears in both staged and unstaged) count once for staged.
+	 * Builds the full WIP payload and derived stats from a single `git status` call. Used by
+	 * both `runNotifyDidChangeWorkingTree` (pushed to the webview every working-tree tick) and
+	 * the inspect `getWip` (cold-load path on first WIP selection). Consolidating into one
+	 * helper avoids a second `git status` per event — the panel used to fetch `getWip` after
+	 * receiving the stats notification, running the same query twice.
 	 */
-	private async getStagedFileCount(cancellation?: CancellationToken): Promise<number> {
-		if (this.repository == null) return 0;
+	private async getWipForRepoAndStats(
+		repo: GlRepository,
+		signal?: AbortSignal,
+	): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined> {
+		signal?.throwIfAborted();
 
-		const svc = this.container.git.getRepositoryService(this.repository.path);
-		const status = await svc.status.getStatus(undefined, toAbortSignal(cancellation));
-		if (status?.files == null) return 0;
+		const svc = this.container.git.getRepositoryService(repo.path);
+		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
+			svc.status.getStatus(undefined, signal),
+			svc.pausedOps?.getPausedOperationStatus?.(signal),
+		]);
+		const status = getSettledValue(statusResult);
+		if (status == null) return undefined;
 
-		const stagedPaths = new Set<string>();
-		for (const f of status.files) {
-			if (f.staged) {
-				stagedPaths.add(f.path);
+		signal?.throwIfAborted();
+
+		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
+
+		const conflictMarkerCounts = new Map<string, number>();
+		if (status.hasConflicts) {
+			const conflictedPaths = status.files.filter(f => isConflictStatus(f.status)).map(f => f.path);
+			if (conflictedPaths.length > 0) {
+				const counts = await Promise.allSettled(
+					conflictedPaths.map(p => countConflictMarkers(Uri.joinPath(repo.uri, p))),
+				);
+				conflictedPaths.forEach((p, i) => {
+					const c = getSettledValue(counts[i]);
+					if (c != null) {
+						conflictMarkerCounts.set(p, c);
+					}
+				});
 			}
 		}
-		return stagedPaths.size;
+		signal?.throwIfAborted();
+
+		const files: GitFileChangeShape[] = [];
+		for (const file of status.files) {
+			const conflictMarkers = conflictMarkerCounts.get(file.path);
+			const change = {
+				repoPath: file.repoPath,
+				path: file.path,
+				status: file.status,
+				originalPath: file.originalPath,
+				staged: file.staged,
+				conflictMarkers: conflictMarkers,
+			};
+			files.push(change);
+			if (file.staged && file.wip) {
+				files.push({ ...change, staged: false });
+			}
+		}
+
+		const branch = await repo.git.branches.getBranch(status.branch, signal);
+		signal?.throwIfAborted();
+
+		let branchShape: GitBranchShape | undefined;
+		if (branch != null) {
+			branchShape = {
+				name: branch.name,
+				repoPath: branch.repoPath,
+				upstream: branch.upstream,
+				tracking: {
+					ahead: branch.upstream?.state.ahead ?? 0,
+					behind: branch.upstream?.state.behind ?? 0,
+				},
+				reference: getReferenceFromBranch(branch),
+			};
+		}
+
+		const diff = status.diffStatus;
+
+		return {
+			wip: {
+				changes: {
+					repository: { name: repo.name, path: repo.path, uri: repo.uri.toString() },
+					branchName: status.branch,
+					files: files,
+					hasConflicts: status.hasConflicts,
+					pausedOpStatus: pausedOpStatus,
+				},
+				repositoryCount: this.container.git.openRepositoryCount,
+				branch: branchShape,
+				repo: {
+					uri: repo.uri.toString(),
+					name: repo.name,
+					path: repo.path,
+					isWorktree: repo.isWorktree,
+				},
+			},
+			stats: {
+				added: diff.added,
+				deleted: diff.deleted,
+				modified: diff.changed,
+				hasConflicts: status.hasConflicts,
+				conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
+				pausedOpStatus: pausedOpStatus,
+				context: serializeWebviewItemContext<GraphItemContext>({
+					webviewItem: 'gitlens:wip',
+					webviewItemValue: {
+						type: 'commit',
+						ref: this.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
+					},
+				}),
+			},
+		};
 	}
 
 	private async getWorkingTreeStatsAndPausedOperations(
@@ -6306,15 +6304,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// below — keeps host-pushed overview updates in sync with the persisted choice on reload.
 		this._overviewRecentThreshold = storedGraphState?.overview?.recentThreshold ?? 'OneWeek';
 
-		// Resolve working tree stats outside the state literal so we can update the dedup cache
-		// only when the underlying fetch produced real data. If it returned undefined (cancelled/
-		// failed), we still send fallback zeros to the webview so the UI has a value, but we leave
-		// `_lastSentWorkingTreeStats` untouched so the next `notifyDidChangeWorkingTree` is free
-		// to push an authoritative update without being dedup'd against a fake zero.
+		// If the underlying fetch returned undefined (cancelled/failed), we still send fallback
+		// zeros below so the UI has a value to render. The next `notifyDidChangeWorkingTree`
+		// tick will push authoritative data.
 		const resolvedWorkingTreeStats = getSettledValue(workingStatsResult);
-		if (resolvedWorkingTreeStats !== undefined) {
-			this._lastSentWorkingTreeStats = resolvedWorkingTreeStats;
-		}
 
 		const result: State = {
 			...this.host.baseWebviewState,
@@ -6365,7 +6358,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			pinnedRef: this.getPinnedRef(filters, data),
 			nonce: this.host.cspNonce,
 			workingTreeStats: resolvedWorkingTreeStats ?? { added: 0, deleted: 0, modified: 0 },
-			wipMetadataBySha: (this._lastSentWipMetadataBySha = getSettledValue(wipMetadataResult)),
+			wipMetadataBySha: getSettledValue(wipMetadataResult),
 			searchMode: searchMode,
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
@@ -6700,9 +6693,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._honorSelectedId = false;
 		this._getBranchesAndTagsTips = undefined;
 		this._searchHistory = undefined;
-		this._lastSentWorkingTreeStats = undefined;
-		this._lastSentWipMetadataBySha = undefined;
-		this._lastSentStagedCount = undefined;
 		this._lastStateSentAt = undefined;
 		this._pendingStateNotify = undefined;
 		this._pendingStateOp = undefined;
@@ -7415,9 +7405,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			resolution,
 		);
 
-		// Tell the panel to refetch — for non-active worktrees the active-repo working-tree
-		// watcher won't fire, so we'd otherwise leave the panel showing pre-mutation state.
-		void this.host.notify(DidRequestWipRefetchNotification, { repoPath: value.repoPath });
+		// For non-active worktrees, the active-repo working-tree watcher won't fire, so the
+		// host's regular `DidChangeWorkingTreeNotification` won't reach the panel. Fetch the
+		// updated WIP for this specific repo and push it directly — one `git status`, no
+		// round-trip from the panel.
+		const repo =
+			this.container.git.getRepository(value.repoPath) ??
+			(await this.container.git.getOrOpenRepository(Uri.file(value.repoPath), { closeOnOpen: true }));
+		const result = repo != null ? await this.getWipForRepoAndStats(repo) : undefined;
+		// Ship `stats` alongside `wip` so the webview never has to re-derive them — the host
+		// just did the work, the webview's classifier wouldn't match `git diff --shortstat`
+		// semantics for renames/conflicts, and the derived value would drop `pausedOpStatus` /
+		// `context` (real visible regressions during a paused op).
+		void this.host.notify(DidRequestWipRefetchNotification, {
+			repoPath: value.repoPath,
+			wip: result?.wip,
+			stats: result?.stats,
+		});
 	}
 
 	@command('gitlens.graph.copyDeepLinkToBranch')

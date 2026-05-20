@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import type { emptySetMarker } from '@gitkraken/gitkraken-components';
+import type { emptySetMarker, WorkDirStats } from '@gitkraken/gitkraken-components';
 import type {
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
@@ -130,6 +130,65 @@ suite('mergeWipMetadata', () => {
 
 		assert.notStrictEqual(result, prev);
 		assert.deepStrictEqual(result, {});
+	});
+
+	// Regression: pill flash on graph rows. When an entry briefly drops out of
+	// `wipMetadataBySha` (worktree-list flap, transient `wt.sha == null`, full-state replacement)
+	// and re-enters via the `prevEntry == null` branch, we seed `workDirStats` from the sticky
+	// last-known map and mark the entry stale so the GK component refetches without ever
+	// rendering an empty pill.
+	test('seeds workDirStats from lastKnownStats when prev is undefined and incoming entry has no stats', () => {
+		const incoming: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha1') };
+		const lastKnown = new Map<string, WorkDirStats>([['worktree-wip::/a', { added: 5, deleted: 1, modified: 3 }]]);
+
+		const result = mergeWipMetadata(undefined, incoming, lastKnown);
+
+		assert.notStrictEqual(result, incoming);
+		const merged = result?.['worktree-wip::/a'];
+		assert.deepStrictEqual(merged?.workDirStats, { added: 5, deleted: 1, modified: 3 });
+		assert.strictEqual(merged?.workDirStatsStale, true);
+	});
+
+	test('preserves incoming reference when prev is undefined and lastKnownStats has no matching shas', () => {
+		const incoming: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha1') };
+		const lastKnown = new Map<string, WorkDirStats>([
+			['worktree-wip::/other', { added: 1, deleted: 0, modified: 0 }],
+		]);
+
+		const result = mergeWipMetadata(undefined, incoming, lastKnown);
+
+		assert.strictEqual(result, incoming);
+	});
+
+	test('seeds workDirStats from lastKnownStats for a newly-introduced sha when prev has other entries', () => {
+		const prev: GraphWipMetadataBySha = {
+			'worktree-wip::/a': { ...entry('a', 'sha1'), workDirStats: { added: 1, deleted: 0, modified: 0 } },
+		};
+		const incoming: GraphWipMetadataBySha = {
+			'worktree-wip::/a': entry('a', 'sha1'),
+			'worktree-wip::/b': entry('b', 'sha2'),
+		};
+		const lastKnown = new Map<string, WorkDirStats>([['worktree-wip::/b', { added: 7, deleted: 2, modified: 4 }]]);
+
+		const result = mergeWipMetadata(prev, incoming, lastKnown);
+
+		assert.notStrictEqual(result, prev);
+		const recovered = result?.['worktree-wip::/b'];
+		assert.deepStrictEqual(recovered?.workDirStats, { added: 7, deleted: 2, modified: 4 });
+		assert.strictEqual(recovered?.workDirStatsStale, true);
+	});
+
+	test('does not seed from lastKnownStats when incoming entry already has workDirStats', () => {
+		const incoming: GraphWipMetadataBySha = {
+			'worktree-wip::/a': { ...entry('a', 'sha1'), workDirStats: { added: 9, deleted: 9, modified: 9 } },
+		};
+		const lastKnown = new Map<string, WorkDirStats>([['worktree-wip::/a', { added: 1, deleted: 1, modified: 1 }]]);
+
+		const result = mergeWipMetadata(undefined, incoming, lastKnown);
+
+		// Incoming already has fresh stats; the sticky cache must not overwrite them.
+		assert.strictEqual(result, incoming);
+		assert.deepStrictEqual(result?.['worktree-wip::/a']?.workDirStats, { added: 9, deleted: 9, modified: 9 });
 	});
 });
 

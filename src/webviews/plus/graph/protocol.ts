@@ -57,6 +57,9 @@ import type {
 	OverviewRecentThreshold,
 } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
+import type { Wip } from './detailsProtocol.js';
+
+export type { Wip };
 
 /** Prefix for synthetic row ids + shas that represent a secondary-worktree WIP row. */
 const secondaryWipShaPrefix = 'worktree-wip::';
@@ -216,6 +219,13 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
 	wipMetadataBySha?: GraphWipMetadataBySha;
+	/**
+	 * Most-recently pushed primary-repo WIP. Set on every `DidChangeWorkingTreeNotification` so
+	 * the details panel can apply changes without an extra `getWip` round-trip. Initial state
+	 * leaves this undefined — first selection of a WIP row triggers the panel's resource fetch
+	 * for the cold-load path; subsequent working-tree ticks flow through this push channel.
+	 */
+	wip?: Wip;
 	searchMode?: GraphSearchMode;
 	/** Search query to be executed once */
 	searchRequest?: SearchQuery;
@@ -292,6 +302,12 @@ export interface GraphWipNodeMetadata {
 	 * isn't part of the active scope — independent of SHA collisions with scope anchors.
 	 */
 	branchRef?: string;
+	/**
+	 * Host-only: paused operation (rebase/merge/cherry-pick) running in this worktree, when any.
+	 * Mirrors the primary's `workingTreeStats.pausedOpStatus` so the secondary WIP row can render
+	 * the same indicator the action bar does. Not consumed by the GK component.
+	 */
+	pausedOpStatus?: GitPausedOperationStatus;
 }
 
 export type GraphWipMetadataBySha = Record<string, GraphWipNodeMetadata>;
@@ -665,7 +681,13 @@ export interface GetWipStatsParams {
 	 */
 	force?: boolean;
 }
-export type GetWipStatsResponse = Record<string, WorkDirStats | undefined>;
+/** Per-row WIP stats. Carries `workDirStats` (consumed by the GK component) plus host-only
+ *  fields like `pausedOpStatus` so the secondary WIP row can surface a paused-op indicator. */
+export interface WipRowStats {
+	workDirStats: WorkDirStats;
+	pausedOpStatus?: GitPausedOperationStatus;
+}
+export type GetWipStatsResponse = Record<string, WipRowStats | undefined>;
 export const GetWipStatsRequest = new IpcRequest<GetWipStatsParams, GetWipStatsResponse>(scope, 'wip/stats/get');
 
 export interface SyncWipWatchesParams {
@@ -683,10 +705,18 @@ export const DidChangeWipStaleNotification = new IpcNotification<DidChangeWipSta
 export interface DidRequestWipRefetchParams {
 	/** Repo path of the WIP that should be re-fetched. */
 	repoPath: string;
+	/** Pre-fetched WIP payload — same shape as `DidChangeWorkingTreeNotification`'s `wip`. The
+	 *  panel applies this directly so the round-trip `getWip` RPC is avoided. */
+	wip?: Wip;
+	/** Pre-computed working-tree stats for this repo. Carried alongside `wip` so the webview
+	 *  doesn't have to re-derive them — the host already paid for the `git status` that produced
+	 *  the WIP payload. Used by the webview to refresh `workingTreeStats` (when this repo is the
+	 *  selected one) and the secondary row's `workDirStats`. */
+	stats?: GraphWorkingTreeStats;
 }
-/** Host → panel: force the displayed WIP to re-fetch (used after host-side mutating actions whose
- *  effects don't reach the panel via the active-repo working-tree watcher — e.g. context-menu
- *  conflict-resolution commands on a non-active worktree's WIP row). */
+/** Host → panel: push fresh WIP after host-side mutating actions whose effects don't reach the
+ *  panel via the active-repo working-tree watcher (e.g. context-menu conflict-resolution
+ *  commands on a non-active worktree's WIP row). */
 export const DidRequestWipRefetchNotification = new IpcNotification<DidRequestWipRefetchParams>(
 	scope,
 	'wip/refetch/request',
@@ -983,6 +1013,16 @@ export const DidRequestOpenCompareModeNotification = new IpcNotification<DidRequ
 export interface DidChangeWorkingTreeParams {
 	stats: WorkDirStats;
 	wipMetadataBySha?: GraphWipMetadataBySha;
+	/**
+	 * Primary-repo WIP, captured from the same `git status` that produced `stats`. Lets the
+	 * details panel render fresh file lists without an extra `getWip` RPC. Omitted only when
+	 * the underlying status fetch fails — callers should fall back to their existing path
+	 * (resource fetch on selection) in that case.
+	 */
+	wip?: Wip;
+	/** Path of the repo whose working tree changed. Used by the webview's WIP cache to key the
+	 *  freshest `wip` payload by repo. Always set by the host. */
+	repoPath: string;
 }
 export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWorkingTreeParams>(
 	scope,

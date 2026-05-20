@@ -1475,7 +1475,21 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (prev == null) return;
 
 		const stats = response[sha];
-		const next = { ...map, [sha]: { ...prev, workDirStats: stats, workDirStatsStale: false } };
+		// `force: true` bypasses the disabled-feature short-circuit on the host, so a missing
+		// entry here means the underlying `git status` failed. Preserve any prior `workDirStats`
+		// (including a sticky-restored value) rather than clobbering it with `undefined`. When the
+		// response does land, also pick up the secondary's `pausedOpStatus` so the row reflects
+		// any in-progress rebase/merge/cherry-pick.
+		const updated =
+			stats === undefined
+				? { ...prev, workDirStatsStale: false }
+				: {
+						...prev,
+						workDirStats: stats.workDirStats,
+						workDirStatsStale: false,
+						pausedOpStatus: stats.pausedOpStatus,
+					};
+		const next = { ...map, [sha]: updated };
 		this.graphState.wipMetadataBySha = next;
 	}
 

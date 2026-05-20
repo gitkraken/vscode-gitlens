@@ -8,6 +8,7 @@ import type {
 	GraphSearchResultsError,
 	GraphSelectedRows,
 	State,
+	Wip,
 } from '../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse, OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
 
@@ -78,6 +79,32 @@ export interface AppState extends State {
 	 * a single coordinated re-render instead of a minimap reset followed by a separate filter update.
 	 */
 	deferScopeClear(): void;
+
+	/**
+	 * Seed the per-repo WIP cache with an optimistically-edited `Wip` (e.g. after a local stage/
+	 * unstage). The entry is flagged so subsequent `getWipState` calls report `isLive: false`
+	 * until the host's watcher reconciles. The host-driven push paths (`DidChangeWorkingTree` /
+	 * `DidRequestWipRefetch`) seed the cache through an internal path that clears that flag.
+	 */
+	setWip(repoPath: string, wip: Wip): void;
+
+	/**
+	 * Return the cached WIP for `repoPath` plus liveness metadata. `isLive` reflects whether the
+	 * host currently has an active working-tree watcher for that repo — `true` for the primary
+	 * repo while it's selected, `true` for any secondary whose row is in the latest
+	 * `SyncWipWatchesCommand` set, `false` otherwise (and after a local optimistic edit until
+	 * the host reconciles). `ageMs` is the time since the entry was last written. Consumers use
+	 * `isLive` to decide whether to background-revalidate on cache hit.
+	 */
+	getWipState(repoPath: string): { wip: Wip; isLive: boolean; ageMs: number } | undefined;
+
+	/**
+	 * Update the set of repos the host currently has working-tree watchers for. Called by
+	 * `graph-wrapper.ts` whenever it sends `SyncWipWatchesCommand` (visible secondaries) and on
+	 * `selectedRepository` change. The primary `selectedRepository` is always included by the
+	 * implementation — callers only need to pass the secondary set.
+	 */
+	updateActiveWipWatchers(repoPaths: Iterable<string>): void;
 }
 
 export const graphStateContext = createContext<AppState>('graph-state-context');

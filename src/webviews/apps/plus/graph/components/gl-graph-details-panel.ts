@@ -203,7 +203,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private _servicesResolved = false;
 
-	private _lastWorkingTreeStats?: unknown;
+	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
 
 	@state()
@@ -626,34 +626,47 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 
 		if (this._graphState != null) {
-			const wts = this._graphState.workingTreeStats;
+			const modeActive = this._state.activeMode.get() != null;
+			// `effectiveRepoPath` resolves to the mode's anchor when active (via
+			// `activeModeRepoPath`), so live updates still propagate when the user has
+			// navigated to a commit row while a compose/review runs in the background.
+			const repoPath = this.effectiveRepoPath;
+
+			// WIP updates flow through the host's push channel: every working-tree change runs a
+			// single `git status` on the host and packs the result into `graphState.wip`. Apply
+			// it directly here — no `refetchWipQuiet` round-trip — so the panel stays in sync
+			// with the host's view without a second `git status`.
+			// Repo-path guard: the host always pushes the PRIMARY repo's WIP. When the panel is
+			// showing a secondary worktree's WIP (only reachable via mode-active on a secondary
+			// row, since `isWip` requires `sha === uncommitted` which is primary-only), the push
+			// is for the wrong repo — applying it would clobber the panel's state with the
+			// primary's file list.
+			const pushedWip = this._graphState.wip;
+			if (
+				pushedWip != null &&
+				pushedWip !== this._lastPushedWip &&
+				(this.isWip || modeActive) &&
+				pushedWip.repo?.path === repoPath &&
+				this._actions != null
+			) {
+				this._lastPushedWip = pushedWip;
+				this._actions.applyPushedWip(pushedWip);
+			}
+
+			// Branch-state changes (ahead/behind shifts from fetch/pull/push) still need to
+			// refresh the mode's commit picker and scope-files — those are independent of the
+			// WIP push channel.
 			const bs = this._graphState.branchState;
-			const wtsChanged = wts !== this._lastWorkingTreeStats;
 			const bsChanged =
 				bs !== this._lastBranchState &&
 				!branchStateEqual(bs, this._lastBranchState as BranchStateLike | undefined);
-			if (wtsChanged || bsChanged) {
-				this._lastWorkingTreeStats = wts;
+			if (bsChanged) {
 				this._lastBranchState = bs;
-				const modeActive = this._state.activeMode.get() != null;
-				// `effectiveRepoPath` resolves to the mode's anchor when active (via
-				// `activeModeRepoPath`), so live updates still propagate when the user has
-				// navigated to a commit row while a compose/review runs in the background.
-				const repoPath = this.effectiveRepoPath;
-				if (repoPath != null && (this.isWip || modeActive)) {
-					void this._actions?.refetchWipQuiet(repoPath);
-					if (modeActive) {
-						// New commits / fetches / pulls reach the picker via branchCommits +
-						// branchMergeBase; keep them current alongside the WIP refetch.
-						void this._actions?.fetchBranchCommits(repoPath);
-						// On the mode's starting step the file list is rendered from `scopeFiles`
-						// (the fallback to raw WIP only kicks in until the scoped fetch resolves),
-						// so a WIP change alone doesn't update what the user sees. Re-fetch the
-						// scope's files too when the active scope reads from WIP.
-						const scope = this._state.scope.get();
-						if (scope?.type === 'wip') {
-							void this._actions?.resources.scopeFiles.fetch(repoPath, scope);
-						}
+				if (modeActive && repoPath != null) {
+					void this._actions?.fetchBranchCommits(repoPath);
+					const scope = this._state.scope.get();
+					if (scope?.type === 'wip') {
+						void this._actions?.resources.scopeFiles.fetch(repoPath, scope);
 					}
 				}
 			}
@@ -920,6 +933,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Service resolution + resource wiring lives in `detailsResolver.ts` — this element
 		// stays focused on lifecycle and render routing.
 		this._actions = await resolveDetailsActions(services, this._state);
+		this._actions.graphState = this._graphState;
 		// Instantiating the controller auto-attaches it via `host.addController(this)`; Lit
 		// fires `hostConnected` immediately (since we're already connected), which sets up
 		// the repo-change subscription without an extra call here.

@@ -898,6 +898,21 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		this._lastSyncedWipShas = new Set(shas);
 		this._ipc.sendCommand(SyncWipWatchesCommand, { shas: shas });
+
+		// Mirror the host's watcher set into graphState so `getWipState().isLive` reflects which
+		// repos are currently being watched. The state provider unions in the primary repo path
+		// implicitly — we only pass the secondary set here.
+		const watchedRepoPaths: string[] = [];
+		const metadata = this.graphState.wipMetadataBySha;
+		if (metadata != null) {
+			for (const sha of shas) {
+				const repoPath = metadata[sha]?.repoPath;
+				if (repoPath != null) {
+					watchedRepoPaths.push(repoPath);
+				}
+			}
+		}
+		this.graphState.updateActiveWipWatchers(watchedRepoPaths);
 	}
 
 	private async onWipShasMissingStats(event: CustomEvent<Record<string, true>>) {
@@ -917,11 +932,33 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			const prev = existing[sha];
 			if (prev == null) continue;
 
-			const incomingStats = response[sha];
-			if (!prev.workDirStatsStale && areEqual(prev.workDirStats, incomingStats)) continue;
+			const incoming = response[sha];
+			if (incoming === undefined) {
+				// Host couldn't (or wouldn't) provide stats — feature disabled with force=false,
+				// or the underlying `git status` errored. Don't clobber an existing `workDirStats`
+				// value with `undefined`; just clear the stale flag so the GK component's
+				// `requestedMissingWipStats` dedup doesn't loop on us.
+				if (prev.workDirStatsStale) {
+					next ??= { ...existing };
+					next[sha] = { ...prev, workDirStatsStale: false };
+				}
+				continue;
+			}
+			if (
+				!prev.workDirStatsStale &&
+				areEqual(prev.workDirStats, incoming.workDirStats) &&
+				prev.pausedOpStatus === incoming.pausedOpStatus
+			) {
+				continue;
+			}
 
 			next ??= { ...existing };
-			next[sha] = { ...prev, workDirStats: incomingStats, workDirStatsStale: false };
+			next[sha] = {
+				...prev,
+				workDirStats: incoming.workDirStats,
+				workDirStatsStale: false,
+				pausedOpStatus: incoming.pausedOpStatus,
+			};
 		}
 		if (next == null) return;
 

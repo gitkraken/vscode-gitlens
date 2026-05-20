@@ -1,6 +1,8 @@
+import type { WorkDirStats } from '@gitkraken/gitkraken-components';
 import { ContextProvider } from '@lit/context';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
@@ -8,8 +10,10 @@ import type {
 	GraphSearchResults,
 	GraphSearchResultsError,
 	State,
+	Wip,
 } from '../../../plus/graph/protocol.js';
 import {
+	createSecondaryWipSha,
 	DidChangeAgentSessionsNotification,
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
@@ -130,6 +134,23 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 		}
 	}
 	return { results: results, resultsError: resultsError };
+}
+
+// Sticky cache of the last-known `workDirStats` value seen for each secondary-WIP sha. Used to
+// bridge the visual gap when an entry briefly disappears from `wipMetadataBySha` and re-enters
+// via the `prevEntry == null` path — without this, the GK component renders no pill for the row
+// across the 350ms settle + IPC round trip, producing a visible flash. One GraphStateProvider
+// per webview, so module-level is effectively per-instance state.
+export const lastKnownWorkDirStatsBySha = new Map<string, WorkDirStats>();
+
+function captureLastKnownWorkDirStats(map: State['wipMetadataBySha']): void {
+	if (map == null) return;
+
+	for (const [sha, entry] of Object.entries(map)) {
+		if (entry.workDirStats != null) {
+			lastKnownWorkDirStatsBySha.set(sha, entry.workDirStats);
+		}
+	}
 }
 
 export class GraphStateProvider extends StateProviderBase<State['webviewId'], AppState, typeof graphStateContext> {
@@ -296,8 +317,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor workingTreeStats: State['workingTreeStats'];
 
-	@signalState()
+	@signalState<State['wipMetadataBySha']>(undefined, {
+		// Maintain a sticky cache of last-known `workDirStats` keyed by secondary-WIP sha so that
+		// `mergeWipMetadata` can recover stats for an entry that briefly disappears from
+		// `wipMetadataBySha` (e.g. host worktree-list flap, transient `wt.sha == null`,
+		// reduced-set full-state push) and re-enters via the `prevEntry == null` path. Without
+		// this, the GK component sees `workDirStats: undefined` and renders nothing for the row
+		// until the settle delay + IPC round trip resolves — that's the visible pill flash.
+		afterChange: (_target: GraphStateProvider, value) => captureLastKnownWorkDirStats(value),
+	})
 	accessor wipMetadataBySha: State['wipMetadataBySha'];
+
+	@signalState()
+	accessor wip: State['wip'];
 
 	@signalState()
 	accessor scope: AppState['scope'];
@@ -646,7 +678,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 *  scope anchor is usable — see `applyAnchorToPendingScope`. */
 	private isShaLoaded(sha: string): boolean {
 		const rows = this._state.rows;
-		return rows != null && rows.some(r => r.sha === sha);
+		return rows?.some(r => r.sha === sha) ?? false;
 	}
 
 	private patchScopeAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
@@ -698,15 +730,20 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		switch (true) {
 			case DidChangeNotification.is(msg): {
 				// Preserve client-side wipMetadataBySha.workDirStats (populated via GetWipStatsRequest)
-				// across full-state pushes — the server only sends anchor info.
+				// across full-state pushes — the server only sends anchor info. Read from the
+				// accessor (signal) rather than `_state`: writebacks from `graph-wrapper.ts` and
+				// `graph-app.ts` assign through the accessor and don't update `_state`, so reading
+				// `_state` here would see a stale anchor-only map and the merge would drop the
+				// freshly-fetched `workDirStats` from every secondary row (visible pill flash).
 				const incoming = msg.params.state;
 				const next =
 					incoming.wipMetadataBySha != null
 						? {
 								...incoming,
 								wipMetadataBySha: mergeWipMetadata(
-									this._state.wipMetadataBySha,
+									this.wipMetadataBySha,
 									incoming.wipMetadataBySha,
+									lastKnownWorkDirStatsBySha,
 								),
 							}
 						: incoming;
@@ -987,39 +1024,85 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ canInstallClaudeHook: msg.params });
 				break;
 
-			case DidChangeWorkingTreeNotification.is(msg):
+			case DidChangeWorkingTreeNotification.is(msg): {
 				// Host always sends `wipMetadataBySha` as an object (possibly `{}`) so the merge
 				// can correctly clear stale anchors. If a future host change ever omits the field
 				// (or it's undefined for "unchanged"), don't destructively clear — leave existing
-				// webview anchors in place.
-				this.updateState(
-					msg.params.wipMetadataBySha != null
-						? {
-								workingTreeStats: msg.params.stats,
-								wipMetadataBySha: mergeWipMetadata(
-									this._state.wipMetadataBySha,
-									msg.params.wipMetadataBySha,
-								),
-							}
-						: { workingTreeStats: msg.params.stats },
-				);
+				// webview anchors in place. Read from the accessor (`this.wipMetadataBySha`) rather
+				// than `this._state`: writebacks from `graph-wrapper.ts` and `graph-app.ts` assign
+				// through the accessor and don't update `_state`, so reading `_state` here sees a
+				// stale anchor-only map and the merge drops freshly-fetched `workDirStats` from
+				// every secondary row (the visible pill flash).
+				const updates: Partial<State> = { workingTreeStats: msg.params.stats };
+				if (msg.params.wipMetadataBySha != null) {
+					updates.wipMetadataBySha = mergeWipMetadata(
+						this.wipMetadataBySha,
+						msg.params.wipMetadataBySha,
+						lastKnownWorkDirStatsBySha,
+					);
+				}
+				// The host packs the full WIP into every working-tree notification (same
+				// `git status` it already ran for the stats). The panel observes this and
+				// applies it directly — no `getWip` round-trip needed.
+				if (msg.params.wip != null) {
+					updates.wip = msg.params.wip;
+					// Seed the cache so re-opening the WIP panel paints from memory while a fresh
+					// host push lands. The active-watcher set covers `isLive` derivation at read
+					// time — we don't stamp it on the entry.
+					this.cacheWip(msg.params.repoPath, msg.params.wip);
+				}
+				this.updateState(updates);
 				break;
+			}
 
 			case DidRequestWipRefetchNotification.is(msg): {
-				// Bump the working-tree-stats reference so the panel's willUpdate observer
-				// treats it as changed and force-runs `refetchWipQuiet(effectiveRepoPath)`.
-				// We don't have a direct path from stateProvider to actions, so we ride the
-				// existing wts-driven refresh hook. Stats values are unchanged — only the
-				// reference identity matters for the dedup at the panel side.
-				const stats = this._state.workingTreeStats;
-				if (stats != null) {
-					this.updateState({ workingTreeStats: { ...stats } });
+				// Host pre-fetched the WIP for a non-active worktree (the active-repo watcher
+				// wouldn't fire for it). Push it through the same channel as the regular
+				// working-tree notification — the panel's `applyPushedWip` observer handles it.
+				if (msg.params.wip != null) {
+					const updates: Partial<State> = { wip: msg.params.wip };
+					const { repoPath, stats } = msg.params;
+					this.cacheWip(repoPath, msg.params.wip);
+
+					// Host shipped its already-computed stats — use them directly rather than
+					// deriving locally (would lose `pausedOpStatus` / `context` / `renamed`, and
+					// the per-file classifier doesn't match `git diff --shortstat` semantics).
+					if (stats != null && repoPath === this.selectedRepository) {
+						updates.workingTreeStats = stats;
+					}
+
+					// Refresh the secondary row's metadata (workDirStats + pausedOpStatus) when
+					// this push is for a secondary worktree. Same accessor-read rationale as the
+					// `DidChangeWorkingTreeNotification` branch above.
+					const wipMetadataBySha = this.wipMetadataBySha;
+					if (stats != null && wipMetadataBySha != null) {
+						const secondarySha = createSecondaryWipSha(repoPath);
+						const prevSecondary = wipMetadataBySha[secondarySha];
+						if (prevSecondary != null) {
+							updates.wipMetadataBySha = {
+								...wipMetadataBySha,
+								[secondarySha]: {
+									...prevSecondary,
+									workDirStats: {
+										added: stats.added,
+										deleted: stats.deleted,
+										modified: stats.modified,
+									},
+									workDirStatsStale: false,
+									pausedOpStatus: stats.pausedOpStatus,
+								},
+							};
+						}
+					}
+					this.updateState(updates);
 				}
 				break;
 			}
 
 			case DidChangeWipStaleNotification.is(msg): {
-				const current = this._state.wipMetadataBySha;
+				// Read from the accessor — see `DidChangeWorkingTreeNotification` above for why
+				// `this._state.wipMetadataBySha` lags behind direct accessor writes.
+				const current = this.wipMetadataBySha;
 				if (current == null) break;
 
 				// Produce a new reference so the GK component's dedup resets and re-requests stats
@@ -1109,6 +1192,85 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 	}
 
+	/**
+	 * LRU cache of the freshest `Wip` payload keyed by repo path. Lets `fetchDetails` paint the
+	 * panel synchronously from memory while a host push lands. Private — consumers go through
+	 * `setWip` / `getWipState`, not raw access.
+	 *
+	 * Bounded at 16 entries — comfortably covers one repo's worktrees plus a few neighbors;
+	 * older entries naturally drop instead of growing without bound.
+	 */
+	private readonly _wips = new LruMap<string, { wip: Wip; timestamp: number }>(16);
+
+	/**
+	 * The set of repo paths the host currently has an active working-tree watcher for. Drives
+	 * `getWipState().isLive` so consumers know whether a cache hit will be refreshed by a
+	 * push soon (true) or needs explicit revalidation (false).
+	 *
+	 * Membership = the primary `selectedRepository` plus any secondary worktrees in the latest
+	 * `SyncWipWatchesCommand` set (computed from visible-secondary-WIP-shas).
+	 */
+	private _activeWipWatchers = new Set<string>();
+
+	/**
+	 * Optimistic-edit marker: when a local mutation (stage/unstage) writes the cache before the
+	 * host's watcher tick lands, the entry is "ours" — `isLive` is suppressed until the next
+	 * host push reconfirms.
+	 */
+	private _pendingLocalEditPaths = new Set<string>();
+
+	/**
+	 * Seed the wip cache from a host push (working-tree notification / refetch notification).
+	 * Clears the pending-local-edit marker because this write IS the host-side reconciliation.
+	 */
+	private cacheWip(repoPath: string, wip: Wip): void {
+		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
+		this._pendingLocalEditPaths.delete(repoPath);
+	}
+
+	/**
+	 * Optimistic write — flag the entry so subsequent `getWipState` calls report `isLive: false`
+	 * until the host's watcher reconciles. Used by `DetailsActions.optimisticallyUpdate*` so the
+	 * details panel can paint the staged-state flip without waiting for a `git status` round-trip.
+	 */
+	setWip(repoPath: string, wip: Wip): void {
+		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
+		this._pendingLocalEditPaths.add(repoPath);
+	}
+
+	/**
+	 * Return the cached wip for `repoPath` along with metadata the caller needs to decide
+	 * whether to revalidate. `isLive` is computed at read time from the host's active-watcher
+	 * set — never stored on the entry — so a worktree that scrolls out of the viewport (no
+	 * longer in `SyncWipWatchesCommand`) flips to non-live without anyone having to mutate state.
+	 * Local optimistic edits also suppress `isLive` until the host reconciles.
+	 */
+	getWipState(repoPath: string): { wip: Wip; isLive: boolean; ageMs: number } | undefined {
+		const entry = this._wips.get(repoPath);
+		if (entry == null) return undefined;
+
+		// Primary repo is always watched while selected; secondaries come from the latest
+		// `updateActiveWipWatchers` call. Pending optimistic edits suppress `isLive` until the
+		// host's push reconciles.
+		const watched = repoPath === this.selectedRepository || this._activeWipWatchers.has(repoPath);
+		const isLive = watched && !this._pendingLocalEditPaths.has(repoPath);
+		return { wip: entry.wip, isLive: isLive, ageMs: Date.now() - entry.timestamp };
+	}
+
+	/**
+	 * Update the set of repos with active host-side watchers. Called by `graph-wrapper.ts` when
+	 * the SyncWipWatchesCommand visibility set changes, plus when `selectedRepository` changes —
+	 * the primary repo is always considered watched as long as it's selected (the active-repo
+	 * working-tree watcher is unconditionally on for it).
+	 *
+	 * Pure state — does not fire signals; reads happen on demand via `getWipState`.
+	 */
+	updateActiveWipWatchers(repoPaths: Iterable<string>): void {
+		// Primary repo is unioned in dynamically at read time (see `getWipState`) so this method
+		// only tracks the secondary set — no need to re-fire when `selectedRepository` changes.
+		this._activeWipWatchers = new Set(repoPaths);
+	}
+
 	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
 
 	protected updateState(partial: Partial<State>, silent?: boolean) {
@@ -1151,9 +1313,27 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 export function mergeWipMetadata(
 	prev: State['wipMetadataBySha'],
 	incoming: State['wipMetadataBySha'],
+	lastKnownStats?: ReadonlyMap<string, WorkDirStats>,
 ): State['wipMetadataBySha'] {
 	if (incoming == null) return undefined;
-	if (prev == null) return incoming;
+	if (prev == null) {
+		// No prior state to merge from. If we have remembered stats from earlier in the session
+		// for any incoming sha, seed them here so a re-introduced worktree row doesn't blink to
+		// empty while the GK component requests fresh stats.
+		if (lastKnownStats == null || lastKnownStats.size === 0) return incoming;
+
+		let seeded: NonNullable<State['wipMetadataBySha']> | undefined;
+		for (const [sha, entry] of Object.entries(incoming)) {
+			if (entry.workDirStats != null) continue;
+
+			const sticky = lastKnownStats.get(sha);
+			if (sticky == null) continue;
+
+			seeded ??= { ...incoming };
+			seeded[sha] = { ...entry, workDirStats: sticky, workDirStatsStale: true };
+		}
+		return seeded ?? incoming;
+	}
 
 	const incomingKeys = Object.keys(incoming);
 	const prevKeys = Object.keys(prev);
@@ -1162,13 +1342,26 @@ export function mergeWipMetadata(
 	const result: NonNullable<State['wipMetadataBySha']> = {};
 	for (const [sha, entry] of Object.entries(incoming)) {
 		const prevEntry = prev[sha];
-		// Preserve per-row derived fields fetched client-side via GetWipStatsRequest; anchor fields come from `entry`.
-		// Without this, the library's resolveWipState falls back to the primary's workDirStats for secondary rows
-		// between when the server rebuilds anchors and when fresh stats arrive, causing a visible flash.
-		result[sha] =
-			prevEntry != null
-				? { ...entry, workDirStats: prevEntry.workDirStats, workDirStatsStale: prevEntry.workDirStatsStale }
-				: entry;
+		if (prevEntry != null) {
+			// Preserve per-row derived fields fetched client-side via GetWipStatsRequest; anchor fields come from `entry`.
+			// Without this, the library's resolveWipState falls back to the primary's workDirStats for secondary rows
+			// between when the server rebuilds anchors and when fresh stats arrive, causing a visible flash.
+			result[sha] = {
+				...entry,
+				workDirStats: prevEntry.workDirStats,
+				workDirStatsStale: prevEntry.workDirStatsStale,
+				pausedOpStatus: prevEntry.pausedOpStatus,
+			};
+		} else {
+			// Newly-seen sha for this push. If we've previously seen stats for this sha during
+			// the session, restore them with `workDirStatsStale: true` so the row keeps showing
+			// values across the upcoming refetch rather than briefly rendering an empty pill.
+			const sticky = lastKnownStats?.get(sha);
+			result[sha] =
+				sticky != null && entry.workDirStats == null
+					? { ...entry, workDirStats: sticky, workDirStatsStale: true }
+					: entry;
+		}
 
 		if (changed) continue;
 

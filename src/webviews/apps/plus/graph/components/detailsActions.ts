@@ -61,6 +61,7 @@ import {
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import { getRemoteNameFromBranchName } from '../../../shared/git-utils.js';
 import type { Resource } from '../../../shared/state/resource.js';
+import type { AppState } from '../context.js';
 import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
 
@@ -192,6 +193,8 @@ export class DetailsActions {
 	private _wipEnrichmentCache = new LruMap<string, WipBranchEnrichmentCacheEntry>(wipEnrichmentCacheLimit);
 	/** SHA-keyed cache of commit enrichment (autolinks/PR/signature). Same purpose as wip cache. */
 	private _commitEnrichmentCache = new LruMap<string, CommitEnrichmentCacheEntry>(commitEnrichmentCacheLimit);
+
+	graphState?: AppState;
 
 	constructor(
 		readonly state: DetailsState,
@@ -671,25 +674,76 @@ export class DetailsActions {
 				// Avoids the flash-out → flash-in cycle on revisit. Loading flag is only set when
 				// we know we don't have cached merge-target data (set in fetchWipBranchEnrichment).
 
-				await this.resources.wip.fetch(repoPath);
-
-				if (this._lastFetchedKey !== key) return;
-
-				if (this.resources.wip.status.get() === 'success') {
-					const wip = this.resources.wip.value.get();
-					this.state.wip.set(wip);
+				const cached = this.graphState?.getWipState(repoPath);
+				if (cached != null) {
+					this.state.wip.set(cached.wip);
 					if (this.state.activeMode.get() != null) {
 						this.state.wipStale.set(true);
 					}
 
-					const branchName = wip?.branch?.name;
+					const branchName = cached.wip.branch?.name;
 					if (branchName != null) {
 						this.fetchWipBranchEnrichment(repoPath, branchName, enrichSignal);
 					} else {
 						this.state.wipMergeTargetLoading.set(false);
 					}
+
+					if (!cached.isLive) {
+						// Cache hit but the host isn't actively watching this repo (or there's a
+						// pending local edit awaiting reconciliation) — revalidate quietly in the
+						// background so the panel converges without blocking the initial paint.
+						void (async () => {
+							try {
+								await this.resources.wip.fetch(repoPath);
+								if (this._lastFetchedKey !== key) return;
+
+								if (this.resources.wip.status.get() === 'success') {
+									const wip = this.resources.wip.value.get();
+									if (wip != null) {
+										this.state.wip.set(wip);
+										this.graphState?.setWip(repoPath, wip);
+										if (this.state.activeMode.get() != null) {
+											this.state.wipStale.set(true);
+										}
+
+										const freshBranchName = wip.branch?.name;
+										if (freshBranchName != null) {
+											this.fetchWipBranchEnrichment(repoPath, freshBranchName, enrichSignal);
+										} else {
+											this.state.wipMergeTargetLoading.set(false);
+										}
+									}
+								}
+							} catch {
+								// ignore background fetch errors if we already have cached content
+							}
+						})();
+					}
 				} else {
-					this.state.wipMergeTargetLoading.set(false);
+					// Missing cache entry — block and fetch
+					await this.resources.wip.fetch(repoPath);
+
+					if (this._lastFetchedKey !== key) return;
+
+					if (this.resources.wip.status.get() === 'success') {
+						const wip = this.resources.wip.value.get();
+						if (wip != null) {
+							this.state.wip.set(wip);
+							this.graphState?.setWip(repoPath, wip);
+							if (this.state.activeMode.get() != null) {
+								this.state.wipStale.set(true);
+							}
+
+							const branchName = wip.branch?.name;
+							if (branchName != null) {
+								this.fetchWipBranchEnrichment(repoPath, branchName, enrichSignal);
+							} else {
+								this.state.wipMergeTargetLoading.set(false);
+							}
+						}
+					} else {
+						this.state.wipMergeTargetLoading.set(false);
+					}
 				}
 			} else {
 				await this.resources.commit.fetch(repoPath, sha);
@@ -2212,33 +2266,26 @@ export class DetailsActions {
 	}
 
 	/**
-	 * After a stage/unstage RPC completes, force a WIP re-fetch from the host. The host's
-	 * `notifyDidChangeWorkingTree` deduplicates by added/deleted/modified counts, so a pure
-	 * staging change (same counts, different sides) gets dropped — the panel would keep showing
-	 * stale duplicate entries for a mixed file until something else perturbs the watcher.
-	 *
-	 * Catches rejections so they don't become unhandled promise rejections (the host surfaces
-	 * the user-facing error as a toast — this is just bookkeeping).
+	 * Awaits the stage/unstage RPC and logs failures so they don't become unhandled rejections.
+	 * No explicit refetch — the host's `git add` triggers its working-tree watcher, which
+	 * pushes the updated WIP via `DidChangeWorkingTreeNotification`. The panel applies that
+	 * push directly. The optimistic update (already fired by the caller) covers the brief
+	 * window between RPC dispatch and the push arriving.
 	 */
 	private async runStagingOp(op: Promise<void>, context: string): Promise<void> {
 		try {
 			await op;
 		} catch (ex) {
 			Logger.error(ex, `Staging op failed (${context})`);
-		} finally {
-			const wipRepoPath = this.state.wip.get()?.repo?.path;
-			if (wipRepoPath != null) {
-				void this.refetchWipQuiet(wipRepoPath);
-			}
 		}
 	}
 
 	/**
 	 * Re-fetch the WIP file list without clearing enrichment (autolinks, issues, merge target,
-	 * etc.). The new payload's data replaces the old in-place — no transient empty state, no
-	 * flicker of the merge-target badge or autolink chips. Used by the staging-op path and by
-	 * the orchestrator's workingTreeStats-change handler — anywhere the file list may have
-	 * shifted but the surrounding enrichment is still valid.
+	 * etc.). Used by explicit user refresh (mode header refresh button) — anywhere we WANT a
+	 * fresh round-trip rather than waiting for the host's working-tree push. For host-driven
+	 * working-tree updates, prefer `applyPushedWip` which consumes the pre-fetched WIP that
+	 * `DidChangeWorkingTreeNotification` already carries.
 	 */
 	async refetchWipQuiet(repoPath: string): Promise<void> {
 		// Bypass the fetch dedup so we always re-query.
@@ -2249,7 +2296,23 @@ export class DetailsActions {
 		const wip = this.resources.wip.value.get();
 		if (wip == null) return;
 
-		// Replace WIP + only re-fire branch enrichment if the branch identity actually changed.
+		this.applyWipPayload(wip, repoPath);
+	}
+
+	/**
+	 * Adopt a WIP payload pushed by the host (via `DidChangeWorkingTreeNotification`). Same
+	 * semantics as the tail of `refetchWipQuiet` — replace local WIP in-place, mark stale when
+	 * a mode is active, re-fire branch enrichment on branch identity changes — but without the
+	 * round-trip fetch. Saves one `git status` per working-tree tick.
+	 */
+	applyPushedWip(wip: Wip): void {
+		const repoPath = wip.repo?.path;
+		if (repoPath == null) return;
+
+		this.applyWipPayload(wip, repoPath);
+	}
+
+	private applyWipPayload(wip: Wip, repoPath: string): void {
 		const prev = this.state.wip.get();
 		this.state.wip.set(wip);
 		if (this.state.activeMode.get() != null) {
@@ -2279,7 +2342,9 @@ export class DetailsActions {
 		});
 		if (!changed) return;
 
-		this.state.wip.set({ ...wip, changes: { ...wip.changes, files: nextFiles } });
+		const updatedWip = { ...wip, changes: { ...wip.changes, files: nextFiles } };
+		this.state.wip.set(updatedWip);
+		this.graphState?.setWip(wip.repo.path, updatedWip);
 	}
 
 	private optimisticallyUpdateAllFilesStaged(staged: boolean): void {
@@ -2295,7 +2360,9 @@ export class DetailsActions {
 		});
 		if (!changed) return;
 
-		this.state.wip.set({ ...wip, changes: { ...wip.changes, files: nextFiles } });
+		const updatedWip = { ...wip, changes: { ...wip.changes, files: nextFiles } };
+		this.state.wip.set(updatedWip);
+		this.graphState?.setWip(wip.repo.path, updatedWip);
 	}
 
 	canCommit(): boolean {
