@@ -84,13 +84,13 @@ import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage.js';
-import type { OpenChatActionCommandArgs } from '../../../commands/openChatAction.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
 import type { CreatePatchCommandArgs } from '../../../commands/patches.js';
 import type { RecomposeBranchCommandArgs } from '../../../commands/recomposeBranch.js';
 import type { RecomposeFromCommitCommandArgs } from '../../../commands/recomposeFromCommit.js';
+import type { RunPromptInAgentCommandArgs } from '../../../commands/runPromptInAgent.js';
 import type {
 	GraphBranchesVisibility,
 	GraphMinimapMarkersAdditionalTypes,
@@ -171,6 +171,7 @@ import {
 	getWorktreesByBranch,
 } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
+import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
 import type { AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog.js';
 import { shouldUseSinglePass } from '../../../plus/ai/actions/reviewChanges.js';
 import { prepareCompareDataForAIRequest } from '../../../plus/ai/utils/-webview/ai.utils.js';
@@ -179,7 +180,6 @@ import {
 	formatChangesContextForPrompt,
 	gatherContextForChanges,
 } from '../../../plus/ai/utils/-webview/changesContext.js';
-import { supportsChat } from '../../../plus/chat/utils/-webview/chat.utils.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
@@ -1326,12 +1326,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 				addressReviewFindingsInChat: async args => {
 					try {
-						if (!(await supportsChat())) {
+						if ((await getSupportedAgents()).length === 0) {
 							void window.showWarningMessage(
-								'No supported AI chat is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
+								'No supported AI agent is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
 							);
 							await env.clipboard.writeText(args.reviewMarkdown);
-							return { ok: false, reason: 'no-chat-host' };
+							return { ok: false, reason: 'no-agents' };
 						}
 
 						// `{ silent: true }` avoids prompting from the RPC. The webview gates the
@@ -1347,16 +1347,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							return { ok: false, reason: 'no-ai-model' };
 						}
 
-						await executeCommand('gitlens.openChatAction', {
-							chatAction: {
-								type: 'addressReviewFindings',
-								scopeLabel: args.scopeLabel,
-								reviewMarkdown: args.reviewMarkdown,
-								granularity: args.granularity,
-								instructions: args.instructions,
-							},
+						const { prompt } = await this.container.ai.getPrompt('address-review-findings', undefined, {
+							reviewMarkdown: args.reviewMarkdown,
+							scopeLabel: args.scopeLabel,
+							granularity: args.granularity,
+							instructions: args.instructions,
+						});
+
+						void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
+
+						// Review-level is a conversational opener; area/finding-level are self-contained
+						// tasks that should auto-submit.
+						await executeCommand('gitlens.runPromptInAgent', {
+							prompt: prompt,
+							cwd: args.repoPath,
+							mode: 'agent',
+							autoExecute: args.granularity !== 'review',
 							source: 'graph',
-						} as OpenChatActionCommandArgs);
+						} as RunPromptInAgentCommandArgs);
 						return { ok: true };
 					} catch (ex) {
 						const message = ex instanceof Error ? ex.message : String(ex);

@@ -39,7 +39,7 @@ export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { m
 
 export type AddressReviewFindingsResult =
 	| { ok: true }
-	| { ok: false; reason: 'no-chat-host' | 'no-ai-model' | 'error'; message?: string };
+	| { ok: false; reason: 'no-agents' | 'no-ai-model' | 'error'; message?: string };
 
 export interface AddressReviewFindingsArgs {
 	repoPath: string;
