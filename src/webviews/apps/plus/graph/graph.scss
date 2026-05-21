@@ -1045,6 +1045,14 @@ button:not([disabled]),
 	opacity: 1;
 }
 
+// Frost the graph rows behind the floating HEAD pill — the library paints it with a 10%
+// tinted but otherwise transparent fill, which gets lost over dense lane/SHA content.
+// Skip hover/focus since the library already swaps to an opaque background there.
+.gk-graph .graph-component .graph-head-pill:not(:hover):not(:focus-visible) {
+	backdrop-filter: blur(0.6rem) saturate(1.2);
+	-webkit-backdrop-filter: blur(0.6rem) saturate(1.2);
+}
+
 // header - move to graph.css.ts
 // .titlebar {
 // 	background: var(--titlebar-bg);
