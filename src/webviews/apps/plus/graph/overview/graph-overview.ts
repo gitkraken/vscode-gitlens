@@ -291,7 +291,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 		// Fire the shown event once overview data is available AND the sidebar is visible so the
 		// walkthrough step only completes when the user actually sees the overview.
-		if (!this._shownEmitted && overview != null && this._state.sidebarVisible) {
+		if (!this._shownEmitted && overview != null && this._state.sidebar?.visible) {
 			this._shownEmitted = true;
 			this._ipc.sendCommand(TrackGraphOverviewShownCommand, undefined);
 			emitTelemetrySentEvent<'graph/overview/shown'>(this, {

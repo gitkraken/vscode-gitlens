@@ -173,49 +173,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor activeRow: AppState['activeRow'];
 
 	@signalState()
-	accessor activeSidebarPanel: AppState['activeSidebarPanel'];
-
-	@signalState()
 	accessor displayMode: AppState['displayMode'];
 
-	@signalState()
-	accessor timelinePeriod: AppState['timelinePeriod'];
+	@signalObjectState()
+	accessor timeline: AppState['timeline'];
 
-	@signalState()
-	accessor timelineSliceBy: AppState['timelineSliceBy'];
+	@signalObjectState()
+	accessor details: AppState['details'];
 
-	@signalState()
-	accessor timelineShowAllBranches: AppState['timelineShowAllBranches'];
+	@signalObjectState()
+	accessor sidebar: AppState['sidebar'];
 
-	@signalState()
-	accessor detailsVisible: AppState['detailsVisible'];
-
-	@signalState()
-	accessor detailsPosition: AppState['detailsPosition'];
-
-	@signalState()
-	accessor detailsBottomPosition: AppState['detailsBottomPosition'];
-
-	@signalState()
-	accessor detailsShowSearchBox: AppState['detailsShowSearchBox'];
-
-	@signalState()
-	accessor detailsSearchBoxFilter: AppState['detailsSearchBoxFilter'];
-
-	@signalState()
-	accessor sidebarVisible: AppState['sidebarVisible'];
-
-	@signalState()
-	accessor sidebarPosition: AppState['sidebarPosition'];
-
-	@signalState()
-	accessor sidebarSearchBoxFilter: AppState['sidebarSearchBoxFilter'];
-
-	@signalState()
-	accessor minimapVisible: AppState['minimapVisible'];
-
-	@signalState()
-	accessor minimapPosition: AppState['minimapPosition'];
+	@signalObjectState()
+	accessor minimap: AppState['minimap'];
 
 	@signalState()
 	accessor pendingAction: AppState['pendingAction'];
@@ -1016,15 +986,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidRequestActiveSidebarPanelNotification.is(msg):
 				this.updateState({
-					activeSidebarPanel: msg.params.panel,
-					sidebarVisible: true,
+					sidebar: { ...this.sidebar, visible: true, activePanel: msg.params.panel },
 				});
 				break;
 
 			case DidRequestGraphActionNotification.is(msg):
 				this.updateState({
 					pendingAction: msg.params.action,
-					...(msg.params.action !== 'scope-to-branch' ? { detailsVisible: true } : {}),
+					...(msg.params.action !== 'scope-to-branch' ? { details: { ...this.details, visible: true } } : {}),
 				});
 				break;
 

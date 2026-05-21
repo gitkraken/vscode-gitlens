@@ -1390,19 +1390,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							() => html`
 								<gl-button
 									appearance="toolbar"
-									tooltip=${(this.graphState.sidebarVisible ?? false) &&
-									this.graphState.activeSidebarPanel != null
+									tooltip=${(this.graphState.sidebar?.visible ?? false) &&
+									this.graphState.sidebar?.activePanel != null
 										? 'Hide Side Bar'
 										: 'Show Side Bar'}
-									aria-label=${(this.graphState.sidebarVisible ?? false) &&
-									this.graphState.activeSidebarPanel != null
+									aria-label=${(this.graphState.sidebar?.visible ?? false) &&
+									this.graphState.sidebar?.activePanel != null
 										? 'Hide Side Bar'
 										: 'Show Side Bar'}
 									@click=${this.handleSidebarToggled}
 								>
 									<code-icon
-										icon=${(this.graphState.sidebarVisible ?? false) &&
-										this.graphState.activeSidebarPanel != null
+										icon=${(this.graphState.sidebar?.visible ?? false) &&
+										this.graphState.sidebar?.activePanel != null
 											? 'layout-sidebar-left'
 											: 'layout-sidebar-left-off'}
 									></code-icon>

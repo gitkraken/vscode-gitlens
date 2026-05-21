@@ -581,7 +581,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			filterable
 			tooltip-anchor-right
 			filter-text=${this._actions.filterText || nothing}
-			?search-box-filter=${this._state.sidebarSearchBoxFilter ?? true}
+			?search-box-filter=${this._state.sidebar?.searchBoxFilter ?? true}
 			filter-placeholder="Filter ${config.title.toLowerCase()}..."
 			aria-label="${config.title}"
 			@gl-tree-filter-changed=${this.handleFilterChanged}
@@ -1177,7 +1177,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
-		this._state.sidebarSearchBoxFilter = e.detail;
+		this._state.sidebar = { searchBoxFilter: e.detail };
 		this.dispatchEvent(
 			new CustomEvent<boolean>('gl-graph-sidebar-search-box-filter-change', {
 				detail: e.detail,

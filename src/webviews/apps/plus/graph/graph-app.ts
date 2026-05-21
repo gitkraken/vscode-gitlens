@@ -141,7 +141,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const defaultPct = (minimapDefaultPx / size) * 100;
 		// First render without a stored position: snap to the exact pixel default
 		// regardless of the container's current size.
-		if (this.graphState.minimapPosition == null) {
+		if (this.graphState.minimap?.position == null) {
 			return defaultPct;
 		}
 
@@ -289,7 +289,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _sidebarVisibleAtAutoCollapse: boolean | undefined;
 
 	private scheduleAutoCollapse(): void {
-		this._sidebarVisibleAtAutoCollapse = this.graphState.sidebarVisible ?? false;
+		this._sidebarVisibleAtAutoCollapse = this.graphState.sidebar?.visible ?? false;
 		// Microtask, not sync: lets any same-task handlers run before the actual hide; the
 		// click handler in a later task reads _sidebarVisibleAtAutoCollapse instead of current
 		// state. hideSidebar gates on already-hidden so a stale schedule is a no-op.
@@ -298,7 +298,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private shouldAutoCollapseOverlay(): boolean {
 		if (this.graphState.config?.sidebarPinned !== false) return false;
-		if (!this.graphState.sidebarVisible) return false;
+		if (!this.graphState.sidebar?.visible) return false;
 		return true;
 	}
 
@@ -442,7 +442,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		}
 
-		const detailsVisible = this.graphState.detailsVisible ?? false;
+		const detailsVisible = this.graphState.details?.visible ?? false;
 		if (detailsVisible !== this._wasDetailsVisible) {
 			this._wasDetailsVisible = detailsVisible;
 			if (detailsVisible) {
@@ -493,8 +493,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// panel content (slide in from 4px Y — matches the sub-panel-enter used by
 		// review/compose/compare). The panel element is always mounted (always in the split-
 		// panel's `start` slot) so an unconditional `:host` animation would fire at 0 width.
-		const sidebarVisible = this.graphState.sidebarVisible ?? false;
-		const sidebarActivePanel = this.graphState.activeSidebarPanel ?? null;
+		const sidebarVisible = this.graphState.sidebar?.visible ?? false;
+		const sidebarActivePanel = this.graphState.sidebar?.activePanel ?? null;
 		const becameVisible = sidebarVisible && !this._wasSidebarVisible;
 		const activePanelChanged =
 			sidebarVisible &&
@@ -545,8 +545,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		const detailsVisible = this.graphState.detailsVisible ?? false;
-		const minimapVisible = this.graphState.minimapVisible ?? true;
+		const detailsVisible = this.graphState.details?.visible ?? false;
+		const minimapVisible = this.graphState.minimap?.visible ?? true;
 		const { single, multi } = this.activeSelection;
 		return html`
 			<div class="graph">
@@ -574,7 +574,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private renderDetailsPanel() {
 		// Always render the split panel to avoid DOM re-parenting (which causes layout jumps).
-		// graphState.detailsVisible controls the split position; effective content controls divider state.
+		// graphState.details.visible controls the split position; effective content controls divider state.
 		// When no commit/compare is selected, default to the current branch's WIP.
 		const { single, multi } = this.activeSelection;
 		const hasSelection = single != null || multi != null;
@@ -582,9 +582,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const effectiveSha = single?.sha ?? (fallbackPath != null ? uncommitted : undefined);
 		const effectiveRepoPath = (single ?? multi)?.repoPath ?? fallbackPath;
 		const hasContent = effectiveSha != null || multi != null;
-		const detailsVisible = this.graphState.detailsVisible ?? false;
+		const detailsVisible = this.graphState.details?.visible ?? false;
 		const isBottom = this.graphState.config?.detailsLocation === 'bottom';
-		const persisted = isBottom ? this.graphState.detailsBottomPosition : this.graphState.detailsPosition;
+		const persisted = isBottom ? this.graphState.details?.bottomPosition : this.graphState.details?.position;
 		const position = detailsVisible ? (persisted ?? 100 - detailsDefaultPct) : 100;
 		return html`<gl-split-panel
 			class=${classMap({ 'graph__details-split': true, '-vertical': isBottom })}
@@ -606,8 +606,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.graphReachability=${single?.reachability}
 					.commitLite=${single?.commitLite}
 					.commitLites=${multi?.commitLites}
-					.showSearchBox=${this.graphState.detailsShowSearchBox ?? false}
-					.searchBoxFilter=${this.graphState.detailsSearchBoxFilter ?? true}
+					.showSearchBox=${this.graphState.details?.showSearchBox ?? false}
+					.searchBoxFilter=${this.graphState.details?.searchBoxFilter ?? true}
 					@select-commit=${this.handleSelectCommit}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
 					@gl-show-search-box-change=${this.handleDetailsShowSearchBoxChange}
@@ -634,7 +634,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _nextStepsShownWhileHidden = false;
 
 	private handleNextStepsShown() {
-		if (!this.graphState.detailsVisible) {
+		if (!this.graphState.details?.visible) {
 			this._nextStepsShownWhileHidden = true;
 			return;
 		}
@@ -655,8 +655,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					this.graphState.config?.sidebar,
 					() =>
 						html`<gl-graph-sidebar
-							active-panel=${this.graphState.activeSidebarPanel ?? nothing}
-							.sidebarVisible=${this.graphState.sidebarVisible ?? false}
+							active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
+							.sidebarVisible=${this.graphState.sidebar?.visible ?? false}
 							@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
 							@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
 						></gl-graph-sidebar>`,
@@ -680,8 +680,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private renderSidebarSplit(hidden = false) {
-		const isOpen = (this.graphState.sidebarVisible ?? false) && this.graphState.activeSidebarPanel != null;
-		const sidebarPosition = this.graphState.sidebarPosition ?? sidebarDefaultPct;
+		const isOpen = (this.graphState.sidebar?.visible ?? false) && this.graphState.sidebar?.activePanel != null;
+		const sidebarPosition = this.graphState.sidebar?.position ?? sidebarDefaultPct;
 		const sidebarPinned = this.graphState.config?.sidebarPinned ?? true;
 		return html`<gl-split-panel
 			class="graph__sidebar-split"
@@ -696,7 +696,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		>
 			<gl-graph-sidebar-panel
 				slot="start"
-				active-panel=${this.graphState.activeSidebarPanel ?? nothing}
+				active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
 				date-format=${this.graphState.config?.dateFormat ?? nothing}
 				@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
 				@gl-graph-sidebar-toggle-pinned=${this.handleSidebarTogglePinned}
@@ -714,8 +714,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return this.renderGraphContent();
 		}
 
-		const minimapVisible = this.graphState.minimapVisible ?? true;
-		const minimapPosition = this.graphState.minimapPosition ?? 6;
+		const minimapVisible = this.graphState.minimap?.visible ?? true;
+		const minimapPosition = this.graphState.minimap?.position ?? 6;
 		const position = minimapVisible ? minimapPosition : 0;
 		return html`
 			<gl-split-panel
@@ -790,26 +790,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Toggling to Timeline is an in-memory affordance only; users opt back in per session.
 		const state = {
 			panels: {
-				details: {
-					visible: gs.detailsVisible,
-					position: gs.detailsPosition,
-					bottomPosition: gs.detailsBottomPosition,
-					showSearchBox: gs.detailsShowSearchBox,
-					searchBoxFilter: gs.detailsSearchBoxFilter,
-				},
-				sidebar: {
-					visible: gs.sidebarVisible,
-					position: gs.sidebarPosition,
-					activePanel: gs.activeSidebarPanel,
-					searchBoxFilter: gs.sidebarSearchBoxFilter,
-				},
-				minimap: { visible: gs.minimapVisible, position: gs.minimapPosition },
+				details: { ...gs.details },
+				sidebar: { ...gs.sidebar },
+				minimap: { ...gs.minimap },
 			},
-			timeline: {
-				period: gs.timelinePeriod,
-				sliceBy: gs.timelineSliceBy,
-				showAllBranches: gs.timelineShowAllBranches,
-			},
+			timeline: { ...gs.timeline },
 			overview: {
 				recentThreshold: gs.overviewRecentThreshold,
 			},
@@ -825,27 +810,26 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (e.detail.position <= 0) return;
 
 		const gs = this.graphState;
-		if (gs.minimapPosition !== e.detail.position) {
-			gs.minimapPosition = e.detail.position;
+		if (gs.minimap?.position !== e.detail.position) {
+			gs.minimap = { position: e.detail.position };
 		}
 	}
 
 	private handleMinimapClosedChange = (e: CustomEvent<{ closed: boolean; position: number }>): void => {
 		const gs = this.graphState;
 		if (e.detail.closed) {
-			if (gs.minimapVisible !== false) {
-				gs.minimapVisible = false;
+			if (gs.minimap?.visible !== false) {
+				gs.minimap = { visible: false };
 			}
-		} else if (gs.minimapVisible !== true) {
-			gs.minimapVisible = true;
-			gs.minimapPosition = e.detail.position;
+		} else if (gs.minimap?.visible !== true) {
+			gs.minimap = { visible: true, position: e.detail.position };
 		}
 	};
 
 	private handleDetailsShowSearchBoxChange = (e: CustomEvent<boolean>): void => {
 		const gs = this.graphState;
-		if (gs.detailsShowSearchBox !== e.detail) {
-			gs.detailsShowSearchBox = e.detail;
+		if (gs.details?.showSearchBox !== e.detail) {
+			gs.details = { showSearchBox: e.detail };
 			this.persistState();
 		}
 	};
@@ -857,8 +841,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleDetailsSearchBoxFilterChange = (e: CustomEvent<boolean>): void => {
 		const gs = this.graphState;
-		if (gs.detailsSearchBoxFilter !== e.detail) {
-			gs.detailsSearchBoxFilter = e.detail;
+		if (gs.details?.searchBoxFilter !== e.detail) {
+			gs.details = { searchBoxFilter: e.detail };
 			this.persistState();
 		}
 	};
@@ -867,30 +851,32 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (e.detail.position <= 0) return;
 
 		const gs = this.graphState;
-		if (gs.sidebarPosition !== e.detail.position) {
-			gs.sidebarPosition = e.detail.position;
+		if (gs.sidebar?.position !== e.detail.position) {
+			gs.sidebar = { position: e.detail.position };
 		}
 	}
 
 	private handleSidebarClosedChange = (e: CustomEvent<{ closed: boolean; position: number }>): void => {
 		const gs = this.graphState;
 		if (e.detail.closed) {
-			if (gs.sidebarVisible !== false) {
-				gs.sidebarVisible = false;
+			if (gs.sidebar?.visible !== false) {
+				gs.sidebar = { visible: false };
 			}
 			return;
 		}
 
 		let opened = false;
-		if (!gs.sidebarVisible) {
-			gs.sidebarVisible = true;
+		const next: NonNullable<typeof gs.sidebar> = {};
+		if (!gs.sidebar?.visible) {
+			next.visible = true;
 			opened = true;
 		}
-		if (gs.activeSidebarPanel == null) {
-			gs.activeSidebarPanel = 'worktrees';
+		if (gs.sidebar?.activePanel == null) {
+			next.activePanel = 'worktrees';
 			opened = true;
 		}
-		gs.sidebarPosition = e.detail.position;
+		next.position = e.detail.position;
+		gs.sidebar = next;
 		if (opened) {
 			this.focusSidebarFilterAfterRender();
 		}
@@ -902,10 +888,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private setSidebarPanel(panel: GraphSidebarPanel): void {
 		const gs = this.graphState;
-		if (gs.activeSidebarPanel === panel && gs.sidebarVisible === true) return;
+		if (gs.sidebar?.activePanel === panel && gs.sidebar?.visible === true) return;
 
-		gs.activeSidebarPanel = panel;
-		gs.sidebarVisible = true;
+		gs.sidebar = { activePanel: panel, visible: true };
 		this.persistState();
 		this.focusSidebarFilterAfterRender();
 	}
@@ -916,14 +901,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private hideSidebar(): void {
 		const gs = this.graphState;
-		if (!gs.sidebarVisible) return;
+		if (!gs.sidebar?.visible) return;
 
-		gs.sidebarVisible = false;
+		gs.sidebar = { visible: false };
 		this.persistState();
 	}
 
-	private get detailsPositionKey(): 'detailsPosition' | 'detailsBottomPosition' {
-		return this.graphState.config?.detailsLocation === 'bottom' ? 'detailsBottomPosition' : 'detailsPosition';
+	private get detailsPositionKey(): 'position' | 'bottomPosition' {
+		return this.graphState.config?.detailsLocation === 'bottom' ? 'bottomPosition' : 'position';
 	}
 
 	private ensureDetailsPosition(): void {
@@ -932,10 +917,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Reset to the default when the stored position is missing or snapped to closed — so
 		// reopening after a drag-to-close shows a usable width instead of a zero-width pane.
 		// Snap lands at exact 100 when the pane is closed; anything less is a usable open width.
-		const stored = gs[key];
+		const stored = gs.details?.[key];
 		if (stored != null && stored < 100) return;
 
-		gs[key] = 100 - detailsDefaultPct;
+		gs.details = { [key]: 100 - detailsDefaultPct };
 		this.persistState();
 	}
 
@@ -944,9 +929,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		trigger?: 'toggle' | 'request-compare' | 'request-mode' | 'request-agents' | 'auto-restore',
 	): void {
 		const gs = this.graphState;
-		if (gs.detailsVisible === visible) return;
+		if (gs.details?.visible === visible) return;
 
-		gs.detailsVisible = visible;
+		gs.details = { visible: visible };
 		this.persistState();
 		this.emitDetailsVisibilityTelemetry(visible, trigger ?? 'toggle');
 	}
@@ -976,7 +961,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					mode: this.detailsPanelEl?.currentMode ?? 'none',
 					'selection.count': selectionCount,
 					'selection.uncommitted': effectivelyUncommitted,
-					position: this.graphState[this.detailsPositionKey],
+					position: this.graphState.details?.[this.detailsPositionKey],
 					location: location,
 				},
 			});
@@ -994,7 +979,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `shown`/`closed` already capture mode at open/close — only emit transitions while the
 		// panel stays visible (e.g. swap-to-close, mode chip toggles), so the event isolates
 		// in-panel transitions from open/close noise.
-		if (this.graphState.detailsVisible !== true) return;
+		if (this.graphState.details?.visible !== true) return;
 
 		switch (e.detail.current) {
 			case 'review':
@@ -1019,21 +1004,21 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// owns visibility; recording position=100 here would clobber the last open width.
 		if (e.detail.position >= 100) return;
 
-		this.graphState[this.detailsPositionKey] = e.detail.position;
+		this.graphState.details = { [this.detailsPositionKey]: e.detail.position };
 	}
 
 	private handleDetailsClosedChange = (e: CustomEvent<{ closed: boolean; position: number }>): void => {
 		const gs = this.graphState;
 		if (e.detail.closed) {
 			this.setDetailsVisible(false);
-		} else if (gs.detailsVisible !== true) {
-			gs[this.detailsPositionKey] = e.detail.position;
+		} else if (gs.details?.visible !== true) {
+			gs.details = { [this.detailsPositionKey]: e.detail.position };
 			this.setDetailsVisible(true, 'toggle');
 		}
 	};
 
 	private handleShowDetails = (): void => {
-		if (!this.graphState.detailsVisible) {
+		if (!this.graphState.details?.visible) {
 			this.setDetailsVisible(true, 'toggle');
 			this.ensureDetailsPosition();
 		}
@@ -1047,7 +1032,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		const gs = this.graphState;
-		if (gs.detailsVisible) {
+		if (gs.details?.visible) {
 			this.setDetailsVisible(false);
 		} else {
 			this.setDetailsVisible(true, 'toggle');
@@ -1062,7 +1047,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		const gs = this.graphState;
-		gs.minimapVisible = !(gs.minimapVisible ?? true);
+		gs.minimap = { visible: !(gs.minimap?.visible ?? true) };
 		this.persistState();
 	}
 
@@ -1070,18 +1055,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const gs = this.graphState;
 		const stashed = this._sidebarVisibleAtAutoCollapse;
 		this._sidebarVisibleAtAutoCollapse = undefined;
-		const wasVisible = stashed ?? gs.sidebarVisible ?? false;
+		const wasVisible = stashed ?? gs.sidebar?.visible ?? false;
 		if (wasVisible) {
 			this.hideSidebar();
 		} else {
-			this.setSidebarPanel(gs.activeSidebarPanel ?? 'branches');
+			this.setSidebarPanel(gs.sidebar?.activePanel ?? 'branches');
 		}
 	}
 
 	private handleSidebarToggle(e: CustomEvent<GraphSidebarToggleEventDetail>) {
 		const gs = this.graphState;
 		const panel = e.detail.panel;
-		if (gs.sidebarVisible && gs.activeSidebarPanel === panel) {
+		if (gs.sidebar?.visible && gs.sidebar?.activePanel === panel) {
 			this.hideSidebar();
 		} else {
 			this.setSidebarPanel(panel);
@@ -1128,7 +1113,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this._timelineSelectedCommit = { sha: effectiveSha, repoPath: fallbackRepoPath, commitLite: commitLite };
 
 		// Show the details panel on first selection, the same way graph-row double-click does.
-		if (!this.graphState.detailsVisible) {
+		if (!this.graphState.details?.visible) {
 			this.setDetailsVisible(true);
 			this.ensureDetailsPosition();
 		}
@@ -1144,15 +1129,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleTimelineConfigChange = (e: CustomEvent<GlGraphTimelineConfigChangeDetail>): void => {
 		const gs = this.graphState;
+		const next: NonNullable<typeof gs.timeline> = {};
 		if (e.detail.period != null) {
-			gs.timelinePeriod = e.detail.period;
+			next.period = e.detail.period;
 		}
 		if (e.detail.sliceBy != null) {
-			gs.timelineSliceBy = e.detail.sliceBy;
+			next.sliceBy = e.detail.sliceBy;
 		}
 		if (e.detail.showAllBranches != null) {
-			gs.timelineShowAllBranches = e.detail.showAllBranches;
+			next.showAllBranches = e.detail.showAllBranches;
 		}
+		gs.timeline = next;
 		this.persistState();
 	};
 
@@ -1660,7 +1647,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleGraphRowDoubleClick(_e: CustomEventType<'gl-graph-row-double-click'>) {
-		if (this.graphState.detailsVisible) return;
+		if (this.graphState.details?.visible) return;
 
 		this.setDetailsVisible(true);
 		this.ensureDetailsPosition();

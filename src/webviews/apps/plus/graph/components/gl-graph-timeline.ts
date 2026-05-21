@@ -275,11 +275,11 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	}
 
 	private get period(): TimelinePeriod {
-		return this.graphState.timelinePeriod ?? '1|M';
+		return this.graphState.timeline?.period ?? '1|M';
 	}
 
 	private get sliceBy(): TimelineSliceBy {
-		return this.graphState.timelineSliceBy ?? 'author';
+		return this.graphState.timeline?.sliceBy ?? 'author';
 	}
 
 	/** Slice-by is meaningful only for file/folder scopes — slicing the entire repo across

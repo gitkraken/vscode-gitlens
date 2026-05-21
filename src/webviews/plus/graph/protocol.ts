@@ -248,25 +248,34 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;
-	detailsVisible?: boolean;
-	detailsPosition?: number;
-	detailsBottomPosition?: number;
-	detailsShowSearchBox?: boolean;
-	/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
-	detailsSearchBoxFilter?: boolean;
-	sidebarVisible?: boolean;
-	activeSidebarPanel?: GraphSidebarPanel;
-	sidebarPosition?: number;
-	/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
-	sidebarSearchBoxFilter?: boolean;
-	minimapVisible?: boolean;
-	minimapPosition?: number;
+	details?: {
+		visible?: boolean;
+		position?: number;
+		bottomPosition?: number;
+		showSearchBox?: boolean;
+		/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
+		searchBoxFilter?: boolean;
+	};
+	sidebar?: {
+		visible?: boolean;
+		position?: number;
+		activePanel?: GraphSidebarPanel;
+		/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
+		searchBoxFilter?: boolean;
+	};
+	minimap?: {
+		visible?: boolean;
+		position?: number;
+	};
 	pendingAction?: GraphShowAction;
 	// Persisted Timeline-mode chart options (when `displayMode === 'timeline'`).
-	timelinePeriod?: TimelinePeriod;
-	timelineSliceBy?: TimelineSliceBy;
-	timelineShowAllBranches?: boolean;
-	// Persisted timeframe for the Overview panel's "Recent" section.
+	timeline?: {
+		period?: TimelinePeriod;
+		sliceBy?: TimelineSliceBy;
+		showAllBranches?: boolean;
+	};
+	// Persisted timeframe for the Overview panel's "Recent" section. Kept flat (not under `overview`)
+	// because `overview` is already used for `GraphOverviewData` (active/recent branches).
 	overviewRecentThreshold?: OverviewRecentThreshold;
 
 	// Props below are computed in the webview (not passed)

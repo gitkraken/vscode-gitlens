@@ -6591,24 +6591,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
 			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
 			searchRequest: searchRequest,
-			detailsVisible:
-				this._pendingAction != null && this._pendingAction !== 'scope-to-branch'
-					? true
-					: (storedPanels?.details?.visible ?? true),
-			detailsPosition: storedPanels?.details?.position,
-			detailsBottomPosition: storedPanels?.details?.bottomPosition,
-			detailsShowSearchBox: storedPanels?.details?.showSearchBox,
-			detailsSearchBoxFilter: storedPanels?.details?.searchBoxFilter,
-			sidebarVisible: this._pendingSidebarPanel != null || (storedPanels?.sidebar?.visible ?? true),
-			activeSidebarPanel: this._pendingSidebarPanel ?? storedPanels?.sidebar?.activePanel,
-			sidebarPosition: storedPanels?.sidebar?.position,
-			sidebarSearchBoxFilter: storedPanels?.sidebar?.searchBoxFilter,
-			minimapVisible: storedPanels?.minimap?.visible ?? true,
-			minimapPosition: storedPanels?.minimap?.position,
+			details: {
+				...storedPanels?.details,
+				visible:
+					this._pendingAction != null && this._pendingAction !== 'scope-to-branch'
+						? true
+						: (storedPanels?.details?.visible ?? true),
+			},
+			sidebar: {
+				...storedPanels?.sidebar,
+				visible: this._pendingSidebarPanel != null || (storedPanels?.sidebar?.visible ?? true),
+				activePanel: this._pendingSidebarPanel ?? storedPanels?.sidebar?.activePanel,
+			},
+			minimap: {
+				...storedPanels?.minimap,
+				visible: storedPanels?.minimap?.visible ?? true,
+			},
 			pendingAction: this._pendingAction,
-			timelinePeriod: storedGraphState?.timeline?.period,
-			timelineSliceBy: storedGraphState?.timeline?.sliceBy,
-			timelineShowAllBranches: storedGraphState?.timeline?.showAllBranches,
+			timeline: {
+				period: storedGraphState?.timeline?.period,
+				sliceBy: storedGraphState?.timeline?.sliceBy,
+				showAllBranches: storedGraphState?.timeline?.showAllBranches,
+			},
 			overviewRecentThreshold: this._overviewRecentThreshold,
 		};
 		this._pendingSidebarPanel = undefined;
