@@ -9,7 +9,11 @@ import type { RepositoryService } from '@gitlens/git/repositoryService.js';
 import type { UnsafeGit } from '@gitlens/git/run.types.js';
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { getRemoteThemeIconString } from '@gitlens/git/utils/remote.utils.js';
+import type { WatcherRepoChangeEvent, WorkingTreeChangeEvent } from '@gitlens/git/watching/changeEvent.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import { mixinDisposable } from '@gitlens/utils/disposable.js';
+import type { Event } from '@gitlens/utils/event.js';
 import { groupByFilterMap } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -81,6 +85,51 @@ export class GitRepositoryService {
 	 */
 	createUnsafeGit(): UnsafeGit | undefined {
 		return this._provider.createUnsafeGit?.(this.path);
+	}
+
+	/**
+	 * Subscribe to filesystem-driven change events for this repository — repo changes
+	 * (`onDidChange`: index, head, refs, paused-op, etc.) and working-tree edits
+	 * (`onDidChangeWorkingTree`). Routes through the shared watch service so it works
+	 * regardless of whether a corresponding {@link GlRepository} is open or closed —
+	 * closed `GlRepository` instances skip `setupWatching` and their own `watchWorkingTree`
+	 * / `onDidChange` are dead, so callers that need events for not-currently-open repos
+	 * (e.g. the Graph's secondary-worktree WIP rows) must come through this method instead
+	 * of `repo.watchWorkingTree` / `repo.onDidChange`.
+	 *
+	 * Returns `undefined` when the git directory can't be resolved (transient or non-repo
+	 * paths). The returned object disposes both event subscriptions and the underlying
+	 * service-level watch handle, decrementing the ref count so the session tears down
+	 * cleanly when the last subscriber leaves.
+	 */
+	@trace()
+	async watch(opts?: { workingTreeDelayMs?: number }): Promise<
+		| (UnifiedDisposable & {
+				readonly onDidChange: Event<WatcherRepoChangeEvent>;
+				readonly onDidChangeWorkingTree: Event<WorkingTreeChangeEvent>;
+		  })
+		| undefined
+	> {
+		const gitDir = await this.config.getGitDir?.();
+		if (gitDir == null) return undefined;
+
+		const handle = this._svc.watchService.watch(this.path, gitDir);
+		if (handle == null) return undefined;
+
+		const wtSub = handle.session.subscribeToWorkingTree({ delayMs: opts?.workingTreeDelayMs ?? 500 });
+		const repoSub = handle.session.subscribe();
+
+		return mixinDisposable(
+			{
+				onDidChange: repoSub.onDidChange,
+				onDidChangeWorkingTree: wtSub.onDidChangeWorkingTree,
+			},
+			() => {
+				wtSub.dispose();
+				repoSub.dispose();
+				handle.dispose();
+			},
+		);
 	}
 
 	@trace()

@@ -677,7 +677,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 	}
 
+	private _disposed = false;
+
 	dispose(): void {
+		this._disposed = true;
 		this.clearAutoFetchTimer();
 		if (this._stateFreshnessRetryTimer != null) {
 			clearTimeout(this._stateFreshnessRetryTimer);
@@ -3657,6 +3660,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Open watchers for newly visible shas.
 		for (const sha of wanted) {
+			// Bail out entirely if the provider has been disposed mid-loop — `_wipWatches` was
+			// cleared in `dispose()`, so subsequent `.set` calls below would leak watchers that
+			// nothing ever tears down.
+			if (this._disposed) break;
 			if (this._wipWatches.has(sha)) continue;
 			if (!isSecondaryWipSha(sha)) continue;
 
@@ -3664,18 +3671,47 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const repo =
 				this.container.git.getRepository(path) ??
 				(await this.container.git.getOrOpenRepository(Uri.file(path), { closeOnOpen: true }));
+			if (this._disposed) break;
 			if (repo == null) continue;
 			// Double-check: another concurrent call may have claimed this sha while we awaited.
 			if (this._wipWatches.has(sha) || !wanted.has(sha)) continue;
 
+			// Use the service-level watch facility so events fire regardless of whether the
+			// `GlRepository` is open or closed — secondary worktrees are typically opened with
+			// `closeOnOpen: true`, which leaves `repo.watchWorkingTree` / `repo.onDidChange` dead
+			// (closed repos skip `setupWatching`). Going through `repo.git.watch()` routes around
+			// that gating without flipping the repo to "open" (which would inflate
+			// `openRepositoryCount` and surface the worktree in multi-repo UI).
+			const watcher = await repo.git.watch({ workingTreeDelayMs: 500 });
+			if (watcher == null) continue;
+			// Re-check after the await — provider may have been disposed, or another sync may have
+			// claimed this sha.
+			if (this._disposed || this._wipWatches.has(sha) || !wanted.has(sha)) {
+				watcher.dispose();
+				if (this._disposed) break;
+				continue;
+			}
+
 			this._wipWatches.set(
 				sha,
 				Disposable.from(
-					repo.watchWorkingTree(500),
-					repo.onDidChangeWorkingTree(() => {
+					watcher.onDidChangeWorkingTree(() => {
 						this._wipStatusCache.invalidate(path);
 						this.queueWipRefetch(sha, repo);
 					}),
+					// `onDidChangeWorkingTree` covers FS edits to tracked/untracked files. Index,
+					// paused-op, and branch-tracking changes (staging from the CLI, rebase progress,
+					// fetch/publish) only surface via the structural `onDidChange` event — mirror
+					// the WIP triggers the primary fires from `onRepositoryChanged` (see `index` at
+					// line 2917 and `head`/`heads`/`remotes` at line 2999) so the secondary panel
+					// stays reactive to those same changes.
+					watcher.onDidChange(e => {
+						if (!e.changed('index', 'pausedOp', 'head', 'heads', 'remotes')) return;
+
+						this._wipStatusCache.invalidate(path);
+						this.queueWipRefetch(sha, repo);
+					}),
+					watcher,
 				),
 			);
 		}
@@ -8831,7 +8867,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@command('gitlens.openWorktree:')
 	@debug()
-	private async openWorktree(item?: GraphItemContext | BranchRef, options?: { location?: OpenWorkspaceLocation }) {
+	private async openWorktree(
+		item?: GraphItemContext | BranchRef | { worktreePath: string },
+		options?: { location?: OpenWorkspaceLocation },
+	) {
+		// Webview action-link path (WIP details header): worktree identity arrives as a raw path —
+		// no branch lookup needed, so this also covers detached-HEAD worktrees.
+		if (
+			item != null &&
+			typeof item === 'object' &&
+			'worktreePath' in item &&
+			typeof item.worktreePath === 'string'
+		) {
+			openWorkspace(Uri.file(item.worktreePath), options);
+			return;
+		}
+
 		// Webview action-link path (graph overview card): branch identity arrives as a BranchRef.
 		if (item != null && 'branchId' in item) {
 			const repoPath = item.repoPath;
