@@ -459,6 +459,30 @@ export class GlTreeView extends GlElement {
 			this._pendingScrollToIndex = undefined;
 			this.scrollToItem(index, false);
 		}
+
+		// lit-virtualizer dynamically imports its layout module on first mount; the initial
+		// `rangechange` event can fire before `FlowLayout`'s listener wires up, dropping the
+		// first layout pass — the tree renders blank until something (scroll, resize, items
+		// reassignment) triggers another. Force a second pass whenever treeItems transitions
+		// from empty to populated. The path-keyed diff inside the virtualizer preserves
+		// focus/selection/scroll. Upstream tracking: lit/lit#3472.
+		if (changedProperties.has('treeItems')) {
+			const prev = changedProperties.get('treeItems') as TreeModelFlat[] | undefined;
+			if (!prev?.length && (this.treeItems?.length ?? 0) > 0) {
+				void this.kickVirtualizerAfterFirstLayout();
+			}
+		}
+	}
+
+	private async kickVirtualizerAfterFirstLayout(): Promise<void> {
+		const virtualizer = this.virtualizerRef.value;
+		if (!virtualizer) return;
+
+		await virtualizer.layoutComplete;
+		// Re-check after await — the model could have been swapped to empty mid-wait.
+		if (this.treeItems?.length) {
+			this.treeItems = this.treeItems.slice();
+		}
 	}
 
 	private _pendingScrollToIndex: number | undefined;
