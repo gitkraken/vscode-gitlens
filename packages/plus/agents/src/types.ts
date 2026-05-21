@@ -146,6 +146,16 @@ export interface AgentSession {
 	 *  Mutable array form so `Shape<AgentSession>` projects it as `string[]` (the `Shape<>` type
 	 *  mangles `readonly T[]` into a mapped object that loses its iterator). Treat as immutable. */
 	currentFiles?: string[];
+	/** `true` when the session was discovered via peer IPC sync (i.e. another GitLens window hosts
+	 *  the agent's hook flow and Claude Code extension panel). Locally-owned sessions leave this
+	 *  unset. The dispatcher uses this to route opens through the peer's IPC route + an OS-level
+	 *  window focus, since calling `claude-vscode.editor.open` in *our* extension only opens an
+	 *  inert local view that isn't connected to the live session running in the peer.
+	 *
+	 *  Window-local: never serialized faithfully across the IPC wire. Each window decides locally
+	 *  based on how it received the session — `querySiblingWindowSessions` always overrides to
+	 *  `true` regardless of what the peer published. */
+	readonly isPeerOwned?: boolean;
 	/**
 	 * Titles discovered by tailing the Claude Code transcript JSONL at
 	 * `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`. Populated by
@@ -181,11 +191,14 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 		updatedPermissions?: PermissionSuggestion[],
 	): boolean;
 
-	/** Asks the peer GitLens window that has `workspacePath` open to open the given session in its
-	 *  Claude Code extension (via the `agents/sessions/open` IPC route). Best-effort: resolves
-	 *  silently if no peer claims the workspace or the POST fails. Callers should follow up with
-	 *  `vscode.openFolder` so VS Code focuses that peer window. */
-	notifyPeerOpenSession?(workspacePath: string, sessionId: string): Promise<void>;
+	/** Asks the peer GitLens window that has `workspacePath` open (or any peer whose workspacePath
+	 *  contains, or is contained by, it) to open the given session in its Claude Code extension
+	 *  via the `agents/sessions/open` IPC route. Resolves to `true` when at least one peer claimed
+	 *  the workspace AND was reachable; `false` otherwise. Best-effort: never rejects. The boolean
+	 *  is currently a diagnostic signal only — the dispatcher fires this in parallel with
+	 *  `vscode.openFolder` and relies on VS Code's window-folder matching to focus the owning
+	 *  window (which works whether or not the peer runs GitLens). */
+	notifyPeerOpenSession?(workspacePath: string, sessionId: string): Promise<boolean>;
 }
 
 /**

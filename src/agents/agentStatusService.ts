@@ -8,7 +8,7 @@ import { registerCommand } from '../system/-webview/command.js';
 import type { AgentSessionState, AgentSessionWorktreeMetadata } from './models/agentSessionState.js';
 import { getSessionDisplayName, serializeAgentSession } from './models/agentSessionState.js';
 import type { AgentSession, AgentSessionProvider, PermissionDecision, PermissionSuggestion } from './provider.js';
-import { isClaudeExtensionAvailable } from './utils/-webview/claudeExtension.js';
+import { isClaudeExtensionAvailable, tryOpenClaudeSession } from './utils/-webview/claudeExtension.js';
 
 export class AgentStatusService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -448,56 +448,55 @@ export class AgentStatusService implements Disposable {
 
 	/**
 	 * Deterministically picks the right action for a resolved session — no quickpick:
-	 *  - Session belongs to a different workspace → notify a peer GitLens window that has it open
-	 *    (so its Claude Code extension opens the session), then `vscode.openFolder` (VS Code auto-
-	 *    focuses the peer window when the folder is already open there; otherwise the current
-	 *    window switches to the folder).
-	 *  - Session is in the current workspace → open in the Claude Code extension when the session
-	 *    is extension-hosted; focus the terminal via `pid` when CLI-hosted.
-	 *  - No workspace match but we have a `pid` → focus the terminal.
+	 *  - Extension-hosted, owned by another VS Code window → notify the owning peer (if it has
+	 *    GitLens running with the workspace) to open the session in its Claude Code extension,
+	 *    then `vscode.openFolder` (different workspace) or an info message (same/no workspace,
+	 *    where OS-level cross-window focus is unreliable on multi-window VS Code instances).
+	 *  - Extension-hosted, owned by this window → open in our Claude Code extension.
+	 *  - CLI-hosted → focus the terminal via `pid`.
 	 *  - Neither workspace nor pid → warn.
 	 *
-	 *  Host classification reads `~/.claude/sessions/<pid>.json` for the `entrypoint` field
-	 *  (`claude-vscode` = extension, anything else = CLI). When the file is missing/unreadable,
-	 *  we fall back to "extension if installed, else CLI" so users still get a sensible action.
+	 *  Host classification reads `~/.claude/sessions/<pid>.json` for the `entrypoint` field; the
+	 *  ownership check walks up to two parent-pid levels — for extension sessions the Claude
+	 *  binary's direct parent is the owning extension host process, so `parent === process.pid`
+	 *  ⇔ ours, with one extra hop reserved as a safety margin for a hypothetical Claude shim
+	 *  between the binary and the extension host.
 	 */
 	private async dispatchSessionAction(session: AgentSession): Promise<void> {
-		if (!session.isInWorkspace && session.workspacePath != null) {
-			// Match by id, not object identity — provider session arrays are rebuilt on every
-			// update (immutable spread), so a `.includes(session)` check would miss if the
-			// provider rebuilt its array between the user's pick and this dispatch.
-			const provider = this._providers.find(p => p.sessions.some(s => s.id === session.id));
-			if (provider?.notifyPeerOpenSession != null) {
-				// Cap the wait so an unhealthy peer (e.g. paused/unresponsive but not RST) can't
-				// stall the user click for the full per-fetch timeout. The peer only needs to
-				// *start* opening the session before `vscode.openFolder` focuses its window — the
-				// outstanding POST keeps running in the background after we move on. `.catch` is
-				// attached to the notify promise itself (not to the race) so a late rejection
-				// after the timeout wins is still observed instead of escaping as an unhandled
-				// rejection.
-				const notifyPromise = provider
-					.notifyPeerOpenSession(session.workspacePath, session.id)
-					.catch((ex: unknown) =>
-						Logger.warn(
-							`AgentStatusService.dispatchSessionAction: notifyPeerOpenSession failed: ${
-								ex instanceof Error ? ex.message : String(ex)
-							}`,
-						),
-					);
-				await Promise.race([notifyPromise, new Promise<void>(resolve => setTimeout(resolve, 500))]);
-			}
-			void commands.executeCommand('vscode.openFolder', Uri.file(session.workspacePath), {
-				forceNewWindow: false,
-			});
+		// Match by id, not object identity — provider session arrays are rebuilt on every update
+		// (immutable spread), so a `.includes(session)` check would miss if the provider rebuilt
+		// its array between the user's pick and this dispatch.
+		const provider = this._providers.find(p => p.sessions.some(s => s.id === session.id));
+
+		const { classifyClaudeSessionHost } = await import('@env/agents/claudeSessionFile.js');
+		const host = session.pid != null ? await classifyClaudeSessionHost(session.pid) : undefined;
+
+		// For extension-hosted sessions, determine whether this VS Code window owns the live
+		// session (its Claude Code extension launched the Claude binary). The Claude binary's
+		// direct parent IS the owning extension host process, so `parent === process.pid` ⇔ ours.
+		// Authoritative even when the session arrived via `syncSessions` (which reads global
+		// Claude session files without knowing which window owns each).
+		const isExtensionLocal =
+			host === 'extension' && session.pid != null
+				? await this.isExtensionSessionLocallyHosted(session.pid)
+				: true;
+
+		// Peer-owned extension session, OR a peer-sync-discovered session. Either way the live
+		// panel lives in another VS Code window; opening locally would just create an inert view.
+		if ((host === 'extension' && !isExtensionLocal) || session.isPeerOwned) {
+			await this.dispatchPeerOwnedSession(provider, session);
 			return;
 		}
 
 		if (session.isInWorkspace) {
-			const { classifyClaudeSessionHost } = await import('@env/agents/claudeSessionFile.js');
-			const host = session.pid != null ? await classifyClaudeSessionHost(session.pid) : undefined;
-			const useExtension = host === 'extension' || (host == null && (await isClaudeExtensionAvailable()));
+			// Always probe — when host is 'extension' we still need the real value to decide
+			// between the actionable "Claude Code extension is not installed" warning below and
+			// the generic "unable to open" fallback. Forcing `true` here would make the
+			// extension-specific warning unreachable.
+			const extensionAvailable = await isClaudeExtensionAvailable();
+			const useExtension = host === 'extension' || (host == null && extensionAvailable);
 
-			if (useExtension && (await this.tryOpenInClaudeExtension(session.id))) return;
+			if (useExtension && (await tryOpenClaudeSession(session.id))) return;
 			// Skip the terminal-focus fallback when we *know* the session is extension-hosted —
 			// `pid` would be the extension host (VS Code itself), so focusing it is a no-op that
 			// would falsely signal success and swallow the warning the user needs.
@@ -505,27 +504,99 @@ export class AgentStatusService implements Disposable {
 				return;
 			}
 
-			void window.showWarningMessage('Unable to open agent session.');
+			Logger.warn(
+				`AgentStatusService.dispatchSessionAction: in-workspace open failed for session ${session.id} (host=${host ?? 'unknown'}, pid=${session.pid ?? 'none'}, extensionAvailable=${extensionAvailable})`,
+			);
+			void window.showWarningMessage(
+				host === 'extension' && !extensionAvailable
+					? 'The Claude Code extension is not installed or not available.'
+					: 'Unable to open agent session.',
+			);
 			return;
 		}
 
+		// CLI-hosted out-of-workspace session — focus the terminal.
 		if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
 
+		Logger.warn(
+			`AgentStatusService.dispatchSessionAction: no actionable target for session ${session.id} (isInWorkspace=${session.isInWorkspace}, workspacePath=${session.workspacePath ?? 'none'}, pid=${session.pid ?? 'none'})`,
+		);
 		void window.showWarningMessage('Unable to open agent session.');
 	}
 
-	private async tryOpenInClaudeExtension(sessionId: string): Promise<boolean> {
-		try {
-			await commands.executeCommand('claude-vscode.editor.open', sessionId);
-			return true;
-		} catch {
-			try {
-				await commands.executeCommand('claude-vscode.sidebar.open');
-				return true;
-			} catch {
+	/** Routes a session that's owned by another VS Code window. Notifies the owning peer (if it
+	 *  has GitLens running with the workspace) so its Claude Code extension surfaces the session,
+	 *  then either `vscode.openFolder` (different workspace — focuses the peer window via the
+	 *  folder-already-open path) or an info message (same workspace or unknown workspace, where
+	 *  OS-level cross-window focus across a multi-window VS Code app is unreliable). */
+	private async dispatchPeerOwnedSession(
+		provider: AgentSessionProvider | undefined,
+		session: AgentSession,
+	): Promise<void> {
+		// Target folder to focus. Each step picks a more general fallback so out-of-workspace
+		// sessions (cwd doesn't match any of OUR workspace folders) still resolve to a path some
+		// peer window likely has open as its workspace root:
+		//  - workspacePath: our matched folder (only set when isInWorkspace=true; unused here)
+		//  - worktreePath:  the session's worktree root — correct for named worktrees where the
+		//                   peer has the worktree dir open, not the common repo dir
+		//  - commonPath:    the parent repo's common dir — correct for default-worktree sessions
+		//  - cwd:           last-resort raw cwd. May be a subdir of the peer's workspace, in which
+		//                   case `vscode.openFolder` would open the subdir as its own workspace
+		//                   instead of focusing the peer. In practice Claude sessions run at the
+		//                   workspace root so cwd usually equals what the peer holds; the residual
+		//                   risk is documented rather than fixed (full fix would have
+		//                   `notifyPeerOpenSession` return the matched workspacePath so this
+		//                   function could pass that exact path to `openFolder` instead).
+		const targetPath = session.workspacePath ?? session.worktreePath ?? session.commonPath ?? session.cwd;
+
+		if (provider?.notifyPeerOpenSession != null && targetPath != null) {
+			// Cap the wait so an unhealthy peer can't stall the user click for the full per-fetch
+			// timeout. The peer only needs to *start* opening the session before the focus switch
+			// lands. `.catch` is on the notify promise itself (not the race) so a late rejection
+			// after the timeout wins is still observed. We don't use the return value: VS Code's
+			// `openFolder` finds and focuses the owning window whether or not it has GitLens, so
+			// peer match status isn't the right signal for `forceNewWindow`.
+			const notifyPromise = provider.notifyPeerOpenSession(targetPath, session.id).catch((ex: unknown) => {
+				Logger.warn(
+					`AgentStatusService.dispatchPeerOwnedSession: notifyPeerOpenSession failed: ${
+						ex instanceof Error ? ex.message : String(ex)
+					}`,
+				);
 				return false;
-			}
+			});
+			await Promise.race([notifyPromise, new Promise<void>(resolve => setTimeout(resolve, 500))]);
 		}
+
+		// Different workspace → `vscode.openFolder` with `forceNewWindow: false` asks VS Code to
+		// focus the existing window holding `targetPath` (this works across windows even if the
+		// peer doesn't have GitLens). Peer-owned implies *some* live window holds the folder (the
+		// session is running there), so VS Code's window-folder matching reliably hits it instead
+		// of replacing the current window.
+		if (!session.isInWorkspace && targetPath != null) {
+			void commands.executeCommand('vscode.openFolder', Uri.file(targetPath), {
+				forceNewWindow: false,
+			});
+			return;
+		}
+
+		// Same workspace (already open here, can't disambiguate) or no target at all. Surface a
+		// clear hint with the cwd so the user can switch manually.
+		Logger.warn(
+			`AgentStatusService.dispatchPeerOwnedSession: routed via info hint (pid=${session.pid ?? 'none'}, workspacePath=${session.workspacePath ?? 'none'}, cwd=${session.cwd ?? 'none'})`,
+		);
+		const cwdHint = session.cwd ? ` (${session.cwd})` : '';
+		void window.showInformationMessage(
+			`This session is running in another VS Code window${cwdHint}. Switch to it to view.`,
+		);
+	}
+
+	/** Returns `true` iff the given `pid` (a Claude binary process for an extension-hosted session)
+	 *  is a descendant of this VS Code window's extension host. For peer-owned sessions the parent
+	 *  is a *different* extension host (another window's), so this resolves to `false` — that's the
+	 *  dispatcher's signal to route through the peer-notify path instead of opening locally. */
+	private async isExtensionSessionLocallyHosted(pid: number): Promise<boolean> {
+		const { isDescendantOfThisExtensionHost } = await import('@env/focusWindow.js');
+		return isDescendantOfThisExtensionHost(pid);
 	}
 
 	private async tryFocusProcessWindow(pid: number): Promise<boolean> {

@@ -1,6 +1,6 @@
 import { dirname, resolve } from 'path';
 import type { Disposable } from 'vscode';
-import { commands, workspace } from 'vscode';
+import { workspace } from 'vscode';
 import { ClaudeCodeProvider } from '@gitlens/agents/providers/claudeCodeProvider.js';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
@@ -10,6 +10,7 @@ import { findGitPath } from '@gitlens/git-cli/exec/locator.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionProvider } from '../../agents/provider.js';
+import { tryOpenClaudeSession } from '../../agents/utils/-webview/claudeExtension.js';
 import type { Container } from '../../container.js';
 import type { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
@@ -139,7 +140,13 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 			},
 			runCLICommand: (args, opts) => runCLICommand(args, opts),
 			openSessionInClaudeExtension: async sessionId => {
-				await commands.executeCommand('claude-vscode.editor.open', sessionId);
+				// Shared editor → primaryEditor → sidebar fallback chain so the peer-side open
+				// honors a specific session through the same rungs the local-window path uses.
+				// Throws when all three rungs fail so the IPC handler can report
+				// `{ opened: false }` to the initiating window.
+				if (!(await tryOpenClaudeSession(sessionId))) {
+					throw new Error('Claude Code extension did not respond to any open command');
+				}
 			},
 			resolveGitInfo: async cwd => {
 				// Fast path: cwd is in an already-loaded repo — fully synchronous, no shell calls.

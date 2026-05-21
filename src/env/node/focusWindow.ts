@@ -1,6 +1,6 @@
 import type { ExecFileException } from 'child_process';
 import { execFile } from 'child_process';
-import { platform, env as processEnv } from 'process';
+import { pid as ownPid, platform, env as processEnv } from 'process';
 import { Logger } from '@gitlens/utils/logger.js';
 
 const maxParentWalkDepth = 10;
@@ -94,6 +94,29 @@ async function focusWindows(pid: number): Promise<boolean> {
 		'-Command',
 		`(New-Object -ComObject WScript.Shell).AppActivate(${pid})`,
 	]);
+}
+
+/** Returns the parent process ID of `pid`, or `undefined` when the lookup fails. Walks `ps`
+ *  (Unix) or `wmic` (Windows). Used both by the parent-pid walk inside {@link focusProcessWindow}
+ *  and by {@link isDescendantOfThisExtensionHost} below. */
+export async function getProcessParentPid(pid: number): Promise<number | undefined> {
+	return getParentPid(pid);
+}
+
+/** Returns `true` iff `pid` is a descendant (within `maxDepth` parent hops) of the current
+ *  extension host process. Used by the agent dispatcher to distinguish extension-hosted sessions
+ *  owned by this VS Code window (Claude binary's parent === our extension host) from sessions
+ *  owned by a peer window (parent === some other extension host). Browser stub returns `false`. */
+export async function isDescendantOfThisExtensionHost(pid: number, maxDepth = 2): Promise<boolean> {
+	let current = pid;
+	for (let i = 0; i < maxDepth; i++) {
+		const parent = await getParentPid(current);
+		if (parent == null) return false;
+		if (parent === ownPid) return true;
+
+		current = parent;
+	}
+	return false;
 }
 
 async function getParentPid(pid: number): Promise<number | undefined> {

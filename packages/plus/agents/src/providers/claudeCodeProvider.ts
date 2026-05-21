@@ -322,17 +322,19 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			),
 			this.callbacks.ipc.registerHandler('agents/sessions/open', async request => {
 				const sessionId = (request as { sessionId?: string } | undefined)?.sessionId;
-				if (!sessionId || this.callbacks.openSessionInClaudeExtension == null) return {};
+				if (!sessionId || this.callbacks.openSessionInClaudeExtension == null) {
+					return { opened: false };
+				}
 
 				try {
 					await this.callbacks.openSessionInClaudeExtension(sessionId);
+					return { opened: true };
 				} catch (ex) {
 					Logger.warn(
 						`ClaudeCodeProvider.agents/sessions/open: ${ex instanceof Error ? ex.message : String(ex)}`,
 					);
+					return { opened: false };
 				}
-
-				return {};
 			}),
 		];
 
@@ -1472,6 +1474,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						workspacePath: normalizeWorkspacePath(peerSession.workspacePath),
 						isInWorkspace: this.matchesWorkspace(peerSession.workspacePath),
 						subagents: rehydrateSubagents(peerSession.subagents),
+						// Override whatever the peer published — this is OUR ownership view: the peer
+						// (or some other window) hosts the live session, not us. Drives the dispatcher
+						// to route opens through the peer's IPC + OS-level window focus instead of
+						// calling `claude-vscode.editor.open` locally (which would just open an inert
+						// view in our window).
+						isPeerOwned: true,
 					});
 					changed = true;
 				}
@@ -1530,13 +1538,18 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	/** Find the peer GitLens window whose discovery file claims `workspacePath`, and POST to its
-	 *  `/agents/sessions/open` route to ask its Claude Code extension to open the session. The
-	 *  caller is responsible for the follow-up `vscode.openFolder` that focuses the peer window —
-	 *  this method just makes sure the session is ready in the peer's editor before the focus
-	 *  switch lands. Best-effort: swallows scan, network, and JSON-parse errors. */
-	async notifyPeerOpenSession(workspacePath: string, sessionId: string): Promise<void> {
+	 *  `/agents/sessions/open` route to ask its Claude Code extension to open the session.
+	 *
+	 *  Resolves to `true` when at least one peer claimed the workspace AND was reachable (the POST
+	 *  completed with any HTTP status). The peer's response shape (`{ opened: boolean }`) is logged
+	 *  for diagnostics but does NOT affect the return value — an `opened: false` peer is still the
+	 *  right window for the caller to focus, since it's the window that owns the session. Resolves
+	 *  to `false` when no peer claimed the workspace OR every claimer was unreachable; the caller
+	 *  treats that as "no peer to focus" and opens a new window instead of replacing the current
+	 *  one. Best-effort: swallows scan, JSON-parse errors. */
+	async notifyPeerOpenSession(workspacePath: string, sessionId: string): Promise<boolean> {
 		const discoveryDir = this.callbacks.ipc.agentDiscoveryDir;
-		if (discoveryDir == null) return;
+		if (discoveryDir == null) return false;
 
 		const target = normalizePath(workspacePath);
 		const ownPort = this.callbacks.ipc.port;
@@ -1545,10 +1558,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		try {
 			files = await readdir(discoveryDir);
 		} catch {
-			return;
+			return false;
 		}
 
-		await Promise.all(
+		const results = await Promise.all(
 			files
 				.filter(f => f.startsWith('gitlens-ipc-server-') && f.endsWith('.json'))
 				.map(async f => {
@@ -1556,13 +1569,28 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					try {
 						discovery = JSON.parse(await readFile(join(discoveryDir, f), 'utf8')) as DiscoveryFile;
 					} catch {
-						return;
+						return false;
 					}
-					if (ownPort != null && discovery.port === ownPort) return;
-					if (!discovery.workspacePaths?.some(p => normalizePath(p) === target)) return;
+					if (ownPort != null && discovery.port === ownPort) return false;
+					// Symmetric prefix containment — same shape as `matchesWorkspace()` above.
+					// Strict equality misses the common case where the dispatcher passes a `cwd`
+					// inside the peer's workspace folder (or, less commonly, a parent dir that
+					// contains the peer's workspace).
+					if (
+						!discovery.workspacePaths?.some(p => {
+							const normalized = normalizePath(p);
+							return (
+								normalized === target ||
+								target.startsWith(`${normalized}/`) ||
+								normalized.startsWith(`${target}/`)
+							);
+						})
+					) {
+						return false;
+					}
 
 					try {
-						await fetch(`${discovery.address}/agents/sessions/open`, {
+						const response = await fetch(`${discovery.address}/agents/sessions/open`, {
 							method: 'POST',
 							headers: {
 								Authorization: `Bearer ${discovery.token}`,
@@ -1571,10 +1599,37 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							body: JSON.stringify({ sessionId: sessionId }),
 							signal: AbortSignal.timeout(2000),
 						});
-					} catch {
-						// Best-effort — vscode.openFolder still focuses the peer window.
+						if (!response.ok) {
+							Logger.warn(
+								`ClaudeCodeProvider.notifyPeerOpenSession: peer at ${discovery.address} returned ${response.status}`,
+							);
+						} else {
+							// Log a peer that failed to open the specific session, but still treat it
+							// as a reachable claimer of the workspace — focusing that window is still
+							// what the user wants.
+							const body = (await response.json().catch(() => undefined)) as
+								| { opened?: boolean }
+								| undefined;
+							if (body?.opened === false) {
+								Logger.warn(
+									`ClaudeCodeProvider.notifyPeerOpenSession: peer at ${discovery.address} could not open session ${sessionId}`,
+								);
+							}
+						}
+						return true;
+					} catch (ex) {
+						// Peer advertised but unreachable (timeout, RST, etc.). Treat as no match so
+						// the caller opens a new window instead of trying to focus a dead window.
+						Logger.warn(
+							`ClaudeCodeProvider.notifyPeerOpenSession: peer at ${discovery.address} unreachable: ${
+								ex instanceof Error ? ex.message : String(ex)
+							}`,
+						);
+						return false;
 					}
 				}),
 		);
+
+		return results.some(Boolean);
 	}
 }

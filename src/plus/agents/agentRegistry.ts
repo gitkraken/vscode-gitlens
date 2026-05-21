@@ -3,6 +3,8 @@ import { cliAgentIds, getAllAgents, isCliExecutableAvailable } from '@env/gk/cli
 import {
 	claudeExtensionId,
 	claudeExtensionOpenCommand,
+	claudeExtensionPrimaryEditorOpenCommand,
+	claudeExtensionSidebarOpenCommand,
 	isClaudeExtensionAvailable,
 } from '../../agents/utils/-webview/claudeExtension.js';
 import { getHostAppName } from '../../system/-webview/vscode.js';
@@ -103,4 +105,10 @@ export async function resolveDefaultAgent(id: string): Promise<AgentDescriptor |
 	return available.find(d => d.id === id);
 }
 
-export { claudeExtensionId, claudeExtensionOpenCommand, isClaudeExtensionAvailable };
+export {
+	claudeExtensionId,
+	claudeExtensionOpenCommand,
+	claudeExtensionPrimaryEditorOpenCommand,
+	claudeExtensionSidebarOpenCommand,
+	isClaudeExtensionAvailable,
+};
