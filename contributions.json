@@ -6854,7 +6854,7 @@
 			"commandPalette": "gitlens:enabled"
 		},
 		"gitlens.startReview.openInAgent": {
-			"label": "Start PR Review in an Agent",
+			"label": "Start PR Review with Agent",
 			"icon": "$(git-pull-request)",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 		},
@@ -6864,7 +6864,7 @@
 			"commandPalette": "gitlens:enabled"
 		},
 		"gitlens.startWork.openInAgent": {
-			"label": "Start Work in an Agent",
+			"label": "Start Work with Agent",
 			"icon": "$(rocket)",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 		},

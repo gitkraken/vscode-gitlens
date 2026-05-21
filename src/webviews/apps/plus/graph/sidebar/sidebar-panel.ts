@@ -84,13 +84,13 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 		actions: [
 			{
 				icon: 'issues',
-				tooltip: 'Start Work in an Agent...',
+				tooltip: 'Start Work with Agent...',
 				command: 'gitlens.startWork',
 				args: [{ source: 'graph-sidebar', showOpenInAgent: 'agent' }],
 			},
 			{
 				icon: 'git-pull-request',
-				tooltip: 'Start PR Review in an Agent...',
+				tooltip: 'Start PR Review with Agent...',
 				command: 'gitlens.startReview',
 				args: [{ source: 'graph-sidebar', showOpenInAgent: 'agent' }],
 			},

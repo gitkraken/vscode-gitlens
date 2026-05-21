@@ -8940,7 +8940,7 @@
 			},
 			{
 				"command": "gitlens.startReview.openInAgent",
-				"title": "Start PR Review in an Agent",
+				"title": "Start PR Review with Agent",
 				"category": "GitLens",
 				"icon": "$(git-pull-request)"
 			},
@@ -8952,7 +8952,7 @@
 			},
 			{
 				"command": "gitlens.startWork.openInAgent",
-				"title": "Start Work in an Agent",
+				"title": "Start Work with Agent",
 				"category": "GitLens",
 				"icon": "$(rocket)"
 			},
