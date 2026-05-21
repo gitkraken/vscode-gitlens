@@ -519,6 +519,13 @@ export class GlWelcomePage extends LitElement {
 					.doneCount=${this._state.walkthroughProgress?.doneCount ?? 0}
 					.allCount=${this._state.walkthroughProgress?.allCount ?? 0}
 				></gl-walkthrough-progress>
+				<div class="section section--centered">
+					<p>
+						<a class="back-link" href="${createCommandLink('gitlens.showWelcomeView', { mode: 'graph' })}"
+							>See what's new in the Commit Graph &rarr;</a
+						>
+					</p>
+				</div>
 				<gl-walkthrough class="section">
 					${walkthroughSteps
 						.filter(step => !step.condition || step.condition(this._state))
@@ -537,11 +544,6 @@ export class GlWelcomePage extends LitElement {
 						)}
 				</gl-walkthrough>
 				<div class="section section--centered">
-					<p>
-						<a href="${createCommandLink('gitlens.showWelcomeView', { mode: 'graph' })}"
-							>See what's new in the Commit Graph &rarr;</a
-						>
-					</p>
 					<p>
 						You also have access to the
 						<a href="https://gitkraken.dev/tools" target="_blank">GitKraken DevEx platform</a>, unleashing
