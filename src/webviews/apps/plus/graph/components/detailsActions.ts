@@ -2531,7 +2531,7 @@ export class DetailsActions {
 		});
 	}
 
-	createPullRequest(repoPath: string | undefined): void {
+	createPullRequest(repoPath: string | undefined, options?: { describeWithAI?: boolean }): void {
 		if (!repoPath) return;
 
 		const wip = this.state.wip.get();
@@ -2543,6 +2543,7 @@ export class DetailsActions {
 			repoPath: repoPath,
 			compare: branch.name,
 			remote: getRemoteNameFromBranchName(upstreamName),
+			describeWithAI: options?.describeWithAI,
 		});
 	}
 

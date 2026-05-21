@@ -88,6 +88,9 @@ export interface Wip {
 		path: string;
 		/** True when this repo is a linked worktree (`git worktree`), false for the primary/main worktree. */
 		isWorktree: boolean;
+		provider?: {
+			supportedFeatures: { createPullRequestWithDetails?: boolean };
+		};
 	};
 }
 

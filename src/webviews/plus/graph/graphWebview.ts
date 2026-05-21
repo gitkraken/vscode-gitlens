@@ -6035,6 +6035,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			};
 		}
 
+		const branchRemote = branch != null ? await getBranchRemote(this.container, branch) : undefined;
+		signal?.throwIfAborted();
+
 		const diff = status.diffStatus;
 
 		return {
@@ -6053,6 +6056,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					name: repo.name,
 					path: repo.path,
 					isWorktree: repo.isWorktree,
+					provider:
+						branchRemote?.provider != null
+							? {
+									supportedFeatures: {
+										createPullRequestWithDetails:
+											branchRemote.provider.supportedFeatures?.createPullRequestWithDetails,
+									},
+								}
+							: undefined,
 				},
 			},
 			stats: {

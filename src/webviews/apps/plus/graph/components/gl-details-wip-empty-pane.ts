@@ -20,6 +20,7 @@ type NextStep = {
 	label: string;
 	actionLabel: string;
 	event: string;
+	actionPrefixIcon?: string;
 	/** Optional alt action — rendered as the small side of a split-button. */
 	alt?: { actionLabel: string; event: string; tooltip?: string; icon?: string };
 };
@@ -40,6 +41,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	@property({ type: Boolean }) hasIntegrationsConnected = false;
 	@property({ type: Object }) launchpadSummary?: LaunchpadSummaryResult | { error: Error };
 	@property({ type: Boolean }) aiEnabled = false;
+	@property({ type: Boolean }) aiCreatePrEnabled = false;
 	@property({ type: Object }) mergeTargetStatus?: BranchMergeTargetStatus;
 
 	override render(): unknown {
@@ -106,8 +108,12 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			class="next-step__action"
 			appearance="secondary"
 			@click=${() => this.emit(step.event)}
-			>${step.actionLabel}</gl-button
-		>`;
+		>
+			${step.actionPrefixIcon
+				? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>`
+				: nothing}
+			${step.actionLabel}
+		</gl-button>`;
 
 		const action =
 			step.alt != null
@@ -413,11 +419,13 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			// Show "Create PR" for any published branch without an existing PR,
 			// regardless of ahead/behind state — matches Home view behavior.
 			if (!this.hasPullRequest) {
+				const useAI = this.aiCreatePrEnabled;
 				steps.push({
 					icon: 'git-pull-request-create',
 					label: 'Create a Pull Request',
 					actionLabel: 'Create PR',
-					event: 'create-pr',
+					actionPrefixIcon: useAI ? 'sparkle' : undefined,
+					event: useAI ? 'create-pr-ai' : 'create-pr',
 				});
 			}
 		}

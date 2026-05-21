@@ -1160,6 +1160,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const branchName = wip.branch?.name ?? 'unknown';
 		const activeMode = this._state.activeMode.get();
 		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
+		const aiCreatePrEnabled =
+			(this._state.preferences.get()?.aiEnabled ?? false) &&
+			(this._state.orgSettings.get()?.ai ?? false) &&
+			(wip.repo?.provider?.supportedFeatures?.createPullRequestWithDetails ?? false);
 		const worktreeAgentSessions = this.getWorktreeAgentSessions(wip);
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
 		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
@@ -1245,6 +1249,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 								<gl-details-wip-empty-pane
 									.wip=${wip}
 									.aiEnabled=${false}
+									.aiCreatePrEnabled=${aiCreatePrEnabled}
 									.hasPullRequest=${this._state.wipPullRequestLoading.get() ||
 									this._state.wipPullRequest.get() != null}
 									.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
@@ -1253,6 +1258,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									@switch-branch=${this.handleSwitchBranch}
 									@create-branch=${this.handleCreateBranch}
 									@create-pr=${this.handleCreatePullRequest}
+									@create-pr-ai=${this.handleCreatePullRequestWithAI}
 									@start-work=${this.handleStartWork}
 									@apply-stash=${this.handleApplyStash}
 									@new-worktree=${this.handleNewWorktree}
@@ -1971,6 +1977,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleFetch = () => void this._actions.services.repository.fetch(this.effectiveRepoPath!);
 
 	private handleCreatePullRequest = () => this._actions.createPullRequest(this.effectiveRepoPath);
+
+	private handleCreatePullRequestWithAI = () =>
+		this._actions.createPullRequest(this.effectiveRepoPath, { describeWithAI: true });
 
 	private handleShareWipAsCloudPatch = () =>
 		void this._actions.services.commands.executeScoped('gitlens.shareWipAsCloudPatch:graph', {
