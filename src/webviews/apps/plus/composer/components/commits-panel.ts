@@ -300,7 +300,7 @@ export class CommitsPanel extends LitElement {
 				width: 100%;
 				padding: 0.5rem;
 				border: 1px solid var(--vscode-input-border, transparent);
-				border-radius: 3px;
+				border-radius: var(--gl-input-border-radius);
 				background: var(--vscode-input-background);
 				color: var(--vscode-input-foreground);
 				font-family: inherit;

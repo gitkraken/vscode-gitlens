@@ -146,7 +146,7 @@ export class GlSearchInput extends GlElement {
 			background-color: var(--gl-search-input-background);
 			color: var(--gl-search-input-foreground);
 			border: 1px solid var(--gl-search-input-border);
-			border-radius: 0.25rem;
+			border-radius: var(--gl-input-border-radius);
 			padding-top: 0;
 			padding-bottom: 1px;
 			padding-left: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
@@ -198,7 +198,7 @@ export class GlSearchInput extends GlElement {
 		.input-container {
 			position: relative;
 			background-color: var(--gl-search-input-background);
-			border-radius: 0.25rem;
+			border-radius: var(--gl-input-border-radius);
 		}
 
 		.input-highlight {
@@ -213,7 +213,7 @@ export class GlSearchInput extends GlElement {
 			box-sizing: border-box;
 			height: 2.7rem;
 			border: 1px solid transparent;
-			border-radius: 0.25rem;
+			border-radius: var(--gl-input-border-radius);
 			font-family: inherit;
 			font-size: inherit;
 			line-height: 2.7rem;

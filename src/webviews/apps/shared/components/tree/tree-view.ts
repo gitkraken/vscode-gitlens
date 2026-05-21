@@ -108,7 +108,7 @@ export class GlTreeView extends GlElement {
 				color: var(--vscode-input-foreground);
 				background-color: var(--vscode-input-background);
 				border: 1px solid var(--vscode-input-border, transparent);
-				border-radius: 2px;
+				border-radius: var(--gl-input-border-radius);
 				outline: none;
 			}
 
