@@ -93,12 +93,12 @@ export class GlGraphMinimapContainer extends GlElement {
 		.minimap-datatype__label {
 			display: inline-flex;
 			align-items: center;
-			gap: 0.375rem;
+			gap: 0.6rem;
 		}
 
 		.minimap-datatype__info {
 			color: var(--color-foreground--50);
-			font-size: 0.75rem;
+			font-size: 1.3rem;
 		}
 
 		.minimap-datatype__info:hover {

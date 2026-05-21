@@ -446,29 +446,49 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		[initProps.onChangeColumns],
 	);
 
+	// Mirror `props.rows` into a ref so the visible-rows handler can resolve WIP rows against the
+	// LIVE rows array without re-creating the handler each time rows change. Recreating the handler
+	// on every rows update churns the GK component's event-binding cache, which has been observed to
+	// call back with a stale handler closure during the WIP→commit scroll transition.
+	const rowsRef = useRef(props.rows);
+	rowsRef.current = props.rows;
+
 	const handleOnGraphVisibleRowsChanged = useCallback(
 		(top: GraphRow, bottom: GraphRow) => {
-			// Synthetic WIP rows use `Date.now()` as their commit date so the GK component sorts them
-			// to "now". For visible-day projection, that anchors the overlay at "today" even when all
-			// real visible commits are older — overshooting the actual visible time range and making
-			// the overlay overlap a scope highlight that's days away. Resolve WIP rows to their parent
-			// commit so the overlay reflects only real commit dates. `commitDateOf` then pulls the
-			// committer-date (always populated by the row source, even when `row.date` follows author-
-			// date ordering) so the overlay aligns with the minimap spline + scope highlight.
-			const dateForRow = (row: GraphRow): number => {
+			// Synthetic WIP rows use `Date.now()` as their commit date and aren't real points on the
+			// timeline, so they shouldn't expand the visible-window range. Resolve a visible WIP to
+			// the nearest real row INSIDE the viewport: walk forward for `top` (newer edge → toward
+			// older), walk backward for `bottom` (older edge → toward newer). Either direction lands
+			// on the adjacent non-WIP row that's still inside the viewport, so the overlay reflects
+			// only the REAL commits actually visible — never spilling past WIPs sitting at either
+			// edge of the viewport.
+			const dateForRow = (row: GraphRow, step: 1 | -1): number => {
 				if (row.type === 'work-dir-changes') {
-					const parentSha = row.parents?.[0];
-					const parent = parentSha ? props.rows?.find(r => r.sha === parentSha) : undefined;
-					if (parent != null) return getCommitDateFromRow(parent);
+					const rows = rowsRef.current;
+					if (rows != null) {
+						// The GK component wraps incoming rows into processed objects pushed into its
+						// internal `orderedGraphRows`, so the row reference passed to this callback is
+						// NOT the same instance as our decorated rows. Look up by `sha`, which is
+						// invariant across the wrap.
+						const sha = row.sha;
+						const idx = rows.findIndex(r => r.sha === sha);
+						if (idx !== -1) {
+							for (let i = idx + step; i >= 0 && i < rows.length; i += step) {
+								if (rows[i].type !== 'work-dir-changes') {
+									return getCommitDateFromRow(rows[i]);
+								}
+							}
+						}
+					}
 				}
 				return getCommitDateFromRow(row);
 			};
 			initProps.onChangeVisibleDays?.({
-				top: new Date(dateForRow(top)).setHours(23, 59, 59, 999),
-				bottom: new Date(dateForRow(bottom)).setHours(0, 0, 0, 0),
+				top: new Date(dateForRow(top, 1)).setHours(23, 59, 59, 999),
+				bottom: new Date(dateForRow(bottom, -1)).setHours(0, 0, 0, 0),
 			});
 		},
-		[initProps.onChangeVisibleDays, props.rows],
+		[initProps.onChangeVisibleDays],
 	);
 
 	const handleOnGraphColumnsReOrdered = useCallback(
