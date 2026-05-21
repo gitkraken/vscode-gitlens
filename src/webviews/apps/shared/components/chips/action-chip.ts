@@ -190,7 +190,7 @@ export class ActionChip extends LitElement {
 			>`;
 		}
 
-		return html`<gl-tooltip content="${this.effectiveTooltip ?? this.label}">${this.renderContent()}</gl-tooltip>`;
+		return html`<gl-tooltip content="${this.effectiveTooltip}">${this.renderContent()}</gl-tooltip>`;
 	}
 
 	private renderContent() {

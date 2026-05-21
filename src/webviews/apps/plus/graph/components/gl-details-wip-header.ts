@@ -140,10 +140,10 @@ export class GlDetailsWipHeader extends LitElement {
 									alt-label="Open Worktree"
 									overlay="tooltip"
 									href=${this._webview.createCommandLink('gitlens.openWorktreeInNewWindow:', {
-										worktreePath: wip.repo.path,
+										worktreeUri: wip.repo.uri,
 									})}
 									alt-href=${this._webview.createCommandLink('gitlens.openWorktree:', {
-										worktreePath: wip.repo.path,
+										worktreeUri: wip.repo.uri,
 									})}
 								></gl-action-chip>`
 							: nothing}

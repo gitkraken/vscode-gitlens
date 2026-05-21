@@ -8990,18 +8990,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@command('gitlens.openWorktree:')
 	@debug()
 	private async openWorktree(
-		item?: GraphItemContext | BranchRef | { worktreePath: string },
+		item?: GraphItemContext | BranchRef | { worktreeUri: string },
 		options?: { location?: OpenWorkspaceLocation },
 	) {
-		// Webview action-link path (WIP details header): worktree identity arrives as a raw path —
-		// no branch lookup needed, so this also covers detached-HEAD worktrees.
-		if (
-			item != null &&
-			typeof item === 'object' &&
-			'worktreePath' in item &&
-			typeof item.worktreePath === 'string'
-		) {
-			openWorkspace(Uri.file(item.worktreePath), options);
+		// Webview action-link path (WIP details header): worktree identity arrives as a full URI
+		// string — no branch lookup needed (so this also covers detached-HEAD worktrees), and the
+		// scheme is preserved so remote-development worktrees (vscode-remote://, etc.) open on the
+		// right host instead of falling back to a local file path.
+		if (item != null && typeof item === 'object' && 'worktreeUri' in item && typeof item.worktreeUri === 'string') {
+			openWorkspace(Uri.parse(item.worktreeUri), options);
 			return;
 		}
 
@@ -9054,7 +9051,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@command('gitlens.openWorktreeInNewWindow:')
-	private openWorktreeInNewWindow(item?: GraphItemContext | BranchRef | { worktreePath: string }) {
+	private openWorktreeInNewWindow(item?: GraphItemContext | BranchRef | { worktreeUri: string }) {
 		return this.openWorktree(item, { location: 'newWindow' });
 	}
 
