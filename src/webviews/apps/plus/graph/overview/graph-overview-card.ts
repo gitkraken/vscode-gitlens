@@ -308,18 +308,6 @@ export class GlGraphOverviewCard extends LitElement {
 			margin-inline-start: auto;
 		}
 
-		.branch-item__wip {
-			display: inline-flex;
-			align-items: center;
-			padding: 0.2rem 0.4rem;
-			border: 1px solid color-mix(in srgb, transparent 80%, var(--color-foreground));
-			border-radius: 0.5rem;
-			font-size: 1rem;
-			line-height: 1;
-			color: var(--vscode-descriptionForeground);
-			--code-icon-size: 1rem;
-		}
-
 		.branch-item__count {
 			display: inline-flex;
 			align-items: center;
@@ -364,12 +352,6 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.branch-item:not(:focus-within):not(:hover) .branch-item__inline-actions {
 			${srOnlyStyles}
-		}
-
-		.wip__pill {
-			display: flex;
-			flex-direction: row;
-			gap: 1rem;
 		}
 
 		.wip__tooltip {
@@ -820,16 +802,12 @@ export class GlGraphOverviewCard extends LitElement {
 	}
 
 	private renderWipBasic() {
-		// Card-level wip is presence-only — a single icon when the working tree is dirty. The
+		// Card-level wip is an indicator-only — a single icon when the working tree is dirty or clean. The
 		// full added/changed/deleted breakdown surfaces in the rich hover (#5170).
-		if (!this.hasWip) return nothing;
 
-		return html`<gl-tooltip class="wip__pill" placement="bottom"
-			><span class="branch-item__wip"><code-icon icon="pencil"></code-icon></span>
-			<span class="wip__tooltip" slot="content">
-				<p>Working tree has changes</p>
-			</span></gl-tooltip
-		>`;
+		if (this.wip == null) return nothing;
+
+		return html`<gl-wip-stats badge show-clean .dirty=${this.hasWip}></gl-wip-stats>`;
 	}
 
 	private renderWipFull() {

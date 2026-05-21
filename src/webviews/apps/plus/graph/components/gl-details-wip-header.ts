@@ -100,7 +100,7 @@ export class GlDetailsWipHeader extends LitElement {
 							.added=${addedCount}
 							.modified=${modifiedCount}
 							.removed=${removedCount}
-							clean-state="badge"
+							show-clean
 						></gl-wip-stats>`
 					: nothing}
 			</div>
@@ -146,7 +146,7 @@ export class GlDetailsWipHeader extends LitElement {
 								.added=${addedCount}
 								.modified=${modifiedCount}
 								.removed=${removedCount}
-								clean-state="badge"
+								show-clean
 							></gl-wip-stats>`
 						: nothing}
 					<gl-tracking-status

@@ -1005,7 +1005,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 
 			case DidChangeOverviewWipNotification.is(msg):
-				this.overviewWip = msg.params.wip;
+				this.overviewWip = msg.params;
 				break;
 
 			case DidChangeAgentSessionsNotification.is(msg):

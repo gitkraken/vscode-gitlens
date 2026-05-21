@@ -5082,7 +5082,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const wip = await this.onGetOverviewWip({ branchIds: branchIds });
 
-		void this.host.notify(DidChangeOverviewWipNotification, { wip: wip });
+		void this.host.notify(DidChangeOverviewWipNotification, { branchIds: branchIds, wip: wip });
 	}
 
 	@trace()

@@ -852,6 +852,7 @@ export interface DidChangeOverviewParams {
 export const DidChangeOverviewNotification = new IpcNotification<DidChangeOverviewParams>(scope, 'overview/didChange');
 
 export interface DidChangeOverviewWipParams {
+	branchIds: string[];
 	wip: GetOverviewWipResponse;
 }
 export const DidChangeOverviewWipNotification = new IpcNotification<DidChangeOverviewWipParams>(

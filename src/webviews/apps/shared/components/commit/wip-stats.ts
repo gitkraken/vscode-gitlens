@@ -3,50 +3,76 @@ import { customElement, property } from 'lit/decorators.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import { baseStyles as pillStyles } from '../pills/pill.css.js';
 import './commit-stats.js';
 import '../code-icon.js';
 import '../overlays/tooltip.js';
 
-export type WipStatsCleanState = 'hidden' | 'badge';
-
 @customElement('gl-wip-stats')
 export class GlWipStats extends LitElement {
-	static override styles = css`
-		:host {
-			display: contents;
-		}
+	static override styles = [
+		pillStyles,
+		css`
+			:host {
+				display: contents;
+			}
 
-		.wip-clean-check {
-			--code-icon-size: 1.1rem;
-			--code-icon-v-align: middle;
-			color: var(--gl-stat-added);
-		}
+			.wip-clean-check {
+				--code-icon-size: 1.1rem;
+				--code-icon-v-align: middle;
+				color: var(--gl-stat-added);
+			}
 
-		.paused-op-badge {
-			display: inline-flex;
-			align-items: center;
-			gap: 0.6rem;
-			padding: 0.1rem 0.4rem;
-			border-radius: 0.3rem;
-			background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-			color: #000;
-			font-size: 1.1rem;
-			font-weight: 600;
-			line-height: 2rem;
-			white-space: nowrap;
-		}
+			.indicator-pill {
+				--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
+			}
 
-		.paused-op-badge--conflicts {
-			background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
-			color: #fff;
-		}
-	`;
+			.indicator-pill.pill {
+				gap: 0.2rem;
+				text-transform: none;
+				user-select: none;
+			}
+
+			.indicator-pill.pill code-icon {
+				font-size: inherit !important;
+				line-height: inherit !important;
+				font-weight: inherit !important;
+			}
+
+			.wip__tooltip {
+				display: contents;
+				vertical-align: middle;
+			}
+
+			.paused-op-badge {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.6rem;
+				padding: 0.1rem 0.4rem;
+				border-radius: 0.3rem;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+				color: #000;
+				font-size: 1.1rem;
+				font-weight: 600;
+				line-height: 2rem;
+				white-space: nowrap;
+			}
+
+			.paused-op-badge--conflicts {
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
+				color: #fff;
+			}
+		`,
+	];
 
 	@property({ type: Number }) added: number | undefined;
 	@property({ type: Number }) modified: number | undefined;
 	@property({ type: Number }) removed: number | undefined;
 
-	@property({ attribute: 'clean-state' }) cleanState: WipStatsCleanState = 'hidden';
+	@property({ type: Boolean }) dirty?: boolean;
+
+	@property({ type: Boolean, attribute: 'show-clean' }) showClean = false;
+	@property({ type: Boolean }) badge = false;
 	@property({ type: Boolean, attribute: 'no-tooltip' }) noTooltip = false;
 
 	@property({ attribute: false }) pausedOpStatus?: GitPausedOperationStatus;
@@ -59,8 +85,24 @@ export class GlWipStats extends LitElement {
 		const added = this.added ?? 0;
 		const modified = this.modified ?? 0;
 		const removed = this.removed ?? 0;
+		const isDirty = this.dirty ?? added + modified + removed > 0;
 
-		if (added + modified + removed > 0) {
+		if (isDirty) {
+			if (this.badge) {
+				const pill = html`<span
+					class="indicator-pill pill pill--outlined"
+					aria-label="Working tree has changes"
+				>
+					<code-icon icon="pencil"></code-icon>
+				</span>`;
+
+				if (this.noTooltip) return pill;
+
+				return html`<gl-tooltip placement="bottom"
+					>${pill}<span slot="content">Working tree has changes</span></gl-tooltip
+				>`;
+			}
+
 			return html`<commit-stats
 				added=${added || nothing}
 				modified=${modified || nothing}
@@ -71,14 +113,24 @@ export class GlWipStats extends LitElement {
 			></commit-stats>`;
 		}
 
-		if (this.cleanState !== 'badge') return nothing;
+		if (!this.showClean) return nothing;
 
-		const pill = html`<commit-stats
-			appearance="pill"
-			no-tooltip
-			aria-label="No changes"
-			style="--commit-stats-pill-padding: 0 0.6rem;"
-		>
+		// Don't show the clean checkmark if we don't have an explicit dirty state AND we don't have stats data
+		if (this.dirty == null && this.added == null && this.modified == null && this.removed == null) {
+			return nothing;
+		}
+
+		if (this.badge) {
+			const pill = html`<span class="indicator-pill pill pill--outlined" aria-label="No changes">
+				<code-icon class="wip-clean-check" icon="check"></code-icon>
+			</span>`;
+
+			if (this.noTooltip) return pill;
+
+			return html`<gl-tooltip placement="bottom">${pill}<span slot="content">No changes</span></gl-tooltip>`;
+		}
+
+		const pill = html`<commit-stats class="indicator-pill" appearance="pill" no-tooltip aria-label="No changes">
 			<code-icon class="wip-clean-check" icon="check"></code-icon>
 		</commit-stats>`;
 

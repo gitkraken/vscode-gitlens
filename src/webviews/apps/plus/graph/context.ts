@@ -29,7 +29,7 @@ export interface AppState extends State {
 	hooksBannerCollapsed?: boolean | undefined;
 	canInstallClaudeHook?: boolean | undefined;
 	navigating: 'next' | 'previous' | false;
-	overviewWip?: GetOverviewWipResponse;
+	overviewWip?: { branchIds: string[]; wip: GetOverviewWipResponse };
 	overviewEnrichment?: GetOverviewEnrichmentResponse;
 	scope: GraphScope | undefined;
 	searching: boolean;

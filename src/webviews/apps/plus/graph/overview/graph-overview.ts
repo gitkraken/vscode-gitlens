@@ -182,7 +182,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 	private _lastOverview: GraphOverviewData | undefined;
 	private _lastOverviewFingerprint: string | undefined;
-	private _lastPushedWip: GetOverviewWipResponse | undefined;
+	private _lastPushedWip: { branchIds: string[]; wip: GetOverviewWipResponse } | undefined;
 	private _lastSelectionFingerprint: string | undefined;
 	private _selectionRecomputeToken = 0;
 	private readonly _recomputeSelectionDebounced: Deferrable<() => void> = debounce(
@@ -276,7 +276,16 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const pushedWip = this._state.overviewWip;
 		if (pushedWip != null && pushedWip !== this._lastPushedWip) {
 			this._lastPushedWip = pushedWip;
-			this._wipData = { ...this._wipData, ...pushedWip };
+			const nextWipData = { ...this._wipData };
+			for (const branchId of pushedWip.branchIds) {
+				const wip = pushedWip.wip[branchId];
+				if (wip != null) {
+					nextWipData[branchId] = { ...nextWipData[branchId], ...wip };
+				} else {
+					nextWipData[branchId] = { hasChanges: false };
+				}
+			}
+			this._wipData = nextWipData;
 		}
 
 		// Fire the shown event once overview data is available so the branch counts are accurate.
@@ -441,7 +450,14 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		if (this._lastOverviewFingerprint !== fingerprint) return;
 
 		// Prune entries for branches no longer in the overview so stale data doesn't linger.
-		this._wipData = wipResult ? filterToKeys(wipResult, keep) : {};
+		const nextWipData = wipResult ? filterToKeys(wipResult, keep) : {};
+		if (wipResult) {
+			// For any branch we checked (wipIds), if it's not in the result, it is explicitly clean
+			for (const branchId of wipIds) {
+				nextWipData[branchId] ??= { hasChanges: false };
+			}
+		}
+		this._wipData = nextWipData;
 		this._enrichmentData = filterToKeys(enrichmentResult, keep);
 		// Expose enrichment via shared state so other consumers (e.g. the scope popover path
 		// in graph-app) can resolve merge-target refs for the selected branch.
