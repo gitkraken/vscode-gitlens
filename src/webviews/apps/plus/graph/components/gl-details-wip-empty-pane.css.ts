@@ -30,6 +30,13 @@ export const detailsWipEmptyPaneStyles = css`
 		gap: 0.6rem;
 	}
 
+	.section__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.6rem;
+	}
+
 	.section__heading {
 		margin: 0;
 		font-size: 1.1rem;
@@ -37,6 +44,12 @@ export const detailsWipEmptyPaneStyles = css`
 		color: var(--color-foreground--65);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
+	}
+
+	.section__heading-action {
+		flex: none;
+		--button-padding: 0.2rem;
+		--button-line-height: 1.2rem;
 	}
 
 	.next-step {

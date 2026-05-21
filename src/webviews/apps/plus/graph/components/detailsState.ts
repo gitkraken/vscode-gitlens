@@ -208,6 +208,7 @@ function createDurableState() {
 	const aiModel = signal<AiModelInfo | undefined>(undefined);
 
 	const launchpadSummary = signal<LaunchpadSummaryResult | { error: Error } | undefined>(undefined);
+	const launchpadSummaryLoading = signal(false);
 
 	return {
 		commit: commit,
@@ -279,6 +280,7 @@ function createDurableState() {
 		aiModel: aiModel,
 
 		launchpadSummary: launchpadSummary,
+		launchpadSummaryLoading: launchpadSummaryLoading,
 
 		resetAll: resetAll,
 	};

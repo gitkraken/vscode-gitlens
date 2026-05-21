@@ -40,6 +40,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	@property({ type: Boolean }) hasPullRequest = false;
 	@property({ type: Boolean }) hasIntegrationsConnected = false;
 	@property({ type: Object }) launchpadSummary?: LaunchpadSummaryResult | { error: Error };
+	@property({ type: Boolean }) launchpadSummaryLoading = false;
 	@property({ type: Boolean }) aiEnabled = false;
 	@property({ type: Boolean }) aiCreatePrEnabled = false;
 	@property({ type: Object }) mergeTargetStatus?: BranchMergeTargetStatus;
@@ -105,7 +106,19 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			</section>
 			${this.aiEnabled && hasDiverged ? this.renderAiWorkflows(ahead) : nothing}
 			<section class="section">
-				<h3 class="section__heading">Launchpad</h3>
+				<header class="section__header">
+					<h3 class="section__heading">Launchpad</h3>
+					<gl-button
+						class="section__heading-action"
+						appearance="toolbar"
+						aria-busy=${this.launchpadSummaryLoading}
+						?disabled=${this.launchpadSummaryLoading}
+						tooltip="Refresh Launchpad"
+						@click=${() => this.emit('refresh-launchpad')}
+					>
+						<code-icon icon="refresh"></code-icon>
+					</gl-button>
+				</header>
 				${this.renderLaunchpadSummary()}
 				<div class="start-fresh">
 					<gl-button

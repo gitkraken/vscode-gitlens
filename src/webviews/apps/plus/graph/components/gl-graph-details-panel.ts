@@ -1254,6 +1254,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									this._state.wipPullRequest.get() != null}
 									.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
 									.launchpadSummary=${this._state.launchpadSummary.get()}
+									.launchpadSummaryLoading=${this._state.launchpadSummaryLoading.get()}
 									.mergeTargetStatus=${this._state.wipMergeTarget.get()}
 									@switch-branch=${this.handleSwitchBranch}
 									@create-branch=${this.handleCreateBranch}
@@ -1269,6 +1270,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									@merge-merge-target-into-current=${this.handleMergeMergeTargetIntoCurrent}
 									@review-branch-changes=${this.handleReviewBranchChanges}
 									@recompose-branch-changes=${this.handleRecomposeBranchChanges}
+									@refresh-launchpad=${this.handleRefreshLaunchpad}
 								></gl-details-wip-empty-pane>
 							`;
 
@@ -2022,14 +2024,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleNewWorktree = () => this._actions.createWorktree();
 
 	private async fetchLaunchpadSummary(services: Remote<GraphServices>): Promise<void> {
+		if (this._state.launchpadSummaryLoading.get()) return;
+
+		this._state.launchpadSummaryLoading.set(true);
 		try {
 			const launchpad = await services.launchpad;
 			const summary = await launchpad.getSummary();
 			this._state.launchpadSummary.set(summary);
 		} catch (ex) {
 			this._state.launchpadSummary.set({ error: ex instanceof Error ? ex : new Error(String(ex)) });
+		} finally {
+			this._state.launchpadSummaryLoading.set(false);
 		}
 	}
+
+	private handleRefreshLaunchpad = (): void => {
+		if (this._remoteServices == null) return;
+
+		void this.fetchLaunchpadSummary(this._remoteServices);
+	};
 
 	private handleCompareWithMergeTarget = (
 		e: CustomEvent<{ rightRef: string; rightRefType: 'branch' | 'commit' }>,
