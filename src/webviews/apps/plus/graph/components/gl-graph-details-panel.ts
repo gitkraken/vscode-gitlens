@@ -637,10 +637,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// single `git status` on the host and packs the result into `graphState.wip`. Apply
 			// it directly here — no `refetchWipQuiet` round-trip — so the panel stays in sync
 			// with the host's view without a second `git status`.
-			// Repo-path guard: the host always pushes the PRIMARY repo's WIP. When the panel is
-			// showing a secondary worktree's WIP (directly selected or reached via mode-active),
-			// the push is for the wrong repo — applying it would clobber the panel's state with
-			// the primary's file list.
+			// Repo-path guard: `graphState.wip` is a polymorphic broadcast slot — the host pushes
+			// for whichever worktree's working tree changed (primary or any visible secondary).
+			// Every panel filters the slot against its own `effectiveRepoPath` and applies only
+			// the matching push; non-matching pushes are silently dropped here.
 			const pushedWip = this._graphState.wip;
 			if (
 				pushedWip != null &&

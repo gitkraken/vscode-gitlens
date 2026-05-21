@@ -696,12 +696,6 @@ export interface SyncWipWatchesParams {
 }
 export const SyncWipWatchesCommand = new IpcCommand<SyncWipWatchesParams>(scope, 'wip/watches/sync');
 
-export interface DidChangeWipStaleParams {
-	/** Secondary WIP shas whose cached stats should be marked stale — triggers a re-fetch on next render. */
-	shas: string[];
-}
-export const DidChangeWipStaleNotification = new IpcNotification<DidChangeWipStaleParams>(scope, 'wip/stale/didChange');
-
 export interface DidRequestWipRefetchParams {
 	/** Repo path of the WIP that should be re-fetched. */
 	repoPath: string;

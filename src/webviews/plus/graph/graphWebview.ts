@@ -359,7 +359,6 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeWipStaleNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
@@ -692,9 +691,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			d.dispose();
 		}
 		this._wipWatches.clear();
-		this._flushWipStaleDebounced?.cancel();
+		for (const entry of this._wipRefetches.values()) {
+			if (entry.timer != null) {
+				clearTimeout(entry.timer);
+			}
+		}
+		this._wipRefetches.clear();
 		this._lastFetchedHandlerDebounced?.cancel();
-		this._pendingStaleShas.clear();
 		this._wipStatusCache.clear();
 		// Release any compose-tools library plans we still hold cache keys for — otherwise the
 		// library-side cache leaks plans across extension reloads (the keys are this side's
@@ -735,15 +738,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Pending watcher-disposal timers; entries here mean "watcher is lingering past viewport exit". */
 	private readonly _wipWatchRemoveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-	/** Pending WIP stale shas waiting to be flushed as a single notification. */
-	private readonly _pendingStaleShas = new Set<string>();
-	private _flushWipStaleDebounced: Deferrable<() => void> | undefined;
+	/** Per-secondary-WIP refetch coordination (timer + in-flight Promise), keyed by secondary WIP sha. */
+	private readonly _wipRefetches = new Map<
+		string,
+		{ timer?: ReturnType<typeof setTimeout>; repo: GlRepository; inFlight?: Promise<void>; dirty: boolean }
+	>();
 
 	/**
-	 * Per-secondary-worktree cache of `getStatus()` results, keyed by worktree path.
-	 * The graph component re-asks for WIP stats on every `DidChangeWipStaleNotification`, which can
-	 * fire repeatedly across many worktrees due to ambient FS noise. Caching with a short TTL
-	 * collapses redundant fans-out; the per-WT FS watcher invalidates entries on real changes.
+	 * Per-secondary-worktree cache of `getStatus()` results, keyed by worktree path. Consulted on
+	 * cold load (`GetWipStatsRequest`) for newly-visible rows that don't yet have stats; the FS
+	 * watcher invalidates entries on real changes. The live-update path pushes WIP+stats directly
+	 * via `DidRequestWipRefetchNotification` and bypasses this cache entirely.
 	 */
 	private readonly _wipStatusCache = new PromiseCache<string, GitStatus | undefined>({
 		createTTL: 1000 * 10, // 10 seconds
@@ -3633,6 +3638,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				this._wipWatches.delete(sha);
 				d.dispose();
+
+				// Drop any pending debounced refetch for this sha. In-flight fetches are not
+				// cancelled (matches `_wipNotifyInFlight` precedent) — the late notification is
+				// a no-op because the state-provider gates writes on `prevSecondary != null`.
+				const refetch = this._wipRefetches.get(sha);
+				if (refetch != null) {
+					if (refetch.timer != null) {
+						clearTimeout(refetch.timer);
+					}
+					if (refetch.inFlight == null) {
+						this._wipRefetches.delete(sha);
+					}
+				}
 			}, wipWatchGracePeriodMs);
 			this._wipWatchRemoveTimers.set(sha, timer);
 		}
@@ -3656,31 +3674,72 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					repo.watchWorkingTree(500),
 					repo.onDidChangeWorkingTree(() => {
 						this._wipStatusCache.invalidate(path);
-						this.queueWipStale(sha);
+						this.queueWipRefetch(sha, repo);
 					}),
 				),
 			);
 		}
 	}
 
-	private queueWipStale(sha: string) {
-		this._pendingStaleShas.add(sha);
-		this._flushWipStaleDebounced ??= debounce(this.flushWipStale.bind(this), 250);
-		this._flushWipStaleDebounced();
+	private queueWipRefetch(sha: string, repo: GlRepository) {
+		let entry = this._wipRefetches.get(sha);
+		if (entry == null) {
+			entry = { repo: repo, dirty: false };
+			this._wipRefetches.set(sha, entry);
+		} else {
+			entry.repo = repo;
+		}
+
+		// Concurrent fetch will absorb this change via the `dirty` flag and re-fire on
+		// completion — don't run a second `git status` for the same worktree in parallel.
+		if (entry.inFlight != null) {
+			entry.dirty = true;
+			return;
+		}
+
+		if (entry.timer != null) {
+			clearTimeout(entry.timer);
+		}
+		entry.timer = setTimeout(() => {
+			entry.timer = undefined;
+			void this.runWipRefetch(sha);
+		}, 250);
 	}
 
-	private flushWipStale() {
-		if (this._pendingStaleShas.size === 0) return;
+	private async runWipRefetch(sha: string): Promise<void> {
+		const entry = this._wipRefetches.get(sha);
+		if (entry == null) return;
+		// Watcher disposed during debounce, or webview gone — drop without a fetch.
+		if (!this._wipWatches.has(sha) || !this.host.ready || !this.host.visible) {
+			this._wipRefetches.delete(sha);
+			return;
+		}
 
-		const shas = [...this._pendingStaleShas];
-		this._pendingStaleShas.clear();
-		this.notifyWipStale(shas);
-	}
+		const promise = (async () => {
+			try {
+				const result = await this.getWipForRepoAndStats(entry.repo);
+				if (result == null) return;
 
-	private notifyWipStale(shas: string[]) {
-		if (!this.host.ready || !this.host.visible) return;
-
-		void this.host.notify(DidChangeWipStaleNotification, { shas: shas });
+				void this.host.notify(DidRequestWipRefetchNotification, {
+					repoPath: entry.repo.path,
+					wip: result.wip,
+					stats: result.stats,
+				});
+			} finally {
+				entry.inFlight = undefined;
+				if (entry.dirty) {
+					entry.dirty = false;
+					// Re-arm immediately — the in-flight already absorbed the debounce window.
+					void this.runWipRefetch(sha);
+				} else {
+					// `entry.timer` is always null here: queueWipRefetch short-circuits while
+					// `inFlight` is set, so no new timer can have been armed during the fetch.
+					this._wipRefetches.delete(sha);
+				}
+			}
+		})();
+		entry.inFlight = promise;
+		await promise;
 	}
 
 	@ipcCommand(GetMoreRowsCommand)

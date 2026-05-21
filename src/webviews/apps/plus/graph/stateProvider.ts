@@ -35,7 +35,6 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeWipStaleNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
@@ -1099,25 +1098,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 			}
 
-			case DidChangeWipStaleNotification.is(msg): {
-				// Read from the accessor — see `DidChangeWorkingTreeNotification` above for why
-				// `this._state.wipMetadataBySha` lags behind direct accessor writes.
-				const current = this.wipMetadataBySha;
-				if (current == null) break;
-
-				// Produce a new reference so the GK component's dedup resets and re-requests stats
-				// for any currently-visible entries marked stale.
-				const next = { ...current };
-				for (const sha of msg.params.shas) {
-					const prev = next[sha];
-					if (prev == null) continue;
-
-					next[sha] = { ...prev, workDirStatsStale: true };
-				}
-				this.updateState({ wipMetadataBySha: next });
-				break;
-			}
-
 			case DidChangeRepoConnectionNotification.is(msg):
 				this.updateState({ repositories: msg.params.repositories });
 				break;
@@ -1310,6 +1290,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 }
 
+/**
+ * Sticky-restore is the only producer of `workDirStatsStale: true`. Live working-tree updates
+ * push fresh stats directly via `DidRequestWipRefetchNotification` — they don't toggle this
+ * flag. The flag exists so re-selection on a session-restored row (graph-app's
+ * `fetchSelectedWorktreeWipStats`) refetches authoritative stats instead of trusting cached
+ * guesses, and so the GK component's missing-stats request loop terminates cleanly.
+ */
 export function mergeWipMetadata(
 	prev: State['wipMetadataBySha'],
 	incoming: State['wipMetadataBySha'],
