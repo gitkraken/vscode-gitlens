@@ -29,7 +29,7 @@ import { WebviewController } from '../webviewController.js';
 import type { CustomEditorDescriptor } from '../webviewDescriptors.js';
 import type { State } from './protocol.js';
 
-const descriptor: CustomEditorDescriptor = {
+const descriptor: CustomEditorDescriptor<'gitlens.rebase'> = {
 	id: 'gitlens.rebase',
 	fileName: 'rebase.html',
 	iconPath: 'images/gitlens-icon.png',

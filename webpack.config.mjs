@@ -475,6 +475,7 @@ function getWebviewsConfigs(mode, env) {
 		composer: { entry: './plus/composer/composer.ts', plus: true },
 		graph: { entry: './plus/graph/graph.ts', plus: true },
 		home: { entry: './home/home.ts' },
+		mergeConflict: { entry: './mergeConflict/mergeConflict.ts' },
 		rebase: { entry: './rebase/rebase.ts' },
 		settings: { entry: './settings/settings.ts' },
 		timeline: { entry: './plus/timeline/timeline.ts', plus: true },

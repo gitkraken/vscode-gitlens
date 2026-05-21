@@ -54,6 +54,7 @@ import './commands/openRevisionFile.js';
 import './commands/openWorkingFile.js';
 import './commands/patches.js';
 import './commands/quickWizard.js';
+import './commands/mergeConflictEditor.js';
 import './commands/rebaseEditor.js';
 import './commands/recomposeBranch.js';
 import './commands/recomposeFromCommit.js';

@@ -1,4 +1,4 @@
-export type CustomEditorTypes = 'rebase';
+export type CustomEditorTypes = 'mergeConflict' | 'rebase';
 export type CustomEditorIds = `gitlens.${CustomEditorTypes}`;
 
 export type CustomEditorTypeFromId<T extends CustomEditorIds> = T extends `gitlens.${infer U}`

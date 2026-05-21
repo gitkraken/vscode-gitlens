@@ -78,6 +78,8 @@ import { ViewFileDecorationProvider } from './views/viewDecorationProvider.js';
 import { Views } from './views/views.js';
 import { VirtualFileSystemService } from './virtual/virtualFileSystemService.js';
 import { VslsController } from './vsls/vsls.js';
+import { MergeConflictAutoOpenWatcher } from './webviews/mergeConflict/autoOpenWatcher.js';
+import { MergeConflictEditorProvider } from './webviews/mergeConflict/mergeConflictEditor.js';
 import {
 	registerComposerWebviewCommands,
 	registerComposerWebviewPanel,
@@ -287,6 +289,10 @@ export class Container {
 		this._disposables.push(registerTimelineWebviewCommands(this, timelinePanels));
 
 		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this, webviewCommandRegistrar)));
+		this._disposables.push(
+			(this._mergeConflictEditor = new MergeConflictEditorProvider(this, webviewCommandRegistrar)),
+		);
+		this._disposables.push(new MergeConflictAutoOpenWatcher(this));
 
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
@@ -758,6 +764,11 @@ export class Container {
 	get productConfig(): ProductConfigProvider {
 		this._productConfig ??= new ProductConfigProvider(this, this._connection);
 		return this._productConfig;
+	}
+
+	private readonly _mergeConflictEditor: MergeConflictEditorProvider;
+	get mergeConflictEditor(): MergeConflictEditorProvider {
+		return this._mergeConflictEditor;
 	}
 
 	private readonly _rebaseEditor: RebaseEditorProvider;

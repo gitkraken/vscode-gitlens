@@ -4065,6 +4065,40 @@
 			"icon": "$(rocket)",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.mergeConflict.enable": {
+			"label": "Enable GitLens Merge Conflict Editor",
+			"commandPalette": "gitlens:enabled && !config.gitlens.mergeConflictEditor.enabled"
+		},
+		"gitlens.mergeConflict.openInEditor": {
+			"label": "Resolve in GitLens Merge Editor",
+			"commandPalette": "gitlens:enabled && config.gitlens.mergeConflictEditor.enabled"
+		},
+		"gitlens.mergeConflict.openInEditor:scm/resourceState/context": {
+			"label": "Resolve in GitLens Merge Editor",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"scm/resourceState/context": [
+					{
+						"when": "scmResourceGroup == merge && scmProvider == git && config.gitlens.mergeConflictEditor.enabled",
+						"group": "1_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.mergeConflict.switchToTextEditor:editor/title": {
+			"label": "Switch to Text Editor",
+			"icon": "$(go-to-file)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeCustomEditorId == gitlens.mergeConflict",
+						"group": "navigation",
+						"order": 10
+					}
+				]
+			}
+		},
 		"gitlens.openAssociatedPullRequestOnRemote": {
 			"label": "Open Associated Pull Request",
 			"icon": "$(git-pull-request)",
