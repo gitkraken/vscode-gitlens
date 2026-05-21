@@ -2,6 +2,7 @@ import type { TemplateResult } from 'lit';
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { when } from 'lit/directives/when.js';
 import type { Disposable } from 'vscode';
 import { isMac } from '@env/platform.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -430,46 +431,50 @@ export class GlSearchBox extends GlElement {
 					this.emit('gl-search-pause');
 				}}"
 			></gl-search-input>
-			<div class="search-navigation" aria-label="Search navigation">
-				${this.resultsHtml}
-				<gl-tooltip>
-					<button
-						type="button"
-						class="button ${this.navigating === 'previous' ? 'navigating' : ''}"
-						?disabled="${!this.hasResults || this.isAtFirstResult}"
-						@click="${this.handlePrevious}"
-					>
-						<code-icon
-							icon="arrow-up"
-							aria-label="Previous Match (Shift+Enter)&#10;First Match (Shift+Click)"
-						></code-icon>
-					</button>
-					<span slot="content">Previous Match (Shift+Enter)<br />First Match (Shift+Click)</span>
-				</gl-tooltip>
-				<gl-tooltip>
-					<button
-						type="button"
-						class="button ${this.navigating === 'next' ? 'navigating' : ''}"
-						?disabled="${!this.hasResults || this.isAtLastResult}"
-						@click="${this.handleNext}"
-					>
-						<code-icon
-							icon="arrow-down"
-							aria-label="Next Match (Enter)&#10;Last Match (Shift+Click)"
-						></code-icon>
-					</button>
-					<span slot="content">Next Match (Enter)<br />Last Match (Shift+Click)</span>
-				</gl-tooltip>
-				<gl-tooltip content="Show Results in Side Bar">
-					<button
-						type="button"
-						class="button"
-						?disabled="${!this.hasResults}"
-						@click="${this.handleOpenInView}"
-					>
-						<code-icon icon="link-external" aria-label="Show Results in Side Bar"></code-icon>
-					</button>
-				</gl-tooltip>
-			</div>`;
+			${when(
+				this.resultsLoaded || this.searching,
+				() =>
+					html`<div class="search-navigation" aria-label="Search navigation">
+						${this.resultsHtml}
+						<gl-tooltip>
+							<button
+								type="button"
+								class="button ${this.navigating === 'previous' ? 'navigating' : ''}"
+								?disabled="${!this.hasResults || this.isAtFirstResult}"
+								@click="${this.handlePrevious}"
+							>
+								<code-icon
+									icon="arrow-up"
+									aria-label="Previous Match (Shift+Enter)&#10;First Match (Shift+Click)"
+								></code-icon>
+							</button>
+							<span slot="content">Previous Match (Shift+Enter)<br />First Match (Shift+Click)</span>
+						</gl-tooltip>
+						<gl-tooltip>
+							<button
+								type="button"
+								class="button ${this.navigating === 'next' ? 'navigating' : ''}"
+								?disabled="${!this.hasResults || this.isAtLastResult}"
+								@click="${this.handleNext}"
+							>
+								<code-icon
+									icon="arrow-down"
+									aria-label="Next Match (Enter)&#10;Last Match (Shift+Click)"
+								></code-icon>
+							</button>
+							<span slot="content">Next Match (Enter)<br />Last Match (Shift+Click)</span>
+						</gl-tooltip>
+						<gl-tooltip content="Show Results in Side Bar">
+							<button
+								type="button"
+								class="button"
+								?disabled="${!this.hasResults}"
+								@click="${this.handleOpenInView}"
+							>
+								<code-icon icon="link-external" aria-label="Show Results in Side Bar"></code-icon>
+							</button>
+						</gl-tooltip>
+					</div>`,
+			)}`;
 	}
 }

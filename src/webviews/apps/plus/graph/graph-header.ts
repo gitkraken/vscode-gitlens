@@ -1275,9 +1275,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						@gl-search-pause=${this.handleSearchPause}
 						@gl-search-resume=${this.handleSearchResume}
 					></gl-search-box>
-					<span>
-						<span class="action-divider"></span>
-					</span>
+					${when(
+						searchResults != null || searching,
+						() => html`
+							<span>
+								<span class="action-divider"></span>
+							</span>
+						`,
+					)}
 					<span class="button-group">
 						${when(
 							config?.sidebar,
