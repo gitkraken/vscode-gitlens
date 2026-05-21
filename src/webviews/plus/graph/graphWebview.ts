@@ -2988,8 +2988,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// so push/pull/fetch numbers land in the header immediately on tracking-affecting events
 		// instead of waiting for the full graph rebuild to finish. The full state pass re-sends the
 		// same branchState alongside graph rows, so the worst case here is a redundant IPC.
+		// Also refresh WIP — heads/remotes changes can alter `wip.branch.upstream` and tracking
+		// (e.g., publishing a branch establishes upstream) which the details panel reads to pick
+		// between the "Publish" and "Create PR" next-step rows.
 		if (e.changed('head', 'heads', 'remotes')) {
 			void this.notifyDidChangeBranchStateOnly();
+			void this.notifyDidChangeWorkingTree();
 		}
 
 		// Unless we don't know what changed, update the state immediately
