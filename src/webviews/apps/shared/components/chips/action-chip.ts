@@ -1,7 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { getAltKeySymbol } from '@env/platform.js';
 import { linkStyles, ruleStyles } from '../../../plus/shared/components/vscode.css.js';
+import { ModifierKeysController } from '../../controllers/modifier-keys.js';
 import { handleUnsafeOverlayContent } from '../overlays/overlays.utils.js';
 import { focusOutline } from '../styles/lit/a11y.css.js';
 import '../overlays/popover.js';
@@ -122,14 +124,23 @@ export class ActionChip extends LitElement {
 	@property()
 	href?: string;
 
+	@property({ attribute: 'alt-href' })
+	altHref?: string;
+
 	@property()
 	label?: string;
+
+	@property({ attribute: 'alt-label' })
+	altLabel?: string;
 
 	@property()
 	overlay: 'tooltip' | 'popover' | 'none' = 'tooltip';
 
 	@property()
 	icon = '';
+
+	@property({ attribute: 'alt-icon' })
+	altIcon?: string;
 
 	@property()
 	activeIcon?: string;
@@ -139,6 +150,33 @@ export class ActionChip extends LitElement {
 
 	@query('.chip')
 	private defaultFocusEl!: HTMLElement;
+
+	private readonly _modifiers = new ModifierKeysController(this);
+
+	private get isAltKeyPressed(): boolean {
+		return this._modifiers.altKey || this._modifiers.shiftKey;
+	}
+
+	private get effectiveIcon(): string {
+		return this.isAltKeyPressed && this.altIcon ? this.altIcon : this.icon;
+	}
+
+	private get effectiveHref(): string | undefined {
+		return this.isAltKeyPressed && this.altHref ? this.altHref : this.href;
+	}
+
+	private get effectiveLabel(): string | undefined {
+		return this.isAltKeyPressed && this.altLabel ? this.altLabel : this.label;
+	}
+
+	private get effectiveTooltip(): string | undefined {
+		if (!this.label && !this.altLabel) return undefined;
+		if (this.altLabel) {
+			if (this.isAltKeyPressed) return this.altLabel;
+			return `${this.label}\n[${getAltKeySymbol()}] ${this.altLabel}`;
+		}
+		return this.label;
+	}
 
 	override render(): unknown {
 		if (!this.label || this.overlay === 'none') {
@@ -152,30 +190,33 @@ export class ActionChip extends LitElement {
 			>`;
 		}
 
-		return html`<gl-tooltip content="${this.label}">${this.renderContent()}</gl-tooltip>`;
+		return html`<gl-tooltip content="${this.effectiveTooltip ?? this.label}">${this.renderContent()}</gl-tooltip>`;
 	}
 
 	private renderContent() {
 		const slot = this.overlay === 'popover' ? 'anchor' : nothing;
+		const icon = this.effectiveIcon;
 		const iconHtml = html`<code-icon
 				class="chip__icon"
 				part="icon"
-				icon="${this.icon}"
-				modifier="${ifDefined(this.icon === 'loading' ? 'spin' : '')}"
+				icon="${icon}"
+				modifier="${ifDefined(icon === 'loading' ? 'spin' : '')}"
 			></code-icon
 			>${this.activeIcon
 				? html`<code-icon class="chip__icon-active" part="active-icon" icon="${this.activeIcon}"></code-icon>`
 				: nothing}`;
 
-		if (this.href) {
+		const href = this.effectiveHref;
+		const ariaLabel = this.effectiveLabel;
+		if (href) {
 			return html`
 				<a
 					class="chip"
 					part="base"
 					?disabled=${this.disabled}
-					href=${this.href}
+					href=${href}
 					slot=${slot}
-					aria-label=${ifDefined(this.label)}
+					aria-label=${ifDefined(ariaLabel)}
 				>
 					${iconHtml}<slot></slot><slot name="suffix"></slot>
 				</a>
@@ -189,7 +230,7 @@ export class ActionChip extends LitElement {
 				type="button"
 				?disabled=${this.disabled}
 				slot=${slot}
-				aria-label=${ifDefined(this.label)}
+				aria-label=${ifDefined(ariaLabel)}
 			>
 				${iconHtml}<slot></slot><slot name="suffix"></slot>
 			</button>

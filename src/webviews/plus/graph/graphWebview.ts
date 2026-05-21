@@ -8881,7 +8881,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@command('gitlens.openWorktreeInNewWindow:')
-	private openWorktreeInNewWindow(item?: GraphItemContext | BranchRef) {
+	private openWorktreeInNewWindow(item?: GraphItemContext | BranchRef | { worktreePath: string }) {
 		return this.openWorktree(item, { location: 'newWindow' });
 	}
 

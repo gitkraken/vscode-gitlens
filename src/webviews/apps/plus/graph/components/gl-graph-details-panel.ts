@@ -1275,6 +1275,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return html`
 			<gl-details-wip-header
 				.wip=${wip}
+				.currentRepoPath=${this.graphRepoPath()}
 				.activeMode=${activeMode}
 				.modeStatus=${this.engagedModeStatus}
 				.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}

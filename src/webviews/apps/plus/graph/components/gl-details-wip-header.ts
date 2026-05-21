@@ -1,3 +1,4 @@
+import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -7,6 +8,8 @@ import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
 import type { RunningOperationExecState } from './detailsState.js';
 import { detailsWipHeaderStyles } from './gl-details-wip-header.css.js';
 import '../../shared/components/merge-rebase-status.js';
@@ -26,7 +29,14 @@ import '../../../shared/components/overlays/tooltip.js';
 export class GlDetailsWipHeader extends LitElement {
 	static override styles = [elementBase, metadataBarVarsBase, detailsWipHeaderStyles];
 
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
+
 	@property({ type: Object }) wip?: Wip;
+	/** Path of the repo the graph is currently focused on. Used to detect when the displayed WIP
+	 *  is for a secondary worktree (`wip.repo.path !== currentRepoPath`) so we can surface the
+	 *  Open Worktree action. */
+	@property() currentRepoPath?: string;
 	@property() activeMode?: 'review' | 'compose' | null;
 	/** Pre-computed snippet shown on the right of the identity row while in mode (e.g. "7 files",
 	 *  "Generating…", "3 commits · 7 files", "Error"). Computed by the host panel from scope +
@@ -77,6 +87,8 @@ export class GlDetailsWipHeader extends LitElement {
 		}
 
 		const isModeActive = this.activeMode != null;
+		const isSecondaryWorktree =
+			wip.repo?.path != null && this.currentRepoPath != null && wip.repo.path !== this.currentRepoPath;
 
 		return html`<gl-details-header
 			.activeMode=${this.activeMode}
@@ -119,6 +131,22 @@ export class GlDetailsWipHeader extends LitElement {
 									}),
 								)}
 						></gl-action-chip>
+						${isSecondaryWorktree
+							? html`<gl-action-chip
+									slot="actions"
+									icon="empty-window"
+									label="Open Worktree in New Window"
+									alt-icon="window"
+									alt-label="Open Worktree"
+									overlay="tooltip"
+									href=${this._webview.createCommandLink('gitlens.openWorktreeInNewWindow:', {
+										worktreePath: wip.repo.path,
+									})}
+									alt-href=${this._webview.createCommandLink('gitlens.openWorktree:', {
+										worktreePath: wip.repo.path,
+									})}
+								></gl-action-chip>`
+							: nothing}
 						<gl-action-chip
 							slot="actions"
 							icon="refresh"
