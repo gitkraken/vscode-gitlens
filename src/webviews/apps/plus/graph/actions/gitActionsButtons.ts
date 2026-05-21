@@ -81,17 +81,23 @@ export class GitActionsButtons extends LitElement {
 		return stats.added + stats.deleted + stats.modified + (stats.renamed ?? 0) > 0;
 	}
 
-	private get fetchedText() {
+	private get lastFetchedDate(): Date | undefined {
 		if (!this.lastFetched) return undefined;
 
-		let lastFetchedDate: Date;
-		if (typeof this.lastFetched === 'string') {
-			lastFetchedDate = new Date(this.lastFetched);
-		} else {
-			lastFetchedDate = this.lastFetched;
-		}
+		const d = typeof this.lastFetched === 'string' ? new Date(this.lastFetched) : this.lastFetched;
+		return d.getTime() !== 0 ? d : undefined;
+	}
 
-		return lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
+	private get fetchedText(): string | undefined {
+		const d = this.lastFetchedDate;
+		return d != null ? fromNow(d) : undefined;
+	}
+
+	private get fetchedTextShort(): string | undefined {
+		const d = this.lastFetchedDate;
+		if (d == null) return undefined;
+		if (Date.now() - d.getTime() < 1000) return 'now';
+		return `${fromNow(d, true)} ago`;
 	}
 
 	private onJumpToWip() {
@@ -139,6 +145,7 @@ export class GitActionsButtons extends LitElement {
 			<gl-fetch-button
 				.branchState=${this.branchState}
 				.fetchedText=${this.fetchedText}
+				.fetchedTextShort=${this.fetchedTextShort}
 				.state=${this.state}
 				.autoFetchMode=${this.state.config?.autoFetchMode ?? 'off'}
 				.autoFetchIntervalSeconds=${this.state.config?.autoFetchIntervalSeconds ?? 180}
@@ -153,25 +160,23 @@ export class GitActionsButtons extends LitElement {
 						.pausedOpStatus=${this.workingTreeStats?.pausedOpStatus}
 						?has-conflicts=${this.workingTreeStats?.hasConflicts === true}
 						.conflictsCount=${this.workingTreeStats?.conflictsCount}
-						clean-state="badge"
+						show-clean
 						no-tooltip
 					></gl-wip-stats>
 				</a>
 				<span slot="content">${this.renderWipTooltip()}</span>
 			</gl-tooltip>
 			${this.hasWorkingChanges
-				? html`<gl-tooltip placement="bottom">
-						<a
-							href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
-								repoPath: this.state.selectedRepository,
-							})}
-							class="action-button"
-							aria-label="Stash Changes..."
-						>
-							<code-icon class="action-button__icon" icon="gl-stash-save"></code-icon>
-						</a>
-						<span slot="content">Stash Changes...</span>
-					</gl-tooltip>`
+				? html`<gl-button
+						appearance="toolbar"
+						href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
+							repoPath: this.state.selectedRepository,
+						})}
+						aria-label="Stash Changes..."
+						tooltip="Stash Changes..."
+					>
+						<code-icon icon="gl-stash-save"></code-icon>
+					</gl-button>`
 				: nothing}
 		`;
 	}
@@ -295,6 +300,9 @@ export class GlFetchButton extends LitElement {
 	@property({ type: String })
 	fetchedText?: string;
 
+	@property({ type: String })
+	fetchedTextShort?: string;
+
 	@property({ type: Object })
 	branchState?: BranchState;
 
@@ -331,8 +339,8 @@ export class GlFetchButton extends LitElement {
 				<a slot="anchor" href=${this._webview.createCommandLink('gitlens.fetch:')} class="action-button">
 					<code-icon class="action-button__icon" icon="repo-fetch"></code-icon>
 					<span class="action-button__text"
-						><span class="action-button__label">Fetch</span>${this.fetchedText
-							? html` <span class="action-button__small">(${this.fetchedText})</span>`
+						><span class="action-button__label">Fetch</span>${this.fetchedTextShort
+							? html` <span class="action-button__small">(${this.fetchedTextShort})</span>`
 							: ''}</span
 					>
 				</a>
@@ -548,19 +556,18 @@ export class PushPullButton extends LitElement {
 			</gl-tooltip>
 			${this.isAhead && this.isBehind
 				? html`
-						<gl-tooltip placement="top" slot="anchor">
-							<a
-								href=${this._webview.createCommandLink('gitlens.graph.pushWithForce')}
-								class="action-button"
-								aria-label="Force Push"
-							>
-								<code-icon icon="repo-force-push" aria-hidden="true"></code-icon>
-							</a>
-							<span slot="content">
+						<gl-button
+							appearance="toolbar"
+							href=${this._webview.createCommandLink('gitlens.graph.pushWithForce')}
+							aria-label="Force Push"
+							tooltipPlacement="top"
+						>
+							<code-icon icon="repo-force-push" aria-hidden="true"></code-icon>
+							<span slot="tooltip">
 								Force Push ${pluralize('commit', this.branchState?.ahead)} to ${this.upstream}
 								${this.branchState?.provider?.name ? html` on ${this.branchState.provider.name}` : ''}
 							</span>
-						</gl-tooltip>
+						</gl-button>
 					`
 				: ''}
 		`;

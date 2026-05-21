@@ -1041,21 +1041,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									: html`Jump to HEAD<br />[${getAltKeySymbol()}] Jump to Reference...`}
 							</span>
 						</gl-button>
-						<gl-tooltip placement="bottom">
-							<a
-								class="action-button"
-								href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
-									command: 'branch',
-									confirm: true,
-									state: { subcommand: 'create', reference: branch },
-								})}
-							>
-								<code-icon class="action-button__icon" icon="custom-start-work"></code-icon>
-							</a>
-							<span slot="content">
+						<gl-button
+							appearance="toolbar"
+							href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
+								command: 'branch',
+								confirm: true,
+								state: { subcommand: 'create', reference: branch },
+							})}
+						>
+							<code-icon icon="custom-start-work"></code-icon>
+							<span slot="tooltip">
 								Create New Branch from <gl-branch-name .name=${branch?.name}></gl-branch-name>
 							</span>
-						</gl-tooltip>
+						</gl-button>
 					`,
 				)}
 			</div>
@@ -1132,37 +1130,31 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-popover>
 					`,
 				)}
-				<gl-tooltip placement="bottom">
-					<a
-						href=${`command:gitlens.showLaunchpad?${encodeURIComponent(
-							JSON.stringify({
-								source: 'graph',
-							} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-						)}`}
-						class="action-button"
-					>
-						<code-icon icon="rocket"></code-icon>
-					</a>
-					<span slot="content">
+				<gl-button
+					appearance="toolbar"
+					href=${`command:gitlens.showLaunchpad?${encodeURIComponent(
+						JSON.stringify({
+							source: 'graph',
+						} satisfies Omit<LaunchpadCommandArgs, 'command'>),
+					)}`}
+				>
+					<code-icon icon="rocket"></code-icon>
+					<span slot="tooltip">
 						<strong>Launchpad</strong> &mdash; organizes your pull requests into actionable groups to help
 						you focus and keep your team unblocked
 					</span>
-				</gl-tooltip>
-				<gl-tooltip placement="bottom">
-					<a
-						href=${'command:gitlens.showHomeView'}
-						class="action-button"
-						aria-label=${`Open GitLens Home View`}
-					>
-						<span>
-							<code-icon class="action-button__icon" icon=${'gl-gitlens'} aria-hidden="true"></code-icon>
-						</span>
-					</a>
-					<span slot="content">
+				</gl-button>
+				<gl-button
+					appearance="toolbar"
+					href=${'command:gitlens.showHomeView'}
+					aria-label=${`Open GitLens Home View`}
+				>
+					<code-icon icon=${'gl-gitlens'} aria-hidden="true"></code-icon>
+					<span slot="tooltip">
 						<strong>GitLens Home</strong> — track, manage, and collaborate on your branches and pull
 						requests, all in one intuitive hub
 					</span>
-				</gl-tooltip>
+				</gl-button>
 				${when(
 					subscription == null || !isSubscriptionPaid(subscription),
 					() => html`
