@@ -512,7 +512,7 @@ suite('ClaudeCodeProvider', () => {
 	});
 
 	suite('agents/sessions/open IPC handler', () => {
-		test('invokes the host callback with the requested sessionId', async () => {
+		test('invokes the host callback with the requested sessionId and reports opened: true', async () => {
 			const calls: string[] = [];
 			const { callbacks, handlers } = createMockCallbacks({
 				openSessionInClaudeExtension: sessionId => {
@@ -530,13 +530,13 @@ suite('ClaudeCodeProvider', () => {
 
 				const response = await handler({ sessionId: 'sess-1' }, new URLSearchParams());
 				assert.deepStrictEqual(calls, ['sess-1']);
-				assert.deepStrictEqual(response, {});
+				assert.deepStrictEqual(response, { opened: true });
 			} finally {
 				provider.dispose();
 			}
 		});
 
-		test('returns {} without invoking the callback when sessionId is missing', async () => {
+		test('returns { opened: false } without invoking the callback when sessionId is missing', async () => {
 			let called = false;
 			const { callbacks, handlers } = createMockCallbacks({
 				openSessionInClaudeExtension: () => {
@@ -552,13 +552,13 @@ suite('ClaudeCodeProvider', () => {
 				const handler = handlers.get('agents/sessions/open')!;
 				const response = await handler({}, new URLSearchParams());
 				assert.strictEqual(called, false, 'callback must not run when sessionId is absent');
-				assert.deepStrictEqual(response, {});
+				assert.deepStrictEqual(response, { opened: false });
 			} finally {
 				provider.dispose();
 			}
 		});
 
-		test('returns {} when the host did not wire openSessionInClaudeExtension', async () => {
+		test('returns { opened: false } when the host did not wire openSessionInClaudeExtension', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
 			const provider = new ClaudeCodeProvider(callbacks);
 			try {
@@ -567,13 +567,13 @@ suite('ClaudeCodeProvider', () => {
 
 				const handler = handlers.get('agents/sessions/open')!;
 				const response = await handler({ sessionId: 'sess-1' }, new URLSearchParams());
-				assert.deepStrictEqual(response, {});
+				assert.deepStrictEqual(response, { opened: false });
 			} finally {
 				provider.dispose();
 			}
 		});
 
-		test('swallows callback errors so the peer never sees a 500', async () => {
+		test('returns { opened: false } when the callback throws (peer never sees a 500)', async () => {
 			const { callbacks, handlers } = createMockCallbacks({
 				openSessionInClaudeExtension: () => Promise.reject(new Error('extension not installed')),
 			});
@@ -584,7 +584,7 @@ suite('ClaudeCodeProvider', () => {
 
 				const handler = handlers.get('agents/sessions/open')!;
 				const response = await handler({ sessionId: 'sess-1' }, new URLSearchParams());
-				assert.deepStrictEqual(response, {});
+				assert.deepStrictEqual(response, { opened: false });
 			} finally {
 				provider.dispose();
 			}
@@ -592,7 +592,7 @@ suite('ClaudeCodeProvider', () => {
 	});
 
 	suite('notifyPeerOpenSession', () => {
-		test("skips the discovery file matching this provider's own port", async () => {
+		test("skips the discovery file matching this provider's own port and returns false", async () => {
 			const { default: http } = await import('node:http');
 			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
 			const { tmpdir } = await import('node:os');
@@ -603,7 +603,7 @@ suite('ClaudeCodeProvider', () => {
 			const server = http.createServer((req, res) => {
 				hits.push(req.url ?? '');
 				res.writeHead(200);
-				res.end('{}');
+				res.end(JSON.stringify({ opened: true }));
 			});
 			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
 			const port = (server.address() as { port: number }).port;
@@ -624,12 +624,13 @@ suite('ClaudeCodeProvider', () => {
 					provider.start(['/repo']);
 					await flushMicrotasks();
 					hits.length = 0; // ignore any pre-existing list-route hits (there should be none)
-					await provider.notifyPeerOpenSession('/repo', 'sess-1');
+					const opened = await provider.notifyPeerOpenSession('/repo', 'sess-1');
 					assert.deepStrictEqual(
 						hits.filter(u => u === '/agents/sessions/open'),
 						[],
 						'own-port discovery file must be skipped',
 					);
+					assert.strictEqual(opened, false, 'no peer should have been contacted');
 				} finally {
 					provider.dispose();
 				}
@@ -639,7 +640,7 @@ suite('ClaudeCodeProvider', () => {
 			}
 		});
 
-		test('skips peers whose workspacePaths do not include the target', async () => {
+		test('skips peers whose workspacePaths do not include the target and returns false', async () => {
 			const { default: http } = await import('node:http');
 			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
 			const { tmpdir } = await import('node:os');
@@ -650,7 +651,7 @@ suite('ClaudeCodeProvider', () => {
 			const server = http.createServer((req, res) => {
 				hits.push(req.url ?? '');
 				res.writeHead(200);
-				res.end('{}');
+				res.end(JSON.stringify({ opened: true }));
 			});
 			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
 			const peerPort = (server.address() as { port: number }).port;
@@ -671,12 +672,13 @@ suite('ClaudeCodeProvider', () => {
 					provider.start(['/repo']);
 					await flushMicrotasks();
 					hits.length = 0; // ignore `/agents/sessions/list` from querySiblingWindowSessions
-					await provider.notifyPeerOpenSession('/repo', 'sess-1');
+					const opened = await provider.notifyPeerOpenSession('/repo', 'sess-1');
 					assert.deepStrictEqual(
 						hits.filter(u => u === '/agents/sessions/open'),
 						[],
 						'mismatched-workspace peer must not be POSTed',
 					);
+					assert.strictEqual(opened, false, 'no matching peer should have been contacted');
 				} finally {
 					provider.dispose();
 				}
@@ -686,7 +688,7 @@ suite('ClaudeCodeProvider', () => {
 			}
 		});
 
-		test('POSTs the sessionId to peers whose workspacePaths include the (normalized) target', async () => {
+		test('POSTs the sessionId to a matching peer and returns true when the peer is reachable', async () => {
 			const { default: http } = await import('node:http');
 			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
 			const { tmpdir } = await import('node:os');
@@ -703,8 +705,8 @@ suite('ClaudeCodeProvider', () => {
 						auth: req.headers['authorization'],
 						body: Buffer.concat(chunks).toString('utf8'),
 					});
-					res.writeHead(200);
-					res.end('{}');
+					res.writeHead(200, { 'Content-Type': 'application/json' });
+					res.end(JSON.stringify({ opened: true }));
 				});
 			});
 			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -729,17 +731,162 @@ suite('ClaudeCodeProvider', () => {
 					// Ignore the unrelated `/agents/sessions/list` POST that `querySiblingWindowSessions`
 					// fires on start — we only care about what `notifyPeerOpenSession` does.
 					requests.length = 0;
-					await provider.notifyPeerOpenSession('d:/PROJ/GKGL/vscode-gitlens', 'sess-42');
+					const opened = await provider.notifyPeerOpenSession('d:/PROJ/GKGL/vscode-gitlens', 'sess-42');
 
 					const openRequests = requests.filter(r => r.url === '/agents/sessions/open');
 					assert.strictEqual(openRequests.length, 1, 'matching peer should receive exactly one open POST');
 					assert.strictEqual(openRequests[0].auth, 'Bearer peer-token');
 					assert.deepStrictEqual(JSON.parse(openRequests[0].body), { sessionId: 'sess-42' });
+					assert.strictEqual(opened, true, 'reachable peer should resolve to true');
 				} finally {
 					provider.dispose();
 				}
 			} finally {
 				await new Promise<void>(resolve => server.close(() => resolve()));
+				await rm(dir, { recursive: true, force: true });
+			}
+		});
+
+		test('returns true even when a matching peer responds with { opened: false } (peer is still the right window to focus)', async () => {
+			const { default: http } = await import('node:http');
+			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
+			const { tmpdir } = await import('node:os');
+			const { join } = await import('node:path');
+
+			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-not-opened-'));
+			const server = http.createServer((_req, res) => {
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify({ opened: false }));
+			});
+			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+			const peerPort = (server.address() as { port: number }).port;
+			try {
+				await writeFile(
+					join(dir, 'gitlens-ipc-server-peer.json'),
+					JSON.stringify({
+						token: 'peer-token',
+						address: `http://127.0.0.1:${peerPort}`,
+						port: peerPort,
+						workspacePaths: ['/repo'],
+					}),
+				);
+
+				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
+				const provider = new ClaudeCodeProvider(callbacks);
+				try {
+					provider.start(['/somewhere/else']);
+					await flushMicrotasks();
+					const opened = await provider.notifyPeerOpenSession('/repo', 'sess-99');
+					// `opened: false` is logged for diagnostics but the peer was reachable, so the
+					// caller still gets the signal it needs to focus that peer's window via
+					// `vscode.openFolder` instead of opening a new window.
+					assert.strictEqual(
+						opened,
+						true,
+						'a reachable peer that failed to open the session is still the right window to focus',
+					);
+				} finally {
+					provider.dispose();
+				}
+			} finally {
+				await new Promise<void>(resolve => server.close(() => resolve()));
+				await rm(dir, { recursive: true, force: true });
+			}
+		});
+
+		test('matches a peer whose workspacePath *contains* the target (cwd is a subdir of the peer workspace)', async () => {
+			const { default: http } = await import('node:http');
+			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
+			const { tmpdir } = await import('node:os');
+			const { join } = await import('node:path');
+
+			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-containment-'));
+			const requests: { url: string; body: string }[] = [];
+			const server = http.createServer((req, res) => {
+				const chunks: Buffer[] = [];
+				req.on('data', c => chunks.push(c as Buffer));
+				req.on('end', () => {
+					requests.push({ url: req.url ?? '', body: Buffer.concat(chunks).toString('utf8') });
+					res.writeHead(200, { 'Content-Type': 'application/json' });
+					res.end(JSON.stringify({ opened: true }));
+				});
+			});
+			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+			const peerPort = (server.address() as { port: number }).port;
+			try {
+				await writeFile(
+					join(dir, 'gitlens-ipc-server-peer.json'),
+					JSON.stringify({
+						token: 'peer-token',
+						address: `http://127.0.0.1:${peerPort}`,
+						port: peerPort,
+						// Peer has the repo *root* open as workspace.
+						workspacePaths: ['/repo'],
+					}),
+				);
+
+				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
+				const provider = new ClaudeCodeProvider(callbacks);
+				try {
+					provider.start(['/somewhere/else']);
+					await flushMicrotasks();
+					requests.length = 0; // ignore startup `/agents/sessions/list` POSTs
+
+					// Dispatcher passes a cwd inside the peer's workspace folder — strict equality
+					// would miss this; containment matching catches it.
+					const opened = await provider.notifyPeerOpenSession('/repo/src/foo', 'sess-contain');
+
+					const openRequests = requests.filter(r => r.url === '/agents/sessions/open');
+					assert.strictEqual(
+						openRequests.length,
+						1,
+						'peer whose workspacePath is a parent of the target must still be POSTed',
+					);
+					assert.deepStrictEqual(JSON.parse(openRequests[0].body), { sessionId: 'sess-contain' });
+					assert.strictEqual(opened, true, 'containment match must propagate as true');
+				} finally {
+					provider.dispose();
+				}
+			} finally {
+				await new Promise<void>(resolve => server.close(() => resolve()));
+				await rm(dir, { recursive: true, force: true });
+			}
+		});
+
+		test('returns false when a matching peer is advertised but unreachable (refused/timeout)', async () => {
+			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
+			const { tmpdir } = await import('node:os');
+			const { join } = await import('node:path');
+
+			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-unreachable-'));
+			try {
+				// Use port 1 — guaranteed-closed on every platform; fetch will fail with
+				// ECONNREFUSED quickly.
+				await writeFile(
+					join(dir, 'gitlens-ipc-server-dead.json'),
+					JSON.stringify({
+						token: 'dead-token',
+						address: `http://127.0.0.1:1`,
+						port: 1,
+						workspacePaths: ['/repo'],
+					}),
+				);
+
+				const { callbacks } = createMockCallbacks({ port: 50000, agentDiscoveryDir: dir });
+				const provider = new ClaudeCodeProvider(callbacks);
+				try {
+					provider.start(['/somewhere/else']);
+					await flushMicrotasks();
+					const opened = await provider.notifyPeerOpenSession('/repo', 'sess-dead');
+					assert.strictEqual(
+						opened,
+						false,
+						'an advertised-but-unreachable peer must resolve to false so the caller opens a new window instead of trying to focus a dead window',
+					);
+				} finally {
+					provider.dispose();
+				}
+			} finally {
 				await rm(dir, { recursive: true, force: true });
 			}
 		});
