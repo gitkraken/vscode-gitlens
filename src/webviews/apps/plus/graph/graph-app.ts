@@ -1029,6 +1029,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleSidebarPanelSelect(e: CustomEvent<GraphSidebarPanelSelectEventDetail>) {
 		this.graph?.ensureAndSelectCommit(e.detail.sha);
+		if (this.shouldAutoCollapseOverlay()) {
+			this.graph?.focus();
+		}
 	}
 
 	private handleOverviewRecentThresholdChange = (e: CustomEvent<{ threshold: OverviewRecentThreshold }>): void => {
@@ -1057,6 +1060,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// from shared state on first hover and skip its own fetch.
 		if (e.detail.mergeTargetTipSha == null) {
 			void this.ensureOverviewBranchMergeTarget(e.detail.branchId);
+		}
+
+		if (this.shouldAutoCollapseOverlay()) {
+			this.graph?.focus();
 		}
 	}
 
