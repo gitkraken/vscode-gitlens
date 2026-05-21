@@ -116,21 +116,16 @@ export class GlDetailsAgentStatus extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 0.4rem;
-				/* Bottom padding is intentionally tight (vs. the 0.6rem top) in non-expanded
-				   states so the section sits flush against the content below — without this the
-				   agents pane stacks an extra ~5px of background on top of the following section's
-				   intrinsic padding, reading as a dead gap. The expanded state opens up: extra
-				   bottom padding + a divider rule (see .section[data-expand='expanded'] below) so
-				   the larger card list reads as a distinct block. */
+				/* Tight bottom padding (vs. 0.6rem top) avoids a dead gap above the next
+				   section's intrinsic padding. Background inherits from the WIP details panel;
+				   the sticky heading paints its own opaque background to obscure scrolling cards. */
 				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.3rem var(--gl-panel-padding-left, 1.2rem);
-				/* No explicit background — inherits from the WIP details panel so it matches the
-				   files section's body. The sticky heading paints its own opaque background to
-				   obscure scrolling cards. */
 			}
 
+			/* Divider between this section and the WIP section lives on the split-panel sash
+			   (see .agent-status-split::part(divider) in graph.scss), not as a border here. */
 			.section[data-expand='expanded'] {
 				padding-bottom: 0.8rem;
-				border-bottom: 1px solid var(--gl-metadata-bar-border);
 			}
 
 			/* Heading doubles as the tri-state collapse toggle AND the at-a-glance phase summary —

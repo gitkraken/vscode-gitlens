@@ -1820,6 +1820,28 @@ web-graph {
 				visibility: hidden;
 			}
 
+			// Sash gets a 1px line at rest, grows to fill on hover/drag (cf. rebase .conflict-split).
+			&:not([disabled])::part(divider) {
+				background-image: linear-gradient(
+					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border)),
+					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border))
+				);
+				background-size: 100% 1px;
+				background-position: center;
+				background-repeat: no-repeat;
+				transition: background-color 0.1s ease-out;
+			}
+
+			&:not([disabled])::part(divider):hover,
+			&:not([disabled])[dragging]::part(divider) {
+				background-image: linear-gradient(
+					var(--vscode-sash-hoverBorder, var(--vscode-focusBorder)),
+					var(--vscode-sash-hoverBorder, var(--vscode-focusBorder))
+				);
+				background-size: 100% 100%;
+				transition: background-color 0.1s ease-out 0.2s;
+			}
+
 			&__top {
 				display: flex;
 				flex-direction: column;
