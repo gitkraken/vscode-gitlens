@@ -383,17 +383,23 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
+	private _bannerClosing = false;
+
 	private onGraphWalkthroughBannerHide(): void {
+		if (this._bannerClosing) return;
+
 		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, {});
 	}
 
 	private onGraphWalkthroughBannerDismiss(e: Event): void {
 		e.preventDefault();
+		this._bannerClosing = true;
 		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, {});
 	}
 
 	private onGraphWalkthroughBannerButtonClick(e: Event): void {
 		e.preventDefault();
+		this._bannerClosing = true;
 		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, { openWelcome: true });
 	}
 

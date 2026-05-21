@@ -1003,7 +1003,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			case DidRequestGraphActionNotification.is(msg):
 				this.updateState({
 					pendingAction: msg.params.action,
-					detailsVisible: msg.params.action !== 'scope-to-branch' ? true : undefined,
+					...(msg.params.action !== 'scope-to-branch' ? { detailsVisible: true } : {}),
 				});
 				break;
 
