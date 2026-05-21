@@ -111,6 +111,9 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
 
+	@property({ type: Boolean, attribute: 'bulk-ai-conflict-actions' })
+	bulkAIConflictActions = false;
+
 	/** Active agent sessions matched to this worktree (already filtered by the graph host).
 	 *  Used to compute per-file editing decorations — see {@link _agentTouchedFiles}. */
 	@property({ attribute: false })
@@ -570,6 +573,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				?show-file-icons=${this.fileIcons}
 				?checkable=${this.checkboxMode}
 				?bulk-conflict-actions=${this.bulkConflictActions}
+				?bulk-ai-conflict-actions=${this.bulkAIConflictActions}
 				.showSearchBox=${this.showSearchBox}
 				.searchBoxFilter=${this.searchBoxFilter}
 				.fileActions=${this._getFileActions}
@@ -711,6 +715,9 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			}
 			if (canStageIncoming(conflictStatus)) {
 				modifiers.push('+canStageIncoming');
+			}
+			if (this.bulkAIConflictActions) {
+				modifiers.push('+canAIResolve');
 			}
 			webviewItem = `gitlens:file${modifiers.join('')}`;
 		} else {

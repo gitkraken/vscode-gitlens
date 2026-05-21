@@ -13,7 +13,7 @@ export const mergeConflictStyles = css`
 
 	.layout {
 		display: grid;
-		grid-template-rows: auto 1fr 1fr;
+		grid-template-rows: auto auto 1fr 1fr;
 		height: 100%;
 	}
 
@@ -64,6 +64,51 @@ export const mergeConflictStyles = css`
 
 	.toolbar__btn--primary:hover {
 		background-color: var(--vscode-button-hoverBackground);
+	}
+
+	.toolbar__btn--ai {
+		border-color: var(--vscode-focusBorder, transparent);
+	}
+
+	.ai-status {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		padding: 0.4rem 0.75rem;
+		background-color: var(--vscode-editorInfo-background, var(--vscode-editorWidget-background));
+		border-bottom: 1px solid var(--vscode-editorWidget-border);
+		font-family: var(--vscode-font-family);
+		font-size: var(--vscode-font-size);
+	}
+
+	.ai-status-placeholder {
+		height: 0;
+		overflow: hidden;
+	}
+
+	.ai-status--error {
+		background-color: var(--vscode-inputValidation-errorBackground);
+		color: var(--vscode-inputValidation-errorForeground, var(--vscode-foreground));
+	}
+
+	.ai-status__detail,
+	.ai-status__confidence {
+		opacity: 0.7;
+	}
+
+	.ai-status__spinner {
+		width: 12px;
+		height: 12px;
+		border: 2px solid var(--vscode-progressBar-background, currentColor);
+		border-top-color: transparent;
+		border-radius: 50%;
+		animation: ai-spin 1s linear infinite;
+	}
+
+	@keyframes ai-spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	.panes {

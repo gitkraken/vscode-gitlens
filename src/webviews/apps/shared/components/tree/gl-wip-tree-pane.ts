@@ -109,6 +109,11 @@ export class GlWipTreePane extends LitElement {
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
 
+	/** Opt-in for the bulk "Auto-Resolve All with AI" button. Hosts must wire the
+	 *  `auto-resolve-all-ai` event and have the merge conflict editor available. */
+	@property({ type: Boolean, attribute: 'bulk-ai-conflict-actions' })
+	bulkAIConflictActions = false;
+
 	/** Repo-relative normalized paths the connected agent(s) are actively editing, mapped to the
 	 *  agent's phase. Pass-through to `gl-file-tree-pane`. */
 	@property({ attribute: false })
@@ -272,28 +277,43 @@ export class GlWipTreePane extends LitElement {
 	}
 
 	private renderConflictBulkActions(files: Files) {
-		if (!this.bulkConflictActions || !files.some(f => isConflictStatus(f.status))) return nothing;
+		const hasConflicts = files.some(f => isConflictStatus(f.status));
+		if (!hasConflicts || (!this.bulkConflictActions && !this.bulkAIConflictActions)) return nothing;
 
-		return html`<gl-button
-				slot="leading-actions"
-				appearance="toolbar"
-				density="compact"
-				tooltip="Stage Current for All Conflicts"
-				aria-label="Stage Current for All Conflicts"
-				@click=${this.onResolveAllCurrent}
-			>
-				<code-icon icon="gl-accept-all-left"></code-icon>
-			</gl-button>
-			<gl-button
-				slot="leading-actions"
-				appearance="toolbar"
-				density="compact"
-				tooltip="Stage Incoming for All Conflicts"
-				aria-label="Stage Incoming for All Conflicts"
-				@click=${this.onResolveAllIncoming}
-			>
-				<code-icon icon="gl-accept-all-right"></code-icon>
-			</gl-button>`;
+		return html`${this.bulkConflictActions
+			? html`<gl-button
+						slot="leading-actions"
+						appearance="toolbar"
+						density="compact"
+						tooltip="Stage Current for All Conflicts"
+						aria-label="Stage Current for All Conflicts"
+						@click=${this.onResolveAllCurrent}
+					>
+						<code-icon icon="gl-accept-all-left"></code-icon>
+					</gl-button>
+					<gl-button
+						slot="leading-actions"
+						appearance="toolbar"
+						density="compact"
+						tooltip="Stage Incoming for All Conflicts"
+						aria-label="Stage Incoming for All Conflicts"
+						@click=${this.onResolveAllIncoming}
+					>
+						<code-icon icon="gl-accept-all-right"></code-icon>
+					</gl-button>`
+			: nothing}
+		${this.bulkAIConflictActions
+			? html`<gl-button
+					slot="leading-actions"
+					appearance="toolbar"
+					density="compact"
+					tooltip="Auto-Resolve All with AI"
+					aria-label="Auto-Resolve All Conflicts with AI"
+					@click=${this.onAutoResolveAllAI}
+				>
+					<code-icon icon="sparkle"></code-icon>
+				</gl-button>`
+			: nothing}`;
 	}
 
 	private onResolveAllCurrent = () => {
@@ -302,6 +322,10 @@ export class GlWipTreePane extends LitElement {
 
 	private onResolveAllIncoming = () => {
 		this.dispatchEvent(new CustomEvent('resolve-all-incoming', { bubbles: true, composed: true }));
+	};
+
+	private onAutoResolveAllAI = () => {
+		this.dispatchEvent(new CustomEvent('auto-resolve-all-ai', { bubbles: true, composed: true }));
 	};
 
 	private onStashSave() {

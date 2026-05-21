@@ -31,6 +31,9 @@ export class MergeConflictEditorProvider implements CustomTextEditorProvider, Di
 	 *  file. The auto-open watcher consults this to avoid re-promoting after the user explicitly
 	 *  chose VS Code's default editor for that file. Cleared when every tab for the URI closes. */
 	private readonly _optedOut = new Set<string>();
+	/** URIs queued to auto-trigger AI resolution as soon as the controller initializes. Populated
+	 *  by the `gitlens.conflicts.resolveWithAI` command before it calls `vscode.openWith` on us. */
+	private readonly _pendingAIResolve = new Set<string>();
 
 	constructor(
 		private readonly container: Container,
@@ -80,6 +83,13 @@ export class MergeConflictEditorProvider implements CustomTextEditorProvider, Di
 	 *  editor open — i.e., they deliberately want to see the default editor. */
 	markOptedOut(uri: Uri): void {
 		this._optedOut.add(uri.toString());
+	}
+
+	/** Stage a URI for an automatic AI resolve once the merge editor opens. The command opener
+	 *  calls this just before `vscode.openWith('gitlens.mergeConflict')`; `resolveCustomTextEditor`
+	 *  consumes the flag and kicks off the run. */
+	queueAIResolve(uri: Uri): void {
+		this._pendingAIResolve.add(uri.toString());
 	}
 
 	refresh(uri: Uri): void {
@@ -172,6 +182,16 @@ export class MergeConflictEditorProvider implements CustomTextEditorProvider, Di
 			];
 
 			await controller.show(true, { preserveFocus: false }).catch();
+
+			if (this._pendingAIResolve.delete(key)) {
+				const provider = (controller as unknown as { provider?: { runAIResolve?: () => Promise<void> } })
+					.provider;
+				if (typeof provider?.runAIResolve === 'function') {
+					void provider.runAIResolve().catch((ex: unknown) => {
+						Logger.error(ex, 'MergeConflictEditorProvider', `Failed to auto-run AI resolve for ${key}`);
+					});
+				}
+			}
 		} catch (ex) {
 			Logger.error(
 				ex,

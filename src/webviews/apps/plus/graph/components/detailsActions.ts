@@ -2504,6 +2504,15 @@ export class DetailsActions {
 		);
 	}
 
+	autoResolveAllConflictsWithAI(repoPath: string | undefined): void {
+		if (!repoPath) return;
+
+		this._pendingStagingOp = this.runStagingOp(
+			this.services.repository.autoResolveAllConflictsWithAI(repoPath),
+			'auto-resolve all conflicts with AI',
+		);
+	}
+
 	unstageFile(detail: FileChangeListItemDetail): void {
 		this.optimisticallyUpdateFileStaged(detail.path, false);
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFile(detail), 'unstage file');

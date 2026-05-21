@@ -91,6 +91,9 @@ importers:
       '@gitkraken/compose-tools':
         specifier: 0.3.1
         version: 0.3.1
+      '@gitkraken/conflict-tools':
+        specifier: 0.1.0
+        version: 0.1.0
       '@gitkraken/gitkraken-components':
         specifier: 13.0.0-vnext.35
         version: 13.0.0-vnext.35(dragula@3.7.3)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -1271,6 +1274,10 @@ packages:
 
   '@gitkraken/compose-tools@0.3.1':
     resolution: {integrity: sha512-AbvXfFlyXZNaADWOz1aNvCzANj9PajnZy/m0dpaESjfFrMFWs4vsnZ87tC6C2AlCVIPrL5TFpTvxCYCPPo2pHw==}
+    engines: {node: '>= 22'}
+
+  '@gitkraken/conflict-tools@0.1.0':
+    resolution: {integrity: sha512-Mq8o2tzq/nCcSVTU71roDmOpWUM/hK7mXDF6qtEqZpe1Nl7MXuX2/RCq9nU8/9C2pjv+++Xu7KPzgMxYtdefcw==}
     engines: {node: '>= 22'}
 
   '@gitkraken/gitkraken-components@13.0.0-vnext.35':
@@ -7942,6 +7949,11 @@ snapshots:
     dependencies:
       '@gitkraken/shared-tools': 0.2.0
       zod: 4.4.3
+
+  '@gitkraken/conflict-tools@0.1.0':
+    dependencies:
+      '@gitkraken/shared-tools': 0.2.0
+      picomatch: 4.0.4
 
   '@gitkraken/gitkraken-components@13.0.0-vnext.35(dragula@3.7.3)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:

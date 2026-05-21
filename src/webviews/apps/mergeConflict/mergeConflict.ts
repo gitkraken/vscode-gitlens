@@ -5,10 +5,13 @@ import type { IpcCallParamsType, IpcCommand } from '../../ipc/models/ipc.js';
 import type { State } from '../../mergeConflict/protocol.js';
 import {
 	AbortMergeCommand,
+	AIResolveProgressNotification,
+	CancelAIResolveCommand,
 	PickHunkCommand,
 	PickLineCommand,
 	ResetAllCommand,
 	ResetHunkCommand,
+	RunAIResolveCommand,
 	SaveAndResolveCommand,
 	TakeAllCommand,
 	TakeBothAllCommand,
@@ -37,20 +40,73 @@ export class GlMergeConflictEditor extends GlAppHost<State, MergeConflictStatePr
 
 	@state() private _focusedHunkIndex = 0;
 	@state() private _displayMode: PaneDisplayMode = 'full';
+	@state() private _aiBusy = false;
+	@state() private _aiStatus: { message?: string; description?: string; confidence?: number } | undefined;
+	@state() private _aiError: string | undefined;
 
 	@query('gl-merge-conflict-pane[side="current"]')
 	private readonly _currentPane!: GlMergeConflictPane;
 	@query('gl-merge-conflict-pane[side="incoming"]')
 	private readonly _incomingPane!: GlMergeConflictPane;
 
+	private _aiProgressUnsub?: () => void;
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		document.addEventListener('keydown', this.onKeyDown);
+		const ipc = this._ipc;
+		if (ipc != null) {
+			const sub = ipc.onReceiveMessage(msg => {
+				if (AIResolveProgressNotification.is(msg)) {
+					this.onAIProgress(msg.params);
+				}
+			});
+			this._aiProgressUnsub = () => sub.dispose();
+		}
 	}
 
 	override disconnectedCallback(): void {
 		document.removeEventListener('keydown', this.onKeyDown);
+		this._aiProgressUnsub?.();
+		this._aiProgressUnsub = undefined;
 		super.disconnectedCallback?.();
+	}
+
+	private onAIProgress(params: {
+		phase: 'starting' | 'running' | 'completed' | 'failed' | 'cancelled';
+		message?: string;
+		confidence?: number;
+		description?: string;
+		stepCount?: number;
+	}): void {
+		switch (params.phase) {
+			case 'starting':
+				this._aiBusy = true;
+				this._aiStatus = { message: 'Asking AI to resolve…' };
+				this._aiError = undefined;
+				break;
+			case 'running':
+				this._aiBusy = true;
+				this._aiStatus = { ...(this._aiStatus ?? {}), message: params.message ?? 'Running…' };
+				break;
+			case 'completed':
+				this._aiBusy = false;
+				this._aiStatus = {
+					message: 'AI resolved — review and Save & Resolve to accept',
+					description: params.description,
+					confidence: params.confidence,
+				};
+				break;
+			case 'failed':
+				this._aiBusy = false;
+				this._aiStatus = undefined;
+				this._aiError = params.message ?? 'AI resolution failed.';
+				break;
+			case 'cancelled':
+				this._aiBusy = false;
+				this._aiStatus = undefined;
+				break;
+		}
 	}
 
 	protected override createStateProvider(
@@ -138,6 +194,18 @@ export class GlMergeConflictEditor extends GlAppHost<State, MergeConflictStatePr
 					>
 						Take Both (I→C)
 					</button>
+					${state?.aiAvailable && state?.aiEnabled
+						? html`<button
+								class="toolbar__btn toolbar__btn--ai"
+								type="button"
+								title=${this._aiBusy
+									? 'Cancel the running AI resolution'
+									: 'Generate a resolution plan with AI. Output stays editable.'}
+								@click=${this._aiBusy ? this.onCancelAI : this.onRunAI}
+							>
+								${this._aiBusy ? 'Cancel AI' : 'Resolve with AI'}
+							</button>`
+						: ''}
 					<button
 						class="toolbar__btn"
 						type="button"
@@ -157,6 +225,22 @@ export class GlMergeConflictEditor extends GlAppHost<State, MergeConflictStatePr
 						Save and Resolve
 					</button>
 				</div>
+				${this._aiBusy || this._aiStatus != null || this._aiError != null
+					? html`<div class="ai-status ${this._aiError != null ? 'ai-status--error' : ''}" aria-live="polite">
+							${this._aiBusy ? html`<span class="ai-status__spinner" aria-hidden="true"></span>` : ''}
+							<span class="ai-status__message">
+								${this._aiError ?? this._aiStatus?.message ?? ''}
+								${this._aiStatus?.description
+									? html`<span class="ai-status__detail"> — ${this._aiStatus.description}</span>`
+									: ''}
+								${this._aiStatus?.confidence != null
+									? html`<span class="ai-status__confidence">
+											(confidence ${Math.round((this._aiStatus.confidence ?? 0) * 100)}%)
+										</span>`
+									: ''}
+							</span>
+						</div>`
+					: html`<div class="ai-status-placeholder" aria-hidden="true"></div>`}
 				<div class="panes">
 					${hunks.length === 0
 						? html`<div class="unsupported">No conflicts in this file.</div>`
@@ -235,6 +319,14 @@ export class GlMergeConflictEditor extends GlAppHost<State, MergeConflictStatePr
 
 	private onToggleDisplayMode = (): void => {
 		this._displayMode = this._displayMode === 'full' ? 'hunks' : 'full';
+	};
+
+	private onRunAI = () => {
+		this.dispatchCommand(RunAIResolveCommand);
+	};
+
+	private onCancelAI = () => {
+		this.dispatchCommand(CancelAIResolveCommand);
 	};
 
 	private onResetAll = () => {

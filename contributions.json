@@ -717,6 +717,34 @@
 				]
 			}
 		},
+		"gitlens.conflicts.autoResolveAllWithAI": {
+			"label": "Auto-Resolve All Conflicts with AI",
+			"icon": "$(sparkle)",
+			"commandPalette": "gitlens:enabled && gitlens:hasPausedOperation"
+		},
+		"gitlens.conflicts.resolveWithAI": {
+			"label": "Resolve with AI",
+			"icon": "$(sparkle)",
+			"commandPalette": "gitlens:enabled && gitlens:hasPausedOperation"
+		},
+		"gitlens.conflicts.resolveWithAI:webview": {
+			"label": "Resolve with AI",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+canAIResolve\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "inline",
+						"order": 5
+					},
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+canAIResolve\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_conflict",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.connectRemoteProvider": {
 			"label": "Connect Remote Integration",
 			"icon": "$(plug)",

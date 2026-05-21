@@ -1,14 +1,17 @@
 import type { Disposable, TextDocument } from 'vscode';
 import { window, workspace } from 'vscode';
+import { createConflictToolsIntegration } from '@env/coretools/conflict.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { Container } from '../../container.js';
 import { abortPausedOperation } from '../../git/actions/pausedOperation.js';
 import type { ConflictHunk } from '../../git/utils/-webview/conflictHunks.utils.js';
-import { applyResolutions } from '../../git/utils/-webview/conflictHunks.utils.js';
+import { applyResolutions, parseConflictHunks } from '../../git/utils/-webview/conflictHunks.utils.js';
 import { computeThreeWayDiff } from '../../git/utils/-webview/threeWayDiff.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
+import type { Resolution as ConflictToolsResolution, ResolvedChunk } from '../../plus/coretools/conflict/types.js';
+import { configuration } from '../../system/-webview/configuration.js';
 import { closeTab } from '../../system/-webview/vscode/tabs.js';
 import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
@@ -27,6 +30,8 @@ import type {
 } from './protocol.js';
 import {
 	AbortMergeCommand,
+	AIResolveProgressNotification,
+	CancelAIResolveCommand,
 	DidChangeStateNotification,
 	DidResolveNotification,
 	PickBothCommand,
@@ -35,6 +40,7 @@ import {
 	RequestAIResolveRequest,
 	ResetAllCommand,
 	ResetHunkCommand,
+	RunAIResolveCommand,
 	SaveAndResolveCommand,
 	TakeAllCommand,
 	TakeBothAllCommand,
@@ -76,6 +82,7 @@ export class MergeConflictWebviewProvider implements Disposable {
 	 *  newly inserted by the user — used to drive the manual-highlight in the Output pane. */
 	private _contextOverrides = new Map<number, { lines: string[]; edited: boolean[] }>();
 	private _closing = false;
+	private _aiAbort?: AbortController;
 
 	constructor(
 		private readonly container: Container,
@@ -158,6 +165,7 @@ export class MergeConflictWebviewProvider implements Disposable {
 	@debug()
 	private onResetAll(): void {
 		if (this._resolutions.size === 0 && this._contextOverrides.size === 0) return;
+
 		const indices = [...this._resolutions.keys()];
 		this._resolutions.clear();
 		this._contextOverrides.clear();
@@ -266,12 +274,241 @@ export class MergeConflictWebviewProvider implements Disposable {
 	private onRequestAIResolve(
 		_params: IpcParams<typeof RequestAIResolveRequest>,
 	): IpcResponse<typeof RequestAIResolveRequest> {
-		// Placeholder — wired up once `@gitkraken/conflict-tools` is available. v1 returns an
-		// error so the webview can surface a "coming soon" affordance without throwing.
+		// Legacy stub kept for backwards compat with any in-flight protocol; the live path is the
+		// fire-and-forget RunAIResolveCommand + AIResolveProgressNotification pair below.
 		return {
 			resolutions: [],
-			error: 'AI-assisted resolution is not yet available in this build.',
+			error: 'Use RunAIResolveCommand for AI-assisted resolution.',
 		};
+	}
+
+	@ipcCommand(RunAIResolveCommand)
+	@debug()
+	private async onRunAIResolve(): Promise<void> {
+		if (this._aiAbort != null) return;
+
+		await this.runAIResolve();
+	}
+
+	@ipcCommand(CancelAIResolveCommand)
+	@debug()
+	private onCancelAIResolve(): void {
+		this._aiAbort?.abort();
+	}
+
+	/** Kick off an AI-assisted resolution against this file. Used both by the in-webview button
+	 *  (via the `RunAIResolveCommand` IPC) and by the `gitlens.conflicts.resolveWithAI` extension
+	 *  command, which opens this editor and then asks us to start running automatically. */
+	async runAIResolve(): Promise<void> {
+		const integration = createConflictToolsIntegration(this.container);
+		if (integration == null) {
+			await this.host.notify(AIResolveProgressNotification, {
+				phase: 'failed',
+				message: 'AI-assisted resolution is unavailable in this environment.',
+			});
+			return;
+		}
+
+		const parsed = this._doc.parsed;
+		if (parsed.hunks.length === 0) {
+			await this.host.notify(AIResolveProgressNotification, {
+				phase: 'failed',
+				message: 'No conflict markers detected in this file.',
+			});
+			return;
+		}
+
+		this._aiAbort = new AbortController();
+		await this.host.notify(AIResolveProgressNotification, { phase: 'starting' });
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		const refs = await this.collectRefs(svc);
+		const filePath = normalizePath(workspace.asRelativePath(this.document.uri, false));
+		const markerCount = parsed.hunks.length;
+
+		try {
+			const conflict = await integration.extract({
+				svc: svc,
+				filePath: filePath,
+				signal: this._aiAbort.signal,
+			});
+			if (conflict == null) {
+				await this.host.notify(AIResolveProgressNotification, {
+					phase: 'failed',
+					message: 'No conflict markers detected in this file.',
+				});
+				this._aiAbort = undefined;
+				return;
+			}
+
+			const resolution = await integration.resolveSingle(
+				{
+					svc: svc,
+					conflict: conflict,
+					context: refs != null ? { refs: refs } : undefined,
+					signal: this._aiAbort.signal,
+					onProgress: e => {
+						if (e.type === 'resolver:tool-call') {
+							void this.host.notify(AIResolveProgressNotification, {
+								phase: 'running',
+								message: `Inspecting ${e.tool}…`,
+							});
+						} else if (e.type === 'resolver:step-usage') {
+							void this.host.notify(AIResolveProgressNotification, {
+								phase: 'running',
+								message: `Step ${e.stepNumber}…`,
+							});
+						}
+					},
+				},
+				{ source: 'mergeConflictEditor', detail: 'resolveWithAI' },
+			);
+
+			if (this._aiAbort?.signal.aborted) {
+				await this.host.notify(AIResolveProgressNotification, { phase: 'cancelled' });
+				return;
+			}
+
+			this.applyAIResolution(resolution, markerCount);
+			await this.host.notify(AIResolveProgressNotification, {
+				phase: 'completed',
+				confidence: resolution.confidence,
+				description: resolution.description,
+				stepCount: resolution.metrics?.stepCount,
+			});
+			void this.notifyDidChangeState();
+		} catch (ex) {
+			const aborted = (ex as { name?: string })?.name === 'AbortError' || this._aiAbort?.signal.aborted;
+			await this.host.notify(AIResolveProgressNotification, {
+				phase: aborted ? 'cancelled' : 'failed',
+				message: aborted ? undefined : ((ex as Error)?.message ?? 'AI resolution failed.'),
+			});
+			if (!aborted) {
+				Logger.error(ex, 'MergeConflictWebviewProvider', 'AI resolve failed');
+			}
+		} finally {
+			this._aiAbort = undefined;
+		}
+	}
+
+	private async collectRefs(
+		svc: ReturnType<Container['git']['getRepositoryService']>,
+	): Promise<{ ours: string; theirs: string; base?: string } | undefined> {
+		try {
+			const status = await svc.pausedOps?.getPausedOperationStatus?.();
+			if (status == null) return undefined;
+
+			const ours = status.HEAD?.ref ?? 'HEAD';
+			const theirs = status.incoming?.ref;
+			if (!theirs) return undefined;
+			return status.mergeBase != null
+				? { ours: ours, theirs: theirs, base: status.mergeBase }
+				: { ours: ours, theirs: theirs };
+		} catch {
+			return undefined;
+		}
+	}
+
+	/** Map a `Resolution` from `@gitkraken/conflict-tools` into our per-hunk entry model so the
+	 *  Output pane lights up checkmarks for synced lines and the manual-yellow for synthesized
+	 *  lines. Lines that match a side verbatim get attributed; lines that don't are manual. */
+	private applyAIResolution(resolution: ConflictToolsResolution, markerCount: number): void {
+		const parsed = this._doc.parsed;
+		this._contextOverrides.clear();
+
+		if (resolution.chunks?.length !== markerCount) {
+			// Fallback: no per-chunk attribution — parse the resolved content back, map each
+			// resulting hunk segment to manual entries. Keeps the user able to Save & Resolve;
+			// they just don't get checkmarks.
+			const reparsed = parseConflictHunks(resolution.content);
+			const newOverrideLines = reparsed.lines;
+			// Best-effort: clear existing per-hunk entries and stuff everything into one big context
+			// override on segment 0. That preserves the AI text but loses hunk-anchored editing.
+			this._resolutions.clear();
+			const editedFlags = newOverrideLines.map((line, i) => line !== parsed.lines[i]);
+			this._contextOverrides.set(0, { lines: [...newOverrideLines], edited: editedFlags });
+			return;
+		}
+
+		for (const chunk of resolution.chunks) {
+			const hunk = parsed.hunks[chunk.markerIndex];
+			if (hunk == null) continue;
+
+			const entries: OutputEntry[] = this.buildEntriesFromChunk(chunk, hunk);
+			if (entries.length === 0) {
+				this._resolutions.delete(hunk.index);
+			} else {
+				this._resolutions.set(hunk.index, { hunkIndex: hunk.index, entries: entries });
+			}
+		}
+	}
+
+	private buildEntriesFromChunk(chunk: ResolvedChunk, hunk: ConflictHunk): OutputEntry[] {
+		if (chunk.strategy === 'ours') {
+			return hunk.current.lines.map((text, i) => ({
+				text: text,
+				source: { side: 'current', lineIndex: i },
+			}));
+		}
+		if (chunk.strategy === 'theirs') {
+			return hunk.incoming.lines.map((text, i) => ({
+				text: text,
+				source: { side: 'incoming', lineIndex: i },
+			}));
+		}
+
+		// 'merged' — attribute each line to a side when it matches a source line, snapping back to
+		// the source's exact text. The AI often normalizes whitespace (tabs→spaces, trim trailing),
+		// so we index by trimmed key for fall-through matching, then re-emit the source's verbatim
+		// line — that preserves the user's indent style AND keeps the source pane's checkmark.
+		const currentByExact = new Map<string, number>();
+		const currentByTrim = new Map<string, number>();
+		hunk.current.lines.forEach((line, i) => {
+			if (!currentByExact.has(line)) currentByExact.set(line, i);
+			const key = line.trim();
+			if (key !== '' && !currentByTrim.has(key)) currentByTrim.set(key, i);
+		});
+		const incomingByExact = new Map<string, number>();
+		const incomingByTrim = new Map<string, number>();
+		hunk.incoming.lines.forEach((line, i) => {
+			if (!incomingByExact.has(line)) incomingByExact.set(line, i);
+			const key = line.trim();
+			if (key !== '' && !incomingByTrim.has(key)) incomingByTrim.set(key, i);
+		});
+
+		const content = (chunk as Extract<ResolvedChunk, { strategy: 'merged' }>).content;
+		const lines = content.split(/\r?\n/);
+		// `split` keeps a trailing empty element when the content ended on a newline — drop it so
+		// we don't emit a phantom blank entry below the last code line.
+		if (lines.length > 0 && lines.at(-1) === '') {
+			lines.pop();
+		}
+
+		return lines.map<OutputEntry>((text: string) => {
+			const exactCur = currentByExact.get(text);
+			if (exactCur != null) return { text: text, source: { side: 'current', lineIndex: exactCur } };
+			const exactInc = incomingByExact.get(text);
+			if (exactInc != null) return { text: text, source: { side: 'incoming', lineIndex: exactInc } };
+
+			const trimmed = text.trim();
+			if (trimmed !== '') {
+				const trimCur = currentByTrim.get(trimmed);
+				if (trimCur != null) {
+					return {
+						text: hunk.current.lines[trimCur],
+						source: { side: 'current', lineIndex: trimCur },
+					};
+				}
+				const trimInc = incomingByTrim.get(trimmed);
+				if (trimInc != null) {
+					return {
+						text: hunk.incoming.lines[trimInc],
+						source: { side: 'incoming', lineIndex: trimInc },
+					};
+				}
+			}
+			return { text: text };
+		});
 	}
 
 	// Kept async even though no awaits remain: `includeBootstrap` and `notifyDidChangeState`
@@ -400,8 +637,8 @@ export class MergeConflictWebviewProvider implements Disposable {
 			eol: parsed.eol,
 			hasDiff3: parsed.hasDiff3,
 			dirty: this._resolutions.size > 0 || this._contextOverrides.size > 0,
-			aiAvailable: false,
-			aiEnabled: false,
+			aiAvailable: createConflictToolsIntegration(this.container) != null,
+			aiEnabled: configuration.get('mergeConflictEditor.ai.enabled') ?? true,
 		};
 	}
 
@@ -711,7 +948,9 @@ export class MergeConflictWebviewProvider implements Disposable {
 		}
 
 		let anchorIndex = oldPlan.findIndex(r => topLen >= r.oldStart && topLen < r.oldStart + r.oldLength);
-		if (anchorIndex < 0) anchorIndex = oldPlan.length - 1;
+		if (anchorIndex < 0) {
+			anchorIndex = oldPlan.length - 1;
+		}
 
 		interface SlicedRegion {
 			region: Region;
@@ -785,7 +1024,9 @@ export class MergeConflictWebviewProvider implements Disposable {
 				editedFlags[i] = true;
 				anyEdited = true;
 			}
-			if (slice.length !== original.length) anyEdited = true;
+			if (slice.length !== original.length) {
+				anyEdited = true;
+			}
 
 			if (!anyEdited) {
 				if (this._contextOverrides.has(region.segmentIndex)) {
@@ -879,6 +1120,7 @@ function composeOutputWithMeta(
 			}
 			return;
 		}
+
 		for (let i = start; i < end; i++) {
 			outLines.push(parsed.lines[i]);
 			outSources.push('context');

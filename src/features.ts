@@ -56,6 +56,7 @@ export type ProAIFeatures =
 	| 'generate-create-pullRequest'
 	| 'generate-commits'
 	| 'generate-commitMessage'
+	| 'generate-resolveConflicts'
 	| 'generate-searchQuery';
 
 export type AdvancedFeatures = never;
@@ -92,6 +93,7 @@ export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFea
 		case 'generate-create-pullRequest':
 		case 'generate-commits':
 		case 'generate-commitMessage':
+		case 'generate-resolveConflicts':
 		case 'generate-searchQuery':
 			return true;
 		default:

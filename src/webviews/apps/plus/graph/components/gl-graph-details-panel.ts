@@ -1766,6 +1766,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										file-icons
 										checkbox-mode
 										?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type === 'rebase'}
+										?bulk-ai-conflict-actions=${this._state.preferences.get()?.aiEnabled ?? false}
 										?show-search-box=${this.showSearchBox}
 										?search-box-filter=${this.searchBoxFilter}
 										.wip=${wip}
@@ -1794,6 +1795,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										@stash-save=${this.handleStashSave}
 										@resolve-all-current=${this.handleResolveAllCurrent}
 										@resolve-all-incoming=${this.handleResolveAllIncoming}
+										@auto-resolve-all-ai=${this.handleAutoResolveAllAI}
 										@change-files-layout=${this.handleChangeFilesLayout}
 										@open-multiple-changes=${this.handleOpenMultipleChanges}
 									></gl-details-wip-panel>
@@ -2779,6 +2781,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleResolveAllIncoming = () => {
 		this._actions.resolveAllConflicts(this.effectiveRepoPath, 'incoming');
+	};
+
+	private handleAutoResolveAllAI = () => {
+		this._actions.autoResolveAllConflictsWithAI(this.effectiveRepoPath);
 	};
 
 	private handleChangeFilesLayout = (e: CustomEvent<{ layout: ViewFilesLayout }>) => {

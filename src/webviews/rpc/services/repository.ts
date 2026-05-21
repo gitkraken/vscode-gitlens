@@ -345,6 +345,15 @@ export class RepositoryService {
 	}
 
 	/**
+	 * Run AI batch resolution against every unmerged file in the repo, auto-accept results, and
+	 * surface failures for manual handling. Delegates to the `gitlens.conflicts.autoResolveAllWithAI`
+	 * command which owns the progress UI and feature gating.
+	 */
+	async autoResolveAllConflictsWithAI(repoPath: string): Promise<void> {
+		await executeCommand('gitlens.conflicts.autoResolveAllWithAI', repoPath);
+	}
+
+	/**
 	 * Unstage all staged changes.
 	 */
 	async unstageAll(repoPath: string): Promise<void> {

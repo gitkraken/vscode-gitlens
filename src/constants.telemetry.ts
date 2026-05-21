@@ -1897,6 +1897,7 @@ export type Sources =
 	| 'mcp'
 	| 'mcp-welcome-message'
 	| 'merge-target'
+	| 'mergeConflictEditor'
 	| 'notification'
 	| 'patchDetails'
 	| 'prompt'

@@ -162,7 +162,19 @@ export const RequestAIResolveRequest = new IpcRequest<RequestAIResolveParams, Re
 	'ai/resolve',
 );
 
+export const RunAIResolveCommand = new IpcCommand(scope, 'ai/run');
+export const CancelAIResolveCommand = new IpcCommand(scope, 'ai/cancel');
+
 // NOTIFICATIONS (extension → webview)
+
+export interface AIResolveProgressParams {
+	phase: 'starting' | 'running' | 'completed' | 'failed' | 'cancelled';
+	message?: string;
+	confidence?: number;
+	description?: string;
+	stepCount?: number;
+}
+export const AIResolveProgressNotification = new IpcNotification<AIResolveProgressParams>(scope, 'ai/progress');
 
 export interface DidChangeStateParams {
 	state: State;

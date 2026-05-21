@@ -676,6 +676,7 @@ interface PlusFeaturesConfig {
 interface MergeConflictEditorConfig {
 	readonly enabled: boolean;
 	readonly openOnFileOpen: boolean;
+	readonly ai: { readonly enabled: boolean };
 }
 
 interface RebaseEditorConfig {

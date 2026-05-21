@@ -46,6 +46,7 @@ const defaults: { readonly [key: string]: string | undefined } = {
 	'generate-create-codeSuggestion': summarized('Simulated code suggestion', 'Simulated suggestion body.'),
 	'generate-create-pullRequest': summarized('Simulated pull request', '## Summary\n- Simulated PR body'),
 	'generate-commits': generateCommitsRejection,
+	'generate-resolveConflicts': '',
 	'generate-searchQuery': 'message:simulated',
 };
 
