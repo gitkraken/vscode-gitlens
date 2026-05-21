@@ -85,16 +85,18 @@ export function* pickRouteStep(options?: { showBackButton?: boolean }): StepResu
 
 	const buildItems = (currentDefault: AgentRoute): RouteItem[] => [
 		{
-			route: 'manual',
-			label: '$(arrow-right) Continue manually',
-			description: 'Create the branch/worktree and stop',
-			buttons: [starButton(currentDefault === 'manual', 'Continue manually')],
-		},
-		{
 			route: 'agent',
 			label: '$(robot) Open in an agent',
 			description: 'Open a chat or CLI session with the issue context',
+			picked: currentDefault === 'agent',
 			buttons: [starButton(currentDefault === 'agent', 'Open in an agent')],
+		},
+		{
+			route: 'manual',
+			label: '$(arrow-right) Continue manually',
+			description: 'Create the branch/worktree and stop',
+			picked: currentDefault === 'manual',
+			buttons: [starButton(currentDefault === 'manual', 'Continue manually')],
 		},
 	];
 
@@ -108,6 +110,10 @@ export function* pickRouteStep(options?: { showBackButton?: boolean }): StepResu
 			await configuration.update('ai.openInAgent', newDefault, ConfigurationTarget.Global);
 			current = newDefault;
 			qp.items = buildItems(newDefault);
+			const restored = qp.items.find((i): i is RouteItem => 'route' in i && i.route === item.route);
+			if (restored != null) {
+				qp.activeItems = [restored];
+			}
 			return false;
 		},
 	});
@@ -122,13 +128,18 @@ export type PickAgentResult =
 	| { readonly kind: 'manual' }
 	| typeof StepResultBreak;
 
+export interface AgentPickerOptions {
+	title?: string;
+	placeholder?: string;
+}
+
 /**
  * Step 2 of the agent flow — yields a wizard step listing the available agents. Returns the chosen
  * descriptor, `'manual'` (empty-state opt-out), or `StepResultBreak` (back / close).
  */
-export async function* pickAgentStep(options?: {
-	showBackButton?: boolean;
-}): AsyncStepResultGenerator<PickAgentResult> {
+export async function* pickAgentStep(
+	options?: AgentPickerOptions & { showBackButton?: boolean },
+): AsyncStepResultGenerator<PickAgentResult> {
 	const available = await getSupportedAgents();
 	let currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
 
@@ -168,6 +179,7 @@ export async function* pickAgentStep(options?: {
 				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
 				description: descriptionFor(d),
 				detail: detailFor(d),
+				picked: currentDefaultId === d.id,
 				buttons: [starButton(currentDefaultId === d.id, `Use ${d.label}`)],
 			});
 		}
@@ -175,11 +187,11 @@ export async function* pickAgentStep(options?: {
 	};
 
 	const step = createPickStep<AgentItem>({
-		title: 'Choose an agent',
+		title: options?.title ?? 'Choose an agent',
 		placeholder:
 			available.length === 0
 				? 'No agents available'
-				: 'Select where to send the prompt · ⭐ next to a row to set as default',
+				: `${options?.placeholder ?? 'Select where to proceed'} · ⭐ next to a row to set as default`,
 		items: buildItems(currentDefault),
 		buttons: options?.showBackButton ? [QuickInputButtons.Back] : undefined,
 		onDidClickItemButton: async (qp, _button, item) => {
@@ -190,6 +202,10 @@ export async function* pickAgentStep(options?: {
 			await configuration.update('ai.defaultAgent', newDefault, ConfigurationTarget.Global);
 			currentDefault = newDefault;
 			qp.items = buildItems(newDefault);
+			const restored = qp.items.find((i): i is AgentItem => 'descriptor' in i && i.descriptor?.id === id);
+			if (restored != null) {
+				qp.activeItems = [restored];
+			}
 			return false;
 		},
 	});
@@ -209,16 +225,27 @@ export async function* pickAgentStep(options?: {
  * toast action that fires AFTER the wizard has completed). Safe to call when no wizard is active.
  * DO NOT use from inside a wizard's continuation — use {@link pickAgentStep} instead.
  */
-export async function pickAgentStandalone(): Promise<AgentDescriptor | undefined> {
+export async function pickAgentStandalone(options?: AgentPickerOptions): Promise<AgentDescriptor | undefined> {
 	const available = await getSupportedAgents();
-	if (available.length === 0) return undefined;
-
 	let currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
 
 	const qp = window.createQuickPick<AgentItem>();
 	const disposables: { dispose: () => void }[] = [qp];
 
 	const buildItems = (currentDefaultId: string | null): AgentItem[] => {
+		if (available.length === 0) {
+			return [
+				{
+					label: '$(warning) No agents available',
+					description: 'No supported IDE chat host, no Claude extension, no detected CLIs',
+					kind: QuickPickItemKind.Separator,
+				},
+				{
+					label: '$(close) Close',
+				},
+			];
+		}
+
 		const items: AgentItem[] = [];
 		let lastKind: AgentDescriptor['kind'] | undefined;
 		for (const d of available) {
@@ -234,6 +261,7 @@ export async function pickAgentStandalone(): Promise<AgentDescriptor | undefined
 				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
 				description: descriptionFor(d),
 				detail: detailFor(d),
+				picked: currentDefaultId === d.id,
 				buttons: [starButton(currentDefaultId === d.id, `Use ${d.label}`)],
 			});
 		}
@@ -241,9 +269,13 @@ export async function pickAgentStandalone(): Promise<AgentDescriptor | undefined
 	};
 
 	try {
-		qp.title = 'Choose an agent';
-		qp.placeholder = 'Select where to send the prompt';
+		qp.title = options?.title ?? 'Choose an agent';
+		qp.placeholder =
+			available.length === 0
+				? 'No agents available'
+				: `${options?.placeholder ?? 'Select where to proceed'} · ⭐ next to a row to set as default`;
 		qp.items = buildItems(currentDefault);
+		qp.activeItems = qp.items.filter(i => i.picked);
 
 		return await new Promise<AgentDescriptor | undefined>(resolve => {
 			disposables.push(
@@ -255,6 +287,10 @@ export async function pickAgentStandalone(): Promise<AgentDescriptor | undefined
 					await configuration.update('ai.defaultAgent', newDefault, ConfigurationTarget.Global);
 					currentDefault = newDefault;
 					qp.items = buildItems(newDefault);
+					const restored = qp.items.find(i => i.descriptor?.id === id);
+					if (restored != null) {
+						qp.activeItems = [restored];
+					}
 				}),
 				qp.onDidAccept(() => {
 					const item = qp.selectedItems[0];
@@ -314,7 +350,10 @@ export async function* resolveAgentFlow(
 
 	if (options.useDefaults) {
 		// Hard contract: never pop a picker when useDefaults is true (would deadlock MCP/IPC callers).
-		if (route !== 'agent') return { kind: 'manual' };
+		if (route !== 'agent') {
+			return { kind: 'manual' };
+		}
+
 		if (persistedAgentId == null) {
 			void container?.usage.track('action:gitlens.ai.openInAgent.useDefaultsFallback:happened');
 			return { kind: 'manual' };
