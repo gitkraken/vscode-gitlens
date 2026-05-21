@@ -375,8 +375,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		this._pendingScopeToBranch = false;
-		const selected = this.graphState.repositories?.find(r => r.id === this.graphState.selectedRepository);
-		const repoPath = selected != null ? (selected.commonPath ?? selected.path) : this.fallbackRepoPath;
+		const repoPath = this.fallbackRepoPath;
 		if (repoPath != null) {
 			const branchRef = getBranchId(repoPath, false, branch.name);
 			this.setScope(

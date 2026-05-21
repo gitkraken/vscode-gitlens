@@ -45,12 +45,18 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	@property({ type: Object }) mergeTargetStatus?: BranchMergeTargetStatus;
 
 	private _hadNextSteps = false;
+	private _cachedNextSteps: NextStep[] = [];
+
+	protected override willUpdate(): void {
+		const branch = this.wip?.branch;
+		this._cachedNextSteps = branch != null ? this.computeNextSteps(branch) : [];
+	}
 
 	override render(): unknown {
 		const branch = this.wip?.branch;
 		if (!branch) return this.renderIdle();
 
-		const nextSteps = this.computeNextSteps(branch);
+		const nextSteps = this._cachedNextSteps;
 		// Pending steps win — Review/Recompose ride along below the pending list with the
 		// active-state ordering rule. With no pending steps, the panel falls back to the idle
 		// UI (renderIdle handles the Review/Recompose buttons itself).
@@ -81,8 +87,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	}
 
 	protected override updated(): void {
-		const branch = this.wip?.branch;
-		const hasNextSteps = branch != null && this.computeNextSteps(branch).length > 0;
+		const hasNextSteps = this._cachedNextSteps.length > 0;
 		if (hasNextSteps && !this._hadNextSteps) {
 			this.emit('next-steps-shown');
 		}
