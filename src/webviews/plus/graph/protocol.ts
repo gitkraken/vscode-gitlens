@@ -251,9 +251,14 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	detailsVisible?: boolean;
 	detailsPosition?: number;
 	detailsBottomPosition?: number;
+	detailsShowSearchBox?: boolean;
+	/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
+	detailsSearchBoxFilter?: boolean;
 	sidebarVisible?: boolean;
 	activeSidebarPanel?: GraphSidebarPanel;
 	sidebarPosition?: number;
+	/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
+	sidebarSearchBoxFilter?: boolean;
 	minimapVisible?: boolean;
 	minimapPosition?: number;
 	pendingAction?: GraphShowAction;

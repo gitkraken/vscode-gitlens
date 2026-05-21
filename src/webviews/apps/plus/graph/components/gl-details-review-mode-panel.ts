@@ -110,6 +110,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ type: Object })
 	result?: AIReviewResult;
 
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox?: boolean;
+
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
+
 	@property({ attribute: 'status' })
 	status: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
 
@@ -611,6 +619,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 					.fileContext=${this.getFileContext}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 					.searchContext=${this.searchContext}
+					.showSearchBox=${this.showSearchBox}
+					.searchBoxFilter=${this.searchBoxFilter}
 					check-verb="Include"
 					uncheck-verb="Exclude"
 					empty-text="No files changed"

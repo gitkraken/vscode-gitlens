@@ -79,8 +79,8 @@ export class GlTreeView extends GlElement {
 				width: 100%;
 			}
 
-			/* Dim non-matched items when highlighting */
-			:host([filtered]:not([filter-mode='filter'])) gl-tree-item:not([matched]) {
+			/* Dim non-matched items when highlighting (search-box-filter absent = highlight mode) */
+			:host([filtered]:not([search-box-filter])) gl-tree-item:not([matched]) {
 				opacity: 0.6;
 			}
 
@@ -230,8 +230,21 @@ export class GlTreeView extends GlElement {
 	@property({ type: String, attribute: 'filter-placeholder' })
 	filterPlaceholder = 'Filter...';
 
-	@property({ type: String, attribute: 'filter-mode', reflect: true })
-	filterMode: 'filter' | 'highlight' = 'filter';
+	/**
+	 * Placeholder shown when `searchBoxFilter` is `false` (the input acts as a find/highlight
+	 * rather than a hide-non-matches filter). Falls back to `filterPlaceholder` when unset so
+	 * single-placeholder consumers keep their existing copy.
+	 */
+	@property({ type: String, attribute: 'search-placeholder' })
+	searchPlaceholder?: string;
+
+	/**
+	 * Filter strategy for typed-text matches. `true` (default) hides non-matching rows entirely;
+	 * `false` keeps the tree intact and dims non-matched rows. Reflected as a Boolean attribute so
+	 * shadow-DOM styles can branch via `:host([search-box-filter])`.
+	 */
+	@property({ type: Boolean, attribute: 'search-box-filter', reflect: true })
+	searchBoxFilter = true;
 
 	@property({ type: String, attribute: 'empty-text' })
 	emptyText = 'No items';
@@ -370,7 +383,7 @@ export class GlTreeView extends GlElement {
 		let treeItems: TreeModelFlat[] | undefined;
 		if (this._model != null) {
 			const size = this._model.length;
-			const hideNonMatched = this.filtered && this.filterMode === 'filter';
+			const hideNonMatched = this.filtered && this.searchBoxFilter;
 			treeItems = [];
 			for (let i = 0; i < size; i++) {
 				flattenTree(this._model[i], size, i + 1, undefined, this._nodeMap, hideNonMatched, treeItems);
@@ -420,14 +433,14 @@ export class GlTreeView extends GlElement {
 	}
 
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
-		// `filtered` / `filterMode` gate `hideNonMatched` in the model setter. Because Lit commits
-		// property bindings in template order, consumers that bind `.model` before `.filtered` /
-		// `filter-mode` cause the model setter to flatten with STALE filter state — cycling the
-		// filter-mode button from 'matched' → 'off' re-committed a full model while `filtered`
-		// was still true, so non-matched items stayed hidden in the flattened list. By the time
-		// willUpdate runs all bindings are committed, so re-flatten here whenever either changed —
-		// cheap and correct regardless of how the consumer ordered its bindings in the template.
-		if ((changedProperties.has('filtered') || changedProperties.has('filterMode')) && this._model != null) {
+		// `filtered` / `searchBoxFilter` gate `hideNonMatched` in the model setter. Because Lit
+		// commits property bindings in template order, consumers that bind `.model` before
+		// `.filtered` / `search-box-filter` cause the model setter to flatten with STALE filter
+		// state — cycling the toggle from one mode to another re-committed a full model while
+		// `filtered` was still true, so non-matched items stayed hidden in the flattened list. By
+		// the time willUpdate runs all bindings are committed, so re-flatten here whenever either
+		// changed — cheap and correct regardless of how the consumer ordered its bindings.
+		if ((changedProperties.has('filtered') || changedProperties.has('searchBoxFilter')) && this._model != null) {
 			this.rebuildFlattenedTree();
 		}
 
@@ -737,7 +750,9 @@ export class GlTreeView extends GlElement {
 					aria-haspopup="tree"
 					aria-autocomplete="list"
 					aria-activedescendant=${activeDescendant || nothing}
-					placeholder="${this.filterPlaceholder}"
+					placeholder="${this.searchBoxFilter
+						? this.filterPlaceholder
+						: (this.searchPlaceholder ?? this.filterPlaceholder)}"
 					.value=${this._filterText}
 					@input=${this.handleFilterInput}
 					@keydown=${this.handleFilterKeydown}
@@ -748,10 +763,10 @@ export class GlTreeView extends GlElement {
 					<gl-button
 						appearance="input"
 						role="checkbox"
-						aria-checked=${this.filterMode === 'filter' ? 'true' : 'false'}
-						tooltip=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
-						aria-label=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
-						@click=${this.toggleFilterMode}
+						aria-checked=${this.searchBoxFilter ? 'true' : 'false'}
+						tooltip="Filter Results"
+						aria-label="Filter Results"
+						@click=${this.toggleSearchBoxFilter}
 					>
 						<code-icon icon="list-filter"></code-icon>
 					</gl-button>
@@ -847,7 +862,7 @@ export class GlTreeView extends GlElement {
 		// This prevents stale node references when expanding/collapsing nodes
 		this._nodeMap.clear();
 
-		const hideNonMatched = this.filtered && this.filterMode === 'filter';
+		const hideNonMatched = this.filtered && this.searchBoxFilter;
 		const size = this._model.length;
 		const newTreeItems: TreeModelFlat[] = [];
 		for (let i = 0; i < size; i++) {
@@ -1621,11 +1636,11 @@ export class GlTreeView extends GlElement {
 		this.scrollToItem(index, false);
 	}
 
-	private toggleFilterMode = () => {
-		this.filterMode = this.filterMode === 'filter' ? 'highlight' : 'filter';
+	private toggleSearchBoxFilter = () => {
+		this.searchBoxFilter = !this.searchBoxFilter;
 		this.dispatchEvent(
-			new CustomEvent('gl-tree-filter-mode-changed', {
-				detail: this.filterMode,
+			new CustomEvent<boolean>('gl-tree-search-box-filter-changed', {
+				detail: this.searchBoxFilter,
 				bubbles: true,
 				composed: true,
 			}),

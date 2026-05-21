@@ -20,9 +20,9 @@ export function isTreeLayout(layout: ViewFilesLayout, count: number, threshold: 
 }
 
 /**
- * Cycles the filter mode: off → mixed → matched → off.
+ * Cycles context-match visibility: off → mixed → matched → off.
  */
-export function nextFilterMode(current: 'off' | 'mixed' | 'matched'): 'off' | 'mixed' | 'matched' {
+export function nextContextMatchVisibility(current: 'off' | 'mixed' | 'matched'): 'off' | 'mixed' | 'matched' {
 	switch (current) {
 		case 'off':
 			return 'mixed';
@@ -47,8 +47,8 @@ export function getLayoutInfo(layout: ViewFilesLayout): { value: string; icon: s
 	}
 }
 
-export function renderFilterAction(
-	filterMode: 'off' | 'mixed' | 'matched',
+export function renderContextMatchVisibilityAction(
+	contextMatchVisibility: 'off' | 'mixed' | 'matched',
 	matchCount: number,
 	totalCount: number,
 	onToggle: (e: Event) => void,
@@ -60,7 +60,7 @@ export function renderFilterAction(
 	let label: string;
 	let className: string | undefined;
 
-	switch (filterMode) {
+	switch (contextMatchVisibility) {
 		case 'off':
 			icon = 'filter';
 			label = `Search matched ${matchCount} of ${totalCount} files\nClick to highlight matching files`;
@@ -69,7 +69,7 @@ export function renderFilterAction(
 			icon = 'filter-filled';
 			outlineIcon = 'filter';
 			label = `Search matched ${matchCount} of ${totalCount} files\nClick to show only matching files`;
-			className = 'filter-mode-mixed';
+			className = 'context-match-visibility-mixed';
 			break;
 		case 'matched':
 			icon = 'filter-filled';
@@ -78,7 +78,7 @@ export function renderFilterAction(
 	}
 
 	return html`<action-item
-		data-action="filter-mode"
+		data-action="context-match-visibility"
 		class="${className ?? ''}"
 		label="${label}"
 		icon="${icon}"
@@ -202,7 +202,7 @@ export function buildFileTree<T extends GitFileChangeShape>(
 	files: T[],
 	isTree: boolean,
 	compact: boolean,
-	filterMode: 'off' | 'mixed' | 'matched',
+	contextMatchVisibility: 'off' | 'mixed' | 'matched',
 	searchContext: { matchedFiles?: readonly { readonly path: string }[] } | null | undefined,
 	fileToModel: (file: T, options: Partial<TreeItemBase>, flat: boolean) => TreeModel,
 	options: Partial<TreeItemBase> = { level: 1 },
@@ -212,9 +212,9 @@ export function buildFileTree<T extends GitFileChangeShape>(
 		options.level = 1;
 	}
 
-	// Filter files if filterMode is 'matched' and we have search context
+	// Filter files if context-match visibility is 'matched' and we have search context
 	let filteredFiles = files;
-	if (filterMode === 'matched' && searchContext?.matchedFiles != null) {
+	if (contextMatchVisibility === 'matched' && searchContext?.matchedFiles != null) {
 		const matchedPaths = new Set(searchContext.matchedFiles.map(f => f.path));
 		filteredFiles = files.filter(f => matchedPaths.has(f.path));
 	}
@@ -256,21 +256,21 @@ export interface GroupedTreeOptions<T extends GitFileChangeShape> {
 	compact: boolean;
 	grouping?: { getGroup: (file: T) => string; groups: FileGroup[] };
 	checkable: boolean;
-	filterMode: 'off' | 'mixed' | 'matched';
+	contextMatchVisibility: 'off' | 'mixed' | 'matched';
 	searchContext?: { matchedFiles?: readonly { readonly path: string }[] } | null;
 	fileToModel: (file: T, options: Partial<TreeItemBase>, flat: boolean) => TreeModel;
 	folderToContextData?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
 }
 
 export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTreeOptions<T>): TreeModel[] {
-	const { files, isTree, compact, filterMode, searchContext, fileToModel, folderToContextData } = opts;
+	const { files, isTree, compact, contextMatchVisibility, searchContext, fileToModel, folderToContextData } = opts;
 
 	if (!opts.grouping) {
 		return buildFileTree(
 			files,
 			isTree,
 			compact,
-			filterMode,
+			contextMatchVisibility,
 			searchContext,
 			fileToModel,
 			{
@@ -311,7 +311,7 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 				groupFiles,
 				isTree,
 				compact,
-				filterMode,
+				contextMatchVisibility,
 				searchContext,
 				fileToModel,
 				{ level: 2 },
@@ -326,7 +326,7 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 			files,
 			isTree,
 			compact,
-			filterMode,
+			contextMatchVisibility,
 			searchContext,
 			fileToModel,
 			undefined,

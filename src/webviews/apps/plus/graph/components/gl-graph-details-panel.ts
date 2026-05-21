@@ -278,6 +278,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@property({ attribute: false })
 	commitLites?: Record<string, CommitDetails>;
 
+	/**
+	 * Persisted preference: whether the file-tree search box (typed-text filter) is visible.
+	 * Threaded through to each detail-panel mode's `gl-file-tree-pane`.
+	 */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox = false;
+
+	/**
+	 * Persisted preference: how the file-tree search box presents non-matches —
+	 * `true` hides them (filter), `false` dims them (highlight).
+	 */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter = true;
+
 	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
 	}
@@ -1200,6 +1214,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										file-icons
 										checkbox-mode
 										?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type === 'rebase'}
+										?show-search-box=${this.showSearchBox}
+										?search-box-filter=${this.searchBoxFilter}
 										.wip=${wip}
 										.files=${wip.changes?.files}
 										.agentSessions=${worktreeAgentSessions}
@@ -1390,6 +1406,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const composeFiles = scopeFilesValue ?? fallbackFiles;
 
 		return html`<gl-details-compose-mode-panel
+			.showSearchBox=${this.showSearchBox}
+			.searchBoxFilter=${this.searchBoxFilter}
 			.status=${mappedComposeStatus}
 			.commits=${composeResult?.commits}
 			.baseCommit=${composeResult?.baseCommit}
@@ -1460,6 +1478,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const activeView = this._state.branchCompareActiveView.get();
 
 		return html`<gl-details-compare-mode-panel
+			.showSearchBox=${this.showSearchBox}
+			.searchBoxFilter=${this.searchBoxFilter}
 			.branchName=${branch?.name}
 			.repoPath=${repoPath}
 			.preferences=${this._state.preferences.get()}
@@ -1580,6 +1600,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			file-icons
 			compare-enabled
 			show-jump-to-nearest-wip
+			?show-search-box=${this.showSearchBox}
+			?search-box-filter=${this.searchBoxFilter}
 			.commit=${commit}
 			.loading=${this.isLoading}
 			.files=${commit.files}
@@ -1646,6 +1668,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return html`<gl-details-multicommit-panel
 			variant="embedded"
 			file-icons
+			?show-search-box=${this.showSearchBox}
+			?search-box-filter=${this.searchBoxFilter}
 			.commitFrom=${this._state.commitFrom.get()}
 			.commitTo=${this._state.commitTo.get()}
 			.files=${this._state.compareFiles.get()}
@@ -1770,6 +1794,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							: 'idle';
 
 		return html`<gl-details-review-mode-panel
+			.showSearchBox=${this.showSearchBox}
+			.searchBoxFilter=${this.searchBoxFilter}
 			.scope=${this._state.scope.get()}
 			.result=${reviewResult}
 			.status=${mappedReviewStatus}

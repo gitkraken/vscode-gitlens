@@ -581,11 +581,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			filterable
 			tooltip-anchor-right
 			filter-text=${this._actions.filterText || nothing}
-			filter-mode=${this._actions.filterMode}
+			?search-box-filter=${this._state.sidebarSearchBoxFilter ?? true}
 			filter-placeholder="Filter ${config.title.toLowerCase()}..."
 			aria-label="${config.title}"
 			@gl-tree-filter-changed=${this.handleFilterChanged}
-			@gl-tree-filter-mode-changed=${this.handleFilterModeChanged}
+			@gl-tree-search-box-filter-changed=${this.handleSearchBoxFilterChanged}
 			@gl-tree-generated-item-selected=${this.handleTreeItemSelected}
 			@gl-tree-generated-item-action-clicked=${this.handleTreeItemAction}
 			@gl-tree-expansion-changed=${this.handleTreeExpansionChanged}
@@ -1176,8 +1176,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this._actions.filterText = e.detail;
 	};
 
-	private handleFilterModeChanged = (e: CustomEvent<'filter' | 'highlight'>) => {
-		this._actions.filterMode = e.detail;
+	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
+		this._state.sidebarSearchBoxFilter = e.detail;
+		this.dispatchEvent(
+			new CustomEvent<boolean>('gl-graph-sidebar-search-box-filter-change', {
+				detail: e.detail,
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	};
 
 	private handleAction(command: GlCommands, args?: unknown[]) {

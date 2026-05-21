@@ -388,11 +388,17 @@ export interface StoredGraphState {
 			visible?: boolean;
 			position?: number;
 			bottomPosition?: number;
+			/** Whether the file-tree search box is visible. */
+			showSearchBox?: boolean;
+			/** How the file-tree search box presents non-matches: `true` hides them (filter), `false` dims them (highlight). */
+			searchBoxFilter?: boolean;
 		};
 		sidebar?: {
 			visible?: boolean;
 			position?: number;
 			activePanel?: GraphSidebarPanel;
+			/** How the sidebar's filter input presents non-matches: `true` hides them (filter), `false` dims them (highlight). */
+			searchBoxFilter?: boolean;
 		};
 		minimap?: {
 			visible?: boolean;

@@ -129,6 +129,17 @@ export class GlWipTreePane extends LitElement {
 	@property({ attribute: false })
 	agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
 
+	/**
+	 * Controlled-when-bound: parent-supplied visibility of the file-tree search box. Forwarded
+	 * to `gl-file-tree-pane`. Hosts that leave it undefined get the uncontrolled default.
+	 */
+	@property({ attribute: 'show-search-box', type: Boolean })
+	showSearchBox?: boolean;
+
+	/** Controlled-when-bound: parent-supplied search-box filter mode (`true` = filter, `false` = highlight). */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
+
 	private _effectiveFiles: Files = [];
 	private _effectiveStates?: Map<
 		string,
@@ -246,6 +257,8 @@ export class GlWipTreePane extends LitElement {
 			.checkableStateDefault=${this.checkableStateDefault}
 			.agentTouchedFiles=${this.agentTouchedFiles}
 			.buttons=${buttons}
+			.showSearchBox=${this.showSearchBox}
+			.searchBoxFilter=${this.searchBoxFilter}
 			empty-text=${this.emptyText}
 			selection-badge-label="Staged"
 			selection-action="file-compare-wip"

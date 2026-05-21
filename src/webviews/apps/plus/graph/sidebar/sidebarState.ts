@@ -20,9 +20,8 @@ export interface SidebarActions {
 	/** The currently visible panel — set by the sidebar-panel component so invalidateAll can refetch it. */
 	activePanel: GraphSidebarPanel | undefined;
 
-	/** Persisted filter state — survives sidebar-panel destruction/recreation */
+	/** Session filter text — survives sidebar-panel destruction/recreation, NOT webview reload. */
 	filterText: string;
-	filterMode: 'filter' | 'highlight';
 
 	/** Per-panel tree expansion state — survives panel switches */
 	readonly expandedPaths: Record<GraphSidebarPanel, Set<string>>;
@@ -126,7 +125,6 @@ export function createSidebarActions(): SidebarActions {
 		state: state,
 		activePanel: undefined,
 		filterText: '',
-		filterMode: 'filter',
 		expandedPaths: expandedPaths,
 		selectedPath: selectedPath,
 		agentsLayout: agentsLayout,

@@ -573,6 +573,8 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				?show-file-icons=${this.fileIcons}
 				?checkable=${this.checkboxMode}
 				?bulk-conflict-actions=${this.bulkConflictActions}
+				.showSearchBox=${this.showSearchBox}
+				.searchBoxFilter=${this.searchBoxFilter}
 				.fileActions=${this._getFileActions}
 				.fileContext=${this._getFileContext}
 				.folderContext=${this._getFolderContext}

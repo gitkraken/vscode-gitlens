@@ -196,10 +196,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor detailsBottomPosition: AppState['detailsBottomPosition'];
 
 	@signalState()
+	accessor detailsShowSearchBox: AppState['detailsShowSearchBox'];
+
+	@signalState()
+	accessor detailsSearchBoxFilter: AppState['detailsSearchBoxFilter'];
+
+	@signalState()
 	accessor sidebarVisible: AppState['sidebarVisible'];
 
 	@signalState()
 	accessor sidebarPosition: AppState['sidebarPosition'];
+
+	@signalState()
+	accessor sidebarSearchBoxFilter: AppState['sidebarSearchBoxFilter'];
 
 	@signalState()
 	accessor minimapVisible: AppState['minimapVisible'];

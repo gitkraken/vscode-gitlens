@@ -159,16 +159,16 @@ export const fileTreeStyles = css`
 		border-radius: 0.3rem;
 	}
 
-	/* Filter-mode-mixed: left half shows the filled funnel (icon: 'filter-filled'),
-	   right half shows the outline funnel (outline-icon: 'filter') — a visual cue that
-	   matches are highlighted, not filtered. Both glyphs share the same outer path so
-	   the edges align perfectly at the 50% split. */
-	action-item.filter-mode-mixed::part(icon) {
+	/* Context-match-visibility 'mixed' icon: left half shows the filled funnel
+	   (icon: 'filter-filled'), right half shows the outline funnel (outline-icon: 'filter') —
+	   a visual cue that matches are highlighted, not filtered. Both glyphs share the same outer
+	   path so the edges align perfectly at the 50% split. */
+	action-item.context-match-visibility-mixed::part(icon) {
 		-webkit-mask-image: linear-gradient(to right, #000 50%, transparent 50%);
 		mask-image: linear-gradient(to right, #000 50%, transparent 50%);
 	}
 
-	action-item.filter-mode-mixed::part(icon-outline) {
+	action-item.context-match-visibility-mixed::part(icon-outline) {
 		display: inline-flex;
 		-webkit-mask-image: linear-gradient(to right, transparent 50%, #000 50%);
 		mask-image: linear-gradient(to right, transparent 50%, #000 50%);

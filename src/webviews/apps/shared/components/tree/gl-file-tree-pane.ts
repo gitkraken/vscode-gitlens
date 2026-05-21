@@ -29,8 +29,8 @@ import {
 	buildGroupedTree,
 	getStatusDecoration,
 	isTreeLayout,
-	nextFilterMode,
-	renderFilterAction,
+	nextContextMatchVisibility,
+	renderContextMatchVisibilityAction,
 	renderLayoutAction,
 } from './file-tree-utils.js';
 import { fileTreeStyles } from './gl-file-tree-pane.css.js';
@@ -189,8 +189,25 @@ export class GlFileTreePane extends LitElement {
 	@property({ attribute: false })
 	agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
 
-	@state() private _filterMode: 'off' | 'mixed' | 'matched' = 'mixed';
-	@state() private _showFilter = false;
+	@state() private _contextMatchVisibility: 'off' | 'mixed' | 'matched' = 'mixed';
+	@state() private _showSearchBox = false;
+	@state() private _searchBoxFilter = true;
+
+	/**
+	 * Controlled-when-bound: parent supplies the search-box visibility (e.g. the graph state
+	 * provider persists it across reloads). Falls back to the internal `_showSearchBox` state
+	 * when undefined so uncontrolled consumers (e.g. standalone commit details) keep working.
+	 */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox?: boolean;
+
+	/**
+	 * Controlled-when-bound: parent supplies the search-box filter mode. `true` = filter (hide
+	 * non-matches), `false` = highlight (dim non-matches). Falls back to the internal
+	 * `_searchBoxFilter` state when undefined.
+	 */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
 
 	private _cachedTreeModel?: TreeModel[];
 	private _pendingScrollRestore?: number;
@@ -215,7 +232,7 @@ export class GlFileTreePane extends LitElement {
 			changedProperties.has('checkableStateDefault') ||
 			changedProperties.has('searchContext') ||
 			changedProperties.has('agentTouchedFiles') ||
-			changedProperties.has('_filterMode')
+			changedProperties.has('_contextMatchVisibility')
 		) {
 			const files = (this.files as Files) ?? [];
 
@@ -250,7 +267,7 @@ export class GlFileTreePane extends LitElement {
 				compact: this.filesLayout?.compact ?? true,
 				grouping: this.grouping,
 				checkable: this.checkable,
-				filterMode: this._filterMode,
+				contextMatchVisibility: this._contextMatchVisibility,
 				searchContext: this.searchContext,
 				fileToModel: (file, opts, flat) => this.fileToTreeModel(file, opts, flat),
 				folderToContextData: this.folderContext,
@@ -292,6 +309,14 @@ export class GlFileTreePane extends LitElement {
 		return this.files?.length ?? 0;
 	}
 
+	private get effectiveShowSearchBox(): boolean {
+		return this.showSearchBox ?? this._showSearchBox;
+	}
+
+	private get effectiveSearchBoxFilter(): boolean {
+		return this.searchBoxFilter ?? this._searchBoxFilter;
+	}
+
 	override render() {
 		const treeModel = this._cachedTreeModel ?? [];
 		const fileCount = this.fileCount;
@@ -299,6 +324,7 @@ export class GlFileTreePane extends LitElement {
 		const showLayout = this.buttons?.includes('layout') ?? true;
 		const showSearch = this.buttons?.includes('search') ?? true;
 		const showMultiDiff = (this.buttons?.includes('multi-diff') ?? false) && fileCount > 0;
+		const showSearchBox = this.effectiveShowSearchBox;
 
 		return html`
 			<webview-pane exportparts="header, content" .collapsable=${this.collapsable} expanded flexible>
@@ -320,20 +346,20 @@ export class GlFileTreePane extends LitElement {
 								></action-item>`
 							: nothing}
 						${this.searchContext != null
-							? renderFilterAction(
-									this._filterMode,
+							? renderContextMatchVisibilityAction(
+									this._contextMatchVisibility,
 									this.searchContext.matchedFiles?.length ?? 0,
 									fileCount,
-									e => this.onToggleFilter(e),
+									e => this.onCycleContextMatchVisibility(e),
 								)
 							: nothing}
 						${showLayout ? renderLayoutAction(this.fileLayout, e => this.onToggleFilesLayout(e)) : nothing}
 						${showSearch
 							? html`<action-item
 									data-action="search"
-									label="${this._showFilter ? 'Hide Search' : 'Search'}"
+									label="${showSearchBox ? 'Hide Search' : 'Show Search'}"
 									icon="search"
-									class="${this._showFilter ? 'active-toggle' : ''}"
+									class="${showSearchBox ? 'active-toggle' : ''}"
 									@click=${this.onToggleSearch}
 								></action-item>`
 							: nothing}
@@ -477,7 +503,34 @@ export class GlFileTreePane extends LitElement {
 	private onToggleSearch(e: Event) {
 		e.preventDefault();
 		e.stopPropagation();
-		this._showFilter = !this._showFilter;
+		const next = !this.effectiveShowSearchBox;
+		// Mutate the fallback so uncontrolled consumers keep working; controlled consumers ignore
+		// this and update via the property on the next render.
+		this._showSearchBox = next;
+		this.dispatchEvent(
+			new CustomEvent('gl-show-search-box-change', {
+				detail: next,
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private onTreeSearchBoxFilterChanged(e: CustomEvent<boolean>) {
+		// Suppress while context-match visibility is forcing highlight for the visual story —
+		// otherwise the user-controlled inner click would persist a value that gets immediately
+		// overridden on the next render. The visible mode is being dictated by the cycle, not the
+		// user. (Lit dispatched the event because the bound `?search-box-filter` flipped.)
+		if (this._contextMatchVisibility === 'mixed') return;
+
+		this._searchBoxFilter = e.detail;
+		this.dispatchEvent(
+			new CustomEvent<boolean>('gl-search-box-filter-change', {
+				detail: e.detail,
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private onOpenMultiDiff(e: Event) {
@@ -486,10 +539,10 @@ export class GlFileTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('gl-file-tree-pane-open-multi-diff', { bubbles: true, composed: true }));
 	}
 
-	private onToggleFilter(e: Event) {
+	private onCycleContextMatchVisibility(e: Event) {
 		e.preventDefault();
 		e.stopPropagation();
-		this._filterMode = nextFilterMode(this._filterMode);
+		this._contextMatchVisibility = nextContextMatchVisibility(this._contextMatchVisibility);
 	}
 
 	private onToggleFilesLayout(e: Event) {
@@ -584,7 +637,8 @@ export class GlFileTreePane extends LitElement {
 		const fileName = pathIndex !== -1 ? file.path.substring(pathIndex + 1) : file.path;
 		const filePath = flat && pathIndex !== -1 ? file.path.substring(0, pathIndex) : '';
 
-		// Check if this file matches the search criteria (always set based on data, not filterMode)
+		// Check if this file matches the search criteria (always set based on data, regardless of
+		// the current context-match-visibility cycle)
 		const isMatchedFile = this.searchContext?.matchedFiles?.find(f => f.path === file.path) != null;
 
 		const decorations = this.getFileDecorations(file);
@@ -659,18 +713,25 @@ export class GlFileTreePane extends LitElement {
 	}
 
 	private renderTreeFileModel(treeModel: TreeModel[]): TemplateResult<1> {
-		// In matched-filter mode the search context is what's filtering the list, so when nothing
-		// passes through, "No matching files" reads more accurately than the generic empty-text.
-		const matchedEmpty = this._filterMode === 'matched' && this.searchContext != null;
+		// In `matched` context-visibility mode the search context is what's filtering the list, so
+		// when nothing passes through, "No matching files" reads more accurately than the generic
+		// empty-text.
+		const matchedEmpty = this._contextMatchVisibility === 'matched' && this.searchContext != null;
 		const emptyText = matchedEmpty ? 'No matching files' : this.emptyText;
+		// `mixed` context-match visibility shows all files with matches highlighted, so the
+		// search-box filter has to be `false` (highlight) for the visual story to hold even if the
+		// user preference is otherwise. Outside of `mixed`, use the user preference.
+		const treeSearchBoxFilter = this._contextMatchVisibility === 'mixed' ? false : this.effectiveSearchBoxFilter;
 		return html`<gl-tree-view
 			.model=${treeModel}
 			.guides=${this.indentGuides}
-			.filtered=${this.searchContext != null && this._filterMode !== 'off'}
-			filter-mode=${this._filterMode === 'mixed' ? 'highlight' : 'filter'}
-			?filterable=${this._showFilter}
+			.filtered=${this.searchContext != null && this._contextMatchVisibility !== 'off'}
+			?search-box-filter=${treeSearchBoxFilter}
+			?filterable=${this.effectiveShowSearchBox}
 			filter-placeholder="Filter files..."
+			search-placeholder="Search files..."
 			empty-text=${emptyText}
+			@gl-tree-search-box-filter-changed=${this.onTreeSearchBoxFilterChanged}
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}

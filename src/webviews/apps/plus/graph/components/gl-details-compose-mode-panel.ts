@@ -68,6 +68,14 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property()
 	errorMessage?: string;
 
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox?: boolean;
+
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
+
 	/** Latest phase label streamed from the host while compose is running. Falls back to a
 	 *  generic "Composing changes…" when null/undefined. */
 	@property()
@@ -389,6 +397,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 					.fileContext=${this.getIdleFileContext}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 					.searchContext=${this.searchContext}
+					.showSearchBox=${this.showSearchBox}
+					.searchBoxFilter=${this.searchBoxFilter}
 					check-verb="Include"
 					uncheck-verb="Exclude"
 					empty-text="No files changed"
@@ -639,6 +649,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 			.fileActions=${this.fileActionsForFile}
 			.fileContext=${this.getFileContext}
 			.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
+			.showSearchBox=${this.showSearchBox}
+			.searchBoxFilter=${this.searchBoxFilter}
 			@file-open=${this.forwardFileEventWithVirtualRef}
 			@file-compare-previous=${this.forwardFileEventWithVirtualRef}
 			@file-stage=${this.redispatch}

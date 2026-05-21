@@ -606,8 +606,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.graphReachability=${single?.reachability}
 					.commitLite=${single?.commitLite}
 					.commitLites=${multi?.commitLites}
+					.showSearchBox=${this.graphState.detailsShowSearchBox ?? false}
+					.searchBoxFilter=${this.graphState.detailsSearchBoxFilter ?? true}
 					@select-commit=${this.handleSelectCommit}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
+					@gl-show-search-box-change=${this.handleDetailsShowSearchBoxChange}
+					@gl-search-box-filter-change=${this.handleDetailsSearchBoxFilterChange}
 					@next-steps-shown=${this.handleNextStepsShown}
 				></gl-graph-details-panel>
 			</div>
@@ -696,6 +700,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				date-format=${this.graphState.config?.dateFormat ?? nothing}
 				@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
 				@gl-graph-sidebar-toggle-pinned=${this.handleSidebarTogglePinned}
+				@gl-graph-sidebar-search-box-filter-change=${this.handleSidebarSearchBoxFilterChange}
 				@gl-graph-overview-branch-selected=${this.handleOverviewBranchSelected}
 				@gl-graph-overview-recent-threshold-change=${this.handleOverviewRecentThresholdChange}
 				@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
@@ -789,11 +794,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					visible: gs.detailsVisible,
 					position: gs.detailsPosition,
 					bottomPosition: gs.detailsBottomPosition,
+					showSearchBox: gs.detailsShowSearchBox,
+					searchBoxFilter: gs.detailsSearchBoxFilter,
 				},
 				sidebar: {
 					visible: gs.sidebarVisible,
 					position: gs.sidebarPosition,
 					activePanel: gs.activeSidebarPanel,
+					searchBoxFilter: gs.sidebarSearchBoxFilter,
 				},
 				minimap: { visible: gs.minimapVisible, position: gs.minimapPosition },
 			},
@@ -831,6 +839,27 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		} else if (gs.minimapVisible !== true) {
 			gs.minimapVisible = true;
 			gs.minimapPosition = e.detail.position;
+		}
+	};
+
+	private handleDetailsShowSearchBoxChange = (e: CustomEvent<boolean>): void => {
+		const gs = this.graphState;
+		if (gs.detailsShowSearchBox !== e.detail) {
+			gs.detailsShowSearchBox = e.detail;
+			this.persistState();
+		}
+	};
+
+	private handleSidebarSearchBoxFilterChange = (_e: CustomEvent<boolean>): void => {
+		// State has already been mutated by sidebar-panel; just trigger the debounced persist.
+		this.persistState();
+	};
+
+	private handleDetailsSearchBoxFilterChange = (e: CustomEvent<boolean>): void => {
+		const gs = this.graphState;
+		if (gs.detailsSearchBoxFilter !== e.detail) {
+			gs.detailsSearchBoxFilter = e.detail;
+			this.persistState();
 		}
 	};
 

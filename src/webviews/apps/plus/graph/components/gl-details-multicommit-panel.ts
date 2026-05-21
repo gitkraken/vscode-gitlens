@@ -71,6 +71,14 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	@property({ type: Object })
 	commitTo?: CommitDetails;
 
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox?: boolean;
+
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
+
 	@property({ type: Array })
 	files?: readonly GitFileChangeShape[];
 
@@ -239,6 +247,8 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 													.folderContext=${(folder: { relativePath: string }) =>
 														buildFolderContext(this.commitTo?.repoPath, folder)}
 													.searchContext=${this.searchContext}
+													.showSearchBox=${this.showSearchBox}
+													.searchBoxFilter=${this.searchBoxFilter}
 													.buttons=${this.getMultiDiffRefs()
 														? ['layout', 'search', 'multi-diff']
 														: undefined}

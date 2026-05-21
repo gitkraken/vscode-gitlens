@@ -54,6 +54,18 @@ export class GlDetailsBase extends LitElement {
 	@property({ attribute: 'empty-text' })
 	emptyText? = 'No Files';
 
+	/**
+	 * Controlled-when-bound: parent-supplied visibility of the file-tree search box. Forwarded
+	 * to `gl-file-tree-pane`. Hosts that don't set it (e.g. the standalone inspect view) leave
+	 * the pane in its uncontrolled default.
+	 */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox?: boolean;
+
+	/** Controlled-when-bound: parent-supplied search-box filter mode (`true` = filter, `false` = highlight). */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
+
 	protected _getFileActions = (file: File, opts?: Partial<TreeItemBase>) => this.getFileActions(file, opts);
 	protected _getFileContext = (file: File) => this.getFileContext(file);
 	protected _getFolderContext = (folder: { name: string; relativePath: string; repoPath?: string }) =>
@@ -91,6 +103,8 @@ export class GlDetailsBase extends LitElement {
 				.folderContext=${this._getFolderContext}
 				.searchContext=${this.searchContext}
 				.buttons=${buttons}
+				.showSearchBox=${this.showSearchBox}
+				.searchBoxFilter=${this.searchBoxFilter}
 				empty-text=${isLoadingEmpty ? '' : (this.emptyText ?? 'No Files')}
 				@file-checked=${this._onFileChecked}
 				@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}

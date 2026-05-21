@@ -72,6 +72,14 @@ export class GlDetailsCompareModePanel extends LitElement {
 	@property({ attribute: 'repo-path' })
 	repoPath?: string;
 
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox?: boolean;
+
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
+
 	@property({ attribute: 'left-ref' })
 	leftRef?: string;
 
@@ -635,6 +643,8 @@ export class GlDetailsCompareModePanel extends LitElement {
 					.fileContext=${this._getFileContext}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 					.buttons=${this.getMultiDiffRefs(files) ? ['layout', 'search', 'multi-diff'] : undefined}
+					.showSearchBox=${this.showSearchBox}
+					.searchBoxFilter=${this.searchBoxFilter}
 					empty-text=${isLoadingEmpty ? '' : 'No changes'}
 					@file-compare-previous=${this.redispatch}
 					@file-open=${this.redispatch}
