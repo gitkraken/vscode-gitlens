@@ -17,21 +17,6 @@ import '../code-icon.js';
 
 type Files = Mutable<FileItem[]>;
 
-/** Stable partition: conflicts first, others in original order. Used in checkbox mode where
- * grouping is suppressed so a flat list still surfaces unresolved conflicts at the top. */
-function sortConflictsToTop(files: Files): Files {
-	const conflicts: Files = [];
-	const rest: Files = [];
-	for (const f of files) {
-		if (isConflictStatus(f.status)) {
-			conflicts.push(f);
-		} else {
-			rest.push(f);
-		}
-	}
-	return conflicts.length === 0 ? files : [...conflicts, ...rest];
-}
-
 @customElement('gl-wip-tree-pane')
 export class GlWipTreePane extends LitElement {
 	static override styles = css`
@@ -178,7 +163,7 @@ export class GlWipTreePane extends LitElement {
 			const dedup = this.deduplicateFiles(files);
 			const deduped = dedup.deduped;
 			mixedPaths = dedup.mixedPaths;
-			effectiveFiles = sortConflictsToTop(deduped);
+			effectiveFiles = deduped;
 
 			// Merge computed mixed states into caller-provided checkableStates
 			if (mixedPaths.size > 0 || this.checkableStates) {

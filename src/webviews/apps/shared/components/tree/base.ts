@@ -129,6 +129,8 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	tooltip?: string | TemplateResult;
 	filterText?: string;
 	matched?: boolean;
+	/** Lower sorts first within its parent; treated as `0` when unset. */
+	priority?: number;
 }
 
 export interface TreeModel<Context = any[]> extends TreeModelBase<Context> {

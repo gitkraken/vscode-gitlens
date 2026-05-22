@@ -101,6 +101,10 @@ export function renderLayoutAction(layout: ViewFilesLayout, onToggle: (e: Event)
 
 export function sortTreeChildren(children: TreeModel[]): TreeModel[] {
 	children.sort((a, b) => {
+		const pa = a.priority ?? 0;
+		const pb = b.priority ?? 0;
+		if (pa !== pb) return pa - pb;
+
 		if (a.branch && !b.branch) return -1;
 		if (!a.branch && b.branch) return 1;
 
