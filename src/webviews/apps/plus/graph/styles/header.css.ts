@@ -60,16 +60,21 @@ export const titlebarStyles = css`
 	}
 
 	.titlebar__row--wrap {
-		/* Three flex groups: LEFT anchored left, RIGHT anchored right, CENTER between
-		   with empty space distributed via space-between. min-width: 0 keeps the row
-		   itself capped at parent width so RIGHT stays pinned to the visible right
-		   edge — overflow goes inside CENTER (clipped) instead of pushing RIGHT
-		   off-screen. */
+		/* Three flex groups: LEFT, CENTER (grows to fill, centered content),
+		   RIGHT. Using flex-start + flex-grow on CENTER instead of
+		   space-between because space-between anchors RIGHT to the row's right
+		   edge — when LEFT + RIGHT exceed the row width, RIGHT would overlap
+		   LEFT instead of extending past the right edge. With this layout,
+		   when content overflows CENTER shrinks first (flex-shrink 100), then
+		   LEFT (flex-shrink 10), and finally RIGHT (flex-shrink 0) gets pushed
+		   past the right edge and clipped by overflow:hidden — staying in the
+		   DOM so it reappears as the row widens again. */
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		justify-content: space-between;
+		justify-content: flex-start;
 		min-width: 0;
+		overflow: hidden;
 		/* Container so descendants (e.g. gl-fetch-button's text) can use container
 		   queries against the row's inline size for stepwise label collapsing. */
 		container-type: inline-size;
@@ -83,6 +88,10 @@ export const titlebarStyles = css`
 	.titlebar__row--wrap .titlebar__group {
 		flex: 0 1 auto;
 		white-space: nowrap;
+		/* min-width: 0 lets each group shrink past its intrinsic content
+		   min-width — without this, groups stay at content size and items
+		   overflow horizontally instead of ellipsing. */
+		min-width: 0;
 	}
 
 	/* Search row uses one group; set per-child shrink priorities so the
@@ -102,14 +111,18 @@ export const titlebarStyles = css`
 	.titlebar__row--search .titlebar__group > span {
 		flex: none;
 	}
-	/* LEFT floor accommodates the user-facing minimum: repo provider icon + ~3 chars of
-	   repo name + chevron-right separator + branch picker icon + ~3 chars of branch
-	   name + jump-to-ref icon + 3 × 0.5rem inner gaps. */
 	.titlebar__row--wrap .titlebar__group:nth-child(1) {
 		flex-shrink: 10;
+		min-width: min-content;
 	}
 	.titlebar__row--wrap .titlebar__group:nth-child(1) > * {
 		flex-shrink: 1;
+	}
+	/* Repo yields width before the branch. Keep this much higher than the
+		   sibling shrink factor so the branch doesn't lose even a few pixels
+		   before the repo reaches its compact floor. */
+	.titlebar__row--wrap .titlebar__group:nth-child(1) > gl-repo-button-group {
+		flex-shrink: 1000000;
 	}
 	.titlebar__row--wrap .titlebar__group:nth-child(1) > span,
 	.titlebar__row--wrap .titlebar__group:nth-child(1) > .jump-to-ref,
@@ -117,39 +130,27 @@ export const titlebarStyles = css`
 		flex-shrink: 0;
 	}
 	.titlebar__row--wrap .titlebar__group:nth-child(2) {
-		flex-shrink: 100;
+		flex: 1 100 auto;
+		/* Grow to fill so RIGHT sits at the row's right edge naturally without
+		   space-between. justify-content: center centers CENTER's own content
+		   (the fetch button) within the grown box so there's visual space on
+		   both sides — matching what space-between previously gave us at wide
+		   widths. */
+		justify-content: center;
+		/* Floor CENTER at its content's min-content. Without this, the generic
+		   .titlebar__group { min-width: 0 } rule above lets CENTER's box
+		   collapse to 0 under flex-shrink: 100. When that happens, its non-
+		   shrinkable inner buttons (gl-fetch-button, sync gl-button — all
+		   projected via display:contents from gl-git-actions-buttons) overflow
+		   the 0-width box and visually overlap RIGHT, which is sitting flush
+		   against the collapsed box. Flooring CENTER at min-content keeps the
+		   buttons inside (while still allowing them to shrink down to their
+		   icon-only states), so further shrinkage of the row pushes RIGHT past
+		   the row's right edge (clipped by the row's overflow: hidden) instead. */
+		min-width: min-content;
 	}
 	.titlebar__row--wrap .titlebar__group:nth-child(3) {
 		flex-shrink: 0;
-	}
-
-	/* Stage 7 of the shrink sequence: once everything else is at its narrow floor,
-	   start hiding the right group's action icons one at a time, rightmost first.
-	   Each progressively tighter breakpoint hides one more from the right end. */
-	@container graph-titlebar (max-width: 44rem) {
-		.titlebar__row--wrap .titlebar__group:nth-child(3) > :nth-last-child(-n + 1) {
-			display: none;
-		}
-	}
-	@container graph-titlebar (max-width: 41rem) {
-		.titlebar__row--wrap .titlebar__group:nth-child(3) > :nth-last-child(-n + 2) {
-			display: none;
-		}
-	}
-	@container graph-titlebar (max-width: 38rem) {
-		.titlebar__row--wrap .titlebar__group:nth-child(3) > :nth-last-child(-n + 3) {
-			display: none;
-		}
-	}
-	@container graph-titlebar (max-width: 35rem) {
-		.titlebar__row--wrap .titlebar__group:nth-child(3) > :nth-last-child(-n + 4) {
-			display: none;
-		}
-	}
-	@container graph-titlebar (max-width: 32rem) {
-		.titlebar__row--wrap .titlebar__group:nth-child(3) > :nth-last-child(-n + 5) {
-			display: none;
-		}
 	}
 
 	.titlebar__debugging > * {

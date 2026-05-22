@@ -1675,7 +1675,7 @@ export class ComposerApp extends LitElement {
 							html`<gl-repo-button-group
 								.icon=${false}
 								.repository=${this.state.repositoryState!.current}
-								?hasMultipleRepositories=${this.state.repositoryState!.hasMultipleRepositories}
+								.hasMultipleRepositories=${this.state.repositoryState!.hasMultipleRepositories}
 								@gl-click=${this.onRepositorySelectorClicked}
 							></gl-repo-button-group>`,
 					)}

@@ -1039,7 +1039,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			<div class="titlebar__group">
 				<gl-repo-button-group
 					?disabled=${loading || !hasMultipleRepositories}
-					?hasMultipleRepositories=${hasMultipleRepositories}
+					.hasMultipleRepositories=${hasMultipleRepositories}
 					.repository=${repo}
 					.source=${{ source: 'graph' } as const}
 					@gl-click=${this.onRepositorySelectorClicked}

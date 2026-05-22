@@ -176,16 +176,19 @@ export class GlBreadcrumbs extends LitElement {
 			.assignedElements({ flatten: true })
 			.filter((el): el is GlBreadcrumbItem => el.tagName.toLowerCase() === 'gl-breadcrumb-item');
 
-		// Pre-compute effective priorities so we can identify the highest tier; items in the highest
-		// tier keep their per-item flex-shrink (so the file/leaf can ellipsize as a last resort),
-		// while everyone else gets flex-shrink: 0 in outer-in mode so the host actually overflows
-		// (rather than items shrinking to fit, which would defeat the overflow detection).
+		// Pre-compute effective priorities so we can identify the highest tier. When the outer-in
+		// collapse algorithm can run, items in the highest tier keep their per-item flex-shrink
+		// (so the file/leaf can ellipsize as a last resort), while everyone else gets flex-shrink: 0
+		// so the host actually overflows (rather than items shrinking to fit, which would defeat the
+		// overflow detection). With <= 2 items, outer-in compaction is disabled, so keep per-item
+		// shrink behavior for all crumbs.
 		const priorities: number[] = [];
 		this._items = items;
 		items.forEach((item, idx) => {
 			priorities[idx] = this.getEffectivePriority(item, idx);
 		});
 		const maxPriority = priorities.length > 0 ? Math.max(...priorities) : 0;
+		const canOuterInCollapse = this.collapse === 'outer-in' && items.length > 2;
 
 		items.forEach((item, idx) => {
 			if (idx === items.length - 1) {
@@ -196,7 +199,7 @@ export class GlBreadcrumbs extends LitElement {
 			// flex order: items at even orders, overflow indicators slot in at odd orders
 			// based on the run's first hidden index — see renderOverflowIndicator.
 			item.style.order = String(idx * 2);
-			if (this.collapse === 'outer-in' && priorities[idx] !== maxPriority) {
+			if (canOuterInCollapse && priorities[idx] !== maxPriority) {
 				item.style.flexShrink = '0';
 			} else {
 				item.style.flexShrink = '';
@@ -428,6 +431,13 @@ export class GlBreadcrumbItem extends LitElement {
 			   toolbar widget heights so the row stays tight. The inner gl-button's
 			   --button-padding/--button-line-height live in compactBreadcrumbsConsumerStyles
 			   (must be in consumer scope to cross the shadow boundary). */
+			:host([has-widget]) .breadcrumb-label {
+				overflow: visible;
+			}
+			:host([has-widget]) .separator {
+				margin-left: 0;
+			}
+
 			:host([density='compact']) {
 				--code-icon-size: 1.3rem;
 				--gl-file-icon-size: 1.3rem;
@@ -678,11 +688,24 @@ export class GlBreadcrumbItem extends LitElement {
 
 	private onLabelSlotChange = (e: Event): void => {
 		const slot = e.target as HTMLSlotElement;
-		this._labelText = slot
-			.assignedNodes({ flatten: true })
+		const nodes = slot.assignedNodes({ flatten: true });
+		this._labelText = nodes
 			.map(n => n.textContent ?? '')
 			.join('')
 			.trim();
+
+		const hasWidget = nodes.some(n => {
+			if (n.nodeType !== Node.ELEMENT_NODE) return false;
+
+			const tag = (n as Element).tagName.toLowerCase();
+			return tag === 'gl-repo-button-group' || tag === 'gl-ref-button';
+		});
+		if (hasWidget) {
+			this.setAttribute('has-widget', '');
+		} else {
+			this.removeAttribute('has-widget');
+		}
+
 		this.updateTruncated();
 	};
 

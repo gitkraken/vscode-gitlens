@@ -1,5 +1,5 @@
 import { css, html, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { ConnectRemoteProviderCommandArgs } from '../../../../commands/remoteProviders.js';
@@ -40,22 +40,99 @@ export class GlRepoButtonGroup extends GlElement {
 		css`
 			:host {
 				display: grid;
+				align-items: center;
+			}
+
+			/* Single-repo (no label rendered): grid sizes exactly to the icons.
+			   max-content cols keep each icon column at full content width —
+			   auto cols can collapse under flex shrink pressure, hiding icons
+			   behind one another. Explicit min-width: max-content prevents the
+			   host itself from shrinking past the icons under flex pressure
+			   (which otherwise lets the trailing chevron separator overlap). */
+			:host(:not([multi-repo])) {
+				grid-template-columns: max-content max-content;
+				min-width: max-content;
+			}
+			:host(:not([multi-repo]):not([icon])) {
 				grid-template-columns: minmax(0, 1fr);
-				min-width: 1.4rem;
+				min-width: 0;
 			}
 
-			/* With a single icon the host should size to its content — no reserved space
-			   beyond the base min-width — otherwise the collapsed state shows dead space
-			   to the right of the icon. */
-			:host([icons]) {
-				grid-template-columns: auto minmax(0, 1fr);
+			/* Multi-repo: include a flexible label column that can shrink
+				   so the label ellipses naturally while preserving enough room for
+				   the fallback repo icon + chevron compact state. */
+			:host([multi-repo]) {
+				--compact-width: 0px;
+
+				position: relative;
+				grid-template-columns: max-content max-content minmax(var(--compact-width), 1fr);
+				min-width: min-content;
+			}
+			:host([multi-repo]:not([icon])) {
+				grid-template-columns: minmax(var(--compact-width), 1fr);
 			}
 
-			/* Multi-icon needs explicit reservation so the layout doesn't jump as icons
-			   appear/disappear. */
-			:host([icons='2']) {
-				grid-template-columns: auto auto minmax(0, 1fr);
-				min-width: 3.6rem;
+			[part='label'] {
+				grid-column: 3;
+				grid-row: 1;
+				min-width: 0;
+			}
+			:host(:not([icon])) [part='label'] {
+				grid-column: 1;
+			}
+			.truncated-button__sizer {
+				grid-column: 3;
+				grid-row: 1;
+				min-width: 0;
+				overflow-wrap: anywhere;
+				padding-inline: 0.4rem;
+				pointer-events: none;
+				visibility: hidden;
+			}
+			:host(:not([icon])) .truncated-button__sizer {
+				grid-column: 1;
+			}
+			.truncated-button__compact-sizer {
+				--button-gap: 0.2rem;
+
+				position: absolute;
+				inset-inline-start: 0;
+				top: 0;
+				min-width: max-content;
+				width: max-content;
+				pointer-events: none;
+				visibility: hidden;
+			}
+
+			.truncated-button__label {
+				display: block;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.truncated-button--icon-fallback .truncated-button__label {
+				display: none;
+			}
+			.truncated-button--icon-fallback {
+				--button-gap: 0.2rem;
+				min-width: max-content;
+			}
+
+			:host([multi-repo]) .truncated-button {
+				min-width: 0;
+				width: 100%;
+			}
+			:host(:not([icon])) .truncated-button {
+				width: 100%;
+			}
+
+			.truncated-button .picker-icon,
+			.truncated-button__compact-sizer .picker-icon {
+				margin-right: 0;
+			}
+			.truncated-button .picker-icon::before,
+			.truncated-button__compact-sizer .picker-icon::before {
+				margin-left: 0;
 			}
 
 			.indicator-dot {
@@ -69,8 +146,33 @@ export class GlRepoButtonGroup extends GlElement {
 				flex-shrink: 0;
 			}
 
+			/* Tighten the icon buttons themselves — they sit adjacent in the grid
+			   and we don't want extra horizontal padding bloating the group's
+			   trailing edge near the chevron separator. */
+			[part='provider-icon'],
+			[part='connect-icon'] {
+				--button-padding: 0.2rem;
+			}
+
 			.popover-status-icon {
 				margin-top: -3px;
+			}
+
+			/* Stack the provider popover's lines as a column with breathing room
+			   between them (instead of relying on <br> / inline-flow which gives
+			   too-tight visual spacing). */
+			.provider-popover {
+				display: flex;
+				flex-direction: column;
+				gap: 0.6rem;
+			}
+			.provider-popover hr {
+				margin: 0;
+			}
+			.provider-popover__line {
+				display: flex;
+				align-items: center;
+				gap: 0.4rem;
 			}
 
 			.connect-icon {
@@ -84,9 +186,18 @@ export class GlRepoButtonGroup extends GlElement {
 			:host([expandable]:not(:hover, :focus-within)) .truncated-button .picker-icon::before {
 				visibility: hidden;
 			}
+			:host([expandable]:not(:hover, :focus-within)) .truncated-button .repo-icon-fallback {
+				visibility: hidden;
+			}
 			:host([expandable]:not(:hover, :focus-within)) .truncated-button {
-				min-width: 0;
+				min-width: 0 !important;
 				max-width: 0;
+			}
+			:host([multi-repo][expandable]:not(:hover, :focus-within)) {
+				grid-template-columns: max-content max-content minmax(0, 0fr);
+			}
+			:host([multi-repo][expandable]:not([icon]):not(:hover, :focus-within)) {
+				grid-template-columns: minmax(0, 0fr);
 			}
 
 			/* When the surrounding gl-breadcrumb-item is hovered or focused, expand the
@@ -101,12 +212,111 @@ export class GlRepoButtonGroup extends GlElement {
 			}
 			:host-context(gl-breadcrumb-item:hover) .truncated-button,
 			:host-context(gl-breadcrumb-item:focus-within) .truncated-button {
-				min-width: auto !important;
+				min-width: 0 !important;
 				max-width: none !important;
+			}
+			:host-context(gl-breadcrumb-item:hover),
+			:host-context(gl-breadcrumb-item:focus-within) {
+				grid-template-columns: max-content max-content minmax(var(--compact-width), 1fr);
 			}
 		`,
 		pickerIconStyles,
 	];
+
+	@state() private _truncated = false;
+
+	@query('.truncated-button')
+	labelButtonEl?: HTMLElement;
+
+	@query('.truncated-button__compact-sizer')
+	compactSizerEl?: HTMLElement;
+
+	@query('.truncated-button__compact-sizer .repo-icon-fallback')
+	fallbackIconSizerEl?: HTMLElement;
+
+	private resizeObserver: ResizeObserver;
+	private observedLabelButtonEl?: HTMLElement;
+
+	constructor() {
+		super();
+		this.resizeObserver = new ResizeObserver(() => this.updateTruncated());
+	}
+
+	override disconnectedCallback() {
+		super.disconnectedCallback?.();
+		this.resizeObserver.disconnect();
+		this.observedLabelButtonEl = undefined;
+	}
+
+	override firstUpdated(): void {
+		this.observeLabelButton();
+		this.updateTruncated();
+	}
+
+	override updated(changedProperties: Map<string | number | symbol, unknown>) {
+		super.updated(changedProperties);
+		if (
+			changedProperties.has('repository') ||
+			changedProperties.has('hasMultipleRepositories') ||
+			changedProperties.has('icon')
+		) {
+			this.observeLabelButton();
+			this.updateTruncated();
+		}
+	}
+
+	private observeLabelButton(): void {
+		const el = this.labelButtonEl;
+		if (this.observedLabelButtonEl === el) return;
+
+		this.resizeObserver.disconnect();
+		this.observedLabelButtonEl = el;
+		if (el != null) {
+			this.resizeObserver.observe(el);
+		}
+	}
+
+	private updateTruncated(): void {
+		if (!this.hasMultipleRepositories) {
+			this.style.removeProperty('--compact-width');
+			if (this._truncated) {
+				this._truncated = false;
+			}
+			return;
+		}
+
+		const el = this.labelButtonEl;
+		if (el == null) return;
+
+		const compactWidth = this.compactSizerEl?.getBoundingClientRect().width ?? 0;
+		if (compactWidth === 0) return;
+
+		const fallbackIconWidth = this.fallbackIconSizerEl?.getBoundingClientRect().width ?? compactWidth;
+
+		const compactWidthStyle = `${compactWidth}px`;
+		if (this.style.getPropertyValue('--compact-width') !== compactWidthStyle) {
+			this.style.setProperty('--compact-width', compactWidthStyle);
+		}
+
+		let truncated: boolean;
+		if (this._truncated) {
+			truncated = el.getBoundingClientRect().width <= compactWidth + fallbackIconWidth;
+		} else {
+			// Only show the fallback repo icon if the visible label slot has collapsed
+			// to roughly icon-sized space. Measuring the slotted text element itself is
+			// unreliable here because the clipping happens inside gl-button's shadow DOM.
+			// This prevents the icon from popping in immediately when the text is just
+			// slightly ellipsized.
+			const labelSlot = el.shadowRoot?.querySelector<HTMLElement>('slot.label');
+			const fallbackThreshold = this.icon ? fallbackIconWidth : compactWidth;
+			truncated =
+				(labelSlot?.getBoundingClientRect().width ?? el.getBoundingClientRect().width) <= fallbackThreshold;
+		}
+
+		if (truncated !== this._truncated) {
+			this._truncated = truncated;
+		}
+	}
 
 	@property({ type: Boolean })
 	connectIcon = true;
@@ -114,13 +324,13 @@ export class GlRepoButtonGroup extends GlElement {
 	@property({ type: Boolean })
 	disabled = false;
 
-	@property({ type: Boolean })
+	@property({ type: Boolean, reflect: true })
 	icon = true;
 
 	@property({ type: Object })
 	repository?: RepositoryShape;
 
-	@property({ type: Boolean })
+	@property({ type: Boolean, reflect: true, attribute: 'multi-repo' })
 	hasMultipleRepositories?: boolean = false;
 
 	@property({ type: Object })
@@ -129,39 +339,50 @@ export class GlRepoButtonGroup extends GlElement {
 	@property({ type: Boolean, reflect: true })
 	expandable = false;
 
-	@property({ type: Number, reflect: true })
-	get icons() {
-		if (this.repository?.provider === undefined) return undefined;
-
-		let count = 0;
-		if (this.icon) {
-			count++;
-		}
-		if (this.connectIcon && this.repository.provider.integration?.connected === false) {
-			count++;
-		}
-
-		if (count === 0) {
-			return undefined;
-		}
-		return count;
-	}
-
 	private get displayName(): string {
 		return this.repository?.name ?? 'none selected';
 	}
 
 	override render() {
 		const hideLabel = this.icon && !this.hasMultipleRepositories;
+		const showRepoIconFallback = this.icon && this._truncated && this.hasMultipleRepositories;
+
 		return html`
 			${this.renderProviderIcon()}
+			${this.hasMultipleRepositories
+				? html`<span class="truncated-button__sizer" aria-hidden="true">${this.displayName}</span>
+						<gl-button
+							class="truncated-button__compact-sizer"
+							appearance="toolbar"
+							aria-hidden="true"
+							?disabled=${true}
+						>
+							${this.icon
+								? html`<code-icon
+										slot="prefix"
+										class="repo-icon-fallback"
+										icon="gl-repository"
+										aria-hidden="true"
+									></code-icon>`
+								: nothing}
+							<code-icon
+								slot="suffix"
+								class="picker-icon"
+								icon="chevron-down"
+								aria-hidden="true"
+							></code-icon>
+						</gl-button>`
+				: nothing}
 			${hideLabel
 				? nothing
 				: html`<gl-button
-						class="truncated-button"
+						class=${showRepoIconFallback
+							? 'truncated-button truncated-button--icon-fallback'
+							: 'truncated-button'}
 						part="label"
 						appearance="toolbar"
 						?disabled=${this.disabled}
+						truncate
 						@click=${(event: MouseEvent) =>
 							this.emit('gl-click', {
 								event: event,
@@ -169,6 +390,14 @@ export class GlRepoButtonGroup extends GlElement {
 								repository: this.repository!,
 							})}
 					>
+						${showRepoIconFallback
+							? html`<code-icon
+									slot="prefix"
+									class="repo-icon-fallback"
+									icon="gl-repository"
+									aria-hidden="true"
+								></code-icon>`
+							: nothing}
 						<span class="truncated-button__label">${this.displayName}</span>
 						${this.hasMultipleRepositories
 							? html`<code-icon
@@ -218,41 +447,41 @@ export class GlRepoButtonGroup extends GlElement {
 					></code-icon>
 					${when(connectedIntegration, () => html`<gl-indicator class="indicator-dot"></gl-indicator>`)}
 				</gl-button>
-				<span slot="content">
-					Open Repository on ${provider.name}
+				<div slot="content" class="provider-popover">
+					<div class="provider-popover__title">Open Repository on ${provider.name}</div>
 					<hr />
-					<span>
+					<div class="provider-popover__line">
 						<code-icon class="popover-status-icon" icon="gl-repository" aria-hidden="true"></code-icon>
 						${this.displayName}
-					</span>
+					</div>
 					${when(
 						connectedIntegration,
 						() => html`
-							<br />
-							<span>
+							<div class="provider-popover__line">
 								<code-icon class="popover-status-icon" icon="check" aria-hidden="true"></code-icon>
 								Connected to ${provider.name}
-							</span>
+							</div>
 						`,
 						() => {
 							if (connectedIntegration !== false) return nothing;
 
 							return html`
-								<br />
-								<code-icon class="popover-status-icon" icon="plug" aria-hidden="true"></code-icon>
-								<a
-									href=${createCommandLink<ConnectRemoteProviderCommandArgs>(
-										'gitlens.connectRemoteProvider',
-										{ repoPath: repo.path, remote: provider.bestRemoteName },
-									)}
-								>
-									Connect to ${repo.provider!.name}
-								</a>
-								<span>&mdash; not connected</span>
+								<div class="provider-popover__line">
+									<code-icon class="popover-status-icon" icon="plug" aria-hidden="true"></code-icon>
+									<a
+										href=${createCommandLink<ConnectRemoteProviderCommandArgs>(
+											'gitlens.connectRemoteProvider',
+											{ repoPath: repo.path, remote: provider.bestRemoteName },
+										)}
+									>
+										Connect to ${repo.provider!.name}
+									</a>
+									<span>&mdash; not connected</span>
+								</div>
 							`;
 						},
 					)}
-				</span>
+				</div>
 			</gl-popover>
 			${this.renderConnectIcon()}`;
 	}

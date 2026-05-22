@@ -201,11 +201,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		return html`
 			<gl-section ?loading=${isFetching}>
 				<gl-breadcrumbs slot="heading" label="Active Work scope">
-					<gl-breadcrumb-item label="${repo.name}"
+					<gl-breadcrumb-item label="${repo.name}" .shrink=${0}
 						><gl-repo-button-group
 							.repository=${repo}
 							?disabled=${!hasMultipleRepositories}
-							?hasMultipleRepositories=${hasMultipleRepositories}
+							.hasMultipleRepositories=${hasMultipleRepositories}
 							.source=${{ source: 'graph' } as const}
 							?expandable=${true}
 							@gl-click=${this.onRepositorySelectorClicked}

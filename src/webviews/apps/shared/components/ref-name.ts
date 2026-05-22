@@ -14,12 +14,11 @@ export class GlRefName extends LitElement {
 
 			max-width: 100%;
 			min-width: 1.4rem;
-			gap: 0.4rem;
 		}
 
 		:host([icon]) {
 			grid-template-columns: auto minmax(0, 1fr);
-			min-width: 3.6rem;
+			min-width: 1.6rem;
 		}
 
 		* {
@@ -40,6 +39,13 @@ export class GlRefName extends LitElement {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-weight: var(--font-weight, bold);
+		}
+
+		/* Spacing between icon and label as a margin (not a grid gap) so that
+		   when the label is hidden via display:none — e.g. the icon-only
+		   collapse step in the graph header — the gap collapses with it. */
+		:host([icon]) .label {
+			margin-left: 0.4rem;
 		}
 	`;
 
