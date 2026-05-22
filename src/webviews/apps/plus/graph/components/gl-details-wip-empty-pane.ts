@@ -1,6 +1,8 @@
+import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
@@ -8,22 +10,29 @@ import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launc
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GitBranchShape, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
+import type { BranchRef } from '../../../../shared/branchRefs.js';
 import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
 import { detailsWipEmptyPaneStyles } from './gl-details-wip-empty-pane.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/skeleton-loader.js';
 
+type NextStepAction = { actionLabel: string; tooltip?: string; icon?: string } & (
+	| { event: string; href?: never }
+	| { href: string; event?: never }
+);
+
 type NextStep = {
 	icon: string;
+	iconFlip?: 'inline' | 'block';
 	label: string;
-	actionLabel: string;
-	event: string;
 	actionPrefixIcon?: string;
 	/** Optional alt action — rendered as the small side of a split-button. */
-	alt?: { actionLabel: string; event: string; tooltip?: string; icon?: string };
-};
+	alt?: NextStepAction;
+} & NextStepAction;
 
 function getRemoteNameFromUpstream(upstreamName: string | undefined): string {
 	if (!upstreamName) return 'origin';
@@ -35,6 +44,9 @@ function getRemoteNameFromUpstream(upstreamName: string | undefined): string {
 @customElement('gl-details-wip-empty-pane')
 export class GlDetailsWipEmptyPane extends LitElement {
 	static override styles = [elementBase, detailsWipEmptyPaneStyles];
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
 
 	@property({ type: Object }) wip?: Wip;
 	@property({ type: Boolean }) hasPullRequest = false;
@@ -133,35 +145,41 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	}
 
 	private renderNextStep(step: NextStep) {
-		const primary = html`<gl-button
-			class="next-step__action"
-			appearance="secondary"
-			@click=${() => this.emit(step.event)}
-		>
-			${step.actionPrefixIcon
-				? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>`
-				: nothing}
-			${step.actionLabel}
-		</gl-button>`;
+		const primaryInner = html`${step.actionPrefixIcon
+			? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>`
+			: nothing}${step.actionLabel}`;
+		const primary =
+			step.href != null
+				? html`<gl-button class="next-step__action" appearance="secondary" href=${step.href}
+						>${primaryInner}</gl-button
+					>`
+				: html`<gl-button class="next-step__action" appearance="secondary" @click=${() => this.emit(step.event)}
+						>${primaryInner}</gl-button
+					>`;
+
+		const alt = step.alt;
+		const altInner = alt?.icon ? html`<code-icon icon=${alt.icon}></code-icon>` : alt?.actionLabel;
+		const altButton =
+			alt == null
+				? nothing
+				: alt.href != null
+					? html`<gl-button appearance="secondary" tooltip=${alt.tooltip ?? alt.actionLabel} href=${alt.href}
+							>${altInner}</gl-button
+						>`
+					: html`<gl-button
+							appearance="secondary"
+							tooltip=${alt.tooltip ?? alt.actionLabel}
+							@click=${() => this.emit(alt.event)}
+							>${altInner}</gl-button
+						>`;
 
 		const action =
-			step.alt != null
-				? html`<button-container class="next-step__action" grouping="split">
-						${primary}
-						<gl-button
-							appearance="secondary"
-							tooltip=${step.alt.tooltip ?? step.alt.actionLabel}
-							@click=${() => this.emit(step.alt!.event)}
-						>
-							${step.alt.icon
-								? html`<code-icon icon=${step.alt.icon}></code-icon>`
-								: step.alt.actionLabel}
-						</gl-button>
-					</button-container>`
+			alt != null
+				? html`<button-container class="next-step__action">${primary}${altButton}</button-container>`
 				: primary;
 
 		return html`<div class="next-step">
-			<code-icon class="next-step__icon" icon=${step.icon}></code-icon>
+			<code-icon class="next-step__icon" icon=${step.icon} flip=${ifDefined(step.iconFlip)}></code-icon>
 			<span class="next-step__label">${step.label}</span>
 			${action}
 		</div>`;
@@ -500,33 +518,108 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	}
 
 	/**
-	 * "Rebase onto <target>" step (with an alt "Merge <target> in" action) — mirrors the home
-	 * view's merge-target-status component, where rebase and merge-target-into-current are two
-	 * ways to bring the branch up to date with its merge target. Gated to avoid clutter:
+	 * Merge-target step — mirrors the priority-ordered state model of the branch-header chip
+	 * (`gl-merge-target-status`): merged-locally → merged → conflict → behind → in-sync.
+	 * Label text mirrors the chip's popover titles with the merge-target's actual name in place
+	 * of the generic "Merge Target". Gated identically across all states to avoid clutter:
 	 * - merge target must be detected for this branch
 	 * - no paused git operation in progress (mid-rebase/merge/cherry-pick)
-	 * - upstream must be missing or in-sync with its remote (push/pull would be the bigger ask)
-	 * - branch must be behind the merge target (when ahead or even, there's nothing to integrate)
+	 * - upstream must be missing or in-sync (otherwise push/pull is the bigger ask)
 	 */
 	private computeMergeTargetStep(upstreamReady: boolean): NextStep | undefined {
 		if (!upstreamReady) return undefined;
 		if (this.wip?.changes?.pausedOpStatus != null) return undefined;
 
-		const mergeTarget = this.mergeTargetStatus?.mergeTarget;
-		if (mergeTarget == null) return undefined;
+		const status = this.mergeTargetStatus;
+		const mergeTarget = status?.mergeTarget;
+		const branch = status?.branch;
+		if (mergeTarget == null || branch == null) return undefined;
+
+		const branchRef: BranchRef = {
+			repoPath: branch.repoPath,
+			branchId: branch.id,
+			branchName: branch.name,
+			worktree: branch.worktree
+				? { name: branch.worktree.name, isDefault: branch.worktree.isDefault }
+				: undefined,
+		};
+		const targetRef: BranchRef = {
+			repoPath: mergeTarget.repoPath,
+			branchId: mergeTarget.id,
+			branchName: mergeTarget.name,
+		};
+
+		const isWorktree = branch.worktree != null && !branch.worktree.isDefault;
+		const deleteLabel = isWorktree ? 'Delete Worktree' : 'Delete Branch';
+
+		const mergedStatus = mergeTarget.mergedStatus;
+		if (mergedStatus?.merged && mergedStatus.localBranchOnly) {
+			const localTargetRef: BranchRef = {
+				repoPath: branch.repoPath,
+				branchId: mergedStatus.localBranchOnly.id!,
+				branchName: mergedStatus.localBranchOnly.name,
+				branchUpstreamName: mergedStatus.localBranchOnly.upstream?.name,
+			};
+			const likely = mergedStatus.confidence !== 'highest' ? 'Likely ' : '';
+			return {
+				icon: 'git-merge',
+				iconFlip: 'block',
+				label: `Branch ${likely}Merged Locally into ${mergeTarget.name}`,
+				actionLabel: `Push ${mergedStatus.localBranchOnly.name}`,
+				href: this._webview.createCommandLink<BranchRef>('gitlens.pushBranch:', localTargetRef),
+				alt: {
+					actionLabel: deleteLabel,
+					tooltip: deleteLabel,
+					href: this._webview.createCommandLink<[BranchRef, BranchRef]>('gitlens.deleteBranchOrWorktree:', [
+						branchRef,
+						localTargetRef,
+					]),
+				},
+			};
+		}
+
+		if (mergedStatus?.merged) {
+			const likely = mergedStatus.confidence !== 'highest' ? 'Likely ' : '';
+			return {
+				icon: 'git-merge',
+				iconFlip: 'block',
+				label: `Branch ${likely}Merged into ${mergeTarget.name}`,
+				actionLabel: deleteLabel,
+				href: this._webview.createCommandLink<[BranchRef, BranchRef]>('gitlens.deleteBranchOrWorktree:', [
+					branchRef,
+					targetRef,
+				]),
+			};
+		}
+
+		const hasConflicts = mergeTarget.potentialConflicts?.status === 'conflicts';
+		if (hasConflicts) {
+			return {
+				icon: 'git-merge',
+				iconFlip: 'block',
+				label: `Potential Conflicts with ${mergeTarget.name}`,
+				actionLabel: 'Rebase',
+				event: 'rebase-onto-merge-target',
+				alt: {
+					actionLabel: 'Merge',
+					tooltip: `Merge ${mergeTarget.name} into ${branch.name} instead`,
+					event: 'merge-merge-target-into-current',
+				},
+			};
+		}
 
 		const behind = mergeTarget.status?.behind ?? 0;
 		if (behind === 0) return undefined;
 
 		return {
-			icon: 'gl-rebase',
-			label: `Rebase onto ${mergeTarget.name} (${pluralize('commit', behind)} behind)`,
+			icon: 'git-merge',
+			iconFlip: 'block',
+			label: `${pluralize('Commit', behind)} Behind ${mergeTarget.name}`,
 			actionLabel: 'Rebase',
 			event: 'rebase-onto-merge-target',
 			alt: {
 				actionLabel: 'Merge',
-				icon: 'git-merge',
-				tooltip: `Merge ${mergeTarget.name} into ${this.wip?.branch?.name ?? 'current'} instead`,
+				tooltip: `Merge ${mergeTarget.name} into ${branch.name} instead`,
 				event: 'merge-merge-target-into-current',
 			},
 		};

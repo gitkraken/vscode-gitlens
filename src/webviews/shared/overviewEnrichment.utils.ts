@@ -136,7 +136,14 @@ export async function getBranchMergeTargetStatusInfo(
 
 	const counts = getSettledValue(countsResult);
 	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
-	const mergedStatus = getSettledValue(mergedStatusResult);
+	const rawMergedStatus = getSettledValue(mergedStatusResult);
+	// A branch with zero unique commits vs. its target isn't merged — it's just at (or behind) a
+	// point on the target's history. `getBranchMergedStatusCore` returns `merged: true` here because
+	// `git merge-base --is-ancestor` succeeds (every commit is an ancestor of its descendants),
+	// but no merge has actually occurred. Demote it so the indicator reports "Up to Date" / "X
+	// Commits Behind" instead of "Branch Merged".
+	const mergedStatus =
+		rawMergedStatus?.merged && status?.ahead === 0 ? ({ merged: false } as const) : rawMergedStatus;
 
 	return {
 		repoPath: branch.repoPath,
