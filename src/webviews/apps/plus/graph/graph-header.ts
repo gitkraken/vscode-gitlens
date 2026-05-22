@@ -169,36 +169,23 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			.preview-badge {
-				float: right;
-				opacity: 0.7;
+				font-size: 0.8em;
+				color: var(--color-foreground--65);
 			}
 
 			.graph-walkthrough-tooltip__title {
-				display: block;
-				margin-bottom: 0.4rem;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 1ch;
+				margin-block-end: 0.4rem;
 			}
 
 			.graph-walkthrough-tooltip__actions {
 				display: flex;
-				justify-content: flex-end;
 				align-items: center;
 				gap: 0.8rem;
-				margin-top: 0.8rem;
-			}
-
-			.graph-walkthrough-tooltip__actions .action-btn {
-				padding: 0.4rem 0.8rem;
-				border: none;
-				border-radius: 2px;
-				background: var(--vscode-button-background);
-				color: var(--vscode-button-foreground);
-				cursor: pointer;
-				text-decoration: none;
-				font-size: inherit;
-			}
-
-			.graph-walkthrough-tooltip__actions .action-btn:hover {
-				background: var(--vscode-button-hoverBackground);
+				margin-block-start: 0.8rem;
 			}
 
 			/* Search is meaningless in Timeline mode — visually dim it and let \`inert\` block focus
@@ -383,23 +370,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private _bannerClosing = false;
-
-	private onGraphWalkthroughBannerHide(): void {
-		if (this._bannerClosing) return;
-
-		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, {});
-	}
-
 	private onGraphWalkthroughBannerDismiss(e: Event): void {
 		e.preventDefault();
-		this._bannerClosing = true;
 		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, {});
 	}
 
 	private onGraphWalkthroughBannerButtonClick(e: Event): void {
 		e.preventDefault();
-		this._bannerClosing = true;
 		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, { openWelcome: true });
 	}
 
@@ -1244,13 +1221,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const highlighted = !state.graphWalkthroughComplete;
 
 		return html`
-			<gl-popover
-				class="graph-walkthrough-tooltip"
-				placement="bottom"
-				trigger="click"
-				open
-				@gl-popover-hide=${this.onGraphWalkthroughBannerHide}
-			>
+			<gl-popover class="graph-walkthrough-tooltip" placement="bottom" trigger="hover focus" open>
 				<button
 					type="button"
 					class="action-button ${highlighted ? 'action-button--graph-walkthrough' : ''}"
@@ -1261,16 +1232,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				</button>
 				<div class="graph-walkthrough-tooltip__content" slot="content">
 					<span class="graph-walkthrough-tooltip__title">
-						<strong>Welcome to the new GitLens Commit Graph</strong>
+						<strong>Try the All-New Commit Graph</strong>
 						<span class="preview-badge">PREVIEW</span>
 					</span>
-					The Graph is where your work gets done. Launch agents, monitor their work across worktrees, and
-					streamline next steps to ship faster.
+					Where your development and agentic workflows come together. Go beyond history visualization to
+					manage, execute, and parallelize your entire Git workflow.
 					<div class="graph-walkthrough-tooltip__actions">
+						<gl-button @click=${this.onGraphWalkthroughBannerButtonClick}>See what's new</gl-button>
 						<a href="#" @click=${this.onGraphWalkthroughBannerDismiss}>Dismiss</a>
-						<a class="action-btn" href="#" @click=${this.onGraphWalkthroughBannerButtonClick}
-							>See what's new</a
-						>
 					</div>
 				</div>
 			</gl-popover>
