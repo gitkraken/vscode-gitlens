@@ -24,6 +24,9 @@ export const onboardingDefinitions = {
 		state: undefined as unknown as { stepReached: number },
 	},
 
+	// Graph Visualizations Toggle (first-interaction callout)
+	'graph:visualizations:buttonCallout': { schema: '18.0.0', scope: 'global' },
+
 	// Graph Walkthrough Banner
 	'graph-walkthrough:banner': {
 		schema: '18.0.0',

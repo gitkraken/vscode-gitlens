@@ -26,6 +26,7 @@ import type {
 	OverviewRecentThreshold,
 } from '../../../plus/graph/protocol.js';
 import {
+	DismissVisualizationsButtonCalloutCommand,
 	GetRowHoverRequest,
 	getSecondaryWipPath,
 	GetWipStatsRequest,
@@ -700,6 +701,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							.sidebarVisible=${this.graphState.sidebar?.visible ?? false}
 							@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
 							@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
+							@gl-graph-sidebar-visualizations-callout-dismiss=${this.handleVisualizationsCalloutDismiss}
 						></gl-graph-sidebar>`,
 				)}
 				${this.graphState.config?.sidebar
@@ -1136,6 +1138,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `renderGraphPaneContent` short-circuits the sidebar split when `displayMode !== 'graph'`, so
 		// the user's `sidebarVisible` setting is preserved automatically and restored on return.
 		this.persistState();
+	};
+
+	private handleVisualizationsCalloutDismiss = (): void => {
+		const gs = this.graphState;
+		if (gs.visualizationsButtonCalloutDismissed) return;
+
+		// Optimistic flip — the host echo via `DidChangeVisualizationsButtonCallout` would otherwise
+		// leave the callout glowing for a frame after the user has already clicked.
+		gs.visualizationsButtonCalloutDismissed = true;
+		this._ipc.sendCommand(DismissVisualizationsButtonCalloutCommand, undefined);
 	};
 
 	private handleTimelineCommitSelect = (e: CustomEvent<GlGraphTimelineCommitSelectDetail>): void => {

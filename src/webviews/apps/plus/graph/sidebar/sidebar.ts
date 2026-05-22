@@ -162,6 +162,18 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		.display-mode-toggle {
 			margin: 0 auto;
 		}
+
+		/* Pre-interaction discovery callout: paints the toggle with the primary VS Code button
+		   colors so it reads as a "click me" affordance. Once the user clicks it, the host
+		   dismisses the onboarding key and the class drops, reverting to the toolbar appearance.
+		   Overrides the gl-button shadow-DOM custom properties — outer-tree author rules outrank
+		   inner-tree author rules for inherited properties on the host. */
+		gl-button.display-mode-toggle.callout {
+			--button-background: var(--vscode-button-background);
+			--button-foreground: var(--vscode-button-foreground);
+			--button-hover-background: var(--vscode-button-hoverBackground);
+			--button-border: var(--vscode-button-background);
+		}
 	`;
 
 	get include(): undefined | IconTypes[] {
@@ -212,11 +224,12 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	private renderVisualizationsToggle(current: GraphDisplayMode) {
 		const tooltip = visualizationsTooltip[current];
 		const isTimeline = current === 'timeline';
+		const showCallout = !this._state.visualizationsButtonCalloutDismissed;
 		// `gl-button` ships its own checked/unchecked state via `aria-checked`. Keeping the icon
 		// constant (always the chart icon) so the button's selected fill — not an icon swap — is
 		// what telegraphs "Timeline mode is on".
 		return html`<gl-button
-			class="display-mode-toggle"
+			class=${classMap({ 'display-mode-toggle': true, callout: showCallout })}
 			appearance="toolbar"
 			role="switch"
 			aria-checked=${isTimeline ? 'true' : 'false'}
@@ -232,6 +245,8 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	private handleVisualizationsToggle = (): void => {
 		const current = this._state.displayMode ?? 'graph';
 		const next: GraphDisplayMode = current === 'graph' ? 'timeline' : 'graph';
+		const wasCalloutVisible = !this._state.visualizationsButtonCalloutDismissed;
+
 		this.dispatchEvent(
 			new CustomEvent<GraphSidebarDisplayModeChangeEventDetail>('gl-graph-sidebar-display-mode-change', {
 				detail: { mode: next },
@@ -239,6 +254,15 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 				composed: true,
 			}),
 		);
+
+		if (wasCalloutVisible) {
+			this.dispatchEvent(
+				new CustomEvent('gl-graph-sidebar-visualizations-callout-dismiss', {
+					bubbles: true,
+					composed: true,
+				}),
+			);
+		}
 
 		emitTelemetrySentEvent<'graph/action/sidebar'>(this, {
 			name: 'graph/action/sidebar',

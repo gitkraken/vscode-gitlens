@@ -163,9 +163,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			.action-button--graph-walkthrough {
-				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
-				border: 1px solid var(--vscode-panel-border);
-				outline: 1px solid var(--vscode-panel-border);
+				background: var(--vscode-button-background);
+				color: var(--vscode-button-foreground);
+				border: 1px solid var(--vscode-button-background);
+			}
+
+			.action-button--graph-walkthrough:hover {
+				background: var(--vscode-button-hoverBackground);
 			}
 
 			.preview-badge {

@@ -376,6 +376,7 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
+	DidChangeVisualizationsButtonCallout,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
@@ -385,6 +386,7 @@ import {
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
+	DismissVisualizationsButtonCalloutCommand,
 	DoubleClickedCommand,
 	EnsureRowRequest,
 	GetAgentSessionsRequest,
@@ -3082,6 +3084,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.onHooksBannerChanged();
 		} else if (e.key === 'graph-walkthrough:banner') {
 			this.onGraphWalkthroughBannerChanged();
+		} else if (e.key === 'graph:visualizations:buttonCallout') {
+			this.onVisualizationsButtonCalloutChanged();
 		}
 	}
 
@@ -3147,6 +3151,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (!this.host.visible) return;
 
 		void this.host.notify(DidChangeGraphWalkthroughBanner, this.getGraphWalkthroughBannerState());
+	}
+
+	private onVisualizationsButtonCalloutChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(
+			DidChangeVisualizationsButtonCallout,
+			this.container.onboarding.isDismissed('graph:visualizations:buttonCallout'),
+		);
+	}
+
+	@ipcCommand(DismissVisualizationsButtonCalloutCommand)
+	private onDismissVisualizationsButtonCallout() {
+		void this.container.onboarding.dismiss('graph:visualizations:buttonCallout').catch();
 	}
 
 	private onGraphWalkthroughProgressChanged() {
@@ -6609,6 +6627,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			canInstallClaudeHook: this._lastCanInstallClaudeHook ?? false,
 			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
 			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
+			visualizationsButtonCalloutDismissed: this.container.onboarding.isDismissed(
+				'graph:visualizations:buttonCallout',
+			),
 			searchRequest: searchRequest,
 			details: {
 				...storedPanels?.details,

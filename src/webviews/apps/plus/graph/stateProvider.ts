@@ -38,6 +38,7 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
+	DidChangeVisualizationsButtonCallout,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
@@ -377,6 +378,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	canInstallClaudeHook?: boolean | undefined;
 	graphWalkthroughBannerCollapsed?: boolean | undefined;
 	graphWalkthroughComplete?: boolean | undefined;
+	visualizationsButtonCalloutDismissed?: boolean | undefined;
 
 	constructor(
 		host: ReactiveElementHost,
@@ -1044,6 +1046,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidChangeGraphWalkthroughComplete.is(msg):
 				this.updateState({ graphWalkthroughComplete: msg.params });
+				break;
+
+			case DidChangeVisualizationsButtonCallout.is(msg):
+				this.updateState({ visualizationsButtonCalloutDismissed: msg.params });
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg): {
