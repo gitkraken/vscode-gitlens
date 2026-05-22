@@ -1708,13 +1708,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							: undefined;
 					signal?.throwIfAborted();
 
-					// Two-dot range — commits reachable from one side but not the other.
-					const range = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
+					// Two-dot range for log — commits reachable from one side but not the other.
+					const logRange = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
+					// Three-dot range for diff — files changed from the merge-base to the side tip,
+					// so only side-specific file changes are shown (two-dot diff compares the full
+					// tips, which includes changes from both sides).
+					const diffRange = side === 'ahead' ? `${rightRef}...${leftRef}` : `${leftRef}...${rightRef}`;
 					// Promise.allSettled per project convention — see the sibling
 					// `getBranchComparisonSummary` for rationale.
 					const [logResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
-						svc.commits.getLog(range, { limit: 100, includeFiles: false }, signal),
-						svc.diff.getDiffStatus(range),
+						svc.commits.getLog(logRange, { limit: 100, includeFiles: false }, signal),
+						svc.diff.getDiffStatus(diffRange),
 						leftRefWorktreePath != null
 							? this.getBranchComparisonWorkingTreeFiles(leftRefWorktreePath, true, signal)
 							: Promise.resolve([]),
