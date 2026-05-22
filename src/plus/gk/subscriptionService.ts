@@ -33,6 +33,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { flatten } from '@gitlens/utils/object.js';
 import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import { satisfies } from '@gitlens/utils/version.js';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import type { CoreColors } from '../../constants.colors.js';
 import type { GlCommands } from '../../constants.commands.js';
@@ -157,6 +158,10 @@ export class SubscriptionService implements Disposable {
 
 		this.changeSubscription(subscription, undefined, { silent: true });
 		setTimeout(() => void this.ensureSession(false, undefined), 10000);
+
+		if (container.previousVersion != null && satisfies(container.previousVersion, '< 18.0.0')) {
+			void this.container.storage.store(`plus:preview:graph:usages`, undefined);
+		}
 	}
 
 	dispose(): void {
