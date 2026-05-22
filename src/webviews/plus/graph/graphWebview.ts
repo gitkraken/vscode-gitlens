@@ -1641,22 +1641,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					signal?.throwIfAborted();
 					const svc = this.container.git.getRepositoryService(repoPath);
 
-					// Working-tree-aware mode: when IWT is on AND leftRef is checked out in some
-					// worktree, query that worktree directly so the unified `git diff rightRef ..`
-					// (with `includeUntracked: true`) reflects the user's actual on-disk state.
-					const leftRefWorktreePath =
-						options?.includeWorkingTree === true
-							? await this.resolveLeftRefWorktreePath(repoPath, leftRef, signal)
-							: undefined;
+					// Always resolve the worktree path so the UI can show the toggle
+					// regardless of the current includeWorkingTree state.
+					const leftRefWorktreePath = await this.resolveLeftRefWorktreePath(repoPath, leftRef, signal);
 					signal?.throwIfAborted();
 
-					// Promise.allSettled per project convention — independent parallel awaits
-					// shouldn't let one failure abort the rest of the comparison. Missing pieces
-					// degrade gracefully into the partial-data path below (e.g. a diff-status
-					// failure still shows the commit counts).
+					const useWorktree = options?.includeWorkingTree === true && leftRefWorktreePath != null;
+
 					const [countsResult, filesResult] = await Promise.allSettled([
 						svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
-						leftRefWorktreePath != null
+						useWorktree
 							? this.container.git
 									.getRepositoryService(leftRefWorktreePath)
 									.diff.getDiffStatus(rightRef, undefined, { includeUntracked: true })
@@ -1673,10 +1667,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const aheadCount = counts?.left ?? 0;
 					const behindCount = counts?.right ?? 0;
 
-					// File `repoPath` follows the worktree path when IWT is anchored there — file
-					// URIs and multi-diff requests resolve against the working directory that owns
-					// the diff. Falls back to `repoPath` for the committed-only path.
-					const filesRepoPath = leftRefWorktreePath ?? repoPath;
+					const filesRepoPath = useWorktree ? leftRefWorktreePath : repoPath;
 					const allFiles: BranchComparisonFile[] = (files ?? []).map(f => ({
 						repoPath: filesRepoPath,
 						path: f.path,
@@ -1700,22 +1691,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					signal?.throwIfAborted();
 					const svc = this.container.git.getRepositoryService(repoPath);
 
-					// Resolve leftRef's worktree path only for the Ahead side — the Behind side never
-					// shows WT files, so its worktree is intentionally not looked up.
 					const leftRefWorktreePath =
-						side === 'ahead' && options?.includeWorkingTree === true
-							? await this.resolveLeftRefWorktreePath(repoPath, leftRef, signal)
-							: undefined;
+						side === 'ahead' ? await this.resolveLeftRefWorktreePath(repoPath, leftRef, signal) : undefined;
 					signal?.throwIfAborted();
 
-					// Two-dot range — commits reachable from one side but not the other.
+					const useWorktree = options?.includeWorkingTree === true && leftRefWorktreePath != null;
+
 					const range = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
-					// Promise.allSettled per project convention — see the sibling
-					// `getBranchComparisonSummary` for rationale.
 					const [logResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
 						svc.commits.getLog(range, { limit: 100, includeFiles: false }, signal),
 						svc.diff.getDiffStatus(range),
-						leftRefWorktreePath != null
+						useWorktree
 							? this.getBranchComparisonWorkingTreeFiles(leftRefWorktreePath, true, signal)
 							: Promise.resolve([]),
 					]);
