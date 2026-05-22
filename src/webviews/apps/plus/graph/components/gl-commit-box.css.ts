@@ -201,6 +201,12 @@ export const commitBoxStyles = css`
 		min-width: 0;
 	}
 
+	.commit-btn[variant='warning'] {
+		--button-background: var(--vscode-inputValidation-warningBorder, #b89500);
+		--button-foreground: #000;
+		--button-hover-background: color-mix(in srgb, #fff 10%, var(--vscode-inputValidation-warningBorder, #b89500));
+	}
+
 	.error {
 		font-size: var(--gl-font-base);
 		color: var(--vscode-editorError-foreground);

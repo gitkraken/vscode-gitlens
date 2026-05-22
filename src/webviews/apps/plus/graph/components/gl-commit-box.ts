@@ -117,7 +117,7 @@ export class GlCommitBox extends LitElement {
 	}
 
 	private renderActionBar() {
-		const label = this.amend ? 'Amend to' : 'Commit to';
+		const label = this.amend ? 'Amend Commit on' : 'Commit to';
 
 		return html`
 			<gl-button

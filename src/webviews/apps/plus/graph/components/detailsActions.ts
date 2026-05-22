@@ -2430,7 +2430,7 @@ export class DetailsActions {
 		const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
 		const smartCommit = prefs?.enableSmartCommit ?? false;
 		const hasChanges = (wip?.changes?.files?.length ?? 0) > 0;
-		return (Boolean(message.trim()) && (hasStagedFiles || (smartCommit && hasChanges))) || isAmend;
+		return Boolean(message.trim()) && (isAmend || hasStagedFiles || (smartCommit && hasChanges));
 	}
 
 	async commit(repoPath: string | undefined, sha: string | undefined): Promise<void> {
