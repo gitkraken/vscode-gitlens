@@ -1189,11 +1189,15 @@ export interface GraphRemoteContextValue {
 export interface GraphBranchContextValue {
 	type: 'branch';
 	ref: GitBranchReference;
+	/** Set when this context represents a worktree sidebar row — the worktree's filesystem path. */
+	worktreePath?: string;
 }
 
 export interface GraphCommitContextValue {
 	type: 'commit';
 	ref: GitRevisionReference;
+	/** Set when this context represents a worktree sidebar row — the worktree's filesystem path. */
+	worktreePath?: string;
 }
 
 export interface GraphStashContextValue {

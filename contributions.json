@@ -2982,7 +2982,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:(branch|commit|contributor|launchpad:item|pullrequest|stash|tag)\\b/",
+						"when": "webviewItem =~ /gitlens:(branch|commit|contributor|launchpad:item|pullrequest|stash|tag|worktree)\\b/",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 1
 					}

@@ -2668,6 +2668,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 									remote: false,
 									upstream: w.branch.upstream,
 								}),
+								worktreePath: w.uri.fsPath,
 							},
 						}
 					: w.sha != null
@@ -2681,6 +2682,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 										name: w.sha,
 										message: '',
 									}),
+									worktreePath: w.uri.fsPath,
 								},
 							}
 						: undefined;
@@ -7466,17 +7468,32 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async copy(item?: GraphItemContext) {
 		let data;
 
-		const { selection } = this.getGraphItemRefs(item);
-		if (selection.length) {
-			data = selection
-				.map(r => (r.refType === 'revision' && r.message ? `${r.name}: ${r.message.trim()}` : r.name))
-				.join('\n');
-		} else if (isGraphItemTypedContext(item, 'contributor')) {
-			const { name, email } = item.webviewItemValue;
-			data = `${name}${email ? ` <${email}>` : ''}`;
-		} else if (isGraphItemTypedContext(item, 'pullrequest')) {
-			const { url } = item.webviewItemValue;
-			data = url;
+		// Worktree sidebar rows carry the worktree path on their ref context — prefer that
+		if (isGraphItemRefContext(item)) {
+			const values = item.webviewItemsValues?.length
+				? item.webviewItemsValues.map(i => i.webviewItemValue)
+				: [item.webviewItemValue];
+			const paths = values
+				.map(v => ('worktreePath' in v ? v.worktreePath : undefined))
+				.filter((p): p is string => p != null);
+			if (paths.length > 0 && paths.length === values.length) {
+				data = paths.join('\n');
+			}
+		}
+
+		if (data == null) {
+			const { selection } = this.getGraphItemRefs(item);
+			if (selection.length) {
+				data = selection
+					.map(r => (r.refType === 'revision' && r.message ? `${r.name}: ${r.message.trim()}` : r.name))
+					.join('\n');
+			} else if (isGraphItemTypedContext(item, 'contributor')) {
+				const { name, email } = item.webviewItemValue;
+				data = `${name}${email ? ` <${email}>` : ''}`;
+			} else if (isGraphItemTypedContext(item, 'pullrequest')) {
+				const { url } = item.webviewItemValue;
+				data = url;
+			}
 		}
 
 		if (data != null) {
