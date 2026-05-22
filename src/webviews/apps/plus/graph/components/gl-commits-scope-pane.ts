@@ -484,7 +484,9 @@ export class GlCommitsScopePane extends LitElement {
 			@keydown=${(e: KeyboardEvent) => this.handleHandleKeydown(e, type)}
 			@focus=${() => this.scrollActiveHandleIntoView(type)}
 		>
-			<div class="scope-handle__bar"></div>
+			<gl-tooltip content="Drag to include/exclude changes" placement="top">
+				<div class="scope-handle__bar"></div>
+			</gl-tooltip>
 		</div>`;
 	}
 
@@ -495,7 +497,9 @@ export class GlCommitsScopePane extends LitElement {
 			tabindex="-1"
 			@pointerdown=${(e: PointerEvent) => this.handleProxyPointerDown(e, type)}
 		>
-			<div class="scope-handle__bar"></div>
+			<gl-tooltip content="Drag to include/exclude changes" placement=${type === 'start' ? 'bottom' : 'top'}>
+				<div class="scope-handle__bar"></div>
+			</gl-tooltip>
 			<code-icon icon=${type === 'start' ? 'chevron-up' : 'chevron-down'}></code-icon>
 		</div>`;
 	}
