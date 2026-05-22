@@ -589,11 +589,16 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		`;
 	}
 
-	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
+	private getMultiDiffRefs():
+		| { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }
+		| undefined {
 		const repoPath = this.wip?.repo?.path ?? this.files?.find(f => f.repoPath)?.repoPath;
 		if (!repoPath) return undefined;
 
-		return { repoPath: repoPath, lhs: 'HEAD', rhs: '', title: 'Working Changes' };
+		// `wip: true` forces the host to per-file HEAD↔index↔working semantics regardless of
+		// `lhs`/`rhs`. The OpenMultipleChangesArgs routing switched from `rhs === ''` to an
+		// explicit `wip` flag, so the WIP details panel must set it here.
+		return { repoPath: repoPath, lhs: 'HEAD', rhs: '', wip: true, title: 'Working Changes' };
 	}
 
 	protected override onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {

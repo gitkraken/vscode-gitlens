@@ -107,10 +107,7 @@ export type ComposeCommitPlan = {
 
 export type CommitResult = { success: true } | { success: true; warning: string } | { error: { message: string } };
 
-export type BranchComparisonFile = CommitFileChange & {
-	/** Marks files added from the current worktree when compare's worktree toggle is enabled. */
-	source?: 'comparison' | 'workingTree';
-};
+export type BranchComparisonFile = CommitFileChange;
 
 /** Phase 1 of the branch-compare progressive load: counts + the All Files diff. Smallest payload
  *  needed to render the panel meaningfully. Per-side commits + files are fetched lazily on tab

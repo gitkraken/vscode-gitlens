@@ -32,6 +32,7 @@ import { createDetailsState } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
 import { expandVisibleCategories } from './gl-details-agent-status.js';
+import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
@@ -1524,6 +1525,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._actions.openFile(e.detail, this.compareFileRef(leftRef))}
 			@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
 				this._actions.openFileComparePrevious(e.detail, this.compareFileRef(leftRef))}
+			@file-compare-between=${(e: CustomEvent<FileCompareBetweenDetail>) =>
+				this._actions.openFileCompareBetween(e.detail, e.detail.lhsRef, e.detail.rhsRef)}
 			@file-compare-working=${(e: CustomEvent<FileChangeListItemDetail>) =>
 				this._actions.openFileCompareWorking(e.detail, this.compareFileRef(leftRef))}
 			@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) =>

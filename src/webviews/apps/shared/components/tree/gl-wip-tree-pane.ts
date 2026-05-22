@@ -99,7 +99,7 @@ export class GlWipTreePane extends LitElement {
 	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string };
 
 	@property({ attribute: false })
-	multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
+	multiDiff?: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string };
 
 	/** Opt-in for the bulk "Stage Current/Incoming for All Conflicts" toolbar buttons.
 	 * Off by default — only the graph WIP panel wires the resolve-all events and only enables
@@ -314,7 +314,7 @@ export class GlWipTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('discard-unstaged', { bubbles: true, composed: true }));
 	}
 
-	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; title?: string }): void {
+	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }): void {
 		const files = this.files;
 		if (!files?.length) return;
 
@@ -325,6 +325,7 @@ export class GlWipTreePane extends LitElement {
 					repoPath: refs.repoPath,
 					lhs: refs.lhs,
 					rhs: refs.rhs,
+					wip: refs.wip,
 					title: refs.title,
 				} satisfies OpenMultipleChangesArgs,
 				bubbles: true,

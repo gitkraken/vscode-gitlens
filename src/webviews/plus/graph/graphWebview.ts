@@ -1641,47 +1641,50 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					signal?.throwIfAborted();
 					const svc = this.container.git.getRepositoryService(repoPath);
 
-					// Two-dot for the unified "All Files" view — matches Search & Compare's
-					// `ref2..ref1` semantics so a file modified on both sides shows once with a
-					// single combined diff (one click → one unambiguous diff).
-					const allDiffRange = `${rightRef}..${leftRef}`;
+					// Working-tree-aware mode: when IWT is on AND leftRef is the current branch,
+					// use Search & Compare's single-range model — `git diff rightRef ..` with
+					// `includeUntracked: true` subsumes both committed deltas and uncommitted edits
+					// in one query, dedupes by construction, and gives accurate cumulative stats.
+					// Falls back to the committed-only `rightRef..leftRef` range when WT semantics
+					// don't apply (leftRef != HEAD / current branch).
+					const useWtModel = await this.shouldUseWorkingTreeModel(
+						repoPath,
+						leftRef,
+						options?.includeWorkingTree === true,
+						signal,
+					);
+					signal?.throwIfAborted();
 
 					// Promise.allSettled per project convention — independent parallel awaits
 					// shouldn't let one failure abort the rest of the comparison. Missing pieces
 					// degrade gracefully into the partial-data path below (e.g. a diff-status
 					// failure still shows the commit counts).
-					const [countsResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
+					const [countsResult, filesResult] = await Promise.allSettled([
 						svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
-						svc.diff.getDiffStatus(allDiffRange),
-						this.getBranchComparisonWorkingTreeFiles(
-							repoPath,
-							leftRef,
-							options?.includeWorkingTree === true,
-							signal,
-						),
+						useWtModel
+							? svc.diff.getDiffStatus(rightRef, undefined, { includeUntracked: true })
+							: svc.diff.getDiffStatus(`${rightRef}..${leftRef}`),
 					]);
 					signal?.throwIfAborted();
 					const counts = getSettledValue(countsResult);
-					const comparisonFiles = getSettledValue(comparisonFilesResult);
-					const workingTreeFiles = getSettledValue(workingTreeFilesResult) ?? [];
+					const files = getSettledValue(filesResult);
 
-					const aheadCount = (counts?.left ?? 0) + (workingTreeFiles.length > 0 ? 1 : 0);
+					// Commit-count semantics: `aheadCount`/`behindCount` reflect real git commits
+					// on each side, matching `git rev-list rightRef..leftRef` and vice versa. The
+					// "Working Changes" pseudo-commit row injected by `getBranchComparisonSide` is
+					// still visible in the Ahead-tab commit list, but doesn't inflate the badge.
+					const aheadCount = counts?.left ?? 0;
 					const behindCount = counts?.right ?? 0;
 
-					const mappedAllFiles: BranchComparisonFile[] = [];
-					for (const f of comparisonFiles ?? []) {
-						mappedAllFiles.push({
-							repoPath: repoPath,
-							path: f.path,
-							status: f.status,
-							originalPath: f.originalPath,
-							staged: false,
-							stats: f.stats,
-							source: 'comparison',
-						});
-					}
+					const allFiles: BranchComparisonFile[] = (files ?? []).map(f => ({
+						repoPath: repoPath,
+						path: f.path,
+						status: f.status,
+						originalPath: f.originalPath,
+						staged: false,
+						stats: f.stats,
+					}));
 
-					const allFiles = [...mappedAllFiles, ...workingTreeFiles];
 					return {
 						aheadCount: aheadCount,
 						behindCount: behindCount,
@@ -1725,10 +1728,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							originalPath: f.originalPath,
 							staged: false,
 							stats: f.stats,
-							source: 'comparison',
 						});
 					}
-					const allFilesForSide = [...mappedFiles, ...workingTreeFiles];
+					// Ahead-tab top-level shows the committed Ahead range only; WT files are
+					// reachable by scoping to the WIP pseudo-commit injected below.
+					const allFilesForSide = mappedFiles;
 
 					const commits: BranchComparisonCommit[] = [];
 					if (workingTreeFiles.length) {
@@ -8636,13 +8640,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		includeWorkingTree: boolean,
 		signal?: AbortSignal,
 	): Promise<BranchComparisonFile[]> {
-		if (!includeWorkingTree) return [];
+		if (!(await this.shouldUseWorkingTreeModel(repoPath, leftRef, includeWorkingTree, signal))) return [];
 
 		const svc = this.container.git.getRepositoryService(repoPath);
-		const branch = await svc.branches.getBranch();
-		signal?.throwIfAborted();
-		if (branch == null || (leftRef !== 'HEAD' && leftRef !== branch.name && leftRef !== branch.ref)) return [];
-
 		const status = await svc.status.getStatus(undefined, signal);
 		signal?.throwIfAborted();
 
@@ -8657,12 +8657,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					status: f.status,
 					originalPath: f.originalPath,
 					staged: f.staged,
-					source: 'workingTree',
 				});
 			}
 		}
 
 		return files;
+	}
+
+	/** Shared precondition check for compare-mode's working-tree-aware paths: WT semantics only
+	 *  apply when `leftRef` refers to the current branch (the working tree's state is on top of
+	 *  HEAD, so a comparison `leftRef → working tree` only makes sense when leftRef === HEAD). */
+	private async shouldUseWorkingTreeModel(
+		repoPath: string,
+		leftRef: string,
+		includeWorkingTree: boolean,
+		signal?: AbortSignal,
+	): Promise<boolean> {
+		if (!includeWorkingTree) return false;
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const branch = await svc.branches.getBranch();
+		signal?.throwIfAborted();
+		return branch != null && (leftRef === 'HEAD' || leftRef === branch.name || leftRef === branch.ref);
 	}
 
 	private getDiffCacheKey(repoPath: string, scope: ScopeSelection, excludedFiles?: readonly string[]): string {

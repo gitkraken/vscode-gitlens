@@ -29,14 +29,16 @@ export const compareModePanelStyles = css`
 		top: 0;
 	}
 
-	/* Compare bar: left ref / WT toggle / swap / right ref. The swap chip gets explicit
-	   inline margins so the WT toggle doesn't visually merge with it. */
+	/* Compare bar: refs cluster (leftRef + WT toggle + swap + rightRef tight together) on the left,
+	   actions cluster (refresh + open-in-S&C) on the right. The only visible gap in the bar lives
+	   between those two clusters — justify-content space-between distributes excess space there
+	   instead of fragmenting it across three children. */
 
 	.compare-bar {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 6px;
+		gap: 0.4rem;
 		min-width: 0;
 		padding: 0.5rem 1.2rem;
 		background: var(--gl-metadata-bar-bg);
@@ -44,15 +46,22 @@ export const compareModePanelStyles = css`
 		flex: none;
 	}
 
-	.compare-bar__group {
+	.compare-bar__refs {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: 0.1rem;
 		min-width: 0;
 		flex: 0 1 auto;
 	}
 
-	.compare-bar__group gl-branch-name {
+	.compare-bar__actions {
+		display: flex;
+		align-items: center;
+		gap: 0.1rem;
+		flex: 0 0 auto;
+	}
+
+	.compare-bar__refs gl-branch-name {
 		min-width: 5rem;
 		overflow: hidden;
 	}
@@ -75,16 +84,14 @@ export const compareModePanelStyles = css`
 
 	/* Tooltip wrappers around the branch buttons must take up flexible space and clip overflow
 	   so the inner gl-branch-name's label can ellipsize. */
-	.compare-bar > gl-tooltip,
-	.compare-bar__group > gl-tooltip {
+	.compare-bar__refs > gl-tooltip {
 		display: flex;
 		min-width: 2.5rem;
 		flex: 0 1 auto;
 		overflow: hidden;
 	}
 
-	.compare-bar > gl-tooltip > gl-branch-name,
-	.compare-bar__group > gl-tooltip > gl-branch-name {
+	.compare-bar__refs > gl-tooltip > gl-branch-name {
 		min-width: 5rem;
 		max-width: 100%;
 		overflow: hidden;
@@ -92,7 +99,7 @@ export const compareModePanelStyles = css`
 
 	.compare-swap {
 		flex: 0 0 auto;
-		margin-inline: 0.2rem;
+		margin-inline: 0.4rem;
 	}
 
 	.compare-wt-toggle {
@@ -213,10 +220,6 @@ export const compareModePanelStyles = css`
 		border-bottom-color: var(--gl-tracking-behind, #ce9178);
 	}
 
-	.compare-tab__icon {
-		--code-icon-size: 12px;
-	}
-
 	.compare-tab__label {
 		font-weight: 500;
 	}
@@ -253,6 +256,38 @@ export const compareModePanelStyles = css`
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+	}
+
+	/* Single-line notice band above the AI row on the All Files tab — telegraphs that this tab
+	   is a unified diff (no commit list) and directs users at Ahead/Behind for per-commit views.
+	   Uses the same 1.2rem horizontal padding as .compare-enrichment so left/right edges line up
+	   with the autolinks row that Ahead/Behind tabs render in this slot. */
+	.compare-all-notice {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		padding: 1rem 1.2rem;
+		font-size: 1.2rem;
+		color: var(--color-foreground--65);
+		flex: none;
+		min-width: 0;
+	}
+
+	.compare-all-notice code-icon {
+		flex: none;
+		--code-icon-size: 12px;
+	}
+
+	.compare-all-notice span {
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.compare-all-notice strong {
+		font-weight: 600;
 	}
 
 	/* Breathing room between the AI actions row (Explain input + Generate Changelog) and the
@@ -320,11 +355,15 @@ export const compareModePanelStyles = css`
 		--gitlens-tree-indent: 0;
 	}
 
-	/* Minimal insets so the row content hugs the panel edges. Left gutter is just enough that the
-	   3px selected-row rail (drawn as an inset shadow on the host) sits flush against the avatar
-	   without overlapping it. Padding-y is small; the row's natural two-line height drives height. */
+	/* Inset matches the file tree below so the avatar column and the FILES CHANGED icons land on
+	   the same vertical guide — file-tree gl-tree-items inherit --gitlens-gutter-width: 20px from
+	   the global properties default, and we explicitly mirror that here (the original 0.3rem was
+	   too tight to align with the file rows). The 3px selected-row rail (drawn as an inset
+	   box-shadow on the host) sits flush to the panel edge regardless of this padding, so the
+	   wider gutter doesn't push it inward. Padding-y is small; the row's natural two-line height
+	   drives height. */
 	.compare-commit {
-		--gitlens-gutter-width: 0.3rem;
+		--gitlens-gutter-width: 2rem;
 		--gl-popover-anchor-width: 100%;
 		--gl-tree-item-min-height: 2.4rem;
 		--gl-tree-item-padding-y: 0.2rem;
@@ -460,7 +499,7 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-files gl-file-tree-pane {
-		--gl-file-tree-pane-header-border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+		--gl-file-tree-pane-header-border-top: none;
 	}
 
 	/* Match the inline-flex/gap treatment that gl-file-tree-pane applies to its title slot, so the
@@ -525,12 +564,12 @@ export const compareModePanelStyles = css`
 
 	/* Autolinks chip strip — mirrors the multi-select compare panel's .compare-enrichment
 	   treatment (font-size, padding, color tweak for the autolink-settings info chip) so the
-	   "No Autolinks Found" affordance reads identically across both panels.
-	   Allows the chip strip to wrap to multiple rows when there are too many to fit one line. */
+	   "No Autolinks Found" affordance reads identically across both panels. The inner
+	   gl-chip-overflow stays single-row (its default); excess chips collapse into its "+N"
+	   overflow affordance. */
 	.compare-enrichment {
 		display: flex;
 		align-items: center;
-		flex-wrap: wrap;
 		gap: 0.5rem;
 		padding: 0.4rem 1.2rem;
 		font-size: var(--gl-font-sm);

@@ -32,14 +32,21 @@ export interface FileShowOptions {
 /**
  * Arguments for opening a file set in VS Code's native multi-diff editor.
  *
- * `rhs === ''` means working tree (WIP). The host forces multi-diff regardless
- * of the `views.openChangesInMultiDiffEditor` setting.
+ * `rhs === ''` means the right side is the working tree. The host forces multi-diff
+ * regardless of the `views.openChangesInMultiDiffEditor` setting.
+ *
+ * `wip: true` forces per-file HEAD↔index↔working semantics regardless of `lhs`/`rhs`.
+ * Use when the user is acting on their working tree directly (e.g. WIP details panel,
+ * compare-mode scoped to the WIP pseudo-commit). Default (false/undefined) means the
+ * standard `lhs → rhs` per-file diff; with `rhs === ''` the right side resolves to
+ * the working tree (S&C-style cumulative diff against `lhs`).
  */
 export interface OpenMultipleChangesArgs {
 	readonly files: readonly GitFileChangeShape[];
 	readonly repoPath: string;
 	readonly lhs: string;
 	readonly rhs: string;
+	readonly wip?: boolean;
 	readonly title?: string;
 }
 

@@ -76,7 +76,7 @@ export class GlDetailsBase extends LitElement {
 		_mode: Mode,
 		options?: {
 			stats?: import('@gitlens/git/models/commit.js').GitCommitStats;
-			multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
+			multiDiff?: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string };
 			loading?: boolean;
 		},
 	): TemplateResult<1> {
@@ -125,7 +125,7 @@ export class GlDetailsBase extends LitElement {
 		`;
 	}
 
-	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; title?: string }): void {
+	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }): void {
 		const files = this.files;
 		if (!files?.length) return;
 
@@ -136,6 +136,7 @@ export class GlDetailsBase extends LitElement {
 					repoPath: refs.repoPath,
 					lhs: refs.lhs,
 					rhs: refs.rhs,
+					wip: refs.wip,
 					title: refs.title,
 				} satisfies OpenMultipleChangesArgs,
 				bubbles: true,

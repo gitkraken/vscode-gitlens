@@ -35,6 +35,7 @@ import { getVirtualFsErrorReason } from '../../../../../virtual/virtualFsError.j
 import type { CommitDetails, CommitSignatureShape, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	BranchComparisonContributorsScope,
+	BranchComparisonFile,
 	BranchComparisonOptions,
 	BranchComparisonSide,
 	BranchComparisonSummary,
@@ -1338,24 +1339,36 @@ export class DetailsActions {
 		});
 	}
 
-	branchCompareExplain(repoPath: string | undefined, prompt?: string): void {
+	/** Tab-aware (from, to) for compare-mode AI actions. Host treats the first ref as the BASE
+	 *  and the second as the HEAD. In compare-mode state, `leftRef` is the head (branch tip) and
+	 *  `rightRef` is the base — so the All Files / Ahead direction maps to `(rightRef → leftRef)`,
+	 *  and Behind is the inverse. Mirrors `getComparisonRefDirection()` on the panel side, keeping
+	 *  the AI's diff direction aligned with what the user is looking at on each tab. */
+	private getCompareAIRefs(): { fromRef: string; toRef: string } | undefined {
 		const leftRef = this.state.branchCompareLeftRef.get();
 		const rightRef = this.state.branchCompareRightRef.get();
-		if (!repoPath || !leftRef || !rightRef) return;
+		if (!leftRef || !rightRef) return undefined;
+
+		const reverse = this.state.branchCompareActiveTab.get() === 'behind';
+		return { fromRef: reverse ? leftRef : rightRef, toRef: reverse ? rightRef : leftRef };
+	}
+
+	branchCompareExplain(repoPath: string | undefined, prompt?: string): void {
+		const refs = this.getCompareAIRefs();
+		if (!repoPath || !refs) return;
 
 		this.state.compareExplainBusy.set(true);
-		void this.services.graphInspect.explainCompare(repoPath, leftRef, rightRef, prompt).finally(() => {
+		void this.services.graphInspect.explainCompare(repoPath, refs.fromRef, refs.toRef, prompt).finally(() => {
 			this.state.compareExplainBusy.set(false);
 		});
 	}
 
 	branchCompareGenerateChangelog(repoPath: string | undefined): void {
-		const leftRef = this.state.branchCompareLeftRef.get();
-		const rightRef = this.state.branchCompareRightRef.get();
-		if (!repoPath || !leftRef || !rightRef) return;
+		const refs = this.getCompareAIRefs();
+		if (!repoPath || !refs) return;
 
 		this.state.compareGenerateChangelogBusy.set(true);
-		void this.services.graphInspect.generateChangelogCompare(repoPath, leftRef, rightRef).finally(() => {
+		void this.services.graphInspect.generateChangelogCompare(repoPath, refs.fromRef, refs.toRef).finally(() => {
 			this.state.compareGenerateChangelogBusy.set(false);
 		});
 	}
@@ -1623,11 +1636,7 @@ export class DetailsActions {
 			if (currentCommitIndex === -1) return;
 
 			// Cache an empty array on miss so re-clicks don't re-fetch the same dead sha.
-			const files =
-				details?.files?.map(f => ({
-					...f,
-					source: 'comparison' as const,
-				})) ?? [];
+			const files: BranchComparisonFile[] = details?.files != null ? [...details.files] : [];
 
 			const nextCommits = [...currentCommits];
 			nextCommits[currentCommitIndex] = {
@@ -1699,6 +1708,9 @@ export class DetailsActions {
 		if (!repoPath || !this.state.autolinksEnabled.get()) return;
 
 		const activeScope = scope ?? this.state.branchCompareActiveTab.get();
+		// The All Files tab doesn't render the autolinks row (no commits in scope), so skip the
+		// fetch entirely. Ahead/Behind scopes still cache as the user switches between them.
+		if (activeScope === 'all') return;
 		if (this.state.branchCompareAutolinksByScope.get().has(activeScope)) return;
 
 		const shas = this.getShasInScope(activeScope);

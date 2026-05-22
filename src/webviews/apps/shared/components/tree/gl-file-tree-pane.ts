@@ -177,9 +177,12 @@ export class GlFileTreePane extends LitElement {
 	 * Defaults to `'file-compare-previous'` to preserve historical SCM-style behavior.
 	 * Consumers like the WIP tree pass `'file-open'` so a row click opens the file directly,
 	 * or `'file-compare-wip'` so a row click opens a per-staged-flag working-tree diff.
+	 * Compare-mode panels pass `'file-compare-range'` so the diff matches the panel's
+	 * leftRef/rightRef context instead of the file's git history.
 	 */
 	@property({ attribute: 'selection-action' })
-	selectionAction: 'file-open' | 'file-compare-previous' | 'file-compare-wip' = 'file-compare-previous';
+	selectionAction: 'file-open' | 'file-compare-previous' | 'file-compare-wip' | 'file-compare-range' =
+		'file-compare-previous';
 
 	/**
 	 * Repo-relative normalized file paths the connected agent(s) are actively editing right now,

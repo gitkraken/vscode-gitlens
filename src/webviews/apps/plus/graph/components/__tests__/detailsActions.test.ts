@@ -244,7 +244,7 @@ suite('DetailsActions', () => {
 			aheadCount: 1,
 			behindCount: 2,
 			allFilesCount: 1,
-			allFiles: [{ repoPath: '/repo', path: 'changed.ts', status: 'M', staged: false, source: 'workingTree' }],
+			allFiles: [{ repoPath: '/repo', path: 'changed.ts', status: 'M', staged: false }],
 		};
 		const resources = createResources({
 			branchCompareSummary: createResource(
