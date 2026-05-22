@@ -276,6 +276,73 @@ suite('DetailsActions', () => {
 		assert.deepStrictEqual(state.branchCompareAllFiles.get(), summary.allFiles);
 	});
 
+	test('fetchCompareSummary propagates leftRefWorktreePath from summary result', async () => {
+		const state = createDetailsState();
+		state.branchCompareLeftRef.set('feature');
+		state.branchCompareRightRef.set('main');
+
+		const summary: BranchComparisonSummary = {
+			aheadCount: 0,
+			behindCount: 0,
+			allFilesCount: 0,
+			allFiles: [],
+			leftRefWorktreePath: '/wt/foo',
+		};
+		const resources = createResources({
+			branchCompareSummary: createResource(async () => summary),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		await actions.fetchCompareSummary('/repo');
+
+		assert.strictEqual(state.branchCompareLeftRefWorktreePath.get(), '/wt/foo');
+	});
+
+	test('fetchCompareSummary clears leftRefWorktreePath when summary has none', async () => {
+		const state = createDetailsState();
+		state.branchCompareLeftRef.set('feature');
+		state.branchCompareRightRef.set('main');
+		state.branchCompareLeftRefWorktreePath.set('/wt/stale');
+
+		const summary: BranchComparisonSummary = {
+			aheadCount: 0,
+			behindCount: 0,
+			allFilesCount: 0,
+			allFiles: [],
+		};
+		const resources = createResources({
+			branchCompareSummary: createResource(async () => summary),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		await actions.fetchCompareSummary('/repo');
+
+		assert.strictEqual(state.branchCompareLeftRefWorktreePath.get(), undefined);
+	});
+
+	test('changeCompareRef clears leftRefWorktreePath synchronously on left side change', async () => {
+		const state = createDetailsState();
+		state.branchCompareLeftRef.set('feature');
+		state.branchCompareRightRef.set('main');
+		state.branchCompareLeftRefWorktreePath.set('/wt/stale');
+
+		const services = {
+			graphInspect: {
+				// Returning undefined short-circuits before any post-await mutation; we only need to
+				// observe the synchronous clear that happens BEFORE chooseRef is awaited.
+				chooseRef: async () => undefined,
+				commitCompose: async () => ({ success: true }),
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+
+		const pending = actions.changeCompareRef('left', '/repo');
+		// Synchronous clear must happen before the first microtask boundary.
+		assert.strictEqual(state.branchCompareLeftRefWorktreePath.get(), undefined);
+		await pending;
+		assert.strictEqual(state.branchCompareLeftRefWorktreePath.get(), undefined);
+	});
+
 	test('markBranchCompareStale only marks active working-tree comparisons and refresh clears it', async () => {
 		const state = createDetailsState();
 		state.branchCompareLeftRef.set('feature');

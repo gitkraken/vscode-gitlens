@@ -366,6 +366,10 @@ function createTransientState() {
 	const branchCompareRightRef = signal<string | undefined>(undefined);
 	const branchCompareRightRefType = signal<'branch' | 'tag' | 'commit' | undefined>(undefined);
 	const branchCompareIncludeWorkingTree = signal(false);
+	// Worktree path currently checked out at `branchCompareLeftRef`, populated by each summary
+	// fetch. Drives IWT-toggle visibility and routes WT-touching file ops to the correct repo path.
+	// Cleared synchronously on leftRef changes so the toggle hides during in-flight fetches.
+	const branchCompareLeftRefWorktreePath = signal<string | undefined>(undefined);
 	const branchCompareStale = signal(false);
 	const branchCompareActiveTab = signal<'all' | 'ahead' | 'behind'>('all');
 	// Per-tab "scope to this commit" selection. Persisted across tab switches so that returning
@@ -429,6 +433,7 @@ function createTransientState() {
 		branchCompareRightRef: branchCompareRightRef,
 		branchCompareRightRefType: branchCompareRightRefType,
 		branchCompareIncludeWorkingTree: branchCompareIncludeWorkingTree,
+		branchCompareLeftRefWorktreePath: branchCompareLeftRefWorktreePath,
 		branchCompareStale: branchCompareStale,
 		branchCompareActiveTab: branchCompareActiveTab,
 		branchCompareSelectedCommitShaByTab: branchCompareSelectedCommitShaByTab,

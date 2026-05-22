@@ -1467,8 +1467,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private renderCompareMode() {
 		const branch = this._state.wip.get()?.branch;
 		const repoPath = this.effectiveRepoPath;
-		// The left ref has a worktree if it matches the current branch (which is always in a worktree)
-		const hasWorktree = this._state.branchCompareLeftRef.get() === branch?.name;
+		// The left ref has a worktree when the host resolved a path during the last summary fetch —
+		// covers the current branch AND any other branch checked out in a workspace peer or
+		// off-workspace worktree.
+		const leftRefWorktreePath = this._state.branchCompareLeftRefWorktreePath.get();
+		const hasWorktree = leftRefWorktreePath != null;
 		const activeTab = this._state.branchCompareActiveTab.get();
 		const allFiles = this._state.branchCompareAllFiles.get() ?? [];
 		const leftRef = this._state.branchCompareLeftRef.get();
@@ -1494,6 +1497,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.includeWorkingTree=${this._state.branchCompareIncludeWorkingTree.get()}
 			.stale=${this._state.branchCompareStale.get()}
 			.hasWorktree=${hasWorktree}
+			.leftRefWorktreePath=${leftRefWorktreePath}
 			.aheadCount=${this._state.branchCompareAheadCount.get()}
 			.behindCount=${this._state.branchCompareBehindCount.get()}
 			.allFilesCount=${this._state.branchCompareAllFilesCount.get()}

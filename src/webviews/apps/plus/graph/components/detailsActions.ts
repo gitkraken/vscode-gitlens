@@ -230,6 +230,7 @@ export class DetailsActions {
 		this.state.branchCompareBehindFiles.set([]);
 		this.state.branchCompareAheadLoaded.set(false);
 		this.state.branchCompareBehindLoaded.set(false);
+		this.state.branchCompareLeftRefWorktreePath.set(undefined);
 	}
 
 	private clearCompareEnrichment(): void {
@@ -1438,6 +1439,7 @@ export class DetailsActions {
 		this.state.branchCompareBehindCount.set(result.behindCount);
 		this.state.branchCompareAllFiles.set(result.allFiles.slice());
 		this.state.branchCompareAllFilesCount.set(result.allFilesCount);
+		this.state.branchCompareLeftRefWorktreePath.set(result.leftRefWorktreePath);
 
 		// Seed enrichment for the active scope. Both calls no-op on cache hit.
 		void this.fetchBranchCompareAutolinks(repoPath);
@@ -1497,6 +1499,12 @@ export class DetailsActions {
 
 	async changeCompareRef(side: 'left' | 'right', repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
+
+		// Clear synchronously BEFORE the await so the IWT toggle doesn't briefly flash for the old
+		// leftRef's worktree while the user picks a new ref (the new ref's worktree may not exist).
+		if (side === 'left') {
+			this.state.branchCompareLeftRefWorktreePath.set(undefined);
+		}
 
 		const currentRef =
 			side === 'left' ? this.state.branchCompareLeftRef.get() : this.state.branchCompareRightRef.get();

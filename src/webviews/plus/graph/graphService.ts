@@ -118,6 +118,9 @@ export type BranchComparisonSummary = {
 	allFilesCount: number;
 	/** Files from the unified 2-dot `right..left` diff, plus current worktree files when enabled. */
 	allFiles: readonly BranchComparisonFile[];
+	/** Path of the worktree currently checked out at leftRef, if any. Right ref's worktree is
+	 *  intentionally not tracked — IWT only reads the left side's working tree. */
+	leftRefWorktreePath?: string;
 };
 
 /** Phase 2: a single side's commits, with files for the entire side.

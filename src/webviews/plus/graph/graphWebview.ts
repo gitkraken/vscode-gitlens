@@ -1641,18 +1641,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					signal?.throwIfAborted();
 					const svc = this.container.git.getRepositoryService(repoPath);
 
-					// Working-tree-aware mode: when IWT is on AND leftRef is the current branch,
-					// use Search & Compare's single-range model — `git diff rightRef ..` with
-					// `includeUntracked: true` subsumes both committed deltas and uncommitted edits
-					// in one query, dedupes by construction, and gives accurate cumulative stats.
-					// Falls back to the committed-only `rightRef..leftRef` range when WT semantics
-					// don't apply (leftRef != HEAD / current branch).
-					const useWtModel = await this.shouldUseWorkingTreeModel(
-						repoPath,
-						leftRef,
-						options?.includeWorkingTree === true,
-						signal,
-					);
+					// Working-tree-aware mode: when IWT is on AND leftRef is checked out in some
+					// worktree, query that worktree directly so the unified `git diff rightRef ..`
+					// (with `includeUntracked: true`) reflects the user's actual on-disk state.
+					const leftRefWorktreePath =
+						options?.includeWorkingTree === true
+							? await this.resolveLeftRefWorktreePath(repoPath, leftRef, signal)
+							: undefined;
 					signal?.throwIfAborted();
 
 					// Promise.allSettled per project convention — independent parallel awaits
@@ -1661,8 +1656,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// failure still shows the commit counts).
 					const [countsResult, filesResult] = await Promise.allSettled([
 						svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
-						useWtModel
-							? svc.diff.getDiffStatus(rightRef, undefined, { includeUntracked: true })
+						leftRefWorktreePath != null
+							? this.container.git
+									.getRepositoryService(leftRefWorktreePath)
+									.diff.getDiffStatus(rightRef, undefined, { includeUntracked: true })
 							: svc.diff.getDiffStatus(`${rightRef}..${leftRef}`),
 					]);
 					signal?.throwIfAborted();
@@ -1676,8 +1673,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const aheadCount = counts?.left ?? 0;
 					const behindCount = counts?.right ?? 0;
 
+					// File `repoPath` follows the worktree path when IWT is anchored there — file
+					// URIs and multi-diff requests resolve against the working directory that owns
+					// the diff. Falls back to `repoPath` for the committed-only path.
+					const filesRepoPath = leftRefWorktreePath ?? repoPath;
 					const allFiles: BranchComparisonFile[] = (files ?? []).map(f => ({
-						repoPath: repoPath,
+						repoPath: filesRepoPath,
 						path: f.path,
 						status: f.status,
 						originalPath: f.originalPath,
@@ -1690,6 +1691,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						behindCount: behindCount,
 						allFilesCount: allFiles.length,
 						allFiles: allFiles,
+						leftRefWorktreePath: leftRefWorktreePath,
 					};
 				},
 				getBranchComparisonSide: async (repoPath, leftRef, rightRef, side, options, signal) => {
@@ -1698,6 +1700,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					signal?.throwIfAborted();
 					const svc = this.container.git.getRepositoryService(repoPath);
 
+					// Resolve leftRef's worktree path only for the Ahead side — the Behind side never
+					// shows WT files, so its worktree is intentionally not looked up.
+					const leftRefWorktreePath =
+						side === 'ahead' && options?.includeWorkingTree === true
+							? await this.resolveLeftRefWorktreePath(repoPath, leftRef, signal)
+							: undefined;
+					signal?.throwIfAborted();
+
 					// Two-dot range — commits reachable from one side but not the other.
 					const range = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
 					// Promise.allSettled per project convention — see the sibling
@@ -1705,13 +1715,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const [logResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
 						svc.commits.getLog(range, { limit: 100, includeFiles: false }, signal),
 						svc.diff.getDiffStatus(range),
-						side === 'ahead'
-							? this.getBranchComparisonWorkingTreeFiles(
-									repoPath,
-									leftRef,
-									options?.includeWorkingTree === true,
-									signal,
-								)
+						leftRefWorktreePath != null
+							? this.getBranchComparisonWorkingTreeFiles(leftRefWorktreePath, true, signal)
 							: Promise.resolve([]),
 					]);
 					signal?.throwIfAborted();
@@ -8635,14 +8640,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async getBranchComparisonWorkingTreeFiles(
-		repoPath: string,
-		leftRef: string,
+		worktreePath: string,
 		includeWorkingTree: boolean,
 		signal?: AbortSignal,
 	): Promise<BranchComparisonFile[]> {
-		if (!(await this.shouldUseWorkingTreeModel(repoPath, leftRef, includeWorkingTree, signal))) return [];
+		if (!includeWorkingTree) return [];
 
-		const svc = this.container.git.getRepositoryService(repoPath);
+		const svc = this.container.git.getRepositoryService(worktreePath);
 		const status = await svc.status.getStatus(undefined, signal);
 		signal?.throwIfAborted();
 
@@ -8652,7 +8656,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (!seen.has(f.path)) {
 				seen.add(f.path);
 				files.push({
-					repoPath: f.repoPath,
+					repoPath: worktreePath,
 					path: f.path,
 					status: f.status,
 					originalPath: f.originalPath,
@@ -8664,21 +8668,41 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return files;
 	}
 
-	/** Shared precondition check for compare-mode's working-tree-aware paths: WT semantics only
-	 *  apply when `leftRef` refers to the current branch (the working tree's state is on top of
-	 *  HEAD, so a comparison `leftRef → working tree` only makes sense when leftRef === HEAD). */
-	private async shouldUseWorkingTreeModel(
+	/** Returns the worktree path currently checked out at `leftRef`, or `undefined` when leftRef
+	 *  isn't checked out anywhere, when the worktree's HEAD has drifted away from leftRef (e.g.
+	 *  external `git checkout` in that worktree), or when the branch lookup fails. The right ref's
+	 *  worktree is intentionally not resolved — IWT only reads the left side's working tree, so
+	 *  exposing the right side's would invite asymmetric comparisons we don't support. */
+	private async resolveLeftRefWorktreePath(
 		repoPath: string,
 		leftRef: string,
-		includeWorkingTree: boolean,
 		signal?: AbortSignal,
-	): Promise<boolean> {
-		if (!includeWorkingTree) return false;
+	): Promise<string | undefined> {
+		try {
+			const svc = this.container.git.getRepositoryService(repoPath);
+			const branch = await svc.branches.getBranch(leftRef);
+			signal?.throwIfAborted();
+			if (branch == null) return undefined;
 
-		const svc = this.container.git.getRepositoryService(repoPath);
-		const branch = await svc.branches.getBranch();
-		signal?.throwIfAborted();
-		return branch != null && (leftRef === 'HEAD' || leftRef === branch.name || leftRef === branch.ref);
+			const worktree = branch.worktree;
+			if (worktree == null || worktree === false) return undefined;
+
+			// Validate the worktree's HEAD still matches leftRef — guards against drift from an
+			// external `git checkout` in that worktree that we haven't observed yet.
+			const candidatePath = worktree.path;
+			const wtBranch = await this.container.git.getRepositoryService(candidatePath).branches.getBranch();
+			signal?.throwIfAborted();
+			if (wtBranch == null || (wtBranch.name !== leftRef && wtBranch.ref !== leftRef)) {
+				console.warn(
+					`[graph] resolveLeftRefWorktreePath: worktree at ${candidatePath} no longer at ${leftRef}; falling back to no-worktree mode`,
+				);
+				return undefined;
+			}
+			return candidatePath;
+		} catch (ex) {
+			console.warn(`[graph] resolveLeftRefWorktreePath failed for ${leftRef}: ${String(ex)}`);
+			return undefined;
+		}
 	}
 
 	private getDiffCacheKey(repoPath: string, scope: ScopeSelection, excludedFiles?: readonly string[]): string {

@@ -109,6 +109,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 	@property({ type: Boolean, attribute: 'has-worktree' })
 	hasWorktree = false;
 
+	/** Path of the worktree currently checked out at leftRef, when one exists. Used to route
+	 *  WT-touching file operations (single-file diffs, multi-diff, folder context) to the
+	 *  worktree's repoPath. Falls back to `repoPath` when undefined. */
+	@property({ attribute: 'left-ref-worktree-path' })
+	leftRefWorktreePath?: string;
+
 	@property({ type: Number, attribute: 'ahead-count' })
 	aheadCount = 0;
 
@@ -608,12 +614,15 @@ export class GlDetailsCompareModePanel extends LitElement {
 		// branches" workflow. Cumulative-IWT rows that touched the working tree still
 		// get the comparison context here; the click handler's state-based routing
 		// picks the right diff direction without needing per-file source.
+		// `file.repoPath` follows the worktree when the host routed it there; falls back to the
+		// panel's `repoPath` for committed-only rows so file actions resolve against the right
+		// working directory.
 		const context: DetailsItemTypedContext = {
 			webviewItem: 'gitlens:file:comparison',
 			webviewItemValue: {
 				type: 'file',
 				path: file.path,
-				repoPath: repoPath,
+				repoPath: file.repoPath || repoPath,
 				sha: leftRef,
 				comparisonSha: rightRef,
 				status: file.status,
@@ -627,6 +636,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 		const isScoped = this.selectedCommitSha != null;
 		const containerClass = `compare-files${isScoped ? ' compare-files--scoped' : ''}`;
 		const stats = this.computeFileStats(files);
+		// Folder-context repoPath follows the resolved worktree when the active state is WT-touching
+		// (cumulative IWT All tab or WIP pseudo-commit scope), so folder right-click commands run
+		// against the working directory that actually owns the files.
+		const activeRefs = this.getActiveTabRefs();
+		const isWtTouching = activeRefs?.wip === true || activeRefs?.rhs === '';
+		const folderRepoPath = isWtTouching ? (this.leftRefWorktreePath ?? this.repoPath) : this.repoPath;
 		// Show the loading state when the comparison itself is changing (initial load,
 		// ref/worktree change) OR when a per-commit file fetch is in flight for the selected sha.
 		// For tab switches with cache misses we briefly show the pane's "No changes" empty state,
@@ -653,7 +668,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					?show-file-icons=${true}
 					.fileActions=${GlDetailsCompareModePanel._fileActions}
 					.fileContext=${this._getFileContext}
-					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
+					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(folderRepoPath, folder)}
 					.buttons=${this.getMultiDiffRefs(files) ? ['layout', 'search', 'multi-diff'] : undefined}
 					selection-action="file-compare-range"
 					.showSearchBox=${this.showSearchBox}
@@ -1034,7 +1049,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 		const refs = this.getActiveTabRefs();
 		if (refs == null) return undefined;
-		return { repoPath: repoPath, ...refs, title: this.getDiffTitle(refs) };
+
+		// WT-touching diffs (per-file WIP or cumulative `base → working tree`) must be anchored
+		// to the worktree where leftRef is checked out so URIs resolve against the right files.
+		const isWtTouching = refs.wip === true || refs.rhs === '';
+		const effectiveRepoPath = isWtTouching ? (this.leftRefWorktreePath ?? repoPath) : repoPath;
+		return { repoPath: effectiveRepoPath, ...refs, title: this.getDiffTitle(refs) };
 	}
 
 	/** The active tab's files — used by event handlers (e.g. multi-diff) which only fire from the
